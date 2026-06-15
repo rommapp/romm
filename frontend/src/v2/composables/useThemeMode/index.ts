@@ -14,7 +14,7 @@ import { computed, type ComputedRef } from "vue";
 
 const themeSetting = useLocalStorage<"auto" | "dark" | "light">(
   "settings.theme",
-  "auto",
+  "dark",
 );
 const systemPrefersDark = usePreferredDark();
 

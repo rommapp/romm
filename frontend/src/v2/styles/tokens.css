@@ -126,6 +126,9 @@
   --r-focus-ring-width: 2px;
   --r-focus-ring-offset: 3px;
   --r-nav-h: 58px;
+  --r-bottom-nav-h: 58px;
+  --r-bottom-nav-max-w: 480px;
+  --r-touch-target: 44px;
   --r-page-max-w: 1920px;
   --r-card-art-w: 158px;
   --r-card-art-h: 213px;

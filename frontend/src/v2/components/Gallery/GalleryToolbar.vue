@@ -32,13 +32,24 @@ defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 
-export type KindFilterValue = "all" | "regular" | "virtual";
-export interface KindFilterItem {
-  id: KindFilterValue;
+export interface SegmentFilterItem {
+  id: string;
   icon?: string;
   label?: string;
   ariaLabel?: string;
   title?: string;
+}
+/** A segmented-filter cluster (e.g. kind, visibility). The toolbar renders
+ *  one inline slider per entry (≥ sm) and mirrors each into the kebab menu
+ *  below it; `key` identifies which cluster fired in `update:segmentFilter`. */
+export interface SegmentFilter {
+  key: string;
+  value: string;
+  items: SegmentFilterItem[];
+  ariaLabel?: string;
+  /** Dim the whole cluster and block changes (e.g. visibility when the
+   *  kind filter is on "virtual", which has no visibility state). */
+  disabled?: boolean;
 }
 
 export interface GroupByItem {
@@ -67,12 +78,10 @@ const props = withDefaults(
     showSearch?: boolean;
     search?: string;
     searchPlaceholder?: string;
-    /** Show the kind filter (sits left of GroupBy). Used by CollectionsIndex
-     *  to switch between all / non-virtual / virtual collections. */
-    showKindFilter?: boolean;
-    kindFilter?: KindFilterValue;
-    kindFilterItems?: KindFilterItem[];
-    kindFilterAriaLabel?: string;
+    /** Segmented filter clusters (sit left of the view cluster). Used by
+     *  CollectionsIndex for the kind + visibility filters. Each renders as
+     *  an inline slider (≥ sm) and mirrors into the kebab menu below it. */
+    segmentFilters?: SegmentFilter[];
     /** Show the filter button (sits left of the view cluster). When set,
      *  the button emits `click:filter` and renders a badge of the count.
      *  Gallery views pass through the count from the filter store. */
@@ -92,10 +101,7 @@ const props = withDefaults(
     showSearch: false,
     search: "",
     searchPlaceholder: "",
-    showKindFilter: false,
-    kindFilter: "all",
-    kindFilterItems: () => [],
-    kindFilterAriaLabel: "",
+    segmentFilters: () => [],
     showFilter: false,
     filterActiveCount: 0,
   },
@@ -106,7 +112,7 @@ const emit = defineEmits<{
   (e: "update:layout", value: LayoutMode): void;
   (e: "update:sortDir", value: "asc" | "desc"): void;
   (e: "update:search", value: string): void;
-  (e: "update:kindFilter", value: KindFilterValue): void;
+  (e: "update:segmentFilter", payload: { key: string; value: string }): void;
   (e: "click:filter"): void;
 }>();
 
@@ -178,10 +184,6 @@ const effectiveSearchPlaceholder = computed(
   () => props.searchPlaceholder || `${t("common.search")}…`,
 );
 
-const effectiveKindFilterAriaLabel = computed(
-  () => props.kindFilterAriaLabel || t("gallery.filters"),
-);
-
 function setGroupBy(value: GroupByMode) {
   emit("update:groupBy", value);
 }
@@ -198,8 +200,8 @@ function setSearch(value: string) {
   emit("update:search", value);
 }
 
-function setKindFilter(value: KindFilterValue) {
-  emit("update:kindFilter", value);
+function setSegmentFilter(key: string, value: string) {
+  emit("update:segmentFilter", { key, value });
 }
 
 // Responsive split: at ≥ smAndUp (600px) the inline sliders carry every
@@ -248,14 +250,18 @@ const { smAndUp } = useBreakpoint();
       />
     </RBadge>
 
-    <RSliderBtnGroup
-      v-if="smAndUp && showKindFilter && kindFilterItems.length > 0"
-      :model-value="kindFilter"
-      :items="kindFilterItems"
-      variant="segmented"
-      :aria-label="effectiveKindFilterAriaLabel"
-      @update:model-value="setKindFilter"
-    />
+    <template v-if="smAndUp">
+      <RSliderBtnGroup
+        v-for="sf in segmentFilters"
+        :key="sf.key"
+        :model-value="sf.value"
+        :items="sf.items"
+        variant="segmented"
+        :aria-label="sf.ariaLabel"
+        :disabled="sf.disabled"
+        @update:model-value="(v: string) => setSegmentFilter(sf.key, v)"
+      />
+    </template>
 
     <!-- View controls cluster — pushed right via margin-left: auto.
          At ≥ smAndUp the inline sliders carry every option; below that
@@ -305,14 +311,15 @@ const { smAndUp } = useBreakpoint();
             :aria-label="t('platform.change-view')"
           />
         </template>
-        <template v-if="showKindFilter && kindFilterItems.length > 0">
+        <template v-for="sf in segmentFilters" :key="sf.key">
           <RMenuItem
-            v-for="item in kindFilterItems"
+            v-for="item in sf.items"
             :key="item.id"
             :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
             :icon="item.icon"
-            :variant="kindFilter === item.id ? 'active' : 'default'"
-            @click="setKindFilter(item.id)"
+            :variant="sf.value === item.id ? 'active' : 'default'"
+            :disabled="sf.disabled"
+            @click="setSegmentFilter(sf.key, item.id)"
           />
           <RDivider />
         </template>

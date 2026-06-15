@@ -14,38 +14,67 @@ import {
   type ShallowRef,
 } from "vue";
 
+/** A value that may be a constant or a reactive getter. Getters let the
+ *  caller vary card width / inset by breakpoint and have the column count
+ *  recompute automatically (e.g. smaller cards + tighter gutters on xs). */
+type Dynamic = number | (() => number);
+
+function resolve(v: Dynamic | undefined, dflt: number): number {
+  if (v === undefined) return dflt;
+  return typeof v === "function" ? v() : v;
+}
+
 interface Options {
-  /** Width of one card in px (default matches `--r-card-art-w` = 158). */
-  cardWidth?: number;
-  /** Horizontal gap between cards in px (default 12 — matches `gap: 18px 12px`). */
-  gap?: number;
+  /** Width of one card in px (default matches `--r-card-art-w` = 158).
+   *  May be a getter for responsive sizing. */
+  cardWidth?: Dynamic;
+  /** Horizontal gap between cards in px (default 12). */
+  gap?: Dynamic;
   /** Minimum column count (default 1). */
   min?: number;
   /** Pixels to subtract from the observed width before computing columns
    * (e.g., the container's left+right padding, or sibling chrome that
-   * shares the bounding rect). Default 0. */
-  inset?: number;
+   * shares the bounding rect). Default 0. May be a getter. */
+  inset?: Dynamic;
 }
 
 export function useResponsiveColumns(
   containerRef: Ref<HTMLElement | null> | ShallowRef<HTMLElement | null>,
   options: Options = {},
 ) {
-  const cardWidth = options.cardWidth ?? 158;
-  const gap = options.gap ?? 12;
   const min = options.min ?? 1;
-  const inset = options.inset ?? 0;
 
   const columns = ref<number>(min);
   let observer: ResizeObserver | null = null;
+  // Last observed width — kept so a change in a reactive option (card
+  // width / inset flipping at a breakpoint) can recompute without waiting
+  // for the next resize event.
+  let lastWidth = 0;
 
   function compute(width: number) {
+    lastWidth = width;
+    const cardWidth = resolve(options.cardWidth, 158);
+    const gap = resolve(options.gap, 12);
+    const inset = resolve(options.inset, 0);
     const usable = width - inset;
     if (usable <= 0) return;
     // CSS auto-fill semantics: floor((containerWidth + gap) / (cardWidth + gap))
     const next = Math.max(min, Math.floor((usable + gap) / (cardWidth + gap)));
     if (next !== columns.value) columns.value = next;
   }
+
+  // Recompute when a reactive option changes (breakpoint flip) using the
+  // last observed width. Tracks the getters by evaluating them here.
+  watch(
+    () => [
+      resolve(options.cardWidth, 158),
+      resolve(options.gap, 12),
+      resolve(options.inset, 0),
+    ],
+    () => {
+      if (lastWidth > 0) compute(lastWidth);
+    },
+  );
 
   function attach(el: HTMLElement) {
     compute(el.clientWidth);

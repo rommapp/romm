@@ -147,5 +147,6 @@
   "changelog-error-hint": "La connexion à GitHub a échoué. Vérifiez votre connexion ou réessayez.",
   "changelog-empty-title": "Aucune version pour l'instant",
   "changelog-empty-hint": "Le dépôt n'a publié aucune version.",
-  "changelog-view-all": "Voir toutes les versions sur GitHub"
+  "changelog-view-all": "Voir toutes les versions sur GitHub",
+  "visibility": "Visibilité"
 }

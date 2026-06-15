@@ -1,30 +1,29 @@
 <script setup lang="ts">
 // AppNav — the top navigation. Logo on the left, centred tab pill of
 // content destinations (Home / Platforms / Collections / Search), and
-// a right cluster of utility chrome (scanning indicator, library tools
-// dropdown, classic-UI escape hatch, user menu). Highlighting is
-// derived from `route.path` rather than route names so gallery
-// subroutes (e.g. /rom/:id) still light up the Home tab.
+// a right cluster of utility chrome (scanning indicator, classic-UI
+// escape hatch, user menu). Highlighting is derived from `route.path`
+// rather than route names so gallery subroutes (e.g. /rom/:id) still
+// light up the Home tab.
 //
-// Library tools used to live in this pill as a 5th tab with a vertical
-// dropdown sub-pill. That conflated *administrative actions* with
-// *content navigation*. The tools are now in the right cluster as a
-// dedicated dropdown (LibraryToolsMenu), keeping the primary nav
-// focused on browsing destinations.
+// Library tools (Scan / Upload / Patcher) are administrative actions,
+// not content destinations — they live in the user menu's Library
+// group, keeping the primary nav focused on browsing destinations.
 import { RBtn, RSliderBtnGroup, RTooltip, RImg } from "@v2/lib";
-import { onBeforeUnmount, onMounted, ref, computed } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
 import { useUiVersion } from "@/composables/useUiVersion";
-import LibraryToolsMenu from "@/v2/components/AppShell/LibraryToolsMenu.vue";
 import ScanningIndicator from "@/v2/components/AppShell/ScanningIndicator.vue";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
+import { useNavDestinations } from "@/v2/composables/useNavDestinations";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const route = useRoute();
 const uiVersion = useUiVersion();
+
+// Primary destinations + active-tab logic shared with BottomNav.
+const { destinations: tabs, activeId: activeTab } = useNavDestinations();
 
 function switchToV1() {
   uiVersion.value = "v1";
@@ -50,54 +49,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("scroll", onScroll);
-});
-
-type TabId = "home" | "platforms" | "collections" | "search";
-// `icon` ships on every tab so the xs breakpoint can drop the label
-// and the pill collapses to icon-only without changing markup.
-// `ariaLabel` mirrors the visible label so the icon-only xs variant
-// still names each link to screen readers / focus rings.
-const tabs = computed(() => [
-  {
-    id: "home" as const,
-    label: t("common.home"),
-    ariaLabel: t("common.home"),
-    icon: "mdi-home-outline",
-    to: "/",
-  },
-  {
-    id: "platforms" as const,
-    label: t("common.platforms"),
-    ariaLabel: t("common.platforms"),
-    icon: "mdi-controller",
-    to: "/platforms",
-  },
-  {
-    id: "collections" as const,
-    label: t("common.collections"),
-    ariaLabel: t("common.collections"),
-    // Same glyph GameCard uses for its "add to collection" action —
-    // keeps the icon stable across every generic "Collections"
-    // surface so users learn it as the collections symbol.
-    icon: "mdi-bookmark-outline",
-    to: "/collections",
-  },
-  {
-    id: "search" as const,
-    label: t("common.search"),
-    ariaLabel: t("common.search"),
-    icon: "mdi-magnify",
-    to: "/search",
-  },
-]);
-
-const activeTab = computed<TabId | null>(() => {
-  const path = route.path;
-  if (path === "/") return "home";
-  if (path.startsWith("/platform")) return "platforms";
-  if (path.startsWith("/collection")) return "collections";
-  if (path.startsWith("/search")) return "search";
-  return null;
 });
 </script>
 
@@ -145,7 +96,6 @@ const activeTab = computed<TabId | null>(() => {
           </template>
         </RTooltip>
         <ScanningIndicator />
-        <LibraryToolsMenu />
         <UserMenu />
       </div>
     </nav>
@@ -263,26 +213,25 @@ const activeTab = computed<TabId | null>(() => {
   color: var(--r-color-fg) !important;
 }
 
-html[data-bp~="xs"] .r-v2-nav {
-  padding: 0 14px;
+/* On sm-and-down (phones + small tablets / landscape, <960px) the four
+   primary destinations move to the bottom tab bar (BottomNav), so the
+   centre pill is dropped from the top nav and the bar keeps only the
+   logo (far left) + user cluster (far right). With just those two
+   children, collapse to a 2-column grid so the cluster tracks the right
+   edge — the default `1fr auto 1fr` would auto-place it into the now-
+   empty centre column instead of the trailing one. The gutter follows
+   `--r-row-pad` (20px sm, 14px xs) so logo + user line up with the Home
+   sections' content edge. */
+html[data-bp~="sm-and-down"] .r-v2-nav {
+  grid-template-columns: 1fr auto;
+}
+html[data-bp~="sm-and-down"] .r-v2-nav__center {
+  display: none;
 }
 
+/* The wordmark stays on the tablet range but drops on the tightest
+   phones so the isotipo + user cluster have room. */
 html[data-bp~="xs"] .r-v2-nav__logo-word {
   display: none;
-}
-
-/* xs collapses every primary tab to icon-only so the pill still fits
-   between the logo and the right-side cluster. The labels live inside
-   the RSliderBtnGroup's `r-slider-btn-group__label` span — we reach
-   it via `:deep()` because the primitive is scoped. The router-link
-   `aria-label` stays the source of accessible naming. */
-html[data-bp~="xs"] .r-v2-nav__center :deep(.r-slider-btn-group__label) {
-  display: none;
-}
-html[data-bp~="xs"] .r-v2-nav__center :deep(.r-slider-btn-group--tab) {
-  padding: 3px;
-}
-html[data-bp~="xs"] .r-v2-nav__center :deep(.r-slider-btn-group__btn) {
-  padding: 0 8px !important;
 }
 </style>

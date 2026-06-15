@@ -24,7 +24,7 @@
   "settings": "Configurações",
   "updated": "Coleção atualizada",
   "name-exists": "Já existe uma coleção com esse nome.",
-  "save-as-smart": "Salvar como inteligente",
+  "save-as-smart": "Salvar como coleção inteligente",
   "smart-create-failed": "Falha ao criar coleção inteligente",
   "smart-created": "Coleção inteligente criada.",
   "smart-no-filters": "Aplique alguns filtros antes de criar uma coleção inteligente.",
@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "Ainda não há coleções. Crie uma acima.",
   "create-failed": "Falha ao criar coleção",
   "empty": "Esta coleção está vazia.",
-  "not-found": "Coleção não encontrada."
+  "not-found": "Coleção não encontrada.",
+  "kind-standard": "Padrão",
+  "kind-smart": "Inteligente",
+  "kind-virtual": "Virtual"
 }

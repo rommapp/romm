@@ -51,6 +51,12 @@ interface Props {
    * are cached in an offset table; if a height value depends on dynamic
    * state, bump items by reference to force a recompute. */
   getItemHeight: (item: unknown, index: number) => number;
+  /** Returns a stable key for an item. Defaults to the array index, which
+   * re-patches every row in place when items are inserted at the front —
+   * pass a content-stable key (e.g. an id) so insertions only mount the
+   * genuinely-new row and existing rows keep their DOM (and their mount
+   * animations don't replay). */
+  getItemKey?: (item: unknown, index: number) => string | number;
   /** Items kept rendered above/below the visible viewport for smooth
    * scrolling. Default 25 → ~50 extra rendered + visible. */
   overscan?: number;
@@ -62,6 +68,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   overscan: 25,
   height: undefined,
+  getItemKey: undefined,
 });
 
 const emit = defineEmits<{
@@ -164,6 +171,7 @@ interface RenderedEntry {
   item: unknown;
   index: number;
   top: number;
+  key: string | number;
 }
 
 const renderedItems = computed<RenderedEntry[]>(() => {
@@ -173,7 +181,12 @@ const renderedItems = computed<RenderedEntry[]>(() => {
   const items = props.items;
   const out: RenderedEntry[] = [];
   for (let i = r.first; i <= r.last; i++) {
-    out.push({ item: items[i], index: i, top: offs[i] });
+    out.push({
+      item: items[i],
+      index: i,
+      top: offs[i],
+      key: props.getItemKey ? props.getItemKey(items[i], i) : i,
+    });
   }
   return out;
 });
@@ -306,7 +319,7 @@ const innerStyle = computed(() => ({
     <div ref="innerEl" class="r-virtual-scroller__inner" :style="innerStyle">
       <div
         v-for="entry in renderedItems"
-        :key="entry.index"
+        :key="entry.key"
         class="r-virtual-scroller__item"
         :style="{ transform: `translateY(${entry.top}px)` }"
       >

@@ -3,28 +3,41 @@
 // (body rows) so the title row and every row underneath line up and
 // surface the same sortable columns.
 //
-// Three columns: name (stretches) + kind (84px, regular/virtual/smart)
-// + game count (96px, right-aligned).
+// Four columns: name (stretches) + kind (120px, standard/smart/virtual)
+// + visibility (120px, public/private; display-only) + game count
+// (96px, right-aligned).
 
-export type CollectionListSortKey = "name" | "kind" | "rom_count";
+export type CollectionListSortKey =
+  | "name"
+  | "kind"
+  | "visibility"
+  | "rom_count";
 
 export interface CollectionListColumn {
+  /** Unique column id. */
   key: CollectionListSortKey;
   /** i18n key for the header label — resolved in CollectionListHeader. */
   labelKey: string;
-  sortable: boolean;
+  /** Sort axis when the column is sortable; omitted for display-only columns. */
+  sortKey?: CollectionListSortKey;
   align?: "start" | "end";
 }
 
 export const COLLECTION_LIST_COLUMNS: readonly CollectionListColumn[] = [
-  { key: "name", labelKey: "common.name", sortable: true, align: "start" },
-  { key: "kind", labelKey: "common.kind", sortable: true, align: "start" },
+  { key: "name", labelKey: "common.name", sortKey: "name", align: "start" },
+  { key: "kind", labelKey: "common.kind", sortKey: "kind", align: "start" },
+  {
+    key: "visibility",
+    labelKey: "common.visibility",
+    sortKey: "visibility",
+    align: "start",
+  },
   {
     key: "rom_count",
     labelKey: "common.games",
-    sortable: true,
+    sortKey: "rom_count",
     align: "end",
   },
 ];
 
-export const COLLECTION_LIST_GRID_TEMPLATE = "minmax(0, 1fr) 84px 96px";
+export const COLLECTION_LIST_GRID_TEMPLATE = "minmax(0, 1fr) 120px 120px 96px";

@@ -320,6 +320,13 @@ function openRom() {
   color: var(--r-color-fg);
 }
 
+/* On sm-and-down the fixed bottom tab bar (BottomNav) occupies the
+   bottom edge, so lift the player above it (+ its safe-area inset)
+   instead of letting the two overlap. */
+html[data-bp~="sm-and-down"] .r-v2-mp {
+  bottom: calc(var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 16px);
+}
+
 /* ── Top row ────────────────────────────────────────────────── */
 .r-v2-mp__top {
   display: flex;

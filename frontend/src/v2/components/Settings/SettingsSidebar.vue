@@ -17,7 +17,7 @@
 // Responsive: at <1024px the sidebar collapses to a horizontal scrollable
 // strip. Group labels are hidden in that mode — items still appear in
 // group order so sequence is preserved.
-import { RIcon } from "@v2/lib";
+import { RChip, RIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -37,6 +37,8 @@ interface Entry {
   label: string;
   to: { name: string; params?: Record<string, string | number> };
   visible: boolean;
+  /** Optional trailing badge text (e.g. "Beta") shown after the label. */
+  badge?: string;
 }
 
 interface Group {
@@ -52,7 +54,7 @@ const groups = computed<Group[]>(() => {
       label: t("settings.group-account"),
       entries: [
         {
-          icon: "mdi-account-circle",
+          icon: "mdi-account-outline",
           label: t("common.profile"),
           to: {
             name: ROUTES.USER_PROFILE,
@@ -61,7 +63,7 @@ const groups = computed<Group[]>(() => {
           visible: scopes.value.includes("me.write"),
         },
         {
-          icon: "mdi-palette",
+          icon: "mdi-palette-outline",
           label: t("common.user-interface"),
           to: { name: ROUTES.USER_INTERFACE },
           visible: true,
@@ -73,13 +75,31 @@ const groups = computed<Group[]>(() => {
       label: t("settings.group-library"),
       entries: [
         {
-          icon: "mdi-folder-cog",
+          icon: "mdi-radar",
+          label: t("scan.scan"),
+          to: { name: ROUTES.SCAN },
+          visible: scopes.value.includes("platforms.write"),
+        },
+        {
+          icon: "mdi-cloud-upload-outline",
+          label: t("common.upload-roms"),
+          to: { name: ROUTES.UPLOAD },
+          visible: scopes.value.includes("roms.write"),
+        },
+        {
+          icon: "mdi-file-cog-outline",
+          label: t("common.patcher"),
+          to: { name: ROUTES.PATCHER },
+          visible: true,
+        },
+        {
+          icon: "mdi-table-cog",
           label: t("common.library-management"),
           to: { name: ROUTES.LIBRARY_MANAGEMENT },
           visible: scopes.value.includes("platforms.write"),
         },
         {
-          icon: "mdi-database-search",
+          icon: "mdi-database-cog-outline",
           label: t("scan.metadata-sources"),
           to: { name: ROUTES.METADATA_SOURCES },
           visible: scopes.value.includes("me.write"),
@@ -97,13 +117,13 @@ const groups = computed<Group[]>(() => {
       label: t("settings.group-system"),
       entries: [
         {
-          icon: "mdi-security",
+          icon: "mdi-shield-account-outline",
           label: t("common.administration"),
           to: { name: ROUTES.ADMINISTRATION },
           visible: scopes.value.includes("users.write"),
         },
         {
-          icon: "mdi-chart-bar",
+          icon: "mdi-server",
           label: t("common.server-stats"),
           to: { name: ROUTES.SERVER_STATS },
           visible: isAdmin.value,
@@ -119,6 +139,7 @@ const groups = computed<Group[]>(() => {
           label: t("settings.controller-debug"),
           to: { name: ROUTES.CONTROLLER_DEBUG },
           visible: true,
+          badge: t("common.beta"),
         },
       ],
     },
@@ -156,6 +177,14 @@ const groups = computed<Group[]>(() => {
               class="r-v2-settings-sidebar__icon"
             />
             <span class="r-v2-settings-sidebar__label">{{ entry.label }}</span>
+            <RChip
+              v-if="entry.badge"
+              size="x-small"
+              color="primary"
+              class="r-v2-settings-sidebar__badge"
+            >
+              {{ entry.badge }}
+            </RChip>
           </router-link>
         </li>
       </ul>

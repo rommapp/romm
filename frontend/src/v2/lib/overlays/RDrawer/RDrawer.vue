@@ -83,6 +83,11 @@ function lockBodyScroll() {
   const cur = Number(document.body.dataset.rOverlayOpenCount ?? "0") + 1;
   document.body.dataset.rOverlayOpenCount = String(cur);
   if (cur === 1) {
+    // Remember whatever overflow was already in effect — a host view may
+    // lock the body for its whole lifetime (e.g. the gallery shell, whose
+    // only scrollbar is the virtualizer's). Restoring this on unlock
+    // instead of forcing "" keeps that lock intact after the drawer closes.
+    document.body.dataset.rOverlayPrevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
   }
 }
@@ -93,7 +98,9 @@ function unlockBodyScroll() {
   );
   document.body.dataset.rOverlayOpenCount = String(cur);
   if (cur === 0) {
-    document.body.style.overflow = "";
+    document.body.style.overflow =
+      document.body.dataset.rOverlayPrevOverflow ?? "";
+    delete document.body.dataset.rOverlayPrevOverflow;
   }
 }
 
@@ -269,6 +276,16 @@ const transitionName = computed(() =>
 }
 .r-drawer--right .r-drawer__panel {
   border-inline-end: 0;
+}
+
+/* On phones the drawer goes full-screen — there's a close button in the
+   header, so the slim tap-to-dismiss scrim strip isn't needed and the
+   extra width is more useful. `!important` beats the inline `panelStyle`
+   width the consumer set for desktop. Selector hangs off `<html>` —
+   RDrawer teleports outside the app root but `data-bp` lives there. */
+html[data-bp~="xs"] .r-drawer__panel {
+  width: 100vw !important;
+  max-width: 100vw !important;
 }
 
 /* ── Header ────────────────────────────────────────────────────── */

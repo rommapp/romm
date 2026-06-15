@@ -48,6 +48,7 @@ const props = withDefaults(defineProps<RTableProps<T>>(), {
   clickableRows: false,
   rowHeight: undefined,
   rowClass: undefined,
+  minWidth: undefined,
 });
 
 const emit = defineEmits<{
@@ -60,6 +61,21 @@ const gridTemplate = computed(() =>
 );
 
 const gridStyle = computed(() => ({ gridTemplateColumns: gridTemplate.value }));
+
+// Optional horizontal-scroll floor. Without it columns shrink + ellipsis
+// to fit (current behaviour). With it, header + body keep this min-width
+// and the table scrolls horizontally below it — useful for many-column
+// tables on narrow / mobile viewports. Set e.g. `min-width="640px"`.
+const resolvedMinWidth = computed<string | undefined>(() => {
+  const w = props.minWidth;
+  if (w === undefined || w === null || w === "") return undefined;
+  return typeof w === "number" ? `${w}px` : w;
+});
+const scrollStyle = computed(() =>
+  resolvedMinWidth.value
+    ? { "--r-table-min-w": resolvedMinWidth.value }
+    : undefined,
+);
 
 function rowKey(row: T, idx: number): string | number {
   const key = props.itemKey;
@@ -102,126 +118,130 @@ const rowStyle = computed(() =>
          icon next to "Type"). The sort button is the only interactive
          element so adornments stay focusable / clickable on their own
          without nesting buttons. -->
-    <div class="r-table__header" :style="gridStyle" role="row">
-      <div
-        v-for="col in columns"
-        :key="col.key"
-        class="r-table__header-cell"
-        :class="{
-          'r-table__header-cell--end': col.align === 'end',
-          'r-table__header-cell--center': col.align === 'center',
-        }"
-        role="columnheader"
-        :aria-sort="
-          col.sortable && sortKey === col.key
-            ? sortDir === 'asc'
-              ? 'ascending'
-              : 'descending'
-            : col.sortable
-              ? 'none'
-              : undefined
-        "
-      >
-        <button
-          v-if="col.sortable"
-          type="button"
-          class="r-table__header-sort"
-          :class="{
-            'r-table__header-sort--active': sortKey === col.key,
-          }"
-          @click="handleSort(col)"
-        >
-          <span class="r-table__header-label">{{ col.label }}</span>
-          <RIcon
-            v-if="sortKey === col.key"
-            :icon="
-              sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
-            "
-            size="14"
-            class="r-table__header-icon"
-          />
-        </button>
-        <span v-else class="r-table__header-label">{{ col.label }}</span>
-
-        <slot :name="`header.${col.key}`" :column="col" />
-      </div>
-    </div>
-
-    <!-- Body — skeletons / real rows / empty state, in that order. -->
-    <div class="r-table__body">
-      <template v-if="loading">
+    <div class="r-table__scroll" :style="scrollStyle">
+      <div class="r-table__header" :style="gridStyle" role="row">
         <div
-          v-for="i in loadingRows"
-          :key="`skel-${i}`"
-          class="r-table__row r-table__row--skeleton"
-          :style="[gridStyle, rowStyle ?? {}]"
+          v-for="col in columns"
+          :key="col.key"
+          class="r-table__header-cell"
+          :class="{
+            'r-table__header-cell--end': col.align === 'end',
+            'r-table__header-cell--center': col.align === 'center',
+          }"
+          role="columnheader"
+          :aria-sort="
+            col.sortable && sortKey === col.key
+              ? sortDir === 'asc'
+                ? 'ascending'
+                : 'descending'
+              : col.sortable
+                ? 'none'
+                : undefined
+          "
         >
-          <template v-for="col in columns" :key="col.key">
+          <button
+            v-if="col.sortable"
+            type="button"
+            class="r-table__header-sort"
+            :class="{
+              'r-table__header-sort--active': sortKey === col.key,
+            }"
+            @click="handleSort(col)"
+          >
+            <span class="r-table__header-label">{{ col.label }}</span>
+            <RIcon
+              v-if="sortKey === col.key"
+              :icon="
+                sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
+              "
+              size="14"
+              class="r-table__header-icon"
+            />
+          </button>
+          <span v-else class="r-table__header-label">{{ col.label }}</span>
+
+          <slot :name="`header.${col.key}`" :column="col" />
+        </div>
+      </div>
+
+      <!-- Body — skeletons / real rows / empty state, in that order. -->
+      <div class="r-table__body">
+        <template v-if="loading">
+          <div
+            v-for="i in loadingRows"
+            :key="`skel-${i}`"
+            class="r-table__row r-table__row--skeleton"
+            :style="[gridStyle, rowStyle ?? {}]"
+          >
+            <template v-for="col in columns" :key="col.key">
+              <div
+                class="r-table__cell"
+                :class="{
+                  'r-table__cell--end': col.align === 'end',
+                  'r-table__cell--center': col.align === 'center',
+                }"
+              >
+                <RSkeletonBlock
+                  v-if="col.skeletonWidth !== 0"
+                  :width="col.skeletonWidth ?? 80"
+                  :height="10"
+                />
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <template v-else-if="items.length === 0">
+          <div class="r-table__empty">
+            <slot name="empty">
+              <RIcon :icon="emptyIcon" size="32" />
+              <span v-if="emptyMessage" class="r-table__empty-text">
+                {{ emptyMessage }}
+              </span>
+            </slot>
+          </div>
+        </template>
+
+        <template v-else>
+          <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus -->
+          <div
+            v-for="(row, idx) in items"
+            :key="rowKey(row, idx)"
+            class="r-table__row"
+            :class="[
+              { 'r-table__row--clickable': clickableRows },
+              rowClassFor(row),
+            ]"
+            :style="[gridStyle, rowStyle ?? {}]"
+            role="row"
+            :tabindex="clickableRows ? 0 : -1"
+            @click="clickableRows && emit('row:click', row)"
+            @keydown.enter.space.prevent="
+              clickableRows && emit('row:click', row)
+            "
+          >
             <div
+              v-for="col in columns"
+              :key="col.key"
               class="r-table__cell"
               :class="{
                 'r-table__cell--end': col.align === 'end',
                 'r-table__cell--center': col.align === 'center',
               }"
+              role="cell"
             >
-              <RSkeletonBlock
-                v-if="col.skeletonWidth !== 0"
-                :width="col.skeletonWidth ?? 80"
-                :height="10"
-              />
+              <slot
+                :name="`cell.${col.key}`"
+                :row="row"
+                :column="col"
+                :index="idx"
+              >
+                {{ cellValue(row, col.key) }}
+              </slot>
             </div>
-          </template>
-        </div>
-      </template>
-
-      <template v-else-if="items.length === 0">
-        <div class="r-table__empty">
-          <slot name="empty">
-            <RIcon :icon="emptyIcon" size="32" />
-            <span v-if="emptyMessage" class="r-table__empty-text">
-              {{ emptyMessage }}
-            </span>
-          </slot>
-        </div>
-      </template>
-
-      <template v-else>
-        <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus -->
-        <div
-          v-for="(row, idx) in items"
-          :key="rowKey(row, idx)"
-          class="r-table__row"
-          :class="[
-            { 'r-table__row--clickable': clickableRows },
-            rowClassFor(row),
-          ]"
-          :style="[gridStyle, rowStyle ?? {}]"
-          role="row"
-          :tabindex="clickableRows ? 0 : -1"
-          @click="clickableRows && emit('row:click', row)"
-          @keydown.enter.space.prevent="clickableRows && emit('row:click', row)"
-        >
-          <div
-            v-for="col in columns"
-            :key="col.key"
-            class="r-table__cell"
-            :class="{
-              'r-table__cell--end': col.align === 'end',
-              'r-table__cell--center': col.align === 'center',
-            }"
-            role="cell"
-          >
-            <slot
-              :name="`cell.${col.key}`"
-              :row="row"
-              :column="col"
-              :index="idx"
-            >
-              {{ cellValue(row, col.key) }}
-            </slot>
           </div>
-        </div>
-      </template>
+        </template>
+      </div>
     </div>
   </div>
 </template>
@@ -234,6 +254,18 @@ const rowStyle = computed(() =>
   background: var(--r-color-bg-elevated);
   display: flex;
   flex-direction: column;
+}
+
+/* Horizontal-scroll viewport — header + body scroll together so their
+   columns stay aligned. Inert until a `minWidth` is set (the var defaults
+   to 0, so the grids just fill the width as before). */
+.r-table__scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.r-table__header,
+.r-table__body {
+  min-width: var(--r-table-min-w, 0);
 }
 
 /* ------------------------- Header ------------------------- */

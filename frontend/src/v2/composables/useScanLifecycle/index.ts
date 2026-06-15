@@ -51,7 +51,9 @@ export function installScanLifecycle() {
       scanningStore.scanningPlatforms = scanningStore.scanningPlatforms.filter(
         (p) => p.display_name !== display_name,
       );
-      scanningStore.scanningPlatforms.push({
+      // Prepend so the platform being scanned right now stays at the top of
+      // the live log — no scrolling to follow progress.
+      scanningStore.scanningPlatforms.unshift({
         name,
         display_name,
         slug,
@@ -92,7 +94,7 @@ export function installScanLifecycle() {
       // Socket may have dropped the `scan:scanning_platform` event — add
       // the platform synthetically so the user still sees something.
       if (!scannedPlatform) {
-        scanningStore.scanningPlatforms.push({
+        scanningStore.scanningPlatforms.unshift({
           name: rom.platform_display_name,
           display_name: rom.platform_display_name,
           slug: rom.platform_slug,
@@ -102,7 +104,7 @@ export function installScanLifecycle() {
           roms: [],
           firmware_count: 0,
         });
-        scannedPlatform = scanningStore.scanningPlatforms.at(-1)!;
+        scannedPlatform = scanningStore.scanningPlatforms.at(0)!;
       }
 
       const existingInPlatform = scannedPlatform.roms.find(
@@ -113,7 +115,8 @@ export function installScanLifecycle() {
           r.id === rom.id ? rom : r,
         );
       } else {
-        scannedPlatform.roms.push(rom);
+        // Newest ROM first, same as platforms — most recent stays on top.
+        scannedPlatform.roms.unshift(rom);
       }
     });
   }, 100);

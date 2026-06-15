@@ -24,7 +24,7 @@
   "settings": "Settings",
   "updated": "Collection updated",
   "name-exists": "A collection with that name already exists.",
-  "save-as-smart": "Save as smart",
+  "save-as-smart": "Save as smart collection",
   "smart-create-failed": "Failed to create smart collection",
   "smart-created": "Smart collection created.",
   "smart-no-filters": "Apply some filters before creating a smart collection.",
@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "No collections yet. Create one above.",
   "create-failed": "Failed to create collection",
   "empty": "This collection is empty.",
-  "not-found": "Collection not found."
+  "not-found": "Collection not found.",
+  "kind-standard": "Standard",
+  "kind-smart": "Smart",
+  "kind-virtual": "Virtual"
 }

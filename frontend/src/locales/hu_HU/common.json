@@ -147,5 +147,6 @@
   "changelog-error-hint": "A GitHub elérése nem sikerült. Ellenőrizd a kapcsolatot, vagy próbáld újra.",
   "changelog-empty-title": "Még nincsenek kiadások",
   "changelog-empty-hint": "A tároló még nem tett közzé kiadást.",
-  "changelog-view-all": "Összes kiadás megtekintése a GitHubon"
+  "changelog-view-all": "Összes kiadás megtekintése a GitHubon",
+  "visibility": "Láthatóság"
 }

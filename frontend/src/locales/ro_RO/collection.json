@@ -23,7 +23,7 @@
   "removing-collection-2": "colecției din RomM?",
   "removing-smart-collection-1": "Confirmă eliminarea colecției inteligente",
   "removing-smart-collection-2": "din RomM?",
-  "save-as-smart": "Salvează ca inteligentă",
+  "save-as-smart": "Salvează ca colecție inteligentă",
   "search-collection": "Caută în colecție",
   "smart-create-failed": "Crearea colecției inteligente a eșuat",
   "smart-created": "Colecție inteligentă creată.",
@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "Nicio colecție încă. Creează una mai sus.",
   "create-failed": "Crearea colecției a eșuat",
   "empty": "Această colecție este goală.",
-  "not-found": "Colecția nu a fost găsită."
+  "not-found": "Colecția nu a fost găsită.",
+  "kind-standard": "Standard",
+  "kind-smart": "Inteligentă",
+  "kind-virtual": "Virtuală"
 }

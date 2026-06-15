@@ -147,5 +147,6 @@
   "changelog-error-hint": "No se pudo conectar con GitHub. Comprueba tu conexión o inténtalo de nuevo.",
   "changelog-empty-title": "Aún no hay versiones",
   "changelog-empty-hint": "El repositorio aún no ha publicado ninguna versión.",
-  "changelog-view-all": "Ver todas las versiones en GitHub"
+  "changelog-view-all": "Ver todas las versiones en GitHub",
+  "visibility": "Visibilidad"
 }

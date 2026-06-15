@@ -215,6 +215,10 @@ onBeforeUnmount(() => {
   border: none;
   cursor: pointer;
   white-space: nowrap;
+  /* Keep natural width so the horizontal nav scrolls on overflow
+     (`.r-tab-nav--horizontal { overflow-x: auto }`) instead of squishing
+     the tabs below their content on narrow viewports. */
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 8px;

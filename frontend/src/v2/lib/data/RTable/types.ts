@@ -28,6 +28,10 @@ export interface RTableProps<TItem> {
   rowHeight?: string;
   /** Extra class merged into each row — useful for variant rows. */
   rowClass?: string | ((row: TItem) => string | undefined);
+  /** Horizontal-scroll floor (number → px). When set, header + body keep
+   *  this min-width and the table scrolls horizontally below it instead
+   *  of shrinking columns — useful for many-column tables on mobile. */
+  minWidth?: string | number;
 }
 
 export interface RTableColumn {

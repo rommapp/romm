@@ -142,11 +142,18 @@ function isActive(letter: string): boolean {
   background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
 }
 
+/* Phones: keep the strip narrow enough to leave the grid room, but bump
+   the 7px letters up to something legible/tappable. Font + spacing are
+   capped so all 26 letters still fit the available height without
+   clipping on a short screen (a proper drag-scrubber is a separate
+   redesign). */
 html[data-bp~="xs"] .alpha-strip {
-  width: 16px;
+  width: 20px;
+  margin-right: 6px;
 }
 html[data-bp~="xs"] .alpha-strip__btn {
-  font-size: 7px;
-  padding: 1px 0;
+  font-size: 9px;
+  padding: 1.5px 0;
+  margin-top: 2px;
 }
 </style>

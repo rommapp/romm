@@ -24,7 +24,7 @@
   "settings": "Einstellungen",
   "updated": "Sammlung aktualisiert",
   "name-exists": "Eine Sammlung mit diesem Namen existiert bereits.",
-  "save-as-smart": "Als smart speichern",
+  "save-as-smart": "Als intelligente Sammlung speichern",
   "smart-create-failed": "Smart-Sammlung konnte nicht erstellt werden",
   "smart-created": "Smart-Sammlung erstellt.",
   "smart-no-filters": "Wende einige Filter an, bevor du eine Smart-Sammlung erstellst.",
@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "Noch keine Sammlungen. Erstelle oben eine.",
   "create-failed": "Sammlung konnte nicht erstellt werden",
   "empty": "Diese Sammlung ist leer.",
-  "not-found": "Sammlung nicht gefunden."
+  "not-found": "Sammlung nicht gefunden.",
+  "kind-standard": "Standard",
+  "kind-smart": "Smart",
+  "kind-virtual": "Virtuell"
 }

@@ -499,6 +499,10 @@ const morphStyle = computed(() => {
   position: relative;
   outline: none;
   width: var(--r-card-art-w);
+  /* Width is the card-art token exactly — never let a stray border /
+     padding push the rendered box past it (which would eat the grid gap
+     and make neighbouring covers appear to touch). */
+  box-sizing: border-box;
   text-decoration: none;
   color: var(--r-color-fg);
 }
@@ -506,6 +510,7 @@ const morphStyle = computed(() => {
 .r-gc__art {
   width: var(--r-card-art-w);
   height: var(--r-card-art-h);
+  box-sizing: border-box;
   border-radius: var(--r-radius-art);
   overflow: hidden;
   position: relative;

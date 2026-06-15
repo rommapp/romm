@@ -266,16 +266,16 @@ const routes = [
           v2: v2For(ROUTES.APRIL_FOOLS),
         },
       },
-      // Library Tools group — Scan / Upload / Patcher share a v2
-      // sub-layout (hero + card picker + content). v1 has no shared
-      // chrome for these, so its `default` named view falls through
-      // via `passthrough`. URL paths stay flat; the parent uses an
-      // empty path to add only a routing layer, not a URL segment.
+      // Settings group — every settings route shares the same v2
+      // sub-layout (sidebar + content panel). Library Tools (Scan /
+      // Upload / Patcher) live here too so they share the settings
+      // sidebar shell. v1 keeps its existing per-view structure via the
+      // `passthrough` default named view.
       {
         path: "",
         components: {
           default: v2Layouts.passthrough,
-          v2: v2Layouts.libraryTools,
+          v2: v2Layouts.settings,
         },
         children: [
           {
@@ -316,18 +316,6 @@ const routes = [
               v2: v2For(ROUTES.PATCHER),
             },
           },
-        ],
-      },
-      // Settings group — every settings route shares the same v2
-      // sub-layout (sidebar + content panel). v1 keeps its existing
-      // per-view structure via the `passthrough` default named view.
-      {
-        path: "",
-        components: {
-          default: v2Layouts.passthrough,
-          v2: v2Layouts.settings,
-        },
-        children: [
           {
             path: "user/:user",
             name: ROUTES.USER_PROFILE,

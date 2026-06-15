@@ -258,19 +258,20 @@ watch(platformsWithRomsKey, () => {
 });
 
 // Auto-scroll the live log as new platforms arrive, unless the user
-// scrolled up to read an earlier panel.
-let userScrolledUp = false;
+// scrolled down to read an earlier panel. Newest platforms are prepended,
+// so we keep the view pinned to the top.
+let userScrolledDown = false;
 watch(
   () => scanningPlatforms.value.length,
   async () => {
-    if (userScrolledUp) return;
+    if (userScrolledDown) return;
     await nextTick();
-    scanLog.value?.scrollTo({ top: scanLog.value.scrollHeight });
+    scanLog.value?.scrollTo({ top: 0 });
   },
 );
 function onScroll(e: Event) {
   const el = e.target as HTMLDivElement;
-  userScrolledUp = el.scrollTop + el.clientHeight + 1 < el.scrollHeight;
+  userScrolledDown = el.scrollTop > 1;
 }
 
 type ScanType =
@@ -389,7 +390,7 @@ function scan() {
   scanningStore.reset();
   scanningStore.setScanning(true);
   scanningPlatforms.value = [];
-  userScrolledUp = false;
+  userScrolledDown = false;
 
   if (!socket.connected) socket.connect();
 
@@ -1142,7 +1143,7 @@ function stopScan() {
    Same flat surface vocabulary as the config card (Profile-style).
    Header doubles as the live status panel (pulse + label + counters
    + abort + progress bar). The card fills from `nav-h + top gap`
-   down to the LibraryToolsLayout's bottom padding. */
+   down to the SettingsLayout's bottom padding. */
 .r-v2-scan-live {
   position: sticky;
   top: calc(var(--r-nav-h) + 14px);
@@ -1153,11 +1154,11 @@ function stopScan() {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   overflow: hidden;
-  /* LibraryToolsLayout adds 60px top + 60px bottom padding around the
-     grid; AppLayout main reserves --r-nav-h for the fixed navbar.
-     Subtracting (nav + 120) keeps the column flush with the available
-     viewport so the page itself never scrolls. */
-  height: calc(100vh - var(--r-nav-h) - 120px);
+  /* SettingsLayout's content column adds 32px top + 60px bottom padding
+     around the grid; AppLayout main reserves --r-nav-h for the fixed
+     navbar. Subtracting (nav + 92) keeps the column flush with the
+     available viewport so the page itself never scrolls. */
+  height: calc(100vh - var(--r-nav-h) - 92px);
   min-height: 540px;
 }
 

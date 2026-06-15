@@ -147,5 +147,6 @@
   "changelog-error-hint": "Reach out to GitHub failed. Check your connection or try again.",
   "changelog-empty-title": "No releases yet",
   "changelog-empty-hint": "The repository hasn't published any releases.",
-  "changelog-view-all": "View all releases on GitHub"
+  "changelog-view-all": "View all releases on GitHub",
+  "visibility": "Visibility"
 }

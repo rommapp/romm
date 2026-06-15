@@ -170,9 +170,12 @@ defineEmits<{
   place-items: center;
 }
 
+/* Keep the platform icon prominent on phones (it's the page's identity)
+   rather than shrinking it to a thumbnail — just trim it a little from
+   the desktop 200×148 so it leaves room for the centred title below. */
 html[data-bp~="xs"] .r-v2-plat__panel-icon {
-  width: 80px;
-  height: 60px;
+  width: 150px;
+  height: 112px;
 }
 html[data-bp~="xs"] .r-v2-plat__panel-icon :deep(.r-platform-icon) {
   width: 100% !important;

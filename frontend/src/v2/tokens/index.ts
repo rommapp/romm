@@ -289,6 +289,20 @@ export const zIndex = {
 // Layout constants from the mockup.
 export const layout = {
   navHeight: "58px",
+  // Fixed bottom tab bar shown on phones (xs). Mirrors navHeight so the
+  // top and bottom chrome read as a matched pair. Consumed as
+  // `--r-bottom-nav-h` to reserve space in AppLayout and offset the
+  // gallery scroll height / MiniPlayer on mobile.
+  bottomNavHeight: "58px",
+  // Cap for the bottom tab bar pill so it stays thumb-sized on large
+  // tablets (the sm range reaches 959px) instead of stretching the four
+  // destinations edge-to-edge. Below this width the pill just fills the
+  // available row; above it, it centres at this width.
+  bottomNavMaxWidth: "480px",
+  // Minimum comfortable hit-target on touch / gamepad (WCAG-ish 44px).
+  // Interactive primitives bump small controls up to this on `xs` /
+  // touch where the desktop sizing would be too tight for a thumb.
+  touchTarget: "44px",
   rowPad: "36px",
   // Cap for the centred page content (navbar, game details body, …) on
   // ultrawide displays. Below this width the rule is a no-op.

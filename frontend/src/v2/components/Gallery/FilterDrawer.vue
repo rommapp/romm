@@ -374,6 +374,7 @@ function saveAsSmartCollection() {
     side="right"
     :width="440"
     icon="mdi-filter-variant"
+    hide-close
     @update:model-value="(v) => emit('update:modelValue', v)"
   >
     <template #header>
@@ -381,6 +382,17 @@ function saveAsSmartCollection() {
       <RTag v-if="activeCount > 0" tone="brand" size="x-small">
         {{ activeCount }}
       </RTag>
+      <div style="flex: 1" />
+      <RBtn
+        size="small"
+        variant="text"
+        color="primary"
+        prepend-icon="mdi-playlist-plus"
+        :disabled="activeCount === 0"
+        @click="saveAsSmartCollection"
+      >
+        {{ t("collection.save-as-smart") }}
+      </RBtn>
     </template>
 
     <!-- ── Boolean tri-state filters ────────────────────────── -->
@@ -480,15 +492,6 @@ function saveAsSmartCollection() {
         {{ t("platform.reset-filters") }}
       </RBtn>
       <div style="flex: 1" />
-      <RBtn
-        variant="text"
-        color="primary"
-        prepend-icon="mdi-playlist-plus"
-        :disabled="activeCount === 0"
-        @click="saveAsSmartCollection"
-      >
-        {{ t("collection.save-as-smart") }}
-      </RBtn>
       <RBtn variant="flat" color="primary" @click="close">
         {{ t("common.close") }}
       </RBtn>

@@ -147,5 +147,6 @@
   "changelog-error-hint": "Връзката с GitHub е неуспешна. Проверете връзката или опитайте отново.",
   "changelog-empty-title": "Все още няма издания",
   "changelog-empty-hint": "Хранилището все още не е публикувало издания.",
-  "changelog-view-all": "Вижте всички издания в GitHub"
+  "changelog-view-all": "Вижте всички издания в GitHub",
+  "visibility": "Видимост"
 }

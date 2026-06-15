@@ -13,7 +13,15 @@
 //
 // Items inherit the same scope/role gates as their target views so
 // unauthorised users don't see options they can't open.
-import { RAvatar, RBtn, RDivider, RIcon, RMenu, RMenuItem } from "@v2/lib";
+import {
+  RAvatar,
+  RBtn,
+  RChip,
+  RDivider,
+  RIcon,
+  RMenu,
+  RMenuItem,
+} from "@v2/lib";
 import type { Emitter } from "mitt";
 import { getActivePinia, storeToRefs, type StateTree } from "pinia";
 import { computed, inject, ref } from "vue";
@@ -51,6 +59,9 @@ const isAdmin = useCan("app.admin");
 const canSeeProfile = computed(
   () => !!user.value?.id && scopes.value.includes("me.write"),
 );
+const canScan = computed(() => scopes.value.includes("platforms.write"));
+const canUpload = computed(() => scopes.value.includes("roms.write"));
+// Patcher is always reachable (matches v1) — pure client-side worker.
 const canSeeLibraryMgmt = computed(() =>
   scopes.value.includes("platforms.write"),
 );
@@ -58,13 +69,9 @@ const canSeeMetadata = computed(() => scopes.value.includes("me.write"));
 const canSeeApiTokens = computed(() => scopes.value.includes("me.write"));
 const canSeeAdmin = computed(() => scopes.value.includes("users.write"));
 
-// Library + System groups can be empty for restricted scopes — gate the
-// whole region so a lone group label doesn't dangle. Account always has
-// User interface (always visible) so no gate is needed there.
-const showLibraryGroup = computed(
-  () =>
-    canSeeLibraryMgmt.value || canSeeMetadata.value || canSeeApiTokens.value,
-);
+// The System group can be empty for restricted scopes — gate the whole
+// region so a lone group label doesn't dangle. The Library group always
+// contains at least the Patcher, so it never needs gating.
 const showSystemGroup = computed(() => canSeeAdmin.value || isAdmin.value);
 
 function showAbout() {
@@ -170,10 +177,30 @@ async function onLogout() {
     </div>
 
     <!-- Library -->
-    <div v-if="showLibraryGroup" class="r-v2-user-menu__group">
+    <div class="r-v2-user-menu__group">
       <div class="r-v2-user-menu__group-label">
         {{ t("settings.group-library") }}
       </div>
+      <RMenuItem
+        :to="{ name: ROUTES.SCAN }"
+        icon="mdi-radar"
+        :label="t('scan.scan')"
+        :disabled="!canScan"
+        @click="open = false"
+      />
+      <RMenuItem
+        :to="{ name: ROUTES.UPLOAD }"
+        icon="mdi-cloud-upload-outline"
+        :label="t('common.upload-roms')"
+        :disabled="!canUpload"
+        @click="open = false"
+      />
+      <RMenuItem
+        :to="{ name: ROUTES.PATCHER }"
+        icon="mdi-file-cog-outline"
+        :label="t('common.patcher')"
+        @click="open = false"
+      />
       <RMenuItem
         v-if="canSeeLibraryMgmt"
         :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
@@ -228,7 +255,13 @@ async function onLogout() {
         icon="mdi-controller"
         :label="t('settings.controller-debug')"
         @click="open = false"
-      />
+      >
+        <template #append>
+          <RChip size="x-small" color="primary">
+            {{ t("common.beta") }}
+          </RChip>
+        </template>
+      </RMenuItem>
     </div>
 
     <RDivider />
@@ -282,10 +315,6 @@ async function onLogout() {
 .r-v2-user__name {
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
-}
-
-html[data-bp~="xs"] .r-v2-user__name {
-  display: none;
 }
 
 /* Group section inside the dropdown — small uppercase label above each

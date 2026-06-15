@@ -356,9 +356,13 @@ async function submit() {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
   min-height: 200px;
+  /* Bound the panel so a filter-heavy snapshot can't stretch the dialog
+     past the viewport — the head stays pinned, the list scrolls. */
+  max-height: clamp(200px, 48vh, 420px);
 }
 
 .r-v2-csc__preview-head {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -376,6 +380,22 @@ async function submit() {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* Scroll the criteria list inside the panel instead of overflowing
+     the dialog when there are many active filters. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--r-color-border-strong) transparent;
+  /* Keep chips off the scrollbar gutter. */
+  padding-right: 4px;
+}
+.r-v2-csc__preview-list::-webkit-scrollbar {
+  width: 8px;
+}
+.r-v2-csc__preview-list::-webkit-scrollbar-thumb {
+  background: var(--r-color-border-strong);
+  border-radius: 4px;
 }
 
 .r-v2-csc__preview-row {
