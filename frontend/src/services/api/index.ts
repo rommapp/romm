@@ -81,7 +81,10 @@ api.interceptors.response.use(
       const currentRoute = router.currentRoute.value.name?.toString() ?? "";
       const resolvedRoute = router.resolve(window.location.pathname);
       const resolvedRouteName = resolvedRoute.name?.toString() ?? "";
-      if (isAuthExemptRoute(currentRoute) || isAuthExemptRoute(resolvedRouteName)) {
+      if (
+        isAuthExemptRoute(currentRoute) ||
+        isAuthExemptRoute(resolvedRouteName)
+      ) {
         return Promise.reject(error);
       }
 
