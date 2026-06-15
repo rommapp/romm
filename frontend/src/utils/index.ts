@@ -521,6 +521,8 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   "super-famicom-jr-model-shvc-101": ["snes9x"],
   "new-style-super-nes-model-sns-101": ["snes9x"],
   tg16: ["mednafen_pce"],
+  "turbografx-cd": ["mednafen_pce"],
+  supergrafx: ["mednafen_pce"],
   "vic-20": ["vice_xvic"],
   virtualboy: ["beetle_vb"],
   wonderswan: ["mednafen_wswan"],
@@ -529,16 +531,57 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   zsx: ["fuse"],
 } as const;
 
+// TODO: Merge with _EJS_CORES_MAP next emukatorjs release (post 4.2.3)
+const _EJS_NIGHTLY_CORES_MAP: Record<string, string[]> = {
+  "3ds": ["azahar"],
+  "new-nintendo-3ds": ["azahar"],
+  intellivision: ["freeintv"],
+  segacd: ["genesis_plus_gx", "genesis_plus_gx_wide", "picodrive"],
+  gamegear: ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  sms: ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-mark-iii": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-game-box-9": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-master-system-ii": [
+    "genesis_plus_gx",
+    "genesis_plus_gx_wide",
+    "smsplus",
+  ],
+  "master-system-super-compact": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "master-system-girl": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  genesis: ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-mega-drive-2-slash-genesis": [
+    "genesis_plus_gx",
+    "genesis_plus_gx_wide",
+  ],
+  "sega-mega-jet": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "mega-pc": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "tera-drive": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-nomad": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  snes: ["snes9x", "bsnes"],
+  sfam: ["snes9x", "bsnes"],
+  "super-nintendo-original-european-version": ["snes9x", "bsnes"],
+  "super-famicom-shvc-001": ["snes9x", "bsnes"],
+  "super-famicom-jr-model-shvc-101": ["snes9x", "bsnes"],
+  "new-style-super-nes-model-sns-101": ["snes9x", "bsnes"],
+};
+
 export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
 
 /**
  * Get the supported EJS cores for a given platform.
  *
  * @param platformSlug The platform slug.
+ * @param netplayEnabled Pull nightly cores if netplay is enabled.
  * @returns An array of supported cores.
  */
-export function getSupportedEJSCores(platformSlug: string): string[] {
-  return _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
+export function getSupportedEJSCores(
+  platformSlug: string,
+  netplayEnabled: boolean = false,
+): string[] {
+  const coresMap = netplayEnabled
+    ? { ..._EJS_CORES_MAP, ..._EJS_NIGHTLY_CORES_MAP }
+    : _EJS_CORES_MAP;
+  return coresMap[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
 }
 
 /**
@@ -548,7 +591,7 @@ export function getSupportedEJSCores(platformSlug: string): string[] {
  * @returns True if threads are required, false otherwise.
  */
 export function areThreadsRequiredForEJSCore(core: string): boolean {
-  return ["dosbox_pure", "ppsspp"].includes(core);
+  return ["dosbox_pure", "ppsspp", "azahar"].includes(core);
 }
 
 const canvas = document.createElement("canvas");
@@ -572,7 +615,8 @@ export function isEJSEmulationSupported(
 
   const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
   return (
-    getSupportedEJSCores(slug).length > 0 && gl instanceof WebGLRenderingContext
+    getSupportedEJSCores(slug, config?.EJS_NETPLAY_ENABLED).length > 0 &&
+    gl instanceof WebGLRenderingContext
   );
 }
 
@@ -819,7 +863,7 @@ export const CD_BASED_SYSTEMS = new Set([
   "saturn", // Sega Saturn
   "super-nes-cd-rom-system", // Super NES CD-ROM System
   "tandy-vis", // Tandy Video Information System
-  "tg16", // TurboGrafx-16
+  "turbografx-cd", // TurboGrafx-CD
   "vflash", // V.Flash
   "wii", // Wii
   "wiiu", // Wii U

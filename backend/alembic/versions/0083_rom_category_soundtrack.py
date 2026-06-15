@@ -1,8 +1,8 @@
 """Update rom_file.category column enum to include soundtracks, and add
 audio_meta JSON column for tag/duration/cover metadata.
 
-Revision ID: 0081_rom_category_soundtrack
-Revises: 0080_add_chd_sha1_hash
+Revision ID: 0083_rom_category_soundtrack
+Revises: 0082_save_origin_device
 Create Date: 2026-04-17 00:00:00.000000
 
 """
@@ -13,8 +13,8 @@ from alembic import op
 from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0081_rom_category_soundtrack"
-down_revision = "0080_add_chd_sha1_hash"
+revision = "0083_rom_category_soundtrack"
+down_revision = "0082_save_origin_device"
 branch_labels = None
 depends_on = None
 

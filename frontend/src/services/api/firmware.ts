@@ -1,6 +1,5 @@
 import type {
   AddFirmwareResponse,
-  Body_add_firmware_api_firmware_post as AddFirmwareInput,
   BulkOperationResponse,
   FirmwareSchema,
 } from "@/__generated__";
@@ -28,8 +27,7 @@ async function uploadFirmware({
   files: File[];
 }) {
   const formData = new FormData();
-  const typedFiles: AddFirmwareInput["files"] = files;
-  typedFiles.forEach((file) => formData.append("files", file));
+  files.forEach((file) => formData.append("files", file));
 
   const { data } = await firmwareApi.post<AddFirmwareResponse>(
     `/firmware`,

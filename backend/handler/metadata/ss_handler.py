@@ -2,7 +2,7 @@ import html
 import re
 from datetime import datetime
 from typing import Final, NotRequired, TypedDict
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 import pydash
 from unidecode import unidecode as uc
@@ -171,7 +171,8 @@ class SSMetadataMedia(TypedDict):
     logo_url: str | None  # wheel-hd or wheel
     manual_url: str | None  # manual
     marquee_url: str | None  # screenmarquee
-    miximage_url: str | None  # mixrbv1 | mixrbv2
+    miximage_url: str | None  # miximage1 | miximage2 | mixrbv1
+    miximage_v2_url: str | None  # mixrbv2
     physical_url: str | None  # support-2D
     screenshot_url: str | None  # ss
     steamgrid_url: str | None  # steamgrid
@@ -185,6 +186,7 @@ class SSMetadataMedia(TypedDict):
     box3d_path: str | None
     fanart_path: str | None
     miximage_path: str | None
+    miximage_v2_path: str | None
     physical_path: str | None
     marquee_path: str | None
     logo_path: str | None
@@ -233,6 +235,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         manual_url=None,
         marquee_url=None,
         miximage_url=None,
+        miximage_v2_url=None,
         physical_url=None,
         screenshot_url=None,
         steamgrid_url=None,
@@ -244,6 +247,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         box3d_path=None,
         fanart_path=None,
         miximage_path=None,
+        miximage_v2_path=None,
         physical_path=None,
         marquee_path=None,
         logo_path=None,
@@ -322,7 +326,6 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 media.get("type") == "miximage1"
                 or media.get("type") == "miximage2"
                 or media.get("type") == "mixrbv1"
-                or media.get("type") == "mixrbv2"
             ) and not ss_media["miximage_url"]:
                 ss_media["miximage_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
@@ -330,6 +333,14 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 if MetadataMediaType.MIXIMAGE in preferred_media_types:
                     ss_media["miximage_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE)}/miximage.png"
+                    )
+            elif media.get("type") == "mixrbv2" and not ss_media["miximage_v2_url"]:
+                ss_media["miximage_v2_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
+                if MetadataMediaType.MIXIMAGE_V2 in preferred_media_types:
+                    ss_media["miximage_v2_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE_V2)}/miximage_v2.png"
                     )
             elif media.get("type") == "support-2D" and not ss_media["physical_url"]:
                 ss_media["physical_url"] = strip_sensitive_query_params(
@@ -613,7 +624,7 @@ class SSHandler(MetadataHandler):
             return None
 
         roms = await self.ss_service.search_games(
-            term=quote(uc(search_term), safe="/ "),
+            term=uc(search_term),
             system_id=platform_ss_id,
         )
 
@@ -688,11 +699,23 @@ class SSHandler(MetadataHandler):
         sha1_hash = first_file.sha1_hash
         crc_hash = first_file.crc_hash
         fs_size_bytes = first_file.file_size_bytes
+        rom_name = (
+            first_file.archive_members[0]["name"].split("/")[-1]
+            if first_file.archive_members is not None
+            and len(first_file.archive_members) == 1
+            else first_file.file_name
+        )
 
-        if not (md5_hash or sha1_hash or crc_hash):
+        # Files on NON_HASHABLE_PLATFORMS (or any file when SKIP_HASH_CALCULATION
+        # is enabled) have no hashes. jeuInfos can still identify the game from the
+        # filename (romnom) + platform (systemeid) — a stronger matcher than the
+        # jeuRecherche name search the get_rom fallback uses — so only bail out when
+        # we have neither a hash nor a filename to match on.
+        if not (md5_hash or sha1_hash or crc_hash or rom_name):
             log.info(
-                "No hashes provided for ScreenScraper lookup. "
-                "At least one of md5_hash, sha1_hash, or crc_hash is required."
+                "No hashes or filename provided for ScreenScraper lookup. "
+                "At least one of md5_hash, sha1_hash, crc_hash, or a filename "
+                "is required."
             )
             return SSRom(ss_id=None), False
 
@@ -702,7 +725,7 @@ class SSHandler(MetadataHandler):
             sha1=sha1_hash,
             crc=crc_hash,
             rom_size_bytes=fs_size_bytes,
-            rom_name=first_file.file_name,
+            rom_name=rom_name,
             rom_type=_get_rom_type(first_file),
         )
         if not res:
@@ -857,7 +880,7 @@ class SSHandler(MetadataHandler):
             return []
 
         matched_games = await self.ss_service.search_games(
-            term=quote(uc(search_term), safe="/ "),
+            term=uc(search_term),
             system_id=platform_ss_id,
         )
 
@@ -981,6 +1004,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "name": "Neo-Geo Pocket Color",
     },
     UPS.N3DS: {"id": 17, "name": "Nintendo 3DS"},
+    UPS.NEW_NINTENDON3DS: {"id": 17, "name": "Nintendo 3DS"},
     UPS.N64: {"id": 14, "name": "Nintendo 64"},
     UPS.N64DD: {"id": 122, "name": "Nintendo 64DD"},
     UPS.NDS: {"id": 15, "name": "Nintendo DS"},

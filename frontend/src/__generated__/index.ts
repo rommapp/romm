@@ -94,6 +94,7 @@ export type { RAProgression } from './models/RAProgression';
 export type { RAUserGameProgression } from './models/RAUserGameProgression';
 export type { RegionBreakdownItem } from './models/RegionBreakdownItem';
 export type { Role } from './models/Role';
+export type { RomArchiveMember } from './models/RomArchiveMember';
 export type { RomFileAudioMetaSchema } from './models/RomFileAudioMetaSchema';
 export type { RomFileCategory } from './models/RomFileCategory';
 export type { RomFileSchema } from './models/RomFileSchema';

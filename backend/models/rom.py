@@ -4,7 +4,7 @@ import copy
 import enum
 from datetime import datetime
 from functools import cached_property
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from sqlalchemy import (
     TIMESTAMP,
@@ -71,6 +71,14 @@ class SiblingRom(BaseModel):
     )
 
 
+class RomArchiveMember(TypedDict):
+    name: str
+    size: int
+    crc_hash: str
+    md5_hash: str
+    sha1_hash: str
+
+
 class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
@@ -87,6 +95,9 @@ class RomFile(BaseModel):
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
     ra_hash: Mapped[str | None] = mapped_column(String(100))
     chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
+        CustomJSON(), default=None, nullable=True
+    )
     category: Mapped[RomFileCategory | None] = mapped_column(
         Enum(RomFileCategory), default=None
     )

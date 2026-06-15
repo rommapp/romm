@@ -1,5 +1,6 @@
 import asyncio
 import enum
+import functools
 from typing import Any
 
 import socketio  # type: ignore
@@ -397,6 +398,11 @@ async def scan_rom(
             }
         )
 
+    @functools.cache
+    def get_match_files() -> list[RomFile]:
+        """Files used for hash-based metadata matching, fetched at most once."""
+        return fs_rom["files"] or db_rom_handler.rom_files_for_rom_id(rom.id)
+
     async def fetch_playmatch_hash_match() -> PlaymatchRomMatch:
         if (
             meta_playmatch_handler.is_enabled()
@@ -409,7 +415,7 @@ async def scan_rom(
                 or scan_type == ScanType.UNMATCHED
             )
         ):
-            return await meta_playmatch_handler.lookup_rom(fs_rom["files"] or rom.files)
+            return await meta_playmatch_handler.lookup_rom(get_match_files())
 
         return PlaymatchRomMatch(
             igdb_id=None,
@@ -442,7 +448,7 @@ async def scan_rom(
             )
         ):
             return await meta_hasheous_handler.lookup_rom(
-                platform.slug, fs_rom["files"] or rom.files
+                platform.slug, get_match_files()
             )
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
@@ -461,6 +467,7 @@ async def scan_rom(
                         "rom_user",
                         "last_modified",
                         "files",
+                        "sibling_roms",
                     }
                 ),
             },
@@ -669,7 +676,7 @@ async def scan_rom(
 
             # Use the file hashes for lookup
             game_by_hash, is_not_game = await meta_ss_handler.lookup_rom(
-                rom, platform.ss_id, fs_rom["files"] or rom.files
+                rom, platform.ss_id, get_match_files()
             )
             if game_by_hash.get("ss_id") or is_not_game:
                 return game_by_hash

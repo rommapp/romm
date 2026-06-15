@@ -43,10 +43,10 @@ const { groupRoms } = useUISettings();
 const menuOpen = ref(false);
 
 const visible = computed(
-  () => groupRoms.value === true && props.rom.siblings.length > 0,
+  () => groupRoms.value === true && props.rom.sibling_roms.length > 0,
 );
 
-const totalCount = computed(() => props.rom.siblings.length + 1);
+const totalCount = computed(() => props.rom.sibling_roms.length + 1);
 
 const tooltipText = computed(() =>
   t("rom.versions-count", { n: totalCount.value }),
@@ -65,7 +65,7 @@ const versions = computed(() => [
     current: true,
     main: props.rom.rom_user?.is_main_sibling === true,
   },
-  ...props.rom.siblings.map((s) => ({
+  ...props.rom.sibling_roms.map((s) => ({
     id: s.id,
     label: s.fs_name_no_ext,
     current: false,

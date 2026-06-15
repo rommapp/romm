@@ -184,8 +184,7 @@ COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 
 COPY ./frontend/assets ${WEBSERVER_FOLDER}/assets
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
-    ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
-    ln -sf /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
+    ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
 COPY ./backend /backend
 
 # Setup init script and config files
@@ -221,8 +220,9 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/backend
 
-# Declare the supported volumes
-VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/romm/sync", "/redis-data"]
+# Declare only the parent `/romm`, not its subdirs, so Docker keeps them 
+# on one mount (`st_dev`) and cross-directory `os.link()` hardlinks don't fail.
+VOLUME ["/romm", "/redis-data"]
 
 # Expose non-privileged ports
 EXPOSE 8080 6379/tcp

@@ -73,6 +73,44 @@ def test_roms(rom: Rom, platform: Platform):
     assert len(roms) == 1
 
 
+def test_multi_file_rom_backref_survives_session_close(multi_file_rom: Rom):
+    """Multi-file ROM downloads read `file.rom.full_path` after the handler
+    session closes. The detail loaders eager-load `Rom.files` but not the
+    reverse `RomFile.rom` relationship, so without the backref being populated
+    this raises `DetachedInstanceError` (a 500 on the download endpoint).
+    """
+    folder_path = f"{multi_file_rom.fs_path}/{multi_file_rom.fs_name}"
+
+    # `multi_file_rom` is returned by `get_rom`, with the session already closed.
+    assert len(multi_file_rom.files) == 2
+    for file in multi_file_rom.files:
+        # All of these dereference `file.rom` on a now-detached instance.
+        assert file.rom.full_path == folder_path
+        assert file.is_top_level
+        assert file.file_name_for_download() == file.file_name
+
+    # `get_roms_by_ids` (used by the bulk zip download) must behave the same.
+    by_ids = db_rom_handler.get_roms_by_ids([multi_file_rom.id])
+    assert len(by_ids) == 1
+    for file in by_ids[0].files:
+        assert file.rom.full_path == folder_path
+
+
+def test_rom_files_for_rom_id_loads_backref(multi_file_rom: Rom):
+    """The scan/metadata-matching fallback fetches a ROM's files on demand and
+    reads `RomFile.is_top_level` -> `RomFile.rom.full_path`. The backref must be
+    eager-loaded so it survives the handler session closing.
+    """
+    folder_path = f"{multi_file_rom.fs_path}/{multi_file_rom.fs_name}"
+
+    files = db_rom_handler.rom_files_for_rom_id(multi_file_rom.id)
+    assert len(files) == 2
+    for file in files:
+        # Both dereference `file.rom` on a now-detached instance.
+        assert file.rom.full_path == folder_path
+        assert file.is_top_level
+
+
 def test_filter_last_played(rom: Rom, platform: Platform, admin_user: User):
     second_rom = db_rom_handler.add_rom(
         Rom(

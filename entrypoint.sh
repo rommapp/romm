@@ -5,21 +5,19 @@ set -e
 echo "Starting entrypoint script..."
 
 # Create symlinks for frontend
-for subfolder in assets resources; do
-	if [[ -L /app/frontend/assets/romm/${subfolder} ]]; then
-		target=$(readlink "/app/frontend/assets/romm/${subfolder}")
+if [[ -L /app/frontend/assets/romm/resources ]]; then
+	target=$(readlink "/app/frontend/assets/romm/resources")
 
-		# If the target is not the same as ${ROMM_BASE_PATH}/${subfolder}, recreate the symbolic link.
-		if [[ ${target} != "${ROMM_BASE_PATH}/${subfolder}" ]]; then
-			rm "/app/frontend/assets/romm/${subfolder}"
-			ln -s "${ROMM_BASE_PATH}/${subfolder}" "/app/frontend/assets/romm/${subfolder}"
-		fi
-	elif [[ ! -e /app/frontend/assets/romm/${subfolder} ]]; then
-		# Ensure parent directory exists before creating symbolic link
-		mkdir -p "/app/frontend/assets/romm"
-		ln -s "${ROMM_BASE_PATH}/${subfolder}" "/app/frontend/assets/romm/${subfolder}"
+	# If the target is not the same as ${ROMM_BASE_PATH}/resources, recreate the symbolic link.
+	if [[ ${target} != "${ROMM_BASE_PATH}/resources" ]]; then
+		rm "/app/frontend/assets/romm/resources"
+		ln -s "${ROMM_BASE_PATH}/resources" "/app/frontend/assets/romm/resources"
 	fi
-done
+elif [[ ! -e /app/frontend/assets/romm/resources ]]; then
+	# Ensure parent directory exists before creating symbolic link
+	mkdir -p "/app/frontend/assets/romm"
+	ln -s "${ROMM_BASE_PATH}/resources" "/app/frontend/assets/romm/resources"
+fi
 
 # Define a signal handler to propagate termination signals
 function handle_termination() {
@@ -41,7 +39,13 @@ fi
 # Start all services in the background
 echo "Starting backend..."
 cd /app/backend
-uv run python main.py &
+if [[ ${DEV_MODE:-false} == "true" ]]; then
+	echo "Starting backend under debugpy on :5678..."
+	# Add --wait-for-client after --listen to pause until VSCode attaches.
+	uv run python -m debugpy --listen 0.0.0.0:5678 main.py &
+else
+	uv run python main.py &
+fi
 
 echo "Starting RQ scheduler..."
 RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \

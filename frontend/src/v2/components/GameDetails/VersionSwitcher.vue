@@ -21,7 +21,7 @@ const props = defineProps<{
 
 const { t } = useI18n();
 
-const visible = computed(() => props.rom.siblings.length > 0);
+const visible = computed(() => props.rom.sibling_roms.length > 0);
 
 // `main` flags the user-marked default version. Read off `rom_user`
 // for this rom and off the per-sibling `is_main_sibling` field for the
@@ -35,7 +35,7 @@ const versions = computed(() => [
     current: true,
     main: props.rom.rom_user?.is_main_sibling === true,
   },
-  ...props.rom.siblings.map((s) => ({
+  ...props.rom.sibling_roms.map((s) => ({
     id: s.id,
     label: s.fs_name_no_ext,
     current: false,

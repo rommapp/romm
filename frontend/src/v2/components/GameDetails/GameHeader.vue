@@ -100,7 +100,7 @@ const actions = useGameActions(() => props.rom);
       <RTag v-for="t in tags" :key="`t-${t}`" :text="t" size="small" />
     </div>
 
-    <div v-if="rom.siblings.length > 0" class="r-v2-det-header__versions">
+    <div v-if="rom.sibling_roms.length > 0" class="r-v2-det-header__versions">
       <VersionSwitcher :rom="rom" />
       <MainSiblingToggle :rom="rom" />
     </div>

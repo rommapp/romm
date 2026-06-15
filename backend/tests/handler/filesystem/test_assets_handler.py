@@ -1,8 +1,13 @@
+import hashlib
 import os
+import shutil
+import tempfile
+import zipfile
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from tests._zipfile_shim import reload_zipfile
 
 from handler.filesystem.assets_handler import ASSETS_BASE_PATH, FSAssetsHandler
 from models.user import User
@@ -326,3 +331,172 @@ class TestFSAssetsHandler:
         assert emulator in saves_with_emulator
         assert emulator not in saves_without_emulator
         assert saves_with_emulator.startswith(saves_without_emulator)
+
+
+class TestComputeContentHash:
+    """Regression coverage for compute_content_hash dispatch."""
+
+    @pytest.fixture
+    def temp_base(self):
+        path = tempfile.mkdtemp()
+        yield path
+        shutil.rmtree(path, ignore_errors=True)
+
+    @pytest.fixture
+    def handler(self, temp_base: str):
+        handler = FSAssetsHandler()
+        handler.base_path = Path(temp_base).resolve()
+        return handler
+
+    @staticmethod
+    def _expected_zip_hash(zip_path: Path) -> str:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            file_hashes = [
+                f"{n}:{hashlib.md5(zf.read(n), usedforsecurity=False).hexdigest()}"
+                for n in sorted(zf.namelist())
+                if not n.endswith("/")
+            ]
+        combined = "\n".join(file_hashes)
+        return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
+
+    @staticmethod
+    def _raw_md5(path: Path) -> str:
+        h = hashlib.md5(usedforsecurity=False)
+        with open(path, "rb") as f:
+            while chunk := f.read(8192):
+                h.update(chunk)
+        return h.hexdigest()
+
+    @pytest.mark.asyncio
+    async def test_zip_dispatches_to_per_entry_hash(
+        self, handler: FSAssetsHandler, temp_base: str
+    ):
+        """A zip file's content_hash must equal the per-entry zip-hash, not raw MD5.
+
+        Regression for the path-resolution bug where compute_content_hash called
+        zipfile.is_zipfile() with a bare relative path. Because the server WORKDIR
+        is not ASSETS_BASE_PATH, that open() failed silently, is_zipfile returned
+        False, and the dispatch fell through to _compute_file_hash (raw MD5) for
+        every zip save.
+        """
+        relative = "users/test/saves/test.zip"
+        zip_full = Path(temp_base) / relative
+        zip_full.parent.mkdir(parents=True, exist_ok=True)
+        reload_zipfile()
+        with zipfile.ZipFile(zip_full, "w") as zf:
+            zf.writestr("inner/a.txt", b"alpha bytes")
+            zf.writestr("inner/b.bin", b"\x00\x01\x02\x03")
+
+        expected_zip_hash = self._expected_zip_hash(zip_full)
+        raw_md5 = self._raw_md5(zip_full)
+        assert expected_zip_hash != raw_md5  # different algorithms; sanity check
+
+        result = await handler.compute_content_hash(relative)
+
+        assert result == expected_zip_hash, (
+            "compute_content_hash should dispatch to per-entry zip-hash for zip "
+            "files; got raw MD5 or None, meaning is_zipfile failed to resolve the "
+            "relative path."
+        )
+
+    @pytest.mark.asyncio
+    async def test_non_zip_returns_raw_md5(
+        self, handler: FSAssetsHandler, temp_base: str
+    ):
+        """Non-zip files dispatch to _compute_file_hash (raw MD5)."""
+        relative = "users/test/saves/test.srm"
+        full = Path(temp_base) / relative
+        full.parent.mkdir(parents=True, exist_ok=True)
+        full.write_bytes(b"raw save data \x00\x01\xff")
+
+        expected = self._raw_md5(full)
+
+        result = await handler.compute_content_hash(relative)
+
+        assert result == expected
+
+    @pytest.mark.asyncio
+    async def test_missing_file_returns_none(self, handler: FSAssetsHandler):
+        result = await handler.compute_content_hash("users/missing/file.zip")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_zip_hash_pinned_single_entry(
+        self, handler: FSAssetsHandler, temp_base: str
+    ):
+        """Smallest possible zip: one file, stored compression. Pins the
+        algorithm against a known digest. Any change to the protocol (sort,
+        separator, hash, encoding) fails here.
+        """
+        relative = "users/test/saves/simple.zip"
+        full = Path(temp_base) / relative
+        full.parent.mkdir(parents=True, exist_ok=True)
+        reload_zipfile()
+        with zipfile.ZipFile(full, "w", zipfile.ZIP_STORED) as zf:
+            zf.writestr("save.bin", b"\x42" * 256)
+
+        # md5("save.bin:" + md5(b"\x42"*256).hexdigest())
+        pinned = "b3636b49ca5c3d807adee33e75d410ca"
+
+        result = await handler.compute_content_hash(relative)
+        assert (
+            result == pinned
+        ), f"single-entry per-entry zip-hash drifted: got={result} want={pinned}"
+
+    @pytest.mark.asyncio
+    async def test_zip_hash_pinned_mixed(
+        self, handler: FSAssetsHandler, temp_base: str
+    ):
+        """Three-entry zip with one subdir; baseline mixed shape."""
+        relative = "users/test/saves/pinned.zip"
+        full = Path(temp_base) / relative
+        full.parent.mkdir(parents=True, exist_ok=True)
+        reload_zipfile()
+        with zipfile.ZipFile(full, "w", zipfile.ZIP_STORED) as zf:
+            zf.writestr("inner/a.txt", b"alpha")
+            zf.writestr("inner/b.txt", b"beta")
+            zf.writestr("top.bin", b"\x00\x01\x02")
+
+        pinned = "8cf6bb36a82a5ee4d7d15fc98599908d"
+
+        result = await handler.compute_content_hash(relative)
+        assert result == pinned, (
+            f"per-entry zip-hash drifted from documented protocol: "
+            f"got={result} want={pinned}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_zip_hash_pinned_nested_switch_shape(
+        self, handler: FSAssetsHandler, temp_base: str
+    ):
+        """Switch-save-shaped zip: deep nesting, mixed sizes, empty file,
+        unicode filename. Mirrors what real Switch saves look like (the
+        original bug surface) so this test exercises the algorithm against
+        a realistic layout.
+        """
+        relative = "users/test/saves/switch.zip"
+        full = Path(temp_base) / relative
+        full.parent.mkdir(parents=True, exist_ok=True)
+        reload_zipfile()
+        with zipfile.ZipFile(full, "w", zipfile.ZIP_STORED) as zf:
+            title = "0100F2C0115B6000"
+            zf.writestr(f"{title}/NX6400000-SYSTEM/SYDAT.BIN", b"system data v1")
+            zf.writestr(
+                f"{title}/album/000_Photo.jpg",
+                b"\xff\xd8\xff\xe0jpegdata" * 8,
+            )
+            zf.writestr(f"{title}/album/000_Thumb.jpg", b"\xff\xd8thumbdata")
+            zf.writestr(f"{title}/slot_01/caption.sav", b"slot1 caption")
+            zf.writestr(f"{title}/slot_01/progress.sav", b"\x01" * 64)
+            zf.writestr(f"{title}/slot_02/caption.sav", b"slot2 caption")
+            zf.writestr(f"{title}/slot_02/progress.sav", b"\x02" * 64)
+            zf.writestr(f"{title}/storage/CacheStorageKey.dat", b"key=abcd1234")
+            zf.writestr(f"{title}/storage/empty.dat", b"")
+            zf.writestr(f"{title}/Pokémon.dat", b"unicode-name")
+
+        pinned = "c0c992d1f1f883f56065bb13b68dfdee"
+
+        result = await handler.compute_content_hash(relative)
+        assert (
+            result == pinned
+        ), f"nested-switch-shape zip-hash drifted: got={result} want={pinned}"

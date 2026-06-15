@@ -484,6 +484,10 @@ def get_roms(
             description="Filter roms updated after this datetime (ISO 8601 format with timezone information)."
         ),
     ] = None,
+    with_files: Annotated[
+        bool,
+        Query(description="Whether to include each rom's file entries."),
+    ] = False,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
     unfiltered_query, order_by_attr = db_rom_handler.get_roms_query(
@@ -573,17 +577,22 @@ def get_roms(
         rom_id_index = session.scalars(query.with_only_columns(Rom.id)).all()  # type: ignore
 
         def _transform(items: Sequence[Rom]) -> list[SimpleRomSchema]:
-            sibling_data_by_rom = db_rom_handler.get_sibling_data_for_roms(
-                [i.id for i in items],
-                user_id=request.user.id,
-                session=session,
+            rom_ids = [i.id for i in items]
+            files_by_rom = (
+                db_rom_handler.get_files_for_roms(rom_ids, session=session)
+                if with_files
+                else {}
+            )
+            siblings_by_rom = db_rom_handler.get_siblings_for_roms(
+                rom_ids, user_id=request.user.id, session=session
             )
 
             return [
                 SimpleRomSchema.from_orm_with_request(
                     db_rom=item,
                     request=request,
-                    sibling_data=sibling_data_by_rom.get(item.id, []),
+                    files=files_by_rom.get(item.id, []),
+                    siblings=siblings_by_rom.get(item.id, []),
                 )
                 for item in items
             ]
@@ -898,6 +907,12 @@ async def head_rom_content(
         files = [f for f in files if f.id in file_id_values]
     files.sort(key=lambda x: x.file_name)
 
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No files found for ROM {id}",
+        )
+
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
         if len(files) == 1:
@@ -974,6 +989,12 @@ async def get_rom_content(
         file_id_values = {int(f.strip()) for f in file_ids.split(",") if f.strip()}
         files = [f for f in files if f.id in file_id_values]
     files.sort(key=lambda x: x.file_name)
+
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No files found for ROM {id}",
+        )
 
     log.info(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"

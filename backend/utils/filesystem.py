@@ -9,7 +9,7 @@ from pathlib import Path
 # (roms_handler for hashing decisions, rahasher for skipping disc-platform
 # buffer-hash attempts, feeds for PKGi passthrough).
 COMPRESSED_FILE_EXTENSIONS: frozenset[str] = frozenset(
-    (".7z", ".bz2", ".gz", ".rar", ".tar", ".zip")
+    (".7z", ".bz2", ".gz", ".rar", ".tar", ".zip", ".xz", ".tgz", ".tbz2", ".txz")
 )
 
 

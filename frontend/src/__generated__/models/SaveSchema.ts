@@ -23,6 +23,7 @@ export type SaveSchema = {
     slot?: (string | null);
     content_hash?: (string | null);
     screenshot: (ScreenshotSchema | null);
+    origin_device_id?: (string | null);
     device_syncs?: Array<DeviceSyncSchema>;
 };
 

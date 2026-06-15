@@ -30,7 +30,7 @@ const snackbar = useSnackbar();
 const romsStore = storeRoms();
 
 const visible = computed(
-  () => props.rom.siblings.length > 0 && props.rom.rom_user != null,
+  () => props.rom.sibling_roms.length > 0 && props.rom.rom_user != null,
 );
 
 const isMain = computed(() => props.rom.rom_user?.is_main_sibling === true);

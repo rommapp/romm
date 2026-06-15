@@ -25,6 +25,7 @@ from sqlalchemy.orm import (
     Query,
     QueryableAttribute,
     Session,
+    joinedload,
     load_only,
     noload,
     selectinload,
@@ -150,7 +151,10 @@ def with_details(func):
             ),
             selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            selectinload(Rom.files),
+            # Multi-file downloads, 3DS QR codes, and metadata matching
+            selectinload(Rom.files).options(
+                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+            ),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
                 noload(Rom.metadatum),
@@ -217,19 +221,43 @@ class DBRomsHandler(DBBaseHandler):
             return []
         return session.scalars(query.filter(Rom.id.in_(ids))).all()
 
-    def get_sibling_data_for_roms(
+    def get_files_for_roms(
+        self,
+        rom_ids: list[int],
+        *,
+        session: Session,
+    ) -> dict[int, list[RomFile]]:
+        """Return {rom_id: [RomFile, ...]} for the given rom IDs in a single query.
+
+        Used by the list endpoint to serialize files without relying on the
+        query's relationship eager-load surviving pagination.
+        """
+        if not rom_ids:
+            return {}
+
+        files = session.scalars(
+            select(RomFile).where(RomFile.rom_id.in_(rom_ids))
+        ).all()
+
+        buckets: dict[int, list[RomFile]] = {rom_id: [] for rom_id in rom_ids}
+        for file in files:
+            buckets[file.rom_id].append(file)
+
+        return buckets
+
+    def get_siblings_for_roms(
         self,
         rom_ids: list[int],
         user_id: int,
         *,
         session: Session,
-    ) -> dict[int, list[dict[str, Any]]]:
-        """Return {rom_id: [{id, name, fs_name_no_tags, fs_name_no_ext, is_main_sibling}, ...]}.
+    ) -> dict[int, list[tuple[Rom, bool]]]:
+        """Return {rom_id: [(sibling Rom, is_main_sibling), ...]} in a single query.
 
-        Single query joining sibling_roms → roms (scalar columns only) → rom_user
-        (filtered to the request user). No Rom JSON metadata is hydrated, so this
-        stays cheap even on large pages — the cost is one extra JOIN with a few
-        scalar columns vs. the bare-IDs variant.
+        Joins sibling_roms → roms (only the columns SiblingRomSchema needs) and
+        left-joins rom_user for the requesting user, so the per-user
+        `is_main_sibling` flag is resolved without hydrating the wide roms table
+        or its JSON metadata on every page.
         """
         if not rom_ids:
             return {}
@@ -237,10 +265,7 @@ class DBRomsHandler(DBBaseHandler):
         rows = session.execute(
             select(
                 SiblingRom.rom_id,
-                SiblingRom.sibling_rom_id,
-                Rom.name,
-                Rom.fs_name_no_tags,
-                Rom.fs_name_no_ext,
+                Rom,
                 func.coalesce(RomUser.is_main_sibling, false()).label(
                     "is_main_sibling"
                 ),
@@ -254,25 +279,26 @@ class DBRomsHandler(DBBaseHandler):
                 ),
             )
             .where(SiblingRom.rom_id.in_(rom_ids))
+            .options(
+                load_only(
+                    Rom.name,
+                    Rom.fs_name_no_tags,
+                    Rom.fs_name_no_ext,
+                )
+            )
         ).all()
 
-        # Dedupe by (parent rom, sibling id) so a duplicate row in the join
-        # doesn't surface twice on the wire.
+        # Dedupe by (parent rom, sibling id) so a duplicate join row doesn't
+        # surface the same sibling twice on the wire.
         seen: dict[int, set[int]] = {rom_id: set() for rom_id in rom_ids}
-        buckets: dict[int, list[dict[str, Any]]] = {rom_id: [] for rom_id in rom_ids}
-        for rom_id, sib_id, name, fs_name_no_tags, fs_name_no_ext, is_main in rows:
-            if sib_id in seen[rom_id]:
+        buckets: dict[int, list[tuple[Rom, bool]]] = {
+            rom_id: [] for rom_id in rom_ids
+        }
+        for rom_id, sibling, is_main in rows:
+            if sibling.id in seen[rom_id]:
                 continue
-            seen[rom_id].add(sib_id)
-            buckets[rom_id].append(
-                {
-                    "id": sib_id,
-                    "name": name,
-                    "fs_name_no_tags": fs_name_no_tags,
-                    "fs_name_no_ext": fs_name_no_ext,
-                    "is_main_sibling": bool(is_main),
-                }
-            )
+            seen[rom_id].add(sibling.id)
+            buckets[rom_id].append((sibling, bool(is_main)))
 
         return buckets
 
@@ -631,6 +657,7 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int | None = None,
         updated_after: datetime | None = None,
         include_file_stats: bool = False,
+        include_files: bool = False,
         session: Session = None,  # type: ignore
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
@@ -642,14 +669,24 @@ class DBRomsHandler(DBBaseHandler):
             selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             # Sort table by metadata (first_release_date)
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            # Required for multi-file ROM actions and 3DS QR code
-            selectinload(Rom.files),
-            # Sibling badge data is populated separately via
-            # get_sibling_data_for_roms — avoids hydrating full Rom rows
-            # (including JSON metadata) per sibling on every page.
+            # Show sibling rom badges on cards
+            selectinload(Rom.sibling_roms).options(
+                noload(Rom.platform), noload(Rom.metadatum)
+            ),
             # Notes indicator on cards
             selectinload(Rom.notes),
         )
+
+        # Only load files (and the RomFile.rom backref needed by `is_top_level` /
+        # `file_name_for_download`) when the caller iterates them — e.g. the
+        # feed endpoints. The gallery/list and filter-value paths serialize
+        # SimpleRomSchema without files, so they skip this entirely.
+        if include_files:
+            query = query.options(
+                selectinload(Rom.files).options(
+                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+                )
+            )
 
         # Correlated subqueries and only undefer when the caller serializes the
         # gallery-card flags. Feeds and filter-value lookups don't need them.
@@ -961,6 +998,7 @@ class DBRomsHandler(DBBaseHandler):
             player_counts_logic=kwargs.get("player_counts_logic", "any"),
             user_id=kwargs.get("user_id", None),
             group_by_meta_id=kwargs.get("group_by_meta_id", False),
+            include_files=kwargs.get("include_files", False),
         )
         return session.scalars(roms).all()
 
@@ -1015,6 +1053,7 @@ class DBRomsHandler(DBBaseHandler):
             session.query(
                 subquery.c.letter, func.min(subquery.c.position - 1).label("position")
             )
+            .filter(subquery.c.letter.isnot(None))
             .group_by(subquery.c.letter)
             .order_by(subquery.c.letter)
             .all()
@@ -1039,7 +1078,6 @@ class DBRomsHandler(DBBaseHandler):
                 select(Rom)
                 .options(
                     selectinload(Rom.platform),
-                    selectinload(Rom.files),
                 )
                 .where(
                     and_(
@@ -1269,6 +1307,23 @@ class DBRomsHandler(DBBaseHandler):
                 select(RomFile)
                 .filter_by(rom_id=rom_id, category=category)
                 .order_by(RomFile.file_name.asc())
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
+    def rom_files_for_rom_id(
+        self,
+        rom_id: int,
+        session: Session = None,  # type: ignore
+    ) -> list[RomFile]:
+        """Fetch a ROM's files on demand, with the `RomFile.rom` backref loaded."""
+        return list(
+            session.scalars(
+                select(RomFile)
+                .filter_by(rom_id=rom_id)
+                .options(joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name))
             )
             .unique()
             .all()
