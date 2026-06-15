@@ -147,5 +147,6 @@
   "changelog-error-hint": "Připojení ke GitHubu selhalo. Zkontrolujte připojení nebo to zkuste znovu.",
   "changelog-empty-title": "Zatím žádná vydání",
   "changelog-empty-hint": "Repozitář zatím nezveřejnil žádná vydání.",
-  "changelog-view-all": "Zobrazit všechna vydání na GitHubu"
+  "changelog-view-all": "Zobrazit všechna vydání na GitHubu",
+  "visibility": "Viditelnost"
 }

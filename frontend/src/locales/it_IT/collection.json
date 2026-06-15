@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "Nessuna collezione presente. Creane una qui sopra.",
   "create-failed": "Impossibile creare la collezione",
   "empty": "Questa collezione è vuota.",
-  "not-found": "Collezione non trovata."
+  "not-found": "Collezione non trovata.",
+  "kind-standard": "Standard",
+  "kind-smart": "Smart",
+  "kind-virtual": "Virtuale"
 }

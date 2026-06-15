@@ -147,5 +147,6 @@
   "changelog-error-hint": "Conectarea la GitHub a eșuat. Verifică conexiunea sau încearcă din nou.",
   "changelog-empty-title": "Încă nu există versiuni",
   "changelog-empty-hint": "Depozitul nu a publicat încă nicio versiune.",
-  "changelog-view-all": "Vezi toate versiunile pe GitHub"
+  "changelog-view-all": "Vezi toate versiunile pe GitHub",
+  "visibility": "Vizibilitate"
 }

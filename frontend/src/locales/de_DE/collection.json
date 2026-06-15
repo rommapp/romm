@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "Noch keine Sammlungen. Erstelle oben eine.",
   "create-failed": "Sammlung konnte nicht erstellt werden",
   "empty": "Diese Sammlung ist leer.",
-  "not-found": "Sammlung nicht gefunden."
+  "not-found": "Sammlung nicht gefunden.",
+  "kind-standard": "Standard",
+  "kind-smart": "Smart",
+  "kind-virtual": "Virtuell"
 }

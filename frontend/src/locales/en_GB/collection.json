@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "No collections yet. Create one above.",
   "create-failed": "Failed to create collection",
   "empty": "This collection is empty.",
-  "not-found": "Collection not found."
+  "not-found": "Collection not found.",
+  "kind-standard": "Standard",
+  "kind-smart": "Smart",
+  "kind-virtual": "Virtual"
 }

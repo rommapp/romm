@@ -32,12 +32,12 @@ const { t } = useI18n();
 const gridStyle = { gridTemplateColumns: COLLECTION_LIST_GRID_TEMPLATE };
 
 function handleClick(col: CollectionListColumn) {
-  if (!col.sortable) return;
+  if (!col.sortKey) return;
   // Toggle direction when re-clicking the active column; otherwise
   // start the new column at ascending — same rule as GameListHeader.
   const nextDir: "asc" | "desc" =
-    props.sortKey === col.key && props.sortDir === "asc" ? "desc" : "asc";
-  emit("sort", { key: col.key, dir: nextDir });
+    props.sortKey === col.sortKey && props.sortDir === "asc" ? "desc" : "asc";
+  emit("sort", { key: col.sortKey, dir: nextDir });
 }
 </script>
 
@@ -49,24 +49,25 @@ function handleClick(col: CollectionListColumn) {
       type="button"
       class="coll-list-header__cell"
       :class="{
-        'coll-list-header__cell--sortable': col.sortable,
+        'coll-list-header__cell--sortable': !!col.sortKey,
         'coll-list-header__cell--end': col.align === 'end',
-        'coll-list-header__cell--active': col.sortable && sortKey === col.key,
+        'coll-list-header__cell--active':
+          col.sortKey && sortKey === col.sortKey,
       }"
       :aria-sort="
-        col.sortable && sortKey === col.key
+        col.sortKey && sortKey === col.sortKey
           ? sortDir === 'asc'
             ? 'ascending'
             : 'descending'
           : 'none'
       "
-      :tabindex="col.sortable ? 0 : -1"
-      :disabled="!col.sortable"
+      :tabindex="col.sortKey ? 0 : -1"
+      :disabled="!col.sortKey"
       @click="handleClick(col)"
     >
       <span class="coll-list-header__label">{{ t(col.labelKey) }}</span>
       <RIcon
-        v-if="col.sortable && sortKey === col.key"
+        v-if="col.sortKey && sortKey === col.sortKey"
         :icon="sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'"
         size="14"
         class="coll-list-header__icon"

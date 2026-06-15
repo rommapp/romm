@@ -147,5 +147,6 @@
   "changelog-error-hint": "Połączenie z GitHub nie powiodło się. Sprawdź połączenie lub spróbuj ponownie.",
   "changelog-empty-title": "Brak wydań",
   "changelog-empty-hint": "Repozytorium nie opublikowało jeszcze żadnych wydań.",
-  "changelog-view-all": "Zobacz wszystkie wydania na GitHub"
+  "changelog-view-all": "Zobacz wszystkie wydania na GitHub",
+  "visibility": "Widoczność"
 }

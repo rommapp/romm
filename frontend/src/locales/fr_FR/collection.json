@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "Aucune collection pour le moment. Créez-en une ci-dessus.",
   "create-failed": "Échec de la création de la collection",
   "empty": "Cette collection est vide.",
-  "not-found": "Collection introuvable."
+  "not-found": "Collection introuvable.",
+  "kind-standard": "Standard",
+  "kind-smart": "Intelligente",
+  "kind-virtual": "Virtuelle"
 }

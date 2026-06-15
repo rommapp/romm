@@ -147,5 +147,6 @@
   "changelog-error-hint": "GitHub에 연결하지 못했습니다. 연결을 확인하거나 다시 시도하세요.",
   "changelog-empty-title": "아직 릴리스가 없습니다",
   "changelog-empty-hint": "저장소에 게시된 릴리스가 아직 없습니다.",
-  "changelog-view-all": "GitHub에서 모든 릴리스 보기"
+  "changelog-view-all": "GitHub에서 모든 릴리스 보기",
+  "visibility": "공개 범위"
 }

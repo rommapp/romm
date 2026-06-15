@@ -147,5 +147,6 @@
   "changelog-error-hint": "连接 GitHub 失败。请检查网络连接或重试。",
   "changelog-empty-title": "暂无发行版",
   "changelog-empty-hint": "该仓库尚未发布任何发行版。",
-  "changelog-view-all": "在 GitHub 上查看所有发行版"
+  "changelog-view-all": "在 GitHub 上查看所有发行版",
+  "visibility": "可见性"
 }

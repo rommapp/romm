@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "暂无收藏。请在上方创建一个。",
   "create-failed": "创建收藏失败",
   "empty": "该收藏为空。",
-  "not-found": "未找到该收藏。"
+  "not-found": "未找到该收藏。",
+  "kind-standard": "标准",
+  "kind-smart": "智能",
+  "kind-virtual": "虚拟"
 }

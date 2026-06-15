@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "아직 모음집이 없습니다. 위에서 만들어 보세요.",
   "create-failed": "모음집을 생성하지 못했습니다",
   "empty": "이 모음집은 비어 있습니다.",
-  "not-found": "모음집을 찾을 수 없습니다."
+  "not-found": "모음집을 찾을 수 없습니다.",
+  "kind-standard": "표준",
+  "kind-smart": "스마트",
+  "kind-virtual": "가상"
 }

@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "Még nincsenek gyűjtemények. Hozz létre egyet fent.",
   "create-failed": "A gyűjtemény létrehozása sikertelen",
   "empty": "Ez a gyűjtemény üres.",
-  "not-found": "A gyűjtemény nem található."
+  "not-found": "A gyűjtemény nem található.",
+  "kind-standard": "Normál",
+  "kind-smart": "Okos",
+  "kind-virtual": "Virtuális"
 }

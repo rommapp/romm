@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "Zatím žádné kolekce. Vytvořte jednu výše.",
   "create-failed": "Nepodařilo se vytvořit kolekci",
   "empty": "Tato kolekce je prázdná.",
-  "not-found": "Kolekce nebyla nalezena."
+  "not-found": "Kolekce nebyla nalezena.",
+  "kind-standard": "Standardní",
+  "kind-smart": "Chytrá",
+  "kind-virtual": "Virtuální"
 }

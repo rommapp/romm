@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "尚未有任何收藏庫。請在上方建立一個。",
   "create-failed": "建立收藏庫失敗",
   "empty": "此收藏庫是空的。",
-  "not-found": "找不到收藏庫。"
+  "not-found": "找不到收藏庫。",
+  "kind-standard": "標準",
+  "kind-smart": "智慧",
+  "kind-virtual": "虛擬"
 }

@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "コレクションはまだありません。上から作成してください。",
   "create-failed": "コレクションの作成に失敗しました",
   "empty": "このコレクションは空です。",
-  "not-found": "コレクションが見つかりません。"
+  "not-found": "コレクションが見つかりません。",
+  "kind-standard": "標準",
+  "kind-smart": "スマート",
+  "kind-virtual": "仮想"
 }

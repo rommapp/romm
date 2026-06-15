@@ -147,5 +147,6 @@
   "changelog-error-hint": "連線至 GitHub 失敗。請檢查網路連線或重試。",
   "changelog-empty-title": "尚無發行版",
   "changelog-empty-hint": "此儲存庫尚未發布任何發行版。",
-  "changelog-view-all": "在 GitHub 上檢視所有發行版"
+  "changelog-view-all": "在 GitHub 上檢視所有發行版",
+  "visibility": "可見性"
 }

@@ -147,5 +147,6 @@
   "changelog-error-hint": "Verbindung zu GitHub fehlgeschlagen. Überprüfe deine Verbindung oder versuche es erneut.",
   "changelog-empty-title": "Noch keine Veröffentlichungen",
   "changelog-empty-hint": "Das Repository hat noch keine Veröffentlichungen.",
-  "changelog-view-all": "Alle Veröffentlichungen auf GitHub ansehen"
+  "changelog-view-all": "Alle Veröffentlichungen auf GitHub ansehen",
+  "visibility": "Sichtbarkeit"
 }

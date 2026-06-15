@@ -36,5 +36,8 @@
   "no-collections-yet-hint": "Nicio colecție încă. Creează una mai sus.",
   "create-failed": "Crearea colecției a eșuat",
   "empty": "Această colecție este goală.",
-  "not-found": "Colecția nu a fost găsită."
+  "not-found": "Colecția nu a fost găsită.",
+  "kind-standard": "Standard",
+  "kind-smart": "Inteligentă",
+  "kind-virtual": "Virtuală"
 }

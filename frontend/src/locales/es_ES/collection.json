@@ -36,5 +36,8 @@
   "no-collections-yet": "Aún no hay colecciones.",
   "smart-created": "Colección inteligente creada.",
   "empty": "Esta colección está vacía.",
-  "not-found": "Colección no encontrada."
+  "not-found": "Colección no encontrada.",
+  "kind-standard": "Estándar",
+  "kind-smart": "Inteligente",
+  "kind-virtual": "Virtual"
 }

@@ -147,5 +147,6 @@
   "changelog-error-hint": "GitHub への接続に失敗しました。接続を確認するか、もう一度お試しください。",
   "changelog-empty-title": "まだリリースがありません",
   "changelog-empty-hint": "リポジトリにはまだリリースが公開されていません。",
-  "changelog-view-all": "GitHub ですべてのリリースを表示"
+  "changelog-view-all": "GitHub ですべてのリリースを表示",
+  "visibility": "公開設定"
 }
