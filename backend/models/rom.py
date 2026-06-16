@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import enum
+import re
 from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, TypedDict
@@ -17,6 +18,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     and_,
+    event,
     func,
     or_,
     select,
@@ -31,6 +33,19 @@ from models.base import (
     BaseModel,
 )
 from utils.database import CustomJSON
+
+# Max length of the precomputed natural-sort key column.
+NAME_SORT_KEY_MAX_LENGTH = 500
+ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
+DIGIT_RUN_RE = re.compile(r"\d+")
+
+def compute_name_sort_key(name: str | None) -> str:
+    """Precompute the natural-sort key stored in `Rom.name_sort_key`
+    """
+    value = (name or "").lower()
+    value = ARTICLE_PREFIX_RE.sub("", value).strip()
+    value = DIGIT_RUN_RE.sub(lambda m: m.group(0).zfill(12), value)
+    return value[:NAME_SORT_KEY_MAX_LENGTH]
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
@@ -181,6 +196,8 @@ class Rom(BaseModel):
 
     __table_args__ = (
         Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name"),
+        Index("idx_roms_name", "name"),
+        Index("idx_roms_name_sort_key", "name_sort_key"),
         Index("idx_roms_igdb_id", "igdb_id"),
         Index("idx_roms_moby_id", "moby_id"),
         Index("idx_roms_ss_id", "ss_id"),
@@ -203,6 +220,9 @@ class Rom(BaseModel):
     fs_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
     name: Mapped[str | None] = mapped_column(String(length=350))
+    name_sort_key: Mapped[str | None] = mapped_column(
+        String(length=NAME_SORT_KEY_MAX_LENGTH), default=None
+    )
     slug: Mapped[str | None] = mapped_column(String(length=400))
     summary: Mapped[str | None] = mapped_column(Text)
     igdb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
@@ -492,6 +512,17 @@ Rom.top_level_file_count = column_property(
     .scalar_subquery(),
     deferred=True,
 )
+
+
+@event.listens_for(Rom, "before_insert")
+@event.listens_for(Rom, "before_update")
+def _populate_rom_name_sort_key(mapper, connection, target: Rom) -> None:
+    """Keep `name_sort_key` in sync for ORM inserts/updates.
+
+    Bulk `update()` statements bypass ORM events, so they have to
+    set it explicitly.
+    """
+    target.name_sort_key = compute_name_sort_key(target.name)
 
 
 class RomUserStatus(enum.StrEnum):

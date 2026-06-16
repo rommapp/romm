@@ -130,12 +130,17 @@ function updateSelectedRom(rom: SimpleRom) {
 type SortBy = { key: keyof SimpleRom; order: "asc" | "desc" }[];
 
 function updateOptions({ sortBy }: { sortBy: SortBy }) {
-  if (!sortBy[0]) return;
-  const { key, order } = sortBy[0];
-
   romsStore.resetPagination();
-  romsStore.setOrderBy(key);
-  romsStore.setOrderDir(order);
+  if (sortBy[0]) {
+    const { key, order } = sortBy[0];
+    romsStore.setOrderBy(key);
+    romsStore.setOrderDir(order);
+  } else {
+    // Clear the `orderBy` key when the user removes
+    // the sort column from the table
+    romsStore.setOrderBy(null);
+    romsStore.setOrderDir("asc");
+  }
   romsStore.fetchRoms();
 }
 </script>

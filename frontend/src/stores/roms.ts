@@ -25,7 +25,7 @@ export type SimpleRom = SimpleRomSchema;
 export type SearchRom = SearchRomSchema;
 export type DetailedRom = DetailedRomSchema;
 
-const orderByStorage = useLocalStorage("roms.orderBy", "name");
+const orderByStorage = useLocalStorage<string | null>("roms.orderBy", null);
 const orderDirStorage = useLocalStorage("roms.orderDir", "asc");
 
 const defaultRomsState = {
@@ -48,7 +48,7 @@ const defaultRomsState = {
   characterIndex: {} as Record<string, number>,
   selectedCharacter: null as string | null,
   romIdIndex: [] as number[],
-  orderBy: orderByStorage.value as keyof SimpleRom,
+  orderBy: orderByStorage.value as keyof SimpleRom | null,
   orderDir: orderDirStorage.value as "asc" | "desc",
 };
 
@@ -335,7 +335,7 @@ export default defineStore("roms", {
       this.selectedIDs = new Set<number>();
       this.lastSelectedIndex = -1;
     },
-    setOrderBy(orderBy: keyof SimpleRom) {
+    setOrderBy(orderBy: keyof SimpleRom | null) {
       this.orderBy = orderBy;
       orderByStorage.value = orderBy;
     },

@@ -756,6 +756,9 @@ async def scan_platforms(
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
 
+        # The library changed; drop cached filter values.
+        db_rom_handler.invalidate_filter_values_cache()
+
         # Export metadata files if enabled in config
         config = cm.get_config()
         platforms_by_slug = {p.fs_slug: p for p in db_platform_handler.get_platforms()}
