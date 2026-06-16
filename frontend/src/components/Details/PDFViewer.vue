@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { useLocalStorage } from "@vueuse/core";
+import { computed, ref } from "vue";
 import VuePdfApp from "vue3-pdf-app";
 import { useTheme, useDisplay } from "vuetify";
 import type { DetailedRom } from "@/stores/roms";
@@ -14,6 +15,21 @@ const pdfPath = computed(() =>
 );
 const { xs } = useDisplay();
 const theme = useTheme();
+const spreadMode = useLocalStorage(`settings.pdfSpreadMode.${props.type}`, 0);
+const pdfApp = ref<any>(null);
+function applySpreadMode() {
+  if (pdfApp.value?.pdfViewer) {
+    pdfApp.value.pdfViewer.spreadMode = spreadMode.value;
+  }
+}
+function onPdfOpen(app: any) {
+  pdfApp.value = app;
+  applySpreadMode();
+}
+function toggleSpread() {
+  spreadMode.value = spreadMode.value === 2 ? 0 : 2;
+  applySpreadMode();
+}
 const pdfViewerConfig = {
   sidebarToggle: "sidebarToggleId",
   pageNumber: "pageNumberId",
@@ -94,6 +110,20 @@ const pdfViewerConfig = {
     >
       <v-icon>mdi-magnify-minus-outline</v-icon>
     </button>
+    <button
+      class="pdfv-toolbar-btn"
+      :class="{ 'ml-8': !xs, 'ml-4': xs }"
+      type="button"
+      @click="toggleSpread"
+    >
+      <v-icon>
+        {{
+          spreadMode === 2
+            ? "mdi-book-open-page-variant-outline"
+            : "mdi-file-document-outline"
+        }}
+      </v-icon>
+    </button>
     <v-spacer />
     <button
       :id="pdfViewerConfig.download"
@@ -109,6 +139,8 @@ const pdfViewerConfig = {
     :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
     style="height: 100dvh"
     :pdf="`${FRONTEND_RESOURCES_PATH}/${pdfPath}`"
+    @open="onPdfOpen"
+    @pages-rendered="onPdfOpen"
   />
 </template>
 
