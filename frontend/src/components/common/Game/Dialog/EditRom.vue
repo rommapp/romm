@@ -26,9 +26,11 @@ const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
 const manualFiles = ref<File[]>([]);
+const guideFiles = ref<File[]>([]);
 const uploadStore = storeUpload();
 const validForm = ref(false);
 const showConfirmDeleteManual = ref(false);
+const showConfirmDeleteGuide = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 
 emitter?.on("showEditRomDialog", (romToEdit: SimpleRom) => {
@@ -201,6 +203,86 @@ async function removeManual() {
   }
 }
 
+async function uploadGuides() {
+  if (!rom.value) return;
+
+  await romApi
+    .uploadGuides({
+      romId: rom.value.id,
+      filesToUpload: guideFiles.value,
+    })
+    .then((responses) => {
+      const successfulUploads = responses.filter(
+        (d) => d.status == "fulfilled",
+      );
+      const failedUploads = responses.filter((d) => d.status == "rejected");
+
+      if (failedUploads.length == 0) {
+        uploadStore.reset();
+      }
+
+      if (successfulUploads.length == 0) {
+        return emitter?.emit("snackbarShow", {
+          msg: t("rom.guides-upload-skipped"),
+          icon: "mdi-close-circle",
+          color: "orange",
+          timeout: 5000,
+        });
+      }
+
+      emitter?.emit("snackbarShow", {
+        msg: t("rom.guides-upload-success", {
+          count: successfulUploads.length,
+          failed: failedUploads.length,
+        }),
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 3000,
+      });
+    })
+    .catch(({ response, message }) => {
+      emitter?.emit("snackbarShow", {
+        msg: t("rom.guides-upload-failed", {
+          error: response?.data?.detail || response?.statusText || message,
+        }),
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    });
+  guideFiles.value = [];
+}
+
+function confirmRemoveGuide() {
+  showConfirmDeleteGuide.value = true;
+}
+
+async function removeGuide() {
+  if (!rom.value) return;
+  showConfirmDeleteGuide.value = false;
+
+  try {
+    await romApi.removeGuide({ romId: rom.value.id });
+    rom.value.has_guide = false;
+    rom.value.url_guide = "";
+    rom.value.path_guide = "";
+
+    emitter?.emit("snackbarShow", {
+      msg: t("rom.guide-removed"),
+      icon: "mdi-check-bold",
+      color: "green",
+    });
+  } catch (error: any) {
+    emitter?.emit("snackbarShow", {
+      msg: t("rom.guide-remove-failed", {
+        error: error.response?.data?.detail || error.message,
+      }),
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+  }
+}
+
 async function unmatchRom() {
   if (!rom.value) return;
   await handleRomUpdate(
@@ -344,50 +426,96 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
             />
 
             <div class="d-flex justify-space-between">
-              <v-chip
-                :variant="rom.has_manual ? 'flat' : 'tonal'"
-                label
-                class="bg-toplayer px-0"
-              >
-                <span
-                  class="ml-4 flex items-center"
-                  :class="{
-                    'text-romm-red': !rom.has_manual,
-                    'text-romm-green': rom.has_manual,
-                  }"
+              <div class="d-flex ga-2">
+                <v-chip
+                  :variant="rom.has_manual ? 'flat' : 'tonal'"
+                  label
+                  class="bg-toplayer px-0"
                 >
-                  {{ t("rom.manual") }}
-                  <v-icon class="ml-1">
-                    {{ rom.has_manual ? "mdi-check" : "mdi-close" }}
-                  </v-icon>
-                </span>
-                <v-btn
-                  class="bg-toplayer ml-3"
-                  icon="mdi-cloud-upload-outline"
-                  rounded="0"
-                  size="small"
-                  @click="triggerFileInput('manual-file-input')"
-                >
-                  <v-icon size="large"> mdi-cloud-upload-outline </v-icon>
-                  <v-file-input
-                    id="manual-file-input"
-                    v-model="manualFiles"
-                    accept="application/pdf"
-                    hide-details
-                    multiple
-                    class="file-input"
-                    @change="uploadManuals"
+                  <span
+                    class="ml-4 flex items-center"
+                    :class="{
+                      'text-romm-red': !rom.has_manual,
+                      'text-romm-green': rom.has_manual,
+                    }"
+                  >
+                    {{ t("rom.manual") }}
+                    <v-icon class="ml-1">
+                      {{ rom.has_manual ? "mdi-check" : "mdi-close" }}
+                    </v-icon>
+                  </span>
+                  <v-btn
+                    class="bg-toplayer ml-3"
+                    icon="mdi-cloud-upload-outline"
+                    rounded="0"
+                    size="small"
+                    @click="triggerFileInput('manual-file-input')"
+                  >
+                    <v-icon size="large"> mdi-cloud-upload-outline </v-icon>
+                    <v-file-input
+                      id="manual-file-input"
+                      v-model="manualFiles"
+                      accept="application/pdf"
+                      hide-details
+                      multiple
+                      class="file-input"
+                      @change="uploadManuals"
+                    />
+                  </v-btn>
+                  <v-btn
+                    v-if="rom.has_manual"
+                    size="small"
+                    class="bg-toplayer text-romm-red"
+                    icon="mdi-delete"
+                    rounded="0"
+                    @click="confirmRemoveManual"
                   />
-                </v-btn>
-                <v-btn
-                  v-if="rom.has_manual"
-                  size="small"
-                  class="bg-toplayer text-romm-red"
-                  icon="mdi-delete"
-                  rounded="0"
-                  @click="confirmRemoveManual"
-                />
-              </v-chip>
+                </v-chip>
+                <v-chip
+                  :variant="rom.has_guide ? 'flat' : 'tonal'"
+                  label
+                  class="bg-toplayer px-0"
+                >
+                  <span
+                    class="ml-4 flex items-center"
+                    :class="{
+                      'text-romm-red': !rom.has_guide,
+                      'text-romm-green': rom.has_guide,
+                    }"
+                  >
+                    {{ t("rom.guide") }}
+                    <v-icon class="ml-1">
+                      {{ rom.has_guide ? "mdi-check" : "mdi-close" }}
+                    </v-icon>
+                  </span>
+                  <v-btn
+                    class="bg-toplayer ml-3"
+                    icon="mdi-cloud-upload-outline"
+                    rounded="0"
+                    size="small"
+                    @click="triggerFileInput('guide-file-input')"
+                  >
+                    <v-icon size="large"> mdi-cloud-upload-outline </v-icon>
+                    <v-file-input
+                      id="guide-file-input"
+                      v-model="guideFiles"
+                      accept="application/pdf"
+                      hide-details
+                      multiple
+                      class="file-input"
+                      @change="uploadGuides"
+                    />
+                  </v-btn>
+                  <v-btn
+                    v-if="rom.has_guide"
+                    size="small"
+                    class="bg-toplayer text-romm-red"
+                    icon="mdi-delete"
+                    rounded="0"
+                    @click="confirmRemoveGuide"
+                  />
+                </v-chip>
+              </div>
               <v-btn
                 :disabled="rom.is_unidentified"
                 class="ml-2"
@@ -406,6 +534,14 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                   mdi-folder-file-outline
                 </v-icon>
                 <span> /romm/resources/{{ rom.path_manual }} </span>
+              </v-label>
+            </div>
+            <div v-if="rom.has_guide">
+              <v-label class="text-caption text-wrap">
+                <v-icon size="small" class="text-primary mr-2">
+                  mdi-folder-file-outline
+                </v-icon>
+                <span> /romm/resources/{{ rom.path_guide }} </span>
               </v-label>
             </div>
           </v-col>
@@ -468,6 +604,35 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           </v-btn>
           <v-btn class="text-romm-red bg-toplayer" @click="removeManual">
             {{ t("rom.delete-manual-button") }}
+          </v-btn>
+        </v-btn-group>
+      </v-row>
+    </template>
+  </RDialog>
+
+  <RDialog
+    v-model="showConfirmDeleteGuide"
+    icon="mdi-alert-circle"
+    :width="lgAndUp ? '400px' : '90vw'"
+  >
+    <template #content>
+      <div class="pa-4">
+        <p class="text-body-1 mb-4">
+          {{ t("rom.delete-guide-confirm-title") }}
+        </p>
+        <p class="text-body-2 text-medium-emphasis">
+          {{ t("rom.delete-guide-confirm-body") }}
+        </p>
+      </div>
+    </template>
+    <template #footer>
+      <v-row class="justify-center my-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-toplayer" @click="showConfirmDeleteGuide = false">
+            {{ t("common.cancel") }}
+          </v-btn>
+          <v-btn class="text-romm-red bg-toplayer" @click="removeGuide">
+            {{ t("rom.delete-guide-button") }}
           </v-btn>
         </v-btn-group>
       </v-row>

@@ -36,6 +36,7 @@ const router = useRouter();
 const validTabs = [
   "details",
   "manual",
+  "guide",
   "gamedata",
   "personal",
   "timetobeat",
@@ -48,6 +49,7 @@ const validTabs = [
 const tab = ref<
   | "details"
   | "manual"
+  | "guide"
   | "gamedata"
   | "personal"
   | "timetobeat"
@@ -59,6 +61,7 @@ const tab = ref<
     ? (route.query.tab as
         | "details"
         | "manual"
+        | "guide"
         | "gamedata"
         | "personal"
         | "timetobeat"
@@ -200,6 +203,9 @@ watch(
             <v-tab v-if="currentRom.has_manual" value="manual">
               {{ t("rom.manual") }}
             </v-tab>
+            <v-tab v-if="currentRom.has_guide" value="guide">
+              {{ t("rom.guide") }}
+            </v-tab>
             <v-tab value="gamedata">{{ t("rom.save-data") }}</v-tab>
             <v-tab value="personal">
               {{ t("rom.personal") }}
@@ -241,6 +247,13 @@ watch(
               </v-window-item>
               <v-window-item value="manual">
                 <PdfViewer v-if="currentRom.has_manual" :rom="currentRom" />
+              </v-window-item>
+              <v-window-item value="guide">
+                <PdfViewer
+                  v-if="currentRom.has_guide"
+                  :rom="currentRom"
+                  type="guide"
+                />
               </v-window-item>
               <v-window-item value="gamedata">
                 <GameData :rom="currentRom" />

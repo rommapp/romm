@@ -492,6 +492,106 @@ class FSResourcesHandler(FSHandler):
     async def remove_manual(self, rom: Rom):
         await self.remove_directory(f"{rom.fs_resources_path}/manual")
 
+    # Guides
+    def guide_exists(self, rom: Rom) -> bool:
+        """Check if rom guide exists in filesystem
+
+        Args:
+            rom: Rom object
+        Returns
+            True if guide exists in filesystem else False
+        """
+        full_path = self.validate_path(f"{rom.fs_resources_path}/guide")
+        for _ in full_path.glob(f"{rom.id}.pdf"):
+            return True
+        return False
+
+    async def _store_guide(self, rom: Rom, url_guide: str):
+        guide_path = f"{rom.fs_resources_path}/guide"
+        await self.make_directory(guide_path)
+
+        # Handle local-file URIs from metadata handlers (gamelist, LaunchBox)
+        if url_guide.startswith(LOCAL_FILE_SCHEMES):
+            try:
+                resolved = _resolve_local_file_uri(url_guide)
+                if resolved is None or not await AnyioPath(resolved).exists():
+                    log.warning(f"Guide file not found: {url_guide}")
+                    return None
+                await self.copy_file(
+                    resolved, f"{guide_path}/{rom.id}.pdf", allow_link=True
+                )
+            except Exception as exc:
+                log.error(f"Unable to copy guide file {url_guide}: {str(exc)}")
+                return None
+        else:
+            # Handle HTTP URL
+            httpx_client = ctx_httpx_client.get()
+            try:
+                async with httpx_client.stream(
+                    "GET", url_guide, timeout=120
+                ) as response:
+                    if response.status_code == status.HTTP_200_OK:
+                        if not _check_content_type(
+                            response,
+                            (
+                                "application/pdf",
+                                "application/force-download",
+                                "application/octet-stream",
+                            ),
+                            "guide",
+                        ):
+                            return None
+
+                        # Check if content is gzipped from response headers
+                        is_gzipped = (
+                            response.headers.get("content-encoding", "").lower()
+                            == "gzip"
+                        )
+
+                        async with await self.write_file_streamed(
+                            path=guide_path, filename=f"{rom.id}.pdf"
+                        ) as f:
+                            if is_gzipped:
+                                # Decompress gzipped content
+                                content = await response.aread()
+                                try:
+                                    decompressed_content = gzip.decompress(content)
+                                    await f.write(decompressed_content)
+                                except gzip.BadGzipFile:
+                                    await f.write(content)
+                            else:
+                                # Content is not gzipped, stream directly
+                                async for chunk in response.aiter_raw():
+                                    await f.write(chunk)
+            except httpx.TransportError as exc:
+                log.error(f"Unable to fetch guide at {url_guide}: {str(exc)}")
+                return None
+
+    def _get_guide_path(self, rom: Rom) -> str | None:
+        """Returns rom guide filesystem path adapted to frontend folder structure
+
+        Args:
+            rom: Rom object
+        """
+        full_path = self.validate_path(f"{rom.fs_resources_path}/guide")
+        for matched_file in full_path.glob(f"{rom.id}.pdf"):
+            return str(matched_file.relative_to(self.base_path))
+
+        return None
+
+    async def get_guide(
+        self, rom: Rom, overwrite: bool, url_guide: str | None
+    ) -> str | None:
+        if not url_guide or (not overwrite and self.guide_exists(rom)):
+            return rom.path_guide or None
+
+        # Download and store new guide
+        await self._store_guide(rom, url_guide)
+        return self._get_guide_path(rom)
+
+    async def remove_guide(self, rom: Rom):
+        await self.remove_directory(f"{rom.fs_resources_path}/guide")
+
     # Retroachievements
     async def store_ra_badge(self, url: str, path: str) -> None:
         httpx_client = ctx_httpx_client.get()

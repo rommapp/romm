@@ -272,6 +272,10 @@ class RomSchema(BaseModel):
     path_manual: str | None
     url_manual: str | None
 
+    has_guide: bool
+    path_guide: str | None
+    url_guide: str | None
+
     path_video: str | None
 
     is_identifying: bool = False

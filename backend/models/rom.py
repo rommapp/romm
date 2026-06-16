@@ -247,6 +247,9 @@ class Rom(BaseModel):
         Text, default="", doc="URL to manual stored in ScreenScraper"
     )
 
+    path_guide: Mapped[str | None] = mapped_column(Text, default="")
+    url_guide: Mapped[str | None] = mapped_column(Text, default="")
+
     path_screenshots: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     url_screenshots: Mapped[list[str] | None] = mapped_column(
         CustomJSON(), default=[], doc="URLs to screenshots stored in IGDB"
@@ -322,6 +325,10 @@ class Rom(BaseModel):
     @cached_property
     def has_manual(self) -> bool:
         return bool(self.path_manual)
+
+    @cached_property
+    def has_guide(self) -> bool:
+        return bool(self.path_guide)
 
     @cached_property
     def merged_screenshots(self) -> list[str]:
