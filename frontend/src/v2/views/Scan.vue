@@ -134,7 +134,9 @@ interface HashMatcher {
 
 const hashMatchers = computed<HashMatcher[]>(() => {
   const sources = heartbeat.value.METADATA_SOURCES;
-  const igdbSelected = metadataSources.value.some((s) => s.value === "igdb");
+  const igdbSelected = effectiveMetadataSources.value.some(
+    (s) => s.value === "igdb",
+  );
   const noHashes = !calculateHashes.value;
 
   const hasheousAdmin = Boolean(sources?.HASHEOUS_API_ENABLED);
@@ -195,7 +197,7 @@ const metadataSources = ref<MetadataOption[]>(
 );
 
 const isLaunchboxSelected = computed(() =>
-  metadataSources.value.some((s) => s.value === "launchbox"),
+  effectiveMetadataSources.value.some((s) => s.value === "launchbox"),
 );
 
 watch(metadataOptions, (newOptions) => {
@@ -240,6 +242,40 @@ const generalProviders = computed<MetadataOption[]>(() =>
 const specificProviders = computed<MetadataOption[]>(() =>
   metadataOptions.value.filter((o) => SPECIFIC_PROVIDER_KEYS.has(o.value)),
 );
+
+// Each group's RSelect uses empty-model-as-"All", but the scan backend
+// reads an empty `apis` list as "no sources", not "all". So when a group
+// is in All-mode we materialise its full enabled provider list — both to
+// drive the UI gates (IGDB present? any source picked?) and to build the
+// `apis` payload the backend actually understands.
+const enabledGeneralProviders = computed(() =>
+  generalProviders.value.filter((o) => !o.disabled),
+);
+const enabledSpecificProviders = computed(() =>
+  specificProviders.value.filter((o) => !o.disabled),
+);
+
+function hasGroupSelection(keys: Set<string>): boolean {
+  return metadataSources.value.some((s) => keys.has(s.value));
+}
+
+// All-mode mirrors of each RSelect. Initialised the same way the
+// primitive does (no own selection ⇒ All) and kept in sync afterwards
+// via each select's `@update:all-selected`.
+const generalAllSelected = ref(!hasGroupSelection(GENERAL_PROVIDER_KEYS));
+const specificAllSelected = ref(!hasGroupSelection(SPECIFIC_PROVIDER_KEYS));
+
+// Concrete providers the scan will actually use: each group contributes
+// its explicit selection, or every enabled provider when in All-mode.
+const effectiveMetadataSources = computed<MetadataOption[]>(() => {
+  const general = generalAllSelected.value
+    ? enabledGeneralProviders.value
+    : metadataSources.value.filter((s) => GENERAL_PROVIDER_KEYS.has(s.value));
+  const specific = specificAllSelected.value
+    ? enabledSpecificProviders.value
+    : metadataSources.value.filter((s) => SPECIFIC_PROVIDER_KEYS.has(s.value));
+  return [...general, ...specific];
+});
 
 // Auto-expand a platform's panel the moment it starts reporting roms
 // or firmware. We track by `id:hasContent` so the watch fires only on
@@ -319,7 +355,7 @@ const scanType = ref<ScanType>("quick");
 // The start button is disabled while a scan runs OR when there's no
 // metadata source picked (the scan wouldn't do anything useful).
 const canStartScan = computed(
-  () => !scanning.value && metadataSources.value.length > 0,
+  () => !scanning.value && effectiveMetadataSources.value.length > 0,
 );
 
 // Live status header — pulled in from the (now retired) floating
@@ -396,11 +432,13 @@ function scan() {
 
   storedMetadataSources.value = metadataSources.value.map((s) => s.value);
 
-  // Build the apis payload: main catalogs + hasheous (when its switch
-  // is on and the backend accepts it as a MetadataSource enum value).
+  // Build the apis payload from the effective sources (All-mode groups
+  // expanded to their full provider list — the backend treats an empty
+  // list as "no sources", not "all") plus hasheous (when its switch is
+  // on and the backend accepts it as a MetadataSource enum value).
   // Playmatch has no enum entry — it's gated server-side via the
   // separate `playmatch_enabled` flag below.
-  const apis = metadataSources.value.map((s) => s.value);
+  const apis = effectiveMetadataSources.value.map((s) => s.value);
   const hasheousMatcher = hashMatchers.value.find(
     (m) => m.value === "hasheous",
   );
@@ -508,6 +546,7 @@ function stopScan() {
                 chips
                 chip-tone="plain"
                 show-all-option
+                @update:all-selected="generalAllSelected = $event"
               >
                 <template #chip="{ item }">
                   <RTooltip :text="item.raw.name" location="bottom">
@@ -602,6 +641,7 @@ function stopScan() {
                 chips
                 chip-tone="plain"
                 show-all-option
+                @update:all-selected="specificAllSelected = $event"
               >
                 <template #chip="{ item }">
                   <RTooltip :text="item.raw.name" location="bottom">
@@ -727,7 +767,7 @@ function stopScan() {
       <footer class="r-v2-scan-card__section r-v2-scan-card__cta">
         <div class="r-v2-scan-card__hints">
           <RAlert
-            v-if="metadataSources.length === 0"
+            v-if="effectiveMetadataSources.length === 0"
             type="warning"
             density="compact"
             :icon="false"
