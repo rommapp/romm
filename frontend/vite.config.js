@@ -72,11 +72,6 @@ export default defineConfig(({ mode }) => {
   return {
     optimizeDeps: {
       include: VUETIFY_COMPONENTS,
-      // Vite 8's Rolldown dep optimizer emits a broken vue-i18n bundle
-      // (references `init_runtime_dom_esm_bundler` without defining it).
-      // Skip pre-bundling vue-i18n: it is shipped as ESM and its `vue`
-      // import resolves to the already-optimized `vue` chunk.
-      exclude: ["vue-i18n"],
     },
     build: {
       target: "esnext",
