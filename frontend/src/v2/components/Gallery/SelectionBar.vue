@@ -56,6 +56,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
   ENUM_KEYS,
+  FLAG_KEYS,
   PLAY_FLAG_KEYS,
   STATUS_ICONS,
   type StatusFlagKey,
@@ -127,13 +128,43 @@ async function bulkFavorite() {
   }
 }
 
-// Bulk status — applies one play-status change to every selected ROM.
-// Unlike the per-ROM menu (GameActionBtn) these are *set* operations,
-// not toggles: a heterogeneous selection has no single "current" state
-// to flip, so the menu items read as "mark all as X". The per-rom
-// `updateUserRomProps` is the only endpoint (no bulk variant), so we
-// fan out one request per ROM, optimistically write the store, and
-// revert only the ROMs whose request failed.
+// Bulk status — toggles one play-status across the whole selection,
+// mirroring the favourite button's all-or-nothing model: a status reads
+// as "active" only when *every* selected ROM already has it. Clicking an
+// active status clears it on all; clicking an inactive one (at least one
+// ROM is missing it) sets it on all. The per-rom `updateUserRomProps` is
+// the only endpoint (no bulk variant), so we fan out one request per ROM,
+// optimistically write the store, and revert only the ROMs whose request
+// failed.
+//
+// `enumAllActive` / `flagAllActive` mirror `allFavorited`: keyed by
+// status so each menu row can paint its active state and decide its
+// toggle direction.
+const enumAllActive = computed<Record<RomUserStatus, boolean>>(() => {
+  const roms = selection.roms;
+  const out = {} as Record<RomUserStatus, boolean>;
+  for (const key of ENUM_KEYS) {
+    out[key] = roms.length > 0 && roms.every((r) => r.rom_user?.status === key);
+  }
+  return out;
+});
+const flagAllActive = computed<Record<StatusFlagKey, boolean>>(() => {
+  const roms = selection.roms;
+  const out = {} as Record<StatusFlagKey, boolean>;
+  for (const key of FLAG_KEYS) {
+    out[key] = roms.length > 0 && roms.every((r) => Boolean(r.rom_user?.[key]));
+  }
+  return out;
+});
+const hasAnyStatus = computed(() => {
+  const roms = selection.roms;
+  return roms.some(
+    (r) =>
+      Boolean(r.rom_user?.status) ||
+      FLAG_KEYS.some((key) => Boolean(r.rom_user?.[key])),
+  );
+});
+
 async function applyStatus(data: Partial<RomUserData>) {
   const roms = selection.roms;
   if (roms.length === 0) return;
@@ -170,12 +201,12 @@ async function applyStatus(data: Partial<RomUserData>) {
   }
 }
 
-function setEnumStatus(status: RomUserStatus) {
-  void applyStatus({ status });
+function toggleEnumStatus(key: RomUserStatus) {
+  void applyStatus({ status: enumAllActive.value[key] ? null : key });
 }
 
-function setFlagStatus(key: StatusFlagKey) {
-  void applyStatus({ [key]: true });
+function toggleFlagStatus(key: StatusFlagKey) {
+  void applyStatus({ [key]: !flagAllActive.value[key] });
 }
 
 function clearStatus() {
@@ -290,13 +321,20 @@ function clear() {
         </template>
       </RTooltip>
 
-      <!-- Set status — opens a picker that applies one play-status to
-           every selected ROM. Mirrors the per-ROM status menu
-           (GameActionBtn) but with set (not toggle) semantics: the menu
-           rows are "mark all as X", since a mixed selection has no
-           single state to flip. Opens upward (location="top") to clear
-           the bottom-anchored bar. -->
-      <RMenu location="top" :offset="8" width="240px">
+      <!-- Set status — opens a picker that toggles one play-status across
+           the whole selection. Mirrors the per-ROM status menu
+           (GameActionBtn) and the favourite button's all-or-nothing
+           model: a row reads active only when every selected ROM already
+           has it; clicking flips it on (if any is missing it) or off (if
+           all have it). Stays open on click so the active marks update
+           live. Opens upward (location="top") to clear the bottom-
+           anchored bar. -->
+      <RMenu
+        location="top"
+        :offset="8"
+        width="240px"
+        :close-on-content-click="false"
+      >
         <template #activator="{ props: activatorProps }">
           <RBtn
             v-bind="activatorProps"
@@ -306,26 +344,35 @@ function clear() {
             :aria-label="t('gallery.selection-status')"
           />
         </template>
-        <!-- Enum statuses — single play-status per ROM. -->
+        <!-- Enum statuses — single play-status per ROM. Active row tints
+             brand when all selected share it. -->
         <RMenuItem
           v-for="key in ENUM_KEYS"
           :key="key"
           :icon="STATUS_ICONS[key]"
-          @click="setEnumStatus(key)"
+          :variant="enumAllActive[key] ? 'active' : 'default'"
+          @click="toggleEnumStatus(key)"
         >
           {{ t(romStatusMap[key].i18nKey) }}
         </RMenuItem>
 
         <RDivider />
 
-        <!-- Play-status flags. -->
+        <!-- Play-status flags — independent toggles. Active rows tint
+             brand and show a trailing check when every selected ROM has
+             the flag set. -->
         <RMenuItem
           v-for="key in PLAY_FLAG_KEYS"
           :key="key"
           :icon="STATUS_ICONS[key]"
-          @click="setFlagStatus(key)"
+          :text-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          :icon-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          @click="toggleFlagStatus(key)"
         >
           {{ t(romStatusMap[key].i18nKey) }}
+          <template v-if="flagAllActive[key]" #append>
+            <RIcon icon="mdi-check" size="x-small" color="primary" />
+          </template>
         </RMenuItem>
 
         <RDivider />
@@ -336,20 +383,26 @@ function clear() {
           v-for="key in VISIBILITY_FLAG_KEYS"
           :key="key"
           :icon="STATUS_ICONS[key]"
-          @click="setFlagStatus(key)"
+          :text-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          :icon-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          @click="toggleFlagStatus(key)"
         >
           {{ t(romStatusMap[key].i18nKey) }}
+          <template v-if="flagAllActive[key]" #append>
+            <RIcon icon="mdi-check" size="x-small" color="primary" />
+          </template>
         </RMenuItem>
 
-        <RDivider />
-
-        <RMenuItem
-          icon="mdi-close-circle-outline"
-          variant="danger"
-          @click="clearStatus"
-        >
-          {{ t("rom.clear-all") }}
-        </RMenuItem>
+        <template v-if="hasAnyStatus">
+          <RDivider />
+          <RMenuItem
+            icon="mdi-close-circle-outline"
+            variant="danger"
+            @click="clearStatus"
+          >
+            {{ t("rom.clear-all") }}
+          </RMenuItem>
+        </template>
       </RMenu>
 
       <RTooltip :text="t('gallery.selection-collections')">

@@ -400,7 +400,7 @@ function onClick(e: MouseEvent) {
     >
       {{ t(romStatusMap[key].i18nKey) }}
       <template v-if="isFlagActive(key)" #append>
-        <i class="mdi mdi-check r-v2-status-menu__check" aria-hidden="true" />
+        <RIcon icon="mdi-check" size="x-small" color="primary" />
       </template>
     </RMenuItem>
 
@@ -418,7 +418,7 @@ function onClick(e: MouseEvent) {
     >
       {{ t(romStatusMap[key].i18nKey) }}
       <template v-if="isFlagActive(key)" #append>
-        <i class="mdi mdi-check r-v2-status-menu__check" aria-hidden="true" />
+        <RIcon icon="mdi-check" size="x-small" color="primary" />
       </template>
     </RMenuItem>
 
@@ -687,12 +687,5 @@ function onClick(e: MouseEvent) {
 }
 .r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--x-large {
   padding: 14px 4px;
-}
-
-/* Trailing check on the flag rows of the status menu — signals the
-   boolean is on. Brand color so it pops against the neutral row. */
-.r-v2-status-menu__check {
-  font-size: 12px;
-  color: var(--r-color-brand-primary);
 }
 </style>
