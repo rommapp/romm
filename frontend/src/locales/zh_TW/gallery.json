@@ -25,5 +25,9 @@
   "view-grouped": "依字母分組",
   "view-list": "清單",
   "jump-to-letter": "跳至字母",
-  "jump-to": "跳至 {letter}"
+  "jump-to": "跳至 {letter}",
+  "selection-status": "設定狀態",
+  "selection-status-success": "已更新 {n} 個遊戲的狀態",
+  "selection-status-partial": "已更新 {total} 個遊戲中的 {n} 個",
+  "selection-status-fail": "更新狀態失敗"
 }

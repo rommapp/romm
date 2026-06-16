@@ -25,5 +25,9 @@
   "view-grouped": "Grupare după literă",
   "view-list": "Listă",
   "jump-to-letter": "Sari la literă",
-  "jump-to": "Sari la {letter}"
+  "jump-to": "Sari la {letter}",
+  "selection-status": "Setează starea",
+  "selection-status-success": "Stare actualizată pentru {n} jocuri",
+  "selection-status-partial": "Actualizate {n} din {total} jocuri",
+  "selection-status-fail": "Actualizarea stării a eșuat"
 }

@@ -10,8 +10,11 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import type { SimpleRom } from "@/stores/roms";
-import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import {
+  getMissingCoverImage,
+  getUnmatchedCoverImage,
+} from "@/v2/utils/covers";
 import { activeProviders } from "@/v2/utils/metadataProviders";
 
 defineOptions({ inheritAttrs: false });

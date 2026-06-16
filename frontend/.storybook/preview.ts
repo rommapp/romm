@@ -2,6 +2,7 @@ import "@mdi/font/css/materialdesignicons.css";
 import { withThemeByClassName } from "@storybook/addon-themes";
 import { setup, type Preview } from "@storybook/vue3-vite";
 import { createPinia } from "pinia";
+import { createMemoryHistory, createRouter } from "vue-router";
 import { createVuetify } from "vuetify";
 import "vuetify/styles";
 import i18n from "../src/locales";
@@ -24,6 +25,15 @@ import "../src/v2/styles/global.css";
 setup((app) => {
   app.use(createPinia());
   app.use(i18n);
+  // A catch-all router so primitives that render real `<router-link>`s
+  // (RBtn / RListItem / RMenuItem with `to`) resolve a proper `href`
+  // instead of crashing on `router.resolve`. Any string path resolves.
+  app.use(
+    createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: "/:pathMatch(.*)*", component: { render: () => null } }],
+    }),
+  );
   app.use(
     createVuetify({
       theme: {

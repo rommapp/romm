@@ -16,6 +16,8 @@
 // also forces the icon to full opacity (the implied semantic is "this row
 // is visually emphasized").
 import { computed } from "vue";
+import { RouterLink } from "vue-router";
+import { opensInNewContext } from "@/v2/utils/mouseGestures";
 
 defineOptions({ inheritAttrs: false });
 
@@ -49,15 +51,54 @@ const props = withDefaults(defineProps<Props>(), {
   iconColor: undefined,
 });
 
-defineEmits<{
+const emit = defineEmits<{
   (e: "click", event: MouseEvent): void;
 }>();
 
-const tag = computed(() => {
-  if (props.to) return "router-link";
-  if (props.href) return "a";
+// Use the imported RouterLink component (like RListItem), not the string
+// `"router-link"`: see dynamicAttrs for why the attr surface has to be
+// element-specific.
+const elementType = computed(() => {
+  if (props.to !== undefined && props.to !== null) return RouterLink;
+  if (props.href !== undefined && props.href !== null) return "a";
   return "button";
 });
+
+// Per-element attrs. CRITICAL: never spread `href` onto RouterLink — a
+// fallthrough `href` attribute (even `undefined`) clobbers the href
+// RouterLink computes from `to`, leaving an <a> with NO href. Such an
+// anchor isn't a real link: the browser offers no "open in new tab"
+// context menu and Ctrl/⌘-click silently no-ops. Each branch therefore
+// lists only the attributes that element actually takes.
+const dynamicAttrs = computed<Record<string, unknown>>(() => {
+  if (props.to !== undefined && props.to !== null) {
+    return {
+      to: props.to,
+      role: "menuitem",
+      "aria-disabled": props.disabled ? "true" : undefined,
+    };
+  }
+  if (props.href !== undefined && props.href !== null) {
+    return {
+      href: props.disabled ? undefined : props.href,
+      role: "menuitem",
+      "aria-disabled": props.disabled ? "true" : undefined,
+    };
+  }
+  return { type: "button", disabled: props.disabled };
+});
+
+// When the item is a link (`to`/`href`) opened with a new-tab / new-window
+// gesture (Ctrl/⌘/Shift/Alt-click), let the browser handle it natively and
+// suppress the `click` emit — otherwise a consumer's "close the menu"
+// handler tears the <a> out of the DOM (RMenu teleports its panel) before
+// the new tab opens, swallowing the gesture. RouterLink already declines
+// to navigate in-app for these, so the default <a> action does the work.
+function onClick(event: MouseEvent) {
+  if (props.disabled) return;
+  if ((props.to || props.href) && opensInNewContext(event)) return;
+  emit("click", event);
+}
 
 const styleVars = computed(() => {
   const out: Record<string, string> = {};
@@ -76,13 +117,8 @@ const styleVars = computed(() => {
 
 <template>
   <component
-    :is="tag"
-    v-bind="$attrs"
-    :to="to"
-    :href="href"
-    :type="tag === 'button' ? 'button' : undefined"
-    :role="tag === 'button' ? undefined : 'menuitem'"
-    :disabled="disabled"
+    :is="elementType"
+    v-bind="{ ...$attrs, ...dynamicAttrs }"
     class="r-menu-item"
     :class="{
       'r-menu-item--active': variant === 'active',
@@ -90,7 +126,7 @@ const styleVars = computed(() => {
       'r-menu-item--disabled': disabled,
     }"
     :style="styleVars"
-    @click="(e: MouseEvent) => !disabled && $emit('click', e)"
+    @click="onClick"
   >
     <span class="r-menu-item__icon">
       <slot name="icon">
@@ -195,9 +231,11 @@ const styleVars = computed(() => {
   opacity: 1;
 }
 
-/* Disabled */
+/* Disabled — `pointer-events: none` also blocks native navigation on a
+   disabled link item (anchors ignore the `disabled` attribute). */
 .r-menu-item--disabled {
   opacity: 0.45;
   cursor: default;
+  pointer-events: none;
 }
 </style>

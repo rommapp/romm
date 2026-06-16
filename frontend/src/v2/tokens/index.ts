@@ -173,6 +173,19 @@ export const colorCanvas = {
   bgDeep: "#0d1117",
 } as const;
 
+// Procedural cover-art palette — the fixed colours of the generated
+// "no cover" artwork (missing / unmatched placeholders). Baked into an
+// SVG string by `utils/covers`, so they live here as the single home for
+// these literals (zero-hex policy) and never theme-flip — the art is the
+// same purple/peach in dark and light. Consumed via the JS export, not as
+// CSS vars.
+export const colorCoverArt = {
+  base: "#553E98", // backdrop
+  shade: "#371F69", // dark blob
+  warm: "#FF9B85", // peach blob
+  icon: "#F9F9F9", // foreground icon
+} as const;
+
 export const fontFamily = {
   sans: "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif",
   display:

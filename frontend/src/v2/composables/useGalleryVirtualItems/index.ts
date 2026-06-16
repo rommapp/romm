@@ -21,40 +21,51 @@
 // `availableLetters` derives from the server's `charIndex` so every
 // letter that exists in the gallery is clickable, even if its window
 // hasn't been fetched yet.
-import { computed, type ComputedRef, type Ref } from "vue";
+import {
+  computed,
+  toValue,
+  type ComputedRef,
+  type MaybeRefOrGetter,
+  type Ref,
+} from "vue";
 import { LIST_ROW_HEIGHT_PX } from "@/v2/components/Gallery/listColumns";
 import type { GroupByMode, LayoutMode } from "../useGalleryMode";
 import type { GalleryItem } from "./types";
 
 export type { GalleryItem, GalleryItemKind } from "./types";
 
-// Height table per item kind. Drives the virtualiser's exact-offset
-// math, so AlphaStrip jumps land precisely on target rows. Values match
-// the rendered geometry in the gallery views' CSS:
-//   * row / skeleton-row: 213px cover + 7px gap + 16px label + 18px
-//     bottom-padding = 254.
-//   * letter-header: 20px top + 16px text + 12px bottom = 48 (rounded
-//     up to 56 for breathing room).
-//   * load-more / empty: matches the rendered button / centered text.
-//   * list-row / skeleton-list-row: sourced from `LIST_ROW_HEIGHT_PX`
-//     (token-derived) so changing the list-row height in tokens flows
-//     through here without drifting from the rendered CSS.
-const HEIGHT_BY_KIND: Record<GalleryItem["kind"], number> = {
+// Row chrome below the cover art added to the cover box height to get a
+// grid row's total height: 7px gap + 16px label + 18px bottom padding = 41.
+const ROW_CHROME_PX = 41;
+// Reference card-art width the row height is derived from when the caller
+// doesn't pass one (md gallery card). Height = width / ratio + chrome.
+const REFERENCE_COVER_WIDTH_PX = 158;
+// Box-art default — matches v1's `getAspectRatio` for `cover_path`.
+const DEFAULT_COVER_RATIO = 2 / 3;
+
+// Fixed heights for the item kinds that DON'T depend on the boxart
+// aspect ratio. Row / skeleton-row are computed per-style — see
+// `getItemHeight`. Values match the rendered geometry in the gallery
+// views' CSS:
+//   * letter-header: 20px top + 16px text + 12px bottom = 48 (→ 56 for air).
+//   * load-more / empty: rendered button / centered text.
+//   * list-row / skeleton-list-row: token-derived `LIST_ROW_HEIGHT_PX`.
+const FIXED_HEIGHT_BY_KIND: Partial<Record<GalleryItem["kind"], number>> = {
   "letter-header": 56,
-  row: 254,
-  "skeleton-row": 254,
   "list-row": LIST_ROW_HEIGHT_PX,
   "skeleton-list-row": LIST_ROW_HEIGHT_PX,
   "load-more": 80,
   empty: 240,
 };
 
-// Signature matches RVirtualScroller's `getItemHeight` prop (which uses
-// `unknown` for items because the primitive is generic). Internally
-// narrows back to GalleryItem — the caller is always passing items
-// produced by `useGalleryVirtualItems`, so the cast is safe.
-export function galleryItemHeight(item: unknown): number {
-  return HEIGHT_BY_KIND[(item as GalleryItem).kind];
+/** Total height of a grid row for a cover aspect ratio + card width. The
+ *  cover box height is `width / ratio` (matches the card's `aspect-ratio`
+ *  rule); chrome is the label + gaps below it. Exported for unit tests. */
+export function galleryRowHeight(
+  ratio: number = DEFAULT_COVER_RATIO,
+  cardWidth: number = REFERENCE_COVER_WIDTH_PX,
+): number {
+  return Math.round(cardWidth / ratio) + ROW_CHROME_PX;
 }
 
 interface Options {
@@ -78,6 +89,13 @@ interface Options {
   notFoundMessage?: Ref<string> | ComputedRef<string>;
   /** Skeleton row count while loading the first window. */
   skeletonRowCount?: number;
+  /** Active cover aspect ratio (width / height) — drives grid row height
+   *  so AlphaStrip jumps and scroll offsets stay exact when the boxart
+   *  style changes the cover shape. Defaults to box-art 2/3. */
+  coverRatio?: MaybeRefOrGetter<number>;
+  /** Card-art width used to derive the row height (match the value fed to
+   *  `useResponsiveColumns`). Defaults to the md card (158px). */
+  cardWidth?: MaybeRefOrGetter<number>;
 }
 
 const ALPHABET = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ@".split("");
@@ -137,6 +155,27 @@ export function useGalleryVirtualItems(opts: Options) {
   const letterRanges = computed<LetterRange[]>(() =>
     buildLetterRanges(opts.charIndex.value, opts.total.value),
   );
+
+  // Per-style row height — recomputes when the boxart ratio or the
+  // responsive card width changes, so every grid row keeps an exact
+  // offset (the scroller is exact-offset, not measured).
+  const rowHeightPx = computed(() =>
+    galleryRowHeight(
+      opts.coverRatio != null ? toValue(opts.coverRatio) : DEFAULT_COVER_RATIO,
+      opts.cardWidth != null
+        ? toValue(opts.cardWidth)
+        : REFERENCE_COVER_WIDTH_PX,
+    ),
+  );
+
+  // Signature matches RVirtualScroller's `getItemHeight` prop (which uses
+  // `unknown` because the primitive is generic). Row / skeleton-row use
+  // the per-style height; every other kind is fixed.
+  function getItemHeight(item: unknown): number {
+    const { kind } = item as GalleryItem;
+    if (kind === "row" || kind === "skeleton-row") return rowHeightPx.value;
+    return FIXED_HEIGHT_BY_KIND[kind] ?? 0;
+  }
 
   const virtualItems = computed<GalleryItem[]>(() => {
     const items: GalleryItem[] = [];
@@ -329,6 +368,7 @@ export function useGalleryVirtualItems(opts: Options) {
     virtualItems,
     letterToIndex,
     availableLetters,
+    getItemHeight,
     ALPHABET,
   };
 }

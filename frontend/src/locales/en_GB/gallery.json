@@ -25,5 +25,9 @@
   "view-grouped": "Group by letter",
   "view-list": "List",
   "jump-to-letter": "Jump to letter",
-  "jump-to": "Jump to {letter}"
+  "jump-to": "Jump to {letter}",
+  "selection-status": "Set status",
+  "selection-status-success": "Status updated for {n} games",
+  "selection-status-partial": "Updated {n} of {total} games",
+  "selection-status-fail": "Failed to update status"
 }

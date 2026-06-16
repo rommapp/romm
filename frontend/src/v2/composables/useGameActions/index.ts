@@ -159,6 +159,9 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
   function play() {
     const rom = getRom();
     if (!rom) return;
+    // The launch "load" flourish (disc/cartridge insert) lives on the
+    // player view itself — see EmulatorJS's onPlay — so navigation is
+    // immediate here.
     if (canPlayEJS.value) {
       router.push(`/rom/${rom.id}/ejs`);
     } else if (canPlayRuffle.value) {

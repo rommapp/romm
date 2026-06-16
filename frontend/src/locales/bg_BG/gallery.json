@@ -25,5 +25,9 @@
   "view-grouped": "Групирай по буква",
   "view-list": "Списък",
   "jump-to-letter": "Скочи до буква",
-  "jump-to": "Скочи до {letter}"
+  "jump-to": "Скочи до {letter}",
+  "selection-status": "Задаване на статус",
+  "selection-status-success": "Статусът е обновен за {n} игри",
+  "selection-status-partial": "Обновени {n} от {total} игри",
+  "selection-status-fail": "Неуспешно обновяване на статуса"
 }

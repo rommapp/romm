@@ -25,5 +25,9 @@
   "view-grid": "Cuadrícula",
   "view-grouped": "Agrupar por letra",
   "view-list": "Lista",
-  "jump-to": "Saltar a {letter}"
+  "jump-to": "Saltar a {letter}",
+  "selection-status": "Establecer estado",
+  "selection-status-success": "Estado actualizado para {n} juegos",
+  "selection-status-partial": "Actualizados {n} de {total} juegos",
+  "selection-status-fail": "Error al actualizar el estado"
 }

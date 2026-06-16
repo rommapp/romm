@@ -13,14 +13,7 @@
 // The running state mounts the v1 <Player> component (600 lines of EJS
 // wiring — not worth rewriting). The v1 SelectSaveDialog / SelectStateDialog
 // + CacheDialog are mounted in GlobalDialogs so the emitter bridge works.
-import {
-  RBtn,
-  RCard,
-  RCheckbox,
-  RIcon,
-  RSelect,
-  RSliderBtnGroup,
-} from "@v2/lib";
+import { RBtn, RCard, RIcon, RSelect, RSliderBtnGroup, RSwitch } from "@v2/lib";
 import { useEventListener } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -49,7 +42,9 @@ import { getSupportedEJSCores } from "@/utils";
 import AssetList from "@/v2/components/Player/AssetList.vue";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import AssetStrip from "@/v2/components/Player/AssetStrip.vue";
+import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
@@ -111,14 +106,29 @@ const compatibleStates = computed(
 
 const setBgArt = useBackgroundArt();
 
-const coverUrl = computed(() => {
+// The hero cover is the shared GameCover (same component as gallery +
+// details). We keep a lightweight `useCoverArt` here only to know whether
+// the active style is alt-art, so the purple glow can be dropped for a
+// floating disc / cartridge / mix image. The launch flourish is triggered
+// imperatively on the GameCover via `coverRef` — see onPlay.
+const art = useCoverArt(() => rom.value);
+const heroIsAlt = computed(
+  () =>
+    art.style.value !== "cover_path" &&
+    !!(art.coverUrl.value ?? art.fallbackUrl.value),
+);
+const coverRef = ref<InstanceType<typeof GameCover> | null>(null);
+
+// Background art keeps the plain 2D cover — a blurred disc / cartridge
+// reads poorly as a full-bleed backdrop.
+const bgCoverUrl = computed(() => {
   const r = rom.value;
   if (!r) return null;
   return r.path_cover_large ?? r.path_cover_small ?? r.url_cover ?? null;
 });
 
 watch(
-  coverUrl,
+  bgCoverUrl,
   (url) => {
     if (url) setBgArt(url);
   },
@@ -126,6 +136,14 @@ watch(
 );
 
 async function onPlay() {
+  // Launch flourish on the visible cover (disc drop+spin / cartridge
+  // slot-in) before booting, so the insert is seen. Returns 0 for non-
+  // physical styles / reduced motion → no delay.
+  const insertMs = coverRef.value?.playLoad() ?? 0;
+  if (insertMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, insertMs));
+  }
+
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = installIOSFullscreenShim();
 
@@ -451,16 +469,17 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
     <div v-if="!gameRunning" class="r-v2-ejs__config">
       <!-- Hero: cover + title + Play CTA -->
       <RCard class="r-v2-ejs__panel r-v2-ejs__hero" variant="flat">
-        <div class="r-v2-ejs__cover">
-          <img
-            v-if="coverUrl"
-            :src="coverUrl"
-            :alt="title"
-            class="r-v2-ejs__cover-img"
+        <div
+          class="r-v2-ejs__cover"
+          :class="{ 'r-v2-ejs__cover--alt-art': heroIsAlt }"
+        >
+          <GameCover
+            ref="coverRef"
+            class="r-v2-ejs__cover-box"
+            :rom="rom"
+            :title="title"
+            :identified="rom?.is_identified ?? true"
           />
-          <div v-else class="r-v2-ejs__cover-placeholder">
-            {{ title }}
-          </div>
           <div class="r-v2-ejs__cover-glow" aria-hidden="true" />
         </div>
         <div class="r-v2-ejs__title-block">
@@ -592,11 +611,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
               firmwareOptions.map((f) => ({ title: f.file_name, value: f }))
             "
           />
-          <RCheckbox
-            v-model="fullscreenOnPlay"
-            :label="t('play.full-screen')"
-            hide-details
-          />
+          <RSwitch v-model="fullscreenOnPlay" :label="t('play.full-screen')" />
         </div>
         <div class="r-v2-ejs__setup-foot">
           <RBtn
@@ -695,11 +710,22 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   text-align: center;
 }
 
+/* Wrapper: positions the cover + its glow. NOT clipped, so the glow halo
+   can bleed beyond the cover (GameCover clips the launch drop itself). */
 .r-v2-ejs__cover {
   position: relative;
   width: 100%;
   max-width: 220px;
   margin: 0 auto;
+}
+.r-v2-ejs__cover-box {
+  --r-cover-radius: var(--r-radius-md);
+}
+/* 2D cover keeps the framed look (drop shadow + hairline ring). */
+.r-v2-ejs__cover:not(.r-v2-ejs__cover--alt-art) .r-v2-ejs__cover-box {
+  box-shadow:
+    0 18px 36px color-mix(in srgb, black 55%, transparent),
+    0 0 0 1px var(--r-color-border);
 }
 .r-v2-ejs__cover-glow {
   position: absolute;
@@ -713,25 +739,11 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   z-index: -1;
   pointer-events: none;
 }
-.r-v2-ejs__cover-img {
-  width: 100%;
-  border-radius: var(--r-radius-md);
-  box-shadow:
-    0 18px 36px color-mix(in srgb, black 55%, transparent),
-    0 0 0 1px var(--r-color-border);
-  display: block;
-}
-.r-v2-ejs__cover-placeholder {
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  border-radius: var(--r-radius-md);
-  background: var(--r-color-cover-placeholder);
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  color: var(--r-color-fg-faint);
-  font-size: 13px;
-  text-align: center;
+/* Alt-art (disc / cartridge / 3D / mix) floats free — no frame, no glow.
+   The glow stays for the procedural placeholder (no cover), which keeps
+   `heroIsAlt` false. */
+.r-v2-ejs__cover--alt-art .r-v2-ejs__cover-glow {
+  display: none;
 }
 
 .r-v2-ejs__title-block {

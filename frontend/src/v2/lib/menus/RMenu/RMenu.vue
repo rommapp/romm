@@ -44,6 +44,7 @@ import {
   watch,
 } from "vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { opensInNewContext } from "@/v2/utils/mouseGestures";
 import RTextField from "../../forms/RTextField/RTextField.vue";
 import {
   type EscapableEntry,
@@ -328,6 +329,11 @@ function onPanelClick(evt: MouseEvent) {
   const target = evt.target as HTMLElement | null;
   if (!target) return;
   if (target.closest("[data-r-menu-no-close]")) return;
+  // A modifier-click on a link is a browser "open in new tab/window"
+  // gesture (see opensInNewContext). Closing the menu would unmount the
+  // teleported <a> before the browser performs its default action,
+  // swallowing the new tab — so leave the menu open and let it through.
+  if (opensInNewContext(evt) && target.closest("a[href]")) return;
   close();
 }
 

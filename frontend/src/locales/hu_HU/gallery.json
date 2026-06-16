@@ -25,5 +25,9 @@
   "view-grouped": "Csoportosítás betű szerint",
   "view-list": "Lista",
   "jump-to-letter": "Ugrás betűhöz",
-  "jump-to": "Ugrás: {letter}"
+  "jump-to": "Ugrás: {letter}",
+  "selection-status": "Állapot beállítása",
+  "selection-status-success": "{n} játék állapota frissítve",
+  "selection-status-partial": "{n} / {total} játék frissítve",
+  "selection-status-fail": "Az állapot frissítése sikertelen"
 }

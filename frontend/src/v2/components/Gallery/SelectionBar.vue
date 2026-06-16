@@ -31,19 +31,36 @@
 // Permissions: scan and delete are gated by `useCan` so users
 // without `rom.refresh` / `rom.delete` don't see actions they can't
 // run.
-import { RBtn, RIcon, RToolbar, RTooltip, RDivider } from "@v2/lib";
+import {
+  RBtn,
+  RIcon,
+  RMenu,
+  RMenuItem,
+  RToolbar,
+  RTooltip,
+  RDivider,
+} from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject } from "vue";
 import { useI18n } from "vue-i18n";
+import type { RomUserData, RomUserStatus } from "@/__generated__";
 import collectionApi from "@/services/api/collection";
+import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getDownloadPath } from "@/utils";
+import { getDownloadPath, romStatusMap } from "@/utils";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
+import {
+  ENUM_KEYS,
+  PLAY_FLAG_KEYS,
+  STATUS_ICONS,
+  type StatusFlagKey,
+  VISIBILITY_FLAG_KEYS,
+} from "@/v2/utils/romStatus";
 
 defineOptions({ inheritAttrs: false });
 
@@ -108,6 +125,66 @@ async function bulkFavorite() {
   } catch {
     snackbar.error(t("gallery.selection-favorite-fail"));
   }
+}
+
+// Bulk status — applies one play-status change to every selected ROM.
+// Unlike the per-ROM menu (GameActionBtn) these are *set* operations,
+// not toggles: a heterogeneous selection has no single "current" state
+// to flip, so the menu items read as "mark all as X". The per-rom
+// `updateUserRomProps` is the only endpoint (no bulk variant), so we
+// fan out one request per ROM, optimistically write the store, and
+// revert only the ROMs whose request failed.
+async function applyStatus(data: Partial<RomUserData>) {
+  const roms = selection.roms;
+  if (roms.length === 0) return;
+
+  const before = new Map<number, RomUserData>();
+  for (const rom of roms) {
+    if (!rom.rom_user) continue;
+    before.set(rom.id, { ...rom.rom_user });
+    Object.assign(rom.rom_user, data);
+    romsStore.update(rom);
+  }
+
+  const results = await Promise.allSettled(
+    roms.map((rom) => romApi.updateUserRomProps({ romId: rom.id, data })),
+  );
+  const failed = roms.filter((_, i) => results[i].status === "rejected");
+  for (const rom of failed) {
+    const snapshot = before.get(rom.id);
+    if (rom.rom_user && snapshot) {
+      Object.assign(rom.rom_user, snapshot);
+      romsStore.update(rom);
+    }
+  }
+
+  const ok = roms.length - failed.length;
+  if (failed.length === 0) {
+    snackbar.success(t("gallery.selection-status-success", { n: ok }));
+  } else if (ok > 0) {
+    snackbar.warning(
+      t("gallery.selection-status-partial", { n: ok, total: roms.length }),
+    );
+  } else {
+    snackbar.error(t("gallery.selection-status-fail"));
+  }
+}
+
+function setEnumStatus(status: RomUserStatus) {
+  void applyStatus({ status });
+}
+
+function setFlagStatus(key: StatusFlagKey) {
+  void applyStatus({ [key]: true });
+}
+
+function clearStatus() {
+  void applyStatus({
+    now_playing: false,
+    backlogged: false,
+    hidden: false,
+    status: null,
+  });
 }
 
 function manageCollections() {
@@ -212,6 +289,68 @@ function clear() {
           />
         </template>
       </RTooltip>
+
+      <!-- Set status — opens a picker that applies one play-status to
+           every selected ROM. Mirrors the per-ROM status menu
+           (GameActionBtn) but with set (not toggle) semantics: the menu
+           rows are "mark all as X", since a mixed selection has no
+           single state to flip. Opens upward (location="top") to clear
+           the bottom-anchored bar. -->
+      <RMenu location="top" :offset="8" width="240px">
+        <template #activator="{ props: activatorProps }">
+          <RBtn
+            v-bind="activatorProps"
+            icon="mdi-list-status"
+            variant="text"
+            :tooltip="t('gallery.selection-status')"
+            :aria-label="t('gallery.selection-status')"
+          />
+        </template>
+        <!-- Enum statuses — single play-status per ROM. -->
+        <RMenuItem
+          v-for="key in ENUM_KEYS"
+          :key="key"
+          :icon="STATUS_ICONS[key]"
+          @click="setEnumStatus(key)"
+        >
+          {{ t(romStatusMap[key].i18nKey) }}
+        </RMenuItem>
+
+        <RDivider />
+
+        <!-- Play-status flags. -->
+        <RMenuItem
+          v-for="key in PLAY_FLAG_KEYS"
+          :key="key"
+          :icon="STATUS_ICONS[key]"
+          @click="setFlagStatus(key)"
+        >
+          {{ t(romStatusMap[key].i18nKey) }}
+        </RMenuItem>
+
+        <RDivider />
+
+        <!-- Visibility flag — distinct category (library visibility,
+             not play state) so it lives in its own section. -->
+        <RMenuItem
+          v-for="key in VISIBILITY_FLAG_KEYS"
+          :key="key"
+          :icon="STATUS_ICONS[key]"
+          @click="setFlagStatus(key)"
+        >
+          {{ t(romStatusMap[key].i18nKey) }}
+        </RMenuItem>
+
+        <RDivider />
+
+        <RMenuItem
+          icon="mdi-close-circle-outline"
+          variant="danger"
+          @click="clearStatus"
+        >
+          {{ t("rom.clear-all") }}
+        </RMenuItem>
+      </RMenu>
 
       <RTooltip :text="t('gallery.selection-collections')">
         <template #activator="{ props: tipProps }">

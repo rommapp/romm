@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, fn, within } from "storybook/test";
 import RMenuItem from "./RMenuItem.vue";
 
 // Glass-panel mock so the items render against the same surface they'd
@@ -91,4 +92,57 @@ export const WithNavigation: Story = {
       </div>
     `,
   }),
+};
+
+// A new-tab / new-window gesture (Ctrl/⌘/Shift/Alt-click) on a link item
+// must NOT fire the `click` emit — consumers wire that to "close the menu",
+// and closing would unmount the <a> before the browser opens the new tab.
+// A plain click still activates the item normally.
+export const NewTabGesture: Story = {
+  name: "New-tab gesture (Ctrl/⌘-click)",
+  args: {
+    href: "#platforms",
+    icon: "mdi-open-in-new",
+    label: "Open in new tab",
+    onClick: fn(),
+  },
+  render: (args) => ({
+    components: { RMenuItem },
+    setup: () => ({ args, panelStyle: PANEL_STYLE }),
+    template: `
+      <div style="padding:40px">
+        <div :style="panelStyle">
+          <RMenuItem v-bind="args" @click="args.onClick" />
+        </div>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, args, step }) => {
+    const canvas = within(canvasElement);
+    const link = canvas.getByText("Open in new tab").closest("a");
+    if (!link) throw new Error("expected the item to render as an <a>");
+
+    await step("plain click activates the item", async () => {
+      link.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true }),
+      );
+      await expect(args.onClick).toHaveBeenCalledTimes(1);
+    });
+
+    await step(
+      "Ctrl-click is suppressed (browser opens a new tab)",
+      async () => {
+        link.dispatchEvent(
+          new MouseEvent("click", {
+            bubbles: true,
+            cancelable: true,
+            ctrlKey: true,
+          }),
+        );
+        // Still 1 — the emit was suppressed so a consumer's close handler
+        // never runs and the <a> survives for the browser's default action.
+        await expect(args.onClick).toHaveBeenCalledTimes(1);
+      },
+    );
+  },
 };

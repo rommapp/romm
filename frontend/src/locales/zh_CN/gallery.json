@@ -25,5 +25,9 @@
   "view-grouped": "按字母分组",
   "view-list": "列表",
   "jump-to-letter": "跳转到字母",
-  "jump-to": "跳转到 {letter}"
+  "jump-to": "跳转到 {letter}",
+  "selection-status": "设置状态",
+  "selection-status-success": "已更新 {n} 个游戏的状态",
+  "selection-status-partial": "已更新 {total} 个游戏中的 {n} 个",
+  "selection-status-fail": "更新状态失败"
 }

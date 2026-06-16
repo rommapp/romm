@@ -42,9 +42,17 @@ import type { RomUserStatus } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { romStatusMap } from "@/utils";
-import type { PlayingStatus } from "@/utils";
 import GameActionsList from "@/v2/components/GameActions/GameActionsList.vue";
 import { useGameActions } from "@/v2/composables/useGameActions";
+import {
+  ENUM_KEYS,
+  FLAG_KEYS,
+  PLAY_FLAG_KEYS,
+  STATUS_EMPTY_ICON,
+  STATUS_ICONS,
+  type StatusFlagKey,
+  VISIBILITY_FLAG_KEYS,
+} from "@/v2/utils/romStatus";
 
 defineOptions({ inheritAttrs: false });
 
@@ -95,42 +103,10 @@ const props = withDefaults(defineProps<Props>(), {
 const romRef = toRef(props, "rom");
 const actions = useGameActions(() => romRef.value);
 
-// Icon map for the status menu — covers both the enum statuses and the
-// orthogonal boolean flags (now_playing / backlogged / hidden) so the
-// menu can present them as a single surface. Local map so v1 (which
-// still consumes `romStatusMap`'s emoji) stays untouched.
-// `mdi-progress-helper` is the dashed-circle "no status set yet" icon.
-const STATUS_ICONS: Record<PlayingStatus, string> = {
-  incomplete: "mdi-progress-clock",
-  finished: "mdi-flag-checkered",
-  completed_100: "mdi-trophy-outline",
-  retired: "mdi-flag-off-outline",
-  never_playing: "mdi-cancel",
-  now_playing: "mdi-gamepad-variant",
-  backlogged: "mdi-clock-outline",
-  hidden: "mdi-eye-off-outline",
-};
-const STATUS_EMPTY_ICON = "mdi-progress-helper";
-const ENUM_KEYS: RomUserStatus[] = [
-  "incomplete",
-  "finished",
-  "completed_100",
-  "retired",
-  "never_playing",
-];
-type FlagKey = "now_playing" | "backlogged" | "hidden";
-// Two groups: play-status flags (now_playing / backlogged) describe
-// when the user intends to play; the visibility flag (hidden) controls
-// whether the ROM shows up in the library at all. Different category,
-// so they get their own divider in the status menu.
-const PLAY_FLAG_KEYS: FlagKey[] = ["now_playing", "backlogged"];
-const VISIBILITY_FLAG_KEYS: FlagKey[] = ["hidden"];
-const FLAG_KEYS: FlagKey[] = [...PLAY_FLAG_KEYS, ...VISIBILITY_FLAG_KEYS];
-
 const enumStatus = computed<RomUserStatus | null>(
   () => props.rom.rom_user?.status ?? null,
 );
-function isFlagActive(key: FlagKey) {
+function isFlagActive(key: StatusFlagKey) {
   return Boolean(props.rom.rom_user?.[key]);
 }
 // Ordered list of icons for every active status state. Enum first
@@ -228,7 +204,7 @@ const preset = computed<Preset>(() => {
       label = t("rom.set-status");
     } else if (count === 1 && hk) {
       icon = STATUS_ICONS[hk];
-      label = t("rom.status-current", { label: romStatusMap[hk].text });
+      label = t("rom.status-current", { label: t(romStatusMap[hk].i18nKey) });
     } else {
       // Multi: template renders the icon stack instead of preset.icon.
       icon = activeStatusIcons.value[0] ?? STATUS_EMPTY_ICON;
@@ -288,7 +264,7 @@ function pickEnum(key: RomUserStatus) {
   statusOpen.value = false;
 }
 
-function toggleFlag(key: FlagKey) {
+function toggleFlag(key: StatusFlagKey) {
   // Don't close — flags are independent toggles, the user may flip several.
   void actions.setStatus(key);
 }
@@ -406,7 +382,7 @@ function onClick(e: MouseEvent) {
       :variant="enumStatus === key ? 'active' : 'default'"
       @click="pickEnum(key)"
     >
-      {{ romStatusMap[key].text }}
+      {{ t(romStatusMap[key].i18nKey) }}
     </RMenuItem>
 
     <RDivider />
@@ -422,7 +398,7 @@ function onClick(e: MouseEvent) {
       :icon-color="isFlagActive(key) ? 'brand-primary' : undefined"
       @click="toggleFlag(key)"
     >
-      {{ romStatusMap[key].text }}
+      {{ t(romStatusMap[key].i18nKey) }}
       <template v-if="isFlagActive(key)" #append>
         <i class="mdi mdi-check r-v2-status-menu__check" aria-hidden="true" />
       </template>
@@ -440,7 +416,7 @@ function onClick(e: MouseEvent) {
       :icon-color="isFlagActive(key) ? 'brand-primary' : undefined"
       @click="toggleFlag(key)"
     >
-      {{ romStatusMap[key].text }}
+      {{ t(romStatusMap[key].i18nKey) }}
       <template v-if="isFlagActive(key)" #append>
         <i class="mdi mdi-check r-v2-status-menu__check" aria-hidden="true" />
       </template>

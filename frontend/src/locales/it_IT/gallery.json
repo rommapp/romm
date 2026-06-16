@@ -25,5 +25,9 @@
   "view-grouped": "Raggruppa per lettera",
   "view-list": "Elenco",
   "jump-to-letter": "Vai alla lettera",
-  "jump-to": "Vai a {letter}"
+  "jump-to": "Vai a {letter}",
+  "selection-status": "Imposta stato",
+  "selection-status-success": "Stato aggiornato per {n} giochi",
+  "selection-status-partial": "Aggiornati {n} di {total} giochi",
+  "selection-status-fail": "Impossibile aggiornare lo stato"
 }

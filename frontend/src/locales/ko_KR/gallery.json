@@ -25,5 +25,9 @@
   "view-grouped": "글자별 그룹화",
   "view-list": "목록",
   "jump-to-letter": "글자로 이동",
-  "jump-to": "{letter}(으)로 이동"
+  "jump-to": "{letter}(으)로 이동",
+  "selection-status": "상태 설정",
+  "selection-status-success": "게임 {n}개의 상태를 업데이트했습니다",
+  "selection-status-partial": "게임 {total}개 중 {n}개를 업데이트했습니다",
+  "selection-status-fail": "상태 업데이트에 실패했습니다"
 }

@@ -25,5 +25,9 @@
   "view-grouped": "Nach Buchstaben gruppieren",
   "view-list": "Liste",
   "jump-to-letter": "Zu Buchstabe springen",
-  "jump-to": "Zu {letter} springen"
+  "jump-to": "Zu {letter} springen",
+  "selection-status": "Status festlegen",
+  "selection-status-success": "Status für {n} Spiele aktualisiert",
+  "selection-status-partial": "{n} von {total} Spielen aktualisiert",
+  "selection-status-fail": "Status konnte nicht aktualisiert werden"
 }

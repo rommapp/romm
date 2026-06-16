@@ -44,13 +44,12 @@ import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
+import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
 import { useGameActions } from "@/v2/composables/useGameActions";
-import {
-  pendingMorphName,
-  useViewTransition,
-} from "@/v2/composables/useViewTransition";
+import { useViewTransition } from "@/v2/composables/useViewTransition";
 import RCheckbox from "@/v2/lib/forms/RCheckbox/RCheckbox.vue";
 import RPlatformIcon from "@/v2/lib/media/RPlatformIcon/RPlatformIcon.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
@@ -138,28 +137,32 @@ const props = withDefaults(defineProps<Props>(), {
   position: undefined,
 });
 
-const EXTENSION_REGEX = /\.(png|jpg|jpeg)$/i;
-
-const imgError = ref(false);
-const imgLoaded = ref(false);
-
-const coverUrl = computed(() => {
-  // Explicit override wins — consumer already resolved the URL
-  // (preview blob, external provider URL, …). No webp rewrite here:
-  // the caller's URL is treated as final.
-  if (props.coverSrc != null) return props.coverSrc;
-  const path = props.rom.path_cover_large ?? props.rom.path_cover_small ?? null;
-  if (!path) return null;
-  return props.webp ? path.replace(EXTENSION_REGEX, ".webp") : path;
+// Cover resolution lives in `useCoverArt`, shared with the <GameCover>
+// that actually renders the image / video / placeholder / spin in the
+// template. The card keeps it only for: the background-art highlight
+// (onHighlight), the `--r-cover-ratio` that sizes the art box, and the
+// alt-art class that drops the card frame for a floating disc/cartridge.
+const art = useCoverArt(() => props.rom, {
+  coverSrc: () => props.coverSrc,
+  webp: () => props.webp,
 });
+const coverUrl = art.coverUrl;
+const fallbackUrl = art.fallbackUrl;
+const coverAspectRatio = art.ratio;
+// Alt-art styles (box3d / physical / miximage) drop the card frame so the
+// artwork floats — but only while a real image renders; with no cover the
+// placeholder keeps its grey box so the title stays readable.
+const isAltStyle = computed(
+  () =>
+    art.style.value !== "cover_path" && !!(coverUrl.value || fallbackUrl.value),
+);
+// Forward view-transition morph targets the GameCover's box element.
+const coverRef = ref<InstanceType<typeof GameCover> | null>(null);
 
 // Synthetic roms (id = 0 / null / undefined) have no destination — skip
 // the entire view-transition wiring so we never try to morph to a
 // non-existent /rom/0 detail page.
 const isSynthetic = computed(() => !props.rom.id);
-
-const fallbackUrl = computed(() => props.rom.url_cover ?? null);
-const showFallback = computed(() => imgError.value && !!fallbackUrl.value);
 
 const { t } = useI18n();
 const title = computed(() => props.rom.name || props.rom.fs_name_no_ext);
@@ -181,6 +184,33 @@ function onHighlight() {
   else if (fallbackUrl.value) setBgArt(fallbackUrl.value);
 }
 
+// ── Cover hover / focus ─────────────────────────────────────────────
+// Hover (mouse/touch) and focus (keyboard/gamepad) both mark the cover
+// "active", which GameCover turns into disc spin / cartridge slot-in /
+// hover video. `props.focused` is the gallery's gamepad-driven highlight.
+const pointerInside = ref(false);
+const keyboardFocused = ref(false);
+const coverActive = computed(
+  () =>
+    !props.decorative &&
+    (pointerInside.value || keyboardFocused.value || !!props.focused),
+);
+
+function onCoverEnter() {
+  pointerInside.value = true;
+  onHighlight();
+}
+function onCoverLeave() {
+  pointerInside.value = false;
+}
+function onCoverFocus() {
+  keyboardFocused.value = true;
+  onHighlight();
+}
+function onCoverBlur() {
+  keyboardFocused.value = false;
+}
+
 const ratingLabel = computed(() => {
   const r = props.rom.rom_user?.rating;
   return r && r > 0 ? r.toString() : null;
@@ -191,7 +221,6 @@ const ratingLabel = computed(() => {
 // animates between them. Modifier keys / middle-click fall through to
 // the regular router-link behaviour so opening in a new tab still works.
 const router = useRouter();
-const artEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
 const actions = useGameActions(() => props.rom);
 
@@ -290,14 +319,12 @@ function onCardClick(e: MouseEvent) {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
     return;
   }
-  if (!artEl.value) return;
+  const el = coverRef.value?.el();
+  if (!el) return;
   e.preventDefault();
-  morphTransition(
-    { el: artEl.value, name: `rom-cover-${props.rom.id}` },
-    async () => {
-      await router.push(href.value);
-    },
-  );
+  morphTransition({ el, name: `rom-cover-${props.rom.id}` }, async () => {
+    await router.push(href.value);
+  });
 }
 
 function onCardPointerDown(e: PointerEvent) {
@@ -322,18 +349,8 @@ function onStaticKeydown(e: KeyboardEvent) {
   }
 }
 
-// Reverse-morph tag: when GameDetails is leaving (BackBtn / navbar /
-// browser back), `pendingMorphName` is set and we paint the matching
-// view-transition-name on the destination card so the browser can pair
-// it with the GameDetails cover. Synthetic roms (no real id) skip
-// this entirely — they can't be a morph destination.
-const morphStyle = computed(() => {
-  if (isSynthetic.value) return undefined;
-  const name = `rom-cover-${props.rom.id}`;
-  return pendingMorphName.value === name
-    ? { viewTransitionName: name }
-    : undefined;
-});
+// Reverse-morph (paint the view-transition-name when GameDetails is
+// leaving) is handled by GameCover via its `morph-id` prop below.
 </script>
 
 <template>
@@ -353,8 +370,10 @@ const morphStyle = computed(() => {
         'r-gc--selected': isSelected,
         'r-gc--checkbox-on': checkboxAlwaysOn,
         'r-gc--has-platform-icon': !static && !decorative && showPlatformIcon,
+        'r-gc--alt-art': isAltStyle,
       },
     ]"
+    :style="{ '--r-cover-ratio': coverAspectRatio }"
     :aria-label="decorative ? undefined : title"
     :aria-pressed="
       decorative
@@ -370,29 +389,26 @@ const morphStyle = computed(() => {
     @click.capture="onCardClickCapture"
     @click="onCardClick"
     @keydown="static && !decorative ? onStaticKeydown($event) : undefined"
-    @mouseenter="onHighlight"
-    @focus="onHighlight"
+    @mouseenter="onCoverEnter"
+    @mouseleave="onCoverLeave"
+    @focus="onCoverFocus"
+    @blur="onCoverBlur"
     @pointerdown="onCardPointerDown"
     @pointermove="onCardPointerMove"
     @pointerup="onCardPointerEnd"
     @pointercancel="onCardPointerEnd"
   >
-    <div ref="artEl" class="r-gc__art" :style="morphStyle">
-      <img
-        v-if="(coverUrl || fallbackUrl) && !(imgError && !fallbackUrl)"
-        :src="
-          showFallback ? (fallbackUrl ?? undefined) : (coverUrl ?? undefined)
-        "
-        :alt="title"
-        loading="lazy"
-        decoding="async"
-        @load="imgLoaded = true"
-        @error="imgError = true"
-      />
-      <div v-else class="r-gc__placeholder">
-        {{ title }}
-      </div>
-
+    <GameCover
+      ref="coverRef"
+      class="r-gc__art"
+      :rom="rom"
+      :title="title"
+      :identified="rom.is_identified"
+      :cover-src="coverSrc"
+      :webp="webp"
+      :active="coverActive"
+      :morph-id="isSynthetic ? null : rom.id"
+    >
       <!-- Selection checkbox — top-left, drawn over the cover. Hidden
            at rest; appears on hover for discoverability, and stays
            pinned whenever the gallery is in selection mode so the
@@ -472,7 +488,7 @@ const morphStyle = computed(() => {
           </div>
         </div>
       </template>
-    </div>
+    </GameCover>
     <div v-if="showTitle" class="r-gc__label">
       {{ title }}
     </div>
@@ -507,14 +523,22 @@ const morphStyle = computed(() => {
   color: var(--r-color-fg);
 }
 
+/* Default (gallery) card derives its art height from the active cover
+   ratio so the boxart style drives the shape (cover_path 2/3, box3d 3/4,
+   physical / miximage 1/1). Explicit size tiers + hero keep their fixed
+   footprints — they set `--r-card-art-h` directly. `--r-cover-ratio` is
+   set inline by `useCoverArt`; the fallback keeps standalone cards sane. */
+.r-gc:not([class*="r-gc--size-"]):not(.r-gc--hero) {
+  --r-card-art-h: calc(var(--r-card-art-w) / var(--r-cover-ratio, 0.6667));
+}
+
+/* The art box IS the shared <GameCover> (this class lands on its root).
+   GameCover owns the radius / overflow / background / image; the card
+   keeps only the gallery-level box concerns: footprint (height — width
+   comes from `.r-gc`), the focus outline, and the hover/focus transition. */
 .r-gc__art {
-  width: var(--r-card-art-w);
   height: var(--r-card-art-h);
   box-sizing: border-box;
-  border-radius: var(--r-radius-art);
-  overflow: hidden;
-  position: relative;
-  background: var(--r-color-cover-placeholder);
   outline: 2.5px solid transparent;
   outline-offset: 3px;
   transition:
@@ -522,25 +546,22 @@ const morphStyle = computed(() => {
     box-shadow 0.18s ease;
 }
 
-.r-gc__art img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+/* Alt-art styles (box3d / physical / miximage) drop the card frame so the
+   artwork floats: GameCover already makes its own background transparent;
+   here we kill the hover / focus / selected DROP SHADOW so a transparent
+   disc doesn't get a rectangular shadow around empty space (most obvious
+   on the wide hero — Home "continue playing"). The hover scale + the
+   focus/selected brand OUTLINE (the `outline` property, not the shadow)
+   stay. `!important` beats the multi-state shadow selectors without
+   duplicating their whole list. */
+.r-gc--alt-art .r-gc__art {
+  box-shadow: none !important;
 }
-
-.r-gc__placeholder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-  text-align: center;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-semibold);
-  line-height: 1.4;
-  color: var(--r-color-fg-muted);
+/* …and no darkening scrim on hover — the gradient would paint a dark
+   rectangle around a floating disc / cartridge. The overlay's controls
+   still appear (the emphasized Play CTA carries its own background). */
+.r-gc--alt-art .r-gc__overlay {
+  background: none;
 }
 
 /* ── Hover overlay ─────────────────────────────────────────── */
@@ -828,9 +849,11 @@ html[data-input="touch"] .r-gc:hover .r-gc__label,
   width: var(--r-hero-w);
 }
 .r-gc--hero .r-gc__art {
-  width: var(--r-hero-w);
+  /* Width comes from `.r-gc--hero` (GameCover fills it); height is the
+     explicit hero footprint, which wins over GameCover's aspect-ratio.
+     Radius is passed through GameCover's `--r-cover-radius`. */
   height: var(--r-hero-h);
-  border-radius: var(--r-radius-lg);
+  --r-cover-radius: var(--r-radius-lg);
 }
 .r-gc--hero .r-gc__overlay {
   border-radius: var(--r-radius-lg);
@@ -927,7 +950,7 @@ html[data-input="touch"] .r-gc:hover .r-gc__check,
    inner `.r-gc__art` rule picks them up too. */
 html[data-bp~="xs"] .r-gc:not([class*="r-gc--size-"]) {
   --r-card-art-w: 130px;
-  --r-card-art-h: 175px;
+  /* height derives from --r-cover-ratio (see the default-card rule above) */
   --r-hero-w: 220px;
   --r-hero-h: 124px;
 }

@@ -11,7 +11,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
-import { getEmptyCoverImage } from "@/utils/covers";
+import { getEmptyCoverImage } from "@/v2/utils/covers";
 
 defineOptions({ inheritAttrs: false });
 

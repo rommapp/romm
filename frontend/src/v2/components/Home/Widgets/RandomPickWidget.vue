@@ -6,24 +6,38 @@
 // selected offset; same approach the v1 RandomBtn uses. The pick is
 // intentionally not cached so each mount re-shuffles.
 import { RBtn, RImg } from "@v2/lib";
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import type { SimpleRom } from "@/stores/roms";
-import { getMissingCoverImage } from "@/utils/covers";
-import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import { useCoverArt } from "@/v2/composables/useCoverArt";
+import { coverPlaceholderArt } from "@/v2/utils/covers";
 import WidgetCard from "./WidgetCard.vue";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const router = useRouter();
-const { toWebp } = useWebpSupport();
 
 const pick = ref<SimpleRom | null>(null);
 const loading = ref(false);
+
+// Honour the chosen boxart style here too — the picked cover matches the
+// gallery. `useCoverArt` resolves the styled art + webp; we fall back to
+// the generated placeholder when the rom has no cover at all.
+const art = useCoverArt(() => pick.value);
+const coverSrc = computed(() => {
+  const r = pick.value;
+  if (!r) return "";
+  return (
+    art.coverUrl.value ??
+    art.fallbackUrl.value ??
+    coverPlaceholderArt(r.name || r.fs_name, r.is_identified)
+  );
+});
+const coverContain = computed(() => art.objectFit.value === "contain");
 
 async function reroll() {
   loading.value = true;
@@ -48,11 +62,6 @@ async function reroll() {
   }
 }
 
-function coverFor(rom: SimpleRom): string {
-  if (rom.path_cover_small) return toWebp(rom.path_cover_small);
-  return getMissingCoverImage(rom.name || rom.fs_name);
-}
-
 function openPick() {
   if (!pick.value) return;
   router.push({ name: ROUTES.ROM, params: { rom: pick.value.id } });
@@ -65,11 +74,12 @@ onMounted(reroll);
   <WidgetCard :title="t('home.widget-random-pick')" :loading="loading">
     <div v-if="pick" class="r-v2-widget-pick__body">
       <RImg
-        :src="coverFor(pick)"
+        :src="coverSrc"
         :alt="pick.name || pick.fs_name"
         :width="52"
         :height="70"
-        cover
+        :cover="!coverContain"
+        :contain="coverContain"
         class="r-v2-widget-pick__cover"
       />
       <div class="r-v2-widget-pick__info">

@@ -48,6 +48,7 @@ import {
   watch,
 } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
+import { useUISettings } from "@/composables/useUISettings";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
 import FilterDrawer from "@/v2/components/Gallery/FilterDrawer.vue";
@@ -59,11 +60,11 @@ import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import { type ListSortKey } from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { coverRatio, isBoxartStyle } from "@/v2/composables/useCoverArt";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import {
-  galleryItemHeight,
   useGalleryVirtualItems,
   type GalleryItem,
 } from "@/v2/composables/useGalleryVirtualItems";
@@ -241,11 +242,25 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
+// Single source for the responsive card-art width — feeds both the column
+// count and the virtualiser's row-height math so they never drift.
+const cardWidth = () => (xs.value ? 108 : 158);
 const { columns } = useResponsiveColumns(sectionEl, {
-  cardWidth: () => (xs.value ? 108 : 158),
+  cardWidth,
   gap: 12,
   inset: () => (xs.value ? 64 : smAndDown.value ? 76 : 108),
 });
+
+// Active cover aspect ratio from the gallery-wide boxart style. Drives
+// both the cards' `--r-cover-ratio` (via the shell root, inherited) and
+// the virtualiser's row height so the cover shape, the grid, and the
+// scroll offsets all agree.
+const { boxartStyle } = useUISettings();
+const coverAspectRatio = computed(() =>
+  coverRatio(
+    isBoxartStyle(boxartStyle.value) ? boxartStyle.value : "cover_path",
+  ),
+);
 
 // 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
 //   * Grid mode — rows are `.r-v2-shell__row` (the per-virtualizer-item
@@ -274,7 +289,7 @@ const notFoundMessageRef = computed(
   () => props.notFoundMessage ?? props.emptyMessage,
 );
 
-const { virtualItems, letterToIndex, availableLetters } =
+const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
   useGalleryVirtualItems({
     layout,
     groupBy,
@@ -286,6 +301,8 @@ const { virtualItems, letterToIndex, availableLetters } =
     notFound: notFoundRef,
     notFoundMessage: notFoundMessageRef,
     skeletonRowCount: props.skeletonRowCount,
+    coverRatio: coverAspectRatio,
+    cardWidth,
   });
 
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
@@ -690,12 +707,15 @@ defineExpose({
       'r-v2-shell--has-strip': hasAlphaStrip,
       'r-v2-shell--list': layout === 'list',
     }"
-    :style="{ '--r-v2-shell-toolbar-h': `${toolbarHeight}px` }"
+    :style="{
+      '--r-v2-shell-toolbar-h': `${toolbarHeight}px`,
+      '--r-cover-ratio': coverAspectRatio,
+    }"
   >
     <RVirtualScroller
       ref="scrollerRef"
       :items="virtualItems"
-      :get-item-height="galleryItemHeight"
+      :get-item-height="getItemHeight"
       :overscan="25"
       class="r-v2-shell__scroller r-v2-scroll-hidden"
       @update:viewport-range="onViewportRangeChange"
@@ -1081,10 +1101,11 @@ defineExpose({
 /* Smaller default cards on phones so the grid packs 2–3 per row instead
    of one stretched card. The grid `minmax(--r-card-art-w, 1fr)` and the
    GameCards (default size, reading the token) both shrink in lock-step;
-   the JS column-chunking above uses a matching 108px card width. */
+   the JS column-chunking above uses a matching 108px card width. Height
+   is left to the card's `--r-cover-ratio` derive rule so the boxart style
+   drives the cover shape on phones too. */
 html[data-bp~="xs"] .r-v2-shell {
   --r-card-art-w: 108px;
-  --r-card-art-h: 146px;
 }
 
 html[data-bp~="xs"] .r-v2-shell__scroller {

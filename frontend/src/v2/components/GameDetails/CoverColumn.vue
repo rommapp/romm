@@ -1,34 +1,31 @@
 <script setup lang="ts">
-// CoverColumn — fixed-width left column with the ROM cover (or a placeholder
-// if none resolves). Sized via --r-cover-w and top-aligned so tall right-
-// column content doesn't stretch the image.
-//
-// `romId` opts the cover into the shared-element morph from GameCard via
-// `view-transition-name: rom-cover-{id}`. Source side (GameCard) tags the
-// matching element imperatively at click time — see useViewTransition.
-import { computed } from "vue";
+// CoverColumn — fixed-width left column wrapping the shared GameCover. The
+// cover honours the gallery-wide boxart style, animates on hover, paints
+// the procedural placeholder when empty, and is the destination of the
+// shared-element morph from the GameCard the user clicked through from —
+// all of that lives in GameCover now; this just sizes the column.
+import type { DetailedRom } from "@/stores/roms";
+import GameCover from "@/v2/components/shared/GameCover.vue";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{
-  src: string | null | undefined;
+defineProps<{
+  rom: DetailedRom;
   alt: string;
-  romId?: number | string;
 }>();
-
-const morphStyle = computed(() =>
-  props.romId != null
-    ? { viewTransitionName: `rom-cover-${props.romId}` }
-    : undefined,
-);
 </script>
 
 <template>
   <div class="r-v2-det-cover">
-    <img v-if="src" :src="src" :alt="alt" :style="morphStyle" />
-    <div v-else class="r-v2-det-cover__placeholder" :style="morphStyle">
-      {{ alt }}
-    </div>
+    <GameCover
+      class="r-v2-det-cover__art"
+      :rom="rom"
+      :title="alt"
+      :identified="rom.is_identified"
+      :morph-id="rom.id"
+      morph-static
+      hover-motion
+    />
   </div>
 </template>
 
@@ -36,38 +33,18 @@ const morphStyle = computed(() =>
 .r-v2-det-cover {
   flex-shrink: 0;
   align-self: flex-start;
-  /* No sticky needed: GameDetails fits the main viewport exactly and
-     only the inner tab panel scrolls. Cover sits at its natural Y and
-     stays there because nothing scrolls in its context. */
+  /* No sticky needed: GameDetails fits the main viewport exactly and only
+     the inner tab panel scrolls. */
   padding-top: 40px;
   width: var(--r-cover-w);
 }
-
-.r-v2-det-cover img {
-  width: 100%;
-  border-radius: var(--r-radius-lg);
-  display: block;
-}
-
-.r-v2-det-cover__placeholder {
-  width: var(--r-cover-w);
-  height: 320px;
-  border-radius: var(--r-radius-lg);
-  background: var(--r-color-cover-placeholder);
-  display: grid;
-  place-items: center;
-  text-align: center;
-  padding: 24px;
-  color: var(--r-color-fg-faint);
-  font-size: 13px;
+/* Larger radius than the gallery card (this is the hero cover). */
+.r-v2-det-cover__art {
+  --r-cover-radius: var(--r-radius-lg);
 }
 
 html[data-bp~="xs"] .r-v2-det-cover {
   width: 100px;
   margin-top: 0;
-}
-html[data-bp~="xs"] .r-v2-det-cover__placeholder {
-  width: 100px;
-  height: 134px;
 }
 </style>

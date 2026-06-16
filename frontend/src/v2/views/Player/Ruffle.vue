@@ -3,7 +3,7 @@
 // createPlayer, fullscreen) is ported verbatim from
 // `src/views/Player/RuffleRS/Base.vue` so playback stays identical; only the
 // chrome is v2. No shared state with EJS — Flash has its own config.
-import { RBtn, RCard, RCheckbox, RIcon } from "@v2/lib";
+import { RBtn, RCard, RIcon, RSwitch } from "@v2/lib";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
@@ -12,6 +12,7 @@ import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import type { RuffleSourceAPI } from "@/types/ruffle";
 import { getDownloadPath } from "@/utils";
+import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { colorCanvas } from "@/v2/tokens";
@@ -47,14 +48,19 @@ window.RufflePlayer = window.RufflePlayer || {};
 
 const setBgArt = useBackgroundArt();
 
-const coverUrl = computed(() => {
+// The cover is the shared GameCover (same component as gallery + details +
+// EmulatorJS) — it owns style/ratio/placeholder. Flash has no disc /
+// cartridge metadata, so it's effectively always 2D box art here.
+
+// Background art keeps the plain 2D cover.
+const bgCoverUrl = computed(() => {
   const r = rom.value;
   if (!r) return null;
   return r.path_cover_large ?? r.path_cover_small ?? r.url_cover ?? null;
 });
 
 watch(
-  coverUrl,
+  bgCoverUrl,
   (url) => {
     if (url) setBgArt(url);
   },
@@ -156,15 +162,12 @@ onMounted(async () => {
     <div v-if="!gameRunning" class="r-v2-ruffle__config">
       <!-- Cover column -->
       <aside class="r-v2-ruffle__cover">
-        <img
-          v-if="coverUrl"
-          :src="coverUrl"
-          :alt="title"
-          class="r-v2-ruffle__cover-img"
+        <GameCover
+          class="r-v2-ruffle__cover-box"
+          :rom="rom"
+          :title="title"
+          :identified="rom?.is_identified ?? true"
         />
-        <div v-else class="r-v2-ruffle__cover-placeholder">
-          {{ title }}
-        </div>
         <h1 class="r-v2-ruffle__title">
           {{ title }}
         </h1>
@@ -194,11 +197,7 @@ onMounted(async () => {
             </code>
           </div>
 
-          <RCheckbox
-            v-model="fullscreenOnPlay"
-            :label="t('play.full-screen')"
-            hide-details
-          />
+          <RSwitch v-model="fullscreenOnPlay" :label="t('play.full-screen')" />
 
           <RBtn
             size="large"
@@ -281,24 +280,12 @@ onMounted(async () => {
   gap: 8px;
 }
 
-.r-v2-ruffle__cover-img {
-  width: 100%;
-  border-radius: var(--r-radius-lg);
-  box-shadow: 0 18px 36px color-mix(in srgb, black 55%, transparent);
-  display: block;
+.r-v2-ruffle__cover-box {
+  --r-cover-radius: var(--r-radius-lg);
 }
-
-.r-v2-ruffle__cover-placeholder {
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  border-radius: var(--r-radius-lg);
-  background: var(--r-color-cover-placeholder);
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  color: var(--r-color-fg-faint);
-  font-size: 13px;
-  text-align: center;
+/* 2D box art keeps a drop shadow; alt-art (rare for Flash) floats frame-free. */
+.r-v2-ruffle__cover-box:not(.game-cover--alt) {
+  box-shadow: 0 18px 36px color-mix(in srgb, black 55%, transparent);
 }
 
 .r-v2-ruffle__title {

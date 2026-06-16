@@ -25,13 +25,13 @@ import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getMissingCoverImage } from "@/utils/covers";
 import AdditionalDetails from "@/v2/components/EditRom/AdditionalDetails.vue";
 import MetadataIdSection from "@/v2/components/EditRom/MetadataIdSection.vue";
 import RawMetadataPanel from "@/v2/components/EditRom/RawMetadataPanel.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { getMissingCoverImage } from "@/v2/utils/covers";
 
 defineOptions({ inheritAttrs: false });
 

@@ -25,5 +25,9 @@
   "view-grouped": "文字でグループ化",
   "view-list": "リスト",
   "jump-to-letter": "文字へジャンプ",
-  "jump-to": "{letter}へジャンプ"
+  "jump-to": "{letter}へジャンプ",
+  "selection-status": "ステータスを設定",
+  "selection-status-success": "{n} 件のゲームのステータスを更新しました",
+  "selection-status-partial": "{total} 件中 {n} 件のゲームを更新しました",
+  "selection-status-fail": "ステータスの更新に失敗しました"
 }

@@ -25,5 +25,9 @@
   "view-grouped": "Seskupit podle písmene",
   "view-list": "Seznam",
   "jump-to-letter": "Přejít na písmeno",
-  "jump-to": "Přejít na {letter}"
+  "jump-to": "Přejít na {letter}",
+  "selection-status": "Nastavit stav",
+  "selection-status-success": "Stav aktualizován u {n} her",
+  "selection-status-partial": "Aktualizováno {n} z {total} her",
+  "selection-status-fail": "Aktualizace stavu se nezdařila"
 }

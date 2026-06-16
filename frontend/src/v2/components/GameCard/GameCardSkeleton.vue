@@ -68,6 +68,14 @@ const artHeight = computed(() =>
   height: 16px;
 }
 
+/* Default skeleton derives its art height from the active cover ratio,
+   mirroring GameCard's default-card rule so the two occupy the same
+   footprint when one swaps for the other in a virtualiser slot.
+   `--r-cover-ratio` is inherited from the gallery shell root. */
+.r-gcs:not([class*="r-gcs--size-"]):not(.r-gcs--hero) {
+  --r-card-art-h: calc(var(--r-card-art-w) / var(--r-cover-ratio, 0.6667));
+}
+
 /* Hero (16:9) variant — mirrors `GameCard`'s `.r-gc--hero` block. The
    art skeleton picks up its own larger size via the prop-bound CSS
    vars; here we just widen the container so the centred label sits at
