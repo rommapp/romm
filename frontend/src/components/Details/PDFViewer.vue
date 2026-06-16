@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
 import { computed, ref } from "vue";
 import VuePdfApp from "vue3-pdf-app";
 import { useTheme, useDisplay } from "vuetify";
@@ -15,7 +14,8 @@ const pdfPath = computed(() =>
 );
 const { xs } = useDisplay();
 const theme = useTheme();
-const spreadMode = useLocalStorage(`settings.pdfSpreadMode.${props.type}`, 0);
+const spreadStorageKey = `settings.pdfSpreadMode.${props.type}`;
+const spreadMode = ref(Number(localStorage.getItem(spreadStorageKey)) || 0);
 const pdfApp = ref<any>(null);
 function applySpreadMode() {
   if (pdfApp.value?.pdfViewer) {
@@ -28,6 +28,7 @@ function onPdfOpen(app: any) {
 }
 function toggleSpread() {
   spreadMode.value = spreadMode.value === 2 ? 0 : 2;
+  localStorage.setItem(spreadStorageKey, String(spreadMode.value));
   applySpreadMode();
 }
 const pdfViewerConfig = {

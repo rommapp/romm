@@ -150,6 +150,11 @@ async function uploadManuals() {
         });
       }
 
+      if (rom.value) {
+        rom.value.has_manual = true;
+        rom.value.path_manual = `roms/${rom.value.platform_id}/${rom.value.id}/manual/${rom.value.id}.pdf`;
+      }
+
       emitter?.emit("snackbarShow", {
         msg: t("rom.manuals-upload-success", {
           count: successfulUploads.length,
@@ -228,6 +233,11 @@ async function uploadGuides() {
           color: "orange",
           timeout: 5000,
         });
+      }
+
+      if (rom.value) {
+        rom.value.has_guide = true;
+        rom.value.path_guide = `roms/${rom.value.platform_id}/${rom.value.id}/guide/${rom.value.id}.pdf`;
       }
 
       emitter?.emit("snackbarShow", {
