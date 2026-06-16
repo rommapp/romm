@@ -13,8 +13,10 @@ import { RBtn, RSliderBtnGroup, RTooltip, RImg } from "@v2/lib";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUiVersion } from "@/composables/useUiVersion";
+import CrtWarmup from "@/v2/components/AppShell/CrtWarmup.vue";
 import ScanningIndicator from "@/v2/components/AppShell/ScanningIndicator.vue";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
+import { useCrtMode } from "@/v2/composables/useCrtMode";
 import { useNavDestinations } from "@/v2/composables/useNavDestinations";
 
 defineOptions({ inheritAttrs: false });
@@ -27,6 +29,15 @@ const { destinations: tabs, activeId: activeTab } = useNavDestinations();
 
 function switchToV1() {
   uiVersion.value = "v1";
+}
+
+// Cosmetic easter egg — toggle the persistent "CRT mode" shader; switching
+// it ON also fires the one-shot power-on warm-up flash.
+const { enabled: crtEnabled, toggle: toggleCrtMode } = useCrtMode();
+const crt = ref<InstanceType<typeof CrtWarmup> | null>(null);
+function toggleCrt() {
+  const turningOn = toggleCrtMode();
+  if (turningOn) crt.value?.play();
 }
 
 // At the top of the page the navbar is fully transparent so the page
@@ -82,6 +93,21 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="r-v2-nav__right">
+        <RTooltip :text="t('common.crt-mode')" location="bottom">
+          <template #activator="{ props: tooltipProps }">
+            <RBtn
+              v-bind="tooltipProps"
+              icon="mdi-television-classic"
+              size="small"
+              variant="text"
+              class="r-v2-nav__crt"
+              :class="{ 'r-v2-nav__crt--on': crtEnabled }"
+              :aria-label="t('common.crt-mode')"
+              :aria-pressed="crtEnabled"
+              @click="toggleCrt"
+            ></RBtn>
+          </template>
+        </RTooltip>
         <RTooltip :text="t('common.switch-classic-ui')" location="bottom">
           <template #activator="{ props: tooltipProps }">
             <RBtn
@@ -99,6 +125,7 @@ onBeforeUnmount(() => {
         <UserMenu />
       </div>
     </nav>
+    <CrtWarmup ref="crt" />
   </header>
 </template>
 
@@ -211,6 +238,40 @@ onBeforeUnmount(() => {
 .r-v2-nav__classic:hover {
   background: var(--r-color-surface-hover) !important;
   color: var(--r-color-fg) !important;
+}
+
+/* CRT warm-up easter-egg button — same ghost pill as the classic-UI button,
+   with a phosphor-green tint on hover hinting at the gimmick it triggers. */
+.r-v2-nav__crt {
+  background: var(--r-color-surface) !important;
+  border: 1px solid var(--r-color-border-strong) !important;
+  color: var(--r-color-fg-secondary) !important;
+  opacity: 1;
+}
+.r-v2-nav__crt:hover {
+  background: var(--r-color-surface-hover) !important;
+  color: var(--r-color-crt-glow) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-crt-glow) 50%,
+    transparent
+  ) !important;
+}
+/* CRT mode active — the button glows phosphor green to mirror the live shader. */
+.r-v2-nav__crt--on {
+  color: var(--r-color-crt-glow) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-crt-glow) 60%,
+    transparent
+  ) !important;
+  background: color-mix(
+    in srgb,
+    var(--r-color-crt-glow) 14%,
+    var(--r-color-surface)
+  ) !important;
+  box-shadow: 0 0 10px
+    color-mix(in srgb, var(--r-color-crt-glow) 40%, transparent);
 }
 
 /* On sm-and-down (phones + small tablets / landscape, <960px) the four
