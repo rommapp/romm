@@ -23,7 +23,7 @@ from utils.router import APIRouter
 router = APIRouter()
 
 MANUAL_FOLDER = "manual"
-ALLOWED_MANUAL_EXTENSIONS = frozenset({".pdf"})
+ALLOWED_MANUAL_EXTENSIONS = frozenset({".pdf", ".md"})
 
 
 def _is_allowed_manual_file(file_name: str) -> bool:

@@ -7,7 +7,7 @@ from models.user import User
 
 
 @pytest.fixture
-def multi_file_rom(admin_user: User, platform: Platform) -> Rom:
+def game_folder_rom(admin_user: User, platform: Platform) -> Rom:
     """A folder-based ROM with two top-level files (so has_simple_single_file is False)."""
     rom = Rom(
         platform_id=platform.id,

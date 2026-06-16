@@ -34,6 +34,41 @@ SOUNDTRACK_FOLDER = "soundtrack"
 
 
 @protected_route(
+    router.get,
+    "/{id}/soundtracks/metadata",
+    [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def get_rom_soundtrack_metadata(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> list[SoundtrackTrackMetaSchema]:
+    """Return compact audio metadata for every soundtrack file of a ROM."""
+
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    tracks = db_rom_handler.get_rom_files_by_category(
+        rom_id=rom.id, category=RomFileCategory.SOUNDTRACK
+    )
+
+    return [
+        SoundtrackTrackMetaSchema(
+            file_id=f.id,
+            file_name=f.file_name,
+            file_size_bytes=f.file_size_bytes,
+            audio_meta=(
+                RomFileAudioMetaSchema.model_validate(f.audio_meta)
+                if f.audio_meta
+                else None
+            ),
+        )
+        for f in tracks
+    ]
+
+
+@protected_route(
     router.post,
     "/{id}/soundtracks",
     [Scope.ROMS_WRITE],
@@ -222,38 +257,3 @@ async def delete_rom_soundtrack(
     )
 
     return Response()
-
-
-@protected_route(
-    router.get,
-    "/{id}/soundtracks/metadata",
-    [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
-)
-async def get_rom_soundtrack_metadata(
-    request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-) -> list[SoundtrackTrackMetaSchema]:
-    """Return compact audio metadata for every soundtrack file of a ROM."""
-
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    tracks = db_rom_handler.get_rom_files_by_category(
-        rom_id=rom.id, category=RomFileCategory.SOUNDTRACK
-    )
-
-    return [
-        SoundtrackTrackMetaSchema(
-            file_id=f.id,
-            file_name=f.file_name,
-            file_size_bytes=f.file_size_bytes,
-            audio_meta=(
-                RomFileAudioMetaSchema.model_validate(f.audio_meta)
-                if f.audio_meta
-                else None
-            ),
-        )
-        for f in tracks
-    ]

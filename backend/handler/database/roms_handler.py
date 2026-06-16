@@ -291,9 +291,7 @@ class DBRomsHandler(DBBaseHandler):
         # Dedupe by (parent rom, sibling id) so a duplicate join row doesn't
         # surface the same sibling twice on the wire.
         seen: dict[int, set[int]] = {rom_id: set() for rom_id in rom_ids}
-        buckets: dict[int, list[tuple[Rom, bool]]] = {
-            rom_id: [] for rom_id in rom_ids
-        }
+        buckets: dict[int, list[tuple[Rom, bool]]] = {rom_id: [] for rom_id in rom_ids}
         for rom_id, sibling, is_main in rows:
             if sibling.id in seen[rom_id]:
                 continue

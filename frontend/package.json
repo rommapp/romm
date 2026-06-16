@@ -98,7 +98,8 @@
     "vue-tsc": "^2.2.8"
   },
   "overrides": {
-    "rolldown": "1.0.1"
+    "rolldown": "1.0.1",
+    "esbuild": "^0.28.1"
   },
   "engines": {
     "node": "24",

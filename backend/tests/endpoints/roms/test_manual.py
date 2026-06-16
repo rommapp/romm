@@ -110,11 +110,11 @@ def test_upload_manual_to_resources_rom_not_found(
 def test_upload_manual_to_folder_success(
     client: TestClient,
     access_token: str,
-    multi_file_rom: Rom,
+    game_folder_rom: Rom,
     manual_fs_folder: Path,
 ):
     response = client.post(
-        f"/api/roms/{multi_file_rom.id}/manuals/files",
+        f"/api/roms/{game_folder_rom.id}/manuals/files",
         headers={**_auth(access_token), "x-upload-filename": "english.pdf"},
         files={"english.pdf": ("english.pdf", PDF_BYTES, "application/pdf")},
     )
@@ -124,29 +124,29 @@ def test_upload_manual_to_folder_success(
     assert written.exists()
     assert written.read_bytes() == PDF_BYTES
 
-    rom_after = db_rom_handler.get_rom(multi_file_rom.id)
+    rom_after = db_rom_handler.get_rom(game_folder_rom.id)
     manual_files = [f for f in rom_after.files if f.category == RomFileCategory.MANUAL]
     assert len(manual_files) == 1
     assert manual_files[0].file_name == "english.pdf"
-    assert manual_files[0].file_path == f"{multi_file_rom.full_path}/manual"
+    assert manual_files[0].file_path == f"{game_folder_rom.full_path}/manual"
     assert manual_files[0].file_size_bytes == len(PDF_BYTES)
 
 
 def test_upload_manual_to_folder_upserts_on_reupload(
     client: TestClient,
     access_token: str,
-    multi_file_rom: Rom,
+    game_folder_rom: Rom,
     manual_fs_folder: Path,
 ):
     for _ in range(2):
         response = client.post(
-            f"/api/roms/{multi_file_rom.id}/manuals/files",
+            f"/api/roms/{game_folder_rom.id}/manuals/files",
             headers={**_auth(access_token), "x-upload-filename": "english.pdf"},
             files={"english.pdf": ("english.pdf", PDF_BYTES, "application/pdf")},
         )
         assert response.status_code == status.HTTP_201_CREATED
 
-    rom_after = db_rom_handler.get_rom(multi_file_rom.id)
+    rom_after = db_rom_handler.get_rom(game_folder_rom.id)
     manual_files = [f for f in rom_after.files if f.category == RomFileCategory.MANUAL]
     assert len(manual_files) == 1
 
@@ -181,11 +181,11 @@ def test_upload_manual_to_folder_rejects_single_file_rom(
 def test_upload_manual_to_folder_rejects_non_pdf(
     client: TestClient,
     access_token: str,
-    multi_file_rom: Rom,
+    game_folder_rom: Rom,
     manual_fs_folder: Path,
 ):
     response = client.post(
-        f"/api/roms/{multi_file_rom.id}/manuals/files",
+        f"/api/roms/{game_folder_rom.id}/manuals/files",
         headers={**_auth(access_token), "x-upload-filename": "manual.txt"},
         files={"manual.txt": ("manual.txt", b"not a pdf", "text/plain")},
     )
@@ -299,14 +299,14 @@ def test_delete_manual_success(
 def test_delete_manual_file_success(
     client: TestClient,
     access_token: str,
-    multi_file_rom: Rom,
+    game_folder_rom: Rom,
     manual_fs_folder: Path,
 ):
-    file_path = f"{multi_file_rom.full_path}/manual"
+    file_path = f"{game_folder_rom.full_path}/manual"
     (manual_fs_folder / "english.pdf").write_bytes(PDF_BYTES)
     manual_file = db_rom_handler.add_rom_file(
         RomFile(
-            rom_id=multi_file_rom.id,
+            rom_id=game_folder_rom.id,
             file_name="english.pdf",
             file_path=file_path,
             file_size_bytes=len(PDF_BYTES),
@@ -315,7 +315,7 @@ def test_delete_manual_file_success(
     )
 
     response = client.delete(
-        f"/api/roms/{multi_file_rom.id}/manuals/files/{manual_file.id}",
+        f"/api/roms/{game_folder_rom.id}/manuals/files/{manual_file.id}",
         headers=_auth(access_token),
     )
 
@@ -327,15 +327,15 @@ def test_delete_manual_file_success(
 def test_delete_manual_file_wrong_rom_returns_404(
     client: TestClient,
     access_token: str,
-    multi_file_rom: Rom,
+    game_folder_rom: Rom,
     rom: Rom,
     manual_fs_folder: Path,
 ):
     manual_file = db_rom_handler.add_rom_file(
         RomFile(
-            rom_id=multi_file_rom.id,
+            rom_id=game_folder_rom.id,
             file_name="english.pdf",
-            file_path=f"{multi_file_rom.full_path}/manual",
+            file_path=f"{game_folder_rom.full_path}/manual",
             file_size_bytes=len(PDF_BYTES),
             category=RomFileCategory.MANUAL,
         )
@@ -352,21 +352,21 @@ def test_delete_manual_file_wrong_rom_returns_404(
 def test_delete_manual_file_wrong_category_returns_404(
     client: TestClient,
     access_token: str,
-    multi_file_rom: Rom,
+    game_folder_rom: Rom,
     manual_fs_folder: Path,
 ):
     not_manual = db_rom_handler.add_rom_file(
         RomFile(
-            rom_id=multi_file_rom.id,
+            rom_id=game_folder_rom.id,
             file_name="savegame.dat",
-            file_path=f"{multi_file_rom.full_path}/saves",
+            file_path=f"{game_folder_rom.full_path}/saves",
             file_size_bytes=10,
             category=RomFileCategory.GAME,
         )
     )
 
     response = client.delete(
-        f"/api/roms/{multi_file_rom.id}/manuals/files/{not_manual.id}",
+        f"/api/roms/{game_folder_rom.id}/manuals/files/{not_manual.id}",
         headers=_auth(access_token),
     )
 
@@ -396,11 +396,11 @@ def test_upload_manual_to_resources_forbidden_viewer(
 def test_upload_manual_to_folder_forbidden_viewer(
     client: TestClient,
     viewer_access_token: str,
-    multi_file_rom: Rom,
+    game_folder_rom: Rom,
     manual_fs_folder: Path,
 ):
     response = client.post(
-        f"/api/roms/{multi_file_rom.id}/manuals/files",
+        f"/api/roms/{game_folder_rom.id}/manuals/files",
         headers={
             **_auth(viewer_access_token),
             "x-upload-filename": "english.pdf",
@@ -425,21 +425,21 @@ def test_redownload_manual_forbidden_viewer(
 def test_delete_manual_file_forbidden_viewer(
     client: TestClient,
     viewer_access_token: str,
-    multi_file_rom: Rom,
+    game_folder_rom: Rom,
     manual_fs_folder: Path,
 ):
     manual_file = db_rom_handler.add_rom_file(
         RomFile(
-            rom_id=multi_file_rom.id,
+            rom_id=game_folder_rom.id,
             file_name="english.pdf",
-            file_path=f"{multi_file_rom.full_path}/manual",
+            file_path=f"{game_folder_rom.full_path}/manual",
             file_size_bytes=len(PDF_BYTES),
             category=RomFileCategory.MANUAL,
         )
     )
 
     response = client.delete(
-        f"/api/roms/{multi_file_rom.id}/manuals/files/{manual_file.id}",
+        f"/api/roms/{game_folder_rom.id}/manuals/files/{manual_file.id}",
         headers=_auth(viewer_access_token),
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -451,11 +451,11 @@ def test_delete_manual_file_forbidden_viewer(
 def test_upload_manual_file_rejects_dotdot_filename(
     client: TestClient,
     access_token: str,
-    multi_file_rom: Rom,
+    game_folder_rom: Rom,
     manual_fs_folder: Path,
 ):
     response = client.post(
-        f"/api/roms/{multi_file_rom.id}/manuals/files",
+        f"/api/roms/{game_folder_rom.id}/manuals/files",
         headers={**_auth(access_token), "x-upload-filename": ".."},
         files={"..": ("..", PDF_BYTES, "application/pdf")},
     )
@@ -465,12 +465,12 @@ def test_upload_manual_file_rejects_dotdot_filename(
 def test_upload_manual_file_rejects_path_components(
     client: TestClient,
     access_token: str,
-    multi_file_rom: Rom,
+    game_folder_rom: Rom,
     manual_fs_folder: Path,
 ):
     """Path components in the upload filename must be rejected with 400."""
     response = client.post(
-        f"/api/roms/{multi_file_rom.id}/manuals/files",
+        f"/api/roms/{game_folder_rom.id}/manuals/files",
         headers={
             **_auth(access_token),
             "x-upload-filename": "../../evil.pdf",
@@ -485,22 +485,22 @@ def test_upload_manual_file_rejects_path_components(
 def test_delete_manual_file_tolerates_missing_disk_file(
     client: TestClient,
     access_token: str,
-    multi_file_rom: Rom,
+    game_folder_rom: Rom,
     manual_fs_folder: Path,
 ):
     # Don't create the file on disk — DELETE should still drop the row.
     manual_file = db_rom_handler.add_rom_file(
         RomFile(
-            rom_id=multi_file_rom.id,
+            rom_id=game_folder_rom.id,
             file_name="missing.pdf",
-            file_path=f"{multi_file_rom.full_path}/manual",
+            file_path=f"{game_folder_rom.full_path}/manual",
             file_size_bytes=len(PDF_BYTES),
             category=RomFileCategory.MANUAL,
         )
     )
 
     response = client.delete(
-        f"/api/roms/{multi_file_rom.id}/manuals/files/{manual_file.id}",
+        f"/api/roms/{game_folder_rom.id}/manuals/files/{manual_file.id}",
         headers=_auth(access_token),
     )
 

@@ -140,7 +140,9 @@ DEP002 = [ # DEP002 rule: Project should not contain unused dependencies
 [tool.uv]
 package = false
 exclude-newer = "7 days"
-exclude-newer-package = { starlette = "2026-05-22" }
+# vcrpy >= 8.2.0 is required for aiohttp 3.14 compatibility (the removal of
+# `AsyncStreamReaderMixin`); allow it past the rolling 7-day window.
+exclude-newer-package = { starlette = "2026-05-22", vcrpy = "2026-06-17" }
 
 [tool.ty.environment]
 root = ["./backend"]
