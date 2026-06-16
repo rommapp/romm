@@ -469,6 +469,50 @@ class TestFSResourcesHandler:
             # Should call _store_manual regardless of existence
             mock_store.assert_called_once_with(rom, url)
 
+    def test_guide_exists_no_guide(self, handler: FSResourcesHandler, rom: Rom):
+        """Test guide_exists when no guide exists"""
+        assert not handler.guide_exists(rom)
+
+    def test_get_guide_path_no_guide(self, handler: FSResourcesHandler, rom: Rom):
+        """Test _get_guide_path when no guide exists"""
+        result = handler._get_guide_path(rom)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_guide_no_url(self, handler: FSResourcesHandler, rom: Rom):
+        """Test get_guide with no URL"""
+        result = await handler.get_guide(rom, False, None)
+        assert result is rom.path_guide
+
+    @pytest.mark.asyncio
+    async def test_get_guide_with_url_no_overwrite(
+        self, handler: FSResourcesHandler, rom
+    ):
+        """Test get_guide with URL but no overwrite when guide doesn't exist"""
+        url = "http://example.com/guide.pdf"
+
+        with patch.object(handler, "_store_guide") as mock_store:
+            with patch.object(handler, "guide_exists") as mock_exists:
+                mock_exists.return_value = False
+
+                await handler.get_guide(rom, False, url)
+
+                # Should call _store_guide since guide doesn't exist
+                mock_store.assert_called_once_with(rom, url)
+
+    @pytest.mark.asyncio
+    async def test_get_guide_with_overwrite(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        """Test get_guide with overwrite enabled"""
+        url = "http://example.com/guide.pdf"
+
+        with patch.object(handler, "_store_guide") as mock_store:
+            await handler.get_guide(rom, True, url)
+
+            # Should call _store_guide regardless of existence
+            mock_store.assert_called_once_with(rom, url)
+
     def test_get_ra_resources_path(self, handler: FSResourcesHandler):
         """Test get_ra_resources_path method"""
         platform_id = 1
