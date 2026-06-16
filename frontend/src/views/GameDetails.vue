@@ -246,11 +246,14 @@ watch(
                 </v-row>
               </v-window-item>
               <v-window-item value="manual">
-                <PdfViewer v-if="currentRom.has_manual" :rom="currentRom" />
+                <PdfViewer
+                  v-if="currentRom.has_manual && tab === 'manual'"
+                  :rom="currentRom"
+                />
               </v-window-item>
               <v-window-item value="guide">
                 <PdfViewer
-                  v-if="currentRom.has_guide"
+                  v-if="currentRom.has_guide && tab === 'guide'"
                   :rom="currentRom"
                   type="guide"
                 />
