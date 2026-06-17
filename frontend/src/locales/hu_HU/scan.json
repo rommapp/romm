@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Forrás letiltva",
   "abort": "Megszakítás",
   "api-key-invalid": "API kulcs érvénytelen!",
   "api-key-missing": "API kulcs hiányzik vagy érvénytelen",
@@ -42,5 +43,26 @@
   "unmatched-games": "Nem egyeztetett játékok",
   "unmatched-games-desc": "A hiányzó metaadatokkal rendelkező játékok beszkennelése",
   "update-metadata": "Metadatok frissítése",
-  "update-metadata-desc": "Az egyeztetett játékok metaadatainak frissítése"
+  "update-metadata-desc": "Az egyeztetett játékok metaadatainak frissítése",
+  "playmatch-requires-igdb": "Válaszd ki az IGDB-t a Playmatch engedélyezéséhez",
+  "section-platforms": "Platformok",
+  "section-metadata": "Metaadatok",
+  "section-providers": "Szolgáltatók",
+  "section-providers-general": "Általános",
+  "section-providers-specific": "Specifikus",
+  "section-proxies": "Proxyk",
+  "section-scan-type": "Szkennelés típusa",
+  "scanning": "Szkennelés",
+  "scanning-library": "Könyvtár szkennelése. Kattints a megtekintéshez",
+  "title": "Könyvtár szkennelése",
+  "info-dialog-title": "Szkennelési referencia",
+  "scan-complete": "Szkennelés kész",
+  "live-progress": "Élő haladás",
+  "empty-hint": "Válassz egy szkennelési konfigurációt bal oldalt, majd nyomd meg a Szkennelést az élő haladás megtekintéséhez.",
+  "empty-hint-scanning": "A platformok itt jelennek meg, ahogy a szkenner felfedezi őket.",
+  "hash-matchers": "Hash-egyeztetők",
+  "abort-scan": "Szkennelés megszakítása",
+  "identifying": "Azonosítás",
+  "info-full-docs": "Teljes dokumentáció",
+  "scan-types": "Szkennelési típusok"
 }

@@ -14,6 +14,7 @@ import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue"
 import ScanBtn from "@/components/common/Navigation/ScanBtn.vue";
 import SearchBtn from "@/components/common/Navigation/SearchBtn.vue";
 import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
+import SwitchToV2Btn from "@/components/common/Navigation/SwitchToV2Btn.vue";
 import UploadBtn from "@/components/common/Navigation/UploadBtn.vue";
 import UserBtn from "@/components/common/Navigation/UserBtn.vue";
 import storeNavigation from "@/stores/navigation";
@@ -114,6 +115,12 @@ function collapse() {
       <PatcherBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
       <RandomBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
       <UploadBtn
+        :with-tag="!mainBarCollapsed"
+        rounded
+        class="mt-2 mb-6"
+        block
+      />
+      <SwitchToV2Btn
         :with-tag="!mainBarCollapsed"
         rounded
         class="mt-2 mb-6"

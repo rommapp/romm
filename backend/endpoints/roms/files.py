@@ -1,5 +1,4 @@
 from typing import Annotated
-from urllib.parse import quote
 
 from anyio import Path
 from fastapi import HTTPException
@@ -16,6 +15,8 @@ from handler.filesystem import fs_rom_handler
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.rom import RomFileCategory
+from utils.audio_tags import guess_audio_media_type
 from utils.nginx import FileRedirectResponse
 from utils.router import APIRouter
 
@@ -68,22 +69,37 @@ async def get_romfile_content(
             detail="File not found",
         )
 
-    log.info(f"User {hl(current_username, color=BLUE)} is downloading {hl(file_name)}")
+    log.info(
+        f"User {hl(current_username, color=BLUE)} is downloading {hl(file.file_name)}"
+    )
+
+    # Derive content type / disposition / download name from the trusted DB
+    # record, never from the client-supplied file_name path param — otherwise a
+    # caller could request the same bytes with an arbitrary extension to force a
+    # mismatched Content-Type while served inline (content-sniffing/XSS).
+    is_audio = file.category == RomFileCategory.SOUNDTRACK
+    media_type = (
+        guess_audio_media_type(file.file_name)
+        if is_audio
+        else "application/octet-stream"
+    )
+    disposition = "inline" if is_audio else "attachment"
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
         rom_path = fs_rom_handler.validate_path(file.full_path)
+        # Starlette sets Content-Length and honors Range natively — inline
+        # disposition lets <audio> seek via Range requests.
         return FileResponse(
             path=rom_path,
-            filename=file_name,
-            headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}; filename=\"{quote(file_name)}\"",
-                "Content-Type": "application/octet-stream",
-                "Content-Length": str(file.file_size_bytes),
-            },
+            filename=file.file_name,
+            media_type=media_type,
+            content_disposition_type=disposition,
         )
 
-    # Otherwise proxy through nginx
+    # Otherwise proxy through nginx (which parses Range itself via X-Accel-Redirect)
     return FileRedirectResponse(
         download_path=Path(f"/library/{file.full_path}"),
+        disposition=disposition,
+        media_type=media_type,
     )

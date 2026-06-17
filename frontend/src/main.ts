@@ -10,6 +10,7 @@ import storeTasks from "@/stores/tasks";
 import "@/styles/common.css";
 import "@/styles/fonts.css";
 import "@/styles/scrollbar.css";
+import "@/v2/styles/global.css";
 
 async function initializeData() {
   const heartbeatStore = storeHeartbeat();

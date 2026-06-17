@@ -1,0 +1,34 @@
+/* Demo-only styles for RIcon stories. Imported by RIcon.stories.ts so
+   Storybook + Vite handles them as a normal CSS module. Inline <style>
+   blocks inside template strings get parsed inconsistently — keep the
+   demo CSS in a real file. */
+
+/* Hover swap — three flavours of "icon reacts on hover". The base
+   transition is provided by `.r-icon` itself; we only swap colour and
+   transform here. */
+.r-icon-story-swap {
+  color: var(--r-color-fg-muted);
+  cursor: pointer;
+}
+.r-icon-story-swap:hover {
+  color: var(--r-color-brand-primary);
+  transform: scale(1.18);
+}
+
+.r-icon-story-swap--fav {
+  color: var(--r-color-fg-faint);
+  cursor: pointer;
+}
+.r-icon-story-swap--fav:hover {
+  color: var(--r-color-romm-gold);
+  transform: scale(1.18);
+}
+
+.r-icon-story-swap--del {
+  color: var(--r-color-fg-muted);
+  cursor: pointer;
+}
+.r-icon-story-swap--del:hover {
+  color: var(--r-color-danger);
+  transform: rotate(-8deg) scale(1.12);
+}

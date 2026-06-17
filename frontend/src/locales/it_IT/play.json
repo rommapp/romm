@@ -20,5 +20,12 @@
   "save-and-quit": "Salva e esci",
   "select-background-color": "Seleziona colore di sfondo",
   "select-save": "Seleziona Salvataggio",
-  "select-state": "Seleziona Stato"
+  "select-state": "Seleziona Stato",
+  "all-saves": "Tutti i salvataggi",
+  "all-states": "Tutti gli stati",
+  "no-screenshot-available": "Nessuno screenshot disponibile",
+  "powered-by": "Powered by",
+  "resume-from-save": "Riprendi da salvataggio",
+  "resume-from-state": "Riprendi da stato",
+  "start-fresh-hint": "Scegline uno qui sotto per riprendere, oppure premi Gioca per iniziare da capo."
 }

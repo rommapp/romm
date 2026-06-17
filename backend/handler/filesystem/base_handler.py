@@ -200,11 +200,24 @@ class FSHandler:
         full_path = base_path_obj / path_path
 
         try:
-            if full_path.is_symlink():
-                # For symlinks, ensure the symlink itself is within base directory
+            # Detect a symlink anywhere in the path, not just at the leaf —
+            # users may symlink an intermediate directory (e.g. the library
+            # root) to point at storage on another filesystem.
+            has_symlink_in_path = full_path.is_symlink()
+            if not has_symlink_in_path:
+                for parent in full_path.parents:
+                    if parent == base_path_obj:
+                        break
+                    if parent.is_symlink():
+                        has_symlink_in_path = True
+                        break
+
+            if has_symlink_in_path:
+                # Validate lexically — `..` and absolute paths are already
+                # rejected above, so the symlink target is reachable only via
+                # an intentionally-configured link.
                 full_path.relative_to(base_path_obj)
             else:
-                # For regular files/dirs, ensure resolved path is within base directory
                 full_path.resolve().relative_to(base_path_obj)
         except ValueError as exc:
             raise ValueError(

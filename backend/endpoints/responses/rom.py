@@ -148,6 +148,21 @@ class RomUserSchema(BaseModel):
         return rom_user_schema_factory()
 
 
+class RomFileAudioMetaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    title: str | None = None
+    artist: str | None = None
+    album: str | None = None
+    year: str | None = None
+    genre: str | None = None
+    track: str | None = None
+    disc: str | None = None
+    duration_seconds: float | None = None
+    has_embedded_cover: bool = False
+    cover_path: str | None = None
+
+
 class RomFileSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -167,6 +182,16 @@ class RomFileSchema(BaseModel):
     chd_sha1_hash: str | None
     archive_members: list[RomArchiveMember] | None
     category: RomFileCategory | None
+    audio_meta: RomFileAudioMetaSchema | None = None
+
+
+class SoundtrackTrackMetaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    file_id: int
+    file_name: str
+    file_size_bytes: int
+    audio_meta: RomFileAudioMetaSchema | None = None
 
 
 class RomMetadataSchema(BaseModel):
@@ -269,6 +294,8 @@ class RomSchema(BaseModel):
     url_cover: str | None
 
     has_manual: bool
+    has_manual_files: bool
+    has_soundtrack: bool
     path_manual: str | None
     url_manual: str | None
 
@@ -336,6 +363,7 @@ class SiblingRomSchema(BaseModel):
     name: str | None
     fs_name_no_tags: str
     fs_name_no_ext: str
+    is_main_sibling: bool
 
     @computed_field  # type: ignore
     @property
@@ -350,12 +378,13 @@ class SiblingRomSchema(BaseModel):
         )
 
     @classmethod
-    def from_rom(cls, rom: Rom) -> SiblingRomSchema:
+    def from_rom(cls, rom: Rom, *, is_main_sibling: bool = False) -> SiblingRomSchema:
         return cls(
             id=rom.id,
             name=rom.name,
             fs_name_no_tags=rom.fs_name_no_tags,
             fs_name_no_ext=rom.fs_name_no_ext,
+            is_main_sibling=is_main_sibling,
         )
 
 
@@ -366,13 +395,37 @@ class SimpleRomSchema(RomSchema):
         db_rom: Rom,
         request: Request,
         files: Sequence[RomFile] | None = None,
-        siblings: Sequence[Rom] | None = None,
+        siblings: Sequence[tuple[Rom, bool]] | None = None,
     ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request)
-        db_rom.included_files = files or []  # type: ignore[assignment]
-        db_rom.included_sibling_roms = (  # type: ignore[assignment]
-            [SiblingRomSchema.from_rom(s) for s in siblings] if siblings else []
-        )
+
+        # The list endpoint passes pre-fetched `files`/`siblings` (batched via
+        # get_files_for_roms / get_siblings_for_roms, no per-row hydration).
+        # Single-rom endpoints (e.g. `/{id}/simple`, loaded via the
+        # `with_details` decorator) pass neither and fall back to the
+        # eager-loaded relationships. `None` (not provided) is distinct from an
+        # explicit empty list (e.g. the gallery list, which intentionally omits
+        # files unless `with_files` is set).
+        if files is None:
+            files = db_rom.files
+        if siblings is None:
+            user_id = request.user.id
+            siblings = [
+                (
+                    s,
+                    any(
+                        ru.user_id == user_id and ru.is_main_sibling
+                        for ru in s.rom_users
+                    ),
+                )
+                for s in db_rom.sibling_roms
+            ]
+
+        db_rom.included_files = list(files)  # type: ignore[assignment]
+        db_rom.included_sibling_roms = [  # type: ignore[assignment]
+            SiblingRomSchema.from_rom(s, is_main_sibling=is_main)
+            for s, is_main in siblings
+        ]
         return cls.model_validate(db_rom)
 
     @classmethod
@@ -415,7 +468,16 @@ class DetailedRomSchema(RomSchema):
         db_rom = cls.populate_properties(db_rom, request)
 
         sorted_siblings = sorted(
-            (SiblingRomSchema.from_rom(s) for s in db_rom.sibling_roms),
+            (
+                SiblingRomSchema.from_rom(
+                    s,
+                    is_main_sibling=any(
+                        ru.user_id == user_id and ru.is_main_sibling
+                        for ru in s.rom_users
+                    ),
+                )
+                for s in db_rom.sibling_roms
+            ),
             key=lambda x: x.sort_comparator,
         )
         db_rom.included_sibling_roms = sorted_siblings  # type: ignore[assignment]

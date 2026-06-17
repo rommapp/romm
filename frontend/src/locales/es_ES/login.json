@@ -12,5 +12,14 @@
   "reset-sent": "Enlace de restablecimiento enviado. Contacta a tu administrador.",
   "send-reset-link": "Enviar enlace de restablecimiento",
   "setup-wizard": "Asistente de configuración",
-  "username": "Usuario"
+  "username": "Usuario",
+  "avatar-save-warning": "No se pudo guardar el avatar — prueba con una imagen más pequeña.",
+  "login-failed": "Error al iniciar sesión: {error}",
+  "register-failed": "Error al registrarse: {error}",
+  "register-success": "Cuenta creada",
+  "reset-failed": "Error al restablecer: {error}",
+  "reset-link-failed": "No se pudo enviar el enlace.",
+  "unable-to-login": "No se puede iniciar sesión",
+  "unable-to-reset-password": "No se puede restablecer la contraseña",
+  "passwords-do-not-match": "Las contraseñas no coinciden"
 }

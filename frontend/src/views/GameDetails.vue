@@ -23,9 +23,8 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 
-// Dynamic import for PDFViewer
-const PdfViewer = defineAsyncComponent(
-  () => import("@/components/Details/PDFViewer.vue"),
+const MediaTab = defineAsyncComponent(
+  () => import("@/components/Details/MediaTab.vue"),
 );
 
 const { t } = useI18n();
@@ -35,7 +34,7 @@ const router = useRouter();
 // Valid tab values
 const validTabs = [
   "details",
-  "manual",
+  "media",
   "gamedata",
   "personal",
   "timetobeat",
@@ -47,7 +46,7 @@ const validTabs = [
 // Initialize tab from query parameter or default to "details"
 const tab = ref<
   | "details"
-  | "manual"
+  | "media"
   | "gamedata"
   | "personal"
   | "timetobeat"
@@ -58,7 +57,7 @@ const tab = ref<
   validTabs.includes(route.query.tab as any)
     ? (route.query.tab as
         | "details"
-        | "manual"
+        | "media"
         | "gamedata"
         | "personal"
         | "timetobeat"
@@ -197,8 +196,8 @@ watch(
             <v-tab value="details">
               {{ t("rom.details") }}
             </v-tab>
-            <v-tab v-if="currentRom.has_manual" value="manual">
-              {{ t("rom.manual") }}
+            <v-tab value="media">
+              {{ t("rom.media") }}
             </v-tab>
             <v-tab value="gamedata">{{ t("rom.save-data") }}</v-tab>
             <v-tab value="personal">
@@ -239,8 +238,8 @@ watch(
                   </v-col>
                 </v-row>
               </v-window-item>
-              <v-window-item value="manual">
-                <PdfViewer v-if="currentRom.has_manual" :rom="currentRom" />
+              <v-window-item value="media">
+                <MediaTab :rom="currentRom" />
               </v-window-item>
               <v-window-item value="gamedata">
                 <GameData :rom="currentRom" />

@@ -61,3 +61,15 @@ def editor_access_token(editor_user):  # noqa
         },
         expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
     )
+
+
+@pytest.fixture
+def viewer_access_token(viewer_user):  # noqa
+    return oauth_handler.create_access_token(
+        data={
+            "sub": viewer_user.username,
+            "iss": "romm:oauth",
+            "scopes": " ".join(viewer_user.oauth_scopes),
+        },
+        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
+    )
