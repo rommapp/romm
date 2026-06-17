@@ -26,7 +26,10 @@ from config import (
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses.heartbeat import HeartbeatResponse
-from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from exceptions.fs_exceptions import (
+    FolderStructureNotMatchException,
+    PlatformAlreadyExistsException,
+)
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
@@ -54,6 +57,19 @@ from utils.router import APIRouter
 router = APIRouter(
     tags=["system"],
 )
+
+
+async def _get_fs_platforms() -> list[str]:
+    """Retrieve platform slugs from the filesystem.
+
+    Returns an empty list when the library directory does not yet exist
+    (e.g. fresh installs before the folder structure is created) so that
+    the heartbeat endpoint never returns HTTP 500 in that scenario.
+    """
+    try:
+        return await fs_platform_handler.get_platforms()
+    except FolderStructureNotMatchException:
+        return []
 
 
 @router.get("/heartbeat")
@@ -109,7 +125,7 @@ async def heartbeat() -> HeartbeatResponse:
             "LIBRETRO_API_ENABLED": libretro_enabled,
         },
         "FILESYSTEM": {
-            "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
+            "FS_PLATFORMS": await _get_fs_platforms(),
         },
         "EMULATION": {
             "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS,

@@ -3,7 +3,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import status
 
-from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from exceptions.fs_exceptions import (
+    FolderStructureNotMatchException,
+    PlatformAlreadyExistsException,
+)
 from utils import get_version
 
 
@@ -50,6 +53,22 @@ def test_heartbeat(client):
     assert isinstance(oidc["ENABLED"], bool)
     assert isinstance(oidc["PROVIDER"], str)
     assert isinstance(oidc["RP_INITIATED_LOGOUT"], bool)
+
+
+def test_heartbeat_with_empty_library_directory(client):
+    """Heartbeat must return HTTP 200 even when the library directory is empty
+    (fresh install scenario, fixes issue #3541)."""
+    with patch(
+        "endpoints.heartbeat.fs_platform_handler.get_platforms",
+        new_callable=AsyncMock,
+        side_effect=FolderStructureNotMatchException(),
+    ):
+        response = client.get("/api/heartbeat")
+        assert response.status_code == status.HTTP_200_OK
+
+        heartbeat = response.json()
+        assert "FILESYSTEM" in heartbeat
+        assert heartbeat["FILESYSTEM"]["FS_PLATFORMS"] == []
 
 
 @pytest.mark.parametrize("authorization_header", ["Bearer ", "Foo", "a b c"])
