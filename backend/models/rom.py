@@ -45,13 +45,14 @@ NAME_SORT_KEY_MAX_LENGTH = 500
 ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
 DIGIT_RUN_RE = re.compile(r"\d+")
 
+
 def compute_name_sort_key(name: str | None) -> str:
-    """Precompute the natural-sort key stored in `Rom.name_sort_key`
-    """
+    """Precompute the natural-sort key stored in `Rom.name_sort_key`"""
     value = (name or "").lower()
     value = ARTICLE_PREFIX_RE.sub("", value).strip()
     value = DIGIT_RUN_RE.sub(lambda m: m.group(0).zfill(12), value)
     return value[:NAME_SORT_KEY_MAX_LENGTH]
+
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State

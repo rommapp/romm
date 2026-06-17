@@ -8,7 +8,6 @@ from typing import Any
 from redis.exceptions import WatchError
 from sqlalchemy import (
     Integer,
-    Row,
     String,
     Text,
     and_,
@@ -419,11 +418,11 @@ class DBRomsHandler(DBBaseHandler):
             return query
 
         if ROMM_DB_DRIVER in ("mariadb", "mysql"):
-            match_clauses: list[Any] | None = []
+            match_clauses: list[Any] = []
             for idx, term in enumerate(terms):
                 boolean_query = self._build_fulltext_boolean_query(term)
                 if boolean_query is None:
-                    match_clauses = None
+                    match_clauses = []
                     break
                 param = f"fulltext_search_{idx}"
                 match_clauses.append(
@@ -1158,7 +1157,7 @@ class DBRomsHandler(DBBaseHandler):
             .all()
         )
 
-        result = [[letter, int(position)] for letter, position in rows]
+        result = [(letter, int(position)) for letter, position in rows]
         if redis_key is not None and version is not None:
             _store_versioned_cache(redis_key, version, result)
         return result

@@ -53,10 +53,7 @@ def upgrade() -> None:
         batch = rows[start : start + _BACKFILL_BATCH]
         bind.execute(
             update_stmt,
-            [
-                {"_id": row.id, "_key": compute_name_sort_key(row.name)}
-                for row in batch
-            ],
+            [{"_id": row.id, "_key": compute_name_sort_key(row.name)} for row in batch],
         )
 
     op.create_index("idx_roms_name_sort_key", "roms", ["name_sort_key"])
