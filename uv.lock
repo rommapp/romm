@@ -11,7 +11,7 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
-starlette = "2026-05-22T22:00:00Z"
+starlette = "2026-05-23T00:00:00Z"
 
 [[package]]
 name = "aiohappyeyeballs"
