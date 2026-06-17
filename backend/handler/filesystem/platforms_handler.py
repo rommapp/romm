@@ -4,10 +4,8 @@ from anyio import Path as AnyioPath
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
-from exceptions.fs_exceptions import (
-    FolderStructureNotMatchException,
-    PlatformAlreadyExistsException,
-)
+from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from logger.logger import log
 
 from .base_handler import FSHandler, LibraryStructure
 
@@ -59,9 +57,9 @@ class FSPlatformsHandler(FSHandler):
         cnfg = cm.get_config()
 
         # Fallback to config hint when detection is inconclusive: default to
-        # Structure A (roms/{platform}) so a malformed library fails loudly
-        # (FolderStructureNotMatchException) rather than treating the bare
-        # library root as a flat list of platforms.
+        # Structure A (roms/{platform}) so the bare library root is not treated
+        # as a flat list of platforms. When the roms folder is missing entirely,
+        # get_platforms() bootstraps it instead of failing.
         return "" if cnfg.has_structure_path_b else cnfg.ROMS_FOLDER_NAME
 
     def get_platform_fs_structure(self, fs_slug: str) -> str:
@@ -90,6 +88,11 @@ class FSPlatformsHandler(FSHandler):
     async def get_platforms(self) -> list[str]:
         """Retrieves all platforms from the filesystem.
 
+        If no library structure exists yet (neither Structure A's top-level roms
+        folder nor a Structure B {platform}/roms folder), defaults to Structure A
+        by creating the roms folder and returns an empty list, so RomM starts
+        cleanly with an empty library instead of failing.
+
         Returns:
             List of platform slugs.
         """
@@ -97,8 +100,19 @@ class FSPlatformsHandler(FSHandler):
 
         try:
             platforms = await self.list_directories(path=self.get_platforms_directory())
-        except FileNotFoundError as e:
-            raise FolderStructureNotMatchException() from e
+        except FileNotFoundError:
+            # The platforms directory does not exist, which means no library
+            # structure has been set up yet. Bootstrap Structure A so the
+            # filesystem is in a valid state and report an empty library.
+            log.warning(
+                "No library structure found; creating default Structure A "
+                "(roms folder) and starting with an empty library."
+            )
+            try:
+                self.create_library_structure()
+            except OSError:
+                log.error("Failed to create default library structure", exc_info=True)
+            return []
 
         # For Structure B, only include directories that have a roms subfolder
         structure = self.detect_library_structure()
