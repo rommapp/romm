@@ -21,6 +21,8 @@ class ClientTokenCreateSchema(ClientTokenSchema):
 
 class ClientTokenAdminSchema(ClientTokenSchema):
     username: str
+    user_avatar_path: str
+    user_updated_at: UTCDatetime
 
 
 class ClientTokenPairSchema(BaseModel):

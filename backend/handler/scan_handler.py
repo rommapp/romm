@@ -48,9 +48,10 @@ from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile
+from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
 from utils import emoji
+from utils.audio_tags import persist_cover_and_build_meta
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
 
@@ -134,6 +135,28 @@ def get_priority_ordered_metadata_sources(
     ]
 
     return ordered_sources + remaining_sources
+
+
+def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
+    """Persist a scanned soundtrack file's embedded cover and record its path in
+    the row's audio_meta. No-op for non-soundtrack files or ones without a cover."""
+    if not (
+        rom_file.category == RomFileCategory.SOUNDTRACK
+        and rom_file.audio_meta
+        and rom_file.audio_meta.get("has_embedded_cover")
+    ):
+        return
+
+    abs_audio_path = fs_rom_handler.validate_path(rom_file.full_path)
+    persisted_meta = persist_cover_and_build_meta(
+        audio_full_path=str(abs_audio_path),
+        platform_id=rom.platform_id,
+        rom_id=rom.id,
+        file_id=rom_file.id,
+        audio_meta=rom_file.audio_meta,
+    )
+    if persisted_meta:
+        db_rom_handler.update_rom_file(rom_file.id, {"audio_meta": persisted_meta})
 
 
 async def scan_platform(
@@ -302,6 +325,7 @@ async def scan_rom(
     metadata_sources: list[str],
     newly_added: bool,
     launchbox_remote_enabled: bool = True,
+    playmatch_enabled: bool = True,
     socket_manager: socketio.AsyncRedisManager | None = None,
 ) -> Rom:
     rom_attrs = {
@@ -443,7 +467,7 @@ async def scan_rom(
                         "rom_user",
                         "last_modified",
                         "files",
-                        "siblings",
+                        "sibling_roms",
                     }
                 ),
             },

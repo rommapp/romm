@@ -12,5 +12,14 @@
   "reset-sent": "Link zum Zurücksetzen wurde gesendet. Kontaktieren Sie Ihren Administrator.",
   "send-reset-link": "Link zum Zurücksetzen senden",
   "setup-wizard": "Einrichtungsassistent",
-  "username": "Benutzername"
+  "username": "Benutzername",
+  "passwords-do-not-match": "Passwörter stimmen nicht überein",
+  "login-failed": "Anmeldung fehlgeschlagen",
+  "unable-to-login": "Anmeldung nicht möglich: {error}",
+  "reset-failed": "Zurücksetzen fehlgeschlagen",
+  "unable-to-reset-password": "Passwort konnte nicht zurückgesetzt werden: {error}",
+  "reset-link-failed": "Reset-Link konnte nicht gesendet werden",
+  "register-success": "Benutzer erfolgreich registriert",
+  "register-failed": "Benutzer konnte nicht registriert werden: {error}",
+  "avatar-save-warning": "Konto erstellt, aber der Avatar konnte nicht gespeichert werden: {error}. Du kannst ihn später in den Profileinstellungen festlegen."
 }

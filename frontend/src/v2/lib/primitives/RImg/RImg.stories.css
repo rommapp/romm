@@ -1,0 +1,41 @@
+/* Demo-only styles for RImg stories. Imported by RImg.stories.ts so
+   Storybook + Vite handles them as a normal CSS module. Inline <style>
+   blocks inside template strings get parsed inconsistently and the
+   keyframes stop animating — keep the demo CSS in a real file. */
+
+/* Loading-slot shimmer — three-stop gradient sliding across the
+   container. Visible only while RImg is in `loading` state. */
+@keyframes r-img-story-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.r-img-story-shimmer {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--r-color-surface) 0%,
+    var(--r-color-surface-hover) 50%,
+    var(--r-color-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: r-img-story-shimmer 1.4s ease-in-out infinite;
+}
+
+.r-img-story-reload-btn {
+  padding: 6px 12px;
+  background: var(--r-color-brand-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font: 12px/1 sans-serif;
+  cursor: pointer;
+}
+.r-img-story-reload-btn:hover {
+  background: var(--r-color-brand-primary-hover);
+}

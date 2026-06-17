@@ -20,5 +20,12 @@
   "save-and-quit": "保存并退出",
   "select-background-color": "选择背景颜色",
   "select-save": "选择存档",
-  "select-state": "选择状态"
+  "select-state": "选择状态",
+  "all-saves": "所有存档",
+  "all-states": "所有状态",
+  "no-screenshot-available": "无可用截图",
+  "powered-by": "技术支持",
+  "resume-from-save": "从存档继续",
+  "resume-from-state": "从状态继续",
+  "start-fresh-hint": "选择下方任一项继续，或点击开始从头开始。"
 }

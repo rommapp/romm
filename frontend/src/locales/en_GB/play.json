@@ -20,5 +20,12 @@
   "save-and-quit": "Save and quit",
   "select-background-color": "Select background color",
   "select-save": "Select save",
-  "select-state": "Select state"
+  "select-state": "Select state",
+  "all-saves": "All saves",
+  "all-states": "All states",
+  "no-screenshot-available": "No screenshot available",
+  "powered-by": "Powered by",
+  "resume-from-save": "Resume from save",
+  "resume-from-state": "Resume from state",
+  "start-fresh-hint": "Pick one below to resume, or hit Play to start fresh."
 }

@@ -12,5 +12,14 @@
   "reset-sent": "Visszaállítási link kiküldve. Lépj kapcsolatba az adminnal.",
   "send-reset-link": "Visszaállítási link küldése",
   "setup-wizard": "Beállítási varázsló",
-  "username": "Felhasználónév"
+  "username": "Felhasználónév",
+  "passwords-do-not-match": "A jelszavak nem egyeznek",
+  "login-failed": "Sikertelen bejelentkezés",
+  "unable-to-login": "Nem sikerült bejelentkezni: {error}",
+  "reset-failed": "A visszaállítás sikertelen",
+  "unable-to-reset-password": "A jelszó visszaállítása sikertelen: {error}",
+  "reset-link-failed": "A visszaállítási link küldése sikertelen",
+  "register-success": "A felhasználó sikeresen regisztrálva",
+  "register-failed": "A felhasználó regisztrálása sikertelen: {error}",
+  "avatar-save-warning": "A fiók létrejött, de az avatar mentése sikertelen: {error}. Később beállíthatod a profilbeállításokból."
 }

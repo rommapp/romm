@@ -20,5 +20,12 @@
   "save-and-quit": "Guardar y salir",
   "select-background-color": "Seleccionar color de fondo",
   "select-save": "Seleccionar guardado",
-  "select-state": "Seleccionar estado"
+  "select-state": "Seleccionar estado",
+  "all-saves": "Todas las partidas",
+  "all-states": "Todos los estados",
+  "no-screenshot-available": "Captura no disponible",
+  "powered-by": "Con la tecnología de",
+  "resume-from-save": "Continuar desde partida guardada",
+  "resume-from-state": "Continuar desde estado",
+  "start-fresh-hint": "Empezar desde cero — sin partidas guardadas."
 }

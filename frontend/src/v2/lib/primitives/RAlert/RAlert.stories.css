@@ -1,0 +1,17 @@
+/* Demo-only styles for RAlert stories. Imported by RAlert.stories.ts.
+   Inline <style> blocks inside template strings get parsed
+   inconsistently — keep demo CSS in a real file. */
+
+@keyframes r-alert-story-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.r-alert-story-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: r-alert-story-spin 0.9s linear infinite;
+}

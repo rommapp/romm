@@ -75,6 +75,7 @@ from utils.validation import ValidationError
 from .files import router as files_router
 from .manual import router as manual_router
 from .notes import router as notes_router
+from .soundtrack import router as soundtrack_router
 from .upload import router as upload_router
 
 router = APIRouter(
@@ -84,6 +85,7 @@ router = APIRouter(
 router.include_router(upload_router)
 router.include_router(files_router)
 router.include_router(manual_router)
+router.include_router(soundtrack_router)
 router.include_router(notes_router)
 
 
@@ -556,6 +558,7 @@ def get_roms(
         char_index = db_rom_handler.with_char_index(
             query=query,
             order_by_attr=order_by_attr,
+            order_dir=order_dir.lower(),
             cache_key=f"all:u{request.user.id}" if is_unscoped else None,
         )
         char_index_dict = {char: index for (char, index) in char_index}
@@ -602,7 +605,7 @@ def get_roms(
                 else {}
             )
             siblings_by_rom = db_rom_handler.get_siblings_for_roms(
-                rom_ids, session=session
+                rom_ids, user_id=request.user.id, session=session
             )
 
             return [
@@ -855,6 +858,32 @@ async def get_rom_filters(request: Request) -> RomFiltersDict:
     filters = db_rom_handler.get_rom_filters()
     # trunk-ignore(mypy/typeddict-item)
     return RomFiltersDict(**filters)
+
+
+@protected_route(
+    router.get,
+    "/{id}/simple",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def get_rom_simple(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> SimpleRomSchema:
+    """Retrieve a rom by ID with the lightweight schema — no eager-loaded
+    `user_saves` / `user_states` / `user_screenshots` / `user_collections` /
+    `all_user_notes` arrays. Designed for the v2 gallery card which only
+    needs the indicator flags (`has_notes`, `ra_id`, status, etc.) already
+    present on `SimpleRomSchema`. The full `DetailedRomSchema` is only
+    fetched on user-driven detail interactions (game details page, quick-
+    note dialog open, achievements panel)."""
+
+    rom = db_rom_handler.get_rom(id)
+
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    return SimpleRomSchema.from_orm_with_request(rom, request)
 
 
 @protected_route(

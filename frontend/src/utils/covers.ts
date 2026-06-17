@@ -48,6 +48,8 @@ export function getFavoriteCoverImage(name: string): string {
   return strToObjUrl(svgString);
 }
 
+/** @deprecated v2 forks this in `@/v2/utils/covers` (tokenised colours +
+ *  leak-free `data:` URIs). Use that from v2 code; this stays for v1. */
 export function getMissingCoverImage(name: string): string {
   const tbgs = translatedBGs(name);
   const bgr = bgRotation(name);
@@ -58,6 +60,7 @@ export function getMissingCoverImage(name: string): string {
   return strToObjUrl(svgString);
 }
 
+/** @deprecated v2 forks this in `@/v2/utils/covers`. Use that from v2 code. */
 export function getUnmatchedCoverImage(name: string): string {
   const tbgs = translatedBGs(name);
   const bgr = bgRotation(name);
@@ -67,6 +70,7 @@ export function getUnmatchedCoverImage(name: string): string {
   return strToObjUrl(svgString);
 }
 
+/** @deprecated v2 forks this in `@/v2/utils/covers`. Use that from v2 code. */
 export function getEmptyCoverImage(
   name: string,
   aspectRatio: number = 2 / 3,

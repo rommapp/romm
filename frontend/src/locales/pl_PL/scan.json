@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Źródło wyłączone",
   "abort": "Przerwij",
   "api-key-invalid": "Nieprawidłowy klucz API!",
   "api-key-missing": "Brak lub nieprawidłowy klucz API",
@@ -42,5 +43,26 @@
   "unmatched-games": "Niedopasowane gry",
   "unmatched-games-desc": "Skanuj gry z brakującymi dopasowaniami metadanych",
   "update-metadata": "Aktualizuj metadane",
-  "update-metadata-desc": "Aktualizuj metadane dla dopasowanych gier"
+  "update-metadata-desc": "Aktualizuj metadane dla dopasowanych gier",
+  "playmatch-requires-igdb": "Wybierz IGDB, aby włączyć Playmatch",
+  "section-platforms": "Platformy",
+  "section-metadata": "Metadane",
+  "section-providers": "Dostawcy",
+  "section-providers-general": "Ogólne",
+  "section-providers-specific": "Szczegółowe",
+  "section-proxies": "Proxy",
+  "section-scan-type": "Typ skanowania",
+  "scanning": "Skanowanie",
+  "scanning-library": "Skanowanie biblioteki. Kliknij, aby zobaczyć",
+  "title": "Skanowanie biblioteki",
+  "info-dialog-title": "Pomoc skanowania",
+  "scan-complete": "Skanowanie ukończone",
+  "live-progress": "Postęp na żywo",
+  "empty-hint": "Wybierz konfigurację skanowania po lewej i naciśnij Skanuj, aby zobaczyć tu postęp na żywo.",
+  "empty-hint-scanning": "Platformy pojawią się tutaj, gdy skaner je wykryje.",
+  "hash-matchers": "Dopasowywacze hashy",
+  "abort-scan": "Przerwij skanowanie",
+  "identifying": "Identyfikowanie",
+  "info-full-docs": "Pełna dokumentacja",
+  "scan-types": "Typy skanowania"
 }

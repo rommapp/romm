@@ -62,6 +62,9 @@ coverage.xml
 # service worker
 frontend/dev-dist
 
+# storybook
+frontend/storybook-static
+
 # outside data
 switch_titledb.json
 switch_product_ids.json

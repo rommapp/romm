@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Fuente desactivada",
   "abort": "Cancelar",
   "api-key-invalid": "¡Clave de API inválida!",
   "api-key-missing": "API key inválida o no configurada",
@@ -42,5 +43,26 @@
   "unmatched-games": "Juegos sin coincidencia",
   "unmatched-games-desc": "Escanea juegos con coincidencias de metadatos faltantes",
   "update-metadata": "Actualizar metadatos",
-  "update-metadata-desc": "Actualizar metadatos para juegos coincidentes"
+  "update-metadata-desc": "Actualizar metadatos para juegos coincidentes",
+  "abort-scan": "Cancelar escaneo",
+  "empty-hint": "Usa Escanear para descubrir nuevas ROMs en tus carpetas.",
+  "empty-hint-scanning": "Escaneando… los resultados aparecerán aquí.",
+  "hash-matchers": "Emparejadores por hash",
+  "identifying": "Identificando",
+  "info-dialog-title": "Tipos de escaneo",
+  "info-full-docs": "Documentación completa",
+  "live-progress": "Progreso en vivo",
+  "scan-complete": "Escaneo completado",
+  "scan-types": "Tipos de escaneo",
+  "title": "Escanear",
+  "playmatch-requires-igdb": "Selecciona IGDB para activar Playmatch",
+  "section-platforms": "Plataformas",
+  "section-metadata": "Metadatos",
+  "section-providers": "Proveedores",
+  "section-providers-general": "Generales",
+  "section-providers-specific": "Específicos",
+  "section-proxies": "Proxies",
+  "section-scan-type": "Tipo de escaneo",
+  "scanning": "Escaneando",
+  "scanning-library": "Escaneando biblioteca. Pulsa para ver"
 }
