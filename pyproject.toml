@@ -60,7 +60,6 @@ dependencies = [
   "watchfiles ~= 1.1",
   "yarl ~= 1.14",
   "zipfile-inflate64 ~= 0.1",
-  "bcrypt<4.1",
 ]
 
 [project.optional-dependencies]
