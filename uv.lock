@@ -2239,7 +2239,6 @@ requires-dist = [
     { name = "anyio", specifier = "~=4.4" },
     { name = "asyncssh", specifier = "~=2.23" },
     { name = "authlib", specifier = "~=1.6.12" },
-    { name = "bcrypt", specifier = "<4.1" },
     { name = "bcrypt", specifier = "<5" },
     { name = "colorama", specifier = "~=0.4" },
     { name = "defusedxml", specifier = "~=0.7" },
