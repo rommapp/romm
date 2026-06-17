@@ -27,6 +27,7 @@ import storeRoms from "@/stores/roms";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
+import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -374,7 +375,12 @@ function fmtDate(iso: string): string {
               >
                 <span class="r-v2-notes__nav-title">{{ n.title }}</span>
                 <span class="r-v2-notes__nav-author">
-                  <RAvatar icon="mdi-account" size="18" />
+                  <RAvatar
+                    :image="
+                      userAvatarUrl(n.user_avatar_path, n.user_updated_at)
+                    "
+                    size="18"
+                  />
                   <span>{{ n.username }}</span>
                 </span>
               </button>
@@ -463,7 +469,15 @@ function fmtDate(iso: string): string {
                 {{ selectedNote.title }}
               </h3>
               <div v-if="!isSelectedOwn" class="r-v2-notes__author">
-                <RAvatar icon="mdi-account" size="20" />
+                <RAvatar
+                  :image="
+                    userAvatarUrl(
+                      selectedNote.user_avatar_path,
+                      selectedNote.user_updated_at,
+                    )
+                  "
+                  size="20"
+                />
                 <span>{{ selectedNote.username }}</span>
               </div>
             </div>

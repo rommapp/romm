@@ -38,6 +38,9 @@ class UserNoteSchema(BaseModel):
     updated_at: UTCDatetime
     user_id: int
     username: str
+    # Author identity for rendering an avatar next to community notes.
+    user_avatar_path: str = ""
+    user_updated_at: UTCDatetime | None = None
 
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
@@ -516,6 +519,8 @@ class DetailedRomSchema(RomSchema):
                 "updated_at": note.updated_at,
                 "user_id": note.user_id,
                 "username": note.user.username,
+                "user_avatar_path": note.user.avatar_path,
+                "user_updated_at": note.user.updated_at,
             }
             all_notes.append(UserNoteSchema.model_validate(note_dict))
 
