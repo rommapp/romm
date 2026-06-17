@@ -32,9 +32,9 @@ import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
-import { defaultAvatarPath } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -47,12 +47,9 @@ const { user, scopes } = storeToRefs(authStore);
 
 const open = ref(false);
 
-const avatarSrc = computed(() => {
-  if (user.value?.avatar_path) {
-    return `/assets/romm/assets/${user.value.avatar_path}?ts=${user.value.updated_at}`;
-  }
-  return defaultAvatarPath;
-});
+const avatarSrc = computed(() =>
+  userAvatarUrl(user.value?.avatar_path, user.value?.updated_at),
+);
 
 const isAdmin = useCan("app.admin");
 

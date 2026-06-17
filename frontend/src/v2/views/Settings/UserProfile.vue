@@ -27,11 +27,12 @@ import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
-import { defaultAvatarPath, formatTimestamp, getRoleIcon } from "@/utils";
+import { formatTimestamp, getRoleIcon } from "@/utils";
 import ChangePasswordDialog from "@/v2/components/Settings/ChangePasswordDialog.vue";
 import RetroAchievementsSection from "@/v2/components/Settings/RetroAchievementsSection.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 const { t, locale } = useI18n();
 const auth = storeAuth();
@@ -73,10 +74,7 @@ function roleToneFor(role: string | undefined): RoleTone {
 // `auth.setCurrentUser(data)` rehydrates `user`.
 const avatarSrc = computed(() => {
   if (imagePreviewUrl.value) return imagePreviewUrl.value;
-  if (user.value?.avatar_path) {
-    return `/assets/romm/assets/${user.value.avatar_path}?ts=${user.value.updated_at}`;
-  }
-  return defaultAvatarPath;
+  return userAvatarUrl(user.value?.avatar_path, user.value?.updated_at);
 });
 
 const isDirty = computed(() => {
