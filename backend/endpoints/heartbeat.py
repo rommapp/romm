@@ -75,6 +75,7 @@ async def heartbeat() -> HeartbeatResponse:
     hltb_enabled = meta_hltb_handler.is_enabled()
     tgdb_enabled = meta_tgdb_handler.is_enabled()
     libretro_enabled = meta_libretro_handler.is_enabled()
+    platforms = await fs_platform_handler.get_platforms() if fs_platform_handler.detect_library_structure() is not None else []
 
     return {
         "SYSTEM": {
@@ -109,7 +110,7 @@ async def heartbeat() -> HeartbeatResponse:
             "LIBRETRO_API_ENABLED": libretro_enabled,
         },
         "FILESYSTEM": {
-            "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
+            "FS_PLATFORMS": platforms,
         },
         "EMULATION": {
             "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS,
