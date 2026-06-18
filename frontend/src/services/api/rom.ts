@@ -481,7 +481,12 @@ async function updateRom({
 
   const fields: FormInputField<UpdateRomInput>[] = [
     ["name", rom.name],
-    ["sort_name", rom.sort_name ?? ""],
+    // Send the override only when the row is pinned to a custom sort key;
+    // an empty value reverts the backend to deriving the key from `name`.
+    [
+      "name_sort_key",
+      rom.name_sort_key_custom ? (rom.name_sort_key ?? "") : "",
+    ],
     ["fs_name", rom.fs_name],
     ["summary", rom.summary],
     ["igdb_id", toFormIdValue(rom.igdb_id)],

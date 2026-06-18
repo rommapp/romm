@@ -14,7 +14,7 @@ from config.config_manager import config_manager as cm
 from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, compute_name_sort_key
 
 from .base_handler import BaseRom, MetadataHandler
 
@@ -420,7 +420,12 @@ class GamelistHandler(MetadataHandler):
                 rom_data = GamelistRom(
                     gamelist_id=str(uuid.uuid4()),
                     name=name,
-                    sort_name=sort_name or name,
+                    # A gamelist <sortname> tag becomes a custom sort key; the
+                    # derived-from-name default is used when it is absent.
+                    name_sort_key=(
+                        compute_name_sort_key(sort_name) if sort_name else None
+                    ),
+                    name_sort_key_custom=bool(sort_name),
                     summary=summary,
                     regions=regions,
                     languages=languages,

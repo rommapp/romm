@@ -310,6 +310,19 @@ async def scan_firmware(
     return Firmware(**firmware_attrs)
 
 
+def _build_rom(rom_attrs: dict[str, Any]) -> Rom:
+    """Construct a Rom, applying a custom ``name_sort_key`` after construction so
+    the override survives the ``@validates('name')`` derivation regardless of the
+    order in which ``name`` and the sort-key fields are passed."""
+    name_sort_key = rom_attrs.pop("name_sort_key", None)
+    name_sort_key_custom = rom_attrs.pop("name_sort_key_custom", False)
+    rom = Rom(**rom_attrs)
+    if name_sort_key_custom and name_sort_key:
+        rom.name_sort_key = name_sort_key
+        rom.name_sort_key_custom = True
+    return rom
+
+
 async def scan_rom(
     scan_type: ScanType,
     platform: Platform,
@@ -335,7 +348,6 @@ async def scan_rom(
         "sha1_hash": rom.sha1_hash,
         "ra_hash": rom.ra_hash,
         "fs_size_bytes": rom.fs_size_bytes,
-        "sort_name": None,
     }
 
     # Check if files have been parsed and hashed
@@ -356,7 +368,8 @@ async def scan_rom(
         rom_attrs.update(
             {
                 "name": rom.name,
-                "sort_name": rom.sort_name,
+                "name_sort_key": rom.name_sort_key,
+                "name_sort_key_custom": rom.name_sort_key_custom,
                 "slug": rom.slug,
                 "summary": rom.summary,
                 "url_cover": rom.url_cover,
@@ -1003,7 +1016,7 @@ async def scan_rom(
             f"{hl(rom_attrs['fs_name'])} not identified {emoji.EMOJI_CROSS_MARK}",
             extra=LOGGER_MODULE_NAME,
         )
-        return Rom(**rom_attrs)
+        return _build_rom(rom_attrs)
 
     async def fetch_sgdb_details(playmatch_rom: PlaymatchRomMatch) -> SGDBRom:
         """Fetch SteamGridDB details for the ROM."""
@@ -1079,7 +1092,7 @@ async def scan_rom(
             )
 
     rom_attrs["missing_from_fs"] = False
-    return Rom(**rom_attrs)
+    return _build_rom(rom_attrs)
 
 
 async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False):

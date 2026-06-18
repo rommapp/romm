@@ -1010,8 +1010,8 @@ class DBRomsHandler(DBBaseHandler):
             order_attr = Rom.name
 
         # Use indexed `name_sort_key` to have fast access to names without
-        # articles (the, a, an) and leading digits. The key already folds in
-        # `sort_name` (falling back to `name`) at write time.
+        # articles (the, a, an) and leading digits. The key is derived from
+        # `name` at write time, or holds a custom override when one is set.
         if order_attr is Rom.name:
             order_attr = Rom.name_sort_key
 
@@ -1206,19 +1206,16 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Rom:
         # Bulk update() bypasses the ORM @validates hooks, so keep the
         # columns derived from name / fs_name in sync explicitly.
-        if "name" in data or "sort_name" in data:
-            if "name" in data and "sort_name" in data:
-                effective = data["sort_name"] or data["name"]
-            else:
-                # Only one of the two changed; read the other from the row so
-                # the key reflects the effective `sort_name or name`.
-                existing = session.query(Rom).filter_by(id=id).one()
-                name = data["name"] if "name" in data else existing.name
-                sort_name = (
-                    data["sort_name"] if "sort_name" in data else existing.sort_name
-                )
-                effective = sort_name or name
-            data = {**data, "name_sort_key": compute_name_sort_key(effective)}
+        if "name_sort_key" in data:
+            # An explicit sort key was supplied (custom override or a revert to
+            # the derived value). Trust it; mark it custom unless told otherwise.
+            data = {"name_sort_key_custom": True, **data}
+        elif "name" in data:
+            # Name changed without an explicit key: recompute the derived key,
+            # but never clobber a row pinned to a custom sort key.
+            existing = session.query(Rom).filter_by(id=id).one()
+            if not existing.name_sort_key_custom:
+                data = {**data, "name_sort_key": compute_name_sort_key(data["name"])}
 
         if "fs_name" in data:
             parts = compute_file_name_parts(data["fs_name"])

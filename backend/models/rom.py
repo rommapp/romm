@@ -232,10 +232,12 @@ class Rom(BaseModel):
     fs_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
     name: Mapped[str | None] = mapped_column(String(length=350))
-    sort_name: Mapped[str | None] = mapped_column(String(length=350))
     name_sort_key: Mapped[str | None] = mapped_column(
         String(length=NAME_SORT_KEY_MAX_LENGTH), default=None
     )
+    # When true, `name_sort_key` is a user/metadata-supplied override and is NOT
+    # recomputed from `name`. When false, it is derived from `name` on write.
+    name_sort_key_custom: Mapped[bool] = mapped_column(default=False, nullable=False)
     slug: Mapped[str | None] = mapped_column(String(length=400))
     summary: Mapped[str | None] = mapped_column(Text)
     igdb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
@@ -332,15 +334,13 @@ class Rom(BaseModel):
         super().__init__(*args, **kwargs)
         self._is_identifying = False
 
-    @validates("name", "sort_name")
-    def _sync_name_sort_key(self, key: str, value: str | None) -> str | None:
-        """Derive the indexed `name_sort_key` from `sort_name` (falling back to
-        `name`) whenever either is assigned."""
-        if key == "sort_name":
-            effective = value or self.name
-        else:
-            effective = self.sort_name or value
-        self.name_sort_key = compute_name_sort_key(effective)
+    @validates("name")
+    def _sync_name_sort_key(self, _key: str, value: str | None) -> str | None:
+        """Keep the indexed `name_sort_key` in sync with `name`, unless a custom
+        sort key has been pinned via `name_sort_key_custom`. Callers that supply
+        a custom key assign `name_sort_key` directly and flip the flag."""
+        if not getattr(self, "name_sort_key_custom", False):
+            self.name_sort_key = compute_name_sort_key(value)
         return value
 
     @validates("fs_name")
