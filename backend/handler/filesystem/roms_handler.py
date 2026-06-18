@@ -22,7 +22,6 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
-from models.base import TAG_REGEX
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from utils.archives import (
@@ -141,6 +140,7 @@ def _make_file_hash(
     )
 
 
+GENERIC_TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
 VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)[\s_-]?(.*)", re.I)
 REGION_TAG_REGEX = re.compile(r"^reg[\s|-](.*)$", re.I)
 REVISION_TAG_REGEX = re.compile(r"^rev[\s|-](.*)$", re.I)
@@ -179,7 +179,7 @@ class FSRomsHandler(FSHandler):
     def parse_tags(self, fs_name: str) -> ParsedTags:
         tags = [
             chunk.strip()
-            for tag in (m[0] or m[1] for m in TAG_REGEX.findall(fs_name))
+            for tag in (m[0] or m[1] for m in GENERIC_TAG_REGEX.findall(fs_name))
             for chunk in tag.split(",")
         ]
 

@@ -9,8 +9,8 @@ FILE_NAME_MAX_LENGTH = 450
 FILE_PATH_MAX_LENGTH = 1000
 FILE_EXTENSION_MAX_LENGTH = 100
 
-# Matches parenthesised/bracketed tag groups, e.g. "(USA)" or "[!]".
-TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
+# Matches parenthesised/bracketed tag groups, e.g. " (USA)" or " [!]", or " (USA) (Rev 1) [!]"
+TAG_GROUP_REGEX = re.compile(r"(?:\s*(?:\([^)]*\)|\[[^]]*\]))+\s*$")
 # Matches a trailing file extension, including multi-part ones like ".tar.gz".
 EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
 
@@ -25,8 +25,13 @@ def compute_file_name_no_ext(file_name: str) -> str:
 
 
 def compute_file_name_no_tags(file_name: str) -> str:
-    """Strip the extension and any trailing tag groups from a file name."""
-    return TAG_REGEX.split(compute_file_name_no_ext(file_name))[0].strip()
+    """Strip the extension and any trailing tag groups from a file name.
+
+    Only tag groups at the end are removed (repeatedly), so a title that
+    legitimately contains parentheses/brackets mid-name is not truncated.
+    """
+    name = compute_file_name_no_ext(file_name)
+    return TAG_GROUP_REGEX.sub("", name).strip()
 
 
 def compute_file_extension(file_name: str) -> str:

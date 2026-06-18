@@ -25,7 +25,7 @@ export type SimpleRom = SimpleRomSchema;
 export type SearchRom = SearchRomSchema;
 export type DetailedRom = DetailedRomSchema;
 
-const orderByStorage = useLocalStorage<string | null>("roms.orderBy", null);
+const orderByStorage = useLocalStorage<string>("roms.orderBy", "");
 const orderDirStorage = useLocalStorage("roms.orderDir", "asc");
 
 // NOTE on deprecation: the gallery-list responsibility (currentPlatform /
@@ -71,7 +71,7 @@ const defaultRomsState = {
   /** @deprecated v2: use `useGalleryRoms().romIdIndex`. */
   romIdIndex: [] as number[],
   /** @deprecated v2: use `useGalleryRoms().orderBy` (gallery-scoped). */
-  orderBy: orderByStorage.value as keyof SimpleRom | null,
+  orderBy: orderByStorage.value as keyof SimpleRom | "",
   /** @deprecated v2: use `useGalleryRoms().orderDir`. */
   orderDir: orderDirStorage.value as "asc" | "desc",
 };
@@ -378,7 +378,7 @@ export default defineStore("roms", {
       this.lastSelectedIndex = -1;
     },
     /** @deprecated v2: use `useGalleryRoms().setOrderBy`. */
-    setOrderBy(orderBy: keyof SimpleRom | null) {
+    setOrderBy(orderBy: keyof SimpleRom | "") {
       this.orderBy = orderBy;
       orderByStorage.value = orderBy;
     },

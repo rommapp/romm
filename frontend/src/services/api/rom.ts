@@ -190,7 +190,7 @@ async function getRoms({
   searchTerm = null,
   limit = 72,
   offset = 0,
-  orderBy = null,
+  orderBy = "",
   orderDir = "asc",
   filterMatched = null,
   filterFavorites = null,
