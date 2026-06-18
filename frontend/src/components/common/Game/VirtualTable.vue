@@ -138,7 +138,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
   } else {
     // Clear the `orderBy` key when the user removes
     // the sort column from the table
-    romsStore.setOrderBy(null);
+    romsStore.setOrderBy("");
     romsStore.setOrderDir("asc");
   }
   romsStore.fetchRoms();
