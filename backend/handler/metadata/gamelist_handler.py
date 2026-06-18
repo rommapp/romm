@@ -420,7 +420,7 @@ class GamelistHandler(MetadataHandler):
                 rom_data = GamelistRom(
                     gamelist_id=str(uuid.uuid4()),
                     name=name,
-                    sort_name=sort_name,
+                    sort_name=sort_name or name,
                     summary=summary,
                     regions=regions,
                     languages=languages,

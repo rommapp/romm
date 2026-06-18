@@ -97,12 +97,10 @@ def test_parse_gamelist_xml_keeps_game_entries(tmp_path: Path, platform: Platfor
 
 
 def test_extract_metadata_from_gamelist_rom_includes_sort_name(platform: Platform):
-    game = ET.fromstring(
-        """<game>
+    game = ET.fromstring("""<game>
   <path>./test-rom.zip</path>
   <sortname>Akumajou Dracula</sortname>
-</game>"""
-    )
+</game>""")
 
     with patch(
         "handler.metadata.gamelist_handler.extract_media_from_gamelist_rom",
