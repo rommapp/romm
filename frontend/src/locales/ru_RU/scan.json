@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Источник отключён",
   "abort": "Прервать",
   "api-key-invalid": "Неверный API-ключ!",
   "api-key-missing": "API ключ отсутствует или недействителен",
@@ -42,5 +43,26 @@
   "unmatched-games": "Игры без совпадений",
   "unmatched-games-desc": "Сканировать игры с отсутствующими совпадениями метаданных",
   "update-metadata": "Обновить метаданные",
-  "update-metadata-desc": "Обновить метаданные для совпадающих игр"
+  "update-metadata-desc": "Обновить метаданные для совпадающих игр",
+  "playmatch-requires-igdb": "Выберите IGDB, чтобы включить Playmatch",
+  "section-platforms": "Платформы",
+  "section-metadata": "Метаданные",
+  "section-providers": "Провайдеры",
+  "section-providers-general": "Общие",
+  "section-providers-specific": "Специализированные",
+  "section-proxies": "Прокси",
+  "section-scan-type": "Тип сканирования",
+  "scanning": "Сканирование",
+  "scanning-library": "Сканирование библиотеки. Нажмите для просмотра",
+  "title": "Сканирование библиотеки",
+  "info-dialog-title": "Справка по сканированию",
+  "scan-complete": "Сканирование завершено",
+  "live-progress": "Прогресс в реальном времени",
+  "empty-hint": "Выберите конфигурацию сканирования слева и нажмите «Сканировать», чтобы увидеть здесь прогресс в реальном времени.",
+  "empty-hint-scanning": "Платформы будут появляться здесь по мере их обнаружения сканером.",
+  "hash-matchers": "Сопоставители по хешу",
+  "abort-scan": "Прервать сканирование",
+  "identifying": "Опознание",
+  "info-full-docs": "Полная документация",
+  "scan-types": "Типы сканирования"
 }

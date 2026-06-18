@@ -9,12 +9,15 @@ import { buildFormInput } from "@/utils/formData";
 
 export const saveApi = api;
 
-type SaveUploadInput = AddSaveInput & {
+type SaveUploadInput = Omit<AddSaveInput, "saveFile" | "screenshotFile"> & {
   saveFile: File;
   screenshotFile?: File;
 };
 
-type UpdateSaveUploadInput = UpdateSaveInput & {
+type UpdateSaveUploadInput = Omit<
+  UpdateSaveInput,
+  "saveFile" | "screenshotFile"
+> & {
   saveFile: File;
   screenshotFile?: File;
 };

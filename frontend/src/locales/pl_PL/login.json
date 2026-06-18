@@ -12,5 +12,14 @@
   "reset-sent": "Link do resetu został wysłany. Skontaktuj się z administratorem.",
   "send-reset-link": "Wyślij link do resetu",
   "setup-wizard": "Kreator konfiguracji",
-  "username": "Nazwa użytkownika"
+  "username": "Nazwa użytkownika",
+  "passwords-do-not-match": "Hasła nie pasują do siebie",
+  "login-failed": "Logowanie nie powiodło się",
+  "unable-to-login": "Nie można zalogować: {error}",
+  "reset-failed": "Resetowanie nie powiodło się",
+  "unable-to-reset-password": "Nie można zresetować hasła: {error}",
+  "reset-link-failed": "Nie można wysłać linku resetującego",
+  "register-success": "Użytkownik zarejestrowany pomyślnie",
+  "register-failed": "Nie można zarejestrować użytkownika: {error}",
+  "avatar-save-warning": "Konto utworzone, ale nie udało się zapisać awatara: {error}. Możesz go ustawić później w ustawieniach profilu."
 }

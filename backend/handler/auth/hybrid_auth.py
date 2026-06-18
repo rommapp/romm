@@ -25,7 +25,11 @@ class HybridAuthBackend(AuthenticationBackend):
 
         # Check if Authorization header exists
         if "Authorization" in conn.headers:
-            scheme, token = conn.headers["Authorization"].split()
+            auth_header_parts = conn.headers["Authorization"].split()
+            if len(auth_header_parts) != 2:
+                return None
+
+            scheme, token = auth_header_parts
 
             # Check if basic auth header is valid
             if scheme.lower() == "basic":

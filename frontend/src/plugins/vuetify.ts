@@ -5,19 +5,17 @@ import { VDateInput } from "vuetify/labs/VDateInput";
 import "vuetify/styles";
 import { dark, light } from "@/styles/themes";
 
-const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
-mediaMatch.addEventListener("change", (event) => {
-  instance.theme.change(event.matches ? "dark" : "light");
-});
-
-function getTheme() {
+// Initial theme resolution only — runtime theme changes are owned by
+// RomM.vue, which keeps Vuetify's name in sync with user preference.
+// v2 surfaces don't read from Vuetify's runtime theme; they read tokens
+// off `.r-v2-dark` / `.r-v2-light` on <html>.
+function getInitialTheme(): "dark" | "light" {
   const storedTheme = useLocalStorage("settings.theme", "auto");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-  if (storedTheme.value === "dark" || storedTheme.value === "light") {
-    return storedTheme.value;
-  }
-
-  return mediaMatch.matches ? "dark" : "light";
+  if (storedTheme.value === "dark") return "dark";
+  if (storedTheme.value === "light") return "light";
+  return prefersDark ? "dark" : "light";
 }
 
 const instance = createVuetify({
@@ -28,11 +26,8 @@ const instance = createVuetify({
     defaultSet: "mdi",
   },
   theme: {
-    defaultTheme: getTheme(),
-    themes: {
-      dark,
-      light,
-    },
+    defaultTheme: getInitialTheme(),
+    themes: { dark, light },
   },
 });
 

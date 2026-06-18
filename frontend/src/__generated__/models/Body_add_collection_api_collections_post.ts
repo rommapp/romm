@@ -6,7 +6,7 @@ export type Body_add_collection_api_collections_post = {
     /**
      * Collection artwork file.
      */
-    artwork?: (Blob | null);
+    artwork?: (string | null);
     name?: string;
     description?: string;
     /**

@@ -521,6 +521,8 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   "super-famicom-jr-model-shvc-101": ["snes9x"],
   "new-style-super-nes-model-sns-101": ["snes9x"],
   tg16: ["mednafen_pce"],
+  "turbografx-cd": ["mednafen_pce"],
+  supergrafx: ["mednafen_pce"],
   "vic-20": ["vice_xvic"],
   virtualboy: ["beetle_vb"],
   wonderswan: ["mednafen_wswan"],
@@ -753,8 +755,15 @@ export function isNintendoDSFile(rom: SimpleRom): boolean {
   return ["cia", "nds", "3ds", "dsi"].includes(rom.fs_extension.toLowerCase());
 }
 
-export function getNintendoDSFiles(rom: DetailedRom): RomFileSchema[] {
-  return rom.files.filter((file) => {
+export function getNintendoDSFiles(
+  rom: DetailedRom | SimpleRom,
+): RomFileSchema[] {
+  // `files` only ships on DetailedRom. Gallery surfaces pass SimpleRom,
+  // where the inner-file check is impossible — return an empty list so
+  // the caller falls back to the extension check.
+  const files = (rom as DetailedRom).files;
+  if (!files) return [];
+  return files.filter((file) => {
     const fileName = file.file_name.toLowerCase();
     return (
       fileName.endsWith(".cia") ||
@@ -766,11 +775,13 @@ export function getNintendoDSFiles(rom: DetailedRom): RomFileSchema[] {
 }
 
 /**
- * Check if a ROM is a valid NDS/3DS/DSi game
- * @param rom The ROM object.
- * @returns {boolean} True if the ROM is a valid game, otherwise false.
+ * Check if a ROM is a valid NDS/3DS/DSi game.
+ *
+ * Accepts both SimpleRom (gallery cards) and DetailedRom (detail view).
+ * With SimpleRom the inner-file check is skipped — only the root
+ * extension counts — which is what every gallery surface can ever see.
  */
-export function isNintendoDSRom(rom: DetailedRom): boolean {
+export function isNintendoDSRom(rom: DetailedRom | SimpleRom): boolean {
   if (
     !["3ds", "nds", "new-nintendo-3ds", "nintendo-dsi"].includes(
       rom.platform_slug,
@@ -852,7 +863,7 @@ export const CD_BASED_SYSTEMS = new Set([
   "saturn", // Sega Saturn
   "super-nes-cd-rom-system", // Super NES CD-ROM System
   "tandy-vis", // Tandy Video Information System
-  "tg16", // TurboGrafx-16
+  "turbografx-cd", // TurboGrafx-CD
   "vflash", // V.Flash
   "wii", // Wii
   "wiiu", // Wii U

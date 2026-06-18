@@ -1,3 +1,4 @@
+import asyncio
 import json
 from enum import Enum
 from typing import Final, NotRequired, TypedDict
@@ -12,6 +13,12 @@ from logger.logger import log
 from models.rom import Rom, RomFile
 from utils import get_version
 from utils.context import ctx_httpx_client
+from utils.rate_limiter import RateLimiter
+
+# Playmatch caps clients at 4 req/s per IP
+PLAYMATCH_MAX_REQUESTS_PER_SECOND: Final[float] = 4
+PLAYMATCH_MAX_REQUEST_ATTEMPTS: Final[int] = 2
+_rate_limiter = RateLimiter(PLAYMATCH_MAX_REQUESTS_PER_SECOND)
 
 
 class PlaymatchProvider(str, Enum):
@@ -144,29 +151,47 @@ class PlaymatchHandler(MetadataHandler):
 
         headers = {"user-agent": f"RomM/{get_version()}"}
 
-        try:
-            res = await httpx_client.get(
-                str(url_with_query), headers=headers, timeout=60
-            )
-            res.raise_for_status()
-            return res.json()
-        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
-            log.warning("Connection error: can't connect to Playmatch", exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to Playmatch, check your internet connection",
-            ) from exc
-        except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from Playmatch: %s", exc)
-            return {}
+        for attempt in range(PLAYMATCH_MAX_REQUEST_ATTEMPTS):
+            await _rate_limiter.acquire()
+            try:
+                res = await httpx_client.get(
+                    str(url_with_query), headers=headers, timeout=60
+                )
+                res.raise_for_status()
+                return res.json()
+            except (
+                httpx.HTTPStatusError,
+                httpx.ConnectError,
+                httpx.ReadTimeout,
+            ) as exc:
+                if (
+                    attempt == 0
+                    and isinstance(exc, httpx.HTTPStatusError)
+                    and exc.response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+                ):
+                    log.warning("Playmatch: rate limit hit, retrying after 2s")
+                    await asyncio.sleep(2)
+                    continue
+                log.warning(
+                    "Connection error: can't connect to Playmatch", exc_info=True
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Can't connect to Playmatch, check your internet connection",
+                ) from exc
+            except json.JSONDecodeError as exc:
+                log.error("Error decoding JSON response from Playmatch: %s", exc)
+                return {}
+
+        return {}
 
     async def lookup_rom(self, files: list[RomFile]) -> PlaymatchRomMatch:
         """
         Identify a ROM file using Playmatch API.
 
         :param rom_attrs: A dictionary containing the ROM attributes.
-        :return: A PlaymatchRomMatch objects containing the matched ROM information.
-        :raises HTTPException: If the request fails or the service is unavailable.
+        :return: A PlaymatchRomMatch with the matched IDs, or an empty match if the
+            lookup fails. Playmatch is best-effort and never raises to the caller.
         """
         fallback_rom = PlaymatchRomMatch(
             igdb_id=None,
@@ -203,8 +228,9 @@ class PlaymatchHandler(MetadataHandler):
                     "sha1": first_file.sha1_hash,
                 },
             )
-        except httpx.HTTPStatusError:
+        except Exception as exc:
             # We silently fail if the service is unavailable as this should not block the rest of RomM.
+            log.warning("Playmatch lookup failed, skipping: %s", exc)
             return fallback_rom
 
         game_match_type = response.get("gameMatchType", None)
@@ -290,6 +316,7 @@ class PlaymatchHandler(MetadataHandler):
             }
 
             httpx_client = ctx_httpx_client.get()
+            await _rate_limiter.acquire()
             res = await httpx_client.post(
                 self.suggestion_url,
                 json=payload,

@@ -66,6 +66,86 @@ class TestGetSyncsForDeviceAndSaves:
         assert result == []
 
 
+class TestGetSyncsForSaves:
+    def test_returns_syncs_across_devices_with_name(
+        self, admin_user: User, rom: Rom, save: Save
+    ):
+        dev_a = db_device_handler.add_device(
+            Device(id="multi-dev-a", user_id=admin_user.id, name="Device A")
+        )
+        dev_b = db_device_handler.add_device(
+            Device(id="multi-dev-b", user_id=admin_user.id, name="Device B")
+        )
+        db_device_save_sync_handler.upsert_sync(dev_a.id, save.id)
+        db_device_save_sync_handler.upsert_sync(dev_b.id, save.id)
+
+        result = db_device_save_sync_handler.get_syncs_for_saves([save.id])
+
+        assert set(result.keys()) == {save.id}
+        by_device = {sync.device_id: name for sync, name in result[save.id]}
+        assert by_device == {dev_a.id: "Device A", dev_b.id: "Device B"}
+
+    def test_filters_to_requested_saves(self, admin_user: User, rom: Rom):
+        device = db_device_handler.add_device(
+            Device(id="multi-dev-c", user_id=admin_user.id, name="Device C")
+        )
+        saves = []
+        for i in range(3):
+            s = db_save_handler.add_save(
+                Save(
+                    rom_id=rom.id,
+                    user_id=admin_user.id,
+                    file_name=f"multi_{i}.sav",
+                    file_name_no_tags=f"multi_{i}",
+                    file_name_no_ext=f"multi_{i}",
+                    file_extension="sav",
+                    emulator="emu",
+                    file_path=f"{rom.platform_slug}/saves",
+                    file_size_bytes=100,
+                )
+            )
+            saves.append(s)
+            db_device_save_sync_handler.upsert_sync(device.id, s.id)
+
+        result = db_device_save_sync_handler.get_syncs_for_saves(
+            [saves[0].id, saves[2].id]
+        )
+
+        assert set(result.keys()) == {saves[0].id, saves[2].id}
+
+    def test_empty_save_ids_returns_empty(self, admin_user: User):
+        result = db_device_save_sync_handler.get_syncs_for_saves([])
+        assert result == {}
+
+
+class TestOriginDeviceCascade:
+    def test_origin_device_id_nulled_on_device_delete(self, admin_user: User, rom: Rom):
+        device = db_device_handler.add_device(
+            Device(id="origin-dev", user_id=admin_user.id, name="Origin")
+        )
+        save = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="origin_cascade.sav",
+                file_name_no_tags="origin_cascade",
+                file_name_no_ext="origin_cascade",
+                file_extension="sav",
+                emulator="emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                origin_device_id=device.id,
+            )
+        )
+        assert save.origin_device_id == device.id
+
+        db_device_handler.delete_device(device.id, admin_user.id)
+
+        refreshed = db_save_handler.get_save(user_id=admin_user.id, id=save.id)
+        assert refreshed is not None
+        assert refreshed.origin_device_id is None
+
+
 class TestUpsertSync:
     def test_creates_new_sync(self, admin_user: User, rom: Rom, save: Save):
         device = db_device_handler.add_device(

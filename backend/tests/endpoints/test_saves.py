@@ -89,6 +89,109 @@ class TestSaveSyncEndpoints:
         assert data[0]["device_syncs"][0]["is_untracked"] is False
         assert data[0]["device_syncs"][0]["is_current"] is True
 
+    def test_get_saves_lists_all_device_syncs(
+        self, client, access_token: str, admin_user: User, save: Save, device: Device
+    ):
+        creator = db_device_handler.add_device(
+            Device(id="creator-device", user_id=admin_user.id, name="Creator Device")
+        )
+        # Creator synced at save creation: stays current. Caller is stale.
+        db_device_save_sync_handler.upsert_sync(
+            device_id=creator.id, save_id=save.id, synced_at=save.updated_at
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device_id=device.id,
+            save_id=save.id,
+            synced_at=save.updated_at - timedelta(days=1),
+        )
+
+        response = client.get(
+            f"/api/saves?device_id={device.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        syncs = data[0]["device_syncs"]
+        assert len(syncs) == 2
+
+        # Caller's own entry is emitted first for old-client compatibility.
+        assert syncs[0]["device_id"] == device.id
+        assert syncs[0]["is_current"] is False
+
+        by_id = {s["device_id"]: s for s in syncs}
+        assert by_id[creator.id]["device_name"] == "Creator Device"
+        assert by_id[creator.id]["is_current"] is True
+
+    def test_get_saves_without_device_id_omits_device_syncs(
+        self, client, access_token: str, admin_user: User, save: Save, device: Device
+    ):
+        creator = db_device_handler.add_device(
+            Device(id="creator-device", user_id=admin_user.id, name="Creator Device")
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device_id=creator.id, save_id=save.id, synced_at=save.updated_at
+        )
+        db_device_save_sync_handler.upsert_sync(device_id=device.id, save_id=save.id)
+
+        response = client.get(
+            "/api/saves",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        # Device attribution is only returned to a device-scoped caller, so a
+        # request without device_id omits device_syncs even when syncs exist.
+        assert data[0]["device_syncs"] == []
+
+    def test_get_single_save_lists_all_device_syncs(
+        self, client, access_token: str, admin_user: User, save: Save, device: Device
+    ):
+        creator = db_device_handler.add_device(
+            Device(id="creator-device", user_id=admin_user.id, name="Creator Device")
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device_id=creator.id, save_id=save.id, synced_at=save.updated_at
+        )
+
+        response = client.get(
+            f"/api/saves/{save.id}?device_id={device.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        syncs = data["device_syncs"]
+        # Caller (no sync row yet) plus the creator device.
+        assert {s["device_id"] for s in syncs} == {device.id, creator.id}
+        assert syncs[0]["device_id"] == device.id
+        by_id = {s["device_id"]: s for s in syncs}
+        assert by_id[creator.id]["is_current"] is True
+        assert by_id[device.id]["is_current"] is False
+
+    def test_device_syncs_surface_per_device_is_untracked(
+        self, client, access_token: str, admin_user: User, save: Save, device: Device
+    ):
+        other = db_device_handler.add_device(
+            Device(id="untracked-other", user_id=admin_user.id, name="Other")
+        )
+        db_device_save_sync_handler.upsert_sync(device_id=device.id, save_id=save.id)
+        db_device_save_sync_handler.set_untracked(
+            device_id=other.id, save_id=save.id, untracked=True
+        )
+
+        response = client.get(
+            f"/api/saves/{save.id}?device_id={device.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        by_id = {s["device_id"]: s for s in response.json()["device_syncs"]}
+        # Each device carries its own tracking flag.
+        assert by_id[device.id]["is_untracked"] is False
+        assert by_id[other.id]["is_untracked"] is True
+
     def test_get_single_save_with_device_id(
         self, client, access_token: str, save: Save, device: Device
     ):
@@ -276,6 +379,7 @@ class TestSaveUploadWithSync:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["device_syncs"] == []
+        assert data["origin_device_id"] is None
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -316,6 +420,130 @@ class TestSaveUploadWithSync:
         assert len(data["device_syncs"]) == 1
         assert data["device_syncs"][0]["device_id"] == device.id
         assert data["device_syncs"][0]["is_untracked"] is False
+        # The creating device is recorded as the save's origin. Its name is
+        # resolvable from device_syncs (or /api/devices), so it is not repeated.
+        assert data["origin_device_id"] == device.id
+        origin_sync = next(
+            s for s in data["device_syncs"] if s["device_id"] == device.id
+        )
+        assert origin_sync["device_name"] == device.name
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_origin_device_persists_for_other_caller(
+        self,
+        mock_scan,
+        _mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        device: Device,
+    ):
+        mock_scan.return_value = Save(
+            file_name="origin.sav",
+            file_name_no_tags="origin",
+            file_name_no_ext="origin",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+        )
+
+        # Device A creates the save.
+        created = client.post(
+            f"/api/saves?rom_id={rom.id}&device_id={device.id}",
+            files={"saveFile": ("origin.sav", BytesIO(b"data"), "application/octet")},
+            headers={"Authorization": f"Bearer {access_token}"},
+        ).json()
+        save_id = created["id"]
+
+        # Device B later syncs the current version (download path) and so is also
+        # "current", but it did not create the save.
+        other = db_device_handler.add_device(
+            Device(id="downloader-device", user_id=admin_user.id, name="Downloader")
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device_id=other.id, save_id=save_id, synced_at=None
+        )
+
+        response = client.get(
+            f"/api/saves/{save_id}?device_id={other.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        by_id = {s["device_id"]: s for s in data["device_syncs"]}
+        # Both devices read as current, but origin still points at the creator.
+        assert by_id[device.id]["is_current"] is True
+        assert by_id[other.id]["is_current"] is True
+        assert data["origin_device_id"] == device.id
+        assert by_id[device.id]["device_name"] == device.name
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_origin_device_unchanged_on_update(
+        self,
+        mock_scan,
+        _mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        device: Device,
+    ):
+        def scanned():
+            return Save(
+                file_name="origin.sav",
+                file_name_no_tags="origin",
+                file_name_no_ext="origin",
+                file_extension="sav",
+                file_path=f"{platform.slug}/saves",
+                file_size_bytes=100,
+                rom_id=rom.id,
+                user_id=admin_user.id,
+            )
+
+        # Device A creates the save.
+        mock_scan.return_value = scanned()
+        created = client.post(
+            f"/api/saves?rom_id={rom.id}&device_id={device.id}",
+            files={"saveFile": ("origin.sav", BytesIO(b"v1"), "application/octet")},
+            headers={"Authorization": f"Bearer {access_token}"},
+        ).json()
+        assert created["origin_device_id"] == device.id
+
+        other = db_device_handler.add_device(
+            Device(id="updater-device", user_id=admin_user.id, name="Updater")
+        )
+
+        # A second upload of the same save by another device updates content but
+        # must not reassign origin away from the creator.
+        mock_scan.return_value = scanned()
+        updated = client.post(
+            f"/api/saves?rom_id={rom.id}&device_id={other.id}&overwrite=true",
+            files={"saveFile": ("origin.sav", BytesIO(b"v2"), "application/octet")},
+            headers={"Authorization": f"Bearer {access_token}"},
+        ).json()
+        assert updated["id"] == created["id"]
+        assert updated["origin_device_id"] == device.id
+
+        # And an update with no device at all leaves origin intact.
+        mock_scan.return_value = scanned()
+        no_device = client.post(
+            f"/api/saves?rom_id={rom.id}&overwrite=true",
+            files={"saveFile": ("origin.sav", BytesIO(b"v3"), "application/octet")},
+            headers={"Authorization": f"Bearer {access_token}"},
+        ).json()
+        assert no_device["origin_device_id"] == device.id
 
     def test_upload_save_with_invalid_device_id_returns_404(
         self,

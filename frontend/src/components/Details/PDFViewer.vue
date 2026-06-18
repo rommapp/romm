@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import VuePdfApp from "vue3-pdf-app";
 import { useTheme, useDisplay } from "vuetify";
-import type { DetailedRom } from "@/stores/roms";
-import { FRONTEND_RESOURCES_PATH } from "@/utils";
 
-defineProps<{ rom: DetailedRom }>();
+defineProps<{ pdfUrl: string }>();
 const { xs } = useDisplay();
 const theme = useTheme();
 const pdfViewerConfig = {
@@ -101,7 +99,7 @@ const pdfViewerConfig = {
     :config="{ toolbar: false }"
     :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
     style="height: 100dvh"
-    :pdf="`${FRONTEND_RESOURCES_PATH}/${rom.path_manual}`"
+    :pdf="pdfUrl"
   />
 </template>
 

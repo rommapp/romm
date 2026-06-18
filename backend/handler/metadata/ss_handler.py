@@ -2,7 +2,7 @@ import html
 import re
 from datetime import datetime
 from typing import Final, NotRequired, TypedDict
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 import pydash
 from unidecode import unidecode as uc
@@ -624,7 +624,7 @@ class SSHandler(MetadataHandler):
             return None
 
         roms = await self.ss_service.search_games(
-            term=quote(uc(search_term), safe="/ "),
+            term=uc(search_term),
             system_id=platform_ss_id,
         )
 
@@ -699,11 +699,23 @@ class SSHandler(MetadataHandler):
         sha1_hash = first_file.sha1_hash
         crc_hash = first_file.crc_hash
         fs_size_bytes = first_file.file_size_bytes
+        rom_name = (
+            first_file.archive_members[0]["name"].split("/")[-1]
+            if first_file.archive_members is not None
+            and len(first_file.archive_members) == 1
+            else first_file.file_name
+        )
 
-        if not (md5_hash or sha1_hash or crc_hash):
+        # Files on NON_HASHABLE_PLATFORMS (or any file when SKIP_HASH_CALCULATION
+        # is enabled) have no hashes. jeuInfos can still identify the game from the
+        # filename (romnom) + platform (systemeid) — a stronger matcher than the
+        # jeuRecherche name search the get_rom fallback uses — so only bail out when
+        # we have neither a hash nor a filename to match on.
+        if not (md5_hash or sha1_hash or crc_hash or rom_name):
             log.info(
-                "No hashes provided for ScreenScraper lookup. "
-                "At least one of md5_hash, sha1_hash, or crc_hash is required."
+                "No hashes or filename provided for ScreenScraper lookup. "
+                "At least one of md5_hash, sha1_hash, crc_hash, or a filename "
+                "is required."
             )
             return SSRom(ss_id=None), False
 
@@ -713,12 +725,7 @@ class SSHandler(MetadataHandler):
             sha1=sha1_hash,
             crc=crc_hash,
             rom_size_bytes=fs_size_bytes,
-            rom_name=(
-                first_file.archive_members[0]["name"].split("/")[-1]
-                if first_file.archive_members is not None
-                and len(first_file.archive_members) == 1
-                else first_file.file_name
-            ),
+            rom_name=rom_name,
             rom_type=_get_rom_type(first_file),
         )
         if not res:
@@ -873,7 +880,7 @@ class SSHandler(MetadataHandler):
             return []
 
         matched_games = await self.ss_service.search_games(
-            term=quote(uc(search_term), safe="/ "),
+            term=uc(search_term),
             system_id=platform_ss_id,
         )
 
@@ -997,6 +1004,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "name": "Neo-Geo Pocket Color",
     },
     UPS.N3DS: {"id": 17, "name": "Nintendo 3DS"},
+    UPS.NEW_NINTENDON3DS: {"id": 17, "name": "Nintendo 3DS"},
     UPS.N64: {"id": 14, "name": "Nintendo 64"},
     UPS.N64DD: {"id": 122, "name": "Nintendo 64DD"},
     UPS.NDS: {"id": 15, "name": "Nintendo DS"},

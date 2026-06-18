@@ -1,5 +1,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi import status
 
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
@@ -49,6 +50,16 @@ def test_heartbeat(client):
     assert isinstance(oidc["ENABLED"], bool)
     assert isinstance(oidc["PROVIDER"], str)
     assert isinstance(oidc["RP_INITIATED_LOGOUT"], bool)
+
+
+@pytest.mark.parametrize("authorization_header", ["Bearer ", "Foo", "a b c"])
+def test_heartbeat_with_malformed_authorization_header(
+    client, authorization_header: str
+):
+    response = client.get(
+        "/api/heartbeat", headers={"Authorization": authorization_header}
+    )
+    assert response.status_code == status.HTTP_200_OK
 
 
 def test_heartbeat_metadata(client):

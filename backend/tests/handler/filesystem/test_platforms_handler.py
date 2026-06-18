@@ -101,6 +101,7 @@ class TestFSPlatformsHandler:
         self, handler: FSPlatformsHandler, config
     ):
         """Test get_platforms_directory with Structure B ({platform}/roms)"""
+        config.has_structure_path_a = False
         config.has_structure_path_b = True
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
@@ -203,7 +204,7 @@ class TestFSPlatformsHandler:
         self, handler: FSPlatformsHandler, config
     ):
         """Test that get_platforms calls list_directories with correct path"""
-        config.has_structure_path_b = False
+        config.has_structure_path_a = True
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
@@ -217,6 +218,8 @@ class TestFSPlatformsHandler:
         self, handler: FSPlatformsHandler, config
     ):
         """Test that get_platforms calls list_directories with empty path for normal structure"""
+        config.has_structure_path_a = False
+        config.has_structure_path_b = True
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
@@ -225,6 +228,48 @@ class TestFSPlatformsHandler:
             ) as mock_list:
                 await handler.get_platforms()
                 mock_list.assert_called_once_with(path="")
+
+    async def test_get_platforms_bootstraps_structure_a_when_none_detected(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """When no structure exists, get_platforms creates Structure A (roms folder)
+        and returns an empty list instead of raising."""
+        config.has_structure_path_a = False
+        config.has_structure_path_b = False
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch.object(
+                handler, "list_directories", side_effect=FileNotFoundError
+            ):
+                with patch.object(handler, "create_library_structure") as mock_create:
+                    result = await handler.get_platforms()
+
+                    assert result == []
+                    mock_create.assert_called_once()
+
+    async def test_get_platforms_returns_empty_when_bootstrap_fails(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """If creating the default structure fails, get_platforms still returns an
+        empty list rather than propagating the error (so the heartbeat stays healthy).
+        """
+        config.has_structure_path_a = False
+        config.has_structure_path_b = False
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch.object(
+                handler, "list_directories", side_effect=FileNotFoundError
+            ):
+                with patch.object(
+                    handler,
+                    "create_library_structure",
+                    side_effect=PermissionError("read-only filesystem"),
+                ):
+                    result = await handler.get_platforms()
+
+                    assert result == []
 
     def test_integration_with_base_handler_methods(self, handler: FSPlatformsHandler):
         """Test that FSPlatformsHandler properly inherits from FSHandler"""
@@ -315,23 +360,20 @@ class TestFSPlatformsHandler:
         self, handler: FSPlatformsHandler, config
     ):
         """Test detect_library_structure detects Structure A (roms/{platform})"""
-        roms_path = f"{LIBRARY_BASE_PATH}/{config.ROMS_FOLDER_NAME}"
+        config.has_structure_path_a = True
         config.has_structure_path_b = False
 
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists") as mock_exists:
-                mock_exists.return_value = True
-
-                result = handler.detect_library_structure()
-                assert result == LibraryStructure.A
-                mock_exists.assert_called_once_with(roms_path)
+            result = handler.detect_library_structure()
+            assert result == LibraryStructure.A
 
     def test_detect_library_structure_structure_b(
         self, handler: FSPlatformsHandler, config
     ):
         """Test detect_library_structure detects Structure B ({platform}/roms)"""
+        config.has_structure_path_a = False
         config.has_structure_path_b = True
 
         with patch(
@@ -340,39 +382,40 @@ class TestFSPlatformsHandler:
             result = handler.detect_library_structure()
             assert result == LibraryStructure.B
 
-    def test_detect_library_structure_b_takes_priority_over_a(
+    def test_detect_library_structure_a_takes_priority_over_b(
         self, handler: FSPlatformsHandler, config
     ):
-        """Structure B is reported even when the top-level roms folder exists."""
+        """Structure A is reported when the top-level roms folder exists, even
+        when Structure B directories are also present."""
+        config.has_structure_path_a = True
         config.has_structure_path_b = True
 
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists", return_value=True):
-                result = handler.detect_library_structure()
-                assert result == LibraryStructure.B
+            result = handler.detect_library_structure()
+            assert result == LibraryStructure.A
 
     def test_detect_library_structure_none(self, handler: FSPlatformsHandler, config):
         """Test detect_library_structure returns None when no structure detected"""
+        config.has_structure_path_a = False
         config.has_structure_path_b = False
 
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists", return_value=False):
-                result = handler.detect_library_structure()
-                assert result is None
+            result = handler.detect_library_structure()
+            assert result is None
 
     def test_detect_library_structure_empty_library(
         self, handler: FSPlatformsHandler, config
     ):
         """Test detect_library_structure with empty library directory"""
+        config.has_structure_path_a = False
         config.has_structure_path_b = False
 
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists", return_value=False):
-                result = handler.detect_library_structure()
-                assert result is None
+            result = handler.detect_library_structure()
+            assert result is None

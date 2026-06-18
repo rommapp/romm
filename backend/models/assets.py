@@ -4,13 +4,14 @@ from functools import cached_property
 from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from models.base import (
     FILE_EXTENSION_MAX_LENGTH,
     FILE_NAME_MAX_LENGTH,
     FILE_PATH_MAX_LENGTH,
     BaseModel,
+    compute_file_name_parts,
 )
 
 if TYPE_CHECKING:
@@ -33,6 +34,19 @@ class BaseAsset(BaseModel):
     file_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+    @validates("file_name")
+    def _sync_file_name_parts(self, _key: str, file_name: str) -> str:
+        """Derive the stored `file_name_no_tags` / `file_name_no_ext` /
+        `file_extension` columns whenever `file_name` is assigned.
+
+        Defined on the abstract base so every asset subclass inherits it.
+        """
+        parts = compute_file_name_parts(file_name)
+        self.file_name_no_tags = parts.no_tags
+        self.file_name_no_ext = parts.no_ext
+        self.file_extension = parts.extension
+        return file_name
 
     @cached_property
     def full_path(self) -> str:
@@ -65,6 +79,11 @@ class Save(RomAsset):
     emulator: Mapped[str | None] = mapped_column(String(length=50))
     slot: Mapped[str | None] = mapped_column(String(length=255))
     content_hash: Mapped[str | None] = mapped_column(String(length=32))
+    origin_device_id: Mapped[str | None] = mapped_column(
+        String(length=255),
+        ForeignKey("devices.id", ondelete="SET NULL"),
+        default=None,
+    )
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="saves")
     user: Mapped[User] = relationship(lazy="joined", back_populates="saves")

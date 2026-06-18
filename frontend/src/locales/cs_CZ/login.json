@@ -12,5 +12,14 @@
   "reset-sent": "Odkaz pro resetování odeslán. Kontaktujte svého administrátora.",
   "send-reset-link": "Odeslat odkaz pro resetování",
   "setup-wizard": "Průvodce nastavením",
-  "username": "Uživatelské jméno"
+  "username": "Uživatelské jméno",
+  "passwords-do-not-match": "Hesla se neshodují",
+  "login-failed": "Přihlášení selhalo",
+  "unable-to-login": "Nelze se přihlásit: {error}",
+  "reset-failed": "Resetování selhalo",
+  "unable-to-reset-password": "Nelze resetovat heslo: {error}",
+  "reset-link-failed": "Nepodařilo se odeslat odkaz pro resetování",
+  "register-success": "Uživatel úspěšně zaregistrován",
+  "register-failed": "Nelze zaregistrovat uživatele: {error}",
+  "avatar-save-warning": "Účet byl vytvořen, ale avatar se nepodařilo uložit: {error}. Můžete jej nastavit později v nastavení profilu."
 }

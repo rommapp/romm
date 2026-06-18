@@ -66,6 +66,8 @@ export type DetailedRomSchema = {
     path_cover_large: (string | null);
     url_cover: (string | null);
     has_manual: boolean;
+    has_manual_files: boolean;
+    has_soundtrack: boolean;
     path_manual: (string | null);
     url_manual: (string | null);
     path_video: (string | null);
@@ -91,9 +93,8 @@ export type DetailedRomSchema = {
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);
-    siblings: Array<SiblingRomSchema>;
-    sibling_ids: Array<number>;
     files: Array<RomFileSchema>;
+    sibling_roms: Array<SiblingRomSchema>;
     user_saves: Array<SaveSchema>;
     user_states: Array<StateSchema>;
     user_screenshots: Array<ScreenshotSchema>;

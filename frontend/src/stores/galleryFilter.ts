@@ -15,7 +15,12 @@ export type FilterType =
 
 export type FilterLogicOperator = "any" | "all" | "none";
 
-const defaultFilterState = {
+// Built lazily so `romStatusMap` isn't read at module-evaluation time —
+// utils ↔ stores have a circular import chain (utils → navigation → router →
+// roms → galleryFilter → utils) that's harmless in the app shell because
+// main.ts loads router first, but trips Storybook (no router boot) with a
+// TDZ error on `romStatusMap`.
+const buildDefaultFilterState = () => ({
   activeFilterDrawer: false,
   searchTerm: null as string | null,
   filterPlatforms: [] as Platform[],
@@ -56,10 +61,10 @@ const defaultFilterState = {
   languagesLogic: "any" as FilterLogicOperator,
   statusesLogic: "any" as FilterLogicOperator,
   playerCountsLogic: "any" as FilterLogicOperator,
-};
+});
 
 export default defineStore("galleryFilter", {
-  state: () => ({ ...defaultFilterState }),
+  state: () => buildDefaultFilterState(),
 
   actions: {
     switchActiveFilterDrawer() {
@@ -354,7 +359,7 @@ export default defineStore("galleryFilter", {
       );
     },
     reset() {
-      Object.assign(this, { ...defaultFilterState });
+      Object.assign(this, buildDefaultFilterState());
     },
     resetFilters() {
       this.selectedPlatform = null;

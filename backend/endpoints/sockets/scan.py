@@ -37,6 +37,7 @@ from handler.redis_handler import get_job_func_name, high_prio_queue, redis_clie
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
+    persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
     scan_rom,
@@ -236,6 +237,7 @@ async def _identify_rom(
     roms_ids: list[int],
     metadata_sources: list[str],
     launchbox_remote_enabled: bool,
+    playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
 ) -> None:
@@ -254,13 +256,6 @@ async def _identify_rom(
             Rom(
                 fs_name=fs_rom["fs_name"],
                 fs_path=roms_path,
-                fs_name_no_tags=fs_rom_handler.get_file_name_with_no_tags(
-                    fs_rom["fs_name"]
-                ),
-                fs_name_no_ext=fs_rom_handler.get_file_name_with_no_extension(
-                    fs_rom["fs_name"]
-                ),
-                fs_extension=fs_rom_handler.parse_file_extension(fs_rom["fs_name"]),
                 regions=parsed_tags.regions,
                 revision=parsed_tags.revision,
                 version=parsed_tags.version,
@@ -339,6 +334,7 @@ async def _identify_rom(
         metadata_sources=metadata_sources,
         newly_added=newly_added,
         launchbox_remote_enabled=launchbox_remote_enabled,
+        playmatch_enabled=playmatch_enabled,
         socket_manager=socket_manager,
     )
 
@@ -361,6 +357,7 @@ async def _identify_rom(
                     "rom_user",
                     "last_modified",
                     "files",
+                    "sibling_roms",
                 }
             ),
         )
@@ -378,6 +375,7 @@ async def _identify_rom(
                 file_size_bytes=file.file_size_bytes,
                 last_modified=file.last_modified,
                 category=file.category,
+                audio_meta=file.audio_meta,
                 crc_hash=file.crc_hash,
                 md5_hash=file.md5_hash,
                 sha1_hash=file.sha1_hash,
@@ -387,7 +385,8 @@ async def _identify_rom(
             for file in fs_rom["files"]
         ]
         for new_rom_file in new_rom_files:
-            db_rom_handler.add_rom_file(new_rom_file)
+            saved = db_rom_handler.add_rom_file(new_rom_file)
+            persist_soundtrack_cover(saved, _added_rom)
 
     # Short circuit if the scan type is hashes
     if scan_type == ScanType.HASHES:
@@ -480,7 +479,14 @@ async def _identify_rom(
     await socket_manager.emit(
         "scan:scanning_rom",
         SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-            exclude={"created_at", "updated_at", "rom_user", "last_modified", "files"}
+            exclude={
+                "created_at",
+                "updated_at",
+                "rom_user",
+                "last_modified",
+                "files",
+                "sibling_roms",
+            }
         ),
     )
 
@@ -492,6 +498,7 @@ async def _identify_platform(
     roms_ids: list[int],
     metadata_sources: list[str],
     launchbox_remote_enabled: bool,
+    playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
 ) -> ScanStats:
@@ -589,6 +596,7 @@ async def _identify_platform(
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 launchbox_remote_enabled=launchbox_remote_enabled,
+                playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
             )
@@ -661,6 +669,7 @@ async def scan_platforms(
     scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[int] | None = None,
     launchbox_remote_enabled: bool = True,
+    playmatch_enabled: bool = True,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -736,6 +745,7 @@ async def scan_platforms(
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 launchbox_remote_enabled=launchbox_remote_enabled,
+                playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
             )
@@ -747,6 +757,9 @@ async def scan_platforms(
                 log.warning(f" - {p.slug} ({p.fs_slug})")
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
+
+        # The library changed; drop cached filter values.
+        db_rom_handler.invalidate_filter_values_cache()
 
         # Export metadata files if enabled in config
         config = cm.get_config()
@@ -820,6 +833,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
+    playmatch_enabled = bool(options.get("playmatch_enabled", True))
 
     if DEV_MODE:
         return await scan_platforms(
@@ -828,6 +842,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
             scan_type=scan_type,
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
+            playmatch_enabled=playmatch_enabled,
         )
 
     return high_prio_queue.enqueue(
@@ -837,6 +852,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
         scan_type=scan_type,
         roms_ids=roms_ids,
         launchbox_remote_enabled=launchbox_remote_enabled,
+        playmatch_enabled=playmatch_enabled,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={

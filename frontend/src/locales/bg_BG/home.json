@@ -1,4 +1,22 @@
 {
   "continue-playing": "Продължи играта",
-  "recently-added": "Наскоро добавени"
+  "recently-added": "Наскоро добавени",
+  "empty-headline": "Библиотеката ти е празна",
+  "empty-hint": "Избери как искаш да добавиш първите си игри. Винаги можеш да направиш и другото по-късно.",
+  "empty-upload-title": "Качи ръчно",
+  "empty-upload-desc": "Влачи и пусни ROM файлове или ги избери от компютъра си. Най-подходящо, когато искаш да добавиш няколко игри сам.",
+  "empty-scan-title": "Сканирай библиотеката",
+  "empty-scan-desc": "Вече си поставил игрите в папката на библиотеката? Стартирай сканиране, за да ги открие и да изтегли метаданните им.",
+  "empty-upload-cta": "Качи игри",
+  "empty-scan-cta": "Стартирай сканиране",
+  "empty-detected-platforms": "{count} открита платформа | {count} открити платформи",
+  "empty-detected-games": "{count} открита игра | {count} открити игри",
+  "no-games-yet": "Все още не са добавени игри.",
+  "widget-random-pick": "Случаен избор",
+  "widget-random-pick-open": "Отвори",
+  "widget-random-pick-reroll": "Избери отново",
+  "widget-random-pick-empty": "Все още няма заредени игри",
+  "widget-library-stats": "Статистика на библиотеката",
+  "widget-library-favorites": "Любими",
+  "widget-library-screenshots": "Екранни снимки"
 }

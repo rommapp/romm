@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import enum
+import re
 from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, TypedDict
@@ -21,7 +22,14 @@ from sqlalchemy import (
     or_,
     select,
 )
-from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
+from sqlalchemy.orm import (
+    Mapped,
+    column_property,
+    declared_attr,
+    mapped_column,
+    relationship,
+    validates,
+)
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import (
@@ -29,8 +37,23 @@ from models.base import (
     FILE_NAME_MAX_LENGTH,
     FILE_PATH_MAX_LENGTH,
     BaseModel,
+    compute_file_name_parts,
 )
 from utils.database import CustomJSON
+
+# Max length of the precomputed natural-sort key column.
+NAME_SORT_KEY_MAX_LENGTH = 500
+ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
+DIGIT_RUN_RE = re.compile(r"\d+")
+
+
+def compute_name_sort_key(name: str | None) -> str:
+    """Precompute the natural-sort key stored in `Rom.name_sort_key`"""
+    value = (name or "").lower()
+    value = ARTICLE_PREFIX_RE.sub("", value).strip()
+    value = DIGIT_RUN_RE.sub(lambda m: m.group(0).zfill(12), value)
+    return value[:NAME_SORT_KEY_MAX_LENGTH]
+
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
@@ -51,6 +74,7 @@ class RomFileCategory(enum.StrEnum):
     TRANSLATION = "translation"
     PROTOTYPE = "prototype"
     CHEAT = "cheat"
+    SOUNDTRACK = "soundtrack"
 
 
 class SiblingRom(BaseModel):
@@ -93,6 +117,9 @@ class RomFile(BaseModel):
     )
     category: Mapped[RomFileCategory | None] = mapped_column(
         Enum(RomFileCategory), default=None
+    )
+    audio_meta: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=None, nullable=True
     )
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
@@ -181,6 +208,8 @@ class Rom(BaseModel):
 
     __table_args__ = (
         Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name"),
+        Index("idx_roms_name", "name"),
+        Index("idx_roms_name_sort_key", "name_sort_key"),
         Index("idx_roms_igdb_id", "igdb_id"),
         Index("idx_roms_moby_id", "moby_id"),
         Index("idx_roms_ss_id", "ss_id"),
@@ -204,6 +233,9 @@ class Rom(BaseModel):
 
     name: Mapped[str | None] = mapped_column(String(length=350))
     sort_name: Mapped[str | None] = mapped_column(String(length=350))
+    name_sort_key: Mapped[str | None] = mapped_column(
+        String(length=NAME_SORT_KEY_MAX_LENGTH), default=None
+    )
     slug: Mapped[str | None] = mapped_column(String(length=400))
     summary: Mapped[str | None] = mapped_column(Text)
     igdb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
@@ -300,6 +332,32 @@ class Rom(BaseModel):
         super().__init__(*args, **kwargs)
         self._is_identifying = False
 
+    @validates("name", "sort_name")
+    def _sync_name_sort_key(self, key: str, value: str | None) -> str | None:
+        """Derive the indexed `name_sort_key` from `sort_name` (falling back to
+        `name`) whenever either is assigned."""
+        if key == "sort_name":
+            effective = value or self.name
+        else:
+            effective = self.sort_name or value
+        self.name_sort_key = compute_name_sort_key(effective)
+        return value
+
+    @validates("fs_name")
+    def _sync_fs_name_parts(self, _key: str, fs_name: str) -> str:
+        """Derive the stored `fs_name_no_tags` / `fs_name_no_ext` /
+        `fs_extension` columns whenever `fs_name` is assigned.
+
+        Fires on attribute set (ORM construction and mutation) only. Bulk
+        `update()` statements bypass the ORM and set these explicitly (see
+        `update_rom`).
+        """
+        parts = compute_file_name_parts(fs_name)
+        self.fs_name_no_tags = parts.no_tags
+        self.fs_name_no_ext = parts.no_ext
+        self.fs_extension = parts.extension
+        return fs_name
+
     @property
     def platform_slug(self) -> str:
         return self.platform.slug
@@ -323,6 +381,47 @@ class Rom(BaseModel):
     @cached_property
     def has_manual(self) -> bool:
         return bool(self.path_manual)
+
+    # `has_manual_files` and `has_soundtrack` come from correlated
+    # `EXISTS` subqueries against rom_files filtered by category.
+    # `@declared_attr` lets us define the column_property inside the
+    # class while still referencing `cls.id` (resolved after the
+    # mapping is built). Deferred + opt-in via `undefer` from the
+    # gallery query so we don't force a `Rom.files` load (the
+    # relationship is `lazy="raise"` for that endpoint).
+    @declared_attr
+    def has_manual_files(cls) -> Mapped[bool]:
+        return column_property(
+            select(RomFile.id)
+            .where(
+                and_(
+                    RomFile.rom_id == cls.id,
+                    RomFile.category == RomFileCategory.MANUAL,
+                )
+            )
+            .correlate_except(RomFile)
+            .exists()
+            .select()
+            .scalar_subquery(),
+            deferred=True,
+        )
+
+    @declared_attr
+    def has_soundtrack(cls) -> Mapped[bool]:
+        return column_property(
+            select(RomFile.id)
+            .where(
+                and_(
+                    RomFile.rom_id == cls.id,
+                    RomFile.category == RomFileCategory.SOUNDTRACK,
+                )
+            )
+            .correlate_except(RomFile)
+            .exists()
+            .select()
+            .scalar_subquery(),
+            deferred=True,
+        )
 
     @cached_property
     def merged_screenshots(self) -> list[str]:

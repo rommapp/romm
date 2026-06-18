@@ -12,5 +12,14 @@
   "reset-sent": "Lien de réinitialisation envoyé. Contactez votre administrateur.",
   "send-reset-link": "Envoyer le lien de réinitialisation",
   "setup-wizard": "Assistant de configuration",
-  "username": "Nom d'utilisateur"
+  "username": "Nom d'utilisateur",
+  "passwords-do-not-match": "Les mots de passe ne correspondent pas",
+  "login-failed": "Échec de la connexion",
+  "unable-to-login": "Impossible de se connecter : {error}",
+  "reset-failed": "Échec de la réinitialisation",
+  "unable-to-reset-password": "Impossible de réinitialiser le mot de passe : {error}",
+  "reset-link-failed": "Impossible d'envoyer le lien de réinitialisation",
+  "register-success": "Utilisateur enregistré avec succès",
+  "register-failed": "Impossible d'enregistrer l'utilisateur : {error}",
+  "avatar-save-warning": "Compte créé, mais l'avatar n'a pas pu être enregistré : {error}. Vous pourrez le définir plus tard dans les paramètres du profil."
 }

@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Quelle deaktiviert",
   "abort": "Abbrechen",
   "api-key-invalid": "Ungültiger API-Schlüssel!",
   "api-key-missing": "Fehlender oder ungültiger API-Key",
@@ -42,5 +43,26 @@
   "unmatched-games": "Nicht zugeordnete Spiele",
   "unmatched-games-desc": "Scanne Spiele mit fehlenden Metadaten-Zuordnungen",
   "update-metadata": "Metadaten aktualisieren",
-  "update-metadata-desc": "Metadaten für gefundene Spiele aktualisieren"
+  "update-metadata-desc": "Metadaten für gefundene Spiele aktualisieren",
+  "playmatch-requires-igdb": "Wähle IGDB, um Playmatch zu aktivieren",
+  "section-platforms": "Plattformen",
+  "section-metadata": "Metadaten",
+  "section-providers": "Anbieter",
+  "section-providers-general": "Allgemein",
+  "section-providers-specific": "Spezifisch",
+  "section-proxies": "Proxies",
+  "section-scan-type": "Scan-Typ",
+  "scanning": "Scannt",
+  "scanning-library": "Bibliothek wird gescannt. Klicke zum Anzeigen",
+  "title": "Bibliotheks-Scan",
+  "info-dialog-title": "Scan-Referenz",
+  "scan-complete": "Scan abgeschlossen",
+  "live-progress": "Live-Fortschritt",
+  "empty-hint": "Wähle links eine Scan-Konfiguration und klicke auf Scan, um den Live-Fortschritt hier zu sehen.",
+  "empty-hint-scanning": "Plattformen erscheinen hier, sobald der Scanner sie entdeckt.",
+  "hash-matchers": "Hash-Matcher",
+  "abort-scan": "Scan abbrechen",
+  "identifying": "Identifiziert",
+  "info-full-docs": "Vollständige Dokumentation",
+  "scan-types": "Scan-Typen"
 }

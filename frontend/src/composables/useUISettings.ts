@@ -13,12 +13,42 @@ export const UI_SETTINGS_KEYS = {
   // Theme
   theme: { key: "settings.theme", default: "auto" },
 
+  // NOTE: uiVersion is intentionally NOT tracked here. It's owned by the
+  // singleton in composables/useUiVersion.ts so a write propagates reactively
+  // to the RomM.vue gate without a reload. When v2 graduates we can move it
+  // into this map and pick up backend sync.
+
   // Home section
   showStats: { key: "settings.showStats", default: true },
   showRecentRoms: { key: "settings.showRecentRoms", default: true },
   showContinuePlaying: { key: "settings.showContinuePlaying", default: true },
   showPlatforms: { key: "settings.showPlatforms", default: true },
   showCollections: { key: "settings.showCollections", default: true },
+
+  // Home widget bar (v2 only). `showHomeWidgets` is the master toggle
+  // for the row; per-widget toggles let users disable individual cards
+  // without losing the rest. `librarySnapshotMode` chooses between the
+  // compact (3 metrics) and extended (full v1-style: saves/states/
+  // screenshots/disk) view of the Library Snapshot widget.
+  showHomeWidgets: { key: "settings.showHomeWidgets", default: true },
+  widgetRandomPick: { key: "settings.widgetRandomPick", default: true },
+  widgetLibraryStats: {
+    key: "settings.widgetLibraryStats",
+    default: true,
+  },
+  libraryStatsMode: {
+    key: "settings.libraryStatsMode",
+    default: "compact",
+  },
+  // Widget render order — comma-separated list of widget IDs.
+  // Persisted as a string in localStorage (the useUISettings helper
+  // only handles primitives; consumers parse/serialize at the edges).
+  // Unknown IDs are filtered out on read so removing a widget from
+  // the registry doesn't leave dangling entries in user storage.
+  widgetOrder: {
+    key: "settings.widgetOrder",
+    default: "randomPick,libraryStats",
+  },
 
   // Platforms drawer
   platformsGroupBy: { key: "settings.platformsGroupBy", default: null },

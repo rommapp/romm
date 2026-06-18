@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from config import ROMM_DB_DRIVER
 from handler.auth import auth_handler
 from handler.database import (
     db_platform_handler,
@@ -71,6 +72,44 @@ def test_roms(rom: Rom, platform: Platform):
 
     roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
     assert len(roms) == 1
+
+
+def test_multi_file_rom_backref_survives_session_close(multi_file_rom: Rom):
+    """Multi-file ROM downloads read `file.rom.full_path` after the handler
+    session closes. The detail loaders eager-load `Rom.files` but not the
+    reverse `RomFile.rom` relationship, so without the backref being populated
+    this raises `DetachedInstanceError` (a 500 on the download endpoint).
+    """
+    folder_path = f"{multi_file_rom.fs_path}/{multi_file_rom.fs_name}"
+
+    # `multi_file_rom` is returned by `get_rom`, with the session already closed.
+    assert len(multi_file_rom.files) == 2
+    for file in multi_file_rom.files:
+        # All of these dereference `file.rom` on a now-detached instance.
+        assert file.rom.full_path == folder_path
+        assert file.is_top_level
+        assert file.file_name_for_download() == file.file_name
+
+    # `get_roms_by_ids` (used by the bulk zip download) must behave the same.
+    by_ids = db_rom_handler.get_roms_by_ids([multi_file_rom.id])
+    assert len(by_ids) == 1
+    for file in by_ids[0].files:
+        assert file.rom.full_path == folder_path
+
+
+def test_rom_files_for_rom_id_loads_backref(multi_file_rom: Rom):
+    """The scan/metadata-matching fallback fetches a ROM's files on demand and
+    reads `RomFile.is_top_level` -> `RomFile.rom.full_path`. The backref must be
+    eager-loaded so it survives the handler session closing.
+    """
+    folder_path = f"{multi_file_rom.fs_path}/{multi_file_rom.fs_name}"
+
+    files = db_rom_handler.rom_files_for_rom_id(multi_file_rom.id)
+    assert len(files) == 2
+    for file in files:
+        # Both dereference `file.rom` on a now-detached instance.
+        assert file.rom.full_path == folder_path
+        assert file.is_top_level
 
 
 def test_filter_last_played(rom: Rom, platform: Platform, admin_user: User):
@@ -179,6 +218,59 @@ def test_filter_by_search_term_with_multiple_terms(platform: Platform):
     expected_rom_ids_single = {rom_wwe.id}
     actual_rom_ids_single = {r.id for r in filtered_roms_single}
     assert actual_rom_ids_single == expected_rom_ids_single
+
+
+def test_filter_by_search_term_multi_word_and_ranking(platform: Platform):
+    def _add(name: str) -> Rom:
+        fs = name.replace(" ", "_")
+        return db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name=name,
+                slug=name.lower().replace(" ", "-"),
+                fs_name=f"{fs}.zip",
+                fs_name_no_tags=fs,
+                fs_name_no_ext=fs,
+                fs_extension="zip",
+                fs_path=f"{platform.slug}/roms",
+            )
+        )
+
+    ff = _add("Final Fantasy")
+    ff7 = _add("Final Fantasy VII")
+    fantasy_final = _add("Fantasy Final")  # both words, reversed order
+    _add("Final Combat")  # only "final"
+    _add("Angelique - Voice Fantasy")  # only "fantasy"
+    _add("Super Mario World")  # neither word
+
+    results = db_rom_handler.get_roms_scalar(search_term="final fantasy")
+    result_ids = [r.id for r in results]
+
+    # Only titles containing BOTH words appear (AND semantics).
+    assert set(result_ids) == {ff.id, ff7.id, fantasy_final.id}
+
+    # Relevance ordering uses MATCH ... AGAINST, which only runs on
+    # MySQL/MariaDB; PostgreSQL falls back to name ordering, so the
+    # phrase-ranking assertions only hold on those drivers.
+    if ROMM_DB_DRIVER in ("mariadb", "mysql"):
+        # Exact-order phrase matches rank above the reversed-order match.
+        assert result_ids.index(ff.id) < result_ids.index(fantasy_final.id)
+        assert result_ids.index(ff7.id) < result_ids.index(fantasy_final.id)
+
+    # The relevance ORDER BY must also survive the group_by_meta_id subquery
+    # wrapping used by the gallery (each ROM here is its own group).
+    grouped = db_rom_handler.get_roms_scalar(
+        search_term="final fantasy", group_by_meta_id=True
+    )
+    assert {r.id for r in grouped} == {ff.id, ff7.id, fantasy_final.id}
+
+    # An explicit sort takes priority over relevance: ordering by name asc puts
+    # "Fantasy Final" first (relevance is only the tiebreaker here).
+    explicit = db_rom_handler.get_roms_scalar(
+        search_term="final fantasy", order_by="name", order_dir="asc"
+    )
+    explicit_ids = [r.id for r in explicit]
+    assert explicit_ids.index(fantasy_final.id) < explicit_ids.index(ff.id)
 
 
 def test_sibling_roms_empty_fs_name_no_tags_not_matched(platform: Platform):

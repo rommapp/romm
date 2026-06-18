@@ -12,5 +12,14 @@
   "reset-sent": "リセットリンクが送信されました。管理者に連絡してください。",
   "send-reset-link": "リセットリンクを送信",
   "setup-wizard": "セットアップウィザード",
-  "username": "ユーザ名"
+  "username": "ユーザ名",
+  "passwords-do-not-match": "パスワードが一致しません",
+  "login-failed": "ログインに失敗しました",
+  "unable-to-login": "ログインできません: {error}",
+  "reset-failed": "リセットに失敗しました",
+  "unable-to-reset-password": "パスワードをリセットできません: {error}",
+  "reset-link-failed": "リセットリンクを送信できませんでした",
+  "register-success": "ユーザーを正常に登録しました",
+  "register-failed": "ユーザーを登録できません: {error}",
+  "avatar-save-warning": "アカウントは作成されましたが、アバターを保存できませんでした: {error}。プロフィール設定から後で設定できます。"
 }

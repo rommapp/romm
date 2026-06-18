@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, watch } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useTheme } from "vuetify";
 import ThemeOption from "@/components/Settings/UserInterface/ThemeOption.vue";
 import RSection from "@/components/common/RSection.vue";
 import { useUISettings } from "@/composables/useUISettings";
 
 const { t } = useI18n();
-const theme = useTheme();
 const { theme: selectedTheme } = useUISettings();
 const themeOptions = computed(() => [
   {
@@ -23,20 +21,6 @@ const themeOptions = computed(() => [
     icon: "mdi-theme-light-dark",
   },
 ]);
-
-function applyTheme() {
-  const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
-  const themeValue = selectedTheme.value;
-
-  if (themeValue === "auto") {
-    theme.change(mediaMatch.matches ? "dark" : "light");
-  } else if (themeValue === "dark" || themeValue === "light") {
-    theme.change(themeValue);
-  }
-}
-
-// Apply theme when it changes (including from backend sync)
-watch(selectedTheme, applyTheme, { immediate: true });
 </script>
 <template>
   <RSection icon="mdi-brush-variant" :title="t('settings.theme')" class="ma-2">

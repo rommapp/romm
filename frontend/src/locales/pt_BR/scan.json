@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Fonte desativada",
   "abort": "Abortar",
   "api-key-invalid": "Chave de API inválida!",
   "api-key-missing": "Chave API ausente ou inválida",
@@ -42,5 +43,26 @@
   "unmatched-games": "Jogos sem correspondência",
   "unmatched-games-desc": "Escanear jogos com correspondências de metadados faltantes",
   "update-metadata": "Atualizar metadados",
-  "update-metadata-desc": "Atualizar metadados para jogos correspondentes"
+  "update-metadata-desc": "Atualizar metadados para jogos correspondentes",
+  "playmatch-requires-igdb": "Selecione IGDB para habilitar o Playmatch",
+  "section-platforms": "Plataformas",
+  "section-metadata": "Metadados",
+  "section-providers": "Provedores",
+  "section-providers-general": "Geral",
+  "section-providers-specific": "Específicos",
+  "section-proxies": "Proxies",
+  "section-scan-type": "Tipo de varredura",
+  "scanning": "Varrendo",
+  "scanning-library": "Varrendo a biblioteca. Clique para visualizar",
+  "title": "Varredura da biblioteca",
+  "info-dialog-title": "Referência da varredura",
+  "scan-complete": "Varredura concluída",
+  "live-progress": "Progresso ao vivo",
+  "empty-hint": "Escolha uma configuração de varredura à esquerda e clique em Varrer para ver o progresso ao vivo aqui.",
+  "empty-hint-scanning": "As plataformas aparecerão aqui à medida que o scanner as descobrir.",
+  "hash-matchers": "Correspondência por hash",
+  "abort-scan": "Abortar varredura",
+  "identifying": "Identificando",
+  "info-full-docs": "Documentação completa",
+  "scan-types": "Tipos de varredura"
 }
