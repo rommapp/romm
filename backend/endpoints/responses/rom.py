@@ -273,7 +273,6 @@ class RomSchema(BaseModel):
 
     name: str | None
     name_sort_key: str | None
-    name_sort_key_custom: bool
     slug: str | None
     summary: str | None
 

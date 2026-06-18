@@ -451,7 +451,6 @@ def test_custom_name_sort_key_overrides_name_sort_order(platform: Platform):
         # A custom key pins ordering; without one it derives from `name`.
         if sort_override is not None:
             rom.name_sort_key = compute_name_sort_key(sort_override)
-            rom.name_sort_key_custom = True
         db_rom_handler.add_rom(rom)
 
     roms = db_rom_handler.get_roms_scalar(

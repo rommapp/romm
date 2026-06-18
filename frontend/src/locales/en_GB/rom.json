@@ -133,7 +133,7 @@
   "status-never-playing": "Never Playing",
   "status-now-playing": "Now Playing",
   "status-retired": "Retired",
-  "sort-name": "Sort name",
+  "sort-key": "Sort key",
   "summary": "Summary",
   "switch-version": "Switch version",
   "tags": "Tags",

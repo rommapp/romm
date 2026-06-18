@@ -211,7 +211,6 @@ def test_update_rom(
     body = response.json()
     assert body["fs_name"] == "Metroid Prime Remastered.zip"
     assert body["name_sort_key"] == compute_name_sort_key("Metroid Prime")
-    assert body["name_sort_key_custom"] is True
 
     assert rename_fs_rom_mock.called
     assert get_rom_by_id_mock.called
@@ -1255,7 +1254,6 @@ class TestUnmatchMetadata:
         assert initial_body["name_sort_key"] == compute_name_sort_key(
             "Imported sort title"
         )
-        assert initial_body["name_sort_key_custom"] is True
 
         # Now unmatch all metadata
         response = client.put(
@@ -1279,7 +1277,6 @@ class TestUnmatchMetadata:
 
         assert body["name"] == rom.fs_name
         assert body["name_sort_key"] == compute_name_sort_key(rom.fs_name)
-        assert body["name_sort_key_custom"] is False
         assert body["summary"] == ""
         assert body["url_cover"] == ""
         assert body["slug"] == ""

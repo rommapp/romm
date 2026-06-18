@@ -1209,7 +1209,6 @@ async def update_rom(
                 "libretro_id": None,
                 "name": rom.fs_name,
                 "name_sort_key": compute_name_sort_key(rom.fs_name),
-                "name_sort_key_custom": False,
                 "summary": "",
                 "url_screenshots": [],
                 "path_screenshots": [],
@@ -1404,17 +1403,16 @@ async def update_rom(
         }
     )
 
-    # `name_sort_key` is a normalized override the user can set or clear. A
-    # non-empty value pins a custom key; clearing it reverts to deriving from
-    # `name`. When not provided, leave the stored key (and its flag) untouched.
     if "name_sort_key" in provided_fields:
-        override = (form_data.name_sort_key or "").strip()
-        if override:
-            cleaned_data["name_sort_key"] = compute_name_sort_key(override)
-            cleaned_data["name_sort_key_custom"] = True
-        else:
-            cleaned_data["name_sort_key"] = compute_name_sort_key(name_value)
-            cleaned_data["name_sort_key_custom"] = False
+        # The edit form always echoes the current key back, so only act when the
+        # user actually changed it: a value is a custom override, an empty value
+        # reverts to deriving from the (possibly new) name. When unchanged, leave
+        # it out so update_rom re-derives only if the stored key isn't custom.
+        submitted = (form_data.name_sort_key or "").strip()
+        if submitted != (rom.name_sort_key or ""):
+            cleaned_data["name_sort_key"] = compute_name_sort_key(
+                submitted or name_value
+            )
 
     new_fs_name = str(form_data.fs_name or rom.fs_name)
     new_fs_name = sanitize_filename(new_fs_name)

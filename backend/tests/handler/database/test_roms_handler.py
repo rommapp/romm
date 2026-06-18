@@ -36,7 +36,6 @@ class TestUpdateRomDerivedColumns:
         updated = db_rom_handler.update_rom(rom.id, {"name_sort_key": "zelda"})
 
         assert updated.name_sort_key == "zelda"
-        assert updated.name_sort_key_custom is True
 
     def test_update_name_keeps_custom_sort_key(self, rom: Rom):
         db_rom_handler.update_rom(rom.id, {"name_sort_key": "pinned"})
@@ -45,4 +44,3 @@ class TestUpdateRomDerivedColumns:
         # A pinned custom key is never clobbered by a name change.
         assert updated.name == "The New Name 2"
         assert updated.name_sort_key == "pinned"
-        assert updated.name_sort_key_custom is True

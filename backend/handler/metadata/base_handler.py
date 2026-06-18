@@ -53,7 +53,6 @@ MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
 class BaseRom(TypedDict):
     name: NotRequired[str]
     name_sort_key: NotRequired[str | None]
-    name_sort_key_custom: NotRequired[bool]
     summary: NotRequired[str]
     url_cover: NotRequired[str]
     url_screenshots: NotRequired[list[str]]

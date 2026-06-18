@@ -1204,17 +1204,15 @@ class DBRomsHandler(DBBaseHandler):
         data: dict,
         session: Session = None,  # type: ignore
     ) -> Rom:
-        # Bulk update() bypasses the ORM @validates hooks, so keep the
-        # columns derived from name / fs_name in sync explicitly.
-        if "name_sort_key" in data:
-            # An explicit sort key was supplied (custom override or a revert to
-            # the derived value). Trust it; mark it custom unless told otherwise.
-            data = {"name_sort_key_custom": True, **data}
-        elif "name" in data:
-            # Name changed without an explicit key: recompute the derived key,
-            # but never clobber a row pinned to a custom sort key.
+        if "name" in data and "name_sort_key" not in data:
+            # Re-derive the key from the new name, but only when the stored key
+            # is still the derived value (i.e. not a manual override). Mirrors
+            # the `@validates` logic, which the bulk update() bypasses.
             existing = session.query(Rom).filter_by(id=id).one()
-            if not existing.name_sort_key_custom:
+            if (
+                existing.name_sort_key is None
+                or existing.name_sort_key == compute_name_sort_key(existing.name)
+            ):
                 data = {**data, "name_sort_key": compute_name_sort_key(data["name"])}
 
         if "fs_name" in data:

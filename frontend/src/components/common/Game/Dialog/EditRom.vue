@@ -33,17 +33,6 @@ const validForm = ref(false);
 const showConfirmDeleteManual = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 
-// Editable sort-key override. The stored `name_sort_key` is always populated
-// (derived from `name` when not custom), so only surface it as editable text
-// when it is a genuine override; otherwise the field stays empty to signal
-// "automatic". Kept in sync whenever the edited rom is (re)assigned.
-const sortNameInput = ref("");
-watch(rom, (value) => {
-  sortNameInput.value = value?.name_sort_key_custom
-    ? (value.name_sort_key ?? "")
-    : "";
-});
-
 // `files` only ships on DetailedRom; `rom` is reassigned to the detailed
 // payload returned by the update/refresh API calls. Mirror the cast used
 // by `getNintendoDSFiles` in utils.
@@ -361,12 +350,6 @@ async function updateRom() {
     return;
   }
 
-  // A non-empty override pins a custom sort key; clearing the field reverts to
-  // deriving it from `name`. The backend normalizes the value we send.
-  const override = sortNameInput.value.trim();
-  rom.value.name_sort_key = override;
-  rom.value.name_sort_key_custom = override.length > 0;
-
   await handleRomUpdate(
     { rom: rom.value, removeCover: removeCover.value },
     t("rom.update-success"),
@@ -462,9 +445,9 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
             />
             <v-text-field
               hide-details
-              v-model="sortNameInput"
+              v-model="rom.name_sort_key"
               clearable
-              :label="t('rom.sort-name')"
+              :label="t('rom.sort-key')"
               variant="outlined"
               class="my-4"
             />
