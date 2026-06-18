@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import enum
+import re
 from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, TypedDict
@@ -27,6 +28,7 @@ from sqlalchemy.orm import (
     declared_attr,
     mapped_column,
     relationship,
+    validates,
 )
 
 from config import FRONTEND_RESOURCES_PATH
@@ -35,8 +37,23 @@ from models.base import (
     FILE_NAME_MAX_LENGTH,
     FILE_PATH_MAX_LENGTH,
     BaseModel,
+    compute_file_name_parts,
 )
 from utils.database import CustomJSON
+
+# Max length of the precomputed natural-sort key column.
+NAME_SORT_KEY_MAX_LENGTH = 500
+ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
+DIGIT_RUN_RE = re.compile(r"\d+")
+
+
+def compute_name_sort_key(name: str | None) -> str:
+    """Precompute the natural-sort key stored in `Rom.name_sort_key`"""
+    value = (name or "").lower()
+    value = ARTICLE_PREFIX_RE.sub("", value).strip()
+    value = DIGIT_RUN_RE.sub(lambda m: m.group(0).zfill(12), value)
+    return value[:NAME_SORT_KEY_MAX_LENGTH]
+
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
@@ -191,6 +208,8 @@ class Rom(BaseModel):
 
     __table_args__ = (
         Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name"),
+        Index("idx_roms_name", "name"),
+        Index("idx_roms_name_sort_key", "name_sort_key"),
         Index("idx_roms_igdb_id", "igdb_id"),
         Index("idx_roms_moby_id", "moby_id"),
         Index("idx_roms_ss_id", "ss_id"),
@@ -213,6 +232,9 @@ class Rom(BaseModel):
     fs_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
     name: Mapped[str | None] = mapped_column(String(length=350))
+    name_sort_key: Mapped[str | None] = mapped_column(
+        String(length=NAME_SORT_KEY_MAX_LENGTH), default=None
+    )
     slug: Mapped[str | None] = mapped_column(String(length=400))
     summary: Mapped[str | None] = mapped_column(Text)
     igdb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
@@ -308,6 +330,27 @@ class Rom(BaseModel):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._is_identifying = False
+
+    @validates("name")
+    def _sync_name_sort_key(self, _key: str, name: str | None) -> str | None:
+        """Derive the indexed `name_sort_key` whenever `name` is assigned."""
+        self.name_sort_key = compute_name_sort_key(name)
+        return name
+
+    @validates("fs_name")
+    def _sync_fs_name_parts(self, _key: str, fs_name: str) -> str:
+        """Derive the stored `fs_name_no_tags` / `fs_name_no_ext` /
+        `fs_extension` columns whenever `fs_name` is assigned.
+
+        Fires on attribute set (ORM construction and mutation) only. Bulk
+        `update()` statements bypass the ORM and set these explicitly (see
+        `update_rom`).
+        """
+        parts = compute_file_name_parts(fs_name)
+        self.fs_name_no_tags = parts.no_tags
+        self.fs_name_no_ext = parts.no_ext
+        self.fs_extension = parts.extension
+        return fs_name
 
     @property
     def platform_slug(self) -> str:

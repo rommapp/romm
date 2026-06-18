@@ -16,11 +16,14 @@ from anyio import open_file
 from starlette.datastructures import UploadFile
 
 from config.config_manager import config_manager as cm
-from models.base import FILE_NAME_MAX_LENGTH
+from models.base import (
+    FILE_NAME_MAX_LENGTH,
+    compute_file_extension,
+    compute_file_name_no_ext,
+    compute_file_name_no_tags,
+)
 from utils.filesystem import iter_directories, iter_files, link_or_copy_file
 
-TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
-EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
 UUID_V4_REGEX = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}",
     re.IGNORECASE,
@@ -250,15 +253,13 @@ class FSHandler:
             raise
 
     def get_file_name_with_no_extension(self, file_name: str) -> str:
-        return EXTENSION_REGEX.sub("", file_name).strip()
+        return compute_file_name_no_ext(file_name)
 
     def get_file_name_with_no_tags(self, file_name: str) -> str:
-        file_name_no_extension = self.get_file_name_with_no_extension(file_name)
-        return TAG_REGEX.split(file_name_no_extension)[0].strip()
+        return compute_file_name_no_tags(file_name)
 
     def parse_file_extension(self, file_name: str) -> str:
-        match = EXTENSION_REGEX.search(file_name)
-        return match.group(1) if match else ""
+        return compute_file_extension(file_name)
 
     def extract_uuid_v4_from_filename(self, file_name: str) -> str:
         match = UUID_V4_REGEX.search(file_name)

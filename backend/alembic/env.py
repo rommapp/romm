@@ -41,6 +41,15 @@ def include_object(object, name, type_, reflected, compare_to):
     ]:  # Virtual table
         return False
 
+    # Skip DB-specific search indexes in autogenerate
+    # to avoid false drop/create operations
+    if type_ == "index" and name in (
+        "idx_roms_name_fs_name_fulltext",
+        "idx_roms_name_trgm",
+        "idx_roms_fs_name_trgm",
+    ):
+        return False
+
     return True
 
 

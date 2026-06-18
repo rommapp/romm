@@ -52,6 +52,9 @@ def clear_database():
         s.query(Platform).delete(synchronize_session="evaluate")
         s.query(User).delete(synchronize_session="evaluate")
 
+    # Drop any cached gallery filter values to keep tests isolated.
+    db_rom_handler.invalidate_filter_values_cache()
+
 
 @pytest.fixture(scope="module")
 def vcr_config():
