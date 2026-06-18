@@ -474,8 +474,9 @@ def get_roms(
         str,
         Query(
             description=(
-                "Field to order results by. Leave empty to order by search relevance "
-                "(when a search term is given) and fall back to name."
+                "Field to order results by. Leave empty to order by search "
+                "relevance when a search term is given on MySQL/MariaDB; other "
+                "databases fall back to name."
             ),
         ),
     ] = "",
@@ -555,11 +556,21 @@ def get_roms(
     # Get the char index for the roms
     char_index_dict = {}
     if with_char_index:
+        # The computed positions depend on ordering and grouping, so those
+        # must be part of the cache key — otherwise switching sort
+        # direction/column (or toggling grouping) reuses a stale index and
+        # the AlphaStrip highlights the wrong letters.
+        char_index_cache_key = (
+            f"all:u{request.user.id}"
+            f":o{order_by.lower()}:d{order_dir.lower()}:g{int(group_by_meta_id)}"
+            if is_unscoped
+            else None
+        )
         char_index = db_rom_handler.with_char_index(
             query=query,
             order_by_attr=order_by_attr,
             order_dir=order_dir.lower(),
-            cache_key=f"all:u{request.user.id}" if is_unscoped else None,
+            cache_key=char_index_cache_key,
         )
         char_index_dict = {char: index for (char, index) in char_index}
 

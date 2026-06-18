@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from config import ROMM_DB_DRIVER
 from handler.auth import auth_handler
 from handler.database import (
     db_platform_handler,
@@ -248,9 +249,13 @@ def test_filter_by_search_term_multi_word_and_ranking(platform: Platform):
     # Only titles containing BOTH words appear (AND semantics).
     assert set(result_ids) == {ff.id, ff7.id, fantasy_final.id}
 
-    # Exact-order phrase matches rank above the reversed-order match.
-    assert result_ids.index(ff.id) < result_ids.index(fantasy_final.id)
-    assert result_ids.index(ff7.id) < result_ids.index(fantasy_final.id)
+    # Relevance ordering uses MATCH ... AGAINST, which only runs on
+    # MySQL/MariaDB; PostgreSQL falls back to name ordering, so the
+    # phrase-ranking assertions only hold on those drivers.
+    if ROMM_DB_DRIVER in ("mariadb", "mysql"):
+        # Exact-order phrase matches rank above the reversed-order match.
+        assert result_ids.index(ff.id) < result_ids.index(fantasy_final.id)
+        assert result_ids.index(ff7.id) < result_ids.index(fantasy_final.id)
 
     # The relevance ORDER BY must also survive the group_by_meta_id subquery
     # wrapping used by the gallery (each ROM here is its own group).
