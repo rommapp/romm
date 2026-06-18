@@ -133,6 +133,7 @@
   "status-never-playing": "플레이 안 함",
   "status-now-playing": "현재 플레이 중",
   "status-retired": "중단",
+  "sort-key": "정렬 이름",
   "summary": "요약",
   "switch-version": "버전 전환",
   "tags": "태그",

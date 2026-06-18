@@ -63,7 +63,7 @@ from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom, RomUserStatus
+from models.rom import Rom, RomUserStatus, compute_name_sort_key
 from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
@@ -133,6 +133,7 @@ class RomUpdateForm(BaseModel):
         default=None, description="Raw manual metadata as JSON string."
     )
     name: str | None = None
+    name_sort_key: str | None = None
     summary: str | None = None
     fs_name: str | None = None
     url_cover: str | None = None
@@ -192,6 +193,7 @@ async def parse_rom_update_form(
     raw_hltb_metadata: str | None = Form(default=None),
     raw_manual_metadata: str | None = Form(default=None),
     name: str | None = Form(default=None),
+    name_sort_key: str | None = Form(default=None),
     summary: str | None = Form(default=None),
     fs_name: str | None = Form(default=None),
     url_cover: str | None = Form(default=None),
@@ -220,6 +222,7 @@ async def parse_rom_update_form(
         "raw_hltb_metadata": raw_hltb_metadata,
         "raw_manual_metadata": raw_manual_metadata,
         "name": name,
+        "name_sort_key": name_sort_key,
         "summary": summary,
         "fs_name": fs_name,
         "url_cover": url_cover,
@@ -1205,6 +1208,7 @@ async def update_rom(
                 "hltb_id": None,
                 "libretro_id": None,
                 "name": rom.fs_name,
+                "name_sort_key": compute_name_sort_key(rom.fs_name),
                 "summary": "",
                 "url_screenshots": [],
                 "path_screenshots": [],
@@ -1389,14 +1393,26 @@ async def update_rom(
             log.error(f"Invalid screenshot URL in update_rom: {str(e)}")
             raise HTTPException(status_code=400, detail=str(e)) from e
 
+    name_value = form_data.name if "name" in provided_fields else rom.name
     cleaned_data.update(
         {
-            "name": form_data.name if "name" in provided_fields else rom.name,
+            "name": name_value,
             "summary": (
                 form_data.summary if "summary" in provided_fields else rom.summary
             ),
         }
     )
+
+    if "name_sort_key" in provided_fields:
+        # The edit form always echoes the current key back, so only act when the
+        # user actually changed it: a value is a custom override, an empty value
+        # reverts to deriving from the (possibly new) name. When unchanged, leave
+        # it out so update_rom re-derives only if the stored key isn't custom.
+        submitted = (form_data.name_sort_key or "").strip()
+        if submitted != (rom.name_sort_key or "").strip():
+            cleaned_data["name_sort_key"] = compute_name_sort_key(
+                submitted or name_value
+            )
 
     new_fs_name = str(form_data.fs_name or rom.fs_name)
     new_fs_name = sanitize_filename(new_fs_name)
