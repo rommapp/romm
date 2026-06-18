@@ -18,7 +18,6 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     and_,
-    event,
     func,
     or_,
     select,
@@ -29,6 +28,7 @@ from sqlalchemy.orm import (
     declared_attr,
     mapped_column,
     relationship,
+    validates,
 )
 
 from config import FRONTEND_RESOURCES_PATH
@@ -330,6 +330,18 @@ class Rom(BaseModel):
         super().__init__(*args, **kwargs)
         self._is_identifying = False
 
+    @validates("name")
+    def _sync_name_sort_key(self, _key: str, name: str | None) -> str | None:
+        """Derive the indexed `name_sort_key` whenever `name` is assigned.
+
+        Fires on attribute set (ORM construction and mutation) only, so the
+        sort key is recomputed exactly when `name` changes — not on every
+        flush like a `before_update` event would. Bulk `update()` statements
+        bypass the ORM and set `name_sort_key` explicitly (see `update_rom`).
+        """
+        self.name_sort_key = compute_name_sort_key(name)
+        return name
+
     @property
     def platform_slug(self) -> str:
         return self.platform.slug
@@ -564,17 +576,6 @@ Rom.top_level_file_count = column_property(
     .scalar_subquery(),
     deferred=True,
 )
-
-
-@event.listens_for(Rom, "before_insert")
-@event.listens_for(Rom, "before_update")
-def _populate_rom_name_sort_key(mapper, connection, target: Rom) -> None:
-    """Keep `name_sort_key` in sync for ORM inserts/updates.
-
-    Bulk `update()` statements bypass ORM events, so they have to
-    set it explicitly.
-    """
-    target.name_sort_key = compute_name_sort_key(target.name)
 
 
 class RomUserStatus(enum.StrEnum):

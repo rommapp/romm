@@ -18,7 +18,7 @@ downgrade() drops every object created here in reverse order, leaving the
 pg_trgm extension in place since other objects may depend on it.
 
 Revision ID: 0084
-Revises: 0082_save_origin_device
+Revises: 0083_rom_category_soundtrack
 Create Date: 2026-06-16 00:00:00.000000
 
 """
@@ -31,7 +31,7 @@ from utils.database import is_mariadb, is_mysql, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0084"
-down_revision = "0082_save_origin_device"
+down_revision = "0083_rom_category_soundtrack"
 branch_labels = None
 depends_on = None
 
