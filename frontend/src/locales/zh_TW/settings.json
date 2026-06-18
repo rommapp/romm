@@ -46,6 +46,7 @@
   "couldnt-fetch-missing-roms": "無法取得缺少的 ROM：{error}",
   "deferred": "已延期",
   "deleting-mapping": "刪除中",
+  "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "disable-animations": "停用動畫",
   "disable-animations-desc": "停用遊戲庫中的所有動畫（CD 旋轉、卡帶載入、懸停影片）",
   "edit-user": "編輯用戶",

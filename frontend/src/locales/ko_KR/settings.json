@@ -46,6 +46,7 @@
   "couldnt-fetch-missing-roms": "누락된 ROM을 가져오지 못했습니다: {error}",
   "deferred": "연기됨",
   "deleting-mapping": "삭제 중",
+  "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "disable-animations": "애니메이션 비활성화",
   "disable-animations-desc": "갤러리의 모든 애니메이션 비활성화 (CD 회전, 카트리지 로딩, 호버 비디오)",
   "edit-user": "사용자 편집",

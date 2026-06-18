@@ -46,6 +46,7 @@
   "couldnt-fetch-missing-roms": "Не удалось получить отсутствующие ROM: {error}",
   "deferred": "Отложено",
   "deleting-mapping": "Удаление",
+  "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "disable-animations": "Отключить анимации",
   "disable-animations-desc": "Отключить все анимации в галерее (вращение CD, загрузка картриджей, видео при наведении)",
   "edit-user": "Редактировать пользователя",
