@@ -1,7 +1,7 @@
 """Add sort_name column to roms
 
 Revision ID: 0085_add_rom_sort_name
-Revises: 0084
+Revises: 0084_add_roms_search_index
 Create Date: 2026-05-31 00:00:00.000000
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "0085_add_rom_sort_name"
-down_revision = "0084"
+down_revision = "0084_add_roms_search_index"
 branch_labels = None
 depends_on = None
 

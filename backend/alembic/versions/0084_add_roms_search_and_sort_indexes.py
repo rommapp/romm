@@ -17,7 +17,7 @@ and sort large libraries without full table scans:
 downgrade() drops every object created here in reverse order, leaving the
 pg_trgm extension in place since other objects may depend on it.
 
-Revision ID: 0084
+Revision ID: 0084_add_roms_search_index
 Revises: 0083_rom_category_soundtrack
 Create Date: 2026-06-16 00:00:00.000000
 
@@ -30,7 +30,7 @@ from models.rom import NAME_SORT_KEY_MAX_LENGTH, compute_name_sort_key
 from utils.database import is_mariadb, is_mysql, is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0084"
+revision = "0084_add_roms_search_index"
 down_revision = "0083_rom_category_soundtrack"
 branch_labels = None
 depends_on = None
@@ -49,7 +49,7 @@ def upgrade() -> None:
     if is_mysql(bind) or is_mariadb(bind):
         op.execute(
             sa.text(
-                f"CREATE FULLTEXT INDEX {FULLTEXT_INDEX_NAME} "
+                f"CREATE FULLTEXT INDEX IF NOT EXISTS {FULLTEXT_INDEX_NAME} "
                 "ON roms (name, fs_name)"
             )
         )
@@ -87,6 +87,7 @@ def upgrade() -> None:
             sa.String(length=NAME_SORT_KEY_MAX_LENGTH),
             nullable=True,
         ),
+        if_not_exists=True,
     )
 
     roms = sa.table(
@@ -111,15 +112,17 @@ def upgrade() -> None:
             [{"_id": row.id, "_key": compute_name_sort_key(row.name)} for row in batch],
         )
 
-    op.create_index("idx_roms_name_sort_key", "roms", ["name_sort_key"])
+    op.create_index(
+        "idx_roms_name_sort_key", "roms", ["name_sort_key"], if_not_exists=True
+    )
 
 
 def downgrade() -> None:
     bind = op.get_bind()
 
     # 3. name_sort_key column and its index.
-    op.drop_index("idx_roms_name_sort_key", table_name="roms")
-    op.drop_column("roms", "name_sort_key")
+    op.drop_index("idx_roms_name_sort_key", table_name="roms", if_exists=True)
+    op.drop_column("roms", "name_sort_key", if_exists=True)
 
     # 2. Plain index on roms.name.
     with op.batch_alter_table("roms", schema=None) as batch_op:
@@ -127,7 +130,7 @@ def downgrade() -> None:
 
     # 1. DB-specific search indexes.
     if is_mysql(bind) or is_mariadb(bind):
-        op.execute(sa.text(f"DROP INDEX {FULLTEXT_INDEX_NAME} ON roms"))
+        op.execute(sa.text(f"DROP INDEX IF EXISTS {FULLTEXT_INDEX_NAME} ON roms"))
     elif is_postgresql(bind):
         # Leave the pg_trgm extension in place; other objects may depend on it.
         op.execute(sa.text(f"DROP INDEX IF EXISTS {PG_FS_NAME_INDEX}"))
