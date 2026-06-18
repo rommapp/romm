@@ -92,7 +92,7 @@ function onClose() {
         <v-img
           :src="
             user?.avatar_path
-              ? `/assets/romm/assets/${user?.avatar_path}?ts=${user?.updated_at}`
+              ? `/api/raw/assets/${user?.avatar_path}?ts=${user?.updated_at}`
               : defaultAvatarPath
           "
           cover

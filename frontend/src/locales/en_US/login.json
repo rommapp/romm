@@ -12,5 +12,14 @@
   "reset-sent": "Reset link sent. Contact your admin.",
   "send-reset-link": "Send reset link",
   "setup-wizard": "Setup wizard",
-  "username": "Username"
+  "username": "Username",
+  "passwords-do-not-match": "Passwords do not match",
+  "login-failed": "Login failed",
+  "unable-to-login": "Unable to login: {error}",
+  "reset-failed": "Reset failed",
+  "unable-to-reset-password": "Unable to reset password: {error}",
+  "reset-link-failed": "Could not send reset link",
+  "register-success": "User registered successfully",
+  "register-failed": "Unable to register user: {error}",
+  "avatar-save-warning": "Account created, but the avatar couldn't be saved: {error}. You can set it later from profile settings."
 }

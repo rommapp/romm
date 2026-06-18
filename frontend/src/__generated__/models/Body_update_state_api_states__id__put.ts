@@ -6,10 +6,10 @@ export type Body_update_state_api_states__id__put = {
     /**
      * Updated state file content.
      */
-    stateFile?: (Blob | null);
+    stateFile?: (string | null);
     /**
      * Updated screenshot file.
      */
-    screenshotFile?: (Blob | null);
+    screenshotFile?: (string | null);
 };
 

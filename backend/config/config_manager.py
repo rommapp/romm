@@ -75,6 +75,7 @@ class MetadataMediaType(enum.StrEnum):
     BOX2D_BACK = "box2d_back"
     BOX3D = "box3d"
     MIXIMAGE = "miximage"
+    MIXIMAGE_V2 = "miximage_v2"
     PHYSICAL = "physical"
     SCREENSHOT = "screenshot"
     TITLE_SCREEN = "title_screen"
@@ -138,13 +139,25 @@ class Config:
         self.__dict__.update(entries)
 
     @functools.cached_property
+    def has_structure_path_a(self) -> bool:
+        # Structure A ({roms_folder}/{platform}) takes priority: if the top-level roms
+        # folder exists, claim Structure A even if some platform dirs happen to
+        # contain a {roms_folder} sub-folder.
+        roms_path = os.path.join(LIBRARY_BASE_PATH, self.ROMS_FOLDER_NAME)
+        return os.path.isdir(roms_path)
+
+    @functools.cached_property
     def has_structure_path_b(self) -> bool:
+        if self.has_structure_path_a:
+            return False
+
         pattern = os.path.join(
             LIBRARY_BASE_PATH, "*", glob.escape(self.ROMS_FOLDER_NAME)
         )
         for match in glob.iglob(pattern):
             if os.path.isdir(match):
                 return True
+
         return False
 
 
@@ -665,6 +678,7 @@ class ConfigManager:
             MetadataMediaType.BOX2D,
             MetadataMediaType.BOX3D,
             MetadataMediaType.MIXIMAGE,
+            MetadataMediaType.MIXIMAGE_V2,
             MetadataMediaType.PHYSICAL,
         }
         if not isinstance(self.config.GAMELIST_MEDIA_THUMBNAIL, str):
@@ -683,6 +697,7 @@ class ConfigManager:
         valid_image_options = {
             MetadataMediaType.TITLE_SCREEN,
             MetadataMediaType.MIXIMAGE,
+            MetadataMediaType.MIXIMAGE_V2,
             MetadataMediaType.BOX2D,
             MetadataMediaType.SCREENSHOT,
         }
@@ -767,8 +782,8 @@ class ConfigManager:
                 "gamelist": {
                     "export": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
                     "media": {
-                        "thumbnail": self.config.GAMELIST_MEDIA_THUMBNAIL,
-                        "image": self.config.GAMELIST_MEDIA_IMAGE,
+                        "thumbnail": str(self.config.GAMELIST_MEDIA_THUMBNAIL),
+                        "image": str(self.config.GAMELIST_MEDIA_IMAGE),
                     },
                 },
                 "pegasus": {

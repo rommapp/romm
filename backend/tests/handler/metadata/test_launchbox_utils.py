@@ -2,14 +2,15 @@
 
 from datetime import datetime, timezone
 
+from hypothesis import assume, given
+from hypothesis import strategies as st
+
 from handler.metadata.launchbox_handler.utils import (
     dedupe_words,
     parse_list,
     parse_release_date,
     sanitize_filename,
 )
-from hypothesis import assume, given
-from hypothesis import strategies as st
 
 LB_INVALID_CHARS = set("\\/|<>\"?*:'")
 

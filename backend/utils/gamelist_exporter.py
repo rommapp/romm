@@ -26,6 +26,7 @@ ASSET_DIRS: dict[str, str] = {
     "fanart": "fanart",
     "marquee": "marquees",
     "miximage": "miximages",
+    "miximage_v2": "miximages",
     "physical": "physical",
     "screenshot": "screenshots",
     "title_screen": "titlescreens",
@@ -89,6 +90,7 @@ class GamelistExporter:
             "fanart": [ss.get("fanart_path", ""), gl.get("fanart_path", "")],
             "marquee": [ss.get("logo_path", ""), gl.get("marquee_path", "")],
             "miximage": [ss.get("miximage_path", ""), gl.get("miximage_path", "")],
+            "miximage_v2": [ss.get("miximage_v2_path", "")],
             "physical": [ss.get("physical_path", ""), gl.get("physical_path", "")],
             "title_screen": [
                 ss.get("title_screen_path", ""),
@@ -262,6 +264,7 @@ class GamelistExporter:
             "fanart": "fanart",
             "marquee": "marquee",
             "miximage": "miximage",
+            "miximage_v2": "miximage",
             "physical": "physicalmedia",
             "title_screen": "title_screen",
             "bezel": "bezel",

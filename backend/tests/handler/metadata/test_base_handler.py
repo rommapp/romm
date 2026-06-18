@@ -1,6 +1,7 @@
 import json
 import re
 from unittest.mock import AsyncMock, patch
+from urllib.parse import parse_qsl, urlparse
 
 import pytest
 
@@ -21,6 +22,8 @@ from handler.metadata.base_handler import (
     MetadataHandler,
     UniversalPlatformSlug,
     _normalize_search_term,
+    restore_sensitive_query_params,
+    strip_sensitive_query_params,
 )
 from handler.redis_handler import async_cache
 
@@ -398,6 +401,152 @@ class TestMetadataHandlerMethods:
         values = {"api_key": "ab"}
         result = handler._mask_sensitive_values(values)
         assert result["api_key"] == "ab***ab"  # Shows first 2 and last 2
+
+
+class TestStripSensitiveQueryParams:
+    """Test the strip_sensitive_query_params function."""
+
+    def test_removes_known_sensitive_keys(self):
+        """ssid and sspassword should be stripped from the query string."""
+        url = "https://api.example.com/media?ssid=user&sspassword=secret&crc=abc"
+        result = strip_sensitive_query_params(url)
+        assert "ssid=" not in result
+        assert "sspassword=" not in result
+        assert "crc=abc" in result
+
+    def test_preserves_non_sensitive_params(self):
+        """Non-sensitive params should keep their values and ordering."""
+        url = "https://api.example.com/media?systemeid=1&ssid=user&romnom=Game.zip"
+        result = strip_sensitive_query_params(url)
+        # parse rather than rely on a literal — urlencode may reorder identically-named keys
+        parsed = parse_qsl(urlparse(result).query, keep_blank_values=True)
+        assert ("systemeid", "1") in parsed
+        assert ("romnom", "Game.zip") in parsed
+        assert all(k != "ssid" for k, _ in parsed)
+
+    def test_case_insensitive_key_matching(self):
+        """Keys should match regardless of case (SSID, SsId, etc.)."""
+        url = "https://api.example.com/media?SSID=user&SSPassword=secret&crc=abc"
+        result = strip_sensitive_query_params(url)
+        assert "SSID=" not in result
+        assert "SSPassword=" not in result
+        assert "crc=abc" in result
+
+    def test_url_with_no_query(self):
+        """URLs without a query string should pass through unchanged in shape."""
+        url = "https://api.example.com/media"
+        result = strip_sensitive_query_params(url)
+        assert result == "https://api.example.com/media"
+
+    def test_url_with_no_sensitive_params(self):
+        """URLs whose params are all non-sensitive should be preserved."""
+        url = "https://api.example.com/media?systemeid=1&romnom=Game.zip"
+        result = strip_sensitive_query_params(url)
+        parsed = parse_qsl(urlparse(result).query, keep_blank_values=True)
+        assert ("systemeid", "1") in parsed
+        assert ("romnom", "Game.zip") in parsed
+
+    def test_preserves_other_url_components(self):
+        """Scheme, host, path, and fragment should be preserved."""
+        url = "https://api.example.com:8080/path/to/media?ssid=u&keep=1#frag"
+        result = strip_sensitive_query_params(url)
+        parsed = urlparse(result)
+        assert parsed.scheme == "https"
+        assert parsed.netloc == "api.example.com:8080"
+        assert parsed.path == "/path/to/media"
+        assert parsed.fragment == "frag"
+        assert "ssid" not in parsed.query
+
+    def test_custom_sensitive_keys_override(self):
+        """A caller-supplied sensitive_keys set should override the default."""
+        url = "https://api.example.com/m?ssid=user&token=tk&keep=1"
+        result = strip_sensitive_query_params(url, sensitive_keys={"token"})
+        parsed = parse_qsl(urlparse(result).query, keep_blank_values=True)
+        # ssid is not in the custom set so it stays; token is stripped
+        assert ("ssid", "user") in parsed
+        assert ("keep", "1") in parsed
+        assert all(k != "token" for k, _ in parsed)
+
+    def test_blank_values_preserved(self):
+        """Blank values for non-sensitive keys should not be dropped."""
+        url = "https://api.example.com/m?empty=&keep=1&ssid=user"
+        result = strip_sensitive_query_params(url)
+        parsed = parse_qsl(urlparse(result).query, keep_blank_values=True)
+        assert ("empty", "") in parsed
+        assert ("keep", "1") in parsed
+
+
+class TestRestoreSensitiveQueryParams:
+    """Test the restore_sensitive_query_params function."""
+
+    def test_appends_to_url_with_no_query(self):
+        """Restoring onto a URL with no query should produce a valid query."""
+        url = "https://api.example.com/media"
+        result = restore_sensitive_query_params(
+            url, {"ssid": "user", "sspassword": "secret"}
+        )
+        parsed = parse_qsl(urlparse(result).query, keep_blank_values=True)
+        assert ("ssid", "user") in parsed
+        assert ("sspassword", "secret") in parsed
+
+    def test_preserves_existing_non_conflicting_params(self):
+        """Other params present on the URL must be kept alongside restored ones."""
+        url = "https://api.example.com/m?systemeid=1&romnom=Game.zip"
+        result = restore_sensitive_query_params(url, {"ssid": "user"})
+        parsed = parse_qsl(urlparse(result).query, keep_blank_values=True)
+        assert ("systemeid", "1") in parsed
+        assert ("romnom", "Game.zip") in parsed
+        assert ("ssid", "user") in parsed
+
+    def test_overwrites_existing_same_key_no_duplicates(self):
+        """If the URL already has the key, it should be replaced, not duplicated."""
+        url = "https://api.example.com/m?ssid=old&keep=1"
+        result = restore_sensitive_query_params(url, {"ssid": "new"})
+        parsed = parse_qsl(urlparse(result).query, keep_blank_values=True)
+        ssid_values = [v for k, v in parsed if k == "ssid"]
+        assert ssid_values == ["new"]
+        assert ("keep", "1") in parsed
+
+    def test_overwrite_is_case_insensitive(self):
+        """Existing keys differing only in case should still be replaced."""
+        url = "https://api.example.com/m?SSID=old&keep=1"
+        result = restore_sensitive_query_params(url, {"ssid": "new"})
+        parsed = parse_qsl(urlparse(result).query, keep_blank_values=True)
+        # No leftover SSID=old entry under any casing
+        ssid_values = [v for k, v in parsed if k.lower() == "ssid"]
+        assert ssid_values == ["new"]
+
+    def test_encodes_special_characters_in_values(self):
+        """Values with reserved URL characters must be percent-encoded."""
+        url = "https://api.example.com/m"
+        result = restore_sensitive_query_params(url, {"sspassword": "p@ss w&rd=!"})
+        # The raw value must not appear unencoded in the query
+        assert "p@ss w&rd=!" not in result
+        # But round-tripping through parse_qsl recovers the original value
+        parsed = parse_qsl(urlparse(result).query, keep_blank_values=True)
+        assert ("sspassword", "p@ss w&rd=!") in parsed
+
+    def test_preserves_other_url_components(self):
+        """Scheme, host, path, and fragment should be preserved."""
+        url = "https://api.example.com:8080/path?keep=1#frag"
+        result = restore_sensitive_query_params(url, {"ssid": "u"})
+        parsed = urlparse(result)
+        assert parsed.scheme == "https"
+        assert parsed.netloc == "api.example.com:8080"
+        assert parsed.path == "/path"
+        assert parsed.fragment == "frag"
+
+    def test_strip_then_restore_roundtrip(self):
+        """strip → restore should recover an equivalent URL for the credential keys."""
+        original = "https://api.example.com/m?ssid=user&sspassword=secret&crc=abc"
+        stripped = strip_sensitive_query_params(original)
+        restored = restore_sensitive_query_params(
+            stripped, {"ssid": "user", "sspassword": "secret"}
+        )
+        parsed = parse_qsl(urlparse(restored).query, keep_blank_values=True)
+        assert ("ssid", "user") in parsed
+        assert ("sspassword", "secret") in parsed
+        assert ("crc", "abc") in parsed
 
 
 class TestRegexPatterns:

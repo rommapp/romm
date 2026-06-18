@@ -2,6 +2,7 @@ import re
 
 from hypothesis import given
 from hypothesis import strategies as st
+
 from utils.hashing import crc32_to_hex
 
 HEX_8 = re.compile(r"^[0-9a-f]{8}$")

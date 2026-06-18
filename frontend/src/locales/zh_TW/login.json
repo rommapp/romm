@@ -12,5 +12,14 @@
   "reset-sent": "重置密碼鏈接已發送。請聯繫管理員。",
   "send-reset-link": "發送重置密碼鏈接",
   "setup-wizard": "設定精靈",
-  "username": "用戶名"
+  "username": "用戶名",
+  "passwords-do-not-match": "密碼不一致",
+  "login-failed": "登入失敗",
+  "unable-to-login": "無法登入：{error}",
+  "reset-failed": "重設失敗",
+  "unable-to-reset-password": "無法重設密碼：{error}",
+  "reset-link-failed": "無法發送重設連結",
+  "register-success": "使用者註冊成功",
+  "register-failed": "無法註冊使用者：{error}",
+  "avatar-save-warning": "帳號已建立，但無法儲存頭像：{error}。您可以稍後從個人資料設定中設定。"
 }

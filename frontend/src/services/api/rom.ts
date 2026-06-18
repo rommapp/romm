@@ -10,6 +10,7 @@ import type {
   RomUserSchema,
   SearchRomSchema,
   SimpleRomSchema,
+  SoundtrackTrackMetaSchema,
   UserNoteSchema,
   RomFiltersDict,
 } from "@/__generated__";
@@ -175,6 +176,10 @@ export interface GetRomsParams {
   languagesLogic?: string | null;
   statusesLogic?: string | null;
   playerCountsLogic?: string | null;
+  // Cancellation: pass an AbortSignal to let the caller abort an
+  // in-flight request (e.g. search-typing → previous query aborted,
+  // gallery-context switch → previous platform's windows aborted).
+  signal?: AbortSignal;
 }
 
 async function getRoms({
@@ -185,7 +190,7 @@ async function getRoms({
   searchTerm = null,
   limit = 72,
   offset = 0,
-  orderBy = "name",
+  orderBy = "",
   orderDir = "asc",
   filterMatched = null,
   filterFavorites = null,
@@ -214,6 +219,7 @@ async function getRoms({
   languagesLogic = null,
   statusesLogic = null,
   playerCountsLogic = null,
+  signal = undefined,
 }: GetRomsParams) {
   const params = {
     platform_ids:
@@ -309,6 +315,7 @@ async function getRoms({
 
   return api.get<GetRomsResponse>(`/roms`, {
     params,
+    signal,
   });
 }
 
@@ -340,8 +347,28 @@ async function getRecentPlayedRoms() {
   });
 }
 
-async function getRom({ romId }: { romId: number }) {
-  return api.get<DetailedRom>(`/roms/${romId}`);
+async function getRom({
+  romId,
+  signal,
+}: {
+  romId: number;
+  signal?: AbortSignal;
+}) {
+  return api.get<DetailedRom>(`/roms/${romId}`, { signal });
+}
+
+async function getRomSimple({
+  romId,
+  signal,
+}: {
+  romId: number;
+  signal?: AbortSignal;
+}) {
+  // `/roms/{id}/simple` — returns `SimpleRomSchema` with no eager-loaded
+  // notes / saves / states / screenshots / collections arrays. Designed
+  // for the v2 gallery card's per-card fetch path. Detail-level data is
+  // pulled on demand (game details page, quick-note dialog open).
+  return api.get<SimpleRom>(`/roms/${romId}/simple`, { signal });
 }
 
 async function getRomByMetadataProvider({
@@ -454,6 +481,7 @@ async function updateRom({
 
   const fields: FormInputField<UpdateRomInput>[] = [
     ["name", rom.name],
+    ["name_sort_key", rom.name_sort_key ?? ""],
     ["fs_name", rom.fs_name],
     ["summary", rom.summary],
     ["igdb_id", toFormIdValue(rom.igdb_id)],
@@ -556,6 +584,119 @@ async function uploadManuals({
 
 async function removeManual({ romId }: { romId: number }) {
   return api.delete<DetailedRom>(`/roms/${romId}/manuals`);
+}
+
+async function redownloadManual({ romId }: { romId: number }) {
+  return api.post(`/roms/${romId}/manuals/redownload`);
+}
+
+async function uploadSoundtracks({
+  romId,
+  filesToUpload,
+}: {
+  romId: number;
+  filesToUpload: File[];
+}) {
+  const uploadStore = storeUpload();
+
+  const promises = filesToUpload.map((file) => {
+    const formData = new FormData();
+    formData.append(file.name, file);
+
+    uploadStore.start(file.name);
+    return new Promise((resolve, reject) => {
+      api
+        .post(`/roms/${romId}/soundtracks`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            "X-Upload-Filename": file.name,
+          },
+          params: {},
+          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            uploadStore.update(file.name, progressEvent);
+          },
+        })
+        .then(resolve)
+        .catch((error) => {
+          uploadStore.fail(file.name, error.response?.data?.detail);
+          reject(error);
+        });
+    });
+  });
+
+  return Promise.allSettled(promises);
+}
+
+async function removeSoundtrack({
+  romId,
+  fileId,
+}: {
+  romId: number;
+  fileId: number;
+}) {
+  return api.delete(`/roms/${romId}/soundtracks/${fileId}`);
+}
+
+async function getSoundtrackMetadata({
+  romId,
+  signal,
+}: {
+  romId: number;
+  signal?: AbortSignal;
+}) {
+  return api.get<SoundtrackTrackMetaSchema[]>(
+    `/roms/${romId}/soundtracks/metadata`,
+    {
+      signal,
+    },
+  );
+}
+
+async function uploadManualFiles({
+  romId,
+  filesToUpload,
+}: {
+  romId: number;
+  filesToUpload: File[];
+}) {
+  const uploadStore = storeUpload();
+
+  const promises = filesToUpload.map((file) => {
+    const formData = new FormData();
+    formData.append(file.name, file);
+
+    uploadStore.start(file.name);
+    return new Promise((resolve, reject) => {
+      api
+        .post(`/roms/${romId}/manuals/files`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            "X-Upload-Filename": file.name,
+          },
+          params: {},
+          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            uploadStore.update(file.name, progressEvent);
+          },
+        })
+        .then(resolve)
+        .catch((error) => {
+          uploadStore.fail(file.name, error.response?.data?.detail);
+          reject(error);
+        });
+    });
+  });
+
+  return Promise.allSettled(promises);
+}
+
+async function deleteManualFile({
+  romId,
+  fileId,
+}: {
+  romId: number;
+  fileId: number;
+}) {
+  return api.delete(`/roms/${romId}/manuals/files/${fileId}`);
 }
 
 async function updateUserRomProps({
@@ -669,6 +810,7 @@ export default {
   getRecentRoms,
   getRecentPlayedRoms,
   getRom,
+  getRomSimple,
   getRomByMetadataProvider,
   downloadRom,
   bulkDownloadRoms,
@@ -676,6 +818,12 @@ export default {
   updateRom,
   uploadManuals,
   removeManual,
+  redownloadManual,
+  uploadManualFiles,
+  deleteManualFile,
+  uploadSoundtracks,
+  removeSoundtrack,
+  getSoundtrackMetadata,
   updateUserRomProps,
   deleteRoms,
   createRomNote,

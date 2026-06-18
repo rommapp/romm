@@ -36,6 +36,7 @@ import {
   getDownloadPath,
 } from "@/utils";
 import { buildFormInput } from "@/utils/formData";
+import { invalidateEmulatorJSRomCacheIfRenamed } from "@/views/Player/EmulatorJS/utils";
 
 const { t } = useI18n();
 const createPlayerStorage = (romId: number, platformSlug: string) => ({
@@ -77,6 +78,10 @@ const loaderError = ref("");
 const loaderStatus = ref<
   "idle" | "loading-local" | "loading-cdn" | "loaded" | "failed"
 >("idle");
+
+function onBezelLoadError() {
+  bezelSrc.value = "";
+}
 
 const exitOptions = computed(() => [
   {
@@ -400,7 +405,10 @@ async function boot() {
     rom.ss_metadata?.bezel_path || getBezelImagePath(rom.platform_slug).value;
 
   // Configure EmulatorJS globals
-  const supported = getSupportedEJSCores(rom.platform_slug);
+  const supported = getSupportedEJSCores(
+    rom.platform_slug,
+    configStore.config.EJS_NETPLAY_ENABLED,
+  );
   const core =
     playerStorage.core.value && supported.includes(playerStorage.core.value)
       ? playerStorage.core.value
@@ -411,6 +419,7 @@ async function boot() {
   window.EJS_controlScheme = getControlSchemeForPlatform(rom.platform_slug);
   window.EJS_threads = areThreadsRequiredForEJSCore(core);
   window.EJS_gameID = rom.id;
+  invalidateEmulatorJSRomCacheIfRenamed(rom);
 
   if (initialSaveId) {
     // Persist chosen save ID for later logic
@@ -774,6 +783,7 @@ onUnmounted(() => {
     >
       <img
         :src="bezelSrc"
+        @error="onBezelLoadError"
         alt=""
         class="select-none"
         draggable="false"

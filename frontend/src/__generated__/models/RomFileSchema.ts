@@ -2,6 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { RomArchiveMember } from './RomArchiveMember';
+import type { RomFileAudioMetaSchema } from './RomFileAudioMetaSchema';
 import type { RomFileCategory } from './RomFileCategory';
 export type RomFileSchema = {
     id: number;
@@ -18,6 +20,8 @@ export type RomFileSchema = {
     sha1_hash: (string | null);
     ra_hash: (string | null);
     chd_sha1_hash: (string | null);
+    archive_members: (Array<RomArchiveMember> | null);
     category: (RomFileCategory | null);
+    audio_meta?: (RomFileAudioMetaSchema | null);
 };
 

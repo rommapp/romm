@@ -358,7 +358,7 @@ class DBCollectionsHandler(DBBaseHandler):
             if new_value := criteria.get(new_key):
                 return new_value if isinstance(new_value, list) else [new_value]
             if old_value := criteria.get(old_key):
-                return [old_value]
+                return old_value if isinstance(old_value, list) else [old_value]
             return None
 
         # Apply conversions

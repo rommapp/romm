@@ -2,11 +2,12 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
+from tests._zipfile_shim import reload_zipfile
 
 from config.config_manager import LIBRARY_BASE_PATH, Config
 from handler.filesystem.base_handler import (
@@ -16,10 +17,10 @@ from handler.filesystem.base_handler import (
 from handler.filesystem.roms_handler import (
     FileHash,
     FSRomsHandler,
-    extract_chd_hash,
 )
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
+from utils.archives import extract_chd_hash
 
 
 class TestFSRomsHandler:
@@ -255,6 +256,41 @@ class TestFSRomsHandler:
 
             result = handler.exclude_multi_roms(roms)
             assert result == roms
+
+    def test_exclude_multi_roms_case_insensitive(self, handler: FSRomsHandler, config):
+        """Test exclude_multi_roms ignores case in excluded names"""
+        roms = ["Game1", "Manuals", "Game2"]
+        config.EXCLUDED_MULTI_FILES = ["manuals"]
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            result = handler.exclude_multi_roms(roms)
+            assert result == ["Game1", "Game2"]
+
+    def test_exclude_multi_roms_ignores_whitespace(
+        self, handler: FSRomsHandler, config
+    ):
+        """Test exclude_multi_roms trims accidental surrounding whitespace"""
+        roms = ["Game1", "covers", "Game2"]
+        config.EXCLUDED_MULTI_FILES = [" covers "]
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            result = handler.exclude_multi_roms(roms)
+            assert result == ["Game1", "Game2"]
+
+    def test_exclude_multi_roms_wildcard_patterns(self, handler: FSRomsHandler, config):
+        """Test exclude_multi_roms keeps wildcard matching with normalized config"""
+        roms = ["Game1", "Manuals", "manuals-fr", "Game2"]
+        config.EXCLUDED_MULTI_FILES = ["  manuals* "]
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            result = handler.exclude_multi_roms(roms)
+            assert result == ["Game1", "Game2"]
 
     def test_build_rom_file_single_file(self, rom_single: Rom, handler: FSRomsHandler):
         """Test _build_rom_file with actual single ROM file"""
@@ -771,6 +807,235 @@ class TestFSRomsHandler:
         # Header SHA1 stored separately in chd_sha1_hash
         assert parsed_rom_files.rom_files[0].chd_sha1_hash == internal_sha1
 
+    @staticmethod
+    def _setup_archive_rom(
+        tmp_path: Path, platform: Platform, fs_name: str, fs_extension: str, data: bytes
+    ) -> tuple[FSRomsHandler, Rom]:
+        roms_path = tmp_path / platform.fs_slug / "roms"
+        roms_path.mkdir(parents=True, exist_ok=True)
+        (roms_path / fs_name).write_bytes(data)
+        test_handler = FSRomsHandler()
+        test_handler.base_path = tmp_path
+        rom = Rom(
+            id=1,
+            fs_name=fs_name,
+            fs_extension=fs_extension,
+            fs_path=str(roms_path.relative_to(tmp_path)),
+            platform=platform,
+        )
+        return test_handler, rom
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_zip_composite_hash_sorted_order(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """Zip member bytes are hashed in ASCII path order regardless of insertion order."""
+        import hashlib
+        import io
+        import zipfile
+
+        contents = {
+            "a.bin": b"AAA content for first file",
+            "b.bin": b"BBB content for second file",
+            "c.bin": b"CCC content for third file",
+        }
+
+        reload_zipfile()
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            # Insert in reverse to ensure sorting is what governs order
+            for name in ("c.bin", "b.bin", "a.bin"):
+                zf.writestr(name, contents[name])
+
+        test_handler, rom = self._setup_archive_rom(
+            tmp_path, platform, "game.zip", "zip", buf.getvalue()
+        )
+
+        parsed = await test_handler.get_rom_files(rom)
+
+        concat = b"".join(contents[k] for k in sorted(contents))
+        assert parsed.md5_hash == hashlib.md5(concat, usedforsecurity=False).hexdigest()
+        assert (
+            parsed.sha1_hash == hashlib.sha1(concat, usedforsecurity=False).hexdigest()
+        )
+
+        # Only one RomFile (the archive itself) is surfaced, not one per member.
+        # Per-member hashes are stored on `archive_members`.
+        assert len(parsed.rom_files) == 1
+        archive_rom_file = parsed.rom_files[0]
+        assert archive_rom_file.file_name == "game.zip"
+        assert archive_rom_file.md5_hash == parsed.md5_hash
+        # full_path resolves to a file that actually exists on disk
+        assert (Path(test_handler.base_path) / archive_rom_file.full_path).is_file()
+
+        assert archive_rom_file.archive_members is not None
+        # ASCII-sorted ordering, and each member has the right size + hashes
+        assert [m["name"] for m in archive_rom_file.archive_members] == sorted(contents)
+        for member in archive_rom_file.archive_members:
+            data = contents[member["name"]]
+            assert member["size"] == len(data)
+            assert (
+                member["md5_hash"]
+                == hashlib.md5(data, usedforsecurity=False).hexdigest()
+            )
+            assert (
+                member["sha1_hash"]
+                == hashlib.sha1(data, usedforsecurity=False).hexdigest()
+            )
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_zip_ordering_invariant(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """Two zips with the same members in different insertion order hash identically."""
+        import io
+        import zipfile
+
+        members = [("a.bin", b"AAA"), ("b.bin", b"BBB"), ("c.bin", b"CCC")]
+
+        reload_zipfile()
+
+        def build_zip(order: list[tuple[str, bytes]]) -> bytes:
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w") as zf:
+                for name, data in order:
+                    zf.writestr(name, data)
+            return buf.getvalue()
+
+        forward = build_zip(members)
+        reverse = build_zip(list(reversed(members)))
+
+        handler_f, rom_f = self._setup_archive_rom(
+            tmp_path, platform, "forward.zip", "zip", forward
+        )
+        handler_r, rom_r = self._setup_archive_rom(
+            tmp_path, platform, "reverse.zip", "zip", reverse
+        )
+
+        parsed_f = await handler_f.get_rom_files(rom_f)
+        parsed_r = await handler_r.get_rom_files(rom_r)
+
+        assert parsed_f.md5_hash == parsed_r.md5_hash
+        assert parsed_f.sha1_hash == parsed_r.sha1_hash
+        assert parsed_f.crc_hash == parsed_r.crc_hash
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_tar_gz_composite_hash_compound_ext(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """Compound .tar.gz extension routes through the tar reader and composites members."""
+        import hashlib
+        import io
+        import tarfile
+
+        members = {"a.bin": b"first member bytes", "b.bin": b"second member bytes"}
+
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+            for name in ("b.bin", "a.bin"):  # reverse insertion
+                info = tarfile.TarInfo(name=name)
+                info.size = len(members[name])
+                tf.addfile(info, io.BytesIO(members[name]))
+
+        test_handler, rom = self._setup_archive_rom(
+            tmp_path, platform, "game.tar.gz", "tar.gz", buf.getvalue()
+        )
+
+        parsed = await test_handler.get_rom_files(rom)
+
+        concat = b"".join(members[k] for k in sorted(members))
+        assert parsed.md5_hash == hashlib.md5(concat, usedforsecurity=False).hexdigest()
+        assert len(parsed.rom_files) == 1
+        assert parsed.rom_files[0].file_name == "game.tar.gz"
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_malformed_zip_falls_back_to_raw_bytes(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A file with .zip extension that is not a valid zip falls back to raw-file hashing."""
+        import hashlib
+
+        junk = b"Definitely not a zip file. Just arbitrary bytes for fallback."
+        test_handler, rom = self._setup_archive_rom(
+            tmp_path, platform, "fake.zip", "zip", junk
+        )
+
+        parsed = await test_handler.get_rom_files(rom)
+
+        # On a malformed zip, the reader yields nothing and the fallback path
+        # hashes the archive file itself; read_zip_file's BadZipFile guard
+        # routes that to raw-byte hashing.
+        assert parsed.md5_hash == hashlib.md5(junk, usedforsecurity=False).hexdigest()
+        assert parsed.sha1_hash == hashlib.sha1(junk, usedforsecurity=False).hexdigest()
+        assert len(parsed.rom_files) == 1
+        assert parsed.rom_files[0].file_name == "fake.zip"
+        assert parsed.rom_files[0].archive_members is None
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_zip_with_only_excluded_entries_falls_back(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A zip whose entries are all default-excluded hashes the archive's raw bytes."""
+        import hashlib
+        import io
+        import zipfile
+
+        reload_zipfile()
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("foo.tmp", b"X" * 256)  # excluded by extension
+            zf.writestr(".DS_Store", b"Y" * 8)  # excluded by name
+        zip_bytes = buf.getvalue()
+
+        test_handler, rom = self._setup_archive_rom(
+            tmp_path, platform, "only_excluded.zip", "zip", zip_bytes
+        )
+
+        parsed = await test_handler.get_rom_files(rom)
+
+        assert (
+            parsed.md5_hash == hashlib.md5(zip_bytes, usedforsecurity=False).hexdigest()
+        )
+        assert (
+            parsed.sha1_hash
+            == hashlib.sha1(zip_bytes, usedforsecurity=False).hexdigest()
+        )
+        assert len(parsed.rom_files) == 1
+        assert parsed.rom_files[0].file_name == "only_excluded.zip"
+        assert parsed.rom_files[0].archive_members is None
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_empty_zip_falls_back_to_raw_bytes(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A zip with zero entries hashes the archive's raw bytes."""
+        import hashlib
+        import io
+        import zipfile
+
+        reload_zipfile()
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w"):
+            pass
+        zip_bytes = buf.getvalue()
+
+        test_handler, rom = self._setup_archive_rom(
+            tmp_path, platform, "empty.zip", "zip", zip_bytes
+        )
+
+        parsed = await test_handler.get_rom_files(rom)
+
+        assert (
+            parsed.md5_hash == hashlib.md5(zip_bytes, usedforsecurity=False).hexdigest()
+        )
+        assert (
+            parsed.sha1_hash
+            == hashlib.sha1(zip_bytes, usedforsecurity=False).hexdigest()
+        )
+        assert len(parsed.rom_files) == 1
+        assert parsed.rom_files[0].file_name == "empty.zip"
+        assert parsed.rom_files[0].archive_members is None
+
     @pytest.mark.asyncio
     async def test_get_rom_files_with_non_v5_chd_fallback_to_std_hashing(
         self, handler: FSRomsHandler, platform, tmp_path
@@ -826,6 +1091,67 @@ class TestFSRomsHandler:
         assert parsed_rom_files.rom_files[0].crc_hash == parsed_rom_files.crc_hash
         assert parsed_rom_files.rom_files[0].md5_hash == parsed_rom_files.md5_hash
         assert parsed_rom_files.rom_files[0].sha1_hash == parsed_rom_files.sha1_hash
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_archive_computes_ra_hash_for_cartridge_platform(
+        self, tmp_path: Path
+    ):
+        """RA hash is computed for cartridge-platform archives (buffer hashing supported)."""
+        import io
+        import zipfile
+
+        from tests._zipfile_shim import reload_zipfile
+
+        cartridge_platform = Platform(
+            name="Game Boy Advance", slug="gba", fs_slug="gba"
+        )
+
+        reload_zipfile()
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("game.gba", b"fake GBA ROM content")
+
+        test_handler, rom = self._setup_archive_rom(
+            tmp_path, cartridge_platform, "game.zip", "zip", buf.getvalue()
+        )
+
+        with patch(
+            "adapters.services.rahasher.RAHasherService.calculate_hash",
+            return_value="abcdef1234567890abcdef1234567890",
+        ):
+            parsed = await test_handler.get_rom_files(rom)
+
+        assert parsed.ra_hash == "abcdef1234567890abcdef1234567890"
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_archive_skips_ra_hash_for_disc_platform(
+        self, tmp_path: Path
+    ):
+        """RA hash is not computed for disc-platform archives (buffer hashing unsupported)."""
+        import io
+        import zipfile
+
+        from tests._zipfile_shim import reload_zipfile
+
+        disc_platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
+
+        reload_zipfile()
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("game.bin", b"fake PSX disc content")
+
+        test_handler, rom = self._setup_archive_rom(
+            tmp_path, disc_platform, "game.zip", "zip", buf.getvalue()
+        )
+
+        with patch(
+            "adapters.services.rahasher.RAHasherService.calculate_hash",
+            return_value="",
+        ) as mock_calculate:
+            parsed = await test_handler.get_rom_files(rom)
+
+        mock_calculate.assert_called_once()
+        assert parsed.ra_hash == ""
 
 
 class TestExtractCHDHash:
@@ -1295,7 +1621,10 @@ class TestExtractCHDHashProperties:
         assert result == sha1.hex()
         assert len(result) == 40
 
-    @given(version=st.integers(min_value=0, max_value=2**32 - 1), sha1=st.binary(min_size=20, max_size=20))
+    @given(
+        version=st.integers(min_value=0, max_value=2**32 - 1),
+        sha1=st.binary(min_size=20, max_size=20),
+    )
     def test_non_v5_version_returns_empty(self, version: int, sha1: bytes):
         assume(version != 5)
         assert _run_extract(_chd_header_bytes(version, sha1)) == ""

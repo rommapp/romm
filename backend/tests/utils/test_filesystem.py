@@ -213,4 +213,3 @@ class TestSanitizeFilename:
         once = self._sanitize_or_none(name)
         assume(once is not None)
         assert sanitize_filename(once) == once
-

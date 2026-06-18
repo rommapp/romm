@@ -1,6 +1,8 @@
 """Tests for sync endpoints."""
 
+import os
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
 from unittest import mock
 
 from fastapi import status
@@ -9,6 +11,7 @@ from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
     db_play_session_handler,
+    db_save_handler,
     db_sync_session_handler,
 )
 from models.assets import Save
@@ -84,6 +87,7 @@ class TestSyncNegotiate:
                     {
                         "rom_id": save.rom_id,
                         "file_name": save.file_name,
+                        "slot": save.slot,
                         "content_hash": save.content_hash,
                         "updated_at": save.updated_at.isoformat(),
                         "file_size_bytes": 100,
@@ -95,7 +99,7 @@ class TestSyncNegotiate:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        # If save has a hash, should be no_op; otherwise download/upload by timestamp
+        # Fixture save has no content_hash; hash-match no_op is covered by test_negotiate_matches_untagged_client_to_tagged_server_saves
         assert "session_id" in data
 
     def test_negotiate_device_not_found(self, client, access_token: str):
@@ -433,6 +437,7 @@ class TestNegotiateAdvanced:
                     {
                         "rom_id": save.rom_id,
                         "file_name": save.file_name,
+                        "slot": save.slot,
                         "content_hash": "different_hash",
                         "updated_at": "2026-03-01T00:00:00Z",
                         "file_size_bytes": 100,
@@ -466,6 +471,36 @@ class TestNegotiateAdvanced:
         assert len(download_ops) >= 1
         assert any(op["save_id"] == save.id for op in download_ops)
 
+    def test_negotiate_excludes_archival_null_slot_saves(
+        self, client, access_token: str, admin_user: User, archival_save: Save
+    ):
+        """Null-slot saves (web-UI / archival uploads) must not appear in
+        negotiate plans.
+
+        Archival saves are pure backups; clients can opt in to import them
+        outside the sync flow. Surfacing them in negotiate as 'download'
+        produces phantom operations on every device that's never synced them.
+        """
+        device = db_device_handler.add_device(
+            Device(id="neg-archival-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={"device_id": device.id, "saves": []},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        ops_for_archival = [
+            op for op in data["operations"] if op.get("save_id") == archival_save.id
+        ]
+        assert ops_for_archival == [], (
+            f"Archival null-slot save unexpectedly surfaced in negotiate: "
+            f"{ops_for_archival}"
+        )
+
     def test_negotiate_deleted_by_client_skipped(
         self, client, access_token: str, admin_user: User, save: Save
     ):
@@ -488,6 +523,186 @@ class TestNegotiateAdvanced:
         data = response.json()
         ops_for_save = [op for op in data["operations"] if op.get("save_id") == save.id]
         assert len(ops_for_save) == 0
+
+    def test_negotiate_matches_untagged_client_to_tagged_server_saves(
+        self, client, access_token: str, admin_user: User, rom: Rom, platform
+    ):
+        """Spec datetime-tags every slot upload, so a slot accrues many tagged rows and the client reports the untagged canonical name. Pairing must be by (rom_id, slot) on the newest row, else every negotiate yields upload+download forever."""
+        device = db_device_handler.add_device(
+            Device(id="neg-tagged-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+        for tag in ("2026-01-01_00-00-00", "2026-02-02_00-00-00"):
+            db_save_handler.add_save(
+                Save(
+                    rom_id=rom.id,
+                    user_id=admin_user.id,
+                    file_name=f"test_save [{tag}].sav",
+                    file_name_no_tags="test_save",
+                    file_name_no_ext=f"test_save [{tag}]",
+                    file_extension="sav",
+                    emulator="test_emulator",
+                    slot="autosave",
+                    content_hash="HASH_MATCH",
+                    file_path=f"{platform.slug}/saves/test_emulator",
+                    file_size_bytes=1.0,
+                )
+            )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={
+                "device_id": device.id,
+                "saves": [
+                    {
+                        "rom_id": rom.id,
+                        "file_name": "test_save.sav",
+                        "slot": "autosave",
+                        "content_hash": "HASH_MATCH",
+                        "updated_at": "2026-03-01T00:00:00Z",
+                        "file_size_bytes": 100,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total_upload"] == 0
+        assert data["total_download"] == 0
+        rom_ops = [op for op in data["operations"] if op["rom_id"] == rom.id]
+        assert len(rom_ops) == 1
+        assert rom_ops[0]["action"] == "no_op"
+
+    def _upload_autosave(
+        self, client, access_token, rom, *, filename, content_hash, device_id
+    ):
+        """Upload through the real add_save so _apply_datetime_tag runs; scan_save is mocked to echo the server-computed (tagged) file_name, never a hand-authored one."""
+
+        def make_scanned(*, file_name, user, platform_fs_slug, rom_id, emulator):
+            return Save(
+                file_name=file_name,
+                file_name_no_tags=file_name.split(" [")[0],
+                file_name_no_ext=os.path.splitext(file_name)[0],
+                file_extension="zip",
+                file_path=f"{platform_fs_slug}/saves/{emulator or ''}",
+                file_size_bytes=100,
+                content_hash=content_hash,
+            )
+
+        with mock.patch(
+            "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+        ), mock.patch(
+            "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+        ), mock.patch(
+            "endpoints.saves.scan_save",
+            new=mock.AsyncMock(side_effect=make_scanned),
+        ):
+            return client.post(
+                f"/api/saves?rom_id={rom.id}&slot=autosave&emulator=eden"
+                f"&device_id={device_id}",
+                files={
+                    "saveFile": (
+                        filename,
+                        BytesIO(b"save bytes"),
+                        "application/octet-stream",
+                    )
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+    def _negotiate(self, client, access_token, device_id, saves):
+        resp = client.post(
+            "/api/sync/negotiate",
+            json={"device_id": device_id, "saves": saves},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        return resp.json()
+
+    @staticmethod
+    def _autosave_entry(rom, content_hash):
+        return {
+            "rom_id": rom.id,
+            "file_name": "pokemon_violet.zip",
+            "slot": "autosave",
+            "content_hash": content_hash,
+            "updated_at": "2026-03-01T00:00:00Z",
+            "file_size_bytes": 100,
+        }
+
+    def test_save_upload_then_negotiate_converges(
+        self, client, access_token: str, admin_user: User, rom: Rom, platform
+    ):
+        """Full round-trip: upload tags the filename (real add_save), then the client reports its untagged canonical name. Must converge to no_op, not re-upload. This is the regression that hand-fed-filename mocks missed."""
+        device = db_device_handler.add_device(
+            Device(id="conv-rt-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+        up = self._upload_autosave(
+            client,
+            access_token,
+            rom,
+            filename="pokemon_violet.zip",
+            content_hash="HASH_RT",
+            device_id=device.id,
+        )
+        assert up.status_code == status.HTTP_200_OK
+        stored = up.json()
+        assert stored["file_name"] != "pokemon_violet.zip"
+        assert " [" in stored["file_name"]
+
+        data = self._negotiate(
+            client, access_token, device.id, [self._autosave_entry(rom, "HASH_RT")]
+        )
+        assert data["total_upload"] == 0
+        assert data["total_download"] == 0
+        rom_ops = [op for op in data["operations"] if op["rom_id"] == rom.id]
+        assert len(rom_ops) == 1
+        assert rom_ops[0]["action"] == "no_op"
+
+    def test_three_device_sync_converges(
+        self, client, access_token: str, admin_user: User, rom: Rom, platform
+    ):
+        """A uploads; B and C each download exactly once then converge to no_op. The pre-fix tagged-filename keying made every device upload+download forever -- this is the 3-device scenario done with faithful (untagged client / tagged server) names."""
+        device_a = db_device_handler.add_device(
+            Device(id="conv-a", user_id=admin_user.id, sync_enabled=True)
+        )
+        up = self._upload_autosave(
+            client,
+            access_token,
+            rom,
+            filename="pokemon_violet.zip",
+            content_hash="HASH_3D",
+            device_id=device_a.id,
+        )
+        assert up.status_code == status.HTTP_200_OK
+        save_id = up.json()["id"]
+
+        a_data = self._negotiate(
+            client, access_token, device_a.id, [self._autosave_entry(rom, "HASH_3D")]
+        )
+        assert a_data["total_upload"] == 0
+        assert a_data["total_download"] == 0
+
+        for dev_id in ("conv-b", "conv-c"):
+            dev = db_device_handler.add_device(
+                Device(id=dev_id, user_id=admin_user.id, sync_enabled=True)
+            )
+            first = self._negotiate(client, access_token, dev.id, [])
+            downloads = [
+                op
+                for op in first["operations"]
+                if op["action"] == "download" and op["save_id"] == save_id
+            ]
+            assert len(downloads) == 1
+            db_device_save_sync_handler.upsert_sync(
+                device_id=dev.id, save_id=save_id, synced_at=datetime.now(timezone.utc)
+            )
+            second = self._negotiate(
+                client, access_token, dev.id, [self._autosave_entry(rom, "HASH_3D")]
+            )
+            assert second["total_upload"] == 0
+            assert second["total_download"] == 0
 
     def test_complete_failed_session_rejected(
         self, client, access_token: str, admin_user: User

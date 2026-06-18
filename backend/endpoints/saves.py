@@ -1,5 +1,6 @@
 import os
 import re
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -34,32 +35,64 @@ from utils.router import APIRouter
 
 def _build_save_schema(
     save: Save,
+    syncs: Sequence[tuple[DeviceSaveSync, str | None]] = (),
     device: Device | None = None,
-    sync: DeviceSaveSync | None = None,
 ) -> SaveSchema:
+    """Attach one ``DeviceSyncSchema`` per device that has synced this save.
+
+    ``syncs`` is the full list of sync rows (paired with device name) for this
+    save across every device, so clients can attribute the save to its creator.
+    ``device`` is the caller's device, when supplied: its entry is emitted first
+    for stable ordering and old-client compatibility, and a placeholder entry is
+    synthesized when the caller has not yet synced this save.
+    """
     save_schema = SaveSchema.model_validate(save)
 
-    if device:
-        if sync:
-            is_current = to_utc(sync.last_synced_at) >= to_utc(save.updated_at)
-            last_synced = sync.last_synced_at
-            is_untracked = sync.is_untracked
-        else:
-            is_current = False
-            last_synced = save.updated_at
-            is_untracked = False
+    save_updated = to_utc(save.updated_at)
+    caller_present = False
+    entries: list[DeviceSyncSchema] = []
+    for sync, device_name in syncs:
+        if device and sync.device_id == device.id:
+            caller_present = True
+        entries.append(
+            DeviceSyncSchema(
+                device_id=sync.device_id,
+                device_name=device_name,
+                last_synced_at=sync.last_synced_at,
+                is_untracked=sync.is_untracked,
+                is_current=to_utc(sync.last_synced_at) >= save_updated,
+            )
+        )
 
-        save_schema.device_syncs = [
+    if device and not caller_present:
+        entries.append(
             DeviceSyncSchema(
                 device_id=device.id,
                 device_name=device.name,
-                last_synced_at=last_synced,
-                is_untracked=is_untracked,
-                is_current=is_current,
+                last_synced_at=save.updated_at,
+                is_untracked=False,
+                is_current=False,
             )
-        ]
+        )
 
+    if device:
+        entries.sort(key=lambda entry: entry.device_id != device.id)
+
+    save_schema.device_syncs = entries
     return save_schema
+
+
+def _syncs_for_save(
+    save_id: int, device: Device | None
+) -> list[tuple[DeviceSaveSync, str | None]]:
+    """Fetch every device sync for a single save when a device is in context.
+
+    Device attribution is only meaningful to a device-scoped caller, so callers
+    without a device get an empty list and no query is issued.
+    """
+    if not device:
+        return []
+    return db_device_save_sync_handler.get_syncs_for_saves([save_id]).get(save_id, [])
 
 
 DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
@@ -162,7 +195,7 @@ async def add_save(
         actual_filename = _apply_datetime_tag(sanitized_save_filename)
 
     db_save = db_save_handler.get_save_by_filename(
-        user_id=request.user.id, rom_id=rom.id, file_name=actual_filename
+        user_id=request.user.id, rom_id=rom.id, file_name=actual_filename, slot=slot
     )
 
     if device and slot and not overwrite:
@@ -222,18 +255,16 @@ async def add_save(
             user_id=request.user.id,
             rom_id=rom.id,
             content_hash=scanned_save.content_hash,
+            slot=slot,
         )
         if existing_by_hash:
             try:
                 await fs_asset_handler.remove_file(f"{saves_path}/{actual_filename}")
             except FileNotFoundError:
                 pass
-            sync = None
-            if device:
-                sync = db_device_save_sync_handler.get_sync(
-                    device_id=device.id, save_id=existing_by_hash.id
-                )
-            return _build_save_schema(existing_by_hash, device, sync)
+            return _build_save_schema(
+                existing_by_hash, _syncs_for_save(existing_by_hash.id, device), device
+            )
 
     if db_save:
         update_data: dict = {
@@ -248,6 +279,7 @@ async def add_save(
         scanned_save.user_id = request.user.id
         scanned_save.emulator = emulator
         scanned_save.slot = slot
+        scanned_save.origin_device_id = device.id if device else None
         db_save = db_save_handler.add_save(save=scanned_save)
 
     if device:
@@ -321,12 +353,7 @@ async def add_save(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
 
-    sync = None
-    if device:
-        sync = db_device_save_sync_handler.get_sync(
-            device_id=device.id, save_id=db_save.id
-        )
-    return _build_save_schema(db_save, device, sync)
+    return _build_save_schema(db_save, _syncs_for_save(db_save.id, device), device)
 
 
 @protected_route(router.get, "", [Scope.ASSETS_READ])
@@ -349,13 +376,13 @@ def get_saves(
     if not device:
         return [_build_save_schema(save) for save in saves]
 
-    syncs = db_device_save_sync_handler.get_syncs_for_device_and_saves(
-        device_id=device.id, save_ids=[s.id for s in saves]
+    syncs_by_save_id = db_device_save_sync_handler.get_syncs_for_saves(
+        [s.id for s in saves]
     )
-    sync_by_save_id = {s.save_id: s for s in syncs}
 
     return [
-        _build_save_schema(save, device, sync_by_save_id.get(save.id)) for save in saves
+        _build_save_schema(save, syncs_by_save_id.get(save.id, []), device)
+        for save in saves
     ]
 
 
@@ -403,12 +430,7 @@ def get_save(request: Request, id: int, device_id: str | None = None) -> SaveSch
             detail=f"Save with ID {id} not found",
         )
 
-    sync = None
-    if device:
-        sync = db_device_save_sync_handler.get_sync(
-            device_id=device.id, save_id=save.id
-        )
-    return _build_save_schema(save, device, sync)
+    return _build_save_schema(save, _syncs_for_save(save.id, device), device)
 
 
 @protected_route(router.get, "/{id}/content", [Scope.ASSETS_READ])
@@ -474,14 +496,14 @@ def confirm_download(
         )
 
     device = _resolve_device(device_id, request.user.id)
-    sync = db_device_save_sync_handler.upsert_sync(
+    db_device_save_sync_handler.upsert_sync(
         device_id=device_id,
         save_id=save.id,
         synced_at=save.updated_at,
     )
     db_device_handler.update_last_seen(device_id=device_id, user_id=request.user.id)
 
-    return _build_save_schema(save, device, sync)
+    return _build_save_schema(save, _syncs_for_save(save.id, device), device)
 
 
 @protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
@@ -580,12 +602,7 @@ async def update_save(
         )
         db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
 
-    sync = None
-    if device:
-        sync = db_device_save_sync_handler.get_sync(
-            device_id=device.id, save_id=db_save.id
-        )
-    return _build_save_schema(db_save, device, sync)
+    return _build_save_schema(db_save, _syncs_for_save(db_save.id, device), device)
 
 
 @protected_route(
@@ -660,11 +677,11 @@ def track_save(
         )
 
     device = _resolve_device(device_id, request.user.id)
-    sync = db_device_save_sync_handler.set_untracked(
+    db_device_save_sync_handler.set_untracked(
         device_id=device_id, save_id=id, untracked=False
     )
 
-    return _build_save_schema(save, device, sync)
+    return _build_save_schema(save, _syncs_for_save(save.id, device), device)
 
 
 @protected_route(router.post, "/{id}/untrack", [Scope.DEVICES_WRITE])
@@ -682,8 +699,8 @@ def untrack_save(
         )
 
     device = _resolve_device(device_id, request.user.id)
-    sync = db_device_save_sync_handler.set_untracked(
+    db_device_save_sync_handler.set_untracked(
         device_id=device_id, save_id=id, untracked=True
     )
 
-    return _build_save_schema(save, device, sync)
+    return _build_save_schema(save, _syncs_for_save(save.id, device), device)

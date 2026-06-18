@@ -192,6 +192,22 @@ async def test_hybrid_auth_backend_invalid_scheme():
     assert result is None
 
 
+@pytest.mark.parametrize("authorization_header", ["Bearer ", "Foo", "a b c"])
+async def test_hybrid_auth_backend_malformed_authorization_header(
+    authorization_header: str,
+):
+    class MockConnection(HTTPConnection):
+        def __init__(self):
+            self.scope: dict[str, dict] = {"session": {}}
+            self._headers = {"Authorization": authorization_header}
+
+    backend = HybridAuthBackend()
+    conn = MockConnection()
+
+    result = await backend.authenticate(conn)
+    assert result is None
+
+
 async def test_hybrid_auth_backend_with_refresh_token(editor_user: User):
     refresh_token = oauth_handler.create_refresh_token(
         data={

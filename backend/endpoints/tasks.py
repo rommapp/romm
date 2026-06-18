@@ -36,6 +36,9 @@ from handler.redis_handler import (
 )
 from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
 from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
+from tasks.manual.recompute_save_content_hashes import (
+    recompute_save_content_hashes_task,
+)
 from tasks.manual.sync_folder_scan import sync_folder_scan_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
@@ -114,6 +117,13 @@ manual_tasks: list[ManualTask] = [
             "name": "sync_folder_scan",
             "type": TaskType.SYNC,
             "task": sync_folder_scan_task,
+        }
+    ),
+    ManualTask(
+        {
+            "name": "recompute_save_content_hashes",
+            "type": TaskType.CLEANUP,
+            "task": recompute_save_content_hashes_task,
         }
     ),
 ]

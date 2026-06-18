@@ -9,12 +9,15 @@ import { buildFormInput } from "@/utils/formData";
 
 export const stateApi = api;
 
-type StateUploadInput = AddStateInput & {
+type StateUploadInput = Omit<AddStateInput, "stateFile" | "screenshotFile"> & {
   stateFile: File;
   screenshotFile?: File;
 };
 
-type UpdateStateUploadInput = UpdateStateInput & {
+type UpdateStateUploadInput = Omit<
+  UpdateStateInput,
+  "stateFile" | "screenshotFile"
+> & {
   stateFile: File;
   screenshotFile?: File;
 };

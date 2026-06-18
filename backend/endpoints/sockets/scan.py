@@ -11,6 +11,7 @@ from rq import Worker
 from rq.job import Job
 
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
+from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
@@ -31,11 +32,12 @@ from handler.filesystem import (
 )
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_gamelist_handler, meta_hltb_handler
-from handler.metadata.ss_handler import get_preferred_media_types
+from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
+    persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
     scan_rom,
@@ -178,13 +180,17 @@ def _should_scan_rom(
                 (
                     scan_type == ScanType.UPDATE
                     and rom.is_identified
-                    and any(getattr(rom, f"{source}_id") for source in metadata_sources)
+                    and any(
+                        getattr(rom, f"{source}_id", None)
+                        for source in metadata_sources
+                    )
                 )
                 # Unmatched scan should scan ROMs that are not identified by the selected metadata sources
                 or (
                     scan_type == ScanType.UNMATCHED
                     and any(
-                        not getattr(rom, f"{source}_id") for source in metadata_sources
+                        not getattr(rom, f"{source}_id", None)
+                        for source in metadata_sources
                     )
                 )
             )
@@ -231,6 +237,7 @@ async def _identify_rom(
     roms_ids: list[int],
     metadata_sources: list[str],
     launchbox_remote_enabled: bool,
+    playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
 ) -> None:
@@ -249,13 +256,6 @@ async def _identify_rom(
             Rom(
                 fs_name=fs_rom["fs_name"],
                 fs_path=roms_path,
-                fs_name_no_tags=fs_rom_handler.get_file_name_with_no_tags(
-                    fs_rom["fs_name"]
-                ),
-                fs_name_no_ext=fs_rom_handler.get_file_name_with_no_extension(
-                    fs_rom["fs_name"]
-                ),
-                fs_extension=fs_rom_handler.parse_file_extension(fs_rom["fs_name"]),
                 regions=parsed_tags.regions,
                 revision=parsed_tags.revision,
                 version=parsed_tags.version,
@@ -295,6 +295,36 @@ async def _identify_rom(
             }
         )
 
+    # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
+    # stale files (e.g. a cover from the wrong region) can't be reused. The
+    # post-scan download steps below skip downloads when a file already exists or
+    # when the source URL is unchanged, so the on-disk files must be removed here.
+    if not newly_added and scan_type == ScanType.COMPLETE:
+        try:
+            await fs_resource_handler.remove_cover(rom)
+        except FileNotFoundError:
+            pass
+
+        try:
+            await fs_resource_handler.remove_manual(rom)
+        except FileNotFoundError:
+            pass
+
+        try:
+            await fs_resource_handler.remove_directory(
+                f"{rom.fs_resources_path}/screenshots"
+            )
+        except FileNotFoundError:
+            pass
+
+        for media_type in MetadataMediaType:
+            try:
+                await fs_resource_handler.remove_media_resources_path(
+                    platform.id, rom.id, media_type
+                )
+            except FileNotFoundError:
+                pass
+
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
         scan_type=scan_type,
@@ -304,6 +334,7 @@ async def _identify_rom(
         metadata_sources=metadata_sources,
         newly_added=newly_added,
         launchbox_remote_enabled=launchbox_remote_enabled,
+        playmatch_enabled=playmatch_enabled,
         socket_manager=socket_manager,
     )
 
@@ -326,6 +357,7 @@ async def _identify_rom(
                     "rom_user",
                     "last_modified",
                     "files",
+                    "sibling_roms",
                 }
             ),
         )
@@ -343,6 +375,7 @@ async def _identify_rom(
                 file_size_bytes=file.file_size_bytes,
                 last_modified=file.last_modified,
                 category=file.category,
+                audio_meta=file.audio_meta,
                 crc_hash=file.crc_hash,
                 md5_hash=file.md5_hash,
                 sha1_hash=file.sha1_hash,
@@ -352,7 +385,8 @@ async def _identify_rom(
             for file in fs_rom["files"]
         ]
         for new_rom_file in new_rom_files:
-            db_rom_handler.add_rom_file(new_rom_file)
+            saved = db_rom_handler.add_rom_file(new_rom_file)
+            persist_soundtrack_cover(saved, _added_rom)
 
     # Short circuit if the scan type is hashes
     if scan_type == ScanType.HASHES:
@@ -361,22 +395,23 @@ async def _identify_rom(
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,
         overwrite=_added_rom.url_cover != rom.url_cover,
-        url_cover=_added_rom.url_cover,
+        url_cover=add_ss_auth_to_url(_added_rom.url_cover),
     )
 
     path_manual = await fs_resource_handler.get_manual(
         rom=_added_rom,
         overwrite=_added_rom.url_manual != rom.url_manual,
-        url_manual=_added_rom.url_manual,
+        url_manual=add_ss_auth_to_url(_added_rom.url_manual),
     )
 
     screenshots_changed = pydash.xor(
         _added_rom.url_screenshots or [], rom.url_screenshots or []
     )
+    url_screenshots = _added_rom.url_screenshots or []
     path_screenshots = await fs_resource_handler.get_rom_screenshots(
         rom=_added_rom,
         overwrite=bool(screenshots_changed),
-        url_screenshots=_added_rom.url_screenshots,
+        url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
     )
 
     _added_rom.path_cover_s = path_cover_s
@@ -399,10 +434,12 @@ async def _identify_rom(
     if _added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
         preferred_media_types = get_preferred_media_types()
         for media_type in preferred_media_types:
-            if _added_rom.ss_metadata.get(f"{media_type.value}_path"):
+            media_path = _added_rom.ss_metadata.get(f"{media_type.value}_path")
+            media_url = _added_rom.ss_metadata.get(f"{media_type.value}_url")
+            if media_path and media_url:
                 await fs_resource_handler.store_media_file(
-                    _added_rom.ss_metadata[f"{media_type.value}_url"],
-                    _added_rom.ss_metadata[f"{media_type.value}_path"],
+                    add_ss_auth_to_url(media_url),
+                    media_path,
                 )
 
     # Handle special media files from ES-DE gamelist.xml
@@ -442,7 +479,14 @@ async def _identify_rom(
     await socket_manager.emit(
         "scan:scanning_rom",
         SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-            exclude={"created_at", "updated_at", "rom_user", "last_modified", "files"}
+            exclude={
+                "created_at",
+                "updated_at",
+                "rom_user",
+                "last_modified",
+                "files",
+                "sibling_roms",
+            }
         ),
     )
 
@@ -454,6 +498,7 @@ async def _identify_platform(
     roms_ids: list[int],
     metadata_sources: list[str],
     launchbox_remote_enabled: bool,
+    playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
 ) -> ScanStats:
@@ -551,6 +596,7 @@ async def _identify_platform(
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 launchbox_remote_enabled=launchbox_remote_enabled,
+                playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
             )
@@ -623,6 +669,7 @@ async def scan_platforms(
     scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[int] | None = None,
     launchbox_remote_enabled: bool = True,
+    playmatch_enabled: bool = True,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -698,6 +745,7 @@ async def scan_platforms(
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 launchbox_remote_enabled=launchbox_remote_enabled,
+                playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
             )
@@ -709,6 +757,9 @@ async def scan_platforms(
                 log.warning(f" - {p.slug} ({p.fs_slug})")
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
+
+        # The library changed; drop cached filter values.
+        db_rom_handler.invalidate_filter_values_cache()
 
         # Export metadata files if enabled in config
         config = cm.get_config()
@@ -782,6 +833,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
+    playmatch_enabled = bool(options.get("playmatch_enabled", True))
 
     if DEV_MODE:
         return await scan_platforms(
@@ -790,6 +842,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
             scan_type=scan_type,
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
+            playmatch_enabled=playmatch_enabled,
         )
 
     return high_prio_queue.enqueue(
@@ -799,6 +852,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
         scan_type=scan_type,
         roms_ids=roms_ids,
         launchbox_remote_enabled=launchbox_remote_enabled,
+        playmatch_enabled=playmatch_enabled,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={

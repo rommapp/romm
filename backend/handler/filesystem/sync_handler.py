@@ -1,3 +1,4 @@
+import functools
 import hashlib
 import os
 from pathlib import Path
@@ -12,7 +13,7 @@ class FSSyncHandler(FSHandler):
     """Filesystem handler for sync folder operations (File Transfer mode)."""
 
     def __init__(self) -> None:
-        super().__init__(base_path=SYNC_BASE_PATH, tolerate_missing_base=True)
+        super().__init__(base_path=SYNC_BASE_PATH)
 
     def build_incoming_path(
         self, device_id: str, platform_slug: str | None = None
@@ -110,3 +111,13 @@ class FSSyncHandler(FSHandler):
                     f"Path {full_path} is outside the sync base directory"
                 ) from e
             path.unlink()
+
+
+@functools.cache
+def get_fs_sync_handler() -> FSSyncHandler:
+    """Lazily instantiate the sync folder handler on first use.
+
+    Deferred so that startup doesn't fail when sync is unconfigured or its
+    base path is not writable.
+    """
+    return FSSyncHandler()

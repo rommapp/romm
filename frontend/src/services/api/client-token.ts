@@ -16,6 +16,8 @@ export interface ClientTokenCreateSchema extends ClientTokenSchema {
 
 export interface ClientTokenAdminSchema extends ClientTokenSchema {
   username: string;
+  user_avatar_path: string;
+  user_updated_at: string;
 }
 
 export interface ClientTokenPairSchema {

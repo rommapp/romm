@@ -6,10 +6,10 @@ export type Body_update_save_api_saves__id__put = {
     /**
      * Updated save file content.
      */
-    saveFile?: (Blob | null);
+    saveFile?: (string | null);
     /**
      * Updated screenshot file.
      */
-    screenshotFile?: (Blob | null);
+    screenshotFile?: (string | null);
 };
 

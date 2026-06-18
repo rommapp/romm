@@ -29,7 +29,7 @@ from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from models.platform import Platform
 from models.play_session import PlaySession
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from models.sync_session import SyncSession
 from models.user import Role, User
 
@@ -53,9 +53,13 @@ def clear_database():
         s.query(Save).delete(synchronize_session="evaluate")
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")
+        s.query(RomFile).delete(synchronize_session="evaluate")
         s.query(Rom).delete(synchronize_session="evaluate")
         s.query(Platform).delete(synchronize_session="evaluate")
         s.query(User).delete(synchronize_session="evaluate")
+
+    # Drop any cached gallery filter values to keep tests isolated.
+    db_rom_handler.invalidate_filter_values_cache()
 
 
 @pytest.fixture(scope="module")
@@ -95,7 +99,60 @@ def rom(admin_user: User, platform: Platform):
 
 
 @pytest.fixture
+def rom_file(rom: Rom):
+    """A single content file attached to the `rom` fixture."""
+    rom_file = RomFile(
+        rom_id=rom.id,
+        file_name="test_rom.zip",
+        file_path=rom.fs_path,
+        file_size_bytes=1000,
+    )
+    return db_rom_handler.add_rom_file(rom_file)
+
+
+@pytest.fixture
+def multi_file_rom(admin_user: User, platform: Platform):
+    """A ROM stored as a game folder with multiple files (e.g. multi-disc).
+
+    Exercises the multi-file download path, where each entry's download name is
+    derived from `file.rom.full_path` — the back-reference that must remain
+    usable after the handler session closes.
+    """
+    rom = Rom(
+        platform_id=platform.id,
+        name="test_multi_file_rom",
+        slug="test_multi_file_rom_slug",
+        fs_name="test_multi_file_rom",
+        fs_name_no_tags="test_multi_file_rom",
+        fs_name_no_ext="test_multi_file_rom",
+        fs_extension="",
+        fs_path=f"{platform.slug}/roms",
+    )
+    rom = db_rom_handler.add_rom(rom)
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+
+    folder_path = f"{rom.fs_path}/{rom.fs_name}"
+    for file_name in ("disc1.bin", "disc2.bin"):
+        db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=rom.id,
+                file_name=file_name,
+                file_path=folder_path,
+                file_size_bytes=1,
+            )
+        )
+
+    return db_rom_handler.get_rom(rom.id)
+
+
+@pytest.fixture
 def save(rom: Rom, platform: Platform, admin_user: User):
+    """Slot-bound save (the canonical device-uploaded shape).
+
+    Sync negotiation only considers saves with a non-null slot — null-slot
+    saves are treated as web-UI / archival backups. Tests that need to
+    represent an archival save should use the `archival_save` fixture.
+    """
     save = Save(
         rom_id=rom.id,
         user_id=admin_user.id,
@@ -104,6 +161,28 @@ def save(rom: Rom, platform: Platform, admin_user: User):
         file_name_no_ext="test_save",
         file_extension="sav",
         emulator="test_emulator",
+        slot="autosave",
+        file_path=f"{platform.slug}/saves/test_emulator",
+        file_size_bytes=1.0,
+    )
+    return db_save_handler.add_save(save)
+
+
+@pytest.fixture
+def archival_save(rom: Rom, platform: Platform, admin_user: User):
+    """Null-slot save representing a web-UI / archival upload.
+
+    These should never appear in negotiate plans.
+    """
+    save = Save(
+        rom_id=rom.id,
+        user_id=admin_user.id,
+        file_name="archival.sav",
+        file_name_no_tags="archival",
+        file_name_no_ext="archival",
+        file_extension="sav",
+        emulator="test_emulator",
+        slot=None,
         file_path=f"{platform.slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )

@@ -6,10 +6,10 @@ export type Body_add_state_api_states_post = {
     /**
      * State file to upload.
      */
-    stateFile: Blob;
+    stateFile: string;
     /**
      * Screenshot file associated with this state.
      */
-    screenshotFile?: (Blob | null);
+    screenshotFile?: (string | null);
 };
 
