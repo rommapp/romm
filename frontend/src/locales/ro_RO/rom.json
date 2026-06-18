@@ -143,6 +143,7 @@
   "status-never-playing": "Nu voi juca niciodată",
   "status-now-playing": "Joc acum",
   "status-retired": "Abandonat",
+  "sort-key": "Nume pentru sortare",
   "summary": "Rezumat",
   "switch-version": "Schimbă versiunea",
   "versions-count": "{n} versiuni",
