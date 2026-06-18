@@ -1409,7 +1409,7 @@ async def update_rom(
         # reverts to deriving from the (possibly new) name. When unchanged, leave
         # it out so update_rom re-derives only if the stored key isn't custom.
         submitted = (form_data.name_sort_key or "").strip()
-        if submitted != (rom.name_sort_key or ""):
+        if submitted != (rom.name_sort_key or "").strip():
             cleaned_data["name_sort_key"] = compute_name_sort_key(
                 submitted or name_value
             )

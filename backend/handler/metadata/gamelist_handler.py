@@ -417,12 +417,11 @@ class GamelistHandler(MetadataHandler):
 
                 # Build ROM data
                 rom_metadata = extract_metadata_from_gamelist_rom(game, platform)
+                name_sort_key = compute_name_sort_key(sort_name) if sort_name else None
                 rom_data = GamelistRom(
                     gamelist_id=str(uuid.uuid4()),
                     name=name,
-                    name_sort_key=(
-                        compute_name_sort_key(sort_name) if sort_name else None
-                    ),
+                    name_sort_key=name_sort_key,
                     summary=summary,
                     regions=regions,
                     languages=languages,

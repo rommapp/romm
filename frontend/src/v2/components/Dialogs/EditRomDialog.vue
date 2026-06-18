@@ -374,7 +374,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
             hide-details
           >
             <template #prefix-label>
-              <RIcon icon="mdi-format-title" size="14" />
+              <RIcon icon="mdi-sort-alphabetical-variant" size="14" />
               {{ t("rom.sort-key") }}
             </template>
           </RTextField>
