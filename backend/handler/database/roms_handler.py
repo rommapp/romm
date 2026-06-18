@@ -1,11 +1,13 @@
 import functools
+import json
+import re
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any
 
+from redis.exceptions import WatchError
 from sqlalchemy import (
     Integer,
-    Row,
     String,
     Text,
     and_,
@@ -37,7 +39,9 @@ from sqlalchemy.sql.selectable import Select
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from handler.redis_handler import sync_cache
 from models.assets import Save, Screenshot, State
+from models.base import compute_file_name_parts
 from models.platform import Platform
 from models.rom import (
     Rom,
@@ -47,6 +51,7 @@ from models.rom import (
     RomNote,
     RomUser,
     SiblingRom,
+    compute_name_sort_key,
 )
 from utils.database import (
     json_array_contains_all,
@@ -110,7 +115,53 @@ RUFFLE_SUPPORTED_PLATFORMS = [
     UPS.BROWSER,
 ]
 
-STRIP_ARTICLES_REGEX = r"^(the|a|an)\s+"
+# Used to remove native full-text SQL operators
+FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
+
+# 3 is the default minimum size in InnoDB
+FULLTEXT_MIN_TOKEN_SIZE = 3
+
+# Cached ROM filter values (genres/franchises/etc.) so it doesn't get
+# recomputed on every call to /api/roms
+ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
+ROM_FILTERS_CACHE_KEYS_PREFIX = "filter_values:keys"
+ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
+
+
+def _cache_value_to_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, bytes):
+        return value.decode()
+    return str(value)
+
+
+def _filter_values_cache_version() -> str:
+    return _cache_value_to_str(sync_cache.get(ROM_FILTERS_CACHE_VERSION_KEY)) or "0"
+
+
+def _filter_values_cache_keys_key(version: str) -> str:
+    return f"{ROM_FILTERS_CACHE_KEYS_PREFIX}:v{version}"
+
+
+def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
+    version_keys_set = _filter_values_cache_keys_key(version)
+    with sync_cache.pipeline() as pipe:
+        try:
+            pipe.watch(ROM_FILTERS_CACHE_VERSION_KEY)
+            current_version = (
+                _cache_value_to_str(pipe.get(ROM_FILTERS_CACHE_VERSION_KEY)) or "0"
+            )
+            if current_version != version:
+                pipe.unwatch()
+            else:
+                pipe.multi()
+                pipe.set(redis_key, json.dumps(result), ex=ROM_FILTERS_CACHE_TTL)
+                pipe.sadd(version_keys_set, redis_key)
+                pipe.expire(version_keys_set, ROM_FILTERS_CACHE_TTL)
+                pipe.execute()
+        except WatchError:
+            pass
 
 
 def _create_metadata_id_case(
@@ -347,19 +398,53 @@ class DBRomsHandler(DBBaseHandler):
             return query.filter(Rom.id.in_(smart_collection.rom_ids))
         return query
 
+    def _build_fulltext_boolean_query(self, term: str) -> str | None:
+        words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
+        if not words or any(len(word) < FULLTEXT_MIN_TOKEN_SIZE for word in words):
+            return None
+        return " ".join(f"+{word}*" for word in words)
+
+    def _build_fulltext_relevance(self, search_term: str) -> str | None:
+        parts: list[str] = []
+        for term in search_term.split("|"):
+            words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
+            if len(words) > 1:
+                parts.append('"' + " ".join(words) + '"')
+        return " ".join(parts) if parts else None
+
     def _filter_by_search_term(self, query: Query, search_term: str):
         terms = [term.strip() for term in search_term.split("|")]
-        conditions = [
-            condition
-            for term in terms
-            for condition in (
-                Rom.fs_name.ilike(f"%{term}%"),
-                Rom.name.ilike(f"%{term}%"),
-            )
-            if term
-        ]
+        terms = [term for term in terms if term]
+        if not terms:
+            return query
 
-        return query.filter(or_(*conditions))
+        if ROMM_DB_DRIVER in ("mariadb", "mysql"):
+            match_clauses: list[Any] = []
+            for idx, term in enumerate(terms):
+                boolean_query = self._build_fulltext_boolean_query(term)
+                if boolean_query is None:
+                    match_clauses = []
+                    break
+                param = f"fulltext_search_{idx}"
+                match_clauses.append(
+                    text(
+                        f"MATCH(roms.name, roms.fs_name) "
+                        f"AGAINST(:{param} IN BOOLEAN MODE)"
+                    ).bindparams(**{param: boolean_query})
+                )
+            if match_clauses:
+                return query.filter(or_(*match_clauses))
+
+        # psql and full-text fallback
+        term_conditions = []
+        for term in terms:
+            word_conditions = [
+                or_(Rom.fs_name.ilike(f"%{word}%"), Rom.name.ilike(f"%{word}%"))
+                for word in term.split()
+            ]
+            if word_conditions:
+                term_conditions.append(and_(*word_conditions))
+        return query.filter(or_(*term_conditions))
 
     def _filter_by_matched(self, query: Query, value: bool) -> Query:
         """Filter based on whether the rom is matched to a metadata provider.
@@ -900,8 +985,9 @@ class DBRomsHandler(DBBaseHandler):
     def get_roms_query(
         self,
         *,
-        order_by: str = "name",
+        order_by: str = "",
         order_dir: str = "asc",
+        search_term: str | None = None,
         user_id: int | None = None,
         session: Session = None,  # type: ignore
     ) -> tuple[Query[Rom], Any]:
@@ -923,26 +1009,37 @@ class DBRomsHandler(DBBaseHandler):
         else:
             order_attr = Rom.name
 
+        # Use indexed `name_sort_key` to have fast access to names without
+        # articles (the, a, an) and leading digits
+        if order_attr is Rom.name:
+            order_attr = Rom.name_sort_key
+
         order_attr_column = order_attr
-
-        # Ignore case when the order attribute is a number
-        if isinstance(order_attr.type, (String, Text)):
-            # Remove any leading articles
-            order_attr = func.trim(
-                func.lower(order_attr).regexp_replace(STRIP_ARTICLES_REGEX, "")
-            )
-
-            # Pad numbers with leading zeros to ensure natural sorting
-            order_attr = order_attr.regexp_replace(
-                r"(\d+)", r"00000000000\1"
-            ).regexp_replace(r"0*(\d{12})", r"\1")
 
         if order_dir.lower() == "desc":
             order_attr = order_attr.desc()
         else:
             order_attr = order_attr.asc()
 
-        return query.order_by(order_attr), order_attr_column  # type: ignore
+        relevance_clause = None
+        if search_term and ROMM_DB_DRIVER in ("mariadb", "mysql"):
+            relevance = self._build_fulltext_relevance(search_term)
+            if relevance:
+                relevance_clause = text(
+                    "MATCH(roms.name, roms.fs_name) "
+                    "AGAINST(:relevance IN BOOLEAN MODE) DESC"
+                ).bindparams(relevance=relevance)
+
+        if order_by:  # explicit sort wins, relevance breaks ties
+            order_clauses = [order_attr]
+            if relevance_clause is not None:
+                order_clauses.append(relevance_clause)
+        else:  # no sort selected: relevance leads, name is the tiebreaker
+            order_clauses = [order_attr]
+            if relevance_clause is not None:
+                order_clauses.insert(0, relevance_clause)
+
+        return query.order_by(*order_clauses), order_attr_column  # type: ignore
 
     @begin_session
     def get_roms_scalar(
@@ -953,8 +1050,9 @@ class DBRomsHandler(DBBaseHandler):
         **kwargs,
     ) -> Sequence[Rom]:
         query, _ = self.get_roms_query(
-            order_by=kwargs.get("order_by", "name"),
+            order_by=kwargs.get("order_by", ""),
             order_dir=kwargs.get("order_dir", "asc"),
+            search_term=kwargs.get("search_term", None),
             user_id=kwargs.get("user_id", None),
         )
 
@@ -1005,23 +1103,26 @@ class DBRomsHandler(DBBaseHandler):
         self,
         query: Query,
         order_by_attr: Any,
+        *,
+        cache_key: str | None = None,
         order_dir: str = "asc",
         session: Session = None,  # type: ignore
-    ) -> list[Row[tuple[str, int]]]:
-        if isinstance(order_by_attr.type, (String, Text)):
-            # Remove any leading articles
-            order_by_attr = func.trim(
-                func.lower(order_by_attr).regexp_replace(STRIP_ARTICLES_REGEX, "")
-            )
-        else:
-            order_by_attr = func.trim(
-                func.lower(Rom.name).regexp_replace(STRIP_ARTICLES_REGEX, "")
-            )
+    ) -> list[tuple[str, int]]:
+        redis_key: str | None = None
+        version: str | None = None
+        if cache_key:
+            version = _filter_values_cache_version()
+            redis_key = f"char_index:{cache_key}:v{version}"
+            cached = sync_cache.get(redis_key)
+            if cached is not None:
+                return json.loads(cached)
 
-        # Pad numbers with leading zeros to ensure natural sorting
-        order_by_attr = order_by_attr.regexp_replace(
-            r"(\d+)", r"00000000000\1"
-        ).regexp_replace(r"0*(\d{12})", r"\1")
+        # Drop any ordering carried over from the main query (e.g. search relevance).
+        # This builds its own positional ordering below.
+        query = query.order_by(None)
+
+        if not isinstance(order_by_attr.type, (String, Text)):
+            order_by_attr = Rom.name_sort_key
 
         # Apply the same direction the main query uses so the position
         # numbers we emit (and the per-letter min position downstream)
@@ -1047,7 +1148,7 @@ class DBRomsHandler(DBBaseHandler):
         )
 
         # Get the minimum position for each letter
-        return (
+        rows = (
             session.query(
                 subquery.c.letter, func.min(subquery.c.position - 1).label("position")
             )
@@ -1056,6 +1157,11 @@ class DBRomsHandler(DBBaseHandler):
             .order_by(subquery.c.letter)
             .all()
         )
+
+        result = [(letter, int(position)) for letter, position in rows]
+        if redis_key is not None and version is not None:
+            _store_versioned_cache(redis_key, version, result)
+        return result
 
     @begin_session
     def get_roms_by_fs_name(
@@ -1097,6 +1203,20 @@ class DBRomsHandler(DBBaseHandler):
         data: dict,
         session: Session = None,  # type: ignore
     ) -> Rom:
+        # Bulk update() bypasses the ORM @validates hooks, so keep the
+        # columns derived from name / fs_name in sync explicitly.
+        if "name" in data:
+            data = {**data, "name_sort_key": compute_name_sort_key(data["name"])}
+
+        if "fs_name" in data:
+            parts = compute_file_name_parts(data["fs_name"])
+            data = {
+                **data,
+                "fs_name_no_tags": parts.no_tags,
+                "fs_name_no_ext": parts.no_ext,
+                "fs_extension": parts.extension,
+            }
+
         session.execute(
             update(Rom)
             .where(Rom.id == id)
@@ -1627,16 +1747,39 @@ class DBRomsHandler(DBBaseHandler):
             "platforms": sorted(platforms),
         }
 
+    def invalidate_filter_values_cache(self) -> None:
+        old_version = str(int(sync_cache.incr(ROM_FILTERS_CACHE_VERSION_KEY)) - 1)
+        old_keys_set = _filter_values_cache_keys_key(old_version)
+        old_cache_keys = [
+            key
+            for raw_key in sync_cache.smembers(old_keys_set)
+            if (key := _cache_value_to_str(raw_key)) is not None
+        ]
+        if old_cache_keys:
+            sync_cache.delete(*old_cache_keys)
+        sync_cache.delete(old_keys_set)
+
     @begin_session
     def with_filter_values(
         self,
         query: Query,
+        *,
+        cache_key: str | None = None,
         session: Session = None,  # type: ignore
     ) -> dict:
         """
         Returns the list of filters given the current subset of ROMs in the query
         """
-        ids_subq = query.with_only_columns(Rom.id).scalar_subquery()  # type: ignore
+        redis_key: str | None = None
+        version: str | None = None
+        if cache_key:
+            version = _filter_values_cache_version()
+            redis_key = f"filter_values:{cache_key}:v{version}"
+            cached = sync_cache.get(redis_key)
+            if cached is not None:
+                return json.loads(cached)
+
+        ids_subq = query.order_by(None).with_only_columns(Rom.id).scalar_subquery()  # type: ignore
 
         statement = (
             select(
@@ -1656,7 +1799,10 @@ class DBRomsHandler(DBBaseHandler):
             .where(Rom.id.in_(ids_subq))
         )
 
-        return self._collect_filter_values(session, statement)
+        result = self._collect_filter_values(session, statement)
+        if redis_key is not None and version is not None:
+            _store_versioned_cache(redis_key, version, result)
+        return result
 
     @begin_session
     def get_rom_filters(

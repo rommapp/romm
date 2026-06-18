@@ -25,7 +25,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import Response
-from fastapi_pagination.ext.sqlalchemy import paginate
+from fastapi_pagination import resolve_params
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from pydantic import BaseModel, Field
 from starlette.responses import FileResponse
@@ -75,6 +75,7 @@ from utils.validation import ValidationError
 from .files import router as files_router
 from .manual import router as manual_router
 from .notes import router as notes_router
+from .screenshot import router as screenshot_router
 from .soundtrack import router as soundtrack_router
 from .upload import router as upload_router
 
@@ -86,6 +87,7 @@ router.include_router(upload_router)
 router.include_router(files_router)
 router.include_router(manual_router)
 router.include_router(soundtrack_router)
+router.include_router(screenshot_router)
 router.include_router(notes_router)
 
 
@@ -472,8 +474,14 @@ def get_roms(
     ] = "any",
     order_by: Annotated[
         str,
-        Query(description="Field to order results by."),
-    ] = "name",
+        Query(
+            description=(
+                "Field to order results by. Leave empty to order by search "
+                "relevance when a search term is given on MySQL/MariaDB; other "
+                "databases fall back to name."
+            ),
+        ),
+    ] = "",
     order_dir: Annotated[
         str,
         Query(description="Order direction, either 'asc' or 'desc'."),
@@ -494,6 +502,7 @@ def get_roms(
         user_id=request.user.id,
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),
+        search_term=search_term,
     )
 
     # Filter down the query
@@ -537,11 +546,33 @@ def get_roms(
         include_file_stats=True,
     )
 
+    # Cache only the unscoped library scan; scoped/searched sets are narrower and computed live.
+    is_unscoped = not (
+        search_term
+        or platform_ids
+        or collection_id
+        or virtual_collection_id
+        or smart_collection_id
+    )
+
     # Get the char index for the roms
     char_index_dict = {}
     if with_char_index:
+        # The computed positions depend on ordering and grouping, so those
+        # must be part of the cache key. Otherwise switching sort
+        # direction/column (or toggling grouping) reuses a stale index and
+        # the AlphaStrip highlights the wrong letters.
+        char_index_cache_key = (
+            f"all:u{request.user.id}"
+            f":o{order_by.lower()}:d{order_dir.lower()}:g{int(group_by_meta_id)}"
+            if is_unscoped
+            else None
+        )
         char_index = db_rom_handler.with_char_index(
-            query=query, order_by_attr=order_by_attr, order_dir=order_dir.lower()
+            query=query,
+            order_by_attr=order_by_attr,
+            order_dir=order_dir.lower(),
+            cache_key=char_index_cache_key,
         )
         char_index_dict = {char: index for (char, index) in char_index}
 
@@ -568,7 +599,16 @@ def get_roms(
             smart_collection_id=smart_collection_id,
             search_term=search_term,
         )
-        query_filters = db_rom_handler.with_filter_values(query=filter_query)
+        cache_key = (
+            f"all:u{request.user.id}"
+            f":o{order_by.lower()}:d{order_dir.lower()}:g{int(group_by_meta_id)}"
+            if is_unscoped
+            else None
+        )
+        query_filters = db_rom_handler.with_filter_values(
+            query=filter_query,
+            cache_key=cache_key,
+        )
         # trunk-ignore(mypy/typeddict-item)
         filter_values = RomFiltersDict(**query_filters)
 
@@ -597,15 +637,23 @@ def get_roms(
                 for item in items
             ]
 
-        return paginate(
-            session,
-            query,
-            transformer=_transform,
-            additional_data={
-                "char_index": char_index_dict,
-                "rom_id_index": rom_id_index,
-                "filter_values": filter_values,
-            },
+        params = resolve_params()
+        total = len(rom_id_index)
+        page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
+        if page_ids:
+            page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
+            rows_by_id = {rom.id: rom for rom in page_rows}
+            page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
+        else:
+            page_items = []
+
+        return CustomLimitOffsetPage.create(
+            _transform(page_items),
+            params,
+            total=total,
+            char_index=char_index_dict,
+            rom_id_index=list(rom_id_index),
+            filter_values=filter_values,
         )
 
 
@@ -1184,6 +1232,7 @@ async def update_rom(
         if not rom:
             raise RomNotFoundInDatabaseException(id)
 
+        db_rom_handler.invalidate_filter_values_cache()
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
     provided_fields = form_data.model_fields_set
@@ -1353,15 +1402,7 @@ async def update_rom(
 
     new_fs_name = str(form_data.fs_name or rom.fs_name)
     new_fs_name = sanitize_filename(new_fs_name)
-    cleaned_data.update(
-        {
-            "fs_name": new_fs_name,
-            "fs_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(new_fs_name),
-            "fs_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
-                new_fs_name
-            ),
-        }
-    )
+    cleaned_data.update({"fs_name": new_fs_name})
 
     # Re-parse tags from the filename so region/language/revision/version/tags
     # stay in sync whenever the fs_name changes.
@@ -1516,6 +1557,7 @@ async def update_rom(
     if meta_playmatch_handler.is_manual_match(form_data.model_fields_set):
         fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))
 
+    db_rom_handler.invalidate_filter_values_cache()
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
@@ -1606,6 +1648,9 @@ async def delete_roms(
             failed_items += 1
             errors.append(f"Failed to delete ROM {id}: {str(e)}")
 
+    if successful_items:
+        db_rom_handler.invalidate_filter_values_cache()
+
     return {
         "successful_items": successful_items,
         "failed_items": failed_items,
@@ -1654,5 +1699,8 @@ async def update_rom_user(
         cleaned_data.update({"last_played": None})
 
     rom_user = db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
+
+    if "hidden" in cleaned_data:
+        db_rom_handler.invalidate_filter_values_cache()
 
     return RomUserSchema.model_validate(rom_user)

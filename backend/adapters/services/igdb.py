@@ -495,7 +495,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Computer",
         "family_name": "Atari",
         "family_slug": "atari",
-        "generation": -1,
+        "generation": 4,
         "id": 63,
         "name": "Atari ST/STE",
         "slug": "atari-st",

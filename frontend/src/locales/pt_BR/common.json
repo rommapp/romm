@@ -14,6 +14,7 @@
   "create": "Criar",
   "delete": "Excluir",
   "dropzone-description": "Arraste e solte seus arquivos ROM aqui, ou clique para navegar",
+  "dropzone-hint": "Arraste e solte, ou clique para procurar",
   "dropzone-drag-over": "Solte para carregar",
   "dropzone-title": "Solte os arquivos aqui",
   "edit": "Editar",

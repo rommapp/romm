@@ -8,7 +8,12 @@ from typing import NotRequired, TypedDict, get_type_hints
 from fastapi import Request
 from pydantic import ConfigDict, Field, computed_field, field_validator
 
-from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
+from endpoints.responses.assets import (
+    SaveSchema,
+    ScreenshotSchema,
+    StateSchema,
+    UserScreenshotSchema,
+)
 from handler.metadata.flashpoint_handler import FlashpointMetadata
 from handler.metadata.gamelist_handler import GamelistMetadata
 from handler.metadata.hasheous_handler import HasheousMetadata
@@ -462,6 +467,7 @@ class DetailedRomSchema(RomSchema):
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
     user_screenshots: list[ScreenshotSchema]
+    all_user_screenshots: list[UserScreenshotSchema]
     user_collections: list[UserCollectionSchema]
     all_user_notes: list[UserNoteSchema]
 
@@ -527,6 +533,27 @@ class DetailedRomSchema(RomSchema):
         # Sort notes by updated_at (most recent first)
         all_notes.sort(key=lambda x: x.updated_at, reverse=True)
         db_rom.all_user_notes = all_notes  # type: ignore[assignment]
+
+        # Gallery screenshots visible to this user: own (public + private) plus
+        # other users' public ones. Mirrors the notes flow above. Excludes the
+        # auto-captured save/state thumbnails (is_gallery == False).
+        from handler.database import db_screenshot_handler
+
+        gallery_screenshots = db_screenshot_handler.get_rom_gallery_screenshots(
+            rom_id=db_rom.id, user_id=user_id
+        )
+        db_rom.all_user_screenshots = [  # type: ignore[assignment]
+            UserScreenshotSchema.model_validate(
+                {
+                    **{
+                        field: getattr(s, field)
+                        for field in ScreenshotSchema.model_fields
+                    },
+                    "username": s.user.username,
+                }
+            )
+            for s in gallery_screenshots
+        ]
 
         return cls.model_validate(db_rom)
 
