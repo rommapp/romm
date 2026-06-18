@@ -557,7 +557,7 @@ def get_roms(
     char_index_dict = {}
     if with_char_index:
         # The computed positions depend on ordering and grouping, so those
-        # must be part of the cache key — otherwise switching sort
+        # must be part of the cache key. Otherwise switching sort
         # direction/column (or toggling grouping) reuses a stale index and
         # the AlphaStrip highlights the wrong letters.
         char_index_cache_key = (
@@ -597,9 +597,15 @@ def get_roms(
             smart_collection_id=smart_collection_id,
             search_term=search_term,
         )
+        cache_key = (
+            f"all:u{request.user.id}"
+            f":o{order_by.lower()}:d{order_dir.lower()}:g{int(group_by_meta_id)}"
+            if is_unscoped
+            else None
+        )
         query_filters = db_rom_handler.with_filter_values(
             query=filter_query,
-            cache_key=f"all:u{request.user.id}" if is_unscoped else None,
+            cache_key=cache_key,
         )
         # trunk-ignore(mypy/typeddict-item)
         filter_values = RomFiltersDict(**query_filters)
