@@ -49,7 +49,7 @@ def upgrade() -> None:
     if is_mysql(bind) or is_mariadb(bind):
         op.execute(
             sa.text(
-                f"CREATE FULLTEXT INDEX IF NOT EXISTS {FULLTEXT_INDEX_NAME} "
+                f"CREATE FULLTEXT INDEX {FULLTEXT_INDEX_NAME} "
                 "ON roms (name, fs_name)"
             )
         )
@@ -130,7 +130,7 @@ def downgrade() -> None:
 
     # 1. DB-specific search indexes.
     if is_mysql(bind) or is_mariadb(bind):
-        op.execute(sa.text(f"DROP INDEX IF EXISTS {FULLTEXT_INDEX_NAME} ON roms"))
+        op.execute(sa.text(f"DROP INDEX {FULLTEXT_INDEX_NAME} ON roms"))
     elif is_postgresql(bind):
         # Leave the pg_trgm extension in place; other objects may depend on it.
         op.execute(sa.text(f"DROP INDEX IF EXISTS {PG_FS_NAME_INDEX}"))
