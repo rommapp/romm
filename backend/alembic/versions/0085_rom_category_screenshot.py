@@ -1,7 +1,7 @@
 """Update rom_file.category column enum to include screenshots.
 
-Revision ID: 0084_rom_category_screenshot
-Revises: 0083_rom_category_soundtrack
+Revision ID: 0085_rom_category_screenshot
+Revises: 0084_add_roms_search_and_sort_indexes
 Create Date: 2026-06-17 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ from alembic import op
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0084_rom_category_screenshot"
-down_revision = "0083_rom_category_soundtrack"
+revision = "0085_rom_category_screenshot"
+down_revision = "0084_add_roms_search_and_sort_indexes"
 branch_labels = None
 depends_on = None
 
