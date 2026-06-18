@@ -101,3 +101,4 @@ export type DetailedRomSchema = {
     user_collections: Array<UserCollectionSchema>;
     all_user_notes: Array<UserNoteSchema>;
 };
+

@@ -91,3 +91,4 @@ export type SimpleRomSchema = {
     files: Array<RomFileSchema>;
     sibling_roms: Array<SiblingRomSchema>;
 };
+
