@@ -17,7 +17,7 @@ and sort large libraries without full table scans:
 downgrade() drops every object created here in reverse order, leaving the
 pg_trgm extension in place since other objects may depend on it.
 
-Revision ID: 0084_add_roms_search_and_sort_indexes
+Revision ID: 0084_add_roms_search_index
 Revises: 0083_rom_category_soundtrack
 Create Date: 2026-06-16 00:00:00.000000
 
@@ -30,7 +30,7 @@ from models.rom import NAME_SORT_KEY_MAX_LENGTH, compute_name_sort_key
 from utils.database import is_mariadb, is_mysql, is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0084_add_roms_search_and_sort_indexes"
+revision = "0084_add_roms_search_index"
 down_revision = "0083_rom_category_soundtrack"
 branch_labels = None
 depends_on = None
