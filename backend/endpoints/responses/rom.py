@@ -550,6 +550,8 @@ class DetailedRomSchema(RomSchema):
                         for field in ScreenshotSchema.model_fields
                     },
                     "username": s.user.username,
+                    "user_avatar_path": s.user.avatar_path,
+                    "user_updated_at": s.user.updated_at,
                 }
             )
             for s in gallery_screenshots

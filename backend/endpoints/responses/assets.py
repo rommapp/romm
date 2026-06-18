@@ -39,6 +39,9 @@ class UserScreenshotSchema(ScreenshotSchema):
     community (My / Community) view. Mirrors UserNoteSchema."""
 
     username: str
+    # Author identity for rendering an avatar next to community screenshots.
+    user_avatar_path: str = ""
+    user_updated_at: UTCDatetime | None = None
 
 
 class SaveSchema(BaseAsset):
