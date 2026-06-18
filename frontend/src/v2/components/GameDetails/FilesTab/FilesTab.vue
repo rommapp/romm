@@ -95,6 +95,10 @@ const CATEGORY_META = computed<
     label: t("rom.soundtrack"),
     icon: "mdi-music-note-outline",
   },
+  screenshot: {
+    label: t("rom.screenshots"),
+    icon: "mdi-image-multiple-outline",
+  },
 }));
 
 // Folder-name → label/icon map. Includes both singular and plural

@@ -58,6 +58,7 @@ class RomFileCategory(enum.StrEnum):
     PROTOTYPE = "prototype"
     CHEAT = "cheat"
     SOUNDTRACK = "soundtrack"
+    SCREENSHOT = "screenshot"
 
 
 class SiblingRom(BaseModel):

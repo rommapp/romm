@@ -17,6 +17,7 @@
   "create": "Vytvořit",
   "delete": "Smazat",
   "dropzone-description": "Přetáhněte sem své ROM soubory nebo klikněte pro výběr",
+  "dropzone-hint": "Přetáhni sem soubory nebo klikni pro výběr",
   "dropzone-drag-over": "Uvolněte pro nahrání",
   "dropzone-title": "Vložte soubory sem",
   "edit": "Upravit",
