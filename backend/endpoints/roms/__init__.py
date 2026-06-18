@@ -1383,15 +1383,7 @@ async def update_rom(
 
     new_fs_name = str(form_data.fs_name or rom.fs_name)
     new_fs_name = sanitize_filename(new_fs_name)
-    cleaned_data.update(
-        {
-            "fs_name": new_fs_name,
-            "fs_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(new_fs_name),
-            "fs_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
-                new_fs_name
-            ),
-        }
-    )
+    cleaned_data.update({"fs_name": new_fs_name})
 
     # Re-parse tags from the filename so region/language/revision/version/tags
     # stay in sync whenever the fs_name changes.

@@ -22,6 +22,7 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from models.base import TAG_REGEX
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from utils.archives import (
@@ -47,7 +48,6 @@ from .base_handler import (
     LANGUAGES_NAME_KEYS,
     REGIONS_BY_SHORTCODE,
     REGIONS_NAME_KEYS,
-    TAG_REGEX,
     FSHandler,
 )
 

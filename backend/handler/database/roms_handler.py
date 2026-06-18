@@ -41,6 +41,7 @@ from decorators.database import begin_session
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.redis_handler import sync_cache
 from models.assets import Save, Screenshot, State
+from models.base import compute_file_name_parts
 from models.platform import Platform
 from models.rom import (
     Rom,
@@ -1202,10 +1203,20 @@ class DBRomsHandler(DBBaseHandler):
         data: dict,
         session: Session = None,  # type: ignore
     ) -> Rom:
-        # Bulk update() bypasses the ORM before_update event, so keep the
-        # precomputed sort key in sync whenever the name changes.
+        # Bulk update() bypasses the ORM @validates hooks, so keep the
+        # columns derived from name / fs_name in sync explicitly.
         if "name" in data:
             data = {**data, "name_sort_key": compute_name_sort_key(data["name"])}
+
+        if "fs_name" in data:
+            parts = compute_file_name_parts(data["fs_name"])
+            data = {
+                **data,
+                "fs_name_no_tags": parts.no_tags,
+                "fs_name_no_ext": parts.no_ext,
+                "fs_extension": parts.extension,
+            }
+
         session.execute(
             update(Rom)
             .where(Rom.id == id)

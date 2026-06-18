@@ -256,13 +256,6 @@ async def _identify_rom(
             Rom(
                 fs_name=fs_rom["fs_name"],
                 fs_path=roms_path,
-                fs_name_no_tags=fs_rom_handler.get_file_name_with_no_tags(
-                    fs_rom["fs_name"]
-                ),
-                fs_name_no_ext=fs_rom_handler.get_file_name_with_no_extension(
-                    fs_rom["fs_name"]
-                ),
-                fs_extension=fs_rom_handler.parse_file_extension(fs_rom["fs_name"]),
                 regions=parsed_tags.regions,
                 revision=parsed_tags.revision,
                 version=parsed_tags.version,
@@ -840,9 +833,6 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
-    # Playmatch defaults to enabled so legacy callers (v1, refresh dialogs that
-    # don't expose the toggle) keep the long-standing "Playmatch fires with
-    # IGDB" behavior. The v2 Scan view sets this explicitly from a switch.
     playmatch_enabled = bool(options.get("playmatch_enabled", True))
 
     if DEV_MODE:

@@ -96,14 +96,16 @@ def upgrade() -> None:
         sa.column("name_sort_key", sa.String),
     )
 
-    rows = bind.execute(sa.select(roms.c.id, roms.c.name)).fetchall()
+    result = bind.execute(sa.select(roms.c.id, roms.c.name))
     update_stmt = (
         roms.update()
         .where(roms.c.id == sa.bindparam("_id"))
         .values(name_sort_key=sa.bindparam("_key"))
     )
-    for start in range(0, len(rows), _BACKFILL_BATCH):
-        batch = rows[start : start + _BACKFILL_BATCH]
+    while True:
+        batch = result.fetchmany(_BACKFILL_BATCH)
+        if not batch:
+            break
         bind.execute(
             update_stmt,
             [{"_id": row.id, "_key": compute_name_sort_key(row.name)} for row in batch],

@@ -37,6 +37,7 @@ from models.base import (
     FILE_NAME_MAX_LENGTH,
     FILE_PATH_MAX_LENGTH,
     BaseModel,
+    compute_file_name_parts,
 )
 from utils.database import CustomJSON
 
@@ -332,15 +333,24 @@ class Rom(BaseModel):
 
     @validates("name")
     def _sync_name_sort_key(self, _key: str, name: str | None) -> str | None:
-        """Derive the indexed `name_sort_key` whenever `name` is assigned.
-
-        Fires on attribute set (ORM construction and mutation) only, so the
-        sort key is recomputed exactly when `name` changes — not on every
-        flush like a `before_update` event would. Bulk `update()` statements
-        bypass the ORM and set `name_sort_key` explicitly (see `update_rom`).
-        """
+        """Derive the indexed `name_sort_key` whenever `name` is assigned."""
         self.name_sort_key = compute_name_sort_key(name)
         return name
+
+    @validates("fs_name")
+    def _sync_fs_name_parts(self, _key: str, fs_name: str) -> str:
+        """Derive the stored `fs_name_no_tags` / `fs_name_no_ext` /
+        `fs_extension` columns whenever `fs_name` is assigned.
+
+        Fires on attribute set (ORM construction and mutation) only. Bulk
+        `update()` statements bypass the ORM and set these explicitly (see
+        `update_rom`).
+        """
+        parts = compute_file_name_parts(fs_name)
+        self.fs_name_no_tags = parts.no_tags
+        self.fs_name_no_ext = parts.no_ext
+        self.fs_extension = parts.extension
+        return fs_name
 
     @property
     def platform_slug(self) -> str:
