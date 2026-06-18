@@ -1,26 +1,40 @@
 <script setup lang="ts">
 // ScreenshotsTab — responsive grid of 16:9 screenshot thumbnails. Clicking
 // a thumbnail opens RCarousel in fullscreen (lightbox) mode with prev/next
-// navigation, a thumbnail strip, and keyboard / gamepad arrows. Each
-// thumbnail carries a hover delete affordance; deletion is confirmed and
-// performed by the parent (MediaTab).
-import { RBtn, RCarousel } from "@v2/lib";
+// navigation, a thumbnail strip, and keyboard / gamepad arrows.
+//
+// Per-item affordances are driven by the item fields + props (the parent,
+// MediaTab, performs the actions):
+//   * delete   — when `deletable` and the item is owned (top-right, hover)
+//   * lock     — when `togglable` and owned: public/private toggle (top-right)
+//   * username — community items (others' public shots) show an owner chip
+import { RAvatar, RBtn, RCarousel, RIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
 
-// `id` is only present for user-uploaded screenshots (filesystem-backed);
-// scraped screenshots shown in the Overview tab carry just a URL and are
-// read-only. The delete affordance renders only when `deletable` is set and
-// the item has an id.
-export type ScreenshotItem = { url: string; id?: number };
+// `id` is present for filesystem-backed screenshots (user-uploaded or per-ROM);
+// scraped screenshots (Overview tab) carry just a URL and are read-only.
+// `isOwn`/`isPublic`/`username` only matter for the per-user community grids.
+export type ScreenshotItem = {
+  url: string;
+  id?: number;
+  isOwn?: boolean;
+  isPublic?: boolean;
+  username?: string;
+};
 
 const props = defineProps<{
   screenshots: ScreenshotItem[];
   deletable?: boolean;
+  togglable?: boolean;
+  togglingId?: number | null;
 }>();
-const emit = defineEmits<{ delete: [id: number] }>();
+const emit = defineEmits<{
+  delete: [id: number];
+  "toggle-visibility": [id: number, isPublic: boolean];
+}>();
 
 const { t } = useI18n();
 
@@ -36,6 +50,14 @@ function open(index: number) {
 }
 function close() {
   lightboxOpen.value = false;
+}
+
+// `isOwn` undefined (per-ROM shared screenshots) counts as owned/deletable.
+function canDelete(shot: ScreenshotItem): boolean {
+  return Boolean(props.deletable) && shot.id != null && shot.isOwn !== false;
+}
+function canToggle(shot: ScreenshotItem): boolean {
+  return Boolean(props.togglable) && shot.id != null && shot.isOwn === true;
 }
 </script>
 
@@ -58,16 +80,51 @@ function close() {
           loading="lazy"
         />
       </button>
-      <RBtn
-        v-if="deletable && shot.id != null"
-        icon="mdi-delete"
-        size="small"
-        variant="flat"
-        color="romm-red"
-        class="r-v2-det-shots__delete"
-        :aria-label="t('rom.screenshot-num-delete', { n: i + 1 })"
-        @click="emit('delete', shot.id)"
-      />
+
+      <!-- Owner chip for community (others' public) screenshots -->
+      <div v-if="shot.username" class="r-v2-det-shots__owner">
+        <RAvatar icon="mdi-account" size="16" />
+        <span>{{ shot.username }}</span>
+      </div>
+
+      <!-- Persistent "shared" badge for owned public screenshots -->
+      <div
+        v-else-if="canToggle(shot) && shot.isPublic"
+        class="r-v2-det-shots__badge"
+        :title="t('rom.screenshot-public')"
+      >
+        <RIcon icon="mdi-earth" size="13" />
+      </div>
+
+      <div class="r-v2-det-shots__actions">
+        <RBtn
+          v-if="canToggle(shot)"
+          :icon="shot.isPublic ? 'mdi-lock-open-variant' : 'mdi-lock'"
+          size="small"
+          variant="flat"
+          :loading="togglingId === shot.id"
+          :aria-label="
+            shot.isPublic
+              ? t('rom.screenshot-make-private')
+              : t('rom.screenshot-make-public')
+          "
+          :title="
+            shot.isPublic
+              ? t('rom.screenshot-make-private')
+              : t('rom.screenshot-make-public')
+          "
+          @click="emit('toggle-visibility', shot.id!, !shot.isPublic)"
+        />
+        <RBtn
+          v-if="canDelete(shot)"
+          icon="mdi-delete"
+          size="small"
+          variant="flat"
+          color="romm-red"
+          :aria-label="t('rom.screenshot-num-delete', { n: i + 1 })"
+          @click="emit('delete', shot.id!)"
+        />
+      </div>
     </div>
   </section>
 
@@ -139,21 +196,59 @@ function close() {
   display: block;
 }
 
-/* Delete affordance — top-right, revealed on cell hover / focus-within.
+/* Action cluster — top-right, revealed on cell hover / focus-within.
    Stays visible on touch/pad (no hover) so it's reachable there. */
-.r-v2-det-shots__delete {
+.r-v2-det-shots__actions {
   position: absolute;
   top: 6px;
   right: 6px;
+  display: flex;
+  gap: 4px;
   opacity: 0;
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-v2-det-shots__cell:hover .r-v2-det-shots__delete,
-.r-v2-det-shots__cell:focus-within .r-v2-det-shots__delete {
+.r-v2-det-shots__cell:hover .r-v2-det-shots__actions,
+.r-v2-det-shots__cell:focus-within .r-v2-det-shots__actions {
   opacity: 1;
 }
-html[data-input="touch"] .r-v2-det-shots__delete,
-html[data-input="pad"] .r-v2-det-shots__delete {
+html[data-input="touch"] .r-v2-det-shots__actions,
+html[data-input="pad"] .r-v2-det-shots__actions {
   opacity: 1;
+}
+
+/* Owner chip (community) — bottom-left, always visible. */
+.r-v2-det-shots__owner {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 12px);
+  padding: 2px 8px 2px 2px;
+  border-radius: 999px;
+  background: var(--r-color-overlay-scrim-strong);
+  color: var(--r-color-overlay-fg);
+  font-size: 11px;
+  font-weight: var(--r-font-weight-medium);
+}
+.r-v2-det-shots__owner span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "Shared" badge for owned public screenshots — top-left, always visible. */
+.r-v2-det-shots__badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--r-color-overlay-scrim-strong);
+  color: var(--r-color-overlay-fg);
 }
 </style>

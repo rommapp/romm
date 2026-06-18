@@ -54,6 +54,14 @@ class Screenshot(RomAsset):
     __tablename__ = "screenshots"
     __table_args__ = {"extend_existing": True}
 
+    # `is_gallery` distinguishes intentionally-uploaded gallery screenshots from
+    # the auto-captured save/state thumbnails that also live in this table.
+    # `is_public` mirrors RomNote — lets other users browse a user's public
+    # screenshots (community). Both default false; save/state thumbnails keep the
+    # defaults, only the gallery upload endpoint sets `is_gallery=True`.
+    is_gallery: Mapped[bool] = mapped_column(default=False)
+    is_public: Mapped[bool] = mapped_column(default=False)
+
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="screenshots")
     user: Mapped[User] = relationship(lazy="joined", back_populates="screenshots")
 

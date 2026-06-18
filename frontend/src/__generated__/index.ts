@@ -28,6 +28,7 @@ export type { Body_update_collection_api_collections__id__put } from './models/B
 export type { Body_update_platform_api_platforms__id__put } from './models/Body_update_platform_api_platforms__id__put';
 export type { Body_update_rom_api_roms__id__put } from './models/Body_update_rom_api_roms__id__put';
 export type { Body_update_save_api_saves__id__put } from './models/Body_update_save_api_saves__id__put';
+export type { Body_update_screenshot_api_screenshots__id__put } from './models/Body_update_screenshot_api_screenshots__id__put';
 export type { Body_update_smart_collection_api_collections_smart__id__put } from './models/Body_update_smart_collection_api_collections_smart__id__put';
 export type { Body_update_state_api_states__id__put } from './models/Body_update_state_api_states__id__put';
 export type { BulkOperationResponse } from './models/BulkOperationResponse';
@@ -155,6 +156,7 @@ export type { UserCollectionSchema } from './models/UserCollectionSchema';
 export type { UserForm } from './models/UserForm';
 export type { UserNoteSchema } from './models/UserNoteSchema';
 export type { UserSchema } from './models/UserSchema';
+export type { UserScreenshotSchema } from './models/UserScreenshotSchema';
 export type { ValidationError } from './models/ValidationError';
 export type { VirtualCollectionSchema } from './models/VirtualCollectionSchema';
 export type { WatcherTaskMeta } from './models/WatcherTaskMeta';

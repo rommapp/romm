@@ -7,11 +7,11 @@ import {
   RAlert,
   RBtn,
   RCheckbox,
+  RDropzone,
   RExpandTransition,
   RIcon,
   RTextField,
 } from "@v2/lib";
-import { useDropZone } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -51,10 +51,8 @@ const loadError = ref<string | null>(null);
 const coreLoaded = ref(false);
 const romFile = ref<File | null>(null);
 const patchFile = ref<File | null>(null);
-const romDropZoneRef = ref<HTMLDivElement | null>(null);
-const patchDropZoneRef = ref<HTMLDivElement | null>(null);
-const romInputRef = ref<HTMLInputElement | null>(null);
-const patchInputRef = ref<HTMLInputElement | null>(null);
+const romDz = ref<InstanceType<typeof RDropzone> | null>(null);
+const patchDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const applying = ref(false);
 const statusMessage = ref<string | null>(null);
 const downloadLocally = ref(true);
@@ -88,17 +86,6 @@ const supportedPatchFormats = [
   ".pmsr",
   ".vcdiff",
 ];
-
-const { isOverDropZone: isOverRomDropZone } = useDropZone(romDropZoneRef, {
-  onDrop: onRomDrop,
-  multiple: false,
-  preventDefaultForUnhandled: true,
-});
-const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
-  onDrop: onPatchDrop,
-  multiple: false,
-  preventDefaultForUnhandled: true,
-});
 
 const romExtension = computed(() => {
   if (!romFile.value) return "";
@@ -162,28 +149,6 @@ function onRomInput(files: File[] | File | null) {
 function onPatchInput(files: File[] | File | null) {
   const first = Array.isArray(files) ? (files[0] ?? null) : files;
   patchFile.value = first ?? null;
-}
-function onRomChange(e: Event) {
-  const input = e.target as HTMLInputElement;
-  onRomInput(input.files ? Array.from(input.files) : null);
-  if (input) input.value = "";
-}
-function onPatchChange(e: Event) {
-  const input = e.target as HTMLInputElement;
-  onPatchInput(input.files ? Array.from(input.files) : null);
-  if (input) input.value = "";
-}
-function onRomDrop(files: File[] | null) {
-  onRomInput(files);
-}
-function onPatchDrop(files: File[] | null) {
-  onPatchInput(files);
-}
-function triggerRomInput() {
-  romInputRef.value?.click();
-}
-function triggerPatchInput() {
-  patchInputRef.value?.click();
 }
 
 async function patchRom() {
@@ -402,169 +367,155 @@ onMounted(async () => {
     <!-- Dropzones -->
     <div class="r-v2-patch__panels">
       <!-- ROM dropzone -->
-      <div
-        ref="romDropZoneRef"
-        class="r-v2-patch__panel r-v2-patch__dropzone"
-        :class="{
-          'r-v2-patch__dropzone--active': isOverRomDropZone,
-          'r-v2-patch__dropzone--filled': !!romFile,
-        }"
-        role="button"
-        tabindex="0"
-        @click="triggerRomInput"
-        @keydown.enter.prevent="triggerRomInput"
-        @keydown.space.prevent="triggerRomInput"
+      <RDropzone
+        ref="romDz"
+        overlay
+        class="r-v2-patch__zone"
+        :release-label="t('patcher.drop-rom-here')"
+        :input-label="t('patcher.choose-rom')"
+        @files="onRomInput"
       >
-        <div class="r-v2-patch__panel-label">
-          {{ t("patcher.rom-file") }}
-        </div>
-        <template v-if="!romFile">
-          <div class="r-v2-patch__drop-empty">
-            <RIcon
-              icon="mdi-file-outline"
-              size="40"
-              color="primary"
-              :class="{ 'r-v2-patch__pulse': isOverRomDropZone }"
-            />
-            <p class="r-v2-patch__drop-title">
-              {{ t("patcher.drop-rom-here") }}
-            </p>
-            <p class="r-v2-patch__drop-hint">
-              {{ t("patcher.drag-drop-rom") }}
-            </p>
-            <RBtn variant="outlined" color="primary" size="small">
-              {{ t("patcher.choose-rom") }}
-            </RBtn>
+        <div
+          class="r-v2-patch__panel r-v2-patch__dropzone"
+          :class="{ 'r-v2-patch__dropzone--filled': !!romFile }"
+          role="button"
+          tabindex="0"
+          @click="romDz?.open()"
+          @keydown.enter.prevent="romDz?.open()"
+          @keydown.space.prevent="romDz?.open()"
+        >
+          <div class="r-v2-patch__panel-label">
+            {{ t("patcher.rom-file") }}
           </div>
-        </template>
-        <template v-else>
-          <div class="r-v2-patch__drop-filled" @click.stop>
-            <div class="r-v2-patch__drop-meta">
-              <p class="r-v2-patch__drop-name" :title="romFile.name">
-                {{ romFile.name }}
+          <template v-if="!romFile">
+            <div class="r-v2-patch__drop-empty">
+              <RIcon icon="mdi-file-outline" size="40" color="primary" />
+              <p class="r-v2-patch__drop-title">
+                {{ t("patcher.drop-rom-here") }}
               </p>
-              <span class="r-v2-patch__chip">
-                <RIcon icon="mdi-weight" size="11" />
-                {{ formatBytes(romFile.size) }}
-              </span>
-            </div>
-            <div class="r-v2-patch__drop-actions">
-              <RBtn
-                variant="outlined"
-                color="primary"
-                size="small"
-                @click.stop="triggerRomInput"
-              >
-                {{ t("patcher.replace") }}
+              <p class="r-v2-patch__drop-hint">
+                {{ t("patcher.drag-drop-rom") }}
+              </p>
+              <RBtn variant="outlined" color="primary" size="small">
+                {{ t("patcher.choose-rom") }}
               </RBtn>
-              <button
-                type="button"
-                class="r-v2-patch__drop-clear"
-                :aria-label="t('common.clear')"
-                @click.stop="onRomInput(null)"
-              >
-                <RIcon icon="mdi-close" size="14" />
-              </button>
             </div>
-          </div>
-        </template>
-        <input
-          ref="romInputRef"
-          type="file"
-          :aria-label="t('patcher.choose-rom')"
-          class="r-v2-patch__file-input"
-          @change="onRomChange"
-        />
-      </div>
+          </template>
+          <template v-else>
+            <div class="r-v2-patch__drop-filled" @click.stop>
+              <div class="r-v2-patch__drop-meta">
+                <p class="r-v2-patch__drop-name" :title="romFile.name">
+                  {{ romFile.name }}
+                </p>
+                <span class="r-v2-patch__chip">
+                  <RIcon icon="mdi-weight" size="11" />
+                  {{ formatBytes(romFile.size) }}
+                </span>
+              </div>
+              <div class="r-v2-patch__drop-actions">
+                <RBtn
+                  variant="outlined"
+                  color="primary"
+                  size="small"
+                  @click.stop="romDz?.open()"
+                >
+                  {{ t("patcher.replace") }}
+                </RBtn>
+                <button
+                  type="button"
+                  class="r-v2-patch__drop-clear"
+                  :aria-label="t('common.clear')"
+                  @click.stop="onRomInput(null)"
+                >
+                  <RIcon icon="mdi-close" size="14" />
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </RDropzone>
 
       <!-- Patch dropzone -->
-      <div
-        ref="patchDropZoneRef"
-        class="r-v2-patch__panel r-v2-patch__dropzone"
-        :class="{
-          'r-v2-patch__dropzone--active': isOverPatchDropZone,
-          'r-v2-patch__dropzone--filled': !!patchFile,
-        }"
-        role="button"
-        tabindex="0"
-        @click="triggerPatchInput"
-        @keydown.enter.prevent="triggerPatchInput"
-        @keydown.space.prevent="triggerPatchInput"
+      <RDropzone
+        ref="patchDz"
+        overlay
+        class="r-v2-patch__zone"
+        :accept="supportedPatchFormats.join(',')"
+        :release-label="t('patcher.drop-patch-here')"
+        :input-label="t('patcher.choose-patch')"
+        @files="onPatchInput"
       >
-        <div class="r-v2-patch__panel-label">
-          {{ t("patcher.patch-file") }}
-        </div>
-        <template v-if="!patchFile">
-          <div class="r-v2-patch__drop-empty">
-            <RIcon
-              icon="mdi-file-cog-outline"
-              size="40"
-              color="primary"
-              :class="{ 'r-v2-patch__pulse': isOverPatchDropZone }"
-            />
-            <p class="r-v2-patch__drop-title">
-              {{ t("patcher.drop-patch-here") }}
-            </p>
-            <p class="r-v2-patch__drop-hint">
-              {{ t("patcher.drag-drop-patch") }}
-            </p>
-            <RBtn variant="outlined" color="primary" size="small">
-              {{ t("patcher.choose-patch") }}
-            </RBtn>
+        <div
+          class="r-v2-patch__panel r-v2-patch__dropzone"
+          :class="{ 'r-v2-patch__dropzone--filled': !!patchFile }"
+          role="button"
+          tabindex="0"
+          @click="patchDz?.open()"
+          @keydown.enter.prevent="patchDz?.open()"
+          @keydown.space.prevent="patchDz?.open()"
+        >
+          <div class="r-v2-patch__panel-label">
+            {{ t("patcher.patch-file") }}
           </div>
-        </template>
-        <template v-else>
-          <div class="r-v2-patch__drop-filled" @click.stop>
-            <div class="r-v2-patch__drop-meta">
-              <p class="r-v2-patch__drop-name" :title="patchFile.name">
-                {{ patchFile.name }}
+          <template v-if="!patchFile">
+            <div class="r-v2-patch__drop-empty">
+              <RIcon icon="mdi-file-cog-outline" size="40" color="primary" />
+              <p class="r-v2-patch__drop-title">
+                {{ t("patcher.drop-patch-here") }}
               </p>
-              <span class="r-v2-patch__chip">
-                <RIcon icon="mdi-weight" size="11" />
-                {{ formatBytes(patchFile.size) }}
-              </span>
-            </div>
-            <div class="r-v2-patch__drop-actions">
-              <RBtn
-                variant="outlined"
-                color="primary"
-                size="small"
-                @click.stop="triggerPatchInput"
-              >
-                {{ t("patcher.replace") }}
+              <p class="r-v2-patch__drop-hint">
+                {{ t("patcher.drag-drop-patch") }}
+              </p>
+              <RBtn variant="outlined" color="primary" size="small">
+                {{ t("patcher.choose-patch") }}
               </RBtn>
-              <button
-                type="button"
-                class="r-v2-patch__drop-clear"
-                :aria-label="t('common.clear')"
-                @click.stop="onPatchInput(null)"
-              >
-                <RIcon icon="mdi-close" size="14" />
-              </button>
             </div>
+          </template>
+          <template v-else>
+            <div class="r-v2-patch__drop-filled" @click.stop>
+              <div class="r-v2-patch__drop-meta">
+                <p class="r-v2-patch__drop-name" :title="patchFile.name">
+                  {{ patchFile.name }}
+                </p>
+                <span class="r-v2-patch__chip">
+                  <RIcon icon="mdi-weight" size="11" />
+                  {{ formatBytes(patchFile.size) }}
+                </span>
+              </div>
+              <div class="r-v2-patch__drop-actions">
+                <RBtn
+                  variant="outlined"
+                  color="primary"
+                  size="small"
+                  @click.stop="patchDz?.open()"
+                >
+                  {{ t("patcher.replace") }}
+                </RBtn>
+                <button
+                  type="button"
+                  class="r-v2-patch__drop-clear"
+                  :aria-label="t('common.clear')"
+                  @click.stop="onPatchInput(null)"
+                >
+                  <RIcon icon="mdi-close" size="14" />
+                </button>
+              </div>
+            </div>
+          </template>
+          <div class="r-v2-patch__formats" @click.stop>
+            <span class="r-v2-patch__formats-label">
+              {{ t("patcher.supported-formats") }}
+            </span>
+            <span
+              v-for="format in supportedPatchFormats"
+              :key="format"
+              class="r-v2-patch__format-chip"
+            >
+              {{ format }}
+            </span>
           </div>
-        </template>
-        <div class="r-v2-patch__formats" @click.stop>
-          <span class="r-v2-patch__formats-label">
-            {{ t("patcher.supported-formats") }}
-          </span>
-          <span
-            v-for="format in supportedPatchFormats"
-            :key="format"
-            class="r-v2-patch__format-chip"
-          >
-            {{ format }}
-          </span>
         </div>
-        <input
-          ref="patchInputRef"
-          type="file"
-          :accept="supportedPatchFormats.join(',')"
-          :aria-label="t('patcher.choose-patch')"
-          class="r-v2-patch__file-input"
-          @change="onPatchChange"
-        />
-      </div>
+      </RDropzone>
     </div>
 
     <!-- Controls panel -->
@@ -667,6 +618,16 @@ onMounted(async () => {
   gap: 16px;
 }
 
+/* RDropzone wrapper (overlay mode) — fills the grid cell so the inner
+   panel stretches to the row height; anchors the drag-over overlay. */
+.r-v2-patch__zone {
+  display: flex;
+}
+.r-v2-patch__zone > .r-v2-patch__panel {
+  flex: 1;
+  min-width: 0;
+}
+
 .r-v2-patch__panel {
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
@@ -703,10 +664,6 @@ onMounted(async () => {
     transparent
   );
 }
-.r-v2-patch__dropzone--active {
-  border-color: var(--r-color-brand-primary);
-  background: color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent);
-}
 .r-v2-patch__dropzone--filled {
   border-style: solid;
   border-color: var(--r-color-border-strong);
@@ -733,18 +690,6 @@ onMounted(async () => {
   margin: 0 0 8px;
   font-size: 12px;
   color: var(--r-color-fg-muted);
-}
-
-.r-v2-patch__pulse {
-  animation: r-v2-patch-pulse 1.4s ease-in-out infinite;
-}
-@keyframes r-v2-patch-pulse {
-  50% {
-    transform: scale(1.12);
-    filter: drop-shadow(
-      0 0 12px color-mix(in srgb, var(--r-color-brand-primary) 60%, transparent)
-    );
-  }
 }
 
 .r-v2-patch__drop-filled {
@@ -832,14 +777,6 @@ onMounted(async () => {
   font-size: 10.5px;
   color: var(--r-color-fg-secondary);
   font-family: var(--r-font-family-mono, monospace);
-}
-
-.r-v2-patch__file-input {
-  position: absolute;
-  width: 0;
-  height: 0;
-  opacity: 0;
-  pointer-events: none;
 }
 
 .r-v2-patch__controls {

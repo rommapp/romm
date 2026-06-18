@@ -145,7 +145,9 @@ async function onSaveUpload(event: Event) {
     if (successful > 0) {
       snackbar.success(
         failed
-          ? t("rom.saves-uploaded-with-failed", { n: successful, failed })
+          ? t("rom.saves-uploaded-with-failed", successful, {
+              named: { n: successful, failed },
+            })
           : t("rom.saves-uploaded-n", successful, {
               named: { n: successful },
             }),
@@ -180,7 +182,9 @@ async function onStateUpload(event: Event) {
     if (successful > 0) {
       snackbar.success(
         failed
-          ? t("rom.states-uploaded-with-failed", { n: successful, failed })
+          ? t("rom.states-uploaded-with-failed", successful, {
+              named: { n: successful, failed },
+            })
           : t("rom.states-uploaded-n", successful, {
               named: { n: successful },
             }),

@@ -540,9 +540,8 @@ async function onManualUpload(event: Event) {
     if (successful > 0) {
       snackbar.success(
         failed
-          ? t("rom.manual-files-uploaded-with-failed", {
-              n: successful,
-              failed,
+          ? t("rom.manual-files-uploaded-with-failed", successful, {
+              named: { n: successful, failed },
             })
           : t("rom.manual-files-uploaded-n", successful, {
               named: { n: successful },
@@ -577,7 +576,9 @@ async function onSoundtrackUpload(event: Event) {
     if (successful > 0) {
       snackbar.success(
         failed
-          ? t("rom.tracks-uploaded-with-failed", { n: successful, failed })
+          ? t("rom.tracks-uploaded-with-failed", successful, {
+              named: { n: successful, failed },
+            })
           : t("rom.tracks-uploaded-n", successful, {
               named: { n: successful },
             }),
