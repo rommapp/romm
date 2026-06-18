@@ -563,6 +563,18 @@ router.beforeEach(async (to, _from, next) => {
   const currentRoute = to.name?.toString();
 
   try {
+    // Backend unreachable/broken — we can't trust the setup/auth state, and
+    // bouncing to /login would just strand the user on a page that can't work
+    // either. Let them stay on (and navigate within) whatever the cached state
+    // allows; the offline notice explains it and the connection layer
+    // re-routes correctly once the backend answers again.
+    if (!heartbeat.connected) {
+      document.title = to.meta.title
+        ? i18n.global.t(to.meta.title as string)
+        : "RomM";
+      return next();
+    }
+
     // Handle setup wizard
     if (heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
       return currentRoute !== "setup" ? next({ name: ROUTES.SETUP }) : next();

@@ -54,6 +54,11 @@ api.interceptors.response.use(
     // Remove request from set of inflight requests
     inflightRequests.delete(response.config.url);
 
+    // A successful response proves the backend is reachable. Surfaced via a
+    // DOM event (mirroring `network-quiesced`) so the v2 connection layer can
+    // react without this shared module importing anything from v2.
+    document.dispatchEvent(new CustomEvent("backend-online"));
+
     // If there are no more inflight requests, fetch app-wide data
     if (inflightRequests.size === 0) {
       networkQuiesced();
@@ -62,6 +67,25 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
+    // Reachability signalling (see useServerConnection):
+    //   * no response (ERR_NETWORK / timeout) → definitively offline.
+    //   * 5xx from a non-heartbeat endpoint → "suspect"; ask the connection
+    //     layer to confirm via the authoritative /heartbeat probe (so one
+    //     buggy endpoint doesn't flash the banner, and the heartbeat request
+    //     itself never re-triggers this — which would loop).
+    //   * 4xx → backend is alive; leave the state alone.
+    const status = error.response?.status as number | undefined;
+    const url: string = error.config?.url ?? "";
+    if (!error.response) {
+      document.dispatchEvent(new CustomEvent("backend-offline"));
+    } else if (
+      status !== undefined &&
+      status >= 500 &&
+      !url.includes("heartbeat")
+    ) {
+      document.dispatchEvent(new CustomEvent("backend-suspect"));
+    }
+
     if (error.response?.status === 403) {
       // Clear cookies and redirect to login page
       Cookies.remove("romm_session");

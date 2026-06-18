@@ -149,5 +149,7 @@
   "changelog-empty-title": "Zatím žádná vydání",
   "changelog-empty-hint": "Repozitář zatím nezveřejnil žádná vydání.",
   "changelog-view-all": "Zobrazit všechna vydání na GitHubu",
-  "visibility": "Viditelnost"
+  "visibility": "Viditelnost",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server"
 }

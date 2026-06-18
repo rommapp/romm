@@ -149,5 +149,7 @@
   "changelog-empty-title": "Încă nu există versiuni",
   "changelog-empty-hint": "Depozitul nu a publicat încă nicio versiune.",
   "changelog-view-all": "Vezi toate versiunile pe GitHub",
-  "visibility": "Vizibilitate"
+  "visibility": "Vizibilitate",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server"
 }

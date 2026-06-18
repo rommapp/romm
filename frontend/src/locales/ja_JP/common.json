@@ -149,5 +149,7 @@
   "changelog-empty-title": "まだリリースがありません",
   "changelog-empty-hint": "リポジトリにはまだリリースが公開されていません。",
   "changelog-view-all": "GitHub ですべてのリリースを表示",
-  "visibility": "公開設定"
+  "visibility": "公開設定",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server"
 }

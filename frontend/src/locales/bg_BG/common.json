@@ -149,5 +149,7 @@
   "changelog-empty-title": "Все още няма издания",
   "changelog-empty-hint": "Хранилището все още не е публикувало издания.",
   "changelog-view-all": "Вижте всички издания в GitHub",
-  "visibility": "Видимост"
+  "visibility": "Видимост",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server"
 }

@@ -1,13 +1,28 @@
 <script setup lang="ts">
 import { useIdle, useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import {
+  computed,
+  defineAsyncComponent,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
 import SoundtrackMiniPlayer from "@/components/common/SoundtrackMiniPlayer.vue";
 import { useUiVersion } from "@/composables/useUiVersion";
 import storeConsole from "@/stores/console";
 import storeLanguage from "@/stores/language";
+
+// Lazy-loaded: RomM.vue is the first module main.ts evaluates, and the banner
+// transitively imports the API layer (stores → services/api → router). A
+// static import would pull that graph into bootstrap and trip the
+// api-client ↔ router circular-import TDZ (see the theme/scope notes below).
+const BackendStatusBanner = defineAsyncComponent(
+  () => import("@/v2/components/AppShell/BackendStatusBanner.vue"),
+);
 
 const { locale } = useI18n();
 const languageStore = storeLanguage();
@@ -115,6 +130,10 @@ watch(
       </router-view>
       <router-view v-else name="v2" />
     </v-main>
+    <!-- v2-only: backend reachability strip. Mounted at the root so it
+         covers both the auth layout (login/setup) and the main shell, and
+         owns the app-wide connection poll + auto-recovery. -->
+    <BackendStatusBanner v-if="isV2" />
     <!-- v1 only: in v2 the soundtrack mini-player is mounted from
          the v2 AppLayout (`Soundtrack/MiniPlayer.vue`) so it can use
          v2 primitives + tokens. Two mini-players would race for the
