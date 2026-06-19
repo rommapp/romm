@@ -994,18 +994,44 @@ defineExpose({
   padding-bottom: 18px;
 }
 
+/* Skeleton → card reveal. The whole card (cover box + title) pops in with
+   a scale-up + rise and a gentle overshoot, staggered across the row so a
+   freshly fetched window cascades in instead of snapping. Kept to
+   transform + opacity (compositor-cheap): this same animation re-fires
+   every time the virtualiser recycles a card on scroll, so a filter/blur
+   here would risk jank on long lists — the blur-up flourish lives on the
+   <img> inside GameCover instead, layering on top of this pop. */
 .r-v2-shell__card-fade {
-  animation: r-v2-shell-card-fade 280ms ease-out both;
-  animation-delay: calc(var(--card-fade-i, 0) * 30ms);
+  animation: r-v2-shell-card-fade 380ms cubic-bezier(0.34, 1.28, 0.64, 1) both;
+  animation-delay: calc(var(--card-fade-i, 0) * 32ms);
+  transform-origin: center 65%;
 }
 @keyframes r-v2-shell-card-fade {
-  from {
+  0% {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(10px) scale(0.9);
   }
-  to {
+  55% {
     opacity: 1;
-    transform: translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* No pop/rise — just a quick, flat fade. */
+  .r-v2-shell__card-fade {
+    animation: r-v2-shell-card-fade-reduced 200ms ease-out both;
+    animation-delay: 0ms;
+  }
+  @keyframes r-v2-shell-card-fade-reduced {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
 
