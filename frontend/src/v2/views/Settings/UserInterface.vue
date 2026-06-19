@@ -81,11 +81,11 @@ function setTheme(value: Theme) {
 
 // Cosmetic easter egg — toggle the persistent "CRT mode" shader; switching
 // it ON also fires the one-shot power-on warm-up flash.
-const { enabled: crtEnabled, toggle: toggleCrtMode } = useCrtMode();
+const { enabled: crtEnabled } = useCrtMode();
 const crtWarmup = ref<InstanceType<typeof CrtWarmup> | null>(null);
-function onCrtToggle() {
-  const turningOn = toggleCrtMode();
-  if (turningOn) crtWarmup.value?.play();
+function onCrtToggle(value: boolean) {
+  crtEnabled.value = value;
+  if (value) crtWarmup.value?.play();
 }
 
 function setVersion(value: "v1" | "v2") {
