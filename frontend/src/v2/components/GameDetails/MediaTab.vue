@@ -3,16 +3,25 @@
 //
 // Behaviour:
 //   * Subtabs always rendered; empty states drive the upload CTAs
-//   * Hidden file inputs handle upload — manual upload routes through
-//     `showManualUploadTargetDialog` (dialog mounted in AppLayout);
-//     soundtrack upload goes straight through `romApi.uploadSoundtracks`
+//   * Each panel doubles as a drag-and-drop target (same affordance as the
+//     Upload / Patcher views): drop files anywhere over the active panel to
+//     upload them
+//   * Hidden file inputs back the explicit upload buttons — manual upload
+//     routes through `showManualUploadTargetDialog` (dialog mounted in
+//     AppLayout); soundtrack upload goes through `romApi.uploadSoundtracks`
 //   * Re-download primary manual + delete manual both handled here
-//   * Screenshots subtab is currently a placeholder — scraped screenshots
-//     live in the Overview tab. This subtab is reserved for user-uploaded
-//     screenshots, pending backend support (see TODO below).
+//   * The screenshots subtab is its own component (ScreenshotsSubtab):
+//     ROM / Mine / Community sections with per-user public/private
 //
 // The PDF viewer + soundtrack player are reused from v1 for now.
-import { RBtn, RCollapsible, REmptyState, RIcon, RSelect } from "@v2/lib";
+import {
+  RBtn,
+  RCollapsible,
+  RDropzone,
+  REmptyState,
+  RIcon,
+  RSelect,
+} from "@v2/lib";
 import axios from "axios";
 import type { Emitter } from "mitt";
 import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
@@ -32,22 +41,9 @@ const PdfViewer = defineAsyncComponent(
 const SoundtrackPanel = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/SoundtrackPanel.vue"),
 );
-const ScreenshotsTab = defineAsyncComponent(
-  () => import("@/v2/components/GameDetails/ScreenshotsTab.vue"),
+const ScreenshotsSubtab = defineAsyncComponent(
+  () => import("@/v2/components/GameDetails/ScreenshotsSubtab.vue"),
 );
-
-// File extensions we treat as previewable images in the user
-// screenshots gallery. Mirrors the canonical "Web Images" set —
-// includes WebP and AVIF since modern browsers all decode them.
-const IMAGE_EXTENSIONS = new Set([
-  "png",
-  "jpg",
-  "jpeg",
-  "webp",
-  "gif",
-  "bmp",
-  "avif",
-]);
 
 function errorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
@@ -182,34 +178,6 @@ const manualItems = computed(() =>
 // one. Mirror the v1 gate.
 const soundtrackSupported = computed(() => !props.rom.has_simple_single_file);
 
-// ---------- User screenshots (filesystem-backed) ----------
-// Upload from this tab is still pending backend work, but if the user
-// has manually dropped images into the ROM's `screenshots/` (or
-// `screenshot/`) subfolder, surface them as a gallery. URLs route
-// through the same `/api/roms/{file_id}/files/content/{name}` endpoint
-// used by manual / soundtrack downloads — no new backend needed.
-const userScreenshotUrls = computed<string[]>(() => {
-  const cacheBust = encodeURIComponent(props.rom.updated_at);
-  const out: string[] = [];
-  for (const file of props.rom.files ?? []) {
-    const rel = file.full_path
-      .replace(props.rom.full_path, "")
-      .replace(/^\//, "");
-    const firstSegment = rel.split("/")[0]?.toLowerCase();
-    if (firstSegment !== "screenshots" && firstSegment !== "screenshot") {
-      continue;
-    }
-    const ext = file.file_name.split(".").pop()?.toLowerCase() ?? "";
-    if (!IMAGE_EXTENSIONS.has(ext)) continue;
-    out.push(
-      `/api/roms/${file.id}/files/content/${encodeURIComponent(
-        file.file_name,
-      )}?v=${cacheBust}`,
-    );
-  }
-  return out;
-});
-
 // ---------- Subtab nav ----------
 // We render the subtab list manually (not via RTabNav) so we can inline
 // each subtab's contextual controls right under the active item — the
@@ -240,40 +208,17 @@ function hasSubtabActions(id: Subtab): boolean {
   if (id === "manual") return manualEntries.value.length > 0;
   if (id === "soundtrack")
     return soundtrackSupported.value && Boolean(props.rom.has_soundtrack);
+  // The screenshots subtab owns its own controls (ScreenshotsSubtab).
   return false;
 }
 
 // ---------- Upload / refresh plumbing ----------
-const manualUploadInput = ref<HTMLInputElement | null>(null);
-const soundtrackUploadInput = ref<HTMLInputElement | null>(null);
-const screenshotUploadInput = ref<HTMLInputElement | null>(null);
+// The manual / soundtrack panels each use an RDropzone (CTA when empty,
+// overlay over the viewer / player when filled). The sidebar's explicit
+// "upload" button opens the filled dropzone's picker via these refs.
+const manualDz = ref<InstanceType<typeof RDropzone> | null>(null);
+const soundtrackDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const redownloadingManual = ref(false);
-
-function triggerManualUpload() {
-  manualUploadInput.value?.click();
-}
-
-function triggerSoundtrackUpload() {
-  soundtrackUploadInput.value?.click();
-}
-
-function triggerScreenshotUpload() {
-  screenshotUploadInput.value?.click();
-}
-
-// TODO: wire user-uploaded screenshots to the backend. Mirror the
-// soundtrack flow: hidden file input → multipart upload via a future
-// `romApi.uploadScreenshots({ romId, filesToUpload })` → success
-// snackbar + `refreshRom()` so newly-uploaded shots appear here. Once
-// real uploads exist, render them as a grid (reuse ScreenshotsTab.vue)
-// alongside the upload CTA, mirroring the manual/soundtrack panels.
-async function onScreenshotUpload(event: Event) {
-  const input = event.target as HTMLInputElement;
-  input.value = "";
-  snackbar.info(t("rom.screenshot-uploads-coming-soon"), {
-    icon: "mdi-information-outline",
-  });
-}
 
 async function refreshRom() {
   try {
@@ -285,24 +230,22 @@ async function refreshRom() {
   }
 }
 
-function onManualUpload(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const files = input.files ? Array.from(input.files) : [];
-  input.value = "";
+// ---------- File handlers (shared by file input + drag-and-drop) ----------
+// Manual upload routes through the target-selection dialog (mounted in
+// AppLayout): the user picks which platform/folder the manual belongs to,
+// so we hand off rather than uploading inline.
+function handleManualFiles(files: File[]) {
   if (files.length === 0) return;
   emitter?.emit("showManualUploadTargetDialog", { rom: props.rom, files });
 }
 
-async function onSoundtrackUpload(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const files = input.files ? Array.from(input.files) : [];
-  if (files.length === 0) return;
+async function handleSoundtrackFiles(files: File[]) {
+  if (files.length === 0 || !soundtrackSupported.value) return;
 
   const responses = await romApi.uploadSoundtracks({
     romId: props.rom.id,
     filesToUpload: files,
   });
-  input.value = "";
 
   const successful = responses.filter((r) => r.status === "fulfilled").length;
   const failed = responses.length - successful;
@@ -312,7 +255,9 @@ async function onSoundtrackUpload(event: Event) {
   if (successful > 0) {
     snackbar.success(
       failed
-        ? t("rom.tracks-uploaded-with-failed", { n: successful, failed })
+        ? t("rom.tracks-uploaded-with-failed", successful, {
+            named: { n: successful, failed },
+          })
         : t("rom.tracks-uploaded-n", successful, {
             named: { n: successful },
           }),
@@ -390,35 +335,6 @@ async function deleteSoundtrack(fileId: number) {
 </script>
 
 <template>
-  <!-- Hidden file inputs drive the upload buttons -->
-  <input
-    ref="manualUploadInput"
-    type="file"
-    accept="application/pdf"
-    multiple
-    class="r-v2-media__file-input"
-    :aria-label="t('rom.upload-manual')"
-    @change="onManualUpload"
-  />
-  <input
-    ref="soundtrackUploadInput"
-    type="file"
-    accept="audio/*,.flac,.opus"
-    multiple
-    class="r-v2-media__file-input"
-    :aria-label="t('rom.upload-soundtrack')"
-    @change="onSoundtrackUpload"
-  />
-  <input
-    ref="screenshotUploadInput"
-    type="file"
-    accept="image/*"
-    multiple
-    class="r-v2-media__file-input"
-    :aria-label="t('rom.upload-screenshots')"
-    @change="onScreenshotUpload"
-  />
-
   <div class="r-v2-media">
     <aside class="r-v2-media__sidebar">
       <ul
@@ -470,7 +386,7 @@ async function deleteSoundtrack(fileId: number) {
                   variant="outlined"
                   prepend-icon="mdi-cloud-upload-outline"
                   block
-                  @click="triggerManualUpload"
+                  @click="manualDz?.open()"
                 >
                   {{ t("common.upload") }}
                 </RBtn>
@@ -508,7 +424,7 @@ async function deleteSoundtrack(fileId: number) {
                   variant="outlined"
                   prepend-icon="mdi-cloud-upload-outline"
                   block
-                  @click="triggerSoundtrackUpload"
+                  @click="soundtrackDz?.open()"
                 >
                   {{ t("common.upload") }}
                 </RBtn>
@@ -528,39 +444,48 @@ async function deleteSoundtrack(fileId: number) {
            once on Media tab entry and switching is a CSS toggle. -->
       <!-- Manual subtab -->
       <section v-show="subTab === 'manual'" class="r-v2-media__panel">
-        <REmptyState
+        <RDropzone
           v-if="manualEntries.length === 0"
-          icon="mdi-book-open-page-variant-outline"
           :title="t('rom.manual-empty')"
+          :hint="t('common.dropzone-hint')"
+          :active-title="t('common.dropzone-drag-over')"
+          :input-label="t('rom.upload-manual')"
+          accept="application/pdf"
+          multiple
+          @files="handleManualFiles"
         >
-          <template #actions>
+          <template v-if="rom.url_manual" #actions>
             <RBtn
-              color="primary"
-              prepend-icon="mdi-cloud-upload-outline"
-              @click="triggerManualUpload"
-            >
-              {{ t("rom.upload-manual") }}
-            </RBtn>
-            <RBtn
-              v-if="rom.url_manual"
               variant="outlined"
               prepend-icon="mdi-cloud-download-outline"
               :loading="redownloadingManual"
               :disabled="redownloadingManual"
-              @click="redownloadManual"
+              @click.stop="redownloadManual"
             >
               {{ t("rom.redownload") }}
             </RBtn>
           </template>
-        </REmptyState>
+        </RDropzone>
 
-        <div v-else class="r-v2-media__viewer">
-          <PdfViewer
-            v-if="selectedManual"
-            :key="`${selectedManual.id}-${rom.updated_at}`"
-            :pdf-url="selectedManual.url"
-          />
-        </div>
+        <RDropzone
+          v-else
+          ref="manualDz"
+          overlay
+          class="r-v2-media__fill"
+          :release-label="t('common.dropzone-drag-over')"
+          :input-label="t('rom.upload-manual')"
+          accept="application/pdf"
+          multiple
+          @files="handleManualFiles"
+        >
+          <div class="r-v2-media__viewer">
+            <PdfViewer
+              v-if="selectedManual"
+              :key="`${selectedManual.id}-${rom.updated_at}`"
+              :pdf-url="selectedManual.url"
+            />
+          </div>
+        </RDropzone>
       </section>
 
       <!-- Soundtrack subtab -->
@@ -572,71 +497,40 @@ async function deleteSoundtrack(fileId: number) {
           :hint="t('rom.soundtrack-folder-hint')"
         />
 
-        <REmptyState
+        <RDropzone
           v-else-if="!rom.has_soundtrack"
-          icon="mdi-music-note-outline"
           :title="t('rom.soundtrack-empty')"
-        >
-          <template #actions>
-            <RBtn
-              color="primary"
-              prepend-icon="mdi-cloud-upload-outline"
-              @click="triggerSoundtrackUpload"
-            >
-              {{ t("rom.upload-soundtrack") }}
-            </RBtn>
-          </template>
-        </REmptyState>
-
-        <SoundtrackPanel
-          v-else
-          :rom="rom"
-          class="r-v2-media__soundtrack"
-          @upload-tracks="triggerSoundtrackUpload"
-          @delete-track="deleteSoundtrack"
+          :hint="t('common.dropzone-hint')"
+          :active-title="t('common.dropzone-drag-over')"
+          :input-label="t('rom.upload-soundtrack')"
+          accept="audio/*,.flac,.opus"
+          multiple
+          @files="handleSoundtrackFiles"
         />
+
+        <RDropzone
+          v-else
+          ref="soundtrackDz"
+          overlay
+          :release-label="t('common.dropzone-drag-over')"
+          :input-label="t('rom.upload-soundtrack')"
+          accept="audio/*,.flac,.opus"
+          multiple
+          @files="handleSoundtrackFiles"
+        >
+          <SoundtrackPanel
+            :rom="rom"
+            class="r-v2-media__soundtrack"
+            @upload-tracks="soundtrackDz?.open()"
+            @delete-track="deleteSoundtrack"
+          />
+        </RDropzone>
       </section>
 
-      <!-- Screenshots subtab — placeholder until user uploads land.
-           Scraped screenshots are shown in the Overview tab; this slot
-           is reserved for player-captured shots once the backend
-           supports them (see TODO on `onScreenshotUpload`).
-           Same folder-based gating as soundtracks: user-uploaded
-           assets live alongside the ROM, so single-file ROMs can't
-           host them. -->
+      <!-- Screenshots subtab — its own component (ROM / Mine / Community
+           sections, per-user public/private). -->
       <section v-show="subTab === 'screenshots'" class="r-v2-media__panel">
-        <REmptyState
-          v-if="rom.has_simple_single_file"
-          icon="mdi-image-off-outline"
-          :title="t('rom.screenshots-no-folder')"
-          :hint="t('rom.screenshots-folder-hint')"
-        />
-
-        <!-- If the ROM already has images in its `screenshots/` folder
-             (added manually via the filesystem, or via a future upload
-             flow), surface them as a gallery. Upload is still pending
-             backend work — see the empty state below. -->
-        <ScreenshotsTab
-          v-else-if="userScreenshotUrls.length > 0"
-          :urls="userScreenshotUrls"
-        />
-
-        <REmptyState
-          v-else
-          icon="mdi-image-multiple-outline"
-          :title="t('rom.screenshots-upload-cta')"
-          :hint="t('rom.screenshots-cta-hint')"
-        >
-          <template #actions>
-            <RBtn
-              color="primary"
-              prepend-icon="mdi-cloud-upload-outline"
-              @click="triggerScreenshotUpload"
-            >
-              {{ t("rom.upload-screenshots") }}
-            </RBtn>
-          </template>
-        </REmptyState>
+        <ScreenshotsSubtab :rom="rom" />
       </section>
     </div>
   </div>
@@ -739,10 +633,6 @@ async function deleteSoundtrack(fileId: number) {
   min-height: 0;
 }
 
-.r-v2-media__file-input {
-  display: none;
-}
-
 /* Panels — each subtab section fills the content height so its
    children (PDF viewer / soundtrack / screenshots) can stretch
    to 100% without forcing an outer scrollbar. */
@@ -752,6 +642,15 @@ async function deleteSoundtrack(fileId: number) {
   gap: var(--r-space-3);
   flex: 1;
   min-height: 0;
+}
+
+/* Overlay-mode RDropzone wrapping the PDF viewer must fill the panel
+   height so the inner viewer can stretch to 100%. */
+.r-v2-media__fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 html[data-bp~="xs"] .r-v2-media {

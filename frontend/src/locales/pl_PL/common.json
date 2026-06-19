@@ -14,6 +14,7 @@
   "create": "Utwórz",
   "delete": "Usuń",
   "dropzone-description": "Przeciągnij i upuść swoje pliki ROM tutaj, lub kliknij aby przeglądać",
+  "dropzone-hint": "Przeciągnij i upuść lub kliknij, aby przeglądać",
   "dropzone-drag-over": "Puść aby przesłać",
   "dropzone-title": "Upuść pliki tutaj",
   "edit": "Edytuj",

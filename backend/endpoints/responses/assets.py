@@ -30,7 +30,15 @@ class BaseAsset(BaseModel):
 
 
 class ScreenshotSchema(BaseAsset):
-    pass
+    is_gallery: bool = False
+    is_public: bool = False
+
+
+class UserScreenshotSchema(ScreenshotSchema):
+    """A gallery screenshot enriched with its owner's username, for the
+    community (My / Community) view. Mirrors UserNoteSchema."""
+
+    username: str
 
 
 class SaveSchema(BaseAsset):

@@ -203,8 +203,11 @@ const coverSource = computed(() => {
     <!-- 3. Info grid -->
     <InfoGrid :sections="sections" />
 
-    <!-- 4. Screenshots -->
-    <ScreenshotsTab v-if="screenshots.length" :urls="screenshots" />
+    <!-- 4. Screenshots — scraped metadata images, read-only here. -->
+    <ScreenshotsTab
+      v-if="screenshots.length"
+      :screenshots="screenshots.map((url) => ({ url }))"
+    />
 
     <!-- 5. HLTB -->
     <HLTBStrip :metadata="hltb" />

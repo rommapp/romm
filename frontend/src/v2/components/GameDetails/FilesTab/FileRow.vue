@@ -71,6 +71,10 @@ const CATEGORY_META = computed<
     label: t("rom.soundtrack"),
     icon: "mdi-music-note-outline",
   },
+  screenshot: {
+    label: t("rom.screenshots"),
+    icon: "mdi-image-multiple-outline",
+  },
 }));
 
 const categoryMeta = computed(() => {

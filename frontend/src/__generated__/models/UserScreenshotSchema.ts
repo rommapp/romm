@@ -2,7 +2,11 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type ScreenshotSchema = {
+/**
+ * A gallery screenshot enriched with its owner's username, for the
+ * community (My / Community) view. Mirrors UserNoteSchema.
+ */
+export type UserScreenshotSchema = {
     id: number;
     rom_id: number;
     user_id: number;
@@ -19,5 +23,6 @@ export type ScreenshotSchema = {
     updated_at: string;
     is_gallery?: boolean;
     is_public?: boolean;
+    username: string;
 };
 

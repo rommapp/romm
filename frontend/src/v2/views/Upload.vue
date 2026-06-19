@@ -16,8 +16,7 @@
 //      success we stay on the view (this is a tool — users will often
 //      upload more) but clear the file list. A scan is kicked off
 //      automatically so newly arrived files get matched.
-import { RBtn, RChip, RIcon } from "@v2/lib";
-import { useDropZone } from "@vueuse/core";
+import { RBtn, RChip, RDropzone, RIcon } from "@v2/lib";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
@@ -45,8 +44,7 @@ const platformsLoading = ref(false);
 const selectedPlatformId = ref<number | null>(null);
 const uploading = ref(false);
 
-const fileInputRef = ref<HTMLInputElement | null>(null);
-const dropZoneRef = ref<HTMLElement | null>(null);
+const uploadDz = ref<InstanceType<typeof RDropzone> | null>(null);
 
 // ── Platform list bootstrap ────────────────────────────────────
 async function loadPlatforms() {
@@ -104,10 +102,6 @@ const selectedPlatform = computed<Platform | null>(() => {
 });
 
 // ── File handling ───────────────────────────────────────────────
-function triggerPicker() {
-  fileInputRef.value?.click();
-}
-
 function addFiles(picked: File[]) {
   if (!picked.length) return;
   // De-dupe by name — matches v1 behaviour.
@@ -118,23 +112,9 @@ function addFiles(picked: File[]) {
   }
 }
 
-function onPick(evt: Event) {
-  const input = evt.target as HTMLInputElement;
-  addFiles(input.files ? Array.from(input.files) : []);
-  input.value = "";
-}
-
 function removeFile(name: string) {
   files.value = files.value.filter((f) => f.name !== name);
 }
-
-const { isOverDropZone } = useDropZone(dropZoneRef, {
-  onDrop(picked: File[] | null) {
-    if (picked) addFiles(picked);
-  },
-  multiple: true,
-  preventDefaultForUnhandled: true,
-});
 
 // ── Upload ──────────────────────────────────────────────────────
 async function upload() {
@@ -234,46 +214,27 @@ async function upload() {
       </template>
     </PlatformSelect>
 
-    <!-- Drop zone — empty state when no files, switches to a file
-           list when populated. -->
-    <div
-      ref="dropZoneRef"
-      class="r-v2-upload__dropzone"
-      :class="{
-        'r-v2-upload__dropzone--active': isOverDropZone,
-        'r-v2-upload__dropzone--filled': files.length > 0,
-      }"
+    <!-- Drop zone — CTA when empty, file list (with drag overlay) when
+           populated. -->
+    <RDropzone
+      v-if="files.length === 0"
+      :title="t('common.dropzone-title')"
+      :hint="t('common.dropzone-description')"
+      :active-title="t('common.dropzone-drag-over')"
+      :input-label="t('common.upload-roms')"
+      multiple
+      @files="addFiles"
+    />
+    <RDropzone
+      v-else
+      ref="uploadDz"
+      overlay
+      :release-label="t('common.dropzone-drag-over')"
+      :input-label="t('common.upload-roms')"
+      multiple
+      @files="addFiles"
     >
-      <div v-if="files.length === 0" class="r-v2-upload__empty">
-        <RIcon
-          :icon="
-            isOverDropZone ? 'mdi-cloud-upload' : 'mdi-cloud-upload-outline'
-          "
-          size="40"
-          color="primary"
-          :class="{ 'r-v2-upload__icon--pulse': isOverDropZone }"
-        />
-        <h3 class="r-v2-upload__empty-title">
-          {{
-            isOverDropZone
-              ? t("common.dropzone-drag-over")
-              : t("common.dropzone-title")
-          }}
-        </h3>
-        <p class="r-v2-upload__empty-hint">
-          {{ t("common.dropzone-description") }}
-        </p>
-        <RBtn
-          variant="outlined"
-          color="primary"
-          prepend-icon="mdi-plus"
-          @click="triggerPicker"
-        >
-          {{ t("common.add") }}
-        </RBtn>
-      </div>
-
-      <div v-else class="r-v2-upload__filled">
+      <div class="r-v2-upload__filled">
         <header class="r-v2-upload__filled-head">
           <span>
             {{ t("common.upload-files-selected", { count: files.length }) }}
@@ -282,7 +243,7 @@ async function upload() {
             variant="text"
             size="small"
             prepend-icon="mdi-plus"
-            @click="triggerPicker"
+            @click="uploadDz?.open()"
           >
             {{ t("common.add") }}
           </RBtn>
@@ -305,16 +266,7 @@ async function upload() {
           </li>
         </ul>
       </div>
-    </div>
-
-    <input
-      ref="fileInputRef"
-      type="file"
-      multiple
-      class="r-v2-upload__input"
-      :aria-label="t('common.upload-roms')"
-      @change="onPick"
-    />
+    </RDropzone>
 
     <!-- Footer — primary CTA. No Cancel: this is a view, not a
            dialog, the user just navigates away if they change their
@@ -335,73 +287,6 @@ async function upload() {
 </template>
 
 <style scoped>
-.r-v2-upload__input {
-  position: absolute;
-  width: 0;
-  height: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* ── Drop zone ───────────────────────────────────────────────────
-   Dashed primary border that brightens on hover-with-files and goes
-   solid when the user actually drags over the zone. */
-.r-v2-upload__dropzone {
-  position: relative;
-  min-height: 260px;
-  border: 2px dashed
-    color-mix(in srgb, var(--r-color-brand-primary) 30%, transparent);
-  border-radius: var(--r-radius-lg);
-  background: var(--r-color-bg-elevated);
-  transition:
-    border-color var(--r-motion-fast) var(--r-motion-ease-out),
-    background var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-upload__dropzone--active {
-  border-color: var(--r-color-brand-primary);
-  background: color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent);
-}
-.r-v2-upload__dropzone--filled {
-  border-style: solid;
-  border-color: var(--r-color-border-strong);
-}
-
-/* ── Empty state ─────────────────────────────────────────────── */
-.r-v2-upload__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 260px;
-  padding: 28px 16px;
-  text-align: center;
-}
-.r-v2-upload__empty-title {
-  margin: 6px 0 0;
-  font-size: 16px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg);
-}
-.r-v2-upload__empty-hint {
-  margin: 0;
-  font-size: 13px;
-  color: var(--r-color-fg-muted);
-  max-width: 360px;
-  line-height: 1.5;
-}
-.r-v2-upload__icon--pulse {
-  animation: r-v2-upload-pulse 1.4s ease-in-out infinite;
-}
-@keyframes r-v2-upload-pulse {
-  50% {
-    transform: scale(1.12);
-    filter: drop-shadow(
-      0 0 12px color-mix(in srgb, var(--r-color-brand-primary) 60%, transparent)
-    );
-  }
-}
-
 /* ── Filled state ────────────────────────────────────────────── */
 .r-v2-upload__filled {
   padding: 14px;
