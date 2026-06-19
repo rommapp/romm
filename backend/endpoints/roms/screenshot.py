@@ -19,21 +19,14 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFile, RomFileCategory
 from utils.router import APIRouter
+from utils.screenshots import (
+    ALLOWED_SCREENSHOT_EXTENSIONS,
+    is_allowed_screenshot_file,
+)
 
 router = APIRouter()
 
 SCREENSHOT_FOLDER = "screenshots"
-
-# Image formats every modern browser can decode. Mirrors the frontend's
-# screenshot gallery filter (MediaTab IMAGE_EXTENSIONS).
-ALLOWED_SCREENSHOT_EXTENSIONS = frozenset(
-    {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".avif"}
-)
-
-
-def is_allowed_screenshot_file(file_name: str) -> bool:
-    _, ext = os.path.splitext(file_name)
-    return ext.lower() in ALLOWED_SCREENSHOT_EXTENSIONS
 
 
 @protected_route(
