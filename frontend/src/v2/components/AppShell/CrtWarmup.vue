@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // CrtWarmup — a purely cosmetic "CRT phosphor warm-up" easter egg, fired when
-// CRT mode is switched ON (see useCrtMode / AppNav). Plays a fast, glitchy,
+// CRT mode is switched ON (see useCrtMode / Settings → User Interface → Theme). Plays a fast, glitchy,
 // old-television power-on flash: instant black-out, a bright collapsing
 // scanline, a phosphor bloom with chromatic-aberration tearing, a sync-roll
 // band and jittering scanlines, then a quick settle back to the live app.
