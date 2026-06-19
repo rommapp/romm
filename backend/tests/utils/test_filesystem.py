@@ -199,12 +199,14 @@ class TestSanitizeFilename:
     def test_output_contains_no_invalid_characters(self, name: str):
         result = self._sanitize_or_none(name)
         assume(result is not None)
+        assert result is not None
         assert not (set(result) & INVALID_AFTER_SANITIZE)
 
     @given(st.text())
     def test_output_is_stripped(self, name: str):
         result = self._sanitize_or_none(name)
         assume(result is not None)
+        assert result is not None
         assert result == result.strip()
         assert result != ""
 
@@ -212,4 +214,5 @@ class TestSanitizeFilename:
     def test_is_idempotent(self, name: str):
         once = self._sanitize_or_none(name)
         assume(once is not None)
+        assert once is not None
         assert sanitize_filename(once) == once

@@ -510,6 +510,6 @@ class TestValidateUrlProperties:
         # The validator must only ever signal failure via ValidationError,
         # never leak a parsing/socket error to the caller.
         try:
-            assert validate_url_for_http_request(url) is None
+            validate_url_for_http_request(url)
         except ValidationError:
             pass

@@ -1,6 +1,6 @@
 """Property-based tests for the LaunchBox metadata parsing helpers."""
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 from hypothesis import assume, given
 from hypothesis import strategies as st
