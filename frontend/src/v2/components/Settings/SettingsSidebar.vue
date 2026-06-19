@@ -128,6 +128,12 @@ const groups = computed<Group[]>(() => {
           to: { name: ROUTES.SERVER_STATS },
           visible: isAdmin.value,
         },
+        {
+          icon: "mdi-text-box-search-outline",
+          label: t("common.logs"),
+          to: { name: ROUTES.LOGS },
+          visible: isAdmin.value,
+        },
       ],
     },
     {

@@ -13,6 +13,7 @@ from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
 from startup import main
 
+import endpoints.sockets.logs  # noqa
 import endpoints.sockets.netplay  # noqa
 import endpoints.sockets.scan  # noqa
 import endpoints.sockets.sync  # noqa
@@ -34,6 +35,7 @@ from endpoints.export import router as export_router
 from endpoints.feeds import router as feeds_router
 from endpoints.firmware import router as firmware_router
 from endpoints.heartbeat import router as heartbeat_router
+from endpoints.logs import router as logs_router
 from endpoints.netplay import router as netplay_router
 from endpoints.platform import router as platform_router
 from endpoints.play_sessions import router as play_sessions_router
@@ -68,7 +70,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     async with initialize_context():
         app.state.aiohttp_session = ctx_aiohttp_session.get()
         app.state.httpx_client = ctx_httpx_client.get()
-        yield
+
+        # Relay backend log lines to admin Socket.IO clients in real time.
+        log_forwarder_task: asyncio.Task[None] | None = None
+        if not IS_PYTEST_RUN:
+            from endpoints.sockets.logs import start_log_forwarder
+
+            log_forwarder_task = asyncio.create_task(start_log_forwarder())
+
+        try:
+            yield
+        finally:
+            if log_forwarder_task is not None:
+                log_forwarder_task.cancel()
 
 
 sentry_sdk.init(
@@ -140,6 +154,7 @@ app.include_router(tasks_router, prefix="/api")
 app.include_router(feeds_router, prefix="/api")
 app.include_router(configs_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")
+app.include_router(logs_router, prefix="/api")
 app.include_router(raw_router, prefix="/api")
 app.include_router(screenshots_router, prefix="/api")
 app.include_router(firmware_router, prefix="/api")

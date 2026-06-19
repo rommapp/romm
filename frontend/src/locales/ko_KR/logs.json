@@ -1,0 +1,18 @@
+{
+  "level-all": "All levels",
+  "level-filter": "Filter by level",
+  "search-placeholder": "Search logs",
+  "pause": "Pause",
+  "resume": "Resume",
+  "copy": "Copy to clipboard",
+  "download": "Download",
+  "clear": "Clear",
+  "empty": "No logs yet",
+  "no-matches": "No logs match your filters",
+  "jump-to-latest": "Jump to latest",
+  "load-error": "Failed to load logs",
+  "copied": "Logs copied to clipboard",
+  "copy-error": "Failed to copy logs",
+  "click-to-copy": "Click to copy to clipboard",
+  "line-copied": "Line copied to clipboard"
+}

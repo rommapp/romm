@@ -42,6 +42,7 @@ export const ROUTES = {
   CLIENT_API_TOKENS: "client-api-tokens",
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
+  LOGS: "logs",
   PAIR: "pair",
   APRIL_FOOLS: "april-fools",
   CONSOLE_HOME: "console-home",
@@ -398,6 +399,22 @@ const routes = [
             },
           },
           {
+            path: "logs",
+            name: ROUTES.LOGS,
+            meta: {
+              title: i18n.global.t("common.logs"),
+              bare: true,
+              // The log panel fills the viewport and scrolls internally
+              // instead of growing the document — see SettingsLayout `fill`.
+              fill: true,
+            },
+            components: {
+              // v2-only admin view; v1 has no equivalent so it redirects home.
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.LOGS),
+            },
+          },
+          {
             // Controller-debug lives outside the Settings sidebar
             // but reuses the same chrome (sidebar layout + bare
             // body) so the input system inspector reads as another
@@ -521,6 +538,7 @@ const routePermissions: RoutePermissions[] = [
   { path: ROUTES.UPLOAD, requiredScopes: ["roms.write"] },
   { path: ROUTES.LIBRARY_MANAGEMENT, requiredScopes: ["platforms.write"] },
   { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
+  { path: ROUTES.LOGS, requiredScopes: ["users.write"] },
 ];
 
 const authExemptRoutes = [

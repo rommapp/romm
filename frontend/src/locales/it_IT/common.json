@@ -152,5 +152,6 @@
   "changelog-view-all": "Vedi tutte le release su GitHub",
   "visibility": "Visibilità",
   "server-offline-retrying": "Server connection lost · retrying…",
-  "server-reconnected": "Reconnected to the server"
+  "server-reconnected": "Reconnected to the server",
+  "logs": "Logs"
 }

@@ -240,6 +240,13 @@ async function onLogout() {
         :label="t('common.server-stats')"
         @click="open = false"
       />
+      <RMenuItem
+        v-if="isAdmin"
+        :to="{ name: ROUTES.LOGS }"
+        icon="mdi-text-box-search-outline"
+        :label="t('common.logs')"
+        @click="open = false"
+      />
     </div>
 
     <!-- Tools -->
