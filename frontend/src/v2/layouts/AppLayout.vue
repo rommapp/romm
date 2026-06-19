@@ -16,13 +16,14 @@ import storePlatforms from "@/stores/platforms";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import BottomNav from "@/v2/components/AppShell/BottomNav.vue";
-import BreakpointBadge from "@/v2/components/AppShell/BreakpointBadge.vue";
 import CrtOverlay from "@/v2/components/AppShell/CrtOverlay.vue";
+import DebugOverlay from "@/v2/components/AppShell/DebugOverlay.vue";
 import GlobalDialogs from "@/v2/components/Dialogs/GlobalDialogs.vue";
 import SoundtrackMiniPlayer from "@/v2/components/Soundtrack/MiniPlayer.vue";
 import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
 import { installBreakpointAttribute } from "@/v2/composables/useBreakpoint";
 import { installPermissionsHydration } from "@/v2/composables/useCan";
+import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
@@ -43,6 +44,9 @@ installBreakpointAttribute();
 
 const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
+
+// Developer debug overlay — opt-in via Settings → Developer (per-device).
+const { enabled: debugEnabled } = useDebugMode();
 
 // Shared reactive background art — views paint covers via the injected setter.
 const layerA = ref<string | null>(null);
@@ -143,7 +147,7 @@ onBeforeUnmount(() => {
 
     <GlobalDialogs />
     <SoundtrackMiniPlayer />
-    <BreakpointBadge />
+    <DebugOverlay v-if="debugEnabled" />
     <CrtOverlay />
   </div>
 </template>

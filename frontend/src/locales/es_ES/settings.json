@@ -1,4 +1,7 @@
 {
+  "developer": "Desarrollador",
+  "debug-overlay": "Capa de depuración",
+  "debug-overlay-desc": "Muestra una capa de depuración (abajo a la derecha) con información en vivo del breakpoint, viewport, modalidad de entrada, tema, ruta, mando y rendimiento.",
   "add-exclusion-for": "Agregar nueva exclusión para",
   "add-folder-alias": "Añadir alias de carpeta",
   "add-folder-mapping": "Añadir mapeo de carpeta",
