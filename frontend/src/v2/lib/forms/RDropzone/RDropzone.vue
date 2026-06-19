@@ -78,7 +78,8 @@ function onPick(event: Event) {
   const input = event.target as HTMLInputElement;
   const files = input.files ? Array.from(input.files) : [];
   input.value = "";
-  if (files.length > 0) emit("files", files);
+  if (props.disabled || files.length === 0) return;
+  emit("files", props.multiple ? files : files.slice(0, 1));
 }
 
 defineExpose({ open, isOver: isOverDropZone });
@@ -122,11 +123,12 @@ defineExpose({ open, isOver: isOverDropZone });
     <!-- CTA mode: clickable empty-state dropzone. A `role="button"` div (not
          a <button>) so the optional `actions` slot can host real buttons
          without nesting interactive elements. -->
+    <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus -- focusable when enabled (tabindex 0); intentionally pulled from the tab order while disabled -->
     <div
       v-else
       class="r-dropzone__cta"
       role="button"
-      tabindex="0"
+      :tabindex="disabled ? -1 : 0"
       :aria-disabled="disabled"
       @click="open"
       @keydown.enter.prevent="open"
