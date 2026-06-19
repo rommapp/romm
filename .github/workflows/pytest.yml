@@ -80,6 +80,7 @@ jobs:
           ROMM_DB_DRIVER: ${{ matrix.db }}
           REDIS_HOST: 127.0.0.1
           REDIS_PORT: ${{ job.services.valkey.ports['6379'] }}
+          HYPOTHESIS_PROFILE: ci
         run: |
           cd backend
           uv run pytest -vv --maxfail=10 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .

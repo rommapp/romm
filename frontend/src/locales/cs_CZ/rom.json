@@ -143,6 +143,7 @@
   "status-never-playing": "Nikdy nebudu hrát",
   "status-now-playing": "Právě hraji",
   "status-retired": "Opuštěno",
+  "sort-key": "Název pro řazení",
   "summary": "Souhrn",
   "switch-version": "Přepnout verzi",
   "versions-count": "{n} verzí",
