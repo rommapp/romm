@@ -355,6 +355,7 @@ async def scan_rom(
         rom_attrs.update(
             {
                 "name": rom.name,
+                "name_sort_key": rom.name_sort_key,
                 "slug": rom.slug,
                 "summary": rom.summary,
                 "url_cover": rom.url_cover,

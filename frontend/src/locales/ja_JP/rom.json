@@ -133,6 +133,7 @@
   "status-never-playing": "プレイしない",
   "status-now-playing": "プレイ中",
   "status-retired": "中断",
+  "sort-key": "ソート名",
   "summary": "結果",
   "switch-version": "バージョン切り替え",
   "tags": "タグ",

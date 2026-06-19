@@ -3,10 +3,24 @@ from types import SimpleNamespace
 from typing import cast
 from unittest.mock import patch
 
-from handler.metadata.gamelist_handler import GamelistHandler
+from defusedxml import ElementTree as ET
+
+from handler.metadata.gamelist_handler import (
+    GamelistHandler,
+    extract_metadata_from_gamelist_rom,
+)
 from models.platform import Platform
 
 MOCK_METADATA = {
+    "box2d_url": None,
+    "image_url": None,
+    "manual_url": None,
+    "screenshot_url": None,
+    "sort_name": None,
+    "title_screen_url": None,
+}
+
+MOCK_MEDIA = {
     "box2d_url": None,
     "image_url": None,
     "manual_url": None,
@@ -82,6 +96,21 @@ def test_parse_gamelist_xml_keeps_game_entries(tmp_path: Path, platform: Platfor
     assert roms_data["test-rom.zip"].get("name") == "Game Entry"
 
 
+def test_extract_metadata_from_gamelist_rom_includes_sort_name(platform: Platform):
+    game = ET.fromstring("""<game>
+  <path>./test-rom.zip</path>
+  <sortname>Akumajou Dracula</sortname>
+</game>""")
+
+    with patch(
+        "handler.metadata.gamelist_handler.extract_media_from_gamelist_rom",
+        return_value=MOCK_MEDIA,
+    ):
+        metadata = extract_metadata_from_gamelist_rom(game, platform)
+
+    assert metadata["sort_name"] == "Akumajou Dracula"
+
+
 class TestGamelistHandler:
     def test_parse_gamelist_with_malformed_alternative_emulator_tag(self, tmp_path):
         gamelist_path = tmp_path / "gamelist.xml"
@@ -106,6 +135,7 @@ class TestGamelistHandler:
             "image_url": None,
             "manual_url": None,
             "screenshot_url": None,
+            "sort_name": None,
             "title_screen_url": None,
         }
 
@@ -152,6 +182,7 @@ class TestGamelistHandler:
             "image_url": None,
             "manual_url": None,
             "screenshot_url": None,
+            "sort_name": None,
             "title_screen_url": None,
         }
 

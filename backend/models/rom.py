@@ -332,11 +332,18 @@ class Rom(BaseModel):
         super().__init__(*args, **kwargs)
         self._is_identifying = False
 
-    @validates("name")
-    def _sync_name_sort_key(self, _key: str, name: str | None) -> str | None:
-        """Derive the indexed `name_sort_key` whenever `name` is assigned."""
-        self.name_sort_key = compute_name_sort_key(name)
-        return name
+    @validates("name", "name_sort_key")
+    def _sync_name_sort_key(self, key: str, value: str | None) -> str | None:
+        """Keep the indexed `name_sort_key` in sync with `name`"""
+        if key == "name_sort_key":
+            return compute_name_sort_key(value or self.name)
+
+        if self.name_sort_key is None or self.name_sort_key == compute_name_sort_key(
+            self.name
+        ):
+            self.name_sort_key = compute_name_sort_key(value)
+
+        return value
 
     @validates("fs_name")
     def _sync_fs_name_parts(self, _key: str, fs_name: str) -> str:
