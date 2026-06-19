@@ -92,6 +92,13 @@ api.interceptors.response.use(
     //     clears immediately instead of waiting for the next heartbeat poll.
     const status = error.response?.status as number | undefined;
     const url: string = error.config?.url ?? "";
+
+    // Ignore intentionally canceled requests (AbortController / signal). They do
+    // not indicate backend reachability problems.
+    if (axios.isCancel(error) || error.code === "ERR_CANCELED") {
+      return Promise.reject(error);
+    }
+
     if (!error.response) {
       document.dispatchEvent(new CustomEvent("backend-offline"));
     } else if (
