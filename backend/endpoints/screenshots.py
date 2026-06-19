@@ -1,4 +1,3 @@
-import os
 from typing import Annotated
 
 from fastapi import Body, File, HTTPException
@@ -18,6 +17,10 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
+from utils.screenshots import (
+    ALLOWED_SCREENSHOT_EXTENSIONS,
+    is_allowed_screenshot_file,
+)
 
 router = APIRouter(
     prefix="/screenshots",
@@ -25,16 +28,6 @@ router = APIRouter(
 )
 
 SCREENSHOT_FILE_UPLOAD = File(..., description="Screenshot file to upload.")
-
-# Image formats every modern browser can decode.
-ALLOWED_SCREENSHOT_EXTENSIONS = frozenset(
-    {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".avif"}
-)
-
-
-def _is_allowed_screenshot_file(file_name: str) -> bool:
-    _, ext = os.path.splitext(file_name)
-    return ext.lower() in ALLOWED_SCREENSHOT_EXTENSIONS
 
 
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
@@ -75,7 +68,7 @@ async def add_screenshot(
             detail=f"Invalid screenshot filename: {str(exc)}",
         ) from exc
 
-    if not _is_allowed_screenshot_file(sanitized_screenshot_filename):
+    if not is_allowed_screenshot_file(sanitized_screenshot_filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(

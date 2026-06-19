@@ -109,6 +109,7 @@ const syntheticRom = computed<SimpleRom>(() => ({
   fs_path: "",
   fs_size_bytes: 0,
   name: props.game.name,
+  name_sort_key: props.game.name,
   slug: props.game.slug,
   summary: null,
   alternative_names: [],

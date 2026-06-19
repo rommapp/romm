@@ -54,6 +54,7 @@ romm_mock
 backend/romm_test/resources
 backend/romm_test/logs
 .pytest_cache
+.hypothesis
 /romm_test
 .coverage
 pytest-report.xml

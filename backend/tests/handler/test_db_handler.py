@@ -15,7 +15,7 @@ from handler.database import (
 )
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, compute_name_sort_key
 from models.user import Role, User
 
 
@@ -430,6 +430,33 @@ def test_article_stripping_sort(platform: Platform):
     )
     # "The Legend" → sorts as "legend", "A Quest" → "quest", "Zelda" → "zelda"
     assert [r.name for r in roms] == ["The Legend", "A Quest", "Zelda"]
+
+
+def test_custom_name_sort_key_overrides_name_sort_order(platform: Platform):
+    for name, sort_override in [
+        ("Display Z", "Alpha"),
+        ("Display M", None),
+        ("Display A", "Zulu"),
+    ]:
+        rom = Rom(
+            platform_id=platform.id,
+            name=name,
+            slug=name.lower().replace(" ", "-"),
+            fs_name=f"{name}.zip",
+            fs_name_no_tags=name,
+            fs_name_no_ext=name,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+        # A custom key pins ordering; without one it derives from `name`.
+        if sort_override is not None:
+            rom.name_sort_key = compute_name_sort_key(sort_override)
+        db_rom_handler.add_rom(rom)
+
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], order_by="name", order_dir="asc"
+    )
+    assert [r.name for r in roms] == ["Display Z", "Display M", "Display A"]
 
 
 def test_bulk_mark_present(platform: Platform):

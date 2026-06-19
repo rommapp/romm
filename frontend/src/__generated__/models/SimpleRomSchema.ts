@@ -42,6 +42,7 @@ export type SimpleRomSchema = {
     fs_path: string;
     fs_size_bytes: number;
     name: (string | null);
+    name_sort_key: (string | null);
     slug: (string | null);
     summary: (string | null);
     alternative_names: Array<string>;
