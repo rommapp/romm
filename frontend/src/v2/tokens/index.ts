@@ -174,8 +174,8 @@ export const colorCanvas = {
 } as const;
 
 // CRT gimmick — the cosmetic "CRT mode" shader + power-on warm-up flash
-// (see CrtOverlay.vue / CrtWarmup.vue, toggled from AppNav). Theme-agnostic
-// by design: the phosphor green and the red/cyan chromatic-aberration ghosts
+// (see CrtOverlay.vue / CrtWarmup.vue, toggled from Settings → User Interface → Theme).
+// Theme-agnostic by design: the phosphor green and the red/cyan chromatic-aberration ghosts
 // read the same on dark and light, so they live in SHARED rather than the
 // per-theme palettes. Consumed only as CSS vars (--r-color-crt-*), always at
 // low opacity via color-mix.
