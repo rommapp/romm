@@ -12,9 +12,10 @@ import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
-import { defaultAvatarPath, getRoleIcon } from "@/utils";
+import { getRoleIcon } from "@/utils";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
+import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -40,10 +41,7 @@ emitter?.on("showEditUserDialog", (toEdit) => {
 
 const avatarSrc = computed(() => {
   if (imagePreviewUrl.value) return imagePreviewUrl.value;
-  if (user.value?.avatar_path) {
-    return `/assets/romm/assets/${user.value.avatar_path}?ts=${user.value.updated_at}`;
-  }
-  return defaultAvatarPath;
+  return userAvatarUrl(user.value?.avatar_path, user.value?.updated_at);
 });
 
 const roleItems = computed(() =>

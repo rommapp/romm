@@ -15,6 +15,7 @@
   "create": "생성",
   "delete": "삭제",
   "dropzone-description": "ROM 파일을 여기에 드래그 앤 드롭하거나 클릭하여 탐색하세요",
+  "dropzone-hint": "드래그 앤 드롭하거나 클릭하여 찾아보기",
   "dropzone-drag-over": "업로드하려면 놓으세요",
   "dropzone-title": "파일을 여기에 드롭하세요",
   "edit": "수정",

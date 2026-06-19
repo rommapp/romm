@@ -177,6 +177,11 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   (e: "update:modelValue", value: unknown): void;
   (e: "update:search", value: string): void;
+  /** Fires whenever All-mode toggles. Consumers whose backend does NOT
+   *  read an empty model as "all" (e.g. the Scan view, where an empty
+   *  `apis` list means *no* sources) listen to materialise the full item
+   *  list while All is active. */
+  (e: "update:allSelected", value: boolean): void;
   (e: "focus", evt: FocusEvent): void;
   (e: "blur", evt: FocusEvent): void;
   (e: "clear"): void;
@@ -484,6 +489,11 @@ function isInitialAllSelected(): boolean {
 }
 
 const isAllSelected = ref(isInitialAllSelected());
+
+// Surface All-mode to the parent (read-only). Lets consumers expand an
+// All selection into the concrete item list when their backend can't
+// interpret an empty model as "everything".
+watch(isAllSelected, (v) => emit("update:allSelected", v));
 
 // When the parent pushes a model that contains any of *this* select's
 // items, leave All-mode automatically — those items are individual

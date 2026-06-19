@@ -296,13 +296,6 @@ async def scan_firmware(
         {
             "file_path": firmware_path,
             "file_name": file_name,
-            "file_name_no_tags": fs_firmware_handler.get_file_name_with_no_tags(
-                file_name
-            ),
-            "file_name_no_ext": fs_firmware_handler.get_file_name_with_no_extension(
-                file_name
-            ),
-            "file_extension": fs_firmware_handler.parse_file_extension(file_name),
             "file_size_bytes": file_size,
         }
     )
@@ -333,9 +326,6 @@ async def scan_rom(
         "platform_id": platform.id,
         "fs_name": fs_rom["fs_name"],
         "fs_path": rom.fs_path,
-        "fs_name_no_tags": rom.fs_name_no_tags,
-        "fs_name_no_ext": rom.fs_name_no_ext,
-        "fs_extension": rom.fs_extension,
         "regions": rom.regions,
         "revision": rom.revision,
         "languages": rom.languages,
@@ -365,6 +355,7 @@ async def scan_rom(
         rom_attrs.update(
             {
                 "name": rom.name,
+                "name_sort_key": rom.name_sort_key,
                 "slug": rom.slug,
                 "summary": rom.summary,
                 "url_cover": rom.url_cover,
@@ -1032,6 +1023,9 @@ async def scan_rom(
                 )
                 return await meta_sgdb_handler.get_rom_by_id(playmatch_rom["sgdb_id"])
 
+            file_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
+                str(rom_attrs["fs_name"])
+            )
             game_names = [
                 igdb_handler_rom.get("name", None),
                 hasheous_handler_rom.get("name", None),
@@ -1039,10 +1033,10 @@ async def scan_rom(
                 moby_handler_rom.get("name", None),
                 launchbox_handler_rom.get("name", None),
                 gamelist_handler_rom.get("name", None),
-                rom_attrs["fs_name_no_tags"],
+                file_name_no_tags,
             ]
-            game_names = [name for name in game_names if name]
-            return await meta_sgdb_handler.get_details_by_names(game_names)
+            valid_names = [name for name in game_names if name]
+            return await meta_sgdb_handler.get_details_by_names(valid_names)
 
         return SGDBRom(sgdb_id=None)
 
@@ -1094,9 +1088,6 @@ async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False
     result = {
         "file_path": asset_path,
         "file_name": file_name,
-        "file_name_no_tags": fs_asset_handler.get_file_name_with_no_tags(file_name),
-        "file_name_no_ext": fs_asset_handler.get_file_name_with_no_extension(file_name),
-        "file_extension": fs_asset_handler.parse_file_extension(file_name),
         "file_size_bytes": file_size,
     }
 

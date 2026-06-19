@@ -15,6 +15,7 @@
   "create": "建立",
   "delete": "刪除",
   "dropzone-description": "將您的ROM檔案拖放到此處，或點擊瀏覽",
+  "dropzone-hint": "拖放檔案，或點擊瀏覽",
   "dropzone-drag-over": "釋放以上傳",
   "dropzone-title": "將檔案拖放到此處",
   "edit": "編輯",

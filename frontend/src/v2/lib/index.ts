@@ -35,6 +35,7 @@ export * from "./primitives/RTag";
 export * from "./forms/RCheckbox";
 export * from "./forms/RComboboxField";
 export * from "./forms/RDateField";
+export * from "./forms/RDropzone";
 export * from "./forms/RForm";
 export * from "./forms/RRating";
 export * from "./forms/RSelect";

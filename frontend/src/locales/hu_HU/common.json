@@ -15,6 +15,7 @@
   "create": "Létrehoz",
   "delete": "Törlés",
   "dropzone-description": "Húzd ide a ROM fájljait, vagy kattints a böngészéshez",
+  "dropzone-hint": "Húzd ide a fájlokat, vagy kattints a tallózáshoz",
   "dropzone-drag-over": "Engedd el a feltöltéshez",
   "dropzone-title": "Fájlok ide helyezése",
   "edit": "Szerkesztés",

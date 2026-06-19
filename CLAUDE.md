@@ -91,18 +91,22 @@ If a component meets the three primitive criteria, it stays primitive regardless
 
 ### Source of truth
 
-`src/v2/tokens/index.ts` is the source. It feeds two things:
+`src/v2/tokens/index.ts` is the source. It feeds two consumers:
 
-- `src/v2/styles/tokens.css` — **generated** by `scripts/build-tokens.ts` (npm script `build:tokens`, hooked into `predev` and `prebuild`). Do not hand-edit.
-- `src/v2/theme/vuetify.ts` — Vuetify theme registered as `v2-dark` / `v2-light`, derived from the same tokens.
+- `src/v2/styles/tokens.css` — **generated** by `scripts/build-tokens.ts` (npm script `build:tokens`, hooked into `predev` and `prebuild`). Do not hand-edit. This is the path for the vast majority of consumption.
+- **Direct JS/TS imports** of the named exports (`colorCanvas`, `colorCoverArt`, `layout`, …) for the few cases that need a token value in JavaScript rather than CSS — baking colours into an SVG string (`utils/covers`), canvas/QR backgrounds (`Player/Ruffle.vue`, `ShowQRCodeDialog`), and the virtualiser's pixel math (`Gallery/listColumns` reading `layout`).
 
-Components consume tokens via `var(--r-color-...)` in CSS or via `color="primary"` in Vuetify (which reads the theme). **Never hex literal in components.**
+v2 has **no Vuetify theme of its own.** Theming is purely CSS-scope-based: `tokens.css` emits a palette block per theme under `.r-v2.r-v2-dark` / `.r-v2.r-v2-light`, and `RomM.vue` toggles those classes on `<html>` (see "Where scope classes live"). v2 surfaces do **not** read Vuetify's runtime theme.
+
+Components consume tokens via `var(--r-color-...)` in CSS (the default) or by importing the named export in JS. **Never hex literal in components.**
+
+Caveat — the one non-token path: a wrapped Vuetify component still resolves `color="primary"` against Vuetify's _own_ registered themes (`dark` / `light` in `src/plugins/vuetify.ts`, sourced from `@/styles/themes` — v1's). Those happen to mirror the brand tokens by hand (both use `#8B74E8` for primary), so they line up, but they are a parallel source, not derived from `tokens/index.ts`. Prefer styling with `var(--r-...)` over relying on the `color` prop.
 
 ### Adding a new token
 
 1. Add to `src/v2/tokens/index.ts` with a semantic name (role-based: `--r-color-danger`, not `--r-color-red`).
 2. Provide both dark **and** light values (premise 5).
-3. If consumed via Vuetify's `color` prop, register in the Vuetify theme too.
+3. Consume via `var(--r-...)` (CSS) or the named export (JS). v2 registers no Vuetify theme, so there is no `color`-prop theme to update — if a wrapped Vuetify component needs the value, style it with `var(--r-...)`.
 4. Run `npm run build:tokens` to regenerate `tokens.css`.
 5. If the JS path → CSS variable name needs an exception (special abbreviation like `--r-nav-h`), add an entry to `NAME_OVERRIDES` in the generator.
 

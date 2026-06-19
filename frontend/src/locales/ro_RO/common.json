@@ -18,6 +18,7 @@
   "create": "Creează",
   "delete": "Șterge",
   "dropzone-description": "Trageți și eliberați fișierele ROM aici, sau faceți clic pentru a naviga",
+  "dropzone-hint": "Trage și plasează, sau dă clic pentru a răsfoi",
   "dropzone-drag-over": "Eliberați pentru a încărca",
   "dropzone-title": "Trageți fișierele aici",
   "edit": "Editează",

@@ -28,9 +28,10 @@ import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeUsers, { type User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
-import { defaultAvatarPath, formatTimestamp, getRoleIcon } from "@/utils";
+import { formatTimestamp, getRoleIcon } from "@/utils";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -158,9 +159,7 @@ function roleToneFor(role: string | undefined): RoleTone {
 }
 
 function avatarSrc(user: User) {
-  return user.avatar_path
-    ? `/assets/romm/assets/${user.avatar_path}?ts=${user.updated_at}`
-    : defaultAvatarPath;
+  return userAvatarUrl(user.avatar_path, user.updated_at);
 }
 
 async function toggleEnabled(user: User, enabled: boolean) {

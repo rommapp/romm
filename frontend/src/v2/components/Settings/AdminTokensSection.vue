@@ -22,10 +22,11 @@ import { useI18n } from "vue-i18n";
 import clientTokenApi, {
   type ClientTokenAdminSchema,
 } from "@/services/api/client-token";
-import { defaultAvatarPath, formatTimestamp } from "@/utils";
+import { formatTimestamp } from "@/utils";
 import ScopeCell from "@/v2/components/Settings/ScopeCell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -42,9 +43,7 @@ const sortKey = ref<SortKey>("username");
 const sortDir = ref<"asc" | "desc">("asc");
 
 function avatarSrc(token: ClientTokenAdminSchema) {
-  return token.user_avatar_path
-    ? `/assets/romm/assets/${token.user_avatar_path}?ts=${token.user_updated_at}`
-    : defaultAvatarPath;
+  return userAvatarUrl(token.user_avatar_path, token.user_updated_at);
 }
 
 function compareNullable(a: string | null, b: string | null, asc: boolean) {

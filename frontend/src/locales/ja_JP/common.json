@@ -15,6 +15,7 @@
   "create": "作成",
   "delete": "削除",
   "dropzone-description": "ROMファイルをここにドラッグ&ドロップするか、クリックして参照してください",
+  "dropzone-hint": "ドラッグ＆ドロップ、またはクリックして選択",
   "dropzone-drag-over": "アップロードするには離してください",
   "dropzone-title": "ファイルをここにドロップ",
   "edit": "編集",

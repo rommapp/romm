@@ -15,6 +15,7 @@
   "create": "Erstellen",
   "delete": "Löschen",
   "dropzone-description": "Ziehen Sie Ihre ROM-Dateien hierher oder klicken Sie zum Durchsuchen",
+  "dropzone-hint": "Ziehen und ablegen oder zum Durchsuchen klicken",
   "dropzone-drag-over": "Loslassen zum Hochladen",
   "dropzone-title": "Dateien hier ablegen",
   "edit": "Bearbeiten",

@@ -15,7 +15,7 @@ from handler.metadata.moby_handler import MobyGamesHandler, MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
 from models.platform import Platform
-from models.rom import Rom, RomFile
+from models.rom import Rom, RomFile, compute_name_sort_key
 
 MOCK_IGDB_ID = 11111
 MOCK_MOBY_ID = 22222
@@ -184,6 +184,7 @@ def test_update_rom(
         data={
             "igdb_id": str(MOCK_IGDB_ID),
             "name": "Metroid Prime Remastered",
+            "name_sort_key": "Metroid Prime",
             "slug": "metroid-prime-remastered",
             "fs_name": "Metroid Prime Remastered.zip",
             "summary": "summary test",
@@ -209,6 +210,7 @@ def test_update_rom(
 
     body = response.json()
     assert body["fs_name"] == "Metroid Prime Remastered.zip"
+    assert body["name_sort_key"] == compute_name_sort_key("Metroid Prime")
 
     assert rename_fs_rom_mock.called
     assert get_rom_by_id_mock.called
@@ -554,7 +556,10 @@ class TestUpdateMetadataIDs:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"igdb_id": str(MOCK_IGDB_ID)},
+            data={
+                "igdb_id": str(MOCK_IGDB_ID),
+                "name_sort_key": "Imported sort title",
+            },
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -1235,7 +1240,10 @@ class TestUnmatchMetadata:
         initial_response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"igdb_id": str(MOCK_IGDB_ID)},
+            data={
+                "igdb_id": str(MOCK_IGDB_ID),
+                "name_sort_key": "Imported sort title",
+            },
         )
         assert initial_response.status_code == status.HTTP_200_OK
         assert get_rom_by_id_mock.called
@@ -1243,6 +1251,9 @@ class TestUnmatchMetadata:
         initial_body = initial_response.json()
         assert initial_body["igdb_id"] == MOCK_IGDB_ID
         assert initial_body["igdb_metadata"] is not None
+        assert initial_body["name_sort_key"] == compute_name_sort_key(
+            "Imported sort title"
+        )
 
         # Now unmatch all metadata
         response = client.put(
@@ -1265,6 +1276,7 @@ class TestUnmatchMetadata:
         assert body["hltb_id"] is None
 
         assert body["name"] == rom.fs_name
+        assert body["name_sort_key"] == compute_name_sort_key(rom.fs_name)
         assert body["summary"] == ""
         assert body["url_cover"] == ""
         assert body["slug"] == ""
