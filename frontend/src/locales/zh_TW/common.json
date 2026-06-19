@@ -149,5 +149,7 @@
   "changelog-empty-title": "尚無發行版",
   "changelog-empty-hint": "此儲存庫尚未發布任何發行版。",
   "changelog-view-all": "在 GitHub 上檢視所有發行版",
-  "visibility": "可見性"
+  "visibility": "可見性",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server"
 }

@@ -149,5 +149,7 @@
   "changelog-empty-title": "Aún no hay versiones",
   "changelog-empty-hint": "El repositorio aún no ha publicado ninguna versión.",
   "changelog-view-all": "Ver todas las versiones en GitHub",
-  "visibility": "Visibilidad"
+  "visibility": "Visibilidad",
+  "server-offline-retrying": "Se perdió la conexión con el servidor · reintentando…",
+  "server-reconnected": "Conexión con el servidor restablecida"
 }

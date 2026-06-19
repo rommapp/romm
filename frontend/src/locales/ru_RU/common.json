@@ -149,5 +149,7 @@
   "changelog-empty-title": "Релизов пока нет",
   "changelog-empty-hint": "В репозитории ещё нет опубликованных релизов.",
   "changelog-view-all": "Посмотреть все релизы на GitHub",
-  "visibility": "Видимость"
+  "visibility": "Видимость",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server"
 }
