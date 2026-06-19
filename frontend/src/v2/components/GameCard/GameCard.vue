@@ -356,6 +356,7 @@ function onStaticKeydown(e: KeyboardEvent) {
 <template>
   <component
     :is="decorative ? 'div' : static ? 'article' : 'router-link'"
+    v-bind="$attrs"
     :to="static || decorative ? undefined : href"
     :role="static && !decorative ? 'button' : undefined"
     :tabindex="static && !decorative ? 0 : undefined"

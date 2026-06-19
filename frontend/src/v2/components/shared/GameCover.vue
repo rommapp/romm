@@ -20,7 +20,7 @@
 // (GameCard's size tiers / hero) just sets an explicit `height` on this
 // element via its own class — that wins over `aspect-ratio`. Radius is a
 // `--r-cover-radius` var (defaults to the gallery card radius).
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import CoverPlaceholder from "@/v2/components/shared/CoverPlaceholder.vue";
 import { useCoverAnimation } from "@/v2/composables/useCoverAnimation";
 import {
@@ -107,6 +107,21 @@ const rootEl = ref<HTMLElement | null>(null);
 const imgEl = ref<HTMLImageElement | null>(null);
 const videoEl = ref<HTMLVideoElement | null>(null);
 
+// Blur-up "bloom" reveal: the cover paints soft + slightly enlarged and
+// snaps into focus the moment its bytes land. `coverLoaded` flips on the
+// <img> load event; it resets whenever the active source changes so a
+// recycled card (virtual scroll) re-plays the reveal for its new art.
+const coverLoaded = ref(false);
+const activeSrc = computed(() =>
+  showFallback.value ? art.fallbackUrl.value : art.coverUrl.value,
+);
+watch(activeSrc, () => {
+  coverLoaded.value = false;
+});
+const onCoverLoad = () => {
+  coverLoaded.value = true;
+};
+
 const selfHover = ref(false);
 const coverActive = computed(
   () => props.active || (props.hoverMotion && selfHover.value),
@@ -141,6 +156,12 @@ const onLeave = () => {
   selfHover.value = false;
 };
 onMounted(() => {
+  // A cached cover can already be decoded before the load listener binds —
+  // mark it loaded so the reveal still resolves (it bloom-snaps from the
+  // soft initial paint instead of getting stuck blurred).
+  if (imgEl.value?.complete && imgEl.value.naturalWidth > 0) {
+    coverLoaded.value = true;
+  }
   if (!props.hoverMotion) return;
   rootEl.value?.addEventListener("mouseenter", onEnter);
   rootEl.value?.addEventListener("mouseleave", onLeave);
@@ -178,9 +199,13 @@ defineExpose({
       "
       :alt="title"
       :style="{ objectFit: art.objectFit.value }"
-      :class="{ 'game-cover__img--behind': isVideoPlaying }"
+      :class="{
+        'game-cover__img--behind': isVideoPlaying,
+        'game-cover__img--reveal': !coverLoaded && art.motionEnabled.value,
+      }"
       loading="lazy"
       decoding="async"
+      @load="onCoverLoad"
       @error="imgError = true"
     />
     <CoverPlaceholder
@@ -232,11 +257,39 @@ defineExpose({
   height: 100%;
   object-fit: cover;
   display: block;
-  /* Crossfade to the hover video; the spin drives `rotate` separately. */
-  transition: opacity 0.35s ease;
+  /* Three motions ride this <img>, each on its own property so they never
+     clobber each other: opacity crossfades to the hover video, filter +
+     scale drive the blur-up reveal on first paint, and the spin owns
+     `rotate` (set imperatively in useCoverAnimation). */
+  transition:
+    opacity 0.35s ease,
+    filter 0.6s ease,
+    scale 0.65s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .game-cover__img--behind {
   opacity: 0;
+}
+
+/* Blur-up "bloom": the cover lands soft, a touch oversaturated/bright and
+   slightly enlarged (the >1 scale tucks the blur halo behind the box edge),
+   then snaps into focus as its bytes arrive. Removing the class transitions
+   back to the resting cover above. `scale` is the individual property so it
+   composes with the spin's `rotate` and the drop-in's `transform`. */
+.game-cover__img--reveal {
+  opacity: 0;
+  filter: blur(16px) saturate(1.5) brightness(1.12);
+  scale: 1.05;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep a gentle opacity fade, drop the blur/scale flourish. */
+  .game-cover > img {
+    transition: opacity 0.25s ease;
+  }
+  .game-cover__img--reveal {
+    filter: none;
+    scale: 1;
+  }
 }
 
 .game-cover__video {
