@@ -369,6 +369,17 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           </RTextField>
 
           <RTextField
+            v-model="rom.name_sort_key"
+            prefix-label="stacked"
+            hide-details
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-sort-alphabetical-variant" size="14" />
+              {{ t("rom.sort-key") }}
+            </template>
+          </RTextField>
+
+          <RTextField
             v-model="rom.fs_name"
             prefix-label="stacked"
             hide-details

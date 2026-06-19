@@ -280,6 +280,7 @@ class RomSchema(BaseModel):
     fs_size_bytes: int
 
     name: str | None
+    name_sort_key: str | None
     slug: str | None
     summary: str | None
 

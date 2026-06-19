@@ -1,12 +1,19 @@
 import os
 import shutil
+import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+from hypothesis import assume, given
+from hypothesis import strategies as st
 from tests._zipfile_shim import reload_zipfile
 
 from config.config_manager import LIBRARY_BASE_PATH, Config
+from handler.filesystem.base_handler import (
+    LANGUAGES_BY_SHORTCODE,
+    REGIONS_BY_SHORTCODE,
+)
 from handler.filesystem.roms_handler import (
     FileHash,
     FSRomsHandler,
@@ -1546,3 +1553,99 @@ class TestExtractCHDHash:
         assert result
         assert result == "f" * 40
         assert len(result) == 40
+
+
+KNOWN_REGION_NAMES = frozenset(REGIONS_BY_SHORTCODE.values())
+KNOWN_LANGUAGE_NAMES = frozenset(LANGUAGES_BY_SHORTCODE.values())
+
+region_code = st.sampled_from(sorted(REGIONS_BY_SHORTCODE))
+language_code = st.sampled_from(sorted(LANGUAGES_BY_SHORTCODE))
+
+
+class TestParseTagsProperties:
+    """Property-based tests for FSRomsHandler.parse_tags."""
+
+    handler = FSRomsHandler()
+
+    @given(st.text())
+    def test_never_raises_on_arbitrary_input(self, fs_name: str):
+        self.handler.parse_tags(fs_name)
+
+    @given(st.text())
+    def test_is_deterministic(self, fs_name: str):
+        assert self.handler.parse_tags(fs_name) == self.handler.parse_tags(fs_name)
+
+    @given(st.lists(region_code), st.lists(language_code))
+    def test_known_codes_map_to_known_names(self, regions, languages):
+        fs_name = "Game"
+        for code in regions:
+            fs_name += f"({code})"
+        for code in languages:
+            fs_name += f"({code})"
+        fs_name += ".rom"
+
+        parsed = self.handler.parse_tags(fs_name)
+
+        assert set(parsed.regions) <= KNOWN_REGION_NAMES
+        assert set(parsed.languages) <= KNOWN_LANGUAGE_NAMES
+        # Every supplied code resolves to its mapped full name.
+        assert {REGIONS_BY_SHORTCODE[c] for c in regions} <= set(parsed.regions)
+        assert {LANGUAGES_BY_SHORTCODE[c] for c in languages} <= set(parsed.languages)
+
+
+def _chd_header_bytes(version: int, sha1: bytes) -> bytes:
+    """Build a 124-byte CHD header with the given version and combined SHA1."""
+    header = bytearray(124)
+    header[0:8] = b"MComprHD"
+    header[12:16] = version.to_bytes(4, "big")
+    header[84:104] = sha1
+    return bytes(header)
+
+
+def _run_extract(data: bytes) -> str:
+    fd, path = tempfile.mkstemp(suffix=".chd")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+        return extract_chd_hash(Path(path))
+    finally:
+        os.unlink(path)
+
+
+class TestExtractCHDHashProperties:
+    """Property-based tests for extract_chd_hash."""
+
+    @given(sha1=st.binary(min_size=20, max_size=20))
+    def test_valid_v5_returns_embedded_sha1(self, sha1: bytes):
+        result = _run_extract(_chd_header_bytes(5, sha1))
+        assert result == sha1.hex()
+        assert len(result) == 40
+
+    @given(
+        version=st.integers(min_value=0, max_value=2**32 - 1),
+        sha1=st.binary(min_size=20, max_size=20),
+    )
+    def test_non_v5_version_returns_empty(self, version: int, sha1: bytes):
+        assume(version != 5)
+        assert _run_extract(_chd_header_bytes(version, sha1)) == ""
+
+    @given(data=st.binary(min_size=16))
+    def test_wrong_signature_returns_empty(self, data: bytes):
+        assume(data[:8] != b"MComprHD")
+        assert _run_extract(data) == ""
+
+    @given(data=st.binary(max_size=15))
+    def test_too_short_for_signature_returns_empty(self, data: bytes):
+        assert _run_extract(data) == ""
+
+    @given(
+        sha1=st.binary(min_size=20, max_size=20),
+        truncate_len=st.integers(min_value=16, max_value=103),
+    )
+    def test_truncated_before_sha1_returns_empty(self, sha1: bytes, truncate_len: int):
+        truncated = _chd_header_bytes(5, sha1)[:truncate_len]
+        assert _run_extract(truncated) == ""
+
+    @given(data=st.binary())
+    def test_never_raises_on_arbitrary_bytes(self, data: bytes):
+        _run_extract(data)

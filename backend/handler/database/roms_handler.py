@@ -1010,7 +1010,8 @@ class DBRomsHandler(DBBaseHandler):
             order_attr = Rom.name
 
         # Use indexed `name_sort_key` to have fast access to names without
-        # articles (the, a, an) and leading digits
+        # articles (the, a, an) and leading digits. The key is derived from
+        # `name` at write time, or holds a custom override when one is set.
         if order_attr is Rom.name:
             order_attr = Rom.name_sort_key
 
@@ -1203,10 +1204,16 @@ class DBRomsHandler(DBBaseHandler):
         data: dict,
         session: Session = None,  # type: ignore
     ) -> Rom:
-        # Bulk update() bypasses the ORM @validates hooks, so keep the
-        # columns derived from name / fs_name in sync explicitly.
-        if "name" in data:
-            data = {**data, "name_sort_key": compute_name_sort_key(data["name"])}
+        if "name" in data and "name_sort_key" not in data:
+            # Re-derive the key from the new name, but only when the stored key
+            # is still the derived value (i.e. not a manual override). Mirrors
+            # the `@validates` logic, which the bulk update() bypasses.
+            existing = session.query(Rom).filter_by(id=id).one()
+            if (
+                existing.name_sort_key is None
+                or existing.name_sort_key == compute_name_sort_key(existing.name)
+            ):
+                data = {**data, "name_sort_key": compute_name_sort_key(data["name"])}
 
         if "fs_name" in data:
             parts = compute_file_name_parts(data["fs_name"])
