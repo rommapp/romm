@@ -81,5 +81,8 @@
   "cover-style": "封面樣式",
   "firmware-verified": "已驗證",
   "old-horizontal-cases": "舊式橫向卡帶盒",
-  "old-squared-cases": "舊式方形卡帶盒"
+  "old-squared-cases": "舊式方形卡帶盒",
+  "random-rom": "隨機 ROM",
+  "random-rom-empty": "此平台沒有 ROM",
+  "random-rom-error": "無法選擇隨機 ROM"
 }

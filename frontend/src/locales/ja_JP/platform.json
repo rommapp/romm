@@ -81,5 +81,8 @@
   "cover-style": "カバースタイル",
   "firmware-verified": "確認済み",
   "old-horizontal-cases": "旧横型ケース",
-  "old-squared-cases": "旧角型ケース"
+  "old-squared-cases": "旧角型ケース",
+  "random-rom": "ランダムROM",
+  "random-rom-empty": "このプラットフォームにROMがありません",
+  "random-rom-error": "ランダムなROMを選択できませんでした"
 }

@@ -48,11 +48,15 @@ defineProps<{
    *  of the page. */
   canEdit: boolean;
   canScan: boolean;
+  /** Spinner on the random-game button while the parent resolves which
+   *  ROM to open. */
+  randomLoading?: boolean;
   /** Label text — passed in so the parent owns i18n and this stays a
    *  presentational composite (no `useI18n` here). */
   labels: {
     upload: string;
     scan: string;
+    random: string;
   };
 }>();
 
@@ -60,6 +64,7 @@ defineEmits<{
   (e: "update:tab", v: string): void;
   (e: "upload"): void;
   (e: "scan"): void;
+  (e: "random"): void;
 }>();
 </script>
 
@@ -125,12 +130,24 @@ defineEmits<{
       </a>
     </template>
 
-    <!-- Action ribbon — Upload / Scan only. Edit and Delete moved
+    <!-- Action ribbon — Random / Upload / Scan. Edit and Delete moved
          inline into the Settings tab (the editable `custom_name` lives
          next to the read-only details there, and Delete sits in the
          tab's danger zone). Same circular icon-button vocabulary as
-         the GameDetails action row. -->
+         the GameDetails action row. Random is open to anyone who can
+         view the platform — it's a navigation shortcut, not an admin
+         action — so it sits left of the gated Upload/Scan buttons. -->
     <template #actions>
+      <RBtn
+        variant="outlined"
+        surface
+        icon="mdi-shuffle-variant"
+        rounded="circle"
+        :loading="randomLoading"
+        :aria-label="labels.random"
+        :tooltip="labels.random"
+        @click="$emit('random')"
+      />
       <RBtn
         v-if="canEdit"
         variant="outlined"

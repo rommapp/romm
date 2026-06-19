@@ -81,5 +81,8 @@
   "cover-style": "Style de jaquette",
   "firmware-verified": "Vérifié",
   "old-horizontal-cases": "Anciens boîtiers horizontaux",
-  "old-squared-cases": "Anciens boîtiers carrés"
+  "old-squared-cases": "Anciens boîtiers carrés",
+  "random-rom": "ROM aléatoire",
+  "random-rom-empty": "Aucune ROM sur cette plateforme",
+  "random-rom-error": "Impossible de choisir une ROM aléatoire"
 }

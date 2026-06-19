@@ -81,5 +81,8 @@
   "cover-style": "커버 스타일",
   "firmware-verified": "확인됨",
   "old-horizontal-cases": "옛 가로형 케이스",
-  "old-squared-cases": "옛 정사각형 케이스"
+  "old-squared-cases": "옛 정사각형 케이스",
+  "random-rom": "무작위 ROM",
+  "random-rom-empty": "이 플랫폼에 ROM이 없습니다",
+  "random-rom-error": "무작위 ROM을 선택할 수 없습니다"
 }
