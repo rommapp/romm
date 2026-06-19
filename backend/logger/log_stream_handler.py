@@ -72,5 +72,5 @@ class LogStreamHandler(logging.Handler):
             pipe.ltrim(LOG_BUFFER_KEY, 0, LOG_BUFFER_SIZE - 1)
             pipe.publish(LOG_CHANNEL, payload)
             pipe.execute()
-        except Exception:  # noqa: BLE001 - best-effort mirror; never raise/spam
+        except Exception:  # noqa: BLE001 - never raise/spam  # nosec B110
             pass

@@ -95,7 +95,7 @@ async def get_recent_logs(limit: int) -> list[dict[str, Any]]:
     for item in raw:
         try:
             entries.append(json_module.loads(item))
-        except Exception:  # noqa: BLE001 - skip any malformed buffer entry
+        except Exception:  # noqa: BLE001 - skip malformed entry  # nosec B112
             continue
     # The buffer is newest-first (LPUSH); callers want oldest-first.
     entries.reverse()
@@ -152,7 +152,7 @@ async def start_log_forwarder() -> None:
                         await socket_manager.emit(
                             "logs:entry", payload, room=ADMIN_ROOM
                         )
-                    except Exception:  # noqa: BLE001 - skip; keep forwarding
+                    except Exception:  # noqa: BLE001 - keep forwarding  # nosec B112
                         continue
             finally:
                 await pubsub.unsubscribe(LOG_CHANNEL)
@@ -176,5 +176,5 @@ async def _release_lock(lock_id: str) -> None:
         current = await async_cache.get(FORWARDER_LOCK_KEY)
         if current == lock_id:
             await async_cache.delete(FORWARDER_LOCK_KEY)
-    except Exception:  # noqa: BLE001 - best-effort cleanup
+    except Exception:  # noqa: BLE001 - best-effort cleanup  # nosec B110
         pass
