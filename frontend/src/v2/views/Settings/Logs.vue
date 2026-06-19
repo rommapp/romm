@@ -214,7 +214,9 @@ function downloadLogs() {
   const a = document.createElement("a");
   a.href = url;
   a.download = `romm-logs-${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 </script>

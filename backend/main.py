@@ -2,7 +2,7 @@ import asyncio
 import logging.config
 import re
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 import alembic.config
 import sentry_sdk
@@ -83,6 +83,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         finally:
             if log_forwarder_task is not None:
                 log_forwarder_task.cancel()
+                # Await the cancellation so the forwarder's cleanup (pubsub
+                # close, lock release) finishes before shutdown completes.
+                with suppress(asyncio.CancelledError):
+                    await log_forwarder_task
 
 
 sentry_sdk.init(

@@ -4,6 +4,7 @@ from decorators.auth import protected_route
 from endpoints.responses.log import LogEntrySchema
 from endpoints.sockets.logs import get_recent_logs
 from handler.auth.constants import Scope
+from logger.log_stream_handler import LOG_BUFFER_SIZE
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -11,8 +12,9 @@ router = APIRouter(
     tags=["logs"],
 )
 
-# Largest backfill the buffer holds (mirrors LOG_BUFFER_SIZE).
-MAX_LOG_LIMIT = 1000
+# Largest backfill the buffer holds — derived from the producer's ring buffer
+# so the two never drift.
+MAX_LOG_LIMIT = LOG_BUFFER_SIZE
 
 
 @protected_route(router.get, "", [Scope.USERS_WRITE])

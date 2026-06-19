@@ -132,9 +132,14 @@ async def start_log_forwarder() -> None:
             log.info("Log stream forwarder started")
             try:
                 while True:
-                    # Heartbeat the lock so a healthy forwarder keeps ownership.
+                    # Heartbeat the lock, but only while we still own it. If
+                    # another worker took it (after a stall / Redis hiccup),
+                    # stop forwarding to avoid duplicate lines — the outer loop
+                    # will then contend for the lock again.
+                    if await async_cache.get(FORWARDER_LOCK_KEY) != lock_id:
+                        break
                     await async_cache.set(
-                        FORWARDER_LOCK_KEY, lock_id, xx=True, ex=FORWARDER_LOCK_TTL
+                        FORWARDER_LOCK_KEY, lock_id, ex=FORWARDER_LOCK_TTL
                     )
                     message = await pubsub.get_message(
                         ignore_subscribe_messages=True,
