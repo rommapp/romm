@@ -1,7 +1,9 @@
+import os
 from datetime import datetime, timedelta, timezone
 
 import alembic.config
 import pytest
+from hypothesis import settings
 from joserfc import jwt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -29,6 +31,10 @@ from models.user import Role, User
 
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
+
+settings.register_profile("ci", max_examples=200, deadline=None)
+settings.register_profile("dev", max_examples=50, deadline=None)
+settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "dev"))
 
 
 @pytest.fixture(scope="session", autouse=True)

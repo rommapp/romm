@@ -1,6 +1,8 @@
 """Tests for validation utilities."""
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from utils.validation import (
     ValidationError,
@@ -157,3 +159,29 @@ class TestValidateEmail:
         with pytest.raises(ValidationError) as exc_info:
             validate_email("résumé@example.com")
         assert "ASCII characters" in exc_info.value.message
+
+
+_USERNAME_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+_LOWER_ALNUM = "abcdefghijklmnopqrstuvwxyz0123456789"
+_LOWER = "abcdefghijklmnopqrstuvwxyz"
+
+
+class TestValidateUsernameProperties:
+    @given(st.text(alphabet=_USERNAME_ALPHABET, min_size=3, max_size=255))
+    def test_well_formed_usernames_pass(self, username):
+        validate_username(username)
+
+    @given(st.text(alphabet=_USERNAME_ALPHABET, min_size=1, max_size=2))
+    def test_too_short_usernames_are_rejected(self, username):
+        with pytest.raises(ValidationError):
+            validate_username(username)
+
+
+class TestValidateEmailProperties:
+    @given(
+        st.text(alphabet=_LOWER_ALNUM, min_size=1, max_size=20),
+        st.text(alphabet=_LOWER_ALNUM, min_size=1, max_size=20),
+        st.text(alphabet=_LOWER, min_size=2, max_size=6),
+    )
+    def test_well_formed_emails_pass(self, local, domain, tld):
+        validate_email(f"{local}@{domain}.{tld}")
