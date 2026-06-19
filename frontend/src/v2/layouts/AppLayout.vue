@@ -17,6 +17,7 @@ import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import BottomNav from "@/v2/components/AppShell/BottomNav.vue";
 import BreakpointBadge from "@/v2/components/AppShell/BreakpointBadge.vue";
+import CrtOverlay from "@/v2/components/AppShell/CrtOverlay.vue";
 import GlobalDialogs from "@/v2/components/Dialogs/GlobalDialogs.vue";
 import SoundtrackMiniPlayer from "@/v2/components/Soundtrack/MiniPlayer.vue";
 import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
@@ -143,6 +144,7 @@ onBeforeUnmount(() => {
     <GlobalDialogs />
     <SoundtrackMiniPlayer />
     <BreakpointBadge />
+    <CrtOverlay />
   </div>
 </template>
 

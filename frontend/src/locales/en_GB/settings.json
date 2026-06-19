@@ -46,6 +46,7 @@
   "couldnt-fetch-missing-roms": "Couldn't fetch missing ROMs: {error}",
   "deferred": "Deferred",
   "deleting-mapping": "Deleting",
+  "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "disable-animations": "Disable animations",
   "disable-animations-desc": "Disable all animations in the gallery (CD spinning, cartridge loading, hover videos)",
   "edit-user": "Edit user",

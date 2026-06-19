@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import {
   colorBrand,
   colorCanvas,
+  colorCrt,
   colorDark,
   colorLight,
   colorOverlay,
@@ -143,6 +144,7 @@ const SHARED: Entry[] = [
   ...entriesFor(colorProvider, "colorProvider", "--r-color-provider"),
   ...entriesFor(colorOverlay, "colorOverlay", "--r-color-overlay"),
   ...entriesFor(colorCanvas, "colorCanvas", "--r-color-canvas"),
+  ...entriesFor(colorCrt, "colorCrt", "--r-color-crt"),
   ...entriesFor(fontFamily, "fontFamily", "--r-font-family"),
   ...entriesFor(fontSize, "fontSize", "--r-font-size"),
   ...entriesFor(lineHeight, "lineHeight", "--r-line-height"),

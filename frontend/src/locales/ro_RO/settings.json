@@ -55,6 +55,7 @@
   "couldnt-fetch-missing-roms": "Nu s-au putut prelua ROM-urile lipsă: {error}",
   "deferred": "Amânat",
   "deleting-mapping": "Ștergere",
+  "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "disable-animations": "Dezactivează animațiile",
   "disable-animations-desc": "Dezactivează toate animațiile din galerie (rotirea CD-ului, încărcarea cartușului, videoclipurile la trecerea mouse-ului)",
   "edit-user": "Editează utilizatorul",

@@ -46,6 +46,7 @@
   "couldnt-fetch-missing-roms": "Nie udało się pobrać brakujących ROM-ów: {error}",
   "deferred": "Odroczono",
   "deleting-mapping": "Usuwanie",
+  "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "disable-animations": "Wyłącz animacje",
   "disable-animations-desc": "Wyłącz wszystkie animacje w galerii (obracanie CD, ładowanie kartridży, wideo po najechaniu)",
   "edit-user": "Edytuj użytkownika",

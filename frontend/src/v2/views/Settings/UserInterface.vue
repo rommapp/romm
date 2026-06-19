@@ -13,16 +13,18 @@
 // `useUISettings` still exposes `platformsGroupBy` for v1 — we just
 // don't surface it here.
 import { RIcon, RSelect, RSliderBtnGroup, RChip } from "@v2/lib";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
 import { useUiVersion } from "@/composables/useUiVersion";
 import storeCollections from "@/stores/collections";
+import CrtWarmup from "@/v2/components/AppShell/CrtWarmup.vue";
 import WidgetReorderList from "@/v2/components/Home/Widgets/WidgetReorderList.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import SettingsSubsection from "@/v2/components/Settings/SettingsSubsection.vue";
 import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
 import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
+import { useCrtMode } from "@/v2/composables/useCrtMode";
 
 const { t } = useI18n();
 const uiVersion = useUiVersion();
@@ -75,6 +77,15 @@ const themeOptions: { value: Theme; label: string; icon: string }[] = [
 
 function setTheme(value: Theme) {
   selectedTheme.value = value;
+}
+
+// Cosmetic easter egg — toggle the persistent "CRT mode" shader; switching
+// it ON also fires the one-shot power-on warm-up flash.
+const { enabled: crtEnabled } = useCrtMode();
+const crtWarmup = ref<InstanceType<typeof CrtWarmup> | null>(null);
+function onCrtToggle(value: boolean) {
+  crtEnabled.value = value;
+  if (value) crtWarmup.value?.play();
 }
 
 function setVersion(value: "v1" | "v2") {
@@ -161,6 +172,16 @@ function onVirtualCollectionTypeChange(value: unknown) {
           <RIcon :icon="opt.icon" size="14" />
           <span>{{ opt.label }}</span>
         </button>
+      </div>
+      <div
+        class="r-v2-ui__toggle-grid r-v2-ui__toggle-grid--single r-v2-ui__toggle-grid--bordered"
+      >
+        <SettingsToggleRow
+          :model-value="crtEnabled"
+          :title="t('common.crt-mode')"
+          :description="t('settings.crt-mode-desc')"
+          @update:model-value="onCrtToggle"
+        />
       </div>
     </SettingsSection>
 
@@ -366,6 +387,10 @@ function onVirtualCollectionTypeChange(value: unknown) {
         </div>
       </div>
     </SettingsSection>
+
+    <!-- One-shot CRT power-on flash, fired when CRT mode is switched on
+         from the Theme section above. -->
+    <CrtWarmup ref="crtWarmup" />
   </div>
 </template>
 
@@ -400,6 +425,11 @@ function onVirtualCollectionTypeChange(value: unknown) {
 
 .r-v2-ui__toggle-grid--single {
   grid-template-columns: 1fr;
+}
+/* Separate a toggle grid from the control row above it (e.g. the CRT
+   toggle sitting under the theme picker) with a hairline divider. */
+.r-v2-ui__toggle-grid--bordered {
+  border-top: 1px solid var(--r-color-border);
 }
 html[data-bp~="xs"] .r-v2-ui__toggle-grid {
   grid-template-columns: 1fr;

@@ -55,6 +55,7 @@
   "couldnt-fetch-missing-roms": "Nelze načíst chybějící ROM: {error}",
   "deferred": "Odloženo",
   "deleting-mapping": "Mazání",
+  "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "disable-animations": "Zakázat animace",
   "disable-animations-desc": "Zakáže všechny animace v galerii (otáčení CD, vkládání cartridge, hover videa)",
   "edit-user": "Upravit uživatele",

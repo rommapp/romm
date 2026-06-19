@@ -62,6 +62,9 @@
   --r-color-overlay-emphasis-fg: #111117;
   --r-color-canvas-bg: #000000;
   --r-color-canvas-bg-deep: #0d1117;
+  --r-color-crt-glow: #7dffb4;
+  --r-color-crt-ghost-warm: #ff3b5c;
+  --r-color-crt-ghost-cool: #3bd9ff;
   --r-font-family-sans:
     "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, "Inter", Roboto,
     sans-serif;

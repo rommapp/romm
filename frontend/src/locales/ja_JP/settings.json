@@ -46,6 +46,7 @@
   "couldnt-fetch-missing-roms": "不足しているROMを取得できませんでした: {error}",
   "deferred": "延期済み",
   "deleting-mapping": "削除中",
+  "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "disable-animations": "アニメーションを無効化",
   "disable-animations-desc": "ギャラリー内のすべてのアニメーションを無効化（CD回転、カートリッジ読み込み、ホバービデオ）",
   "edit-user": "ユーザーを編集",

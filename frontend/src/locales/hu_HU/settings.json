@@ -46,6 +46,7 @@
   "couldnt-fetch-missing-roms": "A hiányzó ROM-ok lekérése sikertelen: {error}",
   "deferred": "Hivatkozás megszüntetve",
   "deleting-mapping": "Törlés",
+  "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "disable-animations": "Animációk letiltása",
   "disable-animations-desc": "Kapcsolja ki az összes animációt a galériában (CD forgatás, kazetta betöltés, lebegő videók)",
   "edit-user": "Felhasználó szerkesztése",
