@@ -6,11 +6,11 @@
 // wherever the cached state allows — the card just explains the degraded
 // state and the connection layer auto-recovers.
 //
-// Calling `useServerConnection()` here in setup both gives us the reactive
-// `isOffline` flag AND installs the app-wide poll / passive listeners /
-// recovery (idempotent). It must run in a setup context so the composable's
-// `inject("emitter")` resolves — this component is mounted once, under
-// `v-if="isV2"` in RomM.vue, so it covers both the auth and main shells.
+// Calling `useServerConnection()` here in <script setup> both gives us the
+// reactive `isOffline` flag AND triggers the one-time install of the app-wide
+// poll / passive DOM-event listeners / recovery watcher (idempotent). This
+// component is mounted once, under `v-if="isV2"` in RomM.vue, so it covers both
+// the auth and main shells.
 import { RBtn, RIcon } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import { useServerConnection } from "@/v2/composables/useServerConnection";

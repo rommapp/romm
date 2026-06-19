@@ -82,12 +82,19 @@ export default defineStore("heartbeat", {
         this.connected = true;
         return this.value;
       } catch (error) {
-        console.error("Error fetching heartbeat: ", error);
         // 5xx or no response (network/timeout) → backend is down/broken.
         // 4xx → backend is alive (auth/validation), so still "connected".
         const status = (error as { response?: { status?: number } }).response
           ?.status;
-        this.connected = status !== undefined && status < 500;
+        const nowConnected = status !== undefined && status < 500;
+        // Log only a genuine breakage, and only on the connected→disconnected
+        // transition: this heartbeat polls every few seconds while offline, so
+        // logging every failure would bury actionable errors. A 4xx is a
+        // healthy backend, not an error worth reporting here.
+        if (!nowConnected && this.connected) {
+          console.error("Error fetching heartbeat: ", error);
+        }
+        this.connected = nowConnected;
         return this.value;
       }
     },

@@ -67,13 +67,29 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
+    // Mirror the success path's bookkeeping: a settled request — even a failed
+    // or canceled one — leaves the inflight set so `network-quiesced` can still
+    // fire once the network goes quiet.
+    inflightRequests.delete(error.config?.url);
+    if (inflightRequests.size === 0) {
+      networkQuiesced();
+    }
+
+    // Canceled requests (AbortController / `signal`) are routine here (gallery /
+    // search aborts). They surface as a response-less error but are not a
+    // network failure, so they must never flip the connection state.
+    if (axios.isCancel(error)) {
+      return Promise.reject(error);
+    }
+
     // Reachability signalling (see useServerConnection):
     //   * no response (ERR_NETWORK / timeout) → definitively offline.
     //   * 5xx from a non-heartbeat endpoint → "suspect"; ask the connection
     //     layer to confirm via the authoritative /heartbeat probe (so one
     //     buggy endpoint doesn't flash the banner, and the heartbeat request
     //     itself never re-triggers this — which would loop).
-    //   * 4xx → backend is alive; leave the state alone.
+    //   * 4xx → backend is alive; emit backend-online so a stale offline banner
+    //     clears immediately instead of waiting for the next heartbeat poll.
     const status = error.response?.status as number | undefined;
     const url: string = error.config?.url ?? "";
     if (!error.response) {
@@ -84,6 +100,8 @@ api.interceptors.response.use(
       !url.includes("heartbeat")
     ) {
       document.dispatchEvent(new CustomEvent("backend-suspect"));
+    } else if (status !== undefined && status >= 400 && status < 500) {
+      document.dispatchEvent(new CustomEvent("backend-online"));
     }
 
     if (error.response?.status === 403) {
