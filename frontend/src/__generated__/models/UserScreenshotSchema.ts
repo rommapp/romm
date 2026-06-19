@@ -24,5 +24,7 @@ export type UserScreenshotSchema = {
     is_gallery?: boolean;
     is_public?: boolean;
     username: string;
+    user_avatar_path?: string;
+    user_updated_at?: (string | null);
 };
 

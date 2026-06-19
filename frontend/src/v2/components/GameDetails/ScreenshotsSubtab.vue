@@ -112,6 +112,8 @@ const communityScreenshots = computed<ScreenshotItem[]>(() =>
       isOwn: false,
       isPublic: true,
       username: s.username,
+      userAvatarPath: s.user_avatar_path,
+      userUpdatedAt: s.user_updated_at,
     })),
 );
 

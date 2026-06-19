@@ -100,8 +100,10 @@ async def create_rom_note(
         tags=note_data.get("tags", []),
     )
 
-    # Add username to the note data
+    # Add author identity to the note data
     note["username"] = request.user.username
+    note["user_avatar_path"] = request.user.avatar_path
+    note["user_updated_at"] = request.user.updated_at
     return UserNoteSchema.model_validate(note)
 
 
@@ -133,8 +135,10 @@ async def update_rom_note(
             status_code=404, detail="Note not found or not owned by user"
         )
 
-    # Add username to the note data
+    # Add author identity to the note data
     note["username"] = request.user.username
+    note["user_avatar_path"] = request.user.avatar_path
+    note["user_updated_at"] = request.user.updated_at
     return UserNoteSchema.model_validate(note)
 
 

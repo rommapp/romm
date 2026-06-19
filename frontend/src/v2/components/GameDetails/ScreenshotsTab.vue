@@ -11,6 +11,7 @@
 import { RAvatar, RBtn, RCarousel, RIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -23,6 +24,8 @@ export type ScreenshotItem = {
   isOwn?: boolean;
   isPublic?: boolean;
   username?: string;
+  userAvatarPath?: string | null;
+  userUpdatedAt?: string | null;
 };
 
 const props = defineProps<{
@@ -83,7 +86,10 @@ function canToggle(shot: ScreenshotItem): boolean {
 
       <!-- Owner chip for community (others' public) screenshots -->
       <div v-if="shot.username" class="r-v2-det-shots__owner">
-        <RAvatar icon="mdi-account" size="16" />
+        <RAvatar
+          :image="userAvatarUrl(shot.userAvatarPath, shot.userUpdatedAt)"
+          size="16"
+        />
         <span>{{ shot.username }}</span>
       </div>
 
