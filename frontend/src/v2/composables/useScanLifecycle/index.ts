@@ -12,8 +12,9 @@
 //                                a 100ms debounce window so a thousand
 //                                rapid-fire updates don't tank rendering.
 //   * `scan:update_stats`      — periodic progress; keep `scanStats` fresh.
-//   * `scan:done`              — scan finished; persist the final stats then
-//                                flip `scanning` off so the indicator hides.
+//   * `scan:done`              — scan finished; persist the final stats,
+//                                flip `scanning` off so the indicator hides,
+//                                then refetch platforms to reconcile counts.
 //   * `scan:done_ko`           — scan errored; surface the message as a
 //                                snackbar and flip `scanning` off.
 //
@@ -24,6 +25,8 @@ import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
 import type { ScanStats } from "@/__generated__";
+import platformApi from "@/services/api/platform";
+import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning, { type ScanningPlatform } from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
@@ -32,6 +35,7 @@ import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 export function installScanLifecycle() {
   const scanningStore = storeScanning();
   const romsStore = storeRoms();
+  const platformsStore = storePlatforms();
   const emitter = inject<Emitter<Events>>("emitter");
 
   useSocketEvent<ScanningPlatform>(
@@ -63,6 +67,19 @@ export function installScanLifecycle() {
         firmware_count,
         is_identified,
       });
+
+      // Surface brand-new platforms in the canonical platforms store the
+      // moment the scan reaches them — previously they only appeared after
+      // a manual page refresh. The socket payload is a partial (8 fields),
+      // so fetch the full PlatformSchema before adding it to the store.
+      if (!platformsStore.has(id)) {
+        platformApi
+          .getPlatform(id)
+          .then(({ data }) => {
+            if (!platformsStore.has(data.id)) platformsStore.add(data);
+          })
+          .catch((error) => console.error(error));
+      }
     },
   );
 
@@ -117,6 +134,11 @@ export function installScanLifecycle() {
       } else {
         // Newest ROM first, same as platforms — most recent stays on top.
         scannedPlatform.roms.unshift(rom);
+        // Keep the canonical platforms store's count live for genuinely new
+        // ROMs: the gallery/nav getters gate on `rom_count > 0`, so this is
+        // what makes a freshly-scanned platform actually render mid-scan.
+        const storePlatform = platformsStore.get(rom.platform_id);
+        if (storePlatform) storePlatform.rom_count += 1;
       }
     });
   }, 100);
@@ -134,6 +156,9 @@ export function installScanLifecycle() {
   useSocketEvent<ScanStats>("scan:done", (stats) => {
     scanningStore.setScanStats(stats);
     scanningStore.setScanning(false);
+    // Reconcile against the backend once the scan settles: pick up anything
+    // the live updates missed and correct rom_counts that drifted.
+    void platformsStore.fetchPlatforms();
     emitter?.emit("snackbarShow", {
       msg: "Scan completed successfully.",
       color: "success",
