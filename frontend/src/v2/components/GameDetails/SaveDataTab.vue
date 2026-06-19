@@ -9,7 +9,7 @@
 // URL-persistent subtab selection via `?subtab=` so deep-linking
 // into a specific list works and stale state doesn't leak when the
 // user navigates to a sibling tab.
-import { RBtn, RCollapsible, REmptyState, RIcon } from "@v2/lib";
+import { RBtn, RCollapsible, RDropzone, RIcon } from "@v2/lib";
 import axios from "axios";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -92,8 +92,11 @@ function hasSubtabActions(id: Subtab): boolean {
 }
 
 // ---------- Upload / refresh plumbing ----------
-const saveUploadInput = ref<HTMLInputElement | null>(null);
-const stateUploadInput = ref<HTMLInputElement | null>(null);
+// Overlay-mode dropzone refs so the action-panel "Upload" buttons can open
+// the native picker via `.open()`; the empty-state CTA dropzones are
+// self-contained (click-to-browse + drag-and-drop).
+const saveDz = ref<InstanceType<typeof RDropzone> | null>(null);
+const stateDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const uploadingSaves = ref(false);
 const uploadingStates = ref(false);
 
@@ -120,17 +123,7 @@ async function refreshRom() {
   }
 }
 
-function triggerSaveUpload() {
-  saveUploadInput.value?.click();
-}
-function triggerStateUpload() {
-  stateUploadInput.value?.click();
-}
-
-async function onSaveUpload(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const files = input.files ? Array.from(input.files) : [];
-  input.value = "";
+async function onSaveUpload(files: File[]) {
   if (files.length === 0 || uploadingSaves.value) return;
 
   uploadingSaves.value = true;
@@ -164,10 +157,7 @@ async function onSaveUpload(event: Event) {
   }
 }
 
-async function onStateUpload(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const files = input.files ? Array.from(input.files) : [];
-  input.value = "";
+async function onStateUpload(files: File[]) {
   if (files.length === 0 || uploadingStates.value) return;
 
   uploadingStates.value = true;
@@ -259,24 +249,6 @@ function fmtDate(iso: string | null) {
 </script>
 
 <template>
-  <!-- Hidden file inputs drive the Upload buttons (mirroring MediaTab) -->
-  <input
-    ref="saveUploadInput"
-    type="file"
-    multiple
-    class="r-v2-saves__file-input"
-    :aria-label="t('rom.upload-saves')"
-    @change="onSaveUpload"
-  />
-  <input
-    ref="stateUploadInput"
-    type="file"
-    multiple
-    class="r-v2-saves__file-input"
-    :aria-label="t('rom.upload-states')"
-    @change="onStateUpload"
-  />
-
   <div class="r-v2-saves">
     <aside class="r-v2-saves__sidebar">
       <ul
@@ -323,7 +295,7 @@ function fmtDate(iso: string | null) {
                   block
                   :loading="uploadingSaves"
                   :disabled="uploadingSaves"
-                  @click="triggerSaveUpload"
+                  @click="saveDz?.open()"
                 >
                   {{ t("common.upload") }}
                 </RBtn>
@@ -335,7 +307,7 @@ function fmtDate(iso: string | null) {
                   block
                   :loading="uploadingStates"
                   :disabled="uploadingStates"
-                  @click="triggerStateUpload"
+                  @click="stateDz?.open()"
                 >
                   {{ t("common.upload") }}
                 </RBtn>
@@ -349,118 +321,128 @@ function fmtDate(iso: string | null) {
     <div class="r-v2-saves__content">
       <!-- Saves subtab -->
       <section v-show="subTab === 'saves'" class="r-v2-saves__panel">
-        <REmptyState
+        <RDropzone
           v-if="saves.length === 0"
-          icon="mdi-content-save-outline"
           :title="t('rom.saves-empty')"
-          :hint="t('rom.saves-empty-hint')"
-        >
-          <template #actions>
-            <RBtn
-              color="primary"
-              prepend-icon="mdi-cloud-upload-outline"
-              :loading="uploadingSaves"
-              :disabled="uploadingSaves"
-              @click="triggerSaveUpload"
-            >
-              {{ t("rom.upload-saves") }}
-            </RBtn>
-          </template>
-        </REmptyState>
+          :hint="t('common.dropzone-hint')"
+          :active-title="t('common.dropzone-drag-over')"
+          :input-label="t('rom.upload-saves')"
+          :disabled="uploadingSaves"
+          multiple
+          @files="onSaveUpload"
+        />
 
-        <ul v-else class="r-v2-saves__list">
-          <li v-for="s in saves" :key="s.id" class="r-v2-saves__row">
-            <div class="r-v2-saves__row-main">
-              <div class="r-v2-saves__row-name">{{ s.file_name }}</div>
-              <div class="r-v2-saves__row-meta">
-                <span>{{ formatBytes(s.file_size_bytes) }}</span>
-                <span class="r-v2-saves__sep">·</span>
-                <span>{{ fmtDate(s.updated_at) }}</span>
-                <template v-if="s.emulator">
+        <RDropzone
+          v-else
+          ref="saveDz"
+          overlay
+          :release-label="t('common.dropzone-drag-over')"
+          :input-label="t('rom.upload-saves')"
+          :disabled="uploadingSaves"
+          multiple
+          @files="onSaveUpload"
+        >
+          <ul class="r-v2-saves__list">
+            <li v-for="s in saves" :key="s.id" class="r-v2-saves__row">
+              <div class="r-v2-saves__row-main">
+                <div class="r-v2-saves__row-name">
+                  {{ s.file_name }}
+                </div>
+                <div class="r-v2-saves__row-meta">
+                  <span>{{ formatBytes(s.file_size_bytes) }}</span>
                   <span class="r-v2-saves__sep">·</span>
-                  <span>{{ s.emulator }}</span>
-                </template>
+                  <span>{{ fmtDate(s.updated_at) }}</span>
+                  <template v-if="s.emulator">
+                    <span class="r-v2-saves__sep">·</span>
+                    <span>{{ s.emulator }}</span>
+                  </template>
+                </div>
               </div>
-            </div>
-            <div class="r-v2-saves__row-actions">
-              <RBtn
-                icon="mdi-download-outline"
-                variant="text"
-                size="small"
-                :tooltip="t('common.download')"
-                :aria-label="t('rom.download-named', { name: s.file_name })"
-                @click="downloadAsset(s)"
-              />
-              <RBtn
-                icon="mdi-delete-outline"
-                variant="text"
-                size="small"
-                color="romm-red"
-                :tooltip="t('common.delete')"
-                :aria-label="t('rom.delete-save')"
-                @click="deleteSave(s)"
-              />
-            </div>
-          </li>
-        </ul>
+              <div class="r-v2-saves__row-actions">
+                <RBtn
+                  icon="mdi-download-outline"
+                  variant="text"
+                  size="small"
+                  :tooltip="t('common.download')"
+                  :aria-label="t('rom.download-named', { name: s.file_name })"
+                  @click="downloadAsset(s)"
+                />
+                <RBtn
+                  icon="mdi-delete-outline"
+                  variant="text"
+                  size="small"
+                  color="romm-red"
+                  :tooltip="t('common.delete')"
+                  :aria-label="t('rom.delete-save')"
+                  @click="deleteSave(s)"
+                />
+              </div>
+            </li>
+          </ul>
+        </RDropzone>
       </section>
 
       <!-- States subtab -->
       <section v-show="subTab === 'states'" class="r-v2-saves__panel">
-        <REmptyState
+        <RDropzone
           v-if="states.length === 0"
-          icon="mdi-camera-outline"
           :title="t('rom.states-empty')"
-          :hint="t('rom.states-empty-hint')"
-        >
-          <template #actions>
-            <RBtn
-              color="primary"
-              prepend-icon="mdi-cloud-upload-outline"
-              :loading="uploadingStates"
-              :disabled="uploadingStates"
-              @click="triggerStateUpload"
-            >
-              {{ t("rom.upload-states") }}
-            </RBtn>
-          </template>
-        </REmptyState>
+          :hint="t('common.dropzone-hint')"
+          :active-title="t('common.dropzone-drag-over')"
+          :input-label="t('rom.upload-states')"
+          :disabled="uploadingStates"
+          multiple
+          @files="onStateUpload"
+        />
 
-        <ul v-else class="r-v2-saves__list">
-          <li v-for="s in states" :key="s.id" class="r-v2-saves__row">
-            <div class="r-v2-saves__row-main">
-              <div class="r-v2-saves__row-name">{{ s.file_name }}</div>
-              <div class="r-v2-saves__row-meta">
-                <span>{{ formatBytes(s.file_size_bytes) }}</span>
-                <span class="r-v2-saves__sep">·</span>
-                <span>{{ fmtDate(s.updated_at) }}</span>
-                <template v-if="s.emulator">
+        <RDropzone
+          v-else
+          ref="stateDz"
+          overlay
+          :release-label="t('common.dropzone-drag-over')"
+          :input-label="t('rom.upload-states')"
+          :disabled="uploadingStates"
+          multiple
+          @files="onStateUpload"
+        >
+          <ul class="r-v2-saves__list">
+            <li v-for="s in states" :key="s.id" class="r-v2-saves__row">
+              <div class="r-v2-saves__row-main">
+                <div class="r-v2-saves__row-name">
+                  {{ s.file_name }}
+                </div>
+                <div class="r-v2-saves__row-meta">
+                  <span>{{ formatBytes(s.file_size_bytes) }}</span>
                   <span class="r-v2-saves__sep">·</span>
-                  <span>{{ s.emulator }}</span>
-                </template>
+                  <span>{{ fmtDate(s.updated_at) }}</span>
+                  <template v-if="s.emulator">
+                    <span class="r-v2-saves__sep">·</span>
+                    <span>{{ s.emulator }}</span>
+                  </template>
+                </div>
               </div>
-            </div>
-            <div class="r-v2-saves__row-actions">
-              <RBtn
-                icon="mdi-download-outline"
-                variant="text"
-                size="small"
-                :tooltip="t('common.download')"
-                :aria-label="t('rom.download-named', { name: s.file_name })"
-                @click="downloadAsset(s)"
-              />
-              <RBtn
-                icon="mdi-delete-outline"
-                variant="text"
-                size="small"
-                color="romm-red"
-                :tooltip="t('common.delete')"
-                :aria-label="t('rom.delete-state')"
-                @click="deleteState(s)"
-              />
-            </div>
-          </li>
-        </ul>
+              <div class="r-v2-saves__row-actions">
+                <RBtn
+                  icon="mdi-download-outline"
+                  variant="text"
+                  size="small"
+                  :tooltip="t('common.download')"
+                  :aria-label="t('rom.download-named', { name: s.file_name })"
+                  @click="downloadAsset(s)"
+                />
+                <RBtn
+                  icon="mdi-delete-outline"
+                  variant="text"
+                  size="small"
+                  color="romm-red"
+                  :tooltip="t('common.delete')"
+                  :aria-label="t('rom.delete-state')"
+                  @click="deleteState(s)"
+                />
+              </div>
+            </li>
+          </ul>
+        </RDropzone>
       </section>
     </div>
   </div>
@@ -558,10 +540,6 @@ function fmtDate(iso: string | null) {
   display: flex;
   flex-direction: column;
   min-height: 0;
-}
-
-.r-v2-saves__file-input {
-  display: none;
 }
 
 .r-v2-saves__panel {
