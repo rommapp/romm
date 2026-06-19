@@ -1,12 +1,15 @@
 """Tests for SSRF defense: URL validator + httpcore network backends."""
 
 import asyncio
+import ipaddress
 import socket
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import httpcore
 import pytest
+from hypothesis import assume, given
+from hypothesis import strategies as st
 
 from utils.ssrf import (
     SSRFProtectedAsyncBackend,
@@ -65,16 +68,12 @@ class TestIsForbiddenIp:
         ],
     )
     def test_forbidden(self, ip):
-        import ipaddress
-
         assert is_forbidden_ip(ipaddress.ip_address(ip)) is True
 
     @pytest.mark.parametrize(
         "ip", ["8.8.8.8", "1.1.1.1", "93.184.216.34", "2001:4860:4860::8888"]
     )
     def test_allowed(self, ip):
-        import ipaddress
-
         assert is_forbidden_ip(ipaddress.ip_address(ip)) is False
 
 
@@ -464,3 +463,53 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://", "test_url")
         assert "missing hostname" in exc_info.value.message
+
+
+_LOWER_ALNUM = "abcdefghijklmnopqrstuvwxyz0123456789"
+_LOWER = "abcdefghijklmnopqrstuvwxyz"
+
+
+class TestValidateUrlProperties:
+    """Property-based tests for the SSRF-prevention URL validator."""
+
+    @given(st.ip_addresses(v=4))
+    def test_globally_routable_ipv4_is_allowed(self, ip):
+        # is_global already excludes private/loopback/link-local/reserved.
+        assume(ip.is_global and not ip.is_multicast)
+        # Should not raise.
+        validate_url_for_http_request(f"http://{ip}/path")
+
+    @given(st.ip_addresses(v=4))
+    def test_internal_ipv4_is_always_blocked(self, ip):
+        assume(ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast)
+        with pytest.raises(ValidationError):
+            validate_url_for_http_request(f"http://{ip}/")
+
+    @given(st.ip_addresses(v=6))
+    def test_internal_ipv6_is_always_blocked(self, ip):
+        assume(ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast)
+        with pytest.raises(ValidationError):
+            validate_url_for_http_request(f"http://[{ip}]/")
+
+    @given(st.text(alphabet=_LOWER, min_size=1, max_size=10))
+    def test_non_http_scheme_is_always_blocked(self, scheme):
+        assume(scheme not in ("http", "https"))
+        with pytest.raises(ValidationError):
+            validate_url_for_http_request(f"{scheme}://example.com/")
+
+    @given(
+        st.text(alphabet=_LOWER_ALNUM, min_size=1, max_size=20),
+        st.sampled_from([".local", ".internal", ".localhost"]),
+    )
+    def test_internal_tld_is_always_blocked(self, label, tld):
+        with pytest.raises(ValidationError):
+            validate_url_for_http_request(f"http://{label}{tld}/")
+
+    @given(st.text())
+    def test_never_raises_unexpected_exception(self, url):
+        # The validator must only ever signal failure via ValidationError,
+        # never leak a parsing/socket error to the caller.
+        try:
+            assert validate_url_for_http_request(url) is None
+        except ValidationError:
+            pass
