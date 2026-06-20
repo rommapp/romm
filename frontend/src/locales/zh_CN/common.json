@@ -152,5 +152,6 @@
   "changelog-view-all": "在 GitHub 上查看所有发行版",
   "visibility": "可见性",
   "server-offline-retrying": "Server connection lost · retrying…",
-  "server-reconnected": "Reconnected to the server"
+  "server-reconnected": "Reconnected to the server",
+  "logs": "Logs"
 }
