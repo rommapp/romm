@@ -12,7 +12,6 @@ Pieces:
 
 import asyncio
 import uuid
-from http.cookies import SimpleCookie
 from typing import Any, Final
 
 import socketio  # type: ignore
@@ -25,44 +24,11 @@ from logger.log_stream_handler import LOG_BUFFER_KEY, LOG_CHANNEL
 from logger.logger import log
 from models.user import Role
 from utils import json_module
+from utils.auth import get_session_from_environ
 
 ADMIN_ROOM: Final = "admin"
 FORWARDER_LOCK_KEY: Final = "romm:logs:forwarder"
 FORWARDER_LOCK_TTL: Final = 30  # seconds
-# Session cookie name configured on RedisSessionMiddleware in main.py.
-SESSION_COOKIE_NAME: Final = "romm_session"
-
-
-async def _session_from_environ(environ: dict[str, Any]) -> dict[str, Any]:
-    """Resolve the auth session for a socket handshake.
-
-    Tries the session the middleware attached to the ASGI scope first; if it's
-    absent (scope not propagated to the mounted socket app), falls back to
-    parsing the session cookie and reading the session straight from Redis —
-    the same lookup RedisSessionMiddleware performs.
-    """
-    scope = environ.get("asgi.scope", {})
-    session = scope.get("session")
-    if session:
-        return session
-
-    raw_cookie = environ.get("HTTP_COOKIE", "")
-    if not raw_cookie:
-        return {}
-
-    cookie: SimpleCookie = SimpleCookie()
-    cookie.load(raw_cookie)
-    morsel = cookie.get(SESSION_COOKIE_NAME)
-    if morsel is None:
-        return {}
-
-    session_data = await async_cache.get(f"session:{morsel.value}")
-    if not session_data:
-        return {}
-    try:
-        return json_module.loads(session_data)
-    except Exception:  # noqa: BLE001 - malformed session is "no session"
-        return {}
 
 
 @socket_handler.socket_server.on("connect")  # type: ignore
@@ -73,7 +39,7 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     is gated, so the existing scan/sync sockets keep working for everyone.
     """
     try:
-        session = await _session_from_environ(environ)
+        session = await get_session_from_environ(environ)
         if session.get("iss") != "romm:auth":
             return
 

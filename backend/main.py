@@ -49,6 +49,7 @@ from endpoints.stats import router as stats_router
 from endpoints.sync import router as sync_router
 from endpoints.tasks import router as tasks_router
 from endpoints.user import router as user_router
+from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
@@ -134,7 +135,7 @@ app.add_middleware(
 # Enables support for sessions on requests
 app.add_middleware(
     RedisSessionMiddleware,
-    session_cookie="romm_session",
+    session_cookie=SESSION_COOKIE_NAME,
     same_site="lax" if OIDC_ENABLED else "strict",
     https_only=False,
 )

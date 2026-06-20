@@ -19,8 +19,8 @@ def test_get_logs_requires_auth(client):
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
-def test_get_logs_forbidden_without_users_write(client, viewer_access_token):
-    # Viewers lack the `users.write` (admin) scope the endpoint requires.
+def test_get_logs_forbidden_without_logs_read(client, viewer_access_token):
+    # Viewers lack the `logs.read` (admin-only) scope the endpoint requires.
     response = client.get("/api/logs", headers=_auth(viewer_access_token))
     assert response.status_code == status.HTTP_403_FORBIDDEN
 

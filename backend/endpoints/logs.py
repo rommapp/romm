@@ -17,7 +17,7 @@ router = APIRouter(
 MAX_LOG_LIMIT = LOG_BUFFER_SIZE
 
 
-@protected_route(router.get, "", [Scope.USERS_WRITE])
+@protected_route(router.get, "", [Scope.LOGS_READ])
 async def get_logs(
     request: Request, limit: int = MAX_LOG_LIMIT
 ) -> list[LogEntrySchema]:
