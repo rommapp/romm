@@ -16,7 +16,7 @@ from typing import TypedDict
 
 from endpoints.responses.activity import ActivityClearSchema
 from handler.activity_handler import ActivityEntry, activity_handler
-from handler.database import db_rom_handler, db_user_handler
+from handler.database import db_device_handler, db_rom_handler, db_user_handler
 from handler.socket_handler import socket_handler
 from logger.logger import log
 
@@ -66,12 +66,11 @@ async def _build_entry(
         if existing:
             started_at = existing["started_at"]
 
-    # Infer device_type: web is the default for browser-emitted events.
-    device_type = "web"
-    if device_id != "web":
-        # The browser may pass its device_id (a UUID) - we still treat it as "web"
-        # because Socket.IO events are only emitted from browser clients.
-        device_type = "web"
+    # Resolve the device type from the device record rather than assuming it.
+    # The device_id may reference a registered device (with its own client
+    # type); fall back to "web" — the browser default — when none is found.
+    device = db_device_handler.get_device(device_id=device_id, user_id=user_id)
+    device_type = (device.client if device else None) or "web"
 
     return ActivityEntry(
         user_id=user.id,
