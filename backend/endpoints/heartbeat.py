@@ -30,6 +30,7 @@ from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
+from handler.filesystem.base_handler import LibraryStructure
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_gamelist_handler,
@@ -159,6 +160,8 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_launchbox_handler.heartbeat()
         case MetadataSource.HASHEOUS:
             return await meta_hasheous_handler.heartbeat()
+        case MetadataSource.PLAYMATCH:
+            return await meta_playmatch_handler.heartbeat()
         case MetadataSource.TGDB:
             return await meta_tgdb_handler.heartbeat()
         case MetadataSource.SGDB:
@@ -224,7 +227,7 @@ async def get_setup_library_info(request: Request):
             rom_count = 0
             try:
                 # Determine the roms directory based on structure
-                if detected_structure == "struct_a":
+                if detected_structure == LibraryStructure.A:
                     roms_path = os.path.join(
                         LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME, fs_slug
                     )

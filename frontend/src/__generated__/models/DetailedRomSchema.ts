@@ -21,6 +21,7 @@ import type { SiblingRomSchema } from './SiblingRomSchema';
 import type { StateSchema } from './StateSchema';
 import type { UserCollectionSchema } from './UserCollectionSchema';
 import type { UserNoteSchema } from './UserNoteSchema';
+import type { UserScreenshotSchema } from './UserScreenshotSchema';
 export type DetailedRomSchema = {
     id: number;
     igdb_id: (number | null);
@@ -47,6 +48,7 @@ export type DetailedRomSchema = {
     fs_path: string;
     fs_size_bytes: number;
     name: (string | null);
+    name_sort_key: (string | null);
     slug: (string | null);
     summary: (string | null);
     alternative_names: Array<string>;
@@ -65,6 +67,8 @@ export type DetailedRomSchema = {
     path_cover_large: (string | null);
     url_cover: (string | null);
     has_manual: boolean;
+    has_manual_files: boolean;
+    has_soundtrack: boolean;
     path_manual: (string | null);
     url_manual: (string | null);
     path_video: (string | null);
@@ -82,19 +86,20 @@ export type DetailedRomSchema = {
     has_simple_single_file: boolean;
     has_nested_single_file: boolean;
     has_multiple_files: boolean;
-    files: Array<RomFileSchema>;
     full_path: string;
     created_at: string;
     updated_at: string;
     missing_from_fs: boolean;
     has_notes: boolean;
-    siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);
+    files: Array<RomFileSchema>;
+    sibling_roms: Array<SiblingRomSchema>;
     user_saves: Array<SaveSchema>;
     user_states: Array<StateSchema>;
     user_screenshots: Array<ScreenshotSchema>;
+    all_user_screenshots: Array<UserScreenshotSchema>;
     user_collections: Array<UserCollectionSchema>;
     all_user_notes: Array<UserNoteSchema>;
 };

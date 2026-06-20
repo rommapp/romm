@@ -5,6 +5,7 @@ import {
   computed,
   onMounted,
   onBeforeUnmount,
+  onUnmounted,
   ref,
   watch,
   nextTick,
@@ -25,6 +26,7 @@ import playSessionApi from "@/services/api/play-session";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeLanguage from "@/stores/language";
 import type { DetailedRom } from "@/stores/roms";
 import {
@@ -34,6 +36,7 @@ import {
   getDownloadPath,
 } from "@/utils";
 import { buildFormInput } from "@/utils/formData";
+import { invalidateEmulatorJSRomCacheIfRenamed } from "@/views/Player/EmulatorJS/utils";
 
 const { t } = useI18n();
 const createPlayerStorage = (romId: number, platformSlug: string) => ({
@@ -58,6 +61,7 @@ const router = useRouter();
 const { getBezelImagePath } = useThemeAssets();
 const authStore = storeAuth();
 const configStore = storeConfig();
+const heartbeatStore = storeHeartbeat();
 const languageStore = storeLanguage();
 const { selectedLanguage } = storeToRefs(languageStore);
 const romId = Number(route.params.rom);
@@ -74,6 +78,10 @@ const loaderError = ref("");
 const loaderStatus = ref<
   "idle" | "loading-local" | "loading-cdn" | "loaded" | "failed"
 >("idle");
+
+function onBezelLoadError() {
+  bezelSrc.value = "";
+}
 
 const exitOptions = computed(() => [
   {
@@ -397,7 +405,10 @@ async function boot() {
     rom.ss_metadata?.bezel_path || getBezelImagePath(rom.platform_slug).value;
 
   // Configure EmulatorJS globals
-  const supported = getSupportedEJSCores(rom.platform_slug);
+  const supported = getSupportedEJSCores(
+    rom.platform_slug,
+    configStore.config.EJS_NETPLAY_ENABLED,
+  );
   const core =
     playerStorage.core.value && supported.includes(playerStorage.core.value)
       ? playerStorage.core.value
@@ -408,6 +419,7 @@ async function boot() {
   window.EJS_controlScheme = getControlSchemeForPlatform(rom.platform_slug);
   window.EJS_threads = areThreadsRequiredForEJSCore(core);
   window.EJS_gameID = rom.id;
+  invalidateEmulatorJSRomCacheIfRenamed(rom);
 
   if (initialSaveId) {
     // Persist chosen save ID for later logic
@@ -418,12 +430,20 @@ async function boot() {
   }
 
   // Disc selection persistence
-  const discId = playerStorage.disc.value
+  const storedDiscId = playerStorage.disc.value
     ? parseInt(playerStorage.disc.value)
     : null;
+  const validDiscId =
+    storedDiscId && rom.files.some((f) => f.id === storedDiscId)
+      ? storedDiscId
+      : null;
+  // Clear stale disc selection from localStorage
+  if (storedDiscId && !validDiscId) {
+    playerStorage.disc.value = null;
+  }
   window.EJS_gameUrl = getDownloadPath({
     rom: rom,
-    fileIDs: discId ? [discId] : [],
+    fileIDs: validDiscId ? [validDiscId] : [],
   });
 
   // BIOS selection persistence
@@ -726,6 +746,15 @@ onMounted(async () => {
   // Guard against duplicate mounts
   if (booted) return;
 
+  if (heartbeatStore.value.EMULATION.DISABLE_EMULATOR_JS) {
+    await router.replace({
+      name: ROUTES.CONSOLE_ROM,
+      params: { rom: romId },
+      query: route.query,
+    });
+    return;
+  }
+
   booted = true;
   await boot();
   detachKey = attachKeyboardExit();
@@ -736,6 +765,11 @@ onBeforeUnmount(() => {
   window.EJS_emulator?.callEvent?.("exit");
   detachKey?.();
   detachPad?.();
+});
+
+onUnmounted(() => {
+  // Force full reload to reset COEP/COOP, so cross-origin isolation is turned off.
+  window.location.reload();
 });
 </script>
 
@@ -749,6 +783,7 @@ onBeforeUnmount(() => {
     >
       <img
         :src="bezelSrc"
+        @error="onBezelLoadError"
         alt=""
         class="select-none"
         draggable="false"

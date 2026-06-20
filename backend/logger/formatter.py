@@ -1,4 +1,5 @@
 import logging
+import re
 from pprint import pformat
 
 from colorama import Fore, Style, init
@@ -116,7 +117,14 @@ class Formatter(logging.Formatter):
         }
         log_fmt = formats.get(record.levelno)
         formatter = logging.Formatter(fmt=log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
-        return formatter.format(record)
+        output = formatter.format(record)
+
+        try:
+            from handler.metadata.base_handler import SENSITIVE_KEYS_REGEX
+
+            return SENSITIVE_KEYS_REGEX.sub(r"\1=***", output)
+        except ImportError:
+            return output  # skip redaction on the first few boot log lines
 
 
 def highlight(msg: str = "", color=YELLOW) -> str:

@@ -4,12 +4,10 @@ import storeGalleryView from "@/stores/galleryView";
 
 const props = withDefaults(
   defineProps<{
-    platformId?: number;
     aspectRatio?: number;
     type?: string;
   }>(),
   {
-    platformId: undefined,
     aspectRatio: undefined,
     type: undefined,
   },
@@ -18,8 +16,7 @@ const props = withDefaults(
 const galleryViewStore = storeGalleryView();
 
 const computedAspectRatio = computed(() => {
-  if (props.aspectRatio) return props.aspectRatio;
-  return galleryViewStore.getAspectRatio({ platformId: props.platformId });
+  return props.aspectRatio || galleryViewStore.getAspectRatio();
 });
 
 const computedType = computed(() => {

@@ -77,8 +77,8 @@ def test_platform_list_uses_ups_keys():
 
 
 def test_find_matching_art_exact_case_insensitive(handler: LibretroHandler):
-    # The match should prefer the exact case-insensitive filename — region tag
-    # included — so a PAL ROM lands on the (Europe) artwork.
+    # The match should prefer the exact case-insensitive filename (region tag
+    # included), so a PAL ROM lands on the (Europe) artwork.
     result = handler._find_matching_art(
         "Castlevania - Symphony of the Night (Europe).iso", PSX_LISTING
     )
@@ -101,7 +101,7 @@ def test_find_matching_art_ampersand_normalized(handler: LibretroHandler):
 
 
 def test_find_matching_art_fuzzy_fallback(handler: LibretroHandler):
-    # No exact match — ROM has an extra `(Rev 1)` tag that libretro doesn't
+    # No exact match, since the ROM has an extra `(Rev 1)` tag that libretro doesn't
     # index. Fuzzy fallback strips tags from both sides; the Europe variant
     # is the first tag-stripped candidate and wins.
     result = handler._find_matching_art(
@@ -289,5 +289,5 @@ def test_art_type_values():
 
 
 def test_is_enabled_always_true():
-    # No API key required — public server.
+    # No API key required; this is a public server.
     assert LibretroHandler.is_enabled() is True

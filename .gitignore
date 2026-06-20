@@ -54,6 +54,7 @@ romm_mock
 backend/romm_test/resources
 backend/romm_test/logs
 .pytest_cache
+.hypothesis
 /romm_test
 .coverage
 pytest-report.xml
@@ -61,6 +62,9 @@ coverage.xml
 
 # service worker
 frontend/dev-dist
+
+# storybook
+frontend/storybook-static
 
 # outside data
 switch_titledb.json

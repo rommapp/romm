@@ -9,8 +9,10 @@ function decodeBase64(r) {
   }
 
   try {
-    var decodedValue = atob(encodedValue);
-    r.return(200, decodedValue);
+    // Use Buffer to return raw bytes — atob() returns a JS string which r.return()
+    // would re-encode as UTF-8, corrupting any non-ASCII bytes (e.g. in filenames
+    // like "Pokémon") and causing CRC mismatches in the mod_zip manifest.
+    r.return(200, Buffer.from(encodedValue, 'base64'));
   } catch (e) {
     r.return(400, "Invalid Base64 encoding");
   }

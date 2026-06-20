@@ -30,7 +30,18 @@ class BaseAsset(BaseModel):
 
 
 class ScreenshotSchema(BaseAsset):
-    pass
+    is_gallery: bool = False
+    is_public: bool = False
+
+
+class UserScreenshotSchema(ScreenshotSchema):
+    """A gallery screenshot enriched with its owner's username, for the
+    community (My / Community) view. Mirrors UserNoteSchema."""
+
+    username: str
+    # Author identity for rendering an avatar next to community screenshots.
+    user_avatar_path: str = ""
+    user_updated_at: UTCDatetime | None = None
 
 
 class SaveSchema(BaseAsset):
@@ -38,6 +49,7 @@ class SaveSchema(BaseAsset):
     slot: str | None = None
     content_hash: str | None = None
     screenshot: ScreenshotSchema | None
+    origin_device_id: str | None = None
     device_syncs: list[DeviceSyncSchema] = []
 
     @model_validator(mode="before")

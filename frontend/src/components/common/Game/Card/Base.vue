@@ -158,10 +158,7 @@ const {
 });
 
 const computedAspectRatio = computed(() => {
-  return galleryViewStore.getAspectRatio({
-    platformId: props.rom.platform_id,
-    boxartStyle: boxartStyle.value,
-  });
+  return galleryViewStore.getAspectRatio({ boxartStyle: boxartStyle.value });
 });
 
 const fallbackCoverImage = computed(() =>
@@ -281,8 +278,7 @@ onBeforeUnmount(() => {
           <v-img
             ref="game-image-ref"
             :key="romsStore.isSimpleRom(rom) ? rom.id : rom.name"
-            :cover="!boxartStyleCover"
-            :contain="boxartStyleCover"
+            :cover="false"
             content-class="d-flex flex-column justify-space-between"
             :class="{
               pointer: pointerOnHover,
@@ -290,7 +286,6 @@ onBeforeUnmount(() => {
               transitioning: !isVideoPlaying,
             }"
             :src="largeCover || fallbackCoverImage"
-            :aspect-ratio="computedAspectRatio"
             @click="handleClick"
             @touchstart="handleTouchStart"
             @touchend="handleTouchEnd"
@@ -311,7 +306,7 @@ onBeforeUnmount(() => {
                   v-if="
                     isOuterHovering ||
                     showGameTitleAlways ||
-                    (romsStore.isSimpleRom(rom) && !rom.path_cover_large) ||
+                    (romsStore.isSimpleRom(rom) && !largeCover) ||
                     (!romsStore.isSimpleRom(rom) &&
                       !rom.igdb_url_cover &&
                       !rom.moby_url_cover &&
@@ -379,10 +374,10 @@ onBeforeUnmount(() => {
                     <v-icon>mdi-check-decagram-outline</v-icon>
                   </v-chip>
                   <v-chip
-                    v-if="rom.siblings.length > 0 && showSiblings"
+                    v-if="rom.sibling_roms.length > 0 && showSiblings"
                     class="translucent mr-1 mb-1 px-1"
                     density="compact"
-                    :title="`${rom.siblings.length} sibling(s)`"
+                    :title="`${rom.sibling_roms.length} sibling(s)`"
                   >
                     <v-icon>mdi-card-multiple-outline</v-icon>
                   </v-chip>
@@ -429,25 +424,18 @@ onBeforeUnmount(() => {
             </div>
             <template #placeholder>
               <v-img
-                :cover="!boxartStyleCover"
-                :contain="boxartStyleCover"
+                :cover="false"
                 eager
                 :src="smallCover || fallbackCoverImage"
-                :aspect-ratio="computedAspectRatio"
               >
                 <template #placeholder>
-                  <Skeleton
-                    :platform-id="rom.platform_id"
-                    :aspect-ratio="computedAspectRatio"
-                    type="image"
-                  />
+                  <Skeleton :aspect-ratio="computedAspectRatio" type="image" />
                 </template>
               </v-img>
             </template>
             <template #error>
               <v-img
-                :cover="!boxartStyleCover"
-                :contain="boxartStyleCover"
+                :cover="false"
                 eager
                 :src="fallbackCoverImage"
                 :aspect-ratio="computedAspectRatio"

@@ -172,7 +172,7 @@ async def webrtc_signal(sid: str, data: WebRTCSignalData):
         )
     else:
         if not target:
-            return  # drop message—no recipient
+            return  # drop message, no recipient
         await netplay_socket_handler.socket_server.emit(
             "webrtc-signal",
             {

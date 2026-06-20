@@ -12,5 +12,14 @@
   "reset-sent": "Link de redefinição enviado. Contate o administrador.",
   "send-reset-link": "Enviar link de redefinição",
   "setup-wizard": "Assistente de configuração",
-  "username": "Nome de usuário"
+  "username": "Nome de usuário",
+  "passwords-do-not-match": "As senhas não coincidem",
+  "login-failed": "Falha no login",
+  "unable-to-login": "Não foi possível fazer login: {error}",
+  "reset-failed": "Falha na redefinição",
+  "unable-to-reset-password": "Não foi possível redefinir a senha: {error}",
+  "reset-link-failed": "Não foi possível enviar o link de redefinição",
+  "register-success": "Usuário registrado com sucesso",
+  "register-failed": "Não foi possível registrar o usuário: {error}",
+  "avatar-save-warning": "Conta criada, mas não foi possível salvar o avatar: {error}. Você pode defini-lo mais tarde nas configurações do perfil."
 }

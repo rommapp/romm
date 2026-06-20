@@ -1,3 +1,4 @@
+import Bowser from "bowser";
 import { type SaveSchema } from "@/__generated__";
 import { type StateSchema } from "@/__generated__";
 import saveApi from "@/services/api/save";
@@ -143,6 +144,130 @@ export function loadEmulatorJSSave(save: Uint8Array) {
 
 export function loadEmulatorJSState(state: Uint8Array) {
   window.EJS_emulator.gameManager.loadState(state);
+}
+
+export function invalidateEmulatorJSRomCacheIfRenamed(rom: {
+  id: number;
+  fs_name: string;
+}) {
+  const fsNameStorageKey = `player:${rom.id}:fs_name`;
+  const previousFsName = localStorage.getItem(fsNameStorageKey);
+
+  if (previousFsName && previousFsName !== rom.fs_name) {
+    window.indexedDB.deleteDatabase("EmulatorJS-roms");
+  }
+
+  localStorage.setItem(fsNameStorageKey, rom.fs_name);
+}
+
+const IOS_FULLSCREEN_NAV_SELECTOR =
+  ".v-app-bar, .v-bottom-navigation, .v-navigation-drawer";
+const IOS_FULLSCREEN_STYLE = `
+  [data-ios-fullscreen-active] {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100svh !important;
+    z-index: 99999 !important;
+    background: #000 !important;
+  }
+  [data-ios-fullscreen-hidden] { display: none !important; }
+`;
+
+function isIOSFullscreenShimRequired() {
+  const osName = Bowser.getParser(navigator.userAgent).getOSName(true);
+  return (
+    osName === "ios" ||
+    // iPadOS 13+ reports as macOS with touch support, so fall back to that check.
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+export function installIOSFullscreenShim() {
+  if (!isIOSFullscreenShimRequired()) {
+    return () => {};
+  }
+
+  const proto = HTMLElement.prototype;
+  const overrides: Array<{
+    target: object;
+    key: PropertyKey;
+    prev?: PropertyDescriptor;
+  }> = [];
+  const override = (
+    target: object,
+    key: PropertyKey,
+    descriptor: PropertyDescriptor,
+  ) => {
+    overrides.push({
+      target,
+      key,
+      prev: Object.getOwnPropertyDescriptor(target, key),
+    });
+    Object.defineProperty(target, key, { configurable: true, ...descriptor });
+  };
+
+  const styleEl = document.createElement("style");
+  styleEl.textContent = IOS_FULLSCREEN_STYLE;
+  document.head.appendChild(styleEl);
+
+  let fullscreenElement: HTMLElement | null = null;
+
+  const dispatchChange = (target: HTMLElement) => {
+    document.dispatchEvent(new Event("fullscreenchange"));
+    target.dispatchEvent(new Event("fullscreenchange"));
+  };
+
+  const enter = (el: HTMLElement) => {
+    if (fullscreenElement === el) return Promise.resolve();
+    if (fullscreenElement) void exit();
+
+    el.setAttribute("data-ios-fullscreen-active", "");
+    document
+      .querySelectorAll<HTMLElement>(IOS_FULLSCREEN_NAV_SELECTOR)
+      .forEach((nav) => nav.setAttribute("data-ios-fullscreen-hidden", ""));
+    fullscreenElement = el;
+    dispatchChange(el);
+    return Promise.resolve();
+  };
+
+  const exit = () => {
+    const el = fullscreenElement;
+    if (!el) return Promise.resolve();
+    el.removeAttribute("data-ios-fullscreen-active");
+    document
+      .querySelectorAll<HTMLElement>("[data-ios-fullscreen-hidden]")
+      .forEach((nav) => nav.removeAttribute("data-ios-fullscreen-hidden"));
+    fullscreenElement = null;
+    dispatchChange(el);
+    return Promise.resolve();
+  };
+
+  override(document, "fullscreenEnabled", { get: () => true });
+  override(document, "fullscreenElement", { get: () => fullscreenElement });
+  override(document, "exitFullscreen", { value: exit, writable: true });
+  override(proto, "requestFullscreen", {
+    value: function (this: HTMLElement) {
+      return enter(this);
+    },
+    writable: true,
+  });
+  override(proto, "webkitRequestFullscreen", {
+    value: function (this: HTMLElement) {
+      void enter(this);
+    },
+    writable: true,
+  });
+
+  return () => {
+    void exit();
+    styleEl.remove();
+    while (overrides.length) {
+      const { target, key, prev } = overrides.pop()!;
+      if (prev) Object.defineProperty(target, key, prev);
+      else Reflect.deleteProperty(target, key);
+    }
+  };
 }
 
 export function createQuickLoadButton(): HTMLButtonElement {

@@ -40,7 +40,6 @@ from endpoints.responses.feeds import (
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
-from handler.filesystem.roms_handler import is_compressed_file
 from handler.metadata import meta_igdb_handler
 from handler.metadata.base_handler import (
     SONY_SERIAL_REGEX,
@@ -49,6 +48,7 @@ from handler.metadata.base_handler import (
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.rom import Rom, RomFile, RomFileCategory
+from utils.archives import is_compressed_file
 from utils.router import APIRouter
 
 
@@ -213,7 +213,7 @@ async def tinfoil_index_feed(
 
         return titledb
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[switch.id])
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[switch.id], include_files=True)
 
     return TinfoilFeedSchema(
         files=[
@@ -329,7 +329,9 @@ def pkgi_ps3_feed(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[ps3_platform.id])
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[ps3_platform.id], include_files=True
+    )
     txt_lines = []
 
     for rom in roms:
@@ -405,7 +407,9 @@ def pkgi_psvita_feed(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[psvita_platform.id])
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[psvita_platform.id], include_files=True
+    )
     txt_lines = []
 
     for rom in roms:
@@ -480,7 +484,9 @@ def pkgi_psp_feed(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[psp_platform.id])
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[psp_platform.id], include_files=True
+    )
     txt_lines = []
 
     for rom in roms:
@@ -663,7 +669,9 @@ def pkgj_psp_games_feed(request: Request) -> Response:
             status_code=404, detail="PlayStation Portable platform not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], include_files=True
+    )
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tType\tName\tPKG direct link\tContent ID\tLast Modification Date\tRAP\tDownload .RAP file\tFile Size\tSHA256"
@@ -727,7 +735,9 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
             status_code=404, detail="PlayStation Portable platform not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], include_files=True
+    )
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tName\tPKG direct link\tContent ID\tLast Modification Date\tRAP\tDownload .RAP file\tFile Size\tSHA256"
@@ -789,7 +799,9 @@ def pkgj_psv_games_feed(request: Request) -> Response:
             status_code=404, detail="PlayStation Vita platform not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], include_files=True
+    )
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tName\tPKG direct link\tzRIF\tContent ID\tLast Modification Date\tOriginal Name\tFile Size\tSHA256\tRequired FW\tApp Version"
@@ -854,7 +866,9 @@ def pkgj_psv_dlcs_feed(request: Request) -> Response:
             status_code=404, detail="PlayStation Vita platform not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], include_files=True
+    )
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tName\tPKG direct link\tzRIF\tContent ID\tLast Modification Date\tFile Size\tSHA256"
@@ -911,7 +925,9 @@ def pkgj_psx_games_feed(request: Request) -> Response:
     if not platform:
         raise HTTPException(status_code=404, detail="PlayStation platform not found")
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], include_files=True
+    )
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tName\tPKG direct link\tContent ID\tLast Modification Date\tOriginal Name\tFile Size\tSHA256"

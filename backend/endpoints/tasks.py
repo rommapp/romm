@@ -36,6 +36,9 @@ from handler.redis_handler import (
 )
 from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
 from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
+from tasks.manual.recompute_save_content_hashes import (
+    recompute_save_content_hashes_task,
+)
 from tasks.manual.sync_folder_scan import sync_folder_scan_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
@@ -116,6 +119,13 @@ manual_tasks: list[ManualTask] = [
             "task": sync_folder_scan_task,
         }
     ),
+    ManualTask(
+        {
+            "name": "recompute_save_content_hashes",
+            "type": TaskType.CLEANUP,
+            "task": recompute_save_content_hashes_task,
+        }
+    ),
 ]
 
 
@@ -147,7 +157,7 @@ def _build_task_status_response(
 
     common_data = {
         "task_name": task_name,
-        "task_id": job.get_id(),
+        "task_id": job.id,
         "status": job.get_status(),
         "created_at": created_at,
         "enqueued_at": enqueued_at,
@@ -386,7 +396,7 @@ async def run_single_task(
 
     return {
         "task_name": task_instance.title,
-        "task_id": job.get_id(),
+        "task_id": job.id,
         "status": job.get_status() or JobStatus.QUEUED,
         "created_at": (
             job.created_at.isoformat()

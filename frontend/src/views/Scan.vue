@@ -46,18 +46,15 @@ const calculateHashes = computed(
 const metadataOptions = computed(() => {
   return heartbeat.getMetadataOptionsByPriority().map((option) => {
     // Check if option requires hashes but hash calculation is disabled
-    const requiresHashes = option.value === "hasheous" || option.value === "ra";
+    const requiresHashes =
+      option.value === "hasheous" ||
+      option.value === "ra" ||
+      option.value === "playmatch";
     const hashingDisabled = !calculateHashes.value;
-
-    let disabled = option.disabled;
-
-    if (hashingDisabled && requiresHashes) {
-      if (option.value === "hasheous") {
-        disabled = t("scan.hasheous-requires-hashes");
-      } else if (option.value === "ra") {
-        disabled = t("scan.retroachievements-requires-hashes");
-      }
-    }
+    const disabled =
+      hashingDisabled && requiresHashes
+        ? t("scan.requires-hashes", { source: option.name })
+        : option.disabled;
 
     return {
       ...option,

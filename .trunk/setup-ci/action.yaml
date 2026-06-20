@@ -7,7 +7,7 @@ runs:
     - name: Setup node
       uses: actions/setup-node@v5.0.0
       with:
-        node-version: 18
+        node-version-file: frontend/.nvmrc
 
     - name: Install dependencies
       shell: bash

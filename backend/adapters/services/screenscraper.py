@@ -14,10 +14,36 @@ from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
+from utils.rate_limiter import ConcurrencyLimiter
 
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
 SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
 LOGIN_ERROR_CHECK: Final = "Erreur de login"
+
+# ScreenScraper enforces a per-account *thread* (concurrency) cap rather than a
+# request rate. Because a request can take several seconds, spacing out request
+# starts is not enough, as overlapping requests would exceed the cap and get
+# rejected. We instead bound simultaneous in-flight requests.
+SS_DEFAULT_MAX_THREADS: Final[int] = 1
+_concurrency_limiter = ConcurrencyLimiter(SS_DEFAULT_MAX_THREADS)
+
+
+def _update_thread_allowance(response: dict) -> None:
+    """Raise (or lower) the concurrency cap to the account's advertised threads.
+
+    ScreenScraper reports the per-account thread allowance in
+    ``response.ssuser.maxthreads`` (higher for contributors/donors).
+    """
+    try:
+        max_threads = int(response["response"]["ssuser"]["maxthreads"])
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return
+
+    if max_threads < 1 or max_threads == _concurrency_limiter.max_concurrency:
+        return
+
+    log.info("ScreenScraper: setting thread allowance to %d", max_threads)
+    _concurrency_limiter.set_max_concurrency(max_threads)
 
 
 async def auth_middleware(
@@ -30,8 +56,8 @@ async def auth_middleware(
             "devpassword": SS_DEV_PASSWORD,
             "output": "json",
             "softname": "romm",
-            "ssid": SCREENSCRAPER_USER,
-            "sspassword": SCREENSCRAPER_PASSWORD,
+            "ssid": SCREENSCRAPER_USER or "",
+            "sspassword": SCREENSCRAPER_PASSWORD or "",
         },
     )
     return await handler(req)
@@ -57,21 +83,24 @@ class ScreenScraperService:
             request_timeout,
         )
         try:
-            res = await aiohttp_session.get(
-                url,
-                headers={"user-agent": f"RomM/{get_version()}"},
-                middlewares=(auth_middleware,),
-                timeout=ClientTimeout(total=request_timeout),
-            )
-            res.raise_for_status()
-            res_text = await res.text()
-            if LOGIN_ERROR_CHECK in res_text:
-                log.error("Invalid ScreenScraper credentials")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid ScreenScraper credentials",
+            async with _concurrency_limiter:
+                res = await aiohttp_session.get(
+                    url,
+                    headers={"user-agent": f"RomM/{get_version()}"},
+                    middlewares=(auth_middleware,),
+                    timeout=ClientTimeout(total=request_timeout),
                 )
-            return await res.json()
+                res.raise_for_status()
+                res_text = await res.text()
+                if LOGIN_ERROR_CHECK in res_text:
+                    log.error("Invalid ScreenScraper credentials")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid ScreenScraper credentials",
+                    )
+                data = await res.json()
+            _update_thread_allowance(data)
+            return data
         except aiohttp.ServerTimeoutError:
             # Retry the request once if it times out
             pass
@@ -85,10 +114,34 @@ class ScreenScraperService:
             ) from exc
         except aiohttp.ClientResponseError as err:
             if err.status == http.HTTPStatus.TOO_MANY_REQUESTS:
-                # Retry after 2 seconds if rate limit hit
+                log.warning("ScreenScraper: rate limit hit, retrying after 2s")
                 await asyncio.sleep(2)
+            elif err.status == 426:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="ScreenScraper has blacklisted this application version. Please update RomM.",
+                ) from err
+            elif err.status == 430:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="ScreenScraper daily scrape quota exhausted. Try again tomorrow.",
+                ) from err
+            elif err.status == 431:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="ScreenScraper daily unrecognized-ROM quota exhausted. Try again tomorrow.",
+                ) from err
+            elif err.status == 423:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="ScreenScraper API is currently offline.",
+                ) from err
+            elif err.status == http.HTTPStatus.UNAUTHORIZED:
+                log.warning(
+                    "ScreenScraper API is temporarily unavailable (server CPU >60%)"
+                )
+                return {}
             else:
-                # Log the error and return an empty dict if the request fails with a different code
                 log.error(err)
                 return {}
         except json.JSONDecodeError as exc:
@@ -101,27 +154,51 @@ class ScreenScraperService:
                 url,
                 request_timeout,
             )
-            res = await aiohttp_session.get(
-                url,
-                headers={"user-agent": f"RomM/{get_version()}"},
-                middlewares=(auth_middleware,),
-                timeout=ClientTimeout(total=request_timeout),
-            )
-            res.raise_for_status()
-            res_text = await res.text()
-            if LOGIN_ERROR_CHECK in res_text:
-                log.error("Invalid ScreenScraper credentials")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid ScreenScraper credentials",
+            async with _concurrency_limiter:
+                res = await aiohttp_session.get(
+                    url,
+                    headers={"user-agent": f"RomM/{get_version()}"},
+                    middlewares=(auth_middleware,),
+                    timeout=ClientTimeout(total=request_timeout),
                 )
-            return await res.json()
+                res.raise_for_status()
+                res_text = await res.text()
+                if LOGIN_ERROR_CHECK in res_text:
+                    log.error("Invalid ScreenScraper credentials")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid ScreenScraper credentials",
+                    )
+                data = await res.json()
+            _update_thread_allowance(data)
+            return data
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as err:
-            if (
-                isinstance(err, aiohttp.ClientResponseError)
-                and err.status == http.HTTPStatus.UNAUTHORIZED
-            ):
-                return {}
+            if isinstance(err, aiohttp.ClientResponseError):
+                if err.status == http.HTTPStatus.UNAUTHORIZED:
+                    log.warning(
+                        "ScreenScraper API is temporarily unavailable (server CPU >60%)"
+                    )
+                    return {}
+                elif err.status == 426:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="ScreenScraper has blacklisted this application version. Please update RomM.",
+                    ) from err
+                elif err.status == 430:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail="ScreenScraper daily scrape quota exhausted. Try again tomorrow.",
+                    ) from err
+                elif err.status == 431:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail="ScreenScraper daily unrecognized-ROM quota exhausted. Try again tomorrow.",
+                    ) from err
+                elif err.status == 423:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="ScreenScraper API is currently offline.",
+                    ) from err
 
             log.error(err)
             return {}

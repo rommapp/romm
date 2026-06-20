@@ -20,5 +20,12 @@
   "save-and-quit": "Speichern und beenden",
   "select-background-color": "Hintergrundfarbe auswählen",
   "select-save": "Speicherstand auswählen",
-  "select-state": "Speicherstand auswählen"
+  "select-state": "Speicherstand auswählen",
+  "all-saves": "Alle Spielstände",
+  "all-states": "Alle Zustände",
+  "no-screenshot-available": "Kein Screenshot verfügbar",
+  "powered-by": "Bereitgestellt von",
+  "resume-from-save": "Vom Spielstand fortsetzen",
+  "resume-from-state": "Vom Zustand fortsetzen",
+  "start-fresh-hint": "Wähle unten einen, um fortzufahren, oder klicke auf Play, um neu zu starten."
 }

@@ -100,7 +100,7 @@ async def search_rom(
     if search_by.lower() == "id":
         try:
             igdb_rom, moby_rom, ss_rom, lb_rom = await asyncio.gather(
-                meta_igdb_handler.get_matched_rom_by_id(int(search_term)),
+                meta_igdb_handler.get_matched_rom_by_id(rom, int(search_term)),
                 meta_moby_handler.get_matched_rom_by_id(int(search_term)),
                 meta_ss_handler.get_matched_rom_by_id(rom, int(search_term)),
                 meta_launchbox_handler.get_matched_rom_by_id(int(search_term)),
@@ -125,7 +125,7 @@ async def search_rom(
             launchbox_matched_roms,
         ) = await asyncio.gather(
             meta_igdb_handler.get_matched_roms_by_name(
-                search_term, get_main_platform_igdb_id(rom.platform)
+                rom, search_term, get_main_platform_igdb_id(rom.platform)
             ),
             meta_moby_handler.get_matched_roms_by_name(
                 search_term, rom.platform.moby_id

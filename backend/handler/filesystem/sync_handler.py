@@ -1,3 +1,4 @@
+import functools
 import hashlib
 import os
 from pathlib import Path
@@ -110,3 +111,13 @@ class FSSyncHandler(FSHandler):
                     f"Path {full_path} is outside the sync base directory"
                 ) from e
             path.unlink()
+
+
+@functools.cache
+def get_fs_sync_handler() -> FSSyncHandler:
+    """Lazily instantiate the sync folder handler on first use.
+
+    Deferred so that startup doesn't fail when sync is unconfigured or its
+    base path is not writable.
+    """
+    return FSSyncHandler()

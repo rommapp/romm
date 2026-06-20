@@ -31,6 +31,7 @@ import {
   saveState,
   loadEmulatorJSSave,
   loadEmulatorJSState,
+  invalidateEmulatorJSRomCacheIfRenamed,
   createQuickLoadButton,
   createSaveQuitButton,
   createExitEmulationButton,
@@ -173,7 +174,10 @@ declare global {
   }
 }
 
-const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
+const supportedCores = getSupportedEJSCores(
+  romRef.value.platform_slug,
+  configStore.config.EJS_NETPLAY_ENABLED,
+);
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
 window.EJS_controlScheme = getControlSchemeForPlatform(
@@ -181,6 +185,7 @@ window.EJS_controlScheme = getControlSchemeForPlatform(
 );
 window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
 window.EJS_gameID = romRef.value.id;
+invalidateEmulatorJSRomCacheIfRenamed(romRef.value);
 window.EJS_gameUrl = getDownloadPath({
   rom: romRef.value,
   fileIDs: props.disc ? [props.disc] : [],
