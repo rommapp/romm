@@ -1,0 +1,13 @@
+{
+  "active-sessions": "Aktivní relace",
+  "days-ago": "před {n} d",
+  "hours-ago": "před {n} h",
+  "hours-minutes-ago": "před {h} h {m} min",
+  "just-now": "Právě teď",
+  "live": "ŽIVĚ",
+  "minutes-ago": "před {n} min",
+  "no-activity": "Nikdo právě nehraje",
+  "now-playing": "Právě hraje",
+  "playing-on": "Hraje na {device}",
+  "playing-since": "Hraje od {time}"
+}

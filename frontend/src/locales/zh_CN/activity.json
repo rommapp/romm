@@ -1,0 +1,13 @@
+{
+  "active-sessions": "活动会话",
+  "days-ago": "{n}天前",
+  "hours-ago": "{n}小时前",
+  "hours-minutes-ago": "{h}小时{m}分钟前",
+  "just-now": "刚刚",
+  "live": "直播",
+  "minutes-ago": "{n}分钟前",
+  "no-activity": "当前无人游玩",
+  "now-playing": "正在游玩",
+  "playing-on": "正在 {device} 上游玩",
+  "playing-since": "自 {time} 起游玩"
+}
