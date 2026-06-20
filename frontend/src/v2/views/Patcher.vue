@@ -808,7 +808,6 @@ onMounted(async () => {
   font-size: 11px;
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg-secondary);
-  cursor: help;
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
     border-color var(--r-motion-fast) var(--r-motion-ease-out),
@@ -820,12 +819,15 @@ onMounted(async () => {
   color: var(--r-color-fg);
 }
 
-/* Tooltip body — the full format list, wrapping in a compact grid. */
+/* Tooltip body — the full format list, wrapping in a compact grid. The
+   tooltip surface ships 5px vertical / 10px horizontal padding; add the
+   missing 5px top/bottom here so the list sits evenly inset all round. */
 .r-v2-patch__formats-list {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 6px;
   max-width: 220px;
+  padding-block: 5px;
 }
 .r-v2-patch__format-chip {
   padding: 1px 7px;
