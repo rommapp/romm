@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 import alembic.config
@@ -49,6 +50,13 @@ def _ensure_database_exists() -> None:
     db_name = url.database
     if not db_name:
         return
+
+    # The name is interpolated into a CREATE DATABASE statement below;
+    # identifiers can't be passed as bind parameters, so validate it up-front
+    # rather than rely on quoting. Test databases are always plain identifiers
+    # (`romm_test`, `romm_test_gw0`, ...).
+    if not re.fullmatch(r"[A-Za-z0-9_]+", db_name):
+        raise ValueError(f"Refusing to create database with unsafe name: {db_name!r}")
 
     if ROMM_DB_DRIVER in ("mariadb", "mysql"):
         # Connect to a maintenance schema that always exists; CREATE DATABASE is
