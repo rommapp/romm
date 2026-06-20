@@ -45,6 +45,7 @@ import {
   useSlots,
   watch,
 } from "vue";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -79,6 +80,15 @@ interface Props {
   activator?: "parent";
   /** Hide entirely (useful with `v-if` style guards on conditional tooltips). */
   disabled?: boolean;
+  /** Override the body's max width. Number → px, string → any CSS length
+   * (e.g. `"min(80vw, 900px)"`). Lets content-heavy tooltips grow and adapt
+   * instead of being clamped to the default 280px. */
+  maxWidth?: number | string;
+  /** Secondary muted line rendered below the main content — e.g. an action
+   * affordance like "Click to copy". */
+  hint?: string;
+  /** Optional MDI icon shown before the hint text (e.g. `mdi-content-copy`). */
+  hintIcon?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -91,6 +101,9 @@ const props = withDefaults(defineProps<Props>(), {
   offset: 6,
   activator: undefined,
   disabled: false,
+  maxWidth: undefined,
+  hint: undefined,
+  hintIcon: undefined,
 });
 
 const emit = defineEmits<{
@@ -169,7 +182,9 @@ function hide() {
   }
 }
 
-const hasContent = computed(() => !!(props.text || slots.default));
+const hasContent = computed(
+  () => !!(props.text || props.hint || slots.default),
+);
 
 // ── Floating-ui refs ────────────────────────────────────────────
 const reference = ref<Element | null>(null);
@@ -302,6 +317,15 @@ const sideClass = computed(() => {
 const tooltipClasses = computed(() =>
   ["r-tooltip", sideClass.value, props.contentClass].filter(Boolean).join(" "),
 );
+
+// Merge floating-ui's positioning with an optional max-width override.
+// Inline `max-width` beats the scoped `.r-tooltip` default (280px).
+const bodyStyle = computed(() => {
+  if (props.maxWidth === undefined) return floatingStyles.value;
+  const mw =
+    typeof props.maxWidth === "number" ? `${props.maxWidth}px` : props.maxWidth;
+  return { ...floatingStyles.value, maxWidth: mw };
+});
 </script>
 
 <template>
@@ -337,10 +361,14 @@ const tooltipClasses = computed(() =>
         ref="floating"
         v-bind="$attrs"
         :class="tooltipClasses"
-        :style="floatingStyles"
+        :style="bodyStyle"
         role="tooltip"
       >
         <slot>{{ text }}</slot>
+        <span v-if="hint" class="r-tooltip__hint">
+          <RIcon v-if="hintIcon" :icon="hintIcon" size="13" />
+          {{ hint }}
+        </span>
         <span
           ref="arrowEl"
           class="r-tooltip__arrow"
@@ -369,12 +397,29 @@ const tooltipClasses = computed(() =>
   letter-spacing: 0.01em;
   padding: 5px 10px;
   max-width: 280px;
+  /* Long unbreakable strings (URLs, comma-joined field lists, JSON) wrap
+     within the box instead of spilling out of it. */
+  overflow-wrap: anywhere;
   box-shadow:
     0 4px 14px color-mix(in srgb, black 45%, transparent),
     0 1px 2px color-mix(in srgb, black 40%, transparent);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   pointer-events: none;
+}
+
+/* Secondary affordance line under the main content — muted + smaller,
+   separated by a hairline. */
+.r-tooltip__hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid var(--r-color-tooltip-border);
+  color: var(--r-color-fg-muted);
+  font-size: 10.5px;
+  font-weight: 500;
 }
 
 /* Arrow — small square rotated 45deg into a diamond. Only the two

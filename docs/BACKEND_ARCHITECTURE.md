@@ -1504,6 +1504,7 @@ Falls back to `FakeRedis` in test mode.
 | `DISABLE_CSRF_PROTECTION`            | `false`   | Disable CSRF                          |
 | `DISABLE_DOWNLOAD_ENDPOINT_AUTH`     | `false`   | Allow unauthenticated downloads       |
 | `DISABLE_USERPASS_LOGIN`             | `false`   | Disable password login                |
+| `DISABLE_LOGS_VIEWER`                | `false`   | Disable backend log viewer + endpoint |
 | `KIOSK_MODE`                         | `false`   | Read-only anonymous access            |
 
 #### OIDC

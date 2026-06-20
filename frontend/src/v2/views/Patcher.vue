@@ -11,6 +11,7 @@ import {
   RExpandTransition,
   RIcon,
   RTextField,
+  RTooltip,
 } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
@@ -24,6 +25,7 @@ import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
+import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -56,7 +58,12 @@ const patchDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const applying = ref(false);
 const statusMessage = ref<string | null>(null);
 const downloadLocally = ref(true);
-const saveIntoRomM = ref(true);
+// Uploading the patched ROM back into RomM needs write access. Viewers
+// can only download locally, so both toggles are hidden for them and
+// `saveIntoRomM` defaults off — the apply button then reads "apply and
+// download".
+const canUpload = useCan("rom.upload");
+const saveIntoRomM = ref(canUpload.value);
 // `selectedPlatformId` is the source of truth (matches PlatformSelect's
 // id-keyed v-model); `selectedPlatform` is a derived lookup that keeps
 // the rest of the file working against the full `Platform` object.
@@ -454,8 +461,37 @@ onMounted(async () => {
           @keydown.enter.prevent="patchDz?.open()"
           @keydown.space.prevent="patchDz?.open()"
         >
-          <div class="r-v2-patch__panel-label">
-            {{ t("patcher.patch-file") }}
+          <div class="r-v2-patch__panel-head">
+            <div class="r-v2-patch__panel-label">
+              {{ t("patcher.patch-file") }}
+            </div>
+            <!-- Supported formats moved out of an always-on chip row into a
+                 compact pill: the label stays terse, the full list lives in
+                 a tooltip revealed on hover / focus. -->
+            <RTooltip location="bottom end" :offset="8">
+              <template #activator="{ props: tooltipProps }">
+                <span
+                  v-bind="tooltipProps"
+                  class="r-v2-patch__formats-pill"
+                  tabindex="0"
+                  @click.stop
+                  @keydown.enter.stop
+                  @keydown.space.stop
+                >
+                  {{ t("patcher.supported-formats") }}
+                  <RIcon icon="mdi-information-outline" size="13" />
+                </span>
+              </template>
+              <div class="r-v2-patch__formats-list">
+                <span
+                  v-for="format in supportedPatchFormats"
+                  :key="format"
+                  class="r-v2-patch__format-chip"
+                >
+                  {{ format }}
+                </span>
+              </div>
+            </RTooltip>
           </div>
           <template v-if="!patchFile">
             <div class="r-v2-patch__drop-empty">
@@ -502,25 +538,17 @@ onMounted(async () => {
               </div>
             </div>
           </template>
-          <div class="r-v2-patch__formats" @click.stop>
-            <span class="r-v2-patch__formats-label">
-              {{ t("patcher.supported-formats") }}
-            </span>
-            <span
-              v-for="format in supportedPatchFormats"
-              :key="format"
-              class="r-v2-patch__format-chip"
-            >
-              {{ format }}
-            </span>
-          </div>
         </div>
       </RDropzone>
     </div>
 
     <!-- Controls panel -->
     <div class="r-v2-patch__controls">
-      <div class="r-v2-patch__toggle-row">
+      <!-- Viewers can only download locally, so the choice (download vs.
+           upload to RomM) is meaningless: hide both toggles and let the
+           apply button read "apply and download". Editors/admins get the
+           full pair. -->
+      <div v-if="canUpload" class="r-v2-patch__toggle-row">
         <RCheckbox
           v-model="downloadLocally"
           :label="t('patcher.download-locally')"
@@ -641,6 +669,12 @@ onMounted(async () => {
 }
 
 .r-v2-patch__panel-label {
+  display: inline-flex;
+  align-items: center;
+  /* Reserve the pill's height on every panel-label so the ROM panel's
+     header (label only) matches the patch panel's (label + formats pill),
+     keeping both dropzones the same height. */
+  min-height: 26px;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -754,20 +788,46 @@ onMounted(async () => {
   color: var(--r-color-fg-secondary);
 }
 
-.r-v2-patch__formats {
+/* Panel header — the small uppercase label on the left, the supported-
+   formats pill on the opposite (right) edge of the same top row. */
+.r-v2-patch__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.r-v2-patch__formats-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px 3px 10px;
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-pill);
+  font-size: 11px;
+  font-weight: var(--r-font-weight-medium);
+  color: var(--r-color-fg-secondary);
+  transition:
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    border-color var(--r-motion-fast) var(--r-motion-ease-out),
+    color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-v2-patch__formats-pill:hover {
+  background: var(--r-color-surface-hover);
+  border-color: var(--r-color-border-strong);
+  color: var(--r-color-fg);
+}
+
+/* Tooltip body — the full format list, wrapping in a compact grid. The
+   tooltip surface ships 5px vertical / 10px horizontal padding; add the
+   missing 5px top/bottom here so the list sits evenly inset all round. */
+.r-v2-patch__formats-list {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 6px;
-  margin-top: 4px;
-  cursor: default;
-}
-.r-v2-patch__formats-label {
-  font-size: 11px;
-  color: var(--r-color-fg-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  width: 100%;
-  margin-bottom: 2px;
+  max-width: 220px;
+  padding-block: 5px;
 }
 .r-v2-patch__format-chip {
   padding: 1px 7px;

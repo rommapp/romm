@@ -152,5 +152,6 @@
   "changelog-view-all": "Összes kiadás megtekintése a GitHubon",
   "visibility": "Láthatóság",
   "server-offline-retrying": "Server connection lost · retrying…",
-  "server-reconnected": "Reconnected to the server"
+  "server-reconnected": "Reconnected to the server",
+  "logs": "Logs"
 }

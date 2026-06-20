@@ -83,6 +83,7 @@ test = [
   "pytest-env ~= 1.1",
   "pytest-mock ~= 3.12",
   "pytest-recording ~= 0.13",
+  "pytest-xdist ~= 3.6",
 ]
 
 [project.urls]
@@ -135,6 +136,7 @@ DEP002 = [ # DEP002 rule: Project should not contain unused dependencies
   "pytest-env",
   "pytest-mock",
   "pytest-recording",
+  "pytest-xdist",
 ]
 
 [tool.uv]

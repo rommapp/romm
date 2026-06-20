@@ -5,6 +5,7 @@ from fastapi import HTTPException, Request, status
 
 from config import (
     DISABLE_EMULATOR_JS,
+    DISABLE_LOGS_VIEWER,
     DISABLE_RUFFLE_RS,
     DISABLE_SETUP_WIZARD,
     DISABLE_USERPASS_LOGIN,
@@ -118,6 +119,7 @@ async def heartbeat() -> HeartbeatResponse:
         },
         "FRONTEND": {
             "DISABLE_USERPASS_LOGIN": DISABLE_USERPASS_LOGIN,
+            "DISABLE_LOGS_VIEWER": DISABLE_LOGS_VIEWER,
             "YOUTUBE_BASE_URL": YOUTUBE_BASE_URL,
         },
         "OIDC": {

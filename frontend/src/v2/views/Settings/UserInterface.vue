@@ -25,9 +25,11 @@ import SettingsSubsection from "@/v2/components/Settings/SettingsSubsection.vue"
 import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
 import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
 import { useCrtMode } from "@/v2/composables/useCrtMode";
+import { useDebugMode } from "@/v2/composables/useDebugMode";
 
 const { t } = useI18n();
 const uiVersion = useUiVersion();
+const { enabled: debugEnabled } = useDebugMode();
 const collectionsStore = storeCollections();
 
 const {
@@ -385,6 +387,19 @@ function onVirtualCollectionTypeChange(value: unknown) {
             </span>
           </button>
         </div>
+      </div>
+    </SettingsSection>
+
+    <!-- Developer — kept dead last, after UI version. Debug overlay is a
+         per-device localStorage toggle (useDebugMode), not synced to the
+         account, so it never follows you across machines. -->
+    <SettingsSection :title="t('settings.developer')" icon="mdi-bug-outline">
+      <div class="r-v2-ui__toggle-grid r-v2-ui__toggle-grid--single">
+        <SettingsToggleRow
+          v-model="debugEnabled"
+          :title="t('settings.debug-overlay')"
+          :description="t('settings.debug-overlay-desc')"
+        />
       </div>
     </SettingsSection>
 
