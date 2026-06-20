@@ -1641,11 +1641,9 @@ async def delete_roms(
                                     f"Couldn't clean up empty parent directory for {hl(rom.fs_name)}: {dir_err}"
                                 )
                 except FileNotFoundError:
-                    error = f"Rom file {hl(rom.fs_name)} not found for platform {hl(rom.platform_display_name, color=BLUE)}[{hl(rom.platform_slug)}]"
-                    log.error(error)
-                    errors.append(error)
-                    failed_items += 1
-                    continue
+                    log.warning(
+                        f"Rom file {hl(rom.fs_name)} not found for platform {hl(rom.platform_display_name, color=BLUE)}[{hl(rom.platform_slug)}], deleting database entry only"
+                    )
 
             log.info(
                 f"Deleting {hl(str(rom.name or 'ROM'), color=BLUE)} [{hl(rom.fs_name)}] from database"

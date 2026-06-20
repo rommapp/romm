@@ -461,6 +461,32 @@ def test_delete_roms_from_fs_nested(
     mock_remove_directory.assert_called_once()
 
 
+@patch("endpoints.roms.fs_rom_handler.validate_path")
+def test_delete_roms_from_fs_missing_file_still_deletes_db_entry(
+    mock_validate_path,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    """Test that missing ROM files do not block database deletion."""
+    from handler.database import db_rom_handler
+
+    mock_validate_path.side_effect = FileNotFoundError
+
+    response = client.post(
+        "/api/roms/delete",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [rom.id], "delete_from_fs": [rom.id]},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["successful_items"] == 1
+    assert body["failed_items"] == 0
+    assert body["errors"] == []
+    assert db_rom_handler.get_rom(rom.id) is None
+
+
 def test_update_rom_user_props_flat_payload(
     client: TestClient, access_token: str, rom: Rom
 ):
