@@ -9,7 +9,13 @@
 // Per-ROM action menus are not app-wide: each GameCard owns its own
 // `MoreMenu` dropdown on the three-dots button. Right-click is left to
 // the browser so "Open in new tab" etc. keep working.
-import { onBeforeUnmount, onMounted, provide, ref } from "vue";
+import {
+  defineAsyncComponent,
+  onBeforeUnmount,
+  onMounted,
+  provide,
+  ref,
+} from "vue";
 import { useRouter } from "vue-router";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
@@ -17,7 +23,6 @@ import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import BottomNav from "@/v2/components/AppShell/BottomNav.vue";
 import CrtOverlay from "@/v2/components/AppShell/CrtOverlay.vue";
-import DebugOverlay from "@/v2/components/AppShell/DebugOverlay.vue";
 import GlobalDialogs from "@/v2/components/Dialogs/GlobalDialogs.vue";
 import SoundtrackMiniPlayer from "@/v2/components/Soundtrack/MiniPlayer.vue";
 import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
@@ -46,7 +51,12 @@ const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
 
 // Developer debug overlay — opt-in via Settings → Developer (per-device).
+// Lazily loaded so its chunk (and the vueuse perf hooks it pulls in) is only
+// fetched once the toggle is on, keeping it out of the default bundle.
 const { enabled: debugEnabled } = useDebugMode();
+const DebugOverlay = defineAsyncComponent(
+  () => import("@/v2/components/AppShell/DebugOverlay.vue"),
+);
 
 // Shared reactive background art — views paint covers via the injected setter.
 const layerA = ref<string | null>(null);
