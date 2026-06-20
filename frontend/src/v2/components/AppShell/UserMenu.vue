@@ -31,6 +31,7 @@ import { ROUTES } from "@/plugins/router";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -52,6 +53,11 @@ const avatarSrc = computed(() =>
 );
 
 const isAdmin = useCan("app.admin");
+
+const heartbeatStore = storeHeartbeat();
+const logsViewerEnabled = computed(
+  () => !heartbeatStore.value.FRONTEND.DISABLE_LOGS_VIEWER,
+);
 
 const canSeeProfile = computed(
   () => !!user.value?.id && scopes.value.includes("me.write"),
@@ -241,7 +247,7 @@ async function onLogout() {
         @click="open = false"
       />
       <RMenuItem
-        v-if="isAdmin"
+        v-if="isAdmin && logsViewerEnabled"
         :to="{ name: ROUTES.LOGS }"
         icon="mdi-text-box-search-outline"
         :label="t('common.logs')"

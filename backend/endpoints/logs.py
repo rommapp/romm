@@ -1,5 +1,6 @@
-from fastapi import Request
+from fastapi import HTTPException, Request, status
 
+from config import DISABLE_LOGS_VIEWER
 from decorators.auth import protected_route
 from endpoints.responses.log import LogEntrySchema
 from endpoints.sockets.logs import get_recent_logs
@@ -30,6 +31,11 @@ async def get_logs(
     Returns:
         list[LogEntrySchema]: Recent log lines, oldest-first.
     """
+    if DISABLE_LOGS_VIEWER:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Logs viewer is disabled"
+        )
+
     bounded = max(1, min(limit, MAX_LOG_LIMIT))
     entries = await get_recent_logs(bounded)
     return [LogEntrySchema(**entry) for entry in entries]

@@ -37,6 +37,13 @@ def test_get_logs_returns_entries_for_admin(client, access_token):
     assert response.json() == [SAMPLE_ENTRY]
 
 
+def test_get_logs_disabled_returns_not_found(client, access_token):
+    # When DISABLE_LOGS_VIEWER is set, the endpoint is gone even for admins.
+    with patch("endpoints.logs.DISABLE_LOGS_VIEWER", True):
+        response = client.get("/api/logs", headers=_auth(access_token))
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_get_logs_clamps_limit(client, access_token):
     with patch(
         "endpoints.logs.get_recent_logs",

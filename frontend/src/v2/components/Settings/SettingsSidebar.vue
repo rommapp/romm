@@ -23,6 +23,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
 import { useCan } from "@/v2/composables/useCan";
 
 defineOptions({ inheritAttrs: false });
@@ -31,6 +32,10 @@ const { t } = useI18n();
 const auth = storeAuth();
 const { user, scopes } = storeToRefs(auth);
 const isAdmin = useCan("app.admin");
+const heartbeat = storeHeartbeat();
+const logsViewerEnabled = computed(
+  () => !heartbeat.value.FRONTEND.DISABLE_LOGS_VIEWER,
+);
 
 interface Entry {
   icon: string;
@@ -132,7 +137,7 @@ const groups = computed<Group[]>(() => {
           icon: "mdi-text-box-search-outline",
           label: t("common.logs"),
           to: { name: ROUTES.LOGS },
-          visible: isAdmin.value,
+          visible: isAdmin.value && logsViewerEnabled.value,
         },
       ],
     },

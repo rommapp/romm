@@ -620,6 +620,15 @@ router.beforeEach(async (to, _from, next) => {
       return next({ name: ROUTES.NOT_FOUND });
     }
 
+    // The logs viewer can be turned off entirely via DISABLE_LOGS_VIEWER; the
+    // backend endpoint/stream are then gone, so direct navigation must 404 too.
+    if (
+      currentRoute === ROUTES.LOGS &&
+      heartbeat.value.FRONTEND.DISABLE_LOGS_VIEWER
+    ) {
+      return next({ name: ROUTES.NOT_FOUND });
+    }
+
     if (to.meta.title) {
       document.title = i18n.global.t(to.meta.title as string);
     } else {

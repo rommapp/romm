@@ -16,7 +16,7 @@ from typing import Any, Final
 
 import socketio  # type: ignore
 
-from config import REDIS_URL
+from config import DISABLE_LOGS_VIEWER, REDIS_URL
 from handler.database import db_user_handler
 from handler.redis_handler import async_cache
 from handler.socket_handler import socket_handler
@@ -38,6 +38,9 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     Always returns ``None`` (accepts the connection) — only the room membership
     is gated, so the existing scan/sync sockets keep working for everyone.
     """
+    if DISABLE_LOGS_VIEWER:
+        return
+
     try:
         session = await get_session_from_environ(environ)
         if session.get("iss") != "romm:auth":
@@ -75,6 +78,9 @@ async def start_log_forwarder() -> None:
     (WEB_SERVER_CONCURRENCY > 1), exactly one forwards and clients don't receive
     duplicate lines.
     """
+    if DISABLE_LOGS_VIEWER:
+        return
+
     lock_id = str(uuid.uuid4())
     pubsub = None
     # Write-only manager for emitting — the same proven path scan/sync use. It
