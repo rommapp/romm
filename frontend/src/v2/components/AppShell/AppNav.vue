@@ -15,12 +15,19 @@ import { useI18n } from "vue-i18n";
 import { useUiVersion } from "@/composables/useUiVersion";
 import ScanningIndicator from "@/v2/components/AppShell/ScanningIndicator.vue";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
+import { useCan } from "@/v2/composables/useCan";
 import { useNavDestinations } from "@/v2/composables/useNavDestinations";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const uiVersion = useUiVersion();
+
+// The classic-UI escape hatch is hidden from read-only (viewer) users —
+// they still have the toggle in UI settings, but the navbar stays clean.
+// `library.scan` is an editor-up capability, so it stands in for
+// "not a viewer" without an inline role check (see CLAUDE.md §VI.G).
+const canSwitchClassicUi = useCan("library.scan");
 
 // Primary destinations + active-tab logic shared with BottomNav.
 const { destinations: tabs, activeId: activeTab } = useNavDestinations();
@@ -82,7 +89,11 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="r-v2-nav__right">
-        <RTooltip :text="t('common.switch-classic-ui')" location="bottom">
+        <RTooltip
+          v-if="canSwitchClassicUi"
+          :text="t('common.switch-classic-ui')"
+          location="bottom"
+        >
           <template #activator="{ props: tooltipProps }">
             <RBtn
               v-bind="tooltipProps"

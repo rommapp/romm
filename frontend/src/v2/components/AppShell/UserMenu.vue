@@ -52,6 +52,9 @@ const avatarSrc = computed(() =>
 );
 
 const isAdmin = useCan("app.admin");
+// `library.scan` is an editor-up capability, so it stands in for
+// "editor or admin" without an inline role check (see CLAUDE.md §VI.G).
+const canSeeChangelog = useCan("library.scan");
 
 const canSeeProfile = computed(
   () => !!user.value?.id && scopes.value.includes("me.write"),
@@ -62,7 +65,6 @@ const canUpload = computed(() => scopes.value.includes("roms.write"));
 const canSeeLibraryMgmt = computed(() =>
   scopes.value.includes("platforms.write"),
 );
-const canSeeMetadata = computed(() => scopes.value.includes("me.write"));
 const canSeeApiTokens = computed(() => scopes.value.includes("me.write"));
 const canSeeAdmin = computed(() => scopes.value.includes("users.write"));
 
@@ -179,17 +181,17 @@ async function onLogout() {
         {{ t("settings.group-library") }}
       </div>
       <RMenuItem
+        v-if="canScan"
         :to="{ name: ROUTES.SCAN }"
         icon="mdi-radar"
         :label="t('scan.scan')"
-        :disabled="!canScan"
         @click="open = false"
       />
       <RMenuItem
+        v-if="canUpload"
         :to="{ name: ROUTES.UPLOAD }"
         icon="mdi-cloud-upload-outline"
         :label="t('common.upload-roms')"
-        :disabled="!canUpload"
         @click="open = false"
       />
       <RMenuItem
@@ -206,7 +208,7 @@ async function onLogout() {
         @click="open = false"
       />
       <RMenuItem
-        v-if="canSeeMetadata"
+        v-if="isAdmin"
         :to="{ name: ROUTES.METADATA_SOURCES }"
         icon="mdi-database-cog-outline"
         :label="t('scan.metadata-sources')"
@@ -263,15 +265,16 @@ async function onLogout() {
 
     <RDivider />
 
-    <!-- About is admin-only in v1; keep that gate. About + Changelog
-           remain dialogs (no dedicated views) — see CLAUDE.md. -->
+    <!-- About is visible to everyone; Changelog is gated to editor+ (it
+           surfaces librarian-oriented release notes). Both remain dialogs
+           (no dedicated views) — see CLAUDE.md. -->
     <RMenuItem
-      v-if="isAdmin"
       icon="mdi-help-circle-outline"
       :label="t('common.about')"
       @click="showAbout"
     />
     <RMenuItem
+      v-if="canSeeChangelog"
       icon="mdi-clock-outline"
       :label="t('common.changelog')"
       @click="showChangelog"

@@ -102,7 +102,7 @@ const groups = computed<Group[]>(() => {
           icon: "mdi-database-cog-outline",
           label: t("scan.metadata-sources"),
           to: { name: ROUTES.METADATA_SOURCES },
-          visible: scopes.value.includes("me.write"),
+          visible: isAdmin.value,
         },
         {
           icon: "mdi-key-variant",
