@@ -1,4 +1,7 @@
 {
+  "developer": "Developer",
+  "debug-overlay": "Debug overlay",
+  "debug-overlay-desc": "Show a developer overlay (bottom-right) with live breakpoint, viewport, input modality, theme, route, gamepad and performance info.",
   "add-exclusion-for": "Új kizárás hozzáadása:",
   "add-folder-alias": "Mappa alias hozzáadása",
   "add-folder-mapping": "Mappa leképezés hozzáadása",

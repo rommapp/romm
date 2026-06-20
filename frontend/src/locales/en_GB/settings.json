@@ -1,4 +1,7 @@
 {
+  "developer": "Developer",
+  "debug-overlay": "Debug overlay",
+  "debug-overlay-desc": "Show a developer overlay (bottom-right) with live breakpoint, viewport, input modality, theme, route, gamepad and performance info.",
   "add-exclusion-for": "Add a new exclusion for",
   "add-folder-alias": "Add folder alias",
   "add-folder-mapping": "Add folder mapping",

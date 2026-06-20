@@ -1,4 +1,7 @@
 {
+  "developer": "Developer",
+  "debug-overlay": "Debug overlay",
+  "debug-overlay-desc": "Show a developer overlay (bottom-right) with live breakpoint, viewport, input modality, theme, route, gamepad and performance info.",
   "add-exclusion-for": "為以下項新增排除:",
   "add-folder-alias": "新增資料夾別名",
   "add-folder-mapping": "新增資料夾對應",
