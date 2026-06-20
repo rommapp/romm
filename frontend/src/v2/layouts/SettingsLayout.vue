@@ -25,6 +25,9 @@ defineOptions({ inheritAttrs: false });
 
 const route = useRoute();
 const isBare = computed(() => route.meta?.bare === true);
+// `fill` views (e.g. Logs) pin to the viewport height and scroll their own
+// content internally instead of growing the document.
+const isFill = computed(() => route.meta?.fill === true);
 
 // Settings pages share the current cover-art background from wherever
 // the user came from. We don't paint over it; just no-op so a stale
@@ -34,7 +37,7 @@ setBgArt(null);
 </script>
 
 <template>
-  <section class="r-v2-settings">
+  <section class="r-v2-settings" :class="{ 'r-v2-settings--fill': isFill }">
     <SettingsSidebar class="r-v2-settings__sidebar" />
 
     <div class="r-v2-settings__content">
@@ -99,6 +102,26 @@ setBgArt(null);
   -webkit-backdrop-filter: none;
   padding: 0;
   gap: 14px;
+}
+
+/* Fill mode — the active view pins to the viewport height and owns its own
+   internal scroll (the document itself doesn't scroll). The content column
+   stretches to the section height; its body flex-fills so the view can grow
+   to the bottom, leaving a clean margin equal to the in-view gutters. */
+.r-v2-settings--fill {
+  height: calc(100vh - var(--r-nav-h));
+}
+.r-v2-settings--fill .r-v2-settings__content {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 12px;
+  overflow: hidden;
+}
+.r-v2-settings--fill .r-v2-settings__body {
+  flex: 1;
+  min-height: 0;
 }
 
 html[data-bp~="sm-and-down"] .r-v2-settings {

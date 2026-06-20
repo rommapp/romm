@@ -56,6 +56,30 @@ LOGGING_CONFIG = {
 }
 
 
+# Strips ANSI SGR escapes (colors) embedded by `highlight()` — they render as
+# colors on a terminal but as garbage anywhere else (e.g. a browser log view).
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI SGR (color) escape sequences from a string."""
+    return _ANSI_RE.sub("", text)
+
+
+def redact_sensitive(text: str) -> str:
+    """Mask sensitive values (api keys, tokens, …) in a log string.
+
+    The redaction regex lives in ``handler.metadata.base_handler``, which pulls
+    a heavy import chain that isn't importable during the first few boot lines —
+    skip redaction until it is, exactly like the Formatter does.
+    """
+    try:
+        from handler.metadata.base_handler import SENSITIVE_KEYS_REGEX
+    except ImportError:
+        return text
+    return SENSITIVE_KEYS_REGEX.sub(r"\1=***", text)
+
+
 def should_strip_ansi() -> bool:
     """Determine if ANSI escape codes should be stripped."""
     # Check if an explicit environment variable is set to control color behavior
@@ -118,13 +142,7 @@ class Formatter(logging.Formatter):
         log_fmt = formats.get(record.levelno)
         formatter = logging.Formatter(fmt=log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
         output = formatter.format(record)
-
-        try:
-            from handler.metadata.base_handler import SENSITIVE_KEYS_REGEX
-
-            return SENSITIVE_KEYS_REGEX.sub(r"\1=***", output)
-        except ImportError:
-            return output  # skip redaction on the first few boot log lines
+        return redact_sensitive(output)
 
 
 def highlight(msg: str = "", color=YELLOW) -> str:
