@@ -71,7 +71,7 @@ jobs:
       - name: Initiate MariaDB database
         if: matrix.db == 'mariadb'
         run: |
-          mysql --host 127.0.0.1 --port ${{ job.services.mariadb.ports['3306'] }} -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON romm_test.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+          mysql --host 127.0.0.1 --port ${{ job.services.mariadb.ports['3306'] }} -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON *.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
 
       - name: Run python tests
         env:
@@ -83,7 +83,8 @@ jobs:
           HYPOTHESIS_PROFILE: ci
         run: |
           cd backend
-          uv run pytest -vv --maxfail=10 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .
+          # GitHub-hosted Linux runners have 4 vCPUs; run one worker per core.
+          uv run pytest -n 4 -vv --maxfail=10 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action/linux@v2.20.0
