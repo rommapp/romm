@@ -475,7 +475,7 @@ def test_delete_roms_from_fs_missing_file_still_deletes_db_entry(
 
     response = client.post(
         "/api/roms/delete",
-        headers={"Authorization": "Bearer " + access_token},
+        headers={"Authorization": f"Bearer {access_token}"},
         json={"roms": [rom.id], "delete_from_fs": [rom.id]},
     )
     assert response.status_code == status.HTTP_200_OK
