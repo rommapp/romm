@@ -93,10 +93,14 @@ class ActivityHandler:
 
     async def get_all_active(self) -> list[ActivityEntry]:
         """Get all currently active play sessions across all users."""
-        entries: list[ActivityEntry] = []
         pattern = f"{self.KEY_PREFIX}*"
-        async for key in async_cache.scan_iter(match=pattern):
-            raw = await async_cache.get(key)
+        keys = [key async for key in async_cache.scan_iter(match=pattern)]
+        if not keys:
+            return []
+
+        # Single round-trip for every value instead of a GET per key.
+        entries: list[ActivityEntry] = []
+        for raw in await async_cache.mget(keys):
             if not raw:
                 continue
             try:

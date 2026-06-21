@@ -1,15 +1,14 @@
 from datetime import datetime, timezone
 
-import socketio  # type: ignore
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from config import REDIS_URL
 from decorators.auth import protected_route
 from endpoints.responses.activity import ActivityClearSchema, ActivityEntrySchema
 from handler.activity_handler import ActivityEntry, activity_handler
 from handler.auth.constants import Scope
 from handler.database import db_device_handler, db_rom_handler
+from handler.socket_handler import socket_handler
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -22,40 +21,6 @@ router = APIRouter(
 class DeviceHeartbeatPayload(BaseModel):
     rom_id: int = Field(ge=1)
     device_id: str = Field(min_length=1, max_length=255)
-
-
-def _get_socket_manager() -> socketio.AsyncRedisManager:
-    """Create a write-only Redis manager for emitting from REST endpoints."""
-    return socketio.AsyncRedisManager(REDIS_URL, write_only=True)
-
-
-def _build_activity_entry(
-    *,
-    user_id: int,
-    username: str,
-    avatar_path: str,
-    rom_id: int,
-    rom_name: str,
-    rom_cover_path: str,
-    platform_slug: str,
-    platform_name: str,
-    device_id: str,
-    device_type: str,
-    started_at: str,
-) -> ActivityEntry:
-    return ActivityEntry(
-        user_id=user_id,
-        username=username,
-        avatar_path=avatar_path,
-        rom_id=rom_id,
-        rom_name=rom_name,
-        rom_cover_path=rom_cover_path,
-        platform_slug=platform_slug,
-        platform_name=platform_name,
-        device_id=device_id,
-        device_type=device_type,
-        started_at=started_at,
-    )
 
 
 @protected_route(router.get, "", [Scope.ROMS_USER_READ])
@@ -105,7 +70,7 @@ async def device_heartbeat(
     )
 
     platform = rom.platform
-    entry = _build_activity_entry(
+    entry = ActivityEntry(
         user_id=request.user.id,
         username=request.user.username,
         avatar_path=request.user.avatar_path or "",
@@ -124,10 +89,11 @@ async def device_heartbeat(
     # Update the device last_seen as a side-effect (mirrors play session ingest).
     db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
 
-    # Broadcast to all connected sockets.
+    # Broadcast to all connected sockets. The REST app shares this process with
+    # the Socket.IO server, so emit through the already-initialised, Redis-backed
+    # server (it fans out across workers) rather than opening a manager per call.
     try:
-        sm = _get_socket_manager()
-        await sm.emit("activity:update", dict(entry))
+        await socket_handler.socket_server.emit("activity:update", dict(entry))
     except Exception as e:  # noqa: BLE001
         log.warning(
             f"Failed to broadcast activity:update for user {request.user.id}: {e}"
@@ -149,8 +115,7 @@ async def clear_device_activity(request: Request, device_id: str) -> None:
         return None
 
     try:
-        sm = _get_socket_manager()
-        await sm.emit(
+        await socket_handler.socket_server.emit(
             "activity:clear",
             ActivityClearSchema(
                 user_id=request.user.id,

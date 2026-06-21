@@ -229,19 +229,17 @@ async function onLogout() {
       <div class="r-v2-user-menu__group-label">
         {{ t("settings.group-system") }}
       </div>
-      <!-- Live "now playing" board — readable by any authenticated user, so
-           it leads the System group (mirrors SettingsSidebar). -->
-      <RMenuItem
-        :to="{ name: ROUTES.ACTIVITY }"
-        icon="mdi-access-point"
-        :label="t('activity.active-sessions')"
-        @click="open = false"
-      />
       <RMenuItem
         v-if="canSeeAdmin"
         :to="{ name: ROUTES.ADMINISTRATION }"
         icon="mdi-shield-account-outline"
         :label="t('common.administration')"
+        @click="open = false"
+      />
+      <RMenuItem
+        :to="{ name: ROUTES.ACTIVITY }"
+        icon="mdi-access-point"
+        :label="t('activity.active-sessions')"
         @click="open = false"
       />
       <RMenuItem

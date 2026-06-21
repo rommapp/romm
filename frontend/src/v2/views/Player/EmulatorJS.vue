@@ -90,14 +90,6 @@ const gameRunning = ref(false);
 const removeIOSFullscreenShim = ref<(() => void) | null>(null);
 
 // ── Live activity ("now playing") ──────────────────────────────────
-// The v2 shell owns the activity lifecycle directly rather than relying
-// on the reused v1 <Player>'s `window.EJS_onGameStart` callback — that
-// callback doesn't fire reliably in the v2 mount sequence (the async
-// <Player> mounts after the shell has already booted the loader), so
-// the board never saw the session. Driving it off the shell's own
-// deterministic `gameRunning` transition guarantees the emit. The
-// backend's set_active / clear_active are idempotent, so a stray emit
-// from the v1 layer (were it ever to fire) is harmless.
 const ACTIVITY_HEARTBEAT_MS = 30_000;
 let activityHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -110,7 +102,6 @@ function emitActivityStart() {
   if (!socket.connected) socket.connect();
   socket.emit("activity:start", {
     rom_id: rom.value.id,
-    user_id: auth.user.id,
     device_id: activityDeviceId(),
   });
 }
@@ -119,7 +110,6 @@ function emitActivityHeartbeat() {
   if (!auth.user || !rom.value) return;
   socket.emit("activity:heartbeat", {
     rom_id: rom.value.id,
-    user_id: auth.user.id,
     device_id: activityDeviceId(),
   });
 }
@@ -127,7 +117,6 @@ function emitActivityHeartbeat() {
 function emitActivityStop() {
   if (!auth.user) return;
   socket.emit("activity:stop", {
-    user_id: auth.user.id,
     device_id: activityDeviceId(),
   });
 }

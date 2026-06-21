@@ -6,7 +6,6 @@ import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import ActionBar from "@/components/Details/ActionBar.vue";
-import ActivePlayers from "@/components/Details/ActivePlayers.vue";
 import AdditionalContent from "@/components/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import GameData from "@/components/Details/GameData.vue";
@@ -234,7 +233,6 @@ watch(
               <v-window-item value="details">
                 <v-row no-gutters>
                   <v-col>
-                    <ActivePlayers :rom-id="currentRom.id" />
                     <FileInfo :rom="currentRom" />
                     <GameInfo :rom="currentRom" />
                   </v-col>

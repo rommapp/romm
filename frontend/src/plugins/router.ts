@@ -325,7 +325,9 @@ const routes = [
               title: i18n.global.t("activity.active-sessions"),
             },
             components: {
-              default: () => import("@/views/Activity.vue"),
+              // v2-only view; v1 has no activity concept so it redirects
+              // home if a v1 user deep-links here.
+              default: () => import("@/views/Home.vue"),
               v2: v2For(ROUTES.ACTIVITY),
             },
           },

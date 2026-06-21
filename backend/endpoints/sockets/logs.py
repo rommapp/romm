@@ -17,6 +17,7 @@ from typing import Any, Final
 import socketio  # type: ignore
 
 from config import DISABLE_LOGS_VIEWER, REDIS_URL
+from endpoints.sockets.activity import store_authenticated_user
 from handler.database import db_user_handler
 from handler.redis_handler import async_cache
 from handler.socket_handler import socket_handler
@@ -33,14 +34,14 @@ FORWARDER_LOCK_TTL: Final = 30  # seconds
 
 @socket_handler.socket_server.on("connect")  # type: ignore
 async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
-    """Join admin users to the log-streaming room on socket connect.
+    """Resolve the authenticated user on socket connect.
 
-    Always returns ``None`` (accepts the connection) — only the room membership
-    is gated, so the existing scan/sync sockets keep working for everyone.
+    Stores the user id in the socket session so activity events can trust the
+    server-resolved identity instead of a client-supplied ``user_id``, and joins
+    admin users to the log-streaming room. Always returns ``None`` (accepts the
+    connection) — only identity storage and room membership are gated, so the
+    existing scan/sync sockets keep working for everyone.
     """
-    if DISABLE_LOGS_VIEWER:
-        return
-
     try:
         session = await get_session_from_environ(environ)
         if session.get("iss") != "romm:auth":
@@ -51,10 +52,15 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
             return
 
         user = db_user_handler.get_user_by_username(username)
-        if user and user.enabled and user.role == Role.ADMIN:
+        if not user or not user.enabled:
+            return
+
+        await store_authenticated_user(sid, user.id)
+
+        if not DISABLE_LOGS_VIEWER and user.role == Role.ADMIN:
             await socket_handler.socket_server.enter_room(sid, ADMIN_ROOM)
     except Exception:  # noqa: BLE001 - never let auth resolution refuse a socket
-        log.exception("Failed to resolve admin for log stream connect")
+        log.exception("Failed to resolve user on socket connect")
 
 
 async def get_recent_logs(limit: int) -> list[dict[str, Any]]:
