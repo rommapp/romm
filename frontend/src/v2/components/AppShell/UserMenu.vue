@@ -74,11 +74,6 @@ const canSeeLibraryMgmt = computed(() =>
 const canSeeApiTokens = computed(() => scopes.value.includes("me.write"));
 const canSeeAdmin = computed(() => scopes.value.includes("users.write"));
 
-// The System group can be empty for restricted scopes — gate the whole
-// region so a lone group label doesn't dangle. The Library group always
-// contains at least the Patcher, so it never needs gating.
-const showSystemGroup = computed(() => canSeeAdmin.value || isAdmin.value);
-
 function showAbout() {
   open.value = false;
   emitter?.emit("showAboutDialog", null);
@@ -161,17 +156,6 @@ async function onLogout() {
 
     <RDivider />
 
-    <!-- Activity — a content destination (live "now playing" board), not a
-         setting, so it stands alone above the settings-style groups. -->
-    <RMenuItem
-      :to="{ name: ROUTES.ACTIVITY }"
-      icon="mdi-access-point"
-      :label="t('common.activity')"
-      @click="open = false"
-    />
-
-    <RDivider />
-
     <!-- Account -->
     <div class="r-v2-user-menu__group">
       <div class="r-v2-user-menu__group-label">
@@ -241,10 +225,18 @@ async function onLogout() {
     </div>
 
     <!-- System -->
-    <div v-if="showSystemGroup" class="r-v2-user-menu__group">
+    <div class="r-v2-user-menu__group">
       <div class="r-v2-user-menu__group-label">
         {{ t("settings.group-system") }}
       </div>
+      <!-- Live "now playing" board — readable by any authenticated user, so
+           it leads the System group (mirrors SettingsSidebar). -->
+      <RMenuItem
+        :to="{ name: ROUTES.ACTIVITY }"
+        icon="mdi-access-point"
+        :label="t('activity.active-sessions')"
+        @click="open = false"
+      />
       <RMenuItem
         v-if="canSeeAdmin"
         :to="{ name: ROUTES.ADMINISTRATION }"

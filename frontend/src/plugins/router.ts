@@ -322,9 +322,9 @@ const routes = [
             path: "activity",
             name: ROUTES.ACTIVITY,
             meta: {
-              title: i18n.global.t("common.activity"),
+              title: i18n.global.t("activity.active-sessions"),
             },
-            component: {
+            components: {
               default: () => import("@/views/Activity.vue"),
               v2: v2For(ROUTES.ACTIVITY),
             },
