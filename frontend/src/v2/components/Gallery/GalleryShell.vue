@@ -61,6 +61,7 @@ import { type ListSortKey } from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { coverRatio, isBoxartStyle } from "@/v2/composables/useCoverArt";
+import { useGalleryCoverRatios } from "@/v2/composables/useGalleryCoverRatios";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
@@ -262,29 +263,10 @@ const coverAspectRatio = computed(() =>
   ),
 );
 
-// Measured natural cover ratios, keyed by rom id (the key survives gallery
-// switches, so a re-visited platform re-packs without re-waiting on images).
-// Updates batch behind `ratioVersion` → one re-pack per burst, not per cover.
-// Intentionally unbounded: two numbers per rom, reset on page reload.
-const ratioByRomId = new Map<number, number>();
-const ratioVersion = ref(0);
-let ratioBumpTimer: ReturnType<typeof setTimeout> | null = null;
-function onCardRatio(payload: { romId: number; ratio: number }) {
-  const prev = ratioByRomId.get(payload.romId);
-  // Ignore no-op / sub-pixel changes so we don't re-pack for nothing.
-  if (prev != null && Math.abs(prev - payload.ratio) < 0.01) return;
-  ratioByRomId.set(payload.romId, payload.ratio);
-  if (ratioBumpTimer) return;
-  ratioBumpTimer = setTimeout(() => {
-    ratioBumpTimer = null;
-    ratioVersion.value++;
-  }, 150);
-}
-function ratioAt(position: number): number {
-  const romId = galleryRoms.romIdIndex[position];
-  if (romId == null) return 0; // → packer falls back to the default ratio
-  return ratioByRomId.get(romId) ?? 0;
-}
+// Measured natural cover ratios feeding the flow-packer — GameCard reports
+// each cover's ratio on load (`onCardRatio`), the packer reads `ratioAt`,
+// and `ratioVersion` bumps (debounced) to trigger a single re-pack.
+const { ratioVersion, ratioAt, onCardRatio } = useGalleryCoverRatios();
 
 // 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
 //   * Grid mode — rows are `.r-v2-shell__row` (the per-virtualizer-item
@@ -671,7 +653,6 @@ onBeforeUnmount(() => {
   gallerySelection.clear();
   if (searchDebounce) clearTimeout(searchDebounce);
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
-  if (ratioBumpTimer) clearTimeout(ratioBumpTimer);
   // Cancel any per-position fetches still in flight for our last
   // visible set — `invalidateWindows` / `resetGallery` already aborts
   // window-level fetches; this covers per-card cleanup on unmount.
