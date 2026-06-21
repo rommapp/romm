@@ -45,9 +45,8 @@ export function useResponsiveColumns(
   const min = options.min ?? 1;
 
   const columns = ref<number>(min);
-  // Observed content width minus `inset` — the px available to a row of
-  // cards. Exposed for consumers that flow-pack by width (the gallery's
-  // wrapping rows) rather than chunk by a fixed column count.
+  // Observed content width minus `inset` — px available to a row of cards,
+  // for consumers that flow-pack by width rather than a fixed column count.
   const usableWidth = ref<number>(0);
   let observer: ResizeObserver | null = null;
   // Last observed width — kept so a change in a reactive option (card

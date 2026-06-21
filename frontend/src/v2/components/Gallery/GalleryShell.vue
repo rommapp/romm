@@ -242,9 +242,8 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
-// Card-art width reference (matches GameCard's `--r-card-art-w`). It sets
-// the card HEIGHT (a 2/3 cover's height at this width); each card's real
-// width then follows its cover's natural ratio.
+// Card-art width reference (matches GameCard's `--r-card-art-w`); sets the
+// fixed card HEIGHT (a 2/3 cover at this width). Real width follows the ratio.
 const CARD_GAP_PX = 12;
 const cardWidth = () => (xs.value ? 130 : 158);
 const cardHeight = () => Math.round(cardWidth() / (2 / 3));
@@ -254,9 +253,8 @@ const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
   inset: () => (xs.value ? 64 : smAndDown.value ? 76 : 108),
 });
 
-// Fallback cover ratio from the gallery-wide boxart style — used only as
-// the per-card `--r-cover-ratio` seed (before GameCover measures the real
-// image) and for the bootstrap skeleton rows.
+// Fallback cover ratio (boxart style) — the per-card `--r-cover-ratio` seed
+// before GameCover measures the real image, plus the bootstrap skeletons.
 const { boxartStyle } = useUISettings();
 const coverAspectRatio = computed(() =>
   coverRatio(
@@ -264,17 +262,10 @@ const coverAspectRatio = computed(() =>
   ),
 );
 
-// Measured natural cover ratios, keyed by rom id (stable across gallery
-// context switches, so the cache survives navigation). GameCard reports
-// each cover's ratio once its image loads; the flow-packer reads them via
-// `ratioAt(position)`. Updates are batched behind `ratioVersion` so a burst
-// of image loads triggers a single re-pack instead of one per cover.
-//
-// Intentionally unbounded for the page's lifetime: keeping it by rom id is
-// what lets a re-visited platform/collection re-pack instantly without
-// waiting on image loads again. Each entry is two numbers, so even a user
-// browsing tens of thousands of distinct ROMs costs a few hundred KB — not
-// worth an LRU ceiling. Reset happens naturally on a full page reload.
+// Measured natural cover ratios, keyed by rom id (the key survives gallery
+// switches, so a re-visited platform re-packs without re-waiting on images).
+// Updates batch behind `ratioVersion` → one re-pack per burst, not per cover.
+// Intentionally unbounded: two numbers per rom, reset on page reload.
 const ratioByRomId = new Map<number, number>();
 const ratioVersion = ref(0);
 let ratioBumpTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1020,13 +1011,9 @@ defineExpose({
   margin-bottom: 16px;
 }
 
-/* Flow-packed wrapping row: same-height, natural-width cards laid left to
-   right. The JS packer (useGalleryVirtualItems) chose how many cards fit,
-   so `nowrap` is safe — a brief over/under-fill during the load transient
-   (before measured ratios settle) just leaves a ragged right edge or a
-   hair of overflow, corrected on the next re-pack. `align-items:
-   flex-start` keeps every card pinned to the same top. The 12px column gap
-   matches the packer's `gap`; the 18px row gap matches the chrome math. */
+/* Flow-packed wrapping row: same-height, natural-width cards. The packer
+   sized it to fit, so `nowrap` is safe; gaps match the packer (12) and the
+   chrome math (18). `flex-start` pins every card to the same top. */
 .r-v2-shell__row {
   display: flex;
   flex-wrap: nowrap;
@@ -1034,13 +1021,9 @@ defineExpose({
   gap: 12px;
   padding-bottom: 18px;
 }
-/* Never shrink a card: the packer sizes a row from `cardHeight * ratio`
-   (floating point), and the browser rounds the rendered widths, so a row
-   the packer computed as "just fits" can land a hair over the container.
-   With shrink enabled, fixed-height cards would absorb that by narrowing —
-   cropping the cover (object-fit). Pinning shrink to 0 trades that rare
-   sub-pixel crop for a hair of ragged overflow instead, and keeps loading
-   skeletons (which otherwise default to shrink) at their packed width. */
+/* Never shrink: float rounding can push a "just fits" row a hair over, and
+   shrinking a fixed-height card would crop its cover. Take ragged overflow
+   instead (also keeps skeletons, default shrink:1, at their packed width). */
 .r-v2-shell__row > * {
   flex-shrink: 0;
 }
@@ -1137,10 +1120,8 @@ defineExpose({
   );
 }
 
-/* Smaller cards on phones. Matches GameCard's own xs `--r-card-art-w`
-   (130px) so the shell's skeletons and the flow-packer's card-height
-   reference (`cardWidth()` in script) stay in lock-step with what the
-   cards actually render. */
+/* Smaller cards on phones. Matches GameCard's own xs `--r-card-art-w` so
+   skeletons and the packer's card-height reference track the real cards. */
 html[data-bp~="xs"] .r-v2-shell {
   --r-card-art-w: 130px;
 }

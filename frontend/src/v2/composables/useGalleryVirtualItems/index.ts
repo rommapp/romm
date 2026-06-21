@@ -68,11 +68,9 @@ export function galleryRowHeight(
   return Math.round(cardWidth / ratio) + ROW_CHROME_PX;
 }
 
-/** Flow-pack a contiguous run of positions into rows that each fill the
- *  available width: cards keep their natural width (`cardHeight * ratio`)
- *  and wrap to the next row when the next card would overflow. A card wider
- *  than the whole row still gets its own row (never an empty row). Pure —
- *  exported for unit tests. `ratioAt` must already apply any default. */
+/** Flow-pack a contiguous run of positions into width-filling rows: each
+ *  card is `cardHeight * ratio` wide and wraps when it would overflow (an
+ *  over-wide card gets its own row). Pure; `ratioAt` applies its own default. */
 export function packFlowRows(
   start: number,
   end: number,
@@ -125,21 +123,17 @@ interface Options {
   notFoundMessage?: Ref<string> | ComputedRef<string>;
   /** Skeleton row count while loading the first window. */
   skeletonRowCount?: number;
-  /** Fixed card-art HEIGHT in px — every card shares it, so every grid row
-   *  has the same height (the scroller stays exact-offset). Defaults to the
-   *  md footprint (a 2/3 cover at 158px → 237px). */
+  /** Fixed card-art height in px, shared by every card so every row has the
+   *  same height. Defaults to the md footprint (158px / (2/3) → 237px). */
   cardHeight?: MaybeRefOrGetter<number>;
-  /** Usable px width of a row (container minus gutters / AlphaStrip). The
-   *  flow-packer fills a row until the next card would overflow it. */
+  /** Usable px width of a row (container minus gutters / AlphaStrip). */
   rowWidth?: MaybeRefOrGetter<number>;
   /** Horizontal gap between cards in px (default 12). */
   gap?: MaybeRefOrGetter<number>;
-  /** Natural cover ratio (width / height) for a position — the card's
-   *  width is `cardHeight * ratioAt(p)`. Defaults to box-art 2/3 for
-   *  positions whose image hasn't been measured yet. */
+  /** Natural cover ratio (w / h) for a position (card width =
+   *  `cardHeight * ratioAt(p)`). Defaults to 2/3 until the image is measured. */
   ratioAt?: (position: number) => number;
-  /** Bump to force a re-pack when measured ratios change. Read inside the
-   *  layout so Vue tracks it; the packer itself calls `ratioAt`. */
+  /** Bump to force a re-pack when measured ratios change (Vue tracks it). */
   ratioVersion?: Ref<number> | ComputedRef<number>;
 }
 
@@ -206,9 +200,8 @@ export function useGalleryVirtualItems(opts: Options) {
       ? toValue(opts.cardHeight)
       : Math.round(REFERENCE_COVER_WIDTH_PX / DEFAULT_COVER_RATIO);
 
-  // Uniform row height: every card shares one fixed art height, so every
-  // grid row is the same height regardless of how many (variable-width)
-  // cards it holds. Keeps the scroller exact-offset with no measuring.
+  // Uniform row height (cards share one fixed art height) keeps the scroller
+  // exact-offset regardless of how many variable-width cards a row holds.
   const rowHeightPx = computed(() => cardHeightPx() + ROW_CHROME_PX);
 
   const ratioAt = (position: number): number => {
@@ -216,9 +209,8 @@ export function useGalleryVirtualItems(opts: Options) {
     return r != null && r > 0 ? r : DEFAULT_COVER_RATIO;
   };
 
-  // Signature matches RVirtualScroller's `getItemHeight` prop (which uses
-  // `unknown` because the primitive is generic). Row / skeleton-row share
-  // the uniform height; every other kind is fixed.
+  // `unknown` matches RVirtualScroller's generic prop. Row / skeleton-row
+  // share the uniform height; every other kind is fixed.
   function getItemHeight(item: unknown): number {
     const { kind } = item as GalleryItem;
     if (kind === "row" || kind === "skeleton-row") return rowHeightPx.value;
@@ -311,19 +303,16 @@ export function useGalleryVirtualItems(opts: Options) {
     const ranges = letterRanges.value;
     const cardHeight = cardHeightPx();
     const gap = opts.gap != null ? toValue(opts.gap) : 12;
-    // Fall back to a one-card-wide row before the container is measured, so
-    // packing degrades to one-per-row rather than dividing by zero.
+    // At least one card wide before the container is measured.
     const rowWidth = Math.max(
       cardHeight,
       opts.rowWidth != null ? toValue(opts.rowWidth) : 0,
     );
-    // Read the version so a measured-ratio change re-runs the pack.
+    // Track the version so a measured-ratio change re-runs the pack.
     void (opts.ratioVersion ? opts.ratioVersion.value : 0);
 
     if (opts.groupBy.value === "letter") {
-      // Group by letter — each letter section gets a header followed by its
-      // own flow-packed rows (rows restart at the letter's first position,
-      // so a letter never shares a visual row with another).
+      // Header + own flow-packed rows per letter (rows restart per letter).
       for (const range of ranges) {
         items.push({
           kind: "letter-header",
@@ -406,10 +395,8 @@ export function useGalleryVirtualItems(opts: Options) {
     }
 
     if (opts.groupBy.value !== "letter") {
-      // Flat mode — rows are variable-size contiguous runs, so map each
-      // letter to the row whose position range contains its first position.
-      // Rows and letterRanges are both ascending, so one forward walk with
-      // a letter pointer assigns every letter in O(rows + letters).
+      // Map each letter to the variable-size row containing its first
+      // position. Both rows and ranges are ascending → one forward walk.
       const ranges = letterRanges.value; // sorted by start
       let li = 0;
       for (let i = 0; i < items.length && li < ranges.length; i++) {

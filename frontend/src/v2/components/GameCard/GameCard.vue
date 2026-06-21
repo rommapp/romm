@@ -529,13 +529,9 @@ function onStaticKeydown(e: KeyboardEvent) {
   color: var(--r-color-fg);
 }
 
-/* Default (gallery) card: FIXED art height, NATURAL width. The height is
-   the footprint a 2/3 box-art cover would have at `--r-card-art-w`, so
-   box-art cards keep their familiar size; the cover's real width then
-   follows its own aspect ratio (`--r-cover-ratio`, set per-image by
-   GameCover). Cards end up the same height with varying widths. Explicit
-   size tiers + hero keep their fixed footprints (set `--r-card-art-h`/
-   width directly). */
+/* Default (gallery) card: fixed art height (a 2/3 cover's height at
+   `--r-card-art-w`), natural width from the cover's own ratio. Same height,
+   varying widths. Size tiers + hero keep their fixed footprints. */
 .r-gc:not([class*="r-gc--size-"]):not(.r-gc--hero) {
   --r-card-art-h: calc(var(--r-card-art-w) / 0.6667);
   width: auto;
@@ -546,9 +542,7 @@ function onStaticKeydown(e: KeyboardEvent) {
 .r-gc:not([class*="r-gc--size-"]):not(.r-gc--hero) .r-gc__art {
   width: auto;
 }
-/* Keep the label from widening the card past its cover: it contributes 0
-   to the card's intrinsic width but fills (and ellipsises within) whatever
-   width the cover establishes. */
+/* Label fills the cover's width and ellipsises, without widening the card. */
 .r-gc:not([class*="r-gc--size-"]):not(.r-gc--hero) .r-gc__label {
   width: 0;
   min-width: 100%;

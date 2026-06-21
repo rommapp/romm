@@ -82,9 +82,8 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  /** Fires with the rendered image's natural aspect ratio (width / height)
-   *  once it loads. Lets a surface that lays cards out by their true shape
-   *  (the gallery's wrapping rows) pack without a forced ratio. */
+  /** The rendered image's natural ratio (w / h) once loaded — lets the
+   *  gallery's wrapping rows pack by true shape. */
   ratio: [number];
 }>();
 
@@ -122,10 +121,8 @@ const coverLoaded = ref(false);
 const activeSrc = computed(() =>
   showFallback.value ? art.fallbackUrl.value : art.coverUrl.value,
 );
-// Natural aspect ratio (width / height) of the rendered image, measured on
-// load. Drives the cover box's actual shape — no forced style ratio. Null
-// until the image decodes (or when showing the placeholder), where we fall
-// back to the style ratio as a sensible first guess.
+// Natural ratio (w / h) of the rendered image, measured on load — drives
+// the box shape. Null until decoded / for the placeholder (→ style ratio).
 const naturalRatio = ref<number | null>(null);
 function measureNaturalRatio() {
   const el = imgEl.value;
@@ -143,8 +140,7 @@ const onCoverLoad = () => {
   coverLoaded.value = true;
   measureNaturalRatio();
 };
-// The box shape: the image's true ratio once known, else the style ratio
-// as a first guess (keeps box-art cards from jumping — they're 2/3 anyway).
+// True ratio once known, else the style ratio as a first guess.
 const boxRatio = computed(() => naturalRatio.value ?? art.ratio.value);
 
 const selfHover = ref(false);
