@@ -118,7 +118,9 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
           </span>
         </div>
         <div class="r-asset-strip__meta">
-          <p class="r-asset-strip__name">{{ asset.file_name }}</p>
+          <p class="r-asset-strip__name">
+            {{ asset.file_name }}
+          </p>
           <p class="r-asset-strip__sub">
             <span>{{ formatRelativeDate(asset.updated_at) }}</span>
             <span class="r-asset-strip__dot" aria-hidden="true">·</span>
