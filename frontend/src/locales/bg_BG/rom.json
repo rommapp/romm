@@ -405,5 +405,7 @@
   "screenshot-make-public": "Направи публична",
   "screenshot-make-private": "Направи лична",
   "screenshot-public": "Публична",
-  "screenshot-visibility-failed": "Видимостта не може да се промени: {error}"
+  "screenshot-visibility-failed": "Видимостта не може да се промени: {error}",
+  "location": "Location",
+  "location-copied": "Location copied to clipboard."
 }

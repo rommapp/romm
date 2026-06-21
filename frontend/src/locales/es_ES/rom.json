@@ -405,5 +405,7 @@
   "screenshot-make-public": "Hacer pública",
   "screenshot-make-private": "Hacer privada",
   "screenshot-public": "Pública",
-  "screenshot-visibility-failed": "No se pudo actualizar la visibilidad: {error}"
+  "screenshot-visibility-failed": "No se pudo actualizar la visibilidad: {error}",
+  "location": "Location",
+  "location-copied": "Location copied to clipboard."
 }

@@ -405,5 +405,7 @@
   "screenshot-make-public": "Zveřejnit",
   "screenshot-make-private": "Nastavit jako soukromé",
   "screenshot-public": "Veřejné",
-  "screenshot-visibility-failed": "Nepodařilo se změnit viditelnost: {error}"
+  "screenshot-visibility-failed": "Nepodařilo se změnit viditelnost: {error}",
+  "location": "Location",
+  "location-copied": "Location copied to clipboard."
 }
