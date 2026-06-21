@@ -690,8 +690,8 @@ async function toggleStateVisibility(state: StateSchema) {
 }
 
 /* Mine / Community subsections within a subtab panel. Header layout
-   mirrors ScreenshotsSubtab: title + subtitle on the left, Upload
-   button on the right when the section already has items. */
+   mirrors ScreenshotsSubtab: title on the left, Upload button on the
+   right when the section already has items. */
 .r-v2-saves__section {
   display: flex;
   flex-direction: column;

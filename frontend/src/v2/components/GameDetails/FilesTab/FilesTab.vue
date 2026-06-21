@@ -4,8 +4,9 @@
 //
 // Layout mirrors ScreenshotsSubtab / SaveDataTab / MediaTab: a vertical
 // subtab list on the left (navigation only — no inline action panel),
-// and a content column on the right with a section header hosting the
-// subtab-level actions (Download all / Copy link / Upload) on the right.
+// and a content column on the right with a section header that hosts
+// only the Upload button. Bulk download / copy-link affordances live
+// in the selection toolbar instead — pair them with select-all.
 //
 // Grouping is **folder-based**: every direct subfolder of the ROM
 // becomes its own subtab, plus a "Root" subtab for files sitting
@@ -17,7 +18,6 @@
 // inside each row.
 //
 // Section header (per active subtab):
-//   * Download all / Copy link — wired for any subtab with files.
 //   * Upload — only enabled for the "manual" and "soundtrack" folders
 //     (the only places the backend supports adding files to an
 //     existing ROM today). Other subtabs render a disabled Upload
@@ -25,9 +25,11 @@
 //     about its current reach.
 //
 // Content column:
-//   * Section header (Download all / Copy link / Upload)
+//   * Section header (Upload only)
 //   * ROM-info card (size, revision, ROM-level hashes — click to copy)
-//   * Selection toolbar (select-all + per-selection actions)
+//   * Selection toolbar (select-all + per-selection Download / Copy-link
+//     — also the path for "download everything in this subtab": select
+//     all then act).
 //   * One row per file with checkbox, relative path, category chip,
 //     size, per-file hashes (click to copy), and per-row Download +
 //     Copy-link buttons.
