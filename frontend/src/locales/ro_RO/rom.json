@@ -405,5 +405,7 @@
   "screenshot-make-public": "Fă publică",
   "screenshot-make-private": "Fă privată",
   "screenshot-public": "Publică",
-  "screenshot-visibility-failed": "Vizibilitatea nu a putut fi actualizată: {error}"
+  "screenshot-visibility-failed": "Vizibilitatea nu a putut fi actualizată: {error}",
+  "location": "Locație",
+  "location-copied": "Locație copiată în clipboard."
 }

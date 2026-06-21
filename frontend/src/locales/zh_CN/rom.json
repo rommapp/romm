@@ -405,5 +405,7 @@
   "screenshot-make-public": "设为公开",
   "screenshot-make-private": "设为私密",
   "screenshot-public": "公开",
-  "screenshot-visibility-failed": "无法更新可见性：{error}"
+  "screenshot-visibility-failed": "无法更新可见性：{error}",
+  "location": "位置",
+  "location-copied": "位置已复制到剪贴板。"
 }

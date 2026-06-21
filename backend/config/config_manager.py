@@ -132,6 +132,7 @@ class Config:
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
+    SCAN_SUBFOLDERS: dict[str, bool | list[str]]
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
 
@@ -159,6 +160,25 @@ class Config:
                 return True
 
         return False
+
+    def subfolder_scan_spec(self, fs_slug: str) -> bool | frozenset[str]:
+        """How the scanner should recurse into a platform's subfolders.
+
+        Opt-in per platform via `scan.subfolders` in config.yml, where the
+        value is either:
+          - ``True`` -> recurse every subfolder (each nested file becomes its
+            own rom);
+          - a list of folder names -> recurse only those folders, leaving every
+            other folder as a single multi-file rom (so folder-based multi-file
+            games elsewhere on the platform stay intact);
+          - ``False`` / omitted -> don't recurse (default behavior).
+
+        Returns ``True``, a ``frozenset`` of folder names, or ``False``.
+        """
+        value = getattr(self, "SCAN_SUBFOLDERS", {}).get(fs_slug, False)
+        if isinstance(value, list):
+            return frozenset(value)
+        return bool(value)
 
 
 class ConfigManager:
@@ -446,6 +466,7 @@ class ConfigManager:
             PEGASUS_AUTO_EXPORT_ON_SCAN=pydash.get(
                 self._raw_config, "scan.pegasus.export", False
             ),
+            SCAN_SUBFOLDERS=pydash.get(self._raw_config, "scan.subfolders", {}),
         )
 
     def _get_ejs_controls(self) -> dict[str, EjsControls]:
@@ -660,6 +681,21 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.media must be a list")
             sys.exit(3)
 
+        if not isinstance(self.config.SCAN_SUBFOLDERS, dict):
+            log.critical("Invalid config.yml: scan.subfolders must be a dictionary")
+            sys.exit(3)
+        for fs_slug, value in self.config.SCAN_SUBFOLDERS.items():
+            is_bool = isinstance(value, bool)
+            is_str_list = isinstance(value, list) and all(
+                isinstance(name, str) for name in value
+            )
+            if not (is_bool or is_str_list):
+                log.critical(
+                    f"Invalid config.yml: scan.subfolders.{fs_slug} must be a "
+                    "boolean or a list of folder names"
+                )
+                sys.exit(3)
+
         # Drop unknown media types rather than exiting, since a newer release
         # may ship sample configs referencing media types this version doesn't know.
         unknown_media = [
@@ -779,6 +815,7 @@ class ConfigManager:
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
                 "media": self.config.SCAN_MEDIA,
+                "subfolders": self.config.SCAN_SUBFOLDERS,
                 "gamelist": {
                     "export": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
                     "media": {

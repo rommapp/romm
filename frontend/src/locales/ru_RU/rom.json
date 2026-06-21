@@ -405,5 +405,7 @@
   "screenshot-make-public": "Сделать публичной",
   "screenshot-make-private": "Сделать приватной",
   "screenshot-public": "Публичная",
-  "screenshot-visibility-failed": "Не удалось изменить видимость: {error}"
+  "screenshot-visibility-failed": "Не удалось изменить видимость: {error}",
+  "location": "Расположение",
+  "location-copied": "Расположение скопировано в буфер обмена."
 }

@@ -377,6 +377,190 @@ class TestFSRomsHandler:
             # Check excluded files are not present
             assert "excluded_test.tmp" not in rom_names
 
+    def _make_subfolder_config(self, subfolders: dict[str, bool | list[str]]) -> Config:
+        return Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=["tmp"],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=["@eaDir"],
+            EXCLUDED_MULTI_PARTS_EXT=["tmp"],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            ROMS_FOLDER_NAME="roms",
+            FIRMWARE_FOLDER_NAME="bios",
+            SCAN_SUBFOLDERS=subfolders,
+        )
+
+    def _build_subfolder_library(self, tmp_path: Path, platform: Platform) -> None:
+        """Library with a flat rom, a grouping subfolder (with a nested
+        sub-subfolder and a basename colliding with the root), a hidden folder,
+        and a folder-style multi-file rom."""
+        roms = tmp_path / platform.fs_slug / "roms"
+        roms.mkdir(parents=True)
+        (roms / "Game A.zip").write_text("a")
+        group = roms / "All but the Best"
+        group.mkdir()
+        (group / "Game A.zip").write_text("dup")  # same basename, different folder
+        (group / "Hidden Gem.zip").write_text("c")
+        deeper = group / "deeper"
+        deeper.mkdir()
+        (deeper / "Way Down.zip").write_text("d")
+        hidden = roms / ".hidden"
+        hidden.mkdir()
+        (hidden / "disc.chd").write_text("x")
+        multi = roms / "Multi Disc Game"
+        multi.mkdir()
+        (multi / "disc1.bin").write_text("p")
+
+    @pytest.mark.asyncio
+    async def test_get_roms_subfolders_disabled(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """By default a subfolder is a single multi-file rom, not a group."""
+        self._build_subfolder_library(tmp_path, platform)
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_subfolder_config({}),
+        ):
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        base = f"{platform.fs_slug}/roms"
+        assert (base, "Game A.zip") in keys
+        # Directories surface as multi-file roms, not as groups.
+        assert (base, "All but the Best") in keys
+        assert (base, "Multi Disc Game") in keys
+        assert (base, ".hidden") in keys
+        # Nothing inside any subfolder is surfaced.
+        assert not any(r["fs_path"] != base for r in roms)
+        assert len(roms) == 4
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_subfolders_enabled(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """With subfolder scanning on, groups are descended into (recursively),
+        hidden folders are skipped, and identically-named files in different
+        folders stay distinct via their full path."""
+        self._build_subfolder_library(tmp_path, platform)
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_subfolder_config({platform.fs_slug: True}),
+        ):
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        base = f"{platform.fs_slug}/roms"
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        assert (base, "Game A.zip") in keys
+        assert (f"{base}/All but the Best", "Game A.zip") in keys  # collision kept
+        assert (f"{base}/All but the Best", "Hidden Gem.zip") in keys
+        assert (f"{base}/All but the Best/deeper", "Way Down.zip") in keys
+        # Group folders are descended into, so "Multi Disc Game" parts surface.
+        assert (f"{base}/Multi Disc Game", "disc1.bin") in keys
+        # Hidden folder is not descended into; it remains a multi-file rom.
+        assert (base, ".hidden") in keys
+        assert (f"{base}/.hidden", "disc.chd") not in keys
+        # All full-path keys are unique and count matches.
+        full_paths = [f"{r['fs_path']}/{r['fs_name']}" for r in roms]
+        assert len(full_paths) == len(set(full_paths))
+        assert sum(1 for r in roms if r["fs_name"] == "Game A.zip") == 2
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_subfolders_descriptor_dir_kept_whole(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A subfolder holding a disc/playlist descriptor (.m3u, .cue, ...) is a
+        multi-disc game: it stays a single multi-file rom even with subfolder
+        scanning on (not split per disc), while a plain grouping folder is still
+        recursed."""
+        roms = tmp_path / platform.fs_slug / "roms"
+        roms.mkdir(parents=True)
+        (roms / "Flat Game.zip").write_text("a")
+        # Multi-disc game declared by an .m3u playlist -> one rom.
+        md = roms / "Final Fantasy VII"
+        md.mkdir()
+        (md / "disc1.chd").write_text("1")
+        (md / "disc2.chd").write_text("2")
+        (md / "Final Fantasy VII.m3u").write_text("disc1.chd\ndisc2.chd")
+        # Multi-file game declared by a .cue descriptor (cue+bin) -> one rom.
+        cue = roms / "Some CD Game"
+        cue.mkdir()
+        (cue / "Some CD Game.cue").write_text('FILE "Some CD Game.bin" BINARY')
+        (cue / "Some CD Game.bin").write_text("data")
+        # Plain grouping folder (no descriptor) -> recursed into.
+        grp = roms / "Hacks"
+        grp.mkdir()
+        (grp / "Hack A.zip").write_text("h")
+
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_subfolder_config({platform.fs_slug: True}),
+        ):
+            roms_found = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        base = f"{platform.fs_slug}/roms"
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms_found}
+        # The .m3u folder stays a single multi-file rom (not split per disc).
+        assert (base, "Final Fantasy VII") in keys
+        assert (f"{base}/Final Fantasy VII", "disc1.chd") not in keys
+        # The .cue+.bin folder stays whole too (the case raised in review).
+        assert (base, "Some CD Game") in keys
+        assert (f"{base}/Some CD Game", "Some CD Game.bin") not in keys
+        # A normal grouping folder is still recursed.
+        assert (f"{base}/Hacks", "Hack A.zip") in keys
+        assert (base, "Flat Game.zip") in keys
+        assert count == len(roms_found)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_subfolders_named_list(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A list value recurses only the named folders; every other folder
+        (including a folder-based multi-file game) stays a single multi-file
+        rom, and a non-named folder nested inside a named one is not split."""
+        self._build_subfolder_library(tmp_path, platform)
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_subfolder_config(
+                {platform.fs_slug: ["All but the Best"]}
+            ),
+        ):
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        base = f"{platform.fs_slug}/roms"
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        # Named folder is recursed -> its files become individual roms.
+        assert (f"{base}/All but the Best", "Game A.zip") in keys
+        assert (f"{base}/All but the Best", "Hidden Gem.zip") in keys
+        # A non-named folder nested inside it is kept whole (not recursed).
+        assert (f"{base}/All but the Best", "deeper") in keys
+        assert (f"{base}/All but the Best/deeper", "Way Down.zip") not in keys
+        # Folders NOT in the list stay as single multi-file roms.
+        assert (base, "Multi Disc Game") in keys
+        assert (f"{base}/Multi Disc Game", "disc1.bin") not in keys
+        # Top-level flat file and hidden folder behave as usual.
+        assert (base, "Game A.zip") in keys
+        assert (base, ".hidden") in keys
+        assert count == len(roms)
+
     @pytest.mark.asyncio
     async def test_get_rom_files_single_rom(
         self, handler: FSRomsHandler, rom_single, config
@@ -738,19 +922,19 @@ class TestFSRomsHandler:
         # The main ROM hash should be different from the translation file hash
         # (this verifies that the translation is not included in the main hash)
 
-        assert (
-            parsed_rom_files.md5_hash == base_game_rom_file.md5_hash
-        ), "Main ROM hash should include base game file"
-        assert (
-            parsed_rom_files.md5_hash != translation_rom_file.md5_hash
-        ), "Main ROM hash should not include translation file"
+        assert parsed_rom_files.md5_hash == base_game_rom_file.md5_hash, (
+            "Main ROM hash should include base game file"
+        )
+        assert parsed_rom_files.md5_hash != translation_rom_file.md5_hash, (
+            "Main ROM hash should not include translation file"
+        )
 
-        assert (
-            parsed_rom_files.sha1_hash == base_game_rom_file.sha1_hash
-        ), "Main ROM hash should include base game file"
-        assert (
-            parsed_rom_files.sha1_hash != translation_rom_file.sha1_hash
-        ), "Main ROM hash should not include translation file"
+        assert parsed_rom_files.sha1_hash == base_game_rom_file.sha1_hash, (
+            "Main ROM hash should include base game file"
+        )
+        assert parsed_rom_files.sha1_hash != translation_rom_file.sha1_hash, (
+            "Main ROM hash should not include translation file"
+        )
 
     @pytest.mark.asyncio
     async def test_get_rom_files_with_chd_v5_uses_internal_hash(
@@ -797,9 +981,9 @@ class TestFSRomsHandler:
         assert len(parsed_rom_files.rom_files) == 1
         assert parsed_rom_files.crc_hash != "", "CRC should be computed from raw bytes"
         assert parsed_rom_files.md5_hash != "", "MD5 should be computed from raw bytes"
-        assert (
-            parsed_rom_files.sha1_hash != ""
-        ), "SHA1 should be computed from raw bytes"
+        assert parsed_rom_files.sha1_hash != "", (
+            "SHA1 should be computed from raw bytes"
+        )
 
         # Raw file SHA1 is NOT the header SHA1
         assert parsed_rom_files.sha1_hash != internal_sha1
@@ -1077,15 +1261,15 @@ class TestFSRomsHandler:
 
         # All hashes should be populated (calculated from file content)
         assert len(parsed_rom_files.rom_files) == 1
-        assert (
-            parsed_rom_files.crc_hash != ""
-        ), "CRC hash should be calculated for non-v5 CHD"
-        assert (
-            parsed_rom_files.md5_hash != ""
-        ), "MD5 hash should be calculated for non-v5 CHD"
-        assert (
-            parsed_rom_files.sha1_hash != ""
-        ), "SHA1 hash should be calculated for non-v5 CHD"
+        assert parsed_rom_files.crc_hash != "", (
+            "CRC hash should be calculated for non-v5 CHD"
+        )
+        assert parsed_rom_files.md5_hash != "", (
+            "MD5 hash should be calculated for non-v5 CHD"
+        )
+        assert parsed_rom_files.sha1_hash != "", (
+            "SHA1 hash should be calculated for non-v5 CHD"
+        )
 
         # Verify they're actual hash values (not from an internal header)
         assert parsed_rom_files.rom_files[0].crc_hash == parsed_rom_files.crc_hash
@@ -1498,9 +1682,9 @@ class TestExtractCHDHash:
 
             result = extract_chd_hash(chd_file)
 
-            assert (
-                result == expected
-            ), f"Failed for size {size}: got {result}, expected {expected}"
+            assert result == expected, (
+                f"Failed for size {size}: got {result}, expected {expected}"
+            )
 
     def test_extract_chd_hash_corrupted_header_data(self, tmp_path):
         """Test handling of corrupted/invalid data in header fields"""

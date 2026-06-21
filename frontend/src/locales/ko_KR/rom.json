@@ -405,5 +405,7 @@
   "screenshot-make-public": "공개로 전환",
   "screenshot-make-private": "비공개로 전환",
   "screenshot-public": "공개",
-  "screenshot-visibility-failed": "공개 설정을 변경할 수 없습니다: {error}"
+  "screenshot-visibility-failed": "공개 설정을 변경할 수 없습니다: {error}",
+  "location": "위치",
+  "location-copied": "위치를 클립보드에 복사했습니다."
 }

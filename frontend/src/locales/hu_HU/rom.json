@@ -405,5 +405,7 @@
   "screenshot-make-public": "Közzététel",
   "screenshot-make-private": "Priváttá tétel",
   "screenshot-public": "Nyilvános",
-  "screenshot-visibility-failed": "A láthatóság nem frissíthető: {error}"
+  "screenshot-visibility-failed": "A láthatóság nem frissíthető: {error}",
+  "location": "Hely",
+  "location-copied": "A hely a vágólapra másolva."
 }

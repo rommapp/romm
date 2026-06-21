@@ -1,12 +1,21 @@
+import hashlib
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 import socketio
 
-from endpoints.sockets.scan import ScanStats, _should_scan_rom
-from handler.filesystem.roms_handler import FSRomsHandler
+from endpoints.sockets.scan import (
+    ScanStats,
+    _reconcile_relocated_roms,
+    _should_scan_rom,
+)
+from handler.database import db_rom_handler
+from handler.filesystem import fs_rom_handler
+from handler.filesystem.roms_handler import FSRom, FSRomsHandler
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import ScanType
+from models.platform import Platform
 from models.rom import Rom
 
 
@@ -326,3 +335,97 @@ class TestGetPico8CoverUrl:
         assert url is not None
         assert fs_path in url
         assert fs_name in url
+
+
+def _fs_rom(fs_name: str, fs_path: str) -> FSRom:
+    return FSRom(
+        fs_name=fs_name,
+        fs_path=fs_path,
+        flat=True,
+        nested=False,
+        files=[],
+        crc_hash="",
+        md5_hash="",
+        sha1_hash="",
+        ra_hash="",
+    )
+
+
+class TestReconcileRelocatedRoms:
+    """A rom whose on-disk path changed (subfolder scanning) is relocated in
+    place by content hash instead of being re-imported as new, so its DB row —
+    and the saves/history/favorites/collections attached to it — survives."""
+
+    @pytest.mark.asyncio
+    async def test_moved_file_is_relocated_not_reimported(
+        self, platform: Platform, tmp_path: Path, monkeypatch
+    ):
+        content = b"relocate me please"
+        sha1 = hashlib.sha1(content, usedforsecurity=False).hexdigest()
+        base = f"{platform.fs_slug}/roms"
+
+        # An existing rom recorded at the platform root, with its content hash.
+        rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="Mover",
+                slug="mover",
+                fs_name="Mover.bin",
+                fs_path=base,
+                sha1_hash=sha1,
+                fs_size_bytes=len(content),
+            )
+        )
+
+        # On disk the file now lives inside a subfolder (same bytes).
+        sub = tmp_path / base / "Hacks"
+        sub.mkdir(parents=True)
+        (sub / "Mover.bin").write_bytes(content)
+        monkeypatch.setattr(fs_rom_handler, "base_path", tmp_path)
+
+        fs_roms = [_fs_rom("Mover.bin", f"{base}/Hacks")]
+        handled = await _reconcile_relocated_roms(platform, fs_roms)
+
+        # The moved file is reported handled, so the scan loop skips it.
+        assert handled == {f"{base}/Hacks/Mover.bin"}
+
+        # Same row, new path, present again — not a fresh import.
+        all_roms = db_rom_handler.get_roms_for_relocation(platform.id)
+        assert len(all_roms) == 1
+        updated = db_rom_handler.get_rom(rom.id)
+        assert updated is not None
+        assert updated.id == rom.id
+        assert updated.fs_path == f"{base}/Hacks"
+        assert updated.fs_name == "Mover.bin"
+        assert updated.missing_from_fs is False
+
+    @pytest.mark.asyncio
+    async def test_no_hash_match_is_left_for_normal_import(
+        self, platform: Platform, tmp_path: Path, monkeypatch
+    ):
+        base = f"{platform.fs_slug}/roms"
+        # Existing rom whose stored hash won't match anything on disk.
+        db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="Other",
+                slug="other",
+                fs_name="Other.bin",
+                fs_path=base,
+                sha1_hash=hashlib.sha1(b"unrelated", usedforsecurity=False).hexdigest(),
+                fs_size_bytes=len(b"unrelated"),
+            )
+        )
+
+        content = b"a brand new game entirely"
+        sub = tmp_path / base / "Hacks"
+        sub.mkdir(parents=True)
+        (sub / "New.bin").write_bytes(content)
+        monkeypatch.setattr(fs_rom_handler, "base_path", tmp_path)
+
+        handled = await _reconcile_relocated_roms(
+            platform, [_fs_rom("New.bin", f"{base}/Hacks")]
+        )
+
+        # Nothing relocated: the new file falls through to a normal import.
+        assert handled == set()

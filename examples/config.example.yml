@@ -145,6 +145,38 @@
 #       image: screenshot  # Use as the <image> tag in the exported gamelist.xml
 #   pegasus:
 #     export: false # Whether to export metadata.pegasus.txt for Pegasus
+#   # Recurse into platform subfolders, treating nested files as their own
+#   # ROMs rather than collapsing each subfolder into a single multi-file ROM.
+#   # Opt-in per platform. The value is either:
+#   #   - true  -> recurse EVERY subfolder of the platform;
+#   #   - a list of folder names -> recurse ONLY those folders, leaving every
+#   #     other folder as a single multi-file ROM (so folder-based multi-file
+#   #     games elsewhere on the platform stay intact — the recommended form
+#   #     when a platform mixes grouping folders with multi-file games);
+#   #   - false / omitted -> default behavior (a subfolder is one multi-file ROM).
+#   #
+#   # Behavior & notes (read before enabling):
+#   #   - Hidden (dot-prefixed) folders are never descended into.
+#   #   - A subfolder containing a disc/playlist descriptor (.m3u, .cue, .gdi,
+#   #     .ccd, .toc) is kept whole as a single multi-file ROM (a multi-disc
+#   #     game) and is NOT split into one ROM per disc, even when recursed.
+#   #   - With `true`, a multi-file game stored as a bare folder with no such
+#   #     descriptor WOULD be split into separate ROMs. Use the named-list form
+#   #     (don't list that game's folder) to keep it whole.
+#   #   - Identity is content-based on scan: moving (or renaming) a ROM between
+#   #     subfolders is detected by its hash and relocated in place, so its
+#   #     saves, play history, favorites and collection membership follow it —
+#   #     as long as hashing is enabled and the platform is hashable. When a
+#   #     folder previously scanned as one multi-file ROM is now recursed, that
+#   #     old entry is marked "missing from filesystem" (the scan log flags it);
+#   #     delete the stale entry to clean up.
+#   #   - Two files with the same name in different subfolders become distinct
+#   #     ROMs; gamelist.xml metadata matching is by filename, so both may match
+#   #     the same gamelist entry.
+#   subfolders:
+#     nes: true                          # recurse every NES subfolder
+#     snes: ["Hacks", "Translations"]    # recurse only these; keep other folders whole
+#     megadrive: false
 
 # EmulatorJS per-core options
 # emulatorjs:
