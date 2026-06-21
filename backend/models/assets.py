@@ -92,6 +92,9 @@ class Save(RomAsset):
         ForeignKey("devices.id", ondelete="SET NULL"),
         default=None,
     )
+    # `is_public` mirrors Screenshot/RomNote — lets other users browse and
+    # download a user's public saves (community). Defaults false (private).
+    is_public: Mapped[bool] = mapped_column(default=False)
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="saves")
     user: Mapped[User] = relationship(lazy="joined", back_populates="saves")
@@ -118,6 +121,9 @@ class State(RomAsset):
     __table_args__ = {"extend_existing": True}
 
     emulator: Mapped[str | None] = mapped_column(String(length=50))
+    # `is_public` mirrors Screenshot/RomNote — lets other users browse and
+    # download a user's public states (community). Defaults false (private).
+    is_public: Mapped[bool] = mapped_column(default=False)
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="states")
     user: Mapped[User] = relationship(lazy="joined", back_populates="states")

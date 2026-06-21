@@ -167,6 +167,13 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
 });
+
+// `badge` accepts `string | number | null`, so a plain truthiness check would
+// still render a pill for the literal "0", and `badge !== 0` misses the string
+// "0" / empty string. Centralise the visible-badge rule here.
+function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
+  return badge != null && badge !== 0 && badge !== "" && badge !== "0";
+}
 </script>
 
 <template>
@@ -226,6 +233,9 @@ onBeforeUnmount(() => {
           <span v-if="item.label" class="r-slider-btn-group__label">
             {{ item.label }}
           </span>
+          <span v-if="showBadge(item.badge)" class="r-slider-btn-group__badge">
+            {{ item.badge }}
+          </span>
         </slot>
       </router-link>
       <RBtn
@@ -251,6 +261,9 @@ onBeforeUnmount(() => {
           <RIcon v-if="item.icon" :icon="item.icon" size="16" />
           <span v-if="item.label" class="r-slider-btn-group__label">
             {{ item.label }}
+          </span>
+          <span v-if="showBadge(item.badge)" class="r-slider-btn-group__badge">
+            {{ item.badge }}
           </span>
         </slot>
       </RBtn>
@@ -451,5 +464,22 @@ onBeforeUnmount(() => {
   color: var(--r-color-bg) !important;
   background: transparent !important;
   font-weight: var(--r-font-weight-semibold);
+}
+
+/* Count pill after the label. Background is a translucent tint of the
+   current text colour, so it stays legible both on inactive items
+   (muted fg) and on the active item (inverted onto the indicator). */
+.r-slider-btn-group__badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: var(--r-radius-pill);
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  font-size: 11px;
+  font-weight: var(--r-font-weight-bold);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 </style>

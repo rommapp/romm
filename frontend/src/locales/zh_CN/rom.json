@@ -405,5 +405,10 @@
   "screenshot-make-public": "设为公开",
   "screenshot-make-private": "设为私密",
   "screenshot-public": "公开",
-  "screenshot-visibility-failed": "无法更新可见性：{error}"
+  "screenshot-visibility-failed": "无法更新可见性：{error}",
+  "saves-section-mine": "My saves",
+  "saves-section-community": "Community",
+  "states-section-mine": "My states",
+  "states-section-community": "Community",
+  "cant-toggle-visibility": "Could not change visibility: {error}"
 }

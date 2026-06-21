@@ -2,9 +2,12 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { DeviceSyncSchema } from './DeviceSyncSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
-export type SaveSchema = {
+/**
+ * A state enriched with its owner's username, for the community (My /
+ * Community) view. Mirrors UserScreenshotSchema.
+ */
+export type UserStateSchema = {
     id: number;
     rom_id: number;
     user_id: number;
@@ -20,11 +23,10 @@ export type SaveSchema = {
     created_at: string;
     updated_at: string;
     emulator: (string | null);
-    slot?: (string | null);
-    content_hash?: (string | null);
     is_public?: boolean;
     screenshot: (ScreenshotSchema | null);
-    origin_device_id?: (string | null);
-    device_syncs?: Array<DeviceSyncSchema>;
+    username: string;
+    user_avatar_path?: string;
+    user_updated_at?: (string | null);
 };
 

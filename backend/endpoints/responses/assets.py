@@ -48,6 +48,7 @@ class SaveSchema(BaseAsset):
     emulator: str | None
     slot: str | None = None
     content_hash: str | None = None
+    is_public: bool = False
     screenshot: ScreenshotSchema | None
     origin_device_id: str | None = None
     device_syncs: list[DeviceSyncSchema] = []
@@ -72,6 +73,16 @@ class SaveSchema(BaseAsset):
         return result
 
 
+class UserSaveSchema(SaveSchema):
+    """A save enriched with its owner's username, for the community (My /
+    Community) view. Mirrors UserScreenshotSchema."""
+
+    username: str
+    # Author identity for rendering an avatar next to community saves.
+    user_avatar_path: str = ""
+    user_updated_at: UTCDatetime | None = None
+
+
 class SlotSummarySchema(BaseModel):
     slot: str | None
     count: int
@@ -85,4 +96,15 @@ class SaveSummarySchema(BaseModel):
 
 class StateSchema(BaseAsset):
     emulator: str | None
+    is_public: bool = False
     screenshot: ScreenshotSchema | None
+
+
+class UserStateSchema(StateSchema):
+    """A state enriched with its owner's username, for the community (My /
+    Community) view. Mirrors UserScreenshotSchema."""
+
+    username: str
+    # Author identity for rendering an avatar next to community states.
+    user_avatar_path: str = ""
+    user_updated_at: UTCDatetime | None = None

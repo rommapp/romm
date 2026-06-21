@@ -12,7 +12,9 @@ from endpoints.responses.assets import (
     SaveSchema,
     ScreenshotSchema,
     StateSchema,
+    UserSaveSchema,
     UserScreenshotSchema,
+    UserStateSchema,
 )
 from handler.metadata.flashpoint_handler import FlashpointMetadata
 from handler.metadata.gamelist_handler import GamelistMetadata
@@ -467,6 +469,8 @@ class UserCollectionSchema(BaseModel):
 class DetailedRomSchema(RomSchema):
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
+    all_user_saves: list[UserSaveSchema]
+    all_user_states: list[UserStateSchema]
     user_screenshots: list[ScreenshotSchema]
     all_user_screenshots: list[UserScreenshotSchema]
     user_collections: list[UserCollectionSchema]
@@ -556,6 +560,42 @@ class DetailedRomSchema(RomSchema):
                 }
             )
             for s in gallery_screenshots
+        ]
+
+        # Saves/states visible to this user: own (public + private) plus other
+        # users' public ones. Mirrors the screenshots flow above.
+        from handler.database import db_save_handler, db_state_handler
+
+        # SaveSchema.model_validate handles the lazy `device_syncs` relationship
+        # (skips it when unloaded); reuse it rather than getattr-ing raw fields.
+        shared_saves = db_save_handler.get_rom_shared_saves(
+            rom_id=db_rom.id, user_id=user_id
+        )
+        db_rom.all_user_saves = [  # type: ignore[assignment]
+            UserSaveSchema.model_validate(
+                {
+                    **SaveSchema.model_validate(s).model_dump(),
+                    "username": s.user.username,
+                    "user_avatar_path": s.user.avatar_path,
+                    "user_updated_at": s.user.updated_at,
+                }
+            )
+            for s in shared_saves
+        ]
+
+        shared_states = db_state_handler.get_rom_shared_states(
+            rom_id=db_rom.id, user_id=user_id
+        )
+        db_rom.all_user_states = [  # type: ignore[assignment]
+            UserStateSchema.model_validate(
+                {
+                    **StateSchema.model_validate(s).model_dump(),
+                    "username": s.user.username,
+                    "user_avatar_path": s.user.avatar_path,
+                    "user_updated_at": s.user.updated_at,
+                }
+            )
+            for s in shared_states
         ]
 
         return cls.model_validate(db_rom)

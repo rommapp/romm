@@ -405,5 +405,10 @@
   "screenshot-make-public": "공개로 전환",
   "screenshot-make-private": "비공개로 전환",
   "screenshot-public": "공개",
-  "screenshot-visibility-failed": "공개 설정을 변경할 수 없습니다: {error}"
+  "screenshot-visibility-failed": "공개 설정을 변경할 수 없습니다: {error}",
+  "saves-section-mine": "My saves",
+  "saves-section-community": "Community",
+  "states-section-mine": "My states",
+  "states-section-community": "Community",
+  "cant-toggle-visibility": "Could not change visibility: {error}"
 }

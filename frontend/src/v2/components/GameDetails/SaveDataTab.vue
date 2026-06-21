@@ -6,11 +6,17 @@
 // column on the right. Per-row Download + Delete actions are
 // always-visible icon buttons; empty states promote the Upload CTA.
 //
+// Each list is split into a "Mine" section (own saves/states, with a
+// per-item public/private toggle + delete) and a read-only "Community"
+// section (other users' public saves/states, with an author chip and
+// download only). Mirrors ScreenshotsSubtab's My / Community model.
+//
 // URL-persistent subtab selection via `?subtab=` so deep-linking
 // into a specific list works and stale state doesn't leak when the
 // user navigates to a sibling tab.
 import { RBtn, RCollapsible, RDropzone, RIcon } from "@v2/lib";
 import axios from "axios";
+import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
@@ -18,14 +24,24 @@ import type {
   DetailedRomSchema,
   SaveSchema,
   StateSchema,
+  UserSaveSchema,
+  UserStateSchema,
 } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
+import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
-import { formatBytes } from "@/utils";
+import AssetList from "@/v2/components/shared/AssetList.vue";
+import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+
+// Slot payload from AssetList/AssetStrip is the full save|state union; these
+// narrow it back to the concrete schema the section's handlers expect.
+type AssetSlot = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
+const asSave = (a: AssetSlot) => a as SaveSchema;
+const asState = (a: AssetSlot) => a as StateSchema;
 
 defineOptions({ inheritAttrs: false });
 
@@ -74,8 +90,33 @@ watch(
   },
 );
 
-const saves = computed<SaveSchema[]>(() => props.rom.user_saves ?? []);
-const states = computed<StateSchema[]>(() => props.rom.user_states ?? []);
+const authStore = storeAuth();
+const { user } = storeToRefs(authStore);
+const myId = computed(() => user.value?.id ?? null);
+
+function isOwn(asset: { user_id: number }): boolean {
+  return myId.value != null && asset.user_id === myId.value;
+}
+
+// `all_user_{saves,states}` holds own (public + private) plus other users'
+// public items. Split into Mine / Community the same way ScreenshotsSubtab does.
+const allSaves = computed<UserSaveSchema[]>(
+  () => props.rom.all_user_saves ?? [],
+);
+const allStates = computed<UserStateSchema[]>(
+  () => props.rom.all_user_states ?? [],
+);
+
+const mySaves = computed(() => allSaves.value.filter(isOwn));
+const communitySaves = computed(() => allSaves.value.filter((s) => !isOwn(s)));
+const myStates = computed(() => allStates.value.filter(isOwn));
+const communityStates = computed(() =>
+  allStates.value.filter((s) => !isOwn(s)),
+);
+
+// Badge = total visible items in the subtab (own + community).
+const savesCount = computed(() => allSaves.value.length);
+const statesCount = computed(() => allStates.value.length);
 
 // ---------- Subtab nav definitions ----------
 type SubtabDef = { id: Subtab; label: string; icon: string };
@@ -84,11 +125,11 @@ const subtabDefs = computed<SubtabDef[]>(() => [
   { id: "states", label: t("rom.states-tab"), icon: "mdi-camera-outline" },
 ]);
 
-// Inline action panel under the active subtab only renders when the
-// list has entries — empty states own the Upload CTA so there's no
-// redundant panel.
+// Inline action panel under the active subtab only renders when the user
+// already owns at least one item — the empty "Mine" state owns the Upload
+// CTA so there's no redundant panel.
 function hasSubtabActions(id: Subtab): boolean {
-  return id === "saves" ? saves.value.length > 0 : states.value.length > 0;
+  return id === "saves" ? mySaves.value.length > 0 : myStates.value.length > 0;
 }
 
 // ---------- Upload / refresh plumbing ----------
@@ -242,9 +283,43 @@ async function deleteState(state: StateSchema) {
   }
 }
 
-function fmtDate(iso: string | null) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString();
+// ---------- Visibility toggle (own items only) ----------
+const togglingSaveId = ref<number | null>(null);
+const togglingStateId = ref<number | null>(null);
+
+async function toggleSaveVisibility(save: SaveSchema) {
+  if (togglingSaveId.value != null) return;
+  togglingSaveId.value = save.id;
+  try {
+    await saveApi.setSaveVisibility({ id: save.id, isPublic: !save.is_public });
+    await refreshRom();
+  } catch (error) {
+    snackbar.error(
+      t("rom.cant-toggle-visibility", { error: errorMessage(error) }),
+      { icon: "mdi-close-circle" },
+    );
+  } finally {
+    togglingSaveId.value = null;
+  }
+}
+
+async function toggleStateVisibility(state: StateSchema) {
+  if (togglingStateId.value != null) return;
+  togglingStateId.value = state.id;
+  try {
+    await stateApi.setStateVisibility({
+      id: state.id,
+      isPublic: !state.is_public,
+    });
+    await refreshRom();
+  } catch (error) {
+    snackbar.error(
+      t("rom.cant-toggle-visibility", { error: errorMessage(error) }),
+      { icon: "mdi-close-circle" },
+    );
+  } finally {
+    togglingStateId.value = null;
+  }
 }
 </script>
 
@@ -273,12 +348,12 @@ function fmtDate(iso: string | null) {
             <span class="r-v2-saves__subtab-label">{{ tab.label }}</span>
             <span
               v-if="
-                (tab.id === 'saves' && saves.length) ||
-                (tab.id === 'states' && states.length)
+                (tab.id === 'saves' && savesCount) ||
+                (tab.id === 'states' && statesCount)
               "
               class="r-v2-saves__subtab-badge"
             >
-              {{ tab.id === "saves" ? saves.length : states.length }}
+              {{ tab.id === "saves" ? savesCount : statesCount }}
             </span>
           </button>
 
@@ -288,7 +363,7 @@ function fmtDate(iso: string | null) {
             class="r-v2-saves__subtab-panel"
           >
             <div class="r-v2-saves__subtab-panel-inner">
-              <template v-if="tab.id === 'saves' && saves.length > 0">
+              <template v-if="tab.id === 'saves' && mySaves.length > 0">
                 <RBtn
                   variant="outlined"
                   prepend-icon="mdi-cloud-upload-outline"
@@ -300,7 +375,7 @@ function fmtDate(iso: string | null) {
                   {{ t("common.upload") }}
                 </RBtn>
               </template>
-              <template v-else-if="tab.id === 'states' && states.length > 0">
+              <template v-else-if="tab.id === 'states' && myStates.length > 0">
                 <RBtn
                   variant="outlined"
                   prepend-icon="mdi-cloud-upload-outline"
@@ -319,53 +394,74 @@ function fmtDate(iso: string | null) {
     </aside>
 
     <div class="r-v2-saves__content">
-      <!-- Saves subtab -->
+      <!-- Saves subtab — vertical info list -->
       <section v-show="subTab === 'saves'" class="r-v2-saves__panel">
-        <RDropzone
-          v-if="saves.length === 0"
-          :title="t('rom.saves-empty')"
-          :hint="t('common.dropzone-hint')"
-          :active-title="t('common.dropzone-drag-over')"
-          :input-label="t('rom.upload-saves')"
-          :disabled="uploadingSaves"
-          multiple
-          @files="onSaveUpload"
-        />
+        <!-- Mine -->
+        <div class="r-v2-saves__section">
+          <header
+            v-if="communitySaves.length > 0"
+            class="r-v2-saves__section-head"
+          >
+            {{ t("rom.saves-section-mine") }}
+          </header>
 
-        <RDropzone
-          v-else
-          ref="saveDz"
-          overlay
-          :release-label="t('common.dropzone-drag-over')"
-          :input-label="t('rom.upload-saves')"
-          :disabled="uploadingSaves"
-          multiple
-          @files="onSaveUpload"
-        >
-          <ul class="r-v2-saves__list">
-            <li v-for="s in saves" :key="s.id" class="r-v2-saves__row">
-              <div class="r-v2-saves__row-main">
-                <div class="r-v2-saves__row-name">
-                  {{ s.file_name }}
-                </div>
-                <div class="r-v2-saves__row-meta">
-                  <span>{{ formatBytes(s.file_size_bytes) }}</span>
-                  <span class="r-v2-saves__sep">·</span>
-                  <span>{{ fmtDate(s.updated_at) }}</span>
-                  <template v-if="s.emulator">
-                    <span class="r-v2-saves__sep">·</span>
-                    <span>{{ s.emulator }}</span>
-                  </template>
-                </div>
-              </div>
-              <div class="r-v2-saves__row-actions">
+          <RDropzone
+            v-if="mySaves.length === 0"
+            :title="t('rom.saves-empty')"
+            :hint="t('common.dropzone-hint')"
+            :active-title="t('common.dropzone-drag-over')"
+            :input-label="t('rom.upload-saves')"
+            :disabled="uploadingSaves"
+            multiple
+            @files="onSaveUpload"
+          />
+
+          <RDropzone
+            v-else
+            ref="saveDz"
+            overlay
+            :release-label="t('common.dropzone-drag-over')"
+            :input-label="t('rom.upload-saves')"
+            :disabled="uploadingSaves"
+            multiple
+            @files="onSaveUpload"
+          >
+            <AssetList
+              :assets="mySaves"
+              type="save"
+              :selectable="false"
+              :scrollable="false"
+            >
+              <template #actions="{ asset }">
+                <RBtn
+                  :icon="asset.is_public ? 'mdi-lock-open-variant' : 'mdi-lock'"
+                  variant="text"
+                  size="small"
+                  :color="
+                    asset.is_public ? 'var(--r-color-fg-muted)' : 'primary'
+                  "
+                  :loading="togglingSaveId === asset.id"
+                  :tooltip="
+                    asset.is_public
+                      ? t('rom.make-private')
+                      : t('rom.make-public')
+                  "
+                  :aria-label="
+                    asset.is_public
+                      ? t('rom.make-private')
+                      : t('rom.make-public')
+                  "
+                  @click="toggleSaveVisibility(asSave(asset))"
+                />
                 <RBtn
                   icon="mdi-download-outline"
                   variant="text"
                   size="small"
                   :tooltip="t('common.download')"
-                  :aria-label="t('rom.download-named', { name: s.file_name })"
-                  @click="downloadAsset(s)"
+                  :aria-label="
+                    t('rom.download-named', { name: asset.file_name })
+                  "
+                  @click="downloadAsset(asset)"
                 />
                 <RBtn
                   icon="mdi-delete-outline"
@@ -374,61 +470,107 @@ function fmtDate(iso: string | null) {
                   color="romm-red"
                   :tooltip="t('common.delete')"
                   :aria-label="t('rom.delete-save')"
-                  @click="deleteSave(s)"
+                  @click="deleteSave(asSave(asset))"
                 />
-              </div>
-            </li>
-          </ul>
-        </RDropzone>
+              </template>
+            </AssetList>
+          </RDropzone>
+        </div>
+
+        <!-- Community -->
+        <div v-if="communitySaves.length > 0" class="r-v2-saves__section">
+          <header class="r-v2-saves__section-head">
+            {{ t("rom.saves-section-community") }}
+          </header>
+          <AssetList
+            :assets="communitySaves"
+            type="save"
+            :selectable="false"
+            :scrollable="false"
+            show-owner
+          >
+            <template #actions="{ asset }">
+              <RBtn
+                icon="mdi-download-outline"
+                variant="text"
+                size="small"
+                :tooltip="t('common.download')"
+                :aria-label="t('rom.download-named', { name: asset.file_name })"
+                @click="downloadAsset(asset)"
+              />
+            </template>
+          </AssetList>
+        </div>
       </section>
 
-      <!-- States subtab -->
+      <!-- States subtab — tile grid (screenshot is the point) -->
       <section v-show="subTab === 'states'" class="r-v2-saves__panel">
-        <RDropzone
-          v-if="states.length === 0"
-          :title="t('rom.states-empty')"
-          :hint="t('common.dropzone-hint')"
-          :active-title="t('common.dropzone-drag-over')"
-          :input-label="t('rom.upload-states')"
-          :disabled="uploadingStates"
-          multiple
-          @files="onStateUpload"
-        />
+        <!-- Mine -->
+        <div class="r-v2-saves__section">
+          <header
+            v-if="communityStates.length > 0"
+            class="r-v2-saves__section-head"
+          >
+            {{ t("rom.states-section-mine") }}
+          </header>
 
-        <RDropzone
-          v-else
-          ref="stateDz"
-          overlay
-          :release-label="t('common.dropzone-drag-over')"
-          :input-label="t('rom.upload-states')"
-          :disabled="uploadingStates"
-          multiple
-          @files="onStateUpload"
-        >
-          <ul class="r-v2-saves__list">
-            <li v-for="s in states" :key="s.id" class="r-v2-saves__row">
-              <div class="r-v2-saves__row-main">
-                <div class="r-v2-saves__row-name">
-                  {{ s.file_name }}
-                </div>
-                <div class="r-v2-saves__row-meta">
-                  <span>{{ formatBytes(s.file_size_bytes) }}</span>
-                  <span class="r-v2-saves__sep">·</span>
-                  <span>{{ fmtDate(s.updated_at) }}</span>
-                  <template v-if="s.emulator">
-                    <span class="r-v2-saves__sep">·</span>
-                    <span>{{ s.emulator }}</span>
-                  </template>
-                </div>
-              </div>
-              <div class="r-v2-saves__row-actions">
+          <RDropzone
+            v-if="myStates.length === 0"
+            :title="t('rom.states-empty')"
+            :hint="t('common.dropzone-hint')"
+            :active-title="t('common.dropzone-drag-over')"
+            :input-label="t('rom.upload-states')"
+            :disabled="uploadingStates"
+            multiple
+            @files="onStateUpload"
+          />
+
+          <RDropzone
+            v-else
+            ref="stateDz"
+            overlay
+            :release-label="t('common.dropzone-drag-over')"
+            :input-label="t('rom.upload-states')"
+            :disabled="uploadingStates"
+            multiple
+            @files="onStateUpload"
+          >
+            <AssetStrip
+              :assets="myStates"
+              type="state"
+              :selectable="false"
+              wrap
+            >
+              <template #actions="{ asset }">
+                <RBtn
+                  :icon="asset.is_public ? 'mdi-lock-open-variant' : 'mdi-lock'"
+                  variant="text"
+                  size="small"
+                  :color="
+                    asset.is_public ? 'var(--r-color-fg-muted)' : 'primary'
+                  "
+                  :loading="togglingStateId === asset.id"
+                  :tooltip="
+                    asset.is_public
+                      ? t('rom.make-private')
+                      : t('rom.make-public')
+                  "
+                  :aria-label="
+                    asset.is_public
+                      ? t('rom.make-private')
+                      : t('rom.make-public')
+                  "
+                  @click="toggleStateVisibility(asState(asset))"
+                />
                 <RBtn
                   icon="mdi-download-outline"
                   variant="text"
                   size="small"
                   :tooltip="t('common.download')"
-                  :aria-label="t('rom.download-named', { name: s.file_name })"
-                  @click="downloadAsset(s)"
+                  :aria-label="
+                    t('rom.download-named', { name: asset.file_name })
+                  "
+                  @click="downloadAsset(asset)"
                 />
                 <RBtn
                   icon="mdi-delete-outline"
@@ -437,12 +579,37 @@ function fmtDate(iso: string | null) {
                   color="romm-red"
                   :tooltip="t('common.delete')"
                   :aria-label="t('rom.delete-state')"
-                  @click="deleteState(s)"
+                  @click="deleteState(asState(asset))"
                 />
-              </div>
-            </li>
-          </ul>
-        </RDropzone>
+              </template>
+            </AssetStrip>
+          </RDropzone>
+        </div>
+
+        <!-- Community -->
+        <div v-if="communityStates.length > 0" class="r-v2-saves__section">
+          <header class="r-v2-saves__section-head">
+            {{ t("rom.states-section-community") }}
+          </header>
+          <AssetStrip
+            :assets="communityStates"
+            type="state"
+            :selectable="false"
+            wrap
+            show-owner
+          >
+            <template #actions="{ asset }">
+              <RBtn
+                icon="mdi-download-outline"
+                variant="text"
+                size="small"
+                :tooltip="t('common.download')"
+                :aria-label="t('rom.download-named', { name: asset.file_name })"
+                @click="downloadAsset(asset)"
+              />
+            </template>
+          </AssetStrip>
+        </div>
       </section>
     </div>
   </div>
@@ -545,67 +712,23 @@ function fmtDate(iso: string | null) {
 .r-v2-saves__panel {
   display: flex;
   flex-direction: column;
-  gap: var(--r-space-3);
+  gap: var(--r-space-5);
   flex: 1;
   min-height: 0;
 }
 
-/* File-list rows. The trailing action cluster only paints buttons —
-   no border or background — because the row itself owns the surface. */
-.r-v2-saves__list {
+/* Mine / Community subsections within a subtab panel. */
+.r-v2-saves__section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
+  gap: var(--r-space-3);
 }
-
-.r-v2-saves__row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-md);
-  color: var(--r-color-fg);
-}
-.r-v2-saves__row > .mdi {
+.r-v2-saves__section-head {
+  font-size: 12px;
+  font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg-muted);
-}
-
-.r-v2-saves__row-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.r-v2-saves__row-name {
-  font-size: 13px;
-  font-weight: var(--r-font-weight-medium);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r-v2-saves__row-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  color: var(--r-color-fg-muted);
-  flex-wrap: wrap;
-}
-.r-v2-saves__sep {
-  opacity: 0.5;
-}
-
-.r-v2-saves__row-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 html[data-bp~="xs"] .r-v2-saves {

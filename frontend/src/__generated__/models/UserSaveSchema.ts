@@ -4,7 +4,11 @@
 /* eslint-disable */
 import type { DeviceSyncSchema } from './DeviceSyncSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
-export type SaveSchema = {
+/**
+ * A save enriched with its owner's username, for the community (My /
+ * Community) view. Mirrors UserScreenshotSchema.
+ */
+export type UserSaveSchema = {
     id: number;
     rom_id: number;
     user_id: number;
@@ -26,5 +30,8 @@ export type SaveSchema = {
     screenshot: (ScreenshotSchema | null);
     origin_device_id?: (string | null);
     device_syncs?: Array<DeviceSyncSchema>;
+    username: string;
+    user_avatar_path?: string;
+    user_updated_at?: (string | null);
 };
 
