@@ -2,9 +2,10 @@
 // FilesTab — browse + interact with the individual files that make up
 // a (potentially multi-file) ROM.
 //
-// Layout mirrors MediaTab / SaveDataTab: a vertical subtab list on the
-// left with an attached RCollapsible action panel under the active
-// subtab, and a content column on the right.
+// Layout mirrors ScreenshotsSubtab / SaveDataTab / MediaTab: a vertical
+// subtab list on the left (navigation only — no inline action panel),
+// and a content column on the right with a section header hosting the
+// subtab-level actions (Download all / Copy link / Upload) on the right.
 //
 // Grouping is **folder-based**: every direct subfolder of the ROM
 // becomes its own subtab, plus a "Root" subtab for files sitting
@@ -15,15 +16,16 @@
 // folder name. Per-file `category` metadata is still shown as a chip
 // inside each row.
 //
-// Sidebar action panel (per active subtab):
-//   * Download all / Copy link — always wired for any subtab.
-//   * Upload — only wired for the "manual" and "soundtrack" folders
+// Section header (per active subtab):
+//   * Download all / Copy link — wired for any subtab with files.
+//   * Upload — only enabled for the "manual" and "soundtrack" folders
 //     (the only places the backend supports adding files to an
 //     existing ROM today). Other subtabs render a disabled Upload
-//     button with a "coming soon" tooltip so the affordance is
-//     visible but truthful about its current reach.
+//     button with a tooltip so the affordance is visible but truthful
+//     about its current reach.
 //
 // Content column:
+//   * Section header (Download all / Copy link / Upload)
 //   * ROM-info card (size, revision, ROM-level hashes — click to copy)
 //   * Selection toolbar (select-all + per-selection actions)
 //   * One row per file with checkbox, relative path, category chip,
@@ -33,14 +35,7 @@
 // All destructive ops live elsewhere (MediaTab handles manual /
 // soundtrack deletion, EditRom dialog handles whole-ROM deletion).
 // This tab is browse + download + (limited) upload only.
-import {
-  RBtn,
-  RCheckbox,
-  RCollapsible,
-  REmptyState,
-  RIcon,
-  RTooltip,
-} from "@v2/lib";
+import { RBtn, RCheckbox, REmptyState, RIcon, RTooltip } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
@@ -451,25 +446,12 @@ async function downloadFile(file: RomFileSchema) {
   await romApi.downloadRom({ rom: props.rom, fileIDs: [file.id] });
 }
 
-async function downloadSubtab() {
-  // "all" → download whole ROM (empty fileIDs == full content)
-  const ids =
-    subTab.value === "all" ? [] : filteredFiles.value.map((f) => f.id);
-  await romApi.downloadRom({ rom: props.rom, fileIDs: ids });
-}
-
 async function downloadSelected() {
   if (selectedCount.value === 0) return;
   await romApi.downloadRom({
     rom: props.rom,
     fileIDs: selectedFiles.value.map((f) => f.id),
   });
-}
-
-async function copySubtabLink() {
-  const ids =
-    subTab.value === "all" ? [] : filteredFiles.value.map((f) => f.id);
-  await copyDownloadLink(getDownloadLink({ rom: props.rom, fileIDs: ids }));
 }
 
 async function copyFileLink(file: RomFileSchema) {
@@ -595,7 +577,9 @@ async function onSoundtrackUpload(event: Event) {
   }
 }
 
-// Per-subtab upload affordance computed for the inline action panel.
+// Upload affordance for the active subtab — drives the header's
+// Upload button (enabled / loading) plus the tooltip surfaced when the
+// folder isn't a backend-supported upload target.
 interface SubtabUploadState {
   /** Whether the button should be clickable. */
   enabled: boolean;
@@ -605,8 +589,8 @@ interface SubtabUploadState {
   loading: boolean;
 }
 
-function uploadStateForSubtab(id: Subtab): SubtabUploadState {
-  const target = uploadSupportsSubtab(id);
+const currentUploadState = computed<SubtabUploadState>(() => {
+  const target = uploadSupportsSubtab(subTab.value);
   if (!target) {
     return {
       enabled: false,
@@ -627,7 +611,7 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
     loading:
       target === "manual" ? uploadingManual.value : uploadingSoundtrack.value,
   };
-}
+});
 </script>
 
 <template>
@@ -667,8 +651,6 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
             class="r-v2-files__subtab-btn"
             :class="{
               'r-v2-files__subtab-btn--active': subTab === tab.id,
-              'r-v2-files__subtab-btn--joined':
-                subTab === tab.id && tab.count > 0,
             }"
             :aria-selected="subTab === tab.id"
             @click="subTab = tab.id"
@@ -679,58 +661,38 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
               {{ tab.count }}
             </span>
           </button>
-
-          <RCollapsible
-            :model-value="subTab === tab.id && tab.count > 0"
-            attached
-            class="r-v2-files__subtab-panel"
-          >
-            <div class="r-v2-files__subtab-panel-inner">
-              <RBtn
-                variant="outlined"
-                prepend-icon="mdi-cloud-download-outline"
-                block
-                @click="downloadSubtab"
-              >
-                {{ t("rom.download-all") }}
-              </RBtn>
-              <RBtn
-                variant="outlined"
-                prepend-icon="mdi-link-variant"
-                block
-                @click="copySubtabLink"
-              >
-                {{ t("rom.copy-link-action") }}
-              </RBtn>
-
-              <!-- Upload — wired only for Manual / Soundtrack folders;
-                   other subtabs render disabled with a tooltip
-                   explaining the pending backend work. -->
-              <div class="r-v2-files__upload-slot">
-                <RBtn
-                  variant="outlined"
-                  prepend-icon="mdi-cloud-upload-outline"
-                  block
-                  :disabled="!uploadStateForSubtab(tab.id).enabled"
-                  :loading="uploadStateForSubtab(tab.id).loading"
-                  @click="triggerUpload"
-                >
-                  {{ t("common.upload") }}
-                </RBtn>
-                <RTooltip
-                  v-if="uploadStateForSubtab(tab.id).reason"
-                  :text="uploadStateForSubtab(tab.id).reason ?? ''"
-                  location="bottom"
-                  activator="parent"
-                />
-              </div>
-            </div>
-          </RCollapsible>
         </li>
       </ul>
     </aside>
 
     <div class="r-v2-files__content">
+      <!-- Section header — the sidebar's subtab label already names the
+           section, so the header skips a redundant title and just hosts
+           the Upload button on the right. Download-all / Copy-link are
+           covered by the selection toolbar below (select-all then act). -->
+      <header v-if="filteredFiles.length > 0" class="r-v2-files__section-head">
+        <div class="r-v2-files__section-actions">
+          <div class="r-v2-files__upload-slot">
+            <RBtn
+              variant="outlined"
+              size="small"
+              prepend-icon="mdi-cloud-upload-outline"
+              :disabled="!currentUploadState.enabled"
+              :loading="currentUploadState.loading"
+              @click="triggerUpload"
+            >
+              {{ t("common.upload") }}
+            </RBtn>
+            <RTooltip
+              v-if="currentUploadState.reason"
+              :text="currentUploadState.reason ?? ''"
+              location="bottom"
+              activator="parent"
+            />
+          </div>
+        </div>
+      </header>
+
       <FilesSummary :rom="rom" />
 
       <!-- Selection toolbar — pinned above the list. Always visible
@@ -803,8 +765,10 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
 
       <ul v-else class="r-v2-files__list">
         <FileRow
-          v-for="file in filteredFiles"
+          v-for="(file, i) in filteredFiles"
           :key="file.id"
+          class="r-v2-asset-fade"
+          :style="{ '--asset-fade-i': i }"
           :file="file"
           :display-path="displayPath(file)"
           :relative-path="relativePath(file)"
@@ -905,10 +869,6 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
   background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
   color: var(--r-color-brand-primary);
 }
-.r-v2-files__subtab-btn--joined {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
 .r-v2-files__subtab-label {
   flex: 1;
 }
@@ -920,21 +880,30 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
   background: color-mix(in srgb, currentColor 18%, transparent);
 }
 
-.r-v2-files__subtab-panel {
-  margin-bottom: var(--r-space-1);
-}
-.r-v2-files__subtab-panel-inner {
-  display: flex;
-  flex-direction: column;
-  gap: var(--r-space-2);
-  padding: var(--r-space-3);
-}
-
 /* Hidden file inputs sit at the template root so the visible buttons
    can `.click()` them — display:none works fine since we never need
    them to be tabbable directly. */
 .r-v2-files__file-input {
   display: none;
+}
+
+/* Section header — toolbar row at the top of the content column,
+   mirroring ScreenshotsSubtab / MediaTab. The sidebar's subtab label
+   names the section, so the header has no title — only the action
+   cluster pushed to the right. */
+.r-v2-files__section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.r-v2-files__section-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 /* Wrapper around the Upload button so RTooltip can attach to a
@@ -947,13 +916,14 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
 .r-v2-files__content {
   flex: 1;
   min-width: 0;
-  /* Grid (auto / auto / 1fr) instead of flex column: the `1fr` row
-     forces the list to clip + scroll internally even with many files.
-     Flex `min-height: 0` + `overflow-y: auto` on the list was unreliable
-     here — the list's intrinsic min-content kept leaking through and
-     pushed `.r-v2-det__panel` into showing its outer scrollbar. */
+  /* Grid (auto / auto / auto / 1fr) instead of flex column: the `1fr`
+     row forces the list to clip + scroll internally even with many
+     files. Flex `min-height: 0` + `overflow-y: auto` on the list was
+     unreliable here — the list's intrinsic min-content kept leaking
+     through and pushed `.r-v2-det__panel` into showing its outer
+     scrollbar. Rows: section header, summary, selection toolbar, list. */
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
   gap: var(--r-space-3);
   min-height: 0;
   overflow: hidden;

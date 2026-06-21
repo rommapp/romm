@@ -14,14 +14,7 @@
 //     ROM / Mine / Community sections with per-user public/private
 //
 // The PDF viewer + soundtrack player are reused from v1 for now.
-import {
-  RBtn,
-  RCollapsible,
-  RDropzone,
-  REmptyState,
-  RIcon,
-  RSelect,
-} from "@v2/lib";
+import { RBtn, RDropzone, REmptyState, RIcon, RSelect } from "@v2/lib";
 import axios from "axios";
 import type { Emitter } from "mitt";
 import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
@@ -65,7 +58,7 @@ const { t } = useI18n();
 // ---------- Subtab state ----------
 // Mirrored to `?subtab=` so the SoundtrackMiniPlayer can detect when the full
 // player is visible here and hide itself to avoid duplication.
-const validSubtabs = ["manual", "soundtrack", "screenshots"] as const;
+const validSubtabs = ["manual", "screenshots", "soundtrack"] as const;
 type Subtab = (typeof validSubtabs)[number];
 
 const route = useRoute();
@@ -179,10 +172,10 @@ const manualItems = computed(() =>
 const soundtrackSupported = computed(() => !props.rom.has_simple_single_file);
 
 // ---------- Subtab nav ----------
-// We render the subtab list manually (not via RTabNav) so we can inline
-// each subtab's contextual controls right under the active item — the
-// list reads as "tab + its expanded panel", not "tabs above + a separate
-// actions block". RTabNav stays a navigation-only primitive.
+// We render the subtab list manually (not via RTabNav) because each
+// subtab's content panel owns its own section header with title +
+// contextual actions — the sidebar stays navigation-only, mirroring
+// ScreenshotsSubtab.
 type SubtabDef = { id: Subtab; label: string; icon: string };
 const subtabDefs = computed<SubtabDef[]>(() => [
   {
@@ -191,30 +184,20 @@ const subtabDefs = computed<SubtabDef[]>(() => [
     icon: "mdi-book-open-page-variant-outline",
   },
   {
-    id: "soundtrack",
-    label: t("rom.soundtrack"),
-    icon: "mdi-music-note-outline",
-  },
-  {
     id: "screenshots",
     label: t("rom.screenshots"),
     icon: "mdi-image-multiple-outline",
   },
+  {
+    id: "soundtrack",
+    label: t("rom.soundtrack"),
+    icon: "mdi-music-note-outline",
+  },
 ]);
-
-// Whether the active subtab has any inline actions worth rendering.
-// Drives the empty-panel skip so we don't paint a stray padding block.
-function hasSubtabActions(id: Subtab): boolean {
-  if (id === "manual") return manualEntries.value.length > 0;
-  if (id === "soundtrack")
-    return soundtrackSupported.value && Boolean(props.rom.has_soundtrack);
-  // The screenshots subtab owns its own controls (ScreenshotsSubtab).
-  return false;
-}
 
 // ---------- Upload / refresh plumbing ----------
 // The manual / soundtrack panels each use an RDropzone (CTA when empty,
-// overlay over the viewer / player when filled). The sidebar's explicit
+// overlay over the viewer / player when filled). The section header's
 // "upload" button opens the filled dropzone's picker via these refs.
 const manualDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const soundtrackDz = ref<InstanceType<typeof RDropzone> | null>(null);
@@ -354,8 +337,6 @@ async function deleteSoundtrack(fileId: number) {
             class="r-v2-media__subtab-btn"
             :class="{
               'r-v2-media__subtab-btn--active': subTab === tab.id,
-              'r-v2-media__subtab-btn--joined':
-                subTab === tab.id && hasSubtabActions(tab.id),
             }"
             :aria-selected="subTab === tab.id"
             @click="subTab = tab.id"
@@ -363,74 +344,6 @@ async function deleteSoundtrack(fileId: number) {
             <RIcon :icon="tab.icon" size="16" />
             <span class="r-v2-media__subtab-label">{{ tab.label }}</span>
           </button>
-
-          <!-- Inline controls panel — RCollapsible drives the open/close
-               animation; `attached` removes its top radius/border so it
-               sits flush with the active subtab button above. -->
-          <RCollapsible
-            :model-value="subTab === tab.id && hasSubtabActions(tab.id)"
-            attached
-            class="r-v2-media__subtab-panel"
-          >
-            <div class="r-v2-media__subtab-panel-inner">
-              <template v-if="tab.id === 'manual' && manualEntries.length > 0">
-                <RSelect
-                  v-if="manualEntries.length > 1"
-                  v-model="selectedManualId"
-                  :items="manualItems"
-                  density="compact"
-                  variant="outlined"
-                  hide-details
-                />
-                <RBtn
-                  variant="outlined"
-                  prepend-icon="mdi-cloud-upload-outline"
-                  block
-                  @click="manualDz?.open()"
-                >
-                  {{ t("common.upload") }}
-                </RBtn>
-                <RBtn
-                  v-if="rom.url_manual"
-                  variant="outlined"
-                  prepend-icon="mdi-cloud-download-outline"
-                  block
-                  :loading="redownloadingManual"
-                  :disabled="redownloadingManual"
-                  @click="redownloadManual"
-                >
-                  {{ t("rom.redownload") }}
-                </RBtn>
-                <RBtn
-                  v-if="selectedManual"
-                  variant="outlined"
-                  color="romm-red"
-                  prepend-icon="mdi-delete"
-                  block
-                  @click="requestDeleteManual"
-                >
-                  {{ t("common.delete") }}
-                </RBtn>
-              </template>
-
-              <template
-                v-else-if="
-                  tab.id === 'soundtrack' &&
-                  soundtrackSupported &&
-                  rom.has_soundtrack
-                "
-              >
-                <RBtn
-                  variant="outlined"
-                  prepend-icon="mdi-cloud-upload-outline"
-                  block
-                  @click="soundtrackDz?.open()"
-                >
-                  {{ t("common.upload") }}
-                </RBtn>
-              </template>
-            </div>
-          </RCollapsible>
         </li>
       </ul>
     </aside>
@@ -444,6 +357,37 @@ async function deleteSoundtrack(fileId: number) {
            once on Media tab entry and switching is a CSS toggle. -->
       <!-- Manual subtab -->
       <section v-show="subTab === 'manual'" class="r-v2-media__panel">
+        <!-- The subtab label in the sidebar already names the section,
+             so the header skips a redundant title and just hosts the
+             entry selector (when multiple) + the Upload button. Delete
+             and Redownload live inside the PDF viewer's toolbar — they
+             act on the currently displayed entry, so colocating them
+             with Download reads as one action cluster. -->
+        <header
+          v-if="manualEntries.length > 0"
+          class="r-v2-media__section-head"
+        >
+          <RSelect
+            v-if="manualEntries.length > 1"
+            v-model="selectedManualId"
+            :items="manualItems"
+            density="compact"
+            variant="outlined"
+            hide-details
+            class="r-v2-media__manual-select"
+          />
+          <div class="r-v2-media__section-actions">
+            <RBtn
+              variant="outlined"
+              size="small"
+              prepend-icon="mdi-cloud-upload-outline"
+              @click="manualDz?.open()"
+            >
+              {{ t("common.upload") }}
+            </RBtn>
+          </div>
+        </header>
+
         <RDropzone
           v-if="manualEntries.length === 0"
           :title="t('rom.manual-empty')"
@@ -483,9 +427,20 @@ async function deleteSoundtrack(fileId: number) {
               v-if="selectedManual"
               :key="`${selectedManual.id}-${rom.updated_at}`"
               :pdf-url="selectedManual.url"
+              deletable
+              :redownloadable="!!rom.url_manual"
+              :redownloading="redownloadingManual"
+              @delete="requestDeleteManual"
+              @redownload="redownloadManual"
             />
           </div>
         </RDropzone>
+      </section>
+
+      <!-- Screenshots subtab — its own component (ROM / Mine / Community
+           sections, per-user public/private). -->
+      <section v-show="subTab === 'screenshots'" class="r-v2-media__panel">
+        <ScreenshotsSubtab :rom="rom" />
       </section>
 
       <!-- Soundtrack subtab -->
@@ -497,40 +452,50 @@ async function deleteSoundtrack(fileId: number) {
           :hint="t('rom.soundtrack-folder-hint')"
         />
 
-        <RDropzone
-          v-else-if="!rom.has_soundtrack"
-          :title="t('rom.soundtrack-empty')"
-          :hint="t('common.dropzone-hint')"
-          :active-title="t('common.dropzone-drag-over')"
-          :input-label="t('rom.upload-soundtrack')"
-          accept="audio/*,.flac,.opus"
-          multiple
-          @files="handleSoundtrackFiles"
-        />
+        <template v-else>
+          <header v-if="rom.has_soundtrack" class="r-v2-media__section-head">
+            <div class="r-v2-media__section-actions">
+              <RBtn
+                variant="outlined"
+                size="small"
+                prepend-icon="mdi-cloud-upload-outline"
+                @click="soundtrackDz?.open()"
+              >
+                {{ t("common.upload") }}
+              </RBtn>
+            </div>
+          </header>
 
-        <RDropzone
-          v-else
-          ref="soundtrackDz"
-          overlay
-          :release-label="t('common.dropzone-drag-over')"
-          :input-label="t('rom.upload-soundtrack')"
-          accept="audio/*,.flac,.opus"
-          multiple
-          @files="handleSoundtrackFiles"
-        >
-          <SoundtrackPanel
-            :rom="rom"
-            class="r-v2-media__soundtrack"
-            @upload-tracks="soundtrackDz?.open()"
-            @delete-track="deleteSoundtrack"
+          <RDropzone
+            v-if="!rom.has_soundtrack"
+            :title="t('rom.soundtrack-empty')"
+            :hint="t('common.dropzone-hint')"
+            :active-title="t('common.dropzone-drag-over')"
+            :input-label="t('rom.upload-soundtrack')"
+            accept="audio/*,.flac,.opus"
+            multiple
+            @files="handleSoundtrackFiles"
           />
-        </RDropzone>
-      </section>
 
-      <!-- Screenshots subtab — its own component (ROM / Mine / Community
-           sections, per-user public/private). -->
-      <section v-show="subTab === 'screenshots'" class="r-v2-media__panel">
-        <ScreenshotsSubtab :rom="rom" />
+          <RDropzone
+            v-else
+            ref="soundtrackDz"
+            overlay
+            class="r-v2-media__fill"
+            :release-label="t('common.dropzone-drag-over')"
+            :input-label="t('rom.upload-soundtrack')"
+            accept="audio/*,.flac,.opus"
+            multiple
+            @files="handleSoundtrackFiles"
+          >
+            <SoundtrackPanel
+              :rom="rom"
+              class="r-v2-media__soundtrack"
+              @upload-tracks="soundtrackDz?.open()"
+              @delete-track="deleteSoundtrack"
+            />
+          </RDropzone>
+        </template>
       </section>
     </div>
   </div>
@@ -553,10 +518,9 @@ async function deleteSoundtrack(fileId: number) {
   flex-shrink: 0;
 }
 
-/* Subtab list — inline-expansion pattern: each tab can host a panel of
-   contextual actions right under its button. Visual mirrors RTabNav's
-   `pill` + `vertical` + `sm` size so the navigation reads identically
-   to the rest of v2. */
+/* Subtab list — navigation only. Per-section actions (Upload, etc.)
+   live in the content column's section headers, mirroring
+   ScreenshotsSubtab. */
 .r-v2-media__subtabs {
   list-style: none;
   margin: 0;
@@ -597,30 +561,8 @@ async function deleteSoundtrack(fileId: number) {
   background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
   color: var(--r-color-brand-primary);
 }
-/* When the active subtab has an attached panel below, drop its bottom
-   radius so the button visually merges with the RCollapsible surface. */
-.r-v2-media__subtab-btn--joined {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
 .r-v2-media__subtab-label {
   flex: 1;
-}
-
-/* Inline panel — RCollapsible (attached, headless) provides the
-   surface (bg-elevated + border + bottom radius) and the open/close
-   animation. We only add a small bottom margin so the next subtab
-   doesn't crowd the panel. */
-.r-v2-media__subtab-panel {
-  margin-bottom: var(--r-space-1);
-}
-/* Headless mode: consumer drives the inner padding so the controls
-   breathe inside the panel surface. */
-.r-v2-media__subtab-panel-inner {
-  display: flex;
-  flex-direction: column;
-  gap: var(--r-space-2);
-  padding: var(--r-space-3);
 }
 
 .r-v2-media__content {
@@ -642,6 +584,33 @@ async function deleteSoundtrack(fileId: number) {
   gap: var(--r-space-3);
   flex: 1;
   min-height: 0;
+}
+
+/* Section header — toolbar row. The sidebar's subtab label already
+   names the section, so the header skips the title and hosts the
+   contextual controls only: the manual entry selector on the left
+   (when relevant) and the action cluster pushed to the right. */
+.r-v2-media__section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.r-v2-media__section-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Manual entry selector — capped width so it doesn't stretch to
+   fill the row when the action cluster is light. */
+.r-v2-media__manual-select {
+  max-width: 360px;
+  min-width: 200px;
+  flex-shrink: 1;
 }
 
 /* Overlay-mode RDropzone wrapping the PDF viewer must fill the panel

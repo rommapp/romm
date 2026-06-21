@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // SaveDataTab — Saves + States, each its own subtab with badge counts
-// and per-tab Upload affordance. Layout mirrors MediaTab: a vertical
-// subtab list on the left with an attached RCollapsible action panel
-// underneath the active tab, and the file list filling the content
-// column on the right. Per-row Download + Delete actions are
-// always-visible icon buttons; empty states promote the Upload CTA.
+// and per-tab Upload affordance. Layout mirrors ScreenshotsSubtab: a
+// vertical subtab list on the left (navigation only — no inline action
+// panel), and per-section headers in the content column with the
+// Upload button on the right when the section already has items. Empty
+// sections promote the dropzone CTA (the dropzone owns the upload
+// affordance there).
 //
 // Each list is split into a "Mine" section (own saves/states, with a
 // per-item public/private toggle + delete) and a read-only "Community"
@@ -14,7 +15,7 @@
 // URL-persistent subtab selection via `?subtab=` so deep-linking
 // into a specific list works and stale state doesn't leak when the
 // user navigates to a sibling tab.
-import { RBtn, RCollapsible, RDropzone, RIcon } from "@v2/lib";
+import { RBtn, RDropzone, RIcon } from "@v2/lib";
 import axios from "axios";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
@@ -125,17 +126,10 @@ const subtabDefs = computed<SubtabDef[]>(() => [
   { id: "states", label: t("rom.states-tab"), icon: "mdi-camera-outline" },
 ]);
 
-// Inline action panel under the active subtab only renders when the user
-// already owns at least one item — the empty "Mine" state owns the Upload
-// CTA so there's no redundant panel.
-function hasSubtabActions(id: Subtab): boolean {
-  return id === "saves" ? mySaves.value.length > 0 : myStates.value.length > 0;
-}
-
 // ---------- Upload / refresh plumbing ----------
-// Overlay-mode dropzone refs so the action-panel "Upload" buttons can open
-// the native picker via `.open()`; the empty-state CTA dropzones are
-// self-contained (click-to-browse + drag-and-drop).
+// Overlay-mode dropzone refs so the section-header "Upload" buttons can
+// open the native picker via `.open()`; the empty-state CTA dropzones
+// are self-contained (click-to-browse + drag-and-drop).
 const saveDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const stateDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const uploadingSaves = ref(false);
@@ -338,8 +332,6 @@ async function toggleStateVisibility(state: StateSchema) {
             class="r-v2-saves__subtab-btn"
             :class="{
               'r-v2-saves__subtab-btn--active': subTab === tab.id,
-              'r-v2-saves__subtab-btn--joined':
-                subTab === tab.id && hasSubtabActions(tab.id),
             }"
             :aria-selected="subTab === tab.id"
             @click="subTab = tab.id"
@@ -356,39 +348,6 @@ async function toggleStateVisibility(state: StateSchema) {
               {{ tab.id === "saves" ? savesCount : statesCount }}
             </span>
           </button>
-
-          <RCollapsible
-            :model-value="subTab === tab.id && hasSubtabActions(tab.id)"
-            attached
-            class="r-v2-saves__subtab-panel"
-          >
-            <div class="r-v2-saves__subtab-panel-inner">
-              <template v-if="tab.id === 'saves' && mySaves.length > 0">
-                <RBtn
-                  variant="outlined"
-                  prepend-icon="mdi-cloud-upload-outline"
-                  block
-                  :loading="uploadingSaves"
-                  :disabled="uploadingSaves"
-                  @click="saveDz?.open()"
-                >
-                  {{ t("common.upload") }}
-                </RBtn>
-              </template>
-              <template v-else-if="tab.id === 'states' && myStates.length > 0">
-                <RBtn
-                  variant="outlined"
-                  prepend-icon="mdi-cloud-upload-outline"
-                  block
-                  :loading="uploadingStates"
-                  :disabled="uploadingStates"
-                  @click="stateDz?.open()"
-                >
-                  {{ t("common.upload") }}
-                </RBtn>
-              </template>
-            </div>
-          </RCollapsible>
         </li>
       </ul>
     </aside>
@@ -398,11 +357,23 @@ async function toggleStateVisibility(state: StateSchema) {
       <section v-show="subTab === 'saves'" class="r-v2-saves__panel">
         <!-- Mine -->
         <div class="r-v2-saves__section">
-          <header
-            v-if="communitySaves.length > 0"
-            class="r-v2-saves__section-head"
-          >
-            {{ t("rom.saves-section-mine") }}
+          <header class="r-v2-saves__section-head">
+            <div class="r-v2-saves__section-head-text">
+              <h3 class="r-v2-saves__section-title">
+                {{ t("rom.saves-section-mine") }}
+              </h3>
+            </div>
+            <RBtn
+              v-if="mySaves.length > 0"
+              variant="outlined"
+              size="small"
+              prepend-icon="mdi-cloud-upload-outline"
+              :loading="uploadingSaves"
+              :disabled="uploadingSaves"
+              @click="saveDz?.open()"
+            >
+              {{ t("common.upload") }}
+            </RBtn>
           </header>
 
           <RDropzone
@@ -480,7 +451,11 @@ async function toggleStateVisibility(state: StateSchema) {
         <!-- Community -->
         <div v-if="communitySaves.length > 0" class="r-v2-saves__section">
           <header class="r-v2-saves__section-head">
-            {{ t("rom.saves-section-community") }}
+            <div class="r-v2-saves__section-head-text">
+              <h3 class="r-v2-saves__section-title">
+                {{ t("rom.saves-section-community") }}
+              </h3>
+            </div>
           </header>
           <AssetList
             :assets="communitySaves"
@@ -507,11 +482,23 @@ async function toggleStateVisibility(state: StateSchema) {
       <section v-show="subTab === 'states'" class="r-v2-saves__panel">
         <!-- Mine -->
         <div class="r-v2-saves__section">
-          <header
-            v-if="communityStates.length > 0"
-            class="r-v2-saves__section-head"
-          >
-            {{ t("rom.states-section-mine") }}
+          <header class="r-v2-saves__section-head">
+            <div class="r-v2-saves__section-head-text">
+              <h3 class="r-v2-saves__section-title">
+                {{ t("rom.states-section-mine") }}
+              </h3>
+            </div>
+            <RBtn
+              v-if="myStates.length > 0"
+              variant="outlined"
+              size="small"
+              prepend-icon="mdi-cloud-upload-outline"
+              :loading="uploadingStates"
+              :disabled="uploadingStates"
+              @click="stateDz?.open()"
+            >
+              {{ t("common.upload") }}
+            </RBtn>
           </header>
 
           <RDropzone
@@ -589,7 +576,11 @@ async function toggleStateVisibility(state: StateSchema) {
         <!-- Community -->
         <div v-if="communityStates.length > 0" class="r-v2-saves__section">
           <header class="r-v2-saves__section-head">
-            {{ t("rom.states-section-community") }}
+            <div class="r-v2-saves__section-head-text">
+              <h3 class="r-v2-saves__section-title">
+                {{ t("rom.states-section-community") }}
+              </h3>
+            </div>
           </header>
           <AssetStrip
             :assets="communityStates"
@@ -629,9 +620,8 @@ async function toggleStateVisibility(state: StateSchema) {
   flex-shrink: 0;
 }
 
-/* Subtab list — inline-expansion pattern: each tab can host a panel
-   of contextual actions right under its button. Visually identical
-   to MediaTab so the two GameDetails tabs share the same vocabulary. */
+/* Subtab list — navigation only. Per-section actions (Upload) live
+   in the content column's section headers, not under the sidebar. */
 .r-v2-saves__subtabs {
   list-style: none;
   margin: 0;
@@ -672,10 +662,6 @@ async function toggleStateVisibility(state: StateSchema) {
   background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
   color: var(--r-color-brand-primary);
 }
-.r-v2-saves__subtab-btn--joined {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
 .r-v2-saves__subtab-label {
   flex: 1;
 }
@@ -685,20 +671,6 @@ async function toggleStateVisibility(state: StateSchema) {
   padding: 1px 7px;
   border-radius: 999px;
   background: color-mix(in srgb, currentColor 18%, transparent);
-}
-
-/* Inline action panel — RCollapsible (attached, headless) provides
-   the surface (bg-elevated + border + bottom radius) and the open /
-   close animation. We add inner padding here so the controls breathe
-   inside the panel. */
-.r-v2-saves__subtab-panel {
-  margin-bottom: var(--r-space-1);
-}
-.r-v2-saves__subtab-panel-inner {
-  display: flex;
-  flex-direction: column;
-  gap: var(--r-space-2);
-  padding: var(--r-space-3);
 }
 
 .r-v2-saves__content {
@@ -717,18 +689,25 @@ async function toggleStateVisibility(state: StateSchema) {
   min-height: 0;
 }
 
-/* Mine / Community subsections within a subtab panel. */
+/* Mine / Community subsections within a subtab panel. Header layout
+   mirrors ScreenshotsSubtab: title + subtitle on the left, Upload
+   button on the right when the section already has items. */
 .r-v2-saves__section {
   display: flex;
   flex-direction: column;
-  gap: var(--r-space-3);
+  gap: 10px;
 }
 .r-v2-saves__section-head {
-  font-size: 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.r-v2-saves__section-title {
+  margin: 0;
+  font-size: 14px;
   font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--r-color-fg);
 }
 
 html[data-bp~="xs"] .r-v2-saves {

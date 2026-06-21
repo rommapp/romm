@@ -280,6 +280,41 @@ html[data-input="pad"] .r-v2 * {
   }
 }
 
+/* Asset reveal — the list/strip variant of the card pop. Saves and
+   states are dense info rows, so the pop+overshoot of `.r-v2-card-fade`
+   reads as too "showy"; this variant keeps the same direction (rise
+   from below + fade) but drops the scale, swaps the bouncy easing for
+   a plain ease-out, and uses a tighter 24ms stagger. Shared by
+   AssetList and AssetStrip via --asset-fade-i. */
+.r-v2-asset-fade {
+  animation: r-v2-asset-fade 320ms var(--r-motion-ease-out) both;
+  animation-delay: calc(var(--asset-fade-i, 0) * 24ms);
+}
+@keyframes r-v2-asset-fade {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .r-v2-asset-fade {
+    animation: r-v2-asset-fade-reduced 180ms ease-out both;
+    animation-delay: 0ms;
+  }
+  @keyframes r-v2-asset-fade-reduced {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
 /* Shimmer loading — matches the mockup's card skeleton. */
 .r-v2-shimmer {
   animation: r-v2-shimmer 1.4s ease-in-out infinite;

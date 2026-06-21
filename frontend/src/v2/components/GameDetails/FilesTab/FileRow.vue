@@ -104,7 +104,11 @@ const hasAnyHash = computed(
 </script>
 
 <template>
-  <li class="r-v2-file-row" :class="{ 'r-v2-file-row--selected': selected }">
+  <li
+    class="r-v2-file-row"
+    :class="{ 'r-v2-file-row--selected': selected }"
+    v-bind="$attrs"
+  >
     <!-- The wrapper matches the filename's first-line box height
          (font-size × line-height) so `align-items: center` inside it
          lands the checkbox box on the filename's vertical centre,
