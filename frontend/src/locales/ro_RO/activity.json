@@ -1,0 +1,13 @@
+{
+  "active-sessions": "Sesiuni active",
+  "days-ago": "acum {n} z",
+  "hours-ago": "acum {n} h",
+  "hours-minutes-ago": "acum {h} h {m} min",
+  "just-now": "Chiar acum",
+  "live": "ÎN DIRECT",
+  "minutes-ago": "acum {n} min",
+  "no-activity": "Nimeni nu joacă în acest moment",
+  "now-playing": "Se joacă acum",
+  "playing-on": "Joacă pe {device}",
+  "playing-since": "Joacă din {time}"
+}

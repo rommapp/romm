@@ -128,6 +128,12 @@ const groups = computed<Group[]>(() => {
           visible: scopes.value.includes("users.write"),
         },
         {
+          icon: "mdi-access-point",
+          label: t("activity.active-sessions"),
+          to: { name: ROUTES.ACTIVITY },
+          visible: true,
+        },
+        {
           icon: "mdi-server",
           label: t("common.server-stats"),
           to: { name: ROUTES.SERVER_STATS },

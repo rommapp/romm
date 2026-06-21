@@ -74,11 +74,6 @@ const canSeeLibraryMgmt = computed(() =>
 const canSeeApiTokens = computed(() => scopes.value.includes("me.write"));
 const canSeeAdmin = computed(() => scopes.value.includes("users.write"));
 
-// The System group can be empty for restricted scopes — gate the whole
-// region so a lone group label doesn't dangle. The Library group always
-// contains at least the Patcher, so it never needs gating.
-const showSystemGroup = computed(() => canSeeAdmin.value || isAdmin.value);
-
 function showAbout() {
   open.value = false;
   emitter?.emit("showAboutDialog", null);
@@ -230,7 +225,7 @@ async function onLogout() {
     </div>
 
     <!-- System -->
-    <div v-if="showSystemGroup" class="r-v2-user-menu__group">
+    <div class="r-v2-user-menu__group">
       <div class="r-v2-user-menu__group-label">
         {{ t("settings.group-system") }}
       </div>
@@ -239,6 +234,12 @@ async function onLogout() {
         :to="{ name: ROUTES.ADMINISTRATION }"
         icon="mdi-shield-account-outline"
         :label="t('common.administration')"
+        @click="open = false"
+      />
+      <RMenuItem
+        :to="{ name: ROUTES.ACTIVITY }"
+        icon="mdi-access-point"
+        :label="t('activity.active-sessions')"
         @click="open = false"
       />
       <RMenuItem

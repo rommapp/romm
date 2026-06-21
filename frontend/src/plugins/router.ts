@@ -35,6 +35,7 @@ export const ROUTES = {
   SCAN: "scan",
   UPLOAD: "upload",
   PATCHER: "patcher",
+  ACTIVITY: "activity",
   USER_PROFILE: "user-profile",
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
@@ -315,6 +316,19 @@ const routes = [
             components: {
               default: () => import("@/views/Patcher.vue"),
               v2: v2For(ROUTES.PATCHER),
+            },
+          },
+          {
+            path: "activity",
+            name: ROUTES.ACTIVITY,
+            meta: {
+              title: i18n.global.t("activity.active-sessions"),
+            },
+            components: {
+              // v2-only view; v1 has no activity concept so it redirects
+              // home if a v1 user deep-links here.
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.ACTIVITY),
             },
           },
           {
