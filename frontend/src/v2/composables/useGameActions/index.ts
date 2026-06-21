@@ -16,6 +16,7 @@ import { useRouter } from "vue-router";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -31,6 +32,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
   const emitter = inject<Emitter<Events>>("emitter");
   const snackbar = useSnackbar();
   const romsStore = storeRoms();
+  const auth = storeAuth();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
@@ -280,10 +282,12 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
   }
 
   // Only relevant while the ROM carries a `last_played` timestamp — i.e.
-  // it currently sits in the Continue Playing row. Per-user data, so any
-  // authenticated role may clear their own; backend is the real gate.
-  const canRemoveFromContinuePlaying = computed(() =>
-    Boolean(getRom()?.rom_user?.last_played),
+  // it currently sits in the Continue Playing row. Also requires the
+  // `roms.user.write` scope to match the backend gate and avoid a 403.
+  const canRemoveFromContinuePlaying = computed(
+    () =>
+      auth.scopes.includes("roms.user.write") &&
+      Boolean(getRom()?.rom_user?.last_played),
   );
 
   // Clears the per-user `last_played` so the ROM drops out of Continue
