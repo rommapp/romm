@@ -1,15 +1,11 @@
 <script setup lang="ts">
-// ActivityCard — a single "now playing" entry in the Activity grid.
+// ActivityCard: a single "now playing" entry in the Activity grid.
 //
 // Portrait cover (RImg) with a pulsing LIVE badge over the top-right,
 // and a footer naming the game, its platform, and the player (avatar +
 // username) with an elapsed-since label. The whole card is a RouterLink
 // to the game detail view, so it participates in spatial / gamepad nav
 // (useWrapGridNav discovers it via the `a[href]` it renders).
-//
-// Purely presentational: every value — including the already-formatted
-// `elapsedLabel` and resolved cover/avatar URLs — is passed in by the
-// Activity view, which owns the data + the i18n time formatting.
 import { RAvatar, RChip, RIcon, RImg } from "@v2/lib";
 import type { RouteLocationRaw } from "vue-router";
 

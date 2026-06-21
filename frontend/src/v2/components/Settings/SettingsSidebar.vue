@@ -122,18 +122,16 @@ const groups = computed<Group[]>(() => {
       label: t("settings.group-system"),
       entries: [
         {
-          icon: "mdi-access-point",
-          label: t("activity.active-sessions"),
-          to: { name: ROUTES.ACTIVITY },
-          // Live "now playing" board — readable by any authenticated user
-          // (GET /activity needs only ROMS_USER_READ), so always shown.
-          visible: true,
-        },
-        {
           icon: "mdi-shield-account-outline",
           label: t("common.administration"),
           to: { name: ROUTES.ADMINISTRATION },
           visible: scopes.value.includes("users.write"),
+        },
+        {
+          icon: "mdi-access-point",
+          label: t("activity.active-sessions"),
+          to: { name: ROUTES.ACTIVITY },
+          visible: true,
         },
         {
           icon: "mdi-server",
