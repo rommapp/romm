@@ -1314,7 +1314,11 @@ class DBRomsHandler(DBBaseHandler):
         return (
             session.scalars(
                 select(Rom)
-                .options(load_only(Rom.id, Rom.fs_name))
+                # `fs_path` is eager-loaded alongside `fs_name` so callers can
+                # read `rom.full_path` after the session closes (the returned
+                # instances are detached); without it that lazy-loads and raises
+                # DetachedInstanceError.
+                .options(load_only(Rom.id, Rom.fs_name, Rom.fs_path))
                 .where(
                     and_(
                         Rom.platform_id == platform_id,

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 import pytest
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
 
 from config import ROMM_DB_DRIVER
@@ -591,6 +592,13 @@ def test_mark_missing_roms_small_platform(platform: Platform):
 
     assert len(missing) == 1
     assert missing[0].fs_name == "rom_b.zip"
+
+    # Regression: the returned (detached) instances must carry `fs_path` so
+    # callers can read `rom.full_path` after the session closes without a
+    # DetachedInstanceError (the missing-rom warning in scan.py does exactly
+    # that). Assert fs_path was eager-loaded, and that full_path resolves.
+    assert "fs_path" not in sa_inspect(missing[0]).unloaded
+    assert missing[0].full_path == f"{platform.slug}/roms/rom_b.zip"
 
     updated_b = db_rom_handler.get_rom(rom_b.id)
     assert updated_b is not None
