@@ -269,6 +269,12 @@ const coverAspectRatio = computed(() =>
 // each cover's ratio once its image loads; the flow-packer reads them via
 // `ratioAt(position)`. Updates are batched behind `ratioVersion` so a burst
 // of image loads triggers a single re-pack instead of one per cover.
+//
+// Intentionally unbounded for the page's lifetime: keeping it by rom id is
+// what lets a re-visited platform/collection re-pack instantly without
+// waiting on image loads again. Each entry is two numbers, so even a user
+// browsing tens of thousands of distinct ROMs costs a few hundred KB — not
+// worth an LRU ceiling. Reset happens naturally on a full page reload.
 const ratioByRomId = new Map<number, number>();
 const ratioVersion = ref(0);
 let ratioBumpTimer: ReturnType<typeof setTimeout> | null = null;
