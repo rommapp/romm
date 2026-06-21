@@ -10,7 +10,8 @@ from logger.logger import log
 def begin_session(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        if hasattr(kwargs, "session"):
+        # Reuse a caller-provided session so the handler can join an existing unit of work
+        if kwargs.get("session") is not None:
             return func(*args, **kwargs)
 
         try:

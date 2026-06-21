@@ -50,7 +50,7 @@ class ClientSaveState(BaseModel):
 
 
 class SyncNegotiatePayload(BaseModel):
-    device_id: str
+    device_id: str | None = None
     saves: list[ClientSaveState]
 
 
@@ -86,13 +86,23 @@ def negotiate_sync(
     The client sends its current save state, and the server returns a list of
     operations (upload, download, conflict, no_op) to bring both sides in sync.
     """
-    device = db_device_handler.get_device(
-        device_id=payload.device_id, user_id=request.user.id
+    device_id: str | None = payload.device_id or getattr(
+        request.state, "device_id", None
     )
+    if not device_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "device_id is required (either in the request payload or "
+                "implicit via a device-bound client token)"
+            ),
+        )
+
+    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {payload.device_id} not found",
+            detail=f"Device with ID {device_id} not found",
         )
 
     if not device.sync_enabled:

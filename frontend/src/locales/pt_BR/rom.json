@@ -219,6 +219,8 @@
   "single-player": "Um jogador",
   "snackbar-download-link-copied": "Link de download copiado para a área de transferência",
   "snackbar-link-copied": "Link copiado para a área de transferência",
+  "snackbar-removed-from-playing": "Removido de jogando",
+  "snackbar-remove-from-playing-failed": "Falha ao remover de jogando",
   "snackbar-update-field-failed": "Falha ao atualizar {field}",
   "snackbar-update-status-failed": "Falha ao atualizar o status",
   "status-active-count": "Status: {count} ativos",

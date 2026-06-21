@@ -219,6 +219,8 @@
   "single-player": "Един играч",
   "snackbar-download-link-copied": "Линкът за сваляне е копиран в клипборда",
   "snackbar-link-copied": "Линкът е копиран в клипборда",
+  "snackbar-removed-from-playing": "Removed from Continue Playing",
+  "snackbar-remove-from-playing-failed": "Failed to remove from Continue Playing",
   "snackbar-update-field-failed": "Неуспешно обновяване на {field}",
   "snackbar-update-status-failed": "Неуспешно обновяване на статуса",
   "status-active-count": "Статус: {count} активни",

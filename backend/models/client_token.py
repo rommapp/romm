@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from models.base import BaseModel
 
 if TYPE_CHECKING:
+    from models.device import Device
     from models.user import User
 
 
@@ -24,4 +25,9 @@ class ClientToken(BaseModel):
     expires_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     last_used_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 
+    device_id: Mapped[str | None] = mapped_column(
+        ForeignKey("devices.id", ondelete="SET NULL"), nullable=True
+    )
+
     user: Mapped[User] = relationship(lazy="joined", back_populates="client_tokens")
+    device: Mapped[Device | None] = relationship(lazy="select")

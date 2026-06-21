@@ -4,7 +4,7 @@
 /* eslint-disable */
 import type { ClientSaveState } from './ClientSaveState';
 export type SyncNegotiatePayload = {
-    device_id: string;
+    device_id?: (string | null);
     saves: Array<ClientSaveState>;
 };
 

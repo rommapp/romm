@@ -328,6 +328,8 @@
   "single-player": "Un jugador",
   "snackbar-download-link-copied": "Enlace de descarga copiado al portapapeles",
   "snackbar-link-copied": "Enlace copiado al portapapeles",
+  "snackbar-removed-from-playing": "Eliminado de jugar",
+  "snackbar-remove-from-playing-failed": "Error al eliminar de jugar",
   "snackbar-update-field-failed": "Error al actualizar {field}",
   "snackbar-update-status-failed": "Error al actualizar el estado",
   "status-active-count": "Estado: {count} activos",

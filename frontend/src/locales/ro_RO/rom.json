@@ -219,6 +219,8 @@
   "single-player": "Singur jucător",
   "snackbar-download-link-copied": "Linkul de descărcare a fost copiat în clipboard",
   "snackbar-link-copied": "Linkul a fost copiat în clipboard",
+  "snackbar-removed-from-playing": "Removed from Continue Playing",
+  "snackbar-remove-from-playing-failed": "Failed to remove from Continue Playing",
   "snackbar-update-field-failed": "Actualizarea câmpului {field} a eșuat",
   "snackbar-update-status-failed": "Actualizarea stării a eșuat",
   "status-active-count": "Stare: {count} active",
