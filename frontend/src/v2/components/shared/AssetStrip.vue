@@ -86,14 +86,15 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
     <div v-if="assets.length > 0" class="r-asset-strip__track">
       <component
         :is="selectable ? 'button' : 'div'"
-        v-for="asset in assets"
+        v-for="(asset, i) in assets"
         :key="asset.id"
         :type="selectable ? 'button' : undefined"
-        class="r-asset-strip__tile"
+        class="r-asset-strip__tile r-v2-asset-fade"
         :class="{
           'r-asset-strip__tile--active': selectable && asset.id === selectedId,
           'r-asset-strip__tile--static': !selectable,
         }"
+        :style="{ '--asset-fade-i': i }"
         :aria-pressed="selectable ? asset.id === selectedId : undefined"
         @click="selectable && $emit('select', asset)"
       >

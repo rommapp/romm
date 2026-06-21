@@ -69,7 +69,8 @@ function canToggle(shot: ScreenshotItem): boolean {
     <div
       v-for="(shot, i) in screenshots"
       :key="shot.id ?? shot.url"
-      class="r-v2-det-shots__cell"
+      class="r-v2-det-shots__cell r-v2-asset-fade"
+      :style="{ '--asset-fade-i': i }"
     >
       <button
         type="button"

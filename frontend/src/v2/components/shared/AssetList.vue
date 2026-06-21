@@ -78,12 +78,13 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
   <div class="r-asset-list" :class="{ 'r-asset-list--scroll': scrollable }">
     <ul v-if="assets.length > 0" class="r-asset-list__items">
       <li
-        v-for="asset in assets"
+        v-for="(asset, i) in assets"
         :key="asset.id"
-        class="r-asset-list__item"
+        class="r-asset-list__item r-v2-asset-fade"
         :class="{
           'r-asset-list__item--active': selectable && asset.id === selectedId,
         }"
+        :style="{ '--asset-fade-i': i }"
       >
         <component
           :is="selectable ? 'button' : 'div'"
