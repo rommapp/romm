@@ -44,8 +44,7 @@ export default defineStore("activity", {
 
     handleUpdate(entry: ActivityEntry) {
       const idx = this.activities.findIndex(
-        (a) =>
-          a.user_id === entry.user_id && a.device_id === entry.device_id,
+        (a) => a.user_id === entry.user_id && a.device_id === entry.device_id,
       );
       if (idx >= 0) {
         // Replace the entry so reactive getters pick up the change.
@@ -57,8 +56,7 @@ export default defineStore("activity", {
 
     handleClear(data: ActivityClearEvent) {
       this.activities = this.activities.filter(
-        (a) =>
-          !(a.user_id === data.user_id && a.device_id === data.device_id),
+        (a) => !(a.user_id === data.user_id && a.device_id === data.device_id),
       );
     },
 

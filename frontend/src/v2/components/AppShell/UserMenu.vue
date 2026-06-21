@@ -161,6 +161,17 @@ async function onLogout() {
 
     <RDivider />
 
+    <!-- Activity — a content destination (live "now playing" board), not a
+         setting, so it stands alone above the settings-style groups. -->
+    <RMenuItem
+      :to="{ name: ROUTES.ACTIVITY }"
+      icon="mdi-access-point"
+      :label="t('common.activity')"
+      @click="open = false"
+    />
+
+    <RDivider />
+
     <!-- Account -->
     <div class="r-v2-user-menu__group">
       <div class="r-v2-user-menu__group-label">

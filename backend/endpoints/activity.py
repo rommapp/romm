@@ -66,9 +66,7 @@ async def get_all_activity(request: Request) -> list[ActivityEntrySchema]:
 
 
 @protected_route(router.get, "/rom/{rom_id}", [Scope.ROMS_USER_READ])
-async def get_rom_activity(
-    request: Request, rom_id: int
-) -> list[ActivityEntrySchema]:
+async def get_rom_activity(request: Request, rom_id: int) -> list[ActivityEntrySchema]:
     """Return all active play sessions for a specific ROM."""
     entries = await activity_handler.get_active_for_rom(rom_id)
     return [ActivityEntrySchema(**e) for e in entries]
@@ -103,9 +101,7 @@ async def device_heartbeat(
     # Preserve the started_at from the existing entry if we are refreshing.
     existing = await activity_handler.get_active(request.user.id, device.id)
     started_at = (
-        existing["started_at"]
-        if existing
-        else datetime.now(timezone.utc).isoformat()
+        existing["started_at"] if existing else datetime.now(timezone.utc).isoformat()
     )
 
     platform = rom.platform
@@ -133,7 +129,9 @@ async def device_heartbeat(
         sm = _get_socket_manager()
         await sm.emit("activity:update", dict(entry))
     except Exception as e:  # noqa: BLE001
-        log.warning(f"Failed to broadcast activity:update for user {request.user.id}: {e}")
+        log.warning(
+            f"Failed to broadcast activity:update for user {request.user.id}: {e}"
+        )
 
     return ActivityEntrySchema(**entry)
 
@@ -144,9 +142,7 @@ async def device_heartbeat(
     [Scope.ROMS_USER_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def clear_device_activity(
-    request: Request, device_id: str
-) -> None:
+async def clear_device_activity(request: Request, device_id: str) -> None:
     """Immediately clear an active session for a device (e.g. on graceful exit)."""
     rom_id = await activity_handler.clear_active(request.user.id, device_id)
     if rom_id is None:

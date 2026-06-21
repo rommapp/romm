@@ -27,12 +27,6 @@ class ActivityEventPayload(TypedDict, total=False):
     device_id: str
 
 
-def _empty_string(value: object) -> str:
-    if value is None:
-        return ""
-    return str(value)
-
-
 async def _store_session(sid: str, user_id: int, device_id: str) -> None:
     """Remember the user/device associated with a socket for disconnect cleanup."""
     try:
@@ -66,25 +60,20 @@ async def _build_entry(
         if existing:
             started_at = existing["started_at"]
 
-    # Resolve the device type from the device record rather than assuming it.
-    # The device_id may reference a registered device (with its own client
-    # type); fall back to "web" — the browser default — when none is found.
     device = db_device_handler.get_device(device_id=device_id, user_id=user_id)
-    device_type = (device.client if device else None) or "web"
+    device_type = device.client if device else None
 
     return ActivityEntry(
         user_id=user.id,
         username=user.username,
-        avatar_path=_empty_string(user.avatar_path),
+        avatar_path=user.avatar_path or "",
         rom_id=rom.id,
         rom_name=rom.name or rom.fs_name,
-        rom_cover_path=_empty_string(rom.path_cover_s),
-        platform_slug=_empty_string(platform.slug) if platform else "",
-        platform_name=_empty_string(
-            (platform.custom_name or platform.name) if platform else ""
-        ),
+        rom_cover_path=rom.path_cover_s or "",
+        platform_slug=platform.slug if platform else "",
+        platform_name=((platform.custom_name or platform.name) if platform else ""),
         device_id=device_id,
-        device_type=device_type,
+        device_type=device_type or "web",
         started_at=started_at,
     )
 
@@ -94,14 +83,16 @@ def _extract_payload(data: object) -> tuple[int | None, str | None, int | None]:
     if not isinstance(data, dict):
         return None, None, None
     try:
-        user_id = int(data.get("user_id")) if data.get("user_id") is not None else None
+        data_user_id = data.get("user_id")
+        user_id = int(data_user_id) if data_user_id else None
     except (TypeError, ValueError):
         user_id = None
     device_id = data.get("device_id")
     if not isinstance(device_id, str) or not device_id:
         device_id = None
     try:
-        rom_id = int(data.get("rom_id")) if data.get("rom_id") is not None else None
+        data_rom_id = data.get("rom_id")
+        rom_id = int(data_rom_id) if data_rom_id else None
     except (TypeError, ValueError):
         rom_id = None
     return user_id, device_id, rom_id

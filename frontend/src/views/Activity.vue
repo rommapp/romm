@@ -112,7 +112,10 @@ function elapsedLabel(startedAt: string): string {
                 aspect-ratio="2/3"
                 cover
               />
-              <div v-else class="cover-placeholder d-flex align-center justify-center">
+              <div
+                v-else
+                class="cover-placeholder d-flex align-center justify-center"
+              >
                 <v-icon size="48" color="grey-lighten-1">
                   mdi-nintendo-game-boy
                 </v-icon>
