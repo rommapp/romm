@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Final
 
 from fastapi import HTTPException, Request, status
+from yarl import URL
 
 from handler.redis_handler import sync_cache
 from utils.client_tokens import PAIR_ALPHABET
@@ -54,16 +55,19 @@ def generate_user_code() -> str:
     return "".join(secrets.choice(PAIR_ALPHABET) for _ in range(USER_CODE_LENGTH))
 
 
-def build_verification_urls(request: Request, user_code: str) -> tuple[str, str]:
-    """Build server-origin URLs only — never from client input.
+def build_verification_paths(user_code: str) -> tuple[str, str]:
+    """Return the web-UI approval paths.
 
-    This is intentional: no user-supplied callback URLs, so no javascript:/data:
-    XSS surface on the approval page.
+    Only a fixed relative path is returned; the client joins it with the origin
+    it was configured to reach, so the server stays origin-agnostic (in
+    development the web UI and API run on different ports). The path is a server
+    constant and never incorporates client input.
     """
-    base = str(request.base_url).rstrip("/")
-    verification_url = f"{base}/pair/device"
-    verification_url_complete = f"{verification_url}?user_code={user_code}"
-    return verification_url, verification_url_complete
+    verification_path = "/pair/device"
+    verification_path_complete = str(
+        URL(verification_path).with_query(user_code=user_code)
+    )
+    return verification_path, verification_path_complete
 
 
 def check_authorize_rate_limit(request: Request) -> None:

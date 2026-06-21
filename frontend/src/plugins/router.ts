@@ -448,7 +448,10 @@ const routes = [
   {
     path: "/pair/device",
     name: ROUTES.PAIR_DEVICE,
-    component: () => import("@/views/Auth/DevicePair.vue"),
+    components: {
+      default: () => import("@/v2/views/DevicePairShell.vue"),
+      v2: () => import("@/v2/views/DevicePairShell.vue"),
+    },
   },
   {
     path: "/pair",

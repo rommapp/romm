@@ -10,6 +10,7 @@
 // carries the full grant set.
 import {
   RBtn,
+  RChip,
   RIcon,
   RTable,
   RTextField,
@@ -19,6 +20,8 @@ import {
 import type { Emitter } from "mitt";
 import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import type { DeviceSchema } from "@/__generated__/models/DeviceSchema";
+import api from "@/services/api";
 import clientTokenApi, {
   type ClientTokenSchema,
 } from "@/services/api/client-token";
@@ -35,8 +38,15 @@ const snackbar = useSnackbar();
 const confirm = useConfirm();
 
 const tokens = ref<ClientTokenSchema[]>([]);
+const devices = ref<DeviceSchema[]>([]);
 const search = ref("");
 const loading = ref(false);
+
+const devicesById = computed(() => {
+  const map = new Map<string, DeviceSchema>();
+  for (const d of devices.value) map.set(d.id, d);
+  return map;
+});
 
 type SortKey = "name" | "expires_at" | "last_used_at";
 const sortKey = ref<SortKey>("name");
@@ -166,7 +176,19 @@ async function deleteToken(token: ClientTokenSchema) {
   }
 }
 
-onMounted(fetchTokens);
+async function fetchDevices() {
+  try {
+    const { data } = await api.get<DeviceSchema[]>("/devices");
+    devices.value = data;
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+onMounted(() => {
+  fetchTokens();
+  fetchDevices();
+});
 </script>
 
 <template>
@@ -198,9 +220,26 @@ onMounted(fetchTokens);
       @update:sort="onSort"
     >
       <template #cell.name="{ row }">
-        <span class="r-v2-tok__name">{{
-          (row as ClientTokenSchema).name
-        }}</span>
+        <div class="r-v2-tok__name-cell">
+          <span class="r-v2-tok__name">{{
+            (row as ClientTokenSchema).name
+          }}</span>
+          <RChip
+            v-if="
+              (row as ClientTokenSchema).device_id &&
+              devicesById.get((row as ClientTokenSchema).device_id!)
+            "
+            size="x-small"
+            color="primary"
+            variant="outlined"
+            prepend-icon="mdi-devices"
+          >
+            {{
+              devicesById.get((row as ClientTokenSchema).device_id!)?.name ??
+              (row as ClientTokenSchema).device_id
+            }}
+          </RChip>
+        </div>
       </template>
       <template #cell.scopes="{ row }">
         <ScopeCell :scopes="(row as ClientTokenSchema).scopes" />
@@ -277,11 +316,20 @@ onMounted(fetchTokens);
   margin-bottom: 16px;
 }
 
+.r-v2-tok__name-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
 .r-v2-tok__name {
   font-weight: var(--r-font-weight-semibold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .r-v2-tok__meta {

@@ -6,3 +6,4 @@ export type DeviceAuthApproveResponse = {
     device_id: string;
     device_name: (string | null);
 };
+

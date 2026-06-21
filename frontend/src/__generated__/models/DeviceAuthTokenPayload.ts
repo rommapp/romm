@@ -5,3 +5,4 @@
 export type DeviceAuthTokenPayload = {
     device_code: string;
 };
+

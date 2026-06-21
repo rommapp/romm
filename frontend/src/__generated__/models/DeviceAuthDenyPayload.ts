@@ -5,3 +5,4 @@
 export type DeviceAuthDenyPayload = {
     user_code: string;
 };
+

@@ -8,3 +8,4 @@ export type DeviceAuthTokenResponse = {
     scopes: Array<string>;
     expires_at: (string | null);
 };
+

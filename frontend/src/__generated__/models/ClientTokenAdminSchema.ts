@@ -12,5 +12,7 @@ export type ClientTokenAdminSchema = {
     user_id: number;
     device_id?: (string | null);
     username: string;
+    user_avatar_path: string;
+    user_updated_at: string;
 };
 

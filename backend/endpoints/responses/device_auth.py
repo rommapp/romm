@@ -15,8 +15,15 @@ class DeviceAuthInitPayload(BaseModel):
 class DeviceAuthInitResponse(BaseModel):
     device_code: str
     user_code: str
-    verification_url: str
-    verification_url_complete: str
+    verification_path: str = Field(
+        description=(
+            "Relative web-UI path (/pair/device). The client joins it with the "
+            "origin it was configured to reach; the server is origin-agnostic."
+        )
+    )
+    verification_path_complete: str = Field(
+        description="Same path with ?user_code= appended, for QR display."
+    )
     expires_in: int
     interval: int
 

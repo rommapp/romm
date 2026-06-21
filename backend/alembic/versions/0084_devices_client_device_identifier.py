@@ -1,7 +1,7 @@
 """Add client_device_identifier to devices
 
-Revision ID: 0080_devices_client_identifier
-Revises: 0079_add_rom_files_rom_id_index
+Revision ID: 0084_devices_client_identifier
+Revises: 0083_rom_category_soundtrack
 Create Date: 2026-04-24 00:00:00.000000
 
 """

@@ -70,8 +70,8 @@ class TestAuthorize:
 
         assert len(body["device_code"]) == df.DEVICE_CODE_BYTES * 2
         assert len(body["user_code"]) == df.USER_CODE_LENGTH
-        assert body["verification_url"].endswith("/pair/device")
-        assert body["user_code"] in body["verification_url_complete"]
+        assert body["verification_path"].endswith("/pair/device")
+        assert body["user_code"] in body["verification_path_complete"]
         assert body["expires_in"] == df.PENDING_TTL_SECONDS
         assert body["interval"] == df.POLL_DEFAULT_INTERVAL_SECONDS
 
@@ -550,18 +550,17 @@ class TestToken:
         assert last_status == status.HTTP_429_TOO_MANY_REQUESTS
 
 
-class TestVerificationUrls:
-    def test_verification_url_is_server_origin(self, client):
-        # Never echoes client-supplied callback data — verification_url is
-        # always the server's own origin + /pair/device. This is the XSS
-        # surface removal the plan leans on.
+class TestVerificationPaths:
+    def test_verification_path_is_relative(self, client):
+        # The path is a fixed server constant (/pair/device); client metadata
+        # like the device name is never interpolated into it.
         body = _authorize(
             client,
             payload={**AUTHORIZE_PAYLOAD, "name": "javascript:alert(1)"},
         )
-        assert body["verification_url"].endswith("/pair/device")
-        assert "javascript:" not in body["verification_url"]
-        assert "javascript:" not in body["verification_url_complete"]
+        assert body["verification_path"] == "/pair/device"
+        assert "://" not in body["verification_path"]
+        assert "javascript:" not in body["verification_path_complete"]
 
 
 class TestHelperFunctions:
@@ -711,9 +710,9 @@ class TestEndToEndHappyPath:
         )
         assert start_resp.status_code == status.HTTP_201_CREATED
         init = start_resp.json()
-        assert init["verification_url"].endswith("/pair/device")
+        assert init["verification_path"].endswith("/pair/device")
 
-        # Device displays QR from verification_url_complete; user scans; user
+        # Device displays QR from verification_path_complete; user scans; user
         # is routed to /pair/device?user_code=... and authenticates.
 
         # --- 2. Web UI fetches pending metadata ---

@@ -1,7 +1,7 @@
 """Add device_id FK to client_tokens
 
-Revision ID: 0081_client_tokens_device_id
-Revises: 0080_devices_client_identifier
+Revision ID: 0085_client_tokens_device_id
+Revises: 0084_devices_client_identifier
 Create Date: 2026-04-24 00:00:00.000000
 
 """

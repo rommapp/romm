@@ -38,7 +38,7 @@ from utils.device_auth import (
     PENDING_TTL_SECONDS,
     POLL_DEFAULT_INTERVAL_SECONDS,
     FlowStatus,
-    build_verification_urls,
+    build_verification_paths,
     check_authorize_rate_limit,
     check_token_poll_rate_limit,
     consume_approved,
@@ -87,9 +87,7 @@ def device_auth_init(
         },
     )
 
-    verification_url, verification_url_complete = build_verification_urls(
-        request, user_code
-    )
+    verification_path, verification_path_complete = build_verification_paths(user_code)
 
     log.info(
         f"device_auth.init client={payload.client} "
@@ -100,8 +98,8 @@ def device_auth_init(
     return DeviceAuthInitResponse(
         device_code=device_code,
         user_code=user_code,
-        verification_url=verification_url,
-        verification_url_complete=verification_url_complete,
+        verification_path=verification_path,
+        verification_path_complete=verification_path_complete,
         expires_in=PENDING_TTL_SECONDS,
         interval=POLL_DEFAULT_INTERVAL_SECONDS,
     )
@@ -198,12 +196,14 @@ def approve(
         client_version = data.get("client_version")
         if client_version is not None:
             update_data["client_version"] = client_version
-        db_device_handler.update_device(
-            device_id=existing.id,
-            user_id=request.user.id,
-            data=update_data,
+        device = (
+            db_device_handler.update_device(
+                device_id=existing.id,
+                user_id=request.user.id,
+                data=update_data,
+            )
+            or existing
         )
-        device = existing
     else:
         device = db_device_handler.add_device(
             Device(

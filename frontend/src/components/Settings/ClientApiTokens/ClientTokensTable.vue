@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { computed, inject, onMounted, ref } from "vue";
+import { inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { DeviceSchema } from "@/__generated__/models/DeviceSchema";
 import CreateClientTokenDialog from "@/components/Settings/ClientApiTokens/Dialog/CreateClientToken.vue";
 import DeleteClientTokenDialog from "@/components/Settings/ClientApiTokens/Dialog/DeleteClientToken.vue";
 import RSection from "@/components/common/RSection.vue";
-import api from "@/services/api";
 import clientTokenApi, {
   type ClientTokenSchema,
 } from "@/services/api/client-token";
@@ -16,14 +14,7 @@ import { formatTimestamp } from "@/utils";
 const { t, locale } = useI18n();
 const tokenSearch = ref("");
 const tokens = ref<ClientTokenSchema[]>([]);
-const devices = ref<DeviceSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
-
-const devicesById = computed(() => {
-  const map = new Map<string, DeviceSchema>();
-  for (const d of devices.value) map.set(d.id, d);
-  return map;
-});
 
 const HEADERS = [
   {
@@ -64,21 +55,7 @@ function fetchTokens() {
     });
 }
 
-function fetchDevices() {
-  api
-    .get<DeviceSchema[]>("/devices")
-    .then(({ data }) => {
-      devices.value = data;
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-}
-
-onMounted(() => {
-  fetchTokens();
-  fetchDevices();
-});
+onMounted(fetchTokens);
 
 function onTokenCreated() {
   fetchTokens();
@@ -132,17 +109,7 @@ function onTokenDeleted(tokenId: number) {
         </template>
         <template #item.name="{ item }">
           <v-list-item class="pa-0" min-width="120px">
-            <div>{{ item.name }}</div>
-            <v-chip
-              v-if="item.device_id && devicesById.get(item.device_id)"
-              size="x-small"
-              color="primary"
-              variant="outlined"
-              prepend-icon="mdi-devices"
-              class="mt-1"
-            >
-              {{ devicesById.get(item.device_id)?.name ?? item.device_id }}
-            </v-chip>
+            {{ item.name }}
           </v-list-item>
         </template>
         <template #item.scopes="{ item }">
