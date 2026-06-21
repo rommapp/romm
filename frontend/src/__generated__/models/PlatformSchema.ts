@@ -30,7 +30,6 @@ export type PlatformSchema = {
     url?: (string | null);
     url_logo?: (string | null);
     firmware?: Array<FirmwareSchema>;
-    aspect_ratio?: string;
     created_at: string;
     updated_at: string;
     fs_size_bytes: number;

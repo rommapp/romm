@@ -113,7 +113,6 @@ def get_platform(
 async def update_platform(
     request: Request,
     id: Annotated[int, PathVar(description="Platform id.", ge=1)],
-    aspect_ratio: Annotated[str | None, Body(description="Cover aspect ratio.")] = None,
     custom_name: Annotated[
         str | None, Body(description="Custom platform name.")
     ] = None,
@@ -124,8 +123,6 @@ async def update_platform(
     if not platform_db:
         raise PlatformNotFoundInDatabaseException(id)
 
-    if aspect_ratio is not None:
-        platform_db.aspect_ratio = aspect_ratio
     if custom_name is not None:
         platform_db.custom_name = custom_name
     platform_db = db_platform_handler.add_platform(platform_db)
