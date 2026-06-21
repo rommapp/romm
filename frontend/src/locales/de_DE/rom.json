@@ -410,5 +410,5 @@
   "saves-section-community": "Community",
   "states-section-mine": "My states",
   "states-section-community": "Community",
-  "cant-toggle-visibility": "Could not change visibility"
+  "cant-toggle-visibility": "Could not change visibility: {error}"
 }

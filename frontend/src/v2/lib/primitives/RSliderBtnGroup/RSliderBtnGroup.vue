@@ -167,6 +167,13 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
 });
+
+// `badge` accepts `string | number | null`, so a plain truthiness check would
+// still render a pill for the literal "0", and `badge !== 0` misses the string
+// "0" / empty string. Centralise the visible-badge rule here.
+function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
+  return badge != null && badge !== 0 && badge !== "" && badge !== "0";
+}
 </script>
 
 <template>
@@ -226,10 +233,7 @@ onBeforeUnmount(() => {
           <span v-if="item.label" class="r-slider-btn-group__label">
             {{ item.label }}
           </span>
-          <span
-            v-if="item.badge != null && item.badge !== 0"
-            class="r-slider-btn-group__badge"
-          >
+          <span v-if="showBadge(item.badge)" class="r-slider-btn-group__badge">
             {{ item.badge }}
           </span>
         </slot>
@@ -258,10 +262,7 @@ onBeforeUnmount(() => {
           <span v-if="item.label" class="r-slider-btn-group__label">
             {{ item.label }}
           </span>
-          <span
-            v-if="item.badge != null && item.badge !== 0"
-            class="r-slider-btn-group__badge"
-          >
+          <span v-if="showBadge(item.badge)" class="r-slider-btn-group__badge">
             {{ item.badge }}
           </span>
         </slot>
