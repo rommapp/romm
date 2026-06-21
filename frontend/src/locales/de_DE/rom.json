@@ -405,5 +405,10 @@
   "screenshot-make-public": "Veröffentlichen",
   "screenshot-make-private": "Privat machen",
   "screenshot-public": "Öffentlich",
-  "screenshot-visibility-failed": "Sichtbarkeit konnte nicht geändert werden: {error}"
+  "screenshot-visibility-failed": "Sichtbarkeit konnte nicht geändert werden: {error}",
+  "saves-section-mine": "My saves",
+  "saves-section-community": "Community",
+  "states-section-mine": "My states",
+  "states-section-community": "Community",
+  "cant-toggle-visibility": "Could not change visibility"
 }

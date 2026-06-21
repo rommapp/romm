@@ -286,6 +286,29 @@ async def update_state(
 
 
 @protected_route(
+    router.put,
+    "/{id}/visibility",
+    [Scope.ASSETS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def update_state_visibility(
+    request: Request,
+    id: int,
+    is_public: Annotated[bool, Body(embed=True)],
+) -> StateSchema:
+    """Toggle a state's public/private visibility (owner only)."""
+    state = db_state_handler.get_state_by_id(id)
+    if not state or state.user_id != request.user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"State with ID {id} not found",
+        )
+
+    updated = db_state_handler.update_state(id, {"is_public": is_public})
+    return StateSchema.model_validate(updated)
+
+
+@protected_route(
     router.post,
     "/delete",
     [Scope.ASSETS_WRITE],

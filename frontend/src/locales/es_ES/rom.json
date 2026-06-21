@@ -405,5 +405,10 @@
   "screenshot-make-public": "Hacer pública",
   "screenshot-make-private": "Hacer privada",
   "screenshot-public": "Pública",
-  "screenshot-visibility-failed": "No se pudo actualizar la visibilidad: {error}"
+  "screenshot-visibility-failed": "No se pudo actualizar la visibilidad: {error}",
+  "saves-section-mine": "Mis partidas",
+  "saves-section-community": "Comunidad",
+  "states-section-mine": "Mis estados",
+  "states-section-community": "Comunidad",
+  "cant-toggle-visibility": "No se pudo cambiar la visibilidad"
 }

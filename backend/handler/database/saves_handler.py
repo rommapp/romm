@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Literal
 
-from sqlalchemy import and_, asc, delete, desc, func, select, update
+from sqlalchemy import and_, asc, delete, desc, func, or_, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
 
 from decorators.database import begin_session
@@ -98,6 +98,38 @@ class DBSavesHandler(DBBaseHandler):
         if only_fields:
             query = query.options(load_only(*only_fields))
 
+        return session.scalars(query).all()
+
+    @begin_session
+    def get_save_by_id(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> Save | None:
+        """Fetch a save by id without scoping to an owner. Used for the
+        visibility toggle and community downloads, where the caller may not own
+        the save. Mirrors db_screenshot_handler.get_screenshot_by_id."""
+        return session.get(Save, id)
+
+    @begin_session
+    def get_rom_shared_saves(
+        self,
+        rom_id: int,
+        user_id: int,
+        public_only: bool = False,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Save]:
+        """Saves for a ROM visible to the requesting user: own (public +
+        private) plus other users' public ones. Mirrors
+        db_screenshot_handler.get_rom_gallery_screenshots."""
+        query = select(Save).filter(Save.rom_id == rom_id)
+
+        if public_only:
+            query = query.filter(Save.is_public)
+        else:
+            query = query.filter(or_(Save.user_id == user_id, Save.is_public))
+
+        query = query.order_by(desc(Save.updated_at))
         return session.scalars(query).all()
 
     @begin_session

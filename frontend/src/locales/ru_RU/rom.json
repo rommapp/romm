@@ -405,5 +405,10 @@
   "screenshot-make-public": "Сделать публичной",
   "screenshot-make-private": "Сделать приватной",
   "screenshot-public": "Публичная",
-  "screenshot-visibility-failed": "Не удалось изменить видимость: {error}"
+  "screenshot-visibility-failed": "Не удалось изменить видимость: {error}",
+  "saves-section-mine": "My saves",
+  "saves-section-community": "Community",
+  "states-section-mine": "My states",
+  "states-section-community": "Community",
+  "cant-toggle-visibility": "Could not change visibility"
 }

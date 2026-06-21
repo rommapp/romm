@@ -405,5 +405,10 @@
   "screenshot-make-public": "Fă publică",
   "screenshot-make-private": "Fă privată",
   "screenshot-public": "Publică",
-  "screenshot-visibility-failed": "Vizibilitatea nu a putut fi actualizată: {error}"
+  "screenshot-visibility-failed": "Vizibilitatea nu a putut fi actualizată: {error}",
+  "saves-section-mine": "My saves",
+  "saves-section-community": "Community",
+  "states-section-mine": "My states",
+  "states-section-community": "Community",
+  "cant-toggle-visibility": "Could not change visibility"
 }

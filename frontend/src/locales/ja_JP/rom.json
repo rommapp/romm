@@ -405,5 +405,10 @@
   "screenshot-make-public": "公開する",
   "screenshot-make-private": "非公開にする",
   "screenshot-public": "公開",
-  "screenshot-visibility-failed": "表示設定を更新できませんでした：{error}"
+  "screenshot-visibility-failed": "表示設定を更新できませんでした：{error}",
+  "saves-section-mine": "My saves",
+  "saves-section-community": "Community",
+  "states-section-mine": "My states",
+  "states-section-community": "Community",
+  "cant-toggle-visibility": "Could not change visibility"
 }
