@@ -219,6 +219,8 @@
   "single-player": "单人",
   "snackbar-download-link-copied": "下载链接已复制到剪贴板",
   "snackbar-link-copied": "链接已复制到剪贴板",
+  "snackbar-removed-from-playing": "Removed from Continue Playing",
+  "snackbar-remove-from-playing-failed": "Failed to remove from Continue Playing",
   "snackbar-update-field-failed": "更新 {field} 失败",
   "snackbar-update-status-failed": "更新状态失败",
   "status-active-count": "状态：{count} 个已激活",

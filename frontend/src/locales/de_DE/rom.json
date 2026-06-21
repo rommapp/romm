@@ -219,6 +219,8 @@
   "single-player": "Einzelspieler",
   "snackbar-download-link-copied": "Download-Link in die Zwischenablage kopiert",
   "snackbar-link-copied": "Link in die Zwischenablage kopiert",
+  "snackbar-removed-from-playing": "Vom Spielen entfernt",
+  "snackbar-remove-from-playing-failed": "Entfernen vom Spielen fehlgeschlagen",
   "snackbar-update-field-failed": "{field} konnte nicht aktualisiert werden",
   "snackbar-update-status-failed": "Status konnte nicht aktualisiert werden",
   "status-active-count": "Status: {count} aktiv",

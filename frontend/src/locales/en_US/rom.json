@@ -219,6 +219,8 @@
   "single-player": "Single player",
   "snackbar-download-link-copied": "Download link copied to clipboard",
   "snackbar-link-copied": "Link copied to clipboard",
+  "snackbar-removed-from-playing": "Removed from Continue Playing",
+  "snackbar-remove-from-playing-failed": "Failed to remove from Continue Playing",
   "snackbar-update-field-failed": "Failed to update {field}",
   "snackbar-update-status-failed": "Failed to update status",
   "status-active-count": "Status: {count} active",

@@ -16,6 +16,7 @@ import { useRouter } from "vue-router";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -31,6 +32,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
   const emitter = inject<Emitter<Events>>("emitter");
   const snackbar = useSnackbar();
   const romsStore = storeRoms();
+  const auth = storeAuth();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
@@ -279,11 +281,46 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     emitter?.emit("showDeleteRomDialog", [rom]);
   }
 
+  // Only relevant while the ROM carries a `last_played` timestamp — i.e.
+  // it currently sits in the Continue Playing row. Also requires the
+  // `roms.user.write` scope to match the backend gate and avoid a 403.
+  const canRemoveFromContinuePlaying = computed(
+    () =>
+      auth.scopes.includes("roms.user.write") &&
+      Boolean(getRom()?.rom_user?.last_played),
+  );
+
+  // Clears the per-user `last_played` so the ROM drops out of Continue
+  // Playing. Mirrors v1's AdminMenu.resetLastPlayed: update the backend,
+  // wipe the local timestamp, and prune the cached continue-playing list.
+  async function removeFromContinuePlaying() {
+    const rom = getRom();
+    if (!rom) return;
+    try {
+      await romApi.updateUserRomProps({
+        romId: rom.id,
+        data: {},
+        removeLastPlayed: true,
+      });
+      if (rom.rom_user) rom.rom_user.last_played = null;
+      romsStore.update(rom);
+      romsStore.removeFromContinuePlaying(rom);
+      snackbar.success(t("rom.snackbar-removed-from-playing"), {
+        icon: "mdi-check-bold",
+      });
+    } catch {
+      snackbar.error(t("rom.snackbar-remove-from-playing-failed"), {
+        icon: "mdi-alert-circle-outline",
+      });
+    }
+  }
+
   return {
     isFavorited,
     canManageCollections,
     canShareQR,
     canPlay,
+    canRemoveFromContinuePlaying,
     currentStatusKey,
     setStatus,
     setStatusEnum,
@@ -301,5 +338,6 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     edit,
     match,
     remove,
+    removeFromContinuePlaying,
   };
 }

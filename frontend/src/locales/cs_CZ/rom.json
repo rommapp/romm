@@ -219,6 +219,8 @@
   "single-player": "Pro jednoho hráče",
   "snackbar-download-link-copied": "Odkaz ke stažení zkopírován do schránky",
   "snackbar-link-copied": "Odkaz zkopírován do schránky",
+  "snackbar-removed-from-playing": "Removed from Continue Playing",
+  "snackbar-remove-from-playing-failed": "Failed to remove from Continue Playing",
   "snackbar-update-field-failed": "Nepodařilo se aktualizovat {field}",
   "snackbar-update-status-failed": "Nepodařilo se aktualizovat stav",
   "status-active-count": "Stav: {count} aktivních",

@@ -219,6 +219,8 @@
   "single-player": "Solo",
   "snackbar-download-link-copied": "Lien de téléchargement copié dans le presse-papiers",
   "snackbar-link-copied": "Lien copié dans le presse-papiers",
+  "snackbar-removed-from-playing": "Retiré des jeux en cours",
+  "snackbar-remove-from-playing-failed": "Échec du retrait des jeux en cours",
   "snackbar-update-field-failed": "Échec de la mise à jour de {field}",
   "snackbar-update-status-failed": "Échec de la mise à jour du statut",
   "status-active-count": "Statut : {count} actif(s)",

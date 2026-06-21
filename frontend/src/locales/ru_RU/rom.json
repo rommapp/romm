@@ -219,6 +219,8 @@
   "single-player": "Одиночная игра",
   "snackbar-download-link-copied": "Ссылка для скачивания скопирована в буфер обмена",
   "snackbar-link-copied": "Ссылка скопирована в буфер обмена",
+  "snackbar-removed-from-playing": "Удалено из играющих",
+  "snackbar-remove-from-playing-failed": "Не удалось удалить из играющих",
   "snackbar-update-field-failed": "Не удалось обновить {field}",
   "snackbar-update-status-failed": "Не удалось обновить статус",
   "status-active-count": "Статус: {count} активных",
