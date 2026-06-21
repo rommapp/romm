@@ -1028,6 +1028,16 @@ defineExpose({
   gap: 12px;
   padding-bottom: 18px;
 }
+/* Never shrink a card: the packer sizes a row from `cardHeight * ratio`
+   (floating point), and the browser rounds the rendered widths, so a row
+   the packer computed as "just fits" can land a hair over the container.
+   With shrink enabled, fixed-height cards would absorb that by narrowing —
+   cropping the cover (object-fit). Pinning shrink to 0 trades that rare
+   sub-pixel crop for a hair of ragged overflow instead, and keeps loading
+   skeletons (which otherwise default to shrink) at their packed width. */
+.r-v2-shell__row > * {
+  flex-shrink: 0;
+}
 
 /* Card reveal animation (.r-v2-card-fade) lives in global.css — shared
    with the Home dashboard rows. */
