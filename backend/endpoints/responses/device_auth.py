@@ -15,9 +15,7 @@ class DeviceAuthInitPayload(BaseModel):
     client: str = Field(min_length=1, max_length=50)
     platform: str | None = Field(default=None, max_length=50)
     client_version: str | None = Field(default=None, max_length=50)
-    requested_scopes: list[str] = Field(
-        min_length=1, max_length=_MAX_REQUESTED_SCOPES
-    )
+    requested_scopes: list[str] = Field(min_length=1, max_length=_MAX_REQUESTED_SCOPES)
 
     @field_validator("requested_scopes")
     @classmethod
