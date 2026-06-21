@@ -69,7 +69,7 @@ jobs:
         uses: docker/metadata-action@v5.8.0
         with:
           images: |
-            name=rommapp/romm-testing
+            name=${{ github.repository_owner }}/romm-testing
           tags: |
             type=raw,value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
 
@@ -95,5 +95,5 @@ jobs:
               comment_id: ${{ steps.build-comment.outputs.comment-id }},
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `✅ Preview build completed!\n\nDocker image: \`rommapp/romm-testing:${process.env.HEAD_REF}\``
+              body: `✅ Preview build completed!\n\nDocker image: \`${{ github.repository_owner }}/romm-testing:${process.env.HEAD_REF}\``
             })
