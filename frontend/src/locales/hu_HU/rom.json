@@ -219,6 +219,8 @@
   "single-player": "Egyjátékos",
   "snackbar-download-link-copied": "Letöltési link a vágólapra másolva",
   "snackbar-link-copied": "Link a vágólapra másolva",
+  "snackbar-removed-from-playing": "Removed from Continue Playing",
+  "snackbar-remove-from-playing-failed": "Failed to remove from Continue Playing",
   "snackbar-update-field-failed": "A(z) {field} frissítése sikertelen",
   "snackbar-update-status-failed": "Az állapot frissítése sikertelen",
   "status-active-count": "Állapot: {count} aktív",

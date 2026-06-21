@@ -219,6 +219,8 @@
   "single-player": "Jednoosobowa",
   "snackbar-download-link-copied": "Link do pobrania skopiowany do schowka",
   "snackbar-link-copied": "Link skopiowany do schowka",
+  "snackbar-removed-from-playing": "Removed from Continue Playing",
+  "snackbar-remove-from-playing-failed": "Failed to remove from Continue Playing",
   "snackbar-update-field-failed": "Nie udało się zaktualizować {field}",
   "snackbar-update-status-failed": "Nie udało się zaktualizować statusu",
   "status-active-count": "Status: {count} aktywnych",

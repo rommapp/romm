@@ -279,11 +279,44 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     emitter?.emit("showDeleteRomDialog", [rom]);
   }
 
+  // Only relevant while the ROM carries a `last_played` timestamp — i.e.
+  // it currently sits in the Continue Playing row. Per-user data, so any
+  // authenticated role may clear their own; backend is the real gate.
+  const canRemoveFromContinuePlaying = computed(() =>
+    Boolean(getRom()?.rom_user?.last_played),
+  );
+
+  // Clears the per-user `last_played` so the ROM drops out of Continue
+  // Playing. Mirrors v1's AdminMenu.resetLastPlayed: update the backend,
+  // wipe the local timestamp, and prune the cached continue-playing list.
+  async function removeFromContinuePlaying() {
+    const rom = getRom();
+    if (!rom) return;
+    try {
+      await romApi.updateUserRomProps({
+        romId: rom.id,
+        data: {},
+        removeLastPlayed: true,
+      });
+      if (rom.rom_user) rom.rom_user.last_played = null;
+      romsStore.update(rom);
+      romsStore.removeFromContinuePlaying(rom);
+      snackbar.success(t("rom.snackbar-removed-from-playing"), {
+        icon: "mdi-check-bold",
+      });
+    } catch {
+      snackbar.error(t("rom.snackbar-remove-from-playing-failed"), {
+        icon: "mdi-alert-circle-outline",
+      });
+    }
+  }
+
   return {
     isFavorited,
     canManageCollections,
     canShareQR,
     canPlay,
+    canRemoveFromContinuePlaying,
     currentStatusKey,
     setStatus,
     setStatusEnum,
@@ -301,5 +334,6 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     edit,
     match,
     remove,
+    removeFromContinuePlaying,
   };
 }

@@ -219,6 +219,8 @@
   "single-player": "Giocatore singolo",
   "snackbar-download-link-copied": "Link per il download copiato negli appunti",
   "snackbar-link-copied": "Link copiato negli appunti",
+  "snackbar-removed-from-playing": "Rimosso da Stai giocando",
+  "snackbar-remove-from-playing-failed": "Impossibile rimuovere da Stai giocando",
   "snackbar-update-field-failed": "Impossibile aggiornare {field}",
   "snackbar-update-status-failed": "Impossibile aggiornare lo stato",
   "status-active-count": "Stato: {count} attivi",

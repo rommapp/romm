@@ -219,6 +219,8 @@
   "single-player": "シングルプレイヤー",
   "snackbar-download-link-copied": "ダウンロードリンクをクリップボードにコピーしました",
   "snackbar-link-copied": "リンクをクリップボードにコピーしました",
+  "snackbar-removed-from-playing": "Removed from Continue Playing",
+  "snackbar-remove-from-playing-failed": "Failed to remove from Continue Playing",
   "snackbar-update-field-failed": "{field}の更新に失敗しました",
   "snackbar-update-status-failed": "ステータスの更新に失敗しました",
   "status-active-count": "ステータス: {count}件有効",

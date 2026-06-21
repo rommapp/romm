@@ -219,6 +219,8 @@
   "single-player": "싱글플레이어",
   "snackbar-download-link-copied": "다운로드 링크가 클립보드에 복사되었습니다",
   "snackbar-link-copied": "링크가 클립보드에 복사되었습니다",
+  "snackbar-removed-from-playing": "Removed from Continue Playing",
+  "snackbar-remove-from-playing-failed": "Failed to remove from Continue Playing",
   "snackbar-update-field-failed": "{field} 업데이트에 실패했습니다",
   "snackbar-update-status-failed": "상태 업데이트에 실패했습니다",
   "status-active-count": "상태: {count}개 활성",
