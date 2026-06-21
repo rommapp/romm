@@ -132,6 +132,7 @@ class Config:
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
+    SCAN_SUBFOLDERS: dict[str, bool]
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
 
@@ -159,6 +160,14 @@ class Config:
                 return True
 
         return False
+
+    def should_scan_subfolders(self, fs_slug: str) -> bool:
+        """Whether the scanner should recurse into a platform's subfolders,
+        treating each subfolder as a group of ROMs rather than as a single
+        multi-file ROM. Opt-in per platform via `scan.subfolders` in config.yml.
+        """
+        subfolders = getattr(self, "SCAN_SUBFOLDERS", {})
+        return bool(subfolders.get(fs_slug, False))
 
 
 class ConfigManager:
@@ -430,6 +439,7 @@ class ConfigManager:
                     "manual",
                 ],
             ),
+            SCAN_SUBFOLDERS=pydash.get(self._raw_config, "scan.subfolders", {}),
             GAMELIST_AUTO_EXPORT_ON_SCAN=pydash.get(
                 self._raw_config, "scan.gamelist.export", False
             ),
@@ -660,6 +670,17 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.media must be a list")
             sys.exit(3)
 
+        if not isinstance(self.config.SCAN_SUBFOLDERS, dict):
+            log.critical("Invalid config.yml: scan.subfolders must be a dictionary")
+            sys.exit(3)
+        else:
+            for fs_slug, enabled in self.config.SCAN_SUBFOLDERS.items():
+                if not isinstance(enabled, bool):
+                    log.critical(
+                        f"Invalid config.yml: scan.subfolders.{fs_slug} must be a boolean"
+                    )
+                    sys.exit(3)
+
         # Drop unknown media types rather than exiting, since a newer release
         # may ship sample configs referencing media types this version doesn't know.
         unknown_media = [
@@ -779,6 +800,7 @@ class ConfigManager:
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
                 "media": self.config.SCAN_MEDIA,
+                "subfolders": self.config.SCAN_SUBFOLDERS,
                 "gamelist": {
                     "export": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
                     "media": {

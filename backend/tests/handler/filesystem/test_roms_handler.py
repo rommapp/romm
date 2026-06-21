@@ -377,6 +377,145 @@ class TestFSRomsHandler:
             # Check excluded files are not present
             assert "excluded_test.tmp" not in rom_names
 
+    def _make_subfolder_config(self, subfolders: dict[str, bool]) -> Config:
+        return Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=["tmp"],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=["@eaDir"],
+            EXCLUDED_MULTI_PARTS_EXT=["tmp"],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            ROMS_FOLDER_NAME="roms",
+            FIRMWARE_FOLDER_NAME="bios",
+            SCAN_SUBFOLDERS=subfolders,
+        )
+
+    def _build_subfolder_library(self, tmp_path: Path, platform: Platform) -> None:
+        """Library with a flat rom, a grouping subfolder (with a nested
+        sub-subfolder and a basename colliding with the root), a hidden
+        folder, and a folder-style multi-file rom."""
+        roms = tmp_path / platform.fs_slug / "roms"
+        roms.mkdir(parents=True)
+        (roms / "Game A.zip").write_text("a")
+        group = roms / "All but the Best"
+        group.mkdir()
+        (group / "Game A.zip").write_text("dup")  # same basename, different folder
+        (group / "Hidden Gem.zip").write_text("c")
+        deeper = group / "deeper"
+        deeper.mkdir()
+        (deeper / "Way Down.zip").write_text("d")
+        hidden = roms / ".hidden"
+        hidden.mkdir()
+        (hidden / "disc.chd").write_text("x")
+        multi = roms / "Multi Disc Game"
+        multi.mkdir()
+        (multi / "disc1.bin").write_text("p")
+
+    @pytest.mark.asyncio
+    async def test_get_roms_subfolders_disabled(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """By default a subfolder is a single multi-file rom, not a group."""
+        self._build_subfolder_library(tmp_path, platform)
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_subfolder_config({}),
+        ):
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        base = f"{platform.fs_slug}/roms"
+        assert (base, "Game A.zip") in keys
+        # Directories surface as multi-file roms, not as groups.
+        assert (base, "All but the Best") in keys
+        assert (base, "Multi Disc Game") in keys
+        assert (base, ".hidden") in keys
+        # Nothing inside any subfolder is surfaced.
+        assert not any(r["fs_path"] != base for r in roms)
+        assert len(roms) == 4
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_subfolders_enabled(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """With subfolder scanning on, groups are descended into (recursively),
+        hidden folders are skipped, and identically-named files in different
+        folders stay distinct via their full path."""
+        self._build_subfolder_library(tmp_path, platform)
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_subfolder_config({platform.fs_slug: True}),
+        ):
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        base = f"{platform.fs_slug}/roms"
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        assert (base, "Game A.zip") in keys
+        assert (f"{base}/All but the Best", "Game A.zip") in keys  # collision kept
+        assert (f"{base}/All but the Best", "Hidden Gem.zip") in keys
+        assert (f"{base}/All but the Best/deeper", "Way Down.zip") in keys
+        # Group folders are descended into, so "Multi Disc Game" parts surface.
+        assert (f"{base}/Multi Disc Game", "disc1.bin") in keys
+        # Hidden folder is not descended into; it remains a multi-file rom.
+        assert (base, ".hidden") in keys
+        assert (f"{base}/.hidden", "disc.chd") not in keys
+        # All full-path keys are unique and count matches.
+        full_paths = [f"{r['fs_path']}/{r['fs_name']}" for r in roms]
+        assert len(full_paths) == len(set(full_paths))
+        assert sum(1 for r in roms if r["fs_name"] == "Game A.zip") == 2
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_subfolders_m3u_dir_kept_whole(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A subfolder holding an .m3u playlist is a multi-disc game: it stays a
+        single multi-file rom even with subfolder scanning on (not split per
+        disc), while a plain grouping folder is still recursed."""
+        roms = tmp_path / platform.fs_slug / "roms"
+        roms.mkdir(parents=True)
+        (roms / "Flat Game.zip").write_text("a")
+        # Multi-disc game declared by an .m3u playlist -> one rom.
+        md = roms / "Final Fantasy VII"
+        md.mkdir()
+        (md / "disc1.chd").write_text("1")
+        (md / "disc2.chd").write_text("2")
+        (md / "Final Fantasy VII.m3u").write_text("disc1.chd\ndisc2.chd")
+        # Plain grouping folder (no .m3u) -> recursed into.
+        grp = roms / "Hacks"
+        grp.mkdir()
+        (grp / "Hack A.zip").write_text("h")
+
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_subfolder_config({platform.fs_slug: True}),
+        ):
+            roms_found = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        base = f"{platform.fs_slug}/roms"
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms_found}
+        # The .m3u folder stays a single multi-file rom (not split per disc).
+        assert (base, "Final Fantasy VII") in keys
+        assert (f"{base}/Final Fantasy VII", "disc1.chd") not in keys
+        # A normal grouping folder is still recursed.
+        assert (f"{base}/Hacks", "Hack A.zip") in keys
+        assert (base, "Flat Game.zip") in keys
+        assert count == len(roms_found)
+
     @pytest.mark.asyncio
     async def test_get_rom_files_single_rom(
         self, handler: FSRomsHandler, rom_single, config

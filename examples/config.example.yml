@@ -145,6 +145,35 @@
 #       image: screenshot  # Use as the <image> tag in the exported gamelist.xml
 #   pegasus:
 #     export: false # Whether to export metadata.pegasus.txt for Pegasus
+#   # Recurse into platform subfolders, treating every nested file as its own
+#   # ROM rather than collapsing each subfolder into a single multi-file ROM.
+#   # Opt-in per platform by its filesystem folder name. Use this when a
+#   # platform organizes its ROMs into subfolders (e.g. Hacks/, Homebrew/,
+#   # Translations/) and you don't want to flatten them. Leave a platform out
+#   # (or set it to false) to keep the default behavior, where a subfolder is a
+#   # single multi-file ROM (multi-disc games, etc.). Default: off everywhere.
+#   #
+#   # Behavior & limitations (read before enabling):
+#   #   - Hidden (dot-prefixed) folders are never descended into.
+#   #   - A subfolder that contains an .m3u playlist is treated as a single
+#   #     multi-file ROM (a multi-disc game) and is NOT split into one ROM per
+#   #     disc, even on an enabled platform. Any other subfolder is recursed,
+#   #     so a multi-disc game stored as a bare folder (no .m3u) would be split
+#   #     into separate ROMs — add an .m3u (or use flat disc-tagged files).
+#   #   - ROM identity is path-based. Enabling this for a platform that already
+#   #     had a folder scanned as one multi-file ROM will mark that old entry as
+#   #     "missing from filesystem" and import its contents as new ROMs; delete
+#   #     the stale entry afterwards (the scan log flags these). Likewise, moving
+#   #     a ROM between subfolders (or turning this back off) reads as remove +
+#   #     re-add, so save states, play history, favorites and collection
+#   #     membership won't follow.
+#   #   - Two files with the same name in different subfolders become distinct
+#   #     ROMs; gamelist.xml metadata matching is by filename, so both may match
+#   #     the same gamelist entry.
+#   subfolders:
+#     nes: true
+#     snes: true
+#     megadrive: true
 
 # EmulatorJS per-core options
 # emulatorjs:

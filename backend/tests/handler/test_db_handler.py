@@ -584,7 +584,10 @@ def test_mark_missing_roms_small_platform(platform: Platform):
     )
 
     # Keep only rom_a and rom_c
-    missing = db_rom_handler.mark_missing_roms(platform.id, ["rom_a.zip", "rom_c.zip"])
+    missing = db_rom_handler.mark_missing_roms(
+        platform.id,
+        [f"{platform.slug}/roms/rom_a.zip", f"{platform.slug}/roms/rom_c.zip"],
+    )
 
     assert len(missing) == 1
     assert missing[0].fs_name == "rom_b.zip"
@@ -627,7 +630,9 @@ def test_mark_missing_roms_large_platform(platform: Platform):
 
     # Build a large keep list to verify mark_missing_roms() handles many entries.
     # Only rom_present.zip actually exists in DB; the rest are just filler.
-    fs_roms_to_keep = ["rom_present.zip"] + [f"filler_{i}.zip" for i in range(501)]
+    fs_roms_to_keep = [f"{platform.slug}/roms/rom_present.zip"] + [
+        f"filler_{i}.zip" for i in range(501)
+    ]
 
     missing = db_rom_handler.mark_missing_roms(platform.id, fs_roms_to_keep)
 
@@ -662,7 +667,7 @@ def test_mark_missing_roms_large_platform_all_present(platform: Platform):
         roms.append(rom)
 
     # Keep list has all real ROMs plus filler to exceed 500
-    fs_roms_to_keep = [f"rom_{i}.zip" for i in range(3)] + [
+    fs_roms_to_keep = [f"{platform.slug}/roms/rom_{i}.zip" for i in range(3)] + [
         f"filler_{i}.zip" for i in range(500)
     ]
 

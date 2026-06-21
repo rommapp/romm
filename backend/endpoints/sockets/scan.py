@@ -247,7 +247,9 @@ async def _identify_rom(
 
     # Update properties that don't require metadata
     parsed_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
-    roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
+    # The discovered path is the rom's actual directory, which may be a
+    # subfolder of the platform roms folder when subfolder scanning is enabled.
+    roms_path = fs_rom["fs_path"]
 
     # Create the entry early so we have the ID
     newly_added: bool = rom is None
@@ -602,7 +604,10 @@ async def _identify_platform(
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
-        roms_by_fs_name = db_rom_handler.get_roms_by_fs_name(
+        # Key matches on the rom's full path (fs_path/fs_name), not just the
+        # file name, so identically-named files in different subfolders don't
+        # collide when subfolder scanning is enabled.
+        roms_by_full_path = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
         )
@@ -612,7 +617,7 @@ async def _identify_platform(
         roms_to_scan: list[tuple[FSRom, Rom | None]] = []
 
         for fs_rom in fs_roms_batch:
-            rom = roms_by_fs_name.get(fs_rom["fs_name"])
+            rom = roms_by_full_path.get(f"{fs_rom['fs_path']}/{fs_rom['fs_name']}")
             if _should_scan_rom(
                 scan_type=scan_type,
                 rom=rom,
@@ -644,12 +649,28 @@ async def _identify_platform(
                     log.error(f"Error scanning ROM {fs_rom['fs_name']}: {result}")
 
     missing_roms = db_rom_handler.mark_missing_roms(
-        platform.id, [rom["fs_name"] for rom in fs_roms]
+        platform.id, [f"{rom['fs_path']}/{rom['fs_name']}" for rom in fs_roms]
     )
     if len(missing_roms) > 0:
         log.warning(f"{hl('Missing')} roms from filesystem:")
+        # A folder that subfolder scanning now recurses into used to be a
+        # single multi-file rom; that old entry shows up here as missing.
+        # Flag those so the expected "missing" is clear and the user knows to
+        # delete the stale entry. A superseded folder's path equals (or is a
+        # parent of) a discovered rom's directory.
+        recursed_paths = {rom["fs_path"] for rom in fs_roms}
         for r in missing_roms:
-            log.warning(f" - {r.fs_name}")
+            superseded = any(
+                p == r.full_path or p.startswith(f"{r.full_path}/")
+                for p in recursed_paths
+            )
+            if superseded:
+                log.warning(
+                    f" - {r.fs_name} (now scanned as a folder of roms — "
+                    "delete this stale entry to clean up)"
+                )
+            else:
+                log.warning(f" - {r.fs_name}")
 
     missing_firmware = db_firmware_handler.mark_missing_firmware(
         platform.id, [fw for fw in fs_firmware]

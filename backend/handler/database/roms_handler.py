@@ -1171,7 +1171,11 @@ class DBRomsHandler(DBBaseHandler):
         fs_names: Iterable[str],
         session: Session = None,  # type: ignore
     ) -> dict[str, Rom]:
-        """Retrieve a dictionary of roms by their filesystem names.
+        """Retrieve a dictionary of roms keyed by their full path (fs_path/fs_name).
+
+        Filters by file name for an indexed lookup, but keys the result on the
+        full path so identically-named files in different subfolders (subfolder
+        scanning) remain distinct.
 
         Eager-loads only `platform` (used downstream by the scan loop via
         `rom.platform_slug` / `rom.platform.fs_slug`). This deliberately
@@ -1195,7 +1199,7 @@ class DBRomsHandler(DBBaseHandler):
             .all()
         )
 
-        return {rom.fs_name: rom for rom in roms}
+        return {rom.full_path: rom for rom in roms}
 
     @begin_session
     def update_rom(
@@ -1278,19 +1282,23 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Sequence[Rom]:
         """Sync `missing_from_fs` for a platform against the keep-list.
 
+        The keep-list holds rom full paths (fs_path/fs_name) so that
+        identically-named files in different subfolders are tracked
+        independently when subfolder scanning is enabled.
+
         Reads the rows once and writes only those whose state actually
         changes, so a re-scan of an unchanged platform issues no updates.
         """
         keep_set = set(fs_roms_to_keep)
         rows = session.execute(
-            select(Rom.id, Rom.fs_name, Rom.missing_from_fs).where(
+            select(Rom.id, Rom.fs_path, Rom.fs_name, Rom.missing_from_fs).where(
                 Rom.platform_id == platform_id
             )
         ).all()
 
         flips: dict[bool, list[int]] = {True: [], False: []}
-        for rom_id, fs_name, was_missing in rows:
-            is_missing = fs_name not in keep_set
+        for rom_id, fs_path, fs_name, was_missing in rows:
+            is_missing = f"{fs_path}/{fs_name}" not in keep_set
             if is_missing != was_missing:
                 flips[is_missing].append(rom_id)
 
