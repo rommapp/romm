@@ -437,6 +437,9 @@ async function toggleStateVisibility(state: StateSchema) {
                   :icon="asset.is_public ? 'mdi-lock-open-variant' : 'mdi-lock'"
                   variant="text"
                   size="small"
+                  :color="
+                    asset.is_public ? 'var(--r-color-fg-muted)' : 'primary'
+                  "
                   :loading="togglingSaveId === asset.id"
                   :tooltip="
                     asset.is_public
@@ -543,6 +546,9 @@ async function toggleStateVisibility(state: StateSchema) {
                   :icon="asset.is_public ? 'mdi-lock-open-variant' : 'mdi-lock'"
                   variant="text"
                   size="small"
+                  :color="
+                    asset.is_public ? 'var(--r-color-fg-muted)' : 'primary'
+                  "
                   :loading="togglingStateId === asset.id"
                   :tooltip="
                     asset.is_public
