@@ -9,6 +9,138 @@ from logger.logger import log
 from models.rom import Rom
 from utils.filesystem import link_or_copy_file
 
+# Map RomM platform slugs (UPS values) to canonical Pegasus (collection name, shortname) pairs.
+# Source: https://www.pegasus-frontend.org/docs/user-guide/meta-files/
+# Only platforms present in the official Pegasus "Common platform names" table are listed.
+# When a platform is not in this dict the exporter falls back to the RomM platform name and slug.
+SLUG_TO_PEGASUS: dict[str, tuple[str, str]] = {
+    # ------------------------------------------------------------------ #
+    # Atari
+    # ------------------------------------------------------------------ #
+    "atari2600": ("Atari 2600", "atari2600"),
+    "atari5200": ("Atari 5200", "atari5200"),
+    "atari7800": ("Atari 7800", "atari7800"),
+    "atari800": ("Atari 800", "atari800"),
+    "atari-jaguar-cd": ("Atari Jaguar CD", "atarijaguarcd"),
+    "jaguar": ("Atari Jaguar", "atarijaguar"),
+    "lynx": ("Atari Lynx", "atarilynx"),
+    "atari-st": ("Atari ST", "atarist"),
+    "atari-xegs": ("Atari XE", "atarixe"),
+    # ------------------------------------------------------------------ #
+    # Nintendo handhelds
+    # ------------------------------------------------------------------ #
+    "gb": ("Game Boy", "gb"),
+    "gbc": ("Game Boy Color", "gbc"),
+    "gba": ("Game Boy Advance", "gba"),
+    "nds": ("Nintendo DS", "nds"),
+    "3ds": ("Nintendo 3DS", "3ds"),
+    "g-and-w": ("Nintendo Game-and-Watch", "gameandwatch"),
+    "virtualboy": ("Nintendo VirtualBoy", "virtualboy"),
+    # ------------------------------------------------------------------ #
+    # Nintendo home consoles
+    # ------------------------------------------------------------------ #
+    "nes": ("Nintendo Entertainment System", "nes"),
+    "famicom": ("Nintendo Entertainment System", "nes"),
+    "fds": ("Famicom Disk System", "fds"),
+    "snes": ("Super Nintendo Entertainment System", "snes"),
+    "sfam": ("Super Nintendo Entertainment System", "snes"),
+    "n64": ("Nintendo 64", "n64"),
+    "ngc": ("Nintendo GameCube", "gc"),
+    "wii": ("Nintendo Wii", "wii"),
+    "wiiu": ("Nintendo WiiU", "wiiu"),
+    "switch": ("Nintendo Switch", "switch"),
+    # ------------------------------------------------------------------ #
+    # Sega
+    # ------------------------------------------------------------------ #
+    "sg1000": ("SEGA SG-1000", "sg1000"),
+    "sms": ("Sega Master System", "mastersystem"),
+    "genesis": ("Sega Genesis", "genesis"),
+    "segacd": ("SEGA CD", "segacd"),
+    "sega32": ("SEGA 32X", "sega32x"),
+    "segacd32": ("SEGA CD 32X", "sega32x"),
+    "saturn": ("Sega Saturn", "saturn"),
+    "dc": ("Sega Dreamcast", "dreamcast"),
+    "gamegear": ("SEGA GameGear", "gamegear"),
+    # ------------------------------------------------------------------ #
+    # Sony
+    # ------------------------------------------------------------------ #
+    "psx": ("PlayStation", "psx"),
+    "ps2": ("PlayStation 2", "ps2"),
+    "ps3": ("PlayStation 3", "ps3"),
+    "psp": ("PlayStation Portable", "psp"),
+    "psvita": ("PlayStation Vita", "psvita"),
+    # ------------------------------------------------------------------ #
+    # Microsoft
+    # ------------------------------------------------------------------ #
+    "xbox": ("Xbox", "xbox"),
+    "xbox360": ("Xbox 360", "xbox360"),
+    # ------------------------------------------------------------------ #
+    # NEC / PC Engine
+    # ------------------------------------------------------------------ #
+    "tg16": ("TurboGrafx 16", "turbografx16"),
+    "turbografx-cd": ("PC Engine CD", "pcengine"),
+    "pc-fx": ("PC-FX", "pcfx"),
+    # ------------------------------------------------------------------ #
+    # SNK Neo Geo
+    # ------------------------------------------------------------------ #
+    "neogeoaes": ("Neo Geo", "neogeo"),
+    "neogeomvs": ("Neo Geo", "neogeo"),
+    "neo-geo-cd": ("Neo Geo CD", "neogeocd"),
+    "neo-geo-pocket": ("Neo Geo Pocket", "ngp"),
+    "neo-geo-pocket-color": ("Neo Geo Pocket Color", "ngpc"),
+    # ------------------------------------------------------------------ #
+    # Commodore / Amiga
+    # ------------------------------------------------------------------ #
+    "amiga": ("Amiga", "amiga"),
+    "amiga-cd32": ("Amiga CD32", "amigacd32"),
+    "commodore-cdtv": ("Amiga CDTV", "amigacdtv"),
+    "c64": ("Commodore 64", "c64"),
+    # ------------------------------------------------------------------ #
+    # Amstrad / Sharp / other home computers
+    # ------------------------------------------------------------------ #
+    "acpc": ("Amstrad CPC", "amstradcpc"),
+    "sharp-x68000": ("Sharp X6800", "x68000"),
+    "msx": ("MSX", "msx"),
+    "dos": ("DOS", "dos"),
+    "pc-booter": ("PC", "pc"),
+    "linux": ("Linux", "linux"),
+    "mac": ("Macintosh", "macintosh"),
+    "android": ("Android", "android"),
+    "windows": ("Windows", "windows"),
+    # ------------------------------------------------------------------ #
+    # Arcade
+    # ------------------------------------------------------------------ #
+    "arcade": ("Arcade", "arcade"),
+    "naomi": ("Naomi", "naomi"),
+    # ------------------------------------------------------------------ #
+    # Other consoles / platforms
+    # ------------------------------------------------------------------ #
+    "3do": ("3DO", "3do"),
+    "appleii": ("Apple II", "apple2"),
+    "colecovision": ("ColecoVision", "colecovision"),
+    "intellivision": ("Intellivision", "intellivision"),
+    "odyssey-2": ("Odyssey 2", "odyssey2"),
+    "vectrex": ("Vectrex", "vectrex"),
+    "supergrafx": ("SuperGrafx", "supergrafx"),
+    "sam-coupe": ("SAM coupe", "samcoupe"),
+    "scummvm": ("Scumm VM", "scummvm"),
+    "tic-80": ("TIC80", "tic80"),
+    "dragon-32-slash-64": ("Dragon 32", "dragon32"),
+    # PC-88 / PC-98
+    "pc-8800-series": ("PC 88", "pc88"),
+    "pc-9800-series": ("PC 98", "pc98"),
+    # WonderSwan
+    "wonderswan": ("WonderSwan", "wonderswan"),
+    "swancrystal": ("WonderSwan/Color", "wonderswancolor"),
+    # Sega Naomi / CHIP-8
+    "chip-8": ("CHIP-8", "chip8"),
+    # ZX Spectrum / ZX81
+    "zxspectrum": ("ZX Spectrum", "zxspectrum"),
+    "zx81": ("ZX81", "zx81"),
+    # Steam / GOG (non-console)
+    "steam": ("Steam", "steam"),
+}
+
 # Map Pegasus asset keys to subdirectory names inside assets/
 ASSET_DIRS: dict[str, str] = {
     "box_front": "covers",
@@ -30,6 +162,21 @@ class PegasusExporter:
 
     def __init__(self, local_export: bool = False):
         self.local_export = local_export
+
+    @staticmethod
+    def _resolve_collection(platform) -> tuple[str, str]:
+        """Return (collection_name, shortname) for a platform.
+
+        Resolution order:
+        1. SLUG_TO_PEGASUS lookup by platform.slug — gives the canonical
+           Pegasus name and shortname so themes can load console logos.
+        2. Fall back to platform.custom_name (or platform.name) + platform.slug
+           for platforms not in the Pegasus reference list.
+        """
+        mapped = SLUG_TO_PEGASUS.get(platform.slug)
+        if mapped:
+            return mapped
+        return (platform.custom_name or platform.name, platform.slug)
 
     def _format_release_date(self, timestamp: int) -> str:
         """Format release date to YYYY-MM-DD format"""
@@ -211,8 +358,9 @@ class PegasusExporter:
         lines: list[str] = []
 
         # Collection header
-        lines.append(f"collection: {platform.custom_name or platform.name}")
-        lines.append(f"shortname: {platform.slug}")
+        collection_name, shortname = self._resolve_collection(platform)
+        lines.append(f"collection: {collection_name}")
+        lines.append(f"shortname: {shortname}")
         lines.append("")
 
         # Game entries
@@ -258,8 +406,9 @@ class PegasusExporter:
             lines: list[str] = []
 
             # Collection header
-            lines.append(f"collection: {platform.custom_name or platform.name}")
-            lines.append(f"shortname: {platform.slug}")
+            collection_name, shortname = self._resolve_collection(platform)
+            lines.append(f"collection: {collection_name}")
+            lines.append(f"shortname: {shortname}")
             lines.append("")
 
             game_count = 0
