@@ -242,25 +242,52 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
-// Single source for the responsive card-art width — feeds both the column
-// count and the virtualiser's row-height math so they never drift.
-const cardWidth = () => (xs.value ? 108 : 158);
-const { columns } = useResponsiveColumns(sectionEl, {
+// Card-art width reference (matches GameCard's `--r-card-art-w`). It sets
+// the card HEIGHT (a 2/3 cover's height at this width); each card's real
+// width then follows its cover's natural ratio.
+const CARD_GAP_PX = 12;
+const cardWidth = () => (xs.value ? 130 : 158);
+const cardHeight = () => Math.round(cardWidth() / (2 / 3));
+const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
   cardWidth,
-  gap: 12,
+  gap: CARD_GAP_PX,
   inset: () => (xs.value ? 64 : smAndDown.value ? 76 : 108),
 });
 
-// Active cover aspect ratio from the gallery-wide boxart style. Drives
-// both the cards' `--r-cover-ratio` (via the shell root, inherited) and
-// the virtualiser's row height so the cover shape, the grid, and the
-// scroll offsets all agree.
+// Fallback cover ratio from the gallery-wide boxart style — used only as
+// the per-card `--r-cover-ratio` seed (before GameCover measures the real
+// image) and for the bootstrap skeleton rows.
 const { boxartStyle } = useUISettings();
 const coverAspectRatio = computed(() =>
   coverRatio(
     isBoxartStyle(boxartStyle.value) ? boxartStyle.value : "cover_path",
   ),
 );
+
+// Measured natural cover ratios, keyed by rom id (stable across gallery
+// context switches, so the cache survives navigation). GameCard reports
+// each cover's ratio once its image loads; the flow-packer reads them via
+// `ratioAt(position)`. Updates are batched behind `ratioVersion` so a burst
+// of image loads triggers a single re-pack instead of one per cover.
+const ratioByRomId = new Map<number, number>();
+const ratioVersion = ref(0);
+let ratioBumpTimer: ReturnType<typeof setTimeout> | null = null;
+function onCardRatio(payload: { romId: number; ratio: number }) {
+  const prev = ratioByRomId.get(payload.romId);
+  // Ignore no-op / sub-pixel changes so we don't re-pack for nothing.
+  if (prev != null && Math.abs(prev - payload.ratio) < 0.01) return;
+  ratioByRomId.set(payload.romId, payload.ratio);
+  if (ratioBumpTimer) return;
+  ratioBumpTimer = setTimeout(() => {
+    ratioBumpTimer = null;
+    ratioVersion.value++;
+  }, 150);
+}
+function ratioAt(position: number): number {
+  const romId = galleryRoms.romIdIndex[position];
+  if (romId == null) return 0; // → packer falls back to the default ratio
+  return ratioByRomId.get(romId) ?? 0;
+}
 
 // 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
 //   * Grid mode — rows are `.r-v2-shell__row` (the per-virtualizer-item
@@ -301,8 +328,11 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     notFound: notFoundRef,
     notFoundMessage: notFoundMessageRef,
     skeletonRowCount: props.skeletonRowCount,
-    coverRatio: coverAspectRatio,
-    cardWidth,
+    cardHeight,
+    rowWidth: usableWidth,
+    gap: CARD_GAP_PX,
+    ratioAt,
+    ratioVersion,
   });
 
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
@@ -644,6 +674,7 @@ onBeforeUnmount(() => {
   gallerySelection.clear();
   if (searchDebounce) clearTimeout(searchDebounce);
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
+  if (ratioBumpTimer) clearTimeout(ratioBumpTimer);
   // Cancel any per-position fetches still in flight for our last
   // visible set — `invalidateWindows` / `resetGallery` already aborts
   // window-level fetches; this covers per-card cleanup on unmount.
@@ -681,10 +712,6 @@ const asLetterHeader = (i: GalleryItem) => i as LetterHeaderItem;
 const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const asListRow = (i: GalleryItem) => i as ListRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
-
-const rowGridStyle = computed(() => ({
-  gridTemplateColumns: `repeat(${Math.max(1, columns.value)}, minmax(var(--r-card-art-w), 1fr))`,
-}));
 
 // View-facing surface. Methods only — internal state stays internal.
 defineExpose({
@@ -787,7 +814,6 @@ defineExpose({
           <div
             v-else-if="itemKind(item as GalleryItem) === 'row'"
             class="r-v2-shell__row"
-            :style="rowGridStyle"
           >
             <template
               v-for="(p, slotIdx) in rowPositions(asRow(item as GalleryItem))"
@@ -802,6 +828,7 @@ defineExpose({
                 :show-platform-badge="showPlatformBadge"
                 selectable
                 :position="p"
+                @ratio="onCardRatio"
               />
               <GameCardSkeleton v-else />
             </template>
@@ -831,7 +858,6 @@ defineExpose({
           <div
             v-else-if="itemKind(item as GalleryItem) === 'skeleton-row'"
             class="r-v2-shell__row"
-            :style="rowGridStyle"
           >
             <GameCardSkeleton
               v-for="n in Math.max(1, columns)"
@@ -988,9 +1014,18 @@ defineExpose({
   margin-bottom: 16px;
 }
 
+/* Flow-packed wrapping row: same-height, natural-width cards laid left to
+   right. The JS packer (useGalleryVirtualItems) chose how many cards fit,
+   so `nowrap` is safe — a brief over/under-fill during the load transient
+   (before measured ratios settle) just leaves a ragged right edge or a
+   hair of overflow, corrected on the next re-pack. `align-items:
+   flex-start` keeps every card pinned to the same top. The 12px column gap
+   matches the packer's `gap`; the 18px row gap matches the chrome math. */
 .r-v2-shell__row {
-  display: grid;
-  gap: 18px 12px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 12px;
   padding-bottom: 18px;
 }
 
@@ -1086,14 +1121,12 @@ defineExpose({
   );
 }
 
-/* Smaller default cards on phones so the grid packs 2–3 per row instead
-   of one stretched card. The grid `minmax(--r-card-art-w, 1fr)` and the
-   GameCards (default size, reading the token) both shrink in lock-step;
-   the JS column-chunking above uses a matching 108px card width. Height
-   is left to the card's `--r-cover-ratio` derive rule so the boxart style
-   drives the cover shape on phones too. */
+/* Smaller cards on phones. Matches GameCard's own xs `--r-card-art-w`
+   (130px) so the shell's skeletons and the flow-packer's card-height
+   reference (`cardWidth()` in script) stay in lock-step with what the
+   cards actually render. */
 html[data-bp~="xs"] .r-v2-shell {
-  --r-card-art-w: 108px;
+  --r-card-art-w: 130px;
 }
 
 html[data-bp~="xs"] .r-v2-shell__scroller {
