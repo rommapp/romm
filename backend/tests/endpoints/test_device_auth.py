@@ -7,6 +7,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from httpx import Response
 
+from handler.auth.constants import Scope
 from handler.database import db_client_token_handler, db_device_handler
 from handler.redis_handler import sync_cache
 from models.user import User
@@ -103,6 +104,22 @@ class TestAuthorize:
 
     def test_empty_scopes_rejected(self, client):
         payload = {**AUTHORIZE_PAYLOAD, "requested_scopes": []}
+        resp = client.post("/api/auth/device/init", json=payload)
+        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_unknown_scope_rejected(self, client):
+        payload = {
+            **AUTHORIZE_PAYLOAD,
+            "requested_scopes": ["roms.read", "not.a.real.scope"],
+        }
+        resp = client.post("/api/auth/device/init", json=payload)
+        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_oversized_scope_list_rejected(self, client):
+        payload = {
+            **AUTHORIZE_PAYLOAD,
+            "requested_scopes": ["roms.read"] * (len(Scope) + 1),
+        }
         resp = client.post("/api/auth/device/init", json=payload)
         assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 

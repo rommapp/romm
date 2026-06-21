@@ -73,10 +73,12 @@ def build_verification_paths(user_code: str) -> tuple[str, str]:
 def check_authorize_rate_limit(request: Request) -> None:
     client_ip = request.client.host if request.client else "unknown"
     key = _KEY_AUTHORIZE_RATE.format(client_ip)
-    pipe = sync_cache.pipeline()
-    pipe.incr(key)
-    pipe.expire(key, RATE_LIMIT_WINDOW_SECONDS)
-    count, _ = pipe.execute()
+    count = sync_cache.incr(key)
+
+    # Set the TTL only when the counter is first created so the window actually resets
+    if count == 1:
+        sync_cache.expire(key, RATE_LIMIT_WINDOW_SECONDS)
+
     if count > AUTHORIZE_RATE_LIMIT:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -87,10 +89,12 @@ def check_authorize_rate_limit(request: Request) -> None:
 def check_token_poll_rate_limit(request: Request) -> None:
     client_ip = request.client.host if request.client else "unknown"
     key = _KEY_TOKEN_RATE.format(client_ip)
-    pipe = sync_cache.pipeline()
-    pipe.incr(key)
-    pipe.expire(key, RATE_LIMIT_WINDOW_SECONDS)
-    count, _ = pipe.execute()
+    count = sync_cache.incr(key)
+
+    # Set the TTL only when the counter is first created so the polling window actually resets
+    if count == 1:
+        sync_cache.expire(key, RATE_LIMIT_WINDOW_SECONDS)
+
     if count > TOKEN_POLL_RATE_LIMIT:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

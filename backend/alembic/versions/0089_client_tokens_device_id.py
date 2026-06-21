@@ -1,7 +1,7 @@
 """Add device_id FK to client_tokens
 
-Revision ID: 0085_client_tokens_device_id
-Revises: 0084_devices_client_identifier
+Revision ID: 0089_client_tokens_device_id
+Revises: 0088_devices_client_identifier
 Create Date: 2026-04-24 00:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0085_client_tokens_device_id"
-down_revision = "0084_devices_client_identifier"
+revision = "0089_client_tokens_device_id"
+down_revision = "0088_devices_client_identifier"
 branch_labels = None
 depends_on = None
 

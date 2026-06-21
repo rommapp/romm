@@ -433,10 +433,6 @@ async function deny() {
 .r-v2-devpair__scope {
   cursor: pointer;
 }
-.r-v2-devpair__scope:focus-visible {
-  outline: 2px solid var(--r-color-brand-primary);
-  outline-offset: 2px;
-}
 
 .r-v2-devpair__actions {
   display: flex;

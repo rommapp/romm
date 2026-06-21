@@ -30,6 +30,7 @@ from endpoints.responses.device_auth import (
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_client_token_handler, db_device_handler
+from handler.database.base_handler import sync_session
 from logger.logger import log
 from models.client_token import ClientToken
 from models.device import Device, SyncMode
@@ -184,52 +185,59 @@ def approve(
     now = datetime.now(timezone.utc)
     device_name = payload.device_name or data["name"]
 
-    existing = db_device_handler.get_device_by_client_identifier(
-        user_id=request.user.id,
-        client_device_identifier=data["client_device_identifier"],
-    )
-    if existing is not None:
-        update_data = {
-            "name": device_name,
-            "last_seen": now,
-        }
-        client_version = data.get("client_version")
-        if client_version is not None:
-            update_data["client_version"] = client_version
-        device = (
-            db_device_handler.update_device(
-                device_id=existing.id,
-                user_id=request.user.id,
-                data=update_data,
-            )
-            or existing
+    raw_token = auth_handler.generate_client_token()
+
+    # Create/update the Device and its bound ClientToken in a single unit of work
+    with sync_session.begin() as session:
+        existing = db_device_handler.get_device_by_client_identifier(
+            user_id=request.user.id,
+            client_device_identifier=data["client_device_identifier"],
+            session=session,
         )
-    else:
-        device = db_device_handler.add_device(
-            Device(
-                id=str(uuid.uuid4()),
+        if existing is not None:
+            update_data = {
+                "name": device_name,
+                "last_seen": now,
+            }
+            client_version = data.get("client_version")
+            if client_version is not None:
+                update_data["client_version"] = client_version
+            device = (
+                db_device_handler.update_device(
+                    device_id=existing.id,
+                    user_id=request.user.id,
+                    data=update_data,
+                    session=session,
+                )
+                or existing
+            )
+        else:
+            device = db_device_handler.add_device(
+                Device(
+                    id=str(uuid.uuid4()),
+                    user_id=request.user.id,
+                    name=device_name,
+                    client=data.get("client"),
+                    platform=data.get("platform"),
+                    client_version=data.get("client_version"),
+                    client_device_identifier=data["client_device_identifier"],
+                    sync_mode=SyncMode.API,
+                    last_seen=now,
+                ),
+                session=session,
+            )
+
+        token = db_client_token_handler.add_token(
+            ClientToken(
                 user_id=request.user.id,
                 name=device_name,
-                client=data.get("client"),
-                platform=data.get("platform"),
-                client_version=data.get("client_version"),
-                client_device_identifier=data["client_device_identifier"],
-                sync_mode=SyncMode.API,
-                last_seen=now,
-            )
+                hashed_token=auth_handler.hash_client_token(raw_token),
+                scopes=" ".join(sorted(approved_set)),
+                expires_at=expires_at,
+                device_id=device.id,
+            ),
+            session=session,
         )
-
-    raw_token = auth_handler.generate_client_token()
-    token = db_client_token_handler.add_token(
-        ClientToken(
-            user_id=request.user.id,
-            name=device_name,
-            hashed_token=auth_handler.hash_client_token(raw_token),
-            scopes=" ".join(sorted(approved_set)),
-            expires_at=expires_at,
-            device_id=device.id,
-        )
-    )
 
     mark_approved(
         device_code,
