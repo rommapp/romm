@@ -36,7 +36,10 @@ import {
   getDownloadPath,
 } from "@/utils";
 import { buildFormInput } from "@/utils/formData";
-import { invalidateEmulatorJSRomCacheIfRenamed } from "@/views/Player/EmulatorJS/utils";
+import {
+  getPlayerPlatformStorageSlug,
+  invalidateEmulatorJSRomCacheIfRenamed,
+} from "@/views/Player/EmulatorJS/utils";
 
 const { t } = useI18n();
 const createPlayerStorage = (romId: number, platformSlug: string) => ({
@@ -390,7 +393,10 @@ async function boot() {
   romRef.value = rom;
 
   // Create player storage instances
-  const playerStorage = createPlayerStorage(rom.id, rom.platform_slug);
+  const playerStorage = createPlayerStorage(
+    rom.id,
+    getPlayerPlatformStorageSlug(rom),
+  );
 
   const selectedInitialSave = initialSaveId
     ? rom.user_saves?.find((s) => s.id === initialSaveId)

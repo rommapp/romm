@@ -31,6 +31,8 @@ import {
   loadEmulatorJSSave,
   loadEmulatorJSState,
   invalidateEmulatorJSRomCacheIfRenamed,
+  getPlayerBiosStorageKey,
+  getPlayerCoreStorageKey,
   createQuickLoadButton,
   createSaveQuitButton,
   createExitEmulationButton,
@@ -190,21 +192,15 @@ if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
 onMounted(() => {
   window.scrollTo(0, 0);
   if (props.bios) {
-    localStorage.setItem(
-      `player:${romRef.value.platform_slug}:bios_id`,
-      props.bios.id.toString(),
-    );
+    localStorage.setItem(getPlayerBiosStorageKey(romRef.value), props.bios.id.toString());
   } else {
-    localStorage.removeItem(`player:${romRef.value.platform_slug}:bios_id`);
+    localStorage.removeItem(getPlayerBiosStorageKey(romRef.value));
   }
 
   if (props.core) {
-    localStorage.setItem(
-      `player:${romRef.value.platform_slug}:core`,
-      props.core,
-    );
+    localStorage.setItem(getPlayerCoreStorageKey(romRef.value), props.core);
   } else {
-    localStorage.removeItem(`player:${romRef.value.platform_slug}:core`);
+    localStorage.removeItem(getPlayerCoreStorageKey(romRef.value));
   }
 
   if (props.disc) {

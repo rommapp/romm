@@ -48,7 +48,11 @@ import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
-import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
+import {
+  getPlayerBiosStorageKey,
+  getPlayerCoreStorageKey,
+  installIOSFullscreenShim,
+} from "@/views/Player/EmulatorJS/utils";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
 // bundle doesn't pull in the EJS shims until we actually mount the player.
@@ -329,7 +333,7 @@ onMounted(async () => {
   }
 
   const storedCore = localStorage.getItem(
-    `player:${rom.value.platform_slug}:core`,
+    getPlayerCoreStorageKey(rom.value),
   );
   if (storedCore) {
     selectedCore.value = storedCore;
@@ -339,7 +343,7 @@ onMounted(async () => {
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
   const storedBiosID = localStorage.getItem(
-    `player:${rom.value.platform_slug}:bios_id`,
+    getPlayerBiosStorageKey(rom.value),
   );
 
   const biosFromStorage = storedBiosID

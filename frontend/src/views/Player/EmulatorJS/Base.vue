@@ -20,7 +20,11 @@ import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
-import { installIOSFullscreenShim } from "./utils";
+import {
+  getPlayerBiosStorageKey,
+  getPlayerCoreStorageKey,
+  installIOSFullscreenShim,
+} from "./utils";
 
 const { t } = useI18n();
 const { xs, mdAndUp, smAndDown } = useDisplay();
@@ -238,7 +242,7 @@ onMounted(async () => {
   }
 
   const storedCore = localStorage.getItem(
-    `player:${rom.value.platform_slug}:core`,
+    getPlayerCoreStorageKey(rom.value),
   );
   if (storedCore) {
     selectedCore.value = storedCore;
@@ -249,7 +253,7 @@ onMounted(async () => {
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
   const storedBiosID = localStorage.getItem(
-    `player:${rom.value.platform_slug}:bios_id`,
+    getPlayerBiosStorageKey(rom.value),
   );
 
   const biosFromStorage = storedBiosID

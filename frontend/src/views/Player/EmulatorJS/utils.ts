@@ -160,6 +160,25 @@ export function invalidateEmulatorJSRomCacheIfRenamed(rom: {
   localStorage.setItem(fsNameStorageKey, rom.fs_name);
 }
 
+type PlayerPlatformStorageTarget = Pick<
+  DetailedRom,
+  "platform_slug" | "platform_fs_slug"
+>;
+
+export function getPlayerPlatformStorageSlug(
+  platform: PlayerPlatformStorageTarget,
+) {
+  return platform.platform_fs_slug || platform.platform_slug;
+}
+
+export function getPlayerCoreStorageKey(platform: PlayerPlatformStorageTarget) {
+  return `player:${getPlayerPlatformStorageSlug(platform)}:core`;
+}
+
+export function getPlayerBiosStorageKey(platform: PlayerPlatformStorageTarget) {
+  return `player:${getPlayerPlatformStorageSlug(platform)}:bios_id`;
+}
+
 const IOS_FULLSCREEN_NAV_SELECTOR =
   ".v-app-bar, .v-bottom-navigation, .v-navigation-drawer";
 const IOS_FULLSCREEN_STYLE = `
