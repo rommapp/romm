@@ -17,6 +17,7 @@ on:
         options:
           - ghcr
           - dockerhub
+          - both
 
 permissions:
   id-token: write
@@ -37,7 +38,8 @@ jobs:
       packages: write
       pull-requests: write
     env:
-      USE_GHCR: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.registry == 'ghcr' }}
+      USE_GHCR: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.registry == 'ghcr' || github.event.inputs.registry == 'both' }}
+      USE_DOCKERHUB: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.registry == 'dockerhub' || github.event.inputs.registry == 'both') }}
     steps:
       - name: Run only once per workflow
         run: echo "Triggered by ${{ github.event_name }}"
@@ -77,29 +79,19 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Login to Docker Hub
-        if: env.USE_GHCR == 'false'
+        if: env.USE_DOCKERHUB == 'true'
         uses: docker/login-action@v3.5.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Generate Docker metadata (GHCR)
-        if: env.USE_GHCR == 'true'
-        id: meta-ghcr
+      - name: Generate Docker metadata
+        id: meta
         uses: docker/metadata-action@v5.8.0
         with:
           images: |
-            name=ghcr.io/${{ github.repository_owner }}/romm-testing
-          tags: |
-            type=raw,value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
-
-      - name: Generate Docker metadata (Docker Hub)
-        if: env.USE_GHCR == 'false'
-        id: meta-dockerhub
-        uses: docker/metadata-action@v5.8.0
-        with:
-          images: |
-            name=${{ github.repository_owner }}/romm-testing
+            ${{ env.USE_GHCR == 'true' && format('name=ghcr.io/{0}/romm-testing', github.repository_owner) || '' }}
+            ${{ env.USE_DOCKERHUB == 'true' && format('name={0}/romm-testing', github.repository_owner) || '' }}
           tags: |
             type=raw,value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
 
@@ -111,7 +103,7 @@ jobs:
           context: .
           push: true
           platforms: linux/arm64,linux/amd64
-          tags: ${{ env.USE_GHCR == 'true' && steps.meta-ghcr.outputs.tags || steps.meta-dockerhub.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags }}
           target: full-image
 
       - name: Comment PR with Docker image link
@@ -119,18 +111,16 @@ jobs:
         uses: actions/github-script@v7
         env:
           HEAD_REF: ${{ github.head_ref }}
-          USE_GHCR: ${{ env.USE_GHCR }}
         with:
           script: |
             const owner = context.repo.owner;
             const tag = process.env.HEAD_REF;
-            const useGhcr = process.env.USE_GHCR === 'true';
-            const image = useGhcr
-              ? `ghcr.io/${owner}/romm-testing:${tag}`
-              : `${owner}/romm-testing:${tag}`;
+            const images = [
+              `ghcr.io/${owner}/romm-testing:${tag}`,
+            ];
             github.rest.issues.updateComment({
               comment_id: ${{ steps.build-comment.outputs.comment-id }},
               owner: owner,
               repo: context.repo.repo,
-              body: `✅ Preview build completed!\n\nDocker image: \`${image}\``
+              body: `✅ Preview build completed!\n\nDocker image: \`${images[0]}\``
             })
