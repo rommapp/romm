@@ -1,5 +1,7 @@
 {
+  "crt-mode": "CRT mode",
   "about": "About",
+  "activity": "Activity",
   "add": "Add",
   "administration": "Administration",
   "and": "and",
@@ -14,6 +16,7 @@
   "create": "Create",
   "delete": "Delete",
   "dropzone-description": "Drag and drop your ROM files here, or click to browse",
+  "dropzone-hint": "Drag and drop, or click to browse",
   "dropzone-drag-over": "Release to upload",
   "dropzone-title": "Drop files here",
   "edit": "Edit",
@@ -148,5 +151,8 @@
   "changelog-empty-title": "No releases yet",
   "changelog-empty-hint": "The repository hasn't published any releases.",
   "changelog-view-all": "View all releases on GitHub",
-  "visibility": "Visibility"
+  "visibility": "Visibility",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server",
+  "logs": "Logs"
 }

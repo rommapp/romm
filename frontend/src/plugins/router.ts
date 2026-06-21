@@ -35,6 +35,7 @@ export const ROUTES = {
   SCAN: "scan",
   UPLOAD: "upload",
   PATCHER: "patcher",
+  ACTIVITY: "activity",
   USER_PROFILE: "user-profile",
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
@@ -42,6 +43,7 @@ export const ROUTES = {
   CLIENT_API_TOKENS: "client-api-tokens",
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
+  LOGS: "logs",
   PAIR: "pair",
   PAIR_DEVICE: "pair-device",
   APRIL_FOOLS: "april-fools",
@@ -318,6 +320,19 @@ const routes = [
             },
           },
           {
+            path: "activity",
+            name: ROUTES.ACTIVITY,
+            meta: {
+              title: i18n.global.t("activity.active-sessions"),
+            },
+            components: {
+              // v2-only view; v1 has no activity concept so it redirects
+              // home if a v1 user deep-links here.
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.ACTIVITY),
+            },
+          },
+          {
             path: "user/:user",
             name: ROUTES.USER_PROFILE,
             meta: { bare: true },
@@ -396,6 +411,22 @@ const routes = [
             components: {
               default: () => import("@/views/Settings/ServerStats.vue"),
               v2: v2For(ROUTES.SERVER_STATS),
+            },
+          },
+          {
+            path: "logs",
+            name: ROUTES.LOGS,
+            meta: {
+              title: i18n.global.t("common.logs"),
+              bare: true,
+              // The log panel fills the viewport and scrolls internally
+              // instead of growing the document — see SettingsLayout `fill`.
+              fill: true,
+            },
+            components: {
+              // v2-only admin view; v1 has no equivalent so it redirects home.
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.LOGS),
             },
           },
           {
@@ -530,6 +561,7 @@ const routePermissions: RoutePermissions[] = [
   { path: ROUTES.UPLOAD, requiredScopes: ["roms.write"] },
   { path: ROUTES.LIBRARY_MANAGEMENT, requiredScopes: ["platforms.write"] },
   { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
+  { path: ROUTES.LOGS, requiredScopes: ["logs.read"] },
 ];
 
 const authExemptRoutes = [
@@ -572,6 +604,18 @@ router.beforeEach(async (to, _from, next) => {
   const currentRoute = to.name?.toString();
 
   try {
+    // Backend unreachable/broken — we can't trust the setup/auth state, and
+    // bouncing to /login would just strand the user on a page that can't work
+    // either. Let them stay on (and navigate within) whatever the cached state
+    // allows; the offline notice explains it and the connection layer
+    // re-routes correctly once the backend answers again.
+    if (!heartbeat.connected) {
+      document.title = to.meta.title
+        ? i18n.global.t(to.meta.title as string)
+        : "RomM";
+      return next();
+    }
+
     // Handle setup wizard
     if (heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
       return currentRoute !== "setup" ? next({ name: ROUTES.SETUP }) : next();
@@ -596,6 +640,15 @@ router.beforeEach(async (to, _from, next) => {
 
     // Check permissions
     if (currentRoute && !checkRoutePermissions(currentRoute, user.value)) {
+      return next({ name: ROUTES.NOT_FOUND });
+    }
+
+    // The logs viewer can be turned off entirely via DISABLE_LOGS_VIEWER; the
+    // backend endpoint/stream are then gone, so direct navigation must 404 too.
+    if (
+      currentRoute === ROUTES.LOGS &&
+      heartbeat.value.FRONTEND.DISABLE_LOGS_VIEWER
+    ) {
       return next({ name: ROUTES.NOT_FOUND });
     }
 

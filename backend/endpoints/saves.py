@@ -446,12 +446,14 @@ def download_save(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_READ
     )
 
-    save = db_save_handler.get_save(user_id=request.user.id, id=id)
-    if not save:
+    # Owner can download any of their saves; everyone else only public ones.
+    save = db_save_handler.get_save_by_id(id)
+    if not save or (save.user_id != request.user.id and not save.is_public):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Save with ID {id} not found",
         )
+    is_owner = save.user_id == request.user.id
 
     try:
         file_path = fs_asset_handler.validate_path(save.full_path)
@@ -467,7 +469,8 @@ def download_save(
             detail="Save file not found on disk",
         )
 
-    if device and optimistic:
+    # Sync bookkeeping only makes sense for the owner's own saves.
+    if device and optimistic and is_owner:
         db_device_save_sync_handler.upsert_sync(
             device_id=device.id,
             save_id=save.id,
@@ -603,6 +606,29 @@ async def update_save(
         db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
 
     return _build_save_schema(db_save, _syncs_for_save(db_save.id, device), device)
+
+
+@protected_route(
+    router.put,
+    "/{id}/visibility",
+    [Scope.ASSETS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def update_save_visibility(
+    request: Request,
+    id: int,
+    is_public: Annotated[bool, Body(embed=True)],
+) -> SaveSchema:
+    """Toggle a save's public/private visibility (owner only)."""
+    save = db_save_handler.get_save_by_id(id)
+    if not save or save.user_id != request.user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Save with ID {id} not found",
+        )
+
+    updated = db_save_handler.update_save(id, {"is_public": is_public})
+    return _build_save_schema(updated)
 
 
 @protected_route(

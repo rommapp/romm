@@ -81,5 +81,8 @@
   "cover-style": "Стиль обложки",
   "firmware-verified": "Проверено",
   "old-horizontal-cases": "Старые горизонтальные кейсы",
-  "old-squared-cases": "Старые квадратные кейсы"
+  "old-squared-cases": "Старые квадратные кейсы",
+  "random-rom": "Случайный ROM",
+  "random-rom-empty": "В этой платформе нет ROM",
+  "random-rom-error": "Не удалось выбрать случайный ROM"
 }

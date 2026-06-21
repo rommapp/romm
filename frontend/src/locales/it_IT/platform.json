@@ -81,5 +81,8 @@
   "cover-style": "Stile copertina",
   "firmware-verified": "Verificato",
   "old-horizontal-cases": "Vecchie custodie orizzontali",
-  "old-squared-cases": "Vecchie custodie quadrate"
+  "old-squared-cases": "Vecchie custodie quadrate",
+  "random-rom": "ROM casuale",
+  "random-rom-empty": "Nessuna ROM in questa piattaforma",
+  "random-rom-error": "Impossibile scegliere una ROM casuale"
 }

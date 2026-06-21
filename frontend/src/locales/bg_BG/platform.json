@@ -81,5 +81,8 @@
   "cover-style": "Стил на корица",
   "firmware-verified": "Потвърден",
   "old-horizontal-cases": "Стари хоризонтални кутии",
-  "old-squared-cases": "Стари квадратни кутии"
+  "old-squared-cases": "Стари квадратни кутии",
+  "random-rom": "Случаен ROM",
+  "random-rom-empty": "Няма ROM в тази платформа",
+  "random-rom-error": "Неуспешно избиране на случаен ROM"
 }

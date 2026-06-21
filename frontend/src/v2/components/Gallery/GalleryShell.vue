@@ -795,7 +795,7 @@ defineExpose({
             >
               <GameCard
                 v-if="getRomAt(p)"
-                class="r-v2-shell__card-fade"
+                class="r-v2-card-fade"
                 :style="{ '--card-fade-i': slotIdx }"
                 :rom="getRomAt(p)!"
                 :webp="supportsWebp"
@@ -994,20 +994,8 @@ defineExpose({
   padding-bottom: 18px;
 }
 
-.r-v2-shell__card-fade {
-  animation: r-v2-shell-card-fade 280ms ease-out both;
-  animation-delay: calc(var(--card-fade-i, 0) * 30ms);
-}
-@keyframes r-v2-shell-card-fade {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* Card reveal animation (.r-v2-card-fade) lives in global.css — shared
+   with the Home dashboard rows. */
 
 .r-v2-shell__empty {
   padding: 80px 0;

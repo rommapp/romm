@@ -1,5 +1,7 @@
 {
+  "crt-mode": "CRT mode",
   "about": "Относно",
+  "activity": "Активност",
   "add": "Добави",
   "administration": "Администрация",
   "and": "и",
@@ -14,6 +16,7 @@
   "create": "Създай",
   "delete": "Изтрий",
   "dropzone-description": "Пусни ROM файловете тук или кликни за да избереш файлове",
+  "dropzone-hint": "Плъзни и пусни или щракни за избор",
   "dropzone-drag-over": "Пусни за качване",
   "dropzone-title": "Пусни файловете тук",
   "edit": "Редактирай",
@@ -148,5 +151,8 @@
   "changelog-empty-title": "Все още няма издания",
   "changelog-empty-hint": "Хранилището все още не е публикувало издания.",
   "changelog-view-all": "Вижте всички издания в GitHub",
-  "visibility": "Видимост"
+  "visibility": "Видимост",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server",
+  "logs": "Logs"
 }

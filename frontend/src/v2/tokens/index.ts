@@ -173,6 +173,20 @@ export const colorCanvas = {
   bgDeep: "#0d1117",
 } as const;
 
+// CRT gimmick — the cosmetic "CRT mode" shader + power-on warm-up flash
+// (see CrtOverlay.vue / CrtWarmup.vue, toggled from Settings → User Interface → Theme).
+// Theme-agnostic by design: the phosphor green and the red/cyan chromatic-aberration ghosts
+// read the same on dark and light, so they live in SHARED rather than the
+// per-theme palettes. Consumed only as CSS vars (--r-color-crt-*), always at
+// low opacity via color-mix.
+export const colorCrt = {
+  // Phosphor afterglow / glow tint (P1 green).
+  glow: "#7dffb4",
+  // Chromatic-aberration ghosts for the RGB-split glitch.
+  ghostWarm: "#ff3b5c",
+  ghostCool: "#3bd9ff",
+} as const;
+
 // Procedural cover-art palette — the fixed colours of the generated
 // "no cover" artwork (missing / unmatched placeholders). Baked into an
 // SVG string by `utils/covers`, so they live here as the single home for

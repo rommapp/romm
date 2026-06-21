@@ -1,5 +1,7 @@
 {
+  "crt-mode": "CRT mode",
   "about": "關於",
+  "activity": "動態",
   "add": "新增",
   "administration": "管理系統",
   "and": "和",
@@ -14,6 +16,7 @@
   "create": "建立",
   "delete": "刪除",
   "dropzone-description": "將您的ROM檔案拖放到此處，或點擊瀏覽",
+  "dropzone-hint": "拖放檔案，或點擊瀏覽",
   "dropzone-drag-over": "釋放以上傳",
   "dropzone-title": "將檔案拖放到此處",
   "edit": "編輯",
@@ -148,5 +151,8 @@
   "changelog-empty-title": "尚無發行版",
   "changelog-empty-hint": "此儲存庫尚未發布任何發行版。",
   "changelog-view-all": "在 GitHub 上檢視所有發行版",
-  "visibility": "可見性"
+  "visibility": "可見性",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server",
+  "logs": "Logs"
 }

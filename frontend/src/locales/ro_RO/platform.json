@@ -81,5 +81,8 @@
   "cover-style": "Stil copertă",
   "firmware-verified": "Verificat",
   "old-horizontal-cases": "Cutii orizontale vechi",
-  "old-squared-cases": "Cutii pătrate vechi"
+  "old-squared-cases": "Cutii pătrate vechi",
+  "random-rom": "ROM aleatoriu",
+  "random-rom-empty": "Niciun ROM pe această platformă",
+  "random-rom-error": "Nu s-a putut alege un ROM aleatoriu"
 }

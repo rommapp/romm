@@ -81,5 +81,8 @@
   "cover-style": "Borító stílusa",
   "firmware-verified": "Ellenőrzött",
   "old-horizontal-cases": "Régi vízszintes tokok",
-  "old-squared-cases": "Régi négyzetes tokok"
+  "old-squared-cases": "Régi négyzetes tokok",
+  "random-rom": "Véletlenszerű ROM",
+  "random-rom-empty": "Nincs ROM ezen a platformon",
+  "random-rom-error": "Nem sikerült véletlenszerű ROM-ot választani"
 }

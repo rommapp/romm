@@ -42,11 +42,18 @@ const { groupRoms } = useUISettings();
 // "pinned" pattern GameActionBtn uses for `more` / `status` menus).
 const menuOpen = ref(false);
 
+// The scan socket (`scan:scanning_rom`) emits roms with `sibling_roms`
+// stripped from the payload, so it can be undefined here even though the
+// type marks it required. Default to an empty list — otherwise reading
+// `.length`/`.map` throws while a scan streams roms and `groupRoms` is on.
+// REST payloads always include it (possibly empty).
+const siblings = computed(() => props.rom.sibling_roms ?? []);
+
 const visible = computed(
-  () => groupRoms.value === true && props.rom.sibling_roms.length > 0,
+  () => groupRoms.value === true && siblings.value.length > 0,
 );
 
-const totalCount = computed(() => props.rom.sibling_roms.length + 1);
+const totalCount = computed(() => siblings.value.length + 1);
 
 const tooltipText = computed(() =>
   t("rom.versions-count", { n: totalCount.value }),
@@ -65,7 +72,7 @@ const versions = computed(() => [
     current: true,
     main: props.rom.rom_user?.is_main_sibling === true,
   },
-  ...props.rom.sibling_roms.map((s) => ({
+  ...siblings.value.map((s) => ({
     id: s.id,
     label: s.fs_name_no_ext,
     current: false,

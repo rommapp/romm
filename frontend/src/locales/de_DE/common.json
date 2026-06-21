@@ -1,5 +1,7 @@
 {
+  "crt-mode": "CRT-Modus",
   "about": "Über",
+  "activity": "Aktivität",
   "add": "Hinzufügen",
   "administration": "Administration",
   "and": "und",
@@ -14,6 +16,7 @@
   "create": "Erstellen",
   "delete": "Löschen",
   "dropzone-description": "Ziehen Sie Ihre ROM-Dateien hierher oder klicken Sie zum Durchsuchen",
+  "dropzone-hint": "Ziehen und ablegen oder zum Durchsuchen klicken",
   "dropzone-drag-over": "Loslassen zum Hochladen",
   "dropzone-title": "Dateien hier ablegen",
   "edit": "Bearbeiten",
@@ -148,5 +151,8 @@
   "changelog-empty-title": "Noch keine Veröffentlichungen",
   "changelog-empty-hint": "Das Repository hat noch keine Veröffentlichungen.",
   "changelog-view-all": "Alle Veröffentlichungen auf GitHub ansehen",
-  "visibility": "Sichtbarkeit"
+  "visibility": "Sichtbarkeit",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server",
+  "logs": "Logs"
 }

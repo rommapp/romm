@@ -1,0 +1,13 @@
+{
+  "active-sessions": "Active Sessions",
+  "days-ago": "{n}d ago",
+  "hours-ago": "{n}h ago",
+  "hours-minutes-ago": "{h}h {m}m ago",
+  "just-now": "Just now",
+  "live": "LIVE",
+  "minutes-ago": "{n}m ago",
+  "no-activity": "No one is currently playing",
+  "now-playing": "Now Playing",
+  "playing-on": "Playing on {device}",
+  "playing-since": "Playing since {time}"
+}

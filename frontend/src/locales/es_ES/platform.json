@@ -81,5 +81,8 @@
   "settings": "Ajustes",
   "tab-firmware": "Firmware",
   "upload-firmware": "Subir firmware",
-  "browse-platform": "Explorar {platform}"
+  "browse-platform": "Explorar {platform}",
+  "random-rom": "ROM aleatorio",
+  "random-rom-empty": "No hay ROMs en esta plataforma",
+  "random-rom-error": "No se pudo elegir un ROM aleatorio"
 }

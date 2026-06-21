@@ -1,5 +1,7 @@
 {
+  "crt-mode": "CRT mode",
   "about": "Despre",
+  "activity": "Activitate",
   "add": "Adaugă",
   "administration": "Administrare",
   "and": "și",
@@ -17,6 +19,7 @@
   "create": "Creează",
   "delete": "Șterge",
   "dropzone-description": "Trageți și eliberați fișierele ROM aici, sau faceți clic pentru a naviga",
+  "dropzone-hint": "Trage și plasează, sau dă clic pentru a răsfoi",
   "dropzone-drag-over": "Eliberați pentru a încărca",
   "dropzone-title": "Trageți fișierele aici",
   "edit": "Editează",
@@ -148,5 +151,8 @@
   "changelog-empty-title": "Încă nu există versiuni",
   "changelog-empty-hint": "Depozitul nu a publicat încă nicio versiune.",
   "changelog-view-all": "Vezi toate versiunile pe GitHub",
-  "visibility": "Vizibilitate"
+  "visibility": "Vizibilitate",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server",
+  "logs": "Logs"
 }

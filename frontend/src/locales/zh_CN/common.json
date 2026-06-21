@@ -1,5 +1,7 @@
 {
+  "crt-mode": "CRT mode",
   "about": "关于",
+  "activity": "动态",
   "add": "添加",
   "administration": "管理",
   "and": "和",
@@ -14,6 +16,7 @@
   "create": "创建",
   "delete": "删除",
   "dropzone-description": "将您的ROM文件拖放到此处，或点击浏览",
+  "dropzone-hint": "拖放文件，或点击浏览",
   "dropzone-drag-over": "释放以上传",
   "dropzone-title": "将文件拖放到此处",
   "edit": "编辑",
@@ -148,5 +151,8 @@
   "changelog-empty-title": "暂无发行版",
   "changelog-empty-hint": "该仓库尚未发布任何发行版。",
   "changelog-view-all": "在 GitHub 上查看所有发行版",
-  "visibility": "可见性"
+  "visibility": "可见性",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server",
+  "logs": "Logs"
 }

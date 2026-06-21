@@ -33,15 +33,16 @@ import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
+import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
-import AssetList from "@/v2/components/Player/AssetList.vue";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
-import AssetStrip from "@/v2/components/Player/AssetStrip.vue";
+import AssetList from "@/v2/components/shared/AssetList.vue";
+import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
@@ -87,6 +88,53 @@ const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const removeIOSFullscreenShim = ref<(() => void) | null>(null);
+
+// ── Live activity ("now playing") ──────────────────────────────────
+const ACTIVITY_HEARTBEAT_MS = 30_000;
+let activityHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+function activityDeviceId(): string {
+  return auth.user?.current_device_id ?? "web";
+}
+
+function emitActivityStart() {
+  if (!auth.user || !rom.value) return;
+  if (!socket.connected) socket.connect();
+  socket.emit("activity:start", {
+    rom_id: rom.value.id,
+    device_id: activityDeviceId(),
+  });
+}
+
+function emitActivityHeartbeat() {
+  if (!auth.user || !rom.value) return;
+  socket.emit("activity:heartbeat", {
+    rom_id: rom.value.id,
+    device_id: activityDeviceId(),
+  });
+}
+
+function emitActivityStop() {
+  if (!auth.user) return;
+  socket.emit("activity:stop", {
+    device_id: activityDeviceId(),
+  });
+}
+
+function startActivityHeartbeat() {
+  if (activityHeartbeatTimer) return;
+  activityHeartbeatTimer = setInterval(
+    emitActivityHeartbeat,
+    ACTIVITY_HEARTBEAT_MS,
+  );
+}
+
+function stopActivityHeartbeat() {
+  if (activityHeartbeatTimer) {
+    clearInterval(activityHeartbeatTimer);
+    activityHeartbeatTimer = null;
+  }
+}
 
 declare global {
   interface Navigator {
@@ -365,11 +413,17 @@ onMounted(async () => {
   }
 });
 
-// When the user exits the running game (Player unmount flips
-// `gameRunning` false), put focus back on Play so a Start-Play loop
-// stays on the pad.
+// Drive the live-activity lifecycle off the deterministic running state:
+// announce on enter, clear + stop heartbeats on exit. Also restores focus
+// to Play on exit so a Start-Play loop stays on the pad.
 watch(gameRunning, (running, prev) => {
+  if (running && !prev) {
+    emitActivityStart();
+    startActivityHeartbeat();
+  }
   if (prev && !running) {
+    stopActivityHeartbeat();
+    emitActivityStop();
     nextTick(focusPlayButton);
   }
 });
@@ -383,6 +437,10 @@ function onGamepadButton(e: CustomEvent<{ name?: string }>) {
 }
 
 onBeforeUnmount(() => {
+  // Leaving the player (back nav / route change) ends the session even if
+  // the user never exited the game to the config screen first.
+  stopActivityHeartbeat();
+  emitActivityStop();
   window.EJS_emulator?.callEvent("exit");
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = null;
@@ -422,12 +480,14 @@ const activeAssetTab = computed<AssetTab>(() =>
 const assetTabs = computed<SliderBtnGroupItem<AssetTab>[]>(() => [
   {
     id: "save",
-    label: `${t("common.saves")}${rom.value?.user_saves.length ? ` · ${rom.value.user_saves.length}` : ""}`,
+    label: t("common.saves"),
+    badge: rom.value?.user_saves.length ?? 0,
     icon: "mdi-content-save",
   },
   {
     id: "state",
-    label: `${t("common.states")}${compatibleStates.value.length ? ` · ${compatibleStates.value.length}` : ""}`,
+    label: t("common.states"),
+    badge: compatibleStates.value.length,
     icon: "mdi-file",
   },
 ]);

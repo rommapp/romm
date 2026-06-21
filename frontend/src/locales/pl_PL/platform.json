@@ -81,5 +81,8 @@
   "cover-style": "Styl okładki",
   "firmware-verified": "Zweryfikowane",
   "old-horizontal-cases": "Stare pudełka poziome",
-  "old-squared-cases": "Stare pudełka kwadratowe"
+  "old-squared-cases": "Stare pudełka kwadratowe",
+  "random-rom": "Losowy ROM",
+  "random-rom-empty": "Brak ROM-ów na tej platformie",
+  "random-rom-error": "Nie udało się wybrać losowego ROM-u"
 }

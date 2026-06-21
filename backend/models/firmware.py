@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from sqlalchemy import BigInteger, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from handler.redis_handler import sync_cache
 from models.base import (
@@ -14,6 +14,7 @@ from models.base import (
     FILE_NAME_MAX_LENGTH,
     FILE_PATH_MAX_LENGTH,
     BaseModel,
+    compute_file_name_parts,
 )
 
 if TYPE_CHECKING:
@@ -48,6 +49,20 @@ class Firmware(BaseModel):
     platform: Mapped[Platform] = relationship(lazy="joined", back_populates="firmware")
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+    @validates("file_name")
+    def _sync_file_name_parts(self, _key: str, file_name: str) -> str:
+        """Derive the stored `file_name_no_tags` / `file_name_no_ext` /
+        `file_extension` columns whenever `file_name` is assigned.
+
+        Bulk `update()` statements bypass the ORM; firmware updates never
+        change `file_name`, so they don't need to recompute these.
+        """
+        parts = compute_file_name_parts(file_name)
+        self.file_name_no_tags = parts.no_tags
+        self.file_name_no_ext = parts.no_ext
+        self.file_extension = parts.extension
+        return file_name
 
     @cached_property
     def full_path(self) -> str:

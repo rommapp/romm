@@ -8,7 +8,14 @@ from typing import NotRequired, TypedDict, get_type_hints
 from fastapi import Request
 from pydantic import ConfigDict, Field, computed_field, field_validator
 
-from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
+from endpoints.responses.assets import (
+    SaveSchema,
+    ScreenshotSchema,
+    StateSchema,
+    UserSaveSchema,
+    UserScreenshotSchema,
+    UserStateSchema,
+)
 from handler.metadata.flashpoint_handler import FlashpointMetadata
 from handler.metadata.gamelist_handler import GamelistMetadata
 from handler.metadata.hasheous_handler import HasheousMetadata
@@ -38,6 +45,9 @@ class UserNoteSchema(BaseModel):
     updated_at: UTCDatetime
     user_id: int
     username: str
+    # Author identity for rendering an avatar next to community notes.
+    user_avatar_path: str = ""
+    user_updated_at: UTCDatetime | None = None
 
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
@@ -272,6 +282,7 @@ class RomSchema(BaseModel):
     fs_size_bytes: int
 
     name: str | None
+    name_sort_key: str | None
     slug: str | None
     summary: str | None
 
@@ -458,7 +469,10 @@ class UserCollectionSchema(BaseModel):
 class DetailedRomSchema(RomSchema):
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
+    all_user_saves: list[UserSaveSchema]
+    all_user_states: list[UserStateSchema]
     user_screenshots: list[ScreenshotSchema]
+    all_user_screenshots: list[UserScreenshotSchema]
     user_collections: list[UserCollectionSchema]
     all_user_notes: list[UserNoteSchema]
 
@@ -516,12 +530,73 @@ class DetailedRomSchema(RomSchema):
                 "updated_at": note.updated_at,
                 "user_id": note.user_id,
                 "username": note.user.username,
+                "user_avatar_path": note.user.avatar_path,
+                "user_updated_at": note.user.updated_at,
             }
             all_notes.append(UserNoteSchema.model_validate(note_dict))
 
         # Sort notes by updated_at (most recent first)
         all_notes.sort(key=lambda x: x.updated_at, reverse=True)
         db_rom.all_user_notes = all_notes  # type: ignore[assignment]
+
+        # Gallery screenshots visible to this user: own (public + private) plus
+        # other users' public ones. Mirrors the notes flow above. Excludes the
+        # auto-captured save/state thumbnails (is_gallery == False).
+        from handler.database import db_screenshot_handler
+
+        gallery_screenshots = db_screenshot_handler.get_rom_gallery_screenshots(
+            rom_id=db_rom.id, user_id=user_id
+        )
+        db_rom.all_user_screenshots = [  # type: ignore[assignment]
+            UserScreenshotSchema.model_validate(
+                {
+                    **{
+                        field: getattr(s, field)
+                        for field in ScreenshotSchema.model_fields
+                    },
+                    "username": s.user.username,
+                    "user_avatar_path": s.user.avatar_path,
+                    "user_updated_at": s.user.updated_at,
+                }
+            )
+            for s in gallery_screenshots
+        ]
+
+        # Saves/states visible to this user: own (public + private) plus other
+        # users' public ones. Mirrors the screenshots flow above.
+        from handler.database import db_save_handler, db_state_handler
+
+        # SaveSchema.model_validate handles the lazy `device_syncs` relationship
+        # (skips it when unloaded); reuse it rather than getattr-ing raw fields.
+        shared_saves = db_save_handler.get_rom_shared_saves(
+            rom_id=db_rom.id, user_id=user_id
+        )
+        db_rom.all_user_saves = [  # type: ignore[assignment]
+            UserSaveSchema.model_validate(
+                {
+                    **SaveSchema.model_validate(s).model_dump(),
+                    "username": s.user.username,
+                    "user_avatar_path": s.user.avatar_path,
+                    "user_updated_at": s.user.updated_at,
+                }
+            )
+            for s in shared_saves
+        ]
+
+        shared_states = db_state_handler.get_rom_shared_states(
+            rom_id=db_rom.id, user_id=user_id
+        )
+        db_rom.all_user_states = [  # type: ignore[assignment]
+            UserStateSchema.model_validate(
+                {
+                    **StateSchema.model_validate(s).model_dump(),
+                    "username": s.user.username,
+                    "user_avatar_path": s.user.avatar_path,
+                    "user_updated_at": s.user.updated_at,
+                }
+            )
+            for s in shared_states
+        ]
 
         return cls.model_validate(db_rom)
 

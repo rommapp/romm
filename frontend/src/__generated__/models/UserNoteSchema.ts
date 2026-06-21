@@ -12,5 +12,7 @@ export type UserNoteSchema = {
     updated_at: string;
     user_id: number;
     username: string;
+    user_avatar_path?: string;
+    user_updated_at?: (string | null);
 };
 

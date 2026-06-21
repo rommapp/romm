@@ -1,11 +1,15 @@
+import os
+import re
 from datetime import datetime, timedelta, timezone
 
 import alembic.config
 import pytest
+from hypothesis import settings
 from joserfc import jwt
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+from config import ROMM_DB_DRIVER
 from config.config_manager import ConfigManager
 from handler.auth import auth_handler
 from handler.auth.base_handler import ALGORITHM, oct_key
@@ -30,9 +34,55 @@ from models.user import Role, User
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
 
+settings.register_profile("ci", max_examples=200, deadline=None)
+settings.register_profile("dev", max_examples=50, deadline=None)
+settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "dev"))
+
+
+def _ensure_database_exists() -> None:
+    """Create the (possibly per-xdist-worker) test database if it's missing.
+
+    The base `romm_test` database is provisioned by CI / local setup, but the
+    per-worker databases used under pytest-xdist (`romm_test_gw0`, ...) are
+    created on demand here, just before migrations run.
+    """
+    url = ConfigManager.get_db_engine()
+    db_name = url.database
+    if not db_name:
+        return
+
+    # The name is interpolated into a CREATE DATABASE statement below;
+    # identifiers can't be passed as bind parameters, so validate it up-front
+    # rather than rely on quoting. Test databases are always plain identifiers
+    # (`romm_test`, `romm_test_gw0`, ...).
+    if not re.fullmatch(r"[A-Za-z0-9_]+", db_name):
+        raise ValueError(f"Refusing to create database with unsafe name: {db_name!r}")
+
+    if ROMM_DB_DRIVER in ("mariadb", "mysql"):
+        # Connect to a maintenance schema that always exists; CREATE DATABASE is
+        # a server-level command regardless of the connected schema.
+        admin_engine = create_engine(url.set(database="information_schema"))
+        with admin_engine.begin() as conn:
+            conn.execute(text(f"CREATE DATABASE IF NOT EXISTS `{db_name}`"))
+        admin_engine.dispose()
+    elif ROMM_DB_DRIVER == "postgresql":
+        # CREATE DATABASE can't run inside a transaction.
+        admin_engine = create_engine(
+            url.set(database="postgres"), isolation_level="AUTOCOMMIT"
+        )
+        with admin_engine.connect() as conn:
+            exists = conn.execute(
+                text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                {"name": db_name},
+            ).scalar()
+            if not exists:
+                conn.execute(text(f'CREATE DATABASE "{db_name}"'))
+        admin_engine.dispose()
+
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
+    _ensure_database_exists()
     alembic.config.main(argv=["upgrade", "head"])
 
 
@@ -51,6 +101,9 @@ def clear_database():
         s.query(Rom).delete(synchronize_session="evaluate")
         s.query(Platform).delete(synchronize_session="evaluate")
         s.query(User).delete(synchronize_session="evaluate")
+
+    # Drop any cached gallery filter values to keep tests isolated.
+    db_rom_handler.invalidate_filter_values_cache()
 
 
 @pytest.fixture(scope="module")

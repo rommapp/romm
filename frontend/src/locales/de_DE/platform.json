@@ -81,5 +81,8 @@
   "cover-style": "Cover-Stil",
   "firmware-verified": "Verifiziert",
   "old-horizontal-cases": "Alte horizontale Hüllen",
-  "old-squared-cases": "Alte quadratische Hüllen"
+  "old-squared-cases": "Alte quadratische Hüllen",
+  "random-rom": "Zufälliges ROM",
+  "random-rom-empty": "Keine ROMs auf dieser Plattform",
+  "random-rom-error": "Zufälliges ROM konnte nicht ausgewählt werden"
 }

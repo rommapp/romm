@@ -81,5 +81,8 @@
   "cover-style": "Cover style",
   "firmware-verified": "Verified",
   "old-horizontal-cases": "Old horizontal cases",
-  "old-squared-cases": "Old squared cases"
+  "old-squared-cases": "Old squared cases",
+  "random-rom": "Random ROM",
+  "random-rom-empty": "No ROMs in this platform",
+  "random-rom-error": "Couldn't pick a random ROM"
 }

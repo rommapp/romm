@@ -1,0 +1,13 @@
+{
+  "active-sessions": "활성 세션",
+  "days-ago": "{n}일 전",
+  "hours-ago": "{n}시간 전",
+  "hours-minutes-ago": "{h}시간 {m}분 전",
+  "just-now": "방금 전",
+  "live": "라이브",
+  "minutes-ago": "{n}분 전",
+  "no-activity": "현재 플레이 중인 사용자가 없습니다",
+  "now-playing": "플레이 중",
+  "playing-on": "{device}에서 플레이 중",
+  "playing-since": "{time}부터 플레이 중"
+}

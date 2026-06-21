@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from config import ROMM_DB_DRIVER
 from handler.auth import auth_handler
 from handler.database import (
     db_platform_handler,
@@ -14,7 +15,7 @@ from handler.database import (
 )
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, compute_name_sort_key
 from models.user import Role, User
 
 
@@ -219,6 +220,59 @@ def test_filter_by_search_term_with_multiple_terms(platform: Platform):
     assert actual_rom_ids_single == expected_rom_ids_single
 
 
+def test_filter_by_search_term_multi_word_and_ranking(platform: Platform):
+    def _add(name: str) -> Rom:
+        fs = name.replace(" ", "_")
+        return db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name=name,
+                slug=name.lower().replace(" ", "-"),
+                fs_name=f"{fs}.zip",
+                fs_name_no_tags=fs,
+                fs_name_no_ext=fs,
+                fs_extension="zip",
+                fs_path=f"{platform.slug}/roms",
+            )
+        )
+
+    ff = _add("Final Fantasy")
+    ff7 = _add("Final Fantasy VII")
+    fantasy_final = _add("Fantasy Final")  # both words, reversed order
+    _add("Final Combat")  # only "final"
+    _add("Angelique - Voice Fantasy")  # only "fantasy"
+    _add("Super Mario World")  # neither word
+
+    results = db_rom_handler.get_roms_scalar(search_term="final fantasy")
+    result_ids = [r.id for r in results]
+
+    # Only titles containing BOTH words appear (AND semantics).
+    assert set(result_ids) == {ff.id, ff7.id, fantasy_final.id}
+
+    # Relevance ordering uses MATCH ... AGAINST, which only runs on
+    # MySQL/MariaDB; PostgreSQL falls back to name ordering, so the
+    # phrase-ranking assertions only hold on those drivers.
+    if ROMM_DB_DRIVER in ("mariadb", "mysql"):
+        # Exact-order phrase matches rank above the reversed-order match.
+        assert result_ids.index(ff.id) < result_ids.index(fantasy_final.id)
+        assert result_ids.index(ff7.id) < result_ids.index(fantasy_final.id)
+
+    # The relevance ORDER BY must also survive the group_by_meta_id subquery
+    # wrapping used by the gallery (each ROM here is its own group).
+    grouped = db_rom_handler.get_roms_scalar(
+        search_term="final fantasy", group_by_meta_id=True
+    )
+    assert {r.id for r in grouped} == {ff.id, ff7.id, fantasy_final.id}
+
+    # An explicit sort takes priority over relevance: ordering by name asc puts
+    # "Fantasy Final" first (relevance is only the tiebreaker here).
+    explicit = db_rom_handler.get_roms_scalar(
+        search_term="final fantasy", order_by="name", order_dir="asc"
+    )
+    explicit_ids = [r.id for r in explicit]
+    assert explicit_ids.index(fantasy_final.id) < explicit_ids.index(ff.id)
+
+
 def test_sibling_roms_empty_fs_name_no_tags_not_matched(platform: Platform):
     """ROMs with empty fs_name_no_tags should NOT be matched as siblings.
 
@@ -376,6 +430,33 @@ def test_article_stripping_sort(platform: Platform):
     )
     # "The Legend" → sorts as "legend", "A Quest" → "quest", "Zelda" → "zelda"
     assert [r.name for r in roms] == ["The Legend", "A Quest", "Zelda"]
+
+
+def test_custom_name_sort_key_overrides_name_sort_order(platform: Platform):
+    for name, sort_override in [
+        ("Display Z", "Alpha"),
+        ("Display M", None),
+        ("Display A", "Zulu"),
+    ]:
+        rom = Rom(
+            platform_id=platform.id,
+            name=name,
+            slug=name.lower().replace(" ", "-"),
+            fs_name=f"{name}.zip",
+            fs_name_no_tags=name,
+            fs_name_no_ext=name,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+        # A custom key pins ordering; without one it derives from `name`.
+        if sort_override is not None:
+            rom.name_sort_key = compute_name_sort_key(sort_override)
+        db_rom_handler.add_rom(rom)
+
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], order_by="name", order_dir="asc"
+    )
+    assert [r.name for r in roms] == ["Display Z", "Display M", "Display A"]
 
 
 def test_bulk_mark_present(platform: Platform):

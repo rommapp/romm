@@ -1,5 +1,7 @@
 {
+  "crt-mode": "CRT mode",
   "about": "О приложении",
+  "activity": "Активность",
   "add": "Добавить",
   "administration": "Администрирование",
   "and": "и",
@@ -14,6 +16,7 @@
   "create": "Создать",
   "delete": "Удалить",
   "dropzone-description": "Перетащите ваши ROM файлы сюда или нажмите для просмотра",
+  "dropzone-hint": "Перетащите файлы или нажмите для выбора",
   "dropzone-drag-over": "Отпустите для загрузки",
   "dropzone-title": "Перетащите файлы сюда",
   "edit": "Редактировать",
@@ -148,5 +151,8 @@
   "changelog-empty-title": "Релизов пока нет",
   "changelog-empty-hint": "В репозитории ещё нет опубликованных релизов.",
   "changelog-view-all": "Посмотреть все релизы на GitHub",
-  "visibility": "Видимость"
+  "visibility": "Видимость",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server",
+  "logs": "Logs"
 }

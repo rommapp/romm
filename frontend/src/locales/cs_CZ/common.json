@@ -1,5 +1,7 @@
 {
+  "crt-mode": "CRT mode",
   "about": "O aplikaci",
+  "activity": "Aktivita",
   "add": "Přidat",
   "administration": "Administrace",
   "and": "a",
@@ -17,6 +19,7 @@
   "create": "Vytvořit",
   "delete": "Smazat",
   "dropzone-description": "Přetáhněte sem své ROM soubory nebo klikněte pro výběr",
+  "dropzone-hint": "Přetáhni sem soubory nebo klikni pro výběr",
   "dropzone-drag-over": "Uvolněte pro nahrání",
   "dropzone-title": "Vložte soubory sem",
   "edit": "Upravit",
@@ -148,5 +151,8 @@
   "changelog-empty-title": "Zatím žádná vydání",
   "changelog-empty-hint": "Repozitář zatím nezveřejnil žádná vydání.",
   "changelog-view-all": "Zobrazit všechna vydání na GitHubu",
-  "visibility": "Viditelnost"
+  "visibility": "Viditelnost",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server",
+  "logs": "Logs"
 }

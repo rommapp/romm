@@ -267,8 +267,10 @@ function collectionCovers(c: {
         </template>
         <template v-else>
           <GameCard
-            v-for="rom in continuePlayingRoms"
+            v-for="(rom, i) in continuePlayingRoms"
             :key="`cont-${rom.id}`"
+            class="r-v2-card-fade"
+            :style="{ '--card-fade-i': i }"
             :rom="rom"
             :webp="supportsWebp"
             hero
@@ -293,8 +295,10 @@ function collectionCovers(c: {
         </div>
         <template v-else>
           <GameCard
-            v-for="rom in recentRoms"
+            v-for="(rom, i) in recentRoms"
             :key="`rec-${rom.id}`"
+            class="r-v2-card-fade"
+            :style="{ '--card-fade-i': i }"
             :rom="rom"
             :webp="supportsWebp"
           />

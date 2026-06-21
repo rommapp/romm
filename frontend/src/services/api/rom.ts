@@ -190,7 +190,7 @@ async function getRoms({
   searchTerm = null,
   limit = 72,
   offset = 0,
-  orderBy = "name",
+  orderBy = "",
   orderDir = "asc",
   filterMatched = null,
   filterFavorites = null,
@@ -481,6 +481,7 @@ async function updateRom({
 
   const fields: FormInputField<UpdateRomInput>[] = [
     ["name", rom.name],
+    ["name_sort_key", rom.name_sort_key ?? ""],
     ["fs_name", rom.fs_name],
     ["summary", rom.summary],
     ["igdb_id", toFormIdValue(rom.igdb_id)],
@@ -634,6 +635,53 @@ async function removeSoundtrack({
   fileId: number;
 }) {
   return api.delete(`/roms/${romId}/soundtracks/${fileId}`);
+}
+
+async function uploadScreenshots({
+  romId,
+  filesToUpload,
+}: {
+  romId: number;
+  filesToUpload: File[];
+}) {
+  const uploadStore = storeUpload();
+
+  const promises = filesToUpload.map((file) => {
+    const formData = new FormData();
+    formData.append(file.name, file);
+
+    uploadStore.start(file.name);
+    return new Promise((resolve, reject) => {
+      api
+        .post(`/roms/${romId}/screenshots`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            "X-Upload-Filename": file.name,
+          },
+          params: {},
+          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            uploadStore.update(file.name, progressEvent);
+          },
+        })
+        .then(resolve)
+        .catch((error) => {
+          uploadStore.fail(file.name, error.response?.data?.detail);
+          reject(error);
+        });
+    });
+  });
+
+  return Promise.allSettled(promises);
+}
+
+async function removeScreenshot({
+  romId,
+  fileId,
+}: {
+  romId: number;
+  fileId: number;
+}) {
+  return api.delete(`/roms/${romId}/screenshots/${fileId}`);
 }
 
 async function getSoundtrackMetadata({
@@ -823,6 +871,8 @@ export default {
   uploadSoundtracks,
   removeSoundtrack,
   getSoundtrackMetadata,
+  uploadScreenshots,
+  removeScreenshot,
   updateUserRomProps,
   deleteRoms,
   createRomNote,

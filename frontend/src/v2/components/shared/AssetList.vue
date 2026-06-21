@@ -1,31 +1,64 @@
 <script setup lang="ts">
-// Vertical list for saves — paired with <AssetStrip> (horizontal tile
-// strip for states) below the AssetPreview in the EmulatorJS view.
+// Vertical list for saves — paired with <AssetStrip> (tile grid/strip for
+// states). Shared between the EmulatorJS pre-game view (selection) and the
+// GameDetails "Save data" subtab (management).
 //
 // Saves never carry a screenshot, so the tile-strip's 16:9 area would
 // be wasted space. This list variant trades the visual thumbnail for
 // information density: each row shows the filename in full, both the
 // relative time AND the exact timestamp, plus the size and emulator
-// chip. The selected row gets a brand-color left rail + bg tint.
-import { RIcon, RTag, RTooltip } from "@v2/lib";
+// chip.
+//
+// Two modes, driven by `selectable`:
+//   * selectable (default) — Play view. Each row is a button; clicking
+//     emits `select`; the chosen row gets a brand rail + a check icon.
+//   * manage (selectable=false) — Save data subtab. Rows are static; the
+//     trailing area renders the `#actions` slot (download/delete/toggle),
+//     and `showOwner` adds an author chip for community items.
+import { RAvatar, RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type { SaveSchema, StateSchema } from "@/__generated__";
+import type {
+  SaveSchema,
+  StateSchema,
+  UserSaveSchema,
+  UserStateSchema,
+} from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
 export type AssetType = "save" | "state";
-type Asset = SaveSchema | StateSchema;
+type Asset = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
 
-const props = defineProps<{
-  assets: Asset[];
-  type: AssetType;
-  selectedId: number | null;
-}>();
+const props = withDefaults(
+  defineProps<{
+    assets: Asset[];
+    type: AssetType;
+    /** Play view: rows are selectable buttons with a check. When false,
+     *  rows are static and host the `#actions` slot (management). */
+    selectable?: boolean;
+    selectedId?: number | null;
+    /** Render an author chip (avatar + username) for community items. */
+    showOwner?: boolean;
+    /** Internal max-height + scroll. Off when the parent owns scrolling. */
+    scrollable?: boolean;
+  }>(),
+  {
+    selectable: true,
+    selectedId: null,
+    showOwner: false,
+    scrollable: true,
+  },
+);
 
 defineEmits<{
   select: [asset: Asset];
+}>();
+
+defineSlots<{
+  actions(props: { asset: Asset }): unknown;
 }>();
 
 const { t, locale } = useI18n();
@@ -35,24 +68,31 @@ const emptyLabel = computed(() =>
     ? t("play.no-saves-available")
     : t("play.no-states-available"),
 );
+
+function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
+  return "username" in asset && asset.username ? asset : null;
+}
 </script>
 
 <template>
-  <div class="r-asset-list">
+  <div class="r-asset-list" :class="{ 'r-asset-list--scroll': scrollable }">
     <ul v-if="assets.length > 0" class="r-asset-list__items">
       <li
-        v-for="asset in assets"
+        v-for="(asset, i) in assets"
         :key="asset.id"
-        class="r-asset-list__item"
+        class="r-asset-list__item r-v2-asset-fade"
         :class="{
-          'r-asset-list__item--active': asset.id === selectedId,
+          'r-asset-list__item--active': selectable && asset.id === selectedId,
         }"
+        :style="{ '--asset-fade-i': i }"
       >
-        <button
-          type="button"
+        <component
+          :is="selectable ? 'button' : 'div'"
+          :type="selectable ? 'button' : undefined"
           class="r-asset-list__row"
-          :aria-pressed="asset.id === selectedId"
-          @click="$emit('select', asset)"
+          :class="{ 'r-asset-list__row--static': !selectable }"
+          :aria-pressed="selectable ? asset.id === selectedId : undefined"
+          @click="selectable && $emit('select', asset)"
         >
           <span class="r-asset-list__icon" aria-hidden="true">
             <RIcon
@@ -64,6 +104,21 @@ const emptyLabel = computed(() =>
           <span class="r-asset-list__main">
             <span class="r-asset-list__name">{{ asset.file_name }}</span>
             <span class="r-asset-list__chips">
+              <span
+                v-if="showOwner && ownerOf(asset)"
+                class="r-asset-list__owner"
+              >
+                <RAvatar
+                  :image="
+                    userAvatarUrl(
+                      ownerOf(asset)!.user_avatar_path,
+                      ownerOf(asset)!.user_updated_at,
+                    )
+                  "
+                  :size="16"
+                />
+                <span>{{ ownerOf(asset)!.username }}</span>
+              </span>
               <RTag
                 v-if="asset.emulator"
                 tone="warning"
@@ -86,15 +141,27 @@ const emptyLabel = computed(() =>
             </span>
           </span>
 
-          <span class="r-asset-list__check" aria-hidden="true">
+          <span
+            v-if="selectable"
+            class="r-asset-list__check"
+            aria-hidden="true"
+          >
             <RIcon
               v-if="asset.id === selectedId"
               icon="mdi-check-circle"
               size="18"
             />
           </span>
+          <span v-else class="r-asset-list__actions">
+            <slot name="actions" :asset="asset" />
+          </span>
 
-          <RTooltip activator="parent" location="top" :open-delay="400">
+          <RTooltip
+            v-if="selectable"
+            activator="parent"
+            location="top"
+            :open-delay="400"
+          >
             <div class="r-asset-list__tip">
               <span class="r-asset-list__tip-name">{{ asset.file_name }}</span>
               <span class="r-asset-list__tip-sub">
@@ -103,7 +170,7 @@ const emptyLabel = computed(() =>
               </span>
             </div>
           </RTooltip>
-        </button>
+        </component>
       </li>
     </ul>
 
@@ -137,11 +204,15 @@ const emptyLabel = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 4px;
-  overflow-y: auto;
   min-height: 0;
-  max-height: 380px;
   scrollbar-color: var(--r-color-border-strong) transparent;
   scrollbar-width: thin;
+}
+/* Internal scroll only in the Play view; the Save data subtab owns its
+   own scroll, so it passes `scrollable=false` and the list grows freely. */
+.r-asset-list--scroll .r-asset-list__items {
+  overflow-y: auto;
+  max-height: 380px;
 }
 .r-asset-list__items::-webkit-scrollbar {
   width: 6px;
@@ -185,6 +256,16 @@ const emptyLabel = computed(() =>
 .r-asset-list__item--active .r-asset-list__row {
   border-color: var(--r-color-brand-primary);
   background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
+}
+/* Manage mode: rows are static info containers, not selectable buttons.
+   No pointer cursor, no hover-lift — only the action buttons react. */
+.r-asset-list__row--static {
+  cursor: default;
+}
+.r-asset-list__row--static:hover {
+  border-color: var(--r-color-border);
+  background: var(--r-color-bg-elevated);
+  transform: none;
 }
 
 .r-asset-list__icon {
@@ -237,6 +318,15 @@ const emptyLabel = computed(() =>
   font-size: 10px;
   color: var(--r-color-fg-secondary);
 }
+/* Author chip on community rows: avatar + username. */
+.r-asset-list__owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: var(--r-font-weight-medium);
+  color: var(--r-color-fg);
+}
 
 .r-asset-list__time {
   display: flex;
@@ -265,6 +355,14 @@ const emptyLabel = computed(() =>
 }
 .r-asset-list__item--active .r-asset-list__check {
   color: var(--r-color-brand-primary);
+}
+
+/* Manage mode: trailing action buttons (download / delete / toggle). */
+.r-asset-list__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .r-asset-list__empty {

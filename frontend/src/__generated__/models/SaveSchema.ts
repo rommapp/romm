@@ -22,6 +22,7 @@ export type SaveSchema = {
     emulator: (string | null);
     slot?: (string | null);
     content_hash?: (string | null);
+    is_public?: boolean;
     screenshot: (ScreenshotSchema | null);
     origin_device_id?: (string | null);
     device_syncs?: Array<DeviceSyncSchema>;

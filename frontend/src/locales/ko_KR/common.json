@@ -1,5 +1,7 @@
 {
+  "crt-mode": "CRT mode",
   "about": "정보",
+  "activity": "활동",
   "add": "추가",
   "administration": "유저 관리",
   "and": "및",
@@ -14,6 +16,7 @@
   "create": "생성",
   "delete": "삭제",
   "dropzone-description": "ROM 파일을 여기에 드래그 앤 드롭하거나 클릭하여 탐색하세요",
+  "dropzone-hint": "드래그 앤 드롭하거나 클릭하여 찾아보기",
   "dropzone-drag-over": "업로드하려면 놓으세요",
   "dropzone-title": "파일을 여기에 드롭하세요",
   "edit": "수정",
@@ -148,5 +151,8 @@
   "changelog-empty-title": "아직 릴리스가 없습니다",
   "changelog-empty-hint": "저장소에 게시된 릴리스가 아직 없습니다.",
   "changelog-view-all": "GitHub에서 모든 릴리스 보기",
-  "visibility": "공개 범위"
+  "visibility": "공개 범위",
+  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-reconnected": "Reconnected to the server",
+  "logs": "Logs"
 }

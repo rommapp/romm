@@ -239,6 +239,7 @@ DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))
 
 # FRONTEND
 KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))
+DISABLE_LOGS_VIEWER: Final[bool] = safe_str_to_bool(_get_env("DISABLE_LOGS_VIEWER"))
 
 # LOGGING
 LOGLEVEL: Final[str] = _get_env("LOGLEVEL", "INFO").upper()

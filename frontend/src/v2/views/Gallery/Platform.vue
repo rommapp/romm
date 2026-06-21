@@ -23,6 +23,7 @@ import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import platformApi from "@/services/api/platform";
+import romApi from "@/services/api/rom";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import { formatBytes } from "@/utils";
 import FirmwareTab from "@/v2/components/Gallery/FirmwareTab.vue";
@@ -48,6 +49,7 @@ const notFound = ref(false);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
 const deleting = ref(false);
 const scanOpen = ref(false);
+const randomLoading = ref(false);
 
 // Permissions — `useCan` is reactive against the grants store, so the
 // ribbon buttons hide automatically when the user's role changes.
@@ -92,6 +94,7 @@ const tabs = computed<RTabNavItem[]>(() => [
 const headLabels = computed(() => ({
   upload: t("platform.upload-roms"),
   scan: t("platform.scan-platform"),
+  random: t("platform.random-rom"),
 }));
 
 function onTabChange(next: string) {
@@ -312,6 +315,44 @@ function onScan() {
   scanOpen.value = true;
 }
 
+// Random ROM — pick one game from this platform and jump to its
+// details. Mirrors the Home RandomPickWidget approach: a cheap
+// count-only fetch gives the `total`, then a single-item fetch at a
+// random offset resolves the ROM. Scoped to the current platform via
+// `platformIds`.
+async function onRandomGame() {
+  const p = currentPlatform.value;
+  if (!p || randomLoading.value) return;
+  randomLoading.value = true;
+  try {
+    const { data: head } = await romApi.getRoms({
+      platformIds: [p.id],
+      limit: 1,
+      offset: 0,
+    });
+    if (!head.total) {
+      snackbar.info(t("platform.random-rom-empty"));
+      return;
+    }
+    const randomOffset = Math.floor(Math.random() * head.total);
+    const { data } = await romApi.getRoms({
+      platformIds: [p.id],
+      limit: 1,
+      offset: randomOffset,
+    });
+    const pick = data.items[0];
+    if (!pick) {
+      snackbar.info(t("platform.random-rom-empty"));
+      return;
+    }
+    router.push({ name: ROUTES.ROM, params: { rom: pick.id } });
+  } catch {
+    snackbar.error(t("platform.random-rom-error"));
+  } finally {
+    randomLoading.value = false;
+  }
+}
+
 async function onDelete() {
   const p = currentPlatform.value;
   if (!p) return;
@@ -377,10 +418,12 @@ async function onDelete() {
         :providers="providerChips"
         :can-edit="canEditPlatform"
         :can-scan="canScan"
+        :random-loading="randomLoading"
         :labels="headLabels"
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
+        @random="onRandomGame"
       />
     </template>
   </GalleryShell>
@@ -401,10 +444,12 @@ async function onDelete() {
         :providers="providerChips"
         :can-edit="canEditPlatform"
         :can-scan="canScan"
+        :random-loading="randomLoading"
         :labels="headLabels"
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
+        @random="onRandomGame"
       />
       <RDivider class="r-v2-plat-tabs__divider" />
       <div v-if="currentPlatform" class="r-v2-plat-tabs__panel">

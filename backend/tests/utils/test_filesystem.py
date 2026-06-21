@@ -5,8 +5,12 @@ import os
 from unittest.mock import patch
 
 import pytest
+from hypothesis import assume, given
+from hypothesis import strategies as st
 
-from utils.filesystem import link_or_copy_file
+from utils.filesystem import link_or_copy_file, sanitize_filename
+
+INVALID_AFTER_SANITIZE = set('\\/:|*?"<>+\0')
 
 
 class TestLinkOrCopyFile:
@@ -180,3 +184,35 @@ class TestLinkOrCopyFile:
         assert args[0] == source
         assert args[1].parent == dest.parent
         assert args[1].name.startswith(".romm_link_tmp_")
+
+
+class TestSanitizeFilename:
+    """Property-based tests for the cross-filesystem filename sanitizer."""
+
+    def _sanitize_or_none(self, name: str) -> str | None:
+        try:
+            return sanitize_filename(name)
+        except ValueError:
+            return None
+
+    @given(st.text())
+    def test_output_contains_no_invalid_characters(self, name: str):
+        result = self._sanitize_or_none(name)
+        assume(result is not None)
+        assert result is not None
+        assert not (set(result) & INVALID_AFTER_SANITIZE)
+
+    @given(st.text())
+    def test_output_is_stripped(self, name: str):
+        result = self._sanitize_or_none(name)
+        assume(result is not None)
+        assert result is not None
+        assert result == result.strip()
+        assert result != ""
+
+    @given(st.text())
+    def test_is_idempotent(self, name: str):
+        once = self._sanitize_or_none(name)
+        assume(once is not None)
+        assert once is not None
+        assert sanitize_filename(once) == once

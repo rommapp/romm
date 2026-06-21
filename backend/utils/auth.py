@@ -1,16 +1,53 @@
 import uuid
 from datetime import datetime, timezone
+from http.cookies import SimpleCookie
+from typing import Any
 
 from fastapi import Request
 from ua_parser import Result as UAResult
 from ua_parser import parse as parse_ua
 
+from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.database import db_device_handler
+from handler.redis_handler import async_cache
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.device import KNOWN_DEVICES, Device
 from models.user import User
+from utils import json_module
+
+
+async def get_session_from_environ(environ: dict[str, Any]) -> dict[str, Any]:
+    """Resolve the auth session for a socket handshake.
+
+    Tries the session the middleware attached to the ASGI scope first; if it's
+    absent (scope not propagated to the mounted socket app), falls back to
+    parsing the session cookie and reading the session straight from Redis —
+    the same lookup RedisSessionMiddleware performs.
+    """
+    scope = environ.get("asgi.scope", {})
+    session = scope.get("session")
+    if session:
+        return session
+
+    raw_cookie = environ.get("HTTP_COOKIE", "")
+    if not raw_cookie:
+        return {}
+
+    cookie: SimpleCookie = SimpleCookie()
+    cookie.load(raw_cookie)
+    morsel = cookie.get(SESSION_COOKIE_NAME)
+    if morsel is None:
+        return {}
+
+    session_data = await async_cache.get(f"session:{morsel.value}")
+    if not session_data:
+        return {}
+    try:
+        return json_module.loads(session_data)
+    except Exception:  # noqa: BLE001 - malformed session is "no session"
+        return {}
 
 
 def _get_device_name(user_agent: UAResult) -> str | None:
