@@ -39,9 +39,9 @@ import storePlaying from "@/stores/playing";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
-import AssetList from "@/v2/components/Player/AssetList.vue";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
-import AssetStrip from "@/v2/components/Player/AssetStrip.vue";
+import AssetList from "@/v2/components/shared/AssetList.vue";
+import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
@@ -422,12 +422,14 @@ const activeAssetTab = computed<AssetTab>(() =>
 const assetTabs = computed<SliderBtnGroupItem<AssetTab>[]>(() => [
   {
     id: "save",
-    label: `${t("common.saves")}${rom.value?.user_saves.length ? ` · ${rom.value.user_saves.length}` : ""}`,
+    label: t("common.saves"),
+    badge: rom.value?.user_saves.length ?? 0,
     icon: "mdi-content-save",
   },
   {
     id: "state",
-    label: `${t("common.states")}${compatibleStates.value.length ? ` · ${compatibleStates.value.length}` : ""}`,
+    label: t("common.states"),
+    badge: compatibleStates.value.length,
     icon: "mdi-file",
   },
 ]);

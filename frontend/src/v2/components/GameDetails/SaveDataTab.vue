@@ -14,7 +14,7 @@
 // URL-persistent subtab selection via `?subtab=` so deep-linking
 // into a specific list works and stale state doesn't leak when the
 // user navigates to a sibling tab.
-import { RAvatar, RBtn, RCollapsible, RDropzone, RIcon } from "@v2/lib";
+import { RBtn, RCollapsible, RDropzone, RIcon } from "@v2/lib";
 import axios from "axios";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
@@ -32,10 +32,16 @@ import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
-import { formatBytes } from "@/utils";
+import AssetList from "@/v2/components/shared/AssetList.vue";
+import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import { userAvatarUrl } from "@/v2/utils/userAvatar";
+
+// Slot payload from AssetList/AssetStrip is the full save|state union; these
+// narrow it back to the concrete schema the section's handlers expect.
+type AssetSlot = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
+const asSave = (a: AssetSlot) => a as SaveSchema;
+const asState = (a: AssetSlot) => a as StateSchema;
 
 defineOptions({ inheritAttrs: false });
 
@@ -315,11 +321,6 @@ async function toggleStateVisibility(state: StateSchema) {
     togglingStateId.value = null;
   }
 }
-
-function fmtDate(iso: string | null) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString();
-}
 </script>
 
 <template>
@@ -393,7 +394,7 @@ function fmtDate(iso: string | null) {
     </aside>
 
     <div class="r-v2-saves__content">
-      <!-- Saves subtab -->
+      <!-- Saves subtab — vertical info list -->
       <section v-show="subTab === 'saves'" class="r-v2-saves__panel">
         <!-- Mine -->
         <div class="r-v2-saves__section">
@@ -425,56 +426,51 @@ function fmtDate(iso: string | null) {
             multiple
             @files="onSaveUpload"
           >
-            <ul class="r-v2-saves__list">
-              <li v-for="s in mySaves" :key="s.id" class="r-v2-saves__row">
-                <div class="r-v2-saves__row-main">
-                  <div class="r-v2-saves__row-name">
-                    {{ s.file_name }}
-                  </div>
-                  <div class="r-v2-saves__row-meta">
-                    <span>{{ formatBytes(s.file_size_bytes) }}</span>
-                    <span class="r-v2-saves__sep">·</span>
-                    <span>{{ fmtDate(s.updated_at) }}</span>
-                    <template v-if="s.emulator">
-                      <span class="r-v2-saves__sep">·</span>
-                      <span>{{ s.emulator }}</span>
-                    </template>
-                  </div>
-                </div>
-                <div class="r-v2-saves__row-actions">
-                  <RBtn
-                    :icon="s.is_public ? 'mdi-lock-open-variant' : 'mdi-lock'"
-                    variant="text"
-                    size="small"
-                    :loading="togglingSaveId === s.id"
-                    :tooltip="
-                      s.is_public ? t('rom.make-private') : t('rom.make-public')
-                    "
-                    :aria-label="
-                      s.is_public ? t('rom.make-private') : t('rom.make-public')
-                    "
-                    @click="toggleSaveVisibility(s)"
-                  />
-                  <RBtn
-                    icon="mdi-download-outline"
-                    variant="text"
-                    size="small"
-                    :tooltip="t('common.download')"
-                    :aria-label="t('rom.download-named', { name: s.file_name })"
-                    @click="downloadAsset(s)"
-                  />
-                  <RBtn
-                    icon="mdi-delete-outline"
-                    variant="text"
-                    size="small"
-                    color="romm-red"
-                    :tooltip="t('common.delete')"
-                    :aria-label="t('rom.delete-save')"
-                    @click="deleteSave(s)"
-                  />
-                </div>
-              </li>
-            </ul>
+            <AssetList
+              :assets="mySaves"
+              type="save"
+              :selectable="false"
+              :scrollable="false"
+            >
+              <template #actions="{ asset }">
+                <RBtn
+                  :icon="asset.is_public ? 'mdi-lock-open-variant' : 'mdi-lock'"
+                  variant="text"
+                  size="small"
+                  :loading="togglingSaveId === asset.id"
+                  :tooltip="
+                    asset.is_public
+                      ? t('rom.make-private')
+                      : t('rom.make-public')
+                  "
+                  :aria-label="
+                    asset.is_public
+                      ? t('rom.make-private')
+                      : t('rom.make-public')
+                  "
+                  @click="toggleSaveVisibility(asSave(asset))"
+                />
+                <RBtn
+                  icon="mdi-download-outline"
+                  variant="text"
+                  size="small"
+                  :tooltip="t('common.download')"
+                  :aria-label="
+                    t('rom.download-named', { name: asset.file_name })
+                  "
+                  @click="downloadAsset(asset)"
+                />
+                <RBtn
+                  icon="mdi-delete-outline"
+                  variant="text"
+                  size="small"
+                  color="romm-red"
+                  :tooltip="t('common.delete')"
+                  :aria-label="t('rom.delete-save')"
+                  @click="deleteSave(asSave(asset))"
+                />
+              </template>
+            </AssetList>
           </RDropzone>
         </div>
 
@@ -483,48 +479,28 @@ function fmtDate(iso: string | null) {
           <header class="r-v2-saves__section-head">
             {{ t("rom.saves-section-community") }}
           </header>
-          <ul class="r-v2-saves__list">
-            <li v-for="s in communitySaves" :key="s.id" class="r-v2-saves__row">
-              <div class="r-v2-saves__row-main">
-                <div class="r-v2-saves__row-name">
-                  {{ s.file_name }}
-                </div>
-                <div class="r-v2-saves__row-meta">
-                  <span class="r-v2-saves__owner">
-                    <RAvatar
-                      :image="
-                        userAvatarUrl(s.user_avatar_path, s.user_updated_at)
-                      "
-                      :size="16"
-                    />
-                    <span>{{ s.username }}</span>
-                  </span>
-                  <span class="r-v2-saves__sep">·</span>
-                  <span>{{ formatBytes(s.file_size_bytes) }}</span>
-                  <span class="r-v2-saves__sep">·</span>
-                  <span>{{ fmtDate(s.updated_at) }}</span>
-                  <template v-if="s.emulator">
-                    <span class="r-v2-saves__sep">·</span>
-                    <span>{{ s.emulator }}</span>
-                  </template>
-                </div>
-              </div>
-              <div class="r-v2-saves__row-actions">
-                <RBtn
-                  icon="mdi-download-outline"
-                  variant="text"
-                  size="small"
-                  :tooltip="t('common.download')"
-                  :aria-label="t('rom.download-named', { name: s.file_name })"
-                  @click="downloadAsset(s)"
-                />
-              </div>
-            </li>
-          </ul>
+          <AssetList
+            :assets="communitySaves"
+            type="save"
+            :selectable="false"
+            :scrollable="false"
+            show-owner
+          >
+            <template #actions="{ asset }">
+              <RBtn
+                icon="mdi-download-outline"
+                variant="text"
+                size="small"
+                :tooltip="t('common.download')"
+                :aria-label="t('rom.download-named', { name: asset.file_name })"
+                @click="downloadAsset(asset)"
+              />
+            </template>
+          </AssetList>
         </div>
       </section>
 
-      <!-- States subtab -->
+      <!-- States subtab — tile grid (screenshot is the point) -->
       <section v-show="subTab === 'states'" class="r-v2-saves__panel">
         <!-- Mine -->
         <div class="r-v2-saves__section">
@@ -556,56 +532,51 @@ function fmtDate(iso: string | null) {
             multiple
             @files="onStateUpload"
           >
-            <ul class="r-v2-saves__list">
-              <li v-for="s in myStates" :key="s.id" class="r-v2-saves__row">
-                <div class="r-v2-saves__row-main">
-                  <div class="r-v2-saves__row-name">
-                    {{ s.file_name }}
-                  </div>
-                  <div class="r-v2-saves__row-meta">
-                    <span>{{ formatBytes(s.file_size_bytes) }}</span>
-                    <span class="r-v2-saves__sep">·</span>
-                    <span>{{ fmtDate(s.updated_at) }}</span>
-                    <template v-if="s.emulator">
-                      <span class="r-v2-saves__sep">·</span>
-                      <span>{{ s.emulator }}</span>
-                    </template>
-                  </div>
-                </div>
-                <div class="r-v2-saves__row-actions">
-                  <RBtn
-                    :icon="s.is_public ? 'mdi-lock-open-variant' : 'mdi-lock'"
-                    variant="text"
-                    size="small"
-                    :loading="togglingStateId === s.id"
-                    :tooltip="
-                      s.is_public ? t('rom.make-private') : t('rom.make-public')
-                    "
-                    :aria-label="
-                      s.is_public ? t('rom.make-private') : t('rom.make-public')
-                    "
-                    @click="toggleStateVisibility(s)"
-                  />
-                  <RBtn
-                    icon="mdi-download-outline"
-                    variant="text"
-                    size="small"
-                    :tooltip="t('common.download')"
-                    :aria-label="t('rom.download-named', { name: s.file_name })"
-                    @click="downloadAsset(s)"
-                  />
-                  <RBtn
-                    icon="mdi-delete-outline"
-                    variant="text"
-                    size="small"
-                    color="romm-red"
-                    :tooltip="t('common.delete')"
-                    :aria-label="t('rom.delete-state')"
-                    @click="deleteState(s)"
-                  />
-                </div>
-              </li>
-            </ul>
+            <AssetStrip
+              :assets="myStates"
+              type="state"
+              :selectable="false"
+              wrap
+            >
+              <template #actions="{ asset }">
+                <RBtn
+                  :icon="asset.is_public ? 'mdi-lock-open-variant' : 'mdi-lock'"
+                  variant="text"
+                  size="small"
+                  :loading="togglingStateId === asset.id"
+                  :tooltip="
+                    asset.is_public
+                      ? t('rom.make-private')
+                      : t('rom.make-public')
+                  "
+                  :aria-label="
+                    asset.is_public
+                      ? t('rom.make-private')
+                      : t('rom.make-public')
+                  "
+                  @click="toggleStateVisibility(asState(asset))"
+                />
+                <RBtn
+                  icon="mdi-download-outline"
+                  variant="text"
+                  size="small"
+                  :tooltip="t('common.download')"
+                  :aria-label="
+                    t('rom.download-named', { name: asset.file_name })
+                  "
+                  @click="downloadAsset(asset)"
+                />
+                <RBtn
+                  icon="mdi-delete-outline"
+                  variant="text"
+                  size="small"
+                  color="romm-red"
+                  :tooltip="t('common.delete')"
+                  :aria-label="t('rom.delete-state')"
+                  @click="deleteState(asState(asset))"
+                />
+              </template>
+            </AssetStrip>
           </RDropzone>
         </div>
 
@@ -614,48 +585,24 @@ function fmtDate(iso: string | null) {
           <header class="r-v2-saves__section-head">
             {{ t("rom.states-section-community") }}
           </header>
-          <ul class="r-v2-saves__list">
-            <li
-              v-for="s in communityStates"
-              :key="s.id"
-              class="r-v2-saves__row"
-            >
-              <div class="r-v2-saves__row-main">
-                <div class="r-v2-saves__row-name">
-                  {{ s.file_name }}
-                </div>
-                <div class="r-v2-saves__row-meta">
-                  <span class="r-v2-saves__owner">
-                    <RAvatar
-                      :image="
-                        userAvatarUrl(s.user_avatar_path, s.user_updated_at)
-                      "
-                      :size="16"
-                    />
-                    <span>{{ s.username }}</span>
-                  </span>
-                  <span class="r-v2-saves__sep">·</span>
-                  <span>{{ formatBytes(s.file_size_bytes) }}</span>
-                  <span class="r-v2-saves__sep">·</span>
-                  <span>{{ fmtDate(s.updated_at) }}</span>
-                  <template v-if="s.emulator">
-                    <span class="r-v2-saves__sep">·</span>
-                    <span>{{ s.emulator }}</span>
-                  </template>
-                </div>
-              </div>
-              <div class="r-v2-saves__row-actions">
-                <RBtn
-                  icon="mdi-download-outline"
-                  variant="text"
-                  size="small"
-                  :tooltip="t('common.download')"
-                  :aria-label="t('rom.download-named', { name: s.file_name })"
-                  @click="downloadAsset(s)"
-                />
-              </div>
-            </li>
-          </ul>
+          <AssetStrip
+            :assets="communityStates"
+            type="state"
+            :selectable="false"
+            wrap
+            show-owner
+          >
+            <template #actions="{ asset }">
+              <RBtn
+                icon="mdi-download-outline"
+                variant="text"
+                size="small"
+                :tooltip="t('common.download')"
+                :aria-label="t('rom.download-named', { name: asset.file_name })"
+                @click="downloadAsset(asset)"
+              />
+            </template>
+          </AssetStrip>
         </div>
       </section>
     </div>
@@ -776,72 +723,6 @@ function fmtDate(iso: string | null) {
   color: var(--r-color-fg-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-}
-
-/* Author chip on community rows: avatar + username inline in the meta line. */
-.r-v2-saves__owner {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--r-color-fg);
-}
-
-/* File-list rows. The trailing action cluster only paints buttons —
-   no border or background — because the row itself owns the surface. */
-.r-v2-saves__list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.r-v2-saves__row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-md);
-  color: var(--r-color-fg);
-}
-.r-v2-saves__row > .mdi {
-  color: var(--r-color-fg-muted);
-}
-
-.r-v2-saves__row-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.r-v2-saves__row-name {
-  font-size: 13px;
-  font-weight: var(--r-font-weight-medium);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r-v2-saves__row-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  color: var(--r-color-fg-muted);
-  flex-wrap: wrap;
-}
-.r-v2-saves__sep {
-  opacity: 0.5;
-}
-
-.r-v2-saves__row-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
 }
 
 html[data-bp~="xs"] .r-v2-saves {
