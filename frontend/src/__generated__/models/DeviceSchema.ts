@@ -13,6 +13,7 @@ export type DeviceSchema = {
     ip_address: (string | null);
     mac_address: (string | null);
     hostname: (string | null);
+    client_device_identifier: (string | null);
     sync_mode: SyncMode;
     sync_enabled: boolean;
     sync_config: (Record<string, any> | null);
