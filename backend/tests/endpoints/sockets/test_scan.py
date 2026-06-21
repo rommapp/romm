@@ -352,9 +352,9 @@ def _fs_rom(fs_name: str, fs_path: str) -> FSRom:
 
 
 class TestReconcileRelocatedRoms:
-    """A rom whose on-disk path changed (subfolder scanning) is relocated in
-    place by content hash instead of being re-imported as new, so its DB row —
-    and the saves/history/favorites/collections attached to it — survives."""
+    """A rom whose on-disk path changed (custom library structure) is relocated
+    in place by content hash instead of being re-imported as new, so its DB row
+    — and the saves/history/favorites/collections attached to it — survives."""
 
     @pytest.mark.asyncio
     async def test_moved_file_is_relocated_not_reimported(
@@ -377,7 +377,7 @@ class TestReconcileRelocatedRoms:
             )
         )
 
-        # On disk the file now lives inside a subfolder (same bytes).
+        # On disk the file now lives inside a nested folder (same bytes).
         sub = tmp_path / base / "Hacks"
         sub.mkdir(parents=True)
         (sub / "Mover.bin").write_bytes(content)

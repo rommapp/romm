@@ -4,6 +4,7 @@ import glob
 import json
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, NotRequired, TypedDict
 
@@ -27,6 +28,98 @@ from exceptions.config_exceptions import ConfigNotWritableException
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+
+
+# Terminal macros for a custom library structure template. Exactly one must
+# appear, as the last path segment.
+STRUCTURE_GAME_FILE: Final = "gameFile"
+STRUCTURE_GAME_DIR: Final = "gameDir"
+# Macros that belong to Retrom's full-path templates but are resolved by RomM
+# itself (library base + roms folder + platform discovery). A per-platform
+# template is relative to the platform's ROM folder, so these are rejected with
+# a helpful message instead of being silently treated as wildcard levels.
+_STRUCTURE_RESERVED_NONTERMINAL: Final = frozenset({"platform", "library"})
+
+
+@dataclass(frozen=True)
+class StructureLevel:
+    """One intermediate directory level of a custom structure template.
+
+    ``literal`` is the exact folder name to match, or ``None`` for a wildcard
+    macro level (``{region}``, ``{category}``, …) that matches any folder.
+    """
+
+    literal: str | None
+
+
+@dataclass(frozen=True)
+class LibraryStructure:
+    """A parsed per-platform custom library structure.
+
+    Relative to the platform's ROM folder: ``levels`` are the intermediate
+    directory levels to descend (literal or wildcard), and ``each_file_is_game``
+    selects the terminal — ``{gameFile}`` (each file is a ROM) vs ``{gameDir}``
+    (each directory is a multi-file ROM).
+    """
+
+    levels: tuple[StructureLevel, ...]
+    each_file_is_game: bool
+
+
+def parse_library_structure(template: str) -> LibraryStructure:
+    """Parse a custom structure template into a ``LibraryStructure``.
+
+    Template syntax mirrors Retrom: ``/``-separated path sections where a
+    section wrapped in braces is a macro and a bare section is a literal folder
+    name. The last section must be the terminal ``{gameFile}`` or ``{gameDir}``;
+    every other braced section is a wildcard directory level. The template is
+    relative to the platform's ROM folder, so ``{platform}`` / ``{library}`` are
+    not used here.
+
+    Raises ``ValueError`` on an invalid template.
+    """
+    sections = [s for s in template.split("/") if s != ""]
+    if not sections:
+        raise ValueError("template is empty")
+
+    levels: list[StructureLevel] = []
+    each_file_is_game: bool | None = None
+
+    for index, section in enumerate(sections):
+        is_last = index == len(sections) - 1
+        is_macro = section.startswith("{") and section.endswith("}")
+
+        if not is_macro:
+            if "{" in section or "}" in section:
+                raise ValueError(f"malformed macro in section '{section}'")
+            levels.append(StructureLevel(literal=section))
+            continue
+
+        name = section[1:-1].strip()
+        if name in (STRUCTURE_GAME_FILE, STRUCTURE_GAME_DIR):
+            if not is_last:
+                raise ValueError(
+                    f"'{{{name}}}' must be the last path section of the template"
+                )
+            each_file_is_game = name == STRUCTURE_GAME_FILE
+            continue
+
+        if name in _STRUCTURE_RESERVED_NONTERMINAL:
+            raise ValueError(
+                f"'{{{name}}}' is not supported: a platform template is relative "
+                "to that platform's ROM folder (RomM resolves library root, roms "
+                "folder and platform on its own)"
+            )
+        if not name:
+            raise ValueError("empty macro '{}'")
+        # Any other braced section is an organizational wildcard directory level.
+        levels.append(StructureLevel(literal=None))
+
+    if each_file_is_game is None:
+        raise ValueError("template must end with '{gameFile}' or '{gameDir}'")
+
+    return LibraryStructure(levels=tuple(levels), each_file_is_game=each_file_is_game)
+
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
@@ -118,6 +211,7 @@ class Config:
     PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
     FIRMWARE_FOLDER_NAME: str
+    STRUCTURE_TEMPLATES: dict[str, str]
     SKIP_HASH_CALCULATION: bool
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
@@ -132,7 +226,6 @@ class Config:
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
-    SCAN_SUBFOLDERS: dict[str, bool | list[str]]
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
 
@@ -161,24 +254,18 @@ class Config:
 
         return False
 
-    def subfolder_scan_spec(self, fs_slug: str) -> bool | frozenset[str]:
-        """How the scanner should recurse into a platform's subfolders.
+    def platform_structure(self, fs_slug: str) -> LibraryStructure | None:
+        """The custom library structure for a platform, or ``None``.
 
-        Opt-in per platform via `scan.subfolders` in config.yml, where the
-        value is either:
-          - ``True`` -> recurse every subfolder (each nested file becomes its
-            own rom);
-          - a list of folder names -> recurse only those folders, leaving every
-            other folder as a single multi-file rom (so folder-based multi-file
-            games elsewhere on the platform stay intact);
-          - ``False`` / omitted -> don't recurse (default behavior).
-
-        Returns ``True``, a ``frozenset`` of folder names, or ``False``.
+        Opt-in per platform via `filesystem.structure` in config.yml (a map of
+        ``fs_slug -> template``). When unset, the platform uses RomM's default
+        discovery (top-level files and folders). The template is validated at
+        load time, so parsing here is expected to succeed.
         """
-        value = getattr(self, "SCAN_SUBFOLDERS", {}).get(fs_slug, False)
-        if isinstance(value, list):
-            return frozenset(value)
-        return bool(value)
+        template = getattr(self, "STRUCTURE_TEMPLATES", {}).get(fs_slug)
+        if not template:
+            return None
+        return parse_library_structure(template)
 
 
 class ConfigManager:
@@ -466,7 +553,9 @@ class ConfigManager:
             PEGASUS_AUTO_EXPORT_ON_SCAN=pydash.get(
                 self._raw_config, "scan.pegasus.export", False
             ),
-            SCAN_SUBFOLDERS=pydash.get(self._raw_config, "scan.subfolders", {}),
+            STRUCTURE_TEMPLATES=pydash.get(
+                self._raw_config, "filesystem.structure", {}
+            ),
         )
 
     def _get_ejs_controls(self) -> dict[str, EjsControls]:
@@ -681,18 +770,24 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.media must be a list")
             sys.exit(3)
 
-        if not isinstance(self.config.SCAN_SUBFOLDERS, dict):
-            log.critical("Invalid config.yml: scan.subfolders must be a dictionary")
-            sys.exit(3)
-        for fs_slug, value in self.config.SCAN_SUBFOLDERS.items():
-            is_bool = isinstance(value, bool)
-            is_str_list = isinstance(value, list) and all(
-                isinstance(name, str) for name in value
+        if not isinstance(self.config.STRUCTURE_TEMPLATES, dict):
+            log.critical(
+                "Invalid config.yml: filesystem.structure must be a dictionary"
             )
-            if not (is_bool or is_str_list):
+            sys.exit(3)
+        for fs_slug, template in self.config.STRUCTURE_TEMPLATES.items():
+            if not isinstance(template, str):
                 log.critical(
-                    f"Invalid config.yml: scan.subfolders.{fs_slug} must be a "
-                    "boolean or a list of folder names"
+                    f"Invalid config.yml: filesystem.structure.{fs_slug} must be a "
+                    "string template"
+                )
+                sys.exit(3)
+            try:
+                parse_library_structure(template)
+            except ValueError as exc:
+                log.critical(
+                    f"Invalid config.yml: filesystem.structure.{fs_slug} "
+                    f"('{template}'): {exc}"
                 )
                 sys.exit(3)
 
@@ -789,6 +884,7 @@ class ConfigManager:
             "filesystem": {
                 "roms_folder": self.config.ROMS_FOLDER_NAME,
                 "firmware_folder": self.config.FIRMWARE_FOLDER_NAME,
+                "structure": self.config.STRUCTURE_TEMPLATES,
                 "skip_hash_calculation": self.config.SKIP_HASH_CALCULATION,
             },
             "system": {
@@ -815,7 +911,6 @@ class ConfigManager:
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
                 "media": self.config.SCAN_MEDIA,
-                "subfolders": self.config.SCAN_SUBFOLDERS,
                 "gamelist": {
                     "export": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
                     "media": {

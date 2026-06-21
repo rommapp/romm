@@ -30,6 +30,9 @@ filesystem:
   roms_folder: "ROMS"
   firmware_folder: "BIOS"
   skip_hash_calculation: true
+  structure:
+    psx: "{category}/{gameDir}"
+    nes: "{gameFile}"
 
 scan:
   priority:

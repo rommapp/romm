@@ -76,6 +76,44 @@
 #   roms_folder: 'roms'
 #   # Skip file hash calculations on low power devices (eg. Raspberry PI)
 #   skip_hash_calculation: false
+#   # Custom library structure, per platform. By default a platform's ROM folder
+#   # is scanned one level deep: each top-level file is a game and each top-level
+#   # folder is a single multi-file game. A template lets you describe a deeper /
+#   # organized layout instead. It is opt-in per platform (by fs_slug); platforms
+#   # left out keep the default behavior.
+#   #
+#   # Syntax (Retrom-style): `/`-separated path sections, relative to the
+#   # platform's ROM folder (RomM already resolves the library root, the
+#   # roms_folder above, and the platform directory — so {library}/{platform}
+#   # are not used here). A section wrapped in braces is a macro; a bare section
+#   # is a literal folder name matched exactly. The LAST section must be a
+#   # terminal macro:
+#   #   - {gameFile} -> each file at that level is its own game;
+#   #   - {gameDir}  -> each folder at that level is a single multi-file game.
+#   # Any other braced section (e.g. {region}, {category}) is a wildcard
+#   # directory level: it matches any folder and is purely organizational.
+#   #
+#   # Notes:
+#   #   - Hidden (dot-prefixed) folders are never descended into or surfaced.
+#   #   - {gameDir} keeps a folder whole (multi-disc / cue+bin games), so there
+#   #     is no guessing — you declare file-vs-folder explicitly.
+#   #   - Identity is content-based on scan: moving or renaming a game within the
+#   #     structure is detected by its hash and relocated in place, so its saves,
+#   #     play history, favorites and collection membership follow it (as long as
+#   #     hashing is enabled and the platform is hashable). When a folder that was
+#   #     previously scanned as one multi-file game is now descended into, the old
+#   #     entry is marked "missing from filesystem" (the scan log flags it);
+#   #     delete the stale entry to clean up.
+#   #   - Two files with the same name in different folders become distinct games;
+#   #     gamelist.xml metadata matching is by filename, so both may match the
+#   #     same gamelist entry.
+#   structure:
+#     # roms/nes/Hacks/foo.nes, roms/nes/Translations/bar.nes -> each file a game
+#     nes: '{category}/{gameFile}'
+#     # roms/ps3/Disc/Game/, roms/ps3/PSN/Game/ -> each folder a multi-file game
+#     ps3: '{category}/{gameDir}'
+#     # roms/snes/USA/foo.sfc, roms/snes/Japan/bar.sfc
+#     snes: '{region}/{gameFile}'
 
 # scan:
 #   # Metadata priority during scans
@@ -145,38 +183,6 @@
 #       image: screenshot  # Use as the <image> tag in the exported gamelist.xml
 #   pegasus:
 #     export: false # Whether to export metadata.pegasus.txt for Pegasus
-#   # Recurse into platform subfolders, treating nested files as their own
-#   # ROMs rather than collapsing each subfolder into a single multi-file ROM.
-#   # Opt-in per platform. The value is either:
-#   #   - true  -> recurse EVERY subfolder of the platform;
-#   #   - a list of folder names -> recurse ONLY those folders, leaving every
-#   #     other folder as a single multi-file ROM (so folder-based multi-file
-#   #     games elsewhere on the platform stay intact — the recommended form
-#   #     when a platform mixes grouping folders with multi-file games);
-#   #   - false / omitted -> default behavior (a subfolder is one multi-file ROM).
-#   #
-#   # Behavior & notes (read before enabling):
-#   #   - Hidden (dot-prefixed) folders are never descended into.
-#   #   - A subfolder containing a disc/playlist descriptor (.m3u, .cue, .gdi,
-#   #     .ccd, .toc) is kept whole as a single multi-file ROM (a multi-disc
-#   #     game) and is NOT split into one ROM per disc, even when recursed.
-#   #   - With `true`, a multi-file game stored as a bare folder with no such
-#   #     descriptor WOULD be split into separate ROMs. Use the named-list form
-#   #     (don't list that game's folder) to keep it whole.
-#   #   - Identity is content-based on scan: moving (or renaming) a ROM between
-#   #     subfolders is detected by its hash and relocated in place, so its
-#   #     saves, play history, favorites and collection membership follow it —
-#   #     as long as hashing is enabled and the platform is hashable. When a
-#   #     folder previously scanned as one multi-file ROM is now recursed, that
-#   #     old entry is marked "missing from filesystem" (the scan log flags it);
-#   #     delete the stale entry to clean up.
-#   #   - Two files with the same name in different subfolders become distinct
-#   #     ROMs; gamelist.xml metadata matching is by filename, so both may match
-#   #     the same gamelist entry.
-#   subfolders:
-#     nes: true                          # recurse every NES subfolder
-#     snes: ["Hacks", "Translations"]    # recurse only these; keep other folders whole
-#     megadrive: false
 
 # EmulatorJS per-core options
 # emulatorjs:

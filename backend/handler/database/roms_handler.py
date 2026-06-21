@@ -1174,8 +1174,8 @@ class DBRomsHandler(DBBaseHandler):
         """Retrieve a dictionary of roms keyed by their full path (fs_path/fs_name).
 
         Filters by file name for an indexed lookup, but keys the result on the
-        full path so identically-named files in different subfolders (subfolder
-        scanning) remain distinct.
+        full path so identically-named files in different folders (custom
+        library structures) remain distinct.
 
         Eager-loads only `platform` (used downstream by the scan loop via
         `rom.platform_slug` / `rom.platform.fs_slug`). This deliberately
@@ -1283,8 +1283,8 @@ class DBRomsHandler(DBBaseHandler):
         """Sync `missing_from_fs` for a platform against the keep-list.
 
         The keep-list holds rom full paths (fs_path/fs_name) so that
-        identically-named files in different subfolders are tracked
-        independently when subfolder scanning is enabled.
+        identically-named files in different folders are tracked
+        independently under a custom library structure.
 
         Reads the rows once and writes only those whose state actually
         changes, so a re-scan of an unchanged platform issues no updates.

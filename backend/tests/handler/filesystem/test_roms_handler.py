@@ -377,7 +377,7 @@ class TestFSRomsHandler:
             # Check excluded files are not present
             assert "excluded_test.tmp" not in rom_names
 
-    def _make_subfolder_config(self, subfolders: dict[str, bool | list[str]]) -> Config:
+    def _make_structure_config(self, templates: dict[str, str]) -> Config:
         return Config(
             EXCLUDED_PLATFORMS=[],
             EXCLUDED_SINGLE_EXT=["tmp"],
@@ -389,176 +389,175 @@ class TestFSRomsHandler:
             PLATFORMS_VERSIONS={},
             ROMS_FOLDER_NAME="roms",
             FIRMWARE_FOLDER_NAME="bios",
-            SCAN_SUBFOLDERS=subfolders,
+            STRUCTURE_TEMPLATES=templates,
         )
 
-    def _build_subfolder_library(self, tmp_path: Path, platform: Platform) -> None:
-        """Library with a flat rom, a grouping subfolder (with a nested
-        sub-subfolder and a basename colliding with the root), a hidden folder,
-        and a folder-style multi-file rom."""
-        roms = tmp_path / platform.fs_slug / "roms"
+    def _build_structure_library(self, tmp_path: Path, base: str) -> None:
+        """Library exercising literal/wildcard levels, file-vs-folder terminals,
+        a name collision across folders, a hidden folder, and depth > 1."""
+        roms = tmp_path / base
         roms.mkdir(parents=True)
-        (roms / "Game A.zip").write_text("a")
-        group = roms / "All but the Best"
-        group.mkdir()
-        (group / "Game A.zip").write_text("dup")  # same basename, different folder
-        (group / "Hidden Gem.zip").write_text("c")
-        deeper = group / "deeper"
-        deeper.mkdir()
-        (deeper / "Way Down.zip").write_text("d")
+        (roms / "Top.zip").write_text("t")
+        hacks = roms / "Hacks"
+        hacks.mkdir()
+        (hacks / "Shared.zip").write_text("a")
+        (hacks / "HackOnly.zip").write_text("b")
+        inner = hacks / "Inner"
+        inner.mkdir()
+        (inner / "x.bin").write_text("x")
+        trans = roms / "Translations"
+        trans.mkdir()
+        (trans / "Shared.zip").write_text("c")  # collides with Hacks/Shared.zip
         hidden = roms / ".hidden"
         hidden.mkdir()
-        (hidden / "disc.chd").write_text("x")
-        multi = roms / "Multi Disc Game"
-        multi.mkdir()
-        (multi / "disc1.bin").write_text("p")
+        (hidden / "secret.zip").write_text("s")
+        region = roms / "Region"
+        region.mkdir()
+        usa = region / "USA"
+        usa.mkdir()
+        (usa / "usagame.zip").write_text("u")
 
     @pytest.mark.asyncio
-    async def test_get_roms_subfolders_disabled(
+    async def test_get_roms_no_structure_is_default(
         self, platform: Platform, tmp_path: Path
     ):
-        """By default a subfolder is a single multi-file rom, not a group."""
-        self._build_subfolder_library(tmp_path, platform)
+        """Without a template, only top-level files and folders are surfaced
+        (each file a flat rom, each folder a single multi-file rom)."""
         handler = FSRomsHandler()
         handler.base_path = tmp_path
-
         with patch(
             "handler.filesystem.roms_handler.cm.get_config",
-            lambda: self._make_subfolder_config({}),
+            lambda: self._make_structure_config({}),
         ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
             roms = await handler.get_roms(platform)
             count = await handler.count_roms(platform)
 
         keys = {(r["fs_path"], r["fs_name"]) for r in roms}
-        base = f"{platform.fs_slug}/roms"
-        assert (base, "Game A.zip") in keys
-        # Directories surface as multi-file roms, not as groups.
-        assert (base, "All but the Best") in keys
-        assert (base, "Multi Disc Game") in keys
+        assert (base, "Top.zip") in keys
+        assert (base, "Hacks") in keys
+        assert (base, "Translations") in keys
+        assert (base, "Region") in keys
         assert (base, ".hidden") in keys
-        # Nothing inside any subfolder is surfaced.
-        assert not any(r["fs_path"] != base for r in roms)
-        assert len(roms) == 4
+        # Nothing nested is surfaced.
+        assert all(r["fs_path"] == base for r in roms)
+        assert len(roms) == 5
         assert count == len(roms)
 
     @pytest.mark.asyncio
-    async def test_get_roms_subfolders_enabled(
+    async def test_get_roms_structure_wildcard_file_terminal(
         self, platform: Platform, tmp_path: Path
     ):
-        """With subfolder scanning on, groups are descended into (recursively),
-        hidden folders are skipped, and identically-named files in different
-        folders stay distinct via their full path."""
-        self._build_subfolder_library(tmp_path, platform)
-        handler = FSRomsHandler()
-        handler.base_path = tmp_path
-
-        with patch(
-            "handler.filesystem.roms_handler.cm.get_config",
-            lambda: self._make_subfolder_config({platform.fs_slug: True}),
-        ):
-            roms = await handler.get_roms(platform)
-            count = await handler.count_roms(platform)
-
-        base = f"{platform.fs_slug}/roms"
-        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
-        assert (base, "Game A.zip") in keys
-        assert (f"{base}/All but the Best", "Game A.zip") in keys  # collision kept
-        assert (f"{base}/All but the Best", "Hidden Gem.zip") in keys
-        assert (f"{base}/All but the Best/deeper", "Way Down.zip") in keys
-        # Group folders are descended into, so "Multi Disc Game" parts surface.
-        assert (f"{base}/Multi Disc Game", "disc1.bin") in keys
-        # Hidden folder is not descended into; it remains a multi-file rom.
-        assert (base, ".hidden") in keys
-        assert (f"{base}/.hidden", "disc.chd") not in keys
-        # All full-path keys are unique and count matches.
-        full_paths = [f"{r['fs_path']}/{r['fs_name']}" for r in roms]
-        assert len(full_paths) == len(set(full_paths))
-        assert sum(1 for r in roms if r["fs_name"] == "Game A.zip") == 2
-        assert count == len(roms)
-
-    @pytest.mark.asyncio
-    async def test_get_roms_subfolders_descriptor_dir_kept_whole(
-        self, platform: Platform, tmp_path: Path
-    ):
-        """A subfolder holding a disc/playlist descriptor (.m3u, .cue, ...) is a
-        multi-disc game: it stays a single multi-file rom even with subfolder
-        scanning on (not split per disc), while a plain grouping folder is still
-        recursed."""
-        roms = tmp_path / platform.fs_slug / "roms"
-        roms.mkdir(parents=True)
-        (roms / "Flat Game.zip").write_text("a")
-        # Multi-disc game declared by an .m3u playlist -> one rom.
-        md = roms / "Final Fantasy VII"
-        md.mkdir()
-        (md / "disc1.chd").write_text("1")
-        (md / "disc2.chd").write_text("2")
-        (md / "Final Fantasy VII.m3u").write_text("disc1.chd\ndisc2.chd")
-        # Multi-file game declared by a .cue descriptor (cue+bin) -> one rom.
-        cue = roms / "Some CD Game"
-        cue.mkdir()
-        (cue / "Some CD Game.cue").write_text('FILE "Some CD Game.bin" BINARY')
-        (cue / "Some CD Game.bin").write_text("data")
-        # Plain grouping folder (no descriptor) -> recursed into.
-        grp = roms / "Hacks"
-        grp.mkdir()
-        (grp / "Hack A.zip").write_text("h")
-
+        """`{category}/{gameFile}` descends one wildcard level and treats each
+        file as a rom; hidden folders are skipped and identically-named files in
+        different folders stay distinct via their full path."""
         handler = FSRomsHandler()
         handler.base_path = tmp_path
         with patch(
             "handler.filesystem.roms_handler.cm.get_config",
-            lambda: self._make_subfolder_config({platform.fs_slug: True}),
-        ):
-            roms_found = await handler.get_roms(platform)
-            count = await handler.count_roms(platform)
-
-        base = f"{platform.fs_slug}/roms"
-        keys = {(r["fs_path"], r["fs_name"]) for r in roms_found}
-        # The .m3u folder stays a single multi-file rom (not split per disc).
-        assert (base, "Final Fantasy VII") in keys
-        assert (f"{base}/Final Fantasy VII", "disc1.chd") not in keys
-        # The .cue+.bin folder stays whole too (the case raised in review).
-        assert (base, "Some CD Game") in keys
-        assert (f"{base}/Some CD Game", "Some CD Game.bin") not in keys
-        # A normal grouping folder is still recursed.
-        assert (f"{base}/Hacks", "Hack A.zip") in keys
-        assert (base, "Flat Game.zip") in keys
-        assert count == len(roms_found)
-
-    @pytest.mark.asyncio
-    async def test_get_roms_subfolders_named_list(
-        self, platform: Platform, tmp_path: Path
-    ):
-        """A list value recurses only the named folders; every other folder
-        (including a folder-based multi-file game) stays a single multi-file
-        rom, and a non-named folder nested inside a named one is not split."""
-        self._build_subfolder_library(tmp_path, platform)
-        handler = FSRomsHandler()
-        handler.base_path = tmp_path
-
-        with patch(
-            "handler.filesystem.roms_handler.cm.get_config",
-            lambda: self._make_subfolder_config(
-                {platform.fs_slug: ["All but the Best"]}
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{category}/{gameFile}"}
             ),
         ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
             roms = await handler.get_roms(platform)
             count = await handler.count_roms(platform)
 
-        base = f"{platform.fs_slug}/roms"
         keys = {(r["fs_path"], r["fs_name"]) for r in roms}
-        # Named folder is recursed -> its files become individual roms.
-        assert (f"{base}/All but the Best", "Game A.zip") in keys
-        assert (f"{base}/All but the Best", "Hidden Gem.zip") in keys
-        # A non-named folder nested inside it is kept whole (not recursed).
-        assert (f"{base}/All but the Best", "deeper") in keys
-        assert (f"{base}/All but the Best/deeper", "Way Down.zip") not in keys
-        # Folders NOT in the list stay as single multi-file roms.
-        assert (base, "Multi Disc Game") in keys
-        assert (f"{base}/Multi Disc Game", "disc1.bin") not in keys
-        # Top-level flat file and hidden folder behave as usual.
-        assert (base, "Game A.zip") in keys
-        assert (base, ".hidden") in keys
+        assert (f"{base}/Hacks", "Shared.zip") in keys
+        assert (f"{base}/Hacks", "HackOnly.zip") in keys
+        assert (f"{base}/Translations", "Shared.zip") in keys  # collision kept
+        # Top-level file isn't surfaced (template requires one level down).
+        assert (base, "Top.zip") not in keys
+        # A folder at the terminal level isn't a {gameFile} rom.
+        assert (f"{base}/Hacks", "Inner") not in keys
+        # Hidden folder is never descended into.
+        assert not any(r["fs_path"].endswith("/.hidden") for r in roms)
+        full_paths = [f"{r['fs_path']}/{r['fs_name']}" for r in roms]
+        assert len(full_paths) == len(set(full_paths))
+        assert sum(1 for r in roms if r["fs_name"] == "Shared.zip") == 2
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_wildcard_dir_terminal(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """`{category}/{gameDir}` treats each folder at the terminal level as a
+        single multi-file rom (kept whole — no disc-splitting guesswork)."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{category}/{gameDir}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        # Folders at the terminal level become whole multi-file roms...
+        assert (f"{base}/Hacks", "Inner") in keys
+        assert (f"{base}/Region", "USA") in keys
+        # ...and are not split into their contents.
+        assert (f"{base}/Hacks/Inner", "x.bin") not in keys
+        # Files at the terminal level are not {gameDir} roms.
+        assert (f"{base}/Hacks", "Shared.zip") not in keys
+        assert all(r["nested"] for r in roms)
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_two_wildcard_levels(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """Multiple wildcard levels descend depth-first to the terminal."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{region}/{system}/{gameFile}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        assert (f"{base}/Hacks/Inner", "x.bin") in keys
+        assert (f"{base}/Region/USA", "usagame.zip") in keys
+        # Depth-1 files are not surfaced at a depth-2 terminal.
+        assert (f"{base}/Hacks", "Shared.zip") not in keys
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_literal_level(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A literal section matches that exact folder only; sibling folders are
+        ignored."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config({platform.fs_slug: "Hacks/{gameFile}"}),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        assert (f"{base}/Hacks", "Shared.zip") in keys
+        assert (f"{base}/Hacks", "HackOnly.zip") in keys
+        # The literal only matched "Hacks"; "Translations" is ignored.
+        assert (f"{base}/Translations", "Shared.zip") not in keys
+        assert all(r["fs_path"] == f"{base}/Hacks" for r in roms)
         assert count == len(roms)
 
     @pytest.mark.asyncio

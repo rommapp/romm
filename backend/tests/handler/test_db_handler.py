@@ -546,7 +546,7 @@ def test_bulk_mark_present_chunking(platform: Platform):
 
 
 def test_get_roms_by_fs_name_keys_on_full_path(platform: Platform):
-    """Identically-named files in different subfolders must stay distinct: the
+    """Identically-named files in different folders must stay distinct: the
     result is keyed on full path (fs_path/fs_name), not just the file name."""
     root = db_rom_handler.add_rom(
         Rom(

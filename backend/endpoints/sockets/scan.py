@@ -249,8 +249,8 @@ async def _identify_rom(
 
     # Update properties that don't require metadata
     parsed_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
-    # The discovered path is the rom's actual directory, which may be a
-    # subfolder of the platform roms folder when subfolder scanning is enabled.
+    # The discovered path is the rom's actual directory, which may be nested
+    # under the platform roms folder when a custom structure is configured.
     roms_path = fs_rom["fs_path"]
 
     # Create the entry early so we have the ID
@@ -541,7 +541,7 @@ async def _reconcile_relocated_roms(
 ) -> set[str]:
     """Relocate roms whose on-disk path changed instead of re-importing them.
 
-    When subfolder scanning is enabled, moving (or renaming) a file reads as a
+    Under a custom library structure, moving (or renaming) a file reads as a
     new path. Rather than insert a fresh rom and mark the old one missing —
     which would drop saves, play history, favorites and collection membership —
     match a newly-seen file to a now-missing rom by content hash and update that
@@ -562,7 +562,7 @@ async def _reconcile_relocated_roms(
 
     # Group candidates by total size: a moved file keeps its size, so this is a
     # cheap pre-filter that avoids hashing every newly-seen file (e.g. on first
-    # enable, where the whole subfolder tree reads as new).
+    # enable, where the whole structure reads as new).
     by_size: dict[int, list[Rom]] = defaultdict(list)
     for rom in disappeared:
         by_size[rom.fs_size_bytes].append(rom)
@@ -739,12 +739,12 @@ async def _identify_platform(
     else:
         log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
 
-    # Detect roms that simply moved on disk (subfolder scanning) and relocate
-    # them in place so their saves/history/favorites/collections follow,
-    # instead of re-importing them as new and orphaning the old entry. Only
-    # runs when subfolder scanning is enabled for the platform, so default
-    # libraries pay no extra cost.
-    if cm.get_config().subfolder_scan_spec(platform.fs_slug):
+    # Detect roms that simply moved on disk (custom library structure) and
+    # relocate them in place so their saves/history/favorites/collections
+    # follow, instead of re-importing them as new and orphaning the old entry.
+    # Only runs for platforms with a custom structure, so default libraries pay
+    # no extra cost.
+    if cm.get_config().platform_structure(platform.fs_slug) is not None:
         relocated_paths = await _reconcile_relocated_roms(platform, fs_roms)
         if relocated_paths:
             await scan_stats.increment(
@@ -778,8 +778,8 @@ async def _identify_platform(
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
         # Key matches on the rom's full path (fs_path/fs_name), not just the
-        # file name, so identically-named files in different subfolders don't
-        # collide when subfolder scanning is enabled.
+        # file name, so identically-named files in different folders don't
+        # collide under a custom library structure.
         roms_by_full_path = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
@@ -826,15 +826,15 @@ async def _identify_platform(
     )
     if len(missing_roms) > 0:
         log.warning(f"{hl('Missing')} roms from filesystem:")
-        # A folder that subfolder scanning now recurses into used to be a single
+        # A folder a custom structure now descends into used to be a single
         # multi-file rom; that old entry shows up here as missing. Flag those so
         # it's clear the "missing" is expected and the stale entry can be
         # deleted. A superseded folder's path is a parent of a discovered rom.
-        recursed_paths = {rom["fs_path"] for rom in fs_roms}
+        descended_paths = {rom["fs_path"] for rom in fs_roms}
         for r in missing_roms:
             superseded = any(
                 p == r.full_path or p.startswith(f"{r.full_path}/")
-                for p in recursed_paths
+                for p in descended_paths
             )
             if superseded:
                 log.warning(

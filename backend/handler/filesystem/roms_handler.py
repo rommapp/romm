@@ -15,6 +15,7 @@ from config import LIBRARY_BASE_PATH
 from config.config_manager import (
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
+    LibraryStructure,
 )
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import (
@@ -318,7 +319,7 @@ class FSRomsHandler(FSHandler):
         from handler.metadata import meta_ra_handler
 
         # The rom's stored directory is the source of truth for its location, so
-        # roms inside a platform subfolder (subfolder scanning) resolve to their
+        # roms inside a nested folder (custom library structure) resolve to their
         # real path rather than the platform roms root.
         rel_roms_path = rom.fs_path  # Relative path to the rom's directory
         abs_fs_path = self.validate_path(rel_roms_path)  # Absolute path to that dir
@@ -676,90 +677,91 @@ class FSRomsHandler(FSHandler):
                 rom_sha1_h,
             )
 
-    # Disc/playlist descriptors that mark a folder as a single multi-file game
-    # (a multi-disc title), so it is kept whole instead of being recursed into
-    # when subfolder scanning is enabled — preventing it from being split into
-    # one rom per disc.
-    _MULTI_DISC_DESCRIPTOR_EXTS = (".m3u", ".cue", ".gdi", ".ccd", ".toc")
+    async def _discover_default_roms(self, rel_roms_path: str) -> list[dict]:
+        """Default discovery: top-level files and folders of the roms path.
 
-    @staticmethod
-    def _should_recurse_dir(directory: str, recurse: bool | frozenset[str]) -> bool:
-        """Whether to descend into ``directory`` (collecting its contents as
-        individual roms) rather than treat it as one multi-file rom.
-
-        Hidden (dot-prefixed) folders are never descended into. Otherwise
-        ``recurse`` is ``True`` (all folders), a set of folder names (only
-        those), or ``False`` (none).
-        """
-        if directory.startswith("."):
-            return False
-        if isinstance(recurse, frozenset):
-            return directory in recurse
-        return recurse
-
-    async def _is_multi_disc_dir(self, rel_dir_path: str) -> bool:
-        """True if a directory directly contains a disc/playlist descriptor.
-
-        Such a directory is a single multi-file rom (a multi-disc game), so it
-        is kept whole instead of being recursed into when subfolder scanning is
-        enabled — preventing a multi-disc game from being split into one rom per
-        disc. Covers ``.m3u`` playlists as well as ``.cue``/``.gdi``/``.ccd``/
-        ``.toc`` track descriptors (the ``.cue``+``.bin`` case raised in review).
-        """
-        return any(
-            f.lower().endswith(self._MULTI_DISC_DESCRIPTOR_EXTS)
-            for f in await self.list_files(rel_dir_path)
-        )
-
-    async def _collect_fs_roms(
-        self, rel_roms_path: str, recurse: bool | frozenset[str]
-    ) -> list[dict]:
-        """Discover roms under ``rel_roms_path``.
-
-        Single files are flat roms (``fs_path`` = their parent directory). A
-        directory is a single multi-file rom unless ``recurse`` says to descend
-        into it, in which case its contents are collected as individual roms.
-        ``recurse`` is ``True`` (descend every folder), a set of folder names
-        (descend only those — every other folder stays a multi-file rom), or
-        ``False`` (descend none).
-
-        Hidden (dot-prefixed) directories are never descended into, and a
-        directory holding a disc/playlist descriptor is kept whole as a single
-        multi-file rom (a multi-disc game) even while recursing.
+        Each top-level file is a flat rom; each top-level directory is a single
+        multi-file rom. This is RomM's behavior for platforms without a custom
+        structure template.
         """
         fs_roms: list[dict] = [
             {"fs_name": rom, "fs_path": rel_roms_path, "flat": True, "nested": False}
             for rom in self.exclude_single_files(await self.list_files(rel_roms_path))
         ]
-
-        for directory in self.exclude_multi_roms(
-            await self.list_directories(rel_roms_path)
-        ):
-            dir_path = f"{rel_roms_path}/{directory}"
-            if self._should_recurse_dir(
-                directory, recurse
-            ) and not await self._is_multi_disc_dir(dir_path):
-                fs_roms.extend(await self._collect_fs_roms(dir_path, recurse))
-            else:
-                fs_roms.append(
-                    {
-                        "fs_name": directory,
-                        "fs_path": rel_roms_path,
-                        "flat": False,
-                        "nested": True,
-                    }
-                )
-
+        fs_roms += [
+            {"fs_name": rom, "fs_path": rel_roms_path, "flat": False, "nested": True}
+            for rom in self.exclude_multi_roms(
+                await self.list_directories(rel_roms_path)
+            )
+        ]
         return fs_roms
+
+    async def _discover_structured_roms(
+        self, rel_roms_path: str, structure: LibraryStructure
+    ) -> list[dict]:
+        """Discover roms following a custom library structure template.
+
+        Descends the template's intermediate directory levels (literal names
+        matched exactly, wildcard macros matching any folder), then collects
+        roms at the terminal: ``{gameFile}`` makes each file a rom, ``{gameDir}``
+        makes each directory a (multi-file) rom. Each rom records its real
+        ``fs_path``. Hidden (dot-prefixed) folders are never descended into or
+        surfaced.
+        """
+        dirs = [rel_roms_path]
+        for level in structure.levels:
+            next_dirs: list[str] = []
+            for directory in dirs:
+                for sub in await self.list_directories(directory):
+                    if sub.startswith("."):
+                        continue
+                    if level.literal is not None and sub != level.literal:
+                        continue
+                    next_dirs.append(f"{directory}/{sub}")
+            dirs = next_dirs
+
+        fs_roms: list[dict] = []
+        for directory in dirs:
+            if structure.each_file_is_game:
+                for name in self.exclude_single_files(await self.list_files(directory)):
+                    fs_roms.append(
+                        {
+                            "fs_name": name,
+                            "fs_path": directory,
+                            "flat": True,
+                            "nested": False,
+                        }
+                    )
+            else:
+                for name in self.exclude_multi_roms(
+                    await self.list_directories(directory)
+                ):
+                    if name.startswith("."):
+                        continue
+                    fs_roms.append(
+                        {
+                            "fs_name": name,
+                            "fs_path": directory,
+                            "flat": False,
+                            "nested": True,
+                        }
+                    )
+        return fs_roms
+
+    async def _collect_fs_roms(self, platform: Platform) -> list[dict]:
+        """Discover a platform's roms, honoring its custom structure if set."""
+        rel_roms_path = self.get_roms_fs_structure(platform.fs_slug)
+        structure = cm.get_config().platform_structure(platform.fs_slug)
+        if structure is None:
+            return await self._discover_default_roms(rel_roms_path)
+        return await self._discover_structured_roms(rel_roms_path, structure)
 
     async def count_roms(self, platform: Platform) -> int:
         """Return the number of filesystem roms for a platform without
         materializing FSRom objects.
         """
-        recurse = cm.get_config().subfolder_scan_spec(platform.fs_slug)
         try:
-            rel_roms_path = self.get_roms_fs_structure(platform.fs_slug)
-            return len(await self._collect_fs_roms(rel_roms_path, recurse))
+            return len(await self._collect_fs_roms(platform))
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
 
@@ -771,12 +773,8 @@ class FSRomsHandler(FSHandler):
         Returns:
             list with all the filesystem roms for a platform
         """
-        recurse = cm.get_config().subfolder_scan_spec(platform.fs_slug)
         try:
-            rel_roms_path = self.get_roms_fs_structure(
-                platform.fs_slug
-            )  # Relative path to roms
-            fs_roms = await self._collect_fs_roms(rel_roms_path, recurse)
+            fs_roms = await self._collect_fs_roms(platform)
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
 
