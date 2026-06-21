@@ -274,6 +274,12 @@ class Rom(BaseModel):
     url_cover: Mapped[str | None] = mapped_column(
         Text, default="", doc="URL to cover image stored in IGDB"
     )
+    # Natural pixel dimensions of the large cover. Drive the frontend's
+    # natural-aspect-ratio rendering (ratio = cover_width / cover_height).
+    # Nullable: remote-only covers and pre-backfill rows have no value and
+    # fall back to the default box-art ratio on the client.
+    cover_width: Mapped[int | None] = mapped_column(Integer(), default=None)
+    cover_height: Mapped[int | None] = mapped_column(Integer(), default=None)
 
     path_manual: Mapped[str | None] = mapped_column(Text, default="")
     url_manual: Mapped[str | None] = mapped_column(

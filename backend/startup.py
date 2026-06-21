@@ -16,7 +16,7 @@ from config import (
     SENTRY_DSN,
     TASK_TIMEOUT,
 )
-from handler.database import db_save_handler
+from handler.database import db_rom_handler, db_save_handler
 from handler.metadata.base_handler import (
     MAME_XML_KEY,
     METADATA_FIXTURES_DIR,
@@ -29,6 +29,7 @@ from handler.metadata.base_handler import (
 from handler.redis_handler import async_cache, low_prio_queue
 from logger.logger import log
 from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
+from tasks.manual.backfill_cover_dimensions import backfill_cover_dimensions_task
 from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
@@ -49,6 +50,7 @@ from utils.context import initialize_context
 tracer = trace.get_tracer(__name__)
 
 RECOMPUTE_SAVE_HASHES_JOB_ID = "recompute_save_content_hashes_bootstrap"
+BACKFILL_COVER_DIMENSIONS_JOB_ID = "backfill_cover_dimensions_bootstrap"
 
 
 def _enqueue_recompute_save_hashes_if_needed() -> None:
@@ -98,6 +100,53 @@ def _enqueue_recompute_save_hashes_if_needed() -> None:
         )
 
 
+def _enqueue_backfill_cover_dimensions_if_needed() -> None:
+    """Backfill cover_width / cover_height for ROMs scanned before cover
+    dimensions were tracked. Non-blocking: a single COUNT query, then -- only
+    if any ROM has a stored cover but no recorded dimensions -- enqueue the
+    manual backfill task on the low-priority RQ queue. The worker picks it up;
+    this process moves on. Once the run completes, future restarts see 0
+    missing dimensions and skip. Admins can still trigger it explicitly."""
+    try:
+        missing = db_rom_handler.count_roms_missing_cover_dimensions()
+    except Exception:
+        log.exception(
+            "Failed to count roms with missing cover dimensions; "
+            "skipping auto-enqueue of backfill_cover_dimensions (admins can run it manually)"
+        )
+        return
+
+    if missing == 0:
+        log.debug("All roms have cover dimensions; skipping backfill auto-enqueue")
+        return
+
+    try:
+        if Job.exists(BACKFILL_COVER_DIMENSIONS_JOB_ID, low_prio_queue.connection):
+            log.info(
+                "backfill_cover_dimensions already queued or running from a "
+                "previous restart; skipping enqueue"
+            )
+            return
+
+        low_prio_queue.enqueue(
+            backfill_cover_dimensions_task.run,
+            job_id=BACKFILL_COVER_DIMENSIONS_JOB_ID,
+            job_timeout=TASK_TIMEOUT,
+            meta={
+                "task_name": backfill_cover_dimensions_task.title,
+                "task_type": backfill_cover_dimensions_task.task_type.value,
+            },
+        )
+        log.info(
+            f"Enqueued backfill_cover_dimensions ({missing} roms with missing "
+            "cover dimensions); running on low-priority worker"
+        )
+    except Exception:
+        log.exception(
+            "Failed to enqueue backfill_cover_dimensions; admins can run it manually"
+        )
+
+
 @tracer.start_as_current_span("main")
 async def main() -> None:
     """Run startup tasks."""
@@ -129,6 +178,7 @@ async def main() -> None:
             sync_push_pull_task.init()
 
         _enqueue_recompute_save_hashes_if_needed()
+        _enqueue_backfill_cover_dimensions_if_needed()
 
         log.info("Initializing cache with fixtures data")
         await conditionally_set_cache(

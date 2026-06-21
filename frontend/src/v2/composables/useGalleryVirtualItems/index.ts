@@ -43,6 +43,62 @@ const REFERENCE_COVER_WIDTH_PX = 158;
 // Box-art default — matches v1's `getAspectRatio` for `cover_path`.
 const DEFAULT_COVER_RATIO = 2 / 3;
 
+// ── Column-masonry geometry ─────────────────────────────────────────
+// A card's full height is its cover box (`cardWidth / ratio`, exact —
+// the card is fixed-width so the cover renders at exactly that height)
+// plus the label chrome below it (7px margin-top + 16px label line).
+const CARD_LABEL_CHROME_PX = 23;
+// Vertical gap between stacked cards in a column (matches the grid row
+// gap the uniform layout used). Also the gap below each band.
+const CARD_V_GAP_PX = 18;
+// Target number of visual rows per virtualised band. Bands are the unit
+// the scroller virtualises; columns reset at each boundary. Shortest-
+// column-first balancing levels a band's bottom edge, so this only trades
+// seam frequency against how many cards mount per band — not visual
+// quality. ~8 rows keeps the mounted-card count near the old uniform grid.
+const BAND_ROWS = 8;
+
+/** Full pixel height of a single masonry card (cover + label chrome). */
+function masonryCardHeight(ratio: number, cardWidth: number): number {
+  const r = ratio > 0 ? ratio : DEFAULT_COVER_RATIO;
+  return cardWidth / r + CARD_LABEL_CHROME_PX;
+}
+
+interface BandLayout {
+  /** Per visual column, the ordered positions assigned to it. */
+  columns: number[][];
+  /** Tallest column height in px (before the band's bottom gap). */
+  height: number;
+}
+
+/** Distribute a contiguous run of positions across `cols` columns using
+ *  shortest-column-first placement (classic balanced masonry). Returns the
+ *  per-column position lists and the band's content height. Pure — exported
+ *  for unit tests. */
+export function layoutMasonryBand(
+  positions: readonly number[],
+  cols: number,
+  cardWidth: number,
+  ratioAt: (position: number) => number,
+): BandLayout {
+  const n = Math.max(1, cols);
+  const colHeights = new Array<number>(n).fill(0);
+  const columns: number[][] = Array.from({ length: n }, () => []);
+  for (const p of positions) {
+    // Shortest column wins; ties go to the leftmost for stable output.
+    let c = 0;
+    for (let i = 1; i < n; i++) {
+      if (colHeights[i] < colHeights[c]) c = i;
+    }
+    if (columns[c].length > 0) colHeights[c] += CARD_V_GAP_PX;
+    colHeights[c] += masonryCardHeight(ratioAt(p), cardWidth);
+    columns[c].push(p);
+  }
+  let height = 0;
+  for (const h of colHeights) if (h > height) height = h;
+  return { columns, height };
+}
+
 // Fixed heights for the item kinds that DON'T depend on the boxart
 // aspect ratio. Row / skeleton-row are computed per-style — see
 // `getItemHeight`. Values match the rendered geometry in the gallery
@@ -89,12 +145,18 @@ interface Options {
   notFoundMessage?: Ref<string> | ComputedRef<string>;
   /** Skeleton row count while loading the first window. */
   skeletonRowCount?: number;
-  /** Active cover aspect ratio (width / height) — drives grid row height
-   *  so AlphaStrip jumps and scroll offsets stay exact when the boxart
-   *  style changes the cover shape. Defaults to box-art 2/3. */
+  /** Fallback cover aspect ratio (width / height) used for the bootstrap
+   *  skeleton rows, before per-position ratios are known. Defaults to
+   *  box-art 2/3. */
   coverRatio?: MaybeRefOrGetter<number>;
-  /** Card-art width used to derive the row height (match the value fed to
-   *  `useResponsiveColumns`). Defaults to the md card (158px). */
+  /** Per-position natural cover aspect ratio (width / height), aligned to
+   *  the gallery's position order. `null` entries fall back to the default
+   *  box-art ratio. Drives the column-masonry layout so every card sits at
+   *  its true ratio and the band offsets are exact before covers stream
+   *  in. */
+  coverRatios?: MaybeRefOrGetter<readonly (number | null)[]>;
+  /** Card-art width used to derive card / band heights (match the value
+   *  fed to `useResponsiveColumns`). Defaults to the md card (158px). */
   cardWidth?: MaybeRefOrGetter<number>;
 }
 
@@ -156,25 +218,27 @@ export function useGalleryVirtualItems(opts: Options) {
     buildLetterRanges(opts.charIndex.value, opts.total.value),
   );
 
-  // Per-style row height — recomputes when the boxart ratio or the
-  // responsive card width changes, so every grid row keeps an exact
-  // offset (the scroller is exact-offset, not measured).
-  const rowHeightPx = computed(() =>
+  const cardWidthPx = () =>
+    opts.cardWidth != null ? toValue(opts.cardWidth) : REFERENCE_COVER_WIDTH_PX;
+
+  // Uniform skeleton-row height for the bootstrap phase, before any
+  // per-position ratio is known — falls back to the box-art shape.
+  const skeletonRowHeightPx = computed(() =>
     galleryRowHeight(
       opts.coverRatio != null ? toValue(opts.coverRatio) : DEFAULT_COVER_RATIO,
-      opts.cardWidth != null
-        ? toValue(opts.cardWidth)
-        : REFERENCE_COVER_WIDTH_PX,
+      cardWidthPx(),
     ),
   );
 
   // Signature matches RVirtualScroller's `getItemHeight` prop (which uses
-  // `unknown` because the primitive is generic). Row / skeleton-row use
-  // the per-style height; every other kind is fixed.
+  // `unknown` because the primitive is generic). Masonry bands carry their
+  // own exact height; skeleton rows use the uniform fallback; every other
+  // kind is fixed.
   function getItemHeight(item: unknown): number {
-    const { kind } = item as GalleryItem;
-    if (kind === "row" || kind === "skeleton-row") return rowHeightPx.value;
-    return FIXED_HEIGHT_BY_KIND[kind] ?? 0;
+    const it = item as GalleryItem;
+    if (it.kind === "masonry-band") return it.height;
+    if (it.kind === "skeleton-row") return skeletonRowHeightPx.value;
+    return FIXED_HEIGHT_BY_KIND[it.kind] ?? 0;
   }
 
   const virtualItems = computed<GalleryItem[]>(() => {
@@ -262,46 +326,62 @@ export function useGalleryVirtualItems(opts: Options) {
     const cols = Math.max(1, opts.columns.value);
     const total = opts.total.value;
     const ranges = letterRanges.value;
+    const cardWidth = cardWidthPx();
+    const bandSize = cols * BAND_ROWS;
+    const ratios = opts.coverRatios != null ? toValue(opts.coverRatios) : [];
+    const ratioAt = (position: number): number => {
+      const r = ratios[position];
+      return r != null && r > 0 ? r : DEFAULT_COVER_RATIO;
+    };
+
+    // Emit the masonry bands covering a contiguous position range. Each
+    // band runs its own shortest-column-first layout (columns reset at the
+    // boundary) so it carries an exact pixel height for the scroller.
+    const pushBands = (
+      start: number,
+      end: number,
+      keyPrefix: string,
+      bandLetters: (s: number, e: number) => readonly string[],
+    ) => {
+      for (let bandStart = start; bandStart < end; bandStart += bandSize) {
+        const bandEnd = Math.min(bandStart + bandSize, end);
+        const positions: number[] = [];
+        for (let p = bandStart; p < bandEnd; p++) positions.push(p);
+        const { columns, height } = layoutMasonryBand(
+          positions,
+          cols,
+          cardWidth,
+          ratioAt,
+        );
+        items.push({
+          kind: "masonry-band",
+          key: `${keyPrefix}-${bandStart}`,
+          height: height + CARD_V_GAP_PX,
+          startPosition: bandStart,
+          endPosition: bandEnd,
+          columns,
+          letters: bandLetters(bandStart, bandEnd),
+        });
+      }
+    };
 
     if (opts.groupBy.value === "letter") {
-      // Group by letter — each letter section gets a header followed by
-      // its own row chunks (rows always restart at the letter's first
-      // position, so a letter never shares a visual row with another).
+      // Group by letter — each letter section gets a header followed by its
+      // own masonry bands (columns restart at the letter's first position,
+      // so a letter never shares a visual column run with another).
       for (const range of ranges) {
         items.push({
           kind: "letter-header",
           key: `lh-${range.letter}`,
           letter: range.letter,
         });
-        const rowsInGroup = Math.ceil((range.end - range.start) / cols);
-        for (let r = 0; r < rowsInGroup; r++) {
-          const rowStart = range.start + r * cols;
-          const rowEnd = Math.min(rowStart + cols, range.end);
-          items.push({
-            kind: "row",
-            key: `row-${range.letter}-${r}`,
-            rowIndex: r,
-            startPosition: rowStart,
-            endPosition: rowEnd,
-            letters: [range.letter],
-          });
-        }
+        pushBands(range.start, range.end, `band-${range.letter}`, () => [
+          range.letter,
+        ]);
       }
     } else {
-      // Flat — rows are aligned to absolute positions.
-      const totalRows = Math.ceil(total / cols);
-      for (let r = 0; r < totalRows; r++) {
-        const rowStart = r * cols;
-        const rowEnd = Math.min(rowStart + cols, total);
-        items.push({
-          kind: "row",
-          key: `row-flat-${r}`,
-          rowIndex: r,
-          startPosition: rowStart,
-          endPosition: rowEnd,
-          letters: lettersInRange(ranges, rowStart, rowEnd),
-        });
-      }
+      // Flat — bands aligned to absolute positions from 0.
+      pushBands(0, total, "band-flat", (s, e) => lettersInRange(ranges, s, e));
     }
 
     return items;
@@ -343,20 +423,25 @@ export function useGalleryVirtualItems(opts: Options) {
     }
 
     if (opts.groupBy.value !== "letter") {
-      // Flat mode — for each letter range, jump to the row that holds
-      // its first position.
-      let firstRowIdx = -1;
+      // Flat mode — bands tile [0, total) by `bandSize` from 0, so the band
+      // holding a letter's first position is a direct index offset from the
+      // first band item.
+      let firstBandIdx = -1;
       for (let i = 0; i < items.length; i++) {
-        if (items[i].kind === "row") {
-          firstRowIdx = i;
+        if (items[i].kind === "masonry-band") {
+          firstBandIdx = i;
           break;
         }
       }
-      if (firstRowIdx >= 0) {
+      if (firstBandIdx >= 0) {
         const cols = Math.max(1, opts.columns.value);
+        const bandSize = cols * BAND_ROWS;
         for (const range of letterRanges.value) {
           if (map.has(range.letter)) continue;
-          map.set(range.letter, firstRowIdx + Math.floor(range.start / cols));
+          map.set(
+            range.letter,
+            firstBandIdx + Math.floor(range.start / bandSize),
+          );
         }
       }
     }

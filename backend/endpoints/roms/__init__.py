@@ -260,6 +260,12 @@ class CustomLimitOffsetParams(LimitOffsetParams):
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     char_index: dict[str, int]
     rom_id_index: list[int]
+    # Per-position natural cover aspect ratio (width / height), aligned to
+    # rom_id_index order. None where a rom has no recorded dimensions; the
+    # frontend falls back to the default box-art ratio. Drives the gallery's
+    # column-masonry layout up-front so cover offsets are exact before any
+    # cover image streams in.
+    cover_ratios: list[float | None]
     filter_values: RomFiltersDict
     __params_type__ = CustomLimitOffsetParams
 
@@ -615,9 +621,18 @@ def get_roms(
         # trunk-ignore(mypy/typeddict-item)
         filter_values = RomFiltersDict(**query_filters)
 
-    # Get all ROM IDs in order for the additional data
+    # Get all ROM IDs in order for the additional data, plus the natural
+    # cover dimensions in the same order so the frontend can lay out the
+    # column-masonry grid without waiting for covers to stream in.
     with sync_session.begin() as session:
-        rom_id_index = session.scalars(query.with_only_columns(Rom.id)).all()  # type: ignore
+        id_dim_rows = session.execute(
+            query.with_only_columns(Rom.id, Rom.cover_width, Rom.cover_height)
+        ).all()
+        rom_id_index = [row[0] for row in id_dim_rows]
+        cover_ratios: list[float | None] = [
+            round(row[1] / row[2], 4) if row[1] and row[2] and row[2] > 0 else None
+            for row in id_dim_rows
+        ]
 
         def _transform(items: Sequence[Rom]) -> list[SimpleRomSchema]:
             rom_ids = [i.id for i in items]
@@ -656,6 +671,7 @@ def get_roms(
             total=total,
             char_index=char_index_dict,
             rom_id_index=list(rom_id_index),
+            cover_ratios=cover_ratios,
             filter_values=filter_values,
         )
 
@@ -1436,7 +1452,9 @@ async def update_rom(
 
     if remove_cover:
         cleaned_data.update(await fs_resource_handler.remove_cover(rom))
-        cleaned_data.update({"url_cover": ""})
+        cleaned_data.update(
+            {"url_cover": "", "cover_width": None, "cover_height": None}
+        )
     else:
         if artwork is not None and artwork.filename is not None:
             file_ext = validate_image_upload(artwork, label="Artwork")
@@ -1446,11 +1464,14 @@ async def update_rom(
                 path_cover_s,
             ) = await fs_resource_handler.store_artwork(rom, artwork_content, file_ext)
 
+            cover_width, cover_height = fs_resource_handler.get_cover_dimensions(rom)
             cleaned_data.update(
                 {
                     "url_cover": "",
                     "path_cover_s": path_cover_s,
                     "path_cover_l": path_cover_l,
+                    "cover_width": cover_width,
+                    "cover_height": cover_height,
                 }
             )
         else:
@@ -1463,11 +1484,16 @@ async def update_rom(
                     overwrite=url_cover != rom.url_cover,
                     url_cover=add_ss_auth_to_url(url_cover),
                 )
+                cover_width, cover_height = fs_resource_handler.get_cover_dimensions(
+                    rom
+                )
                 cleaned_data.update(
                     {
                         "url_cover": url_cover,
                         "path_cover_s": path_cover_s,
                         "path_cover_l": path_cover_l,
+                        "cover_width": cover_width,
+                        "cover_height": cover_height,
                     }
                 )
             except ValidationError as e:

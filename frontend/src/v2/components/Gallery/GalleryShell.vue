@@ -69,6 +69,7 @@ import {
   type GalleryItem,
 } from "@/v2/composables/useGalleryVirtualItems";
 import { useGridNav } from "@/v2/composables/useGridNav";
+import { useMasonryNav } from "@/v2/composables/useMasonryNav";
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -251,10 +252,10 @@ const { columns } = useResponsiveColumns(sectionEl, {
   inset: () => (xs.value ? 64 : smAndDown.value ? 76 : 108),
 });
 
-// Active cover aspect ratio from the gallery-wide boxart style. Drives
-// both the cards' `--r-cover-ratio` (via the shell root, inherited) and
-// the virtualiser's row height so the cover shape, the grid, and the
-// scroll offsets all agree.
+// Fallback cover aspect ratio from the gallery-wide boxart style — used
+// only for the bootstrap skeleton rows (before per-position natural ratios
+// arrive) and as the per-card fallback when a rom has no recorded
+// dimensions. The real grid shape comes from `galleryRoms.coverRatios`.
 const { boxartStyle } = useUISettings();
 const coverAspectRatio = computed(() =>
   coverRatio(
@@ -262,18 +263,30 @@ const coverAspectRatio = computed(() =>
   ),
 );
 
-// 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
-//   * Grid mode — rows are `.r-v2-shell__row` (the per-virtualizer-item
-//     wrapper around the row's GameCards). ArrowLeft/Right within a row,
-//     ArrowUp/Down jumps to the same column in the next row.
-//   * List mode — each `.game-list-row` is both row and cell. ArrowLeft/
-//     Right is no-op (single cell per row); ArrowUp/Down moves between
-//     rows.
-// Both call sites resolve `current()` against the same focused element
-// and only the matching one actually moves focus, so they don't fight.
-// Virtualised rows past the overscan window simply aren't in the DOM —
-// nav clamps at the boundary; scrolling past mounts more rows.
-useGridNav(sectionEl, { rowSelector: ".r-v2-shell__row" });
+// Per-position natural cover ratio (width / height) from the bootstrap.
+// Feeds the masonry layout and every card / skeleton slot's
+// `--r-cover-ratio` so the painted height matches the computed band
+// offset exactly. Falls back to the boxart-style ratio when a position
+// has no recorded dimensions.
+const { coverRatios } = storeToRefs(galleryRoms);
+function ratioAt(position: number): number {
+  const r = coverRatios.value[position];
+  return r != null && r > 0 ? r : coverAspectRatio.value;
+}
+
+// 2D arrow / gamepad nav for both layouts of the gallery:
+//   * Grid mode — column-masonry. Cards are staggered (no shared row
+//     `top`), so `useMasonryNav` steers by nearest-card-in-direction
+//     geometry rather than row/column indices.
+//   * List mode — each `.game-list-row` is both row and cell; ArrowUp/
+//     Down moves between rows (`useGridNav`).
+// Each only acts when focus sits on one of ITS cells, so the two coexist
+// without fighting (one layout is mounted at a time anyway). Virtualised
+// content past the overscan window isn't in the DOM — nav clamps at the
+// boundary; scrolling mounts more cards.
+useMasonryNav(sectionEl, {
+  cellSelector: ".r-v2-shell__band [data-focus-key]",
+});
 useGridNav(sectionEl, {
   rowSelector: ".game-list-row",
   getCells: (row) => [row],
@@ -302,6 +315,7 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     notFoundMessage: notFoundMessageRef,
     skeletonRowCount: props.skeletonRowCount,
     coverRatio: coverAspectRatio,
+    coverRatios,
     cardWidth,
   });
 
@@ -392,7 +406,7 @@ const visibleLettersSet = computed<Set<string>>(() => {
     const it = items[i];
     if (!it) continue;
     if (it.kind === "letter-header") set.add(it.letter);
-    else if (it.kind === "row") for (const l of it.letters) set.add(l);
+    else if (it.kind === "masonry-band") for (const l of it.letters) set.add(l);
     else if (it.kind === "list-row") set.add(it.letter);
   }
   return set;
@@ -406,7 +420,8 @@ const currentLetter = computed<string>(() => {
     const it = items[i];
     if (!it) continue;
     if (it.kind === "letter-header") return it.letter;
-    if (it.kind === "row" && it.letters.length > 0) return it.letters[0];
+    if (it.kind === "masonry-band" && it.letters.length > 0)
+      return it.letters[0];
     if (it.kind === "list-row") return it.letter;
   }
   return "";
@@ -443,7 +458,7 @@ function collectVisiblePositions(range: {
   const items = virtualItems.value;
   for (let i = range.first; i <= range.last; i++) {
     const it = items[i];
-    if (!it || it.kind !== "row") continue;
+    if (!it || it.kind !== "masonry-band") continue;
     for (let p = it.startPosition; p < it.endPosition; p++) out.add(p);
   }
   return out;
@@ -663,28 +678,27 @@ function getRomAt(p: number) {
   return galleryRoms.getRomAt(p);
 }
 
-function rowPositions(row: {
-  startPosition: number;
-  endPosition: number;
-}): number[] {
-  const out: number[] = [];
-  for (let p = row.startPosition; p < row.endPosition; p++) out.push(p);
-  return out;
-}
-
-type RowItem = Extract<GalleryItem, { kind: "row" }>;
+type BandItem = Extract<GalleryItem, { kind: "masonry-band" }>;
 type LetterHeaderItem = Extract<GalleryItem, { kind: "letter-header" }>;
 type EmptyItem = Extract<GalleryItem, { kind: "empty" }>;
 type ListRowItem = Extract<GalleryItem, { kind: "list-row" }>;
-const asRow = (i: GalleryItem) => i as RowItem;
+const asBand = (i: GalleryItem) => i as BandItem;
 const asLetterHeader = (i: GalleryItem) => i as LetterHeaderItem;
 const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const asListRow = (i: GalleryItem) => i as ListRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
 
-const rowGridStyle = computed(() => ({
+// Skeleton-row grid template (bootstrap phase only — real content is
+// masonry). One uniform track per responsive column.
+const skeletonGridStyle = computed(() => ({
   gridTemplateColumns: `repeat(${Math.max(1, columns.value)}, minmax(var(--r-card-art-w), 1fr))`,
 }));
+
+// Overscan is counted in virtual items. List mode items are one-per-rom
+// (small) so it wants a generous window; masonry bands are many-rows tall
+// so a couple on each side already covers the overscan need without
+// mounting hundreds of off-screen cards.
+const scrollerOverscan = computed(() => (layout.value === "list" ? 25 : 3));
 
 // View-facing surface. Methods only — internal state stays internal.
 defineExpose({
@@ -716,7 +730,7 @@ defineExpose({
       ref="scrollerRef"
       :items="virtualItems"
       :get-item-height="getItemHeight"
-      :overscan="25"
+      :overscan="scrollerOverscan"
       class="r-v2-shell__scroller r-v2-scroll-hidden"
       @update:viewport-range="onViewportRangeChange"
     >
@@ -785,26 +799,36 @@ defineExpose({
           />
 
           <div
-            v-else-if="itemKind(item as GalleryItem) === 'row'"
-            class="r-v2-shell__row"
-            :style="rowGridStyle"
+            v-else-if="itemKind(item as GalleryItem) === 'masonry-band'"
+            class="r-v2-shell__band"
           >
-            <template
-              v-for="(p, slotIdx) in rowPositions(asRow(item as GalleryItem))"
-              :key="p"
+            <div
+              v-for="(col, colIdx) in asBand(item as GalleryItem).columns"
+              :key="colIdx"
+              class="r-v2-shell__band-col"
             >
-              <GameCard
-                v-if="getRomAt(p)"
-                class="r-v2-card-fade"
-                :style="{ '--card-fade-i': slotIdx }"
-                :rom="getRomAt(p)!"
-                :webp="supportsWebp"
-                :show-platform-badge="showPlatformBadge"
-                selectable
-                :position="p"
-              />
-              <GameCardSkeleton v-else />
-            </template>
+              <template v-for="(p, slotIdx) in col" :key="p">
+                <!-- GameCard sets its own `--r-cover-ratio` from useCoverArt
+                     (the rom's natural dimensions). The skeleton has no rom,
+                     so it takes the band's per-position ratio — keeping its
+                     height identical to the eventual card and the computed
+                     band offset, so covers stream in with zero reflow. -->
+                <GameCard
+                  v-if="getRomAt(p)"
+                  class="r-v2-card-fade"
+                  :style="{ '--card-fade-i': slotIdx }"
+                  :rom="getRomAt(p)!"
+                  :webp="supportsWebp"
+                  :show-platform-badge="showPlatformBadge"
+                  selectable
+                  :position="p"
+                />
+                <GameCardSkeleton
+                  v-else
+                  :style="{ '--r-cover-ratio': ratioAt(p) }"
+                />
+              </template>
+            </div>
           </div>
 
           <GameListRow
@@ -831,7 +855,7 @@ defineExpose({
           <div
             v-else-if="itemKind(item as GalleryItem) === 'skeleton-row'"
             class="r-v2-shell__row"
-            :style="rowGridStyle"
+            :style="skeletonGridStyle"
           >
             <GameCardSkeleton
               v-for="n in Math.max(1, columns)"
@@ -988,10 +1012,31 @@ defineExpose({
   margin-bottom: 16px;
 }
 
+/* Skeleton-row (bootstrap phase) — a plain uniform grid. */
 .r-v2-shell__row {
   display: grid;
   gap: 18px 12px;
   padding-bottom: 18px;
+}
+
+/* Masonry band — a horizontal run of equal-flex columns; each column is a
+   vertical stack of fixed-width cards. The 12px column gap matches the
+   `gap` fed to `useResponsiveColumns` and the 18px stack gap matches the
+   `CARD_V_GAP_PX` the layout engine uses, so the painted geometry lines up
+   with the virtualiser's computed band height exactly. `align-items:
+   flex-start` lets columns keep their natural (different) heights. */
+.r-v2-shell__band {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.r-v2-shell__band-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
 }
 
 /* Card reveal animation (.r-v2-card-fade) lives in global.css — shared

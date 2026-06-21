@@ -19,14 +19,27 @@
 // jitter that came with it.
 export type GalleryItem =
   | { kind: "letter-header"; key: string; letter: string }
+  /** Grid layout — a virtualised slice of the column-masonry. A band owns
+   * a contiguous run of positions distributed across the responsive
+   * column count (shortest-column-first), so covers render at their
+   * natural aspect ratio with no forced box. Columns reset per band: the
+   * shortest-first balance levels each band's bottom edge, so the seam
+   * between bands is barely visible while keeping the scroller's
+   * per-item exact-offset model intact. The view renders one vertical
+   * card stack per entry in `columns`. */
   | {
-      kind: "row";
+      kind: "masonry-band";
       key: string;
-      rowIndex: number;
+      /** Total pixel height of the band (tallest column + bottom gap).
+       * Fed straight to RVirtualScroller's `getItemHeight`. */
+      height: number;
       startPosition: number;
       endPosition: number; // exclusive
-      /** Letters covered by this row's position range (from server's
-       * charIndex). Drives AlphaStrip spy highlight even when the row's
+      /** Per visual column, the ordered positions assigned to it. Length
+       * equals the active responsive column count. */
+      columns: readonly (readonly number[])[];
+      /** Letters covered by this band's position range (from server's
+       * charIndex). Drives AlphaStrip spy highlight even when the band's
        * cards aren't loaded yet. */
       letters: readonly string[];
     }

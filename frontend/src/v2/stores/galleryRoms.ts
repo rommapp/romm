@@ -131,6 +131,11 @@ interface State {
   total: number;
   charIndex: Record<string, number>;
   romIdIndex: number[];
+  // Per-position natural cover aspect ratio (width / height), aligned to
+  // romIdIndex order. `null` where a rom has no recorded dimensions — the
+  // gallery's masonry layout falls back to the default box-art ratio. Sent
+  // by the bootstrap so masonry offsets are exact before covers stream in.
+  coverRatios: (number | null)[];
   byPosition: Map<number, SimpleRom>;
   loadedWindows: Set<number>;
   pendingWindows: Set<number>;
@@ -160,6 +165,7 @@ const defaults = (): State => ({
   total: 0,
   charIndex: {},
   romIdIndex: [],
+  coverRatios: [],
   byPosition: new Map(),
   loadedWindows: new Set(),
   pendingWindows: new Set(),
@@ -231,6 +237,7 @@ export default defineStore("v2GalleryRoms", {
       this.total = 0;
       this.charIndex = {};
       this.romIdIndex = [];
+      this.coverRatios = [];
       this.byPosition = new Map();
       this.loadedWindows = new Set();
       this.pendingWindows = new Set();
@@ -247,6 +254,7 @@ export default defineStore("v2GalleryRoms", {
       this.total = 0;
       this.charIndex = {};
       this.romIdIndex = [];
+      this.coverRatios = [];
       this.byPosition = new Map();
       this.loadedWindows = new Set();
       this.pendingWindows = new Set();
@@ -324,6 +332,7 @@ export default defineStore("v2GalleryRoms", {
       }
       if (data.char_index) this.charIndex = data.char_index;
       if (data.rom_id_index) this.romIdIndex = data.rom_id_index;
+      if (data.cover_ratios) this.coverRatios = data.cover_ratios;
       if (data.filter_values) {
         if (galleryFilter.filterPlatforms.length === 0) {
           galleryFilter.setFilterPlatforms(

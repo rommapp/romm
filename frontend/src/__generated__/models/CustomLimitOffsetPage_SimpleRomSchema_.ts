@@ -11,6 +11,7 @@ export type CustomLimitOffsetPage_SimpleRomSchema_ = {
     offset: number;
     char_index: Record<string, number>;
     rom_id_index: Array<number>;
+    cover_ratios: Array<number | null>;
     filter_values: RomFiltersDict;
 };
 

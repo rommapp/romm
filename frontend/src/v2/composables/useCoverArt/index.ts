@@ -58,6 +58,8 @@ export type CoverArtRom = Pick<
   | "url_cover"
   | "path_video"
   | "platform_slug"
+  | "cover_width"
+  | "cover_height"
 >;
 
 /** Canonical width/height ratio per style — mirrors v1's
@@ -83,6 +85,25 @@ export function isBoxartStyle(value: unknown): value is BoxartStyle {
 }
 
 export function coverRatio(style: BoxartStyle): number {
+  return COVER_RATIOS[style];
+}
+
+/** Natural cover aspect ratio (width / height) for a rom under a given
+ *  style. The default box-art style (`cover_path`) uses the rom's own
+ *  recorded cover dimensions so the cover renders at its true ratio with
+ *  no forced box; when the dimensions are missing (remote-only cover,
+ *  pre-backfill) it falls back to the canonical box-art ratio. Alt-art
+ *  styles keep their fixed, intentionally-shaped ratios (they letterbox
+ *  via `object-fit: contain`). */
+export function naturalCoverRatio(
+  rom: CoverArtRom,
+  style: BoxartStyle,
+): number {
+  if (style === "cover_path") {
+    const w = rom.cover_width;
+    const h = rom.cover_height;
+    if (w && h && w > 0 && h > 0) return w / h;
+  }
   return COVER_RATIOS[style];
 }
 
@@ -139,7 +160,7 @@ export function computeCoverArt(
   style: BoxartStyle,
   opts: ComputeOptions,
 ): CoverArtDescriptor {
-  const ratio = coverRatio(style);
+  const ratio = naturalCoverRatio(rom, style);
   // Treat an empty string as "no override" — a preview field that hasn't
   // been set yet (e.g. EditRomDialog opens `imagePreviewUrl = ""`) must
   // still resolve the rom's own cover, not blank out to the placeholder.

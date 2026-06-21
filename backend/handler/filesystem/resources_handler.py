@@ -238,6 +238,33 @@ class FSResourcesHandler(FSHandler):
 
         return path_cover_s, path_cover_l
 
+    def get_cover_dimensions(
+        self, entity: Rom | Collection | None
+    ) -> tuple[int | None, int | None]:
+        """Read the natural pixel dimensions of the stored large cover.
+
+        Returns (width, height), or (None, None) when no readable big cover
+        exists on disk (remote-only covers, missing files). Used both at
+        save time and by the lazy backfill so the frontend can render cover
+        art at its natural aspect ratio.
+        """
+        if not entity:
+            return None, None
+
+        big_cover = self._get_cover_path(entity, CoverSize.BIG)
+        if not big_cover:
+            return None, None
+
+        try:
+            with Image.open(self.validate_path(big_cover)) as img:
+                return img.width, img.height
+        except (UnidentifiedImageError, OSError, ValueError) as exc:
+            log.warning(
+                f"Unable to read cover dimensions for "
+                f"{entity.fs_resources_path}: {str(exc)}"
+            )
+            return None, None
+
     async def remove_cover(self, entity: Rom | Collection | None):
         if not entity:
             return {"path_cover_s": "", "path_cover_l": ""}

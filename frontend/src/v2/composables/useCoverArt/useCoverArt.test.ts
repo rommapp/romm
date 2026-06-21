@@ -5,6 +5,7 @@ import {
   computeCoverArt,
   coverRatio,
   isBoxartStyle,
+  naturalCoverRatio,
 } from "./index";
 
 const RES = "/assets/romm/resources";
@@ -45,6 +46,42 @@ describe("coverRatio", () => {
     expect(coverRatio("box3d_path")).toBeCloseTo(3 / 4);
     expect(coverRatio("physical_path")).toBe(1);
     expect(coverRatio("miximage_path")).toBe(1);
+  });
+});
+
+describe("naturalCoverRatio", () => {
+  it("uses the rom's recorded dimensions for the default box-art style", () => {
+    const r = rom({ cover_width: 300, cover_height: 400 });
+    expect(naturalCoverRatio(r, "cover_path")).toBeCloseTo(300 / 400);
+  });
+  it("falls back to the canonical box-art ratio when dimensions are missing", () => {
+    expect(naturalCoverRatio(rom({}), "cover_path")).toBeCloseTo(2 / 3);
+    expect(
+      naturalCoverRatio(rom({ cover_width: 0, cover_height: 0 }), "cover_path"),
+    ).toBeCloseTo(2 / 3);
+    expect(
+      naturalCoverRatio(
+        rom({ cover_width: 300, cover_height: null }),
+        "cover_path",
+      ),
+    ).toBeCloseTo(2 / 3);
+  });
+  it("ignores recorded dimensions for alt-art styles (fixed shapes)", () => {
+    const r = rom({ cover_width: 300, cover_height: 400 });
+    expect(naturalCoverRatio(r, "box3d_path")).toBeCloseTo(3 / 4);
+    expect(naturalCoverRatio(r, "physical_path")).toBe(1);
+    expect(naturalCoverRatio(r, "miximage_path")).toBe(1);
+  });
+});
+
+describe("computeCoverArt natural ratio", () => {
+  it("threads the rom's natural ratio into the descriptor for cover_path", () => {
+    const desc = computeCoverArt(
+      rom({ path_cover_large: "c.png", cover_width: 200, cover_height: 300 }),
+      "cover_path",
+      { resourcesPath: RES, supportsWebp: false },
+    );
+    expect(desc.ratio).toBeCloseTo(200 / 300);
   });
 });
 

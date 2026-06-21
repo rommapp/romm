@@ -34,6 +34,7 @@ from handler.redis_handler import (
     low_prio_queue,
     redis_client,
 )
+from tasks.manual.backfill_cover_dimensions import backfill_cover_dimensions_task
 from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
 from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.manual.recompute_save_content_hashes import (
@@ -124,6 +125,13 @@ manual_tasks: list[ManualTask] = [
             "name": "recompute_save_content_hashes",
             "type": TaskType.CLEANUP,
             "task": recompute_save_content_hashes_task,
+        }
+    ),
+    ManualTask(
+        {
+            "name": "backfill_cover_dimensions",
+            "type": TaskType.CLEANUP,
+            "task": backfill_cover_dimensions_task,
         }
     ),
 ]

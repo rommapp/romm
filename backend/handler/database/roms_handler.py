@@ -1833,3 +1833,46 @@ class DBRomsHandler(DBBaseHandler):
         )
 
         return self._collect_filter_values(session, statement)
+
+    @begin_session
+    def count_roms_missing_cover_dimensions(
+        self,
+        session: Session = None,  # type: ignore
+    ) -> int:
+        """Number of Rom rows that have a stored large cover but no recorded
+        cover dimensions. Used at startup to decide whether the one-shot
+        cover-dimensions backfill task needs to be enqueued."""
+        return (
+            session.scalar(
+                select(func.count(Rom.id)).where(
+                    Rom.cover_width.is_(None),
+                    Rom.path_cover_l.is_not(None),
+                    Rom.path_cover_l != "",
+                )
+            )
+            or 0
+        )
+
+    @begin_session
+    def get_roms_missing_cover_dimensions_after_id(
+        self,
+        after_id: int,
+        limit: int,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Rom]:
+        """Page Rom rows that need a cover-dimensions backfill by primary key.
+        Returns up to ``limit`` rows with ``id > after_id`` that have a stored
+        large cover but no recorded dimensions, ordered by id. Drives the
+        backfill_cover_dimensions maintenance task in bounded-memory batches
+        (mirrors get_saves_after_id for the recompute task)."""
+        return session.scalars(
+            select(Rom)
+            .where(
+                Rom.id > after_id,
+                Rom.cover_width.is_(None),
+                Rom.path_cover_l.is_not(None),
+                Rom.path_cover_l != "",
+            )
+            .order_by(Rom.id)
+            .limit(limit)
+        ).all()

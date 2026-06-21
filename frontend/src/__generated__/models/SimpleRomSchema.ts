@@ -60,6 +60,8 @@ export type SimpleRomSchema = {
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);
+    cover_width: (number | null);
+    cover_height: (number | null);
     has_manual: boolean;
     has_manual_files: boolean;
     has_soundtrack: boolean;

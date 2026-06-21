@@ -397,6 +397,7 @@ async def _identify_rom(
         overwrite=_added_rom.url_cover != rom.url_cover,
         url_cover=add_ss_auth_to_url(_added_rom.url_cover),
     )
+    cover_width, cover_height = fs_resource_handler.get_cover_dimensions(_added_rom)
 
     path_manual = await fs_resource_handler.get_manual(
         rom=_added_rom,
@@ -416,6 +417,8 @@ async def _identify_rom(
 
     _added_rom.path_cover_s = path_cover_s
     _added_rom.path_cover_l = path_cover_l
+    _added_rom.cover_width = cover_width
+    _added_rom.cover_height = cover_height
     _added_rom.path_screenshots = path_screenshots
     _added_rom.path_manual = path_manual
 
@@ -425,6 +428,8 @@ async def _identify_rom(
         {
             "path_cover_s": path_cover_s,
             "path_cover_l": path_cover_l,
+            "cover_width": cover_width,
+            "cover_height": cover_height,
             "path_screenshots": path_screenshots,
             "path_manual": path_manual,
         },
