@@ -74,6 +74,11 @@ interface Props {
    *  not a separate scale), so `hero` + any `size` paints the 16:9
    *  shape at that tier's footprint. */
   size?: "xs" | "sm" | "md" | "lg" | "xl";
+  /** Keep the tier's fixed width×height footprint (cover cropped via
+   *  object-fit) instead of the default fixed-height/natural-width. For
+   *  dense aligned layouts — list-row tables — where a uniform cover
+   *  column matters more than showing the cover's true shape. */
+  fixed?: boolean;
   focused?: boolean;
   webp?: boolean;
   showPlatformIcon?: boolean;
@@ -369,6 +374,7 @@ function onStaticKeydown(e: KeyboardEvent) {
       size !== 'md' && `r-gc--size-${size}`,
       {
         'r-gc--hero': hero,
+        'r-gc--fixed': fixed,
         'r-gc--focused': focused,
         'r-gc--static': static || decorative,
         'r-gc--no-hover': noHover || decorative,
@@ -529,21 +535,25 @@ function onStaticKeydown(e: KeyboardEvent) {
   color: var(--r-color-fg);
 }
 
-/* Default (gallery) card: fixed art height (a 2/3 cover's height at
-   `--r-card-art-w`), natural width from the cover's own ratio. Same height,
-   varying widths. Size tiers + hero keep their fixed footprints. */
+/* Non-hero, non-fixed cards render at a FIXED HEIGHT with NATURAL WIDTH —
+   same height, varying widths, never cropped. `size` just picks the height
+   (the default derives it from the reference width; tiers set it directly).
+   `hero` (16:9) and the `fixed` opt-out (dense aligned lists / tables that
+   need a uniform cover column) keep their fixed w×h footprint. */
 .r-gc:not([class*="r-gc--size-"]):not(.r-gc--hero) {
   --r-card-art-h: calc(var(--r-card-art-w) / 0.6667);
+}
+.r-gc:not(.r-gc--hero):not(.r-gc--fixed) {
   width: auto;
   display: flex;
   flex-direction: column;
 }
 /* Width follows the cover (overrides GameCover's base `width: 100%`). */
-.r-gc:not([class*="r-gc--size-"]):not(.r-gc--hero) .r-gc__art {
+.r-gc:not(.r-gc--hero):not(.r-gc--fixed) .r-gc__art {
   width: auto;
 }
 /* Label fills the cover's width and ellipsises, without widening the card. */
-.r-gc:not([class*="r-gc--size-"]):not(.r-gc--hero) .r-gc__label {
+.r-gc:not(.r-gc--hero):not(.r-gc--fixed) .r-gc__label {
   width: 0;
   min-width: 100%;
   max-width: 100%;

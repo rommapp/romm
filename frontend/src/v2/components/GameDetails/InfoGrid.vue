@@ -60,7 +60,7 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
    surfaces feel like siblings. */
 .r-v2-det-infogrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, auto));
   gap: 18px 24px;
   width: 100%;
 }

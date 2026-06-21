@@ -334,7 +334,9 @@ function closeDialog() {
 .r-v2-del-rom__cover img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* Show the whole cover at its natural aspect (no crop); the slot stays a
+     uniform width so the delete list's rows keep their alignment. */
+  object-fit: contain;
   display: block;
 }
 .r-v2-del-rom__cover-placeholder {
