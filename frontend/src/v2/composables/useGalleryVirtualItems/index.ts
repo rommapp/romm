@@ -341,7 +341,6 @@ export function useGalleryVirtualItems(opts: Options) {
           items.push({
             kind: "row",
             key: `row-${row.start}`,
-            rowIndex: 0,
             startPosition: row.start,
             endPosition: row.end,
             letters: [range.letter],
@@ -361,7 +360,6 @@ export function useGalleryVirtualItems(opts: Options) {
         items.push({
           kind: "row",
           key: `row-${row.start}`,
-          rowIndex: 0,
           startPosition: row.start,
           endPosition: row.end,
           letters: lettersInRange(ranges, row.start, row.end),

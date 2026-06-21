@@ -22,7 +22,8 @@ export type GalleryItem =
   | {
       kind: "row";
       key: string;
-      rowIndex: number;
+      /** A contiguous run of ROM positions, flow-packed to fill the row
+       * width. Variable length — there's no fixed column count. */
       startPosition: number;
       endPosition: number; // exclusive
       /** Letters covered by this row's position range (from server's
