@@ -480,14 +480,16 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
 
 <style scoped>
 /* ── Hero ──────────────────────────────────────────────────────────
-   Cover sits in a fixed-width left column; fields take the rest. The
-   `align-items: start` keeps the cover anchored to the top so taller
-   stacks of fields (or the multiline summary growing) don't drag the
-   cover down with them. */
+   Cover column sizes to the cover's natural width (`auto`) so the gap to
+   the fields is exactly the grid `gap`, consistent for any cover shape —
+   a fixed-width column would leave variable leftover space beside a
+   natural-width cover. `align-items: start` keeps the cover anchored to
+   the top so taller field stacks (or the growing summary) don't drag it
+   down. */
 .r-v2-edit__hero {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 18px;
+  grid-template-columns: auto 1fr;
+  gap: 24px;
   align-items: start;
 }
 
