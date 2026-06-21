@@ -665,13 +665,18 @@ class FSRomsHandler(FSHandler):
                 rom_sha1_h,
             )
 
-    async def _collect_fs_roms(self, rel_roms_path: str, recurse: bool) -> list[dict]:
+    async def _collect_fs_roms(
+        self, rel_roms_path: str, recurse: bool | frozenset[str]
+    ) -> list[dict]:
         """Discover roms under ``rel_roms_path``.
 
         Single files are flat roms (``fs_path`` = their parent directory).
-        Directories are single multi-file roms, except when ``recurse`` is on:
-        then each (non-hidden) directory is a group of roms and is descended
-        into, so files nested at any depth are picked up as individual roms.
+        A directory is a single multi-file rom unless ``recurse`` says to
+        descend into it, in which case its contents are collected as
+        individual roms. ``recurse`` is ``True`` (descend every folder), a set
+        of folder names (descend only those — every other folder stays a
+        multi-file rom), or ``False`` (descend none).
+
         Hidden (dot-prefixed) directories are never descended into, and a
         directory holding an ``.m3u`` playlist is kept whole as a single
         multi-file rom (a multi-disc game) even while recursing, so it isn't
@@ -686,11 +691,9 @@ class FSRomsHandler(FSHandler):
             await self.list_directories(rel_roms_path)
         ):
             dir_path = f"{rel_roms_path}/{directory}"
-            if (
-                recurse
-                and not directory.startswith(".")
-                and not await self._is_multi_disc_dir(dir_path)
-            ):
+            if self._should_recurse_dir(
+                directory, recurse
+            ) and not await self._is_multi_disc_dir(dir_path):
                 fs_roms.extend(await self._collect_fs_roms(dir_path, recurse))
             else:
                 fs_roms.append(
@@ -703,6 +706,21 @@ class FSRomsHandler(FSHandler):
                 )
 
         return fs_roms
+
+    @staticmethod
+    def _should_recurse_dir(directory: str, recurse: bool | frozenset[str]) -> bool:
+        """Whether to descend into ``directory`` (collecting its contents as
+        individual roms) rather than treat it as one multi-file rom.
+
+        Hidden (dot-prefixed) folders are never descended into. Otherwise
+        ``recurse`` is ``True`` (all folders), a set of folder names (only
+        those), or ``False`` (none).
+        """
+        if directory.startswith("."):
+            return False
+        if isinstance(recurse, frozenset):
+            return directory in recurse
+        return recurse
 
     async def _is_multi_disc_dir(self, rel_dir_path: str) -> bool:
         """True if a directory directly contains an ``.m3u`` playlist.
@@ -720,7 +738,7 @@ class FSRomsHandler(FSHandler):
         """Return the number of filesystem roms for a platform without
         materializing FSRom objects.
         """
-        recurse = cm.get_config().should_scan_subfolders(platform.fs_slug)
+        recurse = cm.get_config().subfolder_scan_spec(platform.fs_slug)
         try:
             rel_roms_path = self.get_roms_fs_structure(platform.fs_slug)
             return len(await self._collect_fs_roms(rel_roms_path, recurse))
@@ -735,7 +753,7 @@ class FSRomsHandler(FSHandler):
         Returns:
             list with all the filesystem roms for a platform
         """
-        recurse = cm.get_config().should_scan_subfolders(platform.fs_slug)
+        recurse = cm.get_config().subfolder_scan_spec(platform.fs_slug)
         try:
             rel_roms_path = self.get_roms_fs_structure(
                 platform.fs_slug

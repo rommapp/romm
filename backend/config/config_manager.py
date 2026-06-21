@@ -132,7 +132,7 @@ class Config:
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
-    SCAN_SUBFOLDERS: dict[str, bool]
+    SCAN_SUBFOLDERS: dict[str, bool | list[str]]
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
 
@@ -161,13 +161,23 @@ class Config:
 
         return False
 
-    def should_scan_subfolders(self, fs_slug: str) -> bool:
-        """Whether the scanner should recurse into a platform's subfolders,
-        treating each subfolder as a group of ROMs rather than as a single
-        multi-file ROM. Opt-in per platform via `scan.subfolders` in config.yml.
+    def subfolder_scan_spec(self, fs_slug: str) -> bool | frozenset[str]:
+        """How the scanner should recurse into a platform's subfolders.
+
+        Opt-in per platform via `scan.subfolders` in config.yml, where the
+        value is either:
+          - ``True`` -> recurse every subfolder (each becomes a group of roms);
+          - a list of folder names -> recurse only those folders, leaving every
+            other folder as a single multi-file rom (so folder-based multi-file
+            games elsewhere on the platform stay intact);
+          - ``False`` / omitted -> don't recurse (default behavior).
+
+        Returns ``True``, a ``frozenset`` of folder names, or ``False``.
         """
-        subfolders = getattr(self, "SCAN_SUBFOLDERS", {})
-        return bool(subfolders.get(fs_slug, False))
+        value = getattr(self, "SCAN_SUBFOLDERS", {}).get(fs_slug, False)
+        if isinstance(value, list):
+            return frozenset(value)
+        return bool(value)
 
 
 class ConfigManager:
@@ -674,10 +684,15 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.subfolders must be a dictionary")
             sys.exit(3)
         else:
-            for fs_slug, enabled in self.config.SCAN_SUBFOLDERS.items():
-                if not isinstance(enabled, bool):
+            for fs_slug, value in self.config.SCAN_SUBFOLDERS.items():
+                is_bool = isinstance(value, bool)
+                is_str_list = isinstance(value, list) and all(
+                    isinstance(name, str) for name in value
+                )
+                if not (is_bool or is_str_list):
                     log.critical(
-                        f"Invalid config.yml: scan.subfolders.{fs_slug} must be a boolean"
+                        f"Invalid config.yml: scan.subfolders.{fs_slug} must be a "
+                        "boolean or a list of folder names"
                     )
                     sys.exit(3)
 

@@ -377,7 +377,7 @@ class TestFSRomsHandler:
             # Check excluded files are not present
             assert "excluded_test.tmp" not in rom_names
 
-    def _make_subfolder_config(self, subfolders: dict[str, bool]) -> Config:
+    def _make_subfolder_config(self, subfolders: dict[str, bool | list[str]]) -> Config:
         return Config(
             EXCLUDED_PLATFORMS=[],
             EXCLUDED_SINGLE_EXT=["tmp"],
@@ -515,6 +515,42 @@ class TestFSRomsHandler:
         assert (f"{base}/Hacks", "Hack A.zip") in keys
         assert (base, "Flat Game.zip") in keys
         assert count == len(roms_found)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_subfolders_named_list(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A list value recurses only the named folders; every other folder
+        (including a folder-based multi-file game) stays a single multi-file
+        rom, and a non-named folder nested inside a named one is not split."""
+        self._build_subfolder_library(tmp_path, platform)
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_subfolder_config(
+                {platform.fs_slug: ["All but the Best"]}
+            ),
+        ):
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        base = f"{platform.fs_slug}/roms"
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        # Named folder is recursed -> its files become individual roms.
+        assert (f"{base}/All but the Best", "Game A.zip") in keys
+        assert (f"{base}/All but the Best", "Hidden Gem.zip") in keys
+        # A non-named folder nested inside it is kept whole (not recursed).
+        assert (f"{base}/All but the Best", "deeper") in keys
+        assert (f"{base}/All but the Best/deeper", "Way Down.zip") not in keys
+        # Folders NOT in the list stay as single multi-file roms.
+        assert (base, "Multi Disc Game") in keys
+        assert (f"{base}/Multi Disc Game", "disc1.bin") not in keys
+        # Top-level flat file and hidden folder behave as usual.
+        assert (base, "Game A.zip") in keys
+        assert (base, ".hidden") in keys
+        assert count == len(roms)
 
     @pytest.mark.asyncio
     async def test_get_rom_files_single_rom(
