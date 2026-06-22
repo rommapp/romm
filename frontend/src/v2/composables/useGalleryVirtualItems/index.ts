@@ -15,6 +15,16 @@
 // lands 72 ROMs only re-renders up to ⌈72/cols⌉ rows, not the entire
 // virtualItems array.
 //
+// Re-pack handling: a measured cover ratio change bumps `ratioVersion`, which
+// re-runs the build. Two things keep that cheap so a fast scroll through a
+// huge library doesn't thrash:
+//   * Structural sharing — unchanged item objects are reused from the previous
+//     build (keyed by their stable `key`), so a bump only allocates the rows
+//     that actually reflowed (paired with the scroller's `get-item-key`, Vue
+//     then moves the rest instead of remounting their cards).
+//   * Linear letter assignment — flat rows get their letters in one merge pass
+//     over the sorted ranges (`assignFlatRowLetters`), not a per-row scan.
+//
 // AlphaStrip integration is index-based: `letterToIndex` maps each
 // available letter to the index of its first item in `virtualItems`,
 // fed straight into `RVirtualScroller.scrollToIndex(idx, { stickyOffset })`.
@@ -176,14 +186,25 @@ function buildLetterRanges(
   return ranges;
 }
 
-function lettersInRange(
-  ranges: LetterRange[],
-  startPos: number,
-  endPos: number,
-): string[] {
-  const out: string[] = [];
-  for (const r of ranges) {
-    if (r.end > startPos && r.start < endPos) out.push(r.letter);
+/** Assign each flat-packed row the letters its position range overlaps, in a
+ *  single linear pass. Rows and ranges are both ascending, so one advancing
+ *  `base` pointer over the ranges replaces the old per-row overlap scan
+ *  (O(rows × letters) → O(rows + letters)). Exported for unit tests. */
+export function assignFlatRowLetters(
+  rows: ReadonlyArray<{ start: number; end: number }>,
+  ranges: ReadonlyArray<LetterRange>,
+): string[][] {
+  const out: string[][] = [];
+  // `base` only advances: once a range ends at or before a row's start it can
+  // never overlap a later (higher) row, so it's skipped for good.
+  let base = 0;
+  for (const row of rows) {
+    while (base < ranges.length && ranges[base].end <= row.start) base++;
+    const letters: string[] = [];
+    for (let j = base; j < ranges.length && ranges[j].start < row.end; j++) {
+      if (ranges[j].end > row.start) letters.push(ranges[j].letter);
+    }
+    out.push(letters);
   }
   return out;
 }
@@ -217,7 +238,64 @@ export function useGalleryVirtualItems(opts: Options) {
     return FIXED_HEIGHT_BY_KIND[kind] ?? 0;
   }
 
-  const virtualItems = computed<GalleryItem[]>(() => {
+  // ── Structural sharing across re-packs ────────────────────────────────
+  // A measured cover ratio change bumps `ratioVersion`, re-running the build.
+  // Only the run of rows from the first re-measured cover onward actually
+  // reflows; everything before stays identical. So we REUSE the previous
+  // build's item objects whenever their content matches (looked up by stable
+  // key). A reused object keeps its reference, so — paired with the scroller's
+  // content-derived `get-item-key` — Vue moves the untouched rows instead of
+  // re-rendering them, and only the reflowed rows allocate. This turns a
+  // per-bump O(total) re-allocation into O(reflowed rows). `prevByKey` holds
+  // the last build and survives across evaluations as closure state; if it
+  // ever goes stale the only cost is a missed reuse (emitted items are always
+  // correct, since they're built fresh from the current pack every time).
+  let prevByKey = new Map<string, GalleryItem>();
+
+  function sameLetters(a: readonly string[], b: readonly string[]): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+  function shareRow(
+    start: number,
+    end: number,
+    letters: string[],
+  ): GalleryItem {
+    const prev = prevByKey.get(`row-${start}`);
+    if (
+      prev?.kind === "row" &&
+      prev.endPosition === end &&
+      sameLetters(prev.letters, letters)
+    ) {
+      return prev;
+    }
+    return {
+      kind: "row",
+      key: `row-${start}`,
+      startPosition: start,
+      endPosition: end,
+      letters,
+    };
+  }
+  function shareHeader(letter: string): GalleryItem {
+    // A header's whole content is its letter, which the key encodes — same key
+    // ⇒ identical, always reusable.
+    const prev = prevByKey.get(`lh-${letter}`);
+    if (prev?.kind === "letter-header") return prev;
+    return { kind: "letter-header", key: `lh-${letter}`, letter };
+  }
+  function shareListRow(position: number, letter: string): GalleryItem {
+    const prev = prevByKey.get(`lr-${position}`);
+    if (prev?.kind === "list-row" && prev.letter === letter) return prev;
+    return { kind: "list-row", key: `lr-${position}`, position, letter };
+  }
+
+  // Build the structural body for the current state. Reads every layout dep
+  // (so the wrapping computed tracks them) and routes row / header / list-row
+  // emission through the share helpers above. Split out from the cache refresh
+  // so every early-returning branch still flows through one place.
+  function buildItems(): GalleryItem[] {
     const items: GalleryItem[] = [];
 
     if (opts.notFound?.value) {
@@ -230,14 +308,13 @@ export function useGalleryVirtualItems(opts: Options) {
     }
 
     // List layout — one virtual item per ROM position. The view template
-    // resolves each row via `getRomAt(position)` and renders skeleton vs
-    // real inside the same kind. Group-by-letter in list mode is
-    // deferred (see CLAUDE.md §X — list-mode MVP first).
+    // resolves each row via `getRomAt(position)` and renders skeleton vs real
+    // inside the same kind. Group-by-letter in list mode is deferred (see
+    // CLAUDE.md §X — list-mode MVP first).
     if (opts.layout.value === "list") {
       if (opts.loadingInitial.value && opts.total.value === 0) {
-        // Bootstrap phase — paint placeholder rows so the scroller has a
-        // shape while metadata is in flight. Reasonable count to fill a
-        // typical viewport without committing to a fixed number.
+        // Bootstrap phase — placeholder rows give the scroller a shape while
+        // metadata is in flight. Enough to fill a typical viewport.
         const skeletonListRows = Math.max(skeletonRows * 4, 12);
         for (let i = 0; i < skeletonListRows; i++) {
           items.push({
@@ -258,10 +335,8 @@ export function useGalleryVirtualItems(opts: Options) {
       }
       const ranges = letterRanges.value;
       const total = opts.total.value;
-      // Pre-compute a position → letter lookup so each list-row knows
-      // which letter it belongs to (drives AlphaStrip's scroll-spy).
-      // Walking `ranges` once (sorted by start) is O(total) — acceptable
-      // because virtualItems already iterates `total`.
+      // Walk `ranges` once (sorted by start) to tag each position with its
+      // letter (drives AlphaStrip's scroll-spy).
       let rangeIdx = 0;
       for (let p = 0; p < total; p++) {
         while (
@@ -270,19 +345,13 @@ export function useGalleryVirtualItems(opts: Options) {
         ) {
           rangeIdx++;
         }
-        const letter = ranges[rangeIdx]?.letter ?? "#";
-        items.push({
-          kind: "list-row",
-          key: `lr-${p}`,
-          position: p,
-          letter,
-        });
+        items.push(shareListRow(p, ranges[rangeIdx]?.letter ?? "#"));
       }
       return items;
     }
 
-    // Grid + first-window-loading — show skeleton rows until the server
-    // tells us `total` and `charIndex`.
+    // Grid + first-window-loading — skeleton rows until the server returns
+    // `total` and `charIndex`.
     if (opts.loadingInitial.value && opts.total.value === 0) {
       for (let i = 0; i < skeletonRows; i++) {
         items.push({ kind: "skeleton-row", key: `skel-${i}`, index: i });
@@ -314,11 +383,7 @@ export function useGalleryVirtualItems(opts: Options) {
     if (opts.groupBy.value === "letter") {
       // Header + own flow-packed rows per letter (rows restart per letter).
       for (const range of ranges) {
-        items.push({
-          kind: "letter-header",
-          key: `lh-${range.letter}`,
-          letter: range.letter,
-        });
+        items.push(shareHeader(range.letter));
         for (const row of packFlowRows(
           range.start,
           range.end,
@@ -327,35 +392,29 @@ export function useGalleryVirtualItems(opts: Options) {
           gap,
           ratioAt,
         )) {
-          items.push({
-            kind: "row",
-            key: `row-${row.start}`,
-            startPosition: row.start,
-            endPosition: row.end,
-            letters: [range.letter],
-          });
+          items.push(shareRow(row.start, row.end, [range.letter]));
         }
       }
     } else {
-      // Flat — flow-pack the whole list; rows stay contiguous position runs.
-      for (const row of packFlowRows(
-        0,
-        total,
-        rowWidth,
-        cardHeight,
-        gap,
-        ratioAt,
-      )) {
-        items.push({
-          kind: "row",
-          key: `row-${row.start}`,
-          startPosition: row.start,
-          endPosition: row.end,
-          letters: lettersInRange(ranges, row.start, row.end),
-        });
+      // Flat — flow-pack the whole list, then tag every row with its
+      // overlapping letters in one linear pass (not a per-row scan).
+      const rows = packFlowRows(0, total, rowWidth, cardHeight, gap, ratioAt);
+      const lettersPerRow = assignFlatRowLetters(rows, ranges);
+      for (let i = 0; i < rows.length; i++) {
+        items.push(shareRow(rows[i].start, rows[i].end, lettersPerRow[i]));
       }
     }
 
+    return items;
+  }
+
+  const virtualItems = computed<GalleryItem[]>(() => {
+    const items = buildItems();
+    // Refresh the reuse cache from this build for the next re-pack — cheap
+    // O(items) bookkeeping; the win is the avoided re-allocation in buildItems.
+    const nextByKey = new Map<string, GalleryItem>();
+    for (const it of items) nextByKey.set(it.key, it);
+    prevByKey = nextByKey;
     return items;
   });
 
