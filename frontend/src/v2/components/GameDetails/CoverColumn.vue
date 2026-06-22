@@ -10,13 +10,13 @@
 // upgrades to the interactive RBox3D the user can spin. Anything missing —
 // a different style, an incomplete set, or a failed image — falls straight
 // back to the flat GameCover.
+import { RBox3D } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBox3D } from "@v2/lib";
 import { useUISettings } from "@/composables/useUISettings";
 import type { DetailedRom } from "@/stores/roms";
-import { useBoxFaces } from "@/v2/composables/useBoxFaces";
 import GameCover from "@/v2/components/shared/GameCover.vue";
+import { useBoxFaces } from "@/v2/composables/useBoxFaces";
 
 defineOptions({ inheritAttrs: false });
 

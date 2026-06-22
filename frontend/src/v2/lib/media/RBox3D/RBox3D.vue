@@ -152,7 +152,10 @@ function endDrag(e: PointerEvent) {
   // after a pause (no recent movement) carries no flick.
   if (performance.now() - lastMoveAt < FLICK_WINDOW_MS) {
     const coast = (v: number) =>
-      Math.max(-MOMENTUM_MAX, Math.min(MOMENTUM_MAX, v * DRAG_SENSITIVITY * MOMENTUM_FRAMES));
+      Math.max(
+        -MOMENTUM_MAX,
+        Math.min(MOMENTUM_MAX, v * DRAG_SENSITIVITY * MOMENTUM_FRAMES),
+      );
     const dy = coast(velX);
     const dp = coast(-velY);
     if (Math.abs(dy) > 1 || Math.abs(dp) > 1) {
@@ -211,7 +214,8 @@ function tick() {
       if (Math.abs(ax) > Math.abs(rx)) rx = ax;
       if (Math.abs(ay) > Math.abs(ry)) ry = ay;
     }
-    const active = Math.abs(rx) > STICK_DEADZONE || Math.abs(ry) > STICK_DEADZONE;
+    const active =
+      Math.abs(rx) > STICK_DEADZONE || Math.abs(ry) > STICK_DEADZONE;
     stickActive.value = active;
     if (active) {
       yaw.value += rx * STICK_SPEED;
@@ -371,14 +375,14 @@ const rootStyle = computed(() => ({ aspectRatio: String(frontRatio.value) }));
           draggable="false"
           @load="onFrontLoad"
           @error="emit('error')"
-        >
+        />
         <img
           class="r-box3d__face r-box3d__face--art"
           :src="back"
           alt=""
           :style="backStyle"
           draggable="false"
-        >
+        />
         <img
           ref="spineImg"
           class="r-box3d__face r-box3d__face--art"
@@ -387,19 +391,16 @@ const rootStyle = computed(() => ({ aspectRatio: String(frontRatio.value) }));
           :style="leftStyle"
           draggable="false"
           @load="onSpineLoad"
-        >
+        />
         <img
           class="r-box3d__face r-box3d__face--art"
           :src="spine"
           alt=""
           :style="rightStyle"
           draggable="false"
-        >
-        <div class="r-box3d__face r-box3d__face--edge" :style="topStyle" />
-        <div
-          class="r-box3d__face r-box3d__face--edge"
-          :style="bottomStyle"
         />
+        <div class="r-box3d__face r-box3d__face--edge" :style="topStyle" />
+        <div class="r-box3d__face r-box3d__face--edge" :style="bottomStyle" />
       </div>
     </div>
   </div>

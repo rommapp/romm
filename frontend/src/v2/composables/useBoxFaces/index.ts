@@ -13,7 +13,12 @@
 // is false for most libraries until they opt in and re-scan. RBox3D is
 // only mounted when `complete` is true; otherwise the surface keeps the
 // flat cover.
-import { computed, toValue, type ComputedRef, type MaybeRefOrGetter } from "vue";
+import {
+  computed,
+  toValue,
+  type ComputedRef,
+  type MaybeRefOrGetter,
+} from "vue";
 import type { SimpleRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
