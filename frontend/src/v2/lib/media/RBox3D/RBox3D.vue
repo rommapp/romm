@@ -19,7 +19,7 @@
 // Primitive boundaries (§II): no stores, no domain knowledge — it takes
 // three image URLs and a label. The feature composite (CoverColumn) decides
 // when a rom actually has all three faces and feeds them in.
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, type Ref } from "vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -63,6 +63,8 @@ const DEFAULT_FRONT_RATIO = 0.715; // typical box face w/h until measured
 const DEFAULT_SPINE_RATIO = 0.12; //  depth/height until measured
 
 const rootEl = ref<HTMLElement | null>(null);
+const frontImg = ref<HTMLImageElement | null>(null);
+const spineImg = ref<HTMLImageElement | null>(null);
 
 // Orientation.
 const yaw = ref(props.initialYaw);
@@ -200,18 +202,18 @@ function tick() {
 }
 
 // --- Image measurement ---------------------------------------------------
-function onFrontLoad(e: Event) {
-  const img = e.target as HTMLImageElement;
-  if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-    frontRatio.value = img.naturalWidth / img.naturalHeight;
+// The box mirrors the real artwork: the front (box-2D) natural ratio drives
+// the box width/height, the spine's drives the depth. Defaults only stand in
+// until the bytes are decoded.
+function measureRatio(img: HTMLImageElement | null, target: Ref<number>) {
+  if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+    target.value = img.naturalWidth / img.naturalHeight;
   }
 }
-function onSpineLoad(e: Event) {
-  const img = e.target as HTMLImageElement;
-  if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-    spineRatio.value = img.naturalWidth / img.naturalHeight;
-  }
-}
+const onFrontLoad = (e: Event) =>
+  measureRatio(e.target as HTMLImageElement, frontRatio);
+const onSpineLoad = (e: Event) =>
+  measureRatio(e.target as HTMLImageElement, spineRatio);
 
 let ro: ResizeObserver | null = null;
 onMounted(() => {
@@ -239,6 +241,10 @@ onMounted(() => {
     root.addEventListener("pointercancel", endDrag);
     root.addEventListener("keydown", onKeydown);
   }
+  // A cached cover can already be decoded before the load listener binds —
+  // read its dimensions now so the box adopts box-2D's ratio immediately.
+  measureRatio(frontImg.value, frontRatio);
+  measureRatio(spineImg.value, spineRatio);
   rafId = requestAnimationFrame(tick);
 });
 onBeforeUnmount(() => {
@@ -310,6 +316,7 @@ const rootStyle = computed(() => ({ aspectRatio: String(frontRatio.value) }));
     <div class="r-box3d__stage">
       <div class="r-box3d__box" :style="boxStyle">
         <img
+          ref="frontImg"
           class="r-box3d__face r-box3d__face--art"
           :src="front"
           :alt="alt"
@@ -326,6 +333,7 @@ const rootStyle = computed(() => ({ aspectRatio: String(frontRatio.value) }));
           draggable="false"
         >
         <img
+          ref="spineImg"
           class="r-box3d__face r-box3d__face--art"
           :src="spine"
           alt=""
