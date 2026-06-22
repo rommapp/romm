@@ -317,7 +317,6 @@ onBeforeUnmount(() => {
         <GameCard
           :rom="rom"
           size="xs"
-          fixed
           :webp="webp"
           decorative
           :show-title="false"
