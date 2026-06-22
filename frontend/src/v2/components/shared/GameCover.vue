@@ -28,6 +28,10 @@ import {
   type BoxartStyle,
   type CoverArtRom,
 } from "@/v2/composables/useCoverArt";
+import {
+  getCoverRatio,
+  setCoverRatio,
+} from "@/v2/composables/useGalleryCoverRatios";
 import { pendingMorphName } from "@/v2/composables/useViewTransition";
 
 // inheritAttrs stays ON (default): consumers pass a `class` (e.g.
@@ -121,20 +125,27 @@ const coverLoaded = ref(false);
 const activeSrc = computed(() =>
   showFallback.value ? art.fallbackUrl.value : art.coverUrl.value,
 );
-// Natural ratio (w / h) of the rendered image, measured on load — drives
-// the box shape. Null until decoded / for the placeholder (→ style ratio).
-const naturalRatio = ref<number | null>(null);
+// Natural ratio (w / h) of the rendered image. Seeded from the shared
+// by-URL cache so a cover measured elsewhere (e.g. the gallery card the
+// user just clicked) renders at its true shape immediately — no stretch
+// during the morph. Falls back to the style ratio until the image decodes.
+const naturalRatio = ref<number | null>(
+  getCoverRatio({ url: activeSrc.value, romId: props.morphId }),
+);
 function measureNaturalRatio() {
   const el = imgEl.value;
   if (el && el.naturalWidth > 0 && el.naturalHeight > 0) {
     const r = el.naturalWidth / el.naturalHeight;
     naturalRatio.value = r;
+    setCoverRatio({ url: activeSrc.value, romId: props.morphId }, r);
     emit("ratio", r);
   }
 }
-watch(activeSrc, () => {
+watch(activeSrc, (src) => {
   coverLoaded.value = false;
-  naturalRatio.value = null;
+  // Re-seed from the cache (by URL or rom id) so a recycled box keeps a
+  // known shape instead of briefly reverting to the style ratio.
+  naturalRatio.value = getCoverRatio({ url: src, romId: props.morphId });
 });
 const onCoverLoad = () => {
   coverLoaded.value = true;

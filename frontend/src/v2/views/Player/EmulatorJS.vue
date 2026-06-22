@@ -37,7 +37,7 @@ import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
-import { type DetailedRom } from "@/stores/roms";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
@@ -80,6 +80,23 @@ function focusPlayButton() {
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const selectedSave = ref<SaveSchema | null>(null);
+
+// Rom id straight from the route param (available before `rom` resolves),
+// so the hero cover paints its `view-transition-name` immediately and the
+// shared-element morph from the gallery / details cover pairs on entry.
+const morphRomId = computed(() => {
+  const r = route.params.rom;
+  return typeof r === "string" ? r : null;
+});
+
+// Seed the rom synchronously from the store (set by GameDetails / not
+// cleared on its unmount) so the hero cover is already in the DOM when the
+// view transition captures this view — the morph from the details / gallery
+// cover then pairs on entry. `onMounted` refetches the full payload.
+const seededRom = storeRoms().currentRom;
+if (seededRom && String(seededRom.id) === morphRomId.value) {
+  rom.value = seededRom;
+}
 const isSavesTabSelected = ref(true);
 const selectedState = ref<StateSchema | null>(null);
 const selectedDisc = ref<number | null>(null);
@@ -539,6 +556,8 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
             :rom="rom"
             :title="title"
             :identified="rom?.is_identified ?? true"
+            :morph-id="morphRomId"
+            morph-static
           />
           <div class="r-v2-ejs__cover-glow" aria-hidden="true" />
         </div>

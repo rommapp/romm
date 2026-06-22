@@ -44,14 +44,16 @@ describe("useGalleryCoverRatios", () => {
   });
 
   it("bumps ratioVersion once per debounce burst", () => {
-    storeGalleryRoms().romIdIndex = [101, 102];
+    // Distinct rom ids per test — the ratio store is module-level (shared),
+    // so reusing ids across tests would collide.
+    storeGalleryRoms().romIdIndex = [201, 202];
     const { ratioVersion, onCardRatio } = withComposable(() =>
       useGalleryCoverRatios(),
     );
 
     expect(ratioVersion.value).toBe(0);
-    onCardRatio({ romId: 101, ratio: 0.7 });
-    onCardRatio({ romId: 102, ratio: 0.5 });
+    onCardRatio({ romId: 201, ratio: 0.7 });
+    onCardRatio({ romId: 202, ratio: 0.5 });
     expect(ratioVersion.value).toBe(0); // still debouncing
 
     vi.advanceTimersByTime(150);
@@ -59,17 +61,17 @@ describe("useGalleryCoverRatios", () => {
   });
 
   it("ignores sub-epsilon changes (no re-store, no extra re-pack)", () => {
-    storeGalleryRoms().romIdIndex = [101];
+    storeGalleryRoms().romIdIndex = [301];
     const { ratioVersion, ratioAt, onCardRatio } = withComposable(() =>
       useGalleryCoverRatios(),
     );
 
-    onCardRatio({ romId: 101, ratio: 0.7 });
+    onCardRatio({ romId: 301, ratio: 0.7 });
     vi.advanceTimersByTime(150);
     expect(ratioVersion.value).toBe(1);
     expect(ratioAt(0)).toBeCloseTo(0.7);
 
-    onCardRatio({ romId: 101, ratio: 0.705 }); // delta 0.005 < 0.01
+    onCardRatio({ romId: 301, ratio: 0.705 }); // delta 0.005 < 0.01
     vi.advanceTimersByTime(150);
     expect(ratioVersion.value).toBe(1); // no new bump
     expect(ratioAt(0)).toBeCloseTo(0.7); // value unchanged

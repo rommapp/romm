@@ -9,7 +9,7 @@ import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
-import type { DetailedRom } from "@/stores/roms";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { RuffleSourceAPI } from "@/types/ruffle";
 import { getDownloadPath } from "@/utils";
 import GameCover from "@/v2/components/shared/GameCover.vue";
@@ -28,6 +28,22 @@ const { fullscreenOnPlay } = useFullscreenPref();
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
 const backgroundColor = ref<string>(DEFAULT_BACKGROUND_COLOR);
+
+// Rom id from the route param (available before `rom` resolves) so the hero
+// cover paints its `view-transition-name` immediately and the shared-element
+// morph from the gallery / details cover pairs on entry.
+const morphRomId = computed(() => {
+  const r = route.params.rom;
+  return typeof r === "string" ? r : null;
+});
+
+// Seed the rom synchronously from the store (set by GameDetails, not cleared
+// on its unmount) so the hero cover is in the DOM when the view transition
+// captures this view and the morph pairs on entry. `onMounted` refetches.
+const seededRom = storeRoms().currentRom;
+if (seededRom && String(seededRom.id) === morphRomId.value) {
+  rom.value = seededRom;
+}
 
 declare global {
   interface Window {
@@ -167,6 +183,8 @@ onMounted(async () => {
           :rom="rom"
           :title="title"
           :identified="rom?.is_identified ?? true"
+          :morph-id="morphRomId"
+          morph-static
         />
         <h1 class="r-v2-ruffle__title">
           {{ title }}
