@@ -81,6 +81,12 @@ const props = withDefaults(defineProps<Props>(), {
   morphStatic: false,
 });
 
+const emit = defineEmits<{
+  /** The rendered image's natural ratio (w / h) once loaded — lets the
+   *  gallery's wrapping rows pack by true shape. */
+  ratio: [number];
+}>();
+
 const art = useCoverArt(() => props.rom, {
   coverSrc: () => props.coverSrc,
   forceStyle: props.forceStyle
@@ -115,12 +121,27 @@ const coverLoaded = ref(false);
 const activeSrc = computed(() =>
   showFallback.value ? art.fallbackUrl.value : art.coverUrl.value,
 );
+// Natural ratio (w / h) of the rendered image, measured on load — drives
+// the box shape. Null until decoded / for the placeholder (→ style ratio).
+const naturalRatio = ref<number | null>(null);
+function measureNaturalRatio() {
+  const el = imgEl.value;
+  if (el && el.naturalWidth > 0 && el.naturalHeight > 0) {
+    const r = el.naturalWidth / el.naturalHeight;
+    naturalRatio.value = r;
+    emit("ratio", r);
+  }
+}
 watch(activeSrc, () => {
   coverLoaded.value = false;
+  naturalRatio.value = null;
 });
 const onCoverLoad = () => {
   coverLoaded.value = true;
+  measureNaturalRatio();
 };
+// True ratio once known, else the style ratio as a first guess.
+const boxRatio = computed(() => naturalRatio.value ?? art.ratio.value);
 
 const selfHover = ref(false);
 const coverActive = computed(
@@ -161,6 +182,7 @@ onMounted(() => {
   // soft initial paint instead of getting stuck blurred).
   if (imgEl.value?.complete && imgEl.value.naturalWidth > 0) {
     coverLoaded.value = true;
+    measureNaturalRatio();
   }
   if (!props.hoverMotion) return;
   rootEl.value?.addEventListener("mouseenter", onEnter);
@@ -187,7 +209,7 @@ defineExpose({
     ref="rootEl"
     class="game-cover"
     :class="{ 'game-cover--alt': isAltStyle }"
-    :style="[{ '--r-cover-ratio': art.ratio.value }, morphStyle]"
+    :style="[{ '--r-cover-ratio': boxRatio }, morphStyle]"
   >
     <img
       v-if="showingImage"

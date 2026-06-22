@@ -44,13 +44,18 @@ const gridStyle = computed(() => ({
     <template v-for="col in columns" :key="String(col.key)">
       <div v-if="col.key === 'select'" class="r-glr-skel__cell" />
       <div
-        v-else-if="col.key === 'name'"
-        class="r-glr-skel__cell r-glr-skel__title"
+        v-else-if="col.key === 'cover'"
+        class="r-glr-skel__cell r-glr-skel__cover"
       >
         <RSkeletonBlock
           :width="LIST_COVER_WIDTH_PX"
           :height="LIST_COVER_HEIGHT_PX"
         />
+      </div>
+      <div
+        v-else-if="col.key === 'name'"
+        class="r-glr-skel__cell r-glr-skel__title"
+      >
         <div class="r-glr-skel__meta">
           <RSkeletonBlock width="60%" :height="12" />
           <RSkeletonBlock width="40%" :height="10" />
@@ -104,6 +109,13 @@ const gridStyle = computed(() => ({
 
 .r-glr-skel__cell--end {
   display: flex;
+  justify-content: flex-end;
+}
+
+/* Right-align the cover block to match the real row. */
+.r-glr-skel__cover {
+  display: flex;
+  align-items: center;
   justify-content: flex-end;
 }
 

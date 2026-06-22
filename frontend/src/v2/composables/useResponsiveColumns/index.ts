@@ -45,6 +45,9 @@ export function useResponsiveColumns(
   const min = options.min ?? 1;
 
   const columns = ref<number>(min);
+  // Observed content width minus `inset` — px available to a row of cards,
+  // for consumers that flow-pack by width rather than a fixed column count.
+  const usableWidth = ref<number>(0);
   let observer: ResizeObserver | null = null;
   // Last observed width — kept so a change in a reactive option (card
   // width / inset flipping at a breakpoint) can recompute without waiting
@@ -58,6 +61,7 @@ export function useResponsiveColumns(
     const inset = resolve(options.inset, 0);
     const usable = width - inset;
     if (usable <= 0) return;
+    if (usable !== usableWidth.value) usableWidth.value = usable;
     // CSS auto-fill semantics: floor((containerWidth + gap) / (cardWidth + gap))
     const next = Math.max(min, Math.floor((usable + gap) / (cardWidth + gap)));
     if (next !== columns.value) columns.value = next;
@@ -101,5 +105,5 @@ export function useResponsiveColumns(
 
   onBeforeUnmount(detach);
 
-  return { columns };
+  return { columns, usableWidth };
 }

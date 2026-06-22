@@ -681,7 +681,8 @@ function closeDialog() {
 .r-v2-refresh__cover img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* Whole cover at its natural aspect (no crop); the slot stays uniform. */
+  object-fit: contain;
   display: block;
 }
 .r-v2-refresh__cover-placeholder {

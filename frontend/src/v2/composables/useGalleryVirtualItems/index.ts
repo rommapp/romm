@@ -68,6 +68,40 @@ export function galleryRowHeight(
   return Math.round(cardWidth / ratio) + ROW_CHROME_PX;
 }
 
+/** Flow-pack a contiguous run of positions into width-filling rows: each
+ *  card is `cardHeight * ratio` wide and wraps when it would overflow (an
+ *  over-wide card gets its own row). Pure; `ratioAt` applies its own default. */
+export function packFlowRows(
+  start: number,
+  end: number,
+  rowWidth: number,
+  cardHeight: number,
+  gap: number,
+  ratioAt: (position: number) => number,
+): Array<{ start: number; end: number }> {
+  const rows: Array<{ start: number; end: number }> = [];
+  if (end <= start) return rows;
+  let rowStart = start;
+  let acc = 0;
+  for (let p = start; p < end; p++) {
+    const w = cardHeight * ratioAt(p);
+    if (p === rowStart) {
+      acc = w;
+      continue;
+    }
+    const next = acc + gap + w;
+    if (next > rowWidth) {
+      rows.push({ start: rowStart, end: p });
+      rowStart = p;
+      acc = w;
+    } else {
+      acc = next;
+    }
+  }
+  rows.push({ start: rowStart, end });
+  return rows;
+}
+
 interface Options {
   layout: Ref<LayoutMode> | ComputedRef<LayoutMode>;
   groupBy: Ref<GroupByMode> | ComputedRef<GroupByMode>;
@@ -89,13 +123,18 @@ interface Options {
   notFoundMessage?: Ref<string> | ComputedRef<string>;
   /** Skeleton row count while loading the first window. */
   skeletonRowCount?: number;
-  /** Active cover aspect ratio (width / height) — drives grid row height
-   *  so AlphaStrip jumps and scroll offsets stay exact when the boxart
-   *  style changes the cover shape. Defaults to box-art 2/3. */
-  coverRatio?: MaybeRefOrGetter<number>;
-  /** Card-art width used to derive the row height (match the value fed to
-   *  `useResponsiveColumns`). Defaults to the md card (158px). */
-  cardWidth?: MaybeRefOrGetter<number>;
+  /** Fixed card-art height in px, shared by every card so every row has the
+   *  same height. Defaults to the md footprint (158px / (2/3) → 237px). */
+  cardHeight?: MaybeRefOrGetter<number>;
+  /** Usable px width of a row (container minus gutters / AlphaStrip). */
+  rowWidth?: MaybeRefOrGetter<number>;
+  /** Horizontal gap between cards in px (default 12). */
+  gap?: MaybeRefOrGetter<number>;
+  /** Natural cover ratio (w / h) for a position (card width =
+   *  `cardHeight * ratioAt(p)`). Defaults to 2/3 until the image is measured. */
+  ratioAt?: (position: number) => number;
+  /** Bump to force a re-pack when measured ratios change (Vue tracks it). */
+  ratioVersion?: Ref<number> | ComputedRef<number>;
 }
 
 const ALPHABET = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ@".split("");
@@ -156,21 +195,22 @@ export function useGalleryVirtualItems(opts: Options) {
     buildLetterRanges(opts.charIndex.value, opts.total.value),
   );
 
-  // Per-style row height — recomputes when the boxart ratio or the
-  // responsive card width changes, so every grid row keeps an exact
-  // offset (the scroller is exact-offset, not measured).
-  const rowHeightPx = computed(() =>
-    galleryRowHeight(
-      opts.coverRatio != null ? toValue(opts.coverRatio) : DEFAULT_COVER_RATIO,
-      opts.cardWidth != null
-        ? toValue(opts.cardWidth)
-        : REFERENCE_COVER_WIDTH_PX,
-    ),
-  );
+  const cardHeightPx = () =>
+    opts.cardHeight != null
+      ? toValue(opts.cardHeight)
+      : Math.round(REFERENCE_COVER_WIDTH_PX / DEFAULT_COVER_RATIO);
 
-  // Signature matches RVirtualScroller's `getItemHeight` prop (which uses
-  // `unknown` because the primitive is generic). Row / skeleton-row use
-  // the per-style height; every other kind is fixed.
+  // Uniform row height (cards share one fixed art height) keeps the scroller
+  // exact-offset regardless of how many variable-width cards a row holds.
+  const rowHeightPx = computed(() => cardHeightPx() + ROW_CHROME_PX);
+
+  const ratioAt = (position: number): number => {
+    const r = opts.ratioAt?.(position);
+    return r != null && r > 0 ? r : DEFAULT_COVER_RATIO;
+  };
+
+  // `unknown` matches RVirtualScroller's generic prop. Row / skeleton-row
+  // share the uniform height; every other kind is fixed.
   function getItemHeight(item: unknown): number {
     const { kind } = item as GalleryItem;
     if (kind === "row" || kind === "skeleton-row") return rowHeightPx.value;
@@ -259,47 +299,59 @@ export function useGalleryVirtualItems(opts: Options) {
       return items;
     }
 
-    const cols = Math.max(1, opts.columns.value);
     const total = opts.total.value;
     const ranges = letterRanges.value;
+    const cardHeight = cardHeightPx();
+    const gap = opts.gap != null ? toValue(opts.gap) : 12;
+    // At least one card wide before the container is measured.
+    const rowWidth = Math.max(
+      cardHeight,
+      opts.rowWidth != null ? toValue(opts.rowWidth) : 0,
+    );
+    // Track the version so a measured-ratio change re-runs the pack.
+    void (opts.ratioVersion ? opts.ratioVersion.value : 0);
 
     if (opts.groupBy.value === "letter") {
-      // Group by letter — each letter section gets a header followed by
-      // its own row chunks (rows always restart at the letter's first
-      // position, so a letter never shares a visual row with another).
+      // Header + own flow-packed rows per letter (rows restart per letter).
       for (const range of ranges) {
         items.push({
           kind: "letter-header",
           key: `lh-${range.letter}`,
           letter: range.letter,
         });
-        const rowsInGroup = Math.ceil((range.end - range.start) / cols);
-        for (let r = 0; r < rowsInGroup; r++) {
-          const rowStart = range.start + r * cols;
-          const rowEnd = Math.min(rowStart + cols, range.end);
+        for (const row of packFlowRows(
+          range.start,
+          range.end,
+          rowWidth,
+          cardHeight,
+          gap,
+          ratioAt,
+        )) {
           items.push({
             kind: "row",
-            key: `row-${range.letter}-${r}`,
-            rowIndex: r,
-            startPosition: rowStart,
-            endPosition: rowEnd,
+            key: `row-${row.start}`,
+            startPosition: row.start,
+            endPosition: row.end,
             letters: [range.letter],
           });
         }
       }
     } else {
-      // Flat — rows are aligned to absolute positions.
-      const totalRows = Math.ceil(total / cols);
-      for (let r = 0; r < totalRows; r++) {
-        const rowStart = r * cols;
-        const rowEnd = Math.min(rowStart + cols, total);
+      // Flat — flow-pack the whole list; rows stay contiguous position runs.
+      for (const row of packFlowRows(
+        0,
+        total,
+        rowWidth,
+        cardHeight,
+        gap,
+        ratioAt,
+      )) {
         items.push({
           kind: "row",
-          key: `row-flat-${r}`,
-          rowIndex: r,
-          startPosition: rowStart,
-          endPosition: rowEnd,
-          letters: lettersInRange(ranges, rowStart, rowEnd),
+          key: `row-${row.start}`,
+          startPosition: row.start,
+          endPosition: row.end,
+          letters: lettersInRange(ranges, row.start, row.end),
         });
       }
     }
@@ -343,20 +395,20 @@ export function useGalleryVirtualItems(opts: Options) {
     }
 
     if (opts.groupBy.value !== "letter") {
-      // Flat mode — for each letter range, jump to the row that holds
-      // its first position.
-      let firstRowIdx = -1;
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].kind === "row") {
-          firstRowIdx = i;
-          break;
-        }
-      }
-      if (firstRowIdx >= 0) {
-        const cols = Math.max(1, opts.columns.value);
-        for (const range of letterRanges.value) {
-          if (map.has(range.letter)) continue;
-          map.set(range.letter, firstRowIdx + Math.floor(range.start / cols));
+      // Map each letter to the variable-size row containing its first
+      // position. Both rows and ranges are ascending → one forward walk.
+      const ranges = letterRanges.value; // sorted by start
+      let li = 0;
+      for (let i = 0; i < items.length && li < ranges.length; i++) {
+        const it = items[i];
+        if (it.kind !== "row") continue;
+        while (
+          li < ranges.length &&
+          ranges[li].start >= it.startPosition &&
+          ranges[li].start < it.endPosition
+        ) {
+          if (!map.has(ranges[li].letter)) map.set(ranges[li].letter, i);
+          li++;
         }
       }
     }

@@ -234,6 +234,10 @@ function onPlatformClick(e: MouseEvent) {
 
 const emit = defineEmits<{
   (e: "click", event: MouseEvent): void;
+  /** The cover's natural aspect ratio (width / height) once its image
+   *  loads — forwarded from GameCover so the gallery can flow-pack cards
+   *  at their true shape. Carries the rom id so the consumer can key it. */
+  (e: "ratio", payload: { romId: number; ratio: number }): void;
 }>();
 
 // Gallery selection — only wired when the consumer opts in via
@@ -409,6 +413,7 @@ function onStaticKeydown(e: KeyboardEvent) {
       :webp="webp"
       :active="coverActive"
       :morph-id="isSynthetic ? null : rom.id"
+      @ratio="emit('ratio', { romId: rom.id, ratio: $event })"
     >
       <!-- Selection checkbox — top-left, drawn over the cover. Hidden
            at rest; appears on hover for discoverability, and stays
@@ -524,13 +529,27 @@ function onStaticKeydown(e: KeyboardEvent) {
   color: var(--r-color-fg);
 }
 
-/* Default (gallery) card derives its art height from the active cover
-   ratio so the boxart style drives the shape (cover_path 2/3, box3d 3/4,
-   physical / miximage 1/1). Explicit size tiers + hero keep their fixed
-   footprints — they set `--r-card-art-h` directly. `--r-cover-ratio` is
-   set inline by `useCoverArt`; the fallback keeps standalone cards sane. */
+/* Non-hero cards render at a FIXED HEIGHT with NATURAL WIDTH — same height,
+   varying widths, never cropped. `size` just picks the height (the default
+   derives it from the reference width; tiers set it directly). Only `hero`
+   (16:9) keeps a fixed w×h footprint. */
 .r-gc:not([class*="r-gc--size-"]):not(.r-gc--hero) {
-  --r-card-art-h: calc(var(--r-card-art-w) / var(--r-cover-ratio, 0.6667));
+  --r-card-art-h: calc(var(--r-card-art-w) / 0.6667);
+}
+.r-gc:not(.r-gc--hero) {
+  width: auto;
+  display: flex;
+  flex-direction: column;
+}
+/* Width follows the cover (overrides GameCover's base `width: 100%`). */
+.r-gc:not(.r-gc--hero) .r-gc__art {
+  width: auto;
+}
+/* Label fills the cover's width and ellipsises, without widening the card. */
+.r-gc:not(.r-gc--hero) .r-gc__label {
+  width: 0;
+  min-width: 100%;
+  max-width: 100%;
 }
 
 /* The art box IS the shared <GameCover> (this class lands on its root).

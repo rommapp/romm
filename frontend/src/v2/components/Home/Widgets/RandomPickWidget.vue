@@ -5,15 +5,14 @@
 // calls per pick: one to learn the library total, one to fetch the
 // selected offset; same approach the v1 RandomBtn uses. The pick is
 // intentionally not cached so each mount re-shuffles.
-import { RBtn, RImg } from "@v2/lib";
-import { computed, onMounted, ref } from "vue";
+import { RBtn } from "@v2/lib";
+import { onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import type { SimpleRom } from "@/stores/roms";
-import { useCoverArt } from "@/v2/composables/useCoverArt";
-import { coverPlaceholderArt } from "@/v2/utils/covers";
+import GameCover from "@/v2/components/shared/GameCover.vue";
 import WidgetCard from "./WidgetCard.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -23,21 +22,6 @@ const router = useRouter();
 
 const pick = ref<SimpleRom | null>(null);
 const loading = ref(false);
-
-// Honour the chosen boxart style here too — the picked cover matches the
-// gallery. `useCoverArt` resolves the styled art + webp; we fall back to
-// the generated placeholder when the rom has no cover at all.
-const art = useCoverArt(() => pick.value);
-const coverSrc = computed(() => {
-  const r = pick.value;
-  if (!r) return "";
-  return (
-    art.coverUrl.value ??
-    art.fallbackUrl.value ??
-    coverPlaceholderArt(r.name || r.fs_name, r.is_identified)
-  );
-});
-const coverContain = computed(() => art.objectFit.value === "contain");
 
 async function reroll() {
   loading.value = true;
@@ -73,13 +57,10 @@ onMounted(reroll);
 <template>
   <WidgetCard :title="t('home.widget-random-pick')" :loading="loading">
     <div v-if="pick" class="r-v2-widget-pick__body">
-      <RImg
-        :src="coverSrc"
-        :alt="pick.name || pick.fs_name"
-        :width="52"
-        :height="70"
-        :cover="!coverContain"
-        :contain="coverContain"
+      <GameCover
+        :rom="pick"
+        :title="pick.name || pick.fs_name"
+        :identified="pick.is_identified"
         class="r-v2-widget-pick__cover"
       />
       <div class="r-v2-widget-pick__info">
@@ -126,10 +107,15 @@ onMounted(reroll);
   min-width: 0;
 }
 
-.r-v2-widget-pick__cover {
+/* Fixed height, natural width — the cover renders at its image's true
+   aspect (GameCover measures it), matching the gallery. The descendant
+   selector outweighs GameCover's base `width: 100%` so width can follow
+   the ratio. */
+.r-v2-widget-pick__body .r-v2-widget-pick__cover {
+  height: 70px;
+  width: auto;
   flex-shrink: 0;
-  border-radius: var(--r-radius-sm);
-  overflow: hidden;
+  --r-cover-radius: var(--r-radius-sm);
 }
 
 .r-v2-widget-pick__info {

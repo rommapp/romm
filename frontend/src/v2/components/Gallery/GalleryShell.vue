@@ -61,6 +61,7 @@ import { type ListSortKey } from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { coverRatio, isBoxartStyle } from "@/v2/composables/useCoverArt";
+import { useGalleryCoverRatios } from "@/v2/composables/useGalleryCoverRatios";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
@@ -242,25 +243,30 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
-// Single source for the responsive card-art width — feeds both the column
-// count and the virtualiser's row-height math so they never drift.
-const cardWidth = () => (xs.value ? 108 : 158);
-const { columns } = useResponsiveColumns(sectionEl, {
+// Card-art width reference (matches GameCard's `--r-card-art-w`); sets the
+// fixed card HEIGHT (a 2/3 cover at this width). Real width follows the ratio.
+const CARD_GAP_PX = 12;
+const cardWidth = () => (xs.value ? 130 : 158);
+const cardHeight = () => Math.round(cardWidth() / (2 / 3));
+const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
   cardWidth,
-  gap: 12,
+  gap: CARD_GAP_PX,
   inset: () => (xs.value ? 64 : smAndDown.value ? 76 : 108),
 });
 
-// Active cover aspect ratio from the gallery-wide boxart style. Drives
-// both the cards' `--r-cover-ratio` (via the shell root, inherited) and
-// the virtualiser's row height so the cover shape, the grid, and the
-// scroll offsets all agree.
+// Fallback cover ratio (boxart style) — the per-card `--r-cover-ratio` seed
+// before GameCover measures the real image, plus the bootstrap skeletons.
 const { boxartStyle } = useUISettings();
 const coverAspectRatio = computed(() =>
   coverRatio(
     isBoxartStyle(boxartStyle.value) ? boxartStyle.value : "cover_path",
   ),
 );
+
+// Measured natural cover ratios feeding the flow-packer — GameCard reports
+// each cover's ratio on load (`onCardRatio`), the packer reads `ratioAt`,
+// and `ratioVersion` bumps (debounced) to trigger a single re-pack.
+const { ratioVersion, ratioAt, onCardRatio } = useGalleryCoverRatios();
 
 // 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
 //   * Grid mode — rows are `.r-v2-shell__row` (the per-virtualizer-item
@@ -301,8 +307,11 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     notFound: notFoundRef,
     notFoundMessage: notFoundMessageRef,
     skeletonRowCount: props.skeletonRowCount,
-    coverRatio: coverAspectRatio,
-    cardWidth,
+    cardHeight,
+    rowWidth: usableWidth,
+    gap: CARD_GAP_PX,
+    ratioAt,
+    ratioVersion,
   });
 
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
@@ -682,10 +691,6 @@ const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const asListRow = (i: GalleryItem) => i as ListRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
 
-const rowGridStyle = computed(() => ({
-  gridTemplateColumns: `repeat(${Math.max(1, columns.value)}, minmax(var(--r-card-art-w), 1fr))`,
-}));
-
 // View-facing surface. Methods only — internal state stays internal.
 defineExpose({
   /** Re-apply the previously-saved scroll position for the current route
@@ -787,7 +792,6 @@ defineExpose({
           <div
             v-else-if="itemKind(item as GalleryItem) === 'row'"
             class="r-v2-shell__row"
-            :style="rowGridStyle"
           >
             <template
               v-for="(p, slotIdx) in rowPositions(asRow(item as GalleryItem))"
@@ -802,6 +806,7 @@ defineExpose({
                 :show-platform-badge="showPlatformBadge"
                 selectable
                 :position="p"
+                @ratio="onCardRatio"
               />
               <GameCardSkeleton v-else />
             </template>
@@ -831,7 +836,6 @@ defineExpose({
           <div
             v-else-if="itemKind(item as GalleryItem) === 'skeleton-row'"
             class="r-v2-shell__row"
-            :style="rowGridStyle"
           >
             <GameCardSkeleton
               v-for="n in Math.max(1, columns)"
@@ -988,10 +992,21 @@ defineExpose({
   margin-bottom: 16px;
 }
 
+/* Flow-packed wrapping row: same-height, natural-width cards. The packer
+   sized it to fit, so `nowrap` is safe; gaps match the packer (12) and the
+   chrome math (18). `flex-start` pins every card to the same top. */
 .r-v2-shell__row {
-  display: grid;
-  gap: 18px 12px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 12px;
   padding-bottom: 18px;
+}
+/* Never shrink: float rounding can push a "just fits" row a hair over, and
+   shrinking a fixed-height card would crop its cover. Take ragged overflow
+   instead (also keeps skeletons, default shrink:1, at their packed width). */
+.r-v2-shell__row > * {
+  flex-shrink: 0;
 }
 
 /* Card reveal animation (.r-v2-card-fade) lives in global.css — shared
@@ -1086,14 +1101,10 @@ defineExpose({
   );
 }
 
-/* Smaller default cards on phones so the grid packs 2–3 per row instead
-   of one stretched card. The grid `minmax(--r-card-art-w, 1fr)` and the
-   GameCards (default size, reading the token) both shrink in lock-step;
-   the JS column-chunking above uses a matching 108px card width. Height
-   is left to the card's `--r-cover-ratio` derive rule so the boxart style
-   drives the cover shape on phones too. */
+/* Smaller cards on phones. Matches GameCard's own xs `--r-card-art-w` so
+   skeletons and the packer's card-height reference track the real cards. */
 html[data-bp~="xs"] .r-v2-shell {
-  --r-card-art-w: 108px;
+  --r-card-art-w: 130px;
 }
 
 html[data-bp~="xs"] .r-v2-shell__scroller {

@@ -37,6 +37,9 @@ const artUrl = computed(() =>
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  /* Query container so the title can scale with the cover box's size
+     (tiny list thumb → big detail hero) instead of a fixed px. */
+  container-type: size;
 }
 .cover-ph__art {
   position: absolute;
@@ -62,9 +65,9 @@ const artUrl = computed(() =>
   position: relative;
   z-index: 1;
   max-width: 100%;
-  padding: 8px 10px;
+  font-size: clamp(8px, 8cqmin, 18px);
+  padding: 0.5em 0.7em;
   text-align: center;
-  font-size: 12px;
   font-weight: var(--r-font-weight-semibold);
   line-height: 1.35;
   color: var(--r-color-overlay-fg);

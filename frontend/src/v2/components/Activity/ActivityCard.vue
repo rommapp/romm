@@ -32,7 +32,7 @@ defineProps<Props>();
         :alt="romName"
         width="100%"
         aspect-ratio="2/3"
-        cover
+        contain
       />
       <RChip
         color="success"
