@@ -1030,6 +1030,7 @@ Request Flow with Cache:
 - `getSupportedEJSCores()`: platform → EmulatorJS core mapping
 - `isEJSEmulationSupported()`: WebGL + config check
 - `isCDBasedSystem()`: 31 CD-based platforms
+- `isArcadeSystem()`: 3 arcade platforms
 
 **Game Status:**
 

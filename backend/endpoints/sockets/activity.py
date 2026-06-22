@@ -21,9 +21,15 @@ from typing import Any, TypedDict
 
 from endpoints.responses.activity import ActivityClearSchema
 from handler.activity_handler import ActivityEntry, activity_handler
-from handler.database import db_device_handler, db_rom_handler, db_user_handler
+from handler.database import (
+    db_device_handler,
+    db_rom_handler,
+    db_save_handler,
+    db_user_handler,
+)
 from handler.socket_handler import socket_handler
 from logger.logger import log
+from utils.screenshots import continue_playing_screenshot
 
 # Socket-session key holding the authenticated user id, written by the connect
 # handler. Identity for every activity event is derived from this, not payload.
@@ -92,6 +98,13 @@ async def _build_entry(
     device = db_device_handler.get_device(device_id=device_id, user_id=user_id)
     device_type = device.client if device else None
 
+    # "Where they are" image — the player's latest save screenshot, else the
+    # title screen / first gameplay screenshot (frontend falls back to cover).
+    latest_save = db_save_handler.get_latest_saves_for_roms(
+        user_id=user_id, rom_ids=[rom_id]
+    ).get(rom_id)
+    screenshot_path = continue_playing_screenshot(rom, latest_save) or ""
+
     return ActivityEntry(
         user_id=user.id,
         username=user.username,
@@ -99,6 +112,7 @@ async def _build_entry(
         rom_id=rom.id,
         rom_name=rom.name or rom.fs_name,
         rom_cover_path=rom.path_cover_s or "",
+        screenshot_path=screenshot_path,
         platform_slug=platform.slug if platform else "",
         platform_name=((platform.custom_name or platform.name) if platform else ""),
         device_id=device_id,

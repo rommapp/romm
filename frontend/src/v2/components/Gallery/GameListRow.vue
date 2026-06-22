@@ -72,6 +72,9 @@ interface Props {
   /** Include the `platform` column. Mirrors `GameListHeader` so the row
    * stays aligned with the column header above it. */
   showPlatformColumn?: boolean;
+  /** Cover column width (px) — shared with the header so the title column
+   * aligns. Set by the shell from the gallery's widest cover. */
+  coverWidth?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -79,7 +82,14 @@ const props = withDefaults(defineProps<Props>(), {
   rom: undefined,
   webp: false,
   showPlatformColumn: true,
+  coverWidth: 48,
 });
+
+const emit = defineEmits<{
+  /** Forwards the cover's measured natural ratio so the shell can size the
+   *  cover column to the gallery's widest cover. */
+  (e: "ratio", payload: { romId: number; ratio: number }): void;
+}>();
 
 const router = useRouter();
 const galleryRoms = storeGalleryRoms();
@@ -121,7 +131,10 @@ function onCheckboxClick(e: MouseEvent) {
 }
 
 const gridStyle = computed(() => ({
-  gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
+  gridTemplateColumns: getListGridTemplate(
+    props.showPlatformColumn,
+    props.coverWidth,
+  ),
 }));
 
 const platformMeta = computed(() => {
@@ -321,6 +334,7 @@ onBeforeUnmount(() => {
           decorative
           :show-title="false"
           :show-platform-icon="false"
+          @ratio="emit('ratio', $event)"
         />
       </div>
 
@@ -579,13 +593,12 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
 }
 
-/* Cover sits in its own fixed-width column (right-aligned, vertically
-   centred) so the title/meta column starts at the same x on every row and
-   the cover hugs the title side. */
+/* Cover sits in its own fixed-width column (centred) so the title/meta
+   column starts at the same x on every row. */
 .game-list-row__cover {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 /* Bound the xs cover to its fixed column: at the fixed xs height a wide

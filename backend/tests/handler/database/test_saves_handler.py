@@ -749,3 +749,82 @@ class TestDBSavesHandlerSummary:
         )
         assert count_slot is not None
         assert count_slot["count"] == 5
+
+
+class TestDBSavesHandlerGetLatestSavesForRoms:
+    """Cover the continue-playing rail's batch lookup of the newest save per
+    ROM."""
+
+    def test_returns_newest_save_per_rom(self, admin_user: User, rom: Rom):
+        from datetime import datetime, timedelta, timezone
+
+        base_time = datetime.now(timezone.utc)
+
+        older = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="latest_old.sav",
+                file_name_no_tags="latest_old",
+                file_name_no_ext="latest_old",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+            )
+        )
+        newer = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="latest_new.sav",
+                file_name_no_tags="latest_new",
+                file_name_no_ext="latest_new",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+            )
+        )
+        db_save_handler.update_save(
+            older.id, {"updated_at": base_time - timedelta(hours=2)}
+        )
+        db_save_handler.update_save(
+            newer.id, {"updated_at": base_time - timedelta(hours=1)}
+        )
+
+        latest = db_save_handler.get_latest_saves_for_roms(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+
+        assert set(latest.keys()) == {rom.id}
+        assert latest[rom.id].id == newer.id
+
+    def test_empty_rom_ids_returns_empty_dict(self, admin_user: User):
+        assert (
+            db_save_handler.get_latest_saves_for_roms(user_id=admin_user.id, rom_ids=[])
+            == {}
+        )
+
+    def test_excludes_other_users_saves(
+        self, admin_user: User, editor_user: User, rom: Rom
+    ):
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=editor_user.id,
+                file_name="other_user.sav",
+                file_name_no_tags="other_user",
+                file_name_no_ext="other_user",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+            )
+        )
+
+        latest = db_save_handler.get_latest_saves_for_roms(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+
+        assert latest == {}

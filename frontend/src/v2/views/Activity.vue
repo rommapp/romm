@@ -62,11 +62,23 @@ function romRoute(entry: ActivityEntry) {
   return { name: ROUTES.ROM, params: { rom: entry.rom_id } };
 }
 
-// Null when the rom has no cover — GameCover then paints its own canonical
-// placeholder (title initial) instead of a baked-in missing-cover image.
-function coverSrc(entry: ActivityEntry): string | null {
+// Cover art URL, or null when the rom has no cover — GameCover then paints
+// its own canonical placeholder (title initial).
+function coverArtSrc(entry: ActivityEntry): string | null {
   if (!entry.rom_cover_path) return null;
   return `${FRONTEND_RESOURCES_PATH}/${toWebp(entry.rom_cover_path)}`;
+}
+
+// Main image: the "where they are" screenshot (already a full URL) if the
+// session has one, else the cover art.
+function coverSrc(entry: ActivityEntry): string | null {
+  return entry.screenshot_path || coverArtSrc(entry);
+}
+
+// PIP cover-art thumbnail — only when a screenshot is the main image, so the
+// game stays identifiable.
+function pipCoverSrc(entry: ActivityEntry): string | null {
+  return entry.screenshot_path ? coverArtSrc(entry) : null;
 }
 
 function avatarSrc(entry: ActivityEntry): string {
@@ -140,6 +152,7 @@ function elapsedLabel(startedAt: string): string {
         :style="{ '--card-fade-i': i }"
         :to="romRoute(entry)"
         :cover-src="coverSrc(entry)"
+        :pip-cover-src="pipCoverSrc(entry)"
         :rom-name="entry.rom_name"
         :platform-name="entry.platform_name"
         :username="entry.username"
@@ -212,17 +225,18 @@ function elapsedLabel(startedAt: string): string {
   }
 }
 
+/* Gallery-card flow: every card is the SAME height, its width set by the
+   image's natural ratio (landscape screenshots wide, portrait covers narrow).
+   A wrapping flex row gives that without a fixed-column grid (which would pin
+   the width and leave ragged vertical gaps). */
 .r-v2-activity__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 20px 16px;
-  /* Cards take their cover's natural height, so don't stretch them to the
-     row's tallest item — let each sit at its true height, top-aligned. */
-  align-items: start;
+  align-items: flex-start;
 }
 
 html[data-bp~="xs"] .r-v2-activity__grid {
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 16px 10px;
 }
 </style>
