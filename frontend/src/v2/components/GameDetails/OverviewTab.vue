@@ -65,6 +65,16 @@ const hasQuickFacts = computed(
   () => !!props.playerCount || hasAgeRatings.value,
 );
 
+// Mirror HLTBStrip's "has anything to show" so the section heading only
+// appears alongside the strip (which renders nothing without durations).
+const hasHltb = computed(() => {
+  const m = props.hltb;
+  if (!m) return false;
+  return [m.main_story, m.main_plus_extra, m.completionist, m.all_styles].some(
+    (v) => (v ?? 0) > 0,
+  );
+});
+
 // Enrich the slim `{ id, name }` user_collections payload from the
 // ROM with the full Collection record (cover paths, rom_count) the
 // store already holds — so we can render real CollectionTile mosaics
@@ -204,13 +214,22 @@ const coverSource = computed(() => {
     <InfoGrid :sections="sections" />
 
     <!-- 4. Screenshots — scraped metadata images, read-only here. -->
-    <ScreenshotsTab
-      v-if="screenshots.length"
-      :screenshots="screenshots.map((url) => ({ url }))"
-    />
+    <div v-if="screenshots.length" class="overview-tab__section">
+      <h4 class="overview-tab__section-heading">
+        <RIcon icon="mdi-image-multiple-outline" size="14" />
+        {{ t("rom.screenshots") }}
+      </h4>
+      <ScreenshotsTab :screenshots="screenshots.map((url) => ({ url }))" />
+    </div>
 
     <!-- 5. HLTB -->
-    <HLTBStrip :metadata="hltb" />
+    <div v-if="hasHltb" class="overview-tab__section">
+      <h4 class="overview-tab__section-heading">
+        <RIcon icon="mdi-clock-outline" size="14" />
+        {{ t("rom.how-long-to-beat") }}
+      </h4>
+      <HLTBStrip :metadata="hltb" />
+    </div>
 
     <!-- 5. Related games — each category gets its own labelled section,
          rendered inline as siblings to the rest of the overview blocks.
@@ -219,36 +238,36 @@ const coverSource = computed(() => {
          metadata, and the empty sections are already hidden by their
          own `v-if`. -->
     <template v-if="hasRelated">
-      <div v-if="expansions.length" class="overview-tab__related-section">
-        <h4 class="overview-tab__related-heading">
+      <div v-if="expansions.length" class="overview-tab__section">
+        <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-puzzle-outline" size="14" />
           Expansions
         </h4>
         <RelatedGamesGrid title="" :items="expansions" />
       </div>
-      <div v-if="dlcs.length" class="overview-tab__related-section">
-        <h4 class="overview-tab__related-heading">
+      <div v-if="dlcs.length" class="overview-tab__section">
+        <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-package-variant-closed" size="14" />
           DLC
         </h4>
         <RelatedGamesGrid title="" :items="dlcs" />
       </div>
-      <div v-if="remakes.length" class="overview-tab__related-section">
-        <h4 class="overview-tab__related-heading">
+      <div v-if="remakes.length" class="overview-tab__section">
+        <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-refresh" size="14" />
           Remakes
         </h4>
         <RelatedGamesGrid title="" :items="remakes" />
       </div>
-      <div v-if="remasters.length" class="overview-tab__related-section">
-        <h4 class="overview-tab__related-heading">
+      <div v-if="remasters.length" class="overview-tab__section">
+        <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-image-auto-adjust" size="14" />
           Remasters
         </h4>
         <RelatedGamesGrid title="" :items="remasters" />
       </div>
-      <div v-if="similarGames.length" class="overview-tab__related-section">
-        <h4 class="overview-tab__related-heading">
+      <div v-if="similarGames.length" class="overview-tab__section">
+        <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-shape-outline" size="14" />
           Similar games
         </h4>
@@ -389,14 +408,15 @@ const coverSource = computed(() => {
   border-radius: 3px;
 }
 
-/* Related games — each category is a sibling block in the overview
+/* Labelled overview section (screenshots, HLTB, each related-games
+   category) — a heading + its content as a sibling block in the overview
    flex column; the outer column's `gap: 30px` provides separation. */
-.overview-tab__related-section {
+.overview-tab__section {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-.overview-tab__related-heading {
+.overview-tab__section-heading {
   margin: 0;
   display: inline-flex;
   align-items: center;
