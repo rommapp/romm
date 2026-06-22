@@ -240,6 +240,7 @@ defineExpose({
       "
       :alt="title"
       :style="{ objectFit: art.objectFit.value }"
+      class="game-cover__img"
       :class="{
         'game-cover__img--behind': isVideoPlaying,
         'game-cover__img--reveal': !coverLoaded && art.motionEnabled.value,
@@ -268,6 +269,17 @@ defineExpose({
       playsinline
       preload="none"
     />
+    <!-- Static miximage frame overlaid on the hover video while it plays
+         (matches v1) — sits after the <video> so it stacks above it but
+         below the surface chrome slot. -->
+    <img
+      v-if="art.videoUrl.value"
+      class="game-cover__video-frame"
+      :class="{ 'game-cover__video-frame--playing': isVideoPlaying }"
+      src="/assets/default/miximage.png"
+      alt=""
+      aria-hidden="true"
+    />
 
     <!-- Surface chrome (gallery overlay / badges / glow) renders on top. -->
     <slot />
@@ -291,7 +303,7 @@ defineExpose({
 }
 
 /* Direct-child selector so the placeholder's own <img> isn't matched. */
-.game-cover > img {
+.ame-cover__img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -324,7 +336,7 @@ defineExpose({
 
 @media (prefers-reduced-motion: reduce) {
   /* Keep a gentle opacity fade, drop the blur/scale flourish. */
-  .game-cover > img {
+  .game-cover__img {
     transition: opacity 0.25s ease;
   }
   .game-cover__img--reveal {
@@ -335,15 +347,30 @@ defineExpose({
 
 .game-cover__video {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  top: 0.75rem;
+  left: 0.35rem;
+  width: 97%;
   object-fit: contain;
   opacity: 0;
   transition: opacity 0.35s ease;
   pointer-events: none;
 }
 .game-cover__video--playing {
+  opacity: 1;
+}
+
+.game-cover__video-frame {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+  transform: scale(1.01);
+  filter: hue-rotate(15deg);
+}
+.game-cover__video-frame--playing {
   opacity: 1;
 }
 </style>
