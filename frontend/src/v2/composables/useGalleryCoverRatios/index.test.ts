@@ -54,7 +54,7 @@ describe("useGalleryCoverRatios", () => {
     onCardRatio({ romId: 102, ratio: 0.5 });
     expect(ratioVersion.value).toBe(0); // still debouncing
 
-    vi.advanceTimersByTime(150);
+    vi.advanceTimersByTime(350);
     expect(ratioVersion.value).toBe(1); // one bump for the whole burst
   });
 
@@ -65,12 +65,12 @@ describe("useGalleryCoverRatios", () => {
     );
 
     onCardRatio({ romId: 101, ratio: 0.7 });
-    vi.advanceTimersByTime(150);
+    vi.advanceTimersByTime(350);
     expect(ratioVersion.value).toBe(1);
     expect(ratioAt(0)).toBeCloseTo(0.7);
 
     onCardRatio({ romId: 101, ratio: 0.705 }); // delta 0.005 < 0.01
-    vi.advanceTimersByTime(150);
+    vi.advanceTimersByTime(350);
     expect(ratioVersion.value).toBe(1); // no new bump
     expect(ratioAt(0)).toBeCloseTo(0.7); // value unchanged
   });
