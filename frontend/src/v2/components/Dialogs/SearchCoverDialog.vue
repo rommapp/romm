@@ -430,9 +430,12 @@ function closeDialog() {
   padding-bottom: 24px;
 }
 
+/* Flow-pack of cover cards — each tile adopts its cover's natural aspect
+   (fixed height, width follows the art), like the gallery cards, instead of
+   a rigid uniform-width grid. */
 .r-v2-sgdb__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 12px 16px 16px;
 }
@@ -440,6 +443,11 @@ function closeDialog() {
 .r-v2-sgdb__cover {
   appearance: none;
   position: relative;
+  display: grid;
+  place-items: center;
+  /* Reserve roughly a 2:3 slot so tiles don't collapse before their image
+     loads; the tile then grows to the cover's true width on load. */
+  min-width: 120px;
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-sm);
   padding: 0;
@@ -456,9 +464,13 @@ function closeDialog() {
 }
 .r-v2-sgdb__cover-img {
   display: block;
-  width: 100%;
-  aspect-ratio: 2 / 3;
-  object-fit: cover;
+  /* Fixed height, natural width — the card takes the cover's true aspect,
+     never cropped. `max-width` caps the rare ultra-wide cover to the tile so
+     it letterboxes instead of overflowing past its rounded corners. */
+  height: 180px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
 }
 
 /* Provider logo overlay — top-right corner badge on the cover so the

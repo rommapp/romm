@@ -9,5 +9,6 @@
   "no-activity": "当前无人游玩",
   "now-playing": "正在游玩",
   "playing-on": "正在 {device} 上游玩",
-  "playing-since": "自 {time} 起游玩"
+  "playing-since": "自 {time} 起游玩",
+  "total-sessions": "总会话数"
 }

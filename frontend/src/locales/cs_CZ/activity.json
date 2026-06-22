@@ -9,5 +9,6 @@
   "no-activity": "Nikdo právě nehraje",
   "now-playing": "Právě hraje",
   "playing-on": "Hraje na {device}",
-  "playing-since": "Hraje od {time}"
+  "playing-since": "Hraje od {time}",
+  "total-sessions": "Celkem relací"
 }

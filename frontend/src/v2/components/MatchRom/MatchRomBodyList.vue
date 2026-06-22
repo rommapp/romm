@@ -321,22 +321,34 @@ watch(
 }
 
 .match-list__row-cover {
+  /* Fixed-width alignment column (keeps the row titles aligned) inside which
+     the cover card sits at its natural aspect — same idea as the gallery
+     list view's dedicated cover column. */
   flex-shrink: 0;
-  width: 42px;
+  width: 56px;
   height: 56px;
-  border-radius: var(--r-radius-sm);
-  overflow: hidden;
-  background: var(--r-color-cover-placeholder);
   display: grid;
   place-items: center;
 }
 .match-list__row-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  /* The card itself takes the cover's true aspect (fixed height, width
+     follows the art); an ultra-wide cover letterboxes within the column. */
+  height: 56px;
+  width: auto;
+  max-width: 56px;
+  object-fit: contain;
+  border-radius: var(--r-radius-sm);
+  background: var(--r-color-cover-placeholder);
   display: block;
 }
 .match-list__row-cover-placeholder {
+  /* No cover → a uniform square chip with the title initial. */
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 56px;
+  border-radius: var(--r-radius-sm);
+  background: var(--r-color-cover-placeholder);
   font-size: 18px;
   font-weight: var(--r-font-weight-bold);
   color: var(--r-color-fg-muted);
@@ -456,6 +468,11 @@ watch(
 .match-list__source {
   appearance: none;
   position: relative;
+  display: grid;
+  place-items: center;
+  /* Reserve roughly a 2:3 slot so the tile doesn't collapse before the
+     source cover loads; it grows to the cover's true width on load. */
+  min-width: 105px;
   background: transparent;
   border: 2px solid transparent;
   border-radius: calc(var(--r-radius-art) + 2px);
@@ -492,9 +509,14 @@ watch(
 
 .match-list__source-img {
   display: block;
-  width: 110px;
+  /* Fixed height, natural width — the tile takes the cover's true aspect,
+     never cropped (matches the gallery cards). `max-width` caps the rare
+     ultra-wide cover to the tile so it letterboxes instead of overflowing
+     and getting clipped by the panel. */
   height: 148px;
-  object-fit: cover;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
   border-radius: var(--r-radius-art);
   background: var(--r-color-cover-placeholder);
 }

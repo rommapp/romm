@@ -9,5 +9,6 @@
   "no-activity": "현재 플레이 중인 사용자가 없습니다",
   "now-playing": "플레이 중",
   "playing-on": "{device}에서 플레이 중",
-  "playing-since": "{time}부터 플레이 중"
+  "playing-since": "{time}부터 플레이 중",
+  "total-sessions": "전체 세션"
 }

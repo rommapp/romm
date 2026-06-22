@@ -43,7 +43,10 @@ import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { romStatusMap } from "@/utils";
 import GameActionsList from "@/v2/components/GameActions/GameActionsList.vue";
-import { useGameActions } from "@/v2/composables/useGameActions";
+import {
+  GAME_ACTIONS_KEY,
+  useGameActions,
+} from "@/v2/composables/useGameActions";
 import {
   ENUM_KEYS,
   FLAG_KEYS,
@@ -101,7 +104,14 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const romRef = toRef(props, "rom");
-const actions = useGameActions(() => romRef.value);
+// Reuse the host's shared instance when one is provided (GameCard provides a
+// single `useGameActions` for all its buttons — see GAME_ACTIONS_KEY). Falls
+// back to an own instance for standalone use (GameDetails header, list rows).
+// Safe to call conditionally: useGameActions registers no lifecycle hooks, and
+// setup decides the branch once at mount. The provided instance is bound to
+// the same rom this button receives, so behaviour is identical.
+const sharedActions = inject(GAME_ACTIONS_KEY, null);
+const actions = sharedActions ?? useGameActions(() => romRef.value);
 
 const enumStatus = computed<RomUserStatus | null>(
   () => props.rom.rom_user?.status ?? null,

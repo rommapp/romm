@@ -9,5 +9,6 @@
   "no-activity": "В момента никой не играе",
   "now-playing": "Сега играе",
   "playing-on": "Играе на {device}",
-  "playing-since": "Играе от {time}"
+  "playing-since": "Играе от {time}",
+  "total-sessions": "Общо сесии"
 }

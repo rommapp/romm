@@ -38,7 +38,7 @@
 //   * `#overlay` slot renders content on top of the cover for badges
 //     that aren't part of the default gallery overlay (e.g. metadata
 //     provider logos in the match-flow source picker).
-import { computed, ref } from "vue";
+import { computed, provide, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
@@ -48,7 +48,10 @@ import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
-import { useGameActions } from "@/v2/composables/useGameActions";
+import {
+  GAME_ACTIONS_KEY,
+  useGameActions,
+} from "@/v2/composables/useGameActions";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 import RCheckbox from "@/v2/lib/forms/RCheckbox/RCheckbox.vue";
 import RPlatformIcon from "@/v2/lib/media/RPlatformIcon/RPlatformIcon.vue";
@@ -222,14 +225,23 @@ const ratingLabel = computed(() => {
 // the regular router-link behaviour so opening in a new tab still works.
 const router = useRouter();
 const { morphTransition } = useViewTransition();
-const actions = useGameActions(() => props.rom);
+// Only interactive cards need actions: static / decorative cards (list-row
+// thumbnails, dialog tiles) render no overlay, so creating the composable for
+// them is pure waste. When present, share this single instance with every
+// GameActionBtn in the overlay (play / download / collection / favorite /
+// status / more) instead of each button spinning up its own — the difference
+// between ~1 and ~7 live `useGameActions` per card, which dominates a
+// virtualised grid's cost. Safe to call conditionally (no lifecycle hooks).
+const actions =
+  props.static || props.decorative ? null : useGameActions(() => props.rom);
+if (actions) provide(GAME_ACTIONS_KEY, actions);
 
 // Stop propagation so the card's morph + router push doesn't fire when
 // the user actually wanted to jump to the platform gallery.
 function onPlatformClick(e: MouseEvent) {
   e.preventDefault();
   e.stopPropagation();
-  actions.goToPlatform();
+  actions?.goToPlatform();
 }
 
 const emit = defineEmits<{
@@ -479,7 +491,7 @@ function onStaticKeydown(e: KeyboardEvent) {
         <div class="r-gc__overlay">
           <div class="r-gc__overlay-center">
             <GameActionBtn
-              v-if="actions.canPlay.value"
+              v-if="actions?.canPlay.value"
               :rom="rom"
               action="play"
               variant="emphasized"

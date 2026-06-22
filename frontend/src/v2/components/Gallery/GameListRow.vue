@@ -601,6 +601,21 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
+/* Bound the xs cover to its fixed column: at the fixed xs height a wide
+   (landscape) cover would render wider than the column and spill out, getting
+   clipped on the left. Cap the art box to a square (max-width = the height)
+   and let the cover letterbox (contain) within, so the whole cover still
+   shows at its true aspect. Portrait/square covers are unaffected (their
+   natural width already fits, and contain renders identically to cover when
+   the box matches the cover's ratio). Scoped to the list cover only — the
+   gallery grid keeps its natural-width flow. */
+.game-list-row__cover :deep(.r-gc__art) {
+  max-width: var(--r-card-art-h);
+}
+.game-list-row__cover :deep(.r-gc__art > img) {
+  object-fit: contain !important;
+}
+
 .game-list-row__title {
   display: flex;
   align-items: center;
