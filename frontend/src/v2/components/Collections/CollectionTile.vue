@@ -170,8 +170,8 @@ const morphStyle = computed(() =>
 html[data-input="mouse"] .coll-tile:hover .coll-tile__cover,
 html[data-input="touch"] .coll-tile:hover .coll-tile__cover,
 .coll-tile:focus-visible .coll-tile__cover {
-  transform: translateY(-2px);
-  box-shadow: var(--r-elev-2);
+  transform: scale(1.05);
+  box-shadow: var(--r-elev-3);
 }
 
 /* Keyboard / gamepad focus — ring + brand glow on the cover, brighten
