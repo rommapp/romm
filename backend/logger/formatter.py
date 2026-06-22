@@ -93,7 +93,7 @@ def resolve_module_name(record: logging.LogRecord) -> str:
        package — the parent directory name — so it reads as ``roms`` instead.
     """
     explicit = getattr(record, "module_name", None)
-    if explicit:
+    if explicit is not None:
         return str(explicit)
 
     module = record.module
