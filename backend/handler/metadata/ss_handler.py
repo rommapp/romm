@@ -183,6 +183,7 @@ class SSMetadataMedia(TypedDict):
     # Resources stored in filesystem
     bezel_path: str | None
     box2d_back_path: str | None
+    box2d_side_path: str | None
     box3d_path: str | None
     fanart_path: str | None
     miximage_path: str | None
@@ -244,6 +245,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         video_normalized_url=None,
         bezel_path=None,
         box2d_back_path=None,
+        box2d_side_path=None,
         box3d_path=None,
         fanart_path=None,
         miximage_path=None,
@@ -358,6 +360,10 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 ss_media["box2d_side_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
                 )
+                if MetadataMediaType.BOX2D_SIDE in preferred_media_types:
+                    ss_media["box2d_side_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX2D_SIDE)}/box2d_side.png"
+                    )
             elif media.get("type") == "steamgrid" and not ss_media["steamgrid_url"]:
                 ss_media["steamgrid_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS

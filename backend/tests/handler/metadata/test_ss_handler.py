@@ -208,6 +208,86 @@ class TestExtractMediaFromSsGame:
         assert result["box2d_url"] is not None
         assert "box-2D(us)" in result["box2d_url"]
 
+    def _make_game_with_box_faces(self) -> SSGame:
+        """A game exposing all three box faces: front, back and spine."""
+        return cast(
+            SSGame,
+            {
+                "medias": [
+                    {
+                        "type": "box-2D",
+                        "parent": "jeu",
+                        "region": "us",
+                        "url": "https://screenscraper.example.com/box-2D",
+                        "crc": "aabbccdd",
+                        "md5": "deadbeef",
+                        "sha1": "cafebabe",
+                        "size": "12345",
+                        "format": "png",
+                    },
+                    {
+                        "type": "box-2D-back",
+                        "parent": "jeu",
+                        "region": "us",
+                        "url": "https://screenscraper.example.com/box-2D-back",
+                        "crc": "11223344",
+                        "md5": "feedface",
+                        "sha1": "baadf00d",
+                        "size": "23456",
+                        "format": "png",
+                    },
+                    {
+                        "type": "box-2D-side",
+                        "parent": "jeu",
+                        "region": "us",
+                        "url": "https://screenscraper.example.com/box-2D-side",
+                        "crc": "55667788",
+                        "md5": "0ddba11",
+                        "sha1": "f00dcafe",
+                        "size": "34567",
+                        "format": "png",
+                    },
+                ]
+            },
+        )
+
+    def test_box2d_side_path_set_when_in_config(self):
+        """When 'box2d_side' is in SCAN_MEDIA the spine is persisted locally."""
+        config = _make_config(scan_media=["box2d", "box2d_back", "box2d_side"])
+        rom = self._make_rom()
+        game = self._make_game_with_box_faces()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["box2d_side_url"] is not None
+        assert "box-2D-side" in result["box2d_side_url"]
+        assert result["box2d_side_path"] == "roms/1/100/box2d_side/box2d_side.png"
+
+    def test_box2d_side_path_not_set_when_absent_from_config(self):
+        """Without 'box2d_side' in SCAN_MEDIA the spine URL is kept but not stored."""
+        config = _make_config(scan_media=["box2d", "box2d_back"])
+        rom = self._make_rom()
+        game = self._make_game_with_box_faces()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["box2d_side_url"] is not None
+        assert result["box2d_side_path"] is None
+
     def _make_game_with_both_miximage_versions(self) -> SSGame:
         """A game that has both mixrbv1 and mixrbv2 (v1 listed first, matching SS API order)."""
         return cast(

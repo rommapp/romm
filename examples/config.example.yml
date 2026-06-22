@@ -133,6 +133,7 @@
 #     - video_normalized  # Normalized video (smaller file size than video)
 #     # Media used for batocera gamelist.xml export
 #     - box2d_back  # Back cover art
+#     - box2d_side  # Box spine (enables the interactive 3D box on detail pages)
 #     - logo  # Transparent logo
 #     # Other media assets (might be used in the future)
 #     - marquee  # Custom marquee
