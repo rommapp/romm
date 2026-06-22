@@ -579,11 +579,13 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
 }
 
-/* Cover sits in its own fixed-width column (left-aligned, vertically
-   centred) so the title/meta column starts at the same x on every row. */
+/* Cover sits in its own fixed-width column (right-aligned, vertically
+   centred) so the title/meta column starts at the same x on every row and
+   the cover hugs the title side. */
 .game-list-row__cover {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .game-list-row__title {
