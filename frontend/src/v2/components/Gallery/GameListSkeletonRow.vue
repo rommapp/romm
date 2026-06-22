@@ -43,14 +43,16 @@ const gridStyle = computed(() => ({
   <div class="r-glr-skel" :style="gridStyle">
     <template v-for="col in columns" :key="String(col.key)">
       <div v-if="col.key === 'select'" class="r-glr-skel__cell" />
-      <div
-        v-else-if="col.key === 'name'"
-        class="r-glr-skel__cell r-glr-skel__title"
-      >
+      <div v-else-if="col.key === 'cover'" class="r-glr-skel__cell">
         <RSkeletonBlock
           :width="LIST_COVER_WIDTH_PX"
           :height="LIST_COVER_HEIGHT_PX"
         />
+      </div>
+      <div
+        v-else-if="col.key === 'name'"
+        class="r-glr-skel__cell r-glr-skel__title"
+      >
         <div class="r-glr-skel__meta">
           <RSkeletonBlock width="60%" :height="12" />
           <RSkeletonBlock width="40%" :height="10" />

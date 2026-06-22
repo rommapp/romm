@@ -313,7 +313,7 @@ onBeforeUnmount(() => {
         />
       </div>
 
-      <div class="game-list-row__cell game-list-row__title">
+      <div class="game-list-row__cell game-list-row__cover">
         <GameCard
           :rom="rom"
           size="xs"
@@ -322,6 +322,9 @@ onBeforeUnmount(() => {
           :show-title="false"
           :show-platform-icon="false"
         />
+      </div>
+
+      <div class="game-list-row__cell game-list-row__title">
         <div class="game-list-row__meta">
           <div class="game-list-row__name-row">
             <div class="game-list-row__name">
@@ -576,10 +579,16 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
 }
 
+/* Cover sits in its own fixed-width column (left-aligned, vertically
+   centred) so the title/meta column starts at the same x on every row. */
+.game-list-row__cover {
+  display: flex;
+  align-items: center;
+}
+
 .game-list-row__title {
   display: flex;
   align-items: center;
-  gap: var(--r-space-3);
   min-width: 0;
 }
 
