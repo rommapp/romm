@@ -381,8 +381,8 @@ const coverSource = computed(() => {
 /* Tile-row variant — the eyebrow pins to the top of the tile column
    (instead of centring through the ~190px-tall CollectionTile) so the
    label hovers over the mosaic rather than drifting halfway down it.
-   Vertical padding on the scroll container gives the hover-lift
-   (CollectionTile's translateY + elevated shadow) room to render
+   Vertical padding on the scroll container gives the hover-pop
+   (CollectionTile's scale + elevated shadow) room to render
    before the scroll container clips it — `overflow-x: auto` also
    clips on Y per the CSS spec, so without this the shadow and
    lifted edge get sheared off. */
