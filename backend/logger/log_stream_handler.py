@@ -1,7 +1,7 @@
 import logging
 from typing import Final
 
-from logger.formatter import redact_sensitive, strip_ansi
+from logger.formatter import redact_sensitive, resolve_module_name, strip_ansi
 
 # Redis keys shared between the logging handler (producer, runs in every
 # process), the forwarder (relays pub/sub to Socket.IO) and the REST backfill
@@ -34,12 +34,12 @@ class LogStreamHandler(logging.Handler):
             from handler.redis_handler import redis_client
             from utils import json_module
 
-            module = getattr(record, "module_name", record.module)
+            module = resolve_module_name(record)
             payload = json_module.dumps(
                 {
                     "ts": int(record.created * 1000),
                     "level": record.levelname,
-                    "module": str(module).lower(),
+                    "module": module.lower(),
                     "message": redact_sensitive(strip_ansi(record.getMessage())),
                 }
             )

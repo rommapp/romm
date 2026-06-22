@@ -50,6 +50,7 @@ const autoTail = ref(true);
 const loading = ref(true);
 
 const levelFilter = ref<string>("ALL");
+const moduleFilter = ref<string>("ALL");
 const search = ref("");
 
 // ANSI SGR escapes are stripped server-side now, but lines buffered before
@@ -71,6 +72,22 @@ const levelItems = computed(() => [
   ...LEVELS.map((l) => ({ title: l, value: l })),
 ]);
 
+// Module options are data-driven — the backend has no fixed catalogue, so
+// they're derived from whatever modules the buffered entries carry. The
+// active selection is always kept in the list (even if its module has
+// scrolled out of the ring buffer) so the select never goes blank.
+const moduleItems = computed(() => {
+  const mods = new Set<string>();
+  for (const e of entries.value) {
+    if (e.module) mods.add(e.module);
+  }
+  if (moduleFilter.value !== "ALL") mods.add(moduleFilter.value);
+  return [
+    { title: t("logs.module-all"), value: "ALL" },
+    ...[...mods].sort().map((m) => ({ title: m, value: m })),
+  ];
+});
+
 // Rank levels so "minimum severity" filtering shows the selected level
 // and everything above it.
 const LEVEL_RANK: Record<string, number> = {
@@ -84,9 +101,11 @@ const LEVEL_RANK: Record<string, number> = {
 const filtered = computed<LogRow[]>(() => {
   const minRank =
     levelFilter.value === "ALL" ? 0 : (LEVEL_RANK[levelFilter.value] ?? 0);
+  const mod = moduleFilter.value;
   const q = search.value.trim().toLowerCase();
   return entries.value.filter((e) => {
     if ((LEVEL_RANK[e.level] ?? 0) < minRank) return false;
+    if (mod !== "ALL" && e.module !== mod) return false;
     if (
       q &&
       !e.message.toLowerCase().includes(q) &&
@@ -235,6 +254,17 @@ function downloadLogs() {
         prepend-inner-icon="mdi-filter-variant"
         :aria-label="t('logs.level-filter')"
       />
+      <RSelect
+        v-model="moduleFilter"
+        class="r-v2-logs__module-select"
+        :items="moduleItems"
+        item-title="title"
+        item-value="value"
+        density="compact"
+        hide-details
+        prepend-inner-icon="mdi-cube-outline"
+        :aria-label="t('logs.module-filter')"
+      />
       <RTextField
         v-model="search"
         class="r-v2-logs__search"
@@ -362,6 +392,11 @@ function downloadLogs() {
 }
 
 .r-v2-logs__level-select {
+  width: 160px;
+  flex: 0 0 auto;
+}
+
+.r-v2-logs__module-select {
   width: 160px;
   flex: 0 0 auto;
 }

@@ -1,6 +1,8 @@
 {
   "level-all": "Todos los niveles",
   "level-filter": "Filtrar por nivel",
+  "module-all": "Todos los módulos",
+  "module-filter": "Filtrar por módulo",
   "search-placeholder": "Buscar en los logs",
   "pause": "Pausar",
   "resume": "Reanudar",

@@ -1,6 +1,8 @@
 {
   "level-all": "All levels",
   "level-filter": "Filter by level",
+  "module-all": "All modules",
+  "module-filter": "Filter by module",
   "search-placeholder": "Search logs",
   "pause": "Pause",
   "resume": "Resume",

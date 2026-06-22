@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from pprint import pformat
 
@@ -80,6 +81,29 @@ def redact_sensitive(text: str) -> str:
     return SENSITIVE_KEYS_REGEX.sub(r"\1=***", text)
 
 
+def resolve_module_name(record: logging.LogRecord) -> str:
+    """Derive the semantic module name shown in logs.
+
+    Resolution order:
+    1. An explicit ``extra={"module_name": ...}`` on the log call — the manual
+       override (e.g. the scan handler groups all its lines under ``scan``).
+    2. The record's module: the source filename without its extension.
+    3. For package ``__init__`` files the bare filename carries no meaning
+       (``backend/endpoints/roms/__init__.py`` → ``__init__``); fall back to the
+       package — the parent directory name — so it reads as ``roms`` instead.
+    """
+    explicit = getattr(record, "module_name", None)
+    if explicit:
+        return str(explicit)
+
+    module = record.module
+    if module == "__init__" and record.pathname:
+        parent = os.path.basename(os.path.dirname(record.pathname))
+        if parent:
+            return parent
+    return module
+
+
 def should_strip_ansi() -> bool:
     """Determine if ANSI escape codes should be stripped."""
     # Check if an explicit environment variable is set to control color behavior
@@ -112,21 +136,10 @@ class Formatter(logging.Formatter):
         """
         level = "%(levelname)s"
         dots = f"{RESET}:"
-        identifier = (
-            f"\t  {BLUE}[RomM]{LIGHTMAGENTA}[{record.module_name.lower()}]"
-            if hasattr(record, "module_name")
-            else f"\t  {BLUE}[RomM]{LIGHTMAGENTA}[%(module)s]"
-        )
-        identifier_warning = (
-            f"  {BLUE}[RomM]{LIGHTMAGENTA}[{record.module_name.lower()}]"
-            if hasattr(record, "module_name")
-            else f"  {BLUE}[RomM]{LIGHTMAGENTA}[%(module)s]"
-        )
-        identifier_critical = (
-            f" {BLUE}[RomM]{LIGHTMAGENTA}[{record.module_name.lower()}]"
-            if hasattr(record, "module_name")
-            else f" {BLUE}[RomM]{LIGHTMAGENTA}[%(module)s]"
-        )
+        module_label = resolve_module_name(record).lower()
+        identifier = f"\t  {BLUE}[RomM]{LIGHTMAGENTA}[{module_label}]"
+        identifier_warning = f"  {BLUE}[RomM]{LIGHTMAGENTA}[{module_label}]"
+        identifier_critical = f" {BLUE}[RomM]{LIGHTMAGENTA}[{module_label}]"
         msg = f"{RESET_ALL}%(message)s"
 
         message = pformat(record.msg) if hasattr(record, "pprint") else "%(message)s"

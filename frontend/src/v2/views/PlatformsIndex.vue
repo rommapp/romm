@@ -459,9 +459,11 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
           <h3 v-else class="r-v2-pidx__group-heading">{{ g.label }}</h3>
           <div class="r-v2-pidx__grid">
             <PlatformTile
-              v-for="p in g.items"
+              v-for="(p, i) in g.items"
               :id="p.id"
               :key="p.id"
+              class="r-v2-card-fade"
+              :style="{ '--card-fade-i': i }"
               :slug="p.slug"
               :fs-slug="p.fs_slug"
               :display-name="p.display_name"
@@ -475,9 +477,11 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
       <!-- Grid mode, flat. -->
       <div v-else class="r-v2-pidx__grid">
         <PlatformTile
-          v-for="p in sortedForGrid"
+          v-for="(p, i) in sortedForGrid"
           :id="p.id"
           :key="p.id"
+          class="r-v2-card-fade"
+          :style="{ '--card-fade-i': i }"
           :slug="p.slug"
           :fs-slug="p.fs_slug"
           :display-name="p.display_name"

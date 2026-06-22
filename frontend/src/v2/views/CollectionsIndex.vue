@@ -543,9 +543,11 @@ const showListHeader = computed(
               <RLetterHeading :label="g.letter" />
               <div class="r-v2-cidx__grid">
                 <CollectionTile
-                  v-for="c in g.items"
+                  v-for="(c, i) in g.items"
                   :id="c.id"
                   :key="`${c.kind}-${c.id}`"
+                  class="r-v2-card-fade"
+                  :style="{ '--card-fade-i': i }"
                   :to="c.link"
                   :name="c.name"
                   :rom-count="c.rom_count"
@@ -559,9 +561,11 @@ const showListHeader = computed(
           </template>
           <div v-else class="r-v2-cidx__grid">
             <CollectionTile
-              v-for="c in curatedTiles"
+              v-for="(c, i) in curatedTiles"
               :id="c.id"
               :key="`${c.kind}-${c.id}`"
+              class="r-v2-card-fade"
+              :style="{ '--card-fade-i': i }"
               :to="c.link"
               :name="c.name"
               :rom-count="c.rom_count"
@@ -588,9 +592,11 @@ const showListHeader = computed(
               <RLetterHeading :label="g.letter" />
               <div class="r-v2-cidx__grid">
                 <CollectionTile
-                  v-for="c in g.items"
+                  v-for="(c, i) in g.items"
                   :id="c.id"
                   :key="`${c.kind}-${c.id}`"
+                  class="r-v2-card-fade"
+                  :style="{ '--card-fade-i': i }"
                   :to="c.link"
                   :name="c.name"
                   :rom-count="c.rom_count"
@@ -604,9 +610,11 @@ const showListHeader = computed(
           </template>
           <div v-else class="r-v2-cidx__grid">
             <CollectionTile
-              v-for="c in virtualTiles"
+              v-for="(c, i) in virtualTiles"
               :id="c.id"
               :key="`${c.kind}-${c.id}`"
+              class="r-v2-card-fade"
+              :style="{ '--card-fade-i': i }"
               :to="c.link"
               :name="c.name"
               :rom-count="c.rom_count"
