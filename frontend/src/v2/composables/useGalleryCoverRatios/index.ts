@@ -40,14 +40,13 @@ const REPACK_DEBOUNCE_MS = 350;
 // of the default 2/3 — without it the shared-element morph stretches to 2/3
 // and snaps back on load.
 //
-// Rom-id keys are namespaced (`rom:<id>`) so a numeric id and a string id
-// collapse to one entry and never collide with a URL. Intentionally
-// unbounded — a couple of numbers per cover, reset on page reload.
-const ratioByKey = new Map<string, number>();
-
-function romKey(id: number | string): string {
-  return `rom:${id}`;
-}
+// Rom-id keys are stored as plain numbers and URL keys as strings in the
+// same map — they can't collide (a URL is never a bare number), and a
+// numeric key avoids a per-lookup string concat on the packer's hot path.
+// A string rom id (e.g. a route param) is normalised with `Number()` so it
+// matches the numeric id the gallery stored. Intentionally unbounded — a
+// couple of numbers per cover, reset on page reload.
+const ratioByKey = new Map<string | number, number>();
 
 interface RatioKeys {
   romId?: number | string | null;
@@ -55,14 +54,15 @@ interface RatioKeys {
 }
 
 /** Measured natural ratio (w / h) by rom id and/or image URL — whichever is
- *  known — or null if neither has been measured yet. */
+ *  known — or null if neither has been measured yet. Not on the packer's hot
+ *  path (which reads the map directly); used by GameCover per cover load. */
 export function getCoverRatio({ romId, url }: RatioKeys): number | null {
   if (url) {
     const r = ratioByKey.get(url);
     if (r != null) return r;
   }
   if (romId != null) {
-    const r = ratioByKey.get(romKey(romId));
+    const r = ratioByKey.get(Number(romId));
     if (r != null) return r;
   }
   return null;
@@ -71,7 +71,7 @@ export function getCoverRatio({ romId, url }: RatioKeys): number | null {
 /** Remember a cover's measured ratio under its rom id and/or URL. */
 export function setCoverRatio({ romId, url }: RatioKeys, ratio: number): void {
   if (url) ratioByKey.set(url, ratio);
-  if (romId != null) ratioByKey.set(romKey(romId), ratio);
+  if (romId != null) ratioByKey.set(Number(romId), ratio);
 }
 
 export function useGalleryCoverRatios() {
@@ -80,14 +80,15 @@ export function useGalleryCoverRatios() {
   const maxRatio = ref(0);
   let bumpTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** Record a cover's measured ratio (GameCard's `@ratio` handler). */
+  /** Record a cover's measured ratio (GameCard's `@ratio` handler). Reads
+   *  /writes the map directly by numeric rom id — no key object / string. */
   function onCardRatio(payload: { romId: number; ratio: number }) {
     // Track the max on every report (even cached re-paints with an
     // unchanged ratio) so it rebuilds correctly after a context reset.
     if (payload.ratio > maxRatio.value) maxRatio.value = payload.ratio;
-    const prev = getCoverRatio({ romId: payload.romId });
+    const prev = ratioByKey.get(payload.romId);
     if (prev != null && Math.abs(prev - payload.ratio) < RATIO_EPSILON) return;
-    setCoverRatio({ romId: payload.romId }, payload.ratio);
+    ratioByKey.set(payload.romId, payload.ratio);
     if (bumpTimer) return;
     bumpTimer = setTimeout(() => {
       bumpTimer = null;
@@ -100,19 +101,21 @@ export function useGalleryCoverRatios() {
    *  a previous platform's wide covers don't keep the column wide. */
   function resetMaxRatio() {
     let m = 0;
-    for (const romId of galleryRoms.romIdIndex) {
-      const r = getCoverRatio({ romId });
+    const ids = galleryRoms.romIdIndex;
+    for (let i = 0; i < ids.length; i++) {
+      const r = ratioByKey.get(ids[i]);
       if (r != null && r > m) m = r;
     }
     maxRatio.value = m;
   }
 
   /** Measured ratio for a position, or 0 when unknown (the packer then
-   *  falls back to its default ratio). */
+   *  falls back to its default ratio). Hot path — direct numeric map read,
+   *  called once per position on every re-pack. */
   function ratioAt(position: number): number {
     const romId = galleryRoms.romIdIndex[position];
     if (romId == null) return 0;
-    return getCoverRatio({ romId }) ?? 0;
+    return ratioByKey.get(romId) ?? 0;
   }
 
   onBeforeUnmount(() => {
