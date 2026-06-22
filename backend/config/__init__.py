@@ -142,6 +142,9 @@ INVITE_TOKEN_EXPIRY_SECONDS: Final[int] = safe_int(
 # OIDC
 OIDC_ENABLED: Final[bool] = safe_str_to_bool(_get_env("OIDC_ENABLED"))
 OIDC_AUTOLOGIN: Final[bool] = safe_str_to_bool(_get_env("OIDC_AUTOLOGIN"))
+OIDC_ALLOW_REGISTRATION: Final[bool] = safe_str_to_bool(
+    _get_env("OIDC_ALLOW_REGISTRATION", "true")
+)
 OIDC_PROVIDER: Final[str] = _get_env("OIDC_PROVIDER", "")
 OIDC_CLIENT_ID: Final[str] = _get_env("OIDC_CLIENT_ID", "")
 OIDC_CLIENT_SECRET: Final[str] = _get_env("OIDC_CLIENT_SECRET", "")

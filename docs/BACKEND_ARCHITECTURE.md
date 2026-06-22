@@ -1512,6 +1512,7 @@ Falls back to `FakeRedis` in test mode.
 | Variable                        | Default              | Description                     |
 | ------------------------------- | -------------------- | ------------------------------- |
 | `OIDC_ENABLED`                  | `false`              | Enable OpenID Connect           |
+| `OIDC_ALLOW_REGISTRATION`       | `true`               | Auto-create accounts on login   |
 | `OIDC_PROVIDER`                 |                      | Provider URL                    |
 | `OIDC_CLIENT_ID`                |                      | Client ID                       |
 | `OIDC_CLIENT_SECRET`            |                      | Client secret                   |
