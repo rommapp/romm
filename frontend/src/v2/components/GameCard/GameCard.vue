@@ -233,7 +233,11 @@ const { morphTransition } = useViewTransition();
 // between ~1 and ~7 live `useGameActions` per card, which dominates a
 // virtualised grid's cost. Safe to call conditionally (no lifecycle hooks).
 const actions =
-  props.static || props.decorative ? null : useGameActions(() => props.rom);
+  props.static || props.decorative
+    ? null
+    : useGameActions(() => props.rom, {
+        coverEl: () => coverRef.value?.el() ?? null,
+      });
 if (actions) provide(GAME_ACTIONS_KEY, actions);
 
 // Stop propagation so the card's morph + router push doesn't fire when

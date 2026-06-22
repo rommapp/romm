@@ -9,12 +9,13 @@ import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import type { RuffleSourceAPI } from "@/types/ruffle";
 import { getDownloadPath } from "@/utils";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { colorCanvas } from "@/v2/tokens";
 
 const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
@@ -37,13 +38,22 @@ const morphRomId = computed(() => {
   return typeof r === "string" ? r : null;
 });
 
-// Seed the rom synchronously from the store (set by GameDetails, not cleared
-// on its unmount) so the hero cover is in the DOM when the view transition
-// captures this view and the morph pairs on entry. `onMounted` refetches.
+// Seed synchronously so the hero cover is in the DOM when the view transition
+// captures this view and the morph pairs on entry. From GameDetails the full
+// DetailedRom is in `currentRom`; on a direct gallery→play only a SimpleRom
+// exists, so seed a cover-only `heroSeed` (`rom` stays null until `onMounted`
+// refetches). See EmulatorJS for the same pattern.
 const seededRom = storeRoms().currentRom;
 if (seededRom && String(seededRom.id) === morphRomId.value) {
   rom.value = seededRom;
 }
+const heroSeed = ref<SimpleRom | null>(null);
+if (!rom.value && morphRomId.value != null) {
+  heroSeed.value = storeGalleryRoms().getRomById(Number(morphRomId.value));
+}
+const heroRom = computed<DetailedRom | SimpleRom | null>(
+  () => rom.value ?? heroSeed.value,
+);
 
 declare global {
   interface Window {
@@ -84,12 +94,14 @@ watch(
 );
 
 const title = computed(
-  () => rom.value?.name || rom.value?.fs_name_no_ext || "",
+  () => heroRom.value?.name || heroRom.value?.fs_name_no_ext || "",
 );
 
 const platformLabel = computed(
   () =>
-    rom.value?.platform_custom_name || rom.value?.platform_display_name || "",
+    heroRom.value?.platform_custom_name ||
+    heroRom.value?.platform_display_name ||
+    "",
 );
 
 function onPlay() {
@@ -173,16 +185,16 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section v-if="rom" class="r-v2-ruffle">
+  <section v-if="rom || heroSeed" class="r-v2-ruffle">
     <!-- Pre-game configuration -->
     <div v-if="!gameRunning" class="r-v2-ruffle__config">
       <!-- Cover column -->
       <aside class="r-v2-ruffle__cover">
         <GameCover
           class="r-v2-ruffle__cover-box"
-          :rom="rom"
+          :rom="heroRom"
           :title="title"
-          :identified="rom?.is_identified ?? true"
+          :identified="heroRom?.is_identified ?? true"
           :morph-id="morphRomId"
           morph-static
           hover-motion
@@ -225,6 +237,8 @@ onMounted(async () => {
             block
             prepend-icon="mdi-play-circle"
             class="r-v2-ruffle__play"
+            :loading="!rom"
+            :disabled="!rom"
             @click="onPlay"
           >
             {{ t("play.play") }}
