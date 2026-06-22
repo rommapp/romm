@@ -400,6 +400,8 @@ class SiblingRomSchema(BaseModel):
 
 
 class SimpleRomSchema(RomSchema):
+    screenshot_path: str | None = None
+
     @classmethod
     def from_orm_with_request(
         cls,
@@ -407,8 +409,10 @@ class SimpleRomSchema(RomSchema):
         request: Request,
         files: Sequence[RomFile] | None = None,
         siblings: Sequence[tuple[Rom, bool]] | None = None,
+        screenshot_path: str | None = None,
     ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request)
+        db_rom.screenshot_path = screenshot_path  # type: ignore[assignment]
 
         # The list endpoint passes pre-fetched `files`/`siblings` (batched via
         # get_files_for_roms / get_siblings_for_roms, no per-row hydration).
@@ -445,6 +449,7 @@ class SimpleRomSchema(RomSchema):
         db_rom.included_files = []  # type: ignore[assignment]
         db_rom.included_sibling_roms = []  # type: ignore[assignment]
         db_rom.has_notes = False  # type: ignore[assignment]
+        db_rom.screenshot_path = None  # type: ignore[assignment]
         return cls.model_validate(db_rom)
 
 

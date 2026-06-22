@@ -1,18 +1,25 @@
 // useCoverAnimation — the "juicy" motion layer for alt-art game covers.
 //
-// v2 rebuild of v1's deprecated `useGameAnimation` against a raw <img>
-// (v2 has no Vuetify VImg internals). Three behaviours, all driven by the
-// card's hover/focus `active` signal and the flags `useCoverArt` resolves:
-//   * CD spin      — physical art on a CD-based platform spins up on
-//                    hover (accelerate) and coasts down on leave.
-//   * Cartridge     — physical art on a cartridge platform does a one-shot
-//                    "slot-in" drop when first hovered.
-//   * Hover video   — miximage art crossfades to its `path_video` clip a
-//                    beat after hover, and resets on leave.
+// v2 port of v1's `useGameAnimation` (which drove a Vuetify VImg; v2 drives a
+// raw <img>). Three behaviours, all gated by the card's hover/focus `active`
+// signal and the flags `useCoverArt` resolves:
+//   * CD spin     — physical art on a CD platform spins up on hover
+//                   (accelerate) and coasts down on leave. The launch
+//                   flourish spins it at max while it slides down into the
+//                   drive and vanishes.
+//   * Cartridge   — physical art on a cartridge platform seats fully into
+//                   its bay on launch (no hover animation, matching v1).
+//   * Hover video — miximage art crossfades to its `path_video` clip a beat
+//                   after hover, and resets on leave.
+//
+// The v1 trick (kept here because it's the part that makes it feel right):
+// the slide is `margin-top` with an overshoot transition, while the spin is
+// `transform: rotate` — two *different* properties, so they compose. A single
+// `transform` for both can't be eased independently (the per-frame spin would
+// fight the eased slide).
 //
 // All motion is gated by the user's `disableAnimations` setting (via
-// `motionEnabled`) AND the OS `prefers-reduced-motion` — when either says
-// no, the cover stays a still image.
+// `motionEnabled`) AND the OS `prefers-reduced-motion`.
 import {
   computed,
   onBeforeUnmount,
@@ -31,22 +38,31 @@ export interface SpinConfig {
   decel: number;
 }
 
-// Mirrors v1's ANIMATION_CONFIG (maxRotationSpeed / acceleration /
-// deceleration), kept as deg/sec(²) for the frame-rate-independent step.
+// Mirrors v1's ANIMATION_CONFIG, kept as deg/sec(²) for the frame-rate-
+// independent step.
 export const SPIN_CONFIG: SpinConfig = {
   maxSpeed: 5000,
   accel: 2500,
   decel: 1500,
 };
 
+// Cartridge slot-in depth on launch, as a fraction of the cover height
+// (v1 seated at 1/3 on play). There is no cartridge hover animation.
+const CART_SEAT_FRACTION = 1 / 3;
+
+// How long the player waits (ms) for the launch flourish before booting —
+// the margin transition is 500ms; a little extra lets the motion read.
+const CD_LOAD_MS = 700;
+const CART_LOAD_MS = 600;
+
 // Delay before the hover video kicks in, so fast scans across the gallery
-// don't fire a burst of <video> loads. A touch snappier than v1's 1500ms.
+// don't fire a burst of <video> loads.
 const VIDEO_HOVER_DELAY_MS = 1000;
 
 /** Pure one-frame integration of the spin physics — exported for tests.
- *  `accelerating` is true while the cover is hovered/focused; otherwise
- *  the disc coasts to a stop. Velocity is clamped to `[0, maxSpeed]` and
- *  the angle wraps at 360°. */
+ *  `accelerating` is true while the cover is hovered/focused; otherwise the
+ *  disc coasts to a stop. Velocity is clamped to `[0, maxSpeed]` and the
+ *  angle wraps at 360°. */
 export function stepSpin(
   state: { angle: number; velocity: number },
   dtSeconds: number,
@@ -72,8 +88,10 @@ function prefersReducedMotion(): boolean {
 }
 
 export interface UseCoverAnimationOptions {
-  /** The cover <img> element (the thing that spins / slots in). */
+  /** The cover <img> element (the thing that spins / slides). */
   el: Ref<HTMLElement | null>;
+  /** The cover box that clips the slide — used for its `offsetHeight`. */
+  containerEl: Ref<HTMLElement | null>;
   /** The hover-video <video> element (miximage style), if rendered. */
   videoEl: Ref<HTMLVideoElement | null>;
   /** Disc-spin applies (physical art, CD-based platform). */
@@ -84,8 +102,8 @@ export interface UseCoverAnimationOptions {
   videoUrl: ComputedRef<string | null>;
   /** User's animation preference (`!disableAnimations`). */
   motionEnabled: ComputedRef<boolean>;
-  /** Hover / focus state of the card — drives the spin / video. The
-   *  one-shot launch flourish (`playLoad`) is triggered imperatively by
+  /** Hover / focus state of the card — drives the spin / slot-in / video.
+   *  The one-shot launch flourish (`playLoad`) is triggered imperatively by
    *  the player view instead. */
   active: Ref<boolean> | ComputedRef<boolean>;
 }
@@ -94,8 +112,8 @@ export interface UseCoverAnimation {
   /** True while the hover video is actually playing (drives the
    *  image→video crossfade in the card). */
   isVideoPlaying: Ref<boolean>;
-  /** Trigger the one-shot launch flourish (disc drop+spin / cartridge
-   *  slot-in). Returns its duration in ms (0 if nothing animates), so the
+  /** Trigger the one-shot launch flourish (disc spin+drop / cartridge
+   *  seat). Returns its duration in ms (0 if nothing animates), so the
    *  player view can hold the boot back until the insert plays out. */
   playLoad: () => number;
 }
@@ -107,43 +125,46 @@ export function useCoverAnimation(
     () => opts.motionEnabled.value && !prefersReducedMotion(),
   );
 
-  // ── CD spin ───────────────────────────────────────────────────────
+  // The slide (`margin-top`) is eased in CSS (`.game-cover__img`) so it
+  // composes with the per-frame `transform: rotate` written below — the spin
+  // stays immediate while the slot-in/drop overshoots.
+
+  // ── CD spin (+ launch drop) ───────────────────────────────────────
   let angle = 0;
   let velocity = 0;
   let lastTs: number | null = null;
   let raf: number | null = null;
-
-  const wantsSpin = computed(
-    () => opts.active.value && opts.animateCD.value && motionOk.value,
-  );
+  // While true the disc holds max speed and slides the full height down
+  // into the drive (the launch flourish). Cleared by `stopSpin`.
+  let dropping = false;
 
   function frame(ts: number) {
+    const img = opts.el.value;
+    if (!img) {
+      raf = null;
+      return;
+    }
     if (lastTs === null) lastTs = ts;
     // Clamp dt so a backgrounded tab doesn't resume with a giant jump.
     const dt = Math.min((ts - lastTs) / 1000, 0.05);
     lastTs = ts;
 
-    const next = stepSpin({ angle, velocity }, dt, wantsSpin.value);
+    const next = stepSpin({ angle, velocity }, dt, opts.active.value);
     angle = next.angle;
     velocity = next.velocity;
 
-    // Use the individual `rotate` property (not `transform`) so the
-    // drop-in animation can own `transform: translateY` and the two
-    // compose instead of clobbering each other.
-    if (opts.el.value) {
-      opts.el.value.style.rotate = `${angle.toFixed(2)}deg`;
+    if (dropping) {
+      velocity = SPIN_CONFIG.maxSpeed;
+      const container = opts.containerEl.value;
+      if (container) img.style.marginTop = `${container.offsetHeight}px`;
     }
 
-    if (velocity > 0 || wantsSpin.value) {
+    img.style.transform = `rotate(${angle.toFixed(2)}deg)`;
+
+    if (velocity > 0 || opts.active.value || dropping) {
       raf = requestAnimationFrame(frame);
     } else {
-      // Fully stopped — clear so a later style switch doesn't leave a
-      // stale rotation on a non-disc image.
-      raf = null;
-      lastTs = null;
-      angle = 0;
-      velocity = 0;
-      if (opts.el.value) opts.el.value.style.rotate = "";
+      stopSpin();
     }
   }
 
@@ -154,102 +175,60 @@ export function useCoverAnimation(
     }
   }
 
-  function hardStopSpin() {
+  function stopSpin() {
     if (raf !== null) cancelAnimationFrame(raf);
     raf = null;
     lastTs = null;
     angle = 0;
     velocity = 0;
-    if (opts.el.value) opts.el.value.style.rotate = "";
+    dropping = false;
+    const img = opts.el.value;
+    if (img) {
+      img.style.transform = "";
+      img.style.marginTop = "";
+    }
   }
 
-  // Start coasting up when wanted; the frame loop coasts down on its own
-  // once `wantsSpin` flips false. A style switch away from CD hard-stops
-  // so we don't keep spinning a cartridge / box.
+  const wantsSpin = computed(
+    () => opts.active.value && opts.animateCD.value && motionOk.value,
+  );
   watch(wantsSpin, (on) => {
     if (on) kickSpin();
+    // Leaving: the frame loop coasts down on its own (active is false).
   });
   watch(
     () => opts.animateCD.value,
     (cd) => {
-      if (!cd) hardStopSpin();
+      if (!cd) stopSpin();
     },
   );
 
-  // ── Drop-in (cartridge slot-in / disc drop) ───────────────────────
-  // One-shot translateY with an overshoot settle. Uses `transform` so it
-  // composes with the spin's `rotate` property. `from` is the start
-  // offset as a percentage of the element height.
-  function dropIn(from: number, duration: number) {
-    const el = opts.el.value;
-    if (!el || typeof el.animate !== "function") return;
-    el.animate(
-      [
-        { transform: `translateY(${from}%)`, opacity: 0.85, offset: 0 },
-        { transform: "translateY(4%)", offset: 0.72 },
-        { transform: "translateY(0)", opacity: 1, offset: 1 },
-      ],
-      { duration, easing: "cubic-bezier(0.34, 1.56, 0.64, 1)" },
-    );
+  // ── Cartridge slot-in ─────────────────────────────────────────────
+  // Cartridges only seat on launch (no hover animation — matches v1).
+  function cartSlot(depthFraction: number) {
+    const img = opts.el.value;
+    const container = opts.containerEl.value;
+    if (!img || !container) return;
+    img.style.transform = "rotate(0deg)";
+    img.style.marginTop = depthFraction
+      ? `${container.offsetHeight * depthFraction}px`
+      : "";
   }
 
-  // Gentle slot-in when a cartridge cover is first hovered.
-  function playInsert() {
-    dropIn(-16, 440);
-  }
-
-  // Launch "load" flourish (player view): from its RESTING position the
-  // disc spins up and slides DOWN into the drive, or the cartridge slides
-  // down into the slot. One self-contained Web Animations keyframe (not the
-  // rAF spin loop). `fill: forwards` keeps it inserted until the hero
-  // unmounts for the running game. Returns the duration in ms (0 when no
-  // launch animation applies) so the caller can hold the boot back until
-  // the insert is seen. Starts at translateY(0) — no upward jump.
-  // Disc: spins up and slides ALL the way down into the drive, vanishing.
-  const CD_LOAD_MS = 850;
-  // Cartridge: slides DOWN to ~halfway (clipped by the slot edge) and
-  // HOLDS there ~1s, as if seated/connected — then the game boots.
-  const CART_LOAD_MS = 1250;
+  // ── Launch flourish (player view) ─────────────────────────────────
   function playLoad(): number {
-    const el = opts.el.value;
-    if (!motionOk.value || !el || typeof el.animate !== "function") return 0;
-    hardStopSpin();
+    const img = opts.el.value;
+    const container = opts.containerEl.value;
+    if (!motionOk.value || !img || !container) return 0;
     if (opts.animateCD.value) {
-      el.animate(
-        [
-          { transform: "translateY(0) rotate(0deg)", opacity: 1, offset: 0 },
-          {
-            transform: "translateY(10%) rotate(240deg)",
-            opacity: 1,
-            offset: 0.28,
-          },
-          {
-            transform: "translateY(130%) rotate(1120deg)",
-            opacity: 0,
-            offset: 1,
-          },
-        ],
-        {
-          duration: CD_LOAD_MS,
-          easing: "cubic-bezier(0.5, 0, 0.9, 0.3)",
-          fill: "forwards",
-        },
-      );
+      // Spin up to max and slide the full height down into the drive.
+      dropping = true;
+      kickSpin();
       return CD_LOAD_MS;
     }
     if (opts.animateCartridge.value) {
-      el.animate(
-        [
-          {
-            transform: "translateY(0)",
-            offset: 0,
-            easing: "cubic-bezier(0.34, 1.1, 0.5, 1)",
-          },
-          { transform: "translateY(50%)", offset: 0.28 }, // seated halfway
-          { transform: "translateY(50%)", offset: 1 }, // hold ~1s
-        ],
-        { duration: CART_LOAD_MS, fill: "forwards" },
-      );
+      // Seat the cartridge fully into the bay.
+      cartSlot(CART_SEAT_FRACTION);
       return CART_LOAD_MS;
     }
     return 0;
@@ -300,26 +279,17 @@ export function useCoverAnimation(
     else stopVideo();
   });
 
-  // ── Active-edge: fire the one-shot cartridge insert ───────────────
-  watch(
-    () => opts.active.value,
-    (now, prev) => {
-      if (now && !prev && opts.animateCartridge.value && motionOk.value) {
-        playInsert();
-      }
-    },
-  );
-
   // ── Motion preference flips off mid-flight ────────────────────────
   watch(motionOk, (ok) => {
     if (!ok) {
-      hardStopSpin();
+      stopSpin();
+      cartSlot(0);
       stopVideo();
     }
   });
 
   onBeforeUnmount(() => {
-    hardStopSpin();
+    stopSpin();
     cancelVideoTimer();
     const v = opts.videoEl.value;
     if (v) v.pause();

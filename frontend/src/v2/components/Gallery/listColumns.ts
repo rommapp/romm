@@ -116,11 +116,16 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
 /** CSS-grid template paired with `getListColumns`. The `platform` slot
  * is inserted between `name` and `fs_size_bytes` when present so column
  * order matches the array. */
-export function getListGridTemplate(showPlatform: boolean): string {
+export function getListGridTemplate(
+  showPlatform: boolean,
+  coverWidthPx = 48,
+): string {
   const platformTrack = showPlatform ? " 200px" : "";
-  // Cover track = the xs cover height (64px), so any portrait→square cover
-  // fits without clipping and the title column starts at a fixed x.
-  return `36px 64px minmax(0, 1.6fr)${platformTrack} 88px 96px 84px 56px 110px 110px 88px`;
+  // Cover track widens to the widest cover in the gallery (set by the
+  // shell from measured ratios), so landscape covers show whole instead of
+  // being clipped, while portrait-only lists stay tight. The title column
+  // starts at a fixed x because every row shares this width.
+  return `36px ${coverWidthPx}px minmax(0, 1.6fr)${platformTrack} 88px 96px 84px 56px 110px 110px 88px`;
 }
 
 /** Default exports — the cross-platform variant. Used by the bootstrap-

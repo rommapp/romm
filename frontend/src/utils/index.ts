@@ -875,3 +875,9 @@ export const CD_BASED_SYSTEMS = new Set([
 export function isCDBasedSystem(platformSlug: string): boolean {
   return CD_BASED_SYSTEMS.has(platformSlug.toLowerCase());
 }
+
+export const ARCADE_SYSTEMS = new Set(["arcade", "neogeoaes", "neogeomvs"]);
+
+export function isArcadeSystem(platformSlug: string): boolean {
+  return ARCADE_SYSTEMS.has(platformSlug.toLowerCase());
+}

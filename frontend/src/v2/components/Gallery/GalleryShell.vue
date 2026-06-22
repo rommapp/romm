@@ -58,7 +58,11 @@ import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
 import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
 import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
-import { type ListSortKey } from "@/v2/components/Gallery/listColumns";
+import {
+  LIST_COVER_HEIGHT_PX,
+  LIST_COVER_WIDTH_PX,
+  type ListSortKey,
+} from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { coverRatio, isBoxartStyle } from "@/v2/composables/useCoverArt";
@@ -269,7 +273,19 @@ const coverAspectRatio = computed(() =>
 // Measured natural cover ratios feeding the flow-packer — GameCard reports
 // each cover's ratio on load (`onCardRatio`), the packer reads `ratioAt`,
 // and `ratioVersion` bumps (debounced) to trigger a single re-pack.
-const { ratioVersion, ratioAt, onCardRatio } = useGalleryCoverRatios();
+// `maxRatio` (widest cover in this gallery) drives the list view's cover
+// column width.
+const { ratioVersion, ratioAt, onCardRatio, maxRatio, resetMaxRatio } =
+  useGalleryCoverRatios();
+
+// List-view cover column width: the widest cover at the row's cover height,
+// clamped so a portrait-only list stays tight and an outlier can't make the
+// column absurd. Wide (landscape) covers then show whole instead of being
+// clipped, and every row shares the width so titles stay aligned.
+const listCoverWidth = computed(() => {
+  const w = Math.round(LIST_COVER_HEIGHT_PX * maxRatio.value);
+  return Math.min(128, Math.max(LIST_COVER_WIDTH_PX, w));
+});
 
 // 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
 //   * Grid mode — rows are `.r-v2-shell__row` (the per-virtualizer-item
@@ -577,6 +593,15 @@ watch(virtualItems, () => {
   syncFetches(viewportRange.value);
 });
 
+// Recompute the list cover-column max when the gallery's rom set changes
+// (context switch, filter, sort) so a previous platform's wide covers
+// don't keep the column wide. Keyed on `romIdIndex` (not `virtualItems`)
+// so grid re-packs don't trigger the O(total) rebuild.
+watch(
+  () => galleryRoms.romIdIndex,
+  () => resetMaxRatio(),
+);
+
 // List mode pins a column header below the toolbar; AlphaStrip jumps
 // must land BELOW both pinned bars or the destination row would slide
 // behind the column header. Matches the height set in
@@ -853,6 +878,7 @@ defineExpose({
           :sort-key="listSortKey"
           :sort-dir="orderDir"
           :show-platform-column="showPlatformColumn"
+          :cover-width="listCoverWidth"
           @sort="onListSort"
         />
       </template>
@@ -897,11 +923,14 @@ defineExpose({
             :position="asListRow(item as GalleryItem).position"
             :webp="supportsWebp"
             :show-platform-column="showPlatformColumn"
+            :cover-width="listCoverWidth"
+            @ratio="onCardRatio"
           />
 
           <GameListSkeletonRow
             v-else-if="itemKind(item as GalleryItem) === 'skeleton-list-row'"
             :show-platform-column="showPlatformColumn"
+            :cover-width="listCoverWidth"
           />
 
           <div
@@ -972,6 +1001,7 @@ defineExpose({
       :sort-key="listSortKey"
       :sort-dir="orderDir"
       :show-platform-column="showPlatformColumn"
+      :cover-width="listCoverWidth"
       @sort="onListSort"
     />
 

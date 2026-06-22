@@ -7,10 +7,11 @@ from decorators.auth import protected_route
 from endpoints.responses.activity import ActivityClearSchema, ActivityEntrySchema
 from handler.activity_handler import ActivityEntry, activity_handler
 from handler.auth.constants import Scope
-from handler.database import db_device_handler, db_rom_handler
+from handler.database import db_device_handler, db_rom_handler, db_save_handler
 from handler.socket_handler import socket_handler
 from logger.logger import log
 from utils.router import APIRouter
+from utils.screenshots import continue_playing_screenshot
 
 router = APIRouter(
     prefix="/activity",
@@ -69,6 +70,11 @@ async def device_heartbeat(
         existing["started_at"] if existing else datetime.now(timezone.utc).isoformat()
     )
 
+    latest_save = db_save_handler.get_latest_saves_for_roms(
+        user_id=request.user.id, rom_ids=[rom.id]
+    ).get(rom.id)
+    screenshot_path = continue_playing_screenshot(rom, latest_save) or ""
+
     platform = rom.platform
     entry = ActivityEntry(
         user_id=request.user.id,
@@ -77,6 +83,7 @@ async def device_heartbeat(
         rom_id=rom.id,
         rom_name=rom.name or rom.fs_name,
         rom_cover_path=rom.path_cover_s or "",
+        screenshot_path=screenshot_path,
         platform_slug=platform.slug if platform else "",
         platform_name=(platform.custom_name or platform.name) if platform else "",
         device_id=device.id,

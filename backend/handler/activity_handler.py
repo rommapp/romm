@@ -22,6 +22,7 @@ class ActivityEntry(TypedDict):
     rom_id: int
     rom_name: str
     rom_cover_path: str  # small cover path, may be empty
+    screenshot_path: str  # "where they are" image (save/title/screenshot), may be empty
     platform_slug: str
     platform_name: str
     device_id: str

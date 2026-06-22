@@ -10,11 +10,15 @@
 // session counter is the single live indicator.
 import { RAvatar, RIcon } from "@v2/lib";
 import type { RouteLocationRaw } from "vue-router";
+import CoverArtPip from "@/v2/components/shared/CoverArtPip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 
 interface Props {
   to: RouteLocationRaw;
   coverSrc: string | null;
+  /** Cover-art URL for the corner PIP — set only when `coverSrc` is a
+   *  screenshot, so the game stays identifiable. Null shows no PIP. */
+  pipCoverSrc?: string | null;
   romName: string;
   platformName: string;
   username: string;
@@ -38,7 +42,15 @@ defineProps<Props>();
       :cover-src="coverSrc"
       :title="romName"
       class="activity-card__art"
-    />
+    >
+      <!-- Cover-art PIP — shown when the main image is a screenshot, so the
+           game stays identifiable. -->
+      <CoverArtPip
+        v-if="pipCoverSrc"
+        :cover-src="pipCoverSrc"
+        :title="romName"
+      />
+    </GameCover>
 
     <div class="activity-card__body">
       <div class="activity-card__rom" :title="romName">
@@ -50,17 +62,18 @@ defineProps<Props>();
 
       <div class="activity-card__player">
         <RAvatar :image="avatarSrc" size="x-small" />
-        <span class="activity-card__username" :title="username">
-          {{ username }}
-        </span>
-      </div>
-
-      <div class="activity-card__meta">
-        {{ elapsedLabel }}
-        <template v-if="deviceType">
-          <RIcon icon="mdi-circle-small" size="14" />
-          <span class="activity-card__device">{{ deviceType }}</span>
-        </template>
+        <div>
+          <span class="activity-card__username" :title="username">
+            {{ username }}
+          </span>
+          <div class="activity-card__meta">
+            {{ elapsedLabel }}
+            <template v-if="deviceType">
+              <RIcon icon="mdi-circle-small" size="14" />
+              <span class="activity-card__device">{{ deviceType }}</span>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
   </router-link>
@@ -76,14 +89,24 @@ defineProps<Props>();
   gap: 8px;
   text-decoration: none;
   color: inherit;
+  /* Each card keeps its cover's natural width and wraps — no grow/shrink. */
+  flex: 0 0 auto;
 }
 
 /* GameCover owns the radius / overflow / placeholder background; the card
-   adds the hover lift (rise + shadow) on top. */
-.activity-card__art {
+   adds the hover lift (rise + shadow) on top.
+   Fixed HEIGHT with NATURAL WIDTH (gallery-card behavior): the compound
+   selector beats GameCover's base `width: 100%` so the box derives its width
+   from the measured image ratio at this height. */
+.activity-card .activity-card__art {
+  height: 190px;
+  width: auto;
   transition:
     transform var(--r-motion-fast) var(--r-motion-ease-out),
     box-shadow var(--r-motion-fast) var(--r-motion-ease-out);
+}
+html[data-bp~="xs"] .activity-card .activity-card__art {
+  height: 150px;
 }
 .activity-card:hover .activity-card__art {
   transform: translateY(-4px);
@@ -94,7 +117,11 @@ defineProps<Props>();
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 0;
+  /* Match the cover's width and ellipsize inside it, without letting long
+     names widen the card past the (natural-width) cover above. */
+  width: 0;
+  min-width: 100%;
+  max-width: 100%;
 }
 
 .activity-card__rom {
@@ -133,7 +160,6 @@ defineProps<Props>();
 .activity-card__meta {
   display: flex;
   align-items: center;
-  margin-top: 4px;
   font-size: var(--r-font-size-xs);
   color: var(--r-color-fg-faint);
 }

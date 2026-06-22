@@ -263,7 +263,7 @@ function collectionCovers(c: {
           <RIcon icon="mdi-play" size="20" />
         </template>
         <template v-if="fetchingContinue && !continuePlayingRoms.length">
-          <GameCardSkeleton v-for="n in 4" :key="`cs-${n}`" hero />
+          <GameCardSkeleton v-for="n in 4" :key="`cs-${n}`" />
         </template>
         <template v-else>
           <GameCard
@@ -273,7 +273,8 @@ function collectionCovers(c: {
             :style="{ '--card-fade-i': i }"
             :rom="rom"
             :webp="supportsWebp"
-            hero
+            :cover-src="rom.screenshot_path"
+            cover-pip
           />
         </template>
       </CardRow>

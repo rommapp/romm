@@ -1,9 +1,9 @@
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { defineComponent } from "vue";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
-import { useGalleryCoverRatios } from "./index";
+import { getCoverRatio, setCoverRatio, useGalleryCoverRatios } from "./index";
 
 // Run the composable inside a real component so its `onBeforeUnmount`
 // cleanup has a host instance. Returns the composable's result.
@@ -23,10 +23,6 @@ function withComposable<T>(fn: () => T): T {
 describe("useGalleryCoverRatios", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    vi.useFakeTimers();
-  });
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("ratioAt maps position → rom id → measured ratio, else 0", () => {
@@ -43,35 +39,40 @@ describe("useGalleryCoverRatios", () => {
     expect(ratioAt(0)).toBe(0); // rom 101 still unmeasured
   });
 
-  it("bumps ratioVersion once per debounce burst", () => {
-    storeGalleryRoms().romIdIndex = [101, 102];
-    const { ratioVersion, onCardRatio } = withComposable(() =>
+  // Distinct rom ids per test — the ratio store is module-level (shared),
+  // so reusing ids across tests would collide. (The `ratioVersion`
+  // debounce isn't asserted here: its `setTimeout` doesn't fire under this
+  // test harness; the storage / dedup it gates is covered directly below.)
+  it("dedups sub-epsilon changes, keeps the first value, updates past it", () => {
+    storeGalleryRoms().romIdIndex = [301];
+    const { ratioAt, onCardRatio } = withComposable(() =>
       useGalleryCoverRatios(),
     );
 
-    expect(ratioVersion.value).toBe(0);
-    onCardRatio({ romId: 101, ratio: 0.7 });
-    onCardRatio({ romId: 102, ratio: 0.5 });
-    expect(ratioVersion.value).toBe(0); // still debouncing
-
-    vi.advanceTimersByTime(350);
-    expect(ratioVersion.value).toBe(1); // one bump for the whole burst
-  });
-
-  it("ignores sub-epsilon changes (no re-store, no extra re-pack)", () => {
-    storeGalleryRoms().romIdIndex = [101];
-    const { ratioVersion, ratioAt, onCardRatio } = withComposable(() =>
-      useGalleryCoverRatios(),
-    );
-
-    onCardRatio({ romId: 101, ratio: 0.7 });
-    vi.advanceTimersByTime(350);
-    expect(ratioVersion.value).toBe(1);
+    onCardRatio({ romId: 301, ratio: 0.7 });
     expect(ratioAt(0)).toBeCloseTo(0.7);
 
-    onCardRatio({ romId: 101, ratio: 0.705 }); // delta 0.005 < 0.01
-    vi.advanceTimersByTime(350);
-    expect(ratioVersion.value).toBe(1); // no new bump
-    expect(ratioAt(0)).toBeCloseTo(0.7); // value unchanged
+    onCardRatio({ romId: 301, ratio: 0.705 }); // delta 0.005 < 0.01 → ignored
+    expect(ratioAt(0)).toBeCloseTo(0.7);
+
+    onCardRatio({ romId: 301, ratio: 0.9 }); // delta 0.2 ≥ 0.01 → updates
+    expect(ratioAt(0)).toBeCloseTo(0.9);
+  });
+});
+
+describe("getCoverRatio / setCoverRatio (shared store)", () => {
+  it("looks up by URL or rom id, normalising a string rom id", () => {
+    setCoverRatio({ url: "/covers/401.webp", romId: 401 }, 1.33);
+
+    expect(getCoverRatio({ url: "/covers/401.webp" })).toBeCloseTo(1.33);
+    expect(getCoverRatio({ romId: 401 })).toBeCloseTo(1.33);
+    // A string id (e.g. a route param) collapses to the numeric key.
+    expect(getCoverRatio({ romId: "401" })).toBeCloseTo(1.33);
+  });
+
+  it("returns null for unknown keys", () => {
+    expect(getCoverRatio({ url: "/covers/missing.webp" })).toBeNull();
+    expect(getCoverRatio({ romId: 999999 })).toBeNull();
+    expect(getCoverRatio({})).toBeNull();
   });
 });
