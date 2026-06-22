@@ -22,6 +22,7 @@
 // `--r-cover-radius` var (defaults to the gallery card radius).
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import CoverPlaceholder from "@/v2/components/shared/CoverPlaceholder.vue";
+import { revealedCoverSrcs } from "@/v2/components/shared/coverReveal";
 import { useCoverAnimation } from "@/v2/composables/useCoverAnimation";
 import {
   useCoverArt,
@@ -132,12 +133,15 @@ function measureNaturalRatio() {
     emit("ratio", r);
   }
 }
-watch(activeSrc, () => {
-  coverLoaded.value = false;
+watch(activeSrc, (src) => {
+  // Seed from the session-seen set: a URL we've already bloomed once skips the
+  // reveal so a recycled card doesn't re-flash it (and doesn't pay the blur).
+  coverLoaded.value = !!src && revealedCoverSrcs.has(src);
   naturalRatio.value = null;
 });
 const onCoverLoad = () => {
   coverLoaded.value = true;
+  if (activeSrc.value) revealedCoverSrcs.add(activeSrc.value);
   measureNaturalRatio();
 };
 // True ratio once known, else the style ratio as a first guess.
@@ -177,11 +181,17 @@ const onLeave = () => {
   selfHover.value = false;
 };
 onMounted(() => {
+  // Already bloomed this URL once this session → skip the reveal on this
+  // (recycled) mount, regardless of whether the <img> reports `complete` yet.
+  if (activeSrc.value && revealedCoverSrcs.has(activeSrc.value)) {
+    coverLoaded.value = true;
+  }
   // A cached cover can already be decoded before the load listener binds —
   // mark it loaded so the reveal still resolves (it bloom-snaps from the
   // soft initial paint instead of getting stuck blurred).
   if (imgEl.value?.complete && imgEl.value.naturalWidth > 0) {
     coverLoaded.value = true;
+    if (activeSrc.value) revealedCoverSrcs.add(activeSrc.value);
     measureNaturalRatio();
   }
   if (!props.hoverMotion) return;

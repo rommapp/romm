@@ -395,9 +395,25 @@ function onViewportRangeChange(range: { first: number; last: number }) {
   scheduleFetchSync(range);
 }
 
-// Overscan kept on each side of the viewport — single source for both the
-// RVirtualScroller prop and the debug-overlay window math below.
-const VIRTUAL_OVERSCAN = 25;
+// Rows kept rendered beyond the viewport. Adaptive so the rendered CARD count
+// stays bounded regardless of how many columns fit: a fixed row overscan on a
+// wide screen (~9 cards/row) mounts hundreds of off-screen cards, and each
+// card is an expensive subtree (cover + hover overlay + shared game actions).
+// We target a roughly constant overscan-card budget per side, clamped so a
+// single-column phone keeps enough rows for smooth scrolling without
+// overshooting. List rows are one item each → a flat row count is fine.
+const GRID_OVERSCAN_CARDS = 60;
+const virtualOverscan = computed(() =>
+  layout.value === "list"
+    ? 12
+    : Math.min(
+        20,
+        Math.max(
+          4,
+          Math.round(GRID_OVERSCAN_CARDS / Math.max(1, columns.value)),
+        ),
+      ),
+);
 
 // ── Debug overlay bridge ────────────────────────────────────────────
 // Publish the virtual scroller's window stats so the global DebugOverlay
@@ -416,8 +432,9 @@ watchEffect(() => {
   const total = items.length;
   const vr = viewportRange.value;
   const empty = total === 0 || vr.last < vr.first;
-  const first = empty ? 0 : Math.max(0, vr.first - VIRTUAL_OVERSCAN);
-  const last = empty ? -1 : Math.min(total - 1, vr.last + VIRTUAL_OVERSCAN);
+  const overscan = virtualOverscan.value;
+  const first = empty ? 0 : Math.max(0, vr.first - overscan);
+  const last = empty ? -1 : Math.min(total - 1, vr.last + overscan);
   // Count the cards actually mounted in the rendered window — grid rows fan
   // out into many cards, so this is the real DOM weight (not just row count).
   let renderedCards = 0;
@@ -436,7 +453,7 @@ watchEffect(() => {
     renderedCards,
     viewportFirst: vr.first,
     viewportLast: vr.last,
-    overscan: VIRTUAL_OVERSCAN,
+    overscan,
     scrollTop: scrollerRef.value?.scrollTop ?? 0,
   });
 });
@@ -743,6 +760,16 @@ const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const asListRow = (i: GalleryItem) => i as ListRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
 
+// Stable identity for the virtualiser. Each GalleryItem carries a content-
+// derived `key` (`row-${start}`, `lh-${letter}`, `lr-${p}`, …); feeding it to
+// RVirtualScroller as `get-item-key` lets Vue MATCH rows across a re-pack and
+// MOVE the unchanged ones instead of patching by array index. Index-keying
+// (the default) reassigns every slot's content when a re-pack inserts/removes
+// a row above the viewport, remounting every visible card (image re-decode +
+// reveal). With identity keys, a moved row keeps its DOM and its inner cards
+// (keyed by `:key="p"`) patch in place. `unknown` matches the prop signature.
+const galleryItemKey = (item: unknown): string => (item as GalleryItem).key;
+
 // View-facing surface. Methods only — internal state stays internal.
 defineExpose({
   /** Re-apply the previously-saved scroll position for the current route
@@ -773,7 +800,8 @@ defineExpose({
       ref="scrollerRef"
       :items="virtualItems"
       :get-item-height="getItemHeight"
-      :overscan="VIRTUAL_OVERSCAN"
+      :get-item-key="galleryItemKey"
+      :overscan="virtualOverscan"
       class="r-v2-shell__scroller r-v2-scroll-hidden"
       @update:viewport-range="onViewportRangeChange"
     >

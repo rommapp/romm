@@ -19,7 +19,13 @@ import storeGalleryRoms from "@/v2/stores/galleryRoms";
 // Below this delta a new measurement isn't worth a re-pack (sub-pixel noise).
 const RATIO_EPSILON = 0.01;
 // Wait this long after the last new ratio before bumping `ratioVersion`.
-const REPACK_DEBOUNCE_MS = 150;
+// Each bump re-packs the whole list (O(total)) and cascades into the
+// scroller's offsets + letterToIndex, so during a fast scroll through a large
+// library — where covers stream in continuously — a tighter window turns into
+// a re-pack storm that saturates the main thread. Coalesce more aggressively:
+// the layout settling to natural ratios a fraction of a second later is
+// imperceptible next to the jank a per-150ms full re-pack causes.
+const REPACK_DEBOUNCE_MS = 350;
 
 export function useGalleryCoverRatios() {
   const galleryRoms = storeGalleryRoms();

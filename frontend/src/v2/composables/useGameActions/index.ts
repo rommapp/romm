@@ -10,7 +10,7 @@
 //   actions.isFavorite     // reactive Ref<boolean>
 //   actions.canManageCollections  // reactive Ref<boolean>
 import type { Emitter } from "mitt";
-import { computed, inject } from "vue";
+import { computed, inject, type InjectionKey } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
@@ -341,3 +341,16 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     removeFromContinuePlaying,
   };
 }
+
+export type GameActions = ReturnType<typeof useGameActions>;
+
+/** Injection key for sharing one `useGameActions` instance down a subtree.
+ *  A GameCard hosts ~6 GameActionBtn children (play / download / collection /
+ *  favorite / status / more); each one re-instantiating the full composable
+ *  (i18n + router + emitter + two stores + `useCan`×2 + favorite/can-play
+ *  computeds) is what made a virtualised grid of cards thousands of live
+ *  instances. The card creates a single instance and `provide`s it; each
+ *  button `inject`s and reuses it, falling back to its own only when used
+ *  standalone (GameDetails header, list rows) with no provider. */
+export const GAME_ACTIONS_KEY: InjectionKey<GameActions> =
+  Symbol("v2:gameActions");
