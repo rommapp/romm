@@ -46,6 +46,7 @@ import {
   onMounted,
   ref,
   watch,
+  watchEffect,
 } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 import { useUISettings } from "@/composables/useUISettings";
@@ -61,6 +62,7 @@ import { type ListSortKey } from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { coverRatio, isBoxartStyle } from "@/v2/composables/useCoverArt";
+import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useGalleryCoverRatios } from "@/v2/composables/useGalleryCoverRatios";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
@@ -71,6 +73,7 @@ import {
 } from "@/v2/composables/useGalleryVirtualItems";
 import { useGridNav } from "@/v2/composables/useGridNav";
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
+import { useVirtualScrollDebug } from "@/v2/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -392,6 +395,52 @@ function onViewportRangeChange(range: { first: number; last: number }) {
   scheduleFetchSync(range);
 }
 
+// Overscan kept on each side of the viewport — single source for both the
+// RVirtualScroller prop and the debug-overlay window math below.
+const VIRTUAL_OVERSCAN = 25;
+
+// ── Debug overlay bridge ────────────────────────────────────────────
+// Publish the virtual scroller's window stats so the global DebugOverlay
+// can show whether windowing is actually trimming the DOM as you scroll.
+// Gated on `debugMode`: when off the effect early-returns before reading
+// any scroll state, so it never re-runs on scroll (zero runtime cost).
+const { enabled: debugMode } = useDebugMode();
+const virtualDebug = useVirtualScrollDebug();
+
+watchEffect(() => {
+  if (!debugMode.value) {
+    virtualDebug.clear();
+    return;
+  }
+  const items = virtualItems.value;
+  const total = items.length;
+  const vr = viewportRange.value;
+  const empty = total === 0 || vr.last < vr.first;
+  const first = empty ? 0 : Math.max(0, vr.first - VIRTUAL_OVERSCAN);
+  const last = empty ? -1 : Math.min(total - 1, vr.last + VIRTUAL_OVERSCAN);
+  // Count the cards actually mounted in the rendered window — grid rows fan
+  // out into many cards, so this is the real DOM weight (not just row count).
+  let renderedCards = 0;
+  for (let i = first; i <= last; i++) {
+    const it = items[i];
+    if (!it) continue;
+    if (it.kind === "row") renderedCards += it.endPosition - it.startPosition;
+    else if (it.kind === "skeleton-row")
+      renderedCards += Math.max(1, columns.value);
+    else renderedCards += 1;
+  }
+  virtualDebug.publish({
+    label: layout.value === "list" ? "gallery·list" : "gallery·grid",
+    total,
+    renderedRows: empty ? 0 : last - first + 1,
+    renderedCards,
+    viewportFirst: vr.first,
+    viewportLast: vr.last,
+    overscan: VIRTUAL_OVERSCAN,
+    scrollTop: scrollerRef.value?.scrollTop ?? 0,
+  });
+});
+
 const visibleLettersSet = computed<Set<string>>(() => {
   const set = new Set<string>();
   const r = viewportRange.value;
@@ -662,6 +711,9 @@ onBeforeUnmount(() => {
   visiblePositions.clear();
   inflowResizeObserver?.disconnect();
   inflowResizeObserver = null;
+  // Drop the debug stats so the overlay doesn't show stale gallery numbers
+  // on the next (non-gallery) route.
+  virtualDebug.clear();
   // Restore body overflow so non-gallery routes scroll normally.
   document.body.style.overflow = prevBodyOverflow ?? "";
   prevBodyOverflow = null;
@@ -721,7 +773,7 @@ defineExpose({
       ref="scrollerRef"
       :items="virtualItems"
       :get-item-height="getItemHeight"
-      :overscan="25"
+      :overscan="VIRTUAL_OVERSCAN"
       class="r-v2-shell__scroller r-v2-scroll-hidden"
       @update:viewport-range="onViewportRangeChange"
     >

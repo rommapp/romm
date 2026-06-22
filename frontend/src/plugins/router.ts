@@ -324,6 +324,7 @@ const routes = [
             name: ROUTES.ACTIVITY,
             meta: {
               title: i18n.global.t("activity.active-sessions"),
+              bare: true,
             },
             components: {
               // v2-only view; v1 has no activity concept so it redirects
