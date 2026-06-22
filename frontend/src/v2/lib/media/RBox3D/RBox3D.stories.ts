@@ -58,13 +58,13 @@ export const Default: Story = {};
 // ── Static (no auto-spin) — easier to read the faces ──
 export const Static: Story = {
   name: "No auto-spin",
-  args: { autoSpin: false, initialYaw: -36, initialPitch: -8 },
+  args: { autoSpin: false, initialYaw: 36, initialPitch: -8 },
 };
 
 // ── Side-on, showing the spine ──
 export const SpineForward: Story = {
   name: "Spine forward",
-  args: { autoSpin: false, initialYaw: -82, initialPitch: 0 },
+  args: { autoSpin: false, initialYaw: 82, initialPitch: 0 },
 };
 
 // ── Interaction: arrow keys (and thus gamepad D-pad) rotate it ──

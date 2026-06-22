@@ -42,7 +42,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   alt: "",
   autoSpin: true,
-  initialYaw: -32,
+  initialYaw: 32,
   initialPitch: -6,
 });
 
@@ -58,7 +58,10 @@ const KEY_STEP = 14; //               deg per arrow press
 const STICK_SPEED = 3.2; //           deg per frame at full deflection
 const STICK_DEADZONE = 0.18;
 const AUTO_SPIN_SPEED = 0.18; //      deg per frame when idle
-const IDLE_RESUME_MS = 2200; //       quiet time before auto-spin resumes
+const IDLE_RESUME_MS = 2000; //       quiet time before auto-spin resumes
+const FLICK_WINDOW_MS = 60; //        release this long after the last move = no flick
+const MOMENTUM_FRAMES = 12; //        how far a flick coasts (× last-frame velocity)
+const MOMENTUM_MAX = 540; //          cap the coast so a hard flick can't whirl forever
 const DEFAULT_FRONT_RATIO = 0.715; // typical box face w/h until measured
 const DEFAULT_SPINE_RATIO = 0.12; //  depth/height until measured
 
@@ -87,23 +90,23 @@ const reducedMotion = ref(false);
 // Interaction bookkeeping.
 const dragging = ref(false);
 const stickActive = ref(false);
+// `autoSpinning` and `coasting` drive the transition string, so they're refs;
+// they're updated from the RAF loop / pointer handlers, never from a computed
+// (a computed reading `performance.now()` would cache and never resume).
+const autoSpinning = ref(false);
+const coasting = ref(false);
 let lastInteractAt = 0;
+let lastMoveAt = 0;
 let dragPointerId: number | null = null;
 let lastX = 0;
 let lastY = 0;
+let velX = 0; //  last-frame pointer delta, kept for the flick on release
+let velY = 0;
 let rafId = 0;
 
-const autoSpinning = computed(
-  () =>
-    props.autoSpin &&
-    !reducedMotion.value &&
-    !dragging.value &&
-    !stickActive.value &&
-    performance.now() - lastInteractAt > IDLE_RESUME_MS,
-);
-
 // Snap transitions off whenever the box is being driven continuously (drag,
-// stick, drift); discrete keyboard steps keep it on so they ease.
+// stick, drift); a flick coasts on an ease-out curve, and discrete keyboard
+// steps ease on a shorter one.
 const liveMotion = computed(
   () => dragging.value || stickActive.value || autoSpinning.value,
 );
@@ -121,6 +124,9 @@ function onPointerDown(e: PointerEvent) {
   if (dragPointerId !== null) return;
   dragPointerId = e.pointerId;
   dragging.value = true;
+  coasting.value = false;
+  velX = 0;
+  velY = 0;
   lastX = e.clientX;
   lastY = e.clientY;
   rootEl.value?.setPointerCapture(e.pointerId);
@@ -128,16 +134,35 @@ function onPointerDown(e: PointerEvent) {
 }
 function onPointerMove(e: PointerEvent) {
   if (e.pointerId !== dragPointerId) return;
-  yaw.value += (e.clientX - lastX) * DRAG_SENSITIVITY;
-  pitch.value = clampPitch(pitch.value - (e.clientY - lastY) * DRAG_SENSITIVITY);
+  velX = e.clientX - lastX;
+  velY = e.clientY - lastY;
+  yaw.value += velX * DRAG_SENSITIVITY;
+  pitch.value = clampPitch(pitch.value - velY * DRAG_SENSITIVITY);
   lastX = e.clientX;
   lastY = e.clientY;
+  lastMoveAt = performance.now();
   markInteract();
 }
 function endDrag(e: PointerEvent) {
   if (e.pointerId !== dragPointerId) return;
   dragPointerId = null;
   dragging.value = false;
+  // Momentum without a JS decay loop: hand the box the flick velocity as one
+  // extra rotation and let the CSS ease-out curve coast it to a stop. Releasing
+  // after a pause (no recent movement) carries no flick.
+  if (performance.now() - lastMoveAt < FLICK_WINDOW_MS) {
+    const coast = (v: number) =>
+      Math.max(-MOMENTUM_MAX, Math.min(MOMENTUM_MAX, v * DRAG_SENSITIVITY * MOMENTUM_FRAMES));
+    const dy = coast(velX);
+    const dp = coast(-velY);
+    if (Math.abs(dy) > 1 || Math.abs(dp) > 1) {
+      coasting.value = true;
+      yaw.value += dy;
+      pitch.value = clampPitch(pitch.value + dp);
+    }
+  }
+  velX = 0;
+  velY = 0;
   markInteract();
 }
 
@@ -164,6 +189,7 @@ function onKeydown(e: KeyboardEvent) {
   // pad) remain the way out.
   e.preventDefault();
   e.stopPropagation();
+  coasting.value = false;
   markInteract();
 }
 
@@ -196,7 +222,20 @@ function tick() {
     stickActive.value = false;
   }
 
-  if (autoSpinning.value) yaw.value += AUTO_SPIN_SPEED;
+  // Idle drift, evaluated every frame so it resumes once the quiet window
+  // elapses (a computed reading the clock would cache and never restart).
+  const idle = performance.now() - lastInteractAt > IDLE_RESUME_MS;
+  const spin =
+    props.autoSpin &&
+    !reducedMotion.value &&
+    !dragging.value &&
+    !stickActive.value &&
+    idle;
+  autoSpinning.value = spin;
+  if (spin) {
+    coasting.value = false;
+    yaw.value += AUTO_SPIN_SPEED;
+  }
 
   rafId = requestAnimationFrame(tick);
 }
@@ -261,9 +300,17 @@ onBeforeUnmount(() => {
 });
 
 // --- Styles --------------------------------------------------------------
+// Transition picks the curve for the current gesture: none while driven
+// continuously (drag / stick / drift), a long ease-out to coast a flick, and
+// a short ease-out for discrete keyboard steps.
+const boxTransition = computed(() => {
+  if (liveMotion.value) return "none";
+  if (coasting.value) return "transform 0.9s cubic-bezier(0.16, 1, 0.3, 1)";
+  return "transform 0.28s ease-out";
+});
 const boxStyle = computed(() => ({
   transform: `rotateX(${pitch.value}deg) rotateY(${yaw.value}deg)`,
-  transition: liveMotion.value ? "none" : "transform 0.28s ease-out",
+  transition: boxTransition.value,
 }));
 
 const px = (n: number) => `${n}px`;
