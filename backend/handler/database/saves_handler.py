@@ -133,6 +133,33 @@ class DBSavesHandler(DBBaseHandler):
         return session.scalars(query).all()
 
     @begin_session
+    def get_latest_saves_for_roms(
+        self,
+        user_id: int,
+        rom_ids: Sequence[int],
+        session: Session = None,  # type: ignore
+    ) -> dict[int, Save]:
+        """The most recent save per ROM for a user, keyed by `rom_id`.
+
+        Batched for the continue-playing rail, which enriches each card with
+        the in-game screenshot captured alongside the user's latest save.
+        """
+        if not rom_ids:
+            return {}
+
+        saves = session.scalars(
+            select(Save)
+            .filter(Save.user_id == user_id, Save.rom_id.in_(rom_ids))
+            .order_by(desc(Save.updated_at))
+        ).all()
+
+        latest: dict[int, Save] = {}
+        for save in saves:
+            # Saves come newest-first, so the first one seen per ROM wins.
+            latest.setdefault(save.rom_id, save)
+        return latest
+
+    @begin_session
     def update_save(
         self,
         id: int,

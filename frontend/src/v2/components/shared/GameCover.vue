@@ -126,19 +126,26 @@ const coverLoaded = ref(false);
 const activeSrc = computed(() =>
   showFallback.value ? art.fallbackUrl.value : art.coverUrl.value,
 );
+// Rom id to key the measured ratio under — but ONLY when this is the rom's
+// own cover. With a `coverSrc` override (the cover shows a screenshot /
+// marquee / preview blob instead) the measured ratio belongs to that image,
+// not the rom's cover, so it must not land on the shared rom-id key the
+// gallery flow-packer reads (it stays keyed by URL only). The morph still
+// uses `props.morphId` directly — unaffected.
+const ratioRomId = computed(() => (props.coverSrc ? null : props.morphId));
 // Natural ratio (w / h) of the rendered image. Seeded from the shared
 // by-URL cache so a cover measured elsewhere (e.g. the gallery card the
 // user just clicked) renders at its true shape immediately — no stretch
 // during the morph. Falls back to the style ratio until the image decodes.
 const naturalRatio = ref<number | null>(
-  getCoverRatio({ url: activeSrc.value, romId: props.morphId }),
+  getCoverRatio({ url: activeSrc.value, romId: ratioRomId.value }),
 );
 function measureNaturalRatio() {
   const el = imgEl.value;
   if (el && el.naturalWidth > 0 && el.naturalHeight > 0) {
     const r = el.naturalWidth / el.naturalHeight;
     naturalRatio.value = r;
-    setCoverRatio({ url: activeSrc.value, romId: props.morphId }, r);
+    setCoverRatio({ url: activeSrc.value, romId: ratioRomId.value }, r);
     emit("ratio", r);
   }
 }
@@ -146,7 +153,7 @@ watch(activeSrc, (src) => {
   // Seed from the session-seen set: a URL we've already bloomed once skips the
   // reveal so a recycled card doesn't re-flash it (and doesn't pay the blur).
   coverLoaded.value = !!src && revealedCoverSrcs.has(src);
-  naturalRatio.value = getCoverRatio({ url: src, romId: props.morphId });
+  naturalRatio.value = getCoverRatio({ url: src, romId: ratioRomId.value });
 });
 const onCoverLoad = () => {
   coverLoaded.value = true;

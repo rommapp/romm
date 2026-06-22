@@ -46,7 +46,7 @@ from endpoints.responses.rom import (
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
-from handler.database import db_rom_handler
+from handler.database import db_rom_handler, db_save_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
@@ -70,6 +70,7 @@ from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
+from utils.screenshots import continue_playing_screenshot
 from utils.validation import ValidationError
 
 from .files import router as files_router
@@ -630,12 +631,24 @@ def get_roms(
                 rom_ids, user_id=request.user.id, session=session
             )
 
+            # Continue-playing rail
+            screenshot_by_rom: dict[int, str | None] = {}
+            if last_played:
+                latest_saves = db_save_handler.get_latest_saves_for_roms(
+                    user_id=request.user.id, rom_ids=rom_ids, session=session
+                )
+                for item in items:
+                    screenshot_by_rom[item.id] = continue_playing_screenshot(
+                        item, latest_saves.get(item.id)
+                    )
+
             return [
                 SimpleRomSchema.from_orm_with_request(
                     db_rom=item,
                     request=request,
                     files=files_by_rom.get(item.id, []),
                     siblings=siblings_by_rom.get(item.id, []),
+                    screenshot_path=screenshot_by_rom.get(item.id),
                 )
                 for item in items
             ]
