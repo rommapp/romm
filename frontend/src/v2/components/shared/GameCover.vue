@@ -163,6 +163,7 @@ const coverActive = computed(
 
 const { isVideoPlaying, playLoad } = useCoverAnimation({
   el: imgEl,
+  containerEl: rootEl,
   videoEl,
   animateCD: art.animateCD,
   animateCartridge: art.animateCartridge,
@@ -302,22 +303,24 @@ defineExpose({
   background: transparent;
 }
 
-/* Direct-child selector so the placeholder's own <img> isn't matched. */
-.ame-cover__img {
+/* The cover image. (The placeholder's own <img> uses its own class.) */
+.game-cover__img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  /* Three motions ride this <img>, each on its own property so they never
+  /* Four motions ride this <img>, each on its own property so they never
      clobber each other: opacity crossfades to the hover video, filter +
-     scale drive the blur-up reveal on first paint, and the spin owns
-     `rotate` (set imperatively in useCoverAnimation). */
+     scale drive the blur-up reveal on first paint, the spin owns `transform`
+     (set per-frame in useCoverAnimation), and `margin-top` is the
+     cartridge/disc slot-in slide (eased here so it composes with the spin). */
   transition:
     opacity 0.35s ease,
     filter 0.6s ease,
-    scale 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    scale 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+    margin 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 .game-cover__img--behind {
   opacity: 0;

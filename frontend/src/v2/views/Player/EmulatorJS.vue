@@ -558,6 +558,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
             :identified="rom?.is_identified ?? true"
             :morph-id="morphRomId"
             morph-static
+            hover-motion
           />
           <div class="r-v2-ejs__cover-glow" aria-hidden="true" />
         </div>

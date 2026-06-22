@@ -185,6 +185,7 @@ onMounted(async () => {
           :identified="rom?.is_identified ?? true"
           :morph-id="morphRomId"
           morph-static
+          hover-motion
         />
         <h1 class="r-v2-ruffle__title">
           {{ title }}
