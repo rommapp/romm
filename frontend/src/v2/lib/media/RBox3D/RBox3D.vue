@@ -359,6 +359,9 @@ const rootStyle = computed(() => ({ aspectRatio: String(frontRatio.value) }));
   cursor: grab;
   touch-action: none;
   outline: none;
+  /* Dragging the box must rotate it, never start a text / image selection. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 .r-box3d:active {
   cursor: grabbing;
@@ -407,6 +410,9 @@ const rootStyle = computed(() => ({ aspectRatio: String(frontRatio.value) }));
   backface-visibility: hidden;
   border-radius: var(--r-radius-xs);
   overflow: hidden;
+  /* Faces never capture the pointer — every drag/click lands on the root,
+     which owns the rotation listeners (the imgs are also draggable="false"). */
+  pointer-events: none;
 }
 .r-box3d__face--art {
   display: block;
