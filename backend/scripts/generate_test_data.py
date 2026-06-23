@@ -28,13 +28,16 @@ from typing import Any
 # Allow running as `python3 scripts/generate_test_data.py` from backend/.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from adapters.services.igdb import IGDB_PLATFORM_LIST  # noqa: E402
-
-# Import the metadata package before `adapters.services.igdb` so the
-# base_handler <-> igdb import cycle resolves (igdb must not be the entrypoint).
+# isort: off
+# Import order matters here: the metadata package must load before
+# `adapters.services.igdb` so the base_handler <-> igdb import cycle resolves
+# (igdb must not be the entrypoint). Keep isort from reordering these.
 from handler.metadata.base_handler import (  # noqa: E402,F401
     UniversalPlatformSlug as UPS,
 )
+from adapters.services.igdb import IGDB_PLATFORM_LIST  # noqa: E402
+
+# isort: on
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST  # noqa: E402
 from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST  # noqa: E402
 from models.assets import Save, Screenshot, State  # noqa: E402
