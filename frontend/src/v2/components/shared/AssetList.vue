@@ -1,0 +1,411 @@
+<script setup lang="ts">
+// Vertical list for saves — paired with <AssetStrip> (tile grid/strip for
+// states). Shared between the EmulatorJS pre-game view (selection) and the
+// GameDetails "Save data" subtab (management).
+//
+// Saves never carry a screenshot, so the tile-strip's 16:9 area would
+// be wasted space. This list variant trades the visual thumbnail for
+// information density: each row shows the filename in full, both the
+// relative time AND the exact timestamp, plus the size and emulator
+// chip.
+//
+// Two modes, driven by `selectable`:
+//   * selectable (default) — Play view. Each row is a button; clicking
+//     emits `select`; the chosen row gets a brand rail + a check icon.
+//   * manage (selectable=false) — Save data subtab. Rows are static; the
+//     trailing area renders the `#actions` slot (download/delete/toggle),
+//     and `showOwner` adds an author chip for community items.
+import { RAvatar, RIcon, RTag, RTooltip } from "@v2/lib";
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
+import type {
+  SaveSchema,
+  StateSchema,
+  UserSaveSchema,
+  UserStateSchema,
+} from "@/__generated__";
+import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { userAvatarUrl } from "@/v2/utils/userAvatar";
+
+defineOptions({ inheritAttrs: false });
+
+export type AssetType = "save" | "state";
+type Asset = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
+
+const props = withDefaults(
+  defineProps<{
+    assets: Asset[];
+    type: AssetType;
+    /** Play view: rows are selectable buttons with a check. When false,
+     *  rows are static and host the `#actions` slot (management). */
+    selectable?: boolean;
+    selectedId?: number | null;
+    /** Render an author chip (avatar + username) for community items. */
+    showOwner?: boolean;
+    /** Internal max-height + scroll. Off when the parent owns scrolling. */
+    scrollable?: boolean;
+  }>(),
+  {
+    selectable: true,
+    selectedId: null,
+    showOwner: false,
+    scrollable: true,
+  },
+);
+
+defineEmits<{
+  select: [asset: Asset];
+}>();
+
+defineSlots<{
+  actions(props: { asset: Asset }): unknown;
+}>();
+
+const { t, locale } = useI18n();
+
+const emptyLabel = computed(() =>
+  props.type === "save"
+    ? t("play.no-saves-available")
+    : t("play.no-states-available"),
+);
+
+function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
+  return "username" in asset && asset.username ? asset : null;
+}
+</script>
+
+<template>
+  <div class="r-asset-list" :class="{ 'r-asset-list--scroll': scrollable }">
+    <ul v-if="assets.length > 0" class="r-asset-list__items">
+      <li
+        v-for="(asset, i) in assets"
+        :key="asset.id"
+        class="r-asset-list__item r-v2-asset-fade"
+        :class="{
+          'r-asset-list__item--active': selectable && asset.id === selectedId,
+        }"
+        :style="{ '--asset-fade-i': i }"
+      >
+        <component
+          :is="selectable ? 'button' : 'div'"
+          :type="selectable ? 'button' : undefined"
+          class="r-asset-list__row"
+          :class="{ 'r-asset-list__row--static': !selectable }"
+          :aria-pressed="selectable ? asset.id === selectedId : undefined"
+          @click="selectable && $emit('select', asset)"
+        >
+          <span class="r-asset-list__icon" aria-hidden="true">
+            <RIcon
+              :icon="type === 'save' ? 'mdi-content-save' : 'mdi-file-outline'"
+              size="22"
+            />
+          </span>
+
+          <span class="r-asset-list__main">
+            <span class="r-asset-list__name">{{ asset.file_name }}</span>
+            <span class="r-asset-list__chips">
+              <span
+                v-if="showOwner && ownerOf(asset)"
+                class="r-asset-list__owner"
+              >
+                <RAvatar
+                  :image="
+                    userAvatarUrl(
+                      ownerOf(asset)!.user_avatar_path,
+                      ownerOf(asset)!.user_updated_at,
+                    )
+                  "
+                  :size="16"
+                />
+                <span>{{ ownerOf(asset)!.username }}</span>
+              </span>
+              <RTag
+                v-if="asset.emulator"
+                tone="warning"
+                size="x-small"
+                :text="asset.emulator"
+              />
+              <span class="r-asset-list__chip">
+                <RIcon icon="mdi-weight" size="11" />
+                {{ formatBytes(asset.file_size_bytes) }}
+              </span>
+            </span>
+          </span>
+
+          <span class="r-asset-list__time">
+            <span class="r-asset-list__relative">
+              {{ formatRelativeDate(asset.updated_at) }}
+            </span>
+            <span class="r-asset-list__exact">
+              {{ formatTimestamp(asset.updated_at, locale) }}
+            </span>
+          </span>
+
+          <span
+            v-if="selectable"
+            class="r-asset-list__check"
+            aria-hidden="true"
+          >
+            <RIcon
+              v-if="asset.id === selectedId"
+              icon="mdi-check-circle"
+              size="18"
+            />
+          </span>
+          <span v-else class="r-asset-list__actions">
+            <slot name="actions" :asset="asset" />
+          </span>
+
+          <RTooltip
+            v-if="selectable"
+            activator="parent"
+            location="top"
+            :open-delay="400"
+          >
+            <div class="r-asset-list__tip">
+              <span class="r-asset-list__tip-name">{{ asset.file_name }}</span>
+              <span class="r-asset-list__tip-sub">
+                {{ t("rom.updated") }}:
+                {{ formatTimestamp(asset.updated_at, locale) }}
+              </span>
+            </div>
+          </RTooltip>
+        </component>
+      </li>
+    </ul>
+
+    <div v-else class="r-asset-list__empty">
+      <RIcon
+        :icon="
+          type === 'save' ? 'mdi-content-save-outline' : 'mdi-file-outline'
+        "
+        size="28"
+      />
+      <p>{{ emptyLabel }}</p>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.r-asset-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.r-asset-list__items {
+  margin: 0;
+  /* Top padding gives the first row breathing room and absorbs the
+     -1px lift on hover/active so it never clips against the panel
+     edge. Bottom padding keeps the same gutter at the other end. */
+  padding: 4px 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  scrollbar-color: var(--r-color-border-strong) transparent;
+  scrollbar-width: thin;
+}
+/* Internal scroll only in the Play view; the Save data subtab owns its
+   own scroll, so it passes `scrollable=false` and the list grows freely. */
+.r-asset-list--scroll .r-asset-list__items {
+  overflow-y: auto;
+  max-height: 380px;
+}
+.r-asset-list__items::-webkit-scrollbar {
+  width: 6px;
+}
+.r-asset-list__items::-webkit-scrollbar-thumb {
+  background: var(--r-color-border-strong);
+  border-radius: 6px;
+}
+
+.r-asset-list__item {
+  position: relative;
+}
+
+.r-asset-list__row {
+  appearance: none;
+  border: 1px solid var(--r-color-border);
+  background: var(--r-color-bg-elevated);
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: var(--r-radius-md);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--r-color-fg);
+  transition:
+    border-color var(--r-motion-fast) var(--r-motion-ease-out),
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    transform var(--r-motion-fast) var(--r-motion-ease-out);
+  position: relative;
+  overflow: hidden;
+}
+.r-asset-list__row:hover {
+  border-color: var(--r-color-border-strong);
+  background: var(--r-color-surface);
+  transform: translateY(-1px);
+}
+.r-asset-list__item--active .r-asset-list__row {
+  border-color: var(--r-color-brand-primary);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
+}
+/* Manage mode: rows are static info containers, not selectable buttons.
+   No pointer cursor, no hover-lift — only the action buttons react. */
+.r-asset-list__row--static {
+  cursor: default;
+}
+.r-asset-list__row--static:hover {
+  border-color: var(--r-color-border);
+  background: var(--r-color-bg-elevated);
+  transform: none;
+}
+
+.r-asset-list__icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-radius-sm);
+  background: var(--r-color-surface);
+  color: var(--r-color-fg-muted);
+  flex-shrink: 0;
+}
+.r-asset-list__item--active .r-asset-list__icon {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent);
+  color: var(--r-color-brand-primary);
+}
+
+.r-asset-list__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.r-asset-list__name {
+  display: block;
+  font-size: 13px;
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r-asset-list__item--active .r-asset-list__name {
+  color: var(--r-color-brand-primary);
+}
+.r-asset-list__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.r-asset-list__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-pill);
+  font-size: 10px;
+  color: var(--r-color-fg-secondary);
+}
+/* Author chip on community rows: avatar + username. */
+.r-asset-list__owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: var(--r-font-weight-medium);
+  color: var(--r-color-fg);
+}
+
+.r-asset-list__time {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.r-asset-list__relative {
+  font-size: 11px;
+  font-weight: var(--r-font-weight-medium);
+  color: var(--r-color-fg-secondary);
+}
+.r-asset-list__exact {
+  font-size: 10px;
+  color: var(--r-color-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.r-asset-list__check {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: var(--r-color-fg-faint);
+}
+.r-asset-list__item--active .r-asset-list__check {
+  color: var(--r-color-brand-primary);
+}
+
+/* Manage mode: trailing action buttons (download / delete / toggle). */
+.r-asset-list__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.r-asset-list__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 12px;
+  color: var(--r-color-fg-muted);
+  text-align: center;
+  border: 1px dashed var(--r-color-border);
+  border-radius: var(--r-radius-md);
+}
+.r-asset-list__empty p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.r-asset-list__tip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 360px;
+}
+.r-asset-list__tip-name {
+  font-size: 12px;
+  font-weight: var(--r-font-weight-semibold);
+  word-break: break-all;
+}
+.r-asset-list__tip-sub {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+/* Tighten the row on small screens so the time column doesn't push
+   the filename off-screen. The exact timestamp is the first to go —
+   the tooltip still has it. */
+html[data-bp~="xs"] .r-asset-list__exact {
+  display: none;
+}
+html[data-bp~="xs"] .r-asset-list__row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  padding: 8px 10px;
+}
+</style>

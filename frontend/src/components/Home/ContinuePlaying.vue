@@ -63,7 +63,7 @@ function onClosedMenu() {
         <v-col
           v-for="rom in continuePlayingRoms"
           :key="rom.id"
-          class="pa-1 align-self-end"
+          class="pa-1 align-self-center"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
@@ -80,7 +80,6 @@ function onClosedMenu() {
             show-action-bar
             show-chips
             :enable3-d-tilt="enable3DEffect"
-            force-boxart="cover_path"
             @hover="onHover"
             @focus="onHover"
             @openedmenu="onOpenedMenu"

@@ -1,0 +1,20 @@
+{
+  "level-all": "Todos los niveles",
+  "level-filter": "Filtrar por nivel",
+  "module-all": "Todos los módulos",
+  "module-filter": "Filtrar por módulo",
+  "search-placeholder": "Buscar en los logs",
+  "pause": "Pausar",
+  "resume": "Reanudar",
+  "copy": "Copiar al portapapeles",
+  "download": "Descargar",
+  "clear": "Limpiar",
+  "empty": "Aún no hay logs",
+  "no-matches": "Ningún log coincide con los filtros",
+  "jump-to-latest": "Ir al último",
+  "load-error": "No se pudieron cargar los logs",
+  "copied": "Logs copiados al portapapeles",
+  "copy-error": "No se pudieron copiar los logs",
+  "click-to-copy": "Clic para copiar al portapapeles",
+  "line-copied": "Línea copiada al portapapeles"
+}

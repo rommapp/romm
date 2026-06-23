@@ -319,6 +319,312 @@ class TestDBSavesHandlerSlotFiltering:
         assert ordered_saves_asc[1].id == created2.id
 
 
+class TestDBSavesHandlerGetSaveByContentHash:
+    """Pin the slot filter behavior of get_save_by_content_hash (commit
+    3d71ef3f6). Legacy callers still pass slot=None and expect cross-slot
+    lookup, while sync negotiation passes a concrete slot value and expects
+    a strict match.
+    """
+
+    def test_returns_row_matching_slot_when_multiple_slots_share_hash(
+        self, admin_user: User, rom: Rom
+    ):
+        """Two rows share (rom_id, user_id, content_hash) but differ in slot.
+        A call with a specific slot must return the row with that slot, not
+        the other."""
+        shared_hash = "abc123abc123abc123abc123abc12345"
+
+        slot_a = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="hash_match_a.sav",
+                file_name_no_tags="hash_match_a",
+                file_name_no_ext="hash_match_a",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="Slot A",
+                content_hash=shared_hash,
+            )
+        )
+        slot_b = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="hash_match_b.sav",
+                file_name_no_tags="hash_match_b",
+                file_name_no_ext="hash_match_b",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="Slot B",
+                content_hash=shared_hash,
+            )
+        )
+
+        result_a = db_save_handler.get_save_by_content_hash(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            content_hash=shared_hash,
+            slot="Slot A",
+        )
+        assert result_a is not None
+        assert result_a.id == slot_a.id
+
+        result_b = db_save_handler.get_save_by_content_hash(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            content_hash=shared_hash,
+            slot="Slot B",
+        )
+        assert result_b is not None
+        assert result_b.id == slot_b.id
+
+    def test_returns_none_when_slot_does_not_match(self, admin_user: User, rom: Rom):
+        """A single row exists. Querying with a different slot value returns
+        None, even though the (rom_id, user_id, content_hash) tuple matches."""
+        target_hash = "ffffffffffffffffffffffffffffffff"
+
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="only_slot.sav",
+                file_name_no_tags="only_slot",
+                file_name_no_ext="only_slot",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="autosave",
+                content_hash=target_hash,
+            )
+        )
+
+        result = db_save_handler.get_save_by_content_hash(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            content_hash=target_hash,
+            slot="manual",
+        )
+        assert result is None
+
+    def test_slot_none_finds_row_with_concrete_slot(self, admin_user: User, rom: Rom):
+        """Legacy / cross-slot lookup: passing slot=None must not filter by
+        slot at all and must still return the row, regardless of the row's
+        own slot value."""
+        target_hash = "1234567890abcdef1234567890abcdef"
+
+        created = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="cross_slot.sav",
+                file_name_no_tags="cross_slot",
+                file_name_no_ext="cross_slot",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="autosave",
+                content_hash=target_hash,
+            )
+        )
+
+        result = db_save_handler.get_save_by_content_hash(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            content_hash=target_hash,
+            slot=None,
+        )
+        assert result is not None
+        assert result.id == created.id
+
+
+class TestDBSavesHandlerSlotNotNullFilter:
+    """Pin the slot_not_null kwarg: when true, archival/null-slot saves are
+    excluded; when false (default), they are returned alongside slot-bound
+    rows. Sync callsites use slot_not_null=True so the database does the
+    filter instead of pulling the whole table into Python."""
+
+    def test_slot_not_null_false_returns_both(self, admin_user: User, rom: Rom):
+        slot_save = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="slotted.sav",
+            file_name_no_tags="slotted",
+            file_name_no_ext="slotted",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="autosave",
+        )
+        archival_save = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="archival.sav",
+            file_name_no_tags="archival",
+            file_name_no_ext="archival",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot=None,
+        )
+        db_save_handler.add_save(slot_save)
+        db_save_handler.add_save(archival_save)
+
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id)
+
+        names = {s.file_name for s in saves}
+        assert "slotted.sav" in names
+        assert "archival.sav" in names
+
+    def test_slot_not_null_true_excludes_null_slot(self, admin_user: User, rom: Rom):
+        slot_save = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="slotted_only.sav",
+            file_name_no_tags="slotted_only",
+            file_name_no_ext="slotted_only",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="autosave",
+        )
+        archival_save = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="archival_only.sav",
+            file_name_no_tags="archival_only",
+            file_name_no_ext="archival_only",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot=None,
+        )
+        db_save_handler.add_save(slot_save)
+        db_save_handler.add_save(archival_save)
+
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_id=rom.id, slot_not_null=True
+        )
+
+        names = {s.file_name for s in saves}
+        assert "slotted_only.sav" in names
+        assert "archival_only.sav" not in names
+        assert all(s.slot is not None for s in saves)
+
+    def test_slot_not_null_true_composes_with_slot_value(
+        self, admin_user: User, rom: Rom
+    ):
+        """slot_not_null and slot can both be set; the explicit slot filter
+        wins (and is implicitly not-null), so slot_not_null=True is a no-op
+        in that case. Pin that behavior so callers don't have to reason
+        about the interaction."""
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="compose_a.sav",
+                file_name_no_tags="compose_a",
+                file_name_no_ext="compose_a",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="A",
+            )
+        )
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="compose_b.sav",
+                file_name_no_tags="compose_b",
+                file_name_no_ext="compose_b",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="B",
+            )
+        )
+
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_id=rom.id, slot="A", slot_not_null=True
+        )
+
+        assert len(saves) == 1
+        assert saves[0].slot == "A"
+
+
+class TestDBSavesHandlerGetSavesAfterId:
+    """Cover keyset pagination used by the recompute_save_content_hashes
+    maintenance task. Per-page bounded reads avoid materializing the full
+    saves table on instances with very large libraries."""
+
+    def test_paginates_in_order_and_terminates(self, admin_user: User, rom: Rom):
+        created_ids = []
+        for i in range(5):
+            created = db_save_handler.add_save(
+                Save(
+                    rom_id=rom.id,
+                    user_id=admin_user.id,
+                    file_name=f"page_{i}.sav",
+                    file_name_no_tags=f"page_{i}",
+                    file_name_no_ext=f"page_{i}",
+                    file_extension="sav",
+                    emulator="test_emu",
+                    file_path=f"{rom.platform_slug}/saves",
+                    file_size_bytes=100,
+                    slot=f"slot_{i}",
+                )
+            )
+            created_ids.append(created.id)
+
+        seen: list[int] = []
+        last_id = 0
+        while True:
+            batch = db_save_handler.get_saves_after_id(after_id=last_id, limit=2)
+            if not batch:
+                break
+            for s in batch:
+                seen.append(s.id)
+                last_id = s.id
+
+        for cid in created_ids:
+            assert cid in seen
+        # IDs returned monotonically by primary key
+        assert seen == sorted(seen)
+
+    def test_after_id_excludes_anchor_row(self, admin_user: User, rom: Rom):
+        created = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="anchor.sav",
+                file_name_no_tags="anchor",
+                file_name_no_ext="anchor",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="anchor_slot",
+            )
+        )
+
+        batch = db_save_handler.get_saves_after_id(after_id=created.id, limit=10)
+
+        assert all(s.id > created.id for s in batch)
+
+
 class TestDBSavesHandlerSummary:
     def test_get_saves_summary_basic(self, admin_user: User, rom: Rom):
         from datetime import datetime, timedelta, timezone
@@ -443,3 +749,82 @@ class TestDBSavesHandlerSummary:
         )
         assert count_slot is not None
         assert count_slot["count"] == 5
+
+
+class TestDBSavesHandlerGetLatestSavesForRoms:
+    """Cover the continue-playing rail's batch lookup of the newest save per
+    ROM."""
+
+    def test_returns_newest_save_per_rom(self, admin_user: User, rom: Rom):
+        from datetime import datetime, timedelta, timezone
+
+        base_time = datetime.now(timezone.utc)
+
+        older = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="latest_old.sav",
+                file_name_no_tags="latest_old",
+                file_name_no_ext="latest_old",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+            )
+        )
+        newer = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="latest_new.sav",
+                file_name_no_tags="latest_new",
+                file_name_no_ext="latest_new",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+            )
+        )
+        db_save_handler.update_save(
+            older.id, {"updated_at": base_time - timedelta(hours=2)}
+        )
+        db_save_handler.update_save(
+            newer.id, {"updated_at": base_time - timedelta(hours=1)}
+        )
+
+        latest = db_save_handler.get_latest_saves_for_roms(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+
+        assert set(latest.keys()) == {rom.id}
+        assert latest[rom.id].id == newer.id
+
+    def test_empty_rom_ids_returns_empty_dict(self, admin_user: User):
+        assert (
+            db_save_handler.get_latest_saves_for_roms(user_id=admin_user.id, rom_ids=[])
+            == {}
+        )
+
+    def test_excludes_other_users_saves(
+        self, admin_user: User, editor_user: User, rom: Rom
+    ):
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=editor_user.id,
+                file_name="other_user.sav",
+                file_name_no_tags="other_user",
+                file_name_no_ext="other_user",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+            )
+        )
+
+        latest = db_save_handler.get_latest_saves_for_roms(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+
+        assert latest == {}

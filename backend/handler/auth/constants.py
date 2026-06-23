@@ -4,6 +4,9 @@ from typing import Final
 
 ALGORITHM: Final = "HS256"
 DEFAULT_OAUTH_TOKEN_EXPIRY: Final = timedelta(minutes=15)
+# Name of the session cookie set by RedisSessionMiddleware (see main.py). Shared
+# so the socket log-stream handshake reads the same cookie the middleware writes.
+SESSION_COOKIE_NAME: Final = "romm_session"
 
 
 class Scope(enum.StrEnum):
@@ -26,6 +29,7 @@ class Scope(enum.StrEnum):
     USERS_READ = "users.read"
     USERS_WRITE = "users.write"
     TASKS_RUN = "tasks.run"
+    LOGS_READ = "logs.read"
 
 
 READ_SCOPES_MAP: Final = {
@@ -57,6 +61,7 @@ FULL_SCOPES_MAP: Final = {
     Scope.USERS_READ: "View users",
     Scope.USERS_WRITE: "Modify users",
     Scope.TASKS_RUN: "Run tasks",
+    Scope.LOGS_READ: "View backend logs",
 }
 
 READ_SCOPES: Final = list(READ_SCOPES_MAP.keys())

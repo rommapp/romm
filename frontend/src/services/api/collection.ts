@@ -156,6 +156,21 @@ async function updateSmartCollection({
   );
 }
 
+async function addRomsToCollection(collectionId: number, romIds: number[]) {
+  return api.post<Collection>(`/collections/${collectionId}/roms`, {
+    rom_ids: romIds,
+  });
+}
+
+async function removeRomsFromCollection(
+  collectionId: number,
+  romIds: number[],
+) {
+  return api.delete<Collection>(`/collections/${collectionId}/roms`, {
+    data: { rom_ids: romIds },
+  });
+}
+
 async function deleteCollection({ collection }: { collection: Collection }) {
   return api.delete(`/collections/${collection.id}`);
 }
@@ -172,6 +187,8 @@ export default {
   getCollection,
   getVirtualCollection,
   updateCollection,
+  addRomsToCollection,
+  removeRomsFromCollection,
   deleteCollection,
   getSmartCollections,
   getSmartCollection,

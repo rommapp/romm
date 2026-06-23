@@ -12,5 +12,14 @@
   "reset-sent": "Link di reimpostazione inviato. Contatta l'amministratore.",
   "send-reset-link": "Invia link di reimpostazione",
   "setup-wizard": "Procedura guidata di configurazione",
-  "username": "Nome utente"
+  "username": "Nome utente",
+  "passwords-do-not-match": "Le password non corrispondono",
+  "login-failed": "Accesso non riuscito",
+  "unable-to-login": "Impossibile accedere: {error}",
+  "reset-failed": "Reimpostazione non riuscita",
+  "unable-to-reset-password": "Impossibile reimpostare la password: {error}",
+  "reset-link-failed": "Impossibile inviare il link di reimpostazione",
+  "register-success": "Utente registrato con successo",
+  "register-failed": "Impossibile registrare l'utente: {error}",
+  "avatar-save-warning": "Account creato, ma non è stato possibile salvare l'avatar: {error}. Puoi impostarlo in seguito dalle impostazioni del profilo."
 }

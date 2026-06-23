@@ -89,6 +89,7 @@ REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final[int] = safe_int(
 )
 
 # LAUNCHBOX
+LAUNCHBOX_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/launchbox"
 LAUNCHBOX_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("LAUNCHBOX_API_ENABLED"))
 
 # PLAYMATCH
@@ -141,6 +142,9 @@ INVITE_TOKEN_EXPIRY_SECONDS: Final[int] = safe_int(
 # OIDC
 OIDC_ENABLED: Final[bool] = safe_str_to_bool(_get_env("OIDC_ENABLED"))
 OIDC_AUTOLOGIN: Final[bool] = safe_str_to_bool(_get_env("OIDC_AUTOLOGIN"))
+OIDC_ALLOW_REGISTRATION: Final[bool] = safe_str_to_bool(
+    _get_env("OIDC_ALLOW_REGISTRATION", "true")
+)
 OIDC_PROVIDER: Final[str] = _get_env("OIDC_PROVIDER", "")
 OIDC_CLIENT_ID: Final[str] = _get_env("OIDC_CLIENT_ID", "")
 OIDC_CLIENT_SECRET: Final[str] = _get_env("OIDC_CLIENT_SECRET", "")
@@ -213,7 +217,7 @@ SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = _get_env(
 )
 
 # SYNC
-SYNC_BASE_PATH: Final[str] = _get_env("SYNC_BASE_PATH", f"{ROMM_BASE_PATH}/sync")
+SYNC_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/sync"
 ENABLE_SYNC_FOLDER_WATCHER: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SYNC_FOLDER_WATCHER")
 )
@@ -226,10 +230,10 @@ SYNC_PUSH_PULL_CRON: Final[str] = _get_env(
     "*/30 * * * *",  # Every 30 minutes
 )
 SYNC_SSH_KEYS_PATH: Final[str] = _get_env(
-    "SYNC_SSH_KEYS_PATH", f"{ROMM_BASE_PATH}/sync/keys"
+    "SYNC_SSH_KEYS_PATH", f"{SYNC_BASE_PATH}/keys"
 )
 SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
-    "SYNC_SSH_KNOWN_HOSTS_PATH", f"{ROMM_BASE_PATH}/sync/known_hosts"
+    "SYNC_SSH_KNOWN_HOSTS_PATH", f"{SYNC_BASE_PATH}/known_hosts"
 )
 
 # EMULATION
@@ -238,6 +242,7 @@ DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))
 
 # FRONTEND
 KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))
+DISABLE_LOGS_VIEWER: Final[bool] = safe_str_to_bool(_get_env("DISABLE_LOGS_VIEWER"))
 
 # LOGGING
 LOGLEVEL: Final[str] = _get_env("LOGLEVEL", "INFO").upper()

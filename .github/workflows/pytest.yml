@@ -71,7 +71,11 @@ jobs:
       - name: Initiate MariaDB database
         if: matrix.db == 'mariadb'
         run: |
-          mysql --host 127.0.0.1 --port ${{ job.services.mariadb.ports['3306'] }} -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON romm_test.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+          # Grant on the `romm_test%` namespace so the test user can create the
+          # per-worker databases (romm_test_gw0, ...) used under pytest-xdist,
+          # without granting it global privileges. The backticks are escaped so
+          # the shell doesn't treat them as command substitution.
+          mysql --host 127.0.0.1 --port ${{ job.services.mariadb.ports['3306'] }} -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON \`romm\_test%\`.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
 
       - name: Run python tests
         env:
@@ -80,9 +84,11 @@ jobs:
           ROMM_DB_DRIVER: ${{ matrix.db }}
           REDIS_HOST: 127.0.0.1
           REDIS_PORT: ${{ job.services.valkey.ports['6379'] }}
+          HYPOTHESIS_PROFILE: ci
         run: |
           cd backend
-          uv run pytest -vv --maxfail=10 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .
+          # GitHub-hosted Linux runners have 4 vCPUs; run one worker per core.
+          uv run pytest -n 4 -vv --maxfail=10 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action/linux@v2.20.0

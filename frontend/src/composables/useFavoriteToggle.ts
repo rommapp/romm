@@ -1,7 +1,7 @@
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import collectionApi from "@/services/api/collection";
-import storeCollections, { type Collection } from "@/stores/collections";
+import storeCollections from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 
@@ -43,24 +43,20 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
 
   async function toggleFavorite(rom: SimpleRom) {
     const fav = await ensureFavoriteCollection();
-    if (!fav.rom_ids) (fav as Collection).rom_ids = [] as unknown as number[]; // ensure array exists
-
-    const currentlyFav = fav.rom_ids.includes(rom.id);
-    if (currentlyFav) {
-      fav.rom_ids = fav.rom_ids.filter((id) => id !== rom.id);
-      if (romsStore.currentCollection?.id === fav.id) {
-        romsStore.remove([rom]);
-      }
-    } else {
-      fav.rom_ids.push(rom.id);
-    }
+    const currentlyFav = fav.rom_ids?.includes(rom.id) ?? false;
 
     try {
-      const { data } = await collectionApi.updateCollection({
-        collection: fav as Collection,
-      });
+      const { data } = currentlyFav
+        ? await collectionApi.removeRomsFromCollection(fav.id, [rom.id])
+        : await collectionApi.addRomsToCollection(fav.id, [rom.id]);
+
       collectionsStore.updateCollection(data);
       collectionsStore.setFavoriteCollection(data);
+
+      if (currentlyFav && romsStore.currentCollection?.id === fav.id) {
+        romsStore.remove([rom]);
+      }
+
       emitter?.emit("snackbarShow", {
         msg: `${rom.name} ${currentlyFav ? "removed from" : "added to"} ${data.name} successfully!`,
         icon: "mdi-check-bold",
@@ -68,12 +64,6 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
         timeout: 2000,
       });
     } catch (error: unknown) {
-      // Rollback
-      if (currentlyFav) {
-        fav.rom_ids.push(rom.id);
-      } else {
-        fav.rom_ids = fav.rom_ids.filter((id) => id !== rom.id);
-      }
       const detail = (error as { response?: { data?: { detail?: string } } })
         ?.response?.data?.detail;
       emitter?.emit("snackbarShow", {

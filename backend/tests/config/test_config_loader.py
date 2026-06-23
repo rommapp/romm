@@ -113,3 +113,71 @@ def test_empty_config_loader():
     assert loader.config.EJS_CONTROLS == {}
     assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box2d"
     assert loader.config.GAMELIST_MEDIA_IMAGE == "screenshot"
+
+
+def test_missing_config_file_is_created(tmp_path):
+    config_file = tmp_path / "config" / "config.yml"
+
+    loader = ConfigManager(str(config_file))
+
+    assert config_file.parent.exists()
+    assert config_file.exists()
+    assert config_file.read_text() == ""
+    assert loader.config.CONFIG_FILE_MOUNTED
+    assert loader.config.CONFIG_FILE_WRITABLE
+
+
+def test_forward_compat_unknown_values_are_tolerated():
+    """A newer release may ship sample configs that reference media types
+    this version doesn't yet recognize. The loader should drop unknowns and
+    fall back to defaults rather than exiting."""
+    loader = ConfigManager(
+        os.path.join(
+            Path(__file__).resolve().parent,
+            "fixtures",
+            "config/forward_compat_config.yml",
+        )
+    )
+
+    # Unknown entries in scan.media are filtered out; known ones survive.
+    assert loader.config.SCAN_MEDIA == ["box2d", "screenshot"]
+    # Unknown thumbnail/image values fall back to their defaults.
+    assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box2d"
+    assert loader.config.GAMELIST_MEDIA_IMAGE == "screenshot"
+
+
+def test_malformed_yaml_falls_back_to_defaults():
+    """A YAML parse error should log critically and leave the app on
+    defaults, not crash."""
+    loader = ConfigManager(
+        os.path.join(
+            Path(__file__).resolve().parent,
+            "fixtures",
+            "config/malformed_config.yml",
+        )
+    )
+
+    assert loader.config.ROMS_FOLDER_NAME == "roms"
+    assert loader.config.FIRMWARE_FOLDER_NAME == "bios"
+    assert loader.config.SCAN_MEDIA == ["box2d", "screenshot", "manual"]
+
+
+def test_config_updates_serialize_gamelist_media_as_plain_strings(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "scan:\n"
+        "  gamelist:\n"
+        "    media:\n"
+        "      thumbnail: box2d\n"
+        "      image: screenshot\n"
+    )
+    loader = ConfigManager(str(config_file))
+    loader.add_platform_binding("atarist", "atari-st")
+
+    config_text = config_file.read_text()
+    assert "!!python/object" not in config_text
+    assert "thumbnail: box2d" in config_text
+    assert "image: screenshot" in config_text
+
+    reloaded = ConfigManager(str(config_file))
+    assert reloaded.config.PLATFORMS_BINDING == {"atarist": "atari-st"}

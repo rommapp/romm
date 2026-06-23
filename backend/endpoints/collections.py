@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import File, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Query, Request, UploadFile, status
+from pydantic import BaseModel as PydanticBaseModel
 
 from decorators.auth import protected_route
 from endpoints.responses.collection import (
@@ -21,6 +22,7 @@ from exceptions.endpoint_exceptions import (
 from handler.auth.constants import Scope
 from handler.database import db_collection_handler
 from handler.filesystem import fs_resource_handler
+from handler.filesystem.assets_handler import validate_image_upload
 from handler.filesystem.base_handler import CoverSize
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -81,7 +83,7 @@ async def add_collection(
 
     try:
         if artwork is not None and artwork.filename is not None:
-            file_ext = artwork.filename.split(".")[-1]
+            file_ext = validate_image_upload(artwork, label="Artwork")
             artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
@@ -426,7 +428,7 @@ async def update_collection(
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
-            file_ext = artwork.filename.split(".")[-1]
+            file_ext = validate_image_upload(artwork, label="Artwork")
             artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
@@ -471,6 +473,68 @@ async def update_collection(
         id, cleaned_data, parsed_rom_ids
     )
 
+    return CollectionSchema.model_validate(updated_collection)
+
+
+class CollectionRomsPayload(PydanticBaseModel):
+    rom_ids: list[int]
+
+
+@protected_route(router.post, "/{id}/roms", [Scope.COLLECTIONS_WRITE])
+async def add_roms_to_collection(
+    request: Request,
+    id: int,
+    payload: CollectionRomsPayload,
+) -> CollectionSchema:
+    """Atomically add ROMs to a collection without replacing the full list.
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): Collection id
+        payload (CollectionRomsPayload): ROM IDs to add
+
+    Returns:
+        CollectionSchema: Updated collection
+    """
+    collection = db_collection_handler.get_collection(id)
+    if not collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    if collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
+
+    updated_collection = db_collection_handler.add_roms_to_collection(
+        id, payload.rom_ids
+    )
+    return CollectionSchema.model_validate(updated_collection)
+
+
+@protected_route(router.delete, "/{id}/roms", [Scope.COLLECTIONS_WRITE])
+async def remove_roms_from_collection(
+    request: Request,
+    id: int,
+    payload: CollectionRomsPayload,
+) -> CollectionSchema:
+    """Atomically remove ROMs from a collection without replacing the full list.
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): Collection id
+        payload (CollectionRomsPayload): ROM IDs to remove
+
+    Returns:
+        CollectionSchema: Updated collection
+    """
+    collection = db_collection_handler.get_collection(id)
+    if not collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    if collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
+
+    updated_collection = db_collection_handler.remove_roms_from_collection(
+        id, payload.rom_ids
+    )
     return CollectionSchema.model_validate(updated_collection)
 
 

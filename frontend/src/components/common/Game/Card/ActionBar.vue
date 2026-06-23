@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { Emitter } from "mitt";
-import { computed, inject, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import PlayBtn from "@/components/common/Game/PlayBtn.vue";
@@ -10,28 +9,18 @@ import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
-import type { Events } from "@/types/emitter";
-import {
-  isNintendoDSRom,
-  isEJSEmulationSupported,
-  isRuffleEmulationSupported,
-} from "@/utils";
+import { isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
 
 const props = defineProps<{ rom: SimpleRom; sizeActionBar: number }>();
 const { t } = useI18n();
 const emit = defineEmits(["menu-open", "menu-close"]);
 const downloadStore = storeDownload();
-const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const configStore = storeConfig();
 const heartbeatStore = storeHeartbeat();
 
 const computedSize = computed(() => {
   return props.sizeActionBar === 1 ? "small" : "x-small";
-});
-
-const isNDSRom = computed(() => {
-  return isNintendoDSRom(props.rom);
 });
 
 const isAprilFools = computed(() => {
@@ -84,19 +73,6 @@ watch(menuOpen, (val) => {
         variant="text"
         rounded="0"
         @click.prevent
-      />
-    </v-col>
-    <v-col v-if="isNDSRom" class="d-flex">
-      <v-btn
-        :disabled="rom.missing_from_fs"
-        class="action-bar-btn-small flex-grow-1"
-        :size="computedSize"
-        icon="mdi-qrcode"
-        variant="text"
-        rounded="0"
-        :aria-label="`Show ${rom.name} QR code`"
-        @click.prevent
-        @click="emitter?.emit('showQRCodeDialog', rom)"
       />
     </v-col>
     <v-col

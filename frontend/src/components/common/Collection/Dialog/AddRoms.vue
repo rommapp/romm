@@ -3,11 +3,11 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
+import type { CollectionSchema } from "@/__generated__";
 import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import RDialog from "@/components/common/RDialog.vue";
-import type { UpdatedCollection } from "@/services/api/collection";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -18,7 +18,7 @@ const { mdAndUp } = useDisplay();
 const show = ref(false);
 const romsStore = storeRoms();
 const collectionsStore = storeCollections();
-const selectedCollection = ref<UpdatedCollection>();
+const selectedCollection = ref<CollectionSchema>();
 const roms = ref<SimpleRom[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showAddToCollectionDialog", (romsToAdd) => {
@@ -36,9 +36,9 @@ const HEADERS = [
 
 async function addRomsToCollection() {
   if (!selectedCollection.value) return;
-  selectedCollection.value.rom_ids.push(...roms.value.map((r) => r.id));
+  const romIds = roms.value.map((r) => r.id);
   await collectionApi
-    .updateCollection({ collection: selectedCollection.value })
+    .addRomsToCollection(selectedCollection.value.id, romIds)
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: `Roms added to ${selectedCollection.value?.name} successfully!`,

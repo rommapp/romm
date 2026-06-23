@@ -1,4 +1,5 @@
 import asyncio
+import errno
 import shutil
 import tempfile
 from io import BytesIO
@@ -160,6 +161,43 @@ class TestFSHandler:
             assert "test.txt" not in result
             assert "game.rom" in result
             assert "data.json" in result
+
+    def test_exclude_single_files_multi_dot(self, handler: FSHandler):
+        """Test that files with multiple dots are excluded by last or compound extension"""
+        files = [
+            "game.nds",
+            "game.nds.hash.txt",
+            "game.nds.enc.hash.txt",
+            "readme.txt",
+            "game.rom",
+        ]
+
+        with patch("handler.filesystem.base_handler.cm.get_config") as mock_config:
+            # Exclude by last single extension
+            mock_config.return_value.EXCLUDED_SINGLE_EXT = ["txt"]
+            mock_config.return_value.EXCLUDED_SINGLE_FILES = []
+
+            result = handler.exclude_single_files(files)
+
+            assert "game.nds.hash.txt" not in result
+            assert "game.nds.enc.hash.txt" not in result
+            assert "readme.txt" not in result
+            assert "game.nds" in result
+            assert "game.rom" in result
+
+        with patch("handler.filesystem.base_handler.cm.get_config") as mock_config:
+            # Exclude by compound sub-extension "hash.txt"
+            mock_config.return_value.EXCLUDED_SINGLE_EXT = ["hash.txt"]
+            mock_config.return_value.EXCLUDED_SINGLE_FILES = []
+
+            result = handler.exclude_single_files(files)
+
+            assert "game.nds.hash.txt" not in result
+            assert "game.nds.enc.hash.txt" not in result
+            # "readme.txt" does NOT end in "hash.txt", so it should remain
+            assert "readme.txt" in result
+            assert "game.nds" in result
+            assert "game.rom" in result
 
     async def test_make_directory(self, handler: FSHandler):
         """Test directory creation"""
@@ -478,3 +516,82 @@ class TestFSHandler:
         dirs = await handler.list_directories(".")
         for i in range(5):
             assert f"test_dir_{i}" not in dirs
+
+    async def test_copy_file_does_not_hardlink_by_default(
+        self, handler: FSHandler, sample_file_content
+    ):
+        """copy_file defaults to allow_link=False: the destination is a real
+        copy, so mutating it won't affect the source. Callers must opt in to
+        hardlinking explicitly."""
+        source_full = handler.base_path / "source.bin"
+        source_full.write_bytes(sample_file_content)
+
+        await handler.copy_file(source_full, "dest.bin")
+
+        dest_full = handler.base_path / "dest.bin"
+        assert dest_full.read_bytes() == sample_file_content
+        assert source_full.stat().st_ino != dest_full.stat().st_ino
+
+    async def test_copy_file_allow_link_true_hardlinks(
+        self, handler: FSHandler, sample_file_content
+    ):
+        """allow_link=True: when source and dest are on the same filesystem,
+        the destination is a hardlink to the source (same inode)."""
+        source_full = handler.base_path / "source.bin"
+        source_full.write_bytes(sample_file_content)
+
+        await handler.copy_file(source_full, "dest.bin", allow_link=True)
+
+        dest_full = handler.base_path / "dest.bin"
+        assert dest_full.read_bytes() == sample_file_content
+        assert source_full.stat().st_ino == dest_full.stat().st_ino
+
+    async def test_copy_file_allow_link_false_does_real_copy(
+        self, handler: FSHandler, sample_file_content
+    ):
+        """allow_link=False (explicit) produces a real copy — content matches
+        but inodes differ. This matches the default but is exercised explicitly
+        to lock in the contract."""
+        source_full = handler.base_path / "source.bin"
+        source_full.write_bytes(sample_file_content)
+
+        await handler.copy_file(source_full, "dest.bin", allow_link=False)
+
+        dest_full = handler.base_path / "dest.bin"
+        assert dest_full.read_bytes() == sample_file_content
+        assert source_full.stat().st_ino != dest_full.stat().st_ino
+
+    async def test_copy_file_allow_link_falls_back_to_copy_on_exdev(
+        self, handler: FSHandler, sample_file_content
+    ):
+        """When allow_link=True and os.link raises EXDEV (cross-filesystem),
+        copy_file transparently falls back to a real copy."""
+        source_full = handler.base_path / "source.bin"
+        source_full.write_bytes(sample_file_content)
+
+        with patch(
+            "utils.filesystem.os.link",
+            side_effect=OSError(errno.EXDEV, "Cross-device link"),
+        ):
+            await handler.copy_file(source_full, "dest.bin", allow_link=True)
+
+        dest_full = handler.base_path / "dest.bin"
+        assert dest_full.read_bytes() == sample_file_content
+        assert source_full.stat().st_ino != dest_full.stat().st_ino
+
+    async def test_copy_file_nonexistent_source(self, handler: FSHandler):
+        """Missing source must raise FileNotFoundError regardless of link mode."""
+        with pytest.raises(FileNotFoundError, match="Source file not found"):
+            await handler.copy_file(handler.base_path / "missing.bin", "dest.bin")
+
+
+class TestFSHandlerInit:
+    def test_raises_on_mkdir_failure(self):
+        """OSError from mkdir propagates, so misconfigured paths fail loudly
+        at construction time. Optional features should defer construction
+        (e.g. via a lazy factory) rather than swallow the error."""
+        with patch.object(
+            Path, "mkdir", side_effect=PermissionError(errno.EACCES, "denied")
+        ):
+            with pytest.raises(PermissionError):
+                FSHandler("/some/unwritable/path")

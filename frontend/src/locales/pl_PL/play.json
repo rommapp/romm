@@ -20,5 +20,12 @@
   "save-and-quit": "Zapisz i zakończ",
   "select-background-color": "Wybierz kolor tła",
   "select-save": "Wybierz zapis",
-  "select-state": "Wybierz stan"
+  "select-state": "Wybierz stan",
+  "all-saves": "Wszystkie zapisy",
+  "all-states": "Wszystkie stany",
+  "no-screenshot-available": "Brak dostępnych zrzutów ekranu",
+  "powered-by": "Zasilane przez",
+  "resume-from-save": "Wznów z zapisu",
+  "resume-from-state": "Wznów ze stanu",
+  "start-fresh-hint": "Wybierz jeden poniżej, aby wznowić, lub naciśnij Graj, aby zacząć od nowa."
 }

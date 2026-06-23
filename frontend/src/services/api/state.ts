@@ -9,12 +9,15 @@ import { buildFormInput } from "@/utils/formData";
 
 export const stateApi = api;
 
-type StateUploadInput = AddStateInput & {
+type StateUploadInput = Omit<AddStateInput, "stateFile" | "screenshotFile"> & {
   stateFile: File;
   screenshotFile?: File;
 };
 
-type UpdateStateUploadInput = UpdateStateInput & {
+type UpdateStateUploadInput = Omit<
+  UpdateStateInput,
+  "stateFile" | "screenshotFile"
+> & {
   stateFile: File;
   screenshotFile?: File;
 };
@@ -75,8 +78,21 @@ async function deleteStates({ states }: { states: StateSchema[] }) {
   });
 }
 
+async function setStateVisibility({
+  id,
+  isPublic,
+}: {
+  id: number;
+  isPublic: boolean;
+}) {
+  return api.put<StateSchema>(`/states/${id}/visibility`, {
+    is_public: isPublic,
+  });
+}
+
 export default {
   uploadStates,
   updateState,
   deleteStates,
+  setStateVisibility,
 };

@@ -13,7 +13,7 @@ const { smAndDown } = useDisplay();
 </script>
 <template>
   <v-avatar
-    class="pointer"
+    class="pointer transparent"
     :size="smAndDown ? 35 : 40"
     :class="{
       active: navigationStore.activeSettingsDrawer,
@@ -25,7 +25,7 @@ const { smAndDown } = useDisplay();
     <v-img
       :src="
         user?.avatar_path
-          ? `/assets/romm/assets/${user?.avatar_path}?ts=${user?.updated_at}`
+          ? `/api/raw/assets/${user?.avatar_path}?ts=${user?.updated_at}`
           : defaultAvatarPath
       "
     />

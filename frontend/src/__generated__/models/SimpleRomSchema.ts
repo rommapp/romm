@@ -42,6 +42,7 @@ export type SimpleRomSchema = {
     fs_path: string;
     fs_size_bytes: number;
     name: (string | null);
+    name_sort_key: (string | null);
     slug: (string | null);
     summary: (string | null);
     alternative_names: Array<string>;
@@ -60,6 +61,8 @@ export type SimpleRomSchema = {
     path_cover_large: (string | null);
     url_cover: (string | null);
     has_manual: boolean;
+    has_manual_files: boolean;
+    has_soundtrack: boolean;
     path_manual: (string | null);
     url_manual: (string | null);
     path_video: (string | null);
@@ -77,15 +80,16 @@ export type SimpleRomSchema = {
     has_simple_single_file: boolean;
     has_nested_single_file: boolean;
     has_multiple_files: boolean;
-    files: Array<RomFileSchema>;
     full_path: string;
     created_at: string;
     updated_at: string;
     missing_from_fs: boolean;
     has_notes: boolean;
-    siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);
+    files: Array<RomFileSchema>;
+    sibling_roms: Array<SiblingRomSchema>;
+    screenshot_path?: (string | null);
 };
 

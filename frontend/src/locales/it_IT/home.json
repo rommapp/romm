@@ -1,4 +1,22 @@
 {
   "continue-playing": "Continua a giocare",
-  "recently-added": "Aggiunti recentemente"
+  "recently-added": "Aggiunti recentemente",
+  "empty-headline": "La tua libreria è vuota",
+  "empty-hint": "Scegli come aggiungere i tuoi primi giochi. Potrai sempre fare il resto in seguito.",
+  "empty-upload-title": "Carica manualmente",
+  "empty-upload-desc": "Trascina e rilascia i file ROM o selezionali dal computer. Ideale quando vuoi aggiungere qualche gioco a mano.",
+  "empty-scan-title": "Scansiona libreria",
+  "empty-scan-desc": "Hai già posizionato i giochi nella cartella della libreria? Esegui una scansione per rilevarli e recuperarne i metadati.",
+  "empty-upload-cta": "Carica giochi",
+  "empty-scan-cta": "Esegui scansione",
+  "empty-detected-platforms": "{count} piattaforma rilevata | {count} piattaforme rilevate",
+  "empty-detected-games": "{count} gioco rilevato | {count} giochi rilevati",
+  "no-games-yet": "Nessun gioco ancora aggiunto.",
+  "widget-random-pick": "Scelta casuale",
+  "widget-random-pick-open": "Apri",
+  "widget-random-pick-reroll": "Rilancia",
+  "widget-random-pick-empty": "Nessun gioco ancora caricato",
+  "widget-library-stats": "Statistiche della libreria",
+  "widget-library-favorites": "Preferiti",
+  "widget-library-screenshots": "Screenshot"
 }

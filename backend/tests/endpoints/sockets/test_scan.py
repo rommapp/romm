@@ -98,17 +98,27 @@ class TestShouldScanRom:
 
     # Test COMPLETE scan type
     def test_complete_scan_always_scans(self, rom: Rom):
-        """COMPLETE should always scan regardless of rom state"""
+        """COMPLETE should scan everything when unscoped, but respect roms_ids when scoped"""
         assert _should_scan_rom(ScanType.COMPLETE, None, [], ["igdb"]) is True
         assert _should_scan_rom(ScanType.COMPLETE, rom, [], ["igdb"]) is True
-        assert _should_scan_rom(ScanType.COMPLETE, rom, [2, 3], ["igdb"]) is True
+        # Scoped scan should not scan/add new filesystem ROMs when rom is None
+        assert _should_scan_rom(ScanType.COMPLETE, None, [rom.id], ["igdb"]) is False
+        # Scoped scan: rom not in list → skip even for COMPLETE
+        assert (
+            _should_scan_rom(ScanType.COMPLETE, rom, [rom.id + 99], ["igdb"]) is False
+        )
+        assert _should_scan_rom(ScanType.COMPLETE, rom, [rom.id], ["igdb"]) is True
 
     # Test HASHES scan type
     def test_hashes_scan_always_scans(self, rom: Rom):
-        """HASHES should always scan regardless of rom state"""
+        """HASHES should scan everything when unscoped, but respect roms_ids when scoped"""
         assert _should_scan_rom(ScanType.HASHES, None, [], ["igdb"]) is True
         assert _should_scan_rom(ScanType.HASHES, rom, [], ["igdb"]) is True
-        assert _should_scan_rom(ScanType.HASHES, rom, [2, 3], ["igdb"]) is True
+        # Scoped scan should not scan/add new filesystem ROMs when rom is None
+        assert _should_scan_rom(ScanType.HASHES, None, [rom.id], ["igdb"]) is False
+        # Scoped scan: rom not in list → skip even for HASHES
+        assert _should_scan_rom(ScanType.HASHES, rom, [rom.id + 99], ["igdb"]) is False
+        assert _should_scan_rom(ScanType.HASHES, rom, [rom.id], ["igdb"]) is True
 
     # Test UNMATCHED scan type
     def test_unmatched_scan_with_no_rom(self):
@@ -170,17 +180,24 @@ class TestShouldScanRom:
             assert result is True
 
     def test_no_scan_when_rom_id_not_in_list(self, rom: Rom):
-        """Should follow normal rules when rom.id is not in roms_ids list"""
+        """When roms_ids is non-empty, scan is scoped: roms outside the list are skipped for every scan type"""
         rom.id = 4
+        rom.igdb_id = None
+        rom.moby_id = None
+        rom.ss_id = None
+        rom.ra_id = None
+        rom.launchbox_id = None
         roms_ids = [1, 2, 3]
 
-        # These should not scan because rom exists and id not in list
-        assert (
-            _should_scan_rom(ScanType.NEW_PLATFORMS, rom, roms_ids, ["igdb"]) is False
-        )
-        assert _should_scan_rom(ScanType.QUICK, rom, roms_ids, ["igdb"]) is False
-        assert _should_scan_rom(ScanType.UPDATE, rom, roms_ids, ["igdb"]) is False
-        assert _should_scan_rom(ScanType.UNMATCHED, rom, roms_ids, ["igdb"]) is True
+        for scan_type in [
+            ScanType.NEW_PLATFORMS,
+            ScanType.QUICK,
+            ScanType.UPDATE,
+            ScanType.UNMATCHED,
+            ScanType.COMPLETE,
+            ScanType.HASHES,
+        ]:
+            assert _should_scan_rom(scan_type, rom, roms_ids, ["igdb"]) is False
 
     # Edge cases
     def test_empty_roms_ids_list(self, rom: Rom):

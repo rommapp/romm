@@ -1,0 +1,14 @@
+{
+  "active-sessions": "Aktív munkamenetek",
+  "days-ago": "{n} napja",
+  "hours-ago": "{n} órája",
+  "hours-minutes-ago": "{h} ó {m} perce",
+  "just-now": "Az imént",
+  "live": "ÉLŐ",
+  "minutes-ago": "{n} perce",
+  "no-activity": "Jelenleg senki sem játszik",
+  "now-playing": "Most játszik",
+  "playing-on": "Ezen játszik: {device}",
+  "playing-since": "Játszik ekkortól: {time}",
+  "total-sessions": "Összes munkamenet"
+}

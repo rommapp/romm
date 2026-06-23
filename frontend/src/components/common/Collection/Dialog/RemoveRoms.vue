@@ -4,12 +4,12 @@ import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
+import type { CollectionSchema } from "@/__generated__";
 import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import { ROUTES } from "@/plugins/router";
-import type { UpdatedCollection } from "@/services/api/collection";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -20,7 +20,7 @@ const { mdAndUp } = useDisplay();
 const show = ref(false);
 const romsStore = storeRoms();
 const collectionsStore = storeCollections();
-const selectedCollection = ref<UpdatedCollection>();
+const selectedCollection = ref<CollectionSchema>();
 const roms = ref<SimpleRom[]>([]);
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -39,11 +39,9 @@ const HEADERS = [
 
 async function removeRomsFromCollection() {
   if (!selectedCollection.value) return;
-  selectedCollection.value.rom_ids = selectedCollection.value.rom_ids.filter(
-    (id) => !roms.value.map((r) => r.id).includes(id),
-  );
+  const romIds = roms.value.map((r) => r.id);
   await collectionApi
-    .updateCollection({ collection: selectedCollection.value })
+    .removeRomsFromCollection(selectedCollection.value.id, romIds)
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: `Roms removed from ${selectedCollection.value?.name} successfully!`,
@@ -53,6 +51,9 @@ async function removeRomsFromCollection() {
       });
       emitter?.emit("refreshDrawer", null);
       collectionsStore.updateCollection(data);
+      if (data.rom_ids.length === 0) {
+        router.push({ name: ROUTES.HOME });
+      }
     })
     .catch((error) => {
       console.error(error);
@@ -66,12 +67,8 @@ async function removeRomsFromCollection() {
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
       romsStore.resetSelection();
-      if (selectedCollection.value?.rom_ids.length == 0) {
-        router.push({ name: ROUTES.HOME });
-      }
       closeDialog();
     });
-  closeDialog();
 }
 
 function closeDialog() {

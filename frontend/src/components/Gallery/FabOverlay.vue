@@ -70,12 +70,12 @@ function resetSelection() {
 
 async function addToFavorites() {
   if (!favoriteCollection.value) return;
-  favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.concat(
-    selectedRoms.value.map((r) => r.id),
-  );
+  const romIds = selectedRoms.value.map((r) => r.id);
   await collectionApi
-    .updateCollection({ collection: favoriteCollection.value as Collection })
-    .then(() => {
+    .addRomsToCollection(favoriteCollection.value.id, romIds)
+    .then(({ data }) => {
+      collectionsStore.updateCollection(data);
+      collectionsStore.setFavoriteCollection(data);
       emitter?.emit("snackbarShow", {
         msg: "Roms added to favorites successfully!",
         icon: "mdi-check-bold",
@@ -99,23 +99,21 @@ async function addToFavorites() {
 
 async function removeFromFavorites() {
   if (!favoriteCollection.value) return;
-  favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.filter(
-    (value) => !selectedRoms.value.map((r) => r.id).includes(value),
-  );
+  const romIds = selectedRoms.value.map((r) => r.id);
   if (romsStore.currentCollection?.is_favorite) {
     romsStore.remove(selectedRoms.value);
   }
   await collectionApi
-    .updateCollection({ collection: favoriteCollection.value as Collection })
+    .removeRomsFromCollection(favoriteCollection.value.id, romIds)
     .then(({ data }) => {
+      collectionsStore.updateCollection(data);
+      collectionsStore.setFavoriteCollection(data);
       emitter?.emit("snackbarShow", {
         msg: "Roms removed from favorites successfully!",
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
       });
-      favoriteCollection.value = data;
-      collectionsStore.updateCollection(data);
     })
     .catch((error) => {
       console.error(error);

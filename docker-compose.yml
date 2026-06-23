@@ -15,6 +15,7 @@ services:
       - "3000:3000" # Vite dev server (custom)
       - "5173:5173" # Vite dev server (default)
       - "8443:8443" # HTTPS dev server
+      - "5678:5678" # debugpy
       - "${DEV_PORT:-5000}:5000" # Backend API
     volumes:
       - ./backend:/app/backend

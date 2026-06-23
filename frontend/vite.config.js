@@ -71,9 +71,6 @@ export default defineConfig(({ mode }) => {
   return {
     optimizeDeps: {
       include: VUETIFY_COMPONENTS,
-      esbuildOptions: {
-        target: "esnext",
-      },
     },
     build: {
       target: "esnext",
@@ -116,6 +113,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": fileURLToPath(new URL("./src", import.meta.url)),
+        "@v2": fileURLToPath(new URL("./src/v2", import.meta.url)),
       },
       extensions: [".js", ".json", ".jsx", ".mjs", ".ts", ".tsx", ".vue"],
     },

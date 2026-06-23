@@ -7,6 +7,7 @@ export type SiblingRomSchema = {
     name: (string | null);
     fs_name_no_tags: string;
     fs_name_no_ext: string;
+    is_main_sibling: boolean;
     readonly sort_comparator: string;
 };
 

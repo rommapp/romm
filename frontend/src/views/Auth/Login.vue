@@ -2,7 +2,7 @@
 import type { Emitter } from "mitt";
 import { inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
@@ -14,6 +14,7 @@ const heartbeatStore = storeHeartbeat();
 const authStore = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
+const route = useRoute();
 const username = ref("");
 const password = ref("");
 const visiblePassword = ref(false);
@@ -97,7 +98,8 @@ async function loginOIDC() {
 }
 
 onMounted(async () => {
-  if (oidcEnabled && oidcAutologin) {
+  const bypassAutologin = route.query.bypass_autologin === "true";
+  if (oidcEnabled && oidcAutologin && !bypassAutologin) {
     loginOIDC();
   }
 });

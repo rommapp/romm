@@ -83,6 +83,33 @@ class DBScreenshotsHandler(DBBaseHandler):
         return session.get(Screenshot, id)
 
     @begin_session
+    def get_rom_gallery_screenshots(
+        self,
+        rom_id: int,
+        user_id: int,
+        public_only: bool = False,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Screenshot]:
+        """Gallery (intentionally-uploaded) screenshots for a ROM, visible to
+        the requesting user. Mirrors `db_rom_handler.get_rom_notes`: own
+        screenshots (public + private) plus other users' public ones. Excludes
+        the auto-captured save/state thumbnails (`is_gallery == False`)."""
+        query = select(Screenshot).filter(
+            Screenshot.rom_id == rom_id,
+            Screenshot.is_gallery,
+        )
+
+        if public_only:
+            query = query.filter(Screenshot.is_public)
+        else:
+            query = query.filter(
+                or_(Screenshot.user_id == user_id, Screenshot.is_public)
+            )
+
+        query = query.order_by(Screenshot.created_at.desc())
+        return session.scalars(query).all()
+
+    @begin_session
     def update_screenshot(
         self,
         id: int,

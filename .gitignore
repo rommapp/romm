@@ -54,6 +54,7 @@ romm_mock
 backend/romm_test/resources
 backend/romm_test/logs
 .pytest_cache
+.hypothesis
 /romm_test
 .coverage
 pytest-report.xml
@@ -62,9 +63,14 @@ coverage.xml
 # service worker
 frontend/dev-dist
 
+# storybook
+frontend/storybook-static
+
 # outside data
 switch_titledb.json
 switch_product_ids.json
 
 # AI tools
-.claude
+# Keep shared agent skills tracked; ignore personal/local Claude config.
+.claude/*
+!.claude/skills/

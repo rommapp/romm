@@ -9,12 +9,15 @@ import { buildFormInput } from "@/utils/formData";
 
 export const saveApi = api;
 
-type SaveUploadInput = AddSaveInput & {
+type SaveUploadInput = Omit<AddSaveInput, "saveFile" | "screenshotFile"> & {
   saveFile: File;
   screenshotFile?: File;
 };
 
-type UpdateSaveUploadInput = UpdateSaveInput & {
+type UpdateSaveUploadInput = Omit<
+  UpdateSaveInput,
+  "saveFile" | "screenshotFile"
+> & {
   saveFile: File;
   screenshotFile?: File;
 };
@@ -79,8 +82,21 @@ async function deleteSaves({ saves }: { saves: SaveSchema[] }) {
   return api.post<number[]>("/saves/delete", { saves: saves.map((s) => s.id) });
 }
 
+async function setSaveVisibility({
+  id,
+  isPublic,
+}: {
+  id: number;
+  isPublic: boolean;
+}) {
+  return api.put<SaveSchema>(`/saves/${id}/visibility`, {
+    is_public: isPublic,
+  });
+}
+
 export default {
   uploadSaves,
   updateSave,
   deleteSaves,
+  setSaveVisibility,
 };

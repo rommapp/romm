@@ -117,7 +117,8 @@
 #     # Used as alternative cover art
 #     - box2d  # Normal cover art (always enabled)
 #     - box3d  # 3D box art
-#     - miximage  # Mixed image of multiple media
+#     - miximage  # Mixed image of multiple media (v1 / mixrbv1)
+#     - miximage_v2  # Mixed image of multiple media (v2 / mixrbv2)
 #     - physical  # Disc, cartridge, etc.
 #     # Added to the screenshots carousel
 #     - screenshot  # Screenshot (enabled by default)
@@ -132,6 +133,7 @@
 #     - video_normalized  # Normalized video (smaller file size than video)
 #     # Media used for batocera gamelist.xml export
 #     - box2d_back  # Back cover art
+#     - box2d_side  # Box spine (enables the interactive 3D box on detail pages)
 #     - logo  # Transparent logo
 #     # Other media assets (might be used in the future)
 #     - marquee  # Custom marquee

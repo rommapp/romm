@@ -10,7 +10,13 @@ from config import OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS
 from handler.auth import auth_handler, oauth_handler
 from handler.auth.constants import EDIT_SCOPES
 from handler.auth.hybrid_auth import HybridAuthBackend
-from handler.database import db_user_handler
+from handler.database import (
+    db_client_token_handler,
+    db_device_handler,
+    db_user_handler,
+)
+from models.client_token import ClientToken
+from models.device import Device
 from models.user import User
 
 
@@ -192,6 +198,22 @@ async def test_hybrid_auth_backend_invalid_scheme():
     assert result is None
 
 
+@pytest.mark.parametrize("authorization_header", ["Bearer ", "Foo", "a b c"])
+async def test_hybrid_auth_backend_malformed_authorization_header(
+    authorization_header: str,
+):
+    class MockConnection(HTTPConnection):
+        def __init__(self):
+            self.scope: dict[str, dict] = {"session": {}}
+            self._headers = {"Authorization": authorization_header}
+
+    backend = HybridAuthBackend()
+    conn = MockConnection()
+
+    result = await backend.authenticate(conn)
+    assert result is None
+
+
 async def test_hybrid_auth_backend_with_refresh_token(editor_user: User):
     refresh_token = oauth_handler.create_refresh_token(
         data={
@@ -239,3 +261,70 @@ async def test_hybrid_auth_backend_scope_subset(editor_user: User):
     assert user.id == editor_user.id
     assert set(creds.scopes).issubset(editor_user.oauth_scopes)
     assert set(creds.scopes).issubset(scopes)
+
+
+def _issue_client_token(user: User, device_id: str | None = None) -> str:
+    raw_token = auth_handler.generate_client_token()
+    hashed = auth_handler.hash_client_token(raw_token)
+    db_client_token_handler.add_token(
+        ClientToken(
+            user_id=user.id,
+            name="test-token",
+            hashed_token=hashed,
+            scopes=" ".join(user.oauth_scopes[:3]),
+            device_id=device_id,
+        )
+    )
+    return raw_token
+
+
+async def test_hybrid_auth_client_token_unbound_sets_device_id_none(
+    editor_user: User,
+):
+    raw_token = _issue_client_token(editor_user)
+
+    class MockConnection(HTTPConnection):
+        def __init__(self):
+            self.scope: dict[str, dict] = {"session": {}, "state": {}}
+            self._headers = {"Authorization": f"Bearer {raw_token}"}
+
+    backend = HybridAuthBackend()
+    conn = MockConnection()
+
+    result = await backend.authenticate(conn)
+    assert result is not None
+    _, user = result
+    assert user.id == editor_user.id
+    assert conn.scope["state"].get("device_id") is None
+
+
+async def test_hybrid_auth_client_token_bound_sets_device_id_and_bumps_last_seen(
+    editor_user: User,
+):
+    device = db_device_handler.add_device(
+        Device(
+            id="bound-device-1",
+            user_id=editor_user.id,
+            name="Bound Device",
+            client_device_identifier="cid-bound-1",
+        )
+    )
+    raw_token = _issue_client_token(editor_user, device_id=device.id)
+
+    class MockConnection(HTTPConnection):
+        def __init__(self):
+            self.scope: dict[str, dict] = {"session": {}, "state": {}}
+            self._headers = {"Authorization": f"Bearer {raw_token}"}
+
+    backend = HybridAuthBackend()
+    conn = MockConnection()
+
+    result = await backend.authenticate(conn)
+    assert result is not None
+    assert conn.scope["state"].get("device_id") == device.id
+
+    refreshed = db_device_handler.get_device(
+        device_id=device.id, user_id=editor_user.id
+    )
+    assert refreshed is not None
+    assert refreshed.last_seen is not None

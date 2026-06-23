@@ -1,0 +1,37 @@
+# Local test infrastructure matching .github/workflows/pytest.yml.
+# Usage: docker compose -f docker-compose.test.yml up -d
+#        uv run pytest
+services:
+  mariadb:
+    image: mariadb:10.11
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_USER: romm_test
+      MYSQL_PASSWORD: passwd
+      MYSQL_DATABASE: romm_test
+      MYSQL_ROOT_PASSWORD: passwd
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mariadb-admin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-uroot",
+          "-ppasswd",
+        ]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+  valkey:
+    image: valkey/valkey:7.2
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 2s
+      retries: 10

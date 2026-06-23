@@ -4,6 +4,8 @@ from unittest.mock import AsyncMock, patch
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from handler.database import db_rom_handler
+from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
 from handler.metadata.igdb_handler import IGDBHandler, IGDBRom
@@ -13,7 +15,7 @@ from handler.metadata.moby_handler import MobyGamesHandler, MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile, compute_name_sort_key
 
 MOCK_IGDB_ID = 11111
 MOCK_MOBY_ID = 22222
@@ -37,6 +39,29 @@ def test_get_rom(client: TestClient, access_token: str, rom: Rom):
     assert body["id"] == rom.id
 
 
+def test_download_multi_file_rom_content(
+    client: TestClient, access_token: str, multi_file_rom: Rom
+):
+    """Downloading a multi-file (game folder) ROM must not 500.
+
+    The download endpoint builds each manifest entry's name from
+    `file.rom.full_path` after the handler session has closed; a missing
+    `RomFile.rom` back-reference previously raised `DetachedInstanceError`.
+    """
+    response = client.get(
+        f"/api/roms/{multi_file_rom.id}/content/{multi_file_rom.fs_name}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    # mod_zip manifest: one line per file, plus a generated .m3u playlist.
+    assert response.headers["X-Archive-Files"] == "zip"
+    body = response.text
+    assert "disc1.bin" in body
+    assert "disc2.bin" in body
+    assert f"{multi_file_rom.fs_name}.m3u" in body
+
+
 def test_get_all_roms(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):
@@ -56,6 +81,92 @@ def test_get_all_roms(
     items = body["items"]
     assert len(items) == 1
     assert items[0]["id"] == rom.id
+    assert items[0]["files"] == []
+    assert items[0]["sibling_roms"] == []
+
+
+def test_get_all_roms_with_files(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+):
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="test_rom.zip",
+            file_path=f"{platform.slug}/roms",
+            file_size_bytes=1024,
+            last_modified=1700000000.0,
+        )
+    )
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "with_files": True},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    item = response.json()["items"][0]
+    assert item["id"] == rom.id
+    assert len(item["files"]) == 1
+    assert item["files"][0]["file_name"] == "test_rom.zip"
+    # with_files alone must not pull in sibling_roms
+    assert item["sibling_roms"] == []
+
+
+def test_get_rom_content_requires_auth(client: TestClient, rom: Rom, rom_file):
+    response = client.get(f"/api/roms/{rom.id}/content/test_rom.zip")
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_rom_content_single_file(
+    client: TestClient, access_token: str, rom: Rom, rom_file
+):
+    response = client.get(
+        f"/api/roms/{rom.id}/content/test_rom.zip",
+        headers={"Authorization": f"Bearer {access_token}"},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_200_OK
+    # Single-file roms are proxied through nginx via X-Accel-Redirect.
+    assert "X-Accel-Redirect" in response.headers
+
+
+def test_get_rom_content_valid_file_id(
+    client: TestClient, access_token: str, rom: Rom, rom_file
+):
+    response = client.get(
+        f"/api/roms/{rom.id}/content/test_rom.zip",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"file_ids": str(rom_file.id)},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert "X-Accel-Redirect" in response.headers
+
+
+def test_get_rom_content_stale_file_id_returns_404(
+    client: TestClient, access_token: str, rom: Rom, rom_file
+):
+    # Regression test for #3470: a remembered file id that no longer exists
+    # (e.g. after a rename gave the file a new id) must return a clean 404
+    # instead of an empty-.m3u ZIP that nginx aborts as a 0-byte response.
+    stale_file_id = rom_file.id + 999
+    response = client.get(
+        f"/api/roms/{rom.id}/content/test_rom.zip",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"file_ids": str(stale_file_id)},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_get_rom_content_missing_rom_returns_404(client: TestClient, access_token: str):
+    response = client.get(
+        "/api/roms/999999/content/missing.zip",
+        headers={"Authorization": f"Bearer {access_token}"},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
@@ -73,6 +184,7 @@ def test_update_rom(
         data={
             "igdb_id": str(MOCK_IGDB_ID),
             "name": "Metroid Prime Remastered",
+            "name_sort_key": "Metroid Prime",
             "slug": "metroid-prime-remastered",
             "fs_name": "Metroid Prime Remastered.zip",
             "summary": "summary test",
@@ -98,9 +210,106 @@ def test_update_rom(
 
     body = response.json()
     assert body["fs_name"] == "Metroid Prime Remastered.zip"
+    assert body["name_sort_key"] == compute_name_sort_key("Metroid Prime")
 
     assert rename_fs_rom_mock.called
     assert get_rom_by_id_mock.called
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_reparses_tags_on_fs_name_change(
+    rename_fs_rom_mock: AsyncMock,
+    get_rom_by_id_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"fs_name": "Patapon (Fr, En) (Rev 1).iso"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["fs_name"] == "Patapon (Fr, En) (Rev 1).iso"
+    assert body["languages"] == ["French", "English"]
+    assert body["regions"] == []
+    assert body["revision"] == "1"
+    assert body["tags"] == []
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_adds_region_tag_on_rename(
+    rename_fs_rom_mock: AsyncMock,
+    get_rom_by_id_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    """Renaming an untagged ROM to add ``(Europe)`` surfaces the region (issue #3471)."""
+    assert rom.regions == []
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"fs_name": "test_rom (Europe).zip"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["fs_name"] == "test_rom (Europe).zip"
+    assert body["regions"] == ["Europe"]
+
+
+# Minimal valid PNG (1x1 transparent pixel)
+_PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n"
+    b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\rIDATx\x9cc\xfc\xff\xff?\x00\x05\xfe\x02\xfe\xa75\x81\x84"
+    b"\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+def test_update_rom_rejects_non_image_artwork(
+    client: TestClient, access_token: str, rom: Rom
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        files={"artwork": ("cover.png", b"<script>alert(1)</script>", "image/png")},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "PNG, JPEG, WebP, or GIF" in response.json()["detail"]
+
+
+@patch.object(
+    FSResourcesHandler,
+    "store_artwork",
+    new_callable=AsyncMock,
+    return_value=("path/to/big.png", "path/to/small.png"),
+)
+def test_update_rom_artwork_uses_detected_extension(
+    store_artwork_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        files={"artwork": ("payload.html", _PNG_BYTES, "image/png")},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    # The handler is called with the trusted extension from libmagic, not the
+    # extension parsed off the user-supplied filename.
+    assert store_artwork_mock.called
+    _, _, file_ext = store_artwork_mock.call_args.args
+    assert file_ext == "png"
 
 
 def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
@@ -252,6 +461,32 @@ def test_delete_roms_from_fs_nested(
     mock_remove_directory.assert_called_once()
 
 
+@patch("endpoints.roms.fs_rom_handler.validate_path")
+def test_delete_roms_from_fs_missing_file_still_deletes_db_entry(
+    mock_validate_path,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    """Test that missing ROM files do not block database deletion."""
+    from handler.database import db_rom_handler
+
+    mock_validate_path.side_effect = FileNotFoundError
+
+    response = client.post(
+        "/api/roms/delete",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [rom.id], "delete_from_fs": [rom.id]},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["successful_items"] == 1
+    assert body["failed_items"] == 0
+    assert body["errors"] == []
+    assert db_rom_handler.get_rom(rom.id) is None
+
+
 def test_update_rom_user_props_flat_payload(
     client: TestClient, access_token: str, rom: Rom
 ):
@@ -347,7 +582,10 @@ class TestUpdateMetadataIDs:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"igdb_id": str(MOCK_IGDB_ID)},
+            data={
+                "igdb_id": str(MOCK_IGDB_ID),
+                "name_sort_key": "Imported sort title",
+            },
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -1028,7 +1266,10 @@ class TestUnmatchMetadata:
         initial_response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"igdb_id": str(MOCK_IGDB_ID)},
+            data={
+                "igdb_id": str(MOCK_IGDB_ID),
+                "name_sort_key": "Imported sort title",
+            },
         )
         assert initial_response.status_code == status.HTTP_200_OK
         assert get_rom_by_id_mock.called
@@ -1036,6 +1277,9 @@ class TestUnmatchMetadata:
         initial_body = initial_response.json()
         assert initial_body["igdb_id"] == MOCK_IGDB_ID
         assert initial_body["igdb_metadata"] is not None
+        assert initial_body["name_sort_key"] == compute_name_sort_key(
+            "Imported sort title"
+        )
 
         # Now unmatch all metadata
         response = client.put(
@@ -1058,6 +1302,7 @@ class TestUnmatchMetadata:
         assert body["hltb_id"] is None
 
         assert body["name"] == rom.fs_name
+        assert body["name_sort_key"] == compute_name_sort_key(rom.fs_name)
         assert body["summary"] == ""
         assert body["url_cover"] == ""
         assert body["slug"] == ""

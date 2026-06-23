@@ -20,6 +20,7 @@ import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
+import { installIOSFullscreenShim } from "./utils";
 
 const { t } = useI18n();
 const { xs, mdAndUp, smAndDown } = useDisplay();
@@ -38,6 +39,7 @@ const selectedDisc = ref<number | null>(null);
 const selectedCore = ref<string | null>(null);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
+const removeIOSFullscreenShim = ref<(() => void) | null>(null);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
 
@@ -58,6 +60,9 @@ const compatibleStates = computed(
 );
 
 async function onPlay() {
+  removeIOSFullscreenShim.value?.();
+  removeIOSFullscreenShim.value = installIOSFullscreenShim();
+
   if (rom.value && auth.scopes.includes("roms.user.write")) {
     romApi.updateUserRomProps({
       romId: rom.value.id,
@@ -102,6 +107,8 @@ async function onPlay() {
     playing.value = true;
     fullScreen.value = fullScreenOnPlay.value;
   } catch (err) {
+    removeIOSFullscreenShim.value?.();
+    removeIOSFullscreenShim.value = null;
     console.error("[Play] Emulator load failure:", err);
   }
 }
@@ -176,7 +183,12 @@ onMounted(async () => {
   });
   firmwareOptions.value = firmwareResponse.data;
 
-  supportedCores.value = [...getSupportedEJSCores(rom.value.platform_slug)];
+  supportedCores.value = [
+    ...getSupportedEJSCores(
+      rom.value.platform_slug,
+      configStore.config.EJS_NETPLAY_ENABLED,
+    ),
+  ];
 
   // Listen for save/state selection from dialogs
   emitter?.on("saveSelected", selectSave);
@@ -217,9 +229,11 @@ onMounted(async () => {
   }
 
   const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
-  if (storedDisc) {
-    selectedDisc.value = parseInt(storedDisc);
+  const storedDiscId = storedDisc ? parseInt(storedDisc) : null;
+  if (storedDiscId && rom.value.files.some((f) => f.id === storedDiscId)) {
+    selectedDisc.value = storedDiscId;
   } else {
+    if (storedDisc) localStorage.removeItem(`player:${rom.value.id}:disc`);
     selectedDisc.value = rom.value.files[0]?.id ?? null;
   }
 
@@ -259,6 +273,8 @@ onMounted(async () => {
 
 onBeforeUnmount(async () => {
   window.EJS_emulator?.callEvent("exit");
+  removeIOSFullscreenShim.value?.();
+  removeIOSFullscreenShim.value = null;
   emitter?.off("saveSelected", selectSave);
   emitter?.off("stateSelected", selectState);
 });

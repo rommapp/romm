@@ -50,11 +50,10 @@ const fallbackCoverImage = computed(() =>
       eager
       ref="game-image-ref"
       :src="smallCover || fallbackCoverImage"
-      :cover="!boxartStyleCover"
-      :contain="boxartStyleCover"
+      :cover="false"
     >
       <template #placeholder>
-        <Skeleton :platform-id="rom.platform_id" type="image" />
+        <Skeleton type="image" />
       </template>
     </v-img>
   </v-avatar>

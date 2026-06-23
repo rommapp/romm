@@ -20,6 +20,7 @@ import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import stateApi from "@/services/api/state";
+import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
 import storeRoms from "@/stores/roms";
@@ -42,6 +43,7 @@ type PlayerState = "loading" | "unsupported" | "error" | "ready";
 
 const romsStore = storeRoms();
 const heartbeatStore = storeHeartbeat();
+const configStore = storeConfig();
 const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
@@ -64,6 +66,9 @@ const descriptionOverlayRef = useTemplateRef<HTMLDivElement>(
   "description-overlay-ref",
 );
 const detailsOverlayRef = useTemplateRef<HTMLDivElement>("details-overlay-ref");
+const isConsoleEmulationDisabled = computed(
+  () => heartbeatStore.value.EMULATION.DISABLE_EMULATOR_JS,
+);
 
 const releaseDate = computed(() => {
   if (!rom.value?.metadatum.first_release_date) return null;
@@ -350,8 +355,8 @@ function handleAction(action: InputAction): boolean {
   }
 }
 
-function play() {
-  if (!rom.value) return;
+async function play() {
+  if (!rom.value || isConsoleEmulationDisabled.value) return;
 
   romApi
     .updateUserRomProps({
@@ -375,11 +380,14 @@ function play() {
   if (origin.id) query.id = Number(origin.id);
   if (origin.collection) query.collection = Number(origin.collection);
 
-  router.push({
+  await router.push({
     name: ROUTES.CONSOLE_PLAY,
     params: { rom: rom.value.id },
     query: Object.keys(query).length ? query : undefined,
   });
+  // Force full reload to retrieve COEP/COOP headers from nginx,
+  // required to enable multi-threading in EmulatorJS (e.g., for dosbox_pure/MSDOS).
+  router.go(0);
 }
 
 const currentStateId = computed(
@@ -461,7 +469,10 @@ onMounted(async () => {
     const { data: romData } = await romApi.getRom({
       romId: parseInt(route.params.rom as string),
     });
-    const cores = getSupportedEJSCores(romData.platform_slug);
+    const cores = getSupportedEJSCores(
+      romData.platform_slug,
+      configStore.config.EJS_NETPLAY_ENABLED,
+    );
     if (!cores.length) {
       playerState.value = "unsupported";
       throw new Error(`Platform ${romData.platform_slug} not supported yet.`);
@@ -630,7 +641,10 @@ onUnmounted(() => {
                     :class="{
                       'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--console-game-play-button-focus-border),_0_0_16px_var(--console-accent-secondary)]':
                         selectedZone === 'play',
+                      'opacity-60 cursor-not-allowed':
+                        isConsoleEmulationDisabled,
                     }"
+                    :disabled="isConsoleEmulationDisabled"
                     @click="play()"
                   >
                     <span class="text-lg md:text-xl">▶</span>

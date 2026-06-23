@@ -15,6 +15,7 @@ export type RomSSMetadata = {
     manual_url?: (string | null);
     marquee_url?: (string | null);
     miximage_url?: (string | null);
+    miximage_v2_url?: (string | null);
     physical_url?: (string | null);
     screenshot_url?: (string | null);
     steamgrid_url?: (string | null);
@@ -23,9 +24,11 @@ export type RomSSMetadata = {
     video_normalized_url?: (string | null);
     bezel_path?: (string | null);
     box2d_back_path?: (string | null);
+    box2d_side_path?: (string | null);
     box3d_path?: (string | null);
     fanart_path?: (string | null);
     miximage_path?: (string | null);
+    miximage_v2_path?: (string | null);
     physical_path?: (string | null);
     marquee_path?: (string | null);
     logo_path?: (string | null);
