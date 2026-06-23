@@ -14,6 +14,7 @@
   "error-no-platform": "Please select a platform to upload to.",
   "error-no-rom": "Please select a ROM file.",
   "error-upload-failed": "Unable to upload ROM: {error}",
+  "missing-from-fs": "Missing from filesystem",
   "no-files": "This ROM has no files.",
   "no-patch-files": "No supported patch files found on this ROM.",
   "output-filename": "Output filename (optional)",

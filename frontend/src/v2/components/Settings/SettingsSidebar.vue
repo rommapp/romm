@@ -92,12 +92,6 @@ const groups = computed<Group[]>(() => {
           visible: scopes.value.includes("roms.write"),
         },
         {
-          icon: "mdi-file-cog-outline",
-          label: t("common.patcher"),
-          to: { name: ROUTES.PATCHER },
-          visible: true,
-        },
-        {
           icon: "mdi-table-cog",
           label: t("common.library-management"),
           to: { name: ROUTES.LIBRARY_MANAGEMENT },

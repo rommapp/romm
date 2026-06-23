@@ -97,6 +97,12 @@ function run(fn: () => void | Promise<void>) {
     icon="mdi-pencil-outline"
     @click="run(actions.edit)"
   />
+  <RMenuItem
+    v-if="actions.canPatch.value"
+    :label="t('common.patcher')"
+    icon="mdi-file-cog"
+    @click="run(actions.patch)"
+  />
 
   <RDivider />
 

@@ -5,8 +5,9 @@
 // Layout mirrors ScreenshotsSubtab / SaveDataTab / MediaTab: a vertical
 // subtab list on the left (navigation only — no inline action panel),
 // and a content column on the right with a section header that hosts
-// only the Upload button. Bulk download / copy-link affordances live
-// in the selection toolbar instead — pair them with select-all.
+// the Upload button plus a Patch button (multi-file ROMs only). Bulk
+// download / copy-link affordances live in the selection toolbar
+// instead — pair them with select-all.
 //
 // Grouping is **folder-based**: every direct subfolder of the ROM
 // becomes its own subtab, plus a "Root" subtab for files sitting
@@ -25,7 +26,7 @@
 //     about its current reach.
 //
 // Content column:
-//   * Section header (Upload only)
+//   * Section header (Upload + Patch)
 //   * ROM-info card (size, revision, ROM-level hashes — click to copy)
 //   * Selection toolbar (select-all + per-selection Download / Copy-link
 //     — also the path for "download everything in this subtab": select
@@ -46,6 +47,7 @@ import type {
   RomFileCategory,
   RomFileSchema,
 } from "@/__generated__";
+import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
@@ -614,6 +616,21 @@ const currentUploadState = computed<SubtabUploadState>(() => {
       target === "manual" ? uploadingManual.value : uploadingSoundtrack.value,
   };
 });
+
+// ---------- Patcher ----------
+// The patcher applies one of the ROM's bundled patch files to a base
+// game file, server-side. Only meaningful when the ROM carries nested
+// files. Mirrors the more-menu gate in `useGameActions.canPatch`.
+const canPatch = computed(() =>
+  Boolean(
+    props.rom.has_multiple_files &&
+    props.rom.files.some((f) => !f.is_top_level),
+  ),
+);
+
+function goPatch() {
+  router.push({ name: ROUTES.PATCHER, params: { rom: props.rom.id } });
+}
 </script>
 
 <template>
@@ -674,6 +691,15 @@ const currentUploadState = computed<SubtabUploadState>(() => {
            covered by the selection toolbar below (select-all then act). -->
       <header v-if="filteredFiles.length > 0" class="r-v2-files__section-head">
         <div class="r-v2-files__section-actions">
+          <RBtn
+            v-if="canPatch"
+            variant="outlined"
+            size="small"
+            prepend-icon="mdi-file-cog"
+            @click="goPatch"
+          >
+            {{ t("common.patcher") }}
+          </RBtn>
           <div class="r-v2-files__upload-slot">
             <RBtn
               variant="outlined"

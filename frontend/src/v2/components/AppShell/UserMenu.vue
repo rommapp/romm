@@ -7,7 +7,7 @@
 //   • Library  — Library management, Metadata sources, Client API tokens
 //   • System   — Administration, Server stats
 //   • Tools    — Controller debug
-//   • Actions  — Scan, Upload, Patcher (librarian actions, not settings)
+//   • Actions  — Scan, Upload (librarian actions, not settings)
 //   • About / Changelog — kept as dialogs (no dedicated views)
 //   • Log out
 //
@@ -67,7 +67,6 @@ const canSeeProfile = computed(
 );
 const canScan = computed(() => scopes.value.includes("platforms.write"));
 const canUpload = computed(() => scopes.value.includes("roms.write"));
-// Patcher is always reachable (matches v1) — pure client-side worker.
 const canSeeLibraryMgmt = computed(() =>
   scopes.value.includes("platforms.write"),
 );
@@ -193,12 +192,6 @@ async function onLogout() {
         :to="{ name: ROUTES.UPLOAD }"
         icon="mdi-cloud-upload-outline"
         :label="t('common.upload-roms')"
-        @click="open = false"
-      />
-      <RMenuItem
-        :to="{ name: ROUTES.PATCHER }"
-        icon="mdi-file-cog-outline"
-        :label="t('common.patcher')"
         @click="open = false"
       />
       <RMenuItem
