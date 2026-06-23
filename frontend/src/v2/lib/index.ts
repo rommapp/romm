@@ -65,6 +65,7 @@ export * from "./overlays/RDrawer";
 export * from "./data/RTable";
 
 // Media
+export * from "./media/RBox3D";
 export * from "./media/RPlatformIcon";
 
 // (GameCard lives under components/GameCard/ — it's a feature
