@@ -12,6 +12,8 @@ import { RComboboxField, RDateField, RTextField } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { UpdateRom } from "@/services/api/rom";
+import LockableField from "@/v2/components/EditRom/LockableField.vue";
+import { useMetadataLocks } from "@/v2/composables/useMetadataLocks";
 
 const props = defineProps<{ rom: UpdateRom }>();
 
@@ -20,6 +22,11 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+const { isLocked, toggleLock } = useMetadataLocks(
+  () => props.rom,
+  (rom) => emit("update:rom", rom),
+);
 
 // Age-rating items are pre-built once from the rating systems we
 // surface. Stored as "SYSTEM:RATING" so a single string captures both
@@ -76,87 +83,126 @@ function updateManualMetadata(
 
 <template>
   <div class="r-v2-additional">
-    <RComboboxField
-      :model-value="manual.companies ?? []"
-      :label="t('rom.companies')"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      @update:model-value="(v) => updateManualMetadata('companies', v)"
-    />
-    <RComboboxField
-      :model-value="manual.genres ?? []"
-      :label="t('rom.genres')"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      @update:model-value="(v) => updateManualMetadata('genres', v)"
-    />
-    <RComboboxField
-      :model-value="manual.franchises ?? []"
-      :label="t('rom.franchises')"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      @update:model-value="(v) => updateManualMetadata('franchises', v)"
-    />
-    <RDateField
-      :model-value="manual.first_release_date ?? null"
-      :label="t('rom.released-at')"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      @update:model-value="
-        (d) =>
-          updateManualMetadata('first_release_date', d ? d.getTime() : null)
-      "
-    />
-    <RComboboxField
-      :model-value="manual.game_modes ?? []"
-      :items="GAME_MODE_ITEMS"
-      :label="t('rom.game-modes')"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      @update:model-value="(v) => updateManualMetadata('game_modes', v)"
-    />
-    <RTextField
-      :model-value="manual.youtube_video_id ?? ''"
-      :label="t('rom.youtube-video-id')"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      hide-details
-      @update:model-value="
-        (v) =>
-          updateManualMetadata(
-            'youtube_video_id',
-            v && String(v).trim() !== '' ? String(v) : null,
-          )
-      "
-    />
-    <RComboboxField
-      :model-value="ageRatingsView"
-      :items="AGE_RATING_ITEMS"
-      :label="t('rom.age-ratings')"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      @update:model-value="
-        (v) =>
-          updateManualMetadata(
-            'age_ratings',
-            v.map((r) => r.split(' - ').join(':')),
-          )
-      "
-    />
+    <LockableField
+      :locked="isLocked('companies')"
+      @toggle="toggleLock('companies')"
+    >
+      <RComboboxField
+        :model-value="manual.companies ?? []"
+        :label="t('rom.companies')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        :disabled="isLocked('companies')"
+        @update:model-value="(v) => updateManualMetadata('companies', v)"
+      />
+    </LockableField>
+    <LockableField :locked="isLocked('genres')" @toggle="toggleLock('genres')">
+      <RComboboxField
+        :model-value="manual.genres ?? []"
+        :label="t('rom.genres')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        :disabled="isLocked('genres')"
+        @update:model-value="(v) => updateManualMetadata('genres', v)"
+      />
+    </LockableField>
+    <LockableField
+      :locked="isLocked('franchises')"
+      @toggle="toggleLock('franchises')"
+    >
+      <RComboboxField
+        :model-value="manual.franchises ?? []"
+        :label="t('rom.franchises')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        :disabled="isLocked('franchises')"
+        @update:model-value="(v) => updateManualMetadata('franchises', v)"
+      />
+    </LockableField>
+    <LockableField
+      :locked="isLocked('first_release_date')"
+      @toggle="toggleLock('first_release_date')"
+    >
+      <RDateField
+        :model-value="manual.first_release_date ?? null"
+        :label="t('rom.released-at')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        :disabled="isLocked('first_release_date')"
+        @update:model-value="
+          (d) =>
+            updateManualMetadata('first_release_date', d ? d.getTime() : null)
+        "
+      />
+    </LockableField>
+    <LockableField
+      :locked="isLocked('game_modes')"
+      @toggle="toggleLock('game_modes')"
+    >
+      <RComboboxField
+        :model-value="manual.game_modes ?? []"
+        :items="GAME_MODE_ITEMS"
+        :label="t('rom.game-modes')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        :disabled="isLocked('game_modes')"
+        @update:model-value="(v) => updateManualMetadata('game_modes', v)"
+      />
+    </LockableField>
+    <LockableField
+      :locked="isLocked('youtube_video_id')"
+      @toggle="toggleLock('youtube_video_id')"
+    >
+      <RTextField
+        :model-value="manual.youtube_video_id ?? ''"
+        :label="t('rom.youtube-video-id')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        hide-details
+        :disabled="isLocked('youtube_video_id')"
+        @update:model-value="
+          (v) =>
+            updateManualMetadata(
+              'youtube_video_id',
+              v && String(v).trim() !== '' ? String(v) : null,
+            )
+        "
+      />
+    </LockableField>
+    <LockableField
+      :locked="isLocked('age_ratings')"
+      @toggle="toggleLock('age_ratings')"
+    >
+      <RComboboxField
+        :model-value="ageRatingsView"
+        :items="AGE_RATING_ITEMS"
+        :label="t('rom.age-ratings')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        :disabled="isLocked('age_ratings')"
+        @update:model-value="
+          (v) =>
+            updateManualMetadata(
+              'age_ratings',
+              v.map((r) => r.split(' - ').join(':')),
+            )
+        "
+      />
+    </LockableField>
   </div>
 </template>
 

@@ -70,6 +70,8 @@
   "media": "Media",
   "metadata": "元數據",
   "metadata-ids": "元數據ID",
+  "lock-field": "Lock field",
+  "unlock-field": "Unlock field",
   "my-notes": "我的筆記",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "未啟用元數據來源",

@@ -70,6 +70,8 @@
   "media": "Media",
   "metadata": "Metadata",
   "metadata-ids": "Metadata IDs",
+  "lock-field": "Lock field",
+  "unlock-field": "Unlock field",
   "my-notes": "My notes",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "No metadata source enabled",

@@ -71,6 +71,8 @@
   "media": "Media",
   "metadata": "Metadata",
   "metadata-ids": "Metadata IDs",
+  "lock-field": "Lock field",
+  "unlock-field": "Unlock field",
   "my-notes": "My notes",
   "no-metadata-source": "No metadata source enabled",
   "no-notes": "No notes found",

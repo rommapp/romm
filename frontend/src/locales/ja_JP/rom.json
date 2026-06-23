@@ -70,6 +70,8 @@
   "media": "Media",
   "metadata": "メタデータ",
   "metadata-ids": "メタデータID",
+  "lock-field": "Lock field",
+  "unlock-field": "Unlock field",
   "my-notes": "メモ",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "メタデータ検索が無効です",

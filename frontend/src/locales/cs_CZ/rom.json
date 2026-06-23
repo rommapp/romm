@@ -71,6 +71,8 @@
   "media": "Media",
   "metadata": "Metadata",
   "metadata-ids": "ID metadat",
+  "lock-field": "Lock field",
+  "unlock-field": "Unlock field",
   "my-notes": "Mé poznámky",
   "no-metadata-source": "Žádný zdroj metadat není povolen",
   "no-notes": "Nebyly nalezeny žádné poznámky",

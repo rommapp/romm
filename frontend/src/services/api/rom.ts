@@ -501,6 +501,9 @@ async function updateRom({
     fields.push(["raw_manual_metadata", JSON.stringify(rom.manual_metadata)]);
   }
 
+  // Always send the lock list (even when empty) so unlocking persists.
+  fields.push(["metadata_locks", JSON.stringify(rom.metadata_locks ?? [])]);
+
   if (rom.raw_metadata?.igdb_metadata) {
     fields.push(["raw_igdb_metadata", rom.raw_metadata.igdb_metadata]);
   }

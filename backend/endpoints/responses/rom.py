@@ -299,6 +299,7 @@ class RomSchema(BaseModel):
     hltb_metadata: RomHLTBMetadata | None
     gamelist_metadata: RomGamelistMetadata | None
     manual_metadata: ManualMetadata | None
+    metadata_locks: list[str]
 
     path_cover_small: str | None
     path_cover_large: str | None
@@ -343,6 +344,10 @@ class RomSchema(BaseModel):
     sibling_roms: list[SiblingRomSchema] = Field(
         validation_alias="included_sibling_roms"
     )
+
+    @field_validator("metadata_locks", mode="before")
+    def default_metadata_locks(cls, v: list[str] | None) -> list[str]:
+        return v or []
 
     @field_validator("files")
     def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:

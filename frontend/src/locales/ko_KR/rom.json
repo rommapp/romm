@@ -70,6 +70,8 @@
   "media": "Media",
   "metadata": "메타데이터",
   "metadata-ids": "메타데이터 ID",
+  "lock-field": "Lock field",
+  "unlock-field": "Unlock field",
   "my-notes": "개인 노트",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "메타데이터 DB 연동 안됨",

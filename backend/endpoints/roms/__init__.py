@@ -63,7 +63,15 @@ from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom, RomUserStatus, compute_name_sort_key
+from models.rom import (
+    ROM_DIRECT_LOCK_COLUMNS,
+    ROM_LOCK_ID_TO_METADATA,
+    ROM_MANUAL_LOCK_KEYS,
+    ROM_METADATA_LOCK_KEYS,
+    Rom,
+    RomUserStatus,
+    compute_name_sort_key,
+)
 from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
@@ -135,6 +143,10 @@ class RomUpdateForm(BaseModel):
     raw_manual_metadata: str | None = Field(
         default=None, description="Raw manual metadata as JSON string."
     )
+    metadata_locks: str | None = Field(
+        default=None,
+        description="Permanently locked metadata field keys as a JSON array string.",
+    )
     name: str | None = None
     name_sort_key: str | None = None
     summary: str | None = None
@@ -195,6 +207,7 @@ async def parse_rom_update_form(
     raw_flashpoint_metadata: str | None = Form(default=None),
     raw_hltb_metadata: str | None = Form(default=None),
     raw_manual_metadata: str | None = Form(default=None),
+    metadata_locks: str | None = Form(default=None),
     name: str | None = Form(default=None),
     name_sort_key: str | None = Form(default=None),
     summary: str | None = Form(default=None),
@@ -224,6 +237,7 @@ async def parse_rom_update_form(
         "raw_flashpoint_metadata": raw_flashpoint_metadata,
         "raw_hltb_metadata": raw_hltb_metadata,
         "raw_manual_metadata": raw_manual_metadata,
+        "metadata_locks": metadata_locks,
         "name": name,
         "name_sort_key": name_sort_key,
         "summary": summary,
@@ -250,6 +264,47 @@ def parse_raw_metadata(form_data: RomUpdateForm, form_key: str) -> dict | None:
     except json.JSONDecodeError as e:
         log.warning(f"Invalid JSON for {form_key}: {e}")
         return None
+
+
+def parse_metadata_locks(form_data: RomUpdateForm) -> list[str] | None:
+    """Parse the submitted `metadata_locks` JSON array, dropping unknown keys.
+
+    Returns ``None`` when the field wasn't part of the request so the
+    existing locks are left untouched; an empty list clears all locks.
+    """
+    if "metadata_locks" not in form_data.model_fields_set:
+        return None
+
+    raw_json = form_data.metadata_locks
+    if not raw_json or str(raw_json).strip() == "":
+        return []
+
+    try:
+        parsed = json.loads(str(raw_json))
+    except json.JSONDecodeError as e:
+        log.warning(f"Invalid JSON for metadata_locks: {e}")
+        return None
+
+    if not isinstance(parsed, list):
+        return []
+
+    # Preserve order while deduping and keeping only recognized keys.
+    seen: set[str] = set()
+    locks: list[str] = []
+    for key in parsed:
+        if key in ROM_METADATA_LOCK_KEYS and key not in seen:
+            seen.add(key)
+            locks.append(key)
+    return locks
+
+
+def snapshot_locked_metadata_value(rom: Rom, key: str) -> Any:
+    """Current effective value of an aggregated metadata field, used to seed
+    `manual_metadata` when a field is locked without an explicit override."""
+    if key == "youtube_video_id":
+        return rom.youtube_video_id
+    metadatum = rom.metadatum
+    return getattr(metadatum, key, None) if metadatum else None
 
 
 class CustomLimitOffsetParams(LimitOffsetParams):
@@ -1311,6 +1366,22 @@ async def update_rom(
         ),
     }
 
+    # Resolve the permanent metadata locks. When the field is absent from the
+    # request the existing locks stand; an empty array clears them.
+    old_locks = set(rom.metadata_locks or [])
+    new_locks = parse_metadata_locks(form_data)
+    new_lock_set = set(new_locks) if new_locks is not None else old_locks
+    # Only fields already locked before this request are frozen; a field being
+    # locked now keeps the value submitted alongside the lock (the value being
+    # pinned), so "set a value, then lock it" works in a single save.
+    enforced_locks = old_locks & new_lock_set
+
+    # Pin already-locked provider ids to their stored value up front so the
+    # external metadata refetch below never re-pulls (or clears) the match.
+    for key in enforced_locks & ROM_DIRECT_LOCK_COLUMNS:
+        if key in cleaned_data:
+            cleaned_data[key] = getattr(rom, key)
+
     # Add raw metadata parsing
     raw_igdb_metadata = parse_raw_metadata(form_data, "raw_igdb_metadata")
     raw_moby_metadata = parse_raw_metadata(form_data, "raw_moby_metadata")
@@ -1545,6 +1616,41 @@ async def update_rom(
                     add_ss_auth_to_url(media_url),
                     media_path,
                 )
+
+    # Enforce permanent metadata locks just before persisting. Already-locked
+    # direct columns revert to their stored value (and drop any incoming
+    # provider payload), while locked aggregated fields are pinned into
+    # manual_metadata, which the roms_metadata view always prioritizes. Fields
+    # being locked for the first time keep the value submitted in this request.
+    for key in enforced_locks & ROM_DIRECT_LOCK_COLUMNS:
+        cleaned_data[key] = getattr(rom, key)
+        meta_field = ROM_LOCK_ID_TO_METADATA.get(key)
+        if meta_field:
+            cleaned_data.pop(meta_field, None)
+
+    locked_manual = new_lock_set & ROM_MANUAL_LOCK_KEYS
+    if locked_manual:
+        final_manual = dict(
+            cleaned_data.get("manual_metadata") or rom.manual_metadata or {}
+        )
+        existing_manual = rom.manual_metadata or {}
+        for key in locked_manual:
+            # Already-locked fields keep their stored value; newly locked ones
+            # capture whatever this request resolved to. Either way, fall back
+            # to the current aggregated value when nothing explicit is present.
+            value = (
+                existing_manual.get(key)
+                if key in enforced_locks
+                else final_manual.get(key)
+            )
+            if value in (None, [], ""):
+                value = snapshot_locked_metadata_value(rom, key)
+            if value not in (None, [], ""):
+                final_manual[key] = value
+        cleaned_data["manual_metadata"] = final_manual
+
+    if new_locks is not None:
+        cleaned_data["metadata_locks"] = new_locks
 
     log.debug(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"

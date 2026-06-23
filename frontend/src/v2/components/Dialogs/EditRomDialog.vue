@@ -26,10 +26,12 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import AdditionalDetails from "@/v2/components/EditRom/AdditionalDetails.vue";
+import LockableField from "@/v2/components/EditRom/LockableField.vue";
 import MetadataIdSection from "@/v2/components/EditRom/MetadataIdSection.vue";
 import RawMetadataPanel from "@/v2/components/EditRom/RawMetadataPanel.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useMetadataLocks } from "@/v2/composables/useMetadataLocks";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { getMissingCoverImage } from "@/v2/utils/covers";
 
@@ -59,6 +61,15 @@ const coverFileInput = ref<HTMLInputElement | null>(null);
 const saving = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+
+// Identity-field locks (name / sort key / summary). The provider-id and
+// aggregated-metadata locks are owned by their own tab sections.
+const { isLocked, toggleLock } = useMetadataLocks(
+  () => rom.value as UpdateRom,
+  (updated) => {
+    rom.value = updated as EditableRom;
+  },
+);
 
 const openHandler = async (romToEdit: SimpleRom) => {
   show.value = true;
@@ -356,28 +367,40 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         </div>
 
         <div class="r-v2-edit__fields">
-          <RTextField
-            v-model="rom.name"
-            prefix-label="stacked"
-            hide-details
-            :rules="[(v: string) => !!v || t('common.required')]"
+          <LockableField
+            :locked="isLocked('name')"
+            @toggle="toggleLock('name')"
           >
-            <template #prefix-label>
-              <RIcon icon="mdi-format-title" size="14" />
-              {{ t("common.name") }}
-            </template>
-          </RTextField>
+            <RTextField
+              v-model="rom.name"
+              prefix-label="stacked"
+              hide-details
+              :disabled="isLocked('name')"
+              :rules="[(v: string) => !!v || t('common.required')]"
+            >
+              <template #prefix-label>
+                <RIcon icon="mdi-format-title" size="14" />
+                {{ t("common.name") }}
+              </template>
+            </RTextField>
+          </LockableField>
 
-          <RTextField
-            v-model="rom.name_sort_key"
-            prefix-label="stacked"
-            hide-details
+          <LockableField
+            :locked="isLocked('name_sort_key')"
+            @toggle="toggleLock('name_sort_key')"
           >
-            <template #prefix-label>
-              <RIcon icon="mdi-sort-alphabetical-variant" size="14" />
-              {{ t("rom.sort-key") }}
-            </template>
-          </RTextField>
+            <RTextField
+              v-model="rom.name_sort_key"
+              prefix-label="stacked"
+              hide-details
+              :disabled="isLocked('name_sort_key')"
+            >
+              <template #prefix-label>
+                <RIcon icon="mdi-sort-alphabetical-variant" size="14" />
+                {{ t("rom.sort-key") }}
+              </template>
+            </RTextField>
+          </LockableField>
 
           <RTextField
             v-model="rom.fs_name"
@@ -398,18 +421,24 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
             </template>
           </RTextField>
 
-          <RTextField
-            v-model="rom.summary"
-            prefix-label="stacked"
-            hide-details
-            multiline
-            :rows="3"
+          <LockableField
+            :locked="isLocked('summary')"
+            @toggle="toggleLock('summary')"
           >
-            <template #prefix-label>
-              <RIcon icon="mdi-text" size="14" />
-              {{ t("rom.summary") }}
-            </template>
-          </RTextField>
+            <RTextField
+              v-model="rom.summary"
+              prefix-label="stacked"
+              hide-details
+              multiline
+              :rows="3"
+              :disabled="isLocked('summary')"
+            >
+              <template #prefix-label>
+                <RIcon icon="mdi-text" size="14" />
+                {{ t("rom.summary") }}
+              </template>
+            </RTextField>
+          </LockableField>
         </div>
       </div>
 

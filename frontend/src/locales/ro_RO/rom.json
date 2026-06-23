@@ -71,6 +71,8 @@
   "media": "Media",
   "metadata": "Metadate",
   "metadata-ids": "ID-uri Metadate",
+  "lock-field": "Lock field",
+  "unlock-field": "Unlock field",
   "my-notes": "Notițele mele",
   "no-metadata-source": "Nicio sursă de metadate activată",
   "no-notes": "Nu s-au găsit notații",

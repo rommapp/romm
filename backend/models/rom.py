@@ -46,6 +46,58 @@ NAME_SORT_KEY_MAX_LENGTH = 500
 ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
 DIGIT_RUN_RE = re.compile(r"\d+")
 
+# Metadata fields that can be permanently locked from the ROM edit menu.
+# A locked field keeps its stored value through manual edits and rescans.
+#
+# Two storage shapes back these keys:
+#   - Direct ``roms`` columns (identity + provider ids): locking preserves
+#     the column value across scans (COMPLETE rescans would otherwise
+#     overwrite or clear it).
+#   - Aggregated metadata exposed by the ``roms_metadata`` view: locking
+#     snapshots the current value into ``manual_metadata``, which the view
+#     always prioritizes and which survives the scan merge untouched.
+ROM_DIRECT_LOCK_COLUMNS = frozenset(
+    {
+        "name",
+        "name_sort_key",
+        "summary",
+        "igdb_id",
+        "sgdb_id",
+        "moby_id",
+        "ss_id",
+        "ra_id",
+        "launchbox_id",
+        "hasheous_id",
+        "flashpoint_id",
+        "hltb_id",
+    }
+)
+ROM_MANUAL_LOCK_KEYS = frozenset(
+    {
+        "genres",
+        "franchises",
+        "companies",
+        "game_modes",
+        "age_ratings",
+        "first_release_date",
+        "youtube_video_id",
+    }
+)
+ROM_METADATA_LOCK_KEYS = ROM_DIRECT_LOCK_COLUMNS | ROM_MANUAL_LOCK_KEYS
+
+# Maps a locked provider id column to the metadata column that must travel
+# with it, so a locked match keeps both its id and its payload in sync.
+ROM_LOCK_ID_TO_METADATA = {
+    "igdb_id": "igdb_metadata",
+    "moby_id": "moby_metadata",
+    "ss_id": "ss_metadata",
+    "ra_id": "ra_metadata",
+    "launchbox_id": "launchbox_metadata",
+    "hasheous_id": "hasheous_metadata",
+    "flashpoint_id": "flashpoint_metadata",
+    "hltb_id": "hltb_metadata",
+}
+
 
 def compute_name_sort_key(name: str | None) -> str:
     """Precompute the natural-sort key stored in `Rom.name_sort_key`"""
@@ -268,6 +320,9 @@ class Rom(BaseModel):
     manual_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
+
+    # Keys (from ROM_METADATA_LOCK_KEYS) the user has permanently locked.
+    metadata_locks: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
     path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
@@ -507,6 +562,11 @@ class Rom(BaseModel):
     # Metadata fields
     @property
     def youtube_video_id(self) -> str | None:
+        manual_video_id = (
+            self.manual_metadata.get("youtube_video_id", None)
+            if self.manual_metadata
+            else None
+        )
         igdb_video_id = (
             self.igdb_metadata.get("youtube_video_id", None)
             if self.igdb_metadata
@@ -518,7 +578,7 @@ class Rom(BaseModel):
             else None
         )
 
-        return igdb_video_id or lb_video_id
+        return manual_video_id or igdb_video_id or lb_video_id
 
     @property
     def alternative_names(self) -> list[str]:

@@ -70,6 +70,8 @@
   "media": "Media",
   "metadata": "Метаданни",
   "metadata-ids": "Метаданни ID-та",
+  "lock-field": "Lock field",
+  "unlock-field": "Unlock field",
   "my-notes": "Моите бележки",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "Няма активиран източник на метаданни",

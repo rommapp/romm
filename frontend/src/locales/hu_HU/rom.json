@@ -70,6 +70,8 @@
   "media": "Media",
   "metadata": "Metaadat",
   "metadata-ids": "Metaadat ID-k",
+  "lock-field": "Lock field",
+  "unlock-field": "Unlock field",
   "my-notes": "Jegyzeteim",
   "no-manual": "No manual available for this game.",
   "no-metadata-source": "Nincs engedélyezett metaadat-forrás",

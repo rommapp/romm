@@ -182,6 +182,75 @@ async def test_scan_rom_complete_clears_unselected_metadata(
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_complete_preserves_locked_fields(
+    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+):
+    """A COMPLETE rescan must not overwrite or clear locked metadata fields,
+    even when their source is no longer selected."""
+    hasheous_result = HasheousRom(
+        hasheous_id=999,
+        igdb_id=None,
+        tgdb_id=None,
+        ra_id=None,
+        name="Mock Hasheous Game",
+    )
+    mock_lookup.return_value = hasheous_result
+    mock_get_igdb.return_value = hasheous_result
+    mock_get_ra.return_value = hasheous_result
+
+    platform = Platform(
+        id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, hasheous_id=64
+    )
+    platform = db_platform_handler.add_platform(platform)
+
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Paper Mario (USA).z64",
+        fs_name_no_tags="Paper Mario",
+        fs_name_no_ext="Paper Mario",
+        fs_extension="z64",
+        fs_path="n64/Paper Mario (USA)",
+        name="Locked Name",
+        summary="Locked summary",
+        igdb_id=3340,
+        igdb_metadata={"summary": "locked IGDB metadata"},
+        fs_size_bytes=1024,
+        tags=[],
+        metadata_locks=["name", "summary", "igdb_id"],
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.COMPLETE,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Paper Mario (USA).z64",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.HASHEOUS],
+            newly_added=False,
+        )
+
+    # Locked id keeps its value and payload despite IGDB being unselected.
+    assert result.igdb_id == 3340
+    assert result.igdb_metadata == {"summary": "locked IGDB metadata"}
+    # Locked identity columns survive the rescan.
+    assert result.name == "Locked Name"
+    assert result.summary == "Locked summary"
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
 @patch.object(meta_ra_handler, "get_rom_by_id", new_callable=AsyncMock)
 @patch.object(meta_ra_handler, "get_rom", new_callable=AsyncMock)
 async def test_scan_rom_unmatched_fetches_ra_when_id_set_but_no_metadata(

@@ -1338,3 +1338,106 @@ class TestUnmatchMetadata:
         assert body["igdb_id"] is None
         assert body["name"] == rom.fs_name
         assert body["summary"] == ""
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_persists_and_sanitizes_metadata_locks(
+    rename_fs_rom_mock: AsyncMock,
+    get_rom_by_id_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    """The submitted lock list is stored, with unknown keys dropped."""
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"metadata_locks": '["summary", "genres", "not_a_real_field"]'},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["metadata_locks"] == ["summary", "genres"]
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_locked_field_ignores_later_edits(
+    rename_fs_rom_mock: AsyncMock,
+    get_rom_by_id_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    """A locked direct column keeps its value through later manual edits, and
+    clearing the lock re-enables editing."""
+    # Set a value and lock it in one request.
+    lock_response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"summary": "Locked value", "metadata_locks": '["summary"]'},
+    )
+    assert lock_response.status_code == status.HTTP_200_OK
+    assert lock_response.json()["summary"] == "Locked value"
+
+    # A later edit that omits the lock list (locks preserved) can't change it.
+    edit_response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"summary": "New value"},
+    )
+    assert edit_response.status_code == status.HTTP_200_OK
+    assert edit_response.json()["summary"] == "Locked value"
+
+    # Clearing the lock in the same request lets the new value through.
+    unlock_response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"summary": "New value", "metadata_locks": "[]"},
+    )
+    assert unlock_response.status_code == status.HTTP_200_OK
+    body = unlock_response.json()
+    assert body["summary"] == "New value"
+    assert body["metadata_locks"] == []
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_lock_snapshots_aggregated_into_manual(
+    rename_fs_rom_mock: AsyncMock,
+    get_rom_by_id_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user,
+):
+    """Locking an aggregated field with no manual override snapshots its
+    current value into manual_metadata so the view freezes it."""
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="Snapshot ROM",
+            slug="snapshot-rom",
+            fs_name="snapshot.zip",
+            fs_name_no_tags="snapshot",
+            fs_name_no_ext="snapshot",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            igdb_id=MOCK_IGDB_ID,
+            igdb_metadata={"genres": ["RPG", "Adventure"]},
+        )
+    )
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"metadata_locks": '["genres"]'},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["metadata_locks"] == ["genres"]
+    # The aggregated value is captured into manual_metadata verbatim.
+    assert sorted(body["manual_metadata"]["genres"]) == ["Adventure", "RPG"]

@@ -26,6 +26,7 @@ export type Body_update_rom_api_roms__id__put = {
     raw_flashpoint_metadata?: (string | null);
     raw_hltb_metadata?: (string | null);
     raw_manual_metadata?: (string | null);
+    metadata_locks?: (string | null);
     name?: (string | null);
     name_sort_key?: (string | null);
     summary?: (string | null);

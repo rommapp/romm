@@ -11,6 +11,8 @@ import { RTextField } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { UpdateRom } from "@/services/api/rom";
+import LockableField from "@/v2/components/EditRom/LockableField.vue";
+import { useMetadataLocks } from "@/v2/composables/useMetadataLocks";
 
 const props = defineProps<{ rom: UpdateRom }>();
 
@@ -19,6 +21,11 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+const { isLocked, toggleLock } = useMetadataLocks(
+  () => props.rom,
+  (rom) => emit("update:rom", rom),
+);
 
 // `field` is keyof UpdateRom; the parsed value is `number | string |
 // null` — most providers use numeric ids, Flashpoint stores a string.
@@ -83,18 +90,24 @@ function onUpdate(field: IdField, raw: string | number | null) {
 
 <template>
   <div class="r-v2-meta-ids">
-    <RTextField
+    <LockableField
       v-for="field in FIELDS"
       :key="field.key"
-      :model-value="modelFor(field)"
-      :label="field.label"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      hide-details
-      @update:model-value="(v) => onUpdate(field, v)"
-    />
+      :locked="isLocked(field.key)"
+      @toggle="toggleLock(field.key)"
+    >
+      <RTextField
+        :model-value="modelFor(field)"
+        :label="field.label"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        hide-details
+        :disabled="isLocked(field.key)"
+        @update:model-value="(v) => onUpdate(field, v)"
+      />
+    </LockableField>
   </div>
 </template>
 

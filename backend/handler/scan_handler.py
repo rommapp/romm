@@ -48,7 +48,13 @@ from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import (
+    ROM_DIRECT_LOCK_COLUMNS,
+    ROM_LOCK_ID_TO_METADATA,
+    Rom,
+    RomFile,
+    RomFileCategory,
+)
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_cover_and_build_meta
@@ -976,6 +982,26 @@ async def scan_rom(
             }
         )
 
+    def apply_metadata_locks() -> None:
+        # Honor permanently locked metadata fields. Locked direct columns keep
+        # their stored value regardless of scan type (a COMPLETE rescan would
+        # otherwise overwrite or clear them), and a locked provider id keeps
+        # its payload in sync. Locked aggregated fields live in manual_metadata,
+        # which the roms_metadata view already prioritizes and which the merge
+        # in `add_rom` leaves untouched, so they need no handling here.
+        if newly_added or not rom.metadata_locks:
+            return
+        for key in rom.metadata_locks:
+            if key in ROM_DIRECT_LOCK_COLUMNS:
+                rom_attrs[key] = getattr(rom, key)
+                meta_field = ROM_LOCK_ID_TO_METADATA.get(key)
+                if meta_field:
+                    rom_attrs[meta_field] = getattr(rom, meta_field)
+
+    # Locked direct fields win over scanned values; re-applied after the SGDB
+    # fetch below so a locked sgdb_id survives too.
+    apply_metadata_locks()
+
     # Use PICO-8 cartridge PNG as cover art if no cover is set.
     # PICO-8 .p8.png files are valid PNG images whose visual content is the
     # cartridge label, so the ROM file itself serves as the cover art.
@@ -1064,6 +1090,9 @@ async def scan_rom(
             )
             if ranked[0] == MetadataSource.SGDB:
                 rom_attrs["url_cover"] = sgdb_cover
+
+    # Re-apply after SGDB so a locked sgdb_id (and locked name/summary) win.
+    apply_metadata_locks()
 
     log.info(
         f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
