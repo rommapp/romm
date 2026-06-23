@@ -1,10 +1,8 @@
 <script setup lang="ts">
-// Patcher — v2 shell around the server-side patch endpoint. Patching no
-// longer happens in a browser web worker: the view operates on a ROM
-// already in the library (`currentRom`, loaded by the route guard),
-// picks a base game file and a patch file from its `files`, and POSTs to
-// `/roms/{fileId}/patch`. The patched ROM streams back as a blob to
-// download locally and/or re-upload into RomM.
+// PatcherTab — server-side patch flow for a single ROM, rendered as a tab
+// in GameDetails. Picks a base game file and a patch file from the ROM's
+// `files`, POSTs to `/roms/{fileId}/patch`, and streams the patched ROM
+// back as a blob to download locally and/or re-upload into RomM.
 import {
   RAlert,
   RBtn,
@@ -19,13 +17,12 @@ import {
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import type { RomFileSchema } from "@/__generated__";
+import type { DetailedRomSchema, RomFileSchema } from "@/__generated__";
 import api from "@/services/api";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
-import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
@@ -34,11 +31,11 @@ import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
+const props = defineProps<{ rom: DetailedRomSchema }>();
+
 const { t } = useI18n();
 const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
-const romsStore = storeRoms();
-const { currentRom } = storeToRefs(romsStore);
 const snackbar = useSnackbar();
 const heartbeat = storeHeartbeat();
 const scanningStore = storeScanning();
@@ -96,11 +93,9 @@ const loadError = ref<string | null>(null);
 const statusMessage = ref<string | null>(null);
 
 const baseFiles = computed(() =>
-  (currentRom.value?.files ?? []).filter((f) => f.category === "game"),
+  props.rom.files.filter((f) => f.category === "game"),
 );
-const patchFiles = computed(() =>
-  (currentRom.value?.files ?? []).filter(isPatchFile),
-);
+const patchFiles = computed(() => props.rom.files.filter(isPatchFile));
 
 const romExtension = computed(() =>
   selectedRomFile.value ? getExt(selectedRomFile.value.file_name) : "",
@@ -116,10 +111,10 @@ const filenamePlaceholder = computed(() => {
 });
 
 // Auto-select when there's no ambiguity: a single base file / single
-// patch file needs no picker. Reset on ROM change so a re-entry with a
+// patch file needs no picker. Reset on ROM change so switching to a
 // different ROM doesn't keep a stale selection.
 watch(
-  currentRom,
+  () => props.rom,
   () => {
     selectedRomFile.value =
       baseFiles.value.length === 1 ? baseFiles.value[0] : null;
@@ -286,7 +281,7 @@ const applyLabel = computed(() => {
 </script>
 
 <template>
-  <div class="r-v2-section-stack">
+  <div class="r-v2-section-stack r-v2-patch">
     <p class="r-v2-patch__subtitle">
       {{ t("patcher.subtitle") }}
     </p>
@@ -303,32 +298,34 @@ const applyLabel = computed(() => {
       </RAlert>
     </div>
 
-    <!-- File pickers -->
-    <div class="r-v2-patch__panels">
+    <!-- File pickers — base ROM + patch, combined into the output. The
+         connector badge between them expresses that ROM + patch operation. -->
+    <div class="r-v2-patch__flow">
       <!-- ROM panel -->
       <div class="r-v2-patch__panel">
         <div class="r-v2-patch__panel-label">
+          <RIcon icon="mdi-disc" size="13" />
           {{ t("patcher.rom-file") }}
         </div>
 
-        <div v-if="currentRom" class="r-v2-patch__rom-info">
+        <div class="r-v2-patch__rom-info">
           <RPlatformIcon
-            :slug="currentRom.platform_slug"
-            :fs-slug="currentRom.platform_fs_slug"
-            :name="currentRom.platform_display_name"
+            :slug="rom.platform_slug"
+            :fs-slug="rom.platform_fs_slug"
+            :name="rom.platform_display_name"
             :size="30"
             :show-tooltip="false"
           />
           <div class="r-v2-patch__rom-text">
-            <span class="r-v2-patch__rom-name" :title="currentRom.fs_name">
-              {{ currentRom.name ?? currentRom.fs_name }}
+            <span class="r-v2-patch__rom-name" :title="rom.fs_name">
+              {{ rom.name ?? rom.fs_name }}
             </span>
             <span class="r-v2-patch__rom-file">
-              {{ currentRom.fs_name }}
+              {{ rom.fs_name }}
             </span>
           </div>
           <MissingFSBadge
-            v-if="currentRom.missing_from_fs"
+            v-if="rom.missing_from_fs"
             :text="t('patcher.missing-from-fs')"
           />
         </div>
@@ -370,15 +367,20 @@ const applyLabel = computed(() => {
           </span>
         </div>
 
-        <p v-if="currentRom && baseFiles.length === 0" class="r-v2-patch__warn">
+        <p v-if="baseFiles.length === 0" class="r-v2-patch__warn">
           {{ t("patcher.no-files") }}
         </p>
+      </div>
+
+      <div class="r-v2-patch__connector" aria-hidden="true">
+        <RIcon icon="mdi-plus" size="16" />
       </div>
 
       <!-- Patch panel -->
       <div class="r-v2-patch__panel">
         <div class="r-v2-patch__panel-head">
           <div class="r-v2-patch__panel-label">
+            <RIcon icon="mdi-puzzle-outline" size="13" />
             {{ t("patcher.patch-file") }}
           </div>
           <!-- Supported formats live in a compact pill: the label stays
@@ -443,10 +445,7 @@ const applyLabel = computed(() => {
           </span>
         </div>
 
-        <p
-          v-if="currentRom && patchFiles.length === 0"
-          class="r-v2-patch__warn"
-        >
+        <p v-if="patchFiles.length === 0" class="r-v2-patch__warn">
           {{ t("patcher.no-patch-files") }}
         </p>
       </div>
@@ -550,13 +549,17 @@ const applyLabel = computed(() => {
   }
 }
 
-.r-v2-patch__panels {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+/* Flow row — base ROM and patch panels sit side by side, joined by the
+   connector badge that reads as "ROM + patch". Stacks on narrow screens. */
+.r-v2-patch__flow {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
 }
 
 .r-v2-patch__panel {
+  flex: 1 1 0;
+  min-width: 0;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
@@ -568,9 +571,25 @@ const applyLabel = computed(() => {
   gap: 12px;
 }
 
+/* The "+" badge bridging the two panels. */
+.r-v2-patch__connector {
+  flex: none;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-radius-pill);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
+  color: var(--r-color-fg-secondary);
+}
+
 .r-v2-patch__panel-label {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   /* Reserve the pill's height on every panel-label so the ROM panel's
      header (label only) matches the patch panel's (label + formats pill),
      keeping both panels visually aligned. */
@@ -729,6 +748,8 @@ const applyLabel = computed(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--r-color-border);
 }
 
 .r-v2-patch__brand {
@@ -747,8 +768,11 @@ const applyLabel = computed(() => {
   border-radius: 2px;
 }
 
-html[data-bp~="xs"] .r-v2-patch__panels {
-  grid-template-columns: 1fr;
+html[data-bp~="xs"] .r-v2-patch__flow {
+  flex-direction: column;
+}
+html[data-bp~="xs"] .r-v2-patch__apply-row > * {
+  width: 100%;
 }
 html[data-bp~="xs"] .r-v2-patch__file-name {
   max-width: 160px;

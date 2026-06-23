@@ -15,7 +15,6 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
-import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
@@ -306,22 +305,6 @@ export function useGameActions(
     emitter?.emit("showMatchRomDialog", rom);
   }
 
-  // The patcher operates on a ROM's own files (a base game file plus a
-  // bundled patch file), so it's only meaningful when the ROM carries
-  // nested files. Mirrors v1's AdminMenu `hasNestedFiles` gate.
-  const canPatch = computed(() => {
-    const rom = getRom();
-    return Boolean(
-      rom?.has_multiple_files && rom.files.some((f) => !f.is_top_level),
-    );
-  });
-
-  function patch() {
-    const rom = getRom();
-    if (!rom) return;
-    router.push({ name: ROUTES.PATCHER, params: { rom: rom.id } });
-  }
-
   function remove() {
     const rom = getRom();
     if (!rom) return;
@@ -367,7 +350,6 @@ export function useGameActions(
     canManageCollections,
     canShareQR,
     canPlay,
-    canPatch,
     canRemoveFromContinuePlaying,
     currentStatusKey,
     setStatus,
@@ -385,7 +367,6 @@ export function useGameActions(
     refreshMetadata,
     edit,
     match,
-    patch,
     remove,
     removeFromContinuePlaying,
   };

@@ -47,7 +47,6 @@ import type {
   RomFileCategory,
   RomFileSchema,
 } from "@/__generated__";
-import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
@@ -616,21 +615,6 @@ const currentUploadState = computed<SubtabUploadState>(() => {
       target === "manual" ? uploadingManual.value : uploadingSoundtrack.value,
   };
 });
-
-// ---------- Patcher ----------
-// The patcher applies one of the ROM's bundled patch files to a base
-// game file, server-side. Only meaningful when the ROM carries nested
-// files. Mirrors the more-menu gate in `useGameActions.canPatch`.
-const canPatch = computed(() =>
-  Boolean(
-    props.rom.has_multiple_files &&
-    props.rom.files.some((f) => !f.is_top_level),
-  ),
-);
-
-function goPatch() {
-  router.push({ name: ROUTES.PATCHER, params: { rom: props.rom.id } });
-}
 </script>
 
 <template>
@@ -691,15 +675,6 @@ function goPatch() {
            covered by the selection toolbar below (select-all then act). -->
       <header v-if="filteredFiles.length > 0" class="r-v2-files__section-head">
         <div class="r-v2-files__section-actions">
-          <RBtn
-            v-if="canPatch"
-            variant="outlined"
-            size="small"
-            prepend-icon="mdi-file-cog"
-            @click="goPatch"
-          >
-            {{ t("common.patcher") }}
-          </RBtn>
           <div class="r-v2-files__upload-slot">
             <RBtn
               variant="outlined"

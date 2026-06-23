@@ -34,7 +34,6 @@ export const ROUTES = {
   RUFFLE: "ruffle",
   SCAN: "scan",
   UPLOAD: "upload",
-  PATCHER: "patcher",
   ACTIVITY: "activity",
   USER_PROFILE: "user-profile",
   USER_INTERFACE: "user-interface",
@@ -260,35 +259,6 @@ const routes = [
           default: () => import("@/views/Player/RuffleRS/Base.vue"),
           v2: v2For(ROUTES.RUFFLE),
         },
-      },
-      {
-        path: "rom/:rom/patch",
-        name: ROUTES.PATCHER,
-        meta: {
-          title: i18n.global.t("common.patcher"),
-        },
-        components: {
-          default: () => import("@/views/Patcher.vue"),
-          v2: v2For(ROUTES.PATCHER),
-        },
-        beforeEnter: (async (to, _from, next) => {
-          const romsStore = storeRoms();
-
-          if (
-            !romsStore.currentRom ||
-            romsStore.currentRom.id !== parseInt(to.params.rom as string)
-          ) {
-            try {
-              const data = await romApi.getRom({
-                romId: parseInt(to.params.rom as string),
-              });
-              romsStore.setCurrentRom(data.data);
-            } catch (error) {
-              console.error(error);
-            }
-          }
-          next();
-        }) as NavigationGuardWithThis<undefined>,
       },
       {
         path: "april-fools",
