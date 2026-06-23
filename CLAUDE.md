@@ -1,21 +1,23 @@
 # RomM — Repository Guide for Contributors & Agents
 
-RomM is a self-hosted ROM manager and player: scan a game library off disk, enrich it with metadata from 10+ providers, browse it in a web UI, and play in the browser. This file orients anyone working in the repo — humans and AI agents alike. **Many features here are written by outside contributors using coding agents**, so this guide is written to be actioned without prior context.
+RomM is a self-hosted ROM manager and player: scan a game library off disk, enrich it with metadata from 10+ providers, browse it in a web UI, and play in the browser. This file orients anyone working in the repo — humans and AI agents alike.
 
-> **Official language:** all code, comments, identifiers, `.md` files, and commit/PR messages are in **English**. Always.
+> **Official language:** outside of language files, all code, comments, identifiers, `.md` files, and commit/PR messages are in **English**. Always.
+>
+> **No em-dashes:** never use em-dashes (—) when writing comments or text. Use commas, parentheses, or separate sentences instead.
 
 ---
 
 ## The stack at a glance
 
-| | Backend | Frontend |
-| --- | --- | --- |
-| Path | `backend/` | `frontend/` |
-| Language | Python 3.13+ | TypeScript 5.7 (Vue 3) |
-| Framework | FastAPI, SQLAlchemy 2.0, Alembic | Vue 3 + Vite, Vuetify, Pinia, Vue Router |
-| Infra | Redis + RQ (jobs/cache/sessions), Socket.IO | vue-i18n, Socket.IO client |
-| DB | MariaDB (default), MySQL, PostgreSQL | — |
-| Tooling | `uv`, pytest, Trunk (ruff/black/isort/mypy) | `npm`, vue-tsc, ESLint, Vitest, Storybook |
+|           | Backend                                     | Frontend                                  |
+| --------- | ------------------------------------------- | ----------------------------------------- |
+| Path      | `backend/`                                  | `frontend/`                               |
+| Language  | Python 3.13+                                | TypeScript 5.7 (Vue 3)                    |
+| Framework | FastAPI, SQLAlchemy 2.0, Alembic            | Vue 3 + Vite, Vuetify, Pinia, Vue Router  |
+| Infra     | Redis + RQ (jobs/cache/sessions), Socket.IO | vue-i18n, Socket.IO client                |
+| DB        | MariaDB (default), MySQL, PostgreSQL        | —                                         |
+| Tooling   | `uv`, pytest, Trunk (ruff/black/isort/mypy) | `npm`, vue-tsc, ESLint, Vitest, Storybook |
 
 The frontend talks to the backend over `/api/*` (REST) and `/ws` (Socket.IO). TypeScript types are **generated** from the backend's OpenAPI schema into `frontend/src/__generated__/` — the backend is the single source of truth for API shapes.
 
@@ -41,15 +43,15 @@ v2 has a detailed constitution, split across focused skills (below). **Read the 
 
 These live in `.claude/skills/` and carry the detailed rules. Invoke the one that matches what you're doing:
 
-| Skill | When |
-| --- | --- |
-| `frontend-v2-components` | Building/editing any v2 component — tiers (lib/shared/feature), file & SFC conventions, barrels, anti-patterns. |
-| `frontend-v2-theming` | Colors, tokens, light/dark themes, visual language — and the **zero-hex-literal** policy. |
-| `frontend-v2-input` | Interactive components, focus/spatial navigation, gamepad/keyboard, breakpoints & responsive layout. |
-| `frontend-v2-patterns` | Feature behavior — errors/snackbars, loading, sockets, state persistence, pagination, forms, permissions, destructive confirmations. |
-| `frontend-i18n` | Any user-visible string or change under `frontend/src/locales/**`. |
-| `backend-development` | Endpoints, handlers, models, schemas, metadata adapters, tasks, migrations under `backend/`. |
-| `pre-pr-verification` | Before committing / opening a PR / declaring done — the checks that keep CI green. |
+| Skill                    | When                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `frontend-v2-components` | Building/editing any v2 component — tiers (lib/shared/feature), file & SFC conventions, barrels, anti-patterns.                      |
+| `frontend-v2-theming`    | Colors, tokens, light/dark themes, visual language — and the **zero-hex-literal** policy.                                            |
+| `frontend-v2-input`      | Interactive components, focus/spatial navigation, gamepad/keyboard, breakpoints & responsive layout.                                 |
+| `frontend-v2-patterns`   | Feature behavior — errors/snackbars, loading, sockets, state persistence, pagination, forms, permissions, destructive confirmations. |
+| `frontend-i18n`          | Any user-visible string or change under `frontend/src/locales/**`.                                                                   |
+| `backend-development`    | Endpoints, handlers, models, schemas, metadata adapters, tasks, migrations under `backend/`.                                         |
+| `pre-pr-verification`    | Before committing / opening a PR / declaring done — the checks that keep CI green.                                                   |
 
 ---
 
@@ -69,15 +71,17 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 **Setup:** see `DEVELOPER_SETUP.md`. Docker path is `cp env.template .env` → `docker compose build` → `docker compose up -d` (app at `http://localhost:3000`).
 
 **Backend** (`cd backend`):
+
 ```bash
 uv sync --all-extras --dev          # install
-uv run python3 main.py              # run (migrations auto-apply)
+uv run main.py              # run (migrations auto-apply)
 uv run pytest [path/file]           # test (subset) — or -vv for all
 uv run alembic revision --autogenerate -m "msg"   # new migration (then HAND-REVIEW)
 uv run alembic upgrade head         # apply migrations
 ```
 
 **Frontend** (`cd frontend`):
+
 ```bash
 npm install                         # install (Node 24)
 npm run dev                         # dev server :3000

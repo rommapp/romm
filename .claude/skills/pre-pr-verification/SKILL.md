@@ -14,7 +14,7 @@ Run the checks that match what you touched. **Static checks don't prove a featur
 Run from `frontend/`:
 
 1. `npm run typecheck` — zero errors (`vue-tsc --noEmit`).
-2. `npm run lint` *(if present)* / ESLint clean. Trunk also runs ESLint + Prettier in CI.
+2. `npm run lint` _(if present)_ / ESLint clean. Trunk also runs ESLint + Prettier in CI.
 3. `npm run test` — zero failures (Vitest + happy-dom; runs unit tests **and** every `/lib` story's `play()` via `composeStories`).
 4. `npm run build` — zero failures (CI sanity check).
 

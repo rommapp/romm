@@ -17,7 +17,7 @@ Related skills: `frontend-v2-theming` (tokens/colors), `frontend-v2-input` (focu
 
 1. **v1 is frozen.** Don't touch `src/views/`, `src/components/`, `src/console/`, `src/layouts/`. When coexistence forces a v2 fork of a store/composable/util, annotate the v1 export with `@deprecated` pointing at the v2 replacement.
 2. **Three component tiers** (below).
-3. **Shared resources are canonical.** Pinia stores, API services, OpenAPI types (`src/__generated__/`), locales, utils — v2 *imports* them, never forks them. Additive changes to shared resources are allowed; changing a shared store API to work around a v2 call-site issue is not.
+3. **Shared resources are canonical.** Pinia stores, API services, OpenAPI types (`src/__generated__/`), locales, utils — v2 _imports_ them, never forks them. Additive changes to shared resources are allowed; changing a shared store API to work around a v2 call-site issue is not.
 4. **TypeScript strict.** Zero `any` (justify with a comment if unavoidable). No `as unknown as ...`; fix the source or define an intermediate type.
 5. **Universal substitution.** When an `R*` primitive exists, use it. If it doesn't, create or extend it. Never drop to raw HTML or raw Vuetify when a primitive applies.
 6. **Wrapper contract.** Wrappers around Vuetify use `defineOptions({ inheritAttrs: false })` + `v-bind="$attrs"` + slot passthrough, and accept every prop/slot of the wrapped component.
@@ -66,16 +66,16 @@ If any fails: **shared composite** if generic across features, **feature composi
 
 ```ts
 // 1. External
-import { computed, ref } from "vue";
 // 2. v2 primitives
 import { RBtn, RDialog } from "@v2/lib";
-// 3. v2 composables / shared
-import { useCan } from "@/v2/composables/useCan";
-// 4. v2 feature siblings
-import GameCard from "@/v2/components/GameCard.vue";
+import { computed, ref } from "vue";
+import type { SimpleRom } from "@/__generated__";
 // 5. Canonical shared resources
 import storeAuth from "@/stores/auth";
-import type { SimpleRom } from "@/__generated__";
+// 4. v2 feature siblings
+import GameCard from "@/v2/components/GameCard.vue";
+// 3. v2 composables / shared
+import { useCan } from "@/v2/composables/useCan";
 ```
 
 - `@v2/lib` — primitives barrel. `@/v2/...` — anything else under v2. `@/...` — canonical shared resources. Never relative paths (`../../foo`) when an alias exists.
@@ -109,7 +109,7 @@ import type { SimpleRom } from "@/__generated__";
 5. Don't add backwards-compat shims inside v2: delete removed code; no `// removed`, no renamed-but-unused exports, no deprecated wrappers that just call the new function.
 6. Don't write redundant tests; don't touch v1; never `--no-verify` on commits.
 
-**Allowed (often misread):** modifying shared stores/services/utils *additively*; creating v2-only composables; importing from `src/__generated__/`.
+**Allowed (often misread):** modifying shared stores/services/utils _additively_; creating v2-only composables; importing from `src/__generated__/`.
 
 ---
 

@@ -54,7 +54,7 @@ Don't push state into `useUISettings` "so it persists" — follow the rule above
 
 - Use the **`RForm` primitive** (wraps `v-form`: Enter-to-submit when valid, scroll-to-first-error after a failed `validate()`). **Never use `v-form` directly.**
 - **Native Vuetify rules** — no Zod/Yup. Rules are arrays of `(v) => true | string`.
-- **Reusable rules** in `src/v2/utils/validation.ts` (`required(msg?)`, `email`, `asciiOnly`, `lengthBetween`, `usernameLength/Chars`, `passwordLength`). Utility code *may* call `i18n.global.t(...)` (the no-i18n rule covers lib primitives, not utils).
+- **Reusable rules** in `src/v2/utils/validation.ts` (`required(msg?)`, `email`, `asciiOnly`, `lengthBetween`, `usernameLength/Chars`, `passwordLength`). Utility code _may_ call `i18n.global.t(...)` (the no-i18n rule covers lib primitives, not utils).
 - **Submit pattern:** `await formRef.value?.validate()` before the API call; submit button uses `:loading="submitting"`; errors → snackbar; field errors stay in-place via `:error-messages`.
 
 ## G. Permissions

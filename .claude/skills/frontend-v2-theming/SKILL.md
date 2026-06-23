@@ -13,12 +13,12 @@ description: Theming, design tokens, colors, and visual language in the RomM v2 
 
 `src/v2/tokens/index.ts` is the source. It feeds two consumers:
 
-- **`src/v2/styles/tokens.css`** — *generated* by `scripts/build-tokens.ts` (`npm run build:tokens`, hooked into `predev`/`prebuild`). **Do not hand-edit.** This is how the vast majority of tokens are consumed: `var(--r-color-...)` in CSS.
+- **`src/v2/styles/tokens.css`** — _generated_ by `scripts/build-tokens.ts` (`npm run build:tokens`, hooked into `predev`/`prebuild`). **Do not hand-edit.** This is how the vast majority of tokens are consumed: `var(--r-color-...)` in CSS.
 - **Direct JS/TS imports** of named exports (`colorCanvas`, `colorCoverArt`, `layout`, …) for the few cases needing a token value in JavaScript — baking colors into an SVG string (`utils/covers`), canvas/QR backgrounds (`Player/Ruffle.vue`, `ShowQRCodeDialog`), and the virtualiser's pixel math (`Gallery/listColumns` reading `layout`).
 
 v2 has **no Vuetify theme of its own.** `tokens.css` emits a palette block per theme under `.r-v2.r-v2-dark` / `.r-v2.r-v2-light`; `RomM.vue` toggles those classes on `<html>`. v2 surfaces never read Vuetify's runtime theme.
 
-> Caveat: a wrapped Vuetify component still resolves `color="primary"` against Vuetify's *own* registered themes (`src/plugins/vuetify.ts`, sourced from v1's `@/styles/themes`). They mirror the brand tokens by hand (both `#8B74E8`), so they line up, but it's a parallel source. **Prefer `var(--r-...)` over the `color` prop.**
+> Caveat: a wrapped Vuetify component still resolves `color="primary"` against Vuetify's _own_ registered themes (`src/plugins/vuetify.ts`, sourced from v1's `@/styles/themes`). They mirror the brand tokens by hand (both `#8B74E8`), so they line up, but it's a parallel source. **Prefer `var(--r-...)` over the `color` prop.**
 
 ### Adding a new token
 
