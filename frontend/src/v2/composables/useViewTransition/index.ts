@@ -100,7 +100,15 @@ export function useViewTransition() {
 function morphNameForRoute(route: RouteLocationNormalized): string | null {
   const name = route.name;
   const params = route.params as Record<string, string | string[]>;
-  if (name === "rom" && params.rom) return `rom-cover-${params.rom}`;
+  // `rom` (detail) and the players (`emulatorjs` / `ruffle`) all own a
+  // `rom-cover-<id>` hero, so morph between any of them and the gallery /
+  // each other.
+  if (
+    (name === "rom" || name === "emulatorjs" || name === "ruffle") &&
+    params.rom
+  ) {
+    return `rom-cover-${params.rom}`;
+  }
   if (name === "platform" && params.platform) {
     return `platform-icon-${params.platform}`;
   }

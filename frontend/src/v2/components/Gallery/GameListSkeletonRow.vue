@@ -27,15 +27,21 @@ interface Props {
    * `GameListRow` so the bootstrap-phase skeleton stays aligned with
    * whichever variant the surrounding list is rendering. */
   showPlatformColumn?: boolean;
+  /** Cover column width (px) — shared with the header / rows. */
+  coverWidth?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showPlatformColumn: true,
+  coverWidth: 48,
 });
 
 const columns = computed(() => getListColumns(props.showPlatformColumn));
 const gridStyle = computed(() => ({
-  gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
+  gridTemplateColumns: getListGridTemplate(
+    props.showPlatformColumn,
+    props.coverWidth,
+  ),
 }));
 </script>
 
@@ -112,11 +118,11 @@ const gridStyle = computed(() => ({
   justify-content: flex-end;
 }
 
-/* Right-align the cover block to match the real row. */
+/* Centre the cover block to match the real row. */
 .r-glr-skel__cover {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .r-glr-skel__title {

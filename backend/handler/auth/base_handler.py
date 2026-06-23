@@ -13,6 +13,7 @@ from starlette.requests import HTTPConnection
 
 from config import (
     INVITE_TOKEN_EXPIRY_SECONDS,
+    OIDC_ALLOW_REGISTRATION,
     OIDC_CLAIM_ROLES,
     OIDC_ENABLED,
     OIDC_ROLE_ADMIN,
@@ -436,6 +437,15 @@ class OpenIDHandler:
 
         user = db_user_handler.get_user_by_email(email)
         if user is None:
+            if not OIDC_ALLOW_REGISTRATION:
+                log.error(
+                    "User with email '%s' not found and OIDC registration is disabled",
+                    hl(email, color=CYAN),
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="User registration is disabled. Please contact an administrator to create an account.",
+                )
             log.info(
                 "User with email '%s' not found, creating new user",
                 hl(email, color=CYAN),

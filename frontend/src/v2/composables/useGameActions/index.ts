@@ -25,10 +25,25 @@ import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useViewTransition } from "@/v2/composables/useViewTransition";
 
-export function useGameActions(getRom: () => SimpleRom | null | undefined) {
+export interface GameActionsOptions {
+  /** Resolver for the cover element to morph from when `play()` navigates to
+   *  the player view. When it returns an element, the navigation runs through
+   *  a shared-element view transition (cover → player hero, same `rom-cover-`
+   *  tag the destination paints); otherwise navigation is immediate. The
+   *  GameCard passes its GameCover box so clicking Play in the gallery morphs
+   *  the cover into /ejs the same way clicking the card morphs into details. */
+  coverEl?: () => HTMLElement | null;
+}
+
+export function useGameActions(
+  getRom: () => SimpleRom | null | undefined,
+  options: GameActionsOptions = {},
+) {
   const { t } = useI18n();
   const router = useRouter();
+  const { morphTransition } = useViewTransition();
   const emitter = inject<Emitter<Events>>("emitter");
   const snackbar = useSnackbar();
   const romsStore = storeRoms();
@@ -164,10 +179,25 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     // The launch "load" flourish (disc/cartridge insert) lives on the
     // player view itself — see EmulatorJS's onPlay — so navigation is
     // immediate here.
-    if (canPlayEJS.value) {
-      router.push(`/rom/${rom.id}/ejs`);
-    } else if (canPlayRuffle.value) {
-      router.push(`/rom/${rom.id}/ruffle`);
+    let path: string | null = null;
+    if (canPlayEJS.value) path = `/rom/${rom.id}/ejs`;
+    else if (canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
+    if (!path) return;
+    const target = path;
+    // When the caller supplies a cover element (the gallery card / detail
+    // hero), morph it into the player's hero cover — same `rom-cover-<id>`
+    // tag the player paints statically. Degrades to a plain push where view
+    // transitions aren't available.
+    const el = options.coverEl?.();
+    if (el) {
+      // Await the push inside the transition so the browser snapshots the
+      // player view *after* it has rendered its hero cover (which carries the
+      // same `rom-cover-<id>` tag) — otherwise there's no element to morph to.
+      morphTransition({ el, name: `rom-cover-${rom.id}` }, async () => {
+        await router.push(target);
+      });
+    } else {
+      router.push(target);
     }
   }
 
