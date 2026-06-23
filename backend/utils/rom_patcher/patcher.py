@@ -8,6 +8,8 @@ import asyncio
 import json
 from pathlib import Path
 
+from anyio import Path as AnyioPath
+
 PATCHER_SCRIPT = Path(__file__).parent / "patcher.js"
 
 SUPPORTED_PATCH_EXTENSIONS = frozenset(
@@ -46,5 +48,5 @@ async def apply_patch(rom_path: Path, patch_path: Path, output_path: Path) -> No
                 message = stderr.decode(errors="replace").strip()
         raise PatcherError(message)
 
-    if not output_path.exists():
+    if not await AnyioPath(output_path).exists():
         raise PatcherError("Patcher did not produce an output file")

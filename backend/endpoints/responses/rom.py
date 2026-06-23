@@ -195,6 +195,12 @@ class RomFileSchema(BaseModel):
     category: RomFileCategory | None
     audio_meta: RomFileAudioMetaSchema | None = None
 
+    @model_validator(mode="after")
+    def default_category_for_non_nested(self) -> RomFileSchema:
+        if self.category is None and self.is_top_level:
+            self.category = RomFileCategory.GAME
+        return self
+
 
 class SoundtrackTrackMetaSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -203,12 +209,6 @@ class SoundtrackTrackMetaSchema(BaseModel):
     file_name: str
     file_size_bytes: int
     audio_meta: RomFileAudioMetaSchema | None = None
-
-    @model_validator(mode="after")
-    def default_category_for_non_nested(self) -> RomFileSchema:
-        if self.category is None and self.is_top_level:
-            self.category = RomFileCategory.GAME
-        return self
 
 
 class RomMetadataSchema(BaseModel):

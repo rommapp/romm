@@ -1,5 +1,5 @@
 {
-  "name": "romm-backend-rom-patcher",
+  "name": "romm-patcher",
   "private": true,
   "description": "Isolated RomPatcher.js install used by the backend server-side patch endpoint.",
   "license": "AGPL-3.0-only",

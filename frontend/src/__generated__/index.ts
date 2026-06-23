@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export type { ActivityEntrySchema } from './models/ActivityEntrySchema';
 export type { AddFirmwareResponse } from './models/AddFirmwareResponse';
 export type { Body_add_collection_api_collections_post } from './models/Body_add_collection_api_collections_post';
 export type { Body_add_firmware_api_firmware_post } from './models/Body_add_firmware_api_firmware_post';
@@ -25,7 +26,6 @@ export type { Body_token_api_token_post } from './models/Body_token_api_token_po
 export type { Body_track_save_api_saves__id__track_post } from './models/Body_track_save_api_saves__id__track_post';
 export type { Body_untrack_save_api_saves__id__untrack_post } from './models/Body_untrack_save_api_saves__id__untrack_post';
 export type { Body_update_collection_api_collections__id__put } from './models/Body_update_collection_api_collections__id__put';
-export type { Body_update_platform_api_platforms__id__put } from './models/Body_update_platform_api_platforms__id__put';
 export type { Body_update_rom_api_roms__id__put } from './models/Body_update_rom_api_roms__id__put';
 export type { Body_update_save_api_saves__id__put } from './models/Body_update_save_api_saves__id__put';
 export type { Body_update_save_visibility_api_saves__id__visibility_put } from './models/Body_update_save_visibility_api_saves__id__visibility_put';
@@ -61,6 +61,7 @@ export type { DeviceAuthTokenPayload } from './models/DeviceAuthTokenPayload';
 export type { DeviceAuthTokenResponse } from './models/DeviceAuthTokenResponse';
 export type { DeviceCreatePayload } from './models/DeviceCreatePayload';
 export type { DeviceCreateResponse } from './models/DeviceCreateResponse';
+export type { DeviceHeartbeatPayload } from './models/DeviceHeartbeatPayload';
 export type { DeviceSchema } from './models/DeviceSchema';
 export type { DeviceSyncSchema } from './models/DeviceSyncSchema';
 export type { DeviceUpdatePayload } from './models/DeviceUpdatePayload';

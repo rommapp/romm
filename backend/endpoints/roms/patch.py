@@ -51,7 +51,7 @@ class PatchResponse(BaseModel):
 async def patch_rom(
     request: Request,
     id: Annotated[int, PathVar(description="ROM file ID (the base game file).", ge=1)],
-    patch_request: PatchRequest = Body(...),
+    patch_request: Annotated[PatchRequest, Body()],
 ):
     """Apply a patch to a ROM file server-side and return the patched file.
 
