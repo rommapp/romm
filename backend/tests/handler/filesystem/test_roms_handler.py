@@ -561,6 +561,40 @@ class TestFSRomsHandler:
         assert count == len(roms)
 
     @pytest.mark.asyncio
+    async def test_get_roms_structure_list_unions_loose_and_grouped(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A list of templates unions their discovery: loose top-level games
+        (`{gameFile}`) plus games inside grouping subfolders
+        (`{category}/{gameFile}`) — the common mixed layout — without dropping
+        either, deduplicated by full path."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: ["{gameFile}", "{category}/{gameFile}"]}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        # Loose top-level game ({gameFile}).
+        assert (base, "Top.zip") in keys
+        # Grouped games one level down ({category}/{gameFile}).
+        assert (f"{base}/Hacks", "Shared.zip") in keys
+        assert (f"{base}/Hacks", "HackOnly.zip") in keys
+        assert (f"{base}/Translations", "Shared.zip") in keys
+        # Hidden folder still skipped; no duplicate full paths.
+        assert not any(r["fs_path"].endswith("/.hidden") for r in roms)
+        full_paths = [f"{r['fs_path']}/{r['fs_name']}" for r in roms]
+        assert len(full_paths) == len(set(full_paths))
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
     async def test_get_rom_files_single_rom(
         self, handler: FSRomsHandler, rom_single, config
     ):

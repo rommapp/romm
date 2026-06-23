@@ -93,6 +93,11 @@
 #   # Any other braced section (e.g. {region}, {category}) is a wildcard
 #   # directory level: it matches any folder and is purely organizational.
 #   #
+#   # A platform may also declare a LIST of templates instead of one; discovery
+#   # is their union. This covers the common mixed layout — loose games at the
+#   # platform root AND games inside grouping subfolders below it — which a
+#   # single fixed-depth template can't express on its own.
+#   #
 #   # Notes:
 #   #   - Hidden (dot-prefixed) folders are never descended into or surfaced.
 #   #   - {gameDir} keeps a folder whole (multi-disc / cue+bin games), so there
@@ -108,8 +113,12 @@
 #   #     gamelist.xml metadata matching is by filename, so both may match the
 #   #     same gamelist entry.
 #   structure:
-#     # roms/nes/Hacks/foo.nes, roms/nes/Translations/bar.nes -> each file a game
-#     nes: '{category}/{gameFile}'
+#     # Mixed: loose top-level games AND grouping subfolders below them, e.g.
+#     #   roms/nes/game01.nes            (matched by {gameFile})
+#     #   roms/nes/Hacks/game03.nes      (matched by {category}/{gameFile})
+#     nes:
+#       - '{gameFile}'
+#       - '{category}/{gameFile}'
 #     # roms/ps3/Disc/Game/, roms/ps3/PSN/Game/ -> each folder a multi-file game
 #     ps3: '{category}/{gameDir}'
 #     # roms/snes/USA/foo.sfc, roms/snes/Japan/bar.sfc

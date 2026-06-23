@@ -32,7 +32,9 @@ filesystem:
   skip_hash_calculation: true
   structure:
     psx: "{category}/{gameDir}"
-    nes: "{gameFile}"
+    nes:
+      - "{gameFile}"
+      - "{category}/{gameFile}"
 
 scan:
   priority:

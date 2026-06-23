@@ -9,6 +9,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_FILES,
     ConfigManager,
     parse_library_structure,
+    parse_platform_structures,
 )
 
 
@@ -84,15 +85,19 @@ def test_config_loader():
     assert loader.config.GAMELIST_MEDIA_IMAGE == "title_screen"
     assert loader.config.STRUCTURE_TEMPLATES == {
         "psx": "{category}/{gameDir}",
-        "nes": "{gameFile}",
+        "nes": ["{gameFile}", "{category}/{gameFile}"],
     }
     # The accessor parses templates on demand; unset platforms get None.
     psx = loader.config.platform_structure("psx")
-    assert psx is not None and psx.each_file_is_game is False
-    assert len(psx.levels) == 1 and psx.levels[0].literal is None
+    assert psx is not None and len(psx) == 1
+    assert psx[0].each_file_is_game is False
+    assert len(psx[0].levels) == 1 and psx[0].levels[0].literal is None
+    # The list form yields one structure per template (union on discovery).
     nes = loader.config.platform_structure("nes")
-    assert nes is not None and nes.each_file_is_game is True
-    assert nes.levels == ()
+    assert nes is not None and len(nes) == 2
+    assert nes[0].each_file_is_game is True and nes[0].levels == ()
+    assert nes[1].each_file_is_game is True
+    assert len(nes[1].levels) == 1 and nes[1].levels[0].literal is None
     assert loader.config.platform_structure("snes") is None
 
 
@@ -164,6 +169,23 @@ def test_parse_library_structure_valid(template, levels, each_file_is_game):
 def test_parse_library_structure_invalid(template):
     with pytest.raises(ValueError):
         parse_library_structure(template)
+
+
+def test_parse_platform_structures_string_and_list():
+    # A bare string yields a single structure.
+    single = parse_platform_structures("{gameFile}")
+    assert len(single) == 1 and single[0].each_file_is_game is True
+
+    # A list yields one structure per template, preserving order.
+    multi = parse_platform_structures(["{gameFile}", "{category}/{gameDir}"])
+    assert len(multi) == 2
+    assert multi[0].levels == () and multi[0].each_file_is_game is True
+    assert len(multi[1].levels) == 1 and multi[1].each_file_is_game is False
+
+
+def test_parse_platform_structures_propagates_invalid():
+    with pytest.raises(ValueError):
+        parse_platform_structures(["{gameFile}", "nope"])
 
 
 def test_missing_config_file_is_created(tmp_path):

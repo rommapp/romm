@@ -749,12 +749,28 @@ class FSRomsHandler(FSHandler):
         return fs_roms
 
     async def _collect_fs_roms(self, platform: Platform) -> list[dict]:
-        """Discover a platform's roms, honoring its custom structure if set."""
+        """Discover a platform's roms, honoring its custom structure if set.
+
+        A platform may declare several structure templates (e.g. loose games at
+        the root plus games inside grouping subfolders); discovery is their
+        union, deduplicated by full path so overlapping templates don't surface
+        a rom twice.
+        """
         rel_roms_path = self.get_roms_fs_structure(platform.fs_slug)
-        structure = cm.get_config().platform_structure(platform.fs_slug)
-        if structure is None:
+        structures = cm.get_config().platform_structure(platform.fs_slug)
+        if structures is None:
             return await self._discover_default_roms(rel_roms_path)
-        return await self._discover_structured_roms(rel_roms_path, structure)
+
+        fs_roms: list[dict] = []
+        seen: set[tuple[str, str]] = set()
+        for structure in structures:
+            for rom in await self._discover_structured_roms(rel_roms_path, structure):
+                key = (rom["fs_path"], rom["fs_name"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                fs_roms.append(rom)
+        return fs_roms
 
     async def count_roms(self, platform: Platform) -> int:
         """Return the number of filesystem roms for a platform without

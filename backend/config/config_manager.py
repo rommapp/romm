@@ -121,6 +121,26 @@ def parse_library_structure(template: str) -> LibraryStructure:
     return LibraryStructure(levels=tuple(levels), each_file_is_game=each_file_is_game)
 
 
+def parse_platform_structures(
+    value: str | list[str],
+) -> tuple[LibraryStructure, ...]:
+    """Parse a platform's custom structure config into one or more structures.
+
+    A platform may declare a single template (string) or several (list) — the
+    list form lets one platform mix layouts, e.g. loose games at the root plus
+    games inside grouping subfolders::
+
+        nes:
+          - "{gameFile}"
+          - "{category}/{gameFile}"
+
+    Discovery is the union of all listed templates. Raises ``ValueError`` if any
+    template is invalid.
+    """
+    templates = [value] if isinstance(value, str) else list(value)
+    return tuple(parse_library_structure(template) for template in templates)
+
+
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
@@ -211,7 +231,7 @@ class Config:
     PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
     FIRMWARE_FOLDER_NAME: str
-    STRUCTURE_TEMPLATES: dict[str, str]
+    STRUCTURE_TEMPLATES: dict[str, str | list[str]]
     SKIP_HASH_CALCULATION: bool
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
@@ -254,18 +274,20 @@ class Config:
 
         return False
 
-    def platform_structure(self, fs_slug: str) -> LibraryStructure | None:
-        """The custom library structure for a platform, or ``None``.
+    def platform_structure(self, fs_slug: str) -> tuple[LibraryStructure, ...] | None:
+        """The custom library structure(s) for a platform, or ``None``.
 
         Opt-in per platform via `filesystem.structure` in config.yml (a map of
-        ``fs_slug -> template``). When unset, the platform uses RomM's default
-        discovery (top-level files and folders). The template is validated at
-        load time, so parsing here is expected to succeed.
+        ``fs_slug -> template`` or ``fs_slug -> [template, ...]``). When unset,
+        the platform uses RomM's default discovery (top-level files and
+        folders). Returns the parsed structures whose discovery is unioned;
+        templates are validated at load time, so parsing here is expected to
+        succeed.
         """
-        template = getattr(self, "STRUCTURE_TEMPLATES", {}).get(fs_slug)
-        if not template:
+        value = getattr(self, "STRUCTURE_TEMPLATES", {}).get(fs_slug)
+        if not value:
             return None
-        return parse_library_structure(template)
+        return parse_platform_structures(value)
 
 
 class ConfigManager:
@@ -775,21 +797,27 @@ class ConfigManager:
                 "Invalid config.yml: filesystem.structure must be a dictionary"
             )
             sys.exit(3)
-        for fs_slug, template in self.config.STRUCTURE_TEMPLATES.items():
-            if not isinstance(template, str):
+        for fs_slug, value in self.config.STRUCTURE_TEMPLATES.items():
+            is_str = isinstance(value, str)
+            is_str_list = isinstance(value, list) and all(
+                isinstance(t, str) for t in value
+            )
+            if not (is_str or is_str_list):
                 log.critical(
                     f"Invalid config.yml: filesystem.structure.{fs_slug} must be a "
-                    "string template"
+                    "template string or a list of template strings"
                 )
                 sys.exit(3)
-            try:
-                parse_library_structure(template)
-            except ValueError as exc:
-                log.critical(
-                    f"Invalid config.yml: filesystem.structure.{fs_slug} "
-                    f"('{template}'): {exc}"
-                )
-                sys.exit(3)
+            templates = [value] if is_str else value
+            for template in templates:
+                try:
+                    parse_library_structure(template)
+                except ValueError as exc:
+                    log.critical(
+                        f"Invalid config.yml: filesystem.structure.{fs_slug} "
+                        f"('{template}'): {exc}"
+                    )
+                    sys.exit(3)
 
         # Drop unknown media types rather than exiting, since a newer release
         # may ship sample configs referencing media types this version doesn't know.
