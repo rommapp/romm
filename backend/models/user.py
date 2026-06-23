@@ -4,19 +4,13 @@ import enum
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import TIMESTAMP, Enum, String
+from sqlalchemy import TIMESTAMP, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
 
-from config import KIOSK_MODE
-from handler.auth.constants import (
-    EDIT_SCOPES,
-    FULL_SCOPES,
-    READ_SCOPES,
-    WRITE_SCOPES,
-    Scope,
-)
+from handler.auth.constants import Scope
 from models.base import BaseModel
+from models.permission import PermissionGroup
 from utils.database import CustomJSON
 
 if TYPE_CHECKING:
@@ -54,6 +48,13 @@ class User(BaseModel, SimpleUser):
     )
     enabled: Mapped[bool] = mapped_column(default=True)
     role: Mapped[Role] = mapped_column(Enum(Role), default=Role.VIEWER)
+    # The granular permission group this user belongs to. NULL falls back to the
+    # server-wide default group in the resolver. Admins bypass groups entirely.
+    permission_group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("permission_groups.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     avatar_path: Mapped[str] = mapped_column(
         String(length=TEXT_FIELD_LENGTH), default=""
     )
@@ -91,6 +92,9 @@ class User(BaseModel, SimpleUser):
     play_sessions: Mapped[list["PlaySession"]] = relationship(
         lazy="raise", back_populates="user", cascade="all, delete-orphan"
     )
+    # Loaded explicitly by the permission resolver; lazy="raise" keeps it off
+    # every other user query so the schema-wide query shape is unchanged.
+    permission_group: Mapped[PermissionGroup | None] = relationship(lazy="raise")
 
     @classmethod
     def kiosk_mode_user(cls) -> User:
@@ -109,16 +113,12 @@ class User(BaseModel, SimpleUser):
 
     @property
     def oauth_scopes(self) -> list[Scope]:
-        if self.role == Role.ADMIN:
-            return FULL_SCOPES
+        # Derived from the granular permission model (groups + overrides),
+        # projected onto the legacy coarse scopes. Resolved per access via its
+        # own session; admins short-circuit without touching the DB.
+        from handler.auth.permissions import compute_oauth_scopes
 
-        if self.role == Role.EDITOR:
-            return EDIT_SCOPES
-
-        if KIOSK_MODE:
-            return READ_SCOPES
-
-        return WRITE_SCOPES
+        return compute_oauth_scopes(self)
 
     @property
     def fs_safe_folder_name(self):
