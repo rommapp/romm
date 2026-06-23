@@ -29,6 +29,7 @@ import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import type { GamepadButtonEventDetail } from "@/v2/composables/useGamepad";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
+import { useVirtualScrollDebug } from "@/v2/composables/useVirtualScrollDebug";
 
 // — Breakpoint + viewport ------------------------------------------------
 const { xs, smAndUp, mdAndUp, lgAndUp, xlAndUp } = useBreakpoint();
@@ -100,6 +101,12 @@ useEventListener(document, "focusout", () => {
   focusEl.value = document.activeElement;
 });
 
+// — Virtual scroll -------------------------------------------------------
+// Published by the active virtualised gallery (null elsewhere). If windowing
+// is healthy, `rendered` stays ~constant (viewport + 2×overscan) however far
+// you scroll; a climbing value means the DOM isn't being trimmed.
+const { stats: vstats } = useVirtualScrollDebug();
+
 // — Performance ----------------------------------------------------------
 const fps = useFps();
 const { isSupported: memSupported, memory } = useMemory();
@@ -154,6 +161,27 @@ onMounted(() => {
       <span class="r-v2-debug__label">focus</span>
       <span class="r-v2-debug__value">{{ focusLabel }}</span>
     </div>
+
+    <template v-if="vstats">
+      <div class="r-v2-debug__row">
+        <span class="r-v2-debug__label">vrows</span>
+        <span class="r-v2-debug__value">
+          <span class="r-v2-debug__accent">{{ vstats.renderedRows }}</span>
+          / {{ vstats.total }} rows · {{ vstats.label }}
+        </span>
+      </div>
+      <div class="r-v2-debug__row">
+        <span class="r-v2-debug__label">vwin</span>
+        <span class="r-v2-debug__value">
+          {{ vstats.renderedCards }} cards · vp
+          <template v-if="vstats.viewportLast >= vstats.viewportFirst">
+            {{ vstats.viewportFirst }}–{{ vstats.viewportLast }}
+          </template>
+          <template v-else>—</template>
+          · ov{{ vstats.overscan }}
+        </span>
+      </div>
+    </template>
 
     <div class="r-v2-debug__row">
       <span class="r-v2-debug__label">perf</span>

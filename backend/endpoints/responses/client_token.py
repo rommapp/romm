@@ -13,6 +13,7 @@ class ClientTokenSchema(BaseModel):
     last_used_at: UTCDatetime | None
     created_at: UTCDatetime
     user_id: int
+    device_id: str | None = None
 
 
 class ClientTokenCreateSchema(ClientTokenSchema):

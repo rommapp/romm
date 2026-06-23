@@ -72,6 +72,12 @@ function run(fn: () => void | Promise<void>) {
     icon="mdi-bookmark-outline"
     @click="run(actions.manageCollections)"
   />
+  <RMenuItem
+    v-if="actions.canRemoveFromContinuePlaying.value"
+    :label="t('rom.remove-from-playing')"
+    icon="mdi-play-protected-content"
+    @click="run(actions.removeFromContinuePlaying)"
+  />
 
   <RDivider />
 

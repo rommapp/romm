@@ -29,10 +29,6 @@ defineProps<{
 </template>
 
 <style scoped>
-.r-v2-related {
-  margin-bottom: 24px;
-}
-
 .r-v2-related__title {
   margin: 0 0 10px 0;
   font-size: 11px;

@@ -45,6 +45,7 @@ export const ROUTES = {
   SERVER_STATS: "server-stats",
   LOGS: "logs",
   PAIR: "pair",
+  PAIR_DEVICE: "pair-device",
   APRIL_FOOLS: "april-fools",
   CONSOLE_HOME: "console-home",
   CONSOLE_PLATFORM: "console-platform",
@@ -323,6 +324,7 @@ const routes = [
             name: ROUTES.ACTIVITY,
             meta: {
               title: i18n.global.t("activity.active-sessions"),
+              bare: true,
             },
             components: {
               // v2-only view; v1 has no activity concept so it redirects
@@ -474,6 +476,14 @@ const routes = [
         },
       },
     ],
+  },
+  {
+    path: "/pair/device",
+    name: ROUTES.PAIR_DEVICE,
+    components: {
+      default: () => import("@/v2/views/DevicePairShell.vue"),
+      v2: () => import("@/v2/views/DevicePairShell.vue"),
+    },
   },
   {
     path: "/pair",

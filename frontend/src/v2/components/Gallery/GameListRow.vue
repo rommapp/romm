@@ -72,6 +72,9 @@ interface Props {
   /** Include the `platform` column. Mirrors `GameListHeader` so the row
    * stays aligned with the column header above it. */
   showPlatformColumn?: boolean;
+  /** Cover column width (px) — shared with the header so the title column
+   * aligns. Set by the shell from the gallery's widest cover. */
+  coverWidth?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -79,7 +82,14 @@ const props = withDefaults(defineProps<Props>(), {
   rom: undefined,
   webp: false,
   showPlatformColumn: true,
+  coverWidth: 48,
 });
+
+const emit = defineEmits<{
+  /** Forwards the cover's measured natural ratio so the shell can size the
+   *  cover column to the gallery's widest cover. */
+  (e: "ratio", payload: { romId: number; ratio: number }): void;
+}>();
 
 const router = useRouter();
 const galleryRoms = storeGalleryRoms();
@@ -121,7 +131,10 @@ function onCheckboxClick(e: MouseEvent) {
 }
 
 const gridStyle = computed(() => ({
-  gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
+  gridTemplateColumns: getListGridTemplate(
+    props.showPlatformColumn,
+    props.coverWidth,
+  ),
 }));
 
 const platformMeta = computed(() => {
@@ -313,7 +326,7 @@ onBeforeUnmount(() => {
         />
       </div>
 
-      <div class="game-list-row__cell game-list-row__title">
+      <div class="game-list-row__cell game-list-row__cover">
         <GameCard
           :rom="rom"
           size="xs"
@@ -321,7 +334,11 @@ onBeforeUnmount(() => {
           decorative
           :show-title="false"
           :show-platform-icon="false"
+          @ratio="emit('ratio', $event)"
         />
+      </div>
+
+      <div class="game-list-row__cell game-list-row__title">
         <div class="game-list-row__meta">
           <div class="game-list-row__name-row">
             <div class="game-list-row__name">
@@ -576,10 +593,32 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
 }
 
+/* Cover sits in its own fixed-width column (centred) so the title/meta
+   column starts at the same x on every row. */
+.game-list-row__cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Bound the xs cover to its fixed column: at the fixed xs height a wide
+   (landscape) cover would render wider than the column and spill out, getting
+   clipped on the left. Cap the art box to a square (max-width = the height)
+   and let the cover letterbox (contain) within, so the whole cover still
+   shows at its true aspect. Portrait/square covers are unaffected (their
+   natural width already fits, and contain renders identically to cover when
+   the box matches the cover's ratio). Scoped to the list cover only — the
+   gallery grid keeps its natural-width flow. */
+.game-list-row__cover :deep(.r-gc__art) {
+  max-width: var(--r-card-art-h);
+}
+.game-list-row__cover :deep(.r-gc__art > img) {
+  object-fit: contain !important;
+}
+
 .game-list-row__title {
   display: flex;
   align-items: center;
-  gap: var(--r-space-3);
   min-width: 0;
 }
 

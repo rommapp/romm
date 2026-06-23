@@ -14,7 +14,7 @@ from handler.metadata import (
     meta_tgdb_handler,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
-from models.platform import DEFAULT_COVER_ASPECT_RATIO, Platform
+from models.platform import Platform
 
 
 def get_supported_platforms() -> list[PlatformSchema]:
@@ -60,7 +60,6 @@ def get_supported_platforms() -> list[PlatformSchema]:
             "updated_at": now,
             "fs_size_bytes": 0,
             "missing_from_fs": False,
-            "aspect_ratio": DEFAULT_COVER_ASPECT_RATIO,
         }
 
         platform_attrs.update(

@@ -32,10 +32,14 @@ interface Props {
    * name on `GameListRow` + `GameListSkeletonRow` so all three stay in
    * lockstep. */
   showPlatformColumn?: boolean;
+  /** Width of the cover column (px) — shared with every row so the title
+   * column aligns. Set by the shell from the gallery's widest cover. */
+  coverWidth?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showPlatformColumn: true,
+  coverWidth: 48,
 });
 
 const emit = defineEmits<{
@@ -45,7 +49,10 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const columns = computed(() => getListColumns(props.showPlatformColumn));
 const gridStyle = computed(() => ({
-  gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
+  gridTemplateColumns: getListGridTemplate(
+    props.showPlatformColumn,
+    props.coverWidth,
+  ),
 }));
 
 const galleryRoms = storeGalleryRoms();

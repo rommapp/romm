@@ -30,7 +30,7 @@ export type ListSortKey = Extract<
 export interface ListColumn {
   /** Sort key (matches `galleryRoms.orderBy`). `null` for non-sortable
    * display-only columns (icon labels, action menus). */
-  key: ListSortKey | "select" | "languages" | "regions" | "actions";
+  key: ListSortKey | "select" | "cover" | "languages" | "regions" | "actions";
   /** Column header label. Empty string renders no text (used for the
    * leading select column + trailing actions column). */
   label: string;
@@ -51,6 +51,9 @@ export interface ListColumn {
 export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
   const cols: ListColumn[] = [
     { key: "select", label: "", sortable: false, align: "start" },
+    // Cover gets its own fixed-width column so the title/meta column starts
+    // at the same x on every row, regardless of the cover's natural width.
+    { key: "cover", label: "", sortable: false, align: "start" },
     { key: "name", label: "Title", sortable: true, align: "start" },
   ];
   if (showPlatform) {
@@ -113,9 +116,16 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
 /** CSS-grid template paired with `getListColumns`. The `platform` slot
  * is inserted between `name` and `fs_size_bytes` when present so column
  * order matches the array. */
-export function getListGridTemplate(showPlatform: boolean): string {
+export function getListGridTemplate(
+  showPlatform: boolean,
+  coverWidthPx = 48,
+): string {
   const platformTrack = showPlatform ? " 200px" : "";
-  return `36px minmax(0, 1.6fr)${platformTrack} 88px 96px 84px 56px 110px 110px 88px`;
+  // Cover track widens to the widest cover in the gallery (set by the
+  // shell from measured ratios), so landscape covers show whole instead of
+  // being clipped, while portrait-only lists stay tight. The title column
+  // starts at a fixed x because every row shares this width.
+  return `36px ${coverWidthPx}px minmax(0, 1.6fr)${platformTrack} 88px 96px 84px 56px 110px 110px 88px`;
 }
 
 /** Default exports — the cross-platform variant. Used by the bootstrap-

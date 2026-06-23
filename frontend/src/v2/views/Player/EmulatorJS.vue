@@ -37,18 +37,19 @@ import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
-import { type DetailedRom } from "@/stores/roms";
+import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
-import AssetList from "@/v2/components/Player/AssetList.vue";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
-import AssetStrip from "@/v2/components/Player/AssetStrip.vue";
+import AssetList from "@/v2/components/shared/AssetList.vue";
+import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
@@ -80,6 +81,35 @@ function focusPlayButton() {
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const selectedSave = ref<SaveSchema | null>(null);
+
+// Rom id straight from the route param (available before `rom` resolves),
+// so the hero cover paints its `view-transition-name` immediately and the
+// shared-element morph from the gallery / details cover pairs on entry.
+const morphRomId = computed(() => {
+  const r = route.params.rom;
+  return typeof r === "string" ? r : null;
+});
+
+// Seed synchronously so the hero cover is already in the DOM when the view
+// transition captures this view — the morph from the details / gallery cover
+// then pairs on entry. `onMounted` refetches the full payload.
+//   * From GameDetails: `currentRom` is the full DetailedRom → seed `rom`.
+//   * Direct gallery→play: only a SimpleRom exists (the gallery card) → seed a
+//     cover-only `heroSeed` so the cover still paints its morph tag. `rom`
+//     stays null (its DetailedRom-only fields are read guarded) until mount.
+const seededRom = storeRoms().currentRom;
+if (seededRom && String(seededRom.id) === morphRomId.value) {
+  rom.value = seededRom;
+}
+const heroSeed = ref<SimpleRom | null>(null);
+if (!rom.value && morphRomId.value != null) {
+  heroSeed.value = storeGalleryRoms().getRomById(Number(morphRomId.value));
+}
+// What the hero cover / title / glow read: the full rom once loaded, else the
+// lightweight seed during the morph-in window.
+const heroRom = computed<DetailedRom | SimpleRom | null>(
+  () => rom.value ?? heroSeed.value,
+);
 const isSavesTabSelected = ref(true);
 const selectedState = ref<StateSchema | null>(null);
 const selectedDisc = ref<number | null>(null);
@@ -159,7 +189,7 @@ const setBgArt = useBackgroundArt();
 // the active style is alt-art, so the purple glow can be dropped for a
 // floating disc / cartridge / mix image. The launch flourish is triggered
 // imperatively on the GameCover via `coverRef` — see onPlay.
-const art = useCoverArt(() => rom.value);
+const art = useCoverArt(() => heroRom.value);
 const heroIsAlt = computed(
   () =>
     art.style.value !== "cover_path" &&
@@ -464,12 +494,14 @@ function backToPlatform() {
 }
 
 const title = computed(
-  () => rom.value?.name || rom.value?.fs_name_no_ext || "",
+  () => heroRom.value?.name || heroRom.value?.fs_name_no_ext || "",
 );
 
 const platformLabel = computed(
   () =>
-    rom.value?.platform_custom_name || rom.value?.platform_display_name || "",
+    heroRom.value?.platform_custom_name ||
+    heroRom.value?.platform_display_name ||
+    "",
 );
 
 type AssetTab = "save" | "state";
@@ -480,12 +512,14 @@ const activeAssetTab = computed<AssetTab>(() =>
 const assetTabs = computed<SliderBtnGroupItem<AssetTab>[]>(() => [
   {
     id: "save",
-    label: `${t("common.saves")}${rom.value?.user_saves.length ? ` · ${rom.value.user_saves.length}` : ""}`,
+    label: t("common.saves"),
+    badge: rom.value?.user_saves.length ?? 0,
     icon: "mdi-content-save",
   },
   {
     id: "state",
-    label: `${t("common.states")}${compatibleStates.value.length ? ` · ${compatibleStates.value.length}` : ""}`,
+    label: t("common.states"),
+    badge: compatibleStates.value.length,
     icon: "mdi-file",
   },
 ]);
@@ -522,7 +556,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
 </script>
 
 <template>
-  <section v-if="rom" class="r-v2-ejs">
+  <section v-if="rom || heroSeed" class="r-v2-ejs">
     <!-- Pre-game configuration -->
     <div v-if="!gameRunning" class="r-v2-ejs__config">
       <!-- Hero: cover + title + Play CTA -->
@@ -534,9 +568,12 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
           <GameCover
             ref="coverRef"
             class="r-v2-ejs__cover-box"
-            :rom="rom"
+            :rom="heroRom"
             :title="title"
-            :identified="rom?.is_identified ?? true"
+            :identified="heroRom?.is_identified ?? true"
+            :morph-id="morphRomId"
+            morph-static
+            hover-motion
           />
           <div class="r-v2-ejs__cover-glow" aria-hidden="true" />
         </div>
@@ -551,6 +588,8 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
           block
           prepend-icon="mdi-play"
           class="r-v2-ejs__play"
+          :loading="!rom"
+          :disabled="!rom"
           @click="onPlay"
         >
           {{ t("play.play") }}
@@ -635,7 +674,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
         </div>
         <div class="r-v2-ejs__setup-body">
           <RSelect
-            v-if="rom.files.length > 1"
+            v-if="(rom?.files?.length ?? 0) > 1"
             v-model="selectedDisc"
             variant="outlined"
             density="comfortable"
@@ -643,7 +682,12 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
             clearable
             hide-details
             :label="t('rom.file')"
-            :items="rom.files.map((f) => ({ title: f.file_name, value: f.id }))"
+            :items="
+              (rom?.files ?? []).map((f) => ({
+                title: f.file_name,
+                value: f.id,
+              }))
+            "
           />
           <RSelect
             v-if="supportedCores.length > 1"
@@ -694,7 +738,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
     </div>
 
     <!-- Running state -->
-    <div v-else class="r-v2-ejs__stage">
+    <div v-else-if="rom" class="r-v2-ejs__stage">
       <Player
         :rom="rom"
         :state="selectedState"

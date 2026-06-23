@@ -463,15 +463,16 @@ function seekValueText(v: number): string {
     <!-- Track list -->
     <ul class="r-v2-stp__list">
       <li
-        v-for="track in tracks"
+        v-for="(track, trackIdx) in tracks"
         :key="track.id"
-        class="r-v2-stp__row"
+        class="r-v2-stp__row r-v2-asset-fade"
         :class="{
           'r-v2-stp__row--active': activeTrackId === track.id,
           'r-v2-stp__row--playing':
             activeTrackId === track.id && isPlaying && !isBuffering,
           'r-v2-stp__row--buffering': activeTrackId === track.id && isBuffering,
         }"
+        :style="{ '--asset-fade-i': trackIdx }"
       >
         <button
           type="button"

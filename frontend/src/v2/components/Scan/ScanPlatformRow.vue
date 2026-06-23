@@ -85,7 +85,7 @@ function coverFor(rom: SimpleRom): string {
       :alt="displayName"
       :width="36"
       :height="48"
-      cover
+      contain
       class="r-v2-scan-platform__cover"
       :class="{ 'r-v2-scan-platform__cover--reveal': coverPop }"
       @load="onCoverLoad"

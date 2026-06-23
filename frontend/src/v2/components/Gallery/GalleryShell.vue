@@ -46,6 +46,7 @@ import {
   onMounted,
   ref,
   watch,
+  watchEffect,
 } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 import { useUISettings } from "@/composables/useUISettings";
@@ -57,10 +58,16 @@ import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
 import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
 import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
-import { type ListSortKey } from "@/v2/components/Gallery/listColumns";
+import {
+  LIST_COVER_HEIGHT_PX,
+  LIST_COVER_WIDTH_PX,
+  type ListSortKey,
+} from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { coverRatio, isBoxartStyle } from "@/v2/composables/useCoverArt";
+import { useDebugMode } from "@/v2/composables/useDebugMode";
+import { useGalleryCoverRatios } from "@/v2/composables/useGalleryCoverRatios";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
@@ -70,6 +77,7 @@ import {
 } from "@/v2/composables/useGalleryVirtualItems";
 import { useGridNav } from "@/v2/composables/useGridNav";
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
+import { useVirtualScrollDebug } from "@/v2/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -242,25 +250,42 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
-// Single source for the responsive card-art width — feeds both the column
-// count and the virtualiser's row-height math so they never drift.
-const cardWidth = () => (xs.value ? 108 : 158);
-const { columns } = useResponsiveColumns(sectionEl, {
+// Card-art width reference (matches GameCard's `--r-card-art-w`); sets the
+// fixed card HEIGHT (a 2/3 cover at this width). Real width follows the ratio.
+const CARD_GAP_PX = 12;
+const cardWidth = () => (xs.value ? 130 : 158);
+const cardHeight = () => Math.round(cardWidth() / (2 / 3));
+const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
   cardWidth,
-  gap: 12,
+  gap: CARD_GAP_PX,
   inset: () => (xs.value ? 64 : smAndDown.value ? 76 : 108),
 });
 
-// Active cover aspect ratio from the gallery-wide boxart style. Drives
-// both the cards' `--r-cover-ratio` (via the shell root, inherited) and
-// the virtualiser's row height so the cover shape, the grid, and the
-// scroll offsets all agree.
+// Fallback cover ratio (boxart style) — the per-card `--r-cover-ratio` seed
+// before GameCover measures the real image, plus the bootstrap skeletons.
 const { boxartStyle } = useUISettings();
 const coverAspectRatio = computed(() =>
   coverRatio(
     isBoxartStyle(boxartStyle.value) ? boxartStyle.value : "cover_path",
   ),
 );
+
+// Measured natural cover ratios feeding the flow-packer — GameCard reports
+// each cover's ratio on load (`onCardRatio`), the packer reads `ratioAt`,
+// and `ratioVersion` bumps (debounced) to trigger a single re-pack.
+// `maxRatio` (widest cover in this gallery) drives the list view's cover
+// column width.
+const { ratioVersion, ratioAt, onCardRatio, maxRatio, resetMaxRatio } =
+  useGalleryCoverRatios();
+
+// List-view cover column width: the widest cover at the row's cover height,
+// clamped so a portrait-only list stays tight and an outlier can't make the
+// column absurd. Wide (landscape) covers then show whole instead of being
+// clipped, and every row shares the width so titles stay aligned.
+const listCoverWidth = computed(() => {
+  const w = Math.round(LIST_COVER_HEIGHT_PX * maxRatio.value);
+  return Math.min(128, Math.max(LIST_COVER_WIDTH_PX, w));
+});
 
 // 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
 //   * Grid mode — rows are `.r-v2-shell__row` (the per-virtualizer-item
@@ -301,8 +326,11 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     notFound: notFoundRef,
     notFoundMessage: notFoundMessageRef,
     skeletonRowCount: props.skeletonRowCount,
-    coverRatio: coverAspectRatio,
-    cardWidth,
+    cardHeight,
+    rowWidth: usableWidth,
+    gap: CARD_GAP_PX,
+    ratioAt,
+    ratioVersion,
   });
 
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
@@ -382,6 +410,69 @@ function onViewportRangeChange(range: { first: number; last: number }) {
   viewportRange.value = range;
   scheduleFetchSync(range);
 }
+
+// Rows kept rendered beyond the viewport. Adaptive so the rendered CARD count
+// stays bounded regardless of how many columns fit: a fixed row overscan on a
+// wide screen (~9 cards/row) mounts hundreds of off-screen cards, and each
+// card is an expensive subtree (cover + hover overlay + shared game actions).
+// We target a roughly constant overscan-card budget per side, clamped so a
+// single-column phone keeps enough rows for smooth scrolling without
+// overshooting. List rows are one item each → a flat row count is fine.
+const GRID_OVERSCAN_CARDS = 60;
+const virtualOverscan = computed(() =>
+  layout.value === "list"
+    ? 12
+    : Math.min(
+        20,
+        Math.max(
+          4,
+          Math.round(GRID_OVERSCAN_CARDS / Math.max(1, columns.value)),
+        ),
+      ),
+);
+
+// ── Debug overlay bridge ────────────────────────────────────────────
+// Publish the virtual scroller's window stats so the global DebugOverlay
+// can show whether windowing is actually trimming the DOM as you scroll.
+// Gated on `debugMode`: when off the effect early-returns before reading
+// any scroll state, so it never re-runs on scroll (zero runtime cost).
+const { enabled: debugMode } = useDebugMode();
+const virtualDebug = useVirtualScrollDebug();
+
+watchEffect(() => {
+  if (!debugMode.value) {
+    virtualDebug.clear();
+    return;
+  }
+  const items = virtualItems.value;
+  const total = items.length;
+  const vr = viewportRange.value;
+  const empty = total === 0 || vr.last < vr.first;
+  const overscan = virtualOverscan.value;
+  const first = empty ? 0 : Math.max(0, vr.first - overscan);
+  const last = empty ? -1 : Math.min(total - 1, vr.last + overscan);
+  // Count the cards actually mounted in the rendered window — grid rows fan
+  // out into many cards, so this is the real DOM weight (not just row count).
+  let renderedCards = 0;
+  for (let i = first; i <= last; i++) {
+    const it = items[i];
+    if (!it) continue;
+    if (it.kind === "row") renderedCards += it.endPosition - it.startPosition;
+    else if (it.kind === "skeleton-row")
+      renderedCards += Math.max(1, columns.value);
+    else renderedCards += 1;
+  }
+  virtualDebug.publish({
+    label: layout.value === "list" ? "gallery·list" : "gallery·grid",
+    total,
+    renderedRows: empty ? 0 : last - first + 1,
+    renderedCards,
+    viewportFirst: vr.first,
+    viewportLast: vr.last,
+    overscan,
+    scrollTop: scrollerRef.value?.scrollTop ?? 0,
+  });
+});
 
 const visibleLettersSet = computed<Set<string>>(() => {
   const set = new Set<string>();
@@ -501,6 +592,15 @@ watch(virtualItems, () => {
   // changed, the user is staring at skeletons).
   syncFetches(viewportRange.value);
 });
+
+// Recompute the list cover-column max when the gallery's rom set changes
+// (context switch, filter, sort) so a previous platform's wide covers
+// don't keep the column wide. Keyed on `romIdIndex` (not `virtualItems`)
+// so grid re-packs don't trigger the O(total) rebuild.
+watch(
+  () => galleryRoms.romIdIndex,
+  () => resetMaxRatio(),
+);
 
 // List mode pins a column header below the toolbar; AlphaStrip jumps
 // must land BELOW both pinned bars or the destination row would slide
@@ -653,6 +753,9 @@ onBeforeUnmount(() => {
   visiblePositions.clear();
   inflowResizeObserver?.disconnect();
   inflowResizeObserver = null;
+  // Drop the debug stats so the overlay doesn't show stale gallery numbers
+  // on the next (non-gallery) route.
+  virtualDebug.clear();
   // Restore body overflow so non-gallery routes scroll normally.
   document.body.style.overflow = prevBodyOverflow ?? "";
   prevBodyOverflow = null;
@@ -682,9 +785,15 @@ const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const asListRow = (i: GalleryItem) => i as ListRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
 
-const rowGridStyle = computed(() => ({
-  gridTemplateColumns: `repeat(${Math.max(1, columns.value)}, minmax(var(--r-card-art-w), 1fr))`,
-}));
+// Stable identity for the virtualiser. Each GalleryItem carries a content-
+// derived `key` (`row-${start}`, `lh-${letter}`, `lr-${p}`, …); feeding it to
+// RVirtualScroller as `get-item-key` lets Vue MATCH rows across a re-pack and
+// MOVE the unchanged ones instead of patching by array index. Index-keying
+// (the default) reassigns every slot's content when a re-pack inserts/removes
+// a row above the viewport, remounting every visible card (image re-decode +
+// reveal). With identity keys, a moved row keeps its DOM and its inner cards
+// (keyed by `:key="p"`) patch in place. `unknown` matches the prop signature.
+const galleryItemKey = (item: unknown): string => (item as GalleryItem).key;
 
 // View-facing surface. Methods only — internal state stays internal.
 defineExpose({
@@ -716,7 +825,8 @@ defineExpose({
       ref="scrollerRef"
       :items="virtualItems"
       :get-item-height="getItemHeight"
-      :overscan="25"
+      :get-item-key="galleryItemKey"
+      :overscan="virtualOverscan"
       class="r-v2-shell__scroller r-v2-scroll-hidden"
       @update:viewport-range="onViewportRangeChange"
     >
@@ -768,6 +878,7 @@ defineExpose({
           :sort-key="listSortKey"
           :sort-dir="orderDir"
           :show-platform-column="showPlatformColumn"
+          :cover-width="listCoverWidth"
           @sort="onListSort"
         />
       </template>
@@ -787,7 +898,6 @@ defineExpose({
           <div
             v-else-if="itemKind(item as GalleryItem) === 'row'"
             class="r-v2-shell__row"
-            :style="rowGridStyle"
           >
             <template
               v-for="(p, slotIdx) in rowPositions(asRow(item as GalleryItem))"
@@ -802,6 +912,7 @@ defineExpose({
                 :show-platform-badge="showPlatformBadge"
                 selectable
                 :position="p"
+                @ratio="onCardRatio"
               />
               <GameCardSkeleton v-else />
             </template>
@@ -812,11 +923,14 @@ defineExpose({
             :position="asListRow(item as GalleryItem).position"
             :webp="supportsWebp"
             :show-platform-column="showPlatformColumn"
+            :cover-width="listCoverWidth"
+            @ratio="onCardRatio"
           />
 
           <GameListSkeletonRow
             v-else-if="itemKind(item as GalleryItem) === 'skeleton-list-row'"
             :show-platform-column="showPlatformColumn"
+            :cover-width="listCoverWidth"
           />
 
           <div
@@ -831,7 +945,6 @@ defineExpose({
           <div
             v-else-if="itemKind(item as GalleryItem) === 'skeleton-row'"
             class="r-v2-shell__row"
-            :style="rowGridStyle"
           >
             <GameCardSkeleton
               v-for="n in Math.max(1, columns)"
@@ -888,6 +1001,7 @@ defineExpose({
       :sort-key="listSortKey"
       :sort-dir="orderDir"
       :show-platform-column="showPlatformColumn"
+      :cover-width="listCoverWidth"
       @sort="onListSort"
     />
 
@@ -988,10 +1102,21 @@ defineExpose({
   margin-bottom: 16px;
 }
 
+/* Flow-packed wrapping row: same-height, natural-width cards. The packer
+   sized it to fit, so `nowrap` is safe; gaps match the packer (12) and the
+   chrome math (18). `flex-start` pins every card to the same top. */
 .r-v2-shell__row {
-  display: grid;
-  gap: 18px 12px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 12px;
   padding-bottom: 18px;
+}
+/* Never shrink: float rounding can push a "just fits" row a hair over, and
+   shrinking a fixed-height card would crop its cover. Take ragged overflow
+   instead (also keeps skeletons, default shrink:1, at their packed width). */
+.r-v2-shell__row > * {
+  flex-shrink: 0;
 }
 
 /* Card reveal animation (.r-v2-card-fade) lives in global.css — shared
@@ -1086,14 +1211,10 @@ defineExpose({
   );
 }
 
-/* Smaller default cards on phones so the grid packs 2–3 per row instead
-   of one stretched card. The grid `minmax(--r-card-art-w, 1fr)` and the
-   GameCards (default size, reading the token) both shrink in lock-step;
-   the JS column-chunking above uses a matching 108px card width. Height
-   is left to the card's `--r-cover-ratio` derive rule so the boxart style
-   drives the cover shape on phones too. */
+/* Smaller cards on phones. Matches GameCard's own xs `--r-card-art-w` so
+   skeletons and the packer's card-height reference track the real cards. */
 html[data-bp~="xs"] .r-v2-shell {
-  --r-card-art-w: 108px;
+  --r-card-art-w: 130px;
 }
 
 html[data-bp~="xs"] .r-v2-shell__scroller {

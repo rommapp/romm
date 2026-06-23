@@ -8,6 +8,7 @@ class ActivityEntrySchema(BaseModel):
     rom_id: int
     rom_name: str
     rom_cover_path: str = ""
+    screenshot_path: str = ""
     platform_slug: str
     platform_name: str
     device_id: str

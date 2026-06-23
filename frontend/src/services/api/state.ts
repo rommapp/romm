@@ -78,8 +78,21 @@ async function deleteStates({ states }: { states: StateSchema[] }) {
   });
 }
 
+async function setStateVisibility({
+  id,
+  isPublic,
+}: {
+  id: number;
+  isPublic: boolean;
+}) {
+  return api.put<StateSchema>(`/states/${id}/visibility`, {
+    is_public: isPublic,
+  });
+}
+
 export default {
   uploadStates,
   updateState,
   deleteStates,
+  setStateVisibility,
 };

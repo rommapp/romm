@@ -9,5 +9,6 @@
   "no-activity": "Derzeit spielt niemand",
   "now-playing": "Wird gespielt",
   "playing-on": "Spielt auf {device}",
-  "playing-since": "Spielt seit {time}"
+  "playing-since": "Spielt seit {time}",
+  "total-sessions": "Sitzungen gesamt"
 }

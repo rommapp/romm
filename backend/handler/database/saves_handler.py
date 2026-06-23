@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Literal
 
-from sqlalchemy import and_, asc, delete, desc, func, select, update
+from sqlalchemy import and_, asc, delete, desc, func, or_, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
 
 from decorators.database import begin_session
@@ -99,6 +99,65 @@ class DBSavesHandler(DBBaseHandler):
             query = query.options(load_only(*only_fields))
 
         return session.scalars(query).all()
+
+    @begin_session
+    def get_save_by_id(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> Save | None:
+        """Fetch a save by id without scoping to an owner. Used for the
+        visibility toggle and community downloads, where the caller may not own
+        the save. Mirrors db_screenshot_handler.get_screenshot_by_id."""
+        return session.get(Save, id)
+
+    @begin_session
+    def get_rom_shared_saves(
+        self,
+        rom_id: int,
+        user_id: int,
+        public_only: bool = False,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Save]:
+        """Saves for a ROM visible to the requesting user: own (public +
+        private) plus other users' public ones. Mirrors
+        db_screenshot_handler.get_rom_gallery_screenshots."""
+        query = select(Save).filter(Save.rom_id == rom_id)
+
+        if public_only:
+            query = query.filter(Save.is_public)
+        else:
+            query = query.filter(or_(Save.user_id == user_id, Save.is_public))
+
+        query = query.order_by(desc(Save.updated_at))
+        return session.scalars(query).all()
+
+    @begin_session
+    def get_latest_saves_for_roms(
+        self,
+        user_id: int,
+        rom_ids: Sequence[int],
+        session: Session = None,  # type: ignore
+    ) -> dict[int, Save]:
+        """The most recent save per ROM for a user, keyed by `rom_id`.
+
+        Batched for the continue-playing rail, which enriches each card with
+        the in-game screenshot captured alongside the user's latest save.
+        """
+        if not rom_ids:
+            return {}
+
+        saves = session.scalars(
+            select(Save)
+            .filter(Save.user_id == user_id, Save.rom_id.in_(rom_ids))
+            .order_by(desc(Save.updated_at))
+        ).all()
+
+        latest: dict[int, Save] = {}
+        for save in saves:
+            # Saves come newest-first, so the first one seen per ROM wins.
+            latest.setdefault(save.rom_id, save)
+        return latest
 
     @begin_session
     def update_save(

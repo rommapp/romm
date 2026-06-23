@@ -22,7 +22,7 @@ export type GalleryItem =
   | {
       kind: "row";
       key: string;
-      rowIndex: number;
+      /** A contiguous, variable-length run of positions (flow-packed). */
       startPosition: number;
       endPosition: number; // exclusive
       /** Letters covered by this row's position range (from server's

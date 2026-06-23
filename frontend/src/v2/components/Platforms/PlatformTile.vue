@@ -136,7 +136,6 @@ html[data-input="touch"] .plat-tile:hover,
 .plat-tile:focus-visible {
   background: var(--r-color-surface);
   border-color: var(--r-color-border-strong);
-  transform: translateY(-2px);
 }
 
 /* Keyboard / gamepad focus — stronger border + stacked brand glow so
@@ -161,7 +160,9 @@ html[data-input="touch"] .plat-tile:hover,
   display: grid;
   place-items: center;
   opacity: 0.9;
-  transition: opacity var(--r-motion-fast);
+  transition:
+    opacity var(--r-motion-fast),
+    transform var(--r-motion-fast);
 }
 
 .plat-tile__playable {
@@ -178,6 +179,7 @@ html[data-input="mouse"] .plat-tile:hover .plat-tile__icon,
 html[data-input="touch"] .plat-tile:hover .plat-tile__icon,
 .plat-tile:focus-visible .plat-tile__icon {
   opacity: 1;
+  transform: scale(1.05);
 }
 
 .plat-tile__name {

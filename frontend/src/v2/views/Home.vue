@@ -263,7 +263,7 @@ function collectionCovers(c: {
           <RIcon icon="mdi-play" size="20" />
         </template>
         <template v-if="fetchingContinue && !continuePlayingRoms.length">
-          <GameCardSkeleton v-for="n in 4" :key="`cs-${n}`" hero />
+          <GameCardSkeleton v-for="n in 4" :key="`cs-${n}`" />
         </template>
         <template v-else>
           <GameCard
@@ -273,7 +273,8 @@ function collectionCovers(c: {
             :style="{ '--card-fade-i': i }"
             :rom="rom"
             :webp="supportsWebp"
-            hero
+            :cover-src="rom.screenshot_path"
+            cover-pip
           />
         </template>
       </CardRow>
@@ -342,10 +343,12 @@ function collectionCovers(c: {
           />
         </template>
         <PlatformTile
-          v-for="p in filledPlatforms"
+          v-for="(p, i) in filledPlatforms"
           v-else
           :key="`plat-${p.id}`"
           :id="p.id"
+          class="r-v2-card-fade"
+          :style="{ '--card-fade-i': i }"
           :slug="p.slug"
           :fs-slug="p.fs_slug"
           :display-name="p.display_name"
@@ -365,9 +368,11 @@ function collectionCovers(c: {
           <RIcon icon="mdi-bookmark-outline" size="20" />
         </template>
         <CollectionTile
-          v-for="c in allCollections"
+          v-for="(c, i) in allCollections"
           :id="c.id"
           :key="`coll-${c.id}`"
+          class="r-v2-card-fade"
+          :style="{ '--card-fade-i': i }"
           :to="`/collection/${c.id}`"
           :name="c.name"
           :rom-count="c.rom_count"

@@ -32,7 +32,11 @@ import {
 } from "vue";
 import { useUISettings } from "@/composables/useUISettings";
 import type { SimpleRom } from "@/stores/roms";
-import { FRONTEND_RESOURCES_PATH, isCDBasedSystem } from "@/utils";
+import {
+  FRONTEND_RESOURCES_PATH,
+  isCDBasedSystem,
+  isArcadeSystem,
+} from "@/utils";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 export type BoxartStyle =
@@ -164,6 +168,7 @@ export function computeCoverArt(
 
   const physicalAlt = style === "physical_path" && isAltArt;
   const cdBased = physicalAlt && isCDBasedSystem(rom.platform_slug);
+  const arcadeBased = physicalAlt && isArcadeSystem(rom.platform_slug);
 
   const videoUrl =
     style === "miximage_path" && rom.path_video
@@ -178,7 +183,7 @@ export function computeCoverArt(
     ratio,
     objectFit: style === "cover_path" ? "cover" : "contain",
     animateCD: physicalAlt && cdBased,
-    animateCartridge: physicalAlt && !cdBased,
+    animateCartridge: physicalAlt && !cdBased && !arcadeBased,
     videoUrl,
   };
 }

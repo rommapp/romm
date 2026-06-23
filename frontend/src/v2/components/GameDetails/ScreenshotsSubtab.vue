@@ -298,9 +298,6 @@ async function toggleVisibility(id: number, isPublic: boolean) {
           <h3 class="r-v2-shots__title">
             {{ t("rom.screenshots-section-mine") }}
           </h3>
-          <p class="r-v2-shots__subtitle">
-            {{ t("rom.screenshots-section-mine-desc") }}
-          </p>
         </div>
         <RBtn
           v-if="myScreenshots.length > 0"

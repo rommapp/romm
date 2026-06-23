@@ -41,10 +41,6 @@ const actions = useGameActions(() => props.rom);
     </h1>
 
     <div class="r-v2-det-header__meta">
-      <span v-if="releaseDate">{{ releaseDate }}</span>
-      <span v-if="releaseDate && platformLabel" class="r-v2-det-header__sep">
-        ·
-      </span>
       <router-link
         v-if="actions.platformPath.value"
         :to="actions.platformPath.value"
@@ -59,12 +55,9 @@ const actions = useGameActions(() => props.rom);
         />
         {{ platformLabel }}
       </router-link>
-      <span
-        v-if="(releaseDate || platformLabel) && verified"
-        class="r-v2-det-header__sep"
-      >
-        ·
-      </span>
+      <span v-if="releaseDate" class="r-v2-det-header__sep"> · </span>
+      <span v-if="releaseDate">{{ releaseDate }}</span>
+      <span v-if="verified" class="r-v2-det-header__sep"> · </span>
       <!-- Icon-only verified indicator. The check decagram is a strong
            enough signal on its own; the "Verified" word was just noise
            in a row that's already mostly text. RTooltip preserves the
@@ -77,27 +70,34 @@ const actions = useGameActions(() => props.rom);
           activator="parent"
         />
       </span>
-    </div>
 
-    <div
-      v-if="regions.length || languages.length || tags.length"
-      class="r-v2-det-header__tags"
-    >
-      <RTag
-        v-for="r in regions"
-        :key="`r-${r}`"
-        :text="r"
-        tone="info"
-        size="small"
-      />
-      <RTag
-        v-for="l in languages"
-        :key="`l-${l}`"
-        :text="l"
-        tone="brand"
-        size="small"
-      />
-      <RTag v-for="t in tags" :key="`t-${t}`" :text="t" size="small" />
+      <span
+        v-if="regions.length || languages.length || tags.length"
+        class="r-v2-det-header__sep"
+      >
+        ·
+      </span>
+
+      <span
+        v-if="regions.length || languages.length || tags.length"
+        class="r-v2-det-header__tags"
+      >
+        <RTag
+          v-for="r in regions"
+          :key="`r-${r}`"
+          :text="r"
+          tone="info"
+          size="small"
+        />
+        <RTag
+          v-for="l in languages"
+          :key="`l-${l}`"
+          :text="l"
+          tone="brand"
+          size="small"
+        />
+        <RTag v-for="t in tags" :key="`t-${t}`" :text="t" size="small" />
+      </span>
     </div>
 
     <div v-if="rom.sibling_roms.length > 0" class="r-v2-det-header__versions">

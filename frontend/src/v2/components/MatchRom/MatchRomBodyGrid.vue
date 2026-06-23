@@ -279,8 +279,11 @@ watch(
   scrollbar-width: thin;
   scrollbar-color: var(--r-color-border-strong) transparent;
   padding: 10px 8px 6px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  /* Flow-pack of natural-width cards (like the gallery) rather than a rigid
+     uniform-width grid — each GameCard renders at its cover's true aspect, so
+     a wide cover would spill out of a fixed grid cell. */
+  display: flex;
+  flex-wrap: wrap;
   gap: 18px 14px;
   align-content: start;
   transition:
@@ -295,6 +298,9 @@ watch(
 }
 
 .match-grid__card-cell {
+  /* Shrink-wrap the card's natural width and never shrink below it (a fixed
+     -height card shrunk on the cross axis would crop its cover). */
+  flex: 0 0 auto;
   /* Stagger entrance — same vocabulary the cover-source picker uses,
      so opening the dialog and selecting a match share a consistent
      "cascading reveal" feel. `--i` is the card's index, set inline. */
@@ -429,6 +435,11 @@ watch(
 .match-grid__source {
   appearance: none;
   position: relative;
+  display: grid;
+  place-items: center;
+  /* Reserve roughly a 2:3 slot so the tile doesn't collapse before the
+     source cover loads; it grows to the cover's true width on load. */
+  min-width: 114px;
   background: transparent;
   border: 2px solid transparent;
   border-radius: calc(var(--r-radius-art) + 2px);
@@ -465,9 +476,14 @@ watch(
 
 .match-grid__source-img {
   display: block;
-  width: 120px;
+  /* Fixed height, natural width — the tile takes the cover's true aspect,
+     never cropped (matches the gallery cards). `max-width` caps the rare
+     ultra-wide cover to the tile so it letterboxes instead of overflowing
+     and getting clipped by the panel. */
   height: 162px;
-  object-fit: cover;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
   border-radius: var(--r-radius-art);
   background: var(--r-color-cover-placeholder);
 }

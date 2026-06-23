@@ -14,7 +14,21 @@ import { useI18n } from "vue-i18n";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 
-defineProps<{ pdfUrl: string }>();
+defineProps<{
+  pdfUrl: string;
+  /** Show a danger-tinted delete button at the end of the toolbar. */
+  deletable?: boolean;
+  /** Show a re-download button (next to Download) when a scraped source
+   *  URL exists for this manual. */
+  redownloadable?: boolean;
+  /** Drive the re-download button's loading/disabled state. */
+  redownloading?: boolean;
+}>();
+
+const emit = defineEmits<{
+  delete: [];
+  redownload: [];
+}>();
 
 const { t } = useI18n();
 const { xs } = useBreakpoint();
@@ -159,6 +173,34 @@ const ids = {
           </button>
         </template>
       </RTooltip>
+
+      <RTooltip v-if="redownloadable" :text="t('rom.redownload')">
+        <template #activator="{ props: activator }">
+          <button
+            v-bind="activator"
+            type="button"
+            class="r-v2-pdfv__btn"
+            :class="{ 'r-v2-pdfv__btn--loading': redownloading }"
+            :disabled="redownloading"
+            @click="emit('redownload')"
+          >
+            <RIcon icon="mdi-cloud-download-outline" size="18" />
+          </button>
+        </template>
+      </RTooltip>
+
+      <RTooltip v-if="deletable" :text="t('common.delete')">
+        <template #activator="{ props: activator }">
+          <button
+            v-bind="activator"
+            type="button"
+            class="r-v2-pdfv__btn r-v2-pdfv__btn--danger"
+            @click="emit('delete')"
+          >
+            <RIcon icon="mdi-delete-outline" size="18" />
+          </button>
+        </template>
+      </RTooltip>
     </div>
 
     <div class="r-v2-pdfv__viewer">
@@ -222,6 +264,24 @@ const ids = {
 .r-v2-pdfv__btn:hover {
   background: var(--r-color-surface-hover);
   color: var(--r-color-fg);
+}
+/* Danger variant — Delete sits at the end of the toolbar, so it takes
+   a danger-tinted foreground + hover so the destructive action reads
+   different from the navigation/zoom siblings. */
+.r-v2-pdfv__btn--danger {
+  color: var(--r-color-danger);
+}
+.r-v2-pdfv__btn--danger:hover {
+  background: color-mix(in srgb, var(--r-color-danger) 14%, transparent);
+  color: var(--r-color-danger);
+}
+.r-v2-pdfv__btn--loading {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.r-v2-pdfv__btn--loading:hover {
+  background: transparent;
+  color: var(--r-color-fg-secondary);
 }
 
 .r-v2-pdfv__page-input {

@@ -62,6 +62,8 @@ def ingest_play_sessions(
             detail=f"Batch size exceeds maximum of {MAX_BATCH_SIZE}",
         )
 
+    device_id = payload.device_id or getattr(request.state, "device_id", None)
+
     summary = _ingest(
         user_id=request.user.id,
         username=request.user.username,
@@ -75,7 +77,7 @@ def ingest_play_sessions(
             }
             for s in payload.sessions
         ],
-        device_id=payload.device_id,
+        device_id=device_id,
     )
 
     return PlaySessionIngestResponse(
@@ -103,10 +105,11 @@ def get_play_sessions(
     limit: int = 50,
     offset: int = 0,
 ) -> list[PlaySessionSchema]:
+    effective_device_id = device_id or getattr(request.state, "device_id", None)
     sessions = db_play_session_handler.get_sessions(
         user_id=request.user.id,
         rom_id=rom_id,
-        device_id=device_id,
+        device_id=effective_device_id,
         start_after=start_after,
         end_before=end_before,
         limit=limit if start_after is None and end_before is None else None,

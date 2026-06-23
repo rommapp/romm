@@ -38,17 +38,21 @@
 //   * `#overlay` slot renders content on top of the cover for badges
 //     that aren't part of the default gallery overlay (e.g. metadata
 //     provider logos in the match-flow source picker).
-import { computed, ref } from "vue";
+import { computed, provide, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
+import CoverArtPip from "@/v2/components/shared/CoverArtPip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
-import { useGameActions } from "@/v2/composables/useGameActions";
+import {
+  GAME_ACTIONS_KEY,
+  useGameActions,
+} from "@/v2/composables/useGameActions";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 import RCheckbox from "@/v2/lib/forms/RCheckbox/RCheckbox.vue";
 import RPlatformIcon from "@/v2/lib/media/RPlatformIcon/RPlatformIcon.vue";
@@ -101,6 +105,10 @@ interface Props {
    *  (edit dialog) and external provider URLs (match dialog source
    *  variants). Bypasses the path/webp/url_cover chain. */
   coverSrc?: string | null;
+  /** When a `coverSrc` override is shown (e.g. the continue-playing
+   *  screenshot), float a small 2D cover-art thumbnail in the bottom-right
+   *  corner so the game stays identifiable. No-op without a `coverSrc`. */
+  coverPip?: boolean;
   /** Paint a brand-coloured outline to mark the card as selected
    *  (cover-variant picker, multi-select gallery). When `selectable`
    *  is true this prop is ignored — the card subscribes directly to
@@ -132,6 +140,7 @@ const props = withDefaults(defineProps<Props>(), {
   noHover: false,
   showTitle: true,
   coverSrc: undefined,
+  coverPip: false,
   selected: false,
   selectable: false,
   position: undefined,
@@ -149,6 +158,9 @@ const art = useCoverArt(() => props.rom, {
 const coverUrl = art.coverUrl;
 const fallbackUrl = art.fallbackUrl;
 const coverAspectRatio = art.ratio;
+// Cover-art PIP — only when an override image (a screenshot) is actually
+// covering the rom's own art, and the consumer opted in.
+const showCoverPip = computed(() => props.coverPip && !!props.coverSrc);
 // Alt-art styles (box3d / physical / miximage) drop the card frame so the
 // artwork floats — but only while a real image renders; with no cover the
 // placeholder keeps its grey box so the title stays readable.
@@ -222,18 +234,35 @@ const ratingLabel = computed(() => {
 // the regular router-link behaviour so opening in a new tab still works.
 const router = useRouter();
 const { morphTransition } = useViewTransition();
-const actions = useGameActions(() => props.rom);
+// Only interactive cards need actions: static / decorative cards (list-row
+// thumbnails, dialog tiles) render no overlay, so creating the composable for
+// them is pure waste. When present, share this single instance with every
+// GameActionBtn in the overlay (play / download / collection / favorite /
+// status / more) instead of each button spinning up its own — the difference
+// between ~1 and ~7 live `useGameActions` per card, which dominates a
+// virtualised grid's cost. Safe to call conditionally (no lifecycle hooks).
+const actions =
+  props.static || props.decorative
+    ? null
+    : useGameActions(() => props.rom, {
+        coverEl: () => coverRef.value?.el() ?? null,
+      });
+if (actions) provide(GAME_ACTIONS_KEY, actions);
 
 // Stop propagation so the card's morph + router push doesn't fire when
 // the user actually wanted to jump to the platform gallery.
 function onPlatformClick(e: MouseEvent) {
   e.preventDefault();
   e.stopPropagation();
-  actions.goToPlatform();
+  actions?.goToPlatform();
 }
 
 const emit = defineEmits<{
   (e: "click", event: MouseEvent): void;
+  /** The cover's natural aspect ratio (width / height) once its image
+   *  loads — forwarded from GameCover so the gallery can flow-pack cards
+   *  at their true shape. Carries the rom id so the consumer can key it. */
+  (e: "ratio", payload: { romId: number; ratio: number }): void;
 }>();
 
 // Gallery selection — only wired when the consumer opts in via
@@ -409,6 +438,7 @@ function onStaticKeydown(e: KeyboardEvent) {
       :webp="webp"
       :active="coverActive"
       :morph-id="isSynthetic ? null : rom.id"
+      @ratio="emit('ratio', { romId: rom.id, ratio: $event })"
     >
       <!-- Selection checkbox — top-left, drawn over the cover. Hidden
            at rest; appears on hover for discoverability, and stays
@@ -437,6 +467,11 @@ function onStaticKeydown(e: KeyboardEvent) {
       <div v-if="$slots.overlay" class="r-gc__overlay-slot">
         <slot name="overlay" />
       </div>
+
+      <!-- Cover-art PIP — small box-art thumbnail floated bottom-right while a
+           screenshot covers the rom's own art. Fades out on hover (below) so
+           it never collides with the action overlay. -->
+      <CoverArtPip v-if="showCoverPip" :rom="rom" :title="title" :webp="webp" />
 
       <!-- Gallery chrome — all suppressed in static / decorative mode. -->
       <template v-if="!static && !decorative">
@@ -474,7 +509,7 @@ function onStaticKeydown(e: KeyboardEvent) {
         <div class="r-gc__overlay">
           <div class="r-gc__overlay-center">
             <GameActionBtn
-              v-if="actions.canPlay.value"
+              v-if="actions?.canPlay.value"
               :rom="rom"
               action="play"
               variant="emphasized"
@@ -524,13 +559,27 @@ function onStaticKeydown(e: KeyboardEvent) {
   color: var(--r-color-fg);
 }
 
-/* Default (gallery) card derives its art height from the active cover
-   ratio so the boxart style drives the shape (cover_path 2/3, box3d 3/4,
-   physical / miximage 1/1). Explicit size tiers + hero keep their fixed
-   footprints — they set `--r-card-art-h` directly. `--r-cover-ratio` is
-   set inline by `useCoverArt`; the fallback keeps standalone cards sane. */
+/* Non-hero cards render at a FIXED HEIGHT with NATURAL WIDTH — same height,
+   varying widths, never cropped. `size` just picks the height (the default
+   derives it from the reference width; tiers set it directly). Only `hero`
+   (16:9) keeps a fixed w×h footprint. */
 .r-gc:not([class*="r-gc--size-"]):not(.r-gc--hero) {
-  --r-card-art-h: calc(var(--r-card-art-w) / var(--r-cover-ratio, 0.6667));
+  --r-card-art-h: calc(var(--r-card-art-w) / 0.6667);
+}
+.r-gc:not(.r-gc--hero) {
+  width: auto;
+  display: flex;
+  flex-direction: column;
+}
+/* Width follows the cover (overrides GameCover's base `width: 100%`). */
+.r-gc:not(.r-gc--hero) .r-gc__art {
+  width: auto;
+}
+/* Label fills the cover's width and ellipsises, without widening the card. */
+.r-gc:not(.r-gc--hero) .r-gc__label {
+  width: 0;
+  min-width: 100%;
+  max-width: 100%;
 }
 
 /* The art box IS the shared <GameCover> (this class lands on its root).
@@ -726,6 +775,15 @@ html[data-input="touch"] .r-gc:hover .r-gc__overlay,
   align-items: center;
   gap: 4px;
   pointer-events: none;
+}
+
+/* Cover-art PIP (CoverArtPip) — fades out under the hover overlay so it never
+   overlaps the action row. The footprint / chrome live in the component. */
+html[data-input="mouse"] .r-gc:hover :deep(.cover-art-pip),
+html[data-input="touch"] .r-gc:hover :deep(.cover-art-pip),
+.r-gc:focus-visible :deep(.cover-art-pip),
+.r-gc--focused :deep(.cover-art-pip) {
+  opacity: 0;
 }
 html[data-input="mouse"] .r-gc:hover .r-gc__badge,
 html[data-input="touch"] .r-gc:hover .r-gc__badge,

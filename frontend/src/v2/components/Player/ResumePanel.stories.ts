@@ -8,9 +8,9 @@ import { RCard, RSliderBtnGroup } from "@v2/lib";
 import type { SliderBtnGroupItem } from "@v2/lib/primitives/RSliderBtnGroup/types";
 import { computed, ref } from "vue";
 import type { SaveSchema, StateSchema } from "@/__generated__";
-import AssetList from "./AssetList.vue";
+import AssetList from "../shared/AssetList.vue";
+import AssetStrip from "../shared/AssetStrip.vue";
 import AssetPreview from "./AssetPreview.vue";
-import AssetStrip from "./AssetStrip.vue";
 
 // ── Fixture builders ─────────────────────────────────────────────
 

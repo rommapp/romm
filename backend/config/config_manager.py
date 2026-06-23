@@ -186,6 +186,7 @@ class MetadataMediaType(enum.StrEnum):
     BEZEL = "bezel"
     BOX2D = "box2d"
     BOX2D_BACK = "box2d_back"
+    BOX2D_SIDE = "box2d_side"
     BOX3D = "box3d"
     MIXIMAGE = "miximage"
     MIXIMAGE_V2 = "miximage_v2"

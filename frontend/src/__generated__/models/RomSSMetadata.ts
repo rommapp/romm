@@ -24,6 +24,7 @@ export type RomSSMetadata = {
     video_normalized_url?: (string | null);
     bezel_path?: (string | null);
     box2d_back_path?: (string | null);
+    box2d_side_path?: (string | null);
     box3d_path?: (string | null);
     fanart_path?: (string | null);
     miximage_path?: (string | null);

@@ -9,5 +9,6 @@
   "no-activity": "Jelenleg senki sem játszik",
   "now-playing": "Most játszik",
   "playing-on": "Ezen játszik: {device}",
-  "playing-since": "Játszik ekkortól: {time}"
+  "playing-since": "Játszik ekkortól: {time}",
+  "total-sessions": "Összes munkamenet"
 }

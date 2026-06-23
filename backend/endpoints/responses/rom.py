@@ -12,7 +12,9 @@ from endpoints.responses.assets import (
     SaveSchema,
     ScreenshotSchema,
     StateSchema,
+    UserSaveSchema,
     UserScreenshotSchema,
+    UserStateSchema,
 )
 from handler.metadata.flashpoint_handler import FlashpointMetadata
 from handler.metadata.gamelist_handler import GamelistMetadata
@@ -398,6 +400,8 @@ class SiblingRomSchema(BaseModel):
 
 
 class SimpleRomSchema(RomSchema):
+    screenshot_path: str | None = None
+
     @classmethod
     def from_orm_with_request(
         cls,
@@ -405,8 +409,10 @@ class SimpleRomSchema(RomSchema):
         request: Request,
         files: Sequence[RomFile] | None = None,
         siblings: Sequence[tuple[Rom, bool]] | None = None,
+        screenshot_path: str | None = None,
     ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request)
+        db_rom.screenshot_path = screenshot_path  # type: ignore[assignment]
 
         # The list endpoint passes pre-fetched `files`/`siblings` (batched via
         # get_files_for_roms / get_siblings_for_roms, no per-row hydration).
@@ -443,6 +449,7 @@ class SimpleRomSchema(RomSchema):
         db_rom.included_files = []  # type: ignore[assignment]
         db_rom.included_sibling_roms = []  # type: ignore[assignment]
         db_rom.has_notes = False  # type: ignore[assignment]
+        db_rom.screenshot_path = None  # type: ignore[assignment]
         return cls.model_validate(db_rom)
 
 
@@ -467,6 +474,8 @@ class UserCollectionSchema(BaseModel):
 class DetailedRomSchema(RomSchema):
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
+    all_user_saves: list[UserSaveSchema]
+    all_user_states: list[UserStateSchema]
     user_screenshots: list[ScreenshotSchema]
     all_user_screenshots: list[UserScreenshotSchema]
     user_collections: list[UserCollectionSchema]
@@ -556,6 +565,42 @@ class DetailedRomSchema(RomSchema):
                 }
             )
             for s in gallery_screenshots
+        ]
+
+        # Saves/states visible to this user: own (public + private) plus other
+        # users' public ones. Mirrors the screenshots flow above.
+        from handler.database import db_save_handler, db_state_handler
+
+        # SaveSchema.model_validate handles the lazy `device_syncs` relationship
+        # (skips it when unloaded); reuse it rather than getattr-ing raw fields.
+        shared_saves = db_save_handler.get_rom_shared_saves(
+            rom_id=db_rom.id, user_id=user_id
+        )
+        db_rom.all_user_saves = [  # type: ignore[assignment]
+            UserSaveSchema.model_validate(
+                {
+                    **SaveSchema.model_validate(s).model_dump(),
+                    "username": s.user.username,
+                    "user_avatar_path": s.user.avatar_path,
+                    "user_updated_at": s.user.updated_at,
+                }
+            )
+            for s in shared_saves
+        ]
+
+        shared_states = db_state_handler.get_rom_shared_states(
+            rom_id=db_rom.id, user_id=user_id
+        )
+        db_rom.all_user_states = [  # type: ignore[assignment]
+            UserStateSchema.model_validate(
+                {
+                    **StateSchema.model_validate(s).model_dump(),
+                    "username": s.user.username,
+                    "user_avatar_path": s.user.avatar_path,
+                    "user_updated_at": s.user.updated_at,
+                }
+            )
+            for s in shared_states
         ]
 
         return cls.model_validate(db_rom)

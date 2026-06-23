@@ -218,6 +218,16 @@ export default defineStore("v2GalleryRoms", {
       return this.byPosition.get(position) ?? null;
     },
 
+    /** Find a loaded ROM by id, or null. Scans the sparse `byPosition`
+     * window cache — used to seed the player hero cover synchronously on a
+     * direct gallery→play so the shared-element morph has a target. */
+    getRomById(id: number): SimpleRom | null {
+      for (const rom of this.byPosition.values()) {
+        if (rom.id === id) return rom;
+      }
+      return null;
+    },
+
     /** Drop everything tied to the previous gallery context but keep
      * order-by / order-dir. Call before switching platform / collection
      * or when filters change. */

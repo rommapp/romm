@@ -31,6 +31,7 @@ class DeviceSchema(BaseModel):
     ip_address: str | None
     mac_address: str | None
     hostname: str | None
+    client_device_identifier: str | None
     sync_mode: SyncMode
     sync_enabled: bool
     sync_config: dict | None
