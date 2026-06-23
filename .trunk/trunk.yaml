@@ -51,6 +51,8 @@ lint:
         - frontend/src/__generated__/**
         - docker/Dockerfile
         - docker/nginx/js/**
+        # Vendored patcherjs library
+        - backend/utils/rom_patcher/patcher.js
         # Intentionally malformed YAML, used as a test fixture
         - backend/tests/config/fixtures/config/malformed_config.yml
   files:
