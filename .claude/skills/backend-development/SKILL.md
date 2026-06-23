@@ -13,7 +13,7 @@ Full reference: **`docs/BACKEND_ARCHITECTURE.md`** (directory map, ER diagram, e
 
 ## Layered architecture — where code goes
 
-```
+```txt
 endpoints/        FastAPI routers: request validation, response schemas, @protected_route scopes
 endpoints/responses/  Pydantic response schemas (these shape the OpenAPI → frontend types)
 endpoints/sockets/    Socket.IO event handlers
