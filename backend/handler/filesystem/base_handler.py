@@ -244,10 +244,7 @@ class FSHandler:
 
         try:
             yield temp_path
-            # mkstemp creates files with 0600; normalise to 0644 so that
-            # exported files (metadata.pegasus.txt, gamelist.xml, …) are
-            # readable by other users on a shared/mounted volume — matching
-            # the permissions applied to uploaded ROM files.
+            # mkstemp creates files with 0600 permissions
             os.chmod(temp_path, 0o644)
             os.replace(str(temp_path), str(target_path))
 

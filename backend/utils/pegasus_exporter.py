@@ -12,15 +12,10 @@ from models.rom import Rom
 from utils.filesystem import link_or_copy_file
 
 # Map RomM platform slugs to canonical Pegasus (collection name, shortname) pairs.
-# Keys are UniversalPlatformSlug members; a few platforms absent from UPS (naomi,
-# chip-8, steam) use the raw folder-name string that platform.slug falls back to.
 # Source: https://www.pegasus-frontend.org/docs/user-guide/meta-files/
 # Only platforms present in the official Pegasus "Common platform names" table are listed.
-# When a platform is not in this dict the exporter falls back to the RomM platform name and slug.
-SLUG_TO_PEGASUS: dict[UPS | str, tuple[str, str]] = {
-    # ------------------------------------------------------------------ #
+SLUG_TO_PEGASUS: dict[UPS, tuple[str, str]] = {
     # Atari
-    # ------------------------------------------------------------------ #
     UPS.ATARI2600: ("Atari 2600", "atari2600"),
     UPS.ATARI5200: ("Atari 5200", "atari5200"),
     UPS.ATARI7800: ("Atari 7800", "atari7800"),
@@ -30,9 +25,7 @@ SLUG_TO_PEGASUS: dict[UPS | str, tuple[str, str]] = {
     UPS.LYNX: ("Atari Lynx", "atarilynx"),
     UPS.ATARI_ST: ("Atari ST", "atarist"),
     UPS.ATARI_XEGS: ("Atari XE", "atarixe"),
-    # ------------------------------------------------------------------ #
     # Nintendo handhelds
-    # ------------------------------------------------------------------ #
     UPS.GB: ("Game Boy", "gb"),
     UPS.GBC: ("Game Boy Color", "gbc"),
     UPS.GBA: ("Game Boy Advance", "gba"),
@@ -40,9 +33,7 @@ SLUG_TO_PEGASUS: dict[UPS | str, tuple[str, str]] = {
     UPS.N3DS: ("Nintendo 3DS", "3ds"),
     UPS.G_AND_W: ("Nintendo Game-and-Watch", "gameandwatch"),
     UPS.VIRTUALBOY: ("Nintendo VirtualBoy", "virtualboy"),
-    # ------------------------------------------------------------------ #
     # Nintendo home consoles
-    # ------------------------------------------------------------------ #
     UPS.NES: ("Nintendo Entertainment System", "nes"),
     UPS.FAMICOM: ("Nintendo Entertainment System", "nes"),
     UPS.FDS: ("Famicom Disk System", "fds"),
@@ -53,9 +44,7 @@ SLUG_TO_PEGASUS: dict[UPS | str, tuple[str, str]] = {
     UPS.WII: ("Nintendo Wii", "wii"),
     UPS.WIIU: ("Nintendo WiiU", "wiiu"),
     UPS.SWITCH: ("Nintendo Switch", "switch"),
-    # ------------------------------------------------------------------ #
     # Sega
-    # ------------------------------------------------------------------ #
     UPS.SG1000: ("SEGA SG-1000", "sg1000"),
     UPS.SMS: ("Sega Master System", "mastersystem"),
     UPS.GENESIS: ("Sega Genesis", "genesis"),
@@ -65,43 +54,31 @@ SLUG_TO_PEGASUS: dict[UPS | str, tuple[str, str]] = {
     UPS.SATURN: ("Sega Saturn", "saturn"),
     UPS.DC: ("Sega Dreamcast", "dreamcast"),
     UPS.GAMEGEAR: ("SEGA GameGear", "gamegear"),
-    # ------------------------------------------------------------------ #
     # Sony
-    # ------------------------------------------------------------------ #
     UPS.PSX: ("PlayStation", "psx"),
     UPS.PS2: ("PlayStation 2", "ps2"),
     UPS.PS3: ("PlayStation 3", "ps3"),
     UPS.PSP: ("PlayStation Portable", "psp"),
     UPS.PSVITA: ("PlayStation Vita", "psvita"),
-    # ------------------------------------------------------------------ #
     # Microsoft
-    # ------------------------------------------------------------------ #
     UPS.XBOX: ("Xbox", "xbox"),
     UPS.XBOX360: ("Xbox 360", "xbox360"),
-    # ------------------------------------------------------------------ #
     # NEC / PC Engine
-    # ------------------------------------------------------------------ #
     UPS.TG16: ("TurboGrafx 16", "turbografx16"),
     UPS.TURBOGRAFX_CD: ("PC Engine CD", "pcengine"),
     UPS.PC_FX: ("PC-FX", "pcfx"),
-    # ------------------------------------------------------------------ #
     # SNK Neo Geo
-    # ------------------------------------------------------------------ #
     UPS.NEOGEOAES: ("Neo Geo", "neogeo"),
     UPS.NEOGEOMVS: ("Neo Geo", "neogeo"),
     UPS.NEO_GEO_CD: ("Neo Geo CD", "neogeocd"),
     UPS.NEO_GEO_POCKET: ("Neo Geo Pocket", "ngp"),
     UPS.NEO_GEO_POCKET_COLOR: ("Neo Geo Pocket Color", "ngpc"),
-    # ------------------------------------------------------------------ #
     # Commodore / Amiga
-    # ------------------------------------------------------------------ #
     UPS.AMIGA: ("Amiga", "amiga"),
     UPS.AMIGA_CD32: ("Amiga CD32", "amigacd32"),
     UPS.COMMODORE_CDTV: ("Amiga CDTV", "amigacdtv"),
     UPS.C64: ("Commodore 64", "c64"),
-    # ------------------------------------------------------------------ #
     # Amstrad / Sharp / other home computers
-    # ------------------------------------------------------------------ #
     UPS.ACPC: ("Amstrad CPC", "amstradcpc"),
     UPS.SHARP_X68000: ("Sharp X6800", "x68000"),
     UPS.MSX: ("MSX", "msx"),
@@ -111,15 +88,9 @@ SLUG_TO_PEGASUS: dict[UPS | str, tuple[str, str]] = {
     UPS.MAC: ("Macintosh", "macintosh"),
     UPS.ANDROID: ("Android", "android"),
     UPS.WIN: ("Windows", "windows"),
-    # ------------------------------------------------------------------ #
     # Arcade
-    # ------------------------------------------------------------------ #
     UPS.ARCADE: ("Arcade", "arcade"),
-    # Naomi is not a UniversalPlatformSlug; matched by raw folder name.
-    "naomi": ("Naomi", "naomi"),
-    # ------------------------------------------------------------------ #
     # Other consoles / platforms
-    # ------------------------------------------------------------------ #
     UPS._3DO: ("3DO", "3do"),
     UPS.APPLEII: ("Apple II", "apple2"),
     UPS.COLECOVISION: ("ColecoVision", "colecovision"),
@@ -137,13 +108,10 @@ SLUG_TO_PEGASUS: dict[UPS | str, tuple[str, str]] = {
     # WonderSwan
     UPS.WONDERSWAN: ("WonderSwan", "wonderswan"),
     UPS.SWANCRYSTAL: ("WonderSwan/Color", "wonderswancolor"),
-    # CHIP-8 is not a UniversalPlatformSlug; matched by raw folder name.
-    "chip-8": ("CHIP-8", "chip8"),
     # ZX Spectrum / ZX81
     UPS.ZXS: ("ZX Spectrum", "zxspectrum"),
     UPS.ZX81: ("ZX81", "zx81"),
-    # Steam is not a UniversalPlatformSlug; matched by raw folder name.
-    "steam": ("Steam", "steam"),
+    UPS.STEAM: ("Steam", "steam"),
 }
 
 # Map Pegasus asset keys to subdirectory names inside assets/
@@ -171,9 +139,9 @@ class PegasusExporter:
     @staticmethod
     def _resolve_collection(platform: Platform) -> tuple[str, str]:
         """Return (collection_name, shortname) for a platform."""
-        mapped = SLUG_TO_PEGASUS.get(platform.slug)
-        if mapped:
-            return mapped
+        if platform.slug in SLUG_TO_PEGASUS:
+            return SLUG_TO_PEGASUS[UPS(platform.slug)]
+
         return (platform.custom_name or platform.name, platform.slug)
 
     def _format_release_date(self, timestamp: int) -> str:
