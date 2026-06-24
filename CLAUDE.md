@@ -81,6 +81,8 @@ uv run alembic revision --autogenerate -m "msg"   # new migration (then HAND-REV
 uv run alembic upgrade head         # apply migrations
 ```
 
+Standalone Python tools/scripts (dev/test utilities, not part of the app) live in `backend/tools/`.
+
 **Frontend** (`cd frontend`):
 
 ```bash

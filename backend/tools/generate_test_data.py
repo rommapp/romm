@@ -7,7 +7,7 @@ collections and sync data, then bulk-inserts everything.
 
 Run from the backend directory:
 
-    uv run scripts/generate_test_data.py --roms 100000
+    uv run tools/generate_test_data.py --roms 100000
 
 The script talks straight to the database configured by the usual env vars
 (DB_HOST, DB_NAME, ...). It assigns primary keys explicitly so foreign keys
@@ -25,7 +25,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-# Allow running as `python3 scripts/generate_test_data.py` from backend/.
+# Allow running as `python3 tools/generate_test_data.py` from backend/.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # isort: off

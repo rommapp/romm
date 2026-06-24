@@ -1,4 +1,4 @@
-# uv run python -m utils.generate_supported_platforms
+# uv run python -m tools.generate_supported_platforms
 from typing import TypedDict
 from urllib.parse import quote
 
