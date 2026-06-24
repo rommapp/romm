@@ -742,10 +742,10 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    rng = random.Random(args.seed)
+    rng = random.Random(args.seed)  # nosec B311 - fake data, not security-sensitive
     # Separate stream for image pixels so rom rows stay identical with or
     # without --images (image draws never perturb the main rng sequence).
-    img_rng = random.Random(args.seed ^ 0x53A17)
+    img_rng = random.Random(args.seed ^ 0x53A17)  # nosec B311 - fake data
     now = datetime.now(timezone.utc)
     pool = build_platform_pool()
     if args.platforms > len(pool):
@@ -1366,7 +1366,7 @@ def main() -> int:
                 }
             )
 
-    for s in range(max(1, args.collections // 8)):
+    for _s in range(max(1, args.collections // 8)):
         sid = ids.take("smart_collections")
         sample_n = rng.randint(5, min(200, len(all_rom_ids)))
         members = rng.sample(list(all_rom_ids), k=sample_n)
@@ -1494,7 +1494,8 @@ def _wipe(conn) -> None:
     ]
     print("Wiping existing rows from %d tables..." % len(tables))
     for t in tables:
-        conn.execute(text(f"DELETE FROM {t}"))
+        # nosec B608 - table names are from the hardcoded list above, not user input
+        conn.execute(text(f"DELETE FROM {t}"))  # nosec B608
 
 
 if __name__ == "__main__":
