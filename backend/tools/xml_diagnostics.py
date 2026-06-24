@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+"""Diagnose a malformed XML file: bad encoding, invalid chars, parse errors.
+
+Reads the file in chunks to surface UTF-8 issues, then runs SAX and
+ElementTree parsing to report the location of structural errors, with a few
+lines of context around each one.
+
+Run from the backend directory:
+
+    uv run tools/xml_diagnostics.py <xml_file>
+"""
+
 import sys
 from xml.sax.handler import ContentHandler  # nosec
 
@@ -79,6 +91,6 @@ def diagnose_xml(filename):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python script.py <xml_file>")
+        print("Usage: uv run tools/xml_diagnostics.py <xml_file>")
         sys.exit(1)
     diagnose_xml(sys.argv[1])
