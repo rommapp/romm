@@ -54,6 +54,11 @@ COPY frontend/package.json /app/frontend/
 WORKDIR /app/frontend
 RUN npm install
 
+# Install backend Node helpers (server-side ROM patching)
+COPY backend/utils/rom_patcher/package.json /app/backend/utils/rom_patcher/
+WORKDIR /app/backend/utils/rom_patcher
+RUN npm install
+
 # Set working directory
 WORKDIR /app
 

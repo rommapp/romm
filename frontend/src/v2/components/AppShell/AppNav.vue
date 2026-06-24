@@ -6,9 +6,9 @@
 // rather than route names so gallery subroutes (e.g. /rom/:id) still
 // light up the Home tab.
 //
-// Library tools (Scan / Upload / Patcher) are administrative actions,
-// not content destinations — they live in the user menu's Library
-// group, keeping the primary nav focused on browsing destinations.
+// Library tools (Scan / Upload) are administrative actions, not content
+// destinations — they live in the user menu's Library group, keeping the
+// primary nav focused on browsing destinations.
 import { RBtn, RSliderBtnGroup, RTooltip, RImg } from "@v2/lib";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";

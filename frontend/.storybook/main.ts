@@ -22,16 +22,12 @@ const config: StorybookConfig = {
       "@": fileURLToPath(new URL("../src", import.meta.url)),
       "@v2": fileURLToPath(new URL("../src/v2", import.meta.url)),
     };
-    // The main app's Vite config registers VitePWA and viteStaticCopy; both
-    // are app-build concerns (service worker, ROM patcher assets) and have
+    // The main app's Vite config registers VitePWA; this is an
+    // app-build concern (service worker, ROM patcher assets) and has
     // no place in Storybook. Flatten the plugin tree (vite plugins can be
-    // arrays of plugins) and strip anything PWA or static-copy related.
+    // arrays of plugins) and strip anything PWA related.
     function isBlocked(name: string) {
-      return (
-        name.startsWith("vite-plugin-pwa") ||
-        name === "vite-plugin-static-copy" ||
-        name.startsWith("vite-plugin-static-copy")
-      );
+      return name.startsWith("vite-plugin-pwa");
     }
     function keep(plugin: unknown): unknown[] {
       if (!plugin) return [];

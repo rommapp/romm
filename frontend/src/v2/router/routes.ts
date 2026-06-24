@@ -37,10 +37,9 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   // Wave 5 — Players
   emulatorjs: () => import("@/v2/views/Player/EmulatorJS.vue"),
   ruffle: () => import("@/v2/views/Player/Ruffle.vue"),
-  // Wave 6 — Library Tools (Scan / Upload / Patcher) + Pair
+  // Wave 6 — Library Tools (Scan / Upload) + Pair
   scan: () => import("@/v2/views/Scan.vue"),
   upload: () => import("@/v2/views/Upload.vue"),
-  patcher: () => import("@/v2/views/Patcher.vue"),
   // Pair is wired via a top-level PairDispatcher (see plugins/router.ts); no
   // named-view entry is needed — the dispatcher picks v1 or v2 itself.
   // Wave 7 — Settings suite

@@ -76,6 +76,7 @@ from utils.validation import ValidationError
 from .files import router as files_router
 from .manual import router as manual_router
 from .notes import router as notes_router
+from .patch import router as patch_router
 from .screenshot import router as screenshot_router
 from .soundtrack import router as soundtrack_router
 from .upload import router as upload_router
@@ -90,6 +91,7 @@ router.include_router(manual_router)
 router.include_router(soundtrack_router)
 router.include_router(screenshot_router)
 router.include_router(notes_router)
+router.include_router(patch_router)
 
 
 def safe_int_or_none(value: Any) -> int | None:
