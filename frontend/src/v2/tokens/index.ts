@@ -158,6 +158,10 @@ export const colorDark = {
   toastBg: "rgba(13, 17, 23, 0.92)",
   // RSwitch ON knob — dark ink that pops on the bright dark-theme track.
   switchKnobOn: "#111117",
+  // Detail-page title drop shadow — lifts the white title off the dark
+  // background art. Light theme drops it (transparent): a dark blurred halo
+  // under dark-on-light text just smudges.
+  titleShadow: "rgba(0, 0, 0, 0.5)",
 } as const;
 
 export const colorLight = {
@@ -202,6 +206,9 @@ export const colorLight = {
   // RSwitch ON knob — white knob so it pops on light theme's deep-purple
   // track instead of sinking into it as a dark blob.
   switchKnobOn: "rgba(255, 255, 255, 0.95)",
+  // Detail-page title shadow — none on light (a dark blurred halo under the
+  // dark-on-light title just smudges; the calm light backdrop needs no lift).
+  titleShadow: "transparent",
 } as const;
 
 // Cover-overlay surfaces — fixed dark glass values that never theme-flip.
