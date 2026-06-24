@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
 from starlette.responses import FileResponse
 
+from config import ROM_PATCHER_MAX_FILE_SIZE_BYTES
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
@@ -94,6 +95,17 @@ async def patch_rom(
             detail=f"Unsupported patch format '{patch_ext}'. Supported: {', '.join(sorted(SUPPORTED_PATCH_EXTENSIONS))}",
         )
 
+    # RomPatcher.js loads the whole ROM into memory, so reject oversized inputs.
+    for label, file in (("ROM", rom_file), ("Patch", patch_file)):
+        if file.file_size_bytes > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"{label} file is too large to patch "
+                    f"({file.file_size_bytes} bytes, max {ROM_PATCHER_MAX_FILE_SIZE_BYTES})"
+                ),
+            )
+
     rom_path = fs_rom_handler.validate_path(rom_file.full_path)
     patch_path = fs_rom_handler.validate_path(patch_file.full_path)
 
@@ -114,19 +126,21 @@ async def patch_rom(
     output_path = Path(tmp_dir) / output_file_name
 
     try:
-        await apply_patch(rom_path, patch_path, output_path)
+        validated = await apply_patch(rom_path, patch_path, output_path)
     except PatcherError as e:
         shutil.rmtree(tmp_dir, ignore_errors=True)
+        # Detail may contain server paths from node/RomPatcher.js; keep it server-side.
+        log.error(f"Patching failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+            detail="Patching failed",
         ) from e
     except Exception as e:
         shutil.rmtree(tmp_dir, ignore_errors=True)
-        log.error(f"Patching error: {e}")
+        log.error(f"Unexpected patching error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected patching error: {e}",
+            detail="Patching failed",
         ) from e
 
     output_size = output_path.stat().st_size
@@ -134,6 +148,11 @@ async def patch_rom(
         f"Successfully patched ROM for user {hl(current_username, color=BLUE)}: "
         f"{hl(output_file_name)} ({output_size} bytes)"
     )
+    if not validated:
+        log.warning(
+            f"Patch {hl(patch_file.file_name)} source checksum did not match "
+            f"ROM {hl(rom_file.file_name)}; output may be incorrect"
+        )
 
     return FileResponse(
         path=str(output_path),
@@ -142,6 +161,8 @@ async def patch_rom(
         headers={
             "Content-Disposition": f"attachment; filename*=UTF-8''{quote(output_file_name)}; filename=\"{quote(output_file_name)}\"",
             "Content-Length": str(output_size),
+            # Lets callers warn when the patch's source checksum didn't match the ROM.
+            "X-Patch-Validated": "true" if validated else "false",
         },
         background=BackgroundTask(shutil.rmtree, tmp_dir, True),
     )

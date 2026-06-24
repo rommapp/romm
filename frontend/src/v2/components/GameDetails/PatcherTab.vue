@@ -184,6 +184,14 @@ async function patchRom() {
     const blob = response.data as Blob;
     const actions: string[] = [];
 
+    // Backend reports whether the patch's source checksum matched the ROM.
+    if (response.headers["x-patch-validated"] === "false") {
+      snackbar.warning(t("patcher.validation-warning"), {
+        icon: "mdi-alert",
+        timeout: 6000,
+      });
+    }
+
     if (downloadLocally.value) {
       statusMessage.value = t("patcher.status-downloading");
       const url = URL.createObjectURL(blob);

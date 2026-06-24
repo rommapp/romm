@@ -39,5 +39,6 @@
   "title": "Пропатчивание ROM",
   "upload-errors": " (с некоторыми ошибками)",
   "upload-success": "Пропатченный ROM успешно загружен{errors}. Запуск сканирования...",
-  "upload-to-romm": "Загрузить в RomM"
+  "upload-to-romm": "Загрузить в RomM",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

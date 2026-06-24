@@ -39,5 +39,6 @@
   "title": "ROMパッチャー",
   "upload-errors": "（一部エラーあり）",
   "upload-success": "パッチ済みROMが正常にアップロードされました{errors}。スキャンを開始しています...",
-  "upload-to-romm": "RomMにアップロード"
+  "upload-to-romm": "RomMにアップロード",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

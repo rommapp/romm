@@ -18,8 +18,20 @@
 const path = require("path");
 const fs = require("fs");
 
-// Resolve RomPatcher.js from the sibling node_modules (installed via package.json here).
-const ROM_PATCHER_BASE = path.resolve(__dirname, "rom-patcher-js");
+// Resolve the RomPatcher.js library directory. Two install layouts are supported:
+//   1. Relocated next to this script (docker/Dockerfile copies it as a sibling).
+//   2. Plain `npm install`, leaving it under the local node_modules.
+function resolveRomPatcherBase() {
+  const sibling = path.resolve(__dirname, "rom-patcher-js");
+  if (fs.existsSync(sibling)) {
+    return sibling;
+  }
+  return path.dirname(
+    require.resolve("rom-patcher/rom-patcher-js/RomPatcher.js"),
+  );
+}
+
+const ROM_PATCHER_BASE = resolveRomPatcherBase();
 
 // Load the library (sets globals that RomPatcher.js expects)
 require(path.join(ROM_PATCHER_BASE, "modules", "BinFile.js"));
@@ -63,7 +75,11 @@ try {
     throw new Error("Unsupported or invalid patch format");
   }
 
-  // Apply patch
+  // Check the patch's embedded source checksum (when present) against the ROM.
+  // We still apply on mismatch, but report it so callers can warn the user.
+  const validated = RomPatcher.validateRom(romFile, patch);
+
+  // Apply patch (don't block on validation; the result is reported above)
   const patchedRom = RomPatcher.applyPatch(romFile, patch, {
     requireValidation: false,
     fixChecksum: false,
@@ -91,6 +107,7 @@ try {
       success: true,
       output: outputPath,
       size: data.byteLength,
+      validated: validated,
     }),
   );
   process.exit(0);

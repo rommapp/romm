@@ -39,5 +39,6 @@
   "title": "ROM修補程式",
   "upload-errors": "（有一些錯誤）",
   "upload-success": "修補後的ROM上傳成功{errors}。正在開始掃描...",
-  "upload-to-romm": "上傳到RomM"
+  "upload-to-romm": "上傳到RomM",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

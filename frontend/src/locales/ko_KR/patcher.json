@@ -39,5 +39,6 @@
   "title": "ROM 패처",
   "upload-errors": " (일부 오류 발생)",
   "upload-success": "패치된 ROM이 성공적으로 업로드되었습니다{errors}. 스캔을 시작합니다...",
-  "upload-to-romm": "RomM에 업로드"
+  "upload-to-romm": "RomM에 업로드",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

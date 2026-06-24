@@ -39,5 +39,6 @@
   "title": "Patcheur de ROM",
   "upload-errors": " (avec quelques erreurs)",
   "upload-success": "ROM patchée téléversée avec succès{errors}. Démarrage de l'analyse...",
-  "upload-to-romm": "Téléverser vers RomM"
+  "upload-to-romm": "Téléverser vers RomM",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

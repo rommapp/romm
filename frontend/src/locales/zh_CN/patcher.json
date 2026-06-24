@@ -39,5 +39,6 @@
   "title": "ROM补丁工具",
   "upload-errors": "（有一些错误）",
   "upload-success": "打过补丁的ROM上传成功{errors}。正在开始扫描...",
-  "upload-to-romm": "上传到RomM"
+  "upload-to-romm": "上传到RomM",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

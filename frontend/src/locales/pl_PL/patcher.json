@@ -39,5 +39,6 @@
   "title": "Patcher ROM",
   "upload-errors": " (z niektórymi błędami)",
   "upload-success": "Załatany ROM przesłano pomyślnie{errors}. Rozpoczynanie skanowania...",
-  "upload-to-romm": "Prześlij do RomM"
+  "upload-to-romm": "Prześlij do RomM",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

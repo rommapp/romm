@@ -39,5 +39,6 @@
   "title": "ROM Patcher",
   "upload-errors": " (néhány hibával)",
   "upload-success": "Patchelt ROM sikeresen feltöltve{errors}. Szkennelés indítása...",
-  "upload-to-romm": "Feltöltés RomM-be"
+  "upload-to-romm": "Feltöltés RomM-be",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

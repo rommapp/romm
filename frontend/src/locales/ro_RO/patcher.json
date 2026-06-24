@@ -39,5 +39,6 @@
   "title": "Patcher ROM",
   "upload-errors": " (cu unele erori)",
   "upload-success": "ROM-ul patch-uit a fost încărcat cu succes{errors}. Se inițiază scanarea...",
-  "upload-to-romm": "Încărcați în RomM"
+  "upload-to-romm": "Încărcați în RomM",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

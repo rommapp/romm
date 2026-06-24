@@ -39,5 +39,6 @@
   "title": "ROM Пачър",
   "upload-errors": " (с някои грешки)",
   "upload-success": "Пачнатият ROM беше качен успешно{errors}. Стартиране на сканиране...",
-  "upload-to-romm": "Качи в RomM"
+  "upload-to-romm": "Качи в RomM",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

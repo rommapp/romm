@@ -39,5 +39,6 @@
   "title": "ROM Patcher",
   "upload-errors": " (s některými chybami)",
   "upload-success": "Opatchovaný ROM úspěšně nahrán{errors}. Spouštění skenování...",
-  "upload-to-romm": "Nahrát do RomM"
+  "upload-to-romm": "Nahrát do RomM",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }
