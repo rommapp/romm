@@ -7,10 +7,10 @@ on:
     inputs:
       # trunk-ignore(checkov/CKV_GHA_7)
       branch:
-        description: "Git branch to build"
+        description: "Git branch"
         required: true
       registry:
-        description: "Container registry to push to"
+        description: "Container registry"
         required: true
         default: "ghcr"
         type: choice
@@ -106,7 +106,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           target: full-image
 
-      - name: Comment PR with Docker image link
+      # PR builds always push to GHCR only, so the image link is hardcoded to GHCR.
+      - name: Comment PR with GHCR image link
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         env:
@@ -115,12 +116,9 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const tag = process.env.HEAD_REF;
-            const images = [
-              `ghcr.io/${owner}/romm-testing:${tag}`,
-            ];
             github.rest.issues.updateComment({
               comment_id: ${{ steps.build-comment.outputs.comment-id }},
               owner: owner,
               repo: context.repo.repo,
-              body: `✅ Preview build completed!\n\nDocker image: \`${images[0]}\``
+              body: `✅ Preview build completed!\n\nDocker image: \`ghcr.io/${owner}/romm-testing:${tag}\``
             })
