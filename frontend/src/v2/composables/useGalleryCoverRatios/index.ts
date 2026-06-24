@@ -79,6 +79,8 @@ export function useGalleryCoverRatios() {
   const ratioVersion = ref(0);
   const maxRatio = ref(0);
   let bumpTimer: ReturnType<typeof setTimeout> | null = null;
+  // Ratios already folded into the packed layout.
+  const packedRatio = new Map<number, number>();
 
   /** Record a cover's measured ratio (GameCard's `@ratio` handler). Reads
    *  /writes the map directly by numeric rom id — no key object / string. */
@@ -86,8 +88,9 @@ export function useGalleryCoverRatios() {
     // Track the max on every report (even cached re-paints with an
     // unchanged ratio) so it rebuilds correctly after a context reset.
     if (payload.ratio > maxRatio.value) maxRatio.value = payload.ratio;
-    const prev = ratioByKey.get(payload.romId);
+    const prev = packedRatio.get(payload.romId);
     if (prev != null && Math.abs(prev - payload.ratio) < RATIO_EPSILON) return;
+    packedRatio.set(payload.romId, payload.ratio);
     ratioByKey.set(payload.romId, payload.ratio);
     if (bumpTimer) return;
     bumpTimer = setTimeout(() => {
