@@ -1,4 +1,15 @@
-# uv run python -m tools.generate_supported_platforms
+#!/usr/bin/env python3
+"""Print the supported-platforms table (Markdown) for the docs.
+
+Walks every UniversalPlatformSlug, collects each metadata provider's
+platform mapping, and emits a Markdown table (with provider link icons) to
+stdout for pasting into the documentation.
+
+Run from the backend directory:
+
+    uv run python -m tools.generate_supported_platforms
+"""
+
 from typing import TypedDict
 from urllib.parse import quote
 
