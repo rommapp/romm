@@ -40,6 +40,8 @@ jobs:
     env:
       USE_GHCR: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.registry == 'ghcr' || github.event.inputs.registry == 'both' }}
       USE_DOCKERHUB: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.registry == 'dockerhub' || github.event.inputs.registry == 'both') }}
+      # Key the Docker Hub namespace off the push credential rather than the GitHub owner.
+      DOCKERHUB_NAMESPACE: ${{ secrets.DOCKER_NAMESPACE || secrets.DOCKER_USERNAME || github.repository_owner }}
     steps:
       - name: Run only once per workflow
         run: echo "Triggered by ${{ github.event_name }}"
@@ -91,7 +93,7 @@ jobs:
         with:
           images: |
             ${{ env.USE_GHCR == 'true' && format('name=ghcr.io/{0}/romm-testing', github.repository_owner) || '' }}
-            ${{ env.USE_DOCKERHUB == 'true' && format('name={0}/romm-testing', github.repository_owner) || '' }}
+            ${{ env.USE_DOCKERHUB == 'true' && format('name={0}/romm-testing', env.DOCKERHUB_NAMESPACE) || '' }}
           tags: |
             type=raw,value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
 
