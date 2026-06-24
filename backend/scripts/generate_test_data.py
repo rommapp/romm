@@ -1461,7 +1461,8 @@ def main() -> int:
         print(f"  {'images (png)':<20} {images_written:>12,}")
     if not args.dry_run and user_rows:
         print(
-            f"\nLogin with username '{user_rows[0]['username']}' / password '{args.password}'."
+            f"\nLogin with username '{user_rows[0]['username']}' "
+            "and the password passed via --password (default: 'password')."
         )
     return 0
 
