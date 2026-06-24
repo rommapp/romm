@@ -5,139 +5,144 @@ from fastapi import Request
 
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
+from models.platform import Platform
 from models.rom import Rom
 from utils.filesystem import link_or_copy_file
 
-# Map RomM platform slugs (UPS values) to canonical Pegasus (collection name, shortname) pairs.
+# Map RomM platform slugs to canonical Pegasus (collection name, shortname) pairs.
+# Keys are UniversalPlatformSlug members; a few platforms absent from UPS (naomi,
+# chip-8, steam) use the raw folder-name string that platform.slug falls back to.
 # Source: https://www.pegasus-frontend.org/docs/user-guide/meta-files/
 # Only platforms present in the official Pegasus "Common platform names" table are listed.
 # When a platform is not in this dict the exporter falls back to the RomM platform name and slug.
-SLUG_TO_PEGASUS: dict[str, tuple[str, str]] = {
+SLUG_TO_PEGASUS: dict[UPS | str, tuple[str, str]] = {
     # ------------------------------------------------------------------ #
     # Atari
     # ------------------------------------------------------------------ #
-    "atari2600": ("Atari 2600", "atari2600"),
-    "atari5200": ("Atari 5200", "atari5200"),
-    "atari7800": ("Atari 7800", "atari7800"),
-    "atari800": ("Atari 800", "atari800"),
-    "atari-jaguar-cd": ("Atari Jaguar CD", "atarijaguarcd"),
-    "jaguar": ("Atari Jaguar", "atarijaguar"),
-    "lynx": ("Atari Lynx", "atarilynx"),
-    "atari-st": ("Atari ST", "atarist"),
-    "atari-xegs": ("Atari XE", "atarixe"),
+    UPS.ATARI2600: ("Atari 2600", "atari2600"),
+    UPS.ATARI5200: ("Atari 5200", "atari5200"),
+    UPS.ATARI7800: ("Atari 7800", "atari7800"),
+    UPS.ATARI800: ("Atari 800", "atari800"),
+    UPS.ATARI_JAGUAR_CD: ("Atari Jaguar CD", "atarijaguarcd"),
+    UPS.JAGUAR: ("Atari Jaguar", "atarijaguar"),
+    UPS.LYNX: ("Atari Lynx", "atarilynx"),
+    UPS.ATARI_ST: ("Atari ST", "atarist"),
+    UPS.ATARI_XEGS: ("Atari XE", "atarixe"),
     # ------------------------------------------------------------------ #
     # Nintendo handhelds
     # ------------------------------------------------------------------ #
-    "gb": ("Game Boy", "gb"),
-    "gbc": ("Game Boy Color", "gbc"),
-    "gba": ("Game Boy Advance", "gba"),
-    "nds": ("Nintendo DS", "nds"),
-    "3ds": ("Nintendo 3DS", "3ds"),
-    "g-and-w": ("Nintendo Game-and-Watch", "gameandwatch"),
-    "virtualboy": ("Nintendo VirtualBoy", "virtualboy"),
+    UPS.GB: ("Game Boy", "gb"),
+    UPS.GBC: ("Game Boy Color", "gbc"),
+    UPS.GBA: ("Game Boy Advance", "gba"),
+    UPS.NDS: ("Nintendo DS", "nds"),
+    UPS.N3DS: ("Nintendo 3DS", "3ds"),
+    UPS.G_AND_W: ("Nintendo Game-and-Watch", "gameandwatch"),
+    UPS.VIRTUALBOY: ("Nintendo VirtualBoy", "virtualboy"),
     # ------------------------------------------------------------------ #
     # Nintendo home consoles
     # ------------------------------------------------------------------ #
-    "nes": ("Nintendo Entertainment System", "nes"),
-    "famicom": ("Nintendo Entertainment System", "nes"),
-    "fds": ("Famicom Disk System", "fds"),
-    "snes": ("Super Nintendo Entertainment System", "snes"),
-    "sfam": ("Super Nintendo Entertainment System", "snes"),
-    "n64": ("Nintendo 64", "n64"),
-    "ngc": ("Nintendo GameCube", "gc"),
-    "wii": ("Nintendo Wii", "wii"),
-    "wiiu": ("Nintendo WiiU", "wiiu"),
-    "switch": ("Nintendo Switch", "switch"),
+    UPS.NES: ("Nintendo Entertainment System", "nes"),
+    UPS.FAMICOM: ("Nintendo Entertainment System", "nes"),
+    UPS.FDS: ("Famicom Disk System", "fds"),
+    UPS.SNES: ("Super Nintendo Entertainment System", "snes"),
+    UPS.SFAM: ("Super Nintendo Entertainment System", "snes"),
+    UPS.N64: ("Nintendo 64", "n64"),
+    UPS.NGC: ("Nintendo GameCube", "gc"),
+    UPS.WII: ("Nintendo Wii", "wii"),
+    UPS.WIIU: ("Nintendo WiiU", "wiiu"),
+    UPS.SWITCH: ("Nintendo Switch", "switch"),
     # ------------------------------------------------------------------ #
     # Sega
     # ------------------------------------------------------------------ #
-    "sg1000": ("SEGA SG-1000", "sg1000"),
-    "sms": ("Sega Master System", "mastersystem"),
-    "genesis": ("Sega Genesis", "genesis"),
-    "segacd": ("SEGA CD", "segacd"),
-    "sega32": ("SEGA 32X", "sega32x"),
-    "segacd32": ("SEGA CD 32X", "sega32x"),
-    "saturn": ("Sega Saturn", "saturn"),
-    "dc": ("Sega Dreamcast", "dreamcast"),
-    "gamegear": ("SEGA GameGear", "gamegear"),
+    UPS.SG1000: ("SEGA SG-1000", "sg1000"),
+    UPS.SMS: ("Sega Master System", "mastersystem"),
+    UPS.GENESIS: ("Sega Genesis", "genesis"),
+    UPS.SEGACD: ("SEGA CD", "segacd"),
+    UPS.SEGA32: ("SEGA 32X", "sega32x"),
+    UPS.SEGACD32: ("SEGA CD 32X", "sega32x"),
+    UPS.SATURN: ("Sega Saturn", "saturn"),
+    UPS.DC: ("Sega Dreamcast", "dreamcast"),
+    UPS.GAMEGEAR: ("SEGA GameGear", "gamegear"),
     # ------------------------------------------------------------------ #
     # Sony
     # ------------------------------------------------------------------ #
-    "psx": ("PlayStation", "psx"),
-    "ps2": ("PlayStation 2", "ps2"),
-    "ps3": ("PlayStation 3", "ps3"),
-    "psp": ("PlayStation Portable", "psp"),
-    "psvita": ("PlayStation Vita", "psvita"),
+    UPS.PSX: ("PlayStation", "psx"),
+    UPS.PS2: ("PlayStation 2", "ps2"),
+    UPS.PS3: ("PlayStation 3", "ps3"),
+    UPS.PSP: ("PlayStation Portable", "psp"),
+    UPS.PSVITA: ("PlayStation Vita", "psvita"),
     # ------------------------------------------------------------------ #
     # Microsoft
     # ------------------------------------------------------------------ #
-    "xbox": ("Xbox", "xbox"),
-    "xbox360": ("Xbox 360", "xbox360"),
+    UPS.XBOX: ("Xbox", "xbox"),
+    UPS.XBOX360: ("Xbox 360", "xbox360"),
     # ------------------------------------------------------------------ #
     # NEC / PC Engine
     # ------------------------------------------------------------------ #
-    "tg16": ("TurboGrafx 16", "turbografx16"),
-    "turbografx-cd": ("PC Engine CD", "pcengine"),
-    "pc-fx": ("PC-FX", "pcfx"),
+    UPS.TG16: ("TurboGrafx 16", "turbografx16"),
+    UPS.TURBOGRAFX_CD: ("PC Engine CD", "pcengine"),
+    UPS.PC_FX: ("PC-FX", "pcfx"),
     # ------------------------------------------------------------------ #
     # SNK Neo Geo
     # ------------------------------------------------------------------ #
-    "neogeoaes": ("Neo Geo", "neogeo"),
-    "neogeomvs": ("Neo Geo", "neogeo"),
-    "neo-geo-cd": ("Neo Geo CD", "neogeocd"),
-    "neo-geo-pocket": ("Neo Geo Pocket", "ngp"),
-    "neo-geo-pocket-color": ("Neo Geo Pocket Color", "ngpc"),
+    UPS.NEOGEOAES: ("Neo Geo", "neogeo"),
+    UPS.NEOGEOMVS: ("Neo Geo", "neogeo"),
+    UPS.NEO_GEO_CD: ("Neo Geo CD", "neogeocd"),
+    UPS.NEO_GEO_POCKET: ("Neo Geo Pocket", "ngp"),
+    UPS.NEO_GEO_POCKET_COLOR: ("Neo Geo Pocket Color", "ngpc"),
     # ------------------------------------------------------------------ #
     # Commodore / Amiga
     # ------------------------------------------------------------------ #
-    "amiga": ("Amiga", "amiga"),
-    "amiga-cd32": ("Amiga CD32", "amigacd32"),
-    "commodore-cdtv": ("Amiga CDTV", "amigacdtv"),
-    "c64": ("Commodore 64", "c64"),
+    UPS.AMIGA: ("Amiga", "amiga"),
+    UPS.AMIGA_CD32: ("Amiga CD32", "amigacd32"),
+    UPS.COMMODORE_CDTV: ("Amiga CDTV", "amigacdtv"),
+    UPS.C64: ("Commodore 64", "c64"),
     # ------------------------------------------------------------------ #
     # Amstrad / Sharp / other home computers
     # ------------------------------------------------------------------ #
-    "acpc": ("Amstrad CPC", "amstradcpc"),
-    "sharp-x68000": ("Sharp X6800", "x68000"),
-    "msx": ("MSX", "msx"),
-    "dos": ("DOS", "dos"),
-    "pc-booter": ("PC", "pc"),
-    "linux": ("Linux", "linux"),
-    "mac": ("Macintosh", "macintosh"),
-    "android": ("Android", "android"),
-    "windows": ("Windows", "windows"),
+    UPS.ACPC: ("Amstrad CPC", "amstradcpc"),
+    UPS.SHARP_X68000: ("Sharp X6800", "x68000"),
+    UPS.MSX: ("MSX", "msx"),
+    UPS.DOS: ("DOS", "dos"),
+    UPS.PC_BOOTER: ("PC", "pc"),
+    UPS.LINUX: ("Linux", "linux"),
+    UPS.MAC: ("Macintosh", "macintosh"),
+    UPS.ANDROID: ("Android", "android"),
+    UPS.WIN: ("Windows", "windows"),
     # ------------------------------------------------------------------ #
     # Arcade
     # ------------------------------------------------------------------ #
-    "arcade": ("Arcade", "arcade"),
+    UPS.ARCADE: ("Arcade", "arcade"),
+    # Naomi is not a UniversalPlatformSlug; matched by raw folder name.
     "naomi": ("Naomi", "naomi"),
     # ------------------------------------------------------------------ #
     # Other consoles / platforms
     # ------------------------------------------------------------------ #
-    "3do": ("3DO", "3do"),
-    "appleii": ("Apple II", "apple2"),
-    "colecovision": ("ColecoVision", "colecovision"),
-    "intellivision": ("Intellivision", "intellivision"),
-    "odyssey-2": ("Odyssey 2", "odyssey2"),
-    "vectrex": ("Vectrex", "vectrex"),
-    "supergrafx": ("SuperGrafx", "supergrafx"),
-    "sam-coupe": ("SAM coupe", "samcoupe"),
-    "scummvm": ("Scumm VM", "scummvm"),
-    "tic-80": ("TIC80", "tic80"),
-    "dragon-32-slash-64": ("Dragon 32", "dragon32"),
+    UPS._3DO: ("3DO", "3do"),
+    UPS.APPLEII: ("Apple II", "apple2"),
+    UPS.COLECOVISION: ("ColecoVision", "colecovision"),
+    UPS.INTELLIVISION: ("Intellivision", "intellivision"),
+    UPS.ODYSSEY_2: ("Odyssey 2", "odyssey2"),
+    UPS.VECTREX: ("Vectrex", "vectrex"),
+    UPS.SUPERGRAFX: ("SuperGrafx", "supergrafx"),
+    UPS.SAM_COUPE: ("SAM coupe", "samcoupe"),
+    UPS.SCUMMVM: ("Scumm VM", "scummvm"),
+    UPS.TIC_80: ("TIC80", "tic80"),
+    UPS.DRAGON_32_SLASH_64: ("Dragon 32", "dragon32"),
     # PC-88 / PC-98
-    "pc-8800-series": ("PC 88", "pc88"),
-    "pc-9800-series": ("PC 98", "pc98"),
+    UPS.PC_8800_SERIES: ("PC 88", "pc88"),
+    UPS.PC_9800_SERIES: ("PC 98", "pc98"),
     # WonderSwan
-    "wonderswan": ("WonderSwan", "wonderswan"),
-    "swancrystal": ("WonderSwan/Color", "wonderswancolor"),
-    # Sega Naomi / CHIP-8
+    UPS.WONDERSWAN: ("WonderSwan", "wonderswan"),
+    UPS.SWANCRYSTAL: ("WonderSwan/Color", "wonderswancolor"),
+    # CHIP-8 is not a UniversalPlatformSlug; matched by raw folder name.
     "chip-8": ("CHIP-8", "chip8"),
     # ZX Spectrum / ZX81
-    "zxspectrum": ("ZX Spectrum", "zxspectrum"),
-    "zx81": ("ZX81", "zx81"),
-    # Steam / GOG (non-console)
+    UPS.ZXS: ("ZX Spectrum", "zxspectrum"),
+    UPS.ZX81: ("ZX81", "zx81"),
+    # Steam is not a UniversalPlatformSlug; matched by raw folder name.
     "steam": ("Steam", "steam"),
 }
 
@@ -164,15 +169,8 @@ class PegasusExporter:
         self.local_export = local_export
 
     @staticmethod
-    def _resolve_collection(platform) -> tuple[str, str]:
-        """Return (collection_name, shortname) for a platform.
-
-        Resolution order:
-        1. SLUG_TO_PEGASUS lookup by platform.slug — gives the canonical
-           Pegasus name and shortname so themes can load console logos.
-        2. Fall back to platform.custom_name (or platform.name) + platform.slug
-           for platforms not in the Pegasus reference list.
-        """
+    def _resolve_collection(platform: Platform) -> tuple[str, str]:
+        """Return (collection_name, shortname) for a platform."""
         mapped = SLUG_TO_PEGASUS.get(platform.slug)
         if mapped:
             return mapped
