@@ -29,7 +29,6 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 
-
 # Terminal macros for a custom library structure template. Exactly one must
 # appear, as the last path segment.
 STRUCTURE_GAME_FILE: Final = "gameFile"

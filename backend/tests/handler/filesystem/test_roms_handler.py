@@ -955,19 +955,19 @@ class TestFSRomsHandler:
         # The main ROM hash should be different from the translation file hash
         # (this verifies that the translation is not included in the main hash)
 
-        assert parsed_rom_files.md5_hash == base_game_rom_file.md5_hash, (
-            "Main ROM hash should include base game file"
-        )
-        assert parsed_rom_files.md5_hash != translation_rom_file.md5_hash, (
-            "Main ROM hash should not include translation file"
-        )
+        assert (
+            parsed_rom_files.md5_hash == base_game_rom_file.md5_hash
+        ), "Main ROM hash should include base game file"
+        assert (
+            parsed_rom_files.md5_hash != translation_rom_file.md5_hash
+        ), "Main ROM hash should not include translation file"
 
-        assert parsed_rom_files.sha1_hash == base_game_rom_file.sha1_hash, (
-            "Main ROM hash should include base game file"
-        )
-        assert parsed_rom_files.sha1_hash != translation_rom_file.sha1_hash, (
-            "Main ROM hash should not include translation file"
-        )
+        assert (
+            parsed_rom_files.sha1_hash == base_game_rom_file.sha1_hash
+        ), "Main ROM hash should include base game file"
+        assert (
+            parsed_rom_files.sha1_hash != translation_rom_file.sha1_hash
+        ), "Main ROM hash should not include translation file"
 
     @pytest.mark.asyncio
     async def test_get_rom_files_with_chd_v5_uses_internal_hash(
@@ -1014,9 +1014,9 @@ class TestFSRomsHandler:
         assert len(parsed_rom_files.rom_files) == 1
         assert parsed_rom_files.crc_hash != "", "CRC should be computed from raw bytes"
         assert parsed_rom_files.md5_hash != "", "MD5 should be computed from raw bytes"
-        assert parsed_rom_files.sha1_hash != "", (
-            "SHA1 should be computed from raw bytes"
-        )
+        assert (
+            parsed_rom_files.sha1_hash != ""
+        ), "SHA1 should be computed from raw bytes"
 
         # Raw file SHA1 is NOT the header SHA1
         assert parsed_rom_files.sha1_hash != internal_sha1
@@ -1294,15 +1294,15 @@ class TestFSRomsHandler:
 
         # All hashes should be populated (calculated from file content)
         assert len(parsed_rom_files.rom_files) == 1
-        assert parsed_rom_files.crc_hash != "", (
-            "CRC hash should be calculated for non-v5 CHD"
-        )
-        assert parsed_rom_files.md5_hash != "", (
-            "MD5 hash should be calculated for non-v5 CHD"
-        )
-        assert parsed_rom_files.sha1_hash != "", (
-            "SHA1 hash should be calculated for non-v5 CHD"
-        )
+        assert (
+            parsed_rom_files.crc_hash != ""
+        ), "CRC hash should be calculated for non-v5 CHD"
+        assert (
+            parsed_rom_files.md5_hash != ""
+        ), "MD5 hash should be calculated for non-v5 CHD"
+        assert (
+            parsed_rom_files.sha1_hash != ""
+        ), "SHA1 hash should be calculated for non-v5 CHD"
 
         # Verify they're actual hash values (not from an internal header)
         assert parsed_rom_files.rom_files[0].crc_hash == parsed_rom_files.crc_hash
@@ -1715,9 +1715,9 @@ class TestExtractCHDHash:
 
             result = extract_chd_hash(chd_file)
 
-            assert result == expected, (
-                f"Failed for size {size}: got {result}, expected {expected}"
-            )
+            assert (
+                result == expected
+            ), f"Failed for size {size}: got {result}, expected {expected}"
 
     def test_extract_chd_hash_corrupted_header_data(self, tmp_path):
         """Test handling of corrupted/invalid data in header fields"""
