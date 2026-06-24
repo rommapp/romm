@@ -38,6 +38,9 @@ from handler.metadata.base_handler import (  # noqa: E402,F401
 from adapters.services.igdb import IGDB_PLATFORM_LIST  # noqa: E402
 
 # isort: on
+from PIL import Image  # noqa: E402
+
+from config import RESOURCES_BASE_PATH  # noqa: E402
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST  # noqa: E402
 from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST  # noqa: E402
 from models.assets import Save, Screenshot, State  # noqa: E402
@@ -323,6 +326,43 @@ DISC_HINTS = ("ps", "dc", "saturn", "cd", "ngc", "wii", "psp", "3do", "cdi")
 
 def rand_hex(rng: random.Random, nbytes: int) -> str:
     return "%0*x" % (nbytes * 2, rng.getrandbits(nbytes * 8))
+
+
+# Cover/screenshot output dimensions (px) and their low-res mosaic block grid.
+# A few random blocks upscaled with NEAREST give a unique, abstract image per
+# rom that PNG compresses to ~1-2 KB; this is the fastest believable artwork.
+COVER_BIG = ((264, 396), (6, 9))
+COVER_SMALL = ((132, 198), (4, 6))
+SCREENSHOT = ((320, 240), (8, 6))
+
+
+def _write_mosaic(rng: random.Random, path: str, spec: tuple) -> None:
+    (w, h), (bw, bh) = spec
+    buf = bytes(rng.getrandbits(8) for _ in range(bw * bh * 3))
+    img = Image.frombytes("RGB", (bw, bh), buf).resize((w, h), Image.Resampling.NEAREST)
+    img.save(path, "PNG")
+
+
+def generate_rom_images(
+    rng: random.Random, resources_base: str, platform_id: int, rom_id: int, n_shots: int
+) -> tuple[str, str, list[str]]:
+    """Write mosaic PNG covers (+screenshots) and return their resource-relative
+    paths, matching RomM's roms/{platform_id}/{rom_id} layout."""
+    rel = f"roms/{platform_id}/{rom_id}"
+    cover_dir = os.path.join(resources_base, rel, "cover")
+    os.makedirs(cover_dir, exist_ok=True)
+    _write_mosaic(rng, os.path.join(cover_dir, "big.png"), COVER_BIG)
+    _write_mosaic(rng, os.path.join(cover_dir, "small.png"), COVER_SMALL)
+
+    shot_paths: list[str] = []
+    if n_shots:
+        shot_dir = os.path.join(resources_base, rel, "screenshots")
+        os.makedirs(shot_dir, exist_ok=True)
+        for i in range(n_shots):
+            _write_mosaic(rng, os.path.join(shot_dir, f"{i}.png"), SCREENSHOT)
+            shot_paths.append(f"{rel}/screenshots/{i}.png")
+
+    return f"{rel}/cover/small.png", f"{rel}/cover/big.png", shot_paths
 
 
 def slugify(value: str) -> str:
@@ -689,9 +729,23 @@ def main() -> int:
         action="store_true",
         help="Build rows in memory but do not write to the DB",
     )
+    parser.add_argument(
+        "--images",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Generate mosaic PNG covers/screenshots on disk (default: on)",
+    )
+    parser.add_argument(
+        "--resources-path",
+        default=RESOURCES_BASE_PATH,
+        help="Base dir for generated images (default: config RESOURCES_BASE_PATH)",
+    )
     args = parser.parse_args()
 
     rng = random.Random(args.seed)
+    # Separate stream for image pixels so rom rows stay identical with or
+    # without --images (image draws never perturb the main rng sequence).
+    img_rng = random.Random(args.seed ^ 0x53A17)
     now = datetime.now(timezone.utc)
     pool = build_platform_pool()
     if args.platforms > len(pool):
@@ -914,6 +968,9 @@ def main() -> int:
 
     # -------------------------------- roms ---------------------------------
     rom_id_base = starts["roms"]
+    images_written = 0
+    if args.images:
+        print(f"Writing cover/screenshot PNGs under {args.resources_path}")
     t0 = time.time()
     for batch_start in range(0, args.roms, args.batch_size):
         batch_end = min(batch_start + args.batch_size, args.roms)
@@ -967,6 +1024,18 @@ def main() -> int:
             if not is_sibling and igdb_id is not None:
                 sibling_seed[platform["id"]] = {"igdb_id": igdb_id, "facts": f}
 
+            # Cover art + screenshots: write real mosaic PNGs to the resources
+            # tree and point the path columns at them, or leave them empty.
+            if args.images:
+                n_shots = rng.randint(0, 4)
+                path_cover_s, path_cover_l, path_screenshots = generate_rom_images(
+                    img_rng, args.resources_path, platform["id"], rid, n_shots
+                )
+                images_written += 2 + n_shots
+            else:
+                path_cover_s = path_cover_l = ""
+                path_screenshots = []
+
             rom_rows.append(
                 {
                     "id": rid,
@@ -1011,12 +1080,12 @@ def main() -> int:
                     ),
                     "gamelist_metadata": {},
                     "manual_metadata": {},
-                    "path_cover_s": "",
-                    "path_cover_l": "",
+                    "path_cover_s": path_cover_s,
+                    "path_cover_l": path_cover_l,
                     "url_cover": "",
                     "path_manual": "",
                     "url_manual": "",
-                    "path_screenshots": [],
+                    "path_screenshots": path_screenshots,
                     "url_screenshots": [],
                     "revision": f["revision"],
                     "version": None,
@@ -1388,6 +1457,8 @@ def main() -> int:
     print("\nDone in %.1fs. Row counts:" % elapsed)
     for name in sorted(counts):
         print(f"  {name:<20} {counts[name]:>12,}")
+    if args.images:
+        print(f"  {'images (png)':<20} {images_written:>12,}")
     if not args.dry_run and user_rows:
         print(
             f"\nLogin with username '{user_rows[0]['username']}' / password '{args.password}'."
