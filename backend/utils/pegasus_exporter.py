@@ -80,7 +80,7 @@ SLUG_TO_PEGASUS: dict[UPS, tuple[str, str]] = {
     UPS.C64: ("Commodore 64", "c64"),
     # Amstrad / Sharp / other home computers
     UPS.ACPC: ("Amstrad CPC", "amstradcpc"),
-    UPS.SHARP_X68000: ("Sharp X6800", "x68000"),
+    UPS.SHARP_X68000: ("Sharp X68000", "x68000"),
     UPS.MSX: ("MSX", "msx"),
     UPS.DOS: ("DOS", "dos"),
     UPS.PC_BOOTER: ("PC", "pc"),
