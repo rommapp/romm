@@ -64,7 +64,7 @@ withDefaults(
   font-size: var(--r-font-size-3xl);
   font-weight: var(--r-font-weight-extrabold);
   letter-spacing: -0.025em;
-  color: var(--r-color-fg);
+  color: var(--r-color-fg-heading);
   margin: 0;
   line-height: var(--r-line-height-tight);
 }

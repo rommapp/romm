@@ -123,6 +123,7 @@ const actions = useGameActions(() => props.rom);
   line-height: 1.1;
   letter-spacing: -0.02em;
   margin: 0 0 2px 0;
+  color: var(--r-color-fg-heading);
   text-shadow: 0 2px 20px color-mix(in srgb, black 50%, transparent);
 }
 

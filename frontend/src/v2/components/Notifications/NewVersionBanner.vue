@@ -127,11 +127,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 16px;
   padding: 8px 8px 8px 14px;
-  background: color-mix(
-    in srgb,
-    var(--r-color-canvas-bg-deep) 92%,
-    transparent
-  );
+  background: var(--r-color-toast-bg);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);

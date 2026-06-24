@@ -153,6 +153,15 @@ html[data-input="pad"] .r-v2 * {
   opacity: 0;
 }
 
+/* Light theme: the dark-tuned brightness(0.45) here would let the darkened
+   art bleed through as a muddy mottle once the light wash sits on top. In
+   light mode we instead lift the art so its surviving contribution skews
+   light, and lean on a stronger, more even overlay (below) to keep it a
+   soft frosted backdrop rather than a busy field. */
+.r-v2-light .r-v2-bg__layer {
+  filter: blur(28px) brightness(1.12) saturate(0.7);
+}
+
 .r-v2-bg__overlay {
   position: fixed;
   inset: 0;
@@ -172,6 +181,21 @@ html[data-input="pad"] .r-v2 * {
       color-mix(in srgb, var(--r-color-bg) 70%, transparent) 72%,
       color-mix(in srgb, var(--r-color-bg) 92%, transparent) 100%
     );
+}
+
+/* Light theme overlay — a stronger, near-even light wash so content always
+   sits on a calm off-white field. The dark default dips to 0-30% bg in the
+   centre (right where the home rows live), which on light reads as the muddy
+   bleed-through. Here the field never drops below ~74% bg: a faint cover
+   tint survives mid-page for some life, and the top/bottom rise so titles
+   and dense list rows land on a stable, legible ground. */
+.r-v2-light .r-v2-bg__overlay {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--r-color-bg) 88%, transparent) 0%,
+    color-mix(in srgb, var(--r-color-bg) 84%, transparent) 40%,
+    color-mix(in srgb, var(--r-color-bg) 93%, transparent) 100%
+  );
 }
 
 /* ── Utility classes ───────────────────────────────────────── */
