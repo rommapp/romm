@@ -7,6 +7,7 @@ from fastapi import Request, status
 
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
+from endpoints.permissions import emit_permissions_changed
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
@@ -359,7 +360,18 @@ async def update_user(
 
     # You can't change your own role
     if form_data.role and request.user.id != id:
-        cleaned_data["role"] = Role[form_data.role.upper()]  # type: ignore[assignment]
+        new_role = Role[form_data.role.upper()]
+        # You can't demote the last admin (mirrors the delete guard).
+        if (
+            db_user.role == Role.ADMIN
+            and new_role != Role.ADMIN
+            and len(db_user_handler.get_admin_users()) == 1
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot demote the last admin user",
+            )
+        cleaned_data["role"] = new_role  # type: ignore[assignment]
 
     # You can't disable yourself
     if form_data.enabled is not None and request.user.id != id:
@@ -401,6 +413,10 @@ async def update_user(
 
     if cleaned_data:
         db_user_handler.update_user(id, cleaned_data)
+
+        # A role change alters the user's effective permissions; tell their UI.
+        if "role" in cleaned_data:
+            await emit_permissions_changed(id)
 
         # Log out the current user if username or password changed
         creds_updated = cleaned_data.get("username") or cleaned_data.get(

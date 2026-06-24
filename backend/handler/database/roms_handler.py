@@ -741,6 +741,8 @@ class DBRomsHandler(DBBaseHandler):
         updated_after: datetime | None = None,
         include_file_stats: bool = False,
         include_files: bool = False,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
@@ -979,6 +981,14 @@ class DBRomsHandler(DBBaseHandler):
                 or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
             )
 
+        # Admin-driven visibility (opt-out): hide platforms/roms an admin has
+        # hidden from this user/group. Orthogonal to the personal RomUser.hidden
+        # toggle above. Empty sets (e.g. admins) skip filtering entirely.
+        if hidden_platform_ids:
+            query = query.filter(Rom.platform_id.not_in(hidden_platform_ids))
+        if hidden_rom_ids:
+            query = query.filter(Rom.id.not_in(hidden_rom_ids))
+
         return query
 
     @begin_session
@@ -1096,6 +1106,8 @@ class DBRomsHandler(DBBaseHandler):
             user_id=kwargs.get("user_id", None),
             group_by_meta_id=kwargs.get("group_by_meta_id", False),
             include_files=kwargs.get("include_files", False),
+            hidden_platform_ids=kwargs.get("hidden_platform_ids", None),
+            hidden_rom_ids=kwargs.get("hidden_rom_ids", None),
         )
         return session.scalars(roms).all()
 

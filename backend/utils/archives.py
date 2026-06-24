@@ -282,13 +282,15 @@ def read_tar_archive_files(
 
 
 def _stream_7z_chunks(
-    process: subprocess.Popen[bytes], deadline: float
+    process: subprocess.Popen[bytes],
+    deadline: float,
+    on_timeout: Callable[[], None],
 ) -> Iterator[bytes]:
     assert process.stdout is not None
     while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
         if time.monotonic() > deadline:
             process.terminate()
-            log.error("7z extraction timed out during multi-file archive read")
+            on_timeout()
             return
         yield chunk
 
@@ -350,9 +352,21 @@ def read_7z_archive_files(
 
     entries.sort(key=lambda e: e[0])
 
+    # Single time budget for reading every member of this archive.
     deadline = time.monotonic() + SEVEN_ZIP_TIMEOUT
+    timed_out = False
+
+    def _mark_timed_out() -> None:
+        nonlocal timed_out
+        timed_out = True
 
     for name, size in entries:
+        # Once the shared budget is spent, stop spawning a subprocess per
+        # remaining member; otherwise each one trips the deadline and spams
+        # an identical error line for every entry left in the archive.
+        if timed_out or time.monotonic() > deadline:
+            timed_out = True
+            break
         try:
             with subprocess.Popen(
                 [SEVEN_ZIP_PATH, "e", str(file_path), name, "-so", "-y"],
@@ -362,8 +376,10 @@ def read_7z_archive_files(
             ) as process:
                 if process.stdout is None:
                     continue
-                yield name, size, _stream_7z_chunks(process, deadline)
-            if process.returncode != 0:
+                yield name, size, _stream_7z_chunks(process, deadline, _mark_timed_out)
+            # A timeout terminates the subprocess, so a non-zero return code is
+            # expected then and is covered by the single log below.
+            if not timed_out and process.returncode != 0:
                 log.error(
                     f"7z extraction of {name} failed with code {process.returncode}"
                 )
@@ -371,6 +387,9 @@ def read_7z_archive_files(
         except (OSError, ValueError) as e:
             log.error(f"Error extracting {name} from {file_path}: {e}")
             continue
+
+    if timed_out:
+        log.error(f"7z extraction timed out reading members of {file_path}")
 
 
 def read_rar_archive_files(
