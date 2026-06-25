@@ -702,6 +702,7 @@ async def scan_platforms(
     # Resolve the platforms that will actually be scanned. When no platform ids
     # are provided, every filesystem platform is scanned.
     db_platforms = db_platform_handler.get_platforms()
+    db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
 
     platform_list = [
         p.fs_slug for p in db_platforms if p.id in platform_ids
@@ -710,13 +711,14 @@ async def scan_platforms(
 
     # A "new platforms" scan skips platforms that already exist in the database,
     # so they must be excluded from the totals to keep the tracker accurate. This
-    # mirrors the existence check done per-platform in _identify_platform.
+    # mirrors the existence check done per-platform in _identify_platform, reusing
+    # the platforms already fetched above instead of querying again per platform.
     platforms_to_scan = platform_list
     if scan_type == ScanType.NEW_PLATFORMS:
         platforms_to_scan = [
             platform_slug
             for platform_slug in platform_list
-            if db_platform_handler.get_platform_by_fs_slug(platform_slug) is None
+            if db_platforms_by_slug.get(platform_slug) is None
         ]
 
     total_roms = 0

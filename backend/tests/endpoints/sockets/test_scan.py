@@ -98,8 +98,12 @@ class TestScanTotals:
         mocker.patch.object(
             scan_module.db_platform_handler, "mark_missing_platforms", return_value=[]
         )
+        # The "existing" platform is already in the database; "new1"/"new2" are not.
+        existing_platform = MagicMock(id=1, fs_slug="existing")
         mocker.patch.object(
-            scan_module.db_platform_handler, "get_platforms", return_value=[]
+            scan_module.db_platform_handler,
+            "get_platforms",
+            return_value=[existing_platform],
         )
         mocker.patch.object(
             scan_module.db_rom_handler, "invalidate_filter_values_cache"
@@ -120,16 +124,6 @@ class TestScanTotals:
 
     async def test_new_platforms_total_excludes_existing(self, patched, mocker):
         """NEW_PLATFORMS totals must skip platforms already in the database."""
-
-        def get_by_fs_slug(fs_slug):
-            return MagicMock() if fs_slug == "existing" else None
-
-        mocker.patch.object(
-            scan_module.db_platform_handler,
-            "get_platform_by_fs_slug",
-            side_effect=get_by_fs_slug,
-        )
-
         result = await scan_platforms(
             platform_ids=[],
             metadata_sources=[],
