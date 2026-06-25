@@ -314,7 +314,11 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
 .r-slider-btn-group__indicator {
   position: absolute;
   left: 0;
-  background: var(--r-color-fg);
+  /* Always a white pill with dark ink on top (the emphasis-pill vocabulary),
+     in both themes. Previously fg/bg inverted per theme, which on light gave
+     a black pill with light text; the white pill reads better and matches
+     the switch knob / nav active treatment. */
+  background: var(--r-color-overlay-emphasis-bg);
   border-radius: var(--r-radius-pill);
   pointer-events: none;
   will-change: transform, width;
@@ -419,7 +423,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
 }
 .r-slider-btn-group--segmented .r-slider-btn-group__btn--active,
 .r-slider-btn-group--segmented .r-slider-btn-group__btn--active:hover {
-  color: var(--r-color-bg) !important;
+  color: var(--r-color-overlay-emphasis-fg) !important;
 }
 
 /* x-small segmented — 22×22 button cluster, matches RBtn's x-small
@@ -461,7 +465,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
 }
 .r-slider-btn-group--tab .r-slider-btn-group__btn--active,
 .r-slider-btn-group--tab .r-slider-btn-group__btn--active:hover {
-  color: var(--r-color-bg) !important;
+  color: var(--r-color-overlay-emphasis-fg) !important;
   background: transparent !important;
   font-weight: var(--r-font-weight-semibold);
 }

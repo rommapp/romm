@@ -5,8 +5,9 @@
 // Layout mirrors ScreenshotsSubtab / SaveDataTab / MediaTab: a vertical
 // subtab list on the left (navigation only — no inline action panel),
 // and a content column on the right with a section header that hosts
-// only the Upload button. Bulk download / copy-link affordances live
-// in the selection toolbar instead — pair them with select-all.
+// the Upload button plus a Patch button (multi-file ROMs only). Bulk
+// download / copy-link affordances live in the selection toolbar
+// instead — pair them with select-all.
 //
 // Grouping is **folder-based**: every direct subfolder of the ROM
 // becomes its own subtab, plus a "Root" subtab for files sitting
@@ -25,7 +26,7 @@
 //     about its current reach.
 //
 // Content column:
-//   * Section header (Upload only)
+//   * Section header (Upload + Patch)
 //   * ROM-info card (size, revision, ROM-level hashes — click to copy)
 //   * Selection toolbar (select-all + per-selection Download / Copy-link
 //     — also the path for "download everything in this subtab": select

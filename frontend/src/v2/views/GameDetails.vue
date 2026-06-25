@@ -24,6 +24,7 @@ import MediaTab from "@/v2/components/GameDetails/MediaTab.vue";
 import MetadataTab from "@/v2/components/GameDetails/MetadataTab.vue";
 import NotesTab from "@/v2/components/GameDetails/NotesTab.vue";
 import OverviewTab from "@/v2/components/GameDetails/OverviewTab.vue";
+import PatcherTab from "@/v2/components/GameDetails/PatcherTab.vue";
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
@@ -216,9 +217,20 @@ const saveDataCount = computed(() => savesCount.value + statesCount.value);
 
 const filesCount = computed(() => currentRom.value?.files?.length ?? 0);
 
+// The patcher applies one of the ROM's bundled patch files to a base game
+// file, so it's only meaningful when the ROM carries nested files. Mirrors
+// v1's AdminMenu `hasNestedFiles` gate.
+const canPatch = computed(() =>
+  Boolean(
+    currentRom.value?.has_multiple_files &&
+    currentRom.value.files.some((f) => !f.is_top_level),
+  ),
+);
+
 const tabs = computed<RTabNavItem[]>(() => [
   { id: "overview", label: t("rom.tab-overview") },
   { id: "files", label: t("rom.tab-files"), badge: filesCount.value },
+  ...(canPatch.value ? [{ id: "patcher", label: t("common.patcher") }] : []),
   { id: "media", label: t("rom.media") },
   { id: "notes", label: t("rom.tab-notes") },
   {
@@ -272,6 +284,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :similar-games="similarGames"
           />
           <FilesTab v-if="tab === 'files'" :rom="currentRom" />
+          <PatcherTab v-if="tab === 'patcher'" :rom="currentRom" />
           <MediaTab v-if="tab === 'media'" :rom="currentRom" />
           <NotesTab v-if="tab === 'notes'" :rom="currentRom" />
           <AchievementsTab

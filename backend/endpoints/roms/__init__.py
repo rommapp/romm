@@ -78,6 +78,7 @@ from utils.validation import ValidationError
 from .files import router as files_router
 from .manual import router as manual_router
 from .notes import router as notes_router
+from .patch import router as patch_router
 from .screenshot import router as screenshot_router
 from .soundtrack import router as soundtrack_router
 from .upload import router as upload_router
@@ -92,6 +93,7 @@ router.include_router(manual_router)
 router.include_router(soundtrack_router)
 router.include_router(screenshot_router)
 router.include_router(notes_router)
+router.include_router(patch_router)
 
 
 def safe_int_or_none(value: Any) -> int | None:
@@ -99,6 +101,27 @@ def safe_int_or_none(value: Any) -> int | None:
         return None
 
     return safe_int(value)
+
+
+def build_unscoped_sidecar_cache_key(
+    user_id: int,
+    order_by: str,
+    order_dir: str,
+    group_by_meta_id: bool,
+    is_unscoped: bool,
+) -> str | None:
+    """Cache key for the unscoped library sidecars (char index, filter values,
+    rom id index). Returns None for scoped/searched sets, which are computed live.
+    The computed values depend on user, ordering and grouping, so all are part
+    of the key.
+    """
+    if not is_unscoped:
+        return None
+
+    return (
+        f"all:u{user_id}"
+        f":o{order_by.lower()}:d{order_dir.lower()}:g{int(group_by_meta_id)}"
+    )
 
 
 class RomUpdateForm(BaseModel):
@@ -556,27 +579,46 @@ def get_roms(
         include_file_stats=True,
     )
 
-    # Cache only the unscoped library scan; scoped/searched sets are narrower and computed live.
+    # Cache only the fully unscoped library scan; any narrowing parameter makes
+    # the result set narrower, so it is computed live. The sidecar cache key
+    # encodes only user/order/grouping, not the filters, so every filter applied
+    # to `query` below must gate caching here or a narrowed list leaks under the
+    # shared "all" key. Bool flags use `is not None` since False is an active
+    # filter. Logic operators are omitted: they only matter when their list
+    # filter is set, which is already covered.
     is_unscoped = not (
         search_term
         or platform_ids
         or collection_id
         or virtual_collection_id
         or smart_collection_id
+        or genres
+        or franchises
+        or collections
+        or companies
+        or age_ratings
+        or statuses
+        or regions
+        or languages
+        or player_counts
+        or updated_after
+        or matched is not None
+        or favorite is not None
+        or duplicate is not None
+        or last_played is not None
+        or playable is not None
+        or has_ra is not None
+        or missing is not None
+        or verified is not None
     )
 
     # Get the char index for the roms
     char_index_dict = {}
     if with_char_index:
-        # The computed positions depend on ordering and grouping, so those
-        # must be part of the cache key. Otherwise switching sort
-        # direction/column (or toggling grouping) reuses a stale index and
-        # the AlphaStrip highlights the wrong letters.
-        char_index_cache_key = (
-            f"all:u{request.user.id}"
-            f":o{order_by.lower()}:d{order_dir.lower()}:g{int(group_by_meta_id)}"
-            if is_unscoped
-            else None
+        # Switching sort direction/column (or toggling grouping) must not reuse
+        # a stale index, or the AlphaStrip highlights the wrong letters.
+        char_index_cache_key = build_unscoped_sidecar_cache_key(
+            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
         )
         char_index = db_rom_handler.with_char_index(
             query=query,
@@ -611,11 +653,8 @@ def get_roms(
             smart_collection_id=smart_collection_id,
             search_term=search_term,
         )
-        cache_key = (
-            f"all:u{request.user.id}"
-            f":o{order_by.lower()}:d{order_dir.lower()}:g{int(group_by_meta_id)}"
-            if is_unscoped
-            else None
+        cache_key = build_unscoped_sidecar_cache_key(
+            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
         )
         query_filters = db_rom_handler.with_filter_values(
             query=filter_query,
@@ -624,9 +663,18 @@ def get_roms(
         # trunk-ignore(mypy/typeddict-item)
         filter_values = RomFiltersDict(**query_filters)
 
-    # Get all ROM IDs in order for the additional data
+    # The full ordered id list backs virtual scroll, so it's computed over the
+    # whole result set on every request. Memoise the unscoped library scan (same
+    # key scheme as the other sidecars); scoped/searched sets stay live.
+    rom_id_index_cache_key = build_unscoped_sidecar_cache_key(
+        request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
+    )
+    rom_id_index = db_rom_handler.get_rom_id_index(
+        query=query, cache_key=rom_id_index_cache_key
+    )
+
+    # Hydrate the requested page and its additional data
     with sync_session.begin() as session:
-        rom_id_index = session.scalars(query.with_only_columns(Rom.id)).all()  # type: ignore
 
         def _transform(items: Sequence[Rom]) -> list[SimpleRomSchema]:
             rom_ids = [i.id for i in items]

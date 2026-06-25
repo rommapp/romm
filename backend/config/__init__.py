@@ -41,6 +41,17 @@ FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
 # SEVEN ZIP
 SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)
 
+# ROM PATCHER
+ROM_PATCHER_TIMEOUT: Final[int] = safe_int(_get_env("ROM_PATCHER_TIMEOUT"), 120)
+# RomPatcher.js loads the whole ROM into memory in Node, so cap inputs to avoid OOM.
+ROM_PATCHER_MAX_FILE_SIZE_BYTES: Final[int] = safe_int(
+    _get_env("ROM_PATCHER_MAX_FILE_SIZE_BYTES"), 4 * 1024 * 1024 * 1024  # 4 GiB
+)
+# Limit concurrent patch subprocesses to bound total memory use.
+ROM_PATCHER_MAX_CONCURRENCY: Final[int] = max(
+    1, safe_int(_get_env("ROM_PATCHER_MAX_CONCURRENCY"), 2)
+)
+
 # DATABASE
 DB_HOST: Final[str | None] = _get_env("DB_HOST")
 DB_PORT: Final[int] = safe_int(_get_env("DB_PORT"), 3306)

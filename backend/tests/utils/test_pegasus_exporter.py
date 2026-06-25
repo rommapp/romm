@@ -138,7 +138,10 @@ class TestExportMetadata:
             exporter.export_platform_to_pegasus(platform.id, request=None)
         )
 
-        assert parsed["collection"] == {"name": "SNES", "shortname": "snes"}
+        assert parsed["collection"] == {
+            "name": "Super Nintendo Entertainment System",
+            "shortname": "snes",
+        }
         assert len(parsed["games"]) == 1
         game = parsed["games"][0]
 
@@ -214,6 +217,62 @@ class TestExportMetadata:
             PegasusExporter(local_export=True).export_platform_to_pegasus(
                 99999, request=None
             )
+
+    def test_collection_name_mapped_slug(self, admin_user: User):
+        """Known slug → canonical Pegasus name overrides RomM custom_name."""
+        platform = Platform(
+            name="Game Boy Advance", slug="gba", fs_slug="gba", custom_name="GBA"
+        )
+        platform = db_platform_handler.add_platform(platform)
+
+        parsed = _parse_pegasus(
+            PegasusExporter(local_export=True).export_platform_to_pegasus(
+                platform.id, request=None
+            )
+        )
+        assert parsed["collection"] == {
+            "name": "Game Boy Advance",
+            "shortname": "gba",
+        }
+
+    def test_collection_name_unmapped_slug_uses_custom_name(self, admin_user: User):
+        """Unknown slug → falls back to custom_name (or name) and raw slug."""
+        platform = Platform(
+            name="My Homebrew Console",
+            slug="my-homebrew",
+            fs_slug="my-homebrew",
+            custom_name="Homebrew",
+        )
+        platform = db_platform_handler.add_platform(platform)
+
+        parsed = _parse_pegasus(
+            PegasusExporter(local_export=True).export_platform_to_pegasus(
+                platform.id, request=None
+            )
+        )
+        assert parsed["collection"] == {
+            "name": "Homebrew",
+            "shortname": "my-homebrew",
+        }
+
+    def test_collection_name_unmapped_slug_no_custom_name(self, admin_user: User):
+        """Unknown slug, no custom_name → falls back to platform.name and raw slug."""
+        platform = Platform(
+            name="Obscure Platform",
+            slug="obscure-plat",
+            fs_slug="obscure-plat",
+        )
+        platform = db_platform_handler.add_platform(platform)
+
+        parsed = _parse_pegasus(
+            PegasusExporter(local_export=True).export_platform_to_pegasus(
+                platform.id, request=None
+            )
+        )
+        assert parsed["collection"] == {
+            "name": "Obscure Platform",
+            "shortname": "obscure-plat",
+        }
 
     def test_multiline_description(self, admin_user: User):
         platform = Platform(name="GBA", slug="gba", fs_slug="gba")

@@ -718,12 +718,12 @@ function onStaticKeydown(e: KeyboardEvent) {
   left: 50%;
   transform: translateX(-50%);
   background: color-mix(in srgb, black 78%, transparent);
-  border: 1px solid var(--r-color-romm-gold);
+  border: 1px solid var(--r-color-overlay-gold);
   border-radius: var(--r-radius-sm);
   padding: 2px 6px;
   font-size: 9.5px;
   font-weight: var(--r-font-weight-bold);
-  color: var(--r-color-romm-gold);
+  color: var(--r-color-overlay-gold);
   opacity: 0;
   transition: opacity 0.12s ease;
 }

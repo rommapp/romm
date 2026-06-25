@@ -74,3 +74,6 @@ switch_product_ids.json
 # Keep shared agent skills tracked; ignore personal/local Claude config.
 .claude/*
 !.claude/skills/
+
+# Local dev scripts
+/dev.sh

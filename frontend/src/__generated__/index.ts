@@ -111,6 +111,7 @@ export type { PermissionGroupSchema } from './models/PermissionGroupSchema';
 export type { PermissionGroupUpdate } from './models/PermissionGroupUpdate';
 export type { PermissionScopeSchema } from './models/PermissionScopeSchema';
 export type { PermissionsResponse } from './models/PermissionsResponse';
+export type { PatchRequest } from './models/PatchRequest';
 export type { PlatformBindingPayload } from './models/PlatformBindingPayload';
 export type { PlatformSchema } from './models/PlatformSchema';
 export type { PlaySessionEntry } from './models/PlaySessionEntry';

@@ -675,6 +675,7 @@ class UniversalPlatformSlug(enum.StrEnum):
     SPECTRAVIDEO = "spectravideo"
     SRI_5001000 = "sri-5001000"
     STADIA = "stadia"
+    STEAM = "steam"
     STEAM_VR = "steam-vr"
     STV = "stv"
     SUFAMI_TURBO = "sufami-turbo"

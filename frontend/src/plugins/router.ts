@@ -34,7 +34,6 @@ export const ROUTES = {
   RUFFLE: "ruffle",
   SCAN: "scan",
   UPLOAD: "upload",
-  PATCHER: "patcher",
   ACTIVITY: "activity",
   USER_PROFILE: "user-profile",
   USER_INTERFACE: "user-interface",
@@ -305,18 +304,6 @@ const routes = [
               // back to Scan on v1 so deep-linking doesn't 404 there.
               default: () => import("@/views/Scan.vue"),
               v2: v2For(ROUTES.UPLOAD),
-            },
-          },
-          {
-            path: "patcher",
-            name: ROUTES.PATCHER,
-            meta: {
-              title: i18n.global.t("common.patcher"),
-              bare: true,
-            },
-            components: {
-              default: () => import("@/views/Patcher.vue"),
-              v2: v2For(ROUTES.PATCHER),
             },
           },
           {

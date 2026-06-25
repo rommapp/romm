@@ -244,6 +244,8 @@ class FSHandler:
 
         try:
             yield temp_path
+            # mkstemp creates files with 0600 permissions
+            os.chmod(temp_path, 0o644)
             os.replace(str(temp_path), str(target_path))
 
         except Exception:

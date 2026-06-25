@@ -1,0 +1,14 @@
+{
+  "active-sessions": "Aktif Oturumlar",
+  "days-ago": "{n}g önce",
+  "hours-ago": "{n}s önce",
+  "hours-minutes-ago": "{h}s {m}dk önce",
+  "just-now": "Az önce",
+  "live": "CANLI",
+  "minutes-ago": "{n}dk önce",
+  "no-activity": "Şu an kimse oynamıyor",
+  "now-playing": "Şu An Oynanıyor",
+  "playing-on": "{device} üzerinde oynuyor",
+  "playing-since": "{time} dan beri oynanıyor",
+  "total-sessions": "Toplam oturum"
+}
