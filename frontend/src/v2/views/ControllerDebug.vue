@@ -12,6 +12,7 @@
 import { RBtn, RIcon } from "@v2/lib";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import ControllerPad from "@/v2/components/ControllerDebug/ControllerPad.vue";
 import type { GamepadSnapshot } from "@/v2/components/ControllerDebug/types";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
@@ -20,7 +21,17 @@ import { useInputModality } from "@/v2/composables/useInputModality";
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
+const router = useRouter();
 const { modality } = useInputModality();
+
+// useGamepad mutes its built-in actions on this route so every button is
+// free to test (see ACTIONS_DISABLED_PATHS). That also removes the normal
+// B/Back way out, so this screen owns its own escape: hold a "back" button
+// (B / Circle or Back / Share) for HOLD_TO_EXIT_MS to navigate away.
+const BACK_BUTTON_INDICES = [1, 8];
+const HOLD_TO_EXIT_MS = 700;
+const exitHoldStart = ref<number | null>(null);
+const exitHoldProgress = ref(0);
 
 // useGamepad's mapping legend — keep in sync with the composable.
 const KEYBIND_LEGEND: { button: string; key: string }[] = [
@@ -76,6 +87,27 @@ function tick() {
       buttons: p.buttons.map((b) => ({ pressed: b.pressed, value: b.value })),
       axes: [...p.axes],
     }));
+
+  // Hold-to-exit: a held back button leaves the test screen once the
+  // dwell threshold is reached, a tap just registers in the inspector.
+  const backHeld = list.some(
+    (p) => p && BACK_BUTTON_INDICES.some((i) => p.buttons[i]?.pressed),
+  );
+  if (backHeld) {
+    if (exitHoldStart.value === null) exitHoldStart.value = performance.now();
+    const held = performance.now() - exitHoldStart.value;
+    exitHoldProgress.value = Math.min(1, held / HOLD_TO_EXIT_MS);
+    if (held >= HOLD_TO_EXIT_MS) {
+      exitHoldStart.value = null;
+      exitHoldProgress.value = 0;
+      router.back();
+      return;
+    }
+  } else {
+    exitHoldStart.value = null;
+    exitHoldProgress.value = 0;
+  }
+
   rafId.value = requestAnimationFrame(tick);
 }
 
@@ -110,6 +142,17 @@ function formatTime(t: number) {
 
 <template>
   <div class="r-v2-section-stack">
+    <!-- Test-mode hint: actions are muted here, so explain how to leave -->
+    <div class="r-v2-ctrl__hold-hint">
+      <div
+        class="r-v2-ctrl__hold-fill"
+        :style="{ width: `${exitHoldProgress * 100}%` }"
+        aria-hidden="true"
+      />
+      <RIcon icon="mdi-information-outline" size="15" />
+      <span>{{ t("settings.controller-debug-test-hint") }}</span>
+    </div>
+
     <!-- Status -->
     <SettingsSection :title="t('rom.status')" icon="mdi-pulse">
       <div class="r-v2-ctrl__status">
@@ -284,6 +327,32 @@ function formatTime(t: number) {
 </template>
 
 <style scoped>
+/* Test-mode hint --------------------------------------------------- */
+.r-v2-ctrl__hold-hint {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  overflow: hidden;
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-md);
+  background: var(--r-color-surface);
+  font-size: 12px;
+  color: var(--r-color-fg-muted);
+}
+/* Fills left-to-right as a back button is held, then exits at 100%. */
+.r-v2-ctrl__hold-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
+  pointer-events: none;
+  transition: width 60ms linear;
+}
+.r-v2-ctrl__hold-hint > :not(.r-v2-ctrl__hold-fill) {
+  position: relative;
+}
+
 /* Status section --------------------------------------------------- */
 .r-v2-ctrl__status {
   display: flex;

@@ -58,6 +58,7 @@
   "controller-debug-no-gamepad": "게임패드가 감지되지 않았습니다",
   "controller-debug-right-stick": "오른쪽 스틱",
   "controller-debug-slot": "슬롯 {n}",
+  "controller-debug-test-hint": "Button actions are paused here so you can test every button. Hold B / Back to exit.",
   "controller-debug-wake-hint": "컨트롤러를 깨우려면 아무 버튼이나 누르세요.",
   "conversion": "변환",
   "copy-link": "링크 복사",
