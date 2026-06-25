@@ -842,24 +842,34 @@ class DBRomsHandler(DBBaseHandler):
             )
 
             # Create a subquery that identifies the primary ROM in each group
-            # Priority order: is_main_sibling (desc), then by fs_name_no_ext (asc)
-            base_subquery = query.subquery()
+            # Priority order: is_main_sibling (desc), then by fs_name_no_ext (asc).
+            # Materialize only the columns the dedup window needs (not all of
+            # Rom, whose JSON metadata blobs make the derived table huge), and
+            # drop the carried-over ORDER BY the window doesn't use.
+            base_subquery = (
+                query.order_by(None)
+                .with_only_columns(
+                    Rom.id,
+                    Rom.fs_name_no_ext,
+                    Rom.platform_id,
+                    Rom.igdb_id,
+                    Rom.ss_id,
+                    Rom.moby_id,
+                    Rom.ra_id,
+                    Rom.hasheous_id,
+                    Rom.launchbox_id,
+                    Rom.tgdb_id,
+                    Rom.flashpoint_id,
+                )
+                .subquery()
+            )
+            # Only id and the row number flow downstream; the partition/order
+            # inputs are read straight from base_subquery, so keeping them out of
+            # this SELECT keeps the window's temp table narrow (carrying the wide
+            # fs_name_no_ext through it spilled the sort to disk).
             group_subquery = (
                 select(base_subquery.c.id)
                 .select_from(base_subquery)
-                .with_only_columns(
-                    base_subquery.c.id,
-                    base_subquery.c.fs_name_no_ext,
-                    base_subquery.c.platform_id,
-                    base_subquery.c.igdb_id,
-                    base_subquery.c.ss_id,
-                    base_subquery.c.moby_id,
-                    base_subquery.c.ra_id,
-                    base_subquery.c.hasheous_id,
-                    base_subquery.c.launchbox_id,
-                    base_subquery.c.tgdb_id,
-                    base_subquery.c.flashpoint_id,
-                )
                 .outerjoin(
                     RomUser,
                     and_(
@@ -1125,44 +1135,63 @@ class DBRomsHandler(DBBaseHandler):
         if not isinstance(order_by_attr.type, (String, Text)):
             order_by_attr = Rom.name_sort_key
 
-        # Apply the same direction the main query uses so the position
-        # numbers we emit (and the per-letter min position downstream)
-        # match the actual order the client paginates over. Without this
-        # the frontend AlphaStrip would highlight the wrong letter when
-        # order_dir=desc.
-        order_window = (
-            order_by_attr.desc() if order_dir.lower() == "desc" else order_by_attr.asc()
-        )
-
-        # Get the row number and first letter for each item
-        subquery = (
-            query.with_only_columns(Rom.id, Rom.name)  # type: ignore
-            .add_columns(  # type: ignore
-                func.substring(
-                    order_by_attr,
-                    1,
-                    1,
-                ).label("letter"),
-                func.row_number().over(order_by=order_window).label("position"),
+        # The alpha-strip only needs each first letter's starting offset, not a
+        # positional number for every row. Counting rows per letter and
+        # accumulating those counts avoids row_number() over the whole library,
+        # which forced a full materialization + filesort on large libraries.
+        descending = order_dir.lower() == "desc"
+        letter = func.substring(order_by_attr, 1, 1)
+        counts = (
+            query.with_only_columns(  # type: ignore
+                letter.label("letter"), func.count().label("count")
             )
-            .subquery()
+            .group_by(letter)
+            .order_by(letter.desc() if descending else letter.asc())
         )
 
-        # Get the minimum position for each letter
-        rows = (
-            session.query(
-                subquery.c.letter, func.min(subquery.c.position - 1).label("position")
-            )
-            .filter(subquery.c.letter.isnot(None))
-            .group_by(subquery.c.letter)
-            .order_by(subquery.c.letter)
-            .all()
-        )
-
-        result = [(letter, int(position)) for letter, position in rows]
+        # Walk the letters in the same direction the client paginates over, so
+        # each letter's offset is the count of rows that sort before it.
+        result: list[tuple[str, int]] = []
+        offset = 0
+        for value, count in session.execute(counts).all():
+            if value is not None:
+                result.append((value, offset))
+            offset += count
+        result.sort(key=lambda entry: entry[0])
         if redis_key is not None and version is not None:
             _store_versioned_cache(redis_key, version, result)
         return result
+
+    @begin_session
+    def get_rom_id_index(
+        self,
+        query: Query,
+        *,
+        cache_key: str | None = None,
+        session: Session = None,  # type: ignore
+    ) -> list[int]:
+        """Return every matching rom id in query order.
+
+        The list backs the gallery's virtual scroll, so it spans the whole
+        result set (not a page) and is recomputed on every request. Building it
+        runs the sibling-dedup window over the full library, so the unscoped
+        case is memoised under the same versioned cache as the other gallery
+        sidecars.
+        """
+        redis_key: str | None = None
+        version: str | None = None
+        if cache_key:
+            version = _filter_values_cache_version()
+            redis_key = f"rom_id_index:{cache_key}:v{version}"
+            cached = sync_cache.get(redis_key)
+            if cached is not None:
+                return json.loads(cached)
+
+        ids = list(session.scalars(query.with_only_columns(Rom.id)).all())  # type: ignore
+
+        if redis_key is not None and version is not None:
+            _store_versioned_cache(redis_key, version, ids)
+        return ids
 
     @begin_session
     def get_roms_by_fs_name(

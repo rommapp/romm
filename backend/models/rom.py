@@ -209,6 +209,19 @@ class Rom(BaseModel):
 
     __table_args__ = (
         Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name"),
+        # Covers the sibling_roms view self-join
+        Index(
+            "idx_roms_sibling_cover",
+            "platform_id",
+            "igdb_id",
+            "moby_id",
+            "ss_id",
+            "launchbox_id",
+            "ra_id",
+            "hasheous_id",
+            "tgdb_id",
+            "id",
+        ),
         Index("idx_roms_name", "name"),
         Index("idx_roms_name_sort_key", "name_sort_key"),
         Index("idx_roms_igdb_id", "igdb_id"),
