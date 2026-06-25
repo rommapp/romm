@@ -1,59 +1,62 @@
 // permissions — Pinia store holding the current user's effective grants.
 //
-// Today the grants are derived from `user.role` via a hardcoded role-map
-// in src/v2/composables/useCan/role-map.ts. When the backend ships
-// `/permissions/me` returning normalised grants, that response replaces
-// the role-derived hydration here and the role-map disappears.
-//
-// v2 features consume this store via `useCan(action, scope?)`. v1 does
-// not import from here — its existing inline role checks keep working.
+// Hydrated from the backend's `/permissions/me` (the source of truth) via
+// `installPermissionsHydration()` in AppLayout, and refreshed live on the
+// `permissions:changed` socket event. v2 features consume this store via
+// `useCan(action, scope?)`. v1 does not import from here — its existing inline
+// scope checks keep working.
 import { defineStore } from "pinia";
-import type { Role } from "@/__generated__";
-import { type ActionKey, type Grant } from "@/v2/composables/useCan/actions";
-import { actionsForRole } from "@/v2/composables/useCan/role-map";
+import type {
+  PermissionScopeSchema,
+  PermissionsResponse,
+} from "@/__generated__";
+import {
+  type ActionKey,
+  type Grant,
+  type PermissionScope,
+} from "@/v2/composables/useCan/actions";
 
 interface State {
   grants: Grant[];
-  hydratedFromRole: Role | null;
+  isAdmin: boolean;
+  hidden: { platforms: number[]; roms: number[] };
+}
+
+function normalizeScope(scope: PermissionScopeSchema): PermissionScope {
+  if (!scope.kind || scope.kind === "global") return { kind: "global" };
+  return { kind: scope.kind, id: scope.id ?? 0 };
 }
 
 export default defineStore("permissions", {
   state: (): State => ({
     grants: [],
-    hydratedFromRole: null,
+    isAdmin: false,
+    hidden: { platforms: [], roms: [] },
   }),
 
   actions: {
-    /** Replace the stored grants with the role's blanket global grants.
-     *  Temporary; replaced by setGrants once /permissions/me lands. */
-    hydrateFromRole(role: Role | null) {
-      if (!role) {
-        this.grants = [];
-        this.hydratedFromRole = null;
-        return;
-      }
-      const actions = actionsForRole(role);
-      this.grants = actions.map((action) => ({
-        action,
-        scope: { kind: "global" },
+    /** Replace the stored permissions with the `/permissions/me` response. */
+    hydrateFromResponse(payload: PermissionsResponse) {
+      this.grants = payload.grants.map((g) => ({
+        action: g.action,
+        scope: normalizeScope(g.scope),
       }));
-      this.hydratedFromRole = role;
+      this.isAdmin = payload.is_admin;
+      this.hidden = {
+        platforms: [...payload.hidden.platforms],
+        roms: [...payload.hidden.roms],
+      };
     },
 
-    /** Replace the stored grants with a normalised list from the backend. */
+    /** Replace grants directly — for tests and stories seeding a state. */
     setGrants(grants: Grant[]) {
       this.grants = grants;
-      this.hydratedFromRole = null;
-    },
-
-    /** Add a single grant — useful for tests and per-resource updates. */
-    addGrant(grant: Grant) {
-      this.grants.push(grant);
     },
 
     reset() {
       this.grants = [];
-      this.hydratedFromRole = null;
+      this.isAdmin = false;
+      this.hidden = { platforms: [], roms: [] };
     },
   },
 
