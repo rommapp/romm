@@ -1,0 +1,20 @@
+{
+  "level-all": "Tüm seviyeler",
+  "level-filter": "Seviyeye göre filtrele",
+  "module-all": "Tüm modüller",
+  "module-filter": "Modüle göre filtrele",
+  "search-placeholder": "Günlüklerde ara",
+  "pause": "Duraklat",
+  "resume": "Devam et",
+  "copy": "Panoya kopyala",
+  "download": "İndir",
+  "clear": "Temizle",
+  "empty": "Henüz günlük yok",
+  "no-matches": "Filtrelerle eşleşen günlük yok",
+  "jump-to-latest": "En yeniye git",
+  "load-error": "Günlükler yüklenemedi",
+  "copied": "Günlükler panoya kopyalandı",
+  "copy-error": "Günlükler kopyalanamadı",
+  "click-to-copy": "Panoya kopyalamak için tıklayın",
+  "line-copied": "Satır panoya kopyalandı"
+}
