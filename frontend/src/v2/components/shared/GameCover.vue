@@ -358,9 +358,10 @@ defineExpose({
 .game-cover__video {
   position: absolute;
   top: 0.75rem;
-  left: 0.35rem;
+  left: 0.3rem;
   width: 97%;
-  object-fit: contain;
+  aspect-ratio: 745 / 550;
+  object-fit: cover;
   opacity: 0;
   transition: opacity 0.35s ease;
   pointer-events: none;
