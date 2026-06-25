@@ -1,0 +1,22 @@
+{
+  "continue-playing": "Kaldığın yerden devam et",
+  "recently-added": "Son eklenenler",
+  "empty-headline": "Kütüphaneniz boş",
+  "empty-hint": "İlk oyunlarınızı nasıl eklemek istediğinizi seçin. Diğerini daha sonra da yapabilirsiniz.",
+  "empty-upload-title": "Elle yükle",
+  "empty-upload-desc": "ROM dosyalarını sürükleyip bırakın veya bilgisayarınızdan seçin. Birkaç oyun eklemek isteyenler için idealdir.",
+  "empty-scan-title": "Kütüphaneyi tara",
+  "empty-scan-desc": "Oyunlarınızı kütüphane klasörüne zaten koydunuz mu? Otomatik algılamak ve meta verileri çekmek için tarama başlatın.",
+  "empty-upload-cta": "Oyun yükle",
+  "empty-scan-cta": "Tarama başlat",
+  "empty-detected-platforms": "{count} platform algılandı | {count} platform algılandı",
+  "empty-detected-games": "{count} oyun algılandı | {count} oyun algılandı",
+  "no-games-yet": "Henüz oyun eklenmedi.",
+  "widget-random-pick": "Rastgele seçim",
+  "widget-random-pick-open": "Aç",
+  "widget-random-pick-reroll": "Yeniden çevir",
+  "widget-random-pick-empty": "Henüz oyun yüklenmedi",
+  "widget-library-stats": "Kütüphane istatistikleri",
+  "widget-library-favorites": "Favoriler",
+  "widget-library-screenshots": "Ekran görüntüleri"
+}
