@@ -106,9 +106,7 @@ def _enqueue_convert_images_to_webp() -> None:
     on, but the scheduled task only runs at its next cron time and the inline
     conversion in the resources handler only fires for covers fetched after
     enabling. Without a backfill, existing covers have no .webp sibling and
-    every request 404s until the cron eventually runs. Enqueue a one-off run
-    so existing covers are converted on startup. The task skips covers that
-    already have a .webp sibling, so repeated restarts are cheap."""
+    every request 404s until the cron eventually runs."""
     try:
         if Job.exists(CONVERT_IMAGES_TO_WEBP_JOB_ID, low_prio_queue.connection):
             log.info(
