@@ -8,6 +8,7 @@ from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
+from utils.psp_hasher import calculate_psp_ra_hash, is_psp_native_hash_file
 
 RAHASHER_VALID_HASH_REGEX = re.compile(r"[0-9a-f]{32}")
 
@@ -141,6 +142,8 @@ RA_BUFFER_HASH_UNSUPPORTED_IDS: frozenset[int] = frozenset(
     PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[ups] for ups in RA_BUFFER_HASH_UNSUPPORTED
 )
 
+PSP_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSP]
+
 
 class RAHasherError(Exception): ...
 
@@ -204,6 +207,19 @@ class RAHasherService:
                 resolved = await asyncio.to_thread(_pick_ra_file, folder)
                 if resolved is not None:
                     file_path = str(resolved)
+
+        # PSP compressed-ISO containers (.cso/.ciso/.zso/.dax) can't be read by
+        # RAHasher ("Could not open track"). Compute the PSP RA hash natively
+        # from the container instead, decompressing only PARAM.SFO + EBOOT.BIN.
+        # On failure we fall through to RAHasher (no worse than before).
+        if platform["ra_id"] == PSP_RA_ID and is_psp_native_hash_file(file_path):
+            native_hash = await asyncio.to_thread(calculate_psp_ra_hash, file_path)
+            if native_hash:
+                log.debug(
+                    f"Computed native {hl('RA', color=LIGHTMAGENTA)} hash for PSP "
+                    f"container {hl(file_path)}"
+                )
+                return native_hash
 
         log.debug(
             f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(platform['slug'], color=LIGHTMAGENTA)} - file: {hl(file_path)}"
