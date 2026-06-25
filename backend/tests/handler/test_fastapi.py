@@ -70,6 +70,7 @@ async def test_scan_rom():
             rom=rom,
             fs_rom={
                 "fs_name": "Paper Mario (USA).z64",
+                "fs_path": "n64/Paper Mario (USA)",
                 "flat": True,
                 "nested": False,
                 "files": [
@@ -160,6 +161,7 @@ async def test_scan_rom_complete_clears_unselected_metadata(
             rom=rom,
             fs_rom={
                 "fs_name": "Paper Mario (USA).z64",
+                "fs_path": "n64/Paper Mario (USA)",
                 "flat": True,
                 "nested": False,
                 "files": [],
@@ -230,6 +232,7 @@ async def test_scan_rom_unmatched_fetches_ra_when_id_set_but_no_metadata(
             rom=rom,
             fs_rom={
                 "fs_name": "Jak and Daxter.chd",
+                "fs_path": "ps2",
                 "flat": True,
                 "nested": False,
                 "files": [],
@@ -292,6 +295,7 @@ async def test_scan_rom_unmatched_skips_ra_when_id_and_metadata_exist(
             rom=rom,
             fs_rom={
                 "fs_name": "Jak and Daxter.chd",
+                "fs_path": "ps2",
                 "flat": True,
                 "nested": False,
                 "files": [],

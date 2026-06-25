@@ -7,6 +7,7 @@ import { computed } from "vue";
 import type { DetailedRomSchema } from "@/__generated__";
 import { formatBytes } from "@/utils";
 import HashChip from "@/v2/components/shared/HashChip.vue";
+import LocationChip from "@/v2/components/shared/LocationChip.vue";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -14,6 +15,12 @@ defineOptions({ inheritAttrs: false });
 const props = defineProps<{ rom: DetailedRomSchema }>();
 
 const fileCount = computed(() => props.rom.files?.length ?? 0);
+
+// Full on-disk path of the ROM — its directory plus its name. Surfaces
+// *where* a ROM sits in the library (e.g. a platform subfolder like
+// `roms/nes/Hacks/…`), which is otherwise only implicit. Distinct from
+// the per-file relative paths shown in the file list below.
+const fullPath = computed(() => `${props.rom.fs_path}/${props.rom.fs_name}`);
 
 interface RomHash {
   label: string;
@@ -56,6 +63,10 @@ const hashes = computed<RomHash[]>(() => {
         </template>
       </div>
     </header>
+
+    <div class="r-v2-files-summary__location">
+      <LocationChip :path="fullPath" />
+    </div>
 
     <div v-if="hashes.length > 0" class="r-v2-files-summary__hashes">
       <HashChip
@@ -108,6 +119,10 @@ const hashes = computed<RomHash[]>(() => {
 }
 .r-v2-files-summary__sep {
   opacity: 0.5;
+}
+.r-v2-files-summary__location {
+  display: flex;
+  min-width: 0;
 }
 .r-v2-files-summary__hashes {
   display: flex;

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 import pytest
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
 
 from config import ROMM_DB_DRIVER
@@ -544,6 +545,38 @@ def test_bulk_mark_present_chunking(platform: Platform):
         assert updated.missing_from_fs is False
 
 
+def test_get_roms_by_fs_name_keys_on_full_path(platform: Platform):
+    """Identically-named files in different folders must stay distinct: the
+    result is keyed on full path (fs_path/fs_name), not just the file name."""
+    root = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="dup_root",
+            slug="dup-root",
+            fs_name="Game.zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
+    nested = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="dup_nested",
+            slug="dup-nested",
+            fs_name="Game.zip",
+            fs_path=f"{platform.slug}/roms/Hacks",
+        )
+    )
+
+    result = db_rom_handler.get_roms_by_fs_name(platform.id, ["Game.zip"])
+
+    assert set(result) == {
+        f"{platform.slug}/roms/Game.zip",
+        f"{platform.slug}/roms/Hacks/Game.zip",
+    }
+    assert result[f"{platform.slug}/roms/Game.zip"].id == root.id
+    assert result[f"{platform.slug}/roms/Hacks/Game.zip"].id == nested.id
+
+
 def test_mark_missing_roms_small_platform(platform: Platform):
     """mark_missing_roms correctly identifies missing ROMs with a small keep list."""
     rom_a = db_rom_handler.add_rom(
@@ -583,11 +616,21 @@ def test_mark_missing_roms_small_platform(platform: Platform):
         )
     )
 
-    # Keep only rom_a and rom_c
-    missing = db_rom_handler.mark_missing_roms(platform.id, ["rom_a.zip", "rom_c.zip"])
+    # Keep only rom_a and rom_c (keep-list holds full paths)
+    missing = db_rom_handler.mark_missing_roms(
+        platform.id,
+        [f"{platform.slug}/roms/rom_a.zip", f"{platform.slug}/roms/rom_c.zip"],
+    )
 
     assert len(missing) == 1
     assert missing[0].fs_name == "rom_b.zip"
+
+    # Regression: returned (detached) instances must carry `fs_path` so callers
+    # can read `rom.full_path` after the session closes without a
+    # DetachedInstanceError (the missing-rom warning in scan.py does exactly
+    # that).
+    assert "fs_path" not in sa_inspect(missing[0]).unloaded
+    assert missing[0].full_path == f"{platform.slug}/roms/rom_b.zip"
 
     updated_b = db_rom_handler.get_rom(rom_b.id)
     assert updated_b is not None
@@ -627,7 +670,9 @@ def test_mark_missing_roms_large_platform(platform: Platform):
 
     # Build a large keep list to verify mark_missing_roms() handles many entries.
     # Only rom_present.zip actually exists in DB; the rest are just filler.
-    fs_roms_to_keep = ["rom_present.zip"] + [f"filler_{i}.zip" for i in range(501)]
+    fs_roms_to_keep = [f"{platform.slug}/roms/rom_present.zip"] + [
+        f"filler_{i}.zip" for i in range(501)
+    ]
 
     missing = db_rom_handler.mark_missing_roms(platform.id, fs_roms_to_keep)
 
@@ -662,7 +707,7 @@ def test_mark_missing_roms_large_platform_all_present(platform: Platform):
         roms.append(rom)
 
     # Keep list has all real ROMs plus filler to exceed 500
-    fs_roms_to_keep = [f"rom_{i}.zip" for i in range(3)] + [
+    fs_roms_to_keep = [f"{platform.slug}/roms/rom_{i}.zip" for i in range(3)] + [
         f"filler_{i}.zip" for i in range(500)
     ]
 

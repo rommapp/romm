@@ -412,5 +412,7 @@
   "saves-section-community": "Comunidad",
   "states-section-mine": "Mis estados",
   "states-section-community": "Comunidad",
-  "cant-toggle-visibility": "No se pudo cambiar la visibilidad: {error}"
+  "cant-toggle-visibility": "No se pudo cambiar la visibilidad: {error}",
+  "location": "Ubicación",
+  "location-copied": "Ubicación copiada al portapapeles."
 }

@@ -15,6 +15,7 @@ from config import LIBRARY_BASE_PATH
 from config.config_manager import (
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
+    LibraryStructure,
 )
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import (
@@ -88,6 +89,7 @@ NON_HASHABLE_PLATFORMS = frozenset(
 
 class FSRom(TypedDict):
     fs_name: str
+    fs_path: str
     flat: bool
     nested: bool
     files: list[RomFile]
@@ -316,10 +318,11 @@ class FSRomsHandler(FSHandler):
         from adapters.services.rahasher import RAHasherService
         from handler.metadata import meta_ra_handler
 
-        rel_roms_path = self.get_roms_fs_structure(
-            rom.platform.fs_slug
-        )  # Relative path to roms
-        abs_fs_path = self.validate_path(rel_roms_path)  # Absolute path to roms
+        # The rom's stored directory is the source of truth for its location, so
+        # roms inside a nested folder (custom library structure) resolve to their
+        # real path rather than the platform roms root.
+        rel_roms_path = rom.fs_path  # Relative path to the rom's directory
+        abs_fs_path = self.validate_path(rel_roms_path)  # Absolute path to that dir
         rom_files: list[RomFile] = []
 
         # Skip hashing games for platforms that don't have a hash database or when hashes are disabled
@@ -392,14 +395,19 @@ class FSRomsHandler(FSHandler):
                     try:
                         if is_top_level:
                             # Include this file in the main ROM hash calculation
-                            crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
-                                await asyncio.to_thread(
-                                    self._calculate_rom_hashes,
-                                    Path(f_path, file_name),
-                                    rom_crc_c,
-                                    rom_md5_h,
-                                    rom_sha1_h,
-                                )
+                            (
+                                crc_c,
+                                rom_crc_c,
+                                md5_h,
+                                rom_md5_h,
+                                sha1_h,
+                                rom_sha1_h,
+                            ) = await asyncio.to_thread(
+                                self._calculate_rom_hashes,
+                                Path(f_path, file_name),
+                                rom_crc_c,
+                                rom_md5_h,
+                                rom_sha1_h,
                             )
                         else:
                             # Calculate individual file hash only
@@ -529,14 +537,19 @@ class FSRomsHandler(FSHandler):
                 )
         elif hashable_platform:
             try:
-                crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
-                    await asyncio.to_thread(
-                        self._calculate_rom_hashes,
-                        Path(abs_fs_path, rom.fs_name),
-                        rom_crc_c,
-                        rom_md5_h,
-                        rom_sha1_h,
-                    )
+                (
+                    crc_c,
+                    rom_crc_c,
+                    md5_h,
+                    rom_md5_h,
+                    sha1_h,
+                    rom_sha1_h,
+                ) = await asyncio.to_thread(
+                    self._calculate_rom_hashes,
+                    Path(abs_fs_path, rom.fs_name),
+                    rom_crc_c,
+                    rom_md5_h,
+                    rom_sha1_h,
                 )
             except zlib.error:
                 crc_c = 0
@@ -664,20 +677,109 @@ class FSRomsHandler(FSHandler):
                 rom_sha1_h,
             )
 
+    async def _discover_default_roms(self, rel_roms_path: str) -> list[dict]:
+        """Default discovery: top-level files and folders of the roms path.
+
+        Each top-level file is a flat rom; each top-level directory is a single
+        multi-file rom. This is RomM's behavior for platforms without a custom
+        structure template.
+        """
+        fs_roms: list[dict] = [
+            {"fs_name": rom, "fs_path": rel_roms_path, "flat": True, "nested": False}
+            for rom in self.exclude_single_files(await self.list_files(rel_roms_path))
+        ]
+        fs_roms += [
+            {"fs_name": rom, "fs_path": rel_roms_path, "flat": False, "nested": True}
+            for rom in self.exclude_multi_roms(
+                await self.list_directories(rel_roms_path)
+            )
+        ]
+        return fs_roms
+
+    async def _discover_structured_roms(
+        self, rel_roms_path: str, structure: LibraryStructure
+    ) -> list[dict]:
+        """Discover roms following a custom library structure template.
+
+        Descends the template's intermediate directory levels (literal names
+        matched exactly, wildcard macros matching any folder), then collects
+        roms at the terminal: ``{gameFile}`` makes each file a rom, ``{gameDir}``
+        makes each directory a (multi-file) rom. Each rom records its real
+        ``fs_path``. Hidden (dot-prefixed) folders are never descended into or
+        surfaced.
+        """
+        dirs = [rel_roms_path]
+        for level in structure.levels:
+            next_dirs: list[str] = []
+            for directory in dirs:
+                for sub in await self.list_directories(directory):
+                    if sub.startswith("."):
+                        continue
+                    if level.literal is not None and sub != level.literal:
+                        continue
+                    next_dirs.append(f"{directory}/{sub}")
+            dirs = next_dirs
+
+        fs_roms: list[dict] = []
+        for directory in dirs:
+            if structure.each_file_is_game:
+                for name in self.exclude_single_files(await self.list_files(directory)):
+                    fs_roms.append(
+                        {
+                            "fs_name": name,
+                            "fs_path": directory,
+                            "flat": True,
+                            "nested": False,
+                        }
+                    )
+            else:
+                for name in self.exclude_multi_roms(
+                    await self.list_directories(directory)
+                ):
+                    if name.startswith("."):
+                        continue
+                    fs_roms.append(
+                        {
+                            "fs_name": name,
+                            "fs_path": directory,
+                            "flat": False,
+                            "nested": True,
+                        }
+                    )
+        return fs_roms
+
+    async def _collect_fs_roms(self, platform: Platform) -> list[dict]:
+        """Discover a platform's roms, honoring its custom structure if set.
+
+        A platform may declare several structure templates (e.g. loose games at
+        the root plus games inside grouping subfolders); discovery is their
+        union, deduplicated by full path so overlapping templates don't surface
+        a rom twice.
+        """
+        rel_roms_path = self.get_roms_fs_structure(platform.fs_slug)
+        structures = cm.get_config().platform_structure(platform.fs_slug)
+        if structures is None:
+            return await self._discover_default_roms(rel_roms_path)
+
+        fs_roms: list[dict] = []
+        seen: set[tuple[str, str]] = set()
+        for structure in structures:
+            for rom in await self._discover_structured_roms(rel_roms_path, structure):
+                key = (rom["fs_path"], rom["fs_name"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                fs_roms.append(rom)
+        return fs_roms
+
     async def count_roms(self, platform: Platform) -> int:
         """Return the number of filesystem roms for a platform without
         materializing FSRom objects.
         """
         try:
-            rel_roms_path = self.get_roms_fs_structure(platform.fs_slug)
-            fs_single_roms = await self.list_files(path=rel_roms_path)
-            fs_multi_roms = await self.list_directories(path=rel_roms_path)
+            return len(await self._collect_fs_roms(platform))
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
-
-        return len(self.exclude_single_files(fs_single_roms)) + len(
-            self.exclude_multi_roms(fs_multi_roms)
-        )
 
     async def get_roms(self, platform: Platform) -> list[FSRom]:
         """Gets all filesystem roms for a platform
@@ -688,27 +790,15 @@ class FSRomsHandler(FSHandler):
             list with all the filesystem roms for a platform
         """
         try:
-            rel_roms_path = self.get_roms_fs_structure(
-                platform.fs_slug
-            )  # Relative path to roms
-
-            fs_single_roms = await self.list_files(path=rel_roms_path)
-            fs_multi_roms = await self.list_directories(path=rel_roms_path)
+            fs_roms = await self._collect_fs_roms(platform)
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
-
-        fs_roms: list[dict] = [
-            {"fs_name": rom, "flat": True, "nested": False}
-            for rom in self.exclude_single_files(fs_single_roms)
-        ] + [
-            {"fs_name": rom, "flat": False, "nested": True}
-            for rom in self.exclude_multi_roms(fs_multi_roms)
-        ]
 
         return sorted(
             [
                 FSRom(
                     fs_name=rom["fs_name"],
+                    fs_path=rom["fs_path"],
                     flat=rom["flat"],
                     nested=rom["nested"],
                     files=[],
@@ -719,7 +809,7 @@ class FSRomsHandler(FSHandler):
                 )
                 for rom in fs_roms
             ],
-            key=lambda rom: rom["fs_name"],
+            key=lambda rom: (rom["fs_path"], rom["fs_name"]),
         )
 
     async def rename_fs_rom(self, old_name: str, new_name: str, fs_path: str) -> None:

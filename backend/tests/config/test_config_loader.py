@@ -1,11 +1,15 @@
 import os
 from pathlib import Path
 
+import pytest
+
 from config.config_manager import (
     DEFAULT_EXCLUDED_DIRS,
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
     ConfigManager,
+    parse_library_structure,
+    parse_platform_structures,
 )
 
 
@@ -79,6 +83,22 @@ def test_config_loader():
     assert loader.config.SCAN_LANGUAGE_PRIORITY == ["jp", "es"]
     assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box3d"
     assert loader.config.GAMELIST_MEDIA_IMAGE == "title_screen"
+    assert loader.config.STRUCTURE_TEMPLATES == {
+        "psx": "{category}/{gameDir}",
+        "nes": ["{gameFile}", "{category}/{gameFile}"],
+    }
+    # The accessor parses templates on demand; unset platforms get None.
+    psx = loader.config.platform_structure("psx")
+    assert psx is not None and len(psx) == 1
+    assert psx[0].each_file_is_game is False
+    assert len(psx[0].levels) == 1 and psx[0].levels[0].literal is None
+    # The list form yields one structure per template (union on discovery).
+    nes = loader.config.platform_structure("nes")
+    assert nes is not None and len(nes) == 2
+    assert nes[0].each_file_is_game is True and nes[0].levels == ()
+    assert nes[1].each_file_is_game is True
+    assert len(nes[1].levels) == 1 and nes[1].levels[0].literal is None
+    assert loader.config.platform_structure("snes") is None
 
 
 def test_empty_config_loader():
@@ -113,6 +133,59 @@ def test_empty_config_loader():
     assert loader.config.EJS_CONTROLS == {}
     assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box2d"
     assert loader.config.GAMELIST_MEDIA_IMAGE == "screenshot"
+    assert loader.config.STRUCTURE_TEMPLATES == {}
+
+
+@pytest.mark.parametrize(
+    ("template", "levels", "each_file_is_game"),
+    [
+        ("{gameFile}", (), True),
+        ("{gameDir}", (), False),
+        ("{category}/{gameFile}", (None,), True),
+        ("Hacks/{gameFile}", ("Hacks",), True),
+        ("{region}/{system}/{gameDir}", (None, None), False),
+        ("roms/{region}/{gameFile}", ("roms", None), True),
+    ],
+)
+def test_parse_library_structure_valid(template, levels, each_file_is_game):
+    structure = parse_library_structure(template)
+    assert structure.each_file_is_game is each_file_is_game
+    assert tuple(level.literal for level in structure.levels) == levels
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "",
+        "justliteral",
+        "{category}",  # no terminal
+        "{gameFile}/{gameDir}",  # terminal not last
+        "{gameDir}/extra",  # terminal not last
+        "{platform}/{gameFile}",  # reserved macro RomM resolves itself
+        "{library}/{gameFile}",
+        "{}/{gameFile}",  # empty macro
+    ],
+)
+def test_parse_library_structure_invalid(template):
+    with pytest.raises(ValueError):
+        parse_library_structure(template)
+
+
+def test_parse_platform_structures_string_and_list():
+    # A bare string yields a single structure.
+    single = parse_platform_structures("{gameFile}")
+    assert len(single) == 1 and single[0].each_file_is_game is True
+
+    # A list yields one structure per template, preserving order.
+    multi = parse_platform_structures(["{gameFile}", "{category}/{gameDir}"])
+    assert len(multi) == 2
+    assert multi[0].levels == () and multi[0].each_file_is_game is True
+    assert len(multi[1].levels) == 1 and multi[1].each_file_is_game is False
+
+
+def test_parse_platform_structures_propagates_invalid():
+    with pytest.raises(ValueError):
+        parse_platform_structures(["{gameFile}", "nope"])
 
 
 def test_missing_config_file_is_created(tmp_path):

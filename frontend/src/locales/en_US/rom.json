@@ -412,5 +412,7 @@
   "saves-section-community": "Community",
   "states-section-mine": "My states",
   "states-section-community": "Community",
-  "cant-toggle-visibility": "Could not change visibility: {error}"
+  "cant-toggle-visibility": "Could not change visibility: {error}",
+  "location": "Location",
+  "location-copied": "Location copied to clipboard."
 }

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+from collections import defaultdict
 from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
@@ -30,7 +32,7 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
 )
-from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.roms_handler import FSRom, ParsedRomFiles
 from handler.metadata import meta_gamelist_handler, meta_hltb_handler
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
@@ -247,7 +249,9 @@ async def _identify_rom(
 
     # Update properties that don't require metadata
     parsed_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
-    roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
+    # The discovered path is the rom's actual directory, which may be nested
+    # under the platform roms folder when a custom structure is configured.
+    roms_path = fs_rom["fs_path"]
 
     # Create the entry early so we have the ID
     newly_added: bool = rom is None
@@ -491,6 +495,159 @@ async def _identify_rom(
     )
 
 
+def _fs_rom_size(fs_rom: FSRom) -> int:
+    """On-disk size of a discovered rom (a file's size, or the sum of a
+    folder's files). Cheap stat-only pre-filter used before hashing during
+    relocation matching. Returns -1 when the path can't be read.
+    """
+    abs_path = os.path.join(
+        fs_rom_handler.base_path, fs_rom["fs_path"], fs_rom["fs_name"]
+    )
+    try:
+        if os.path.isdir(abs_path):
+            total = 0
+            for root, _dirs, files in os.walk(abs_path):
+                for name in files:
+                    try:
+                        total += os.stat(os.path.join(root, name)).st_size
+                    except OSError:
+                        pass
+            return total
+        return os.stat(abs_path).st_size
+    except OSError:
+        return -1
+
+
+def _hashes_match(rom: Rom, parsed: ParsedRomFiles) -> bool:
+    """Whether an existing rom and freshly parsed files are the same content.
+
+    A single matching non-empty hash is enough — a collision across sha1/md5/
+    crc/ra is negligible, and different platforms populate different hashes.
+    """
+    for stored, computed in (
+        (rom.sha1_hash, parsed.sha1_hash),
+        (rom.md5_hash, parsed.md5_hash),
+        (rom.crc_hash, parsed.crc_hash),
+        (rom.ra_hash, parsed.ra_hash),
+    ):
+        if stored and computed and stored == computed:
+            return True
+    return False
+
+
+async def _reconcile_relocated_roms(
+    platform: Platform,
+    fs_roms: list[FSRom],
+) -> set[str]:
+    """Relocate roms whose on-disk path changed instead of re-importing them.
+
+    Under a custom library structure, moving (or renaming) a file reads as a
+    new path. Rather than insert a fresh rom and mark the old one missing —
+    which would drop saves, play history, favorites and collection membership —
+    match a newly-seen file to a now-missing rom by content hash and update that
+    rom's path in place. Returns the set of full paths that were fully handled
+    this way (so the caller skips them in the normal scan loop).
+
+    Falls back to no-op (path-based identity) when hashes are unavailable
+    (``skip_hash_calculation`` or a non-hashable platform).
+    """
+    existing = db_rom_handler.get_roms_for_relocation(platform.id)
+    existing_paths = {rom.full_path for rom in existing}
+
+    present_paths = {f"{fr['fs_path']}/{fr['fs_name']}" for fr in fs_roms}
+    # A rom that vanished from its stored path is a relocation candidate.
+    disappeared = [rom for rom in existing if rom.full_path not in present_paths]
+    if not disappeared:
+        return set()
+
+    # Group candidates by total size: a moved file keeps its size, so this is a
+    # cheap pre-filter that avoids hashing every newly-seen file (e.g. on first
+    # enable, where the whole structure reads as new).
+    by_size: dict[int, list[Rom]] = defaultdict(list)
+    for rom in disappeared:
+        by_size[rom.fs_size_bytes].append(rom)
+
+    handled: set[str] = set()
+    claimed: set[int] = set()
+    calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
+
+    for fs_rom in fs_roms:
+        full_path = f"{fs_rom['fs_path']}/{fs_rom['fs_name']}"
+        if full_path in existing_paths:
+            continue  # already matched by path; not a relocation
+
+        candidates = [
+            rom
+            for rom in by_size.get(_fs_rom_size(fs_rom), [])
+            if rom.id not in claimed
+        ]
+        if not candidates:
+            continue
+
+        # Compute the file's identity hashes (and its rom files for the new
+        # location) once; reuse them for both matching and the relocation write.
+        transient = Rom(
+            fs_name=fs_rom["fs_name"],
+            fs_path=fs_rom["fs_path"],
+            platform_id=platform.id,
+        )
+        transient.platform = platform
+        parsed = await fs_rom_handler.get_rom_files(
+            transient, calculate_hashes=calculate_hashes
+        )
+        if not (
+            parsed.sha1_hash or parsed.md5_hash or parsed.crc_hash or parsed.ra_hash
+        ):
+            continue  # no usable hash to match on
+
+        match = next((rom for rom in candidates if _hashes_match(rom, parsed)), None)
+        if match is None:
+            continue
+
+        claimed.add(match.id)
+        handled.add(full_path)
+
+        old_path = match.full_path
+        db_rom_handler.update_rom(
+            match.id,
+            {
+                "fs_name": fs_rom["fs_name"],
+                "fs_path": fs_rom["fs_path"],
+                "fs_size_bytes": sum(f.file_size_bytes for f in parsed.rom_files),
+                "crc_hash": parsed.crc_hash,
+                "md5_hash": parsed.md5_hash,
+                "sha1_hash": parsed.sha1_hash,
+                "ra_hash": parsed.ra_hash,
+                "missing_from_fs": False,
+            },
+        )
+        db_rom_handler.purge_rom_files(match.id)
+        for file in parsed.rom_files:
+            db_rom_handler.add_rom_file(
+                RomFile(
+                    rom_id=match.id,
+                    file_name=file.file_name,
+                    file_path=file.file_path,
+                    file_size_bytes=file.file_size_bytes,
+                    last_modified=file.last_modified,
+                    category=file.category,
+                    audio_meta=file.audio_meta,
+                    crc_hash=file.crc_hash,
+                    md5_hash=file.md5_hash,
+                    sha1_hash=file.sha1_hash,
+                    ra_hash=file.ra_hash,
+                    chd_sha1_hash=file.chd_sha1_hash,
+                )
+            )
+
+        log.info(
+            f"{hl('Relocated', color=BLUE)} {hl(old_path)} → {hl(full_path)} "
+            "(moved on disk; metadata and user data preserved)"
+        )
+
+    return handled
+
+
 async def _identify_platform(
     platform_slug: str,
     scan_type: ScanType,
@@ -582,6 +739,24 @@ async def _identify_platform(
     else:
         log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
 
+    # Detect roms that simply moved on disk (custom library structure) and
+    # relocate them in place so their saves/history/favorites/collections
+    # follow, instead of re-importing them as new and orphaning the old entry.
+    # Only runs for platforms with a custom structure, so default libraries pay
+    # no extra cost.
+    if cm.get_config().platform_structure(platform.fs_slug) is not None:
+        relocated_paths = await _reconcile_relocated_roms(platform, fs_roms)
+        if relocated_paths:
+            await scan_stats.increment(
+                socket_manager=socket_manager,
+                scanned_roms=len(relocated_paths),
+            )
+            fs_roms = [
+                fs_rom
+                for fs_rom in fs_roms
+                if f"{fs_rom['fs_path']}/{fs_rom['fs_name']}" not in relocated_paths
+            ]
+
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
 
@@ -602,7 +777,10 @@ async def _identify_platform(
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
-        roms_by_fs_name = db_rom_handler.get_roms_by_fs_name(
+        # Key matches on the rom's full path (fs_path/fs_name), not just the
+        # file name, so identically-named files in different folders don't
+        # collide under a custom library structure.
+        roms_by_full_path = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
         )
@@ -612,7 +790,7 @@ async def _identify_platform(
         roms_to_scan: list[tuple[FSRom, Rom | None]] = []
 
         for fs_rom in fs_roms_batch:
-            rom = roms_by_fs_name.get(fs_rom["fs_name"])
+            rom = roms_by_full_path.get(f"{fs_rom['fs_path']}/{fs_rom['fs_name']}")
             if _should_scan_rom(
                 scan_type=scan_type,
                 rom=rom,
@@ -644,12 +822,27 @@ async def _identify_platform(
                     log.error(f"Error scanning ROM {fs_rom['fs_name']}: {result}")
 
     missing_roms = db_rom_handler.mark_missing_roms(
-        platform.id, [rom["fs_name"] for rom in fs_roms]
+        platform.id, [f"{rom['fs_path']}/{rom['fs_name']}" for rom in fs_roms]
     )
     if len(missing_roms) > 0:
         log.warning(f"{hl('Missing')} roms from filesystem:")
+        # A folder a custom structure now descends into used to be a single
+        # multi-file rom; that old entry shows up here as missing. Flag those so
+        # it's clear the "missing" is expected and the stale entry can be
+        # deleted. A superseded folder's path is a parent of a discovered rom.
+        descended_paths = {rom["fs_path"] for rom in fs_roms}
         for r in missing_roms:
-            log.warning(f" - {r.fs_name}")
+            superseded = any(
+                p == r.full_path or p.startswith(f"{r.full_path}/")
+                for p in descended_paths
+            )
+            if superseded:
+                log.warning(
+                    f" - {r.fs_name} (now scanned as a folder of roms — "
+                    "delete this stale entry to clean up)"
+                )
+            else:
+                log.warning(f" - {r.fs_name}")
 
     missing_firmware = db_firmware_handler.mark_missing_firmware(
         platform.id, [fw for fw in fs_firmware]
