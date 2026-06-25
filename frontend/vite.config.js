@@ -65,11 +65,7 @@ export default defineConfig(({ mode }) => {
   };
 
   const backendPort = env.DEV_PORT ?? "5000";
-  // const devMode = env.DEV_MODE === "true";
   const httpsMode = env.DEV_HTTPS === "true";
-  // The PWA service worker intercepts dev requests and forces full page
-  // reloads on edits (CSS included), defeating HMR. Keep it off in dev unless
-  // explicitly testing the PWA (DEV_PWA=true).
   const pwaDevEnabled = env.DEV_PWA === "true";
 
   return {
