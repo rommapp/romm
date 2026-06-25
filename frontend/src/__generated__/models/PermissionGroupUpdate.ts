@@ -7,6 +7,7 @@ export type PermissionGroupUpdate = {
     name?: (string | null);
     description?: (string | null);
     is_default?: (boolean | null);
+    color?: (string | null);
     grants?: (Array<GrantSchemaIO> | null);
 };
 

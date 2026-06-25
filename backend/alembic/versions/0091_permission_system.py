@@ -1,7 +1,8 @@
 """Granular permission system: groups, grants, per-user overrides, hidden entities.
 
-Introduces the group-based permission model and backfills it so that NO user
-gains or loses access on upgrade:
+Single migration for the whole permissions feature (tables, group colour, and
+the legacy-group backfill). Backfills so that NO user gains or loses access on
+upgrade:
 
   * "Viewer (legacy)" group reproduces the old non-kiosk default user
     (WRITE_SCOPES): read the library, manage only own collections/assets/devices.
@@ -14,8 +15,8 @@ gains or loses access on upgrade:
 The seeded grant matrix is the frozen twin of ``handler/auth/permissions_map.py``;
 ``tests/handler/auth/test_permissions_parity.py`` keeps the two in lockstep.
 
-Revision ID: 0090_permission_system
-Revises: 0089_client_tokens_device_id
+Revision ID: 0091_permission_system
+Revises: 0090_roms_sibling_cover_index
 Create Date: 2026-06-22 00:00:00.000000
 
 """
@@ -24,8 +25,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0090_permission_system"
-down_revision = "0089_client_tokens_device_id"
+revision = "0091_permission_system"
+down_revision = "0090_roms_sibling_cover_index"
 branch_labels = None
 depends_on = None
 
@@ -54,6 +55,11 @@ EDITOR_EXTRA = [
     ("firmware", "delete", False),
 ]
 EDITOR_GRANTS = VIEWER_GRANTS + EDITOR_EXTRA
+
+# Legacy-group colours echoing the old role tones (viewer -> blue,
+# editor -> amber) so they look intentional out of the box.
+VIEWER_COLOR = "#3b82f6"
+EDITOR_COLOR = "#f59e0b"
 
 
 def _timestamp_cols() -> tuple[sa.Column, sa.Column]:
@@ -98,6 +104,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("false"),
         ),
+        sa.Column("color", sa.String(length=9), nullable=True),
         *_timestamp_cols(),
         sa.PrimaryKeyConstraint("id"),
         if_not_exists=True,
@@ -223,6 +230,7 @@ def _seed_legacy_groups() -> None:
         sa.column("description", sa.String),
         sa.column("is_default", sa.Boolean),
         sa.column("is_system", sa.Boolean),
+        sa.column("color", sa.String),
     )
     grants_t = sa.table(
         "permission_group_grants",
@@ -243,6 +251,7 @@ def _seed_legacy_groups() -> None:
                 ),
                 "is_default": True,
                 "is_system": True,
+                "color": VIEWER_COLOR,
             },
             {
                 "name": "Editor (legacy)",
@@ -253,6 +262,7 @@ def _seed_legacy_groups() -> None:
                 ),
                 "is_default": False,
                 "is_system": True,
+                "color": EDITOR_COLOR,
             },
         ],
     )

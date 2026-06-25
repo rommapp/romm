@@ -76,6 +76,9 @@ class PermissionGroup(BaseModel):
     description: Mapped[str] = mapped_column(String(1000), default="")
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Optional hex color (e.g. "#7c5cff") used by the admin UI to render the
+    # group as a colored pill/dot. NULL falls back to a neutral tone.
+    color: Mapped[str | None] = mapped_column(String(9), nullable=True)
 
     grants: Mapped[list[PermissionGroupGrant]] = relationship(
         back_populates="group",

@@ -75,11 +75,16 @@ def _group_schema(group: PermissionGroup) -> PermissionGroupSchema:
         description=group.description,
         is_default=group.is_default,
         is_system=group.is_system,
+        color=group.color,
         grants=[
             GrantSchemaIO(entity=g.entity, action=g.action, own_only=g.own_only)
             for g in group.grants
         ],
         member_count=len(db_permission_handler.get_group_member_ids(group.id)),
+        hidden=[
+            HiddenEntitySchema(entity=h.entity, entity_id=h.entity_id)
+            for h in db_permission_handler.get_hidden_entities(group_id=group.id)
+        ],
     )
 
 
@@ -107,6 +112,7 @@ def create_permission_group(
         name=body.name,
         description=body.description,
         is_default=body.is_default,
+        color=body.color,
         grants=[(g.entity, g.action, g.own_only) for g in body.grants],
     )
     return _group_schema(group)
@@ -131,6 +137,7 @@ async def update_permission_group(
         name=body.name,
         description=body.description,
         is_default=body.is_default,
+        color=body.color,
         grants=(
             [(g.entity, g.action, g.own_only) for g in body.grants]
             if body.grants is not None

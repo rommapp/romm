@@ -7,6 +7,7 @@ export type PermissionGroupCreate = {
     name: string;
     description?: string;
     is_default?: boolean;
+    color?: (string | null);
     grants?: Array<GrantSchemaIO>;
 };
 

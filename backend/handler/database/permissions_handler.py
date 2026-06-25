@@ -123,11 +123,16 @@ class DBPermissionsHandler(DBBaseHandler):
         name: str,
         description: str = "",
         is_default: bool = False,
+        color: str | None = None,
         grants: Iterable[GrantTuple] = (),
         session: Session = None,  # type: ignore
     ) -> PermissionGroup:
         group = PermissionGroup(
-            name=name, description=description, is_default=is_default, is_system=False
+            name=name,
+            description=description,
+            is_default=is_default,
+            color=color,
+            is_system=False,
         )
         session.add(group)
         session.flush()
@@ -145,6 +150,7 @@ class DBPermissionsHandler(DBBaseHandler):
         name: str | None = None,
         description: str | None = None,
         is_default: bool | None = None,
+        color: str | None = None,
         grants: Iterable[GrantTuple] | None = None,
         session: Session = None,  # type: ignore
     ) -> PermissionGroup | None:
@@ -155,6 +161,8 @@ class DBPermissionsHandler(DBBaseHandler):
             group.name = name
         if description is not None:
             group.description = description
+        if color is not None:
+            group.color = color
         if is_default is not None:
             group.is_default = is_default
             if is_default:

@@ -162,8 +162,12 @@ class PermissionGroupSchema(BaseModel):
     description: str
     is_default: bool
     is_system: bool
+    color: str | None
     grants: list[GrantSchemaIO]
     member_count: int
+    # Entities hidden from every member of this group (admin override still
+    # applies per-user on top). Empty for groups with no group-level hides.
+    hidden: list[HiddenEntitySchema] = []
 
     model_config = {"from_attributes": True}
 
@@ -172,6 +176,7 @@ class PermissionGroupCreate(BaseModel):
     name: str
     description: str = ""
     is_default: bool = False
+    color: str | None = None
     grants: list[GrantSchemaIO] = []
 
 
@@ -179,6 +184,7 @@ class PermissionGroupUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     is_default: bool | None = None
+    color: str | None = None
     grants: list[GrantSchemaIO] | None = None
 
 

@@ -20,7 +20,16 @@
 //
 // Indeterminate is a DOM-only state (no HTML attribute) — synced
 // via a ref on every prop change.
+//
+// Multi-state (`states`) is an opt-in N-value mode driven by its own
+// `stateValue` model, leaving the boolean `modelValue` path untouched.
+// Pass an ordered list of states (first = empty / unchecked); each click
+// cycles to the next, wrapping around. A state with a `color` paints the
+// box; a state with an `icon` shows that mdi glyph (otherwise the check
+// tick), all with the same draw-in / pop flourish the check uses.
 import { computed, onMounted, ref, useSlots, watch } from "vue";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
+import type { RCheckboxState } from "./types";
 
 defineOptions({ inheritAttrs: false });
 
@@ -31,6 +40,13 @@ interface Props {
   subtitle?: string;
   disabled?: boolean;
   indeterminate?: boolean;
+  /** Opt into N-state cycling. Ordered list, first entry = empty state.
+   *  The current value is driven by `stateValue`. */
+  states?: RCheckboxState[];
+  /** Current multi-state value (only read when `states` is set). */
+  stateValue?: string;
+  /** Accessible name for a labelless checkbox (e.g. matrix cells). */
+  ariaLabel?: string;
   /** Reserve vertical space for error messages. */
   hideDetails?: boolean | "auto";
   size?: "xs" | "sm" | "md" | "lg";
@@ -56,6 +72,9 @@ const props = withDefaults(defineProps<Props>(), {
   subtitle: undefined,
   disabled: false,
   indeterminate: false,
+  states: undefined,
+  stateValue: undefined,
+  ariaLabel: undefined,
   hideDetails: "auto",
   size: "md",
   shape: "square",
@@ -68,25 +87,47 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: boolean): void;
+  (e: "update:stateValue", value: string): void;
 }>();
 
 const slots = useSlots();
 const inputRef = ref<HTMLInputElement | null>(null);
 
+// ── Multi-state ────────────────────────────────────────────────
+const isMulti = computed(() => !!props.states && props.states.length > 0);
+const currentIndex = computed(() => {
+  if (!props.states) return 0;
+  const i = props.states.findIndex((s) => s.value === props.stateValue);
+  return i >= 0 ? i : 0;
+});
+const currentState = computed(() => props.states?.[currentIndex.value]);
+// Index 0 is the empty / unchecked state; anything past it fills the box.
+const isMultiActive = computed(() => isMulti.value && currentIndex.value > 0);
+const multiIcon = computed(() => currentState.value?.icon);
+const showMultiIcon = computed(() => isMultiActive.value && !!multiIcon.value);
+const showMultiCheck = computed(() => isMultiActive.value && !multiIcon.value);
+
+const isChecked = computed(() => !isMulti.value && props.modelValue === true);
+
 // `indeterminate` has no HTML attribute — must be set via the DOM
-// property on the input. Sync on mount + whenever the prop flips.
+// property on the input. A non-binary multi-state (a coloured icon state)
+// also reports as "mixed" for assistive tech. Sync on mount + on flip.
 function syncIndeterminate() {
-  if (inputRef.value) inputRef.value.indeterminate = !!props.indeterminate;
+  if (inputRef.value) {
+    inputRef.value.indeterminate = !!props.indeterminate || showMultiIcon.value;
+  }
 }
 onMounted(syncIndeterminate);
-watch(() => props.indeterminate, syncIndeterminate);
+watch([() => props.indeterminate, showMultiIcon], syncIndeterminate);
 
 function onChange(evt: Event) {
-  const target = evt.target as HTMLInputElement;
-  emit("update:modelValue", target.checked);
+  if (isMulti.value && props.states) {
+    const next = props.states[(currentIndex.value + 1) % props.states.length];
+    emit("update:stateValue", next.value);
+    return;
+  }
+  emit("update:modelValue", (evt.target as HTMLInputElement).checked);
 }
-
-const isChecked = computed(() => props.modelValue === true);
 
 // ── Tone resolver ──────────────────────────────────────────────
 const TONE_MAP: Record<string, string> = {
@@ -106,6 +147,17 @@ const TONE_MAP: Record<string, string> = {
 const resolvedColor = computed<string>(
   () => TONE_MAP[props.color] ?? props.color ?? TONE_MAP.primary,
 );
+// Fill colour for the active box — the current multi-state's tone when
+// multi, else the `color` prop (2-state checked / indeterminate).
+const fillColor = computed<string>(() => {
+  const c = currentState.value?.color;
+  return isMultiActive.value && c ? (TONE_MAP[c] ?? c) : resolvedColor.value;
+});
+
+// Multi-state icon size mirrors the per-size --r-cb-icon ladder so the
+// custom glyph matches the built-in check / minus footprint.
+const ICON_PX: Record<string, number> = { xs: 10, sm: 12, md: 14, lg: 16 };
+const multiIconSize = computed(() => ICON_PX[props.size] ?? 14);
 
 // ── Error message normalisation ───────────────────────────────
 const messages = computed<string[]>(() => {
@@ -138,13 +190,19 @@ const hasLabel = computed(
       {
         'r-checkbox--checked': isChecked,
         'r-checkbox--indeterminate': indeterminate,
+        'r-checkbox--multi-active': isMultiActive,
+        'r-checkbox--multi-check': showMultiCheck,
+        'r-checkbox--multi-icon': showMultiIcon,
         'r-checkbox--disabled': disabled,
         'r-checkbox--error': error,
         'r-checkbox--has-subtitle': hasSubtitle,
         'r-checkbox--bare': bare,
       },
     ]"
-    :style="{ '--r-cb-color': resolvedColor }"
+    :style="{
+      '--r-cb-color': resolvedColor,
+      '--r-cb-fill': fillColor,
+    }"
   >
     <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- the native checkbox input is nested inside this label, a valid control association -->
     <label class="r-checkbox">
@@ -154,8 +212,9 @@ const hasLabel = computed(
         ref="inputRef"
         type="checkbox"
         class="r-checkbox__input"
-        :checked="isChecked"
+        :checked="isChecked || isMultiActive"
         :disabled="disabled"
+        :aria-label="ariaLabel"
         @change="onChange"
       />
       <span class="r-checkbox__box" aria-hidden="true">
@@ -189,6 +248,16 @@ const hasLabel = computed(
             class="r-checkbox__path r-checkbox__path--minus"
           />
         </svg>
+        <!-- Multi-state glyph — a custom mdi icon for an icon-bearing
+             state, overlaid on the box centre. Keyed by icon so swapping
+             states re-pops it with the same spring the check tick uses. -->
+        <RIcon
+          v-if="multiIcon"
+          :key="multiIcon"
+          :icon="multiIcon"
+          :size="multiIconSize"
+          class="r-checkbox__glyph-icon"
+        />
       </span>
       <span v-if="hasLabel" class="r-checkbox__body">
         <span v-if="label || slots.default" class="r-checkbox__label">
@@ -343,20 +412,22 @@ const hasLabel = computed(
    inset highlight gives the fill a touch of dimensionality without
    committing to skeuomorphism. */
 .r-checkbox--checked .r-checkbox__box,
-.r-checkbox--indeterminate .r-checkbox__box {
-  background: var(--r-cb-color);
-  border-color: var(--r-cb-color);
+.r-checkbox--indeterminate .r-checkbox__box,
+.r-checkbox--multi-active .r-checkbox__box {
+  background: var(--r-cb-fill);
+  border-color: var(--r-cb-fill);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
-    0 0 12px color-mix(in srgb, var(--r-cb-color) 32%, transparent);
+    0 0 12px color-mix(in srgb, var(--r-cb-fill) 32%, transparent);
 }
 .r-checkbox--checked:not(.r-checkbox--disabled):hover .r-checkbox__box,
-.r-checkbox--indeterminate:not(.r-checkbox--disabled):hover .r-checkbox__box {
-  background: color-mix(in srgb, var(--r-cb-color) 88%, white);
-  border-color: color-mix(in srgb, var(--r-cb-color) 88%, white);
+.r-checkbox--indeterminate:not(.r-checkbox--disabled):hover .r-checkbox__box,
+.r-checkbox--multi-active:not(.r-checkbox--disabled):hover .r-checkbox__box {
+  background: color-mix(in srgb, var(--r-cb-fill) 88%, white);
+  border-color: color-mix(in srgb, var(--r-cb-fill) 88%, white);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 22%, transparent),
-    0 0 16px color-mix(in srgb, var(--r-cb-color) 40%, transparent);
+    0 0 16px color-mix(in srgb, var(--r-cb-fill) 40%, transparent);
 }
 
 /* ── Glyph (check / minus) — drawn-in stroke ──────────────────── */
@@ -375,8 +446,29 @@ const hasLabel = computed(
     opacity 120ms var(--r-motion-ease-out);
 }
 .r-checkbox--checked .r-checkbox__icon,
-.r-checkbox--indeterminate .r-checkbox__icon {
+.r-checkbox--indeterminate .r-checkbox__icon,
+.r-checkbox--multi-check .r-checkbox__icon {
   transform: scale(1);
+  opacity: 1;
+}
+
+/* Multi-state custom glyph — pinned to the box centre (RIcon is a fixed
+   font-size square, so it must be translate-centred, not `inset:0`),
+   hidden until an icon-bearing state pops it in with the tick's spring. */
+.r-checkbox__glyph-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: white;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.6);
+  opacity: 0;
+  transition:
+    transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 120ms var(--r-motion-ease-out);
+}
+.r-checkbox--multi-icon .r-checkbox__glyph-icon {
+  transform: translate(-50%, -50%) scale(1);
   opacity: 1;
 }
 
@@ -401,7 +493,8 @@ const hasLabel = computed(
   stroke-dashoffset: 14;
 }
 /* Reveal the right glyph and animate its dashoffset to 0 ("draw"). */
-.r-checkbox--checked:not(.r-checkbox--indeterminate) .r-checkbox__path--check {
+.r-checkbox--checked:not(.r-checkbox--indeterminate) .r-checkbox__path--check,
+.r-checkbox--multi-check .r-checkbox__path--check {
   opacity: 1;
   stroke-dashoffset: 0;
 }
@@ -557,12 +650,16 @@ html[data-input="pad"]
 /* ── Reduced motion ───────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .r-checkbox__icon,
+  .r-checkbox__glyph-icon,
   .r-checkbox__box,
   .r-checkbox--variant-card .r-checkbox {
     transition: opacity 100ms linear;
   }
   .r-checkbox__icon {
     transform: scale(1);
+  }
+  .r-checkbox__glyph-icon {
+    transform: translate(-50%, -50%) scale(1);
   }
   /* Drop the stroke-draw — keep the glyph instantly visible so
      motion-sensitive users still see the state. */
