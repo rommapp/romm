@@ -208,7 +208,10 @@ class Rom(BaseModel):
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
     __table_args__ = (
-        Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name"),
+        # A platform folder can't hold two entries with the same name on disk,
+        # so (platform_id, fs_name) is unique. Enforcing it also stops racing
+        # scans from inserting the same ROM twice.
+        Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name", unique=True),
         # Covers the sibling_roms view self-join
         Index(
             "idx_roms_sibling_cover",

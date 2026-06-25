@@ -9,6 +9,7 @@ import pydash
 import socketio  # type: ignore
 from rq import Worker
 from rq.job import Job
+from sqlalchemy.exc import IntegrityError
 
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
@@ -252,22 +253,31 @@ async def _identify_rom(
     # Create the entry early so we have the ID
     newly_added: bool = rom is None
     if not rom:
-        rom = db_rom_handler.add_rom(
-            Rom(
-                fs_name=fs_rom["fs_name"],
-                fs_path=roms_path,
-                regions=parsed_tags.regions,
-                revision=parsed_tags.revision,
-                version=parsed_tags.version,
-                languages=parsed_tags.languages,
-                tags=parsed_tags.other_tags,
-                platform_id=platform.id,
-                name=fs_rom["fs_name"],
-                url_cover="",
-                url_manual="",
-                url_screenshots=[],
+        try:
+            rom = db_rom_handler.add_rom(
+                Rom(
+                    fs_name=fs_rom["fs_name"],
+                    fs_path=roms_path,
+                    regions=parsed_tags.regions,
+                    revision=parsed_tags.revision,
+                    version=parsed_tags.version,
+                    languages=parsed_tags.languages,
+                    tags=parsed_tags.other_tags,
+                    platform_id=platform.id,
+                    name=fs_rom["fs_name"],
+                    url_cover="",
+                    url_manual="",
+                    url_screenshots=[],
+                )
             )
-        )
+        except IntegrityError:
+            # A concurrent scan already created this ROM ((platform_id, fs_name)
+            # is unique). That scan owns the full processing of this file, so
+            # skip it here instead of inserting a duplicate library entry.
+            log.debug(
+                f"Skipping {hl(fs_rom['fs_name'])}: already created by a concurrent scan"
+            )
+            return
 
     # Build rom files object before scanning
     should_update_files = _should_get_rom_files(

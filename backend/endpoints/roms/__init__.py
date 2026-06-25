@@ -1484,6 +1484,16 @@ async def update_rom(
     # Re-parse tags from the filename so region/language/revision/version/tags
     # stay in sync whenever the fs_name changes.
     if new_fs_name != rom.fs_name:
+        # (platform_id, fs_name) is unique, so reject a rename that would collide
+        # with another ROM on this platform before the DB update would fail.
+        if db_rom_handler.get_roms_by_fs_name(
+            platform_id=rom.platform_id, fs_names={new_fs_name}
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A ROM named '{new_fs_name}' already exists on this platform",
+            )
+
         parsed_tags = fs_rom_handler.parse_tags(new_fs_name)
         cleaned_data.update(
             {
