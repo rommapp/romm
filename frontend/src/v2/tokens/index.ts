@@ -32,13 +32,27 @@ export const colorBrand = {
   rommGreen: "#3FB950",
   rommBlue: "#0070F3",
   rommGold: "#FFD700",
-  // Light-theme brand variants (deeper for contrast on a light page).
-  primaryLight: "#371F69",
-  secondaryLight: "#553E98",
-  primaryLightHover: "#7850E6",
-  primaryLightPressed: "#452788",
-  secondaryLightHover: "#F0EBFA",
-  secondaryLightPressed: "#9B8BD0",
+} as const;
+
+// Light-theme brand overrides. The brand palette above is tuned for dark
+// surfaces and cover-art overlays, where the lighter purples pop. On the
+// off-white light page those same hues wash out (primary lands near 3:1,
+// the salmon accent and light-purple links worse), so light mode deepens
+// primary, secondary and accent to clear AA for brand-coloured text, links,
+// active-nav and chips. These keys share the brand CSS names, so the build
+// emits them inside .r-v2-light and they override the shared values there.
+// Hover/pressed deepen further (a light page gains emphasis by going darker,
+// the inverse of dark mode where hover goes lighter).
+export const colorBrandLight = {
+  primary: "#553E98",
+  primaryHover: "#452788",
+  primaryPressed: "#371F69",
+  secondary: "#6E5CA8",
+  accent: "#A85530",
+  // Rating stars (RRating) read as bright neon gold on dark; on the light
+  // page that washes out, so deepen to a darkgoldenrod that still reads
+  // unmistakably as gold.
+  rommGold: "#B8860B",
 } as const;
 
 export const colorStatus = {
@@ -68,6 +82,26 @@ export const colorStatusBase = {
   info: "#3B82F6",
 } as const;
 
+// Light-theme status overrides. The canonical status colours above are
+// tuned bright for dark surfaces; on the off-white page the neon green,
+// yellow and pale blue wash out (a green play-badge or a yellow rating
+// star barely registers). Light mode drops them ~one Tailwind tier deeper
+// so each still reads as its hue (icons, badges, solid buttons) on white.
+// Emitted into .r-v2-light with the same CSS names, so they override the
+// shared values there.
+export const colorStatusLight = {
+  success: "#15A34A",
+  // One tier brighter than a naive deepening (yellow-600, not -700) so the
+  // rating metric's gold star reads as vivid as the danger-red difficulty
+  // icon beside it, instead of a muddy olive. warningFg (text-on-wash) stays
+  // deep.
+  warning: "#CA8A04",
+  danger: "#DC2626",
+  info: "#2563EB",
+  warningFg: "#854D0E",
+  dangerFg: "#B91C1C",
+} as const;
+
 // External metadata-provider brand colours. Each provider (IGDB,
 // MobyGames, ScreenScraper…) has its own brand identity; we replicate
 // it on the corresponding chip / link so users recognise the source at
@@ -92,6 +126,10 @@ export const colorDark = {
   surface: "rgba(255, 255, 255, 0.07)",
   surfaceHover: "rgba(255, 255, 255, 0.12)",
   fg: "#ffffff",
+  // Page-title heading ink. Pure white on dark needs no softening; the light
+  // theme overrides this to a slightly-muted near-black (white-on-dark titles
+  // don't read as harshly as black-on-white ones).
+  fgHeading: "#ffffff",
   fgSecondary: "rgba(255, 255, 255, 0.75)",
   fgMuted: "rgba(255, 255, 255, 0.45)",
   fgFaint: "rgba(255, 255, 255, 0.25)",
@@ -118,32 +156,59 @@ export const colorDark = {
   authGlass: "rgba(13, 17, 23, 0.65)",
   // Toast/notification background — opaque deep card.
   toastBg: "rgba(13, 17, 23, 0.92)",
+  // RSwitch ON knob — dark ink that pops on the bright dark-theme track.
+  switchKnobOn: "#111117",
+  // Detail-page title drop shadow — lifts the white title off the dark
+  // background art. Light theme drops it (transparent): a dark blurred halo
+  // under dark-on-light text just smudges.
+  titleShadow: "rgba(0, 0, 0, 0.5)",
 } as const;
 
 export const colorLight = {
   bg: "#f5f5fa",
-  bgElevated: "rgba(0, 0, 0, 0.045)",
-  surface: "rgba(0, 0, 0, 0.07)",
-  surfaceHover: "rgba(0, 0, 0, 0.12)",
+  // Text and borders run stronger than a naive inversion of dark (muted/faint
+  // at <0.45 disappear on the off-white page), but the surface FILLS stay
+  // light: translucent-black panels read as muddy grey on a light page, so
+  // keep their alpha low and lean on borders + shadow for separation. Hover
+  // still darkens enough to register as feedback.
+  bgElevated: "rgba(0, 0, 0, 0.025)",
+  surface: "rgba(0, 0, 0, 0.035)",
+  surfaceHover: "rgba(0, 0, 0, 0.1)",
   fg: "#111117",
-  fgSecondary: "rgba(17, 17, 23, 0.75)",
-  fgMuted: "rgba(17, 17, 23, 0.45)",
-  fgFaint: "rgba(17, 17, 23, 0.25)",
-  border: "rgba(0, 0, 0, 0.07)",
-  borderStrong: "rgba(0, 0, 0, 0.15)",
+  // Large bold page titles in pure near-black read harsh on the off-white
+  // page; soften them a touch while body text stays at full `fg`.
+  fgHeading: "rgba(17, 17, 23, 0.86)",
+  fgSecondary: "rgba(17, 17, 23, 0.82)",
+  fgMuted: "rgba(17, 17, 23, 0.74)",
+  fgFaint: "rgba(17, 17, 23, 0.58)",
+  border: "rgba(0, 0, 0, 0.1)",
+  borderStrong: "rgba(0, 0, 0, 0.22)",
   focus: "rgba(0, 0, 0, 0.45)",
-  panel: "rgba(255, 255, 255, 0.97)",
+  // Menus / selects / dialogs. Pure white popped hard against the faintly
+  // lavender page; sit just a hair above the bg tone instead and rely on the
+  // shadow + panel-border for separation, so overlays read as lifted rather
+  // than as stark white cards.
+  panel: "rgba(240, 240, 246, 0.98)",
   panelBorder: "rgba(17, 17, 23, 0.1)",
   tooltipBg: "rgba(245, 245, 250, 0.96)",
   tooltipBorder: "rgba(17, 17, 23, 0.08)",
   shimmerSweep: "rgba(0, 0, 0, 0.06)",
-  // Cover/media placeholder — same dark as colorDark.coverPlaceholder.
-  // Cover artwork space stays dark in light mode too — bright covers need
-  // dark backing.
-  coverPlaceholder: "#1a1a2e",
-  coverPlaceholderBright: "#252540",
+  // Cover/media placeholder — the backing shown behind artwork while the
+  // image loads (and the shimmer skeleton tone). Theme-aware: a dark box
+  // under a loading card reads as out-of-place on the light page, so light
+  // mode uses a soft lavender-grey, a hair darker than the bg so the card
+  // still reads as a filled surface. The procedural "no cover" SVG art
+  // (colorCoverArt) is separate and keeps its own purple/peach regardless.
+  coverPlaceholder: "#e4e2ef",
+  coverPlaceholderBright: "#efeef7",
   authGlass: "rgba(245, 245, 250, 0.85)",
   toastBg: "rgba(245, 245, 250, 0.95)",
+  // RSwitch ON knob — white knob so it pops on light theme's deep-purple
+  // track instead of sinking into it as a dark blob.
+  switchKnobOn: "rgba(255, 255, 255, 0.95)",
+  // Detail-page title shadow — none on light (a dark blurred halo under the
+  // dark-on-light title just smudges; the calm light backdrop needs no lift).
+  titleShadow: "transparent",
 } as const;
 
 // Cover-overlay surfaces — fixed dark glass values that never theme-flip.
@@ -164,6 +229,11 @@ export const colorOverlay = {
   emphasisBg: "#ffffff",
   emphasisBgHover: "#e6e6e6",
   emphasisFg: "#111117",
+  // Rating gold for badges sitting on the cover scrim (GameCard rating).
+  // Stays bright in both themes: the scrim is always dark, so the deep
+  // light-theme `romm-gold` (tuned for legibility on the light PAGE) would
+  // sink into it. Page-context gold keeps using --r-color-romm-gold.
+  gold: "#FFD700",
 } as const;
 
 // Player canvas — full-black background for emulator/player surfaces.

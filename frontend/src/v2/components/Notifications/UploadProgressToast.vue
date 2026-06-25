@@ -176,11 +176,7 @@ function clearFinished() {
   bottom: 16px;
   z-index: 8900;
   width: min(360px, calc(100vw - 32px));
-  background: color-mix(
-    in srgb,
-    var(--r-color-canvas-bg-deep) 92%,
-    transparent
-  );
+  background: var(--r-color-toast-bg);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
