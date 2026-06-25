@@ -372,7 +372,7 @@ async function onDelete() {
     snackbar.success(`Platform "${p.display_name}" deleted`, {
       icon: "mdi-check-bold",
     });
-    router.push({ name: "platforms" });
+    router.push({ name: ROUTES.PLATFORMS_INDEX });
   } catch (err) {
     const e = err as {
       response?: { data?: { msg?: string } };
