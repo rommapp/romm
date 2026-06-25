@@ -156,9 +156,8 @@ function toggle() {
   top: 3px;
   left: 3px;
   border-radius: 50%;
-  /* Always a white knob (off + on). Dark theme's bright track and light
-     theme's deep-purple track both read a white knob cleanly; the ON state
-     re-asserts it via --r-color-switch-knob-on (dark knob only on dark). */
+  /* Default knob is white. The ON state uses --r-color-switch-knob-on so it can be
+     dark on dark theme’s bright track and white on light theme’s deep-purple track. */
   background: var(--r-color-overlay-fg);
   transform: translateX(0) scaleX(1);
   /* Origin sits on the outer edge of the knob in each state (left when
