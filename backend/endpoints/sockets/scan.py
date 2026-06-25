@@ -699,8 +699,27 @@ async def scan_platforms(
     if MetadataSource.HLTB in metadata_sources:
         meta_hltb_handler.initialize()
 
+    # Resolve the platforms that will actually be scanned. When no platform ids
+    # are provided, every filesystem platform is scanned.
+    platform_list = [
+        platform.fs_slug
+        for s in platform_ids
+        if (platform := db_platform_handler.get_platform(s)) is not None
+    ] or fs_platforms
+    platform_list = sorted(platform_list)
+
+    # A "new platforms" scan skips platforms that already exist in the database,
+    # so they must be excluded from the totals to keep the tracker accurate.
+    platforms_to_scan = platform_list
+    if scan_type == ScanType.NEW_PLATFORMS:
+        platforms_to_scan = [
+            platform_slug
+            for platform_slug in platform_list
+            if db_platform_handler.get_platform_by_fs_slug(platform_slug) is None
+        ]
+
     total_roms = 0
-    for platform_slug in fs_platforms:
+    for platform_slug in platforms_to_scan:
         try:
             total_roms += await fs_rom_handler.count_roms(
                 Platform(fs_slug=platform_slug)
@@ -710,7 +729,7 @@ async def scan_platforms(
 
     await scan_stats.update(
         socket_manager=socket_manager,
-        total_platforms=len(fs_platforms),
+        total_platforms=len(platforms_to_scan),
         total_roms=total_roms,
     )
 
@@ -720,13 +739,6 @@ async def scan_platforms(
         redis_client.delete(STOP_SCAN_FLAG)
 
     try:
-        platform_list = [
-            platform.fs_slug
-            for s in platform_ids
-            if (platform := db_platform_handler.get_platform(s)) is not None
-        ] or fs_platforms
-        platform_list = sorted(platform_list)
-
         if len(platform_list) == 0:
             log.warning(
                 f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No platforms found, verify that the folder structure is right and the volume is mounted correctly."

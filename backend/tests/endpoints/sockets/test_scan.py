@@ -1,9 +1,10 @@
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 import socketio
 
-from endpoints.sockets.scan import ScanStats, _should_scan_rom
+from endpoints.sockets import scan as scan_module
+from endpoints.sockets.scan import ScanStats, _should_scan_rom, scan_platforms
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import ScanType
@@ -72,6 +73,89 @@ async def test_merging_scan_stats():
     assert stats.identified_roms == 21
     assert stats.scanned_firmware == 23
     assert stats.new_firmware == 25
+
+
+class TestScanTotals:
+    """The scan tracker totals must reflect the platforms/roms actually scanned."""
+
+    @pytest.fixture
+    def patched(self, mocker):
+        """Patch the collaborators of scan_platforms so totals can be inspected."""
+        socket_manager = AsyncMock()
+        mocker.patch.object(
+            scan_module, "_get_socket_manager", return_value=socket_manager
+        )
+        mocker.patch.object(
+            scan_module.fs_platform_handler,
+            "get_platforms",
+            AsyncMock(return_value=["existing", "new1", "new2"]),
+        )
+        # Each platform reports 100 roms on disk.
+        mocker.patch.object(
+            scan_module.fs_rom_handler, "count_roms", AsyncMock(return_value=100)
+        )
+        mocker.patch.object(scan_module.meta_gamelist_handler, "clear_cache")
+        mocker.patch.object(
+            scan_module.db_platform_handler, "mark_missing_platforms", return_value=[]
+        )
+        mocker.patch.object(
+            scan_module.db_platform_handler, "get_platforms", return_value=[]
+        )
+        mocker.patch.object(
+            scan_module.db_rom_handler, "invalidate_filter_values_cache"
+        )
+        config = MagicMock()
+        config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
+        config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+        # Skip the actual per-platform scanning, returning the stats unchanged.
+        async def fake_identify(**kwargs):
+            return kwargs["scan_stats"]
+
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=fake_identify
+        )
+        return socket_manager
+
+    async def test_new_platforms_total_excludes_existing(self, patched, mocker):
+        """NEW_PLATFORMS totals must skip platforms already in the database."""
+
+        def get_by_fs_slug(fs_slug):
+            return MagicMock() if fs_slug == "existing" else None
+
+        mocker.patch.object(
+            scan_module.db_platform_handler,
+            "get_platform_by_fs_slug",
+            side_effect=get_by_fs_slug,
+        )
+
+        result = await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[],
+            scan_type=ScanType.NEW_PLATFORMS,
+        )
+
+        # Only the two new platforms (and their roms) should be counted.
+        assert result.total_platforms == 2
+        assert result.total_roms == 200
+
+    async def test_complete_scan_counts_all_selected(self, patched, mocker):
+        """COMPLETE totals include every filesystem platform being scanned."""
+        mocker.patch.object(
+            scan_module.db_platform_handler,
+            "get_platform_by_fs_slug",
+            return_value=MagicMock(),
+        )
+
+        result = await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[],
+            scan_type=ScanType.COMPLETE,
+        )
+
+        assert result.total_platforms == 3
+        assert result.total_roms == 300
 
 
 class TestShouldScanRom:
