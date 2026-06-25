@@ -701,10 +701,11 @@ async def scan_platforms(
 
     # Resolve the platforms that will actually be scanned. When no platform ids
     # are provided, every filesystem platform is scanned.
+    db_platforms = db_platform_handler.get_platforms()
+    db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
+
     platform_list = [
-        platform.fs_slug
-        for s in platform_ids
-        if (platform := db_platform_handler.get_platform(s)) is not None
+        p.fs_slug for p in db_platforms if p.id in platform_ids
     ] or fs_platforms
     platform_list = sorted(platform_list)
 
@@ -715,7 +716,7 @@ async def scan_platforms(
         platforms_to_scan = [
             platform_slug
             for platform_slug in platform_list
-            if db_platform_handler.get_platform_by_fs_slug(platform_slug) is None
+            if db_platforms_by_slug.get(platform_slug) is None
         ]
 
     total_roms = 0
@@ -775,13 +776,16 @@ async def scan_platforms(
 
         # Export metadata files if enabled in config
         config = cm.get_config()
-        platforms_by_slug = {p.fs_slug: p for p in db_platform_handler.get_platforms()}
+
+        # Update the list of platforms after the scan to ensure we have the latest data
+        db_platforms = db_platform_handler.get_platforms()
+        db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
 
         if config.GAMELIST_AUTO_EXPORT_ON_SCAN:
             log.info("Auto-exporting gamelist.xml for all platforms...")
             gamelist_exporter = GamelistExporter(local_export=True)
             for platform_slug in platform_list:
-                platform = platforms_by_slug.get(platform_slug)
+                platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
                     export_success = await gamelist_exporter.export_platform_to_file(
                         platform.id,
@@ -801,7 +805,7 @@ async def scan_platforms(
             log.info("Auto-exporting metadata.pegasus.txt for all platforms...")
             pegasus_exporter = PegasusExporter(local_export=True)
             for platform_slug in platform_list:
-                platform = platforms_by_slug.get(platform_slug)
+                platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
                     export_success = await pegasus_exporter.export_platform_to_file(
                         platform.id,
