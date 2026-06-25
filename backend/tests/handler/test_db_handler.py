@@ -765,14 +765,14 @@ def test_users(admin_user):
     new_user = db_user_handler.get_user_by_username("new_user")
     assert new_user is not None
     assert new_user.username == "new_user"
-    assert new_user.role == Role.VIEWER
+    assert new_user.role == Role.USER
     assert new_user.enabled
 
-    db_user_handler.update_user(new_user.id, {"role": Role.EDITOR})
+    db_user_handler.update_user(new_user.id, {"role": Role.ADMIN})
 
     new_user = db_user_handler.get_user(new_user.id)
     assert new_user is not None
-    assert new_user.role == Role.EDITOR
+    assert new_user.role == Role.ADMIN
 
     db_user_handler.delete_user(new_user.id)
 

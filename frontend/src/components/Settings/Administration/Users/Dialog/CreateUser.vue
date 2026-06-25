@@ -18,7 +18,7 @@ const user = ref({
   username: "",
   password: "",
   email: "",
-  role: "viewer",
+  role: "user",
 });
 const { lgAndUp } = useDisplay();
 const show = ref(false);
@@ -49,7 +49,7 @@ function closeDialog() {
     username: "",
     password: "",
     email: "",
-    role: "viewer",
+    role: "user",
   };
 }
 </script>
@@ -95,7 +95,7 @@ function closeDialog() {
             <v-select
               v-model="user.role"
               variant="outlined"
-              :items="['viewer', 'editor', 'admin']"
+              :items="['admin', 'user']"
               :label="t('settings.role')"
               required
               hide-details

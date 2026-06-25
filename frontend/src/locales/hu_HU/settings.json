@@ -235,6 +235,7 @@
   "revoke-token-confirm": "Visszavonod a(z) „{name}” tokent {username} felhasználótól?",
   "role": "Szerepkör",
   "role-admin": "Admin",
+  "role-user": "User",
   "role-editor": "Szerkesztő",
   "role-viewer": "Megtekintő",
   "romm-platform": "RomM platform",

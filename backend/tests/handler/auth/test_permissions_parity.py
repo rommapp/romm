@@ -24,14 +24,21 @@ from models.user import Role, User
 def test_viewer_matrix_projects_to_write_scopes():
     projected = set(grants_to_scopes(LEGACY_VIEWER_GRANTS))
     assert projected == set(WRITE_SCOPES)
-    # And matches the property on an in-memory non-kiosk user.
-    assert projected == set(User(role=Role.VIEWER).oauth_scopes)
+    # A group-less user falls back to the default (Viewer legacy) group.
+    assert projected == set(User(role=Role.USER).oauth_scopes)
 
 
 def test_editor_matrix_projects_to_edit_scopes():
+    from handler.database import db_permission_handler
+
     projected = set(grants_to_scopes(LEGACY_EDITOR_GRANTS))
     assert projected == set(EDIT_SCOPES)
-    assert projected == set(User(role=Role.EDITOR).oauth_scopes)
+    # Editor-level access now comes from the Editor (legacy) group.
+    editor_group = db_permission_handler.get_group_by_name("Editor (legacy)")
+    assert editor_group is not None
+    assert projected == set(
+        User(role=Role.USER, permission_group_id=editor_group.id).oauth_scopes
+    )
 
 
 def test_admin_projects_to_full_scopes():

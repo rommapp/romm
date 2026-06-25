@@ -22,10 +22,19 @@ if TYPE_CHECKING:
     from models.rom import RomNote, RomUser
 
 
-class Role(enum.Enum):
-    VIEWER = "viewer"
-    EDITOR = "editor"
+class Role(enum.StrEnum):
+    # Two kinds only: admins bypass all permission checks; everyone else is a
+    # `user` whose access comes entirely from their permission group + overrides.
+    # (The old viewer/editor split was folded into groups.)
+    USER = "user"
     ADMIN = "admin"
+
+    @classmethod
+    def coerce(cls, value: str | None) -> Role:
+        """Map any role string to the two-value set. Only an exact ``admin``
+        becomes ADMIN; everything else (``user``, the legacy ``viewer`` /
+        ``editor`` from in-flight invites, unknown, empty) collapses to USER."""
+        return cls.ADMIN if (value or "").strip().lower() == "admin" else cls.USER
 
 
 TEXT_FIELD_LENGTH = 255
@@ -47,7 +56,17 @@ class User(BaseModel, SimpleUser):
         String(length=TEXT_FIELD_LENGTH), unique=True, index=True
     )
     enabled: Mapped[bool] = mapped_column(default=True)
-    role: Mapped[Role] = mapped_column(Enum(Role), default=Role.VIEWER)
+    # VARCHAR-backed (native_enum=False) storing the lowercase value, so the
+    # vocabulary stays portable across SQLite/MariaDB/Postgres.
+    role: Mapped[Role] = mapped_column(
+        Enum(
+            Role,
+            native_enum=False,
+            length=20,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        default=Role.USER,
+    )
     # The granular permission group this user belongs to. NULL falls back to the
     # server-wide default group in the resolver. Admins bypass groups entirely.
     permission_group_id: Mapped[int | None] = mapped_column(
@@ -102,7 +121,7 @@ class User(BaseModel, SimpleUser):
         return cls(
             id=-1,
             username="kiosk",
-            role=Role.VIEWER,
+            role=Role.USER,
             enabled=True,
             avatar_path="",
             last_active=now,

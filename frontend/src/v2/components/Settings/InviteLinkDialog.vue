@@ -24,7 +24,7 @@ const fullInviteLink = ref("");
 const selectedRole = ref<string | null>(null);
 const selectedExpiration = ref<number>(86400);
 
-const roles = ["viewer", "editor", "admin"];
+const roles = ["admin", "user"];
 const expirationOptions = computed(() => [
   { title: t("settings.expiry-1h"), value: 3600 },
   { title: t("settings.expiry-6h"), value: 21600 },

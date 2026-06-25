@@ -235,6 +235,7 @@
   "revoke-token-confirm": "Révoquer le token « {name} » pour {username} ?",
   "role": "Rôle",
   "role-admin": "Administrateur",
+  "role-user": "User",
   "role-editor": "Éditeur",
   "role-viewer": "Lecteur",
   "romm-platform": "Plateforme RomM",

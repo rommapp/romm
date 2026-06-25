@@ -235,6 +235,7 @@
   "revoke-token-confirm": "Revoci token-ul „{name}” pentru {username}?",
   "role": "Rol",
   "role-admin": "Administrator",
+  "role-user": "User",
   "role-editor": "Editor",
   "role-viewer": "Vizualizator",
   "romm-platform": "Platformă RomM",

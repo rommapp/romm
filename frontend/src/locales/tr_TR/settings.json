@@ -235,6 +235,7 @@
   "revoke-token-confirm": "{username} için \"{name}\" tokenı iptal edilsin mi?",
   "role": "Rol",
   "role-admin": "Yönetici",
+  "role-user": "User",
   "role-editor": "Editör",
   "role-viewer": "İzleyici",
   "romm-platform": "RomM platformu",

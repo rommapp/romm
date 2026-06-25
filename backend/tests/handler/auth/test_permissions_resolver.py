@@ -86,13 +86,14 @@ def test_property_parity_for_group_less_users(admin_user, editor_user, viewer_us
     assert set(viewer_user.oauth_scopes) == set(WRITE_SCOPES)
 
 
-def test_kiosk_caps_non_editor_to_read(
+def test_kiosk_caps_non_admin_to_read(
     monkeypatch, admin_user, editor_user, viewer_user
 ):
     monkeypatch.setattr("handler.auth.permissions.KIOSK_MODE", True)
+    # Kiosk locks every non-admin user (including former editors) to read-only.
     assert set(viewer_user.oauth_scopes) == set(READ_SCOPES)
-    # Editors and admins are unaffected by the kiosk cap (legacy behavior).
-    assert set(editor_user.oauth_scopes) == set(EDIT_SCOPES)
+    assert set(editor_user.oauth_scopes) == set(READ_SCOPES)
+    # Only admins bypass the kiosk cap.
     assert set(admin_user.oauth_scopes) == set(FULL_SCOPES)
 
 

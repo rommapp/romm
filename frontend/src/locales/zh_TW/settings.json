@@ -235,6 +235,7 @@
   "revoke-token-confirm": "為 {username} 撤銷權杖「{name}」？",
   "role": "角色",
   "role-admin": "管理員",
+  "role-user": "User",
   "role-editor": "編輯者",
   "role-viewer": "檢視者",
   "romm-platform": "RomM 平台",

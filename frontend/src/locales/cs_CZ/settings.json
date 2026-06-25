@@ -235,6 +235,7 @@
   "revoke-token-confirm": "Zrušit token „{name}“ pro {username}?",
   "role": "Role",
   "role-admin": "Admin",
+  "role-user": "User",
   "role-editor": "Editor",
   "role-viewer": "Pozorovatel",
   "romm-platform": "Platforma RomM",

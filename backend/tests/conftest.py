@@ -14,6 +14,7 @@ from config.config_manager import ConfigManager
 from handler.auth import auth_handler
 from handler.auth.base_handler import ALGORITHM, oct_key
 from handler.database import (
+    db_permission_handler,
     db_platform_handler,
     db_rom_handler,
     db_save_handler,
@@ -276,20 +277,25 @@ def admin_user():
 
 @pytest.fixture
 def editor_user():
+    # role collapses to `user`; editor-level access now comes from the group.
+    group = db_permission_handler.get_group_by_name("Editor (legacy)")
     user = User(
         username="test_editor",
         hashed_password=auth_handler.get_password_hash("test_editor_password"),
-        role=Role.EDITOR,
+        role=Role.USER,
+        permission_group_id=group.id if group else None,
     )
     return db_user_handler.add_user(user)
 
 
 @pytest.fixture
 def viewer_user():
+    group = db_permission_handler.get_group_by_name("Viewer (legacy)")
     user = User(
         username="test_viewer",
         hashed_password=auth_handler.get_password_hash("test_viewer_password"),
-        role=Role.VIEWER,
+        role=Role.USER,
+        permission_group_id=group.id if group else None,
     )
     return db_user_handler.add_user(user)
 

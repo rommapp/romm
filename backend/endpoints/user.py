@@ -98,7 +98,7 @@ def add_user(
         username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
         email=email.lower() or None,
-        role=Role[role.upper()],
+        role=Role.coerce(role),
     )
 
     return UserSchema.model_validate(db_user_handler.add_user(user))
@@ -206,7 +206,7 @@ def create_user_from_invite(
         username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
         email=email.lower() or None,
-        role=Role[role.upper()],
+        role=Role.coerce(role),
     )
 
     created_user = db_user_handler.add_user(user)
@@ -360,7 +360,7 @@ async def update_user(
 
     # You can't change your own role
     if form_data.role and request.user.id != id:
-        new_role = Role[form_data.role.upper()]
+        new_role = Role.coerce(form_data.role)
         # You can't demote the last admin (mirrors the delete guard).
         if (
             db_user.role == Role.ADMIN

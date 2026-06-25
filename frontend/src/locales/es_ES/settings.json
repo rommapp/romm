@@ -235,6 +235,7 @@
   "revoke-token-confirm": "Esto revocará el token. Cualquier dispositivo que lo use perderá el acceso.",
   "role": "Rol",
   "role-admin": "Administrador",
+  "role-user": "User",
   "role-editor": "Editor",
   "role-viewer": "Espectador",
   "romm-platform": "Plataforma en RomM",

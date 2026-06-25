@@ -17,9 +17,6 @@ from config import KIOSK_MODE
 from decorators.database import begin_session
 from handler.auth.constants import FULL_SCOPES, READ_SCOPES, Scope
 from handler.auth.permissions_map import (
-    LEGACY_EDITOR_GRANTS,
-    LEGACY_VIEWER_GRANTS,
-    Grant,
     grants_to_scopes,
     order_scopes,
 )
@@ -68,20 +65,6 @@ class ResolvedPermissions:
         )
 
 
-def _legacy_grants_for_role(role: Role) -> tuple[Grant, ...]:
-    """Transitional fallback for users with no explicit group yet.
-
-    While the ``Role`` enum still carries editor/viewer (removed in a later PR),
-    a group-less user resolves to the legacy matrix matching their role, so
-    freshly-created users behave exactly as before. Removed once roles collapse
-    to admin/user and every user carries an explicit group.
-    """
-
-    if role == Role.EDITOR:
-        return LEGACY_EDITOR_GRANTS
-    return LEGACY_VIEWER_GRANTS
-
-
 def _resolve_grant_map(
     user: User, *, session
 ) -> dict[tuple[PermEntity, PermAction], bool]:
@@ -90,14 +73,14 @@ def _resolve_grant_map(
     from handler.database import db_permission_handler
 
     base: dict[tuple[PermEntity, PermAction], bool] = {}
-    if user.permission_group_id is not None:
-        for g in db_permission_handler.get_group_grants(
-            user.permission_group_id, session=session
-        ):
+    # A user with no explicit group follows the server-wide default group.
+    group_id = user.permission_group_id
+    if group_id is None:
+        default_group = db_permission_handler.get_default_group(session=session)
+        group_id = default_group.id if default_group else None
+    if group_id is not None:
+        for g in db_permission_handler.get_group_grants(group_id, session=session):
             base[(g.entity, g.action)] = g.own_only
-    else:
-        for entity, action, own_only in _legacy_grants_for_role(user.role):
-            base[(entity, action)] = own_only
 
     # Per-user overrides win over the group: grant adds, revoke removes.
     if user.id is not None:
@@ -164,8 +147,8 @@ def compute_oauth_scopes(
 ) -> list[Scope]:
     """Project a user's effective grants onto the coarse legacy ``Scope`` set.
 
-    Preserves the exact pre-redesign behavior: admins get the full set, and
-    ``KIOSK_MODE`` still caps non-editor users to read-only.
+    Admins get the full set; ``KIOSK_MODE`` caps every non-admin user to
+    read-only (the public-display lockdown).
     """
 
     # Admins bypass everything -- no DB access needed.
@@ -187,6 +170,8 @@ def _compute_non_admin_scopes(
             for (entity, action), own_only in grant_map.items()
         )
     )
-    if KIOSK_MODE and user.role != Role.EDITOR:
+    # Only non-admins reach here (admins short-circuit above), so kiosk mode
+    # locks all of them down to read-only.
+    if KIOSK_MODE:
         scopes &= set(READ_SCOPES)
     return order_scopes(scopes)

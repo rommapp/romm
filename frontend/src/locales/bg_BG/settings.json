@@ -235,6 +235,7 @@
   "revoke-token-confirm": "Отмяна на токена \"{name}\" за {username}?",
   "role": "Роля",
   "role-admin": "Администратор",
+  "role-user": "User",
   "role-editor": "Редактор",
   "role-viewer": "Наблюдател",
   "romm-platform": "RomM платформа",

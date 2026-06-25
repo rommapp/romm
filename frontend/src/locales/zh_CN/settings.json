@@ -235,6 +235,7 @@
   "revoke-token-confirm": "确定要吊销 {username} 的令牌 \"{name}\" 吗？",
   "role": "角色",
   "role-admin": "管理员",
+  "role-user": "User",
   "role-editor": "编辑者",
   "role-viewer": "查看者",
   "romm-platform": "RomM 平台",

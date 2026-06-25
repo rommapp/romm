@@ -235,6 +235,7 @@
   "revoke-token-confirm": "{username}의 토큰 \"{name}\"을(를) 폐기하시겠습니까?",
   "role": "역할",
   "role-admin": "관리자",
+  "role-user": "User",
   "role-editor": "편집자",
   "role-viewer": "뷰어",
   "romm-platform": "RomM 플랫폼",

@@ -25,7 +25,7 @@ const snackbar = useSnackbar();
 const show = ref(false);
 const submitting = ref(false);
 
-const user = ref({ username: "", password: "", email: "", role: "viewer" });
+const user = ref({ username: "", password: "", email: "", role: "user" });
 const confirmPassword = ref("");
 const isAdmin = ref(false);
 const groupId = ref<number | null>(null);
@@ -59,7 +59,7 @@ const formValid = computed(
 );
 
 function reset() {
-  user.value = { username: "", password: "", email: "", role: "viewer" };
+  user.value = { username: "", password: "", email: "", role: "user" };
   confirmPassword.value = "";
   isAdmin.value = false;
   groupId.value = null;
@@ -69,7 +69,7 @@ async function createUser() {
   if (!formValid.value) return;
   submitting.value = true;
   try {
-    user.value.role = isAdmin.value ? "admin" : "viewer";
+    user.value.role = isAdmin.value ? "admin" : "user";
     const { data } = await userApi.createUser(user.value);
     // Only pin an explicit group when the admin picked a non-default one;
     // leaving the default selected lets the user follow the server default.

@@ -43,7 +43,7 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 
 // Access section.
 const isAdmin = ref(false);
-const originalRole = ref("viewer");
+const originalRole = ref("user");
 const platforms = ref<Platform[]>([]);
 const groupId = ref<number | null>(null);
 const originalGroupId = ref<number | null>(null);
@@ -199,14 +199,11 @@ async function save() {
   submitting.value = true;
   const userId = user.value.id;
   try {
-    // Role is derived from the Admin toggle. Self-role changes are ignored by
-    // the backend, so leave it untouched when editing yourself.
+    // Role is derived from the Admin toggle (admin vs plain user). Self-role
+    // changes are ignored by the backend, so leave it untouched when editing
+    // yourself.
     if (!editingSelf.value) {
-      user.value.role = isAdmin.value
-        ? "admin"
-        : originalRole.value === "admin"
-          ? "viewer"
-          : originalRole.value;
+      user.value.role = isAdmin.value ? "admin" : "user";
     }
     const { data } = await userApi.updateUser(user.value);
 

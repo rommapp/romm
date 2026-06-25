@@ -235,6 +235,7 @@
   "revoke-token-confirm": "{username}のトークン「{name}」を取り消しますか？",
   "role": "役割",
   "role-admin": "管理者",
+  "role-user": "User",
   "role-editor": "編集者",
   "role-viewer": "閲覧者",
   "romm-platform": "RomM プラットフォーム",
