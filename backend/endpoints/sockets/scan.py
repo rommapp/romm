@@ -271,9 +271,7 @@ async def _identify_rom(
                 )
             )
         except IntegrityError:
-            # A concurrent scan already created this ROM ((platform_id, fs_name)
-            # is unique). That scan owns the full processing of this file, so
-            # skip it here instead of inserting a duplicate library entry.
+            # A concurrent scan already created this ROM, so skip it here.
             log.debug(
                 f"Skipping {hl(fs_rom['fs_name'])}: already created by a concurrent scan"
             )

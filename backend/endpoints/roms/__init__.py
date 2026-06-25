@@ -28,6 +28,7 @@ from fastapi.responses import Response
 from fastapi_pagination import resolve_params
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
 
 from config import (
@@ -1484,16 +1485,6 @@ async def update_rom(
     # Re-parse tags from the filename so region/language/revision/version/tags
     # stay in sync whenever the fs_name changes.
     if new_fs_name != rom.fs_name:
-        # (platform_id, fs_name) is unique, so reject a rename that would collide
-        # with another ROM on this platform before the DB update would fail.
-        if db_rom_handler.get_roms_by_fs_name(
-            platform_id=rom.platform_id, fs_names={new_fs_name}
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"A ROM named '{new_fs_name}' already exists on this platform",
-            )
-
         parsed_tags = fs_rom_handler.parse_tags(new_fs_name)
         cleaned_data.update(
             {
@@ -1608,7 +1599,14 @@ async def update_rom(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"
     )
 
-    db_rom_handler.update_rom(id, cleaned_data)
+    try:
+        db_rom_handler.update_rom(id, cleaned_data)
+    except IntegrityError as exc:
+        log.error(f"Failed to update ROM {id}: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update ROM {id}: {exc}",
+        ) from exc
 
     # Rename the file/folder if the name has changed
     should_update_fs = new_fs_name != rom.fs_name

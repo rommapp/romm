@@ -1,11 +1,5 @@
 """Enforce unique (platform_id, fs_name) on roms
 
-A platform folder can't physically hold two entries with the same name, so a
-ROM is uniquely identified by (platform_id, fs_name). The index covering this
-pair was non-unique, which let two concurrent scans (e.g. the manual scan the
-patcher fires after uploading a patched ROM, racing a filesystem-watcher or
-scheduled scan) both insert the same ROM, producing duplicate library entries.
-
 This migration removes any pre-existing duplicates (keeping the lowest id) and
 upgrades the index to unique so the duplicate can never be created again.
 
@@ -32,13 +26,7 @@ def upgrade() -> None:
     connection = op.get_bind()
 
     # Drop duplicate roms sharing (platform_id, fs_name), keeping the lowest id.
-    # The nested derived table is required so MySQL/MariaDB don't reject reading
-    # the same table being deleted from; it's a valid no-op on PostgreSQL too.
-    # Dependent rows (files, user props, assets, collections, ...) are removed by
-    # their ON DELETE CASCADE foreign keys.
-    connection.execute(
-        sa.text(
-            """
+    connection.execute(sa.text("""
             DELETE FROM roms
             WHERE id NOT IN (
                 SELECT keep_id FROM (
@@ -47,9 +35,7 @@ def upgrade() -> None:
                     GROUP BY platform_id, fs_name
                 ) AS keepers
             )
-            """
-        )
-    )
+            """))
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.drop_index(INDEX_NAME, if_exists=True)
