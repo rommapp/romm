@@ -618,9 +618,21 @@ def get_roms(
         # trunk-ignore(mypy/typeddict-item)
         filter_values = RomFiltersDict(**query_filters)
 
-    # Get all ROM IDs in order for the additional data
+    # The full ordered id list backs virtual scroll, so it's computed over the
+    # whole result set on every request. Memoise the unscoped library scan (same
+    # key scheme as the other sidecars); scoped/searched sets stay live.
+    rom_id_index_cache_key = (
+        f"all:u{request.user.id}"
+        f":o{order_by.lower()}:d{order_dir.lower()}:g{int(group_by_meta_id)}"
+        if is_unscoped
+        else None
+    )
+    rom_id_index = db_rom_handler.get_rom_id_index(
+        query=query, cache_key=rom_id_index_cache_key
+    )
+
+    # Hydrate the requested page and its additional data
     with sync_session.begin() as session:
-        rom_id_index = session.scalars(query.with_only_columns(Rom.id)).all()  # type: ignore
 
         def _transform(items: Sequence[Rom]) -> list[SimpleRomSchema]:
             rom_ids = [i.id for i in items]

@@ -178,6 +178,35 @@ class TestCacheHitMatchesMiss:
         # Same consumed shape as the miss (the endpoint folds this into a dict).
         assert dict(hit) == dict(miss) == {"t": 0}
 
+    def test_get_rom_id_index_hit_matches_miss(self, rom: Rom):
+        query = cast(Query[Rom], select(Rom))
+        cache_key = "all:test-idindex"
+
+        miss = db_rom_handler.get_rom_id_index(query=query, cache_key=cache_key)
+
+        version = _filter_values_cache_version()
+        redis_key = f"rom_id_index:{cache_key}:v{version}"
+        assert sync_cache.get(redis_key) is not None
+        assert miss == [rom.id]
+
+        # Add a ROM; a cache hit must ignore it until the version bumps.
+        with session_factory.begin() as s:
+            s.add(
+                Rom(
+                    platform_id=rom.platform_id,
+                    name="Another",
+                    slug="another-slug-idx",
+                    fs_name="another-idx.zip",
+                    fs_name_no_tags="another-idx",
+                    fs_name_no_ext="another-idx",
+                    fs_extension="zip",
+                    fs_path=rom.fs_path,
+                )
+            )
+
+        hit = db_rom_handler.get_rom_id_index(query=query, cache_key=cache_key)
+        assert hit == miss == [rom.id]
+
 
 class TestInvalidateFilterValuesCache:
     def test_deletes_prior_version_keys_and_set(self, rom_with_metadata: Rom):
