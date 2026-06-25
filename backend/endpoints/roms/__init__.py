@@ -573,13 +573,37 @@ def get_roms(
         include_file_stats=True,
     )
 
-    # Cache only the unscoped library scan; scoped/searched sets are narrower and computed live.
+    # Cache only the fully unscoped library scan; any narrowing parameter makes
+    # the result set narrower, so it is computed live. The sidecar cache key
+    # encodes only user/order/grouping, not the filters, so every filter applied
+    # to `query` below must gate caching here or a narrowed list leaks under the
+    # shared "all" key. Bool flags use `is not None` since False is an active
+    # filter. Logic operators are omitted: they only matter when their list
+    # filter is set, which is already covered.
     is_unscoped = not (
         search_term
         or platform_ids
         or collection_id
         or virtual_collection_id
         or smart_collection_id
+        or genres
+        or franchises
+        or collections
+        or companies
+        or age_ratings
+        or statuses
+        or regions
+        or languages
+        or player_counts
+        or updated_after
+        or matched is not None
+        or favorite is not None
+        or duplicate is not None
+        or last_played is not None
+        or playable is not None
+        or has_ra is not None
+        or missing is not None
+        or verified is not None
     )
 
     # Get the char index for the roms

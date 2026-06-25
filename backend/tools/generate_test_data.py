@@ -715,11 +715,6 @@ def main() -> int:
         "--password", default="password", help="Plain password for every seeded user"
     )
     parser.add_argument(
-        "--user-prefix",
-        default="loadtest",
-        help="Prefix for seeded usernames (kept unique by id)",
-    )
-    parser.add_argument(
         "--wipe",
         action="store_true",
         help="Delete existing rows from target tables first",
@@ -852,11 +847,11 @@ def main() -> int:
         # Suffix with the assigned id so usernames/emails never collide with
         # rows already in the target database.
         if i == 0:
-            username, role = f"{args.user_prefix}_admin_{uid}", Role.ADMIN
+            username, role = f"admin_{uid}", Role.ADMIN
         elif i <= 2:
-            username, role = f"{args.user_prefix}_editor_{uid}", Role.EDITOR
+            username, role = f"editor_{uid}", Role.EDITOR
         else:
-            username, role = f"{args.user_prefix}_viewer_{uid}", Role.VIEWER
+            username, role = f"viewer_{uid}", Role.VIEWER
         created = rand_past(rng, now)
         user_rows.append(
             {
