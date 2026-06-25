@@ -26,6 +26,7 @@ export type { Body_token_api_token_post } from './models/Body_token_api_token_po
 export type { Body_track_save_api_saves__id__track_post } from './models/Body_track_save_api_saves__id__track_post';
 export type { Body_untrack_save_api_saves__id__untrack_post } from './models/Body_untrack_save_api_saves__id__untrack_post';
 export type { Body_update_collection_api_collections__id__put } from './models/Body_update_collection_api_collections__id__put';
+export type { Body_update_platform_api_platforms__id__put } from './models/Body_update_platform_api_platforms__id__put';
 export type { Body_update_rom_api_roms__id__put } from './models/Body_update_rom_api_roms__id__put';
 export type { Body_update_save_api_saves__id__put } from './models/Body_update_save_api_saves__id__put';
 export type { Body_update_save_visibility_api_saves__id__visibility_put } from './models/Body_update_save_visibility_api_saves__id__visibility_put';
