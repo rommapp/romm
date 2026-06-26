@@ -47,6 +47,7 @@ from endpoints.responses.rom import (
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_can, get_permissions
 from handler.database import db_rom_handler, db_save_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
@@ -64,6 +65,7 @@ from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.permission import PermAction, PermEntity
 from models.rom import Rom, RomUserStatus, compute_name_sort_key
 from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
@@ -526,6 +528,8 @@ def get_roms(
     ] = False,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
+    perms = get_permissions(request)
+
     unfiltered_query, order_by_attr = db_rom_handler.get_roms_query(
         user_id=request.user.id,
         order_by=order_by.lower(),
@@ -537,6 +541,8 @@ def get_roms(
     query = db_rom_handler.filter_roms(
         query=unfiltered_query,
         user_id=request.user.id,
+        hidden_platform_ids=perms.hidden_platform_ids,
+        hidden_rom_ids=perms.hidden_rom_ids,
         platform_ids=platform_ids,
         collection_id=collection_id,
         virtual_collection_id=virtual_collection_id,
@@ -640,6 +646,8 @@ def get_roms(
         filter_query = db_rom_handler.filter_roms(
             query=unfiltered_query,
             user_id=request.user.id,
+            hidden_platform_ids=perms.hidden_platform_ids,
+            hidden_rom_ids=perms.hidden_rom_ids,
             platform_ids=platform_ids,
             collection_id=collection_id,
             virtual_collection_id=virtual_collection_id,
@@ -677,7 +685,11 @@ def get_roms(
                 else {}
             )
             siblings_by_rom = db_rom_handler.get_siblings_for_roms(
-                rom_ids, user_id=request.user.id, session=session
+                rom_ids,
+                user_id=request.user.id,
+                session=session,
+                hidden_platform_ids=list(perms.hidden_platform_ids),
+                hidden_rom_ids=list(perms.hidden_rom_ids),
             )
 
             # Continue-playing rail
@@ -727,9 +739,12 @@ def get_rom_identifiers(
     request: Request,
 ) -> list[int]:
     """Retrieve rom identifiers."""
+    perms = get_permissions(request)
     db_roms = db_rom_handler.get_roms_scalar(
         user_id=request.user.id,
         only_fields=[Rom.id],
+        hidden_platform_ids=perms.hidden_platform_ids,
+        hidden_rom_ids=perms.hidden_rom_ids,
     )
 
     return [r.id for r in db_roms]
@@ -783,6 +798,13 @@ async def download_roms(
         )
 
     rom_objects = db_rom_handler.get_roms_by_ids(rom_id_list)
+
+    # Drop roms hidden from the caller so they can't be pulled by direct id.
+    if request.user.is_authenticated:
+        perms = get_permissions(request)
+        rom_objects = [
+            rom for rom in rom_objects if perms.can_see_rom(rom.id, rom.platform_id)
+        ]
 
     if not rom_objects:
         raise HTTPException(
@@ -895,6 +917,15 @@ def get_rom_by_metadata_provider(
             detail="ROM not found with given metadata IDs",
         )
 
+    # 404-mask roms hidden from the caller (skip when unauthenticated download).
+    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
+        rom.id, rom.platform_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="ROM not found with given metadata IDs",
+        )
+
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
@@ -927,6 +958,15 @@ def get_rom_by_hash(
     )
 
     if not rom:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No ROM or file found with given hash values",
+        )
+
+    # 404-mask roms hidden from the caller (skip when unauthenticated download).
+    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
+        rom.id, rom.platform_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No ROM or file found with given hash values",
@@ -967,6 +1007,12 @@ def get_rom_simple(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
+    # 404-mask roms hidden from the caller (skip when unauthenticated download).
+    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
+        rom.id, rom.platform_id
+    ):
+        raise RomNotFoundInDatabaseException(id)
+
     return SimpleRomSchema.from_orm_with_request(rom, request)
 
 
@@ -985,6 +1031,12 @@ def get_rom(
     rom = db_rom_handler.get_rom(id)
 
     if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    # 404-mask roms hidden from the caller (skip when unauthenticated download).
+    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
+        rom.id, rom.platform_id
+    ):
         raise RomNotFoundInDatabaseException(id)
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
@@ -1012,6 +1064,11 @@ async def head_rom_content(
     rom = db_rom_handler.get_rom(id)
 
     if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
+        rom.id, rom.platform_id
+    ):
         raise RomNotFoundInDatabaseException(id)
 
     files = rom.files
@@ -1092,6 +1149,11 @@ async def get_rom_content(
     rom = db_rom_handler.get_rom(id)
 
     if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
+        rom.id, rom.platform_id
+    ):
         raise RomNotFoundInDatabaseException(id)
 
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
@@ -1254,6 +1316,10 @@ async def update_rom(
     rom = db_rom_handler.get_rom(id)
 
     if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    # 404-mask roms hidden from the caller rather than letting them edit.
+    if not get_permissions(request).can_see_rom(rom.id, rom.platform_id):
         raise RomNotFoundInDatabaseException(id)
 
     if unmatch_metadata:
@@ -1672,6 +1738,9 @@ async def delete_roms(
 ) -> BulkOperationResponse:
     """Delete roms."""
 
+    perms = get_permissions(request)
+    assert_can(perms, PermEntity.ROMS, PermAction.DELETE)
+
     successful_items = 0
     failed_items = 0
     errors = []
@@ -1679,7 +1748,8 @@ async def delete_roms(
     for id in roms:
         rom = db_rom_handler.get_rom(id)
 
-        if not rom:
+        # Hidden roms are masked as not-found rather than reported deletable.
+        if not rom or not perms.can_see_rom(rom.id, rom.platform_id):
             failed_items += 1
             errors.append(f"ROM with ID {id} not found")
             continue
@@ -1762,6 +1832,10 @@ async def update_rom_user(
     rom = db_rom_handler.get_rom(id)
 
     if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    # 404-mask roms hidden from the caller rather than confirming existence.
+    if not get_permissions(request).can_see_rom(rom.id, rom.platform_id):
         raise RomNotFoundInDatabaseException(id)
 
     db_rom_user = db_rom_handler.get_rom_user(

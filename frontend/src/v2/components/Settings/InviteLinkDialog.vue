@@ -24,7 +24,7 @@ const fullInviteLink = ref("");
 const selectedRole = ref<string | null>(null);
 const selectedExpiration = ref<number>(86400);
 
-const roles = ["viewer", "editor", "admin"];
+const roles = ["admin", "user"];
 const expirationOptions = computed(() => [
   { title: t("settings.expiry-1h"), value: 3600 },
   { title: t("settings.expiry-6h"), value: 21600 },
@@ -106,7 +106,7 @@ function close() {
             @click="selectedRole = role"
           >
             <RIcon :icon="getRoleIcon(role)" size="14" />
-            {{ role.charAt(0).toUpperCase() + role.slice(1) }}
+            {{ t(`settings.role-${role}`) }}
           </button>
         </div>
       </div>

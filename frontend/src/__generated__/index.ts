@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export type { ActionKey } from './models/ActionKey';
 export type { ActivityEntrySchema } from './models/ActivityEntrySchema';
 export type { AddFirmwareResponse } from './models/AddFirmwareResponse';
 export type { Body_add_collection_api_collections_post } from './models/Body_add_collection_api_collections_post';
@@ -20,6 +21,7 @@ export type { Body_delete_roms_api_roms_delete_post } from './models/Body_delete
 export type { Body_delete_saves_api_saves_delete_post } from './models/Body_delete_saves_api_saves_delete_post';
 export type { Body_delete_states_api_states_delete_post } from './models/Body_delete_states_api_states_delete_post';
 export type { Body_refresh_retro_achievements_api_users__id__ra_refresh_post } from './models/Body_refresh_retro_achievements_api_users__id__ra_refresh_post';
+export type { Body_remove_hidden_entity_api_permissions_hidden_delete } from './models/Body_remove_hidden_entity_api_permissions_hidden_delete';
 export type { Body_request_password_reset_api_forgot_password_post } from './models/Body_request_password_reset_api_forgot_password_post';
 export type { Body_reset_password_api_reset_password_post } from './models/Body_reset_password_api_reset_password_post';
 export type { Body_token_api_token_post } from './models/Body_token_api_token_post';
@@ -76,7 +78,12 @@ export type { FirmwareSchema } from './models/FirmwareSchema';
 export type { FrontendDict } from './models/FrontendDict';
 export type { GenericTaskMeta } from './models/GenericTaskMeta';
 export type { GenericTaskStatusResponse } from './models/GenericTaskStatusResponse';
+export type { GrantSchema } from './models/GrantSchema';
+export type { GrantSchemaIO } from './models/GrantSchemaIO';
 export type { HeartbeatResponse } from './models/HeartbeatResponse';
+export type { HiddenEntitiesSchema } from './models/HiddenEntitiesSchema';
+export type { HiddenEntityCreate } from './models/HiddenEntityCreate';
+export type { HiddenEntitySchema } from './models/HiddenEntitySchema';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { IGDBAgeRating } from './models/IGDBAgeRating';
 export type { IGDBMetadataMultiplayerMode } from './models/IGDBMetadataMultiplayerMode';
@@ -96,7 +103,16 @@ export type { NetplayICEServer } from './models/NetplayICEServer';
 export type { OIDCDict } from './models/OIDCDict';
 export type { OIDCLogoutResponse } from './models/OIDCLogoutResponse';
 export type { OrphanedResourcesCleanupStats } from './models/OrphanedResourcesCleanupStats';
+export type { OverrideSchemaIO } from './models/OverrideSchemaIO';
 export type { PatchRequest } from './models/PatchRequest';
+export type { PermAction } from './models/PermAction';
+export type { PermEntity } from './models/PermEntity';
+export type { PermissionCatalogSchema } from './models/PermissionCatalogSchema';
+export type { PermissionGroupCreate } from './models/PermissionGroupCreate';
+export type { PermissionGroupSchema } from './models/PermissionGroupSchema';
+export type { PermissionGroupUpdate } from './models/PermissionGroupUpdate';
+export type { PermissionScopeSchema } from './models/PermissionScopeSchema';
+export type { PermissionsResponse } from './models/PermissionsResponse';
 export type { PlatformBindingPayload } from './models/PlatformBindingPayload';
 export type { PlatformSchema } from './models/PlatformSchema';
 export type { PlaySessionEntry } from './models/PlaySessionEntry';
@@ -169,6 +185,8 @@ export type { UpdateTaskStatusResponse } from './models/UpdateTaskStatusResponse
 export type { UserCollectionSchema } from './models/UserCollectionSchema';
 export type { UserForm } from './models/UserForm';
 export type { UserNoteSchema } from './models/UserNoteSchema';
+export type { UserPermissionsSchema } from './models/UserPermissionsSchema';
+export type { UserPermissionsUpdate } from './models/UserPermissionsUpdate';
 export type { UserSaveSchema } from './models/UserSaveSchema';
 export type { UserSchema } from './models/UserSchema';
 export type { UserScreenshotSchema } from './models/UserScreenshotSchema';

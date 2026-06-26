@@ -23,6 +23,7 @@ class UserSchema(BaseModel):
     email: str | None
     enabled: bool
     role: Role
+    permission_group_id: int | None = None
     oauth_scopes: list[str]
     avatar_path: str
     last_login: UTCDatetime | None

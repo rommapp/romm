@@ -33,12 +33,18 @@ class DBFirmwareHandler(DBBaseHandler):
         *,
         platform_id: int | None = None,
         only_fields: Sequence[QueryableAttribute] | None = None,
+        hidden_platform_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[Firmware]:
         query = select(Firmware).order_by(Firmware.file_name.asc())
 
         if platform_id:
             query = query.filter_by(platform_id=platform_id)
+
+        # Firmware inherits its platform's visibility: hide firmware whose
+        # platform an admin has hidden from the caller.
+        if hidden_platform_ids:
+            query = query.filter(Firmware.platform_id.not_in(hidden_platform_ids))
 
         if only_fields:
             query = query.options(load_only(*only_fields))
