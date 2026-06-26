@@ -44,5 +44,8 @@ export type RomSSMetadata = {
     game_modes?: Array<string>;
     genres?: Array<string>;
     player_count?: string;
+    cover_media?: (string | null);
+    manual_media?: (string | null);
+    screenshot_media?: Array<string>;
 };
 
