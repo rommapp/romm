@@ -106,7 +106,7 @@ function close() {
             @click="selectedRole = role"
           >
             <RIcon :icon="getRoleIcon(role)" size="14" />
-            {{ role.charAt(0).toUpperCase() + role.slice(1) }}
+            {{ t(`settings.role-${role}`) }}
           </button>
         </div>
       </div>

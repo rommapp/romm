@@ -406,6 +406,22 @@ class SiblingRomSchema(BaseModel):
         )
 
 
+def _visible_siblings(db_rom: Rom, request: Request) -> list[Rom]:
+    """`db_rom.sibling_roms` minus any sibling hidden from the caller.
+
+    Single-rom endpoints (detail / simple fallback) read siblings off the
+    eager-loaded relationship, which bypasses the list query's hidden filter.
+    """
+    siblings = list(db_rom.sibling_roms)
+    if not request.user.is_authenticated:
+        return siblings
+
+    from handler.auth.dependencies import get_permissions
+
+    perms = get_permissions(request)
+    return [s for s in siblings if perms.can_see_rom(s.id, s.platform_id)]
+
+
 class SimpleRomSchema(RomSchema):
     screenshot_path: str | None = None
 
@@ -440,7 +456,7 @@ class SimpleRomSchema(RomSchema):
                         for ru in s.rom_users
                     ),
                 )
-                for s in db_rom.sibling_roms
+                for s in _visible_siblings(db_rom, request)
             ]
 
         db_rom.included_files = list(files)  # type: ignore[assignment]
@@ -502,7 +518,7 @@ class DetailedRomSchema(RomSchema):
                         for ru in s.rom_users
                     ),
                 )
-                for s in db_rom.sibling_roms
+                for s in _visible_siblings(db_rom, request)
             ),
             key=lambda x: x.sort_comparator,
         )

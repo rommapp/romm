@@ -43,7 +43,6 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 
 // Access section.
 const isAdmin = ref(false);
-const originalRole = ref("user");
 const platforms = ref<Platform[]>([]);
 const groupId = ref<number | null>(null);
 const originalGroupId = ref<number | null>(null);
@@ -94,7 +93,6 @@ emitter?.on("showEditUserDialog", async (toEdit) => {
   user.value = { ...toEdit, password: "", avatar: undefined };
   confirmPassword.value = "";
   imagePreviewUrl.value = undefined;
-  originalRole.value = toEdit.role;
   isAdmin.value = toEdit.role === "admin";
   showAdvanced.value = false;
   show.value = true;

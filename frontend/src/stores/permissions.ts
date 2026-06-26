@@ -48,9 +48,12 @@ export default defineStore("permissions", {
       };
     },
 
-    /** Replace grants directly — for tests and stories seeding a state. */
+    /** Seed a clean non-admin state with the given grants (tests/stories).
+     * Resets isAdmin/hidden too so a prior hydration can't leak through. */
     setGrants(grants: Grant[]) {
       this.grants = grants;
+      this.isAdmin = false;
+      this.hidden = { platforms: [], roms: [] };
     },
 
     reset() {

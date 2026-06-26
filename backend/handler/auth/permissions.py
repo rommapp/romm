@@ -65,6 +65,21 @@ class ResolvedPermissions:
         )
 
 
+def _effective_group_id(user: User, *, session) -> int | None:
+    """The group a non-admin user follows: their own, else the server default.
+
+    Used by both the grant map and the hidden-entity lookup so a user with no
+    explicit group still inherits the default group's grants AND its hides.
+    """
+
+    from handler.database import db_permission_handler
+
+    if user.permission_group_id is not None:
+        return user.permission_group_id
+    default_group = db_permission_handler.get_default_group(session=session)
+    return default_group.id if default_group else None
+
+
 def _resolve_grant_map(
     user: User, *, session
 ) -> dict[tuple[PermEntity, PermAction], bool]:
@@ -73,11 +88,7 @@ def _resolve_grant_map(
     from handler.database import db_permission_handler
 
     base: dict[tuple[PermEntity, PermAction], bool] = {}
-    # A user with no explicit group follows the server-wide default group.
-    group_id = user.permission_group_id
-    if group_id is None:
-        default_group = db_permission_handler.get_default_group(session=session)
-        group_id = default_group.id if default_group else None
+    group_id = _effective_group_id(user, session=session)
     if group_id is not None:
         for g in db_permission_handler.get_group_grants(group_id, session=session):
             base[(g.entity, g.action)] = g.own_only
@@ -123,12 +134,19 @@ def _resolve_non_admin(
         ResolvedGrant(entity, action, own_only)
         for (entity, action), own_only in grant_map.items()
     )
+    # Kiosk mode locks every non-admin to read-only at the fine layer too, so a
+    # mutating route gated only by `assert_can` (no coarse scope) stays blocked.
+    if KIOSK_MODE:
+        grants = frozenset(g for g in grants if g.action == PermAction.READ)
 
+    # Resolve the effective group (own or default) so hides assigned to the
+    # default group apply to group-less users too, not just their grants.
+    group_id = _effective_group_id(user, session=session)
     hidden_platforms = db_permission_handler.get_hidden_entity_ids(
-        PermEntity.PLATFORMS, user.id, user.permission_group_id, session=session
+        PermEntity.PLATFORMS, user.id, group_id, session=session
     )
     hidden_roms = db_permission_handler.get_hidden_entity_ids(
-        PermEntity.ROMS, user.id, user.permission_group_id, session=session
+        PermEntity.ROMS, user.id, group_id, session=session
     )
 
     return ResolvedPermissions(
@@ -151,9 +169,10 @@ def compute_oauth_scopes(
     read-only (the public-display lockdown).
     """
 
-    # Admins bypass everything -- no DB access needed.
+    # Admins bypass everything -- no DB access needed. Keep the canonical
+    # FULL_SCOPES order (same as the non-admin path) to avoid token churn.
     if user.role == Role.ADMIN:
-        return sorted(FULL_SCOPES, key=lambda s: s.value)
+        return order_scopes(FULL_SCOPES)
     return _compute_non_admin_scopes(user, session=session)
 
 

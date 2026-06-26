@@ -8,6 +8,11 @@ import { defineStore } from "pinia";
 import type { PermissionGroupSchema } from "@/__generated__";
 import permissionsApi from "@/services/api/permissions";
 
+// Shared in-flight fetch so concurrent `ensureLoaded()` callers await the same
+// request instead of racing past it with an empty list. Kept out of reactive
+// state (a Promise has no business being reactive).
+let inflight: Promise<void> | null = null;
+
 export default defineStore("permissionGroups", {
   state: () => ({
     groups: [] as PermissionGroupSchema[],
@@ -32,9 +37,15 @@ export default defineStore("permissionGroups", {
       }
     },
 
-    /** Fetch once; subsequent callers reuse the cached list. */
+    /** Fetch once; concurrent callers await the same in-flight request. */
     async ensureLoaded() {
-      if (!this.loaded && !this.loading) await this.fetch();
+      if (this.loaded) return;
+      if (!inflight) {
+        inflight = this.fetch().finally(() => {
+          inflight = null;
+        });
+      }
+      await inflight;
     },
 
     set(groups: PermissionGroupSchema[]) {
@@ -56,6 +67,7 @@ export default defineStore("permissionGroups", {
     reset() {
       this.groups = [];
       this.loaded = false;
+      inflight = null;
     },
   },
 });

@@ -289,7 +289,8 @@ async def delete_firmware(
 ) -> BulkOperationResponse:
     """Delete firmware."""
 
-    assert_can(get_permissions(request), PermEntity.FIRMWARE, PermAction.DELETE)
+    perms = get_permissions(request)
+    assert_can(perms, PermEntity.FIRMWARE, PermAction.DELETE)
 
     successful_items = 0
     failed_items = 0
@@ -297,7 +298,8 @@ async def delete_firmware(
 
     for id in firmware:
         fw = db_firmware_handler.get_firmware(id)
-        if not fw:
+        # Treat firmware on a hidden platform as non-existent for this caller.
+        if not fw or not perms.can_see_platform(fw.platform_id):
             failed_items += 1
             errors.append(f"Firmware with ID {id} not found")
             continue

@@ -71,18 +71,36 @@ async function createUser() {
   try {
     user.value.role = isAdmin.value ? "admin" : "user";
     const { data } = await userApi.createUser(user.value);
-    // Only pin an explicit group when the admin picked a non-default one;
-    // leaving the default selected lets the user follow the server default.
+    // The user now exists. Pinning a non-default group is a follow-up call, so
+    // its failure must not discard the already-created user (orphan); surface
+    // it as a non-fatal warning instead. Leaving the default selected lets the
+    // user follow the server default.
     if (
       !isAdmin.value &&
       groupId.value !== null &&
       groupId.value !== defaultGroupId.value
     ) {
-      await permissionsApi.updateUserPermissions(data.id, {
-        set_group: true,
-        permission_group_id: groupId.value,
-      });
-      data.permission_group_id = groupId.value;
+      try {
+        await permissionsApi.updateUserPermissions(data.id, {
+          set_group: true,
+          permission_group_id: groupId.value,
+        });
+        data.permission_group_id = groupId.value;
+      } catch (groupErr) {
+        const ge = groupErr as {
+          response?: { data?: { detail?: string }; statusText?: string };
+          message?: string;
+        };
+        snackbar.warning(
+          t("settings.group-save-failed", {
+            detail:
+              ge?.response?.data?.detail ||
+              ge?.response?.statusText ||
+              ge?.message,
+          }),
+          { icon: "mdi-alert" },
+        );
+      }
     }
     usersStore.add(data);
     snackbar.success(t("settings.user-created", { username: data.username }), {

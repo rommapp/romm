@@ -242,7 +242,7 @@ async function save() {
           </span>
           <div class="r-v2-group-dialog__swatches">
             <RBtn
-              v-for="swatch in palette"
+              v-for="(swatch, i) in palette"
               :key="swatch"
               variant="text"
               class="r-v2-group-dialog__swatch"
@@ -250,7 +250,7 @@ async function save() {
                 'r-v2-group-dialog__swatch--active': color === swatch,
               }"
               :style="{ '--swatch': swatch }"
-              :aria-label="swatch"
+              :aria-label="`${t('settings.group-color')} ${i + 1}`"
               :aria-pressed="color === swatch"
               @click="color = swatch"
             >

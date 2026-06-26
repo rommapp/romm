@@ -38,6 +38,7 @@ from endpoints.responses.feeds import (
     WebrcadeFeedSchema,
 )
 from handler.auth.constants import Scope
+from handler.auth.dependencies import get_permissions
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.metadata import meta_igdb_handler
@@ -78,6 +79,30 @@ router = APIRouter(
 )
 
 
+def _hidden_ids(request: Request) -> tuple[list[int], list[int]]:
+    """Hidden (platform_ids, rom_ids) for the caller; empty when unauthenticated.
+
+    Feeds run unauthenticated under DISABLE_DOWNLOAD_ENDPOINT_AUTH, so there is
+    no caller to scope visibility to in that mode.
+    """
+    if not request.user.is_authenticated:
+        return [], []
+    perms = get_permissions(request)
+    return list(perms.hidden_platform_ids), list(perms.hidden_rom_ids)
+
+
+def _platform_roms(request: Request, platform_id: int, *, include_files: bool = False):
+    """Roms of a platform, excluding any hidden from the caller (cascade included)."""
+    hidden_platforms, hidden_roms = _hidden_ids(request)
+    if platform_id in hidden_platforms:
+        return []
+    return db_rom_handler.get_roms_scalar(
+        platform_ids=[platform_id],
+        include_files=include_files,
+        hidden_rom_ids=hidden_roms,
+    )
+
+
 @protected_route(
     router.get,
     "/webrcade",
@@ -94,7 +119,8 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
         WebrcadeFeedSchema: Webrcade feed object schema
     """
 
-    platforms = db_platform_handler.get_platforms()
+    hidden_platforms, hidden_roms = _hidden_ids(request)
+    platforms = db_platform_handler.get_platforms(hidden_platform_ids=hidden_platforms)
 
     categories = []
     for p in platforms:
@@ -102,7 +128,11 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             continue
 
         category_items = []
-        roms = db_rom_handler.get_roms_scalar(platform_ids=[p.id])
+        roms = db_rom_handler.get_roms_scalar(
+            platform_ids=[p.id],
+            hidden_platform_ids=hidden_platforms,
+            hidden_rom_ids=hidden_roms,
+        )
         for rom in roms:
             download_url = generate_rom_download_url(request, rom)
             category_item = WebrcadeFeedItemSchema(
@@ -213,7 +243,13 @@ async def tinfoil_index_feed(
 
         return titledb
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[switch.id], include_files=True)
+    hidden_platforms, hidden_roms = _hidden_ids(request)
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[switch.id],
+        include_files=True,
+        hidden_platform_ids=hidden_platforms,
+        hidden_rom_ids=hidden_roms,
+    )
 
     return TinfoilFeedSchema(
         files=[
@@ -329,9 +365,7 @@ def pkgi_ps3_feed(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[ps3_platform.id], include_files=True
-    )
+    roms = _platform_roms(request, ps3_platform.id, include_files=True)
     txt_lines = []
 
     for rom in roms:
@@ -407,9 +441,7 @@ def pkgi_psvita_feed(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[psvita_platform.id], include_files=True
-    )
+    roms = _platform_roms(request, psvita_platform.id, include_files=True)
     txt_lines = []
 
     for rom in roms:
@@ -484,9 +516,7 @@ def pkgi_psp_feed(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[psp_platform.id], include_files=True
-    )
+    roms = _platform_roms(request, psp_platform.id, include_files=True)
     txt_lines = []
 
     for rom in roms:
@@ -560,7 +590,7 @@ def fpkgi_feed(request: Request, platform_slug: str) -> Response:
             status_code=404, detail=f"Platform {platform_slug} not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    roms = _platform_roms(request, platform.id)
     response_data = {}
 
     for rom in roms:
@@ -606,7 +636,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
             status_code=404, detail=f"Platform {platform_slug} not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    roms = _platform_roms(request, platform.id)
 
     txt_lines = []
     txt_lines.append("1")  # Database version
@@ -669,9 +699,7 @@ def pkgj_psp_games_feed(request: Request) -> Response:
             status_code=404, detail="PlayStation Portable platform not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[platform.id], include_files=True
-    )
+    roms = _platform_roms(request, platform.id, include_files=True)
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tType\tName\tPKG direct link\tContent ID\tLast Modification Date\tRAP\tDownload .RAP file\tFile Size\tSHA256"
@@ -735,9 +763,7 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
             status_code=404, detail="PlayStation Portable platform not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[platform.id], include_files=True
-    )
+    roms = _platform_roms(request, platform.id, include_files=True)
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tName\tPKG direct link\tContent ID\tLast Modification Date\tRAP\tDownload .RAP file\tFile Size\tSHA256"
@@ -799,9 +825,7 @@ def pkgj_psv_games_feed(request: Request) -> Response:
             status_code=404, detail="PlayStation Vita platform not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[platform.id], include_files=True
-    )
+    roms = _platform_roms(request, platform.id, include_files=True)
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tName\tPKG direct link\tzRIF\tContent ID\tLast Modification Date\tOriginal Name\tFile Size\tSHA256\tRequired FW\tApp Version"
@@ -866,9 +890,7 @@ def pkgj_psv_dlcs_feed(request: Request) -> Response:
             status_code=404, detail="PlayStation Vita platform not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[platform.id], include_files=True
-    )
+    roms = _platform_roms(request, platform.id, include_files=True)
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tName\tPKG direct link\tzRIF\tContent ID\tLast Modification Date\tFile Size\tSHA256"
@@ -925,9 +947,7 @@ def pkgj_psx_games_feed(request: Request) -> Response:
     if not platform:
         raise HTTPException(status_code=404, detail="PlayStation platform not found")
 
-    roms = db_rom_handler.get_roms_scalar(
-        platform_ids=[platform.id], include_files=True
-    )
+    roms = _platform_roms(request, platform.id, include_files=True)
     txt_lines = []
     txt_lines.append(
         "Title ID\tRegion\tName\tPKG direct link\tContent ID\tLast Modification Date\tOriginal Name\tFile Size\tSHA256"

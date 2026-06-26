@@ -58,14 +58,26 @@ def add_user(
         UserSchema: Newly created user
     """
 
+    admins_exist = len(db_user_handler.get_admin_users()) > 0
+
     # If there are admin users already, enforce the USERS_WRITE scope.
-    if (
-        Scope.USERS_WRITE not in request.auth.scopes
-        and len(db_user_handler.get_admin_users()) > 0
-    ):
+    if Scope.USERS_WRITE not in request.auth.scopes and admins_exist:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",
+        )
+
+    coerced_role = Role.coerce(role)
+    # USERS_WRITE is delegable to non-admins via permission groups, but creating
+    # an admin must stay admin-only or it becomes a privilege-escalation path.
+    if (
+        admins_exist
+        and coerced_role == Role.ADMIN
+        and getattr(request.user, "role", None) != Role.ADMIN
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an administrator can create admin users",
         )
 
     try:
@@ -98,7 +110,7 @@ def add_user(
         username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
         email=email.lower() or None,
-        role=Role.coerce(role),
+        role=coerced_role,
     )
 
     return UserSchema.model_validate(db_user_handler.add_user(user))
@@ -125,10 +137,9 @@ def create_invite_link(
         InviteLinkSchema: Invite link
     """
 
-    if (
-        Scope.USERS_WRITE not in request.auth.scopes
-        and len(db_user_handler.get_admin_users()) > 0
-    ):
+    admins_exist = len(db_user_handler.get_admin_users()) > 0
+
+    if Scope.USERS_WRITE not in request.auth.scopes and admins_exist:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",
@@ -140,6 +151,17 @@ def create_invite_link(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=msg,
+        )
+
+    # Mirrors add_user: only a real admin can mint admin invite links.
+    if (
+        admins_exist
+        and Role.coerce(role) == Role.ADMIN
+        and getattr(request.user, "role", None) != Role.ADMIN
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an administrator can create admin invite links",
         )
 
     if expiration is not None and expiration <= 0:

@@ -684,7 +684,11 @@ def get_roms(
                 else {}
             )
             siblings_by_rom = db_rom_handler.get_siblings_for_roms(
-                rom_ids, user_id=request.user.id, session=session
+                rom_ids,
+                user_id=request.user.id,
+                session=session,
+                hidden_platform_ids=list(perms.hidden_platform_ids),
+                hidden_rom_ids=list(perms.hidden_rom_ids),
             )
 
             # Continue-playing rail
@@ -912,6 +916,15 @@ def get_rom_by_metadata_provider(
             detail="ROM not found with given metadata IDs",
         )
 
+    # 404-mask roms hidden from the caller (skip when unauthenticated download).
+    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
+        rom.id, rom.platform_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="ROM not found with given metadata IDs",
+        )
+
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
@@ -944,6 +957,15 @@ def get_rom_by_hash(
     )
 
     if not rom:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No ROM or file found with given hash values",
+        )
+
+    # 404-mask roms hidden from the caller (skip when unauthenticated download).
+    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
+        rom.id, rom.platform_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No ROM or file found with given hash values",

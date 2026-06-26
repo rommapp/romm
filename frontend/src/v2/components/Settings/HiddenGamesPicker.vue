@@ -123,17 +123,18 @@ function remove(id: number) {
       <RSpinner :size="16" />
     </div>
     <ul v-else-if="addable.length" class="r-v2-hgames__results">
-      <li
-        v-for="rom in addable"
-        :key="rom.id"
-        class="r-v2-hgames__row r-v2-hgames__row--add"
-        @click="add(rom)"
-      >
-        <span class="r-v2-hgames__thumb">
-          <GameCover :rom="rom" :title="romName(rom)" />
-        </span>
-        <span class="r-v2-hgames__name">{{ romName(rom) }}</span>
-        <RIcon icon="mdi-plus" size="18" class="r-v2-hgames__add-icon" />
+      <li v-for="rom in addable" :key="rom.id">
+        <button
+          type="button"
+          class="r-v2-hgames__row r-v2-hgames__row--add"
+          @click="add(rom)"
+        >
+          <span class="r-v2-hgames__thumb">
+            <GameCover :rom="rom" :title="romName(rom)" />
+          </span>
+          <span class="r-v2-hgames__name">{{ romName(rom) }}</span>
+          <RIcon icon="mdi-plus" size="18" class="r-v2-hgames__add-icon" />
+        </button>
       </li>
     </ul>
 
@@ -191,11 +192,18 @@ function remove(id: number) {
 }
 .r-v2-hgames__row--add {
   cursor: pointer;
+  /* Native <button> reset so it reads as a plain row. */
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
 }
 .r-v2-hgames__row--add:hover {
   background: var(--r-color-surface);
 }
-.r-v2-hgames__results .r-v2-hgames__row:not(:last-child) {
+.r-v2-hgames__results li:not(:last-child) {
   border-bottom: 1px solid var(--r-color-border);
 }
 .r-v2-hgames__thumb {

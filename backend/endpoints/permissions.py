@@ -129,8 +129,25 @@ async def update_permission_group(
 ) -> PermissionGroupSchema:
     """Update a permission group (name/description/default/grants)."""
     assert_admin(request)
-    if db_permission_handler.get_group(id) is None:
+    group = db_permission_handler.get_group(id)
+    if group is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    # Renaming onto an existing name would hit the unique constraint as a 500.
+    if body.name is not None:
+        clash = db_permission_handler.get_group_by_name(body.name)
+        if clash is not None and clash.id != id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A group with that name already exists",
+            )
+
+    # Don't leave the system without a default group; reassign first.
+    if body.is_default is False and group.is_default:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Set another group as default first",
+        )
 
     updated = db_permission_handler.update_group(
         id,
@@ -257,6 +274,16 @@ async def add_hidden_entity(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Exactly one of user_id or group_id must be set",
+        )
+
+    # Only platforms and roms are honored by the resolver (firmware is hidden via
+    # its platform cascade), so reject other entity types instead of storing a
+    # row the visibility filter would silently ignore. The id itself is a
+    # denylist entry, so a not-yet-present id is a harmless no-op, not an error.
+    if body.entity not in (PermEntity.PLATFORMS, PermEntity.ROMS):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only platforms and roms can be hidden",
         )
 
     db_permission_handler.add_hidden_entity(

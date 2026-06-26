@@ -130,7 +130,8 @@ async def update_platform(
     """Update a platform."""
 
     platform_db = db_platform_handler.get_platform(id)
-    if not platform_db:
+    # 404-mask hidden platforms so their existence isn't leaked.
+    if not platform_db or not get_permissions(request).can_see_platform(id):
         raise PlatformNotFoundInDatabaseException(id)
 
     if custom_name is not None:
