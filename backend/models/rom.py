@@ -208,7 +208,8 @@ class Rom(BaseModel):
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
     __table_args__ = (
-        Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name"),
+        # Enforce unique fs name per platform to avoid duplicates
+        Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name", unique=True),
         # Covers the sibling_roms view self-join
         Index(
             "idx_roms_sibling_cover",

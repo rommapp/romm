@@ -16,7 +16,7 @@ The seeded grant matrix is the frozen twin of ``handler/auth/permissions_map.py`
 ``tests/handler/auth/test_permissions_parity.py`` keeps the two in lockstep.
 
 Revision ID: 0091_permission_system
-Revises: 0090_roms_sibling_cover_index
+Revises: 0091_unique_platform_fs_name
 Create Date: 2026-06-22 00:00:00.000000
 
 """
@@ -26,7 +26,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0091_permission_system"
-down_revision = "0090_roms_sibling_cover_index"
+down_revision = "0091_unique_platform_fs_name"
 branch_labels = None
 depends_on = None
 

@@ -9,6 +9,7 @@ import pydash
 import socketio  # type: ignore
 from rq import Worker
 from rq.job import Job
+from sqlalchemy.exc import IntegrityError
 
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
@@ -252,22 +253,29 @@ async def _identify_rom(
     # Create the entry early so we have the ID
     newly_added: bool = rom is None
     if not rom:
-        rom = db_rom_handler.add_rom(
-            Rom(
-                fs_name=fs_rom["fs_name"],
-                fs_path=roms_path,
-                regions=parsed_tags.regions,
-                revision=parsed_tags.revision,
-                version=parsed_tags.version,
-                languages=parsed_tags.languages,
-                tags=parsed_tags.other_tags,
-                platform_id=platform.id,
-                name=fs_rom["fs_name"],
-                url_cover="",
-                url_manual="",
-                url_screenshots=[],
+        try:
+            rom = db_rom_handler.add_rom(
+                Rom(
+                    fs_name=fs_rom["fs_name"],
+                    fs_path=roms_path,
+                    regions=parsed_tags.regions,
+                    revision=parsed_tags.revision,
+                    version=parsed_tags.version,
+                    languages=parsed_tags.languages,
+                    tags=parsed_tags.other_tags,
+                    platform_id=platform.id,
+                    name=fs_rom["fs_name"],
+                    url_cover="",
+                    url_manual="",
+                    url_screenshots=[],
+                )
             )
-        )
+        except IntegrityError:
+            # A concurrent scan already created this ROM, so skip it here.
+            log.debug(
+                f"Skipping {hl(fs_rom['fs_name'])}: already created by a concurrent scan"
+            )
+            return
 
     # Build rom files object before scanning
     should_update_files = _should_get_rom_files(
@@ -699,8 +707,30 @@ async def scan_platforms(
     if MetadataSource.HLTB in metadata_sources:
         meta_hltb_handler.initialize()
 
+    # Resolve the platforms that will actually be scanned. When no platform ids
+    # are provided, every filesystem platform is scanned.
+    db_platforms = db_platform_handler.get_platforms()
+    db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
+
+    platform_list = [
+        p.fs_slug for p in db_platforms if p.id in platform_ids
+    ] or fs_platforms
+    platform_list = sorted(platform_list)
+
+    # A "new platforms" scan skips platforms that already exist in the database,
+    # so they must be excluded from the totals to keep the tracker accurate. This
+    # mirrors the existence check done per-platform in _identify_platform, reusing
+    # the platforms already fetched above instead of querying again per platform.
+    platforms_to_scan = platform_list
+    if scan_type == ScanType.NEW_PLATFORMS:
+        platforms_to_scan = [
+            platform_slug
+            for platform_slug in platform_list
+            if db_platforms_by_slug.get(platform_slug) is None
+        ]
+
     total_roms = 0
-    for platform_slug in fs_platforms:
+    for platform_slug in platforms_to_scan:
         try:
             total_roms += await fs_rom_handler.count_roms(
                 Platform(fs_slug=platform_slug)
@@ -710,7 +740,7 @@ async def scan_platforms(
 
     await scan_stats.update(
         socket_manager=socket_manager,
-        total_platforms=len(fs_platforms),
+        total_platforms=len(platforms_to_scan),
         total_roms=total_roms,
     )
 
@@ -720,13 +750,6 @@ async def scan_platforms(
         redis_client.delete(STOP_SCAN_FLAG)
 
     try:
-        platform_list = [
-            platform.fs_slug
-            for s in platform_ids
-            if (platform := db_platform_handler.get_platform(s)) is not None
-        ] or fs_platforms
-        platform_list = sorted(platform_list)
-
         if len(platform_list) == 0:
             log.warning(
                 f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No platforms found, verify that the folder structure is right and the volume is mounted correctly."
@@ -763,13 +786,16 @@ async def scan_platforms(
 
         # Export metadata files if enabled in config
         config = cm.get_config()
-        platforms_by_slug = {p.fs_slug: p for p in db_platform_handler.get_platforms()}
+
+        # Update the list of platforms after the scan to ensure we have the latest data
+        db_platforms = db_platform_handler.get_platforms()
+        db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
 
         if config.GAMELIST_AUTO_EXPORT_ON_SCAN:
             log.info("Auto-exporting gamelist.xml for all platforms...")
             gamelist_exporter = GamelistExporter(local_export=True)
             for platform_slug in platform_list:
-                platform = platforms_by_slug.get(platform_slug)
+                platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
                     export_success = await gamelist_exporter.export_platform_to_file(
                         platform.id,
@@ -789,7 +815,7 @@ async def scan_platforms(
             log.info("Auto-exporting metadata.pegasus.txt for all platforms...")
             pegasus_exporter = PegasusExporter(local_export=True)
             for platform_slug in platform_list:
-                platform = platforms_by_slug.get(platform_slug)
+                platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
                     export_success = await pegasus_exporter.export_platform_to_file(
                         platform.id,

@@ -18,6 +18,7 @@ import { RDivider, type RTabNavItem } from "@v2/lib";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
 import storeCollections, {
@@ -267,7 +268,7 @@ async function onDelete() {
     snackbar.success(`Collection "${c.name}" deleted`, {
       icon: "mdi-check-bold",
     });
-    router.push({ name: "collections" });
+    router.push({ name: ROUTES.COLLECTIONS_INDEX });
   } catch (err) {
     const e = err as {
       response?: { data?: { msg?: string; detail?: string } };

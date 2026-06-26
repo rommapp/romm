@@ -28,6 +28,7 @@ from fastapi.responses import Response
 from fastapi_pagination import resolve_params
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
 
 from config import (
@@ -1660,7 +1661,14 @@ async def update_rom(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"
     )
 
-    db_rom_handler.update_rom(id, cleaned_data)
+    try:
+        db_rom_handler.update_rom(id, cleaned_data)
+    except IntegrityError as exc:
+        log.error(f"Failed to update ROM {id}: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update ROM {id}: {exc}",
+        ) from exc
 
     # Rename the file/folder if the name has changed
     should_update_fs = new_fs_name != rom.fs_name

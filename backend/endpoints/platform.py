@@ -124,7 +124,7 @@ async def update_platform(
     request: Request,
     id: Annotated[int, PathVar(description="Platform id.", ge=1)],
     custom_name: Annotated[
-        str | None, Body(description="Custom platform name.")
+        str | None, Body(embed=True, description="Custom platform name.")
     ] = None,
 ) -> PlatformSchema:
     """Update a platform."""

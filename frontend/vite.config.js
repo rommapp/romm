@@ -65,8 +65,8 @@ export default defineConfig(({ mode }) => {
   };
 
   const backendPort = env.DEV_PORT ?? "5000";
-  // const devMode = env.DEV_MODE === "true";
   const httpsMode = env.DEV_HTTPS === "true";
+  const pwaDevEnabled = env.DEV_PWA === "true";
 
   return {
     optimizeDeps: {
@@ -96,7 +96,7 @@ export default defineConfig(({ mode }) => {
           ],
         },
         devOptions: {
-          enabled: true,
+          enabled: pwaDevEnabled,
           type: "module",
         },
       }),

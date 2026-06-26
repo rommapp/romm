@@ -88,3 +88,47 @@ def test_enqueue_recompute_swallows_enqueue_error(mocker):
     )
 
     startup._enqueue_recompute_save_hashes_if_needed()
+
+
+def test_enqueue_convert_webp_fires_when_not_queued(mocker):
+    """No in-flight bootstrap job -> enqueue the backfill exactly once."""
+    mocker.patch.object(startup.Job, "exists", return_value=False)
+    enqueue = mocker.patch.object(startup.low_prio_queue, "enqueue")
+
+    startup._enqueue_convert_images_to_webp()
+
+    enqueue.assert_called_once()
+    args, kwargs = enqueue.call_args
+    assert args[0].__self__ is startup.convert_images_to_webp_task
+    assert kwargs["meta"]["task_name"] == startup.convert_images_to_webp_task.title
+    assert kwargs["meta"]["task_type"] == (
+        startup.convert_images_to_webp_task.task_type.value
+    )
+    assert kwargs["job_timeout"] == startup.TASK_TIMEOUT
+    assert kwargs["job_id"] == startup.CONVERT_IMAGES_TO_WEBP_JOB_ID
+
+
+def test_convert_webp_job_id_is_valid_rq_id():
+    """An invalid job_id raises in set_id, which the broad except swallows ->
+    backfill silently never enqueues. Assert the id matches RQ's contract."""
+    assert JOB_ID_PATTERN.fullmatch(startup.CONVERT_IMAGES_TO_WEBP_JOB_ID)
+
+
+def test_enqueue_convert_webp_skips_when_already_queued(mocker):
+    """An in-flight job from a previous restart -> skip enqueue, don't double up."""
+    mocker.patch.object(startup.Job, "exists", return_value=True)
+    enqueue = mocker.patch.object(startup.low_prio_queue, "enqueue")
+
+    startup._enqueue_convert_images_to_webp()
+
+    enqueue.assert_not_called()
+
+
+def test_enqueue_convert_webp_swallows_enqueue_error(mocker):
+    """A failed enqueue must not crash startup."""
+    mocker.patch.object(startup.Job, "exists", return_value=False)
+    mocker.patch.object(
+        startup.low_prio_queue, "enqueue", side_effect=RuntimeError("redis gone")
+    )
+
+    startup._enqueue_convert_images_to_webp()
