@@ -574,6 +574,112 @@ class TestRAHasherWildcardFolderResolution:
         assert result == ""
 
 
+class TestRAHasherPspNativeHashing:
+    """PSP compressed-ISO containers (.cso/.ciso/.zso/.dax) are hashed natively
+    instead of being handed to RAHasher, which can't read them (issue #3600)."""
+
+    @pytest.fixture
+    def service(self):
+        return RAHasherService()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("ext", [".cso", ".ciso", ".zso", ".dax"])
+    async def test_native_hash_short_circuits_rahasher(
+        self, service: RAHasherService, ext
+    ):
+        """A successful native hash returns without spawning RAHasher."""
+        psp_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSP]
+
+        with (
+            patch(
+                "adapters.services.rahasher.calculate_psp_ra_hash",
+                return_value="a1b2c3d4e5f6789012345678901234ab",
+            ) as mock_native,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": psp_id, "slug": "psp"}, f"/roms/psp/game{ext}"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_native.assert_called_once_with(f"/roms/psp/game{ext}")
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_rahasher_when_native_fails(
+        self, service: RAHasherService
+    ):
+        """If native hashing returns nothing, RAHasher is still attempted."""
+        psp_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSP]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.calculate_psp_ra_hash",
+                return_value="",
+            ) as mock_native,
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": psp_id, "slug": "psp"}, "/roms/psp/game.cso"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_native.assert_called_once()
+        mock_subprocess.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_native_hashing_skipped_for_non_psp_platform(
+        self, service: RAHasherService
+    ):
+        """A .cso on a non-PSP platform must not trigger native PSP hashing."""
+        psx_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSX]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch("adapters.services.rahasher.calculate_psp_ra_hash") as mock_native,
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+        ):
+            await service.calculate_hash(
+                {"ra_id": psx_id, "slug": "psx"}, "/roms/psx/game.cso"
+            )
+
+        mock_native.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_native_hashing_skipped_for_raw_iso(self, service: RAHasherService):
+        """Plain .iso PSP discs still go to RAHasher (it reads them fine)."""
+        psp_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSP]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch("adapters.services.rahasher.calculate_psp_ra_hash") as mock_native,
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            await service.calculate_hash(
+                {"ra_id": psp_id, "slug": "psp"}, "/roms/psp/game.iso"
+            )
+
+        mock_native.assert_not_called()
+        mock_subprocess.assert_called_once()
+
+
 class TestRAHasherError:
     """Test the RAHasherError exception."""
 
