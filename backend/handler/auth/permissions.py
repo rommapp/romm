@@ -94,6 +94,10 @@ def _resolve_grant_map(
             base[(g.entity, g.action)] = g.own_only
 
     # Per-user overrides win over the group: grant adds, revoke removes.
+    # Override identity is (entity, action) only, so a grant override fully
+    # replaces the group's own_only for that key rather than merging. Both
+    # directions are admin-initiated and the narrowing case fails closed, so
+    # this is a granularity limit, not a privilege leak.
     if user.id is not None:
         for ov in db_permission_handler.get_user_overrides(user.id, session=session):
             if ov.granted:

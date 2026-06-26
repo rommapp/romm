@@ -51,6 +51,11 @@ async def add_firmware(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+    # Platform-hide cascades to firmware; 404-mask uploads to hidden platforms.
+    if not get_permissions(request).can_see_platform(db_platform.id):
+        error = f"Platform with ID {platform_id} not found"
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
     uploaded_firmware = []
     firmware_path = fs_firmware_handler.get_firmware_fs_structure(db_platform.fs_slug)
 

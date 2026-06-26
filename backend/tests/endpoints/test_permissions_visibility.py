@@ -120,6 +120,37 @@ def test_hidden_rom_cannot_be_downloaded_by_id(client, viewer_user, rom):
     assert content_resp.status_code == status.HTTP_404_NOT_FOUND
 
 
+def test_hidden_rom_update_is_404_masked(client, editor_user, rom):
+    # Editor holds library-wide roms write (passes the coarse gate), so the
+    # hidden rom must be 404-masked instead of being editable.
+    _hide(PermEntity.ROMS, rom.id, editor_user.id)
+    resp = client.put(
+        f"/api/roms/{rom.id}", headers=_auth(editor_user), data={"name": "x"}
+    )
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_hidden_rom_props_update_is_404_masked(client, viewer_user, rom):
+    # ROMS_USER_WRITE is a self-service scope every user holds, so the coarse
+    # gate passes; the hidden rom must still be masked, not confirmed.
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    resp = client.put(
+        f"/api/roms/{rom.id}/props", headers=_auth(viewer_user), json={"rating": 5}
+    )
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_hidden_rom_patch_is_404_masked(client, viewer_user, rom, rom_file):
+    # patch_rom streams file bytes back; a hidden rom's bytes must not leak.
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    resp = client.post(
+        f"/api/roms/{rom_file.id}/patch",
+        headers=_auth(viewer_user),
+        json={"patch_file_id": rom_file.id},
+    )
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_delete_requires_delete_grant_even_with_write_scope(
     client, viewer_user, platform
 ):

@@ -1,8 +1,8 @@
-"""Granular permission system: groups, grants, per-user overrides, hidden entities.
+"""Granular permission system: groups, grants, overrides, hidden entities, and
+the narrowing of the user role vocabulary to admin/user.
 
-Single migration for the whole permissions feature (tables, group colour, and
-the legacy-group backfill). Backfills so that NO user gains or loses access on
-upgrade:
+Single migration for the whole permissions feature. Backfills so that NO user
+gains or loses access on upgrade:
 
   * "Viewer (legacy)" group reproduces the old non-kiosk default user
     (WRITE_SCOPES): read the library, manage only own collections/assets/devices.
@@ -11,11 +11,15 @@ upgrade:
     editors can already delete -- preserved here as explicit delete grants).
   * Existing users are assigned to the matching group by their current role.
     Admins are left unassigned (they bypass groups entirely).
+  * The `role` column is then narrowed from the viewer/editor/admin enum to a
+    portable VARCHAR holding just `admin`/`user` (the viewer/editor distinction
+    now lives entirely in permission groups). The group assignment above MUST
+    happen before this, since it reads the old VIEWER/EDITOR values.
 
 The seeded grant matrix is the frozen twin of ``handler/auth/permissions_map.py``;
 ``tests/handler/auth/test_permissions_parity.py`` keeps the two in lockstep.
 
-Revision ID: 0091_permission_system
+Revision ID: 0092_permission_system
 Revises: 0091_unique_platform_fs_name
 Create Date: 2026-06-22 00:00:00.000000
 
@@ -23,9 +27,12 @@ Create Date: 2026-06-22 00:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.postgresql import ENUM as PostgresEnum
+
+from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0091_permission_system"
+revision = "0092_permission_system"
 down_revision = "0091_unique_platform_fs_name"
 branch_labels = None
 depends_on = None
@@ -60,6 +67,9 @@ EDITOR_GRANTS = VIEWER_GRANTS + EDITOR_EXTRA
 # editor -> amber) so they look intentional out of the box.
 VIEWER_COLOR = "#3b82f6"
 EDITOR_COLOR = "#f59e0b"
+
+# The pre-narrowing role enum, used by the role alter_column in both directions.
+_ROLE_ENUM = sa.Enum("VIEWER", "EDITOR", "ADMIN", name="role")
 
 
 def _timestamp_cols() -> tuple[sa.Column, sa.Column]:
@@ -217,7 +227,29 @@ def upgrade() -> None:
             if_not_exists=True,
         )
 
+    # Seed + assign by current role while `role` still holds VIEWER/EDITOR/ADMIN.
     _seed_legacy_groups()
+
+    # Now collapse the role vocabulary to the two-value lowercase set. Convert
+    # the native enum to a portable VARCHAR first, then normalize the values.
+    # On Postgres the cast needs an explicit USING and the orphaned enum type
+    # must be dropped so a later downgrade can recreate it cleanly.
+    connection = op.get_bind()
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.alter_column(
+            "role",
+            existing_type=_ROLE_ENUM,
+            type_=sa.String(length=20),
+            existing_nullable=False,
+            postgresql_using="role::text",
+        )
+    op.execute("UPDATE users SET role = 'admin' WHERE UPPER(role) = 'ADMIN'")
+    op.execute(
+        "UPDATE users SET role = 'user' "
+        "WHERE UPPER(role) IN ('VIEWER', 'EDITOR', 'USER') OR role IS NULL"
+    )
+    if is_postgresql(connection):
+        PostgresEnum(name="role").drop(connection, checkfirst=True)
 
 
 def _seed_legacy_groups() -> None:
@@ -300,6 +332,29 @@ def _seed_legacy_groups() -> None:
 
 
 def downgrade() -> None:
+    # Restore the role enum (reverse of the narrowing) before tearing down the
+    # permission infrastructure. Values are restored while still VARCHAR.
+    connection = op.get_bind()
+    op.execute("UPDATE users SET role = 'VIEWER' WHERE LOWER(role) = 'user'")
+    op.execute("UPDATE users SET role = 'ADMIN' WHERE LOWER(role) = 'admin'")
+    # On Postgres the native enum type was dropped on upgrade; recreate it
+    # explicitly (create_type=False keeps the alter from re-issuing CREATE TYPE)
+    # and cast the column back with an explicit USING.
+    role_type: sa.Enum = _ROLE_ENUM
+    if is_postgresql(connection):
+        role_type = PostgresEnum(
+            "VIEWER", "EDITOR", "ADMIN", name="role", create_type=False
+        )
+        role_type.create(connection, checkfirst=True)
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.alter_column(
+            "role",
+            existing_type=sa.String(length=20),
+            type_=role_type,
+            existing_nullable=False,
+            postgresql_using="role::role",
+        )
+
     with op.batch_alter_table("users") as batch_op:
         batch_op.drop_constraint("fk_users_permission_group_id", type_="foreignkey")
         batch_op.drop_index("ix_users_permission_group_id", if_exists=True)

@@ -1318,6 +1318,10 @@ async def update_rom(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
+    # 404-mask roms hidden from the caller rather than letting them edit.
+    if not get_permissions(request).can_see_rom(rom.id, rom.platform_id):
+        raise RomNotFoundInDatabaseException(id)
+
     if unmatch_metadata:
         db_rom_handler.update_rom(
             id,
@@ -1828,6 +1832,10 @@ async def update_rom_user(
     rom = db_rom_handler.get_rom(id)
 
     if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    # 404-mask roms hidden from the caller rather than confirming existence.
+    if not get_permissions(request).can_see_rom(rom.id, rom.platform_id):
         raise RomNotFoundInDatabaseException(id)
 
     db_rom_user = db_rom_handler.get_rom_user(
