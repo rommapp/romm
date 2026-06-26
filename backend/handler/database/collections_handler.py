@@ -397,6 +397,7 @@ class DBCollectionsHandler(DBBaseHandler):
             statuses=statuses,
             regions=regions,
             languages=languages,
+            metadata_providers=criteria.get("metadata_providers"),
             # Logic operators for multi-value filters
             genres_logic=criteria.get("genres_logic", "any"),
             franchises_logic=criteria.get("franchises_logic", "any"),
@@ -406,6 +407,7 @@ class DBCollectionsHandler(DBBaseHandler):
             regions_logic=criteria.get("regions_logic", "any"),
             languages_logic=criteria.get("languages_logic", "any"),
             statuses_logic=criteria.get("statuses_logic", "any"),
+            metadata_providers_logic=criteria.get("metadata_providers_logic", "any"),
             user_id=user_id,
             order_by=criteria.get("order_by", "name"),
             order_dir=criteria.get("order_dir", "asc"),

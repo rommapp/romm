@@ -77,6 +77,24 @@ export function getRoleIcon(role: string) {
  */
 export const defaultAvatarPath = "/assets/default/user.svg";
 
+// Filterable metadata providers — the providers a ROM can be matched to,
+// keyed by the slug the backend filter expects (matches the MetadataSource
+// enum and each provider's id column on Rom). Titles are brand names, so
+// they are intentionally not translated. Shared by the v1 and v2 gallery
+// filter drawers so both offer the same options.
+export const METADATA_PROVIDER_OPTIONS: { value: string; title: string }[] = [
+  { value: "igdb", title: "IGDB" },
+  { value: "moby", title: "MobyGames" },
+  { value: "ss", title: "ScreenScraper" },
+  { value: "ra", title: "RetroAchievements" },
+  { value: "launchbox", title: "LaunchBox" },
+  { value: "hasheous", title: "Hasheous" },
+  { value: "flashpoint", title: "Flashpoint" },
+  { value: "hltb", title: "HowLongToBeat" },
+  { value: "gamelist", title: "ES-DE" },
+  { value: "libretro", title: "Libretro" },
+];
+
 /**
  * Normalize a string by converting it to lowercase and removing diacritics.
  *
