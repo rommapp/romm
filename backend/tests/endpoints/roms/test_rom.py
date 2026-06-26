@@ -85,6 +85,49 @@ def test_get_all_roms(
     assert items[0]["sibling_roms"] == []
 
 
+def test_get_roms_filter_by_metadata_providers(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+):
+    rom_igdb = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="rom_igdb",
+            slug="rom_igdb",
+            fs_name="rom_igdb.zip",
+            fs_name_no_tags="rom_igdb",
+            fs_name_no_ext="rom_igdb",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            igdb_id=MOCK_IGDB_ID,
+        )
+    )
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "metadata_providers": ["igdb"]},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert {item["id"] for item in body["items"]} == {rom_igdb.id}
+
+    # "none" logic returns the ROMs not matched to the selected provider.
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={
+            "platform_id": platform.id,
+            "metadata_providers": ["igdb"],
+            "metadata_providers_logic": "none",
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert {item["id"] for item in body["items"]} == {rom.id}
+
+
 def test_get_all_roms_with_files(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):

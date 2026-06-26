@@ -21,7 +21,11 @@ import storeGalleryFilter, {
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { romStatusMap, type PlayingStatus } from "@/utils";
+import {
+  METADATA_PROVIDER_OPTIONS,
+  romStatusMap,
+  type PlayingStatus,
+} from "@/utils";
 
 withDefaults(
   defineProps<{
@@ -80,7 +84,13 @@ const {
   filterPlayerCounts,
   selectedPlayerCounts,
   playerCountsLogic,
+  selectedMetadataProviders,
+  metadataProvidersLogic,
 } = storeToRefs(galleryFilterStore);
+
+// Provider options are a fixed registry (not data-derived like the other
+// lists), so they live in a shared constant rather than coming from the API.
+const filterMetadataProviders = ref(METADATA_PROVIDER_OPTIONS);
 const emitter = inject<Emitter<Events>>("emitter");
 
 const onFilterChange = debounce(
@@ -160,6 +170,14 @@ const onFilterChange = debounce(
           : null,
       playerCountsLogic:
         selectedPlayerCounts.value.length > 0 ? playerCountsLogic.value : null,
+      metadataProviders:
+        selectedMetadataProviders.value.length > 0
+          ? selectedMetadataProviders.value.join(",")
+          : null,
+      metadataProvidersLogic:
+        selectedMetadataProviders.value.length > 0
+          ? metadataProvidersLogic.value
+          : null,
     }).forEach(([key, value]) => {
       if (value) {
         url.searchParams.set(key, value);
@@ -250,6 +268,14 @@ const filters = [
       galleryFilterStore.setPlayerCountsLogic(logic),
   },
   {
+    label: t("platform.metadata-provider"),
+    selected: selectedMetadataProviders,
+    items: filterMetadataProviders,
+    logic: metadataProvidersLogic,
+    setLogic: (logic: FilterLogicOperator) =>
+      galleryFilterStore.setMetadataProvidersLogic(logic),
+  },
+  {
     label: t("platform.status"),
     selected: selectedStatuses,
     items: mappedStatuses,
@@ -297,6 +323,8 @@ onMounted(async () => {
     statusesLogic: urlStatusesLogic,
     playerCounts: urlPlayerCounts,
     playerCountsLogic: urlPlayerCountsLogic,
+    metadataProviders: urlMetadataProviders,
+    metadataProvidersLogic: urlMetadataProvidersLogic,
   } = router.currentRoute.value.query;
 
   // Check for query params to set filters
@@ -475,6 +503,18 @@ onMounted(async () => {
     if (urlPlayerCountsLogic !== undefined) {
       galleryFilterStore.setPlayerCountsLogic(
         urlPlayerCountsLogic as FilterLogicOperator,
+      );
+    }
+  }
+
+  if (urlMetadataProviders !== undefined) {
+    const metadataProviders = (urlMetadataProviders as string)
+      .split(",")
+      .filter((mp) => mp.trim());
+    galleryFilterStore.setSelectedFilterMetadataProviders(metadataProviders);
+    if (urlMetadataProvidersLogic !== undefined) {
+      galleryFilterStore.setMetadataProvidersLogic(
+        urlMetadataProvidersLogic as FilterLogicOperator,
       );
     }
   }

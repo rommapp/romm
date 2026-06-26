@@ -25,6 +25,7 @@
   "missing-from-filesystem": "파일시스템에서 플랫폼 누락",
   "no-firmware-found": "펌웨어 없음",
   "player-count": "플레이어 수",
+  "metadata-provider": "메타데이터 제공자",
   "region": "지역",
   "removing-firmware": "{n} 개 펌웨어를 RomM에서 제거 중",
   "removing-platform-1": "플랫폼",
