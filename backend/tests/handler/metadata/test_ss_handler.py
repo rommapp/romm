@@ -6,16 +6,21 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
+from adapters.services.screenscraper import SS_DEV_ID, SS_DEV_PASSWORD
 from adapters.services.screenscraper_types import SSGame
 from config.config_manager import Config, MetadataMediaType
 from handler.metadata.ss_handler import (
     SSHandler,
     _get_rom_type,
     _is_notgame,
+    _ss_media_descriptor,
     add_ss_auth_to_url,
+    build_ss_game,
     extract_media_from_ss_game,
     extract_metadata_from_ss_rom,
     get_preferred_regions,
+    is_screenscraper_url,
+    pop_ss_media_urls,
 )
 
 
@@ -519,16 +524,17 @@ class TestExtractMediaSensitiveKeyStripping:
         ):
             result = extract_media_from_ss_game(rom, game)
 
-        # ssid/sspassword must be stripped before storage so user creds don't
-        # end up in the DB. Dev creds and other params must be preserved so
-        # subsequent media fetches still resolve.
+        # All SS auth params (user creds AND dev creds) must be stripped before
+        # storage so no authentication detail ends up in the DB (issue #3612).
+        # Non-auth params are preserved so the change-check and re-auth download
+        # still resolve.
         stored_url = result["box2d_url"]
         assert stored_url is not None
         query = parse_qs(urlparse(stored_url).query)
         assert "ssid" not in query
         assert "sspassword" not in query
-        assert query.get("devid") == ["dev"]
-        assert query.get("devpassword") == ["devpass"]
+        assert "devid" not in query
+        assert "devpassword" not in query
         assert query.get("other") == ["keep"]
 
     def test_clean_url_unchanged(self):
@@ -624,13 +630,12 @@ class TestAddSsAuthToUrl:
         assert query.get("keep") == ["1"]
 
     def test_handles_stripped_url_from_extract_media(self):
-        """A URL that's already had ssid/sspassword stripped (the storage form)
-        gets credentials re-attached cleanly, with dev creds and other params
-        left intact."""
-        # Shape mirrors what extract_media_from_ss_game persists
-        stripped_url = (
-            "https://screenscraper.fr/img.png?devid=dev&devpassword=devpw&other=keep"
-        )
+        """A URL that's had all SS auth params stripped (the storage form) gets
+        the full credential set (user creds AND dev creds) re-attached cleanly,
+        with non-auth params left intact."""
+        # Shape mirrors what extract_media_from_ss_game persists: no auth params,
+        # only the functional ones needed to resolve the media.
+        stripped_url = "https://screenscraper.fr/img.png?systemeid=1&other=keep"
         with (
             patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
             patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
@@ -640,8 +645,9 @@ class TestAddSsAuthToUrl:
         query = parse_qs(urlparse(result).query)
         assert query.get("ssid") == ["user1"]
         assert query.get("sspassword") == ["pw1"]
-        assert query.get("devid") == ["dev"]
-        assert query.get("devpassword") == ["devpw"]
+        assert query.get("devid") == [SS_DEV_ID]
+        assert query.get("devpassword") == [SS_DEV_PASSWORD]
+        assert query.get("systemeid") == ["1"]
         assert query.get("other") == ["keep"]
 
     def test_rejects_lookalike_and_attacker_hosts(self):
@@ -744,7 +750,166 @@ class TestAddSsAuthToUrl:
         download_query = parse_qs(urlparse(download_url).query)
         assert download_query.get("ssid") == ["download-user"]
         assert download_query.get("sspassword") == ["download-pw"]
+        assert download_query.get("devid") == [SS_DEV_ID]
+        assert download_query.get("devpassword") == [SS_DEV_PASSWORD]
         assert download_query.get("systemeid") == ["1"]
+
+    def test_appends_dev_credentials_when_configured(self):
+        """Dev creds are re-attached alongside user creds, since they are now
+        stripped from stored URLs and required for SS media downloads."""
+        url = "https://screenscraper.fr/img.png?systemeid=1"
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+        ):
+            result = add_ss_auth_to_url(url)
+
+        query = parse_qs(urlparse(result).query)
+        assert query.get("devid") == [SS_DEV_ID]
+        assert query.get("devpassword") == [SS_DEV_PASSWORD]
+        assert query.get("ssid") == ["user1"]
+        assert query.get("sspassword") == ["pw1"]
+
+
+class TestPopSsMediaUrls:
+    """Tests for pop_ss_media_urls: removes the never-persisted media URLs."""
+
+    def test_removes_all_url_fields_and_returns_them(self):
+        ss_metadata = {
+            "box2d_url": "https://screenscraper.fr/box.png?systemeid=1",
+            "box2d_path": "roms/1/100/box2d.png",
+            "screenshot_url": "https://screenscraper.fr/ss.png?systemeid=1",
+            "video_normalized_url": "https://screenscraper.fr/v.mp4",
+            "ss_score": "8.0",
+            "genres": ["Action"],
+        }
+
+        popped = pop_ss_media_urls(ss_metadata)
+
+        # Every *_url key is removed from the dict in place
+        assert all(not key.endswith("_url") for key in ss_metadata)
+        # Non-URL data (paths, scalar metadata) is left untouched
+        assert ss_metadata["box2d_path"] == "roms/1/100/box2d.png"
+        assert ss_metadata["ss_score"] == "8.0"
+        assert ss_metadata["genres"] == ["Action"]
+        # The removed URLs are returned so the caller can drive the download
+        assert popped == {
+            "box2d_url": "https://screenscraper.fr/box.png?systemeid=1",
+            "screenshot_url": "https://screenscraper.fr/ss.png?systemeid=1",
+            "video_normalized_url": "https://screenscraper.fr/v.mp4",
+        }
+
+    def test_no_url_fields_is_noop(self):
+        ss_metadata = {"box2d_path": "roms/1/100/box2d.png", "ss_score": "8.0"}
+
+        popped = pop_ss_media_urls(ss_metadata)
+
+        assert popped == {}
+        assert ss_metadata == {"box2d_path": "roms/1/100/box2d.png", "ss_score": "8.0"}
+
+    def test_empty_dict(self):
+        assert pop_ss_media_urls({}) == {}
+
+
+class TestIsScreenscraperUrl:
+    def test_host_and_subdomain(self):
+        assert is_screenscraper_url("https://screenscraper.fr/img.png")
+        assert is_screenscraper_url("https://api.screenscraper.fr/api2/mediaJeu.php")
+
+    def test_non_ss_and_lookalike(self):
+        assert not is_screenscraper_url("https://images.igdb.com/co1.jpg")
+        assert not is_screenscraper_url("https://screenscraper.fr.evil.example/x.png")
+
+    def test_empty_and_none(self):
+        assert not is_screenscraper_url("")
+        assert not is_screenscraper_url(None)
+
+
+class TestSsMediaDescriptor:
+    """Tests for _ss_media_descriptor: the non-sensitive change-detection tag."""
+
+    def test_extracts_media_param(self):
+        url = (
+            "https://api.screenscraper.fr/api2/mediaJeu.php"
+            "?systemeid=1&jeuid=2&media=box-2D(wor)"
+        )
+        assert _ss_media_descriptor(url) == "box-2D(wor)"
+
+    def test_region_change_yields_different_tag(self):
+        wor = "https://api.screenscraper.fr/api2/mediaJeu.php?jeuid=2&media=box-2D(wor)"
+        jp = "https://api.screenscraper.fr/api2/mediaJeu.php?jeuid=2&media=box-2D(jp)"
+        assert _ss_media_descriptor(wor) != _ss_media_descriptor(jp)
+
+    def test_no_media_param(self):
+        assert _ss_media_descriptor("https://screenscraper.fr/img.png") is None
+
+    def test_none(self):
+        assert _ss_media_descriptor(None) is None
+
+
+class TestBuildSsGameTags:
+    """build_ss_game must persist variant tags (not URLs) for change detection."""
+
+    def _game(self) -> SSGame:
+        base = "https://api.screenscraper.fr/api2/mediaJeu.php?systemeid=1&jeuid=42"
+        return cast(
+            SSGame,
+            {
+                "id": "42",
+                "noms": [{"region": "us", "text": "Test Game"}],
+                "medias": [
+                    {
+                        "type": "box-2D",
+                        "parent": "jeu",
+                        "region": "us",
+                        "url": f"{base}&media=box-2D(us)",
+                        "crc": "",
+                        "md5": "",
+                        "sha1": "",
+                        "size": "0",
+                        "format": "png",
+                    },
+                    {
+                        "type": "ss",
+                        "parent": "jeu",
+                        "region": "us",
+                        "url": f"{base}&media=ss(us)",
+                        "crc": "",
+                        "md5": "",
+                        "sha1": "",
+                        "size": "0",
+                        "format": "png",
+                    },
+                ],
+            },
+        )
+
+    def test_tags_populated_from_resolved_media(self):
+        config = _make_config(
+            region_priority=["us"], scan_media=["box2d", "screenshot"]
+        )
+        rom = MagicMock()
+        rom.platform_id = 1
+        rom.id = 100
+        rom.regions = ["USA"]
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                return_value="roms/1/100/m",
+            ),
+        ):
+            result = build_ss_game(rom, self._game())
+
+        ss_metadata = result["ss_metadata"]
+        # The variant tags are derived from the resolved media. They (not the
+        # URLs) are what survives persistence; pop_ss_media_urls removes the
+        # in-memory *_url fields at the persist boundary.
+        assert ss_metadata["cover_media"] == "box-2D(us)"
+        assert ss_metadata["screenshot_media"] == ["ss(us)"]
+        surviving = {k: v for k, v in ss_metadata.items() if not k.endswith("_url")}
+        assert surviving["cover_media"] == "box-2D(us)"
 
 
 class TestGetPlatform:

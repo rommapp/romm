@@ -33,7 +33,12 @@ from handler.filesystem import (
 )
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_gamelist_handler, meta_hltb_handler
-from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
+from handler.metadata.ss_handler import (
+    add_ss_auth_to_url,
+    get_preferred_media_types,
+    is_screenscraper_url,
+    pop_ss_media_urls,
+)
 from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
 from handler.scan_handler import (
     MetadataSource,
@@ -353,6 +358,27 @@ async def _identify_rom(
         identified_roms=1 if scanned_rom.is_identified else 0,
     )
 
+    # ScreenScraper media URLs drive the in-scan download but must never be
+    # persisted: they are SS API queries (re-derivable from the stored ss_id) and
+    # are worthless once the asset is saved (issue #3612). Capture them for the
+    # download, then blank the SS-sourced url columns. Other providers' public
+    # URLs are kept as valid cover fallbacks. The resolved variant tags persisted
+    # in ss_metadata (cover_media, etc.) carry the change-detection signal.
+    cover_url = scanned_rom.url_cover
+    manual_url = scanned_rom.url_manual
+    screenshot_urls = list(scanned_rom.url_screenshots or [])
+    ss_media_urls: dict[str, str] = {}
+    if scanned_rom.ss_metadata:
+        ss_media_urls = pop_ss_media_urls(scanned_rom.ss_metadata)
+    if is_screenscraper_url(scanned_rom.url_cover):
+        scanned_rom.url_cover = ""
+    if is_screenscraper_url(scanned_rom.url_manual):
+        scanned_rom.url_manual = ""
+    if scanned_rom.url_screenshots:
+        scanned_rom.url_screenshots = [
+            url for url in scanned_rom.url_screenshots if not is_screenscraper_url(url)
+        ]
+
     _added_rom = db_rom_handler.add_rom(scanned_rom)
 
     if _added_rom.is_identified:
@@ -400,26 +426,46 @@ async def _identify_rom(
     if scan_type == ScanType.HASHES:
         return
 
+    # The asset source "changed" (forcing a re-download) when the stored URL
+    # differs (non-SS providers) OR, for SS, when the resolved variant tag
+    # differs - the SS URLs themselves are blanked, so the tag carries the signal.
+    def _ss_tag(entity: Rom | None, key: str) -> object:
+        return (getattr(entity, "ss_metadata", None) or {}).get(key)
+
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,
-        overwrite=_added_rom.url_cover != rom.url_cover,
-        url_cover=add_ss_auth_to_url(_added_rom.url_cover),
+        overwrite=(
+            _added_rom.url_cover != rom.url_cover
+            or (
+                is_screenscraper_url(cover_url)
+                and _ss_tag(_added_rom, "cover_media") != _ss_tag(rom, "cover_media")
+            )
+        ),
+        url_cover=add_ss_auth_to_url(cover_url),
     )
 
     path_manual = await fs_resource_handler.get_manual(
         rom=_added_rom,
-        overwrite=_added_rom.url_manual != rom.url_manual,
-        url_manual=add_ss_auth_to_url(_added_rom.url_manual),
+        overwrite=(
+            _added_rom.url_manual != rom.url_manual
+            or (
+                is_screenscraper_url(manual_url)
+                and _ss_tag(_added_rom, "manual_media") != _ss_tag(rom, "manual_media")
+            )
+        ),
+        url_manual=add_ss_auth_to_url(manual_url),
     )
 
     screenshots_changed = pydash.xor(
         _added_rom.url_screenshots or [], rom.url_screenshots or []
+    ) or pydash.xor(
+        _ss_tag(_added_rom, "screenshot_media") or [],
+        _ss_tag(rom, "screenshot_media") or [],
     )
-    url_screenshots = _added_rom.url_screenshots or []
     path_screenshots = await fs_resource_handler.get_rom_screenshots(
         rom=_added_rom,
         overwrite=bool(screenshots_changed),
-        url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
+        url_screenshots=[add_ss_auth_to_url(u) for u in screenshot_urls],
     )
 
     _added_rom.path_cover_s = path_cover_s
@@ -438,12 +484,18 @@ async def _identify_rom(
         },
     )
 
-    # Handle special media files from Screenscraper
-    if _added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
+    # Handle special media files from Screenscraper. The media URLs were captured
+    # (and stripped from storage) above; the *_path targets come from the stored
+    # metadata.
+    if (
+        ss_media_urls
+        and _added_rom.ss_metadata
+        and MetadataSource.SS in metadata_sources
+    ):
         preferred_media_types = get_preferred_media_types()
         for media_type in preferred_media_types:
             media_path = _added_rom.ss_metadata.get(f"{media_type.value}_path")
-            media_url = _added_rom.ss_metadata.get(f"{media_type.value}_url")
+            media_url = ss_media_urls.get(f"{media_type.value}_url")
             if media_path and media_url:
                 await fs_resource_handler.store_media_file(
                     add_ss_auth_to_url(media_url),
