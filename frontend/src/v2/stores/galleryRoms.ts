@@ -308,6 +308,7 @@ export default defineStore("v2GalleryRoms", {
         selectedLanguages: galleryFilter.selectedLanguages,
         selectedPlayerCounts: galleryFilter.selectedPlayerCounts,
         selectedMetadataProviders: galleryFilter.selectedMetadataProviders,
+        selectedTags: galleryFilter.selectedTags,
         selectedStatuses: galleryFilter.selectedStatuses,
         genresLogic: galleryFilter.genresLogic,
         franchisesLogic: galleryFilter.franchisesLogic,
@@ -319,6 +320,7 @@ export default defineStore("v2GalleryRoms", {
         statusesLogic: galleryFilter.statusesLogic,
         playerCountsLogic: galleryFilter.playerCountsLogic,
         metadataProvidersLogic: galleryFilter.metadataProvidersLogic,
+        tagsLogic: galleryFilter.tagsLogic,
       };
     },
 
@@ -352,6 +354,7 @@ export default defineStore("v2GalleryRoms", {
         galleryFilter.setFilterRegions(data.filter_values.regions);
         galleryFilter.setFilterLanguages(data.filter_values.languages);
         galleryFilter.setFilterPlayerCounts(data.filter_values.player_counts);
+        galleryFilter.setFilterTags(data.filter_values.tags);
       }
       this.metadataLoaded = true;
     },

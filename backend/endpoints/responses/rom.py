@@ -635,4 +635,5 @@ class RomFiltersDict(TypedDict):
     player_counts: list[str]
     regions: list[str]
     languages: list[str]
+    tags: list[str]
     platforms: list[int]

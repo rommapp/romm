@@ -166,6 +166,7 @@ export interface GetRomsParams {
   selectedLanguages?: string[] | null;
   selectedPlayerCounts?: string[] | null;
   selectedMetadataProviders?: string[] | null;
+  selectedTags?: string[] | null;
   selectedStatuses?: string[] | null;
   // Logic operators for multi-value filters
   genresLogic?: string | null;
@@ -178,6 +179,7 @@ export interface GetRomsParams {
   statusesLogic?: string | null;
   playerCountsLogic?: string | null;
   metadataProvidersLogic?: string | null;
+  tagsLogic?: string | null;
   // Cancellation: pass an AbortSignal to let the caller abort an
   // in-flight request (e.g. search-typing → previous query aborted,
   // gallery-context switch → previous platform's windows aborted).
@@ -211,6 +213,7 @@ async function getRoms({
   selectedLanguages = null,
   selectedPlayerCounts = null,
   selectedMetadataProviders = null,
+  selectedTags = null,
   selectedStatuses = null,
   // Logic operators
   genresLogic = null,
@@ -223,6 +226,7 @@ async function getRoms({
   statusesLogic = null,
   playerCountsLogic = null,
   metadataProvidersLogic = null,
+  tagsLogic = null,
   signal = undefined,
 }: GetRomsParams) {
   const params = {
@@ -275,6 +279,7 @@ async function getRoms({
       selectedMetadataProviders && selectedMetadataProviders.length > 0
         ? selectedMetadataProviders
         : undefined,
+    tags: selectedTags && selectedTags.length > 0 ? selectedTags : undefined,
     // Logic operators
     genres_logic:
       selectedGenres && selectedGenres.length > 0
@@ -316,6 +321,8 @@ async function getRoms({
       selectedMetadataProviders && selectedMetadataProviders.length > 0
         ? metadataProvidersLogic || "any"
         : undefined,
+    tags_logic:
+      selectedTags && selectedTags.length > 0 ? tagsLogic || "any" : undefined,
     ...(filterMatched !== null ? { matched: filterMatched } : {}),
     ...(filterFavorites !== null ? { favorite: filterFavorites } : {}),
     ...(filterDuplicates !== null ? { duplicate: filterDuplicates } : {}),

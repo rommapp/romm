@@ -954,3 +954,60 @@ def test_filter_by_metadata_providers_unknown_value_is_ignored(
         metadata_providers=["igdb", "bogus"]
     )
     assert {r.id for r in known_and_unknown} == {rom_igdb.id}
+
+
+def _add_rom_with_tags(platform: Platform, slug: str, tags: list[str]) -> Rom:
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=slug,
+            slug=slug,
+            fs_name=f"{slug}.zip",
+            fs_name_no_tags=slug,
+            fs_name_no_ext=slug,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            tags=tags,
+        )
+    )
+
+
+def test_filter_by_tags(rom: Rom, platform: Platform):
+    # `rom` fixture has no tags (untagged).
+    rom_proto = _add_rom_with_tags(platform, "rom_proto", ["Proto"])
+    rom_beta = _add_rom_with_tags(platform, "rom_beta", ["Beta"])
+    rom_both = _add_rom_with_tags(platform, "rom_both", ["Proto", "Beta"])
+
+    # "any" (OR): carries at least one of the selected tags.
+    any_proto = db_rom_handler.get_roms_scalar(tags=["Proto"])
+    assert {r.id for r in any_proto} == {rom_proto.id, rom_both.id}
+
+    any_either = db_rom_handler.get_roms_scalar(
+        tags=["Proto", "Beta"], tags_logic="any"
+    )
+    assert {r.id for r in any_either} == {rom_proto.id, rom_beta.id, rom_both.id}
+
+    # "all" (AND): carries every selected tag.
+    all_both = db_rom_handler.get_roms_scalar(tags=["Proto", "Beta"], tags_logic="all")
+    assert {r.id for r in all_both} == {rom_both.id}
+
+    # "none" (NOT): carries none of the selected tags.
+    none_proto = db_rom_handler.get_roms_scalar(tags=["Proto"], tags_logic="none")
+    assert {r.id for r in none_proto} == {rom.id, rom_beta.id}
+
+
+def test_filter_by_tags_unknown_value_returns_no_matches(rom: Rom, platform: Platform):
+    """A tag that no ROM carries simply matches nothing under "any" logic
+    (free-form text match), rather than erroring."""
+    _add_rom_with_tags(platform, "rom_proto", ["Proto"])
+
+    only_unknown = db_rom_handler.get_roms_scalar(tags=["Nonexistent"])
+    assert list(only_unknown) == []
+
+
+def test_get_rom_filters_includes_tags(rom: Rom, platform: Platform):
+    _add_rom_with_tags(platform, "rom_proto", ["Proto"])
+    _add_rom_with_tags(platform, "rom_beta", ["Beta", "Demo"])
+
+    filters = db_rom_handler.get_rom_filters()
+    assert filters["tags"] == ["Beta", "Demo", "Proto"]

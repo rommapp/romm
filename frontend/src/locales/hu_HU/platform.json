@@ -76,6 +76,7 @@
   "filters": "Szűrők",
   "show": "Megjelenítés",
   "tags": "Címkék",
+  "tag": "Címke",
   "show-all": "Összes megjelenítése",
   "show-matched-only": "Csak egyeztetett ROM-ok megjelenítése",
   "show-unmatched-only": "Csak nem egyeztetett ROM-ok megjelenítése",

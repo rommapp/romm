@@ -65,6 +65,7 @@
   "show-matched-only": "Solo emparejados",
   "show-unmatched-only": "Solo sin emparejar",
   "tags": "Etiquetas",
+  "tag": "Etiqueta",
   "delete-platform-hint": "Elimina la plataforma y sus entradas de ROM. Los archivos en disco NO se eliminan.",
   "edit-platform": "Editar plataforma",
   "rom-count": "{n} ROM | {n} ROMs",

@@ -76,6 +76,7 @@
   "filters": "Filter",
   "show": "Anzeigen",
   "tags": "Tags",
+  "tag": "Tag",
   "show-all": "Alle anzeigen",
   "show-matched-only": "Nur zugeordnete ROMs anzeigen",
   "show-unmatched-only": "Nur nicht zugeordnete ROMs anzeigen",

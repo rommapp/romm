@@ -456,6 +456,16 @@ def get_roms(
             ),
         ),
     ] = None,
+    tags: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated custom tag (parsed from the filename, e.g. Proto, Beta,"
+                " Demo). Multiple values are allowed by repeating the parameter, and"
+                " results that match any of the values will be returned."
+            ),
+        ),
+    ] = None,
     # Logic operators for multi-value filters
     genres_logic: Annotated[
         str,
@@ -515,6 +525,12 @@ def get_roms(
         str,
         Query(
             description="Logic operator for metadata providers filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    tags_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for tags filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     order_by: Annotated[
@@ -577,6 +593,7 @@ def get_roms(
         languages=languages,
         player_counts=player_counts,
         metadata_providers=metadata_providers,
+        tags=tags,
         # Logic operators
         genres_logic=genres_logic,
         franchises_logic=franchises_logic,
@@ -588,6 +605,7 @@ def get_roms(
         statuses_logic=statuses_logic,
         player_counts_logic=player_counts_logic,
         metadata_providers_logic=metadata_providers_logic,
+        tags_logic=tags_logic,
         group_by_meta_id=group_by_meta_id,
         updated_after=updated_after,
         include_file_stats=True,
@@ -616,6 +634,7 @@ def get_roms(
         or languages
         or player_counts
         or metadata_providers
+        or tags
         or updated_after
         or matched is not None
         or favorite is not None
@@ -653,6 +672,7 @@ def get_roms(
         player_counts=[],
         regions=[],
         languages=[],
+        tags=[],
         platforms=[],
     )
     if with_filter_values:

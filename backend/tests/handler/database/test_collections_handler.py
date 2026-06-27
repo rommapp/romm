@@ -42,3 +42,23 @@ def test_get_smart_collection_roms_passes_metadata_providers(admin_user: User, m
 
     assert get_roms_scalar.call_args.kwargs["metadata_providers"] == ["igdb", "moby"]
     assert get_roms_scalar.call_args.kwargs["metadata_providers_logic"] == "all"
+
+
+def test_get_smart_collection_roms_passes_tags(admin_user: User, mocker):
+    get_roms_scalar = mocker.patch("handler.database.db_rom_handler.get_roms_scalar")
+    smart_collection = SmartCollection(
+        name="Prototypes and betas",
+        description="",
+        user_id=admin_user.id,
+        filter_criteria={
+            "tags": ["Proto", "Beta"],
+            "tags_logic": "any",
+        },
+    )
+
+    db_collection_handler.get_smart_collection_roms(
+        smart_collection, user_id=admin_user.id
+    )
+
+    assert get_roms_scalar.call_args.kwargs["tags"] == ["Proto", "Beta"]
+    assert get_roms_scalar.call_args.kwargs["tags_logic"] == "any"

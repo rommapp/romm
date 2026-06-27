@@ -28,6 +28,7 @@
 //   ?statuses=…&statusesLogic=…
 //   ?playerCounts=…&playerCountsLogic=…
 //   ?metadataProviders=…&metadataProvidersLogic=…
+//   ?tags=…&tagsLogic=…
 //
 // Direction notes:
 //   * URL → store fires on every `route.query` change (browser back /
@@ -112,6 +113,7 @@ export function useGalleryFilterUrl() {
     selectedLanguages,
     selectedPlayerCounts,
     selectedMetadataProviders,
+    selectedTags,
     selectedStatuses,
     genresLogic,
     franchisesLogic,
@@ -122,6 +124,7 @@ export function useGalleryFilterUrl() {
     languagesLogic,
     playerCountsLogic,
     metadataProvidersLogic,
+    tagsLogic,
     statusesLogic,
   } = storeToRefs(filter);
 
@@ -162,6 +165,8 @@ export function useGalleryFilterUrl() {
       playerCountsLogic: qLogic(q.playerCountsLogic),
       metadataProviders: qList(q.metadataProviders),
       metadataProvidersLogic: qLogic(q.metadataProvidersLogic),
+      tags: qList(q.tags),
+      tagsLogic: qLogic(q.tagsLogic),
       statuses: qList(q.statuses),
       statusesLogic: qLogic(q.statusesLogic),
     };
@@ -250,6 +255,11 @@ export function useGalleryFilterUrl() {
       url.metadataProvidersLogic !== metadataProvidersLogic.value
     )
       filter.setMetadataProvidersLogic(url.metadataProvidersLogic);
+
+    if (!eqStrArr(url.tags, selectedTags.value))
+      filter.setSelectedFilterTags(url.tags);
+    if (url.tagsLogic && url.tagsLogic !== tagsLogic.value)
+      filter.setTagsLogic(url.tagsLogic);
 
     if (!eqStrArr(url.statuses, selectedStatuses.value))
       filter.setSelectedFilterStatuses(url.statuses);
@@ -359,6 +369,11 @@ export function useGalleryFilterUrl() {
         ? metadataProvidersLogic.value
         : null,
     );
+    setList("tags", selectedTags.value);
+    setOrDelete(
+      "tagsLogic",
+      selectedTags.value.length > 0 ? tagsLogic.value : null,
+    );
     setList("statuses", selectedStatuses.value);
     setOrDelete(
       "statusesLogic",
@@ -414,6 +429,8 @@ export function useGalleryFilterUrl() {
       playerCountsLogic,
       selectedMetadataProviders,
       metadataProvidersLogic,
+      selectedTags,
+      tagsLogic,
       selectedStatuses,
       statusesLogic,
     ],

@@ -52,6 +52,8 @@ export interface SmartFilterCriteria {
   player_counts_logic?: FilterLogic;
   metadata_providers?: string[];
   metadata_providers_logic?: FilterLogic;
+  tags?: string[];
+  tags_logic?: FilterLogic;
   selected_status?: string[];
   statuses_logic?: FilterLogic;
 }
@@ -87,6 +89,8 @@ export interface GalleryFilterSnapshot {
   playerCountsLogic: FilterLogic;
   selectedMetadataProviders: string[];
   metadataProvidersLogic: FilterLogic;
+  selectedTags: string[];
+  tagsLogic: FilterLogic;
   selectedStatuses: string[];
   statusesLogic: FilterLogic;
 }
@@ -179,6 +183,10 @@ export function buildSmartFilterCriteria(
   if (snap.selectedMetadataProviders.length > 0) {
     out.metadata_providers = snap.selectedMetadataProviders;
     out.metadata_providers_logic = snap.metadataProvidersLogic;
+  }
+  if (snap.selectedTags.length > 0) {
+    out.tags = snap.selectedTags;
+    out.tags_logic = snap.tagsLogic;
   }
   if (snap.selectedStatuses.length > 0) {
     out.selected_status = snap.selectedStatuses;
@@ -384,6 +392,14 @@ const FIELDS: FieldSpec[] = [
     icon: "mdi-database-outline",
     labelKey: "platform.metadata-provider",
     defaultLabel: "Metadata providers",
+    kind: "list",
+  },
+  {
+    storage: "tags",
+    logicStorage: "tags_logic",
+    icon: "mdi-tag-outline",
+    labelKey: "platform.tag",
+    defaultLabel: "Tags",
     kind: "list",
   },
   {

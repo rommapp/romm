@@ -687,6 +687,19 @@ class DBRomsHandler(DBBaseHandler):
         condition = op(Rom.languages, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
 
+    def _filter_by_tags(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+        match_none: bool = False,
+    ) -> Query:
+        op = json_array_contains_all if match_all else json_array_contains_any
+        condition = op(Rom.tags, values, session=session)
+        return query.filter(~condition) if match_none else query.filter(condition)
+
     def _filter_by_player_counts(
         self,
         query: Query,
@@ -762,6 +775,7 @@ class DBRomsHandler(DBBaseHandler):
         languages: Sequence[str] | None = None,
         player_counts: Sequence[str] | None = None,
         metadata_providers: Sequence[str] | None = None,
+        tags: Sequence[str] | None = None,
         # Logic operators for multi-value filters
         genres_logic: str = "any",
         franchises_logic: str = "any",
@@ -773,6 +787,7 @@ class DBRomsHandler(DBBaseHandler):
         statuses_logic: str = "any",
         player_counts_logic: str = "any",
         metadata_providers_logic: str = "any",
+        tags_logic: str = "any",
         user_id: int | None = None,
         updated_after: datetime | None = None,
         include_file_stats: bool = False,
@@ -1004,6 +1019,7 @@ class DBRomsHandler(DBBaseHandler):
                 metadata_providers_logic,
                 self._filter_by_metadata_providers,
             ),
+            (tags, tags_logic, self._filter_by_tags),
         ]
 
         for values, logic, filter_func in filters_to_apply:
@@ -1135,6 +1151,7 @@ class DBRomsHandler(DBBaseHandler):
             languages=kwargs.get("languages", None),
             player_counts=kwargs.get("player_counts", None),
             metadata_providers=kwargs.get("metadata_providers", None),
+            tags=kwargs.get("tags", None),
             # Logic operators for multi-value filters
             genres_logic=kwargs.get("genres_logic", "any"),
             franchises_logic=kwargs.get("franchises_logic", "any"),
@@ -1146,6 +1163,7 @@ class DBRomsHandler(DBBaseHandler):
             statuses_logic=kwargs.get("statuses_logic", "any"),
             player_counts_logic=kwargs.get("player_counts_logic", "any"),
             metadata_providers_logic=kwargs.get("metadata_providers_logic", "any"),
+            tags_logic=kwargs.get("tags_logic", "any"),
             user_id=kwargs.get("user_id", None),
             group_by_meta_id=kwargs.get("group_by_meta_id", False),
             include_files=kwargs.get("include_files", False),
@@ -1789,10 +1807,11 @@ class DBRomsHandler(DBBaseHandler):
         player_counts = set()
         regions = set()
         languages = set()
+        tags = set()
         platforms = set()
 
         for row in session.execute(statement):
-            g, f, cl, co, gm, ar, pc, rg, lg, pid = row
+            g, f, cl, co, gm, ar, pc, rg, lg, tg, pid = row
             if g:
                 genres.update(g)
             if f:
@@ -1811,6 +1830,8 @@ class DBRomsHandler(DBBaseHandler):
                 regions.update(rg)
             if lg:
                 languages.update(lg)
+            if tg:
+                tags.update(tg)
             platforms.add(pid)
 
         return {
@@ -1823,6 +1844,7 @@ class DBRomsHandler(DBBaseHandler):
             "player_counts": sorted(player_counts),
             "regions": sorted(regions),
             "languages": sorted(languages),
+            "tags": sorted(tags),
             "platforms": sorted(platforms),
         }
 
@@ -1871,6 +1893,7 @@ class DBRomsHandler(DBBaseHandler):
                 RomMetadata.player_count,
                 Rom.regions,
                 Rom.languages,
+                Rom.tags,
                 Rom.platform_id,
             )
             .select_from(Rom)
@@ -1901,6 +1924,7 @@ class DBRomsHandler(DBBaseHandler):
             RomMetadata.player_count,
             Rom.regions,
             Rom.languages,
+            Rom.tags,
             Rom.platform_id,
         )
 
