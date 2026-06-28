@@ -58,6 +58,7 @@
   "controller-debug-no-gamepad": "未偵測到控制器",
   "controller-debug-right-stick": "右搖桿",
   "controller-debug-slot": "插槽 {n}",
+  "controller-debug-test-hint": "Button actions are paused here so you can test every button. Hold B / Back to exit.",
   "controller-debug-wake-hint": "按下控制器上的任一按鈕以喚醒它。",
   "conversion": "轉換",
   "copy-link": "複製連結",

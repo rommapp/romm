@@ -58,6 +58,7 @@
   "controller-debug-no-gamepad": "Не е открит контролер",
   "controller-debug-right-stick": "Десен стик",
   "controller-debug-slot": "Слот {n}",
+  "controller-debug-test-hint": "Button actions are paused here so you can test every button. Hold B / Back to exit.",
   "controller-debug-wake-hint": "Натисни произволен бутон на контролера, за да го събудиш.",
   "conversion": "Конвертиране",
   "copy-link": "Копирай линка",
