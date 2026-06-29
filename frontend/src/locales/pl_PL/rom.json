@@ -391,6 +391,7 @@
   "launchbox-cloud": "Chmura",
   "no-files-in-category-hint": "Przełącz się na inną kategorię z paska bocznego, aby zobaczyć inne pliki tego ROM-u.",
   "last-played": "Ostatnio grane",
+  "revision": "Revision",
   "load-save-or-state": "Wczytaj zapis lub stan",
   "screenshots-uploaded-n": "Przesłano {n} zrzut ekranu. | Przesłano {n} zrzuty ekranu. | Przesłano {n} zrzutów ekranu.",
   "screenshots-uploaded-with-failed": "Przesłano {n} zrzut ekranu, {failed} niepowodzeń. | Przesłano {n} zrzuty ekranu, {failed} niepowodzeń.",

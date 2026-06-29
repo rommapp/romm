@@ -391,6 +391,7 @@
   "launchbox-cloud": "Cloud",
   "no-files-in-category-hint": "Comută la altă categorie din bara laterală pentru a vedea celelalte fișiere ale acestui ROM.",
   "last-played": "Jucat ultima dată",
+  "revision": "Revision",
   "load-save-or-state": "Încarcă salvare sau stare",
   "screenshots-uploaded-n": "S-a încărcat {n} captură de ecran. | S-au încărcat {n} capturi de ecran.",
   "screenshots-uploaded-with-failed": "S-a încărcat {n} captură de ecran, {failed} au eșuat. | S-au încărcat {n} capturi de ecran, {failed} au eșuat.",

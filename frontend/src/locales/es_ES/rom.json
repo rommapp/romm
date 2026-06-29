@@ -391,6 +391,7 @@
   "soundtrack-upload-title": "Subir",
   "screenshots-upload-title": "Subir capturas",
   "last-played": "Última vez jugado",
+  "revision": "Revision",
   "load-save-or-state": "Cargar partida o estado",
   "screenshots-uploaded-n": "{n} captura subida | {n} capturas subidas",
   "screenshots-uploaded-with-failed": "{n} captura subida, {failed} con error | {n} capturas subidas, {failed} con error",

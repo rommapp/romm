@@ -391,6 +391,7 @@
   "launchbox-cloud": "雲端",
   "no-files-in-category-hint": "從側邊欄切換到其他類別，以查看此 ROM 的其他檔案。",
   "last-played": "最後遊玩",
+  "revision": "Revision",
   "load-save-or-state": "載入存檔或即時存檔",
   "screenshots-uploaded-n": "已上傳 {n} 張螢幕截圖。 | 已上傳 {n} 張螢幕截圖。",
   "screenshots-uploaded-with-failed": "已上傳 {n} 張螢幕截圖，{failed} 張失敗。 | 已上傳 {n} 張螢幕截圖，{failed} 張失敗。",

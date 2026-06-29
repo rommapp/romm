@@ -391,6 +391,7 @@
   "launchbox-cloud": "Облако",
   "no-files-in-category-hint": "Переключитесь на другую категорию в боковой панели, чтобы увидеть другие файлы этого ROM.",
   "last-played": "Последний раз играли",
+  "revision": "Revision",
   "load-save-or-state": "Загрузить сохранение или состояние",
   "screenshots-uploaded-n": "Загружен {n} скриншот. | Загружено {n} скриншотов.",
   "screenshots-uploaded-with-failed": "Загружен {n} скриншот, {failed} с ошибкой. | Загружено {n} скриншотов, {failed} с ошибкой.",

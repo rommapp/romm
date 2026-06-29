@@ -391,6 +391,7 @@
   "launchbox-cloud": "クラウド",
   "no-files-in-category-hint": "サイドバーから別のカテゴリに切り替えると、このROMの他のファイルを確認できます。",
   "last-played": "最終プレイ",
+  "revision": "Revision",
   "load-save-or-state": "セーブまたはステートセーブを読み込む",
   "screenshots-uploaded-n": "{n}件のスクリーンショットをアップロードしました。 | {n}件のスクリーンショットをアップロードしました。",
   "screenshots-uploaded-with-failed": "{n}件のスクリーンショットをアップロードしました。{failed}件失敗しました。 | {n}件のスクリーンショットをアップロードしました。{failed}件失敗しました。",
