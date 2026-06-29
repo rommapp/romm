@@ -133,6 +133,7 @@ const showPrependIcon = computed(
         'r-list-item--active': active,
         'r-list-item--disabled': disabled,
         'r-list-item--interactive': isInteractive,
+        'r-touch-target': isInteractive,
       }"
       :style="{ borderRadius: resolvedRounded }"
     >

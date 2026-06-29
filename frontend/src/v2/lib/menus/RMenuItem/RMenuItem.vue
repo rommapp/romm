@@ -119,7 +119,7 @@ const styleVars = computed(() => {
   <component
     :is="elementType"
     v-bind="{ ...$attrs, ...dynamicAttrs }"
-    class="r-menu-item"
+    class="r-menu-item r-touch-target"
     :class="{
       'r-menu-item--active': variant === 'active',
       'r-menu-item--danger': variant === 'danger',

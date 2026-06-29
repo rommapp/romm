@@ -276,6 +276,28 @@ button:active:not(:disabled)
   outline: none;
 }
 
+/* Touch / pad hit-area — the visible track is only 16-20px tall, under a
+   comfortable finger (or gamepad-cursor) target. On touch and pad a centred
+   transparent pseudo grows the clickable area to at least --r-touch-target
+   without resizing the track or knob (the visual footprint is unchanged).
+   Static switches are excluded — the row around them owns the click. */
+html[data-input="touch"] .r-switch:not(.r-switch--static),
+html[data-input="pad"] .r-switch:not(.r-switch--static) {
+  position: relative;
+}
+html[data-input="touch"] .r-switch:not(.r-switch--static)::before,
+html[data-input="pad"] .r-switch:not(.r-switch--static)::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  min-width: var(--r-touch-target);
+  min-height: var(--r-touch-target);
+  transform: translate(-50%, -50%);
+}
+
 /* Respect reduced-motion preferences — drop the spring + squash and
    fall back to a plain colour swap so motion-sensitive users aren't
    served the bouncy variant. */
