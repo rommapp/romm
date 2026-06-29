@@ -391,6 +391,7 @@
   "launchbox-cloud": "Felhő",
   "no-files-in-category-hint": "Válts másik kategóriára az oldalsávon, hogy a ROM többi fájlját lásd.",
   "last-played": "Utoljára játszva",
+  "revision": "Revision",
   "load-save-or-state": "Mentés vagy állás betöltése",
   "screenshots-uploaded-n": "{n} képernyőkép feltöltve. | {n} képernyőkép feltöltve.",
   "screenshots-uploaded-with-failed": "{n} képernyőkép feltöltve, {failed} sikertelen. | {n} képernyőkép feltöltve, {failed} sikertelen.",

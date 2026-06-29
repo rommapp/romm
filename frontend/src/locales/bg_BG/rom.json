@@ -391,6 +391,7 @@
   "launchbox-cloud": "Облак",
   "no-files-in-category-hint": "Превключи към друга категория от страничната лента, за да видиш другите файлове на този ROM.",
   "last-played": "Последно играна",
+  "revision": "Revision",
   "load-save-or-state": "Зареди запис или бърз запис",
   "screenshots-uploaded-n": "Качена е {n} екранна снимка. | Качени са {n} екранни снимки.",
   "screenshots-uploaded-with-failed": "Качена е {n} екранна снимка, {failed} неуспешни. | Качени са {n} екранни снимки, {failed} неуспешни.",

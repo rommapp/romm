@@ -391,6 +391,7 @@
   "launchbox-cloud": "Bulut",
   "no-files-in-category-hint": "Bu ROM'un diğer dosyalarını görmek için kenar çubuğundan başka bir kategori seçin.",
   "last-played": "Son oynama",
+  "revision": "Revision",
   "load-save-or-state": "Kayıt veya durum kaydı yükle",
   "screenshots-uploaded-n": "{n} ekran görüntüsü yüklendi. | {n} ekran görüntüsü yüklendi.",
   "screenshots-uploaded-with-failed": "{n} ekran görüntüsü yüklendi, {failed} başarısız. | {n} ekran görüntüsü yüklendi, {failed} başarısız.",
