@@ -24,6 +24,14 @@ export async function saveState({
   stateFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer;
 }): Promise<StateSchema | null> {
+  // A zero-length buffer means the core failed to serialize its state (a torn
+  // read from a running threaded core). Refuse to upload it so a broken
+  // capture can't overwrite the user's good states on the server.
+  if (stateFile.byteLength === 0) {
+    console.error("Refusing to upload empty state file");
+    return null;
+  }
+
   const filename = buildStateName(rom);
   try {
     const uploadedStates = await stateApi.uploadStates({

@@ -250,6 +250,24 @@ function displayMessage(
   }
 }
 
+// Poll until EmulatorJS' gameManager is ready to accept save/state
+// injection. A fixed delay is unreliable: heavier/threaded cores (SNES with
+// enhancement chips, N64, DS) need longer than a few ms to boot, and applying
+// a state before the core is ready leaves it broken (black screen).
+async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const gameManager = window.EJS_emulator?.gameManager;
+    if (gameManager?.FS && gameManager.getSaveFilePath) return true;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
+}
+
+// Settle window after boot before applying a state. Some cores need a few
+// frames rendered before loadState takes cleanly.
+const STATE_APPLY_SETTLE_MS = 500;
+
 // Saves management
 async function loadSave(save: SaveSchema) {
   saveRef.value = save;
@@ -360,15 +378,28 @@ window.EJS_onSaveState = async function ({
 
 window.EJS_onGameStart = async () => {
   sessionStartTime.value = new Date();
-  setTimeout(async () => {
-    if (props.save) await loadSave(props.save);
-    if (props.state) await loadState(props.state);
 
-    window.EJS_emulator.settings = {
-      ...window.EJS_emulator.settings,
-      "save-state-location": "browser",
-    };
-  }, 10);
+  void (async () => {
+    const ready = await waitForGameManager();
+    if (!ready) {
+      console.warn("Game manager not ready for save/state injection");
+    } else {
+      if (props.save) await loadSave(props.save);
+      if (props.state) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, STATE_APPLY_SETTLE_MS),
+        );
+        await loadState(props.state);
+      }
+    }
+
+    if (window.EJS_emulator) {
+      window.EJS_emulator.settings = {
+        ...window.EJS_emulator.settings,
+        "save-state-location": "browser",
+      };
+    }
+  })();
 
   const quickLoad = createQuickLoadButton();
   quickLoad.addEventListener("click", () => {
@@ -399,9 +430,16 @@ window.EJS_onGameStart = async () => {
   saveAndQuit.addEventListener("click", async () => {
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
 
+    // Grab the screenshot while the game is still running (EmulatorJS reads
+    // the live canvas), then pause before serializing state/save. Reading
+    // state from a running threaded core (SNES, N64) races the worker thread
+    // and yields torn buffers, producing corrupt states that never load.
+    const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
+    window.EJS_emulator.pause();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
     const stateFile = window.EJS_emulator.gameManager.getState();
     const saveFile = window.EJS_emulator.gameManager.getSaveFile();
-    const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
 
     // Force a save of the current state
     await saveState({
