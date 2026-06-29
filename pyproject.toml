@@ -44,7 +44,7 @@ dependencies = [
   "pydash ~= 8.0",
   "python-dotenv~=1.2",
   "python-magic ~= 0.4",
-  "python-socketio ~= 5.11",
+  "python-socketio~=5.16",
   "redis ~= 6.2",
   "rq ~= 2.7",
   # TODO: Move back to upstream `rq-scheduler`, when support for username and SSL settings is added.
