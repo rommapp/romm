@@ -173,6 +173,16 @@ const resolvedHeight = computed<string | undefined>(() => {
   gap: 10px;
 }
 
+/* On phones a 64px bar eats scarce vertical space. Trim the taller densities
+   on `xs` (the explicit `height` prop still wins for consumers that pin a
+   size; compact stays 48px). */
+html[data-bp~="xs"] .r-toolbar--density-default {
+  height: 56px;
+}
+html[data-bp~="xs"] .r-toolbar--density-comfortable {
+  height: 52px;
+}
+
 /* ── Regions ──────────────────────────────────────────────────── */
 .r-toolbar__prepend,
 .r-toolbar__append {

@@ -396,7 +396,9 @@ const bodyStyle = computed(() => {
   line-height: 1.4;
   letter-spacing: 0.01em;
   padding: 5px 10px;
-  max-width: 280px;
+  /* Cap at 280px but never wider than the viewport (minus a small gutter),
+     so on a 320px phone the box wraps instead of crowding the screen edge. */
+  max-width: min(280px, calc(100vw - 24px));
   /* Long unbreakable strings (URLs, comma-joined field lists, JSON) wrap
      within the box instead of spilling out of it. */
   overflow-wrap: anywhere;

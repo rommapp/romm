@@ -43,6 +43,7 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { opensInNewContext } from "@/v2/utils/mouseGestures";
 import RTextField from "../../forms/RTextField/RTextField.vue";
@@ -95,6 +96,10 @@ interface Props {
   contentClass?: string;
   /** Disable opening entirely. */
   disabled?: boolean;
+  /** On `sm-and-down`, dock the panel as a full-width bottom sheet instead
+   *  of a floating dropdown (reuses RDialog's mobile sheet vocabulary).
+   *  Opt-in — leave off for small/contextual menus. */
+  sheetOnMobile?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -111,6 +116,7 @@ const props = withDefaults(defineProps<Props>(), {
   searchAutoFocus: true,
   contentClass: undefined,
   disabled: false,
+  sheetOnMobile: false,
 });
 
 const emit = defineEmits<{
@@ -194,6 +200,13 @@ const maxHeightCss = computed(() => {
     : props.maxHeight;
 });
 
+// When `sheetOnMobile` is set, dock as a full-width bottom sheet on small
+// viewports instead of floating off the activator. Floating-ui still runs
+// (its computed position is simply ignored — we don't bind `floatingStyles`
+// in sheet mode), and the size middleware caps the sheet height below.
+const { smAndDown } = useBreakpoint();
+const asSheet = computed(() => props.sheetOnMobile && smAndDown.value);
+
 const { floatingStyles } = useFloating(reference, panelRef, {
   placement,
   strategy: "fixed",
@@ -206,7 +219,11 @@ const { floatingStyles } = useFloating(reference, panelRef, {
     shift({ padding: 8 }),
     sizeMiddleware({
       apply({ availableHeight, elements }) {
-        const cap = maxHeightCss.value ?? `${availableHeight}px`;
+        // Bottom sheet caps at most of the viewport; floating menus cap at
+        // the space available between the activator and the screen edge.
+        const cap = asSheet.value
+          ? (maxHeightCss.value ?? "80dvh")
+          : (maxHeightCss.value ?? `${availableHeight}px`);
         Object.assign(elements.floating.style, { maxHeight: cap });
       },
       padding: 8,
@@ -338,7 +355,9 @@ function onPanelClick(evt: MouseEvent) {
 }
 
 const mergedContentClass = computed(() =>
-  ["r-menu__panel", props.contentClass].filter(Boolean).join(" "),
+  ["r-menu__panel", asSheet.value && "r-menu__panel--sheet", props.contentClass]
+    .filter(Boolean)
+    .join(" "),
 );
 
 // ── Keyboard / gamepad in-panel navigation ─────────────────────
@@ -415,7 +434,7 @@ watch(
   </span>
 
   <Teleport to="body">
-    <Transition name="r-menu-pop">
+    <Transition :name="asSheet ? 'r-menu-sheet' : 'r-menu-pop'">
       <!-- eslint-disable vuejs-accessibility/mouse-events-have-key-events --
            hover-bridge mouseenter/mouseleave have no keyboard equivalent —
            keyboard users navigate the panel via arrow keys + Escape, which
@@ -427,7 +446,11 @@ watch(
         ref="panelRef"
         v-bind="attrs"
         :class="mergedContentClass"
-        :style="{ ...floatingStyles, width: widthCss, maxHeight: maxHeightCss }"
+        :style="
+          asSheet
+            ? {}
+            : { ...floatingStyles, width: widthCss, maxHeight: maxHeightCss }
+        "
         role="menu"
         @click="onPanelClick"
         @keydown="onPanelKeydown"
@@ -497,6 +520,20 @@ watch(
   font-family: var(--r-font-family-sans);
 }
 
+/* Mobile bottom sheet (opt-in via `sheetOnMobile`) — on small viewports the
+   panel docks full-width at the bottom instead of floating off the
+   activator, mirroring RDialog's mobile sheet. The inline floating-ui
+   position isn't bound in this mode, so these rules own placement. */
+html[data-bp~="sm-and-down"] .r-menu__panel--sheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  width: 100vw;
+  min-width: 0;
+  max-width: 100vw;
+  border-radius: var(--r-radius-xl, 16px) var(--r-radius-xl, 16px) 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 .r-menu__search {
   flex-shrink: 0;
   padding: 6px;
@@ -555,11 +592,25 @@ watch(
 /* Close is instant — same idiom as RDialog. Removing the leave-active
    transition means Vue unmounts on the same frame. */
 
+/* Bottom-sheet motion — slide up from the bottom edge instead of the pop.
+   Close stays instant, matching the dropdown idiom above. */
+.r-menu-sheet-enter-from {
+  opacity: 0;
+  transform: translateY(100%);
+}
+.r-menu-sheet-enter-active {
+  transition:
+    opacity 160ms var(--r-motion-ease-out),
+    transform 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .r-menu-pop-enter-from {
+  .r-menu-pop-enter-from,
+  .r-menu-sheet-enter-from {
     transform: none;
   }
-  .r-menu-pop-enter-active {
+  .r-menu-pop-enter-active,
+  .r-menu-sheet-enter-active {
     transition: opacity 100ms linear;
   }
 }

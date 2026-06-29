@@ -118,6 +118,7 @@ async function onLogout() {
     :offset="8"
     width="260px"
     max-height="calc(100dvh - var(--r-nav-h) - 24px)"
+    sheet-on-mobile
   >
     <template #activator="{ props: menuProps }">
       <RBtn
