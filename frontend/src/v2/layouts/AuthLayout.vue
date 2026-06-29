@@ -23,10 +23,15 @@ onMounted(installInputModality);
     <main class="r-v2-auth__stage">
       <router-view name="v2" />
     </main>
-    <div class="r-v2-auth__lang">
-      <LanguageSelector />
+    <!-- Bottom bar: language selector pinned left, version tag right. A
+         single row so the "one on each side" split holds at every width
+         (absolute on desktop, in normal flow below the card on phones). -->
+    <div class="r-v2-auth__footer">
+      <div class="r-v2-auth__lang">
+        <LanguageSelector />
+      </div>
+      <VersionTag class="r-v2-auth__version" />
     </div>
-    <VersionTag class="r-v2-auth__version" />
   </div>
 </template>
 
@@ -35,6 +40,11 @@ onMounted(installInputModality);
   position: relative;
   min-height: 100vh;
   display: grid;
+  /* Bound the single track to the viewport — an `auto` track sizes to the
+     card's max-content and, on a narrow phone, that pushes the centred card
+     past the right edge (clipped by `overflow: hidden`). `minmax(0, 1fr)`
+     never exceeds the container. */
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: var(--r-space-6);
   overflow: hidden;
@@ -74,26 +84,50 @@ onMounted(installInputModality);
   justify-content: center;
 }
 
-.r-v2-auth__lang {
+/* Bottom bar — absolute full-width row on desktop: language selector hugs
+   the left, version tag the right (space-between). */
+.r-v2-auth__footer {
   position: absolute;
   left: var(--r-space-4);
-  bottom: var(--r-space-3);
-  z-index: 1;
-}
-
-.r-v2-auth__version {
-  position: absolute;
   right: var(--r-space-4);
   bottom: var(--r-space-3);
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r-space-3);
+}
+
+.r-v2-auth__version {
   /* Sits directly on the background art with no card behind it, so a soft
      black shadow keeps it legible over the lighter patches. */
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
 
-/* Phones: shrink the stage gutter so the card claims nearly the full width
-   (the cards cap themselves and clip internally via their own overflow). */
+/* Phones: lay the card and the bottom bar out in normal flow instead of
+   centring a tall card over an absolutely-positioned bar (which overlapped on
+   short screens). The stage fills the available height (the card scrolls
+   internally) and the bar drops below it, keeping the language-left /
+   version-right split. The smaller gutter lets the card claim the width. */
 html[data-bp~="xs"] .r-v2-auth {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  /* Definite height (dvh tracks the mobile chrome) so the flex column can
+     distribute: the stage gets a real height for the card's `height: 100%`
+     and the body's internal scroll to resolve against, instead of the card
+     growing to content height and shoving the bar off-screen. */
+  height: 100dvh;
   padding: var(--r-space-3);
+  gap: var(--r-space-3);
+}
+html[data-bp~="xs"] .r-v2-auth__stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: center;
+}
+html[data-bp~="xs"] .r-v2-auth__footer {
+  position: static;
+  flex: 0 0 auto;
 }
 </style>

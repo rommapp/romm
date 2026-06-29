@@ -411,10 +411,12 @@ html[data-bp~="sm-and-down"] .r-v2-setup__body {
   overflow-y: auto;
 }
 
-/* Phones: claim more height and trim the card chrome so the scrollable
-   step content (e.g. the platform lists) gets usable room. */
+/* Phones: the auth stage (flex column) bounds the height now, so fill it and
+   let the body scroll; trim the card chrome so the scrollable step content
+   (e.g. the platform lists) gets usable room. */
 html[data-bp~="xs"] .r-v2-setup {
-  height: min(92dvh, 880px);
+  height: 100%;
+  max-height: 100%;
 }
 html[data-bp~="xs"] .r-v2-setup__header {
   padding: var(--r-space-4) var(--r-space-4) var(--r-space-3);
