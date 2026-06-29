@@ -350,7 +350,14 @@ def calculate_psp_ra_hash(file_path: str) -> str:
         iso = _Iso9660(image)
         param_sfo = _read_iso_file(iso, image, _PARAM_SFO_PATH)
         eboot_bin = _read_iso_file(iso, image, _EBOOT_BIN_PATH)
-    except (OSError, PspHashError, struct.error) as exc:
+    except (
+        OSError,
+        PspHashError,
+        struct.error,
+        zlib.error,
+        ValueError,
+        IndexError,
+    ) as exc:
         log.warning(
             f"Failed to read PSP files from {hl(file_path)} for native "
             f"{hl('RA', color=LIGHTMAGENTA)} hashing: {exc}"
