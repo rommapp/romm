@@ -212,6 +212,7 @@ const abilities = [
         :label="t('settings.repeat-password')"
         autocomplete="new-password"
         :rules="repeatPasswordRules"
+        class="r-setup-admin__repeat"
         @update:model-value="(v: string) => (draft.repeatPassword = v)"
       />
     </RForm>
@@ -391,5 +392,11 @@ html[data-bp~="sm-and-down"] .r-setup-admin__avatar-row {
 html[data-bp~="sm-and-down"] .r-setup-admin__form {
   justify-self: stretch;
   max-width: none;
+}
+
+/* A little breathing room under the last field so it doesn't sit flush
+   against the card footer / scroll edge. */
+.r-setup-admin__repeat {
+  margin-bottom: var(--r-space-4);
 }
 </style>
