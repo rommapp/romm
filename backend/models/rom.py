@@ -30,6 +30,7 @@ from sqlalchemy.orm import (
     relationship,
     validates,
 )
+from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import (
@@ -607,6 +608,26 @@ Rom.top_level_file_count = column_property(
     .scalar_subquery(),
     deferred=True,
 )
+
+
+# Maps a metadata-source slug (matching the MetadataSource enum) to the Rom
+# column holding that source's match id. A populated column means the ROM
+# matched that source. Shared by the stats coverage breakdown and the gallery
+# "metadata provider" filter. Sources without a per-ROM match id (e.g. sgdb
+# covers, playmatch) are intentionally absent.
+METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute] = {
+    "igdb": Rom.igdb_id,
+    "ss": Rom.ss_id,
+    "moby": Rom.moby_id,
+    "launchbox": Rom.launchbox_id,
+    "ra": Rom.ra_id,
+    "hasheous": Rom.hasheous_id,
+    "tgdb": Rom.tgdb_id,
+    "flashpoint": Rom.flashpoint_id,
+    "hltb": Rom.hltb_id,
+    "gamelist": Rom.gamelist_id,
+    "libretro": Rom.libretro_id,
+}
 
 
 class RomUserStatus(enum.StrEnum):

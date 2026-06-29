@@ -31,12 +31,9 @@ import storeGalleryFilter, {
 } from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
-import {
-  METADATA_PROVIDER_OPTIONS,
-  romStatusMap,
-  type PlayingStatus,
-} from "@/utils";
+import { romStatusMap, type PlayingStatus } from "@/utils";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
+import { METADATA_PROVIDER_FILTER_OPTIONS } from "@/v2/utils/metadataProviders";
 
 defineOptions({ inheritAttrs: false });
 
@@ -103,10 +100,10 @@ const { allPlatforms } = storeToRefs(platformsStore);
 // lists). Items are the provider slugs; `providerTitle` maps each to its
 // brand name for display.
 const providerItems = computed(() =>
-  METADATA_PROVIDER_OPTIONS.map((p) => p.value),
+  METADATA_PROVIDER_FILTER_OPTIONS.map((p) => p.value),
 );
 const providerLabels = new Map(
-  METADATA_PROVIDER_OPTIONS.map((p) => [p.value, p.title]),
+  METADATA_PROVIDER_FILTER_OPTIONS.map((p) => [p.value, p.title]),
 );
 const providerTitle = (slug: string): string =>
   providerLabels.get(slug) ?? slug;

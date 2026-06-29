@@ -21,11 +21,8 @@ import storeGalleryFilter, {
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import {
-  METADATA_PROVIDER_OPTIONS,
-  romStatusMap,
-  type PlayingStatus,
-} from "@/utils";
+import { romStatusMap, type PlayingStatus } from "@/utils";
+import { METADATA_PROVIDER_FILTER_OPTIONS } from "@/v2/utils/metadataProviders";
 
 withDefaults(
   defineProps<{
@@ -89,8 +86,8 @@ const {
 } = storeToRefs(galleryFilterStore);
 
 // Provider options are a fixed registry (not data-derived like the other
-// lists), so they live in a shared constant rather than coming from the API.
-const filterMetadataProviders = ref(METADATA_PROVIDER_OPTIONS);
+// lists), so they come from the shared provider registry rather than the API.
+const filterMetadataProviders = ref(METADATA_PROVIDER_FILTER_OPTIONS);
 const emitter = inject<Emitter<Events>>("emitter");
 
 const onFilterChange = debounce(

@@ -44,6 +44,7 @@ from models.assets import Save, Screenshot, State
 from models.base import compute_file_name_parts
 from models.platform import Platform
 from models.rom import (
+    METADATA_SOURCE_COLUMNS,
     Rom,
     RomFile,
     RomFileCategory,
@@ -114,24 +115,6 @@ EJS_SUPPORTED_PLATFORMS = [
 RUFFLE_SUPPORTED_PLATFORMS = [
     UPS.BROWSER,
 ]
-
-# Maps a metadata-provider slug (the value sent by the gallery filter, matching
-# the frontend provider registry and the MetadataSource enum) to the Rom column
-# that holds that provider's match id. A populated column means the ROM matched
-# that provider. Providers without a per-ROM match id (e.g. sgdb, playmatch) are
-# intentionally absent.
-METADATA_PROVIDER_COLUMNS: dict[str, QueryableAttribute] = {
-    "igdb": Rom.igdb_id,
-    "moby": Rom.moby_id,
-    "ss": Rom.ss_id,
-    "ra": Rom.ra_id,
-    "launchbox": Rom.launchbox_id,
-    "hasheous": Rom.hasheous_id,
-    "flashpoint": Rom.flashpoint_id,
-    "hltb": Rom.hltb_id,
-    "gamelist": Rom.gamelist_id,
-    "libretro": Rom.libretro_id,
-}
 
 # Used to remove native full-text SQL operators
 FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
@@ -735,9 +718,9 @@ class DBRomsHandler(DBBaseHandler):
         - "none": matched none of the selected providers.
         """
         columns = [
-            METADATA_PROVIDER_COLUMNS[value]
+            METADATA_SOURCE_COLUMNS[value]
             for value in values
-            if value in METADATA_PROVIDER_COLUMNS
+            if value in METADATA_SOURCE_COLUMNS
         ]
         # Unknown slugs (stale bookmark / hand-edited URL) leave nothing to
         # filter on; treat that as a no-op rather than an empty result set.
