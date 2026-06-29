@@ -58,6 +58,7 @@
   "controller-debug-no-gamepad": "Niciun gamepad detectat",
   "controller-debug-right-stick": "Stick dreapta",
   "controller-debug-slot": "Slot {n}",
+  "controller-debug-test-hint": "Button actions are paused here so you can test every button. Hold B / Back to exit.",
   "controller-debug-wake-hint": "Apasă orice buton de pe controller pentru a-l activa.",
   "conversion": "Conversie",
   "copy-link": "Copiază linkul",

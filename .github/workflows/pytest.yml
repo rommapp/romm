@@ -89,19 +89,3 @@ jobs:
           cd backend
           # GitHub-hosted Linux runners have 4 vCPUs; run one worker per core.
           uv run pytest -n 4 -vv --maxfail=10 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .
-
-      - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action/linux@v2.20.0
-        if: (!cancelled())
-        with:
-          check_name: Test Results (${{ matrix.db }})
-          files: |
-            backend/pytest-report.xml
-
-      - name: Publish coverage report
-        uses: orgoro/coverage@v3.2
-        continue-on-error: true
-        if: matrix.db == 'mariadb'
-        with:
-          coverageFile: backend/coverage.xml
-          token: ${{ secrets.GITHUB_TOKEN }}
