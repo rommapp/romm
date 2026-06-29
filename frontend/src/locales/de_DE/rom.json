@@ -391,6 +391,7 @@
   "launchbox-cloud": "Cloud",
   "no-files-in-category-hint": "Wechsle zu einer anderen Kategorie in der Seitenleiste, um andere Dateien dieser ROM zu sehen.",
   "last-played": "Zuletzt gespielt",
+  "revision": "Revision",
   "load-save-or-state": "Spielstand oder Zustand laden",
   "screenshots-uploaded-n": "{n} Screenshot hochgeladen. | {n} Screenshots hochgeladen.",
   "screenshots-uploaded-with-failed": "{n} Screenshot hochgeladen, {failed} fehlgeschlagen. | {n} Screenshots hochgeladen, {failed} fehlgeschlagen.",

@@ -391,6 +391,7 @@
   "launchbox-cloud": "클라우드",
   "no-files-in-category-hint": "사이드바에서 다른 카테고리로 전환하여 이 ROM의 다른 파일을 확인하세요.",
   "last-played": "마지막 플레이",
+  "revision": "Revision",
   "load-save-or-state": "세이브 또는 상태 불러오기",
   "screenshots-uploaded-n": "{n}개 스크린샷을 업로드했습니다. | {n}개 스크린샷을 업로드했습니다.",
   "screenshots-uploaded-with-failed": "{n}개 스크린샷을 업로드했습니다, {failed}개 실패. | {n}개 스크린샷을 업로드했습니다, {failed}개 실패.",
