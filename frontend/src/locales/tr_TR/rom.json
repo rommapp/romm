@@ -412,5 +412,21 @@
   "saves-section-community": "Topluluk",
   "states-section-mine": "Durum kayıtlarım",
   "states-section-community": "Topluluk",
-  "cant-toggle-visibility": "Görünürlük değiştirilemedi: {error}"
+  "cant-toggle-visibility": "Görünürlük değiştirilemedi: {error}",
+  "artwork": "Artwork",
+  "artwork-empty": "No artwork available for this game.",
+  "artwork-open": "Open {name}",
+  "media-bezel": "Bezel",
+  "media-box2d-back": "Box (2D, back)",
+  "media-box2d-side": "Box (2D, side)",
+  "media-box3d": "Box (3D)",
+  "media-fanart": "Fan art",
+  "media-logo": "Logo",
+  "media-marquee": "Marquee",
+  "media-miximage": "Mix image",
+  "media-miximage-v2": "Mix image (v2)",
+  "media-physical": "Physical media",
+  "media-title-screen": "Title screen",
+  "media-video": "Video",
+  "media-video-normalized": "Video (standardized)"
 }
