@@ -1,14 +1,18 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi import HTTPException, status
 
 from handler.database import db_platform_handler, db_rom_handler
 from handler.metadata import (
     meta_hasheous_handler,
+    meta_igdb_handler,
     meta_playmatch_handler,
     meta_ra_handler,
+    meta_ss_handler,
 )
 from handler.metadata.hasheous_handler import HasheousRom
+from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.ra_handler import RAGameRom
 from handler.scan_handler import MetadataSource, ScanType, scan_platform, scan_rom
 from models.platform import Platform
@@ -436,6 +440,70 @@ async def test_scan_rom_unmatched_preserves_custom_name(
     assert result.hasheous_id == 999
     # The custom name must be preserved.
     assert result.name == "My Custom Title"
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+@patch.object(meta_igdb_handler, "get_rom", new_callable=AsyncMock)
+async def test_scan_rom_continues_when_one_source_fails(
+    mock_igdb_get_rom, mock_ss_lookup, mock_ss_get_rom, mock_playmatch_enabled
+):
+    """A provider raising (e.g. ScreenScraper when its daily quota is exhausted)
+    must not abort the whole ROM scan: the other selected sources should still
+    match."""
+    # ScreenScraper fails the way the service does when the daily quota is hit.
+    mock_ss_lookup.side_effect = HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="ScreenScraper daily scrape quota exhausted. Try again tomorrow.",
+    )
+    mock_ss_get_rom.side_effect = HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="ScreenScraper daily scrape quota exhausted. Try again tomorrow.",
+    )
+    # IGDB still matches the ROM.
+    mock_igdb_get_rom.return_value = IGDBRom(igdb_id=1234, name="Matched Game")
+
+    platform = Platform(
+        id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, ss_id=14
+    )
+    platform = db_platform_handler.add_platform(platform)
+
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Paper Mario (USA).z64",
+        fs_name_no_tags="Paper Mario",
+        fs_name_no_ext="Paper Mario (USA)",
+        fs_extension="z64",
+        fs_path="n64/Paper Mario (USA)",
+        name="Paper Mario (USA).z64",
+        fs_size_bytes=1024,
+        tags=[],
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Paper Mario (USA).z64",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.SS, MetadataSource.IGDB],
+            newly_added=True,
+        )
+
+    # The scan must complete and keep the IGDB match despite the SS failure.
+    assert result.igdb_id == 1234
+    assert result.ss_id is None
 
 
 def _top_level_rom_file(**kwargs) -> RomFile:
