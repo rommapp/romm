@@ -391,6 +391,7 @@
   "launchbox-cloud": "Cloud",
   "no-files-in-category-hint": "Passa a un'altra categoria dalla barra laterale per vedere gli altri file di questa ROM.",
   "last-played": "Ultima sessione",
+  "revision": "Revision",
   "load-save-or-state": "Carica salvataggio o stato",
   "screenshots-uploaded-n": "Caricato {n} screenshot. | Caricati {n} screenshot.",
   "screenshots-uploaded-with-failed": "Caricato {n} screenshot, {failed} falliti. | Caricati {n} screenshot, {failed} falliti.",

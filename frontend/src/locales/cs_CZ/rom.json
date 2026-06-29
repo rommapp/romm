@@ -391,6 +391,7 @@
   "launchbox-cloud": "Cloud",
   "no-files-in-category-hint": "Přepněte na jinou kategorii v postranním panelu pro zobrazení dalších souborů této ROM.",
   "last-played": "Naposledy hráno",
+  "revision": "Revision",
   "load-save-or-state": "Načíst uloženou pozici nebo stav",
   "screenshots-uploaded-n": "Nahráno {n} screenshotů. | Nahrán {n} screenshot. | Nahrány {n} screenshoty. | Nahráno {n} screenshotů.",
   "screenshots-uploaded-with-failed": "Nahráno {n} screenshotů, {failed} selhalo. | Nahrán {n} screenshot, {failed} selhalo. | Nahrány {n} screenshoty, {failed} selhalo. | Nahráno {n} screenshotů, {failed} selhalo.",
