@@ -4,7 +4,7 @@
 // Writes `data-input` on <html> so CSS can adapt focus rings, hit targets,
 // and hint visibility per modality. A single shared instance is enough —
 // install() from the root layout mounts listeners once.
-import { onBeforeUnmount, readonly, ref } from "vue";
+import { readonly, ref } from "vue";
 
 export type InputModality = "mouse" | "touch" | "key" | "pad";
 
@@ -64,22 +64,17 @@ export function useInputModality() {
     // type takes over.
     const onGamepad = () => setModality("pad");
 
+    // App-lifetime singleton listeners — installed from whichever top-level
+    // layout mounts first (AppLayout or AuthLayout) and intentionally never
+    // removed, so the modality keeps tracking across a layout swap. Tearing
+    // them down on the first installer's unmount would drop `data-input`
+    // during the auth ↔ app transition.
     window.addEventListener("mousemove", onMouseMove, { passive: true });
     window.addEventListener("mousedown", onMouseDown, { passive: true });
     window.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("touchstart", onTouch, { passive: true });
     window.addEventListener("keydown", onKey);
     window.addEventListener("gamepadconnected", onGamepad);
-
-    onBeforeUnmount(() => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mousedown", onMouseDown);
-      window.removeEventListener("wheel", onWheel);
-      window.removeEventListener("touchstart", onTouch);
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("gamepadconnected", onGamepad);
-      installed = false;
-    });
   }
 
   return {

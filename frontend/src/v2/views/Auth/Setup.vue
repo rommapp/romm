@@ -280,6 +280,11 @@ onMounted(loadLibraryInfo);
 .r-v2-setup {
   width: 100%;
   max-width: 1080px;
+  /* Flex item inside the centred auth stage: without `min-width: 0` it keeps
+     its min-content width and, on a phone narrower than that, spills past the
+     viewport instead of shrinking. Letting it shrink lets `overflow: hidden`
+     clip the inner chrome cleanly. */
+  min-width: 0;
   height: min(86dvh, 880px);
   display: flex;
   flex-direction: column;
@@ -397,5 +402,27 @@ onMounted(loadLibraryInfo);
 .r-v2-setup-step-back-leave-to {
   opacity: 0;
   transform: translateX(40px);
+}
+
+/* On phones / small tablets the step content flows and the BODY scrolls
+   (header + footer stay pinned), instead of the desktop fixed-pane model
+   where each list scrolled in its own box. */
+html[data-bp~="sm-and-down"] .r-v2-setup__body {
+  overflow-y: auto;
+}
+
+/* Phones: claim more height and trim the card chrome so the scrollable
+   step content (e.g. the platform lists) gets usable room. */
+html[data-bp~="xs"] .r-v2-setup {
+  height: min(92dvh, 880px);
+}
+html[data-bp~="xs"] .r-v2-setup__header {
+  padding: var(--r-space-4) var(--r-space-4) var(--r-space-3);
+}
+html[data-bp~="xs"] .r-v2-setup__body {
+  padding: var(--r-space-4);
+}
+html[data-bp~="xs"] .r-v2-setup__footer {
+  padding: var(--r-space-3) var(--r-space-4);
 }
 </style>

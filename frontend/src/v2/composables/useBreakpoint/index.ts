@@ -20,7 +20,7 @@
 // `@media` queries across the codebase. Mirrors the `data-input`
 // pattern installed by `useInputModality`.
 import { useMediaQuery } from "@vueuse/core";
-import { onBeforeUnmount, watch } from "vue";
+import { effectScope, watch } from "vue";
 import type { Ref } from "vue";
 
 const xs = useMediaQuery("(max-width: 599.98px)");
@@ -79,21 +79,25 @@ function applyAttribute() {
   document.documentElement.dataset.bp = active.join(" ");
 }
 
-/** Install once at the root layout. Mirrors the active breakpoints onto
- *  `<html data-bp="…">` so scoped styles can read the viewport without
- *  hardcoding `@media` values. Subsequent calls are no-ops. */
+/** Install once. Mirrors the active breakpoints onto `<html data-bp="…">`.
+ *  Called from every top-level layout (AppLayout AND AuthLayout) so the
+ *  attribute is present across the whole app, including the auth / setup
+ *  flow — otherwise the `html[data-bp~="…"]` rules silently no-op there.
+ *
+ *  The watcher runs in a DETACHED effect scope, not bound to the calling
+ *  component, so it survives a layout swap (AuthLayout ↔ AppLayout) instead
+ *  of being auto-disposed when the first installer unmounts. It's an
+ *  app-lifetime singleton mirroring global media queries, so it is
+ *  intentionally never torn down; subsequent calls are no-ops. */
 export function installBreakpointAttribute(): void {
   if (installed) return;
   installed = true;
 
   applyAttribute();
-  const stop = watch(
-    TOKENS.map(([ref]) => ref),
-    applyAttribute,
-  );
-
-  onBeforeUnmount(() => {
-    stop();
-    installed = false;
+  effectScope(true).run(() => {
+    watch(
+      TOKENS.map(([ref]) => ref),
+      applyAttribute,
+    );
   });
 }

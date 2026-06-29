@@ -792,8 +792,27 @@ function platformFolderPath(slug: string): string {
   gap: var(--r-space-5);
 }
 
+/* Stacked, single-scroll on mobile: the whole step flows inside the setup
+   body's own scroll (see Setup.vue) instead of each pane scrolling in its
+   own tiny clipped box (which, split across the short card body, were
+   unusable). Switch the columns grid to a plain vertical stack and drop
+   every internal scroll / flex-fill so the two sections render at full
+   height one after the other. */
+html[data-bp~="sm-and-down"] .r-setup-platforms,
 html[data-bp~="sm-and-down"] .r-setup-platforms__columns {
-  grid-template-columns: 1fr;
+  flex: 0 0 auto;
+  min-height: 0;
+}
+html[data-bp~="sm-and-down"] .r-setup-platforms__columns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-5);
+  overflow: visible;
+}
+html[data-bp~="sm-and-down"] .r-setup-platforms__pane-scroll {
+  flex: 0 0 auto;
+  overflow: visible;
+  padding-right: 0;
 }
 
 .r-setup-platforms__pane {

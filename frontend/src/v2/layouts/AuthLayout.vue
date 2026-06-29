@@ -2,8 +2,19 @@
 // AuthLayout — full-viewport blurred background with a centred card stage
 // for the auth flows (Login / Register / ResetPassword / Setup). Bottom
 // corners hold the LanguageSelector (left) and VersionTag (right).
+import { onMounted } from "vue";
 import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
 import VersionTag from "@/v2/components/shared/VersionTag.vue";
+import { installBreakpointAttribute } from "@/v2/composables/useBreakpoint";
+import { useInputModality } from "@/v2/composables/useInputModality";
+
+// The auth / setup flow runs under THIS layout, not AppLayout, so it must
+// install the same `<html>` mirrors. Without them no `data-bp` responsive
+// rule and no modality-gated focus/hit-target style applies here (the setup
+// wizard's columns wouldn't even collapse on a phone).
+installBreakpointAttribute();
+const { install: installInputModality } = useInputModality();
+onMounted(installInputModality);
 </script>
 
 <template>
@@ -78,5 +89,11 @@ import VersionTag from "@/v2/components/shared/VersionTag.vue";
   /* Sits directly on the background art with no card behind it, so a soft
      black shadow keeps it legible over the lighter patches. */
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+/* Phones: shrink the stage gutter so the card claims nearly the full width
+   (the cards cap themselves and clip internally via their own overflow). */
+html[data-bp~="xs"] .r-v2-auth {
+  padding: var(--r-space-3);
 }
 </style>
