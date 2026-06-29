@@ -47,7 +47,11 @@ from endpoints.responses.rom import (
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_can, get_permissions
+from handler.auth.dependencies import (
+    assert_can,
+    assert_rom_visible,
+    get_permissions,
+)
 from handler.database import db_rom_handler, db_save_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
@@ -911,20 +915,13 @@ def get_rom_by_metadata_provider(
         hltb_id=hltb_id,
     )
 
+    not_found_detail = "ROM not found with given metadata IDs"
     if not rom:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="ROM not found with given metadata IDs",
+            status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail
         )
 
-    # 404-mask roms hidden from the caller (skip when unauthenticated download).
-    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
-        rom.id, rom.platform_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="ROM not found with given metadata IDs",
-        )
+    assert_rom_visible(request, rom, not_found_detail=not_found_detail)
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
@@ -957,20 +954,13 @@ def get_rom_by_hash(
         ra_hash=ra_hash,
     )
 
+    not_found_detail = "No ROM or file found with given hash values"
     if not rom:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No ROM or file found with given hash values",
+            status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail
         )
 
-    # 404-mask roms hidden from the caller (skip when unauthenticated download).
-    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
-        rom.id, rom.platform_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No ROM or file found with given hash values",
-        )
+    assert_rom_visible(request, rom, not_found_detail=not_found_detail)
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
@@ -1007,11 +997,7 @@ def get_rom_simple(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    # 404-mask roms hidden from the caller (skip when unauthenticated download).
-    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
-        rom.id, rom.platform_id
-    ):
-        raise RomNotFoundInDatabaseException(id)
+    assert_rom_visible(request, rom)
 
     return SimpleRomSchema.from_orm_with_request(rom, request)
 
@@ -1033,11 +1019,7 @@ def get_rom(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    # 404-mask roms hidden from the caller (skip when unauthenticated download).
-    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
-        rom.id, rom.platform_id
-    ):
-        raise RomNotFoundInDatabaseException(id)
+    assert_rom_visible(request, rom)
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
@@ -1066,10 +1048,7 @@ async def head_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
-        rom.id, rom.platform_id
-    ):
-        raise RomNotFoundInDatabaseException(id)
+    assert_rom_visible(request, rom)
 
     files = rom.files
     if file_ids:
@@ -1151,10 +1130,7 @@ async def get_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
-        rom.id, rom.platform_id
-    ):
-        raise RomNotFoundInDatabaseException(id)
+    assert_rom_visible(request, rom)
 
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
     hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
@@ -1318,9 +1294,7 @@ async def update_rom(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    # 404-mask roms hidden from the caller rather than letting them edit.
-    if not get_permissions(request).can_see_rom(rom.id, rom.platform_id):
-        raise RomNotFoundInDatabaseException(id)
+    assert_rom_visible(request, rom)
 
     if unmatch_metadata:
         db_rom_handler.update_rom(
@@ -1834,9 +1808,7 @@ async def update_rom_user(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    # 404-mask roms hidden from the caller rather than confirming existence.
-    if not get_permissions(request).can_see_rom(rom.id, rom.platform_id):
-        raise RomNotFoundInDatabaseException(id)
+    assert_rom_visible(request, rom)
 
     db_rom_user = db_rom_handler.get_rom_user(
         id, request.user.id

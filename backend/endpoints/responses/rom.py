@@ -416,6 +416,7 @@ def _visible_siblings(db_rom: Rom, request: Request) -> list[Rom]:
     if not request.user.is_authenticated:
         return siblings
 
+    # Local import: breaks the responses.rom <-> handler.auth.dependencies cycle.
     from handler.auth.dependencies import get_permissions
 
     perms = get_permissions(request)

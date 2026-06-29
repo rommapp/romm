@@ -8,7 +8,12 @@ from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_can, get_permissions
+from handler.auth.dependencies import (
+    assert_can,
+    assert_firmware_visible,
+    assert_platform_visible,
+    get_permissions,
+)
 from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler
 from handler.scan_handler import scan_firmware
@@ -52,9 +57,11 @@ async def add_firmware(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     # Platform-hide cascades to firmware; 404-mask uploads to hidden platforms.
-    if not get_permissions(request).can_see_platform(db_platform.id):
-        error = f"Platform with ID {platform_id} not found"
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+    assert_platform_visible(
+        request,
+        db_platform,
+        not_found_detail=f"Platform with ID {platform_id} not found",
+    )
 
     uploaded_firmware = []
     firmware_path = fs_firmware_handler.get_firmware_fs_structure(db_platform.fs_slug)
@@ -177,14 +184,7 @@ def get_firmware(request: Request, id: int) -> FirmwareSchema:
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    # Firmware inherits its platform's visibility; 404-mask when hidden.
-    if request.user.is_authenticated and not get_permissions(request).can_see_platform(
-        firmware.platform_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Firmware with ID {id} not found",
-        )
+    assert_firmware_visible(request, firmware)
 
     return FirmwareSchema.model_validate(firmware)
 
@@ -212,14 +212,7 @@ def head_firmware_content(request: Request, id: int, file_name: str):
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    # Firmware inherits its platform's visibility; 404-mask when hidden.
-    if request.user.is_authenticated and not get_permissions(request).can_see_platform(
-        firmware.platform_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Firmware with ID {id} not found",
-        )
+    assert_firmware_visible(request, firmware)
 
     firmware_path = fs_firmware_handler.validate_path(firmware.full_path)
 
@@ -259,14 +252,7 @@ def get_firmware_content(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    # Firmware inherits its platform's visibility; 404-mask when hidden.
-    if request.user.is_authenticated and not get_permissions(request).can_see_platform(
-        firmware.platform_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Firmware with ID {id} not found",
-        )
+    assert_firmware_visible(request, firmware)
 
     firmware_path = fs_firmware_handler.validate_path(firmware.full_path)
 

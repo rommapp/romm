@@ -135,6 +135,7 @@ class User(BaseModel, SimpleUser):
         # Derived from the granular permission model (groups + overrides),
         # projected onto the legacy coarse scopes. Resolved per access via its
         # own session; admins short-circuit without touching the DB.
+        # Local import: breaks the models.user <-> handler.auth.permissions cycle.
         from handler.auth.permissions import compute_oauth_scopes
 
         return compute_oauth_scopes(self)

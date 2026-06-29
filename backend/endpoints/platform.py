@@ -10,7 +10,11 @@ from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_can, get_permissions
+from handler.auth.dependencies import (
+    assert_can,
+    assert_platform_visible,
+    get_permissions,
+)
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
 from handler.scan_handler import scan_platform
@@ -106,11 +110,10 @@ def get_platform(
 ) -> PlatformSchema:
     """Retrieve a platform by ID."""
 
-    perms = get_permissions(request)
     platform = db_platform_handler.get_platform(id)
-    # 404-mask hidden platforms so their existence isn't leaked.
-    if not platform or not perms.can_see_platform(id):
+    if not platform:
         raise PlatformNotFoundInDatabaseException(id)
+    assert_platform_visible(request, platform)
     return PlatformSchema.model_validate(platform)
 
 
@@ -130,9 +133,9 @@ async def update_platform(
     """Update a platform."""
 
     platform_db = db_platform_handler.get_platform(id)
-    # 404-mask hidden platforms so their existence isn't leaked.
-    if not platform_db or not get_permissions(request).can_see_platform(id):
+    if not platform_db:
         raise PlatformNotFoundInDatabaseException(id)
+    assert_platform_visible(request, platform_db)
 
     if custom_name is not None:
         platform_db.custom_name = custom_name
@@ -155,8 +158,9 @@ async def delete_platform(
 
     perms = get_permissions(request)
     platform = db_platform_handler.get_platform(id)
-    if not platform or not perms.can_see_platform(id):
+    if not platform:
         raise PlatformNotFoundInDatabaseException(id)
+    assert_platform_visible(request, platform)
     assert_can(perms, PermEntity.PLATFORMS, PermAction.DELETE)
 
     log.info(
