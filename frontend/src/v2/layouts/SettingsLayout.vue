@@ -20,10 +20,16 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import SettingsSidebar from "@/v2/components/Settings/SettingsSidebar.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 
 defineOptions({ inheritAttrs: false });
 
 const route = useRoute();
+// On `sm-and-down` the sidebar is dropped entirely — the navbar UserMenu
+// mirrors the same section IA, so a duplicate in-page strip is redundant on
+// phones. Mount-gated (not display:none) so the hidden links never sit in
+// the tab / spatial-nav order.
+const { mdAndUp } = useBreakpoint();
 const isBare = computed(() => route.meta?.bare === true);
 // `fill` views (e.g. Logs) pin to the viewport height and scroll their own
 // content internally instead of growing the document.
@@ -38,7 +44,7 @@ setBgArt(null);
 
 <template>
   <section class="r-v2-settings" :class="{ 'r-v2-settings--fill': isFill }">
-    <SettingsSidebar class="r-v2-settings__sidebar" />
+    <SettingsSidebar v-if="mdAndUp" class="r-v2-settings__sidebar" />
 
     <div class="r-v2-settings__content">
       <!-- Single router-view with a conditional wrapper class. Two
@@ -124,12 +130,9 @@ setBgArt(null);
   min-height: 0;
 }
 
-html[data-bp~="sm-and-down"] .r-v2-settings {
-  flex-direction: column;
-}
-html[data-bp~="sm-and-down"] .r-v2-settings__sidebar {
-  width: 100%;
-}
+/* On sm-and-down the sidebar is unmounted (see script), so the content
+   column fills the row on its own — just tighten the gutters to the
+   responsive page padding. */
 html[data-bp~="sm-and-down"] .r-v2-settings__content {
   padding: 24px var(--r-row-pad) 48px;
 }
