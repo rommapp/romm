@@ -63,6 +63,9 @@ export function getRoleIcon(role: string) {
   switch (role) {
     case "admin":
       return "mdi-shield-crown-outline";
+    case "user":
+      return "mdi-account-outline";
+    // Legacy roles, kept so any lingering value still renders an icon.
     case "editor":
       return "mdi-file-edit-outline";
     case "viewer":

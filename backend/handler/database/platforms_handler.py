@@ -68,11 +68,17 @@ class DBPlatformsHandler(DBBaseHandler):
         self,
         updated_after: datetime | None = None,
         only_fields: Sequence[QueryableAttribute] | None = None,
+        hidden_platform_ids: Sequence[int] | None = None,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Sequence[Platform]:
         if updated_after:
             query = query.filter(Platform.updated_at > updated_after)
+
+        # Admin-driven visibility (opt-out): exclude platforms hidden from the
+        # caller. Empty/None (e.g. admins) skips filtering.
+        if hidden_platform_ids:
+            query = query.filter(Platform.id.not_in(hidden_platform_ids))
 
         if only_fields:
             query = query.options(load_only(*only_fields))

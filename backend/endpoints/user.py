@@ -7,6 +7,7 @@ from fastapi import Request, status
 
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
+from endpoints.permissions import emit_permissions_changed
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
@@ -57,14 +58,26 @@ def add_user(
         UserSchema: Newly created user
     """
 
+    admins_exist = len(db_user_handler.get_admin_users()) > 0
+
     # If there are admin users already, enforce the USERS_WRITE scope.
-    if (
-        Scope.USERS_WRITE not in request.auth.scopes
-        and len(db_user_handler.get_admin_users()) > 0
-    ):
+    if Scope.USERS_WRITE not in request.auth.scopes and admins_exist:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",
+        )
+
+    coerced_role = Role.coerce(role)
+    # USERS_WRITE is delegable to non-admins via permission groups, but creating
+    # an admin must stay admin-only or it becomes a privilege-escalation path.
+    if (
+        admins_exist
+        and coerced_role == Role.ADMIN
+        and getattr(request.user, "role", None) != Role.ADMIN
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an administrator can create admin users",
         )
 
     try:
@@ -97,7 +110,7 @@ def add_user(
         username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
         email=email.lower() or None,
-        role=Role[role.upper()],
+        role=coerced_role,
     )
 
     return UserSchema.model_validate(db_user_handler.add_user(user))
@@ -124,10 +137,9 @@ def create_invite_link(
         InviteLinkSchema: Invite link
     """
 
-    if (
-        Scope.USERS_WRITE not in request.auth.scopes
-        and len(db_user_handler.get_admin_users()) > 0
-    ):
+    admins_exist = len(db_user_handler.get_admin_users()) > 0
+
+    if Scope.USERS_WRITE not in request.auth.scopes and admins_exist:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",
@@ -139,6 +151,17 @@ def create_invite_link(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=msg,
+        )
+
+    # Mirrors add_user: only a real admin can mint admin invite links.
+    if (
+        admins_exist
+        and Role.coerce(role) == Role.ADMIN
+        and getattr(request.user, "role", None) != Role.ADMIN
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an administrator can create admin invite links",
         )
 
     if expiration is not None and expiration <= 0:
@@ -205,7 +228,7 @@ def create_user_from_invite(
         username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
         email=email.lower() or None,
-        role=Role[role.upper()],
+        role=Role.coerce(role),
     )
 
     created_user = db_user_handler.add_user(user)
@@ -359,7 +382,18 @@ async def update_user(
 
     # You can't change your own role
     if form_data.role and request.user.id != id:
-        cleaned_data["role"] = Role[form_data.role.upper()]  # type: ignore[assignment]
+        new_role = Role.coerce(form_data.role)
+        # You can't demote the last admin (mirrors the delete guard).
+        if (
+            db_user.role == Role.ADMIN
+            and new_role != Role.ADMIN
+            and len(db_user_handler.get_admin_users()) == 1
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot demote the last admin user",
+            )
+        cleaned_data["role"] = new_role  # type: ignore[assignment]
 
     # You can't disable yourself
     if form_data.enabled is not None and request.user.id != id:
@@ -401,6 +435,10 @@ async def update_user(
 
     if cleaned_data:
         db_user_handler.update_user(id, cleaned_data)
+
+        # A role change alters the user's effective permissions; tell their UI.
+        if "role" in cleaned_data:
+            await emit_permissions_changed(id)
 
         # Log out the current user if username or password changed
         creds_updated = cleaned_data.get("username") or cleaned_data.get(

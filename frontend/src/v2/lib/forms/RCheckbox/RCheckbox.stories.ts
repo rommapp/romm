@@ -1,6 +1,22 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent } from "storybook/test";
 import { computed, ref } from "vue";
 import RCheckbox from "./RCheckbox.vue";
+import type { RCheckboxState } from "./types";
+
+// Permission-matrix vocabulary: empty -> full (primary check) -> own
+// (accent person). A fourth danger state shows the 4-state override flavour.
+const GRANT_STATES: RCheckboxState[] = [
+  { value: "none" },
+  { value: "full", color: "primary" },
+  { value: "own", color: "accent", icon: "mdi-account" },
+];
+const OVERRIDE_STATES: RCheckboxState[] = [
+  { value: "inherit" },
+  { value: "grant", color: "primary" },
+  { value: "grant_own", color: "accent", icon: "mdi-account" },
+  { value: "revoke", color: "danger", icon: "mdi-close" },
+];
 
 const meta: Meta<typeof RCheckbox> = {
   title: "Forms/RCheckbox",
@@ -64,6 +80,84 @@ export const Indeterminate: Story = {
 };
 
 export const NoLabel: Story = { args: {} };
+
+// ── Multi-state ─────────────────────────────────────────────────────
+
+// `states` opts into an N-value control on its own `stateValue` model,
+// leaving the boolean `modelValue` path untouched. Clicking cycles through
+// the ordered list (first = empty); a state with a `color` fills the box
+// and with an `icon` shows that glyph (else the check tick).
+export const MultiState: Story = {
+  name: "Multi-state (none / full / own)",
+  render: () => ({
+    components: { RCheckbox },
+    setup() {
+      const state = ref<string>("none");
+      return { state, GRANT_STATES };
+    },
+    template: `
+      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:12px;font:12px/1.4 sans-serif;color:var(--r-color-fg-muted)">
+        <RCheckbox
+          v-model:state-value="state"
+          :states="GRANT_STATES"
+          aria-label="Permission"
+          label="Click to cycle: none → full → own"
+        />
+        <span>Current value: <strong>{{ state }}</strong></span>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const label = canvasElement.querySelector(".r-checkbox") as HTMLElement;
+    const wrap = canvasElement.querySelector(".r-checkbox-wrap") as HTMLElement;
+
+    await step("none → full (check, primary)", async () => {
+      await userEvent.click(label);
+      await expect(wrap.classList.contains("r-checkbox--multi-active")).toBe(
+        true,
+      );
+      await expect(wrap.classList.contains("r-checkbox--multi-check")).toBe(
+        true,
+      );
+    });
+    await step("full → own (account, accent)", async () => {
+      await userEvent.click(label);
+      await expect(wrap.classList.contains("r-checkbox--multi-icon")).toBe(
+        true,
+      );
+    });
+    await step("own → none (empty)", async () => {
+      await userEvent.click(label);
+      await expect(wrap.classList.contains("r-checkbox--multi-active")).toBe(
+        false,
+      );
+    });
+  },
+};
+
+// The override flavour cycles through four states — inherit, grant
+// (primary), grant-own (accent), revoke (danger).
+export const MultiStateLadder: Story = {
+  name: "Multi-state ladder (4-state override)",
+  render: () => ({
+    components: { RCheckbox },
+    setup() {
+      const inherit = ref("inherit");
+      const grant = ref("grant");
+      const grantOwn = ref("grant_own");
+      const revoke = ref("revoke");
+      return { inherit, grant, grantOwn, revoke, OVERRIDE_STATES };
+    },
+    template: `
+      <div style="display:flex;flex-direction:column;gap:10px;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
+        <RCheckbox v-model:state-value="inherit" :states="OVERRIDE_STATES" label="inherit — defer to group" />
+        <RCheckbox v-model:state-value="grant" :states="OVERRIDE_STATES" label="grant — force allow (primary)" />
+        <RCheckbox v-model:state-value="grantOwn" :states="OVERRIDE_STATES" label="grant-own — allow own items (accent)" />
+        <RCheckbox v-model:state-value="revoke" :states="OVERRIDE_STATES" label="revoke — force deny (danger)" />
+      </div>
+    `,
+  }),
+};
 
 // ── Sizes ───────────────────────────────────────────────────────────
 

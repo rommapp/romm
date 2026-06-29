@@ -26,7 +26,7 @@
 // Sort emits the new (key, dir) — toggling direction on the active
 // column or starting at "asc" on a new column. The store/composable
 // owns the actual sort state; RTable is pure UI.
-import { computed } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RSkeletonBlock from "../../primitives/RSkeletonBlock/RSkeletonBlock.vue";
 import type {
@@ -108,6 +108,28 @@ function handleSort(col: RTableColumn) {
 const rowStyle = computed(() =>
   props.rowHeight ? { height: props.rowHeight } : undefined,
 );
+
+// Entrance animation plays once: rows fade + rise in on first paint. After
+// it finishes we drop the `--enter` class so re-sorting (which moves — i.e.
+// re-inserts — the keyed DOM nodes, restarting CSS animations) doesn't
+// replay it. New rows added later simply appear without the flourish.
+const hasEntered = ref(false);
+let enterTimer: ReturnType<typeof setTimeout> | undefined;
+watch(
+  () => !props.loading && props.items.length > 0,
+  (showing) => {
+    if (showing && !hasEntered.value && enterTimer === undefined) {
+      // animation (≈320ms) + max stagger (12 × 24ms) with headroom.
+      enterTimer = setTimeout(() => {
+        hasEntered.value = true;
+      }, 700);
+    }
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => {
+  if (enterTimer !== undefined) clearTimeout(enterTimer);
+});
 </script>
 
 <template>
@@ -209,10 +231,17 @@ const rowStyle = computed(() =>
             :key="rowKey(row, idx)"
             class="r-table__row"
             :class="[
-              { 'r-table__row--clickable': clickableRows },
+              {
+                'r-table__row--clickable': clickableRows,
+                'r-table__row--enter': !hasEntered,
+              },
               rowClassFor(row),
             ]"
-            :style="[gridStyle, rowStyle ?? {}]"
+            :style="[
+              gridStyle,
+              rowStyle ?? {},
+              { '--r-table-row-i': Math.min(idx, 12) },
+            ]"
             role="row"
             :tabindex="clickableRows ? 0 : -1"
             @click="clickableRows && emit('row:click', row)"
@@ -368,6 +397,30 @@ const rowStyle = computed(() =>
 }
 .r-table__row--clickable {
   cursor: pointer;
+}
+
+/* Entrance — rows fade + rise in on mount, lightly staggered top-to-bottom.
+   Keyed rows mean re-sorting moves existing nodes (no replay); only freshly
+   mounted rows (initial load, search results) animate. */
+.r-table__row--enter {
+  animation: r-table-row-in var(--r-motion-med, 320ms) var(--r-motion-ease-out)
+    both;
+  animation-delay: calc(var(--r-table-row-i, 0) * 24ms);
+}
+@keyframes r-table-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .r-table__row--enter {
+    animation: none;
+  }
 }
 
 .r-table__cell {

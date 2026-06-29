@@ -848,10 +848,8 @@ def main() -> int:
         # rows already in the target database.
         if i == 0:
             username, role = f"admin_{uid}", Role.ADMIN
-        elif i <= 2:
-            username, role = f"editor_{uid}", Role.EDITOR
         else:
-            username, role = f"viewer_{uid}", Role.VIEWER
+            username, role = f"user_{uid}", Role.USER
         created = rand_past(rng, now)
         user_rows.append(
             {

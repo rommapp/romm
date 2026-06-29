@@ -51,7 +51,7 @@ const submitting = ref(false);
 const passwordDialogOpen = ref(false);
 
 const roleItems = computed(() =>
-  ["viewer", "editor", "admin"].map((role) => ({
+  ["admin", "user"].map((role) => ({
     title: t(`settings.role-${role}`),
     value: role,
   })),
@@ -60,8 +60,7 @@ const roleItems = computed(() =>
 type RoleTone = "brand" | "warning" | "info";
 const ROLE_TONE: Record<string, RoleTone> = {
   admin: "brand",
-  editor: "warning",
-  viewer: "info",
+  user: "info",
 };
 function roleToneFor(role: string | undefined): RoleTone {
   if (role && role in ROLE_TONE) return ROLE_TONE[role];

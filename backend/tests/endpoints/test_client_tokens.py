@@ -261,8 +261,8 @@ class TestClientTokenAuth:
         )
         raw_token = create_resp.json()["raw_token"]
 
-        # Demote user to viewer
-        db_user_handler.update_user(admin_user.id, {"role": Role.VIEWER})
+        # Demote admin to a regular user
+        db_user_handler.update_user(admin_user.id, {"role": Role.USER})
 
         # users.write should no longer be effective
         response = client.get(
