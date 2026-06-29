@@ -76,6 +76,7 @@
   "filters": "Филтри",
   "show": "Покажи",
   "tags": "Тагове",
+  "tag": "Таг",
   "show-all": "Покажи всички",
   "show-matched-only": "Покажи само разпознати ROM-ове",
   "show-unmatched-only": "Покажи само неразпознати ROM-ове",

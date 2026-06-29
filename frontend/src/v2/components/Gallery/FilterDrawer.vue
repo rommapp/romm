@@ -8,10 +8,10 @@
 //     true → positive, false → negative.
 //   • Optional platform multi-select (only on Search / Collection views
 //     where you can mix platforms).
-//   • 10 multi-select filter groups (genres / franchises / collections /
-//     companies / age-ratings / regions / languages / player-counts /
-//     metadata-providers / statuses) — each paired with an AND/OR/NONE
-//     logic toggle.
+//   • 11 multi-select filter groups (genres / franchises / collections /
+//     companies / age-ratings / regions / languages / tags /
+//     player-counts / metadata-providers / statuses) — each paired with
+//     an AND/OR/NONE logic toggle.
 //   • Reset button at the bottom.
 //
 // Apply is implicit — the URL composable + galleryRoms watcher refresh
@@ -90,6 +90,9 @@ const {
   playerCountsLogic,
   selectedMetadataProviders,
   metadataProvidersLogic,
+  filterTags,
+  selectedTags,
+  tagsLogic,
   filterStatuses,
   selectedStatuses,
   statusesLogic,
@@ -301,6 +304,14 @@ const multiSections = computed<MultiConfig[]>(() => [
     selected: selectedLanguages,
     logic: languagesLogic,
     setLogic: (l) => filter.setLanguagesLogic(l),
+  },
+  {
+    label: t("platform.tag"),
+    icon: "mdi-tag-outline",
+    items: filterTags,
+    selected: selectedTags,
+    logic: tagsLogic,
+    setLogic: (l) => filter.setTagsLogic(l),
   },
   {
     label: t("platform.player-count"),

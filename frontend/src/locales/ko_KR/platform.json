@@ -76,6 +76,7 @@
   "filters": "필터",
   "show": "표시",
   "tags": "태그",
+  "tag": "태그",
   "show-all": "모두 표시",
   "show-matched-only": "일치된 ROM만 표시",
   "show-unmatched-only": "일치되지 않은 ROM만 표시",

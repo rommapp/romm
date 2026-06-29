@@ -76,6 +76,7 @@
   "filters": "篩選器",
   "show": "顯示",
   "tags": "標籤",
+  "tag": "標籤",
   "show-all": "顯示全部",
   "show-matched-only": "僅顯示已匹配的 ROM",
   "show-unmatched-only": "僅顯示未匹配的 ROM",
