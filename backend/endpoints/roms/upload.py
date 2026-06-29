@@ -23,10 +23,6 @@ router = APIRouter(
 )
 
 # Store upload chunks under RESOURCES_BASE_PATH (disk-backed) by default.
-# The bare ROMM_BASE_PATH is owned by the image's `romm` user, so containers
-# running with a custom UID/GID cannot create directories directly under it.
-# The resources directory is a writable, mounted volume in those setups.
-# Users can override the tmp location with the ROMM_TMP_PATH env variable.
 _tmp_root = Path(ROMM_TMP_PATH) if ROMM_TMP_PATH else Path(RESOURCES_BASE_PATH)
 ROM_UPLOAD_TMP_BASE = _tmp_root / "tmp" / "uploads"
 ROM_UPLOAD_TTL = 86400  # 24 hours
