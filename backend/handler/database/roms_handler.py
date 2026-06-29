@@ -218,6 +218,7 @@ def with_details(func):
                 load_only(
                     Rom.id,
                     Rom.name,
+                    Rom.platform_id,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
                 ),
