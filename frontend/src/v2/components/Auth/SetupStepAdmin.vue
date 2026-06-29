@@ -228,11 +228,9 @@ const abilities = [
   align-items: center;
 }
 
-@media (max-width: 800px) {
-  .r-setup-admin {
-    grid-template-columns: 1fr;
-    gap: var(--r-space-5);
-  }
+html[data-bp~="sm-and-down"] .r-setup-admin {
+  grid-template-columns: 1fr;
+  gap: var(--r-space-5);
 }
 
 /* ── Left intro panel ────────────────────────────────────────────── */
@@ -244,13 +242,11 @@ const abilities = [
   justify-self: end;
 }
 
-@media (max-width: 800px) {
-  .r-setup-admin__intro {
-    justify-self: stretch;
-    max-width: none;
-    align-items: center;
-    text-align: center;
-  }
+html[data-bp~="sm-and-down"] .r-setup-admin__intro {
+  justify-self: stretch;
+  max-width: none;
+  align-items: center;
+  text-align: center;
 }
 
 /* Avatar — clickable round button sits next to a small trash icon that
@@ -265,10 +261,8 @@ const abilities = [
   align-self: flex-start;
 }
 
-@media (max-width: 800px) {
-  .r-setup-admin__avatar-row {
-    align-self: center;
-  }
+html[data-bp~="sm-and-down"] .r-setup-admin__avatar-row {
+  align-self: center;
 }
 
 .r-setup-admin__avatar-trash {
@@ -394,10 +388,8 @@ const abilities = [
   justify-self: start;
 }
 
-@media (max-width: 800px) {
-  .r-setup-admin__form {
-    justify-self: stretch;
-    max-width: none;
-  }
+html[data-bp~="sm-and-down"] .r-setup-admin__form {
+  justify-self: stretch;
+  max-width: none;
 }
 </style>

@@ -214,6 +214,23 @@ html[data-input="pad"] .r-v2 * {
   display: none;
 }
 
+/* Touch target — opt-in hit-area floor, gated to touch and pad so mouse
+   and keyboard sizing never bloats. Drop `.r-touch-target` onto a button
+   / list item / menu item that would otherwise sit below a comfortable
+   finger (or gamepad-cursor) target; on touch and pad it grows to at
+   least `--r-touch-target` (44px) in both axes. A larger own min-size
+   still wins, and full-width rows only feel the min-height. Controls that
+   must keep a small VISIBLE body (switch, slider, checkbox) expand their
+   hit area with an internal pseudo-element instead of this class, so the
+   track / thumb never resizes. Wrapped in `:where()` so the floor sits at
+   the lowest specificity and a component can override it with a plain
+   class selector. */
+html[data-input="touch"] :where(.r-v2 .r-touch-target),
+html[data-input="pad"] :where(.r-v2 .r-touch-target) {
+  min-height: var(--r-touch-target);
+  min-width: var(--r-touch-target);
+}
+
 /* Section stack — vertical flow with breathing room between sibling
    cards. Applied to view roots that host multiple stacked sections
    (Settings views, Library Tools views). The fixed 14px gap matches
@@ -226,6 +243,26 @@ html[data-input="pad"] .r-v2 * {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+/* Two-pane → stacked — the canonical responsive split shared by detail
+   and master/detail views (GameDetails cover+info, Scan config+live, …).
+   A two-column grid on desktop that collapses to a single stacked column
+   on `sm-and-down`, so the panes flow vertically on phones and tablets
+   instead of squeezing side by side. Tune the column tracks per view with
+   `--r-two-pane-cols` (default: first pane sizes to content, second fills)
+   and the gap with `--r-two-pane-gap`. Views needing finer control (a
+   capped cover width, an internal scroll) layer their own rules on top —
+   this is the shared starting point, not a straitjacket. Kept as a class,
+   not a component, so each view keeps ownership of its focus zones. */
+.r-v2-two-pane {
+  display: grid;
+  grid-template-columns: var(--r-two-pane-cols, auto minmax(0, 1fr));
+  gap: var(--r-two-pane-gap, 32px);
+  align-items: start;
+}
+html[data-bp~="sm-and-down"] .r-v2-two-pane {
+  grid-template-columns: 1fr;
 }
 
 /* Typography utility: small uppercase label ("eyebrow") used above titles. */

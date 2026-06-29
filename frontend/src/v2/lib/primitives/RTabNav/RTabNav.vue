@@ -376,10 +376,10 @@ onBeforeUnmount(() => {
   color: var(--r-color-brand-primary);
 }
 
-@media (max-width: 768px) {
-  .r-tab-nav--underlined.r-tab-nav--default .r-tab-nav__btn {
-    padding: 8px 14px;
-    font-size: 12px;
-  }
+html[data-bp~="sm-and-down"]
+  .r-tab-nav--underlined.r-tab-nav--default
+  .r-tab-nav__btn {
+  padding: 8px 14px;
+  font-size: 12px;
 }
 </style>

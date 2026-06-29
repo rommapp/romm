@@ -792,10 +792,8 @@ function platformFolderPath(slug: string): string {
   gap: var(--r-space-5);
 }
 
-@media (max-width: 800px) {
-  .r-setup-platforms__columns {
-    grid-template-columns: 1fr;
-  }
+html[data-bp~="sm-and-down"] .r-setup-platforms__columns {
+  grid-template-columns: 1fr;
 }
 
 .r-setup-platforms__pane {

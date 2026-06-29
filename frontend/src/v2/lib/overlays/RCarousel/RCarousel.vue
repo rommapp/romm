@@ -734,23 +734,21 @@ function onBackdropClick(event: MouseEvent) {
 }
 
 /* Smaller viewports -------------------------------------------------------- */
-@media (max-width: 768px) {
-  .r-carousel--fullscreen .r-carousel__stage {
-    padding: 56px 16px;
-  }
-  .r-carousel--fullscreen .r-carousel__nav {
-    width: 44px;
-    height: 44px;
-  }
-  .r-carousel--fullscreen .r-carousel__nav--prev {
-    left: 8px;
-  }
-  .r-carousel--fullscreen .r-carousel__nav--next {
-    right: 8px;
-  }
-  .r-carousel__thumb {
-    width: 72px;
-    height: 42px;
-  }
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__stage {
+  padding: 56px 16px;
+}
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav {
+  width: 44px;
+  height: 44px;
+}
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav--prev {
+  left: 8px;
+}
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav--next {
+  right: 8px;
+}
+html[data-bp~="sm-and-down"] .r-carousel__thumb {
+  width: 72px;
+  height: 42px;
 }
 </style>
