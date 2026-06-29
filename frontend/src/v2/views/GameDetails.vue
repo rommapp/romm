@@ -390,9 +390,22 @@ const tabs = computed<RTabNavItem[]>(() => [
   font-size: 13px;
 }
 
-html[data-bp~="xs"] .r-v2-det__body {
-  padding: 12px 14px 0;
+/* Mobile / small tablet: stack the cover above the info column instead of
+   the side-by-side desktop split (the xs side-rail cover squashed to ~100px
+   and read as an afterthought). The view still fills the viewport and the
+   tab panel keeps its own scroll - several tabs (Files, Soundtrack) pin an
+   internal scroll context to it - so only the body direction, gutters and
+   cover sizing change here. */
+html[data-bp~="sm-and-down"] .r-v2-det {
+  padding-top: 8px;
+}
+html[data-bp~="sm-and-down"] .r-v2-det__body {
+  flex-direction: column;
+  align-items: stretch;
   gap: 14px;
-  align-items: flex-start;
+  padding: 8px var(--r-row-pad) 16px;
+}
+html[data-bp~="sm-and-down"] .r-v2-det__tabs {
+  margin: 10px 0 12px;
 }
 </style>
