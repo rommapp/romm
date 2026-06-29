@@ -307,6 +307,7 @@ export default defineStore("v2GalleryRoms", {
         selectedRegions: galleryFilter.selectedRegions,
         selectedLanguages: galleryFilter.selectedLanguages,
         selectedPlayerCounts: galleryFilter.selectedPlayerCounts,
+        selectedMetadataProviders: galleryFilter.selectedMetadataProviders,
         selectedStatuses: galleryFilter.selectedStatuses,
         genresLogic: galleryFilter.genresLogic,
         franchisesLogic: galleryFilter.franchisesLogic,
@@ -317,6 +318,7 @@ export default defineStore("v2GalleryRoms", {
         languagesLogic: galleryFilter.languagesLogic,
         statusesLogic: galleryFilter.statusesLogic,
         playerCountsLogic: galleryFilter.playerCountsLogic,
+        metadataProvidersLogic: galleryFilter.metadataProvidersLogic,
       };
     },
 

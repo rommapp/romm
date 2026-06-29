@@ -25,6 +25,7 @@
   "missing-from-filesystem": "Piattaforma mancante dal filesystem",
   "no-firmware-found": "Nessun firmware trovato",
   "player-count": "Numero di giocatori",
+  "metadata-provider": "Fornitore di metadati",
   "region": "Regione",
   "removing-firmware": "Rimozione di {n} firmware da RomM | Rimozione di {n} firmware da RomM",
   "removing-platform-1": "Stai eliminando la piattaforma",

@@ -58,6 +58,7 @@
   "controller-debug-no-gamepad": "Nincs észlelt kontroller",
   "controller-debug-right-stick": "Jobb kar",
   "controller-debug-slot": "{n}. csatorna",
+  "controller-debug-test-hint": "Button actions are paused here so you can test every button. Hold B / Back to exit.",
   "controller-debug-wake-hint": "Nyomj meg egy gombot a kontrolleren a felébresztéséhez.",
   "conversion": "Átalakítás",
   "copy-link": "Link másolása",

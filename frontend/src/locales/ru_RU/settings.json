@@ -58,6 +58,7 @@
   "controller-debug-no-gamepad": "Геймпад не обнаружен",
   "controller-debug-right-stick": "Правый стик",
   "controller-debug-slot": "Слот {n}",
+  "controller-debug-test-hint": "Button actions are paused here so you can test every button. Hold B / Back to exit.",
   "controller-debug-wake-hint": "Нажмите любую кнопку контроллера, чтобы разбудить его.",
   "conversion": "Конвертация",
   "copy-link": "Копировать ссылку",

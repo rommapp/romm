@@ -58,6 +58,7 @@
   "controller-debug-no-gamepad": "Oyun kumandası algılanmadı",
   "controller-debug-right-stick": "Sağ analog",
   "controller-debug-slot": "{n}. Slot",
+  "controller-debug-test-hint": "Button actions are paused here so you can test every button. Hold B / Back to exit.",
   "controller-debug-wake-hint": "Uyandırmak için kumandanızdaki herhangi bir düğmeye basın.",
   "conversion": "Dönüştürme",
   "copy-link": "Bağlantıyı kopyala",

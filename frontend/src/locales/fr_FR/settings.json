@@ -58,6 +58,7 @@
   "controller-debug-no-gamepad": "Aucune manette détectée",
   "controller-debug-right-stick": "Stick droit",
   "controller-debug-slot": "Emplacement {n}",
+  "controller-debug-test-hint": "Button actions are paused here so you can test every button. Hold B / Back to exit.",
   "controller-debug-wake-hint": "Appuyez sur un bouton de votre manette pour la réveiller.",
   "conversion": "Conversion",
   "copy-link": "Copier le lien",

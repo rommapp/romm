@@ -165,6 +165,7 @@ const {
   selectedRegions,
   selectedLanguages,
   selectedPlayerCounts,
+  selectedMetadataProviders,
   selectedStatuses,
 } = storeToRefs(galleryFilterStore);
 
@@ -194,6 +195,7 @@ const filterActiveCount = computed(() => {
     selectedRegions,
     selectedLanguages,
     selectedPlayerCounts,
+    selectedMetadataProviders,
     selectedStatuses,
   ]) {
     if (arr.value.length > 0) n += 1;
@@ -224,6 +226,7 @@ watch(
     selectedRegions,
     selectedLanguages,
     selectedPlayerCounts,
+    selectedMetadataProviders,
     selectedStatuses,
   ],
   () => {

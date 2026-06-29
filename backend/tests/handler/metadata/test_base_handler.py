@@ -188,6 +188,17 @@ class TestMetadataHandlerMethods:
             assert result is None
 
     @pytest.mark.asyncio
+    async def test_sony_serial_format_normalizes_casing(self, handler: MetadataHandler):
+        """Test Sony serial format uppercases the serial before lookup."""
+        with patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget:
+            mock_hget.return_value = json.dumps({"title": "Found Game Title"})
+
+            result = await handler._sony_serial_format("test_key", "slus-12345")
+
+            mock_hget.assert_called_once_with("test_key", "SLUS-12345")
+            assert result == "Found Game Title"
+
+    @pytest.mark.asyncio
     async def test_ps1_serial_format(self, handler: MetadataHandler):
         """Test PS1 serial format."""
         with patch.object(

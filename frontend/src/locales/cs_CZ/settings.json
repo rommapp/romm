@@ -58,6 +58,7 @@
   "controller-debug-no-gamepad": "Nebyl detekován žádný ovladač",
   "controller-debug-right-stick": "Pravá páčka",
   "controller-debug-slot": "Slot {n}",
+  "controller-debug-test-hint": "Button actions are paused here so you can test every button. Hold B / Back to exit.",
   "controller-debug-wake-hint": "Stiskněte libovolné tlačítko na ovladači pro jeho probuzení.",
   "conversion": "Konverze",
   "copy-link": "Kopírovat odkaz",

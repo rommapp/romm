@@ -25,6 +25,7 @@
   "missing-from-filesystem": "Платформа отсутствует в файловой системе",
   "no-firmware-found": "Прошивка не найдена",
   "player-count": "Количество игроков",
+  "metadata-provider": "Источник метаданных",
   "region": "Регион",
   "removing-firmware": "Удаление {n} прошивку из RomM | Удаление {n} прошивок из RomM",
   "removing-platform-1": "Удаление платформы",

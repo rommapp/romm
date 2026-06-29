@@ -31,6 +31,7 @@
   "missing-from-filesystem": "Platform dosya sisteminde bulunamadı",
   "no-firmware-found": "Firmware bulunamadı",
   "player-count": "Oyuncu sayısı",
+  "metadata-provider": "Üst veri sağlayıcısı",
   "region": "Bölge",
   "removing-firmware": "RomM'den {n} firmware dosyası kaldırılıyor | RomM'den {n} firmware dosyası kaldırılıyor",
   "removing-platform-1": "Platform kaldırılıyor",

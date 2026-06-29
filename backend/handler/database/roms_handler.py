@@ -44,6 +44,7 @@ from models.assets import Save, Screenshot, State
 from models.base import compute_file_name_parts
 from models.platform import Platform
 from models.rom import (
+    METADATA_SOURCE_COLUMNS,
     Rom,
     RomFile,
     RomFileCategory,
@@ -709,6 +710,39 @@ class DBRomsHandler(DBBaseHandler):
             return query.filter(not_(condition))
         return query.filter(condition)
 
+    def _filter_by_metadata_providers(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+        match_none: bool = False,
+    ) -> Query:
+        """Filter on which metadata providers a ROM matched, keyed off each
+        provider's id column on Rom.
+
+        - "any":  matched at least one of the selected providers.
+        - "all":  matched every selected provider.
+        - "none": matched none of the selected providers.
+        """
+        columns = [
+            METADATA_SOURCE_COLUMNS[value]
+            for value in values
+            if value in METADATA_SOURCE_COLUMNS
+        ]
+        # Unknown slugs (stale bookmark / hand-edited URL) leave nothing to
+        # filter on; treat that as a no-op rather than an empty result set.
+        if not columns:
+            return query
+
+        predicates = [column.isnot(None) for column in columns]
+        if match_none:
+            return query.filter(not_(or_(*predicates)))
+        if match_all:
+            return query.filter(and_(*predicates))
+        return query.filter(or_(*predicates))
+
     @begin_session
     def filter_roms(
         self,
@@ -736,6 +770,7 @@ class DBRomsHandler(DBBaseHandler):
         regions: Sequence[str] | None = None,
         languages: Sequence[str] | None = None,
         player_counts: Sequence[str] | None = None,
+        metadata_providers: Sequence[str] | None = None,
         # Logic operators for multi-value filters
         genres_logic: str = "any",
         franchises_logic: str = "any",
@@ -746,6 +781,7 @@ class DBRomsHandler(DBBaseHandler):
         languages_logic: str = "any",
         statuses_logic: str = "any",
         player_counts_logic: str = "any",
+        metadata_providers_logic: str = "any",
         user_id: int | None = None,
         updated_after: datetime | None = None,
         include_file_stats: bool = False,
@@ -974,6 +1010,11 @@ class DBRomsHandler(DBBaseHandler):
             (regions, regions_logic, self._filter_by_regions),
             (languages, languages_logic, self._filter_by_languages),
             (player_counts, player_counts_logic, self._filter_by_player_counts),
+            (
+                metadata_providers,
+                metadata_providers_logic,
+                self._filter_by_metadata_providers,
+            ),
         ]
 
         for values, logic, filter_func in filters_to_apply:
@@ -1112,6 +1153,7 @@ class DBRomsHandler(DBBaseHandler):
             regions=kwargs.get("regions", None),
             languages=kwargs.get("languages", None),
             player_counts=kwargs.get("player_counts", None),
+            metadata_providers=kwargs.get("metadata_providers", None),
             # Logic operators for multi-value filters
             genres_logic=kwargs.get("genres_logic", "any"),
             franchises_logic=kwargs.get("franchises_logic", "any"),
@@ -1122,6 +1164,7 @@ class DBRomsHandler(DBBaseHandler):
             languages_logic=kwargs.get("languages_logic", "any"),
             statuses_logic=kwargs.get("statuses_logic", "any"),
             player_counts_logic=kwargs.get("player_counts_logic", "any"),
+            metadata_providers_logic=kwargs.get("metadata_providers_logic", "any"),
             user_id=kwargs.get("user_id", None),
             group_by_meta_id=kwargs.get("group_by_meta_id", False),
             include_files=kwargs.get("include_files", False),
