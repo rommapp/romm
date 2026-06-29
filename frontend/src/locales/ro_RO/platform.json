@@ -31,6 +31,7 @@
   "missing-from-filesystem": "Platformă lipsă din sistemul de fișiere",
   "no-firmware-found": "Niciun firmware găsit",
   "player-count": "Numărul de jucători",
+  "metadata-provider": "Furnizor de metadate",
   "region": "Regiune",
   "removing-firmware": "Eliminarea a {n} firmware din RomM | Eliminarea a {n} firmware-uri din RomM",
   "removing-platform-1": "Confirmă eliminarea",

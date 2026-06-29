@@ -2,28 +2,13 @@ from __future__ import annotations
 
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
-from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from decorators.database import begin_session
 from endpoints.responses.stats import MetadataCoverageItem, RegionBreakdownItem
 from models.assets import Save, Screenshot, State
-from models.rom import Rom, RomFile
+from models.rom import METADATA_SOURCE_COLUMNS, Rom, RomFile
 
 from .base_handler import DBBaseHandler
-
-# Metadata source columns on the Rom model, keyed by source identifier.
-_METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute] = {
-    "igdb": Rom.igdb_id,
-    "ss": Rom.ss_id,
-    "moby": Rom.moby_id,
-    "launchbox": Rom.launchbox_id,
-    "ra": Rom.ra_id,
-    "hasheous": Rom.hasheous_id,
-    "tgdb": Rom.tgdb_id,
-    "flashpoint": Rom.flashpoint_id,
-    "hltb": Rom.hltb_id,
-    "gamelist": Rom.gamelist_id,
-}
 
 
 class DBStatsHandler(DBBaseHandler):
@@ -109,7 +94,7 @@ class DBStatsHandler(DBBaseHandler):
                 Rom.platform_id,
                 *(
                     func.count(col).label(key)
-                    for key, col in _METADATA_SOURCE_COLUMNS.items()
+                    for key, col in METADATA_SOURCE_COLUMNS.items()
                 ),
             )
             .select_from(Rom)
@@ -120,7 +105,7 @@ class DBStatsHandler(DBBaseHandler):
         for row in rows:
             result[row.platform_id] = [
                 MetadataCoverageItem(source=key, matched=getattr(row, key))
-                for key in _METADATA_SOURCE_COLUMNS
+                for key in METADATA_SOURCE_COLUMNS
                 if getattr(row, key) > 0
             ]
 

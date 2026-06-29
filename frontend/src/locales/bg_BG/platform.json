@@ -25,6 +25,7 @@
   "missing-from-filesystem": "Липсваща платформа от файловата система",
   "no-firmware-found": "Няма намерен фърмуер",
   "player-count": "Брой играчи",
+  "metadata-provider": "Доставчик на метаданни",
   "region": "Регион",
   "removing-firmware": "Премахване на {n} фърмуер файл от RomM | Премахване на {n} фърмуер файла от RomM",
   "removing-platform-1": "Премахване на платформа",

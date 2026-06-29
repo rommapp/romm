@@ -25,6 +25,7 @@
   "missing-from-filesystem": "Platform hiányzik a fájlrendszerből",
   "no-firmware-found": "Firmware nem található",
   "player-count": "Játékosok száma",
+  "metadata-provider": "Metaadat-szolgáltató",
   "region": "Régió",
   "removing-firmware": "Eltávolítottál {n} firmware fájlt a RomM-ból | Eltávolítottál {n} firmware fájlokat a RomM-ból",
   "removing-platform-1": "Platform eltávolítása",

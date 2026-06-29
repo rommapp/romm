@@ -8,9 +8,10 @@
 //     true → positive, false → negative.
 //   • Optional platform multi-select (only on Search / Collection views
 //     where you can mix platforms).
-//   • 9 multi-select filter groups (genres / franchises / collections /
+//   • 10 multi-select filter groups (genres / franchises / collections /
 //     companies / age-ratings / regions / languages / player-counts /
-//     statuses) — each paired with an AND/OR/NONE logic toggle.
+//     metadata-providers / statuses) — each paired with an AND/OR/NONE
+//     logic toggle.
 //   • Reset button at the bottom.
 //
 // Apply is implicit — the URL composable + galleryRoms watcher refresh
@@ -32,6 +33,7 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import { romStatusMap, type PlayingStatus } from "@/utils";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
+import { METADATA_PROVIDER_FILTER_OPTIONS } from "@/v2/utils/metadataProviders";
 
 defineOptions({ inheritAttrs: false });
 
@@ -86,11 +88,25 @@ const {
   filterPlayerCounts,
   selectedPlayerCounts,
   playerCountsLogic,
+  selectedMetadataProviders,
+  metadataProvidersLogic,
   filterStatuses,
   selectedStatuses,
   statusesLogic,
 } = storeToRefs(filter);
 const { allPlatforms } = storeToRefs(platformsStore);
+
+// Provider options are a fixed registry (not data-derived like the other
+// lists). Items are the provider slugs; `providerTitle` maps each to its
+// brand name for display.
+const providerItems = computed(() =>
+  METADATA_PROVIDER_FILTER_OPTIONS.map((p) => p.value),
+);
+const providerLabels = new Map(
+  METADATA_PROVIDER_FILTER_OPTIONS.map((p) => [p.value, p.title]),
+);
+const providerTitle = (slug: string): string =>
+  providerLabels.get(slug) ?? slug;
 
 // ── Tri-state mapping helpers ──────────────────────────────────
 // The RSliderBtnGroup speaks string ids; the store speaks `boolean | null`.
@@ -293,6 +309,15 @@ const multiSections = computed<MultiConfig[]>(() => [
     selected: selectedPlayerCounts,
     logic: playerCountsLogic,
     setLogic: (l) => filter.setPlayerCountsLogic(l),
+  },
+  {
+    label: t("platform.metadata-provider"),
+    icon: "mdi-database-outline",
+    items: providerItems,
+    selected: selectedMetadataProviders,
+    logic: metadataProvidersLogic,
+    setLogic: (l) => filter.setMetadataProvidersLogic(l),
+    toTitle: providerTitle,
   },
   {
     label: t("platform.status"),

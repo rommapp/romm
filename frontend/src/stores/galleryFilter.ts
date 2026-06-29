@@ -11,7 +11,8 @@ export type FilterType =
   | "statuses"
   | "regions"
   | "languages"
-  | "playerCounts";
+  | "playerCounts"
+  | "metadataProviders";
 
 export type FilterLogicOperator = "any" | "all" | "none";
 
@@ -50,6 +51,7 @@ const buildDefaultFilterState = () => ({
   selectedRegions: [] as string[],
   selectedLanguages: [] as string[],
   selectedPlayerCounts: [] as string[],
+  selectedMetadataProviders: [] as string[],
   selectedStatuses: [] as string[],
   // Logic operators for multi-select filters
   genresLogic: "any" as FilterLogicOperator,
@@ -61,6 +63,7 @@ const buildDefaultFilterState = () => ({
   languagesLogic: "any" as FilterLogicOperator,
   statusesLogic: "any" as FilterLogicOperator,
   playerCountsLogic: "any" as FilterLogicOperator,
+  metadataProvidersLogic: "any" as FilterLogicOperator,
 });
 
 export default defineStore("galleryFilter", {
@@ -154,6 +157,12 @@ export default defineStore("galleryFilter", {
     },
     setPlayerCountsLogic(logic: FilterLogicOperator) {
       this.playerCountsLogic = logic;
+    },
+    setSelectedFilterMetadataProviders(metadataProviders: string[]) {
+      this.selectedMetadataProviders = metadataProviders;
+    },
+    setMetadataProvidersLogic(logic: FilterLogicOperator) {
+      this.metadataProvidersLogic = logic;
     },
     setSelectedFilterStatuses(statuses: string[]) {
       this.selectedStatuses = statuses;
@@ -355,6 +364,7 @@ export default defineStore("galleryFilter", {
         this.selectedRegions.length > 0 ||
         this.selectedLanguages.length > 0 ||
         this.selectedPlayerCounts.length > 0 ||
+        this.selectedMetadataProviders.length > 0 ||
         this.selectedStatuses.length > 0,
       );
     },
@@ -372,6 +382,7 @@ export default defineStore("galleryFilter", {
       this.selectedRegions = [];
       this.selectedLanguages = [];
       this.selectedPlayerCounts = [];
+      this.selectedMetadataProviders = [];
       this.selectedStatuses = [];
       this.filterMatched = null;
       this.filterFavorites = null;
@@ -390,6 +401,7 @@ export default defineStore("galleryFilter", {
       this.languagesLogic = "any";
       this.statusesLogic = "any";
       this.playerCountsLogic = "any";
+      this.metadataProvidersLogic = "any";
     },
   },
 });
