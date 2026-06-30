@@ -37,6 +37,9 @@ const SoundtrackPanel = defineAsyncComponent(
 const ScreenshotsSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ScreenshotsSubtab.vue"),
 );
+const ArtworkSubtab = defineAsyncComponent(
+  () => import("@/v2/components/GameDetails/ArtworkSubtab.vue"),
+);
 
 function errorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
@@ -58,7 +61,12 @@ const { t } = useI18n();
 // ---------- Subtab state ----------
 // Mirrored to `?subtab=` so the SoundtrackMiniPlayer can detect when the full
 // player is visible here and hide itself to avoid duplication.
-const validSubtabs = ["manual", "screenshots", "soundtrack"] as const;
+const validSubtabs = [
+  "manual",
+  "screenshots",
+  "artwork",
+  "soundtrack",
+] as const;
 type Subtab = (typeof validSubtabs)[number];
 
 const route = useRoute();
@@ -187,6 +195,11 @@ const subtabDefs = computed<SubtabDef[]>(() => [
     id: "screenshots",
     label: t("rom.screenshots"),
     icon: "mdi-image-multiple-outline",
+  },
+  {
+    id: "artwork",
+    label: t("rom.artwork"),
+    icon: "mdi-palette-outline",
   },
   {
     id: "soundtrack",
@@ -441,6 +454,12 @@ async function deleteSoundtrack(fileId: number) {
            sections, per-user public/private). -->
       <section v-show="subTab === 'screenshots'" class="r-v2-media__panel">
         <ScreenshotsSubtab :rom="rom" />
+      </section>
+
+      <!-- Artwork subtab — read-only gallery of scraped art assets
+           (bezel / logo / marquee / box art / fan art / videos). -->
+      <section v-show="subTab === 'artwork'" class="r-v2-media__panel">
+        <ArtworkSubtab :rom="rom" />
       </section>
 
       <!-- Soundtrack subtab -->

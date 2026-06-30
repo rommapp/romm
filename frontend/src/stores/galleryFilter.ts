@@ -11,7 +11,9 @@ export type FilterType =
   | "statuses"
   | "regions"
   | "languages"
-  | "playerCounts";
+  | "playerCounts"
+  | "metadataProviders"
+  | "tags";
 
 export type FilterLogicOperator = "any" | "all" | "none";
 
@@ -32,6 +34,7 @@ const buildDefaultFilterState = () => ({
   filterRegions: [] as string[],
   filterLanguages: [] as string[],
   filterPlayerCounts: [] as string[],
+  filterTags: [] as string[],
   filterStatuses: Object.keys(romStatusMap),
   filterMatched: null as boolean | null, // null = all, true = matched, false = unmatched
   filterFavorites: null as boolean | null, // null = all, true = favorites, false = not favorites
@@ -50,6 +53,8 @@ const buildDefaultFilterState = () => ({
   selectedRegions: [] as string[],
   selectedLanguages: [] as string[],
   selectedPlayerCounts: [] as string[],
+  selectedMetadataProviders: [] as string[],
+  selectedTags: [] as string[],
   selectedStatuses: [] as string[],
   // Logic operators for multi-select filters
   genresLogic: "any" as FilterLogicOperator,
@@ -61,6 +66,8 @@ const buildDefaultFilterState = () => ({
   languagesLogic: "any" as FilterLogicOperator,
   statusesLogic: "any" as FilterLogicOperator,
   playerCountsLogic: "any" as FilterLogicOperator,
+  metadataProvidersLogic: "any" as FilterLogicOperator,
+  tagsLogic: "any" as FilterLogicOperator,
 });
 
 export default defineStore("galleryFilter", {
@@ -96,6 +103,9 @@ export default defineStore("galleryFilter", {
     },
     setFilterPlayerCounts(playerCounts: string[]) {
       this.filterPlayerCounts = playerCounts;
+    },
+    setFilterTags(tags: string[]) {
+      this.filterTags = tags;
     },
     setSelectedFilterPlatform(platform: Platform) {
       this.selectedPlatform = platform
@@ -154,6 +164,18 @@ export default defineStore("galleryFilter", {
     },
     setPlayerCountsLogic(logic: FilterLogicOperator) {
       this.playerCountsLogic = logic;
+    },
+    setSelectedFilterMetadataProviders(metadataProviders: string[]) {
+      this.selectedMetadataProviders = metadataProviders;
+    },
+    setMetadataProvidersLogic(logic: FilterLogicOperator) {
+      this.metadataProvidersLogic = logic;
+    },
+    setSelectedFilterTags(tags: string[]) {
+      this.selectedTags = tags;
+    },
+    setTagsLogic(logic: FilterLogicOperator) {
+      this.tagsLogic = logic;
     },
     setSelectedFilterStatuses(statuses: string[]) {
       this.selectedStatuses = statuses;
@@ -355,6 +377,8 @@ export default defineStore("galleryFilter", {
         this.selectedRegions.length > 0 ||
         this.selectedLanguages.length > 0 ||
         this.selectedPlayerCounts.length > 0 ||
+        this.selectedMetadataProviders.length > 0 ||
+        this.selectedTags.length > 0 ||
         this.selectedStatuses.length > 0,
       );
     },
@@ -372,6 +396,8 @@ export default defineStore("galleryFilter", {
       this.selectedRegions = [];
       this.selectedLanguages = [];
       this.selectedPlayerCounts = [];
+      this.selectedMetadataProviders = [];
+      this.selectedTags = [];
       this.selectedStatuses = [];
       this.filterMatched = null;
       this.filterFavorites = null;
@@ -390,6 +416,8 @@ export default defineStore("galleryFilter", {
       this.languagesLogic = "any";
       this.statusesLogic = "any";
       this.playerCountsLogic = "any";
+      this.metadataProvidersLogic = "any";
+      this.tagsLogic = "any";
     },
   },
 });

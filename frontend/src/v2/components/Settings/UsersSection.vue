@@ -24,13 +24,16 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import type { PermissionGroupSchema } from "@/__generated__";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
+import storePermissionGroups from "@/stores/permissionGroups";
 import storeUsers, { type User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
-import { formatTimestamp, getRoleIcon } from "@/utils";
+import { formatTimestamp } from "@/utils";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { groupColor } from "@/v2/utils/groupColor";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
@@ -42,12 +45,48 @@ const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const confirm = useConfirm();
+const groupsStore = storePermissionGroups();
 
 const search = ref("");
 
-type SortKey = "username" | "email" | "role" | "last_active";
+type SortKey = "username" | "email" | "last_active" | "access";
 const sortKey = ref<SortKey>("username");
 const sortDir = ref<"asc" | "desc">("asc");
+
+// Admins bypass groups; everyone else shows their group name. A user with no
+// explicit group follows the server default group, so resolve to that.
+function resolveGroup(user: User): PermissionGroupSchema | undefined {
+  return (
+    groupsStore.groups.find((x) => x.id === user.permission_group_id) ??
+    groupsStore.defaultGroup
+  );
+}
+
+function groupLabel(user: User): string {
+  const g = resolveGroup(user);
+  return g ? g.name : t("settings.group-default-option");
+}
+
+function groupPillColor(user: User): string {
+  return groupColor(resolveGroup(user)?.color);
+}
+
+// The pill mirrors the admin RTag chrome (same shape/size) but tinted with
+// the group's colour — override RTag's tone vars with the group hue.
+function groupPillStyle(user: User) {
+  const c = groupPillColor(user);
+  return {
+    "--r-tag-fg": `color-mix(in srgb, ${c} 90%, transparent)`,
+    "--r-tag-border": `color-mix(in srgb, ${c} 40%, transparent)`,
+    "--r-tag-bg": `color-mix(in srgb, ${c} 14%, transparent)`,
+  };
+}
+
+// Sort key for the Access column: admins grouped under their label, others
+// by their (resolved) group name.
+function accessText(user: User): string {
+  return user.role === "admin" ? t("settings.administrator") : groupLabel(user);
+}
 
 // Same nullable-string compare we use in ClientApiTokens — keeps users
 // with no email / no last-active timestamp at the end on `asc`.
@@ -71,8 +110,10 @@ const sortedUsers = computed(() => {
         ? a.username.localeCompare(b.username)
         : b.username.localeCompare(a.username);
     }
-    if (sortKey.value === "role") {
-      return asc ? a.role.localeCompare(b.role) : b.role.localeCompare(a.role);
+    if (sortKey.value === "access") {
+      return asc
+        ? accessText(a).localeCompare(accessText(b))
+        : accessText(b).localeCompare(accessText(a));
     }
     return compareNullable(a[sortKey.value], b[sortKey.value], asc);
   });
@@ -105,11 +146,11 @@ const columns = computed<RTableColumn[]>(() => [
     skeletonWidth: 180,
   },
   {
-    key: "role",
-    label: t("settings.role"),
+    key: "access",
+    label: t("settings.access"),
     sortable: true,
-    width: "minmax(0, 0.8fr)",
-    skeletonWidth: 80,
+    width: "minmax(0, 1fr)",
+    skeletonWidth: 110,
   },
   {
     key: "last_active",
@@ -138,24 +179,13 @@ function onSort({ key, dir }: RTableSortPayload) {
   if (
     key !== "username" &&
     key !== "email" &&
-    key !== "role" &&
-    key !== "last_active"
+    key !== "last_active" &&
+    key !== "access"
   ) {
     return;
   }
   sortKey.value = key;
   sortDir.value = dir;
-}
-
-type RoleTone = "brand" | "warning" | "info";
-const ROLE_TONE: Record<string, RoleTone> = {
-  admin: "brand",
-  editor: "warning",
-  viewer: "info",
-};
-function roleToneFor(role: string | undefined): RoleTone {
-  if (role && role in ROLE_TONE) return ROLE_TONE[role];
-  return "info";
 }
 
 function avatarSrc(user: User) {
@@ -219,8 +249,11 @@ const loading = ref(true);
 
 onMounted(async () => {
   try {
-    const { data } = await userApi.fetchUsers();
-    usersStore.set(data);
+    const [usersResp] = await Promise.all([
+      userApi.fetchUsers(),
+      groupsStore.ensureLoaded(),
+    ]);
+    usersStore.set(usersResp.data);
   } catch (err) {
     console.error(err);
   } finally {
@@ -269,13 +302,19 @@ onMounted(async () => {
       <template #cell.email="{ row }">
         <span class="r-v2-users__meta">{{ (row as User).email || "—" }}</span>
       </template>
-      <template #cell.role="{ row }">
+      <template #cell.access="{ row }">
         <RTag
-          :tone="roleToneFor((row as User).role)"
-          :prepend-icon="getRoleIcon((row as User).role)"
-          :text="(row as User).role"
-          size="x-small"
-          class="r-v2-users__role-tag"
+          v-if="(row as User).role === 'admin'"
+          tone="brand"
+          prepend-icon="mdi-shield-crown-outline"
+          :text="t('settings.administrator')"
+          class="r-v2-users__access-pill"
+        />
+        <RTag
+          v-else
+          :style="groupPillStyle(row as User)"
+          :text="groupLabel(row as User)"
+          class="r-v2-users__access-pill"
         />
       </template>
       <template #cell.last_active="{ row }">
@@ -375,15 +414,23 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
-.r-v2-users__role-tag {
-  text-transform: capitalize;
-}
-
 .r-v2-users__meta {
   color: var(--r-color-fg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* A touch more breathing room before the avatar (and matching header). */
+.r-v2-users :deep(.r-table__header-cell:first-child),
+.r-v2-users :deep(.r-table__cell:first-child) {
+  padding-inline-start: 6px;
+}
+
+/* Keep the admin pill the same height as the icon-less group pills — the
+   prepend icon's vertical margin would otherwise make it a touch taller. */
+.r-v2-users :deep(.r-v2-users__access-pill .r-tag__icon) {
+  margin-block: 0;
 }
 
 .r-v2-users__actions {

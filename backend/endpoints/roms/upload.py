@@ -8,7 +8,7 @@ from anyio import open_file
 from fastapi import Header, HTTPException, Request, status
 from starlette.responses import Response
 
-from config import ROMM_BASE_PATH, ROMM_TMP_PATH
+from config import RESOURCES_BASE_PATH, ROMM_TMP_PATH
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler
@@ -22,9 +22,8 @@ router = APIRouter(
     tags=["upload"],
 )
 
-# Store upload chunks under ROMM_BASE_PATH (disk-backed) by default.
-# Users can override the tmp location with the ROMM_TMP_PATH env variable.
-_tmp_root = Path(ROMM_TMP_PATH) if ROMM_TMP_PATH else Path(ROMM_BASE_PATH)
+# Store upload chunks under RESOURCES_BASE_PATH (disk-backed) by default.
+_tmp_root = Path(ROMM_TMP_PATH) if ROMM_TMP_PATH else Path(RESOURCES_BASE_PATH)
 ROM_UPLOAD_TMP_BASE = _tmp_root / "tmp" / "uploads"
 ROM_UPLOAD_TTL = 86400  # 24 hours
 ROM_ASSEMBLY_CHUNK_SIZE = 8192  # 8KB read buffer during assembly

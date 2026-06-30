@@ -14,6 +14,7 @@ from starlette.responses import FileResponse
 from config import ROM_PATCHER_MAX_FILE_SIZE_BYTES
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
+from handler.auth.dependencies import get_permissions
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from logger.formatter import BLUE
@@ -64,8 +65,17 @@ async def patch_rom(
         request.user.username if request.user.is_authenticated else "unknown"
     )
 
+    perms = get_permissions(request)
+
     rom_file = db_rom_handler.get_rom_file_by_id(id)
     if not rom_file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ROM file with id {id} not found",
+        )
+    # 404-mask file bytes of roms hidden from the caller.
+    base_rom = db_rom_handler.get_rom(rom_file.rom_id)
+    if not base_rom or not perms.can_see_rom(base_rom.id, base_rom.platform_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"ROM file with id {id} not found",
@@ -78,6 +88,15 @@ async def patch_rom(
 
     patch_file = db_rom_handler.get_rom_file_by_id(patch_request.patch_file_id)
     if not patch_file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Patch file with id {patch_request.patch_file_id} not found",
+        )
+    # The patch file's bytes are read too; mask it if its rom is hidden.
+    patch_rom_parent = db_rom_handler.get_rom(patch_file.rom_id)
+    if not patch_rom_parent or not perms.can_see_rom(
+        patch_rom_parent.id, patch_rom_parent.platform_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Patch file with id {patch_request.patch_file_id} not found",

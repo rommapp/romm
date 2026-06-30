@@ -39,6 +39,7 @@ import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { PROVIDERS, providerId } from "@/v2/components/GameDetails/providers";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
+import { resolveRomArtwork } from "@/v2/utils/romArtwork";
 
 defineOptions({ inheritAttrs: false });
 
@@ -50,6 +51,7 @@ const props = defineProps<{
   userCollections: UserCollectionSchema[];
   hltb: RomHLTBMetadata | null | undefined;
   lastPlayed: string | null;
+  revision: string | null;
   screenshots: string[];
   expansions: IGDBRelatedGame[];
   dlcs: IGDBRelatedGame[];
@@ -83,6 +85,12 @@ const hasHltb = computed(() => {
 const { t } = useI18n();
 const collectionsStore = storeCollections();
 const { toWebp } = useWebpSupport();
+
+// Scraped videos surface on the overview (the rest of the art lives in the
+// Media tab's Artwork subtab). Same resolver, filtered to videos.
+const videos = computed(() =>
+  resolveRomArtwork(props.rom).filter((a) => a.isVideo),
+);
 
 type CollectionTileEntry = {
   id: number;
@@ -162,14 +170,21 @@ const coverSource = computed(() => {
     <!-- 1. Summary -->
     <p v-if="summary" class="overview-tab__summary">{{ summary }}</p>
 
-    <!-- 2. Per-ROM fact rows (left-labelled). Last played + the
-         per-game characteristics — Players, Age rating, RomM
+    <!-- 2. Per-ROM fact rows (left-labelled). Revision, Last played +
+         the per-game characteristics — Players, Age rating, RomM
          collections — get a row each so each fact can render its own
          semantic widget instead of being flattened to a chip list. -->
     <div
-      v-if="lastPlayed || hasQuickFacts || userCollectionTiles.length"
+      v-if="
+        revision || lastPlayed || hasQuickFacts || userCollectionTiles.length
+      "
       class="overview-tab__facts"
     >
+      <div v-if="revision" class="overview-tab__row">
+        <div class="overview-tab__label">{{ t("rom.revision") }}</div>
+        <div class="overview-tab__field">{{ revision }}</div>
+      </div>
+
       <div v-if="lastPlayed" class="overview-tab__row">
         <div class="overview-tab__label">{{ t("rom.last-played") }}</div>
         <div class="overview-tab__field">{{ lastPlayed }}</div>
@@ -220,6 +235,27 @@ const coverSource = computed(() => {
         {{ t("rom.screenshots") }}
       </h4>
       <ScreenshotsTab :screenshots="screenshots.map((url) => ({ url }))" />
+    </div>
+
+    <!-- 4b. Videos — scraped preview clips. The rest of the art assets
+         live in the Media tab's Artwork subtab. -->
+    <div v-if="videos.length" class="overview-tab__section">
+      <h4 class="overview-tab__section-heading">
+        <RIcon icon="mdi-play-circle-outline" size="14" />
+        {{ t("rom.media-video") }}
+      </h4>
+      <div class="overview-tab__videos">
+        <!-- Scraped preview clips ship no caption track. -->
+        <!-- eslint-disable-next-line vuejs-accessibility/media-has-caption -->
+        <video
+          v-for="video in videos"
+          :key="video.key"
+          class="overview-tab__video"
+          :src="video.url"
+          controls
+          preload="metadata"
+        />
+      </div>
     </div>
 
     <!-- 5. HLTB -->
@@ -426,6 +462,22 @@ const coverSource = computed(() => {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--r-color-fg-faint);
+}
+
+/* Scraped preview videos — a responsive grid mirroring the screenshot
+   thumbnails; clips are contained so wide/tall sources aren't cropped. */
+.overview-tab__videos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.overview-tab__video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  border-radius: var(--r-radius-md);
+  background: var(--r-color-cover-placeholder);
+  border: 1px solid var(--r-color-border);
 }
 
 /* Attribution — a quiet, italic credits footer for the metadata and

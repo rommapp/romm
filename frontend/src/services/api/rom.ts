@@ -165,6 +165,8 @@ export interface GetRomsParams {
   selectedRegions?: string[] | null;
   selectedLanguages?: string[] | null;
   selectedPlayerCounts?: string[] | null;
+  selectedMetadataProviders?: string[] | null;
+  selectedTags?: string[] | null;
   selectedStatuses?: string[] | null;
   // Logic operators for multi-value filters
   genresLogic?: string | null;
@@ -176,6 +178,8 @@ export interface GetRomsParams {
   languagesLogic?: string | null;
   statusesLogic?: string | null;
   playerCountsLogic?: string | null;
+  metadataProvidersLogic?: string | null;
+  tagsLogic?: string | null;
   // Cancellation: pass an AbortSignal to let the caller abort an
   // in-flight request (e.g. search-typing → previous query aborted,
   // gallery-context switch → previous platform's windows aborted).
@@ -208,6 +212,8 @@ async function getRoms({
   selectedRegions = null,
   selectedLanguages = null,
   selectedPlayerCounts = null,
+  selectedMetadataProviders = null,
+  selectedTags = null,
   selectedStatuses = null,
   // Logic operators
   genresLogic = null,
@@ -219,6 +225,8 @@ async function getRoms({
   languagesLogic = null,
   statusesLogic = null,
   playerCountsLogic = null,
+  metadataProvidersLogic = null,
+  tagsLogic = null,
   signal = undefined,
 }: GetRomsParams) {
   const params = {
@@ -267,6 +275,11 @@ async function getRoms({
       selectedPlayerCounts && selectedPlayerCounts.length > 0
         ? selectedPlayerCounts
         : undefined,
+    metadata_providers:
+      selectedMetadataProviders && selectedMetadataProviders.length > 0
+        ? selectedMetadataProviders
+        : undefined,
+    tags: selectedTags && selectedTags.length > 0 ? selectedTags : undefined,
     // Logic operators
     genres_logic:
       selectedGenres && selectedGenres.length > 0
@@ -304,6 +317,12 @@ async function getRoms({
       selectedPlayerCounts && selectedPlayerCounts.length > 0
         ? playerCountsLogic || "any"
         : undefined,
+    metadata_providers_logic:
+      selectedMetadataProviders && selectedMetadataProviders.length > 0
+        ? metadataProvidersLogic || "any"
+        : undefined,
+    tags_logic:
+      selectedTags && selectedTags.length > 0 ? tagsLogic || "any" : undefined,
     ...(filterMatched !== null ? { matched: filterMatched } : {}),
     ...(filterFavorites !== null ? { favorite: filterFavorites } : {}),
     ...(filterDuplicates !== null ? { duplicate: filterDuplicates } : {}),

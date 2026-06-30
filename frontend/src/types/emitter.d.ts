@@ -1,4 +1,8 @@
-import type { SaveSchema, StateSchema } from "@/__generated__";
+import type {
+  PermissionGroupSchema,
+  SaveSchema,
+  StateSchema,
+} from "@/__generated__";
 import type { ClientTokenSchema } from "@/services/api/client-token";
 import type { Collection, SmartCollection } from "@/stores/collections";
 import type { Platform } from "@/stores/platforms";
@@ -68,6 +72,8 @@ export type Events = {
   showCreateInviteLinkDialog: void;
   showEditUserDialog: User;
   showDeleteUserDialog: User;
+  // v2 permission administration. `null` opens the group form in create mode.
+  showGroupFormDialog: PermissionGroupSchema | null;
   showDeleteSavesDialog: {
     rom: DetailedRom;
     saves: SaveSchema[];

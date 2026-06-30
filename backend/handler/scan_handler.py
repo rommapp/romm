@@ -959,9 +959,14 @@ async def scan_rom(
     if not newly_added and (
         scan_type == ScanType.UNMATCHED or scan_type == ScanType.UPDATE
     ):
+        # A ROM's name defaults to its raw filename (extension included) when first
+        # created. Treat that placeholder as "no name" so a freshly matched provider
+        # name replaces it, instead of keeping the filename (with its extension) as
+        # the title.
+        existing_name = rom.name if rom.name != rom.fs_name else None
         rom_attrs.update(
             {
-                "name": rom.name or rom_attrs.get("name") or None,
+                "name": existing_name or rom_attrs.get("name") or rom.name or None,
                 "summary": rom.summary or rom_attrs.get("summary") or None,
                 # Don't overwrite existing manually uploaded cover image
                 "url_cover": (

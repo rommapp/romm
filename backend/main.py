@@ -40,6 +40,7 @@ from endpoints.firmware import router as firmware_router
 from endpoints.heartbeat import router as heartbeat_router
 from endpoints.logs import router as logs_router
 from endpoints.netplay import router as netplay_router
+from endpoints.permissions import router as permissions_router
 from endpoints.platform import router as platform_router
 from endpoints.play_sessions import router as play_sessions_router
 from endpoints.raw import router as raw_router
@@ -173,6 +174,7 @@ app.include_router(firmware_router, prefix="/api")
 app.include_router(collections_router, prefix="/api")
 app.include_router(export_router, prefix="/api")
 app.include_router(netplay_router, prefix="/api")
+app.include_router(permissions_router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
 app.mount("/netplay", netplay_socket_handler.socket_app)

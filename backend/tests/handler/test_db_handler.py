@@ -765,14 +765,14 @@ def test_users(admin_user):
     new_user = db_user_handler.get_user_by_username("new_user")
     assert new_user is not None
     assert new_user.username == "new_user"
-    assert new_user.role == Role.VIEWER
+    assert new_user.role == Role.USER
     assert new_user.enabled
 
-    db_user_handler.update_user(new_user.id, {"role": Role.EDITOR})
+    db_user_handler.update_user(new_user.id, {"role": Role.ADMIN})
 
     new_user = db_user_handler.get_user(new_user.id)
     assert new_user is not None
-    assert new_user.role == Role.EDITOR
+    assert new_user.role == Role.ADMIN
 
     db_user_handler.delete_user(new_user.id)
 
@@ -894,3 +894,120 @@ def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: Use
     rom = db_rom_handler.get_rom(id=screenshot.rom_id)
     assert rom is not None
     assert len(rom.screenshots) == 1
+
+
+def _add_rom_with_providers(platform: Platform, slug: str, **provider_ids) -> Rom:
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=slug,
+            slug=slug,
+            fs_name=f"{slug}.zip",
+            fs_name_no_tags=slug,
+            fs_name_no_ext=slug,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            **provider_ids,
+        )
+    )
+
+
+def test_filter_by_metadata_providers(rom: Rom, platform: Platform):
+    # `rom` fixture has no provider ids (unmatched).
+    rom_igdb = _add_rom_with_providers(platform, "rom_igdb", igdb_id=1)
+    rom_moby = _add_rom_with_providers(platform, "rom_moby", moby_id=2)
+    rom_both = _add_rom_with_providers(platform, "rom_both", igdb_id=3, moby_id=4)
+
+    # "any" (OR): matched to at least one of the selected providers.
+    any_igdb = db_rom_handler.get_roms_scalar(metadata_providers=["igdb"])
+    assert {r.id for r in any_igdb} == {rom_igdb.id, rom_both.id}
+
+    any_either = db_rom_handler.get_roms_scalar(
+        metadata_providers=["igdb", "moby"], metadata_providers_logic="any"
+    )
+    assert {r.id for r in any_either} == {rom_igdb.id, rom_moby.id, rom_both.id}
+
+    # "all" (AND): matched to every selected provider.
+    all_both = db_rom_handler.get_roms_scalar(
+        metadata_providers=["igdb", "moby"], metadata_providers_logic="all"
+    )
+    assert {r.id for r in all_both} == {rom_both.id}
+
+    # "none" (NOT): matched to none of the selected providers.
+    none_igdb = db_rom_handler.get_roms_scalar(
+        metadata_providers=["igdb"], metadata_providers_logic="none"
+    )
+    assert {r.id for r in none_igdb} == {rom.id, rom_moby.id}
+
+
+def test_filter_by_metadata_providers_unknown_value_is_ignored(
+    rom: Rom, platform: Platform
+):
+    """Unknown provider slugs are dropped so the filter is a no-op rather than
+    raising, keeping a stale bookmark or hand-edited URL from 500-ing."""
+    rom_igdb = _add_rom_with_providers(platform, "rom_igdb", igdb_id=1)
+
+    only_unknown = db_rom_handler.get_roms_scalar(metadata_providers=["bogus"])
+    assert {r.id for r in only_unknown} == {rom.id, rom_igdb.id}
+
+    known_and_unknown = db_rom_handler.get_roms_scalar(
+        metadata_providers=["igdb", "bogus"]
+    )
+    assert {r.id for r in known_and_unknown} == {rom_igdb.id}
+
+
+def _add_rom_with_tags(platform: Platform, slug: str, tags: list[str]) -> Rom:
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=slug,
+            slug=slug,
+            fs_name=f"{slug}.zip",
+            fs_name_no_tags=slug,
+            fs_name_no_ext=slug,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            tags=tags,
+        )
+    )
+
+
+def test_filter_by_tags(rom: Rom, platform: Platform):
+    # `rom` fixture has no tags (untagged).
+    rom_proto = _add_rom_with_tags(platform, "rom_proto", ["Proto"])
+    rom_beta = _add_rom_with_tags(platform, "rom_beta", ["Beta"])
+    rom_both = _add_rom_with_tags(platform, "rom_both", ["Proto", "Beta"])
+
+    # "any" (OR): carries at least one of the selected tags.
+    any_proto = db_rom_handler.get_roms_scalar(tags=["Proto"])
+    assert {r.id for r in any_proto} == {rom_proto.id, rom_both.id}
+
+    any_either = db_rom_handler.get_roms_scalar(
+        tags=["Proto", "Beta"], tags_logic="any"
+    )
+    assert {r.id for r in any_either} == {rom_proto.id, rom_beta.id, rom_both.id}
+
+    # "all" (AND): carries every selected tag.
+    all_both = db_rom_handler.get_roms_scalar(tags=["Proto", "Beta"], tags_logic="all")
+    assert {r.id for r in all_both} == {rom_both.id}
+
+    # "none" (NOT): carries none of the selected tags.
+    none_proto = db_rom_handler.get_roms_scalar(tags=["Proto"], tags_logic="none")
+    assert {r.id for r in none_proto} == {rom.id, rom_beta.id}
+
+
+def test_filter_by_tags_unknown_value_returns_no_matches(rom: Rom, platform: Platform):
+    """A tag that no ROM carries simply matches nothing under "any" logic
+    (free-form text match), rather than erroring."""
+    _add_rom_with_tags(platform, "rom_proto", ["Proto"])
+
+    only_unknown = db_rom_handler.get_roms_scalar(tags=["Nonexistent"])
+    assert list(only_unknown) == []
+
+
+def test_get_rom_filters_includes_tags(rom: Rom, platform: Platform):
+    _add_rom_with_tags(platform, "rom_proto", ["Proto"])
+    _add_rom_with_tags(platform, "rom_beta", ["Beta", "Demo"])
+
+    filters = db_rom_handler.get_rom_filters()
+    assert filters["tags"] == ["Beta", "Demo", "Proto"]

@@ -44,6 +44,7 @@ from models.assets import Save, Screenshot, State
 from models.base import compute_file_name_parts
 from models.platform import Platform
 from models.rom import (
+    METADATA_SOURCE_COLUMNS,
     Rom,
     RomFile,
     RomFileCategory,
@@ -222,6 +223,7 @@ def with_details(func):
                 load_only(
                     Rom.id,
                     Rom.name,
+                    Rom.platform_id,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
                 ),
@@ -307,18 +309,21 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int,
         *,
         session: Session,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
     ) -> dict[int, list[tuple[Rom, bool]]]:
         """Return {rom_id: [(sibling Rom, is_main_sibling), ...]} in a single query.
 
         Joins sibling_roms → roms (only the columns SiblingRomSchema needs) and
         left-joins rom_user for the requesting user, so the per-user
         `is_main_sibling` flag is resolved without hydrating the wide roms table
-        or its JSON metadata on every page.
+        or its JSON metadata on every page. Siblings hidden from the caller
+        (their platform or the sibling itself) are excluded.
         """
         if not rom_ids:
             return {}
 
-        rows = session.execute(
+        query = (
             select(
                 SiblingRom.rom_id,
                 Rom,
@@ -342,7 +347,13 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.fs_name_no_ext,
                 )
             )
-        ).all()
+        )
+        if hidden_platform_ids:
+            query = query.where(Rom.platform_id.not_in(hidden_platform_ids))
+        if hidden_rom_ids:
+            query = query.where(Rom.id.not_in(hidden_rom_ids))
+
+        rows = session.execute(query).all()
 
         # Dedupe by (parent rom, sibling id) so a duplicate join row doesn't
         # surface the same sibling twice on the wire.
@@ -691,6 +702,19 @@ class DBRomsHandler(DBBaseHandler):
         condition = op(Rom.languages, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
 
+    def _filter_by_tags(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+        match_none: bool = False,
+    ) -> Query:
+        op = json_array_contains_all if match_all else json_array_contains_any
+        condition = op(Rom.tags, values, session=session)
+        return query.filter(~condition) if match_none else query.filter(condition)
+
     def _filter_by_player_counts(
         self,
         query: Query,
@@ -704,6 +728,39 @@ class DBRomsHandler(DBBaseHandler):
         if match_none:
             return query.filter(not_(condition))
         return query.filter(condition)
+
+    def _filter_by_metadata_providers(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+        match_none: bool = False,
+    ) -> Query:
+        """Filter on which metadata providers a ROM matched, keyed off each
+        provider's id column on Rom.
+
+        - "any":  matched at least one of the selected providers.
+        - "all":  matched every selected provider.
+        - "none": matched none of the selected providers.
+        """
+        columns = [
+            METADATA_SOURCE_COLUMNS[value]
+            for value in values
+            if value in METADATA_SOURCE_COLUMNS
+        ]
+        # Unknown slugs (stale bookmark / hand-edited URL) leave nothing to
+        # filter on; treat that as a no-op rather than an empty result set.
+        if not columns:
+            return query
+
+        predicates = [column.isnot(None) for column in columns]
+        if match_none:
+            return query.filter(not_(or_(*predicates)))
+        if match_all:
+            return query.filter(and_(*predicates))
+        return query.filter(or_(*predicates))
 
     @begin_session
     def filter_roms(
@@ -732,6 +789,8 @@ class DBRomsHandler(DBBaseHandler):
         regions: Sequence[str] | None = None,
         languages: Sequence[str] | None = None,
         player_counts: Sequence[str] | None = None,
+        metadata_providers: Sequence[str] | None = None,
+        tags: Sequence[str] | None = None,
         # Logic operators for multi-value filters
         genres_logic: str = "any",
         franchises_logic: str = "any",
@@ -742,10 +801,14 @@ class DBRomsHandler(DBBaseHandler):
         languages_logic: str = "any",
         statuses_logic: str = "any",
         player_counts_logic: str = "any",
+        metadata_providers_logic: str = "any",
+        tags_logic: str = "any",
         user_id: int | None = None,
         updated_after: datetime | None = None,
         include_file_stats: bool = False,
         include_files: bool = False,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
@@ -968,6 +1031,12 @@ class DBRomsHandler(DBBaseHandler):
             (regions, regions_logic, self._filter_by_regions),
             (languages, languages_logic, self._filter_by_languages),
             (player_counts, player_counts_logic, self._filter_by_player_counts),
+            (
+                metadata_providers,
+                metadata_providers_logic,
+                self._filter_by_metadata_providers,
+            ),
+            (tags, tags_logic, self._filter_by_tags),
         ]
 
         for values, logic, filter_func in filters_to_apply:
@@ -993,6 +1062,14 @@ class DBRomsHandler(DBBaseHandler):
             query = query.filter(
                 or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
             )
+
+        # Admin-driven visibility (opt-out): hide platforms/roms an admin has
+        # hidden from this user/group. Orthogonal to the personal RomUser.hidden
+        # toggle above. Empty sets (e.g. admins) skip filtering entirely.
+        if hidden_platform_ids:
+            query = query.filter(Rom.platform_id.not_in(hidden_platform_ids))
+        if hidden_rom_ids:
+            query = query.filter(Rom.id.not_in(hidden_rom_ids))
 
         return query
 
@@ -1098,6 +1175,8 @@ class DBRomsHandler(DBBaseHandler):
             regions=kwargs.get("regions", None),
             languages=kwargs.get("languages", None),
             player_counts=kwargs.get("player_counts", None),
+            metadata_providers=kwargs.get("metadata_providers", None),
+            tags=kwargs.get("tags", None),
             # Logic operators for multi-value filters
             genres_logic=kwargs.get("genres_logic", "any"),
             franchises_logic=kwargs.get("franchises_logic", "any"),
@@ -1108,11 +1187,36 @@ class DBRomsHandler(DBBaseHandler):
             languages_logic=kwargs.get("languages_logic", "any"),
             statuses_logic=kwargs.get("statuses_logic", "any"),
             player_counts_logic=kwargs.get("player_counts_logic", "any"),
+            metadata_providers_logic=kwargs.get("metadata_providers_logic", "any"),
+            tags_logic=kwargs.get("tags_logic", "any"),
             user_id=kwargs.get("user_id", None),
             group_by_meta_id=kwargs.get("group_by_meta_id", False),
             include_files=kwargs.get("include_files", False),
+            hidden_platform_ids=kwargs.get("hidden_platform_ids", None),
+            hidden_rom_ids=kwargs.get("hidden_rom_ids", None),
         )
         return session.scalars(roms).all()
+
+    @begin_session
+    def get_hidden_rom_ids_among(
+        self,
+        rom_ids: Sequence[int],
+        hidden_platform_ids: Sequence[int] | None,
+        hidden_rom_ids: Sequence[int] | None,
+        session: Session = None,  # type: ignore
+    ) -> set[int]:
+        """Of `rom_ids`, the subset hidden from the caller (own hide or platform)."""
+        candidates = set(rom_ids)
+        hide: set[int] = candidates & set(hidden_rom_ids or [])
+        if hidden_platform_ids and candidates:
+            rows = session.scalars(
+                select(Rom.id).where(
+                    Rom.id.in_(candidates),
+                    Rom.platform_id.in_(hidden_platform_ids),
+                )
+            ).all()
+            hide.update(rows)
+        return hide
 
     @begin_session
     def with_char_index(
@@ -1751,10 +1855,11 @@ class DBRomsHandler(DBBaseHandler):
         player_counts = set()
         regions = set()
         languages = set()
+        tags = set()
         platforms = set()
 
         for row in session.execute(statement):
-            g, f, cl, co, gm, ar, pc, rg, lg, pid = row
+            g, f, cl, co, gm, ar, pc, rg, lg, tg, pid = row
             if g:
                 genres.update(g)
             if f:
@@ -1773,6 +1878,8 @@ class DBRomsHandler(DBBaseHandler):
                 regions.update(rg)
             if lg:
                 languages.update(lg)
+            if tg:
+                tags.update(tg)
             platforms.add(pid)
 
         return {
@@ -1785,6 +1892,7 @@ class DBRomsHandler(DBBaseHandler):
             "player_counts": sorted(player_counts),
             "regions": sorted(regions),
             "languages": sorted(languages),
+            "tags": sorted(tags),
             "platforms": sorted(platforms),
         }
 
@@ -1833,6 +1941,7 @@ class DBRomsHandler(DBBaseHandler):
                 RomMetadata.player_count,
                 Rom.regions,
                 Rom.languages,
+                Rom.tags,
                 Rom.platform_id,
             )
             .select_from(Rom)
@@ -1863,6 +1972,7 @@ class DBRomsHandler(DBBaseHandler):
             RomMetadata.player_count,
             Rom.regions,
             Rom.languages,
+            Rom.tags,
             Rom.platform_id,
         )
 

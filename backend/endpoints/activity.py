@@ -7,6 +7,7 @@ from decorators.auth import protected_route
 from endpoints.responses.activity import ActivityClearSchema, ActivityEntrySchema
 from handler.activity_handler import ActivityEntry, activity_handler
 from handler.auth.constants import Scope
+from handler.auth.dependencies import get_permissions
 from handler.database import db_device_handler, db_rom_handler, db_save_handler
 from handler.socket_handler import socket_handler
 from logger.logger import log
@@ -19,6 +20,22 @@ router = APIRouter(
 )
 
 
+def _visible_activity(
+    request: Request, entries: list[ActivityEntry]
+) -> list[ActivityEntrySchema]:
+    """Drop sessions whose ROM is hidden from the caller (platform or rom hide)."""
+    perms = get_permissions(request)
+    if not perms.is_admin and (perms.hidden_platform_ids or perms.hidden_rom_ids):
+        rom_ids = [e["rom_id"] for e in entries]
+        hidden = db_rom_handler.get_hidden_rom_ids_among(
+            rom_ids,
+            list(perms.hidden_platform_ids),
+            list(perms.hidden_rom_ids),
+        )
+        entries = [e for e in entries if e["rom_id"] not in hidden]
+    return [ActivityEntrySchema(**e) for e in entries]
+
+
 class DeviceHeartbeatPayload(BaseModel):
     rom_id: int = Field(ge=1)
     device_id: str = Field(min_length=1, max_length=255)
@@ -28,14 +45,14 @@ class DeviceHeartbeatPayload(BaseModel):
 async def get_all_activity(request: Request) -> list[ActivityEntrySchema]:
     """Return every currently active play session across all users."""
     entries = await activity_handler.get_all_active()
-    return [ActivityEntrySchema(**e) for e in entries]
+    return _visible_activity(request, entries)
 
 
 @protected_route(router.get, "/rom/{rom_id}", [Scope.ROMS_USER_READ])
 async def get_rom_activity(request: Request, rom_id: int) -> list[ActivityEntrySchema]:
     """Return all active play sessions for a specific ROM."""
     entries = await activity_handler.get_active_for_rom(rom_id)
-    return [ActivityEntrySchema(**e) for e in entries]
+    return _visible_activity(request, entries)
 
 
 @protected_route(router.post, "/heartbeat", [Scope.ROMS_USER_WRITE])

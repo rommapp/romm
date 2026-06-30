@@ -27,6 +27,8 @@
 //   ?languages=…&languagesLogic=…
 //   ?statuses=…&statusesLogic=…
 //   ?playerCounts=…&playerCountsLogic=…
+//   ?metadataProviders=…&metadataProvidersLogic=…
+//   ?tags=…&tagsLogic=…
 //
 // Direction notes:
 //   * URL → store fires on every `route.query` change (browser back /
@@ -110,6 +112,8 @@ export function useGalleryFilterUrl() {
     selectedRegions,
     selectedLanguages,
     selectedPlayerCounts,
+    selectedMetadataProviders,
+    selectedTags,
     selectedStatuses,
     genresLogic,
     franchisesLogic,
@@ -119,6 +123,8 @@ export function useGalleryFilterUrl() {
     regionsLogic,
     languagesLogic,
     playerCountsLogic,
+    metadataProvidersLogic,
+    tagsLogic,
     statusesLogic,
   } = storeToRefs(filter);
 
@@ -157,6 +163,10 @@ export function useGalleryFilterUrl() {
       languagesLogic: qLogic(q.languagesLogic),
       playerCounts: qList(q.playerCounts),
       playerCountsLogic: qLogic(q.playerCountsLogic),
+      metadataProviders: qList(q.metadataProviders),
+      metadataProvidersLogic: qLogic(q.metadataProvidersLogic),
+      tags: qList(q.tags),
+      tagsLogic: qLogic(q.tagsLogic),
       statuses: qList(q.statuses),
       statusesLogic: qLogic(q.statusesLogic),
     };
@@ -237,6 +247,19 @@ export function useGalleryFilterUrl() {
       url.playerCountsLogic !== playerCountsLogic.value
     )
       filter.setPlayerCountsLogic(url.playerCountsLogic);
+
+    if (!eqStrArr(url.metadataProviders, selectedMetadataProviders.value))
+      filter.setSelectedFilterMetadataProviders(url.metadataProviders);
+    if (
+      url.metadataProvidersLogic &&
+      url.metadataProvidersLogic !== metadataProvidersLogic.value
+    )
+      filter.setMetadataProvidersLogic(url.metadataProvidersLogic);
+
+    if (!eqStrArr(url.tags, selectedTags.value))
+      filter.setSelectedFilterTags(url.tags);
+    if (url.tagsLogic && url.tagsLogic !== tagsLogic.value)
+      filter.setTagsLogic(url.tagsLogic);
 
     if (!eqStrArr(url.statuses, selectedStatuses.value))
       filter.setSelectedFilterStatuses(url.statuses);
@@ -339,6 +362,18 @@ export function useGalleryFilterUrl() {
       "playerCountsLogic",
       selectedPlayerCounts.value.length > 0 ? playerCountsLogic.value : null,
     );
+    setList("metadataProviders", selectedMetadataProviders.value);
+    setOrDelete(
+      "metadataProvidersLogic",
+      selectedMetadataProviders.value.length > 0
+        ? metadataProvidersLogic.value
+        : null,
+    );
+    setList("tags", selectedTags.value);
+    setOrDelete(
+      "tagsLogic",
+      selectedTags.value.length > 0 ? tagsLogic.value : null,
+    );
     setList("statuses", selectedStatuses.value);
     setOrDelete(
       "statusesLogic",
@@ -392,6 +427,10 @@ export function useGalleryFilterUrl() {
       languagesLogic,
       selectedPlayerCounts,
       playerCountsLogic,
+      selectedMetadataProviders,
+      metadataProvidersLogic,
+      selectedTags,
+      tagsLogic,
       selectedStatuses,
       statusesLogic,
     ],
