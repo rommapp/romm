@@ -445,6 +445,10 @@ html[data-bp~="xs"] .r-v2-meta__grid {
   border: 1px solid var(--r-color-border);
   background: var(--r-color-surface);
   overflow: hidden;
+  /* Let the card shrink below its content's intrinsic width so a long status
+     label / button row never pushes the grid track (and the page) past the
+     viewport — the card clips its own overflow instead. */
+  min-width: 0;
   transition: border-color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-meta__card--missing {
@@ -483,6 +487,18 @@ html[data-bp~="xs"] .r-v2-meta__grid {
   gap: 6px;
 }
 
+/* The status chip defaults to nowrap (with no overflow clip), so a long
+   label ("Connection in progress", "API key invalid") spills out of the
+   chip and over its neighbours on a narrow card. Let it wrap at word
+   boundaries within the head-text column instead. */
+.r-v2-meta__head-text :deep(.r-tag) {
+  white-space: normal;
+}
+.r-v2-meta__head-text :deep(.r-tag__text) {
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
 .r-v2-meta__name {
   font-size: 14px;
   font-weight: var(--r-font-weight-bold);
@@ -499,6 +515,7 @@ html[data-bp~="xs"] .r-v2-meta__grid {
 
 .r-v2-meta__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 12px 14px;
   border-top: 1px solid var(--r-color-border);
