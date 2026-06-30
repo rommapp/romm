@@ -25,6 +25,7 @@ from handler.database.roms_handler import (
     ROM_FILTERS_CACHE_VERSION_KEY,
     _filter_values_cache_keys_key,
     _filter_values_cache_version,
+    _filter_values_redis_key,
     _store_versioned_cache,
 )
 from handler.redis_handler import sync_cache
@@ -119,7 +120,7 @@ class TestCacheHitMatchesMiss:
 
         # The miss must have populated the cache under the current version.
         version = _filter_values_cache_version()
-        redis_key = f"filter_values:{cache_key}:v{version}"
+        redis_key = _filter_values_redis_key(cache_key, version)
         assert sync_cache.get(redis_key) is not None
         assert miss["genres"] == ["RPG"]
 
@@ -208,6 +209,34 @@ class TestCacheHitMatchesMiss:
         assert hit == miss == [rom.id]
 
 
+class TestFilterValuesSchemaDrift:
+    """Entries written under an older filter schema must be ignored after upgrade.
+
+    Regression: adding a filter field (e.g. `tags`) left pre-upgrade cache
+    entries lacking that key. The data-version key in Redis survives an upgrade,
+    so the endpoint read those partial dicts back and failed response validation
+    with a missing-field error. The schema version baked into the cache key makes
+    stale-shaped entries miss and recompute instead.
+    """
+
+    def test_legacy_unnamespaced_entry_is_not_read(self, rom_with_metadata: Rom):
+        query = cast(Query[Rom], select(Rom))
+        cache_key = "all:schema-drift"
+        version = _filter_values_cache_version()
+
+        # Pre-fix entries used a key without the schema segment and could lack
+        # fields added later; seed one to mimic a just-upgraded instance.
+        legacy_key = f"filter_values:{cache_key}:v{version}"
+        _store_versioned_cache(legacy_key, version, {"genres": ["Stale"]})
+
+        result = db_rom_handler.with_filter_values(query=query, cache_key=cache_key)
+
+        # The legacy entry is bypassed: filters are recomputed from the DB...
+        assert result["genres"] == ["RPG"]
+        # ...and the fresh entry lands under the schema-namespaced key.
+        assert sync_cache.get(_filter_values_redis_key(cache_key, version)) is not None
+
+
 class TestInvalidateFilterValuesCache:
     def test_deletes_prior_version_keys_and_set(self, rom_with_metadata: Rom):
         query = cast(Query[Rom], select(Rom))
@@ -253,4 +282,6 @@ class TestInvalidateFilterValuesCache:
         assert fresh["genres"] == ["Action", "RPG"]
 
         new_version = _filter_values_cache_version()
-        assert sync_cache.get(f"filter_values:{cache_key}:v{new_version}") is not None
+        assert (
+            sync_cache.get(_filter_values_redis_key(cache_key, new_version)) is not None
+        )

@@ -126,6 +126,12 @@ FULLTEXT_MIN_TOKEN_SIZE = 3
 ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
 ROM_FILTERS_CACHE_KEYS_PREFIX = "filter_values:keys"
 ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
+# Identifies the shape of the cached filter dict. Bump it whenever a filter
+# field is added or removed, so reads after an upgrade ignore entries written
+# under the old shape instead of returning a dict that fails response
+# validation with a missing field. Pre-namespace entries (no "s" segment) are
+# bypassed for free by the changed key format.
+ROM_FILTERS_CACHE_SCHEMA_VERSION = 1
 
 
 def _cache_value_to_str(value: Any) -> str | None:
@@ -142,6 +148,10 @@ def _filter_values_cache_version() -> str:
 
 def _filter_values_cache_keys_key(version: str) -> str:
     return f"{ROM_FILTERS_CACHE_KEYS_PREFIX}:v{version}"
+
+
+def _filter_values_redis_key(cache_key: str, version: str) -> str:
+    return f"filter_values:s{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
 
 
 def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
@@ -1810,7 +1820,7 @@ class DBRomsHandler(DBBaseHandler):
         version: str | None = None
         if cache_key:
             version = _filter_values_cache_version()
-            redis_key = f"filter_values:{cache_key}:v{version}"
+            redis_key = _filter_values_redis_key(cache_key, version)
             cached = sync_cache.get(redis_key)
             if cached is not None:
                 return json.loads(cached)
