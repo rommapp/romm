@@ -53,6 +53,7 @@ from models.rom import (
     SiblingRom,
     compute_name_sort_key,
 )
+from utils import get_version
 from utils.database import (
     json_array_contains_all,
     json_array_contains_any,
@@ -124,14 +125,8 @@ FULLTEXT_MIN_TOKEN_SIZE = 3
 # Cached ROM filter values (genres/franchises/etc.) so it doesn't get
 # recomputed on every call to /api/roms
 ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
-ROM_FILTERS_CACHE_KEYS_PREFIX = "filter_values:keys"
 ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
-# Identifies the shape of the cached filter dict. Bump it whenever a filter
-# field is added or removed, so reads after an upgrade ignore entries written
-# under the old shape instead of returning a dict that fails response
-# validation with a missing field. Pre-namespace entries (no "s" segment) are
-# bypassed for free by the changed key format.
-ROM_FILTERS_CACHE_SCHEMA_VERSION = 1
+ROM_FILTERS_CACHE_SCHEMA_VERSION = get_version().replace(".", "_")
 
 
 def _cache_value_to_str(value: Any) -> str | None:
@@ -147,11 +142,11 @@ def _filter_values_cache_version() -> str:
 
 
 def _filter_values_cache_keys_key(version: str) -> str:
-    return f"{ROM_FILTERS_CACHE_KEYS_PREFIX}:v{version}"
+    return f"filter_values:keys:v{version}"
 
 
 def _filter_values_redis_key(cache_key: str, version: str) -> str:
-    return f"filter_values:s{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+    return f"filter_values:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
 
 
 def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
