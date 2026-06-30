@@ -64,6 +64,11 @@ const MOMENTUM_FRAMES = 12; //        how far a flick coasts (× last-frame velo
 const MOMENTUM_MAX = 540; //          cap the coast so a hard flick can't whirl forever
 const DEFAULT_FRONT_RATIO = 0.715; // typical box face w/h until measured
 const DEFAULT_SPINE_RATIO = 0.12; //  depth/height until measured
+// Depth is the spine's w/h, which assumes a tall, thin spine scan. Some side
+// scans arrive landscape (N64's, notably), measuring far above any real box
+// depth and blowing the box up toward the camera. Cap it at a chunky-but-sane
+// depth so a malformed spine can't explode the geometry.
+const MAX_SPINE_RATIO = 0.3;
 
 const rootEl = ref<HTMLElement | null>(null);
 const frontImg = ref<HTMLImageElement | null>(null);
@@ -248,15 +253,19 @@ function tick() {
 // The box mirrors the real artwork: the front (box-2D) natural ratio drives
 // the box width/height, the spine's drives the depth. Defaults only stand in
 // until the bytes are decoded.
-function measureRatio(img: HTMLImageElement | null, target: Ref<number>) {
+function measureRatio(
+  img: HTMLImageElement | null,
+  target: Ref<number>,
+  max = Infinity,
+) {
   if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
-    target.value = img.naturalWidth / img.naturalHeight;
+    target.value = Math.min(img.naturalWidth / img.naturalHeight, max);
   }
 }
 const onFrontLoad = (e: Event) =>
   measureRatio(e.target as HTMLImageElement, frontRatio);
 const onSpineLoad = (e: Event) =>
-  measureRatio(e.target as HTMLImageElement, spineRatio);
+  measureRatio(e.target as HTMLImageElement, spineRatio, MAX_SPINE_RATIO);
 
 let ro: ResizeObserver | null = null;
 onMounted(() => {
@@ -287,7 +296,7 @@ onMounted(() => {
   // A cached cover can already be decoded before the load listener binds —
   // read its dimensions now so the box adopts box-2D's ratio immediately.
   measureRatio(frontImg.value, frontRatio);
-  measureRatio(spineImg.value, spineRatio);
+  measureRatio(spineImg.value, spineRatio, MAX_SPINE_RATIO);
   rafId = requestAnimationFrame(tick);
 });
 onBeforeUnmount(() => {
