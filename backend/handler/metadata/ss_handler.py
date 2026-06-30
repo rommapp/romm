@@ -2,12 +2,16 @@ import html
 import re
 from datetime import datetime
 from typing import Final, NotRequired, TypedDict
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import pydash
 from unidecode import unidecode as uc
 
-from adapters.services.screenscraper import ScreenScraperService
+from adapters.services.screenscraper import (
+    SS_DEV_ID,
+    SS_DEV_PASSWORD,
+    ScreenScraperService,
+)
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from config.config_manager import MetadataMediaType
@@ -31,15 +35,22 @@ from .base_handler import (
     strip_sensitive_query_params,
 )
 
-SENSITIVE_KEYS = {"ssid", "sspassword"}
+# Authentication query params ScreenScraper bakes into the media URLs it
+# returns. They are stripped before anything is stored (issue #3612) and
+# re-attached at download time by add_ss_auth_to_url. devid/devpassword are the
+# public app credentials; ssid/sspassword are the user's private credentials.
+SS_AUTH_PARAMS = {"ssid", "sspassword", "devid", "devpassword"}
 
 
-def _is_screenscraper_host(url: str) -> bool:
+def is_screenscraper_url(url: str | None) -> bool:
     """True only if the URL's hostname is screenscraper.fr or a subdomain.
 
     Substring matching would let an attacker-controlled host like
     screenscraper.fr.evil.example receive the user's credentials.
     """
+    if not url:
+        return False
+
     try:
         host = urlparse(url).hostname
     except ValueError:
@@ -59,7 +70,7 @@ def add_ss_auth_to_url(url: str | None) -> str:
     Only injects credentials for screenscraper.fr URLs; returns other URLs
     unchanged to avoid leaking credentials to third-party sources.
     """
-    if not url or not _is_screenscraper_host(url):
+    if not url or not is_screenscraper_url(url):
         return url or ""
 
     if not SCREENSCRAPER_USER or not SCREENSCRAPER_PASSWORD:
@@ -68,10 +79,41 @@ def add_ss_auth_to_url(url: str | None) -> str:
     return restore_sensitive_query_params(
         url,
         {
+            "devid": SS_DEV_ID,
+            "devpassword": SS_DEV_PASSWORD,
             "ssid": SCREENSCRAPER_USER,
             "sspassword": SCREENSCRAPER_PASSWORD,
         },
     )
+
+
+def pop_ss_media_urls(ss_metadata: dict) -> dict[str, str]:
+    """Remove the SS media download URLs from ss_metadata, returning them.
+
+    The ``*_url`` entries are only needed transiently to download assets; the
+    saved files live at the matching ``*_path``. They are never persisted, as
+    they would embed SS request params in the DB for no functional gain (see
+    issue #3612). Mutates ss_metadata in place and returns the removed URLs so
+    the caller can drive the download.
+    """
+    return {
+        key: ss_metadata.pop(key) for key in list(ss_metadata) if key.endswith("_url")
+    }
+
+
+def _ss_media_descriptor(url: str | None) -> str | None:
+    """Return the SS media variant descriptor (e.g. 'box-2D(wor)') from a media URL.
+
+    This is the value of the URL's ``media`` query param: the media type plus
+    region that ScreenScraper resolved. We persist it as a small change-detection
+    tag instead of the URL, so a re-scan can tell when a config change (e.g. a new
+    region priority) selects a different asset, without storing an SS API query.
+    The asset itself is keyed by the stored ss_id, so the URL is never needed.
+    """
+    if not url:
+        return None
+    values = parse_qs(urlparse(url).query).get("media")
+    return values[0] if values else None
 
 
 def get_preferred_regions(rom: Rom | None = None) -> list[str]:
@@ -207,6 +249,13 @@ class SSMetadata(SSMetadataMedia):
     genres: list[str]
     player_count: str
 
+    # Change-detection tags: the resolved media variant (e.g. "box-2D(wor)") for
+    # the cover, manual and screenshots. Persisted in place of the SS URLs so a
+    # re-scan can detect when a config change selects a different asset.
+    cover_media: NotRequired[str | None]
+    manual_media: NotRequired[str | None]
+    screenshot_media: NotRequired[list[str]]
+
 
 class SSRom(BaseRom):
     ss_id: int | None
@@ -265,7 +314,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
 
             if media.get("type") == "box-2D-back" and not ss_media["box2d_back_url"]:
                 ss_media["box2d_back_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
                 if MetadataMediaType.BOX2D_BACK in preferred_media_types:
                     ss_media["box2d_back_path"] = (
@@ -273,7 +322,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "bezel-16-9" and not ss_media["bezel_url"]:
                 ss_media["bezel_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
                 if MetadataMediaType.BEZEL in preferred_media_types:
                     ss_media["bezel_path"] = (
@@ -281,11 +330,11 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "box-2D" and not ss_media["box2d_url"]:
                 ss_media["box2d_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
             elif media.get("type") == "fanart" and not ss_media["fanart_url"]:
                 ss_media["fanart_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
                 if MetadataMediaType.FANART in preferred_media_types:
                     ss_media["fanart_path"] = (
@@ -293,11 +342,11 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "box-texture" and not ss_media["fullbox_url"]:
                 ss_media["fullbox_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
             elif media.get("type") == "wheel-hd" and not ss_media["logo_url"]:
                 ss_media["logo_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
 
                 if MetadataMediaType.LOGO in preferred_media_types:
@@ -306,7 +355,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "wheel" and not ss_media["logo_url"]:
                 ss_media["logo_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
                 if MetadataMediaType.LOGO in preferred_media_types:
                     ss_media["logo_path"] = (
@@ -314,11 +363,11 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "manuel" and not ss_media["manual_url"]:
                 ss_media["manual_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
             elif media.get("type") == "screenmarquee" and not ss_media["marquee_url"]:
                 ss_media["marquee_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
                 if MetadataMediaType.MARQUEE in preferred_media_types:
                     ss_media["marquee_path"] = (
@@ -330,7 +379,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 or media.get("type") == "mixrbv1"
             ) and not ss_media["miximage_url"]:
                 ss_media["miximage_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
                 if MetadataMediaType.MIXIMAGE in preferred_media_types:
                     ss_media["miximage_path"] = (
@@ -338,7 +387,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "mixrbv2" and not ss_media["miximage_v2_url"]:
                 ss_media["miximage_v2_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
                 if MetadataMediaType.MIXIMAGE_V2 in preferred_media_types:
                     ss_media["miximage_v2_path"] = (
@@ -346,7 +395,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "support-2D" and not ss_media["physical_url"]:
                 ss_media["physical_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
                 if MetadataMediaType.PHYSICAL in preferred_media_types:
                     ss_media["physical_path"] = (
@@ -354,11 +403,11 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "ss" and not ss_media["screenshot_url"]:
                 ss_media["screenshot_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
             elif media.get("type") == "box-2D-side" and not ss_media["box2d_side_url"]:
                 ss_media["box2d_side_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
                 if MetadataMediaType.BOX2D_SIDE in preferred_media_types:
                     ss_media["box2d_side_path"] = (
@@ -366,11 +415,11 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "steamgrid" and not ss_media["steamgrid_url"]:
                 ss_media["steamgrid_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
             elif media.get("type") == "box-3D" and not ss_media["box3d_url"]:
                 ss_media["box3d_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
                 if MetadataMediaType.BOX3D in preferred_media_types:
                     ss_media["box3d_path"] = (
@@ -378,7 +427,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "sstitle" and not ss_media["title_screen_url"]:
                 ss_media["title_screen_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
                 if MetadataMediaType.TITLE_SCREEN in preferred_media_types:
                     ss_media["title_screen_path"] = (
@@ -386,7 +435,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "video" and not ss_media["video_url"]:
                 ss_media["video_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
                 if MetadataMediaType.VIDEO in preferred_media_types:
                     ss_media["video_path"] = (
@@ -397,7 +446,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 and not ss_media["video_normalized_url"]
             ):
                 ss_media["video_normalized_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"], SS_AUTH_PARAMS
                 )
                 if MetadataMediaType.VIDEO_NORMALIZED in preferred_media_types:
                     ss_media["video_normalized_path"] = (
@@ -579,6 +628,14 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
                 else None
             ),
         ]
+    )
+
+    # Persist the resolved media variant tags (not the URLs) so a re-scan can
+    # detect when a config change selects different assets. See issue #3612.
+    ss_metadata["cover_media"] = _ss_media_descriptor(url_cover)
+    ss_metadata["manual_media"] = _ss_media_descriptor(url_manual)
+    ss_metadata["screenshot_media"] = pydash.compact(
+        [_ss_media_descriptor(url) for url in url_screenshots]
     )
 
     ss_id = int(game["id"]) if game.get("id") is not None else None

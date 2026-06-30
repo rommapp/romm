@@ -65,7 +65,12 @@ from handler.metadata import (
     meta_ra_handler,
     meta_ss_handler,
 )
-from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
+from handler.metadata.ss_handler import (
+    add_ss_auth_to_url,
+    get_preferred_media_types,
+    is_screenscraper_url,
+    pop_ss_media_urls,
+)
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -1674,6 +1679,17 @@ async def update_rom(
                     add_ss_auth_to_url(media_url),
                     media_path,
                 )
+
+    # Drop the SS media download URLs once the assets are saved locally; they
+    # must never be persisted (issue #3612). The download above already consumed
+    # them. SS-sourced cover/manual URLs are blanked for the same reason (the
+    # change-detection tags live in ss_metadata); other providers' URLs are kept.
+    if cleaned_data.get("ss_metadata"):
+        pop_ss_media_urls(cleaned_data["ss_metadata"])
+    if is_screenscraper_url(cleaned_data.get("url_cover")):
+        cleaned_data["url_cover"] = ""
+    if is_screenscraper_url(cleaned_data.get("url_manual")):
+        cleaned_data["url_manual"] = ""
 
     log.debug(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"
