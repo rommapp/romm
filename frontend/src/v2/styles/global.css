@@ -129,7 +129,15 @@ html[data-input="pad"] .r-v2 * {
 
 .r-v2-bg {
   position: fixed;
-  inset: 0;
+  /* Cover the LARGE viewport (mobile address bar hidden), not the dynamic
+     one: `inset: 0` tracks the current viewport, so as the address bar hides
+     during a scroll the layer lags a frame behind and the freshly-revealed
+     strip at the bottom flashes uncovered until scroll stops. A fixed 100lvh
+     height always reaches the bottom. `100vh` is the fallback (already the
+     large viewport on mobile) for engines without `lvh`. */
+  inset: 0 0 auto 0;
+  height: 100vh;
+  height: 100lvh;
   z-index: 0;
   pointer-events: none;
 }
@@ -164,7 +172,11 @@ html[data-input="pad"] .r-v2 * {
 
 .r-v2-bg__overlay {
   position: fixed;
-  inset: 0;
+  /* Match .r-v2-bg — cover the large viewport so the dark overlay reaches the
+     bottom while the mobile address bar animates out during a scroll. */
+  inset: 0 0 auto 0;
+  height: 100vh;
+  height: 100lvh;
   z-index: 1;
   pointer-events: none;
   background:
