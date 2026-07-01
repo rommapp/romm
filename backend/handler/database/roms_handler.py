@@ -541,6 +541,28 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.filter(predicate)
 
+    def _filter_by_has_saves(
+        self, query: Query, value: bool, user_id: int | None = None
+    ) -> Query:
+        """Filter based on whether the rom has saves for the current user."""
+        if not user_id:
+            return query
+        predicate = Rom.saves.any(Save.user_id == user_id)
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
+
+    def _filter_by_has_states(
+        self, query: Query, value: bool, user_id: int | None = None
+    ) -> Query:
+        """Filter based on whether the rom has save states for the current user."""
+        if not user_id:
+            return query
+        predicate = Rom.states.any(State.user_id == user_id)
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
+
     def _filter_by_missing_from_fs(self, query: Query, value: bool) -> Query:
         predicate = Rom.missing_from_fs.isnot(False)
         if not value:
@@ -777,6 +799,8 @@ class DBRomsHandler(DBBaseHandler):
         last_played: bool | None = None,
         playable: bool | None = None,
         has_ra: bool | None = None,
+        has_saves: bool | None = None,
+        has_states: bool | None = None,
         missing: bool | None = None,
         verified: bool | None = None,
         group_by_meta_id: bool = False,
@@ -890,6 +914,12 @@ class DBRomsHandler(DBBaseHandler):
 
         if has_ra is not None:
             query = self._filter_by_has_ra(query, value=has_ra)
+
+        if has_saves is not None:
+            query = self._filter_by_has_saves(query, value=has_saves, user_id=user_id)
+
+        if has_states is not None:
+            query = self._filter_by_has_states(query, value=has_states, user_id=user_id)
 
         if missing is not None:
             query = self._filter_by_missing_from_fs(query, value=missing)
@@ -1164,6 +1194,8 @@ class DBRomsHandler(DBBaseHandler):
             last_played=kwargs.get("last_played", None),
             playable=kwargs.get("playable", None),
             has_ra=kwargs.get("has_ra", None),
+            has_saves=kwargs.get("has_saves", None),
+            has_states=kwargs.get("has_states", None),
             missing=kwargs.get("missing", None),
             verified=kwargs.get("verified", None),
             genres=kwargs.get("genres", None),

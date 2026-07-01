@@ -24,6 +24,7 @@ export type ScreenshotItem = {
   isOwn?: boolean;
   isPublic?: boolean;
   username?: string;
+  userId?: number | null;
   userAvatarPath?: string | null;
   userUpdatedAt?: string | null;
 };
@@ -88,7 +89,9 @@ function canToggle(shot: ScreenshotItem): boolean {
       <!-- Owner chip for community (others' public) screenshots -->
       <div v-if="shot.username" class="r-v2-det-shots__owner">
         <RAvatar
-          :image="userAvatarUrl(shot.userAvatarPath, shot.userUpdatedAt)"
+          :image="
+            userAvatarUrl(shot.userId, shot.userAvatarPath, shot.userUpdatedAt)
+          "
           size="16"
         />
         <span>{{ shot.username }}</span>

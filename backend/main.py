@@ -43,7 +43,6 @@ from endpoints.netplay import router as netplay_router
 from endpoints.permissions import router as permissions_router
 from endpoints.platform import router as platform_router
 from endpoints.play_sessions import router as play_sessions_router
-from endpoints.raw import router as raw_router
 from endpoints.roms import router as rom_router
 from endpoints.saves import router as saves_router
 from endpoints.screenshots import router as screenshots_router
@@ -168,7 +167,6 @@ app.include_router(feeds_router, prefix="/api")
 app.include_router(configs_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")
 app.include_router(logs_router, prefix="/api")
-app.include_router(raw_router, prefix="/api")
 app.include_router(screenshots_router, prefix="/api")
 app.include_router(firmware_router, prefix="/api")
 app.include_router(collections_router, prefix="/api")

@@ -189,7 +189,7 @@ function onSort({ key, dir }: RTableSortPayload) {
 }
 
 function avatarSrc(user: User) {
-  return userAvatarUrl(user.avatar_path, user.updated_at);
+  return userAvatarUrl(user.id, user.avatar_path, user.updated_at);
 }
 
 async function toggleEnabled(user: User, enabled: boolean) {

@@ -628,6 +628,14 @@ def update_save_visibility(
         )
 
     updated = db_save_handler.update_save(id, {"is_public": is_public})
+
+    # Keep the auto-captured thumbnail's visibility in sync so a shared save
+    # still renders its preview for other users.
+    if save.screenshot:
+        db_screenshot_handler.update_screenshot(
+            save.screenshot.id, {"is_public": is_public}
+        )
+
     return _build_save_schema(updated)
 
 

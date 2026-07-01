@@ -2,10 +2,13 @@ import hashlib
 import os
 import threading
 import zipfile
+from mimetypes import guess_type
+from pathlib import Path
 from typing import Final
 
 import magic
 from fastapi import HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 
 from config import ASSETS_BASE_PATH
 from logger.logger import log
@@ -63,6 +66,30 @@ def validate_image_upload(upload: UploadFile, *, label: str = "Image") -> str:
         )
 
     return safe_extension
+
+
+def build_asset_file_response(
+    resolved_path: Path, filename: str | None = None
+) -> FileResponse:
+    """Serve an asset file. Trusted image types render inline; everything else
+    is an opaque attachment, so a user-controlled file (e.g. HTML uploaded as an
+    avatar) can't execute as stored XSS."""
+    download_name = filename or resolved_path.name
+    guessed_type, _ = guess_type(download_name)
+    if guessed_type in SAFE_IMAGE_MIME_TYPES:
+        return FileResponse(
+            path=str(resolved_path),
+            filename=download_name,
+            media_type=guessed_type,
+            content_disposition_type="inline",
+        )
+
+    return FileResponse(
+        path=str(resolved_path),
+        filename=download_name,
+        media_type="application/octet-stream",
+        content_disposition_type="attachment",
+    )
 
 
 class FSAssetsHandler(FSHandler):

@@ -360,6 +360,14 @@ def get_roms(
         bool | None,
         Query(description="Whether the rom has RetroAchievements data."),
     ] = None,
+    has_saves: Annotated[
+        bool | None,
+        Query(description="Whether the rom has saves for the current user."),
+    ] = None,
+    has_states: Annotated[
+        bool | None,
+        Query(description="Whether the rom has save states for the current user."),
+    ] = None,
     verified: Annotated[
         bool | None,
         Query(description="Whether the rom is verified by Hasheous."),
@@ -591,6 +599,8 @@ def get_roms(
         last_played=last_played,
         playable=playable,
         has_ra=has_ra,
+        has_saves=has_saves,
+        has_states=has_states,
         missing=missing,
         verified=verified,
         genres=genres,
@@ -652,6 +662,8 @@ def get_roms(
         or last_played is not None
         or playable is not None
         or has_ra is not None
+        or has_saves is not None
+        or has_states is not None
         or missing is not None
         or verified is not None
     )

@@ -73,7 +73,11 @@ function roleToneFor(role: string | undefined): RoleTone {
 // `auth.setCurrentUser(data)` rehydrates `user`.
 const avatarSrc = computed(() => {
   if (imagePreviewUrl.value) return imagePreviewUrl.value;
-  return userAvatarUrl(user.value?.avatar_path, user.value?.updated_at);
+  return userAvatarUrl(
+    user.value?.id,
+    user.value?.avatar_path,
+    user.value?.updated_at,
+  );
 });
 
 const isDirty = computed(() => {

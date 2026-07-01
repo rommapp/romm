@@ -4,6 +4,7 @@ from typing import Annotated, Any, cast
 from fastapi import Body, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
+from fastapi.responses import FileResponse
 
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
@@ -13,7 +14,10 @@ from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
-from handler.filesystem.assets_handler import validate_image_upload
+from handler.filesystem.assets_handler import (
+    build_asset_file_response,
+    validate_image_upload,
+)
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from logger.logger import log
@@ -297,6 +301,39 @@ def get_user(request: Request, id: int) -> UserSchema:
         raise HTTPException(status_code=404, detail="User not found")
 
     return UserSchema.model_validate(user)
+
+
+@protected_route(
+    router.get,
+    "/{id}/avatar",
+    [Scope.ASSETS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def get_user_avatar(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+) -> FileResponse:
+    """Serve a user's avatar image. Avatars are public to any authenticated
+    user (rendered next to community content, activity, and user lists)."""
+    user = db_user_handler.get_user(id)
+    if not user or not user.avatar_path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found"
+        )
+
+    try:
+        file_path = fs_asset_handler.validate_path(user.avatar_path)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found"
+        ) from None
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found"
+        )
+
+    return build_asset_file_response(file_path)
 
 
 @protected_route(router.put, "/{id}", [Scope.ME_WRITE])

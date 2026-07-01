@@ -377,7 +377,11 @@ function fmtDate(iso: string): string {
                 <span class="r-v2-notes__nav-author">
                   <RAvatar
                     :image="
-                      userAvatarUrl(n.user_avatar_path, n.user_updated_at)
+                      userAvatarUrl(
+                        n.user_id,
+                        n.user_avatar_path,
+                        n.user_updated_at,
+                      )
                     "
                     size="18"
                   />
@@ -472,6 +476,7 @@ function fmtDate(iso: string): string {
                 <RAvatar
                   :image="
                     userAvatarUrl(
+                      selectedNote.user_id,
                       selectedNote.user_avatar_path,
                       selectedNote.user_updated_at,
                     )

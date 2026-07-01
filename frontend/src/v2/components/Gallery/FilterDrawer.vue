@@ -63,6 +63,8 @@ const {
   filterMissing,
   filterVerified,
   filterRA,
+  filterSaves,
+  filterStates,
   selectedPlatforms,
   filterGenres,
   selectedGenres,
