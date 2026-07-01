@@ -622,8 +622,14 @@ router.beforeEach(async (to, _from, next) => {
       });
     }
 
-    if (user.value && currentRoute == ROUTES.SETUP) {
-      return next({ name: ROUTES.HOME });
+    // SHOW_SETUP_WIZARD is false here, so setup is already done — nobody
+    // belongs on /setup anymore. `/setup` is auth-exempt (so the block above
+    // won't bounce an unauthenticated visitor), so redirect both cases:
+    // authenticated users go home, everyone else to login. Without covering
+    // the unauth case, a stale link / manual nav to /setup would strand the
+    // user on the wizard, whose API then 403s once an admin exists.
+    if (currentRoute === ROUTES.SETUP) {
+      return next({ name: user.value ? ROUTES.HOME : ROUTES.LOGIN });
     }
 
     // Check permissions
