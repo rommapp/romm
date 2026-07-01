@@ -544,10 +544,11 @@ class DBRomsHandler(DBBaseHandler):
     def _filter_by_has_saves(
         self, query: Query, value: bool, user_id: int | None = None
     ) -> Query:
-        """Filter based on whether the rom has saves for the current user."""
+        """Filter based on whether the rom has saves visible to the current
+        user: their own plus other users' public (community) saves."""
         if not user_id:
             return query
-        predicate = Rom.saves.any(Save.user_id == user_id)
+        predicate = Rom.saves.any(or_(Save.user_id == user_id, Save.is_public))
         if not value:
             predicate = not_(predicate)
         return query.filter(predicate)
@@ -555,10 +556,11 @@ class DBRomsHandler(DBBaseHandler):
     def _filter_by_has_states(
         self, query: Query, value: bool, user_id: int | None = None
     ) -> Query:
-        """Filter based on whether the rom has save states for the current user."""
+        """Filter based on whether the rom has save states visible to the
+        current user: their own plus other users' public (community) states."""
         if not user_id:
             return query
-        predicate = Rom.states.any(State.user_id == user_id)
+        predicate = Rom.states.any(or_(State.user_id == user_id, State.is_public))
         if not value:
             predicate = not_(predicate)
         return query.filter(predicate)

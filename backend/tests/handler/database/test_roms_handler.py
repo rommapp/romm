@@ -7,9 +7,16 @@ the columns derived from `name` / `fs_name` in sync explicitly.
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import (
+    db_platform_handler,
+    db_rom_handler,
+    db_save_handler,
+    db_state_handler,
+)
+from models.assets import Save, State
 from models.platform import Platform
 from models.rom import Rom
+from models.user import User
 
 
 class TestUpdateRomDerivedColumns:
@@ -83,3 +90,73 @@ class TestUniquePlatformFsName:
         second = db_rom_handler.add_rom(_make_rom(other, "Patched Game.gba"))
 
         assert first.id != second.id
+
+
+class TestHasSavesStatesFilter:
+    """The has-saves / has-states filters match a user's own assets plus other
+    users' public (community) ones, mirroring the shared-assets visibility."""
+
+    def _add_save(self, rom: Rom, user_id: int, *, is_public: bool) -> Save:
+        return db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=user_id,
+                file_name="filter.sav",
+                file_path=f"{rom.fs_path}/saves",
+                file_size_bytes=1,
+                is_public=is_public,
+            )
+        )
+
+    def _add_state(self, rom: Rom, user_id: int, *, is_public: bool) -> State:
+        return db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=user_id,
+                file_name="filter.state",
+                file_path=f"{rom.fs_path}/states",
+                file_size_bytes=1,
+                is_public=is_public,
+            )
+        )
+
+    def _rom_ids(self, **kwargs) -> set[int]:
+        return {r.id for r in db_rom_handler.get_roms_scalar(**kwargs)}
+
+    # ---- saves ----
+
+    def test_own_save_matches(self, rom: Rom, admin_user: User):
+        self._add_save(rom, admin_user.id, is_public=False)
+        assert rom.id in self._rom_ids(user_id=admin_user.id, has_saves=True)
+
+    def test_other_users_private_save_does_not_match(
+        self, rom: Rom, admin_user: User, editor_user: User
+    ):
+        self._add_save(rom, editor_user.id, is_public=False)
+        assert rom.id not in self._rom_ids(user_id=admin_user.id, has_saves=True)
+
+    def test_other_users_public_save_matches(
+        self, rom: Rom, admin_user: User, editor_user: User
+    ):
+        self._add_save(rom, editor_user.id, is_public=True)
+        assert rom.id in self._rom_ids(user_id=admin_user.id, has_saves=True)
+
+    def test_has_saves_false_excludes_public(
+        self, rom: Rom, admin_user: User, editor_user: User
+    ):
+        self._add_save(rom, editor_user.id, is_public=True)
+        assert rom.id not in self._rom_ids(user_id=admin_user.id, has_saves=False)
+
+    # ---- states ----
+
+    def test_other_users_public_state_matches(
+        self, rom: Rom, admin_user: User, editor_user: User
+    ):
+        self._add_state(rom, editor_user.id, is_public=True)
+        assert rom.id in self._rom_ids(user_id=admin_user.id, has_states=True)
+
+    def test_other_users_private_state_does_not_match(
+        self, rom: Rom, admin_user: User, editor_user: User
+    ):
+        self._add_state(rom, editor_user.id, is_public=False)
+        assert rom.id not in self._rom_ids(user_id=admin_user.id, has_states=True)
