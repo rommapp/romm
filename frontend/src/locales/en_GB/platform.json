@@ -78,9 +78,7 @@
   "show-playables-only": "Show playable ROMs only",
   "show-ra": "Show Retroachievements",
   "show-ra-only": "Show ROMs with RetroAchievements only",
-  "show-saves": "Show saves",
   "show-saves-only": "Show ROMs with saves only",
-  "show-states": "Show save states",
   "show-states-only": "Show ROMs with save states only",
   "show-unmatched": "Show unmatched",
   "show-unmatched-only": "Show unmatched ROMs only",
@@ -92,5 +90,7 @@
   "tags": "Tags",
   "updated": "Platform updated",
   "upload-firmware": "Upload firmware",
-  "upload-roms": "Upload ROMs"
+  "upload-roms": "Upload ROMs",
+  "has-saves": "Has saves",
+  "has-states": "Has save states"
 }

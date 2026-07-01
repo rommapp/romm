@@ -78,9 +78,7 @@
   "show-playables-only": "Csak játszható ROM-ok mutatása",
   "show-ra": "Mutasd a Retroachievements",
   "show-ra-only": "Csak RetroAchievements-es ROM-ok mutatása",
-  "show-saves": "Mutasd a mentéseket",
   "show-saves-only": "Csak mentéssel rendelkező ROM-ok mutatása",
-  "show-states": "Mutasd az állásmentéseket",
   "show-states-only": "Csak állásmentéssel rendelkező ROM-ok mutatása",
   "show-unmatched": "Mutasd a nem egyezőket",
   "show-unmatched-only": "Csak nem egyeztetett ROM-ok megjelenítése",
@@ -92,5 +90,7 @@
   "tags": "Címkék",
   "updated": "Platform frissítve",
   "upload-firmware": "Firmware feltöltése",
-  "upload-roms": "ROM-ok Feltöltése"
+  "upload-roms": "ROM-ok Feltöltése",
+  "has-saves": "Van mentése",
+  "has-states": "Van állásmentése"
 }

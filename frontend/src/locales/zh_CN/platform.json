@@ -78,9 +78,7 @@
   "show-playables-only": "仅显示可玩的ROM",
   "show-ra": "显示 Retroachievements",
   "show-ra-only": "仅显示有RetroAchievements的ROM",
-  "show-saves": "显示存档",
   "show-saves-only": "仅显示有存档的ROM",
-  "show-states": "显示即时存档",
   "show-states-only": "仅显示有即时存档的ROM",
   "show-unmatched": "显示不匹配项",
   "show-unmatched-only": "仅显示未匹配的 ROM",
@@ -92,5 +90,7 @@
   "tags": "标签",
   "updated": "平台已更新",
   "upload-firmware": "上传固件",
-  "upload-roms": "上传 ROMs"
+  "upload-roms": "上传 ROMs",
+  "has-saves": "有存档",
+  "has-states": "有即时存档"
 }

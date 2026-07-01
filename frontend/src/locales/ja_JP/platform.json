@@ -78,9 +78,7 @@
   "show-playables-only": "プレイ可能ROMのみを表示",
   "show-ra": "Retroachievementsを表示",
   "show-ra-only": "RetroAchievements付きROMのみを表示",
-  "show-saves": "セーブデータを表示",
   "show-saves-only": "セーブデータありのROMのみを表示",
-  "show-states": "ステートセーブを表示",
   "show-states-only": "ステートセーブありのROMのみを表示",
   "show-unmatched": "非該当を表示",
   "show-unmatched-only": "マッチしていないROMのみ表示",
@@ -92,5 +90,7 @@
   "tags": "タグ",
   "updated": "プラットフォームを更新しました",
   "upload-firmware": "ファームウェアをアップロード",
-  "upload-roms": "Romをアップロード"
+  "upload-roms": "Romをアップロード",
+  "has-saves": "セーブデータあり",
+  "has-states": "ステートセーブあり"
 }

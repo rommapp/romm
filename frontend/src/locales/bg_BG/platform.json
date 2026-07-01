@@ -78,9 +78,7 @@
   "show-playables-only": "Покажи само изпълними ROM-ове",
   "show-ra": "Покажи RetroAchievements",
   "show-ra-only": "Покажи само ROM-ове с RetroAchievements",
-  "show-saves": "Покажи записите",
   "show-saves-only": "Покажи само ROM-ове със записи",
-  "show-states": "Покажи състоянията",
   "show-states-only": "Покажи само ROM-ове със състояния",
   "show-unmatched": "Покажи несъвпадащите",
   "show-unmatched-only": "Покажи само неразпознати ROM-ове",
@@ -92,5 +90,7 @@
   "tags": "Тагове",
   "updated": "Платформата е обновена",
   "upload-firmware": "Качи фърмуер",
-  "upload-roms": "Качи ROM-ове"
+  "upload-roms": "Качи ROM-ове",
+  "has-saves": "Има записи",
+  "has-states": "Има състояния"
 }

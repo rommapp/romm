@@ -78,9 +78,7 @@
   "show-playables-only": "Показать только играбельные ROM",
   "show-ra": "Показать Retroachievements",
   "show-ra-only": "Показать только ROM с RetroAchievements",
-  "show-saves": "Показать сохранения",
   "show-saves-only": "Показать только ROM с сохранениями",
-  "show-states": "Показать состояния",
   "show-states-only": "Показать только ROM с состояниями",
   "show-unmatched": "Показать несоответствующие",
   "show-unmatched-only": "Показать только несопоставленные ROM-ы",
@@ -92,5 +90,7 @@
   "tags": "Теги",
   "updated": "Платформа обновлена",
   "upload-firmware": "Загрузить прошивку",
-  "upload-roms": "Загрузить ромы"
+  "upload-roms": "Загрузить ромы",
+  "has-saves": "Есть сохранения",
+  "has-states": "Есть состояния"
 }

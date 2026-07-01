@@ -78,9 +78,7 @@
   "show-playables-only": "플레이 가능한 ROM만 표시",
   "show-ra": "Retroachievements 보기",
   "show-ra-only": "RetroAchievements가 있는 ROM만 표시",
-  "show-saves": "세이브 데이터 보기",
   "show-saves-only": "세이브 데이터가 있는 ROM만 표시",
-  "show-states": "상태 저장 보기",
   "show-states-only": "상태 저장이 있는 ROM만 표시",
   "show-unmatched": "DB 대응 안됨",
   "show-unmatched-only": "일치되지 않은 ROM만 표시",
@@ -92,5 +90,7 @@
   "tags": "태그",
   "updated": "플랫폼이 업데이트되었습니다",
   "upload-firmware": "펌웨어 업로드",
-  "upload-roms": "롬 업로드"
+  "upload-roms": "롬 업로드",
+  "has-saves": "세이브 데이터 있음",
+  "has-states": "상태 저장 있음"
 }

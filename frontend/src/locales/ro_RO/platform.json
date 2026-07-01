@@ -78,9 +78,7 @@
   "show-playables-only": "Afișează doar ROM-uri jucabile",
   "show-ra": "Afișează Retroachievements",
   "show-ra-only": "Afișează doar ROM-uri cu RetroAchievements",
-  "show-saves": "Afișează salvările",
   "show-saves-only": "Afișează doar ROM-uri cu salvări",
-  "show-states": "Afișează stările salvate",
   "show-states-only": "Afișează doar ROM-uri cu stări salvate",
   "show-unmatched": "Jocuri neidentificate",
   "show-unmatched-only": "Afișează doar ROM-urile neidentificate",
@@ -92,5 +90,7 @@
   "tags": "Etichete",
   "updated": "Platformă actualizată",
   "upload-firmware": "Încarcă firmware",
-  "upload-roms": "Încărcare ROM-uri"
+  "upload-roms": "Încărcare ROM-uri",
+  "has-saves": "Are salvări",
+  "has-states": "Are stări salvate"
 }

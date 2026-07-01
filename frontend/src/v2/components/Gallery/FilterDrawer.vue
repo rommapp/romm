@@ -204,7 +204,7 @@ const boolFilters: BoolFilterConfig[] = [
     value: filterRA,
   },
   {
-    label: t("platform.show-saves"),
+    label: t("platform.has-saves"),
     icon: "mdi-content-save-outline",
     yesIcon: "mdi-content-save-outline",
     noIcon: "mdi-content-save-off-outline",
@@ -213,7 +213,7 @@ const boolFilters: BoolFilterConfig[] = [
     value: filterSaves,
   },
   {
-    label: t("platform.show-states"),
+    label: t("platform.has-states"),
     icon: "mdi-camera-outline",
     yesIcon: "mdi-camera-outline",
     noIcon: "mdi-camera-off-outline",

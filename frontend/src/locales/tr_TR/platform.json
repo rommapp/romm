@@ -78,9 +78,7 @@
   "show-playables-only": "Yalnızca oynatılabilir ROM'ları göster",
   "show-ra": "RetroAchievements göster",
   "show-ra-only": "Yalnızca RetroAchievements olan ROM'ları göster",
-  "show-saves": "Kayıtları göster",
   "show-saves-only": "Yalnızca kayıtları olan ROM'ları göster",
-  "show-states": "Durum kayıtlarını göster",
   "show-states-only": "Yalnızca durum kayıtları olan ROM'ları göster",
   "show-unmatched": "Eşleşmeyenleri göster",
   "show-unmatched-only": "Yalnızca eşleşmeyen ROM'ları göster",
@@ -92,5 +90,7 @@
   "tags": "Etiketler",
   "updated": "Platform güncellendi",
   "upload-firmware": "Firmware yükle",
-  "upload-roms": "ROM yükle"
+  "upload-roms": "ROM yükle",
+  "has-saves": "Kayıtları var",
+  "has-states": "Durum kayıtları var"
 }

@@ -78,9 +78,7 @@
   "show-playables-only": "Zobrazit pouze spustitelné ROM",
   "show-ra": "Zobrazit Retroachievements",
   "show-ra-only": "Zobrazit pouze ROM s RetroAchievements",
-  "show-saves": "Zobrazit uložení",
   "show-saves-only": "Zobrazit pouze ROM s uloženími",
-  "show-states": "Zobrazit stavy",
   "show-states-only": "Zobrazit pouze ROM se stavy",
   "show-unmatched": "Zobrazit neshody",
   "show-unmatched-only": "Zobrazit pouze nespárované ROMy",
@@ -92,5 +90,7 @@
   "tags": "Štítky",
   "updated": "Platforma aktualizována",
   "upload-firmware": "Nahrát firmware",
-  "upload-roms": "Nahrát ROMy"
+  "upload-roms": "Nahrát ROMy",
+  "has-saves": "Má uložení",
+  "has-states": "Má stavy"
 }
