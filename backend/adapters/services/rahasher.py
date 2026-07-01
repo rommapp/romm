@@ -9,6 +9,11 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
 from utils.psp_hasher import calculate_psp_ra_hash, is_psp_native_hash_file
+from utils.rvz_hasher import (
+    calculate_gamecube_ra_hash,
+    calculate_wii_ra_hash,
+    is_rvz_native_hash_file,
+)
 
 RAHASHER_VALID_HASH_REGEX = re.compile(r"[0-9a-f]{32}")
 
@@ -143,6 +148,8 @@ RA_BUFFER_HASH_UNSUPPORTED_IDS: frozenset[int] = frozenset(
 )
 
 PSP_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSP]
+NGC_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NGC]
+WII_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.WII]
 
 
 class RAHasherError(Exception): ...
@@ -218,6 +225,26 @@ class RAHasherService:
                 log.debug(
                     f"Computed native {hl('RA', color=LIGHTMAGENTA)} hash for PSP "
                     f"container {hl(file_path)}"
+                )
+                return native_hash
+
+        # GameCube/Wii RVZ and WIA images can't be read by RAHasher ("Not a
+        # Gamecube disc" / "Not a supported Wii file"). Compute the RA hash
+        # natively instead, reconstructing only the disc byte ranges the hash
+        # covers. On failure we fall through to RAHasher (no worse than before).
+        if platform["ra_id"] in (NGC_RA_ID, WII_RA_ID) and is_rvz_native_hash_file(
+            file_path
+        ):
+            if platform["ra_id"] == NGC_RA_ID:
+                native_hash = await asyncio.to_thread(
+                    calculate_gamecube_ra_hash, file_path
+                )
+            else:
+                native_hash = await asyncio.to_thread(calculate_wii_ra_hash, file_path)
+            if native_hash:
+                log.debug(
+                    f"Computed native {hl('RA', color=LIGHTMAGENTA)} hash for "
+                    f"{platform['slug']} RVZ/WIA image {hl(file_path)}"
                 )
                 return native_hash
 
