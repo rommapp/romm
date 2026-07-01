@@ -91,6 +91,8 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[UPS, int] = {
     UPS.ELEKTOR: 75,
     UPS.FAIRCHILD_CHANNEL_F: 57,
     UPS.FAMICOM: 7,
+    # RA lists the Famicom Disk System as its own console, ID 81 (issue #3646).
+    UPS.FDS: 81,
     UPS.GAMEGEAR: 15,
     UPS.GB: 4,
     UPS.GBA: 5,

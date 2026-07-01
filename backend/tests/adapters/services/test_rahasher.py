@@ -680,6 +680,60 @@ class TestRAHasherPspNativeHashing:
         mock_subprocess.assert_called_once()
 
 
+class TestRAHasherFDSPlatformMapping:
+    """The Famicom Disk System is its own RetroAchievements console (ID 81), not
+    grouped under NES/Famicom (ID 7). The fds slug must be present in the
+    slug->RA-id table and treated as a buffer-hashable platform, since .fds disk
+    images are hashed in-buffer rather than as CD/ISO discs (GitHub issue
+    #3646)."""
+
+    @pytest.fixture
+    def service(self):
+        return RAHasherService()
+
+    def test_fds_slug_maps_to_console_81(self):
+        assert PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.FDS] == 81
+
+    def test_fds_console_is_distinct_from_nes(self):
+        # RA lists the FDS as a separate console, so it must not reuse the
+        # NES/Famicom console ID (7).
+        assert (
+            PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.FDS]
+            != PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NES]
+        )
+
+    def test_fds_is_buffer_hashable(self):
+        # .fds disk images are buffer-hashable, so FDS must not be treated as
+        # disc-based (which would skip RAHasher for archived ROMs).
+        assert UPS.FDS not in RA_BUFFER_HASH_UNSUPPORTED
+
+    @pytest.mark.asyncio
+    async def test_calculate_hash_runs_rahasher_for_fds(self, service: RAHasherService):
+        """An FDS disk image must actually reach RAHasher (issue #3646)."""
+        fds_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.FDS]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with patch(
+            "asyncio.create_subprocess_exec", return_value=mock_proc
+        ) as mock_subprocess:
+            result = await service.calculate_hash(
+                {"ra_id": fds_id, "slug": "fds"}, "/roms/fds/game.fds"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_subprocess.assert_called_once_with(
+            "RAHasher",
+            str(fds_id),
+            "/roms/fds/game.fds",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+
 class TestRAHasherError:
     """Test the RAHasherError exception."""
 
