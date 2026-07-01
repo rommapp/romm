@@ -452,6 +452,9 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
     UPS.SFAM: {"id": 3, "name": "Super Famicom"},
     UPS.TURBOGRAFX_CD: {"id": 76, "name": "TurboGrafx CD"},
     UPS.TG16: {"id": 8, "name": "TurboGrafx-16"},
+    # RA has no separate SuperGrafx console; its games share the PC Engine/
+    # TurboGrafx-16 console (ID 8), same as tg16. See GitHub issue #3651.
+    UPS.SUPERGRAFX: {"id": 8, "name": "SuperGrafx"},
     UPS.UZEBOX: {"id": 80, "name": "Uzebox"},
     UPS.VECTREX: {"id": 46, "name": "Vectrex"},
     UPS.VIRTUALBOY: {"id": 28, "name": "Virtual Boy"},

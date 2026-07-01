@@ -127,6 +127,9 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[UPS, int] = {
     UPS.SNES: 3,
     UPS.TURBOGRAFX_CD: 76,
     UPS.TG16: 8,
+    # RA has no separate SuperGrafx console; its games share the PC Engine/
+    # TurboGrafx-16 console, ID 8, same as tg16 (issue #3651).
+    UPS.SUPERGRAFX: 8,
     UPS.UZEBOX: 80,
     UPS.VECTREX: 46,
     UPS.VIRTUALBOY: 28,

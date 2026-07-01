@@ -680,6 +680,63 @@ class TestRAHasherPspNativeHashing:
         mock_subprocess.assert_called_once()
 
 
+class TestRAHasherSuperGrafxPlatformMapping:
+    """RetroAchievements has no dedicated SuperGrafx console; its games live
+    under the shared PC Engine/TurboGrafx-16 console (ID 8), same as tg16. The
+    supergrafx slug must be present in the slug->RA-id table and treated as a
+    buffer-hashable platform, since HuCard images (.sgx/.pce) are hashed
+    in-buffer rather than as CD/ISO discs (GitHub issue #3651)."""
+
+    @pytest.fixture
+    def service(self):
+        return RAHasherService()
+
+    def test_supergrafx_slug_maps_to_console_8(self):
+        assert PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.SUPERGRAFX] == 8
+
+    def test_supergrafx_shares_console_with_tg16(self):
+        # RA groups the SuperGrafx with the PC Engine/TurboGrafx-16, so it must
+        # reuse the tg16 console ID (8) rather than being left unmapped.
+        assert (
+            PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.SUPERGRAFX]
+            == PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.TG16]
+        )
+
+    def test_supergrafx_is_buffer_hashable(self):
+        # HuCard images are buffer-hashable, so SuperGrafx must not be treated
+        # as disc-based (which would skip RAHasher for archived ROMs).
+        assert UPS.SUPERGRAFX not in RA_BUFFER_HASH_UNSUPPORTED
+
+    @pytest.mark.asyncio
+    async def test_calculate_hash_runs_rahasher_for_supergrafx(
+        self, service: RAHasherService
+    ):
+        """A SuperGrafx ROM must actually reach RAHasher (issue #3651)."""
+        supergrafx_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.SUPERGRAFX]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with patch(
+            "asyncio.create_subprocess_exec", return_value=mock_proc
+        ) as mock_subprocess:
+            result = await service.calculate_hash(
+                {"ra_id": supergrafx_id, "slug": "supergrafx"},
+                "/roms/supergrafx/game.sgx",
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_subprocess.assert_called_once_with(
+            "RAHasher",
+            str(supergrafx_id),
+            "/roms/supergrafx/game.sgx",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+
 class TestRAHasherError:
     """Test the RAHasherError exception."""
 
