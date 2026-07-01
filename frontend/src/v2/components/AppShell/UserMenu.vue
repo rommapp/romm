@@ -119,6 +119,7 @@ async function onLogout() {
     width="260px"
     max-height="calc(100dvh - var(--r-nav-h) - 24px)"
     sheet-on-mobile
+    sheet-full-height
   >
     <template #activator="{ props: menuProps }">
       <RBtn

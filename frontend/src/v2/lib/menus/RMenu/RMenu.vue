@@ -100,6 +100,11 @@ interface Props {
    *  of a floating dropdown (reuses RDialog's mobile sheet vocabulary).
    *  Opt-in — leave off for small/contextual menus. */
   sheetOnMobile?: boolean;
+  /** With `sheetOnMobile`, make the sheet span the full height below the
+   *  top navbar (top edge flush against it) instead of hugging its content
+   *  from the bottom. For nav-anchored menus that should fill the screen
+   *  (e.g. UserMenu). Ignored unless the panel is docked as a sheet. */
+  sheetFullHeight?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -117,6 +122,7 @@ const props = withDefaults(defineProps<Props>(), {
   contentClass: undefined,
   disabled: false,
   sheetOnMobile: false,
+  sheetFullHeight: false,
 });
 
 const emit = defineEmits<{
@@ -219,11 +225,18 @@ const { floatingStyles } = useFloating(reference, panelRef, {
     shift({ padding: 8 }),
     sizeMiddleware({
       apply({ availableHeight, elements }) {
+        // Full-height sheet fills the space below the navbar via its top+bottom
+        // insets, so a max-height would only shrink it — leave it uncapped.
         // Bottom sheet caps at most of the viewport; floating menus cap at
         // the space available between the activator and the screen edge.
-        const cap = asSheet.value
-          ? (maxHeightCss.value ?? "80dvh")
-          : (maxHeightCss.value ?? `${availableHeight}px`);
+        let cap: string;
+        if (asSheet.value) {
+          cap = props.sheetFullHeight
+            ? "none"
+            : (maxHeightCss.value ?? "80dvh");
+        } else {
+          cap = maxHeightCss.value ?? `${availableHeight}px`;
+        }
         Object.assign(elements.floating.style, { maxHeight: cap });
       },
       padding: 8,
@@ -355,7 +368,12 @@ function onPanelClick(evt: MouseEvent) {
 }
 
 const mergedContentClass = computed(() =>
-  ["r-menu__panel", asSheet.value && "r-menu__panel--sheet", props.contentClass]
+  [
+    "r-menu__panel",
+    asSheet.value && "r-menu__panel--sheet",
+    asSheet.value && props.sheetFullHeight && "r-menu__panel--sheet-full",
+    props.contentClass,
+  ]
     .filter(Boolean)
     .join(" "),
 );
@@ -534,6 +552,14 @@ html[data-bp~="sm-and-down"] .r-menu__panel--sheet {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Full-height variant — the sheet fills the space below the top navbar
+   rather than docking from the bottom. Both edges are pinned so the body
+   scrolls internally. Keep the base sheet's rounded top corners (square
+   bottom, which reaches the viewport edge). */
+html[data-bp~="sm-and-down"] .r-menu__panel--sheet-full {
+  inset: var(--r-nav-h) 0 0 0;
+}
+
 .r-menu__search {
   flex-shrink: 0;
   padding: 6px;
@@ -593,8 +619,11 @@ html[data-bp~="sm-and-down"] .r-menu__panel--sheet {
    transition means Vue unmounts on the same frame. */
 
 /* Bottom-sheet motion — slide up from the bottom edge instead of the pop.
-   Close stays instant, matching the dropdown idiom above. */
-.r-menu-sheet-enter-from {
+   Unlike the dropdown (instant close), the sheet also slides back down on
+   leave: on mobile the panel is large and a hard cut reads as a glitch,
+   whereas a floating dropdown vanishing is unremarkable. */
+.r-menu-sheet-enter-from,
+.r-menu-sheet-leave-to {
   opacity: 0;
   transform: translateY(100%);
 }
@@ -603,14 +632,21 @@ html[data-bp~="sm-and-down"] .r-menu__panel--sheet {
     opacity 160ms var(--r-motion-ease-out),
     transform 280ms cubic-bezier(0.32, 0.72, 0, 1);
 }
+.r-menu-sheet-leave-active {
+  transition:
+    opacity 180ms var(--r-motion-ease-in-out),
+    transform 240ms cubic-bezier(0.32, 0.72, 0, 1);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .r-menu-pop-enter-from,
-  .r-menu-sheet-enter-from {
+  .r-menu-sheet-enter-from,
+  .r-menu-sheet-leave-to {
     transform: none;
   }
   .r-menu-pop-enter-active,
-  .r-menu-sheet-enter-active {
+  .r-menu-sheet-enter-active,
+  .r-menu-sheet-leave-active {
     transition: opacity 100ms linear;
   }
 }
