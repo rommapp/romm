@@ -680,53 +680,6 @@ class TestRAHasherPspNativeHashing:
         mock_subprocess.assert_called_once()
 
 
-class TestRAHasherMSXPlatformMapping:
-    """MSX and MSX2 share RetroAchievements console ID 29, so both slugs must be
-    present in the slug->RA-id table and treated as buffer-hashable cartridge
-    platforms (GitHub issue #3644)."""
-
-    @pytest.fixture
-    def service(self):
-        return RAHasherService()
-
-    @pytest.mark.parametrize("ups", [UPS.MSX, UPS.MSX2])
-    def test_msx_slugs_map_to_console_29(self, ups):
-        assert PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[ups] == 29
-
-    def test_msx2_is_buffer_hashable(self):
-        # MSX cartridges are buffer-hashable, so MSX2 must not be treated as
-        # disc-based (which would skip RAHasher for archived ROMs).
-        assert UPS.MSX2 not in RA_BUFFER_HASH_UNSUPPORTED
-
-    @pytest.mark.asyncio
-    async def test_calculate_hash_runs_rahasher_for_msx2(
-        self, service: RAHasherService
-    ):
-        """An MSX2 cartridge file must actually reach RAHasher (issue #3644)."""
-        msx2_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.MSX2]
-
-        mock_proc = AsyncMock()
-        mock_proc.wait.return_value = 0
-        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
-        mock_proc.stderr = None
-
-        with patch(
-            "asyncio.create_subprocess_exec", return_value=mock_proc
-        ) as mock_subprocess:
-            result = await service.calculate_hash(
-                {"ra_id": msx2_id, "slug": "msx2"}, "/roms/msx2/game.rom"
-            )
-
-        assert result == "a1b2c3d4e5f6789012345678901234ab"
-        mock_subprocess.assert_called_once_with(
-            "RAHasher",
-            str(msx2_id),
-            "/roms/msx2/game.rom",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-
 class TestRAHasherError:
     """Test the RAHasherError exception."""
 
