@@ -90,7 +90,11 @@ function canToggle(shot: ScreenshotItem): boolean {
       <div v-if="shot.username" class="r-v2-det-shots__owner">
         <RAvatar
           :image="
-            userAvatarUrl(shot.userId, shot.userAvatarPath, shot.userUpdatedAt)
+            userAvatarUrl({
+              userId: shot.userId,
+              avatarPath: shot.userAvatarPath,
+              updatedAt: shot.userUpdatedAt,
+            })
           "
           size="16"
         />

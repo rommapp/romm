@@ -13,11 +13,15 @@ import { defaultAvatarPath } from "@/utils";
  * cache-busting keyed on the user's `updated_at` so a freshly uploaded avatar
  * isn't served stale from the browser cache.
  */
-export function userAvatarUrl(
-  userId: number | null | undefined,
-  avatarPath: string | null | undefined,
-  updatedAt: string | null | undefined,
-): string {
+export function userAvatarUrl({
+  userId,
+  avatarPath,
+  updatedAt,
+}: {
+  userId: number | null | undefined;
+  avatarPath: string | null | undefined;
+  updatedAt: string | null | undefined;
+}): string {
   if (!avatarPath || userId == null) return defaultAvatarPath;
   return `/api/users/${userId}/avatar?ts=${updatedAt}`;
 }
