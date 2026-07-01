@@ -354,16 +354,6 @@ const hasLabel = computed(
   cursor: not-allowed;
 }
 
-/* Touch / pad hit-area — the label row is the click target by design (no
-   ghost area around the box). Its natural height (box + 4px padding) sits
-   under a comfortable finger target, so on touch and pad grow the row to
-   --r-touch-target; the box keeps its size and stays centred. Bare mode is
-   excluded — the consumer owns that chrome. */
-html[data-input="touch"] .r-checkbox-wrap:not(.r-checkbox--bare) .r-checkbox,
-html[data-input="pad"] .r-checkbox-wrap:not(.r-checkbox--bare) .r-checkbox {
-  min-height: var(--r-touch-target);
-}
-
 /* ── Native input — visually hidden, keyboard-reachable ──────── */
 .r-checkbox__input {
   position: absolute;

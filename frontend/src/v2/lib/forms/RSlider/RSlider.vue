@@ -261,20 +261,6 @@ function onChange() {
   pointer-events: none;
 }
 
-/* Touch / pad hit-area — the input IS the interactive element (no overlay
-   fights it), but at 18px tall the vertical grab room is tight for a finger.
-   On touch and pad grow the input and its core to --r-touch-target so the
-   drag is comfortable; the painted track + thumb keep their size and auto-
-   centre in the taller input, so the visual footprint is unchanged. */
-html[data-input="touch"] .r-slider__core,
-html[data-input="pad"] .r-slider__core {
-  min-height: var(--r-touch-target);
-}
-html[data-input="touch"] .r-slider__native,
-html[data-input="pad"] .r-slider__native {
-  height: var(--r-touch-target);
-}
-
 /* WebKit / Blink — track */
 .r-slider__native::-webkit-slider-runnable-track {
   height: 5px;

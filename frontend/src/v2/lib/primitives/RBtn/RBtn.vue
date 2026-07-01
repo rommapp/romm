@@ -307,7 +307,7 @@ const spinnerSize = computed(() => {
   <component
     :is="elementType"
     v-bind="{ ...$attrs, ...dynamicAttrs }"
-    class="r-btn r-touch-target"
+    class="r-btn"
     :class="[
       `r-btn--${variant}`,
       `r-btn--${size}`,
