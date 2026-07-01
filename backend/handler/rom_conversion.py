@@ -29,25 +29,37 @@ async def promote_single_file_to_folder(rom: Rom) -> Rom:
     if not extensionless and fs_rom_handler.validate_path(dest_dir).exists():
         raise RomAlreadyExistsException(folder)
 
-    if extensionless:
-        await fs_rom_handler.move_file_or_folder(origin, staged)
-        await fs_rom_handler.make_directory(dest_dir)
-        await fs_rom_handler.move_file_or_folder(staged, final)
-    else:
-        await fs_rom_handler.make_directory(dest_dir)
-        await fs_rom_handler.move_file_or_folder(origin, final)
+    async def _restore() -> None:
+        """Return the lone file to its original path and drop the new folder."""
+        src = next(
+            (p for p in (final, staged) if fs_rom_handler.validate_path(p).exists()),
+            None,
+        )
+        if src is not None and extensionless:
+            if src != staged:
+                await fs_rom_handler.move_file_or_folder(src, staged)
+            if fs_rom_handler.validate_path(dest_dir).is_dir():
+                await fs_rom_handler.remove_directory(dest_dir)
+            await fs_rom_handler.move_file_or_folder(staged, origin)
+        elif src is not None:
+            await fs_rom_handler.move_file_or_folder(src, origin)
+            if fs_rom_handler.validate_path(dest_dir).is_dir():
+                await fs_rom_handler.remove_directory(dest_dir)
+        elif fs_rom_handler.validate_path(dest_dir).is_dir():
+            await fs_rom_handler.remove_directory(dest_dir)
 
     try:
+        if extensionless:
+            await fs_rom_handler.move_file_or_folder(origin, staged)
+            await fs_rom_handler.make_directory(dest_dir)
+            await fs_rom_handler.move_file_or_folder(staged, final)
+        else:
+            await fs_rom_handler.make_directory(dest_dir)
+            await fs_rom_handler.move_file_or_folder(origin, final)
         db_rom_handler.convert_rom_to_folder(rom.id, folder, dest_dir)
     except Exception:
         try:
-            if extensionless:
-                await fs_rom_handler.move_file_or_folder(final, staged)
-                await fs_rom_handler.remove_directory(dest_dir)
-                await fs_rom_handler.move_file_or_folder(staged, origin)
-            else:
-                await fs_rom_handler.move_file_or_folder(final, origin)
-                await fs_rom_handler.remove_directory(dest_dir)
+            await _restore()
         except Exception:
             log.error(f"Failed to roll back folder conversion for ROM {rom.id}")
         raise

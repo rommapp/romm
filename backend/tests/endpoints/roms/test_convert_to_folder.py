@@ -98,7 +98,6 @@ def test_convert_single_file_promotes_in_place(
     game_file = after.files[0]
     assert game_file.file_name == "test_rom.zip"
     assert game_file.file_path == f"{platform.slug}/roms/test_rom"
-    # file_path now differs from fs_path -> multi_file is true
     assert game_file.file_path != after.fs_path
 
     moved = real_library / f"{platform.slug}/roms/test_rom/test_rom.zip"
@@ -187,6 +186,42 @@ def test_convert_extensionless_uses_staging(
     assert moved.is_file() and moved.read_bytes() == b"romdata"
     after = db_rom_handler.get_rom(rom.id)
     assert after.files[0].file_path == f"{platform.slug}/roms/test_rom"
+
+
+def test_convert_rolls_back_fs_on_db_failure(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    rom = _single_file_rom(
+        platform,
+        admin_user,
+        real_library,
+        fs_name="test_rom",
+        fs_name_no_ext="test_rom",
+        fs_extension="",
+    )
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(db_rom_handler, "convert_rom_to_folder", boom)
+
+    with pytest.raises(RuntimeError, match="db down"):
+        client.post(
+            f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
+        )
+
+    base = real_library / f"{platform.slug}/roms"
+    assert (base / "test_rom").is_file()
+    assert (base / "test_rom").read_bytes() == b"romdata"
+    assert not (base / ".romm_tmp_test_rom").exists()
+    after = db_rom_handler.get_rom(rom.id)
+    assert after.fs_name == "test_rom"
+    assert after.has_simple_single_file
 
 
 # ---------- auto-convert on upload (all three asset types) ----------
