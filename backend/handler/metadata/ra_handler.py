@@ -421,6 +421,9 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
     UPS.JAGUAR: {"id": 17, "name": "Jaguar"},
     UPS.LYNX: {"id": 13, "name": "Lynx"},
     UPS.MSX: {"id": 29, "name": "MSX"},
+    # RetroAchievements has no separate MSX2 console; RA groups MSX2 under the
+    # MSX console, ID 29 (issue #3644).
+    UPS.MSX2: {"id": 29, "name": "MSX2"},
     UPS.MEGA_DUCK_SLASH_COUGAR_BOY: {
         "id": 69,
         "name": "Mega Duck/Cougar Boy",

@@ -102,6 +102,8 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[UPS, int] = {
     UPS.LYNX: 13,
     UPS.MEGA_DUCK_SLASH_COUGAR_BOY: 69,
     UPS.MSX: 29,
+    # RA groups MSX2 under the MSX console, ID 29 (issue #3644).
+    UPS.MSX2: 29,
     UPS.N64: 2,
     UPS.NDS: 18,
     UPS.NEO_GEO_CD: 56,
