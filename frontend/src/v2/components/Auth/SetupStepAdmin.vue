@@ -232,6 +232,14 @@ const abilities = [
 html[data-bp~="sm-and-down"] .r-setup-admin {
   grid-template-columns: 1fr;
   gap: var(--r-space-5);
+  /* The body clips (overflow: hidden) so this step scrolls its own content,
+     like the other steps — otherwise the stacked intro + form overflow and
+     the last field (with its bottom margin) gets cut off. Align to the top so
+     the scroll starts at the first row; the layer promotion keeps the region
+     from collapsing when the form re-renders on input. */
+  align-content: start;
+  overflow-y: auto;
+  transform: translateZ(0);
 }
 
 /* ── Left intro panel ────────────────────────────────────────────── */

@@ -113,16 +113,24 @@ html[data-bp~="xs"] .r-v2-auth {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  /* Definite height (dvh tracks the mobile chrome) so the flex column can
-     distribute: the stage gets a real height for the card's `height: 100%`
-     and the body's internal scroll to resolve against, instead of the card
-     growing to content height and shoving the bar off-screen. */
+  /* Both height AND min-height in dvh so the layout tracks the mobile browser
+     chrome as it shows/hides. The base `min-height: 100vh` uses the LARGE
+     (chrome-hidden) viewport, which — once the address bar reappears — forces
+     the layout taller than the visible area, pushing the bottom bar below the
+     fold and requiring a page scroll. dvh is the dynamic viewport, so it
+     shrinks with the bar and the card fills exactly the visible space. */
   height: 100dvh;
+  min-height: 100dvh;
   padding: var(--r-space-3);
   gap: var(--r-space-3);
 }
 html[data-bp~="xs"] .r-v2-auth__stage {
-  flex: 1 1 auto;
+  /* Bounded, non-scrolling (flex-basis 0 → available space, content-
+     independent). The card fills it via `align-self: stretch` and scrolls
+     its own lists region internally, desktop-style. Using a definite flex
+     cross-size (not a `height: 100%` percentage) avoids the re-layout
+     collapse. */
+  flex: 1 1 0;
   min-height: 0;
   align-items: center;
 }

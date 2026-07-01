@@ -37,8 +37,14 @@ const step = ref<1 | 2 | 3>(1);
 const stepDirection = ref<"forward" | "back">("forward");
 
 // Step 1 — library + platforms
-const libraryInfo = ref<SetupLibraryInfo | null>(null);
-const loadingLibrary = ref(false);
+const EMPTY_LIBRARY_INFO: SetupLibraryInfo = {
+  detected_structure: null,
+  existing_platforms: [],
+  supported_platforms: [],
+};
+const libraryInfo = ref<SetupLibraryInfo>({ ...EMPTY_LIBRARY_INFO });
+// Starts true so the first paint shows the spinner, not an empty flash.
+const loadingLibrary = ref(true);
 const selectedNewPlatforms = ref<string[]>([]);
 
 // Step 2 — admin user
@@ -90,18 +96,9 @@ async function loadLibraryInfo() {
   loadingLibrary.value = true;
   try {
     const { data } = await setupApi.getLibraryInfo();
-    libraryInfo.value = data;
+    if (data) libraryInfo.value = data;
   } catch (err) {
-    const error = err as {
-      response?: { data?: { detail?: string } };
-      message?: string;
-    };
-    snackbar.error(
-      `${t("setup.loading-library-failed")}: ${
-        error.response?.data?.detail ?? error.message ?? ""
-      }`,
-      { icon: "mdi-close-circle" },
-    );
+    console.error("Failed to load setup library info:", err);
   } finally {
     loadingLibrary.value = false;
   }
@@ -233,7 +230,7 @@ onMounted(loadLibraryInfo);
         mode="out-in"
       >
         <SetupStepPlatforms
-          v-if="step === 1 && libraryInfo"
+          v-if="step === 1"
           key="step-1"
           :library-info="libraryInfo"
           v-model:selected-new-platforms="selectedNewPlatforms"
@@ -404,27 +401,43 @@ onMounted(loadLibraryInfo);
   transform: translateX(40px);
 }
 
-/* On phones / small tablets the step content flows and the BODY scrolls
-   (header + footer stay pinned), instead of the desktop fixed-pane model
-   where each list scrolled in its own box. */
+/* Small tablets (sm): the fixed-height card keeps header + footer pinned and
+   the BODY scrolls, instead of the desktop fixed-pane model where each list
+   scrolled in its own box. (xs overrides this below — the whole card flows
+   and the auth stage scrolls.) */
 html[data-bp~="sm-and-down"] .r-v2-setup__body {
-  overflow-y: auto;
+  /* Body clips; each step scrolls its own content region internally (the
+     platform lists, the metadata list), keeping header + footer pinned. */
+  overflow: hidden;
 }
 
-/* Phones: the auth stage (flex column) bounds the height now, so fill it and
-   let the body scroll; trim the card chrome so the scrollable step content
-   (e.g. the platform lists) gets usable room. */
+/* Phones: the card fills the auth stage via a definite flex cross-size
+   (align-self: stretch — NOT height:100%, whose percentage collapses on a
+   reactive re-layout). Header + footer stay pinned; the step's lists region
+   scrolls internally, like desktop. */
 html[data-bp~="xs"] .r-v2-setup {
-  height: 100%;
-  max-height: 100%;
+  align-self: stretch;
+  height: auto;
+  max-height: none;
 }
 html[data-bp~="xs"] .r-v2-setup__header {
+  /* Logo is hidden on xs, so the 1fr/auto/1fr grid would strand the step
+     dots in the left track. Stack the header (steps over title), centred. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: var(--r-space-4) var(--r-space-4) var(--r-space-3);
 }
 html[data-bp~="xs"] .r-v2-setup__body {
+  overflow: hidden;
   padding: var(--r-space-4);
 }
 html[data-bp~="xs"] .r-v2-setup__footer {
   padding: var(--r-space-3) var(--r-space-4);
+}
+/* The RomM isotype eats vertical room in the phone header; the step dots and
+   title carry the wizard identity, so drop it on xs. */
+html[data-bp~="xs"] .r-v2-setup__logo {
+  display: none;
 }
 </style>
