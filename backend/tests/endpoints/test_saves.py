@@ -2620,3 +2620,52 @@ class TestSlotScopedDedupeMatrix:
         assert second.status_code == status.HTTP_200_OK
         assert second.json()["id"] != first.json()["id"]
         assert second.json()["content_hash"] != first.json()["content_hash"]
+
+
+class TestSaveVisibilityPropagation:
+    """Sharing a save should also publish its auto-captured thumbnail, so other
+    users still see the preview alongside the shared save."""
+
+    def test_sharing_save_syncs_thumbnail_visibility(
+        self,
+        client,
+        access_token: str,
+        save: Save,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+    ):
+        from handler.database import db_screenshot_handler
+        from models.assets import Screenshot
+
+        # Thumbnail whose filename stem matches the save (how Save.screenshot links).
+        thumb = db_screenshot_handler.add_screenshot(
+            Screenshot(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_save.png",
+                file_path=f"{platform.slug}/screenshots",
+                file_size_bytes=1,
+                is_public=False,
+            )
+        )
+
+        response = client.put(
+            f"/api/saves/{save.id}/visibility",
+            json={"is_public": True},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["is_public"] is True
+
+        refreshed = db_screenshot_handler.get_screenshot_by_id(thumb.id)
+        assert refreshed is not None and refreshed.is_public is True
+
+        # Un-sharing flips the thumbnail back to private too.
+        client.put(
+            f"/api/saves/{save.id}/visibility",
+            json={"is_public": False},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        refreshed = db_screenshot_handler.get_screenshot_by_id(thumb.id)
+        assert refreshed is not None and refreshed.is_public is False

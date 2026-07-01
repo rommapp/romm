@@ -84,7 +84,11 @@ function pipCoverSrc(entry: ActivityEntry): string | null {
 function avatarSrc(entry: ActivityEntry): string {
   // ActivityEntry carries no `updated_at`; the avatar is stable for the
   // life of a session so cache-busting isn't needed here.
-  return userAvatarUrl(entry.avatar_path, undefined);
+  return userAvatarUrl({
+    userId: entry.user_id,
+    avatarPath: entry.avatar_path,
+    updatedAt: undefined,
+  });
 }
 
 function elapsedLabel(startedAt: string): string {

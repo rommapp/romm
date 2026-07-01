@@ -297,6 +297,8 @@ export default defineStore("v2GalleryRoms", {
         filterDuplicates: galleryFilter.filterDuplicates,
         filterPlayables: galleryFilter.filterPlayables,
         filterRA: galleryFilter.filterRA,
+        filterSaves: galleryFilter.filterSaves,
+        filterStates: galleryFilter.filterStates,
         filterMissing: galleryFilter.filterMissing,
         filterVerified: galleryFilter.filterVerified,
         selectedGenres: galleryFilter.selectedGenres,

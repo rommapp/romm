@@ -962,8 +962,6 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | Heartbeat     | `GET /api/setup/library`               | Library structure info (wizard)        |
 | Heartbeat     | `POST /api/setup/platforms`            | Create platform folders (wizard)       |
 | Stats         | `GET /api/stats`                       | Library statistics                     |
-| Raw           | `HEAD /api/raw/assets/{path}`          | Check asset existence                  |
-| Raw           | `GET /api/raw/assets/{path}`           | Serve raw asset file                   |
 | Firmware      | Standard CRUD                          | BIOS file management                   |
 | Export        | `POST /api/export/gamelist-xml`        | Export ES-DE gamelist.xml              |
 | Export        | `POST /api/export/pegasus`             | Export Pegasus frontend metadata       |

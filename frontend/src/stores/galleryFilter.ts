@@ -41,6 +41,8 @@ const buildDefaultFilterState = () => ({
   filterDuplicates: null as boolean | null, // null = all, true = duplicates, false = not duplicates
   filterPlayables: null as boolean | null, // null = all, true = playables, false = not playables
   filterRA: null as boolean | null, // null = all, true = has RA, false = no RA
+  filterSaves: null as boolean | null, // null = all, true = has saves, false = no saves
+  filterStates: null as boolean | null, // null = all, true = has states, false = no states
   filterMissing: null as boolean | null, // null = all, true = missing, false = not missing
   filterVerified: null as boolean | null, // null = all, true = verified, false = not verified
   selectedPlatform: null as Platform | null,
@@ -308,6 +310,56 @@ export default defineStore("galleryFilter", {
         this.filterRA = null;
       }
     },
+    setFilterSaves(value: boolean | null) {
+      this.filterSaves = value;
+    },
+    setFilterSavesState(state: "all" | "has-saves" | "no-saves") {
+      switch (state) {
+        case "has-saves":
+          this.filterSaves = true;
+          break;
+        case "no-saves":
+          this.filterSaves = false;
+          break;
+        default: // "all"
+          this.filterSaves = null;
+          break;
+      }
+    },
+    switchFilterSaves() {
+      if (this.filterSaves === null) {
+        this.filterSaves = true;
+      } else if (this.filterSaves === true) {
+        this.filterSaves = false;
+      } else {
+        this.filterSaves = null;
+      }
+    },
+    setFilterStates(value: boolean | null) {
+      this.filterStates = value;
+    },
+    setFilterStatesState(state: "all" | "has-states" | "no-states") {
+      switch (state) {
+        case "has-states":
+          this.filterStates = true;
+          break;
+        case "no-states":
+          this.filterStates = false;
+          break;
+        default: // "all"
+          this.filterStates = null;
+          break;
+      }
+    },
+    switchFilterStates() {
+      if (this.filterStates === null) {
+        this.filterStates = true;
+      } else if (this.filterStates === true) {
+        this.filterStates = false;
+      } else {
+        this.filterStates = null;
+      }
+    },
     setFilterMissing(value: boolean | null) {
       this.filterMissing = value;
     },
@@ -365,6 +417,8 @@ export default defineStore("galleryFilter", {
         this.filterDuplicates !== null ||
         this.filterPlayables !== null ||
         this.filterRA !== null ||
+        this.filterSaves !== null ||
+        this.filterStates !== null ||
         this.filterMissing !== null ||
         this.filterVerified !== null ||
         this.selectedPlatform ||
@@ -404,6 +458,8 @@ export default defineStore("galleryFilter", {
       this.filterDuplicates = null;
       this.filterPlayables = null;
       this.filterRA = null;
+      this.filterSaves = null;
+      this.filterStates = null;
       this.filterMissing = null;
       this.filterVerified = null;
       // Reset logic operators to default

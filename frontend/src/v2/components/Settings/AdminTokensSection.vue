@@ -43,7 +43,11 @@ const sortKey = ref<SortKey>("username");
 const sortDir = ref<"asc" | "desc">("asc");
 
 function avatarSrc(token: ClientTokenAdminSchema) {
-  return userAvatarUrl(token.user_avatar_path, token.user_updated_at);
+  return userAvatarUrl({
+    userId: token.user_id,
+    avatarPath: token.user_avatar_path,
+    updatedAt: token.user_updated_at,
+  });
 }
 
 function compareNullable(a: string | null, b: string | null, asc: boolean) {

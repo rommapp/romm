@@ -54,7 +54,10 @@ class BaseAsset(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        return f"/api/raw/assets/{self.full_path}?timestamp={self.updated_at}"
+        # Served by the per-type `/{id}/content` route
+        return (
+            f"/api/{self.__tablename__}/{self.id}/content?timestamp={self.updated_at}"
+        )
 
 
 class RomAsset(BaseAsset):

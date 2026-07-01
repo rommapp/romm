@@ -17,6 +17,8 @@
 //   ?filterMissing=true|false
 //   ?filterVerified=true|false
 //   ?filterRA=true|false
+//   ?filterSaves=true|false
+//   ?filterStates=true|false
 //   ?platforms=1,2,3                  (selectedPlatforms IDs)
 //   ?genres=a,b&genresLogic=any|all|none
 //   ?franchises=…&franchisesLogic=…
@@ -103,6 +105,8 @@ export function useGalleryFilterUrl() {
     filterMissing,
     filterVerified,
     filterRA,
+    filterSaves,
+    filterStates,
     selectedPlatforms,
     selectedGenres,
     selectedFranchises,
@@ -144,6 +148,8 @@ export function useGalleryFilterUrl() {
       filterMissing: qBool(q.filterMissing),
       filterVerified: qBool(q.filterVerified),
       filterRA: qBool(q.filterRA),
+      filterSaves: qBool(q.filterSaves),
+      filterStates: qBool(q.filterStates),
       platformIds: qList(q.platforms)
         .map((s) => Number(s))
         .filter((n) => !Number.isNaN(n)),
@@ -185,6 +191,10 @@ export function useGalleryFilterUrl() {
     if (url.filterVerified !== filterVerified.value)
       filterVerified.value = url.filterVerified;
     if (url.filterRA !== filterRA.value) filterRA.value = url.filterRA;
+    if (url.filterSaves !== filterSaves.value)
+      filterSaves.value = url.filterSaves;
+    if (url.filterStates !== filterStates.value)
+      filterStates.value = url.filterStates;
 
     // Platforms — lookup objects from IDs. If the platform store hasn't
     // hydrated yet, the watch below retries when it does.
@@ -316,6 +326,8 @@ export function useGalleryFilterUrl() {
     setBool("filterMissing", filterMissing.value);
     setBool("filterVerified", filterVerified.value);
     setBool("filterRA", filterRA.value);
+    setBool("filterSaves", filterSaves.value);
+    setBool("filterStates", filterStates.value);
 
     setList(
       "platforms",
@@ -410,6 +422,8 @@ export function useGalleryFilterUrl() {
       filterMissing,
       filterVerified,
       filterRA,
+      filterSaves,
+      filterStates,
       selectedPlatforms,
       selectedGenres,
       genresLogic,

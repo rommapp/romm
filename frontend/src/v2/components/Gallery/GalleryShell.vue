@@ -156,6 +156,8 @@ const {
   filterMissing,
   filterVerified,
   filterRA,
+  filterSaves,
+  filterStates,
   selectedPlatforms,
   selectedGenres,
   selectedFranchises,
@@ -186,6 +188,8 @@ const filterActiveCount = computed(() => {
   if (filterMissing.value !== null) n += 1;
   if (filterVerified.value !== null) n += 1;
   if (filterRA.value !== null) n += 1;
+  if (filterSaves.value !== null) n += 1;
+  if (filterStates.value !== null) n += 1;
   if (selectedPlatforms.value.length > 0) n += 1;
   for (const arr of [
     selectedGenres,
@@ -219,6 +223,8 @@ watch(
     filterMissing,
     filterVerified,
     filterRA,
+    filterSaves,
+    filterStates,
     selectedPlatforms,
     selectedGenres,
     selectedFranchises,

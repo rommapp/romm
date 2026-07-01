@@ -149,6 +149,10 @@ class CachedApiService {
         ? { missing: params.filterMissing }
         : {}),
       ...(params.filterRA !== null ? { has_ra: params.filterRA } : {}),
+      ...(params.filterSaves !== null ? { has_saves: params.filterSaves } : {}),
+      ...(params.filterStates !== null
+        ? { has_states: params.filterStates }
+        : {}),
       ...(params.filterVerified !== null
         ? { verified: params.filterVerified }
         : {}),
