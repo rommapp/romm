@@ -184,9 +184,13 @@ class TestFSResourcesHandler:
             expected = os.path.join("roms", str(platform_id))
             assert result == expected
 
-    def test_cover_exists_no_cover(self, handler: FSResourcesHandler, rom: Rom):
+    def test_cover_exists_no_cover(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
         """Test cover_exists when no cover exists"""
-        # Test with non-existent covers
+        # Point at an isolated empty tree so a cover leaked by another test
+        # (shared RESOURCES_BASE_PATH) can't make this assertion flaky.
+        handler.base_path = tmp_path
         assert not handler.cover_exists(rom, CoverSize.SMALL)
         assert not handler.cover_exists(rom, CoverSize.BIG)
 
@@ -243,8 +247,11 @@ class TestFSResourcesHandler:
         mock_image.resize.assert_called_once_with((expected_width, expected_height))
         mock_image.save.assert_called_once_with(save_path)
 
-    def test_get_cover_path_no_cover(self, handler: FSResourcesHandler, rom: Rom):
+    def test_get_cover_path_no_cover(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
         """Test _get_cover_path when no cover exists"""
+        handler.base_path = tmp_path
         result_small = handler._get_cover_path(rom, CoverSize.SMALL)
         result_big = handler._get_cover_path(rom, CoverSize.BIG)
 
@@ -278,8 +285,11 @@ class TestFSResourcesHandler:
         assert result == (None, None)
 
     @pytest.mark.asyncio
-    async def test_get_cover_no_url(self, handler: FSResourcesHandler, rom: Rom):
+    async def test_get_cover_no_url(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
         """Test get_cover with no URL"""
+        handler.base_path = tmp_path
         result = await handler.get_cover(rom, False, None)
         # Should return empty strings since no covers exist and no URL provided
         assert result == (None, None)

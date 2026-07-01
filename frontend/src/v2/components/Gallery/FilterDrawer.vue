@@ -203,6 +203,24 @@ const boolFilters: BoolFilterConfig[] = [
     noAria: t("platform.show-not-ra-only"),
     value: filterRA,
   },
+  {
+    label: t("platform.show-saves"),
+    icon: "mdi-content-save-outline",
+    yesIcon: "mdi-content-save-outline",
+    noIcon: "mdi-content-save-off-outline",
+    yesAria: t("platform.show-saves-only"),
+    noAria: t("platform.show-not-saves-only"),
+    value: filterSaves,
+  },
+  {
+    label: t("platform.show-states"),
+    icon: "mdi-camera-outline",
+    yesIcon: "mdi-camera-outline",
+    noIcon: "mdi-camera-off-outline",
+    yesAria: t("platform.show-states-only"),
+    noAria: t("platform.show-not-states-only"),
+    value: filterStates,
+  },
 ];
 
 function setTri(cfg: BoolFilterConfig, v: TriValue) {

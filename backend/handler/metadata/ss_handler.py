@@ -1,6 +1,6 @@
 import html
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Final, NotRequired, TypedDict
 from urllib.parse import urlparse
 
@@ -418,13 +418,17 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             return ""
 
     def _parse_date(date_text: str) -> int | None:
+        # Release dates are date-only, so pin them to UTC midnight; a naive
+        # `.timestamp()` would read them as local time and shift by the host's
+        # UTC offset.
         try:
-            return int(datetime.strptime(date_text, "%Y-%m-%d").timestamp())
+            dt = datetime.strptime(date_text, "%Y-%m-%d")
         except ValueError:
             try:
-                return int(datetime.strptime(date_text, "%Y").timestamp())
+                dt = datetime.strptime(date_text, "%Y")
             except ValueError:
                 return None
+        return int(dt.replace(tzinfo=timezone.utc).timestamp())
 
     def _get_lowest_date(dates: list[SSGameDate]) -> int | None:
         if not dates:
