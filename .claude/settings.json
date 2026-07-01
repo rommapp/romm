@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/setup-code-signing.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/setup-code-signing.sh\""
           }
         ]
       }
