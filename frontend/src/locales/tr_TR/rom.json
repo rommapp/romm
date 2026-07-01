@@ -353,12 +353,10 @@
   "soundtrack-close-player": "Oynatıcıyı kapat",
   "soundtrack-delete-track": "Parçayı sil",
   "soundtrack-empty": "Henüz müzik paketi yok",
-  "soundtrack-folder-hint": "Tek dosyalı ROM'lara eşlik eden parça eklenemez. Bu ROM'u bir klasör olarak yeniden düzenleyin; yükleme seçeneği burada görünecektir.",
   "soundtrack-folder-only": "Yalnızca klasör tabanlı ROM'lar için kullanılabilir",
   "soundtrack-metadata-error": "Müzik paketi meta verisi yüklenemedi",
   "soundtrack-mini-player": "Müzik paketi oynatıcısı",
   "soundtrack-next": "Sonraki parça",
-  "soundtrack-no-folder": "Müzik paketi için klasör tabanlı ROM gereklidir",
   "soundtrack-open-rom": "ROM ayrıntılarını aç",
   "soundtrack-open-rom-tooltip": "ROM'u aç",
   "soundtrack-pause": "Duraklat",
@@ -429,5 +427,7 @@
   "versions-count": "{n} sürüm",
   "volume-mute": "Sesi kapat",
   "volume-unmute": "Sesi aç",
-  "youtube-video-id": "YouTube video ID"
+  "youtube-video-id": "YouTube video ID",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the rom to a multi-file rom. This action is not reversible."
 }

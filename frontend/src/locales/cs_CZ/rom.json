@@ -353,12 +353,10 @@
   "soundtrack-close-player": "Zavřít přehrávač",
   "soundtrack-delete-track": "Smazat skladbu",
   "soundtrack-empty": "Zatím žádný soundtrack",
-  "soundtrack-folder-hint": "ROMy ve formě jediného souboru nemohou mít doprovodné skladby. Přeorganizujte tuto ROM do složky a možnost nahrávání se objeví zde.",
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "Nepodařilo se načíst metadata soundtracku",
   "soundtrack-mini-player": "Přehrávač soundtracku",
   "soundtrack-next": "Další skladba",
-  "soundtrack-no-folder": "Soundtrack vyžaduje ROM ve formě složky",
   "soundtrack-open-rom": "Open ROM details",
   "soundtrack-open-rom-tooltip": "Otevřít ROM",
   "soundtrack-pause": "Pozastavit",
@@ -429,5 +427,7 @@
   "versions-count": "{n} verzí",
   "volume-mute": "Ztlumit",
   "volume-unmute": "Zrušit ztlumení",
-  "youtube-video-id": "ID YouTube videa"
+  "youtube-video-id": "ID YouTube videa",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the rom to a multi-file rom. This action is not reversible."
 }

@@ -158,16 +158,16 @@ class RomUserSchema(BaseModel):
         return rom_user_schema_factory()
 
 
-class RomFileAudioMetaSchema(BaseModel):
+class TrackMetaSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     title: str | None = None
     artist: str | None = None
     album: str | None = None
-    year: str | None = None
+    year: int | None = None
     genre: str | None = None
-    track: str | None = None
-    disc: str | None = None
+    track: int | None = None
+    disc: int | None = None
     duration_seconds: float | None = None
     has_embedded_cover: bool = False
     cover_path: str | None = None
@@ -193,7 +193,7 @@ class RomFileSchema(BaseModel):
     chd_sha1_hash: str | None
     archive_members: list[RomArchiveMember] | None
     category: RomFileCategory | None
-    audio_meta: RomFileAudioMetaSchema | None = None
+    track_meta: TrackMetaSchema | None = None
 
     @model_validator(mode="after")
     def default_category_for_non_nested(self) -> RomFileSchema:
@@ -208,7 +208,7 @@ class SoundtrackTrackMetaSchema(BaseModel):
     file_id: int
     file_name: str
     file_size_bytes: int
-    audio_meta: RomFileAudioMetaSchema | None = None
+    track_meta: TrackMetaSchema | None = None
 
 
 class RomMetadataSchema(BaseModel):

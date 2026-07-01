@@ -353,12 +353,10 @@
   "soundtrack-close-player": "Затвори плеъра",
   "soundtrack-delete-track": "Изтрий песента",
   "soundtrack-empty": "Все още няма саундтрак",
-  "soundtrack-folder-hint": "ROM-ове, състоящи се от един файл, не могат да имат придружаващи песни. Реорганизирай този ROM като папка и опцията за качване ще се появи тук.",
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "Неуспешно зареждане на метаданните на саундтрака",
   "soundtrack-mini-player": "Плеър за саундтрак",
   "soundtrack-next": "Следваща песен",
-  "soundtrack-no-folder": "Саундтракът изисква ROM, базиран на папка",
   "soundtrack-open-rom": "Open ROM details",
   "soundtrack-open-rom-tooltip": "Отвори ROM",
   "soundtrack-pause": "Пауза",
@@ -429,5 +427,7 @@
   "versions-count": "{n} версии",
   "volume-mute": "Заглуши",
   "volume-unmute": "Включи звука",
-  "youtube-video-id": "YouTube видео ID"
+  "youtube-video-id": "YouTube видео ID",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the rom to a multi-file rom. This action is not reversible."
 }

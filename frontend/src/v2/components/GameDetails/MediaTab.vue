@@ -14,7 +14,7 @@
 //     ROM / Mine / Community sections with per-user public/private
 //
 // The PDF viewer + soundtrack player are reused from v1 for now.
-import { RBtn, RDropzone, REmptyState, RIcon, RSelect } from "@v2/lib";
+import { RBtn, RDropzone, RIcon, RSelect } from "@v2/lib";
 import axios from "axios";
 import type { Emitter } from "mitt";
 import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
@@ -174,10 +174,18 @@ const manualItems = computed(() =>
   manualEntries.value.map((e) => ({ title: e.label, value: e.id })),
 );
 
-// ---------- Soundtrack gating ----------
-// Soundtracks live alongside the ROM folder, so single-file ROMs can't have
-// one. Mirror the v1 gate.
-const soundtrackSupported = computed(() => !props.rom.has_simple_single_file);
+// ---------- Single-file -> folder conversion ----------
+// Soundtracks/manuals/screenshots live inside the ROM folder, so uploading one
+// to a single-file ROM promotes it to a folder ROM in place (the backend does
+// this automatically on upload). Warn first since it is not reversible.
+async function confirmFolderConversionIfNeeded(): Promise<boolean> {
+  if (!props.rom.has_simple_single_file) return true;
+  return confirm({
+    title: t("rom.convert-to-folder-title"),
+    body: t("rom.convert-to-folder-body"),
+    tone: "warning",
+  });
+}
 
 // ---------- Subtab nav ----------
 // We render the subtab list manually (not via RTabNav) because each
@@ -230,13 +238,15 @@ async function refreshRom() {
 // Manual upload routes through the target-selection dialog (mounted in
 // AppLayout): the user picks which platform/folder the manual belongs to,
 // so we hand off rather than uploading inline.
-function handleManualFiles(files: File[]) {
+async function handleManualFiles(files: File[]) {
   if (files.length === 0) return;
+  if (!(await confirmFolderConversionIfNeeded())) return;
   emitter?.emit("showManualUploadTargetDialog", { rom: props.rom, files });
 }
 
 async function handleSoundtrackFiles(files: File[]) {
-  if (files.length === 0 || !soundtrackSupported.value) return;
+  if (files.length === 0) return;
+  if (!(await confirmFolderConversionIfNeeded())) return;
 
   const responses = await romApi.uploadSoundtracks({
     romId: props.rom.id,
@@ -464,57 +474,48 @@ async function deleteSoundtrack(fileId: number) {
 
       <!-- Soundtrack subtab -->
       <section v-show="subTab === 'soundtrack'" class="r-v2-media__panel">
-        <REmptyState
-          v-if="!soundtrackSupported"
-          icon="mdi-music-off"
-          :title="t('rom.soundtrack-no-folder')"
-          :hint="t('rom.soundtrack-folder-hint')"
+        <header v-if="rom.has_soundtrack" class="r-v2-media__section-head">
+          <div class="r-v2-media__section-actions">
+            <RBtn
+              variant="outlined"
+              size="small"
+              prepend-icon="mdi-cloud-upload-outline"
+              @click="soundtrackDz?.open()"
+            >
+              {{ t("common.upload") }}
+            </RBtn>
+          </div>
+        </header>
+
+        <RDropzone
+          v-if="!rom.has_soundtrack"
+          :title="t('rom.soundtrack-empty')"
+          :hint="t('common.dropzone-hint')"
+          :active-title="t('common.dropzone-drag-over')"
+          :input-label="t('rom.upload-soundtrack')"
+          accept="audio/*,.flac,.opus"
+          multiple
+          @files="handleSoundtrackFiles"
         />
 
-        <template v-else>
-          <header v-if="rom.has_soundtrack" class="r-v2-media__section-head">
-            <div class="r-v2-media__section-actions">
-              <RBtn
-                variant="outlined"
-                size="small"
-                prepend-icon="mdi-cloud-upload-outline"
-                @click="soundtrackDz?.open()"
-              >
-                {{ t("common.upload") }}
-              </RBtn>
-            </div>
-          </header>
-
-          <RDropzone
-            v-if="!rom.has_soundtrack"
-            :title="t('rom.soundtrack-empty')"
-            :hint="t('common.dropzone-hint')"
-            :active-title="t('common.dropzone-drag-over')"
-            :input-label="t('rom.upload-soundtrack')"
-            accept="audio/*,.flac,.opus"
-            multiple
-            @files="handleSoundtrackFiles"
+        <RDropzone
+          v-else
+          ref="soundtrackDz"
+          overlay
+          class="r-v2-media__fill"
+          :release-label="t('common.dropzone-drag-over')"
+          :input-label="t('rom.upload-soundtrack')"
+          accept="audio/*,.flac,.opus"
+          multiple
+          @files="handleSoundtrackFiles"
+        >
+          <SoundtrackPanel
+            :rom="rom"
+            class="r-v2-media__soundtrack"
+            @upload-tracks="soundtrackDz?.open()"
+            @delete-track="deleteSoundtrack"
           />
-
-          <RDropzone
-            v-else
-            ref="soundtrackDz"
-            overlay
-            class="r-v2-media__fill"
-            :release-label="t('common.dropzone-drag-over')"
-            :input-label="t('rom.upload-soundtrack')"
-            accept="audio/*,.flac,.opus"
-            multiple
-            @files="handleSoundtrackFiles"
-          >
-            <SoundtrackPanel
-              :rom="rom"
-              class="r-v2-media__soundtrack"
-              @upload-tracks="soundtrackDz?.open()"
-              @delete-track="deleteSoundtrack"
-            />
-          </RDropzone>
-        </template>
+        </RDropzone>
       </section>
     </div>
   </div>

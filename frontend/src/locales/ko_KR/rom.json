@@ -353,12 +353,10 @@
   "soundtrack-close-player": "플레이어 닫기",
   "soundtrack-delete-track": "트랙 삭제",
   "soundtrack-empty": "아직 사운드트랙이 없습니다",
-  "soundtrack-folder-hint": "단일 파일 ROM은 함께 제공되는 트랙을 가질 수 없습니다. 이 ROM을 폴더로 재구성하면 업로드 옵션이 여기에 표시됩니다.",
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "사운드트랙 메타데이터를 불러오지 못했습니다",
   "soundtrack-mini-player": "사운드트랙 플레이어",
   "soundtrack-next": "다음 트랙",
-  "soundtrack-no-folder": "사운드트랙은 폴더 기반 ROM이 필요합니다",
   "soundtrack-open-rom": "Open ROM details",
   "soundtrack-open-rom-tooltip": "ROM 열기",
   "soundtrack-pause": "일시정지",
@@ -429,5 +427,7 @@
   "versions-count": "{n}개 버전",
   "volume-mute": "음소거",
   "volume-unmute": "음소거 해제",
-  "youtube-video-id": "YouTube 동영상 ID"
+  "youtube-video-id": "YouTube 동영상 ID",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the rom to a multi-file rom. This action is not reversible."
 }

@@ -250,7 +250,6 @@
   "no-games-match-query": "No games match \"{query}\".",
   "search-placeholder": "Search by name, filename, hash…",
   "soundtrack-mini-player": "Soundtrack player",
-  "soundtrack-no-folder": "Soundtrack needs a folder-based ROM",
   "manual-empty": "No manual yet",
   "soundtrack-empty": "No soundtrack yet",
   "screenshots-empty": "No screenshots yet",
@@ -319,7 +318,6 @@
   "tracks-uploaded-n": "Uploaded {n} track. | Uploaded {n} tracks.",
   "tracks-uploaded-with-failed": "Uploaded {n} track, {failed} failed. | Uploaded {n} tracks, {failed} failed.",
   "redownload": "Re-download",
-  "soundtrack-folder-hint": "Single-file ROMs can't have accompanying tracks. Re-organise this ROM as a folder and the upload option will appear here.",
   "files-count-n": "{n} file | {n} files",
   "files-selected-of": "{selected} of {total} selected",
   "download-all": "Download all",
@@ -429,5 +427,7 @@
   "media-physical": "Physical media",
   "media-title-screen": "Title screen",
   "media-video": "Video",
-  "media-video-normalized": "Video (standardized)"
+  "media-video-normalized": "Video (standardized)",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the rom to a multi-file rom. This action is not reversible."
 }

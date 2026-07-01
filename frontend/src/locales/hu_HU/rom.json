@@ -353,12 +353,10 @@
   "soundtrack-close-player": "Lejátszó bezárása",
   "soundtrack-delete-track": "Szám törlése",
   "soundtrack-empty": "Még nincs zene",
-  "soundtrack-folder-hint": "Egyetlen fájlból álló ROM-okhoz nem tartozhat zene. Szervezd át a ROM-ot mappává, és a feltöltési lehetőség itt megjelenik.",
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "A zenei metaadatok betöltése sikertelen",
   "soundtrack-mini-player": "Zenei lejátszó",
   "soundtrack-next": "Következő szám",
-  "soundtrack-no-folder": "A zenéhez mappa-alapú ROM szükséges",
   "soundtrack-open-rom": "Open ROM details",
   "soundtrack-open-rom-tooltip": "ROM megnyitása",
   "soundtrack-pause": "Szünet",
@@ -429,5 +427,7 @@
   "versions-count": "{n} verzió",
   "volume-mute": "Némítás",
   "volume-unmute": "Némítás feloldása",
-  "youtube-video-id": "YouTube videó azonosító"
+  "youtube-video-id": "YouTube videó azonosító",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the rom to a multi-file rom. This action is not reversible."
 }

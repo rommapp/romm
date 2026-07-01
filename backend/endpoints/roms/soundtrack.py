@@ -10,21 +10,24 @@ from streaming_form_data import StreamingFormDataParser
 from streaming_form_data.targets import FileTarget, NullTarget
 
 from decorators.auth import protected_route
-from endpoints.responses.rom import RomFileAudioMetaSchema, SoundtrackTrackMetaSchema
+from endpoints.responses.rom import SoundtrackTrackMetaSchema, TrackMetaSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import RomFile, RomFileCategory
+from models.rom import RomFile, RomFileCategory, TrackMeta
 from utils.audio_tags import (
     ALLOWED_AUDIO_EXTENSIONS,
     extract_audio_meta,
     is_allowed_audio_file,
-    persist_cover_and_build_meta,
+    persist_embedded_cover,
     remove_persisted_cover,
+    track_meta_columns,
 )
 from utils.router import APIRouter
 
@@ -58,10 +61,8 @@ async def get_rom_soundtrack_metadata(
             file_id=f.id,
             file_name=f.file_name,
             file_size_bytes=f.file_size_bytes,
-            audio_meta=(
-                RomFileAudioMetaSchema.model_validate(f.audio_meta)
-                if f.audio_meta
-                else None
+            track_meta=(
+                TrackMetaSchema.model_validate(f.track_meta) if f.track_meta else None
             ),
         )
         for f in tracks
@@ -93,10 +94,12 @@ async def add_rom_soundtracks(
         raise RomNotFoundInDatabaseException(id)
 
     if rom.has_simple_single_file:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Soundtracks can only be uploaded to folder-based ROMs",
-        )
+        try:
+            rom = await promote_single_file_to_folder(rom)
+        except RomAlreadyExistsException as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+            ) from exc
 
     try:
         safe_filename = fs_rom_handler._sanitize_filename(filename)
@@ -155,23 +158,27 @@ async def add_rom_soundtracks(
 
     stat = os.stat(file_location)
     audio_meta = extract_audio_meta(str(file_location))
+    cols = track_meta_columns(audio_meta) if audio_meta else None
     existing = db_rom_handler.get_rom_file_by_path(
         rom_id=rom.id, file_path=soundtrack_dir_rel, file_name=safe_filename
     )
     if existing:
         # Reuploading: drop stale cover first so a new id-based path can replace it.
-        if existing.audio_meta and existing.audio_meta.get("cover_path"):
-            remove_persisted_cover(existing.audio_meta["cover_path"])
+        if existing.track_meta and existing.track_meta.cover_path:
+            remove_persisted_cover(existing.track_meta.cover_path)
         saved = db_rom_handler.update_rom_file(
             existing.id,
             {
                 "file_size_bytes": stat.st_size,
                 "last_modified": stat.st_mtime,
                 "category": RomFileCategory.SOUNDTRACK,
-                "audio_meta": audio_meta,
                 "missing_from_fs": False,
             },
         )
+        if cols:
+            db_rom_handler.upsert_track_meta(existing.id, rom.id, cols)
+        else:
+            db_rom_handler.delete_track_meta(existing.id)
     else:
         saved = db_rom_handler.add_rom_file(
             RomFile(
@@ -181,20 +188,21 @@ async def add_rom_soundtracks(
                 file_size_bytes=stat.st_size,
                 last_modified=stat.st_mtime,
                 category=RomFileCategory.SOUNDTRACK,
-                audio_meta=audio_meta,
+                track_meta=(TrackMeta(rom_id=rom.id, **cols) if cols else None),
             )
         )
 
     if saved and audio_meta and audio_meta.get("has_embedded_cover"):
-        persisted_meta = persist_cover_and_build_meta(
+        cover_path = persist_embedded_cover(
             audio_full_path=str(file_location),
             platform_id=rom.platform_id,
             rom_id=rom.id,
             file_id=saved.id,
-            audio_meta=audio_meta,
         )
-        if persisted_meta:
-            db_rom_handler.update_rom_file(saved.id, {"audio_meta": persisted_meta})
+        if cover_path:
+            db_rom_handler.upsert_track_meta(
+                saved.id, rom.id, {"cover_path": cover_path}
+            )
 
     return Response(status_code=status.HTTP_201_CREATED)
 
@@ -246,8 +254,8 @@ async def delete_rom_soundtrack(
             detail="There was an error deleting the soundtrack",
         ) from exc
 
-    if rom_file.audio_meta and rom_file.audio_meta.get("cover_path"):
-        remove_persisted_cover(rom_file.audio_meta["cover_path"])
+    if rom_file.track_meta and rom_file.track_meta.cover_path:
+        remove_persisted_cover(rom_file.track_meta.cover_path)
 
     db_rom_handler.delete_rom_file(file_id)
 

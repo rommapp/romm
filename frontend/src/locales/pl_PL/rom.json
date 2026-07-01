@@ -353,12 +353,10 @@
   "soundtrack-close-player": "Zamknij odtwarzacz",
   "soundtrack-delete-track": "Usuń utwór",
   "soundtrack-empty": "Brak ścieżki dźwiękowej",
-  "soundtrack-folder-hint": "ROM-y w pojedynczym pliku nie mogą mieć dołączonych utworów. Zorganizuj ten ROM jako folder, a opcja przesyłania pojawi się tutaj.",
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "Nie udało się załadować metadanych ścieżki dźwiękowej",
   "soundtrack-mini-player": "Odtwarzacz ścieżki dźwiękowej",
   "soundtrack-next": "Następny utwór",
-  "soundtrack-no-folder": "Ścieżka dźwiękowa wymaga ROM-u opartego na folderze",
   "soundtrack-open-rom": "Open ROM details",
   "soundtrack-open-rom-tooltip": "Otwórz ROM",
   "soundtrack-pause": "Pauza",
@@ -429,5 +427,7 @@
   "versions-count": "{n} wersji",
   "volume-mute": "Wycisz",
   "volume-unmute": "Wyłącz wyciszenie",
-  "youtube-video-id": "ID filmu YouTube"
+  "youtube-video-id": "ID filmu YouTube",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the rom to a multi-file rom. This action is not reversible."
 }

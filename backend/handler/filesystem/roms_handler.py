@@ -23,7 +23,7 @@ from exceptions.fs_exceptions import (
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
 from utils.archives import (
     detect_mime_type,
     extract_chd_hash,
@@ -279,12 +279,18 @@ class FSRomsHandler(FSHandler):
             None,
         )
 
-        audio_meta = None
+        track_meta = None
         if matching_category == RomFileCategory.SOUNDTRACK:
-            from utils.audio_tags import extract_audio_meta, is_allowed_audio_file
+            from utils.audio_tags import (
+                extract_audio_meta,
+                is_allowed_audio_file,
+                track_meta_columns,
+            )
 
             if is_allowed_audio_file(file_name):
-                audio_meta = extract_audio_meta(str(abs_file_path))
+                meta = extract_audio_meta(str(abs_file_path))
+                if meta:
+                    track_meta = TrackMeta(rom_id=rom.id, **track_meta_columns(meta))
 
         return RomFile(
             rom=rom,
@@ -302,7 +308,7 @@ class FSRomsHandler(FSHandler):
                 else os.path.getmtime(abs_file_path)
             ),
             category=matching_category,
-            audio_meta=audio_meta,
+            track_meta=track_meta,
             crc_hash=file_hash["crc_hash"],
             md5_hash=file_hash["md5_hash"],
             sha1_hash=file_hash["sha1_hash"],
