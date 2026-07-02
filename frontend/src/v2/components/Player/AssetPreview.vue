@@ -18,6 +18,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { toCssUrl } from "@/v2/utils/css";
 
 defineOptions({ inheritAttrs: false });
 
@@ -72,7 +73,7 @@ const emptyText = computed(() =>
         <div
           v-if="screenshotUrl"
           class="r-asset-preview__stage-img"
-          :style="{ backgroundImage: `url(${screenshotUrl})` }"
+          :style="{ backgroundImage: toCssUrl(screenshotUrl) }"
         />
         <div v-else class="r-asset-preview__stage-fill">
           <RIcon icon="mdi-image-off-outline" size="64" />
