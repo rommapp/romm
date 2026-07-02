@@ -31,6 +31,10 @@ interface Props {
   iconEmpty: string;
   accent: string;
   disabled?: boolean;
+  /** Trigger height — mirrors GameActionBtn's ladder so the metric pills
+   *  sit at the exact same height as the action ribbon (`large` = 44px,
+   *  `default` = 40px). */
+  size?: "default" | "large";
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -38,6 +42,7 @@ const props = withDefaults(defineProps<Props>(), {
   max: 10,
   step: 5,
   disabled: false,
+  size: "large",
 });
 
 const emit = defineEmits<{
@@ -96,7 +101,10 @@ function clear() {
         v-bind="activatorProps"
         type="button"
         class="r-v2-metric-btn"
-        :class="{ 'r-v2-metric-btn--has-value': value > 0 }"
+        :class="[
+          `r-v2-metric-btn--${size}`,
+          { 'r-v2-metric-btn--has-value': value > 0 },
+        ]"
         :style="{ '--metric-accent': `var(--r-color-${accent})` }"
         :disabled="disabled"
         :aria-label="`${label}: ${value > 0 ? valueLabel : 'unset'}`"
@@ -182,6 +190,17 @@ function clear() {
     border-color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-metric-btn :deep(.mdi) {
+  font-size: 20px;
+}
+/* Size ladder — height-matched to GameActionBtn so the metrics line up with
+   the action ribbon. `--large` (44px) is the base above; `--default` (40px)
+   is the phone size the ribbon shrinks to. */
+.r-v2-metric-btn--default {
+  height: 40px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+.r-v2-metric-btn--default :deep(.mdi) {
   font-size: 20px;
 }
 .r-v2-metric-btn:hover:not(:disabled) {

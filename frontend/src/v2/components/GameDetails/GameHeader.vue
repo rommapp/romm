@@ -175,4 +175,17 @@ const actions = useGameActions(() => props.rom);
 html[data-bp~="xs"] .r-v2-det-header__title {
   font-size: 20px;
 }
+
+/* Mobile: the cover sits centred above this header, so centre the title and
+   its meta / tag rows to match instead of the desktop left-align. */
+html[data-bp~="sm-and-down"] .r-v2-det-header {
+  align-items: center;
+  text-align: center;
+  padding-top: 4px;
+}
+html[data-bp~="sm-and-down"] .r-v2-det-header__meta,
+html[data-bp~="sm-and-down"] .r-v2-det-header__tags,
+html[data-bp~="sm-and-down"] .r-v2-det-header__versions {
+  justify-content: center;
+}
 </style>
