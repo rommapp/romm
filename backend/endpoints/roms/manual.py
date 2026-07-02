@@ -11,9 +11,11 @@ from streaming_form_data.targets import FileTarget, NullTarget
 
 from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -178,10 +180,12 @@ async def add_rom_manual_file(
         raise RomNotFoundInDatabaseException(id)
 
     if rom.has_simple_single_file:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Manual files can only be uploaded to folder-based ROMs",
-        )
+        try:
+            rom = await promote_single_file_to_folder(rom)
+        except RomAlreadyExistsException as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+            ) from exc
 
     try:
         safe_filename = fs_rom_handler._sanitize_filename(filename)

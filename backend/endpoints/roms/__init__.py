@@ -66,6 +66,7 @@ from handler.metadata import (
     meta_ss_handler,
 )
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
+from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -372,6 +373,10 @@ def get_roms(
         bool | None,
         Query(description="Whether the rom is verified by Hasheous."),
     ] = None,
+    has_soundtrack: Annotated[
+        bool | None,
+        Query(description="Whether the rom has any soundtrack files."),
+    ] = None,
     group_by_meta_id: Annotated[
         bool,
         Query(
@@ -603,6 +608,7 @@ def get_roms(
         has_states=has_states,
         missing=missing,
         verified=verified,
+        has_soundtrack=has_soundtrack,
         genres=genres,
         franchises=franchises,
         collections=collections,
@@ -666,6 +672,7 @@ def get_roms(
         or has_states is not None
         or missing is not None
         or verified is not None
+        or has_soundtrack is not None
     )
 
     # Get the char index for the roms
@@ -1735,6 +1742,40 @@ async def update_rom(
         fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))
 
     db_rom_handler.invalidate_filter_values_cache()
+    return DetailedRomSchema.from_orm_with_request(rom, request)
+
+
+@protected_route(
+    router.post,
+    "/{id}/convert-to-folder",
+    [Scope.ROMS_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_409_CONFLICT: {},
+    },
+)
+async def convert_rom_to_folder(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> DetailedRomSchema:
+    """Promote a single-file ROM to a folder ROM in place.
+
+    Keeps the same id and all relations; no rescan. A no-op (clean success) if
+    the ROM is already folder-based. Returns 409 on a folder-name collision.
+    """
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
+
+    try:
+        rom = await promote_single_file_to_folder(rom)
+    except RomAlreadyExistsException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 

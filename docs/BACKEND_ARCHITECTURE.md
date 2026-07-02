@@ -571,15 +571,38 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
 
 Tracks individual files within a ROM (archives can contain multiple files).
 
-| Column                                         | Type        | Notes                                                                                                  |
-| ---------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------ |
-| `id`                                           | Integer     | PK                                                                                                     |
-| `rom_id`                                       | Integer     | FK → roms                                                                                              |
-| `file_name`, `file_path`                       | String      | File identity                                                                                          |
-| `file_size_bytes`                              | BigInteger  | Size                                                                                                   |
-| `crc_hash`, `md5_hash`, `sha1_hash`, `ra_hash` | String(100) | Hashes                                                                                                 |
-| `category`                                     | Enum        | `GAME`, `DLC`, `HACK`, `MANUAL`, `PATCH`, `UPDATE`, `MOD`, `DEMO`, `TRANSLATION`, `PROTOTYPE`, `CHEAT` |
-| `missing_from_fs`                              | Boolean     | Sync state                                                                                             |
+| Column                                         | Type        | Notes                                                                                                                              |
+| ---------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                           | Integer     | PK                                                                                                                                 |
+| `rom_id`                                       | Integer     | FK → roms                                                                                                                          |
+| `file_name`, `file_path`                       | String      | File identity                                                                                                                      |
+| `file_size_bytes`                              | BigInteger  | Size                                                                                                                               |
+| `crc_hash`, `md5_hash`, `sha1_hash`, `ra_hash` | String(100) | Hashes                                                                                                                             |
+| `category`                                     | Enum        | `GAME`, `DLC`, `HACK`, `MANUAL`, `PATCH`, `UPDATE`, `MOD`, `DEMO`, `TRANSLATION`, `PROTOTYPE`, `CHEAT`, `SOUNDTRACK`, `SCREENSHOT` |
+| `missing_from_fs`                              | Boolean     | Sync state                                                                                                                         |
+
+**Relationships:** rom (M:1), track_meta (1:1, `SOUNDTRACK` files only)
+
+---
+
+#### Track Meta
+
+**Table:** `track_meta`
+
+Audio metadata for a `SOUNDTRACK` rom_file (1:1), indexed for the music API. Written from file tags at upload/scan.
+
+| Column                     | Type         | Notes                            |
+| -------------------------- | ------------ | -------------------------------- |
+| `rom_file_id`              | Integer      | PK, FK → rom_files (cascade)     |
+| `rom_id`                   | Integer      | FK → roms (cascade), indexed     |
+| `title`, `artist`, `album` | String(512)  | Indexed: `artist`, `album`       |
+| `genre`                    | String(255)  |                                  |
+| `year`, `track`, `disc`    | SmallInteger | Parsed from tags; `year` indexed |
+| `duration_seconds`         | Float        | Indexed                          |
+| `has_embedded_cover`       | Boolean      |                                  |
+| `cover_path`               | String(1024) | Extracted cover under resources  |
+
+**Relationships:** rom_file (1:1)
 
 ---
 
@@ -818,17 +841,18 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 
 ### 6.5 ROMs (`/api/roms`)
 
-| Method | Path                         | Scope      | Description                       |
-| ------ | ---------------------------- | ---------- | --------------------------------- |
-| GET    | `/`                          | ROMS_READ  | List ROMs (paginated, filterable) |
-| GET    | `/identifiers`               | ROMS_READ  | Get ROM IDs                       |
-| GET    | `/{id}`                      | ROMS_READ  | Get ROM details                   |
-| PUT    | `/{id}`                      | ROMS_WRITE | Update ROM metadata               |
-| PUT    | `/{id}/user`                 | ME_WRITE   | Update user-specific ROM data     |
-| DELETE | `/{id}`                      | ROMS_WRITE | Delete ROM                        |
-| POST   | `/delete`                    | ROMS_WRITE | Bulk delete                       |
-| POST   | `/download/{id}/{file_name}` | ROMS_READ  | Download ROM                      |
-| POST   | `/unidentified`              | ROMS_READ  | Get unidentified ROMs             |
+| Method | Path                         | Scope      | Description                                      |
+| ------ | ---------------------------- | ---------- | ------------------------------------------------ |
+| GET    | `/`                          | ROMS_READ  | List ROMs (paginated, filterable)                |
+| GET    | `/identifiers`               | ROMS_READ  | Get ROM IDs                                      |
+| GET    | `/{id}`                      | ROMS_READ  | Get ROM details                                  |
+| PUT    | `/{id}`                      | ROMS_WRITE | Update ROM metadata                              |
+| POST   | `/{id}/convert-to-folder`    | ROMS_WRITE | Promote single-file ROM to a folder ROM in place |
+| PUT    | `/{id}/user`                 | ME_WRITE   | Update user-specific ROM data                    |
+| DELETE | `/{id}`                      | ROMS_WRITE | Delete ROM                                       |
+| POST   | `/delete`                    | ROMS_WRITE | Bulk delete                                      |
+| POST   | `/download/{id}/{file_name}` | ROMS_READ  | Download ROM                                     |
+| POST   | `/unidentified`              | ROMS_READ  | Get unidentified ROMs                            |
 
 #### ROM Upload (Chunked)
 
@@ -847,14 +871,28 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | GET    | `/{id}/files`                | ROMS_READ | Get ROM file metadata                   |
 | GET    | `/{id}/files/content/{name}` | ROMS_READ | Download file (nginx X-Accel or direct) |
 
-### 6.6 Search (`/api/search`)
+### 6.6 Music (`/api/music`)
+
+Music-first read API over soundtrack `track_meta`, for external music-player clients. All routes are visibility-filtered (hidden platforms/ROMs excluded).
+
+| Method | Path       | Scope     | Description                                                               |
+| ------ | ---------- | --------- | ------------------------------------------------------------------------- |
+| GET    | `/tracks`  | ROMS_READ | List tracks (search + artist/album/genre/year/duration filters, sortable) |
+| GET    | `/artists` | ROMS_READ | Distinct artists + counts (searchable)                                    |
+| GET    | `/albums`  | ROMS_READ | Distinct albums + counts (searchable)                                     |
+| GET    | `/genres`  | ROMS_READ | Distinct genres + counts (searchable)                                     |
+| GET    | `/years`   | ROMS_READ | Distinct years + counts                                                   |
+
+Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, count}` and accept the same filters as `/tracks`, for contextual typeahead browsing.
+
+### 6.7 Search (`/api/search`)
 
 | Method | Path     | Scope     | Description                          |
 | ------ | -------- | --------- | ------------------------------------ |
 | GET    | `/roms`  | ROMS_READ | Search metadata across all providers |
 | GET    | `/cover` | ROMS_READ | Search SteamGridDB for cover art     |
 
-### 6.7 Saves (`/api/saves`)
+### 6.8 Saves (`/api/saves`)
 
 | Method | Path               | Scope         | Description                             |
 | ------ | ------------------ | ------------- | --------------------------------------- |
@@ -870,7 +908,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | POST   | `/{id}/track`      | DEVICES_WRITE | Re-enable sync tracking                 |
 | POST   | `/{id}/untrack`    | DEVICES_WRITE | Disable sync tracking                   |
 
-### 6.8 States (`/api/states`)
+### 6.9 States (`/api/states`)
 
 | Method | Path           | Scope        | Description   |
 | ------ | -------------- | ------------ | ------------- |
@@ -881,7 +919,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | PUT    | `/{id}`        | ASSETS_WRITE | Update state  |
 | POST   | `/delete`      | ASSETS_WRITE | Bulk delete   |
 
-### 6.9 Screenshots (`/api/screenshots`)
+### 6.10 Screenshots (`/api/screenshots`)
 
 | Method | Path           | Scope        | Description        |
 | ------ | -------------- | ------------ | ------------------ |
@@ -892,7 +930,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | PUT    | `/{id}`        | ASSETS_WRITE | Update screenshot  |
 | POST   | `/delete`      | ASSETS_WRITE | Bulk delete        |
 
-### 6.10 Devices (`/api/devices`)
+### 6.11 Devices (`/api/devices`)
 
 | Method | Path    | Scope         | Description                         |
 | ------ | ------- | ------------- | ----------------------------------- |
@@ -902,7 +940,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | PUT    | `/{id}` | DEVICES_WRITE | Update device                       |
 | DELETE | `/{id}` | DEVICES_WRITE | Delete device                       |
 
-### 6.11 Collections (`/api/collections`)
+### 6.12 Collections (`/api/collections`)
 
 | Method | Path                  | Scope             | Description           |
 | ------ | --------------------- | ----------------- | --------------------- |
@@ -915,7 +953,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | POST   | `/{id}/roms`          | COLLECTIONS_WRITE | Add ROM to collection |
 | DELETE | `/{id}/roms/{rom_id}` | COLLECTIONS_WRITE | Remove ROM            |
 
-### 6.12 Feeds (`/api/feeds`)
+### 6.13 Feeds (`/api/feeds`)
 
 | Method | Path                  | Description                   |
 | ------ | --------------------- | ----------------------------- |
@@ -932,7 +970,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | GET    | `/pkgj/psvita/dlc`    | PKGj PS Vita DLC              |
 | GET    | `/pkgj/psx/games`     | PKGj PSX games                |
 
-### 6.13 Configuration (`/api/config`)
+### 6.14 Configuration (`/api/config`)
 
 | Method | Path                       | Scope           | Description              |
 | ------ | -------------------------- | --------------- | ------------------------ |
@@ -944,7 +982,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | POST   | `/system/exclusions`       | PLATFORMS_WRITE | Add exclusion pattern    |
 | DELETE | `/system/exclusions`       | PLATFORMS_WRITE | Remove exclusion pattern |
 
-### 6.14 Tasks (`/api/tasks`)
+### 6.15 Tasks (`/api/tasks`)
 
 | Method | Path          | Scope     | Description              |
 | ------ | ------------- | --------- | ------------------------ |
@@ -953,7 +991,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | GET    | `/{id}`       | TASKS_RUN | Status of specific task  |
 | POST   | `/run/{name}` | TASKS_RUN | Trigger task execution   |
 
-### 6.15 Other Endpoints
+### 6.16 Other Endpoints
 
 | Router        | Path                                   | Description                            |
 | ------------- | -------------------------------------- | -------------------------------------- |

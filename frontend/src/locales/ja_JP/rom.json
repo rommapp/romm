@@ -353,12 +353,10 @@
   "soundtrack-close-player": "プレーヤーを閉じる",
   "soundtrack-delete-track": "トラックを削除",
   "soundtrack-empty": "サウンドトラックはまだありません",
-  "soundtrack-folder-hint": "単一ファイル形式のROMには付随するトラックを追加できません。このROMをフォルダ形式に再構成すると、アップロードオプションがここに表示されます。",
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "サウンドトラックのメタデータの読み込みに失敗しました",
   "soundtrack-mini-player": "サウンドトラックプレーヤー",
   "soundtrack-next": "次のトラック",
-  "soundtrack-no-folder": "サウンドトラックにはフォルダ形式のROMが必要です",
   "soundtrack-open-rom": "Open ROM details",
   "soundtrack-open-rom-tooltip": "ROMを開く",
   "soundtrack-pause": "一時停止",
@@ -429,5 +427,7 @@
   "versions-count": "{n}件のバージョン",
   "volume-mute": "ミュート",
   "volume-unmute": "ミュート解除",
-  "youtube-video-id": "YouTube動画ID"
+  "youtube-video-id": "YouTube動画ID",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
 }

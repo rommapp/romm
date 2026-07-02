@@ -90,7 +90,7 @@ function formatDuration(seconds: number | null | undefined): string | null {
 }
 
 const audioDuration = computed(() =>
-  formatDuration(props.file.audio_meta?.duration_seconds),
+  formatDuration(props.file.track_meta?.duration_seconds),
 );
 
 const hasAnyHash = computed(
@@ -154,12 +154,12 @@ const hasAnyHash = computed(
           <span class="r-v2-file-row__sep">·</span>
           <span class="r-v2-file-row__duration">{{ audioDuration }}</span>
         </template>
-        <template v-if="file.audio_meta?.title">
+        <template v-if="file.track_meta?.title">
           <span class="r-v2-file-row__sep">·</span>
           <span class="r-v2-file-row__track-title">
-            {{ file.audio_meta.title }}
-            <template v-if="file.audio_meta.artist">
-              — {{ file.audio_meta.artist }}
+            {{ file.track_meta.title }}
+            <template v-if="file.track_meta.artist">
+              — {{ file.track_meta.artist }}
             </template>
           </span>
         </template>
