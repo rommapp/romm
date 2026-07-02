@@ -176,7 +176,12 @@ onBeforeUnmount(() => {
 .r-v2-shell {
   color: var(--r-color-fg);
   position: relative;
+  /* `dvh` tracks the mobile visible viewport (address bar shown/hidden).
+     `vh` (the large viewport) leaves the app taller than the screen while
+     the bar is visible, forcing a second, document-level scroll on top of
+     a view's internal scroll. */
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .r-v2-shell__app {

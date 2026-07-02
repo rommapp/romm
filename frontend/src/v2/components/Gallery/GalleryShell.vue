@@ -41,6 +41,7 @@ import { RDivider, RLetterHeading, RVirtualScroller } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
   computed,
+  type ComponentPublicInstance,
   nextTick,
   onBeforeUnmount,
   onMounted,
@@ -346,34 +347,60 @@ const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
 // rows below the pinned toolbar) and the scroller's clip-path inset
 // (so the band the overlay covers is empty of cards).
 const inflowToolbarEl = ref<HTMLElement | null>(null);
+// A zero-height, NON-sticky marker rendered right before the inflow toolbar.
+// Its `offsetTop` is the toolbar's natural top = the stuck threshold. We can't
+// read the threshold from the sticky toolbar's own `offsetTop`: once stuck,
+// that reports the *stuck* position (which tracks scrollTop), so the threshold
+// would chase the scroll and `isStuck` would flip-flop, alternating the two
+// toolbar layers — the flicker.
+const stuckSentinelEl = ref<HTMLElement | null>(null);
 const inflowToolbarTop = ref(0);
 const toolbarHeight = ref(0);
 let inflowResizeObserver: ResizeObserver | null = null;
 
-function bindInflowToolbarEl(el: HTMLElement | null) {
+function remeasureToolbar() {
+  const toolbar = inflowToolbarEl.value;
+  const sentinel = stuckSentinelEl.value;
+  if (toolbar) toolbarHeight.value = toolbar.getBoundingClientRect().height;
+  if (sentinel) inflowToolbarTop.value = sentinel.offsetTop;
+}
+
+function rebuildToolbarObserver() {
   inflowResizeObserver?.disconnect();
   inflowResizeObserver = null;
-  inflowToolbarEl.value = el;
-  if (!el) {
+  const toolbar = inflowToolbarEl.value;
+  const sentinel = stuckSentinelEl.value;
+  if (!toolbar && !sentinel) {
     inflowToolbarTop.value = 0;
     toolbarHeight.value = 0;
     return;
   }
-  const measure = () => {
-    inflowToolbarTop.value = el.offsetTop;
-    toolbarHeight.value = el.getBoundingClientRect().height;
-  };
-  measure();
-  // Observe the toolbar itself (height changes) and its prior siblings
-  // inside the prepend (header / divider — their height shifts the
-  // toolbar's `offsetTop`).
-  inflowResizeObserver = new ResizeObserver(measure);
-  inflowResizeObserver.observe(el);
-  let prev = el.previousElementSibling;
-  while (prev) {
-    inflowResizeObserver.observe(prev);
-    prev = prev.previousElementSibling;
+  remeasureToolbar();
+  inflowResizeObserver = new ResizeObserver(remeasureToolbar);
+  if (toolbar) inflowResizeObserver.observe(toolbar);
+  if (sentinel) {
+    inflowResizeObserver.observe(sentinel);
+    // Prior siblings (header / divider) shift the sentinel's offsetTop when
+    // their height changes, so observe those too.
+    let prev = sentinel.previousElementSibling;
+    while (prev) {
+      inflowResizeObserver.observe(prev);
+      prev = prev.previousElementSibling;
+    }
   }
+}
+
+// Both bound via STABLE function refs (never inline arrows): an inline `(el) =>
+// …` ref has a new identity every render, so Vue re-invokes it with `null`
+// then the element on EVERY re-render — and this component re-renders on every
+// scroll frame. That churn would reset the measurements each frame.
+function bindInflowToolbarEl(el: Element | ComponentPublicInstance | null) {
+  inflowToolbarEl.value = (el as HTMLElement | null) ?? null;
+  rebuildToolbarObserver();
+}
+function bindStuckSentinel(el: Element | ComponentPublicInstance | null) {
+  stuckSentinelEl.value = (el as HTMLElement | null) ?? null;
+  rebuildToolbarObserver();
 }
 
 // `isStuck` flips to true the moment the inflow toolbar's top edge
@@ -848,9 +875,17 @@ defineExpose({
           <RDivider class="r-v2-shell__header-divider" />
         </template>
 
+        <!-- Non-sticky stuck-threshold marker — sits at the toolbar's natural
+             top so its (stable) offsetTop is the scroll threshold. -->
         <div
           v-if="toolbarPosition === 'header'"
-          :ref="(el) => bindInflowToolbarEl(el as HTMLElement | null)"
+          :ref="bindStuckSentinel"
+          class="r-v2-shell__stuck-sentinel"
+          aria-hidden="true"
+        />
+        <div
+          v-if="toolbarPosition === 'header'"
+          :ref="bindInflowToolbarEl"
           class="r-v2-shell__toolbar r-v2-shell__toolbar--inflow"
         >
           <GalleryToolbar
@@ -1062,16 +1097,27 @@ defineExpose({
      browser / stacking context — when they fail to resolve the
      section becomes content-sized, the scroller inside ends up with
      `height: auto`, and overflow-y stops doing anything because
-     there's nothing to overflow. Subtracting the navbar from 100vh
-     bypasses that fragility entirely. */
+     there's nothing to overflow. Subtracting the navbar from the viewport
+     bypasses that fragility entirely. `dvh` (not `vh`) so the section
+     matches the mobile visible viewport instead of the larger address-bar-
+     hidden one, which would otherwise spill below the fold. */
   height: calc(100vh - var(--r-nav-h));
+  height: calc(100dvh - var(--r-nav-h));
   position: relative;
 }
 
-/* On sm-and-down the shell still fills `100vh - nav-h` so cards scroll
-   UNDER the translucent bottom tab bar (the glass-blur effect). The
-   scroller instead gets extra bottom padding (see below) so the last row
-   comes to rest above the bar rather than trapped behind it. */
+/* On sm-and-down the section keeps its full `100dvh - nav` height so cards
+   scroll UNDER the translucent bottom tab bar (the glass effect). The layout
+   <main> adds a bottom padding for the bar (natural-flow views need it);
+   cancel it here with a matching negative margin so this full-height section
+   doesn't push the document past one viewport — otherwise a second, global
+   scroll stacks on top of the internal one. The scroller's bottom spacer
+   (below) lifts the last row clear of the bar. */
+html[data-bp~="sm-and-down"] .r-v2-shell {
+  margin-bottom: calc(
+    -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
+  );
+}
 
 /* Scroller: padding-top moved into the prepend's first child via
    `padding-top` on the header so the inflow toolbar's `offsetTop`
@@ -1153,6 +1199,16 @@ defineExpose({
   z-index: 4;
 }
 
+/* Zero-height, non-sticky marker at the toolbar's natural top. Its stable
+   offsetTop is the stuck threshold (the sticky toolbar's own offsetTop can't
+   be used — it reports the stuck position once pinned). */
+.r-v2-shell__stuck-sentinel {
+  height: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
 /* List column header — sticky just below the toolbar. `top` matches
    the toolbar's pinned height so when both are stuck they stack
    cleanly; the toolbar's overlay layer sits at z-index 5, so we keep
@@ -1224,12 +1280,14 @@ html[data-bp~="xs"] .r-v2-shell__scroller {
   padding-left: 14px;
   padding-right: 14px;
 }
-/* Last row rests clear of the bottom tab bar (the rest of the scroll
-   still passes under its glass). */
-html[data-bp~="sm-and-down"] .r-v2-shell__scroller {
-  padding-bottom: calc(
-    var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px
-  );
+/* Last row rests clear of the bottom tab bar (the rest of the scroll passes
+   under its glass). A real in-flow spacer, not `padding-bottom` — Safari /
+   older Chromium drop a scroll container's bottom padding from its
+   scrollable overflow, trapping the last row behind the bar. */
+html[data-bp~="sm-and-down"] .r-v2-shell__scroller::after {
+  content: "";
+  display: block;
+  height: calc(var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px);
 }
 html[data-bp~="xs"] .r-v2-shell__header {
   padding-top: 16px;
