@@ -426,6 +426,14 @@ onMounted(async () => {
 .r-v2-users :deep(.r-table__cell:first-child) {
   padding-inline-start: 6px;
 }
+/* In the mobile card-stack that 6px indents the Name line past the other
+   captions (Email / Access / …). Drop it so every caption shares the left
+   edge; the row's own padding already provides the inset. */
+html[data-bp~="xs"]
+  .r-v2-users
+  :deep(.r-table--mobile-stack .r-table__cell:first-child) {
+  padding-inline-start: 0;
+}
 
 /* Keep the admin pill the same height as the icon-less group pills — the
    prepend icon's vertical margin would otherwise make it a touch taller. */

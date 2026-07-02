@@ -496,7 +496,10 @@ html[data-bp~="xs"] .r-table--mobile-stack .r-table__row {
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
-  height: auto;
+  /* Beat the inline `row-height` (set via the `rowHeight` prop for the
+     dense desktop table) — a fixed height crushes the stacked cells into
+     each other, so the card must always grow to fit its content. */
+  height: auto !important;
   padding: 12px var(--r-space-3);
 }
 html[data-bp~="xs"] .r-table--mobile-stack .r-table__cell {
