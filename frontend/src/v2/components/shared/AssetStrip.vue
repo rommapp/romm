@@ -28,6 +28,7 @@ import type {
   UserStateSchema,
 } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { toCssUrl } from "@/v2/utils/css";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
@@ -102,7 +103,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
           <div
             v-if="type === 'state' && screenshotOf(asset)"
             class="r-asset-strip__thumb-img"
-            :style="{ backgroundImage: `url(${screenshotOf(asset)})` }"
+            :style="{ backgroundImage: toCssUrl(screenshotOf(asset)!) }"
           />
           <div v-else class="r-asset-strip__thumb-icon">
             <RIcon
