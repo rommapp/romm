@@ -818,17 +818,18 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 
 ### 6.5 ROMs (`/api/roms`)
 
-| Method | Path                         | Scope      | Description                       |
-| ------ | ---------------------------- | ---------- | --------------------------------- |
-| GET    | `/`                          | ROMS_READ  | List ROMs (paginated, filterable) |
-| GET    | `/identifiers`               | ROMS_READ  | Get ROM IDs                       |
-| GET    | `/{id}`                      | ROMS_READ  | Get ROM details                   |
-| PUT    | `/{id}`                      | ROMS_WRITE | Update ROM metadata               |
-| PUT    | `/{id}/user`                 | ME_WRITE   | Update user-specific ROM data     |
-| DELETE | `/{id}`                      | ROMS_WRITE | Delete ROM                        |
-| POST   | `/delete`                    | ROMS_WRITE | Bulk delete                       |
-| POST   | `/download/{id}/{file_name}` | ROMS_READ  | Download ROM                      |
-| POST   | `/unidentified`              | ROMS_READ  | Get unidentified ROMs             |
+| Method | Path                         | Scope      | Description                                         |
+| ------ | ---------------------------- | ---------- | --------------------------------------------------- |
+| GET    | `/`                          | ROMS_READ  | List ROMs (paginated, filterable)                   |
+| GET    | `/identifiers`               | ROMS_READ  | Get ROM IDs                                         |
+| GET    | `/{id}`                      | ROMS_READ  | Get ROM details                                     |
+| PUT    | `/{id}`                      | ROMS_WRITE | Update ROM metadata                                 |
+| PUT    | `/{id}/user`                 | ME_WRITE   | Update user-specific ROM data                       |
+| DELETE | `/{id}`                      | ROMS_WRITE | Delete ROM                                          |
+| POST   | `/delete`                    | ROMS_WRITE | Bulk delete                                         |
+| GET    | `/download`                  | ROMS_READ  | Bulk download as one zip (ROM ids or collection id) |
+| POST   | `/download/{id}/{file_name}` | ROMS_READ  | Download ROM                                        |
+| POST   | `/unidentified`              | ROMS_READ  | Get unidentified ROMs                               |
 
 #### ROM Upload (Chunked)
 

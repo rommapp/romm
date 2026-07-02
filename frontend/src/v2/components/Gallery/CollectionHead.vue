@@ -13,9 +13,10 @@
 //      plain scroll wrapper. The head scrolls together with the
 //      tab content.
 //
-// No action ribbon — edit and delete moved inline into the Settings
-// tab (editable form + danger zone), matching the Platform layout.
-import { RChip, RTabNav } from "@v2/lib";
+// The action ribbon only carries the whole-collection download —
+// edit and delete moved inline into the Settings tab (editable form
+// + danger zone), matching the Platform layout.
+import { RBtn, RChip, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import type {
@@ -44,10 +45,14 @@ defineProps<{
   covers: string[];
   tab: string;
   tabs: RTabNavItem[];
+  /** Permission flag — already evaluated against `useCan` in the
+   *  parent, mirroring PlatformHead's prop-based gating. */
+  canDownload: boolean;
 }>();
 
 defineEmits<{
   (e: "update:tab", v: string): void;
+  (e: "download"): void;
 }>();
 </script>
 
@@ -76,6 +81,22 @@ defineEmits<{
 
     <template #stats>
       <Stat :value="collection.rom_count" :label="t('common.games')" />
+    </template>
+
+    <!-- Action ribbon — download the whole collection as one zip by
+         its id, so no pagination/selection is needed first. Same
+         circular icon-button vocabulary as PlatformHead. -->
+    <template v-if="canDownload" #actions>
+      <RBtn
+        variant="outlined"
+        surface
+        icon="mdi-download"
+        rounded="circle"
+        :disabled="collection.rom_count === 0"
+        :aria-label="t('collection.download-collection')"
+        :tooltip="t('collection.download-collection')"
+        @click="$emit('download')"
+      />
     </template>
   </InfoPanel>
 

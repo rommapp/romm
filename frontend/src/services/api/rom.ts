@@ -426,16 +426,10 @@ async function searchRom({
   });
 }
 
-async function downloadRom({
-  rom,
-  fileIDs = [],
-}: {
-  rom: SimpleRom;
-  fileIDs?: number[];
-}) {
+function triggerFileDownload(href: string) {
   return new Promise<void>((resolve) => {
     const a = document.createElement("a");
-    a.href = getDownloadPath({ rom, fileIDs });
+    a.href = href;
     a.style.display = "none";
 
     document.body.appendChild(a);
@@ -448,6 +442,16 @@ async function downloadRom({
   });
 }
 
+async function downloadRom({
+  rom,
+  fileIDs = [],
+}: {
+  rom: SimpleRom;
+  fileIDs?: number[];
+}) {
+  return triggerFileDownload(getDownloadPath({ rom, fileIDs }));
+}
+
 async function bulkDownloadRoms({
   roms,
   filename,
@@ -455,27 +459,38 @@ async function bulkDownloadRoms({
   roms: SimpleRom[];
   filename?: string;
 }) {
-  return new Promise<void>((resolve) => {
-    if (roms.length === 0) return resolve();
+  if (roms.length === 0) return;
 
-    const romIds = roms.map((rom) => rom.id);
+  const romIds = roms.map((rom) => rom.id);
 
-    const queryParams = new URLSearchParams();
-    queryParams.append("rom_ids", romIds.join(","));
-    if (filename) queryParams.append("filename", filename);
+  const queryParams = new URLSearchParams();
+  queryParams.append("rom_ids", romIds.join(","));
+  if (filename) queryParams.append("filename", filename);
 
-    const a = document.createElement("a");
-    a.href = `/api/roms/download?${queryParams.toString()}`;
-    a.style.display = "none";
+  return triggerFileDownload(`/api/roms/download?${queryParams.toString()}`);
+}
 
-    document.body.appendChild(a);
-    a.click();
+async function downloadCollectionRoms({
+  collectionId,
+  kind,
+  filename,
+}: {
+  collectionId: number | string;
+  kind: "regular" | "virtual" | "smart";
+  filename?: string;
+}) {
+  const paramName =
+    kind === "virtual"
+      ? "virtual_collection_id"
+      : kind === "smart"
+        ? "smart_collection_id"
+        : "collection_id";
 
-    setTimeout(() => {
-      document.body.removeChild(a);
-      resolve();
-    }, DOWNLOAD_CLEANUP_DELAY);
-  });
+  const queryParams = new URLSearchParams();
+  queryParams.append(paramName, String(collectionId));
+  if (filename) queryParams.append("filename", filename);
+
+  return triggerFileDownload(`/api/roms/download?${queryParams.toString()}`);
 }
 
 export type UpdateRom = SimpleRom & {
@@ -886,6 +901,7 @@ export default {
   getRomByMetadataProvider,
   downloadRom,
   bulkDownloadRoms,
+  downloadCollectionRoms,
   searchRom,
   updateRom,
   uploadManuals,

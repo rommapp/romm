@@ -20,6 +20,7 @@ import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
+import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeCollections, {
   type Collection,
@@ -29,6 +30,7 @@ import storeCollections, {
 import CollectionHead from "@/v2/components/Gallery/CollectionHead.vue";
 import CollectionSettingsTab from "@/v2/components/Gallery/CollectionSettingsTab.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
+import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
@@ -53,6 +55,7 @@ const currentKind = ref<CollectionKind>("regular");
 const currentCollection = ref<AnyCollection | null>(null);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
 const deleting = ref(false);
+const canDownload = useCan("rom.download");
 
 // Virtual collections are computed (no editable fields) — only
 // regular / smart get the Settings tab.
@@ -239,6 +242,20 @@ watch(
   },
 );
 
+// ── Download ────────────────────────────────────────────────────
+// Whole-collection download by id — the server resolves the current
+// member list and streams one zip, so nothing depends on how many
+// pages the gallery has loaded (issue #3659).
+function onDownload() {
+  const c = currentCollection.value;
+  if (!c || !c.rom_count) return;
+  void romApi.downloadCollectionRoms({
+    collectionId: c.id,
+    kind: currentKind.value,
+  });
+  snackbar.info(t("gallery.selection-download-many", { n: c.rom_count }));
+}
+
 // ── Delete ──────────────────────────────────────────────────────
 // Mirrors the Platform.vue admin flow: confirm dialog with
 // `requireTyped` on the collection name, then API call → store remove
@@ -313,7 +330,9 @@ async function onDelete() {
         :covers="mosaicCovers"
         :tab="tab"
         :tabs="tabs"
+        :can-download="canDownload"
         @update:tab="onTabChange"
+        @download="onDownload"
       />
     </template>
   </GalleryShell>
@@ -331,7 +350,9 @@ async function onDelete() {
         :covers="mosaicCovers"
         :tab="tab"
         :tabs="tabs"
+        :can-download="canDownload"
         @update:tab="onTabChange"
+        @download="onDownload"
       />
       <RDivider class="r-v2-coll-tabs__divider" />
       <div
