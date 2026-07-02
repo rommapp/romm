@@ -223,6 +223,27 @@ class TestFSRomsHandler:
         parsed_tags = handler.parse_tags(fs_name)
         assert parsed_tags.version == "1.2.3"
 
+        fs_name = "My Game (version B).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "B"
+
+        fs_name = "My Game (v1.2a).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2a"
+
+    def test_parse_tags_non_version_tags_starting_with_v(self, handler: FSRomsHandler):
+        """Test parse_tags keeps non-version tags starting with v as generic tags"""
+        fs_name = "Rom [2026] [Variation].rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == ""
+        assert "2026" in parsed_tags.other_tags
+        assert "Variation" in parsed_tags.other_tags
+
+        fs_name = "Rom [versionB].rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == ""
+        assert "versionB" in parsed_tags.other_tags
+
     def test_exclude_multi_roms_filters_excluded(self, handler: FSRomsHandler, config):
         """Test exclude_multi_roms filters out excluded multi-file ROMs"""
         roms = ["Game1", "excluded_multi", "Game2", "Game3"]
