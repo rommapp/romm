@@ -1,28 +1,18 @@
 """Native RetroAchievements hashing for GameCube/Wii RVZ and WIA disc images.
 
-RAHasher (RALibretro/rcheevos) reads raw ``.iso``/``.gcm`` GameCube and Wii
-discs, but not the block-compressed RVZ/WIA containers Dolphin creates. For
-those it fails with "Not a Gamecube disc" / "Not a supported Wii file" and the
-game is left without a RetroAchievements match (issues #3649 and #3650).
+RAHasher (RALibretro/rcheevos) can't read the block-compressed RVZ/WIA
+containers Dolphin creates, leaving those games without a RetroAchievements
+match (issues #3649 and #3650). Neither console's RA hash covers the whole
+disc: GameCube hashes the boot header, apploader and main.dol segments; Wii
+hashes the main header, region code and, per non-update partition, the TMD
+plus up to 1024 encrypted clusters (~32 MB). RVZ/WIA is group-indexed, so
+those ranges are rebuilt with random access, decompressing only the groups a
+range touches.
 
-Neither console's RA hash depends on the whole disc. Per rcheevos:
-
-- GameCube: ``MD5(boot/partition header incl. apploader + the up to 18
-  main.dol segments referenced by the boot header)``, a few MB near the disc
-  start.
-- Wii: ``MD5(main header + region code + per non-update partition: the TMD
-  (capped at 0x7C00) and up to 1024 encrypted 0x7C00-byte clusters)``, roughly
-  32 MB per partition.
-
-RVZ/WIA files are group-indexed, so those byte ranges can be reconstructed
-with random access, decompressing only the groups a range touches, with no
-subprocess and no multi-GB temporary ISO. Wii partition data is stored
-decrypted and with the hash tree stripped, and RA hashes the encrypted disc
-bytes, so the reconstruction recalculates the H0/H1/H2 hash tree, applies the
-container's stored hash exceptions and re-encrypts the clusters with the
-partition's embedded title key (AES-128-CBC). This reproduces the identical
-bytes of the original disc, so the resulting hash matches RA's database (and
-what Dolphin computes when playing the same file).
+Wii partition data is stored decrypted with the hash tree stripped, while RA
+hashes the encrypted disc bytes; the reader recalculates the H0/H1/H2 hash
+tree, applies the stored hash exceptions and re-encrypts clusters with the
+embedded title key (AES-128-CBC), reproducing the exact retail disc bytes.
 
 Format references:
 - https://github.com/dolphin-emu/dolphin/blob/master/docs/WiaAndRvz.md
@@ -73,15 +63,13 @@ _MAX_GC_HEADER_SIZE = 1024 * 1024
 _MAX_WII_CLUSTERS = 1024
 _HASH_CHUNK_SIZE = 1024 * 1024
 
-# Real encoders use 32 KiB - 2 MiB chunks; the cap only rejects crafted
-# headers that would otherwise force multi-GB per-group allocations.
+# Real encoders use 32 KiB - 2 MiB chunks; the cap blocks crafted headers
+# that would force multi-GB per-group allocations.
 _MAX_CHUNK_SIZE = 64 * 1024 * 1024
-# Dolphin's reader accepts at most 52*64 exceptions per list; used to bound
-# how much decompressed group output can precede the payload.
+# Dolphin's reader accepts at most 52*64 exceptions per list.
 _MAX_EXCEPTIONS_PER_LIST = 3328
 _MAX_EXCEPTION_LIST_BYTES = 2 + _MAX_EXCEPTIONS_PER_LIST * 22
-# Generous allowance for RVZ packing descriptors (4-byte run headers plus
-# 68-byte junk seeds) on top of the unpacked payload size.
+# Allowance for RVZ packing descriptors on top of the unpacked payload size.
 _RVZ_PACK_STREAM_SLACK = 0x100000
 
 _PARSE_ERRORS = (
@@ -336,8 +324,7 @@ class _RvzReader:
     def _decompress(self, blob: bytes, max_output: int) -> bytes:
         """Decompress at most ``max_output`` bytes; extra output is discarded.
 
-        The cap keeps a crafted group blob from expanding into a
-        memory-exhausting buffer (decompression bomb) during a scan.
+        The cap defuses decompression bombs in crafted group blobs.
         """
         if self.compression == _COMPRESSION_NONE:
             return blob[:max_output]
@@ -713,9 +700,8 @@ def _hash_nintendo_disc_partition(
         seg_offset = _be32(dol_header, ix * 4) << wii_shift
         seg_size = _be32(dol_header, 0x90 + ix * 4) << wii_shift
         if seg_size:
-            # A valid disc keeps every segment inside the image; a corrupt
-            # one claiming gigabytes would stall the scan hashing zero-fill
-            # (and could never match RA's database anyway).
+            # Corrupt sizes would stall hashing zero-fill; valid discs keep
+            # every segment inside the image.
             if part_offset + seg_offset + seg_size > reader.iso_size:
                 raise RvzHashError("main.dol segment extends past the disc end")
             # rcheevos seeks these relative to the partition, not the DOL.

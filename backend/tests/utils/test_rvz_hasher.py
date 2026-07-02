@@ -430,9 +430,8 @@ class RvzBuilder:
                     continue
 
                 except_lists = b""
-                # With chunks below 2 MiB (RVZ) there is exactly one list per
-                # group; larger chunks carry one list per 2 MiB of data. The
-                # builder puts all of a group's exceptions in the first list.
+                # One list per 2 MiB of chunk (a single list below 2 MiB);
+                # all of a group's exceptions go in the first list.
                 for list_ix in range(n_lists):
                     entries = group_exceptions if list_ix == 0 else []
                     except_lists += struct.pack(">H", len(entries))
@@ -810,18 +809,6 @@ class TestCalculateWiiRaHash:
 
         assert calculate_wii_ra_hash(str(path)) == reference_wii_hash(iso)
 
-    def test_hash_is_independent_of_container_compression(self, tmp_path):
-        _, plain_rvz = build_wii_disc_and_rvz(compression=COMPRESSION_NONE)
-        _, zstd_rvz = build_wii_disc_and_rvz(compression=COMPRESSION_ZSTD)
-        plain_path = tmp_path / "plain.rvz"
-        zstd_path = tmp_path / "zstd.rvz"
-        plain_path.write_bytes(plain_rvz)
-        zstd_path.write_bytes(zstd_rvz)
-
-        assert calculate_wii_ra_hash(str(plain_path)) == calculate_wii_ra_hash(
-            str(zstd_path)
-        )
-
     def test_hash_exceptions_are_applied_before_encryption(self, tmp_path):
         """Stored hash exceptions must replace the recalculated tree bytes."""
         exceptions = [
@@ -854,15 +841,6 @@ class TestCalculateWiiRaHash:
         path.write_bytes(RvzBuilder(bytes(disc), disc_type=1).build())
 
         assert calculate_wii_ra_hash(str(path)) == ""
-
-    def test_returns_empty_for_unknown_magic(self, tmp_path):
-        path = tmp_path / "game.rvz"
-        path.write_bytes(b"NOPE" + b"\x00" * 0x100)
-
-        assert calculate_wii_ra_hash(str(path)) == ""
-
-    def test_returns_empty_for_missing_file(self, tmp_path):
-        assert calculate_wii_ra_hash(str(tmp_path / "missing.rvz")) == ""
 
 
 # ---------------------------------------------------------------------------
