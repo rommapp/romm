@@ -322,7 +322,10 @@ html[data-bp~="sm-and-down"] .r-dialog--fs-mobile .r-dialog__panel {
   width: 100vw !important;
   max-width: 100vw !important;
   min-height: 0 !important;
-  max-height: 92dvh !important;
+  /* Cap at the space below the top navbar so a tall sheet (Match / Edit ROM)
+     never rides up over it — same ceiling the full-height user-menu sheet
+     uses. Short dialogs stay content-height; tall ones scroll internally. */
+  max-height: calc(100dvh - var(--r-nav-h)) !important;
   border-radius: var(--r-radius-xl) var(--r-radius-xl) 0 0 !important;
   border-bottom: 0 !important;
   padding-bottom: env(safe-area-inset-bottom);

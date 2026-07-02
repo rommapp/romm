@@ -192,6 +192,17 @@ const emit = defineEmits<{
 const slots = useSlots();
 const attrs = useAttrs();
 
+// Autofocus the search field on open so desktop users can type-to-filter
+// right away. Skip it on touch-primary devices (no precise pointer / no
+// hover), where focusing the input pops the on-screen keyboard before the
+// user has chosen to type. We can't use input modality here: a tap emits an
+// emulated `mousedown`, so modality reads "mouse" by the time the panel
+// opens. A device-capability media query isn't fooled by that.
+const autofocusSearch = computed(() => {
+  if (typeof window === "undefined" || !window.matchMedia) return true;
+  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+});
+
 const fieldId = `r-sel-${getCurrentInstance()?.uid ?? Math.random().toString(36).slice(2)}`;
 
 // ── Tone resolver — same vocabulary as the rest of the lib ─────
@@ -1131,7 +1142,7 @@ const hasPrependInner = computed(
               hide-details
               density="compact"
               autocomplete="off"
-              autofocus
+              :autofocus="autofocusSearch"
               @update:model-value="(v) => setSearch(String(v ?? ''))"
             >
               <template #prefix-label>
@@ -1241,6 +1252,10 @@ const hasPrependInner = computed(
   flex-direction: column;
   gap: 4px;
   width: 100%;
+  /* As a flex child, default `min-width: auto` refuses to shrink below the
+     selection's content width, so a long value overflows its container.
+     Allow shrinking; the value area already clips + ellipsizes past its box. */
+  min-width: 0;
   --r-tf-h: 40px;
   --r-tf-pad-x: 12px;
   --r-tf-radius: 8px;
@@ -1595,7 +1610,10 @@ html[data-input="pad"] .r-select__field:focus {
   display: flex;
   flex-direction: column;
   min-width: 180px;
-  max-width: 480px;
+  /* Never exceed the viewport — on a narrow phone the activator-pinned
+     min-width or wide option content would otherwise push the panel past
+     the screen edge (floating-ui's `shift` can't shrink it). */
+  max-width: min(480px, calc(100vw - 16px));
   overflow: hidden;
   background: var(--r-color-panel);
   border: 1px solid var(--r-color-panel-border);

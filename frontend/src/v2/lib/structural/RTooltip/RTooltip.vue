@@ -241,14 +241,36 @@ const arrowStyle = computed<Record<string, string>>(() => {
 });
 
 // ── Activator wiring ────────────────────────────────────────────
+// Reveal rules by input type — a touch device must NOT get tooltips: a
+// "hover" there is really a tap that fires the underlying action, and a
+// focus there is that same tap. Either would summon a tooltip that then
+// lingers over the menu / dialog the tap opened (with no pointer-leave to
+// dismiss it). So:
+//   * pointer hover reveals for mouse / pen only (skip `pointerType: touch`),
+//   * focus reveals only when it's keyboard focus (`:focus-visible`),
+//   * a click always dismisses, so a hover-revealed tooltip doesn't outlive
+//     the surface it launched.
+function onPointerEnter(e: PointerEvent) {
+  if (e.pointerType === "touch") return;
+  show();
+}
+function onFocusReveal(e: FocusEvent) {
+  const el = e.target as HTMLElement | null;
+  if (el && typeof el.matches === "function" && !el.matches(":focus-visible")) {
+    return;
+  }
+  show();
+}
+
 // For the slot pattern we hand back a `props` object the activator
-// spreads on itself. The events are Vue-style ("onMouseenter", …) so
+// spreads on itself. The events are Vue-style ("onPointerenter", …) so
 // they bind correctly when used via `v-bind`.
 const activatorProps = computed(() => ({
-  onMouseenter: show,
-  onMouseleave: hide,
-  onFocus: show,
+  onPointerenter: onPointerEnter,
+  onPointerleave: hide,
+  onFocus: onFocusReveal,
   onBlur: hide,
+  onClick: hide,
 }));
 
 // For the parent-attach pattern we sit silently in the parent's DOM
@@ -261,19 +283,21 @@ function attachToParent() {
   const parent = root.value?.parentElement;
   if (!parent) return;
   reference.value = parent;
-  parent.addEventListener("mouseenter", show);
-  parent.addEventListener("mouseleave", hide);
-  parent.addEventListener("focusin", show);
+  parent.addEventListener("pointerenter", onPointerEnter as EventListener);
+  parent.addEventListener("pointerleave", hide);
+  parent.addEventListener("focusin", onFocusReveal as EventListener);
   parent.addEventListener("focusout", hide);
+  parent.addEventListener("click", hide);
 }
 function detachFromParent() {
   if (props.activator !== "parent") return;
   const parent = root.value?.parentElement;
   if (!parent) return;
-  parent.removeEventListener("mouseenter", show);
-  parent.removeEventListener("mouseleave", hide);
-  parent.removeEventListener("focusin", show);
+  parent.removeEventListener("pointerenter", onPointerEnter as EventListener);
+  parent.removeEventListener("pointerleave", hide);
+  parent.removeEventListener("focusin", onFocusReveal as EventListener);
   parent.removeEventListener("focusout", hide);
+  parent.removeEventListener("click", hide);
 }
 
 onMounted(() => {
