@@ -1,7 +1,7 @@
 """Move rom_files.audio_meta JSON into a dedicated track_meta table.
 
-Revision ID: 0093_track_meta_table
-Revises: 0092_permission_system
+Revision ID: 0094_track_meta_table
+Revises: 0093_states_rom_user_index
 Create Date: 2026-06-30 00:00:00.000000
 
 """
@@ -17,8 +17,8 @@ from utils.audio_tags import track_meta_columns
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0093_track_meta_table"
-down_revision = "0092_permission_system"
+revision = "0094_track_meta_table"
+down_revision = "0093_states_rom_user_index"
 branch_labels = None
 depends_on = None
 
@@ -102,18 +102,17 @@ def upgrade() -> None:
             batch_op.create_index("idx_track_meta_artist", ["artist"])
             batch_op.create_index("idx_track_meta_album", ["album"])
 
-    # Backfill in keyset batches; clear first so a partial re-run starts clean.
+    # Backfill in batches; clear first so a partial re-run starts clean.
     src, dst = _src_rom_files(), _track_meta()
     conn.execute(sa.delete(dst))
     expected = expected_covers = 0
-    last_id = 0
+    result = conn.execute(
+        sa.select(src.c.id, src.c.rom_id, src.c.audio_meta).where(
+            src.c.audio_meta.isnot(None)
+        )
+    )
     while True:
-        batch = conn.execute(
-            sa.select(src.c.id, src.c.rom_id, src.c.audio_meta)
-            .where(src.c.audio_meta.isnot(None), src.c.id > last_id)
-            .order_by(src.c.id)
-            .limit(_BATCH)
-        ).fetchall()
+        batch = result.fetchmany(_BATCH)
         if not batch:
             break
         values = []
@@ -127,7 +126,6 @@ def upgrade() -> None:
             values.append({"rom_file_id": row.id, "rom_id": row.rom_id, **cols})
         conn.execute(sa.insert(dst), values)
         expected += len(batch)
-        last_id = batch[-1].id
 
     # A mismatch rolls the still-uncommitted inserts back, leaving audio_meta intact.
     inserted = conn.execute(sa.select(sa.func.count()).select_from(dst)).scalar_one()
@@ -140,7 +138,7 @@ def upgrade() -> None:
         )
     if covers != expected_covers:
         raise RuntimeError(f"track_meta cover mismatch: {covers} != {expected_covers}")
-    log.info(f"[0093] migrated {inserted} track_meta rows ({covers} with covers)")
+    log.info(f"[0094] migrated {inserted} track_meta rows ({covers} with covers)")
 
     with op.batch_alter_table("rom_files", schema=None) as batch_op:
         batch_op.drop_column("audio_meta", if_exists=True)
@@ -155,26 +153,23 @@ def downgrade() -> None:
         )
 
     src, dst = _track_meta(), _src_rom_files()
-    last_id = 0
+    result = conn.execute(
+        sa.select(
+            src.c.rom_file_id,
+            src.c.title,
+            src.c.artist,
+            src.c.album,
+            src.c.genre,
+            src.c.year,
+            src.c.track,
+            src.c.disc,
+            src.c.duration_seconds,
+            src.c.has_embedded_cover,
+            src.c.cover_path,
+        )
+    )
     while True:
-        batch = conn.execute(
-            sa.select(
-                src.c.rom_file_id,
-                src.c.title,
-                src.c.artist,
-                src.c.album,
-                src.c.genre,
-                src.c.year,
-                src.c.track,
-                src.c.disc,
-                src.c.duration_seconds,
-                src.c.has_embedded_cover,
-                src.c.cover_path,
-            )
-            .where(src.c.rom_file_id > last_id)
-            .order_by(src.c.rom_file_id)
-            .limit(_BATCH)
-        ).fetchall()
+        batch = result.fetchmany(_BATCH)
         if not batch:
             break
         for row in batch:
@@ -195,6 +190,5 @@ def downgrade() -> None:
                 .where(dst.c.id == row.rom_file_id)
                 .values(audio_meta=meta)
             )
-        last_id = batch[-1].rom_file_id
 
     op.drop_table("track_meta")

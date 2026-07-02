@@ -162,6 +162,15 @@ def test_tracks_search_substring(client: TestClient, access_token: str, music_li
     assert [i["title"] for i in r.json()["items"]] == ["Green Hill"]
 
 
+def test_tracks_search_escapes_like_wildcards(
+    client: TestClient, access_token: str, music_library
+):
+    wild = client.get("/api/music/tracks?search=hi_l", headers=_auth(access_token))
+    assert wild.json()["total"] == 0
+    literal = client.get("/api/music/tracks?search=hill", headers=_auth(access_token))
+    assert [i["title"] for i in literal.json()["items"]] == ["Green Hill"]
+
+
 def test_tracks_year_and_duration(client: TestClient, access_token: str, music_library):
     assert (
         client.get("/api/music/tracks?year=1992", headers=_auth(access_token)).json()[
@@ -227,6 +236,11 @@ def test_facet_years_are_ints(client: TestClient, access_token: str, music_libra
     body = client.get("/api/music/years", headers=_auth(access_token)).json()
     assert {i["value"] for i in body["items"]} == {1991, 1992, 1985}
     assert all(isinstance(i["value"], int) for i in body["items"])
+
+
+def test_facet_years_typeahead(client: TestClient, access_token: str, music_library):
+    body = client.get("/api/music/years?search=199", headers=_auth(access_token)).json()
+    assert {i["value"] for i in body["items"]} == {1991, 1992}
 
 
 # ---------- visibility (handler level) ----------

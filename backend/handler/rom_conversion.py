@@ -26,7 +26,10 @@ async def promote_single_file_to_folder(rom: Rom) -> Rom:
     staged = f"{fs_path}/{_STAGE_PREFIX}{fs_name}"
     extensionless = folder == fs_name
 
-    if not extensionless and fs_rom_handler.validate_path(dest_dir).exists():
+    # Extensionless dest_dir is the file's own path; only a directory collides.
+    dest_path = fs_rom_handler.validate_path(dest_dir)
+    collision = dest_path.is_dir() if extensionless else dest_path.exists()
+    if collision:
         raise RomAlreadyExistsException(folder)
 
     async def _restore() -> None:

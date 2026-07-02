@@ -188,6 +188,37 @@ def test_convert_extensionless_uses_staging(
     assert after.files[0].file_path == f"{platform.slug}/roms/test_rom"
 
 
+def test_convert_extensionless_dir_collision_returns_409(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+):
+    rom = _single_file_rom(
+        platform,
+        admin_user,
+        real_library,
+        fs_name="test_rom",
+        fs_name_no_ext="test_rom",
+        fs_extension="",
+    )
+    # Stale row over a folder the user already created on disk (no rescan).
+    lone = real_library / f"{platform.slug}/roms/test_rom"
+    lone.unlink()
+    lone.mkdir()
+    (lone / "already_here.txt").write_text("keep me")
+
+    response = client.post(
+        f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
+    )
+    assert response.status_code == status.HTTP_409_CONFLICT
+
+    after = db_rom_handler.get_rom(rom.id)
+    assert after.fs_name == "test_rom"  # untouched
+    assert (lone / "already_here.txt").read_text() == "keep me"  # user's dir intact
+
+
 def test_convert_rolls_back_fs_on_db_failure(
     client: TestClient,
     access_token: str,

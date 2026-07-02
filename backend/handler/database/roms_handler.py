@@ -57,6 +57,8 @@ from models.rom import (
 )
 from utils import get_version
 from utils.database import (
+    LIKE_ESCAPE_CHAR,
+    escape_like,
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
@@ -1608,7 +1610,12 @@ class DBRomsHandler(DBBaseHandler):
         id: int,
         session: Session = None,  # type: ignore
     ) -> RomFile | None:
-        return session.scalar(select(RomFile).filter_by(id=id).limit(1))
+        return session.scalar(
+            select(RomFile)
+            .options(selectinload(RomFile.track_meta))
+            .filter_by(id=id)
+            .limit(1)
+        )
 
     @begin_session
     def get_rom_file_by_path(
@@ -1620,6 +1627,7 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
+            .options(selectinload(RomFile.track_meta))
             .filter_by(rom_id=rom_id, file_path=file_path, file_name=file_name)
             .limit(1)
         )
@@ -1635,6 +1643,7 @@ class DBRomsHandler(DBBaseHandler):
         return (
             session.scalars(
                 select(RomFile)
+                .options(selectinload(RomFile.track_meta))
                 .filter_by(rom_id=rom_id, category=category)
                 .order_by(RomFile.file_name.asc())
             )
@@ -1726,12 +1735,12 @@ class DBRomsHandler(DBBaseHandler):
         if hidden_rom_ids:
             clauses.append(Rom.id.not_in(hidden_rom_ids))
         if search:
-            like = f"%{search.lower()}%"
+            like = f"%{escape_like(search.lower())}%"
             clauses.append(
                 or_(
-                    func.lower(TrackMeta.title).like(like),
-                    func.lower(TrackMeta.artist).like(like),
-                    func.lower(TrackMeta.album).like(like),
+                    func.lower(TrackMeta.title).like(like, escape=LIKE_ESCAPE_CHAR),
+                    func.lower(TrackMeta.artist).like(like, escape=LIKE_ESCAPE_CHAR),
+                    func.lower(TrackMeta.album).like(like, escape=LIKE_ESCAPE_CHAR),
                 )
             )
         if artist and exclude_field != "artist":
@@ -1872,7 +1881,12 @@ class DBRomsHandler(DBBaseHandler):
         if field != "years":
             where.append(func.length(func.trim(col)) > 0)
         if search:
-            where.append(func.lower(col).like(f"%{search.lower()}%"))
+            target = cast(col, String) if field == "years" else col
+            where.append(
+                func.lower(target).like(
+                    f"%{escape_like(search.lower())}%", escape=LIKE_ESCAPE_CHAR
+                )
+            )
         count_col = func.count().label("count")
         base = (
             select(col.label("value"), count_col)

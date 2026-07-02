@@ -132,7 +132,6 @@ class RomFile(BaseModel):
         back_populates="rom_file",
         uselist=False,
         cascade="all, delete-orphan",
-        lazy="selectin",
     )
 
     @cached_property
