@@ -531,7 +531,7 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   wonderswan: ["mednafen_wswan"],
   swancrystal: ["mednafen_wswan"],
   "wonderswan-color": ["mednafen_wswan"],
-  zsx: ["fuse"],
+  zxs: ["fuse"],
 } as const;
 
 // TODO: Merge with _EJS_CORES_MAP next emukatorjs release (post 4.2.3)
