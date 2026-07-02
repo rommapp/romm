@@ -428,6 +428,7 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
     },
     UPS.NES: {"id": 7, "name": "NES"},
     UPS.FAMICOM: {"id": 7, "name": "Family Computer"},
+    UPS.FDS: {"id": 81, "name": "Famicom Disk System"},
     UPS.NEO_GEO_CD: {"id": 56, "name": "Neo Geo CD"},
     UPS.NEO_GEO_POCKET: {"id": 14, "name": "Neo Geo Pocket"},
     UPS.NEO_GEO_POCKET_COLOR: {
