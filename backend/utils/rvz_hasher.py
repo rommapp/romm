@@ -32,6 +32,7 @@ Format references:
 
 import bz2
 import hashlib
+import io
 import lzma
 import os
 import struct
@@ -72,6 +73,17 @@ _MAX_GC_HEADER_SIZE = 1024 * 1024
 _MAX_WII_CLUSTERS = 1024
 _HASH_CHUNK_SIZE = 1024 * 1024
 
+# Real encoders use 32 KiB - 2 MiB chunks; the cap only rejects crafted
+# headers that would otherwise force multi-GB per-group allocations.
+_MAX_CHUNK_SIZE = 64 * 1024 * 1024
+# Dolphin's reader accepts at most 52*64 exceptions per list; used to bound
+# how much decompressed group output can precede the payload.
+_MAX_EXCEPTIONS_PER_LIST = 3328
+_MAX_EXCEPTION_LIST_BYTES = 2 + _MAX_EXCEPTIONS_PER_LIST * 22
+# Generous allowance for RVZ packing descriptors (4-byte run headers plus
+# 68-byte junk seeds) on top of the unpacked payload size.
+_RVZ_PACK_STREAM_SLACK = 0x100000
+
 _PARSE_ERRORS = (
     OSError,
     ValueError,
@@ -79,6 +91,7 @@ _PARSE_ERRORS = (
     EOFError,
     struct.error,
     lzma.LZMAError,
+    zstandard.ZstdError,
 )
 
 
@@ -234,7 +247,10 @@ class _RvzReader:
             _COMPRESSION_ZSTD,
         ):
             raise RvzHashError(f"unknown compression method {self.compression}")
-        if self.chunk_size == 0 or self.chunk_size % _WII_SECTOR_SIZE:
+        if (
+            not _WII_SECTOR_SIZE <= self.chunk_size <= _MAX_CHUNK_SIZE
+            or self.chunk_size % _WII_SECTOR_SIZE
+        ):
             raise RvzHashError("invalid chunk size")
 
         self.disc_header = header_2[0x10:0x90]
@@ -245,7 +261,7 @@ class _RvzReader:
         compr_data_len = header_2[0xD4]
         self._compr_data = header_2[0xD5 : 0xD5 + min(compr_data_len, 7)]
 
-        if n_part > 0x100 or n_raw > 0x10000 or n_groups > 0x1000000:
+        if n_part > 0x100 or n_raw > 0x10000 or n_groups > 0x100000:
             raise RvzHashError("implausible entry counts")
 
         # Partition entries are stored uncompressed. Entries smaller than
@@ -299,7 +315,14 @@ class _RvzReader:
         self._sectors_per_chunk = self.chunk_size // _WII_SECTOR_SIZE
         self._chunk_data_size = self._sectors_per_chunk * _WII_SECTOR_DATA_SIZE
 
-        self._group_cache: dict[int, tuple[bytes, list[tuple[int, int, bytes]]]] = {}
+        # Sized so one Wii hash group's chunks stay cached across the data
+        # and exception passes of _encrypted_hash_group.
+        self._group_cache_capacity = max(
+            16, _WII_SECTORS_PER_HASH_GROUP // self._sectors_per_chunk + 8
+        )
+        self._group_cache: dict[
+            tuple[int, int, int, bool], tuple[bytes, list[tuple[int, int, bytes]]]
+        ] = {}
         self._hash_group_cache: dict[tuple[int, int], bytes] = {}
 
     def close(self) -> None:
@@ -310,26 +333,38 @@ class _RvzReader:
 
     # -- container plumbing -------------------------------------------------
 
-    def _decompress(self, blob: bytes) -> bytes:
+    def _decompress(self, blob: bytes, max_output: int) -> bytes:
+        """Decompress at most ``max_output`` bytes; extra output is discarded.
+
+        The cap keeps a crafted group blob from expanding into a
+        memory-exhausting buffer (decompression bomb) during a scan.
+        """
         if self.compression == _COMPRESSION_NONE:
-            return blob
+            return blob[:max_output]
         if self.compression == _COMPRESSION_BZIP2:
-            return bz2.decompress(blob)
+            return bz2.BZ2Decompressor().decompress(blob, max_length=max_output)
         if self.compression in (_COMPRESSION_LZMA, _COMPRESSION_LZMA2):
             filters = _decode_lzma_filters(
                 self.compression == _COMPRESSION_LZMA2, self._compr_data
             )
             return lzma.LZMADecompressor(
                 format=lzma.FORMAT_RAW, filters=filters
-            ).decompress(blob)
-        return zstandard.ZstdDecompressor().decompressobj().decompress(blob)
+            ).decompress(blob, max_length=max_output)
+        reader = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(blob))
+        out = bytearray()
+        while len(out) < max_output:
+            chunk = reader.read(min(1 << 20, max_output - len(out)))
+            if not chunk:
+                break
+            out += chunk
+        return bytes(out)
 
     def _decompress_blob(self, offset: int, size: int, expected: int) -> bytes:
         self._fh.seek(offset)
         blob = self._fh.read(size)
         if len(blob) < size:
             raise RvzHashError("truncated entry table")
-        out = self._decompress(blob)
+        out = self._decompress(blob, expected)
         if len(out) < expected:
             raise RvzHashError("entry table shorter than expected")
         return out
@@ -391,7 +426,8 @@ class _RvzReader:
         self, index: int, expected: int, data_offset: int, with_exceptions: bool
     ) -> tuple[bytes, list[tuple[int, int, bytes]]]:
         """Decode one group into (data, hash exceptions), zero-padded/cached."""
-        cached = self._group_cache.get(index)
+        cache_key = (index, expected, data_offset, with_exceptions)
+        cached = self._group_cache.get(cache_key)
         if cached is not None:
             return cached
 
@@ -414,7 +450,16 @@ class _RvzReader:
             if len(blob) < stored_size:
                 raise RvzHashError("truncated group data")
 
-            stream = self._decompress(blob) if compressed else blob
+            if self.is_rvz and packed_size:
+                payload_cap = min(packed_size, expected + _RVZ_PACK_STREAM_SLACK)
+            else:
+                payload_cap = expected
+            max_output = payload_cap
+            if with_exceptions:
+                max_output += (
+                    self._except_lists_per_group * _MAX_EXCEPTION_LIST_BYTES + 4
+                )
+            stream = self._decompress(blob, max_output) if compressed else blob
             exceptions: list[tuple[int, int, bytes]] = []
             if with_exceptions:
                 # Uncompressed exception lists are padded to a 4-byte
@@ -432,9 +477,9 @@ class _RvzReader:
                 data = data + b"\x00" * (expected - len(data))
             result = (data, exceptions)
 
-        if len(self._group_cache) >= 16:
+        if len(self._group_cache) >= self._group_cache_capacity:
             self._group_cache.clear()
-        self._group_cache[index] = result
+        self._group_cache[cache_key] = result
         return result
 
     # -- raw (non-partition) data -------------------------------------------
@@ -668,6 +713,11 @@ def _hash_nintendo_disc_partition(
         seg_offset = _be32(dol_header, ix * 4) << wii_shift
         seg_size = _be32(dol_header, 0x90 + ix * 4) << wii_shift
         if seg_size:
+            # A valid disc keeps every segment inside the image; a corrupt
+            # one claiming gigabytes would stall the scan hashing zero-fill
+            # (and could never match RA's database anyway).
+            if part_offset + seg_offset + seg_size > reader.iso_size:
+                raise RvzHashError("main.dol segment extends past the disc end")
             # rcheevos seeks these relative to the partition, not the DOL.
             _hash_chunked(md5, reader, part_offset + seg_offset, seg_size)
 

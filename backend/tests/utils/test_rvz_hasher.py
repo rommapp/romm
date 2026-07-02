@@ -745,6 +745,38 @@ class TestCalculateGamecubeRaHash:
 
         assert calculate_gamecube_ra_hash(str(path)) == ""
 
+    def test_returns_empty_for_corrupt_zstd_group(self, tmp_path):
+        """A corrupted compressed group must fail softly, not raise."""
+        disc = build_gamecube_disc()
+        rvz = bytearray(RvzBuilder(bytes(disc), disc_type=1).build())
+        # Group data starts right after the two headers (no partition
+        # entries); clobber the first group's zstd frame magic.
+        data_start = 0x48 + 0xDC
+        rvz[data_start : data_start + 4] = b"\xde\xad\xbe\xef"
+        path = tmp_path / "game.rvz"
+        path.write_bytes(bytes(rvz))
+
+        assert calculate_gamecube_ra_hash(str(path)) == ""
+
+    def test_returns_empty_for_oversized_chunk_size(self, tmp_path):
+        """A crafted chunk size is rejected before any buffer allocation."""
+        disc = build_gamecube_disc()
+        rvz = bytearray(RvzBuilder(bytes(disc), disc_type=1).build())
+        struct.pack_into(">I", rvz, 0x48 + 0x0C, 0x40000000)  # 1 GiB chunks
+        path = tmp_path / "game.rvz"
+        path.write_bytes(bytes(rvz))
+
+        assert calculate_gamecube_ra_hash(str(path)) == ""
+
+    def test_returns_empty_for_dol_segment_past_disc_end(self, tmp_path):
+        """A corrupt main.dol segment size must not stall the scan."""
+        disc = build_gamecube_disc()
+        struct.pack_into(">I", disc, 0x10000 + 0x90, 0xFFFFFF00)
+        path = tmp_path / "game.rvz"
+        path.write_bytes(RvzBuilder(bytes(disc), disc_type=1).build())
+
+        assert calculate_gamecube_ra_hash(str(path)) == ""
+
 
 # ---------------------------------------------------------------------------
 # Wii tests (issue #3650).
@@ -763,6 +795,16 @@ class TestCalculateWiiRaHash:
 
     def test_zstd_rvz_matches_reference_hash(self, tmp_path):
         iso, rvz = build_wii_disc_and_rvz(compression=COMPRESSION_ZSTD)
+        path = tmp_path / "game.rvz"
+        path.write_bytes(rvz)
+
+        assert calculate_wii_ra_hash(str(path)) == reference_wii_hash(iso)
+
+    def test_small_chunk_zstd_rvz_matches_reference_hash(self, tmp_path):
+        """32 KiB chunks: one hash group spans many groups, one list each."""
+        iso, rvz = build_wii_disc_and_rvz(
+            compression=COMPRESSION_ZSTD, chunk_size=0x8000
+        )
         path = tmp_path / "game.rvz"
         path.write_bytes(rvz)
 
