@@ -659,7 +659,13 @@ router.beforeEach(async (to, _from, next) => {
   }
 });
 
-router.beforeResolve(async () => {
+router.beforeResolve(async (to, from) => {
+  // Query/hash-only changes (same path — e.g. the v2 GameDetails `?tab=`
+  // param) aren't a real view change. Running a view transition would
+  // snapshot every `view-transition-name` element (like the details cover)
+  // into the browser's top layer for the crossfade, briefly floating it over
+  // the fixed navbar. Skip them — matching `scrollBehavior` above.
+  if (to.path === from.path) return;
   const viewTransition = startViewTransition();
   await viewTransition.captured;
 });
