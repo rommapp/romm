@@ -103,7 +103,7 @@ class PlaymatchHandler(MetadataHandler):
     """
 
     def __init__(self):
-        self.base_url = "https://playmatch.retrorealm.dev/api"
+        self.base_url = "https://playmatch.retrorealm.dev/api/v2"
         self.identify_url = f"{self.base_url}/identify/ids"
         self.healthcheck_url = f"{self.base_url}/health"
         self.suggestion_url = f"{self.base_url}/suggestion/external/game"
