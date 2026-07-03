@@ -235,12 +235,7 @@ class RAHasherService:
         if platform["ra_id"] in (NGC_RA_ID, WII_RA_ID) and is_rvz_native_hash_file(
             file_path
         ):
-            if platform["ra_id"] == NGC_RA_ID:
-                native_hash = await asyncio.to_thread(
-                    calculate_gamecube_ra_hash, file_path
-                )
-            else:
-                native_hash = await asyncio.to_thread(calculate_wii_ra_hash, file_path)
+           native_hash = await asyncio.to_thread(calculate_gamecube_ra_hash if platform["ra_id"] == NGC_RA_ID else calculate_wii_ra_hash, file_path)
             if native_hash:
                 log.debug(
                     f"Computed native {hl('RA', color=LIGHTMAGENTA)} hash for "
