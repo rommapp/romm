@@ -222,11 +222,8 @@ def with_details(func):
                 selectinload(Rom.rom_users).options(noload(RomUser.rom)),
                 load_only(
                     Rom.id,
-                    # `platform_id` feeds the per-sibling visibility check in
-                    # `_visible_siblings`; without it, reading the attribute
-                    # after the session closes raises DetachedInstanceError.
-                    Rom.platform_id,
                     Rom.name,
+                    Rom.platform_id,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
                 ),

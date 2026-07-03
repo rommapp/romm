@@ -175,10 +175,6 @@ onBeforeUnmount(() => {
   text-decoration: none;
   color: var(--r-color-fg);
   flex-shrink: 0;
-  /* Grid items default to `justify-self: stretch`, which would stretch this
-     link across its whole `1fr` column — turning the empty bar space beside
-     the logo into a hidden "go home" hit target. Pin it to its content so
-     only the logo itself navigates. */
   justify-self: start;
   transition: filter var(--r-motion-med) var(--r-motion-ease-out);
 }

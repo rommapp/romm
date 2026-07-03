@@ -31,9 +31,6 @@ interface Props {
   iconEmpty: string;
   accent: string;
   disabled?: boolean;
-  /** Trigger height — mirrors GameActionBtn's ladder so the metric pills
-   *  sit at the exact same height as the action ribbon (`large` = 44px,
-   *  `default` = 40px). */
   size?: "default" | "large";
 }
 
@@ -192,9 +189,6 @@ function clear() {
 .r-v2-metric-btn :deep(.mdi) {
   font-size: 20px;
 }
-/* Size ladder — height-matched to GameActionBtn so the metrics line up with
-   the action ribbon. `--large` (44px) is the base above; `--default` (40px)
-   is the phone size the ribbon shrinks to. */
 .r-v2-metric-btn--default {
   height: 40px;
   padding: 0 14px;

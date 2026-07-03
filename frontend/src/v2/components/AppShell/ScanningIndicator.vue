@@ -69,9 +69,6 @@ const counterLabel = computed(() => {
         >
           <span class="r-scan-indicator__row">
             <RSpinner size="14" color="primary" />
-            <!-- On phones the pill tightens: the "Scanning" word is dropped
-                 for the compact radar glyph (same icon the user menu uses
-                 for Scan), keeping the counter legible in the narrow navbar. -->
             <span class="r-scan-indicator__label">
               {{ t("scan.scanning") }}
             </span>
