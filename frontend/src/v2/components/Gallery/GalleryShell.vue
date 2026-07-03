@@ -60,6 +60,7 @@ import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
 import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import {
+  getListMinWidth,
   LIST_COVER_HEIGHT_PX,
   LIST_COVER_WIDTH_PX,
   type ListSortKey,
@@ -299,6 +300,14 @@ const listCoverWidth = computed(() => {
   const w = Math.round(LIST_COVER_HEIGHT_PX * maxRatio.value);
   return Math.min(128, Math.max(LIST_COVER_WIDTH_PX, w));
 });
+
+// The list row's natural min-width (all fixed tracks + the title floor). Fed
+// to the virtual scroller as `minContentWidth` in list mode so a viewport
+// narrower than the columns scrolls the list HORIZONTALLY instead of clipping
+// them. Also drives the sticky column header's width so it scrolls in step.
+const listMinWidth = computed(() =>
+  getListMinWidth(props.showPlatformColumn, listCoverWidth.value),
+);
 
 // 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
 //   * Grid mode — rows are `.r-v2-shell__row` (the per-virtualizer-item
@@ -858,6 +867,7 @@ defineExpose({
     :style="{
       '--r-v2-shell-toolbar-h': `${toolbarHeight}px`,
       '--r-cover-ratio': coverAspectRatio,
+      '--r-list-min-w': `${listMinWidth}px`,
     }"
   >
     <RVirtualScroller
@@ -866,6 +876,7 @@ defineExpose({
       :get-item-height="getItemHeight"
       :get-item-key="galleryItemKey"
       :overscan="virtualOverscan"
+      :min-content-width="layout === 'list' ? listMinWidth : undefined"
       class="r-v2-shell__scroller r-v2-scroll-hidden"
       @update:viewport-range="onViewportRangeChange"
     >
@@ -1035,22 +1046,9 @@ defineExpose({
       />
     </div>
 
-    <!-- LIST COLUMN HEADER OVERLAY — twin of the inflow list header,
-         absolute against the section just below the toolbar overlay.
-         The scroller's clip strips the toolbar AND list-header bands
-         when `--stuck` + `--list`, so rows scrolling underneath never
-         reach this pixel area — the overlay paints cleanly over the
-         section's BackgroundArt blur, no see-through cards. -->
-    <GameListHeader
-      v-if="layout === 'list' && toolbarPosition === 'header'"
-      v-show="isStuck"
-      class="r-v2-shell__list-header-overlay"
-      :sort-key="listSortKey"
-      :sort-dir="orderDir"
-      :show-platform-column="showPlatformColumn"
-      :cover-width="listCoverWidth"
-      @sort="onListSort"
-    />
+    <!-- No list-header overlay twin: the list scrolls horizontally and the
+         in-flow sticky header (opaque glass, moves with the rows) owns the
+         column header in every scroll state. -->
 
     <!-- ALPHASTRIP — A-Z jump column on the right edge of the section. -->
     <AlphaStrip
@@ -1222,6 +1220,18 @@ html[data-bp~="xs"] .r-v2-shell {
   z-index: 4;
 }
 
+/* When the list scrolls horizontally (columns wider than the viewport), the
+   page chrome — view header, divider and in-flow toolbar — belongs to the
+   page, not the table, so pin them to the left (`left: 0`). They stay in place
+   while only the column header and rows scroll sideways. `left` engages only
+   while the scroller has horizontal overflow, i.e. in list mode. */
+.r-v2-shell--list .r-v2-shell__header,
+.r-v2-shell--list .r-v2-shell__header-divider,
+.r-v2-shell--list .r-v2-shell__toolbar--inflow {
+  position: sticky;
+  left: 0;
+}
+
 /* Zero-height, non-sticky marker at the toolbar's natural top. Its stable
    offsetTop is the stuck threshold (the sticky toolbar's own offsetTop can't
    be used — it reports the stuck position once pinned). */
@@ -1241,6 +1251,10 @@ html[data-bp~="xs"] .r-v2-shell {
   position: sticky;
   top: var(--r-v2-shell-toolbar-h, 64px);
   z-index: 3;
+  /* Match the rows' natural width so the column header scrolls horizontally in
+     step with them when the list is wider than the viewport. When stuck it's
+     clipped away and the section-level overlay twin takes over (below). */
+  min-width: var(--r-list-min-w);
 }
 
 /* Overlay layer — absolute against the section, mirrors the
@@ -1263,39 +1277,16 @@ html[data-bp~="xs"] .r-v2-shell {
   );
 }
 
-/* List column header overlay — twin of `.r-v2-shell__list-header`,
-   positioned absolutely just below the toolbar overlay. Same column
-   geometry as the toolbar overlay so columns align across both
-   surfaces. z-index 4 keeps it under the toolbar overlay (5) but
-   above any in-flow content peeking through. */
-.r-v2-shell__list-header-overlay {
-  position: absolute;
-  top: var(--r-v2-shell-toolbar-h, 64px);
-  left: var(--r-row-pad);
-  right: var(--r-row-pad);
-  z-index: 4;
-}
-.r-v2-shell--has-strip .r-v2-shell__list-header-overlay {
-  right: calc(
-    var(--r-row-pad) + var(--r-alpha-strip-w) + var(--r-alpha-strip-gap)
-  );
-}
+/* While stuck, clip the scroller's top toolbar-band so cards scrolling
+   underneath the (transparent) toolbar overlay are physically removed from
+   that pixel area — the overlay then reveals only the section's background
+   blur, never the cards.
 
-/* While stuck, clip the scroller's top toolbar-band so cards
-   scrolling underneath the overlay are physically removed from
-   that pixel area. The transparent overlay then reveals only the
-   section's background (BackgroundArt blur) — never the cards.
-
-   In list mode, extend the clip to also cover the list-header band
-   below the toolbar so rows don't bleed through the (translucent)
-   sticky column header. */
+   The list column header is NOT clipped: it's the in-flow sticky header (its
+   own strong glass blur), so it stays visible and reads cleanly over the rows
+   scrolling under it — and, being in-flow, it tracks the horizontal scroll. */
 .r-v2-shell--stuck .r-v2-shell__scroller {
   clip-path: inset(var(--r-v2-shell-toolbar-h, 64px) 0 0 0);
-}
-.r-v2-shell--stuck.r-v2-shell--list .r-v2-shell__scroller {
-  clip-path: inset(
-    calc(var(--r-v2-shell-toolbar-h, 64px) + var(--r-list-header-h)) 0 0 0
-  );
 }
 
 /* Smaller cards on phones. Matches GameCard's own xs `--r-card-art-w` so
