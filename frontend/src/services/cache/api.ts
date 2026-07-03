@@ -83,6 +83,10 @@ class CachedApiService {
         params.selectedMetadataProviders.length > 0
           ? params.selectedMetadataProviders
           : undefined,
+      tags:
+        params.selectedTags && params.selectedTags.length > 0
+          ? params.selectedTags
+          : undefined,
       // Logic operators
       genres_logic:
         params.selectedGenres && params.selectedGenres.length > 0
@@ -125,6 +129,10 @@ class CachedApiService {
         params.selectedMetadataProviders.length > 0
           ? params.metadataProvidersLogic || "any"
           : undefined,
+      tags_logic:
+        params.selectedTags && params.selectedTags.length > 0
+          ? params.tagsLogic || "any"
+          : undefined,
       ...(params.filterMatched !== null
         ? { matched: params.filterMatched }
         : {}),
@@ -141,6 +149,10 @@ class CachedApiService {
         ? { missing: params.filterMissing }
         : {}),
       ...(params.filterRA !== null ? { has_ra: params.filterRA } : {}),
+      ...(params.filterSaves !== null ? { has_saves: params.filterSaves } : {}),
+      ...(params.filterStates !== null
+        ? { has_states: params.filterStates }
+        : {}),
       ...(params.filterVerified !== null
         ? { verified: params.filterVerified }
         : {}),

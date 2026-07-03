@@ -377,7 +377,11 @@ function fmtDate(iso: string): string {
                 <span class="r-v2-notes__nav-author">
                   <RAvatar
                     :image="
-                      userAvatarUrl(n.user_avatar_path, n.user_updated_at)
+                      userAvatarUrl({
+                        userId: n.user_id,
+                        avatarPath: n.user_avatar_path,
+                        updatedAt: n.user_updated_at,
+                      })
                     "
                     size="18"
                   />
@@ -471,10 +475,11 @@ function fmtDate(iso: string): string {
               <div v-if="!isSelectedOwn" class="r-v2-notes__author">
                 <RAvatar
                   :image="
-                    userAvatarUrl(
-                      selectedNote.user_avatar_path,
-                      selectedNote.user_updated_at,
-                    )
+                    userAvatarUrl({
+                      userId: selectedNote.user_id,
+                      avatarPath: selectedNote.user_avatar_path,
+                      updatedAt: selectedNote.user_updated_at,
+                    })
                   "
                   size="20"
                 />

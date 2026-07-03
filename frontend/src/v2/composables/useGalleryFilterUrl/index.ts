@@ -17,6 +17,8 @@
 //   ?filterMissing=true|false
 //   ?filterVerified=true|false
 //   ?filterRA=true|false
+//   ?filterSaves=true|false
+//   ?filterStates=true|false
 //   ?platforms=1,2,3                  (selectedPlatforms IDs)
 //   ?genres=a,b&genresLogic=any|all|none
 //   ?franchises=…&franchisesLogic=…
@@ -28,6 +30,7 @@
 //   ?statuses=…&statusesLogic=…
 //   ?playerCounts=…&playerCountsLogic=…
 //   ?metadataProviders=…&metadataProvidersLogic=…
+//   ?tags=…&tagsLogic=…
 //
 // Direction notes:
 //   * URL → store fires on every `route.query` change (browser back /
@@ -102,6 +105,8 @@ export function useGalleryFilterUrl() {
     filterMissing,
     filterVerified,
     filterRA,
+    filterSaves,
+    filterStates,
     selectedPlatforms,
     selectedGenres,
     selectedFranchises,
@@ -112,6 +117,7 @@ export function useGalleryFilterUrl() {
     selectedLanguages,
     selectedPlayerCounts,
     selectedMetadataProviders,
+    selectedTags,
     selectedStatuses,
     genresLogic,
     franchisesLogic,
@@ -122,6 +128,7 @@ export function useGalleryFilterUrl() {
     languagesLogic,
     playerCountsLogic,
     metadataProvidersLogic,
+    tagsLogic,
     statusesLogic,
   } = storeToRefs(filter);
 
@@ -141,6 +148,8 @@ export function useGalleryFilterUrl() {
       filterMissing: qBool(q.filterMissing),
       filterVerified: qBool(q.filterVerified),
       filterRA: qBool(q.filterRA),
+      filterSaves: qBool(q.filterSaves),
+      filterStates: qBool(q.filterStates),
       platformIds: qList(q.platforms)
         .map((s) => Number(s))
         .filter((n) => !Number.isNaN(n)),
@@ -162,6 +171,8 @@ export function useGalleryFilterUrl() {
       playerCountsLogic: qLogic(q.playerCountsLogic),
       metadataProviders: qList(q.metadataProviders),
       metadataProvidersLogic: qLogic(q.metadataProvidersLogic),
+      tags: qList(q.tags),
+      tagsLogic: qLogic(q.tagsLogic),
       statuses: qList(q.statuses),
       statusesLogic: qLogic(q.statusesLogic),
     };
@@ -180,6 +191,10 @@ export function useGalleryFilterUrl() {
     if (url.filterVerified !== filterVerified.value)
       filterVerified.value = url.filterVerified;
     if (url.filterRA !== filterRA.value) filterRA.value = url.filterRA;
+    if (url.filterSaves !== filterSaves.value)
+      filterSaves.value = url.filterSaves;
+    if (url.filterStates !== filterStates.value)
+      filterStates.value = url.filterStates;
 
     // Platforms — lookup objects from IDs. If the platform store hasn't
     // hydrated yet, the watch below retries when it does.
@@ -251,6 +266,11 @@ export function useGalleryFilterUrl() {
     )
       filter.setMetadataProvidersLogic(url.metadataProvidersLogic);
 
+    if (!eqStrArr(url.tags, selectedTags.value))
+      filter.setSelectedFilterTags(url.tags);
+    if (url.tagsLogic && url.tagsLogic !== tagsLogic.value)
+      filter.setTagsLogic(url.tagsLogic);
+
     if (!eqStrArr(url.statuses, selectedStatuses.value))
       filter.setSelectedFilterStatuses(url.statuses);
     if (url.statusesLogic && url.statusesLogic !== statusesLogic.value)
@@ -306,6 +326,8 @@ export function useGalleryFilterUrl() {
     setBool("filterMissing", filterMissing.value);
     setBool("filterVerified", filterVerified.value);
     setBool("filterRA", filterRA.value);
+    setBool("filterSaves", filterSaves.value);
+    setBool("filterStates", filterStates.value);
 
     setList(
       "platforms",
@@ -359,6 +381,11 @@ export function useGalleryFilterUrl() {
         ? metadataProvidersLogic.value
         : null,
     );
+    setList("tags", selectedTags.value);
+    setOrDelete(
+      "tagsLogic",
+      selectedTags.value.length > 0 ? tagsLogic.value : null,
+    );
     setList("statuses", selectedStatuses.value);
     setOrDelete(
       "statusesLogic",
@@ -395,6 +422,8 @@ export function useGalleryFilterUrl() {
       filterMissing,
       filterVerified,
       filterRA,
+      filterSaves,
+      filterStates,
       selectedPlatforms,
       selectedGenres,
       genresLogic,
@@ -414,6 +443,8 @@ export function useGalleryFilterUrl() {
       playerCountsLogic,
       selectedMetadataProviders,
       metadataProvidersLogic,
+      selectedTags,
+      tagsLogic,
       selectedStatuses,
       statusesLogic,
     ],

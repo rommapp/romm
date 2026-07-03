@@ -49,7 +49,11 @@ const { user, scopes } = storeToRefs(authStore);
 const open = ref(false);
 
 const avatarSrc = computed(() =>
-  userAvatarUrl(user.value?.avatar_path, user.value?.updated_at),
+  userAvatarUrl({
+    userId: user.value?.id,
+    avatarPath: user.value?.avatar_path,
+    updatedAt: user.value?.updated_at,
+  }),
 );
 
 const isAdmin = useCan("app.admin");

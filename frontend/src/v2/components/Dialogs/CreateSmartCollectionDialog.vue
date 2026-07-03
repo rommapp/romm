@@ -110,6 +110,8 @@ const openHandler = () => {
       playerCountsLogic: galleryFilter.playerCountsLogic,
       selectedMetadataProviders: galleryFilter.selectedMetadataProviders,
       metadataProvidersLogic: galleryFilter.metadataProvidersLogic,
+      selectedTags: galleryFilter.selectedTags,
+      tagsLogic: galleryFilter.tagsLogic,
       selectedStatuses: galleryFilter.selectedStatuses,
       statusesLogic: galleryFilter.statusesLogic,
     },

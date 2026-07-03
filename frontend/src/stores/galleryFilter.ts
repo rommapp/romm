@@ -12,7 +12,8 @@ export type FilterType =
   | "regions"
   | "languages"
   | "playerCounts"
-  | "metadataProviders";
+  | "metadataProviders"
+  | "tags";
 
 export type FilterLogicOperator = "any" | "all" | "none";
 
@@ -33,12 +34,15 @@ const buildDefaultFilterState = () => ({
   filterRegions: [] as string[],
   filterLanguages: [] as string[],
   filterPlayerCounts: [] as string[],
+  filterTags: [] as string[],
   filterStatuses: Object.keys(romStatusMap),
   filterMatched: null as boolean | null, // null = all, true = matched, false = unmatched
   filterFavorites: null as boolean | null, // null = all, true = favorites, false = not favorites
   filterDuplicates: null as boolean | null, // null = all, true = duplicates, false = not duplicates
   filterPlayables: null as boolean | null, // null = all, true = playables, false = not playables
   filterRA: null as boolean | null, // null = all, true = has RA, false = no RA
+  filterSaves: null as boolean | null, // null = all, true = has saves, false = no saves
+  filterStates: null as boolean | null, // null = all, true = has states, false = no states
   filterMissing: null as boolean | null, // null = all, true = missing, false = not missing
   filterVerified: null as boolean | null, // null = all, true = verified, false = not verified
   selectedPlatform: null as Platform | null,
@@ -52,6 +56,7 @@ const buildDefaultFilterState = () => ({
   selectedLanguages: [] as string[],
   selectedPlayerCounts: [] as string[],
   selectedMetadataProviders: [] as string[],
+  selectedTags: [] as string[],
   selectedStatuses: [] as string[],
   // Logic operators for multi-select filters
   genresLogic: "any" as FilterLogicOperator,
@@ -64,6 +69,7 @@ const buildDefaultFilterState = () => ({
   statusesLogic: "any" as FilterLogicOperator,
   playerCountsLogic: "any" as FilterLogicOperator,
   metadataProvidersLogic: "any" as FilterLogicOperator,
+  tagsLogic: "any" as FilterLogicOperator,
 });
 
 export default defineStore("galleryFilter", {
@@ -99,6 +105,9 @@ export default defineStore("galleryFilter", {
     },
     setFilterPlayerCounts(playerCounts: string[]) {
       this.filterPlayerCounts = playerCounts;
+    },
+    setFilterTags(tags: string[]) {
+      this.filterTags = tags;
     },
     setSelectedFilterPlatform(platform: Platform) {
       this.selectedPlatform = platform
@@ -163,6 +172,12 @@ export default defineStore("galleryFilter", {
     },
     setMetadataProvidersLogic(logic: FilterLogicOperator) {
       this.metadataProvidersLogic = logic;
+    },
+    setSelectedFilterTags(tags: string[]) {
+      this.selectedTags = tags;
+    },
+    setTagsLogic(logic: FilterLogicOperator) {
+      this.tagsLogic = logic;
     },
     setSelectedFilterStatuses(statuses: string[]) {
       this.selectedStatuses = statuses;
@@ -295,6 +310,56 @@ export default defineStore("galleryFilter", {
         this.filterRA = null;
       }
     },
+    setFilterSaves(value: boolean | null) {
+      this.filterSaves = value;
+    },
+    setFilterSavesState(state: "all" | "has-saves" | "no-saves") {
+      switch (state) {
+        case "has-saves":
+          this.filterSaves = true;
+          break;
+        case "no-saves":
+          this.filterSaves = false;
+          break;
+        default: // "all"
+          this.filterSaves = null;
+          break;
+      }
+    },
+    switchFilterSaves() {
+      if (this.filterSaves === null) {
+        this.filterSaves = true;
+      } else if (this.filterSaves === true) {
+        this.filterSaves = false;
+      } else {
+        this.filterSaves = null;
+      }
+    },
+    setFilterStates(value: boolean | null) {
+      this.filterStates = value;
+    },
+    setFilterStatesState(state: "all" | "has-states" | "no-states") {
+      switch (state) {
+        case "has-states":
+          this.filterStates = true;
+          break;
+        case "no-states":
+          this.filterStates = false;
+          break;
+        default: // "all"
+          this.filterStates = null;
+          break;
+      }
+    },
+    switchFilterStates() {
+      if (this.filterStates === null) {
+        this.filterStates = true;
+      } else if (this.filterStates === true) {
+        this.filterStates = false;
+      } else {
+        this.filterStates = null;
+      }
+    },
     setFilterMissing(value: boolean | null) {
       this.filterMissing = value;
     },
@@ -352,6 +417,8 @@ export default defineStore("galleryFilter", {
         this.filterDuplicates !== null ||
         this.filterPlayables !== null ||
         this.filterRA !== null ||
+        this.filterSaves !== null ||
+        this.filterStates !== null ||
         this.filterMissing !== null ||
         this.filterVerified !== null ||
         this.selectedPlatform ||
@@ -365,6 +432,7 @@ export default defineStore("galleryFilter", {
         this.selectedLanguages.length > 0 ||
         this.selectedPlayerCounts.length > 0 ||
         this.selectedMetadataProviders.length > 0 ||
+        this.selectedTags.length > 0 ||
         this.selectedStatuses.length > 0,
       );
     },
@@ -383,12 +451,15 @@ export default defineStore("galleryFilter", {
       this.selectedLanguages = [];
       this.selectedPlayerCounts = [];
       this.selectedMetadataProviders = [];
+      this.selectedTags = [];
       this.selectedStatuses = [];
       this.filterMatched = null;
       this.filterFavorites = null;
       this.filterDuplicates = null;
       this.filterPlayables = null;
       this.filterRA = null;
+      this.filterSaves = null;
+      this.filterStates = null;
       this.filterMissing = null;
       this.filterVerified = null;
       // Reset logic operators to default
@@ -402,6 +473,7 @@ export default defineStore("galleryFilter", {
       this.statusesLogic = "any";
       this.playerCountsLogic = "any";
       this.metadataProvidersLogic = "any";
+      this.tagsLogic = "any";
     },
   },
 });

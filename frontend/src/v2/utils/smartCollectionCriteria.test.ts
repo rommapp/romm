@@ -41,6 +41,8 @@ function emptySnapshot(): GalleryFilterSnapshot {
     playerCountsLogic: "any",
     selectedMetadataProviders: [],
     metadataProvidersLogic: "any",
+    selectedTags: [],
+    tagsLogic: "any",
     selectedStatuses: [],
     statusesLogic: "any",
   };
@@ -74,6 +76,38 @@ describe("buildSmartFilterCriteria — metadata providers", () => {
     const row = rows.find((r) => r.key === "metadata_providers");
     expect(row).toBeDefined();
     expect(row?.values).toEqual(["igdb"]);
+    expect(row?.logic).toBe("any");
+  });
+});
+
+describe("buildSmartFilterCriteria — tags", () => {
+  it("serializes selected tags with their logic operator", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      selectedTags: ["Proto", "Beta"],
+      tagsLogic: "all",
+    });
+
+    expect(out.tags).toEqual(["Proto", "Beta"]);
+    expect(out.tags_logic).toBe("all");
+  });
+
+  it("omits the keys entirely when no tag is selected", () => {
+    const out = buildSmartFilterCriteria(emptySnapshot());
+
+    expect(out.tags).toBeUndefined();
+    expect(out.tags_logic).toBeUndefined();
+  });
+
+  it("surfaces tags in the human-readable summary", () => {
+    const rows = summarizeSmartFilterCriteria(
+      { tags: ["Proto"], tags_logic: "any" },
+      tStub,
+    );
+
+    const row = rows.find((r) => r.key === "tags");
+    expect(row).toBeDefined();
+    expect(row?.values).toEqual(["Proto"]);
     expect(row?.logic).toBe("any");
   });
 });

@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import Body, File, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, UploadFile, status
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import ScreenshotSchema
@@ -11,6 +11,7 @@ from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
+from handler.filesystem.assets_handler import build_asset_file_response
 from handler.scan_handler import scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -113,6 +114,44 @@ async def add_screenshot(
         )
 
     return ScreenshotSchema.model_validate(db_screenshot)
+
+
+@protected_route(
+    router.get,
+    "/{id}/content",
+    [Scope.ASSETS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def download_screenshot(
+    request: Request,
+    id: Annotated[int, PathVar(description="Screenshot internal id.", ge=1)],
+) -> FileResponse:
+    """Download a screenshot file. Owner can download any of their screenshots;
+    everyone else only public ones."""
+    screenshot = db_screenshot_handler.get_screenshot_by_id(id)
+    if not screenshot or (
+        screenshot.user_id != request.user.id and not screenshot.is_public
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Screenshot not found",
+        )
+
+    try:
+        file_path = fs_asset_handler.validate_path(screenshot.full_path)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Screenshot not found",
+        ) from None
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Screenshot file not found on disk",
+        )
+
+    return build_asset_file_response(file_path, filename=screenshot.file_name)
 
 
 @protected_route(

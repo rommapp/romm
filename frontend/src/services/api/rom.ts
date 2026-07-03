@@ -153,6 +153,8 @@ export interface GetRomsParams {
   filterDuplicates?: boolean | null;
   filterPlayables?: boolean | null;
   filterRA?: boolean | null;
+  filterSaves?: boolean | null;
+  filterStates?: boolean | null;
   filterMissing?: boolean | null;
   filterVerified?: boolean | null;
   groupByMetaId?: boolean;
@@ -166,6 +168,7 @@ export interface GetRomsParams {
   selectedLanguages?: string[] | null;
   selectedPlayerCounts?: string[] | null;
   selectedMetadataProviders?: string[] | null;
+  selectedTags?: string[] | null;
   selectedStatuses?: string[] | null;
   // Logic operators for multi-value filters
   genresLogic?: string | null;
@@ -178,6 +181,7 @@ export interface GetRomsParams {
   statusesLogic?: string | null;
   playerCountsLogic?: string | null;
   metadataProvidersLogic?: string | null;
+  tagsLogic?: string | null;
   // Cancellation: pass an AbortSignal to let the caller abort an
   // in-flight request (e.g. search-typing → previous query aborted,
   // gallery-context switch → previous platform's windows aborted).
@@ -199,6 +203,8 @@ async function getRoms({
   filterDuplicates = null,
   filterPlayables = null,
   filterRA = null,
+  filterSaves = null,
+  filterStates = null,
   filterMissing = null,
   filterVerified = null,
   groupByMetaId = false,
@@ -211,6 +217,7 @@ async function getRoms({
   selectedLanguages = null,
   selectedPlayerCounts = null,
   selectedMetadataProviders = null,
+  selectedTags = null,
   selectedStatuses = null,
   // Logic operators
   genresLogic = null,
@@ -223,6 +230,7 @@ async function getRoms({
   statusesLogic = null,
   playerCountsLogic = null,
   metadataProvidersLogic = null,
+  tagsLogic = null,
   signal = undefined,
 }: GetRomsParams) {
   const params = {
@@ -275,6 +283,7 @@ async function getRoms({
       selectedMetadataProviders && selectedMetadataProviders.length > 0
         ? selectedMetadataProviders
         : undefined,
+    tags: selectedTags && selectedTags.length > 0 ? selectedTags : undefined,
     // Logic operators
     genres_logic:
       selectedGenres && selectedGenres.length > 0
@@ -316,12 +325,16 @@ async function getRoms({
       selectedMetadataProviders && selectedMetadataProviders.length > 0
         ? metadataProvidersLogic || "any"
         : undefined,
+    tags_logic:
+      selectedTags && selectedTags.length > 0 ? tagsLogic || "any" : undefined,
     ...(filterMatched !== null ? { matched: filterMatched } : {}),
     ...(filterFavorites !== null ? { favorite: filterFavorites } : {}),
     ...(filterDuplicates !== null ? { duplicate: filterDuplicates } : {}),
     ...(filterPlayables !== null ? { playable: filterPlayables } : {}),
     ...(filterMissing !== null ? { missing: filterMissing } : {}),
     ...(filterRA !== null ? { has_ra: filterRA } : {}),
+    ...(filterSaves !== null ? { has_saves: filterSaves } : {}),
+    ...(filterStates !== null ? { has_states: filterStates } : {}),
     ...(filterVerified !== null ? { verified: filterVerified } : {}),
   };
 

@@ -110,10 +110,11 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
               >
                 <RAvatar
                   :image="
-                    userAvatarUrl(
-                      ownerOf(asset)!.user_avatar_path,
-                      ownerOf(asset)!.user_updated_at,
-                    )
+                    userAvatarUrl({
+                      userId: ownerOf(asset)!.user_id,
+                      avatarPath: ownerOf(asset)!.user_avatar_path,
+                      updatedAt: ownerOf(asset)!.user_updated_at,
+                    })
                   "
                   :size="16"
                 />

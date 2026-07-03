@@ -83,6 +83,9 @@ const {
   playerCountsLogic,
   selectedMetadataProviders,
   metadataProvidersLogic,
+  filterTags,
+  selectedTags,
+  tagsLogic,
 } = storeToRefs(galleryFilterStore);
 
 // Provider options are a fixed registry (not data-derived like the other
@@ -175,6 +178,8 @@ const onFilterChange = debounce(
         selectedMetadataProviders.value.length > 0
           ? metadataProvidersLogic.value
           : null,
+      tags: selectedTags.value.length > 0 ? selectedTags.value.join(",") : null,
+      tagsLogic: selectedTags.value.length > 0 ? tagsLogic.value : null,
     }).forEach(([key, value]) => {
       if (value) {
         url.searchParams.set(key, value);
@@ -257,6 +262,14 @@ const filters = [
       galleryFilterStore.setLanguagesLogic(logic),
   },
   {
+    label: t("platform.tag"),
+    selected: selectedTags,
+    items: filterTags,
+    logic: tagsLogic,
+    setLogic: (logic: FilterLogicOperator) =>
+      galleryFilterStore.setTagsLogic(logic),
+  },
+  {
     label: t("platform.player-count"),
     selected: selectedPlayerCounts,
     items: filterPlayerCounts,
@@ -322,6 +335,8 @@ onMounted(async () => {
     playerCountsLogic: urlPlayerCountsLogic,
     metadataProviders: urlMetadataProviders,
     metadataProvidersLogic: urlMetadataProvidersLogic,
+    tags: urlTags,
+    tagsLogic: urlTagsLogic,
   } = router.currentRoute.value.query;
 
   // Check for query params to set filters
@@ -513,6 +528,14 @@ onMounted(async () => {
       galleryFilterStore.setMetadataProvidersLogic(
         urlMetadataProvidersLogic as FilterLogicOperator,
       );
+    }
+  }
+
+  if (urlTags !== undefined) {
+    const tags = (urlTags as string).split(",").filter((tag) => tag.trim());
+    galleryFilterStore.setSelectedFilterTags(tags);
+    if (urlTagsLogic !== undefined) {
+      galleryFilterStore.setTagsLogic(urlTagsLogic as FilterLogicOperator);
     }
   }
 

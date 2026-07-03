@@ -54,6 +54,7 @@ from models.rom import (
     SiblingRom,
     compute_name_sort_key,
 )
+from utils import get_version
 from utils.database import (
     json_array_contains_all,
     json_array_contains_any,
@@ -125,8 +126,8 @@ FULLTEXT_MIN_TOKEN_SIZE = 3
 # Cached ROM filter values (genres/franchises/etc.) so it doesn't get
 # recomputed on every call to /api/roms
 ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
-ROM_FILTERS_CACHE_KEYS_PREFIX = "filter_values:keys"
 ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
+ROM_FILTERS_CACHE_SCHEMA_VERSION = get_version().replace(".", "_")
 
 
 def _cache_value_to_str(value: Any) -> str | None:
@@ -142,7 +143,11 @@ def _filter_values_cache_version() -> str:
 
 
 def _filter_values_cache_keys_key(version: str) -> str:
-    return f"{ROM_FILTERS_CACHE_KEYS_PREFIX}:v{version}"
+    return f"filter_values:keys:v{version}"
+
+
+def _filter_values_redis_key(cache_key: str, version: str) -> str:
+    return f"filter_values:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
 
 
 def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
@@ -539,6 +544,30 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.filter(predicate)
 
+    def _filter_by_has_saves(
+        self, query: Query, value: bool, user_id: int | None = None
+    ) -> Query:
+        """Filter based on whether the rom has saves visible to the current
+        user: their own plus other users' public (community) saves."""
+        if not user_id:
+            return query
+        predicate = Rom.saves.any(or_(Save.user_id == user_id, Save.is_public))
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
+
+    def _filter_by_has_states(
+        self, query: Query, value: bool, user_id: int | None = None
+    ) -> Query:
+        """Filter based on whether the rom has save states visible to the
+        current user: their own plus other users' public (community) states."""
+        if not user_id:
+            return query
+        predicate = Rom.states.any(or_(State.user_id == user_id, State.is_public))
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
+
     def _filter_by_missing_from_fs(self, query: Query, value: bool) -> Query:
         predicate = Rom.missing_from_fs.isnot(False)
         if not value:
@@ -700,6 +729,19 @@ class DBRomsHandler(DBBaseHandler):
         condition = op(Rom.languages, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
 
+    def _filter_by_tags(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+        match_none: bool = False,
+    ) -> Query:
+        op = json_array_contains_all if match_all else json_array_contains_any
+        condition = op(Rom.tags, values, session=session)
+        return query.filter(~condition) if match_none else query.filter(condition)
+
     def _filter_by_player_counts(
         self,
         query: Query,
@@ -762,6 +804,8 @@ class DBRomsHandler(DBBaseHandler):
         last_played: bool | None = None,
         playable: bool | None = None,
         has_ra: bool | None = None,
+        has_saves: bool | None = None,
+        has_states: bool | None = None,
         missing: bool | None = None,
         verified: bool | None = None,
         group_by_meta_id: bool = False,
@@ -775,6 +819,7 @@ class DBRomsHandler(DBBaseHandler):
         languages: Sequence[str] | None = None,
         player_counts: Sequence[str] | None = None,
         metadata_providers: Sequence[str] | None = None,
+        tags: Sequence[str] | None = None,
         # Logic operators for multi-value filters
         genres_logic: str = "any",
         franchises_logic: str = "any",
@@ -786,6 +831,7 @@ class DBRomsHandler(DBBaseHandler):
         statuses_logic: str = "any",
         player_counts_logic: str = "any",
         metadata_providers_logic: str = "any",
+        tags_logic: str = "any",
         user_id: int | None = None,
         updated_after: datetime | None = None,
         include_file_stats: bool = False,
@@ -873,6 +919,12 @@ class DBRomsHandler(DBBaseHandler):
 
         if has_ra is not None:
             query = self._filter_by_has_ra(query, value=has_ra)
+
+        if has_saves is not None:
+            query = self._filter_by_has_saves(query, value=has_saves, user_id=user_id)
+
+        if has_states is not None:
+            query = self._filter_by_has_states(query, value=has_states, user_id=user_id)
 
         if missing is not None:
             query = self._filter_by_missing_from_fs(query, value=missing)
@@ -1019,6 +1071,7 @@ class DBRomsHandler(DBBaseHandler):
                 metadata_providers_logic,
                 self._filter_by_metadata_providers,
             ),
+            (tags, tags_logic, self._filter_by_tags),
         ]
 
         for values, logic, filter_func in filters_to_apply:
@@ -1146,6 +1199,8 @@ class DBRomsHandler(DBBaseHandler):
             last_played=kwargs.get("last_played", None),
             playable=kwargs.get("playable", None),
             has_ra=kwargs.get("has_ra", None),
+            has_saves=kwargs.get("has_saves", None),
+            has_states=kwargs.get("has_states", None),
             missing=kwargs.get("missing", None),
             verified=kwargs.get("verified", None),
             genres=kwargs.get("genres", None),
@@ -1158,6 +1213,7 @@ class DBRomsHandler(DBBaseHandler):
             languages=kwargs.get("languages", None),
             player_counts=kwargs.get("player_counts", None),
             metadata_providers=kwargs.get("metadata_providers", None),
+            tags=kwargs.get("tags", None),
             # Logic operators for multi-value filters
             genres_logic=kwargs.get("genres_logic", "any"),
             franchises_logic=kwargs.get("franchises_logic", "any"),
@@ -1169,6 +1225,7 @@ class DBRomsHandler(DBBaseHandler):
             statuses_logic=kwargs.get("statuses_logic", "any"),
             player_counts_logic=kwargs.get("player_counts_logic", "any"),
             metadata_providers_logic=kwargs.get("metadata_providers_logic", "any"),
+            tags_logic=kwargs.get("tags_logic", "any"),
             user_id=kwargs.get("user_id", None),
             group_by_meta_id=kwargs.get("group_by_meta_id", False),
             include_files=kwargs.get("include_files", False),
@@ -1835,10 +1892,11 @@ class DBRomsHandler(DBBaseHandler):
         player_counts = set()
         regions = set()
         languages = set()
+        tags = set()
         platforms = set()
 
         for row in session.execute(statement):
-            g, f, cl, co, gm, ar, pc, rg, lg, pid = row
+            g, f, cl, co, gm, ar, pc, rg, lg, tg, pid = row
             if g:
                 genres.update(g)
             if f:
@@ -1857,6 +1915,8 @@ class DBRomsHandler(DBBaseHandler):
                 regions.update(rg)
             if lg:
                 languages.update(lg)
+            if tg:
+                tags.update(tg)
             platforms.add(pid)
 
         return {
@@ -1869,6 +1929,7 @@ class DBRomsHandler(DBBaseHandler):
             "player_counts": sorted(player_counts),
             "regions": sorted(regions),
             "languages": sorted(languages),
+            "tags": sorted(tags),
             "platforms": sorted(platforms),
         }
 
@@ -1899,7 +1960,7 @@ class DBRomsHandler(DBBaseHandler):
         version: str | None = None
         if cache_key:
             version = _filter_values_cache_version()
-            redis_key = f"filter_values:{cache_key}:v{version}"
+            redis_key = _filter_values_redis_key(cache_key, version)
             cached = sync_cache.get(redis_key)
             if cached is not None:
                 return json.loads(cached)
@@ -1917,6 +1978,7 @@ class DBRomsHandler(DBBaseHandler):
                 RomMetadata.player_count,
                 Rom.regions,
                 Rom.languages,
+                Rom.tags,
                 Rom.platform_id,
             )
             .select_from(Rom)
@@ -1947,6 +2009,7 @@ class DBRomsHandler(DBBaseHandler):
             RomMetadata.player_count,
             Rom.regions,
             Rom.languages,
+            Rom.tags,
             Rom.platform_id,
         )
 

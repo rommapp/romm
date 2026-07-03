@@ -360,6 +360,14 @@ def get_roms(
         bool | None,
         Query(description="Whether the rom has RetroAchievements data."),
     ] = None,
+    has_saves: Annotated[
+        bool | None,
+        Query(description="Whether the rom has saves for the current user."),
+    ] = None,
+    has_states: Annotated[
+        bool | None,
+        Query(description="Whether the rom has save states for the current user."),
+    ] = None,
     verified: Annotated[
         bool | None,
         Query(description="Whether the rom is verified by Hasheous."),
@@ -462,6 +470,16 @@ def get_roms(
             ),
         ),
     ] = None,
+    tags: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated custom tag (parsed from the filename, e.g. Proto, Beta,"
+                " Demo). Multiple values are allowed by repeating the parameter, and"
+                " results that match any of the values will be returned."
+            ),
+        ),
+    ] = None,
     # Logic operators for multi-value filters
     genres_logic: Annotated[
         str,
@@ -523,6 +541,12 @@ def get_roms(
             description="Logic operator for metadata providers filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
+    tags_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for tags filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
     order_by: Annotated[
         str,
         Query(
@@ -575,6 +599,8 @@ def get_roms(
         last_played=last_played,
         playable=playable,
         has_ra=has_ra,
+        has_saves=has_saves,
+        has_states=has_states,
         missing=missing,
         verified=verified,
         genres=genres,
@@ -587,6 +613,7 @@ def get_roms(
         languages=languages,
         player_counts=player_counts,
         metadata_providers=metadata_providers,
+        tags=tags,
         # Logic operators
         genres_logic=genres_logic,
         franchises_logic=franchises_logic,
@@ -598,6 +625,7 @@ def get_roms(
         statuses_logic=statuses_logic,
         player_counts_logic=player_counts_logic,
         metadata_providers_logic=metadata_providers_logic,
+        tags_logic=tags_logic,
         group_by_meta_id=group_by_meta_id,
         updated_after=updated_after,
         include_file_stats=True,
@@ -626,6 +654,7 @@ def get_roms(
         or languages
         or player_counts
         or metadata_providers
+        or tags
         or updated_after
         or matched is not None
         or favorite is not None
@@ -633,6 +662,8 @@ def get_roms(
         or last_played is not None
         or playable is not None
         or has_ra is not None
+        or has_saves is not None
+        or has_states is not None
         or missing is not None
         or verified is not None
     )
@@ -663,6 +694,7 @@ def get_roms(
         player_counts=[],
         regions=[],
         languages=[],
+        tags=[],
         platforms=[],
     )
     if with_filter_values:

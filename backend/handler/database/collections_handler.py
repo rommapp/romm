@@ -369,6 +369,7 @@ class DBCollectionsHandler(DBBaseHandler):
         age_ratings = convert_legacy_filter("age_ratings", "selected_age_rating")
         regions = convert_legacy_filter("regions", "selected_region")
         languages = convert_legacy_filter("languages", "selected_language")
+        tags = convert_legacy_filter("tags", "selected_tag")
         statuses = convert_legacy_filter("statuses", "selected_status")
 
         # Use the existing filter_roms method with the stored criteria
@@ -397,6 +398,7 @@ class DBCollectionsHandler(DBBaseHandler):
             statuses=statuses,
             regions=regions,
             languages=languages,
+            tags=tags,
             metadata_providers=criteria.get("metadata_providers"),
             # Logic operators for multi-value filters
             genres_logic=criteria.get("genres_logic", "any"),
@@ -408,6 +410,7 @@ class DBCollectionsHandler(DBBaseHandler):
             languages_logic=criteria.get("languages_logic", "any"),
             statuses_logic=criteria.get("statuses_logic", "any"),
             metadata_providers_logic=criteria.get("metadata_providers_logic", "any"),
+            tags_logic=criteria.get("tags_logic", "any"),
             user_id=user_id,
             order_by=criteria.get("order_by", "name"),
             order_dir=criteria.get("order_dir", "asc"),

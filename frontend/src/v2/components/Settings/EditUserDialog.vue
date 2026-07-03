@@ -134,7 +134,11 @@ emitter?.on("showEditUserDialog", async (toEdit) => {
 
 const avatarSrc = computed(() => {
   if (imagePreviewUrl.value) return imagePreviewUrl.value;
-  return userAvatarUrl(user.value?.avatar_path, user.value?.updated_at);
+  return userAvatarUrl({
+    userId: user.value?.id,
+    avatarPath: user.value?.avatar_path,
+    updatedAt: user.value?.updated_at,
+  });
 });
 
 const confirmPasswordRules = computed(() => [
