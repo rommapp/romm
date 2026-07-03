@@ -9,10 +9,10 @@ import {
   RCheckbox,
   RExpandTransition,
   RIcon,
-  RMenu,
   RPlatformIcon,
   RSelect,
   RTextField,
+  RTooltip,
 } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
@@ -391,13 +391,13 @@ const applyLabel = computed(() => {
             <RIcon icon="mdi-puzzle-outline" size="13" />
             {{ t("patcher.patch-file") }}
           </div>
-          <!-- Supported formats live in a compact pill. A click/tap popover
-               (not a hover tooltip) so it also works on touch; docks as a
-               bottom sheet on mobile like the other menus. -->
-          <RMenu location="bottom end" :offset="8" sheet-on-mobile>
-            <template #activator="{ props: activatorProps }">
+          <!-- Supported formats live in a compact pill. `open-on-tap` so the
+               tip reveals on hover (mouse) AND on tap (touch), not only on
+               hover. -->
+          <RTooltip location="bottom end" :offset="8" open-on-tap>
+            <template #activator="{ props: tooltipProps }">
               <button
-                v-bind="activatorProps"
+                v-bind="tooltipProps"
                 type="button"
                 class="r-v2-patch__formats-pill"
               >
@@ -414,7 +414,7 @@ const applyLabel = computed(() => {
                 {{ format }}
               </span>
             </div>
-          </RMenu>
+          </RTooltip>
         </div>
 
         <!-- More than one patch file: pick which one to apply. -->
@@ -722,13 +722,15 @@ const applyLabel = computed(() => {
   color: var(--r-color-fg);
 }
 
-/* Popover body — the full format list, wrapping in a compact grid inside
-   the menu panel. */
+/* Tooltip body — the full format list, wrapping in a compact grid. The
+   tooltip surface ships 5px vertical / 10px horizontal padding; add the
+   missing 5px top/bottom here so the list sits evenly inset all round. */
 .r-v2-patch__formats-list {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 6px;
   max-width: 220px;
+  padding-block: 5px;
 }
 .r-v2-patch__format-chip {
   padding: 1px 7px;

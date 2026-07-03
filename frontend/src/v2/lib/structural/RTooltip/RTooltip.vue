@@ -89,6 +89,12 @@ interface Props {
   hint?: string;
   /** Optional MDI icon shown before the hint text (e.g. `mdi-content-copy`). */
   hintIcon?: string;
+  /** Opt in to touch: a tap toggles the tooltip (and an outside tap closes
+   *  it). Off by default because a normal tooltip must NOT appear on touch —
+   *  there a "hover" is really a tap on the underlying action, and the
+   *  tooltip would linger over whatever it opened. Set this only for a
+   *  standalone info affordance whose sole purpose is to reveal the tip. */
+  openOnTap?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -104,6 +110,7 @@ const props = withDefaults(defineProps<Props>(), {
   maxWidth: undefined,
   hint: undefined,
   hintIcon: undefined,
+  openOnTap: false,
 });
 
 const emit = defineEmits<{
@@ -250,9 +257,17 @@ const arrowStyle = computed<Record<string, string>>(() => {
 //   * focus reveals only when it's keyboard focus (`:focus-visible`),
 //   * a click always dismisses, so a hover-revealed tooltip doesn't outlive
 //     the surface it launched.
+// `openOnTap` (opt-in) relaxes this for a standalone info affordance: a tap
+// then toggles the tip and an outside tap closes it (see below).
 function onPointerEnter(e: PointerEvent) {
   if (e.pointerType === "touch") return;
   show();
+}
+function onPointerLeave(e: PointerEvent) {
+  // A tap's pointerleave (finger lifting) must not dismiss a tap-opened
+  // tooltip; mouse / pen leave still hides.
+  if (props.openOnTap && e.pointerType === "touch") return;
+  hide();
 }
 function onFocusReveal(e: FocusEvent) {
   const el = e.target as HTMLElement | null;
@@ -262,16 +277,64 @@ function onFocusReveal(e: FocusEvent) {
   show();
 }
 
+// Track the pointer type of the tap that produced the click, so the click
+// handler can tell a finger tap from a mouse click.
+let lastPointerType = "mouse";
+function onActivatorPointerDown(e: PointerEvent) {
+  lastPointerType = e.pointerType;
+}
+function onActivatorClick() {
+  // Default: a click always dismisses, so a hover-revealed tooltip doesn't
+  // outlive the surface it launched.
+  if (!props.openOnTap) {
+    hide();
+    return;
+  }
+  // `openOnTap`: interacting reveals the tip (immediate, bypassing the open
+  // delay). A finger tap toggles it; a mouse click always OPENS — clicking a
+  // pill you're hovering must not close it and strand you unable to re-reveal
+  // it while the pointer stays put. Close is via leave / outside tap / blur.
+  clearTimers();
+  setOpen(lastPointerType === "touch" ? !isOpen.value : true);
+}
+
 // For the slot pattern we hand back a `props` object the activator
 // spreads on itself. The events are Vue-style ("onPointerenter", …) so
 // they bind correctly when used via `v-bind`.
 const activatorProps = computed(() => ({
+  onPointerdown: onActivatorPointerDown,
   onPointerenter: onPointerEnter,
-  onPointerleave: hide,
+  onPointerleave: onPointerLeave,
   onFocus: onFocusReveal,
   onBlur: hide,
-  onClick: hide,
+  onClick: onActivatorClick,
 }));
+
+// When a tap opens the tooltip there's no pointer-leave to close it, so
+// close on the next pointer-down outside the activator / body. Registered
+// only while open in `openOnTap` mode; the opening tap's own pointer-down
+// has already fired, so this never self-closes.
+let outsideCloseHandler: ((e: Event) => void) | null = null;
+function teardownOutsideClose() {
+  if (!outsideCloseHandler) return;
+  document.removeEventListener("pointerdown", outsideCloseHandler, true);
+  outsideCloseHandler = null;
+}
+watch(isOpen, (open) => {
+  if (open && props.openOnTap) {
+    if (outsideCloseHandler) return;
+    outsideCloseHandler = (e: Event) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (reference.value?.contains(target)) return;
+      if (floating.value?.contains(target)) return;
+      hide();
+    };
+    document.addEventListener("pointerdown", outsideCloseHandler, true);
+  } else {
+    teardownOutsideClose();
+  }
+});
 
 // For the parent-attach pattern we sit silently in the parent's DOM
 // and register listeners on `$el.parentElement` at mount. We deliberately
@@ -283,21 +346,29 @@ function attachToParent() {
   const parent = root.value?.parentElement;
   if (!parent) return;
   reference.value = parent;
+  parent.addEventListener(
+    "pointerdown",
+    onActivatorPointerDown as EventListener,
+  );
   parent.addEventListener("pointerenter", onPointerEnter as EventListener);
-  parent.addEventListener("pointerleave", hide);
+  parent.addEventListener("pointerleave", onPointerLeave as EventListener);
   parent.addEventListener("focusin", onFocusReveal as EventListener);
   parent.addEventListener("focusout", hide);
-  parent.addEventListener("click", hide);
+  parent.addEventListener("click", onActivatorClick);
 }
 function detachFromParent() {
   if (props.activator !== "parent") return;
   const parent = root.value?.parentElement;
   if (!parent) return;
+  parent.removeEventListener(
+    "pointerdown",
+    onActivatorPointerDown as EventListener,
+  );
   parent.removeEventListener("pointerenter", onPointerEnter as EventListener);
-  parent.removeEventListener("pointerleave", hide);
+  parent.removeEventListener("pointerleave", onPointerLeave as EventListener);
   parent.removeEventListener("focusin", onFocusReveal as EventListener);
   parent.removeEventListener("focusout", hide);
-  parent.removeEventListener("click", hide);
+  parent.removeEventListener("click", onActivatorClick);
 }
 
 onMounted(() => {
@@ -312,6 +383,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   detachFromParent();
   clearTimers();
+  teardownOutsideClose();
 });
 
 // ── Slot activator wrapper ──────────────────────────────────────
