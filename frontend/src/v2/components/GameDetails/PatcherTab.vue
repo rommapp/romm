@@ -9,10 +9,10 @@ import {
   RCheckbox,
   RExpandTransition,
   RIcon,
+  RMenu,
   RPlatformIcon,
   RSelect,
   RTextField,
-  RTooltip,
 } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
@@ -391,18 +391,19 @@ const applyLabel = computed(() => {
             <RIcon icon="mdi-puzzle-outline" size="13" />
             {{ t("patcher.patch-file") }}
           </div>
-          <!-- Supported formats live in a compact pill: the label stays
-               terse, the full list shows in a tooltip on hover / focus. -->
-          <RTooltip location="bottom end" :offset="8">
-            <template #activator="{ props: tooltipProps }">
-              <span
-                v-bind="tooltipProps"
+          <!-- Supported formats live in a compact pill. A click/tap popover
+               (not a hover tooltip) so it also works on touch; docks as a
+               bottom sheet on mobile like the other menus. -->
+          <RMenu location="bottom end" :offset="8" sheet-on-mobile>
+            <template #activator="{ props: activatorProps }">
+              <button
+                v-bind="activatorProps"
+                type="button"
                 class="r-v2-patch__formats-pill"
-                tabindex="0"
               >
                 {{ t("patcher.supported-formats") }}
                 <RIcon icon="mdi-information-outline" size="13" />
-              </span>
+              </button>
             </template>
             <div class="r-v2-patch__formats-list">
               <span
@@ -413,7 +414,7 @@ const applyLabel = computed(() => {
                 {{ format }}
               </span>
             </div>
-          </RTooltip>
+          </RMenu>
         </div>
 
         <!-- More than one patch file: pick which one to apply. -->
@@ -558,11 +559,17 @@ const applyLabel = computed(() => {
 }
 
 /* Flow row — base ROM and patch panels sit side by side, joined by the
-   connector badge that reads as "ROM + patch". Stacks on narrow screens. */
+   connector "+". A muted, translucent frame wraps both so they read as one
+   combined "ROM + patch" operation rather than two unrelated cards. Stacks
+   on narrow screens. */
 .r-v2-patch__flow {
   display: flex;
   align-items: stretch;
-  gap: 12px;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--r-radius-xl);
+  background: color-mix(in srgb, var(--r-color-surface) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--r-color-border) 55%, transparent);
 }
 
 .r-v2-patch__panel {
@@ -579,19 +586,17 @@ const applyLabel = computed(() => {
   gap: 12px;
 }
 
-/* The "+" badge bridging the two panels. */
+/* The "+" bridging the two panels — just a muted glyph, no surface/border,
+   so it reads as a relationship between the boxes and not as an action
+   button sitting between them. */
 .r-v2-patch__connector {
   flex: none;
   align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--r-radius-pill);
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-  color: var(--r-color-fg-secondary);
+  padding: 0 2px;
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-patch__panel-label {
@@ -693,6 +698,8 @@ const applyLabel = computed(() => {
 }
 
 .r-v2-patch__formats-pill {
+  appearance: none;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -700,6 +707,7 @@ const applyLabel = computed(() => {
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-pill);
+  font-family: inherit;
   font-size: 11px;
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg-secondary);
@@ -714,15 +722,13 @@ const applyLabel = computed(() => {
   color: var(--r-color-fg);
 }
 
-/* Tooltip body — the full format list, wrapping in a compact grid. The
-   tooltip surface ships 5px vertical / 10px horizontal padding; add the
-   missing 5px top/bottom here so the list sits evenly inset all round. */
+/* Popover body — the full format list, wrapping in a compact grid inside
+   the menu panel. */
 .r-v2-patch__formats-list {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 6px;
   max-width: 220px;
-  padding-block: 5px;
 }
 .r-v2-patch__format-chip {
   padding: 1px 7px;
