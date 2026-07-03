@@ -149,6 +149,12 @@
   --r-hero-w-xl: 460px;
   --r-hero-h-xl: 259px;
   --r-cover-w: 240px;
+  --r-coll-cover-w: 140px;
+  --r-coll-cover-h: 188px;
+  --r-coll-cover-w-xs: 150px;
+  --r-coll-cover-h-xs: 202px;
+  --r-alpha-strip-w: 24px;
+  --r-alpha-strip-w-xs: 30px;
   --r-list-row-h: 80px;
   --r-list-header-h: 40px;
   --r-z-drawer: 2300;

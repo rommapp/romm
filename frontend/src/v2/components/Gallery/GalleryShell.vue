@@ -1097,6 +1097,13 @@ defineExpose({
 
 <style scoped>
 .r-v2-shell {
+  /* AlphaStrip footprint as a flex sibling of the scroller = letter column
+     (`--r-alpha-strip-w`, a global token) + gap to the viewport edge. Single
+     source of truth: the strip consumes these (inherited) and the toolbar /
+     list-header overlays add them to `--r-row-pad` for their right inset, so
+     the stuck overlay lines up exactly with the in-flow toolbar instead of
+     coming up a few px short. */
+  --r-alpha-strip-gap: var(--r-space-3);
   flex: 1;
   display: flex;
   overflow: hidden;
@@ -1126,6 +1133,13 @@ html[data-bp~="sm-and-down"] .r-v2-shell {
   margin-bottom: calc(
     -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
   );
+}
+/* Phones: a wider letter column (bigger, more tappable letters). Keeping the
+   overlays wired to these vars means the stuck toolbar tracks the change
+   automatically. */
+html[data-bp~="xs"] .r-v2-shell {
+  --r-alpha-strip-w: var(--r-alpha-strip-w-xs);
+  --r-alpha-strip-gap: var(--r-space-2);
 }
 
 /* Scroller: padding-top moved into the prepend's first child via
@@ -1241,9 +1255,12 @@ html[data-bp~="sm-and-down"] .r-v2-shell {
   z-index: 5;
 }
 .r-v2-shell--has-strip .r-v2-shell__toolbar--overlay {
-  /* AlphaStrip is a flex sibling of the scroller; the overlay must
-     stop short of it so it doesn't paint over the strip. */
-  right: calc(var(--r-row-pad) + 36px);
+  /* AlphaStrip is a flex sibling of the scroller; the overlay must stop short
+     of its full footprint (column + edge gap) so it lines up exactly with the
+     in-flow toolbar (which the scroller's padding already insets). */
+  right: calc(
+    var(--r-row-pad) + var(--r-alpha-strip-w) + var(--r-alpha-strip-gap)
+  );
 }
 
 /* List column header overlay — twin of `.r-v2-shell__list-header`,
@@ -1259,7 +1276,9 @@ html[data-bp~="sm-and-down"] .r-v2-shell {
   z-index: 4;
 }
 .r-v2-shell--has-strip .r-v2-shell__list-header-overlay {
-  right: calc(var(--r-row-pad) + 36px);
+  right: calc(
+    var(--r-row-pad) + var(--r-alpha-strip-w) + var(--r-alpha-strip-gap)
+  );
 }
 
 /* While stuck, clip the scroller's top toolbar-band so cards

@@ -199,7 +199,18 @@ onBeforeUnmount(() => {
 }
 .r-tab-nav--horizontal {
   flex-direction: row;
+  /* Scroll horizontally to reach overflowing tabs, but stay OUT of the
+     vertical axis: `overflow-y: hidden` (not the `auto` that `overflow-x`
+     would otherwise force) means the strip isn't a vertical scroll
+     container, so a vertical-dominant touch swipe isn't latched here — it
+     chains to the page scroller and the view still scrolls when the swipe
+     starts on the tabs. (`touch-action: pan-x` can't do this: per spec it
+     removes vertical panning from the whole gesture, freezing the page.)
+     `overscroll-behavior-x: contain` stops the horizontal overscroll from
+     chaining / rubber-banding. */
   overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
 }
 .r-tab-nav--horizontal::-webkit-scrollbar {
