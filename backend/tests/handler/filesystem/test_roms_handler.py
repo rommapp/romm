@@ -231,6 +231,16 @@ class TestFSRomsHandler:
         parsed_tags = handler.parse_tags(fs_name)
         assert parsed_tags.version == "1.2a"
 
+        # A separator with no version after it must yield "" (str), never None.
+        fs_name = "My Game (v-).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == ""
+
+        # A trailing separator leaves leading whitespace the group must strip.
+        fs_name = "My Game (v  1.2.3).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2.3"
+
     def test_parse_tags_non_version_tags_starting_with_v(self, handler: FSRomsHandler):
         """Test parse_tags keeps non-version tags starting with v as generic tags"""
         fs_name = "Rom [2026] [Variation].rom"

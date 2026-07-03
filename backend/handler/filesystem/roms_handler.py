@@ -208,7 +208,7 @@ class FSRomsHandler(FSHandler):
             # Version
             version_match = VERSION_TAG_REGEX.match(raw_tag)
             if version_match:
-                version = version_match[1] or version_match[2]
+                version = (version_match[1] or version_match[2] or "").strip()
                 continue
 
             # Region prefix
