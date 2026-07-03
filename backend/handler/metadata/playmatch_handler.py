@@ -68,6 +68,7 @@ class GameMatchType(str, Enum):
     SHA256 = "SHA256"
     SHA1 = "SHA1"
     MD5 = "MD5"
+    CRC = "CRC"
     FILE_NAME_AND_SIZE = "FileNameAndSize"
     NO_MATCH = "NoMatch"
 
@@ -226,6 +227,7 @@ class PlaymatchHandler(MetadataHandler):
                     "fileSize": first_file.file_size_bytes,
                     "md5": first_file.md5_hash,
                     "sha1": first_file.sha1_hash,
+                    "crc": first_file.crc_hash,
                 },
             )
         except Exception as exc:
