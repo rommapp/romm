@@ -10,6 +10,7 @@ export type InputModality = "mouse" | "touch" | "key" | "pad";
 
 const modality = ref<InputModality>("mouse");
 let installed = false;
+let teardown: (() => void) | null = null;
 
 function applyAttribute(next: InputModality) {
   if (typeof document === "undefined") return;
@@ -75,6 +76,20 @@ export function useInputModality() {
     window.addEventListener("touchstart", onTouch, { passive: true });
     window.addEventListener("keydown", onKey);
     window.addEventListener("gamepadconnected", onGamepad);
+
+    // Retained only so HMR can drop the listeners on a hot update instead of
+    // stacking a second set. In production this is never invoked — the
+    // listeners are app-lifetime by design (see the note above).
+    teardown = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouch);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("gamepadconnected", onGamepad);
+      installed = false;
+      teardown = null;
+    };
   }
 
   return {
@@ -82,4 +97,9 @@ export function useInputModality() {
     install,
     setModality,
   };
+}
+
+// Dev-only: remove the global listeners on hot update. No-op in production.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => teardown?.());
 }

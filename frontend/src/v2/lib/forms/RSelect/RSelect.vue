@@ -40,6 +40,7 @@ import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircu
 import RTag from "../../primitives/RTag/RTag.vue";
 import { useRFormRegistration } from "../RForm/context";
 import RTextField from "../RTextField/RTextField.vue";
+import { shouldAutofocusSearch } from "./autofocus";
 
 defineOptions({ inheritAttrs: false });
 
@@ -193,15 +194,8 @@ const slots = useSlots();
 const attrs = useAttrs();
 
 // Autofocus the search field on open so desktop users can type-to-filter
-// right away. Skip it on touch-primary devices (no precise pointer / no
-// hover), where focusing the input pops the on-screen keyboard before the
-// user has chosen to type. We can't use input modality here: a tap emits an
-// emulated `mousedown`, so modality reads "mouse" by the time the panel
-// opens. A device-capability media query isn't fooled by that.
-const autofocusSearch = computed(() => {
-  if (typeof window === "undefined" || !window.matchMedia) return true;
-  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-});
+// right away, but skip it on touch-primary devices (see shouldAutofocusSearch).
+const autofocusSearch = computed(() => shouldAutofocusSearch());
 
 const fieldId = `r-sel-${getCurrentInstance()?.uid ?? Math.random().toString(36).slice(2)}`;
 

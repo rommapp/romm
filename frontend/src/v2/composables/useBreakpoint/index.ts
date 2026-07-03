@@ -21,7 +21,7 @@
 // pattern installed by `useInputModality`.
 import { useMediaQuery } from "@vueuse/core";
 import { effectScope, watch } from "vue";
-import type { Ref } from "vue";
+import type { EffectScope, Ref } from "vue";
 
 const xs = useMediaQuery("(max-width: 599.98px)");
 const smAndUp = useMediaQuery("(min-width: 600px)");
@@ -72,6 +72,7 @@ const TOKENS: ReadonlyArray<readonly [Ref<boolean>, string]> = [
 ];
 
 let installed = false;
+let scope: EffectScope | null = null;
 
 function applyAttribute() {
   if (typeof document === "undefined") return;
@@ -88,16 +89,28 @@ function applyAttribute() {
  *  component, so it survives a layout swap (AuthLayout ↔ AppLayout) instead
  *  of being auto-disposed when the first installer unmounts. It's an
  *  app-lifetime singleton mirroring global media queries, so it is
- *  intentionally never torn down; subsequent calls are no-ops. */
+ *  intentionally never torn down in production; subsequent calls are no-ops.
+ *  The scope is owned at module level (not orphaned) so HMR can dispose it. */
 export function installBreakpointAttribute(): void {
   if (installed) return;
   installed = true;
 
   applyAttribute();
-  effectScope(true).run(() => {
+  scope = effectScope(true);
+  scope.run(() => {
     watch(
       TOKENS.map(([ref]) => ref),
       applyAttribute,
     );
+  });
+}
+
+// Dev-only: drop the detached watcher on hot update so a reload doesn't stack
+// a second one against fresh media-query refs. No-op in production builds.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    scope?.stop();
+    scope = null;
+    installed = false;
   });
 }

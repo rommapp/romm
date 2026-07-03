@@ -5,7 +5,7 @@
 // The wizard owns all wizard-level state (current step, selection set,
 // admin form, async flight); the per-step components are pure UI that
 // emit input changes back to the orchestrator.
-import { RBtn, RImg, RSpinner, RSteps } from "@v2/lib";
+import { RBtn, RIcon, RImg, RSpinner, RSteps } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -45,6 +45,9 @@ const EMPTY_LIBRARY_INFO: SetupLibraryInfo = {
 const libraryInfo = ref<SetupLibraryInfo>({ ...EMPTY_LIBRARY_INFO });
 // Starts true so the first paint shows the spinner, not an empty flash.
 const loadingLibrary = ref(true);
+// Non-null when the library probe failed — the step 1 body swaps to an inline
+// error with a retry instead of silently showing an empty platform list.
+const libraryError = ref<string | null>(null);
 const selectedNewPlatforms = ref<string[]>([]);
 
 // Step 2 — admin user
@@ -94,11 +97,13 @@ const isLastStep = computed(() => step.value === TOTAL_STEPS);
 
 async function loadLibraryInfo() {
   loadingLibrary.value = true;
+  libraryError.value = null;
   try {
     const { data } = await setupApi.getLibraryInfo();
     if (data) libraryInfo.value = data;
   } catch (err) {
     console.error("Failed to load setup library info:", err);
+    libraryError.value = t("setup.loading-library-failed");
   } finally {
     loadingLibrary.value = false;
   }
@@ -218,6 +223,23 @@ onMounted(loadLibraryInfo);
       <div v-if="loadingLibrary && step === 1" class="r-v2-setup__loading">
         <RSpinner />
         <span>{{ t("setup.loading-library") }}</span>
+      </div>
+
+      <div
+        v-else-if="libraryError && step === 1"
+        class="r-v2-setup__error"
+        role="alert"
+      >
+        <RIcon icon="mdi-alert-circle-outline" :size="32" />
+        <span>{{ libraryError }}</span>
+        <RBtn
+          variant="flat"
+          color="primary"
+          prepend-icon="mdi-refresh"
+          @click="loadLibraryInfo"
+        >
+          {{ t("common.try-again") }}
+        </RBtn>
       </div>
 
       <Transition
@@ -352,6 +374,19 @@ onMounted(loadLibraryInfo);
   justify-content: center;
   gap: var(--r-space-4);
   color: var(--r-color-fg-muted);
+  font-size: var(--r-font-size-sm);
+}
+
+.r-v2-setup__error {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--r-space-4);
+  padding: var(--r-space-6);
+  text-align: center;
+  color: var(--r-color-danger);
   font-size: var(--r-font-size-sm);
 }
 
