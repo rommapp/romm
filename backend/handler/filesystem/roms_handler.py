@@ -141,9 +141,7 @@ def _make_file_hash(
 
 
 GENERIC_TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
-VERSION_TAG_REGEX = re.compile(
-    r"^(?:version|ver|v)(?:[\s_-](.*)|([.\d].*))", re.I
-)
+VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)(?:[\s_-](.*)|([.\d].*))", re.I)
 REGION_TAG_REGEX = re.compile(r"^reg[\s|-](.*)$", re.I)
 REVISION_TAG_REGEX = re.compile(r"^rev[\s|-](.*)$", re.I)
 
