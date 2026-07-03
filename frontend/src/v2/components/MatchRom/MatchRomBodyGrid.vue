@@ -301,12 +301,24 @@ watch(
   /* Shrink-wrap the card's natural width and never shrink below it (a fixed
      -height card shrunk on the cross axis would crop its cover). */
   flex: 0 0 auto;
+  /* …but never wider than the grid: a wide cover (landscape provider art, or
+     a card wider than a narrow phone) draws its width from the cover aspect
+     and is otherwise unbounded, so it would spill past the right edge. Cap it
+     to the container so it scales down to fit instead. */
+  max-width: 100%;
+  min-width: 0;
   /* Stagger entrance — same vocabulary the cover-source picker uses,
      so opening the dialog and selecting a match share a consistent
      "cascading reveal" feel. `--i` is the card's index, set inline. */
   animation: match-grid-card-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1)
     backwards;
   animation-delay: calc(var(--i, 0) * 35ms);
+}
+/* Propagate the cap through the card to its cover art box (fixed height,
+   naturally-derived width) so the cap actually bounds the rendered cover. */
+.match-grid__card,
+.match-grid__card :deep(.r-gc__art) {
+  max-width: 100%;
 }
 @keyframes match-grid-card-in {
   from {

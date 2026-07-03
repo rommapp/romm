@@ -38,6 +38,12 @@ const props = withDefaults(
      *  instead of a centred card. Default on — opt out for surfaces that
      *  must stay a compact floating card on phones. */
     fullscreenOnMobile?: boolean;
+    /** With the mobile sheet, always fill the full height below the top
+     *  navbar (like the full-height user-menu sheet) instead of hugging the
+     *  content from the bottom. For tall forms (Match / Edit ROM) that read
+     *  better as a stable full-screen surface. Needs `scrollContent` so the
+     *  body scrolls internally. Ignored on desktop / when not a sheet. */
+    fullHeightOnMobile?: boolean;
   }>(),
   {
     scrollContent: false,
@@ -46,6 +52,7 @@ const props = withDefaults(
     height: "auto",
     persistent: false,
     fullscreenOnMobile: true,
+    fullHeightOnMobile: false,
   },
 );
 
@@ -198,7 +205,10 @@ const panelStyle = computed(() => {
         v-if="modelValue"
         v-bind="$attrs"
         class="r-dialog"
-        :class="{ 'r-dialog--fs-mobile': fullscreenOnMobile }"
+        :class="{
+          'r-dialog--fs-mobile': fullscreenOnMobile,
+          'r-dialog--full-height': fullHeightOnMobile,
+        }"
         role="presentation"
         :style="dialogStyle"
       >
@@ -329,6 +339,16 @@ html[data-bp~="sm-and-down"] .r-dialog--fs-mobile .r-dialog__panel {
   border-radius: var(--r-radius-xl) var(--r-radius-xl) 0 0 !important;
   border-bottom: 0 !important;
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Full-height variant — pin the sheet to that same ceiling as a fixed height
+   (not just a cap) so it fills the screen below the navbar regardless of
+   content, overriding any inline `height` the consumer set for desktop. The
+   body (with `scrollContent`) scrolls internally. */
+html[data-bp~="sm-and-down"]
+  .r-dialog--fs-mobile.r-dialog--full-height
+  .r-dialog__panel {
+  height: calc(100dvh - var(--r-nav-h)) !important;
 }
 
 /* ── Header ─────────────────────────────────────────────────────── */
