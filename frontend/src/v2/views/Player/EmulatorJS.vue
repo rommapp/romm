@@ -709,9 +709,10 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
             clearable
             hide-details
             :label="t('common.firmware')"
-            :items="
-              firmwareOptions.map((f) => ({ title: f.file_name, value: f }))
-            "
+            :items="firmwareOptions"
+            item-title="file_name"
+            item-value="id"
+            return-object
           />
           <RSwitch v-model="fullscreenOnPlay" :label="t('play.full-screen')" />
         </div>
