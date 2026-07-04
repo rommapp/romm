@@ -5,7 +5,7 @@ fresh-install create. It reproduces the exact schema those migrations
 produced, so the rest of the chain (0009_models_refactor and later) applies
 unchanged. Databases already stamped at 2.0.0 or later are unaffected.
 
-Revision ID: 2.0.0
+Revision ID: 0001_initial_models
 Revises:
 Create Date: 2023-08-10 22:18:24.012779
 
@@ -18,7 +18,7 @@ from sqlalchemy.dialects.postgresql import ENUM
 from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "2.0.0"
+revision = "0001_initial_models"
 down_revision = None
 branch_labels = None
 depends_on = None
