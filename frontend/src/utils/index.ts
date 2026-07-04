@@ -259,9 +259,6 @@ export function regionToEmoji(region: string) {
     case "no":
     case "norway":
       return "🇳🇴";
-    case "pd":
-    case "public domain":
-      return "🇵🇱";
     case "r":
     case "russia":
       return "🇷🇺";
