@@ -20,6 +20,7 @@ dependencies = [
   "anyio ~= 4.4",
   "authlib ~= 1.6.12",
   "colorama ~= 0.4",
+  "cryptography ~= 49.0",
   "defusedxml ~= 0.7",
   "fastapi-pagination[sqlalchemy] ~= 0.15",
   "fastapi[standard-no-fastapi-cloud-cli] ~= 0.134.0",
@@ -60,6 +61,7 @@ dependencies = [
   "watchfiles ~= 1.1",
   "yarl ~= 1.14",
   "zipfile-inflate64 ~= 0.1",
+  "zstandard ~= 0.25",
 ]
 
 [project.optional-dependencies]
