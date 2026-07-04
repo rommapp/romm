@@ -72,12 +72,12 @@ def migration_engine() -> Iterator[Engine]:
 
 def _run_1_8_upgrade(conn: Connection) -> None:
     context = MigrationContext.configure(conn, opts={"render_as_batch": True})
-    previous_op = getattr(migration_1_8, "op")
-    setattr(migration_1_8, "op", Operations(context))
+    previous_op = migration_1_8.op
+    migration_1_8.op = Operations(context)  # trunk-ignore(mypy/attr-defined)
     try:
-        getattr(migration_1_8, "upgrade")()
+        migration_1_8.upgrade()
     finally:
-        setattr(migration_1_8, "op", previous_op)
+        migration_1_8.op = previous_op  # trunk-ignore(mypy/attr-defined)
 
 
 def _columns(conn: Connection, table_name: str) -> set[str]:
