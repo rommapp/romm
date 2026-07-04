@@ -61,9 +61,16 @@ const uploadStore = storeUpload();
 const authStore = storeAuth();
 const { user } = storeToRefs(authStore);
 
-// Per-ROM screenshots require a folder (single-file ROMs have nowhere to put a
-// `screenshots/` dir).
-const romSupported = computed(() => !props.rom.has_simple_single_file);
+// Uploading per-ROM screenshots to a single-file ROM promotes it to a folder
+// ROM in place (the backend converts on upload); warn before that happens.
+async function confirmFolderConversionIfNeeded(): Promise<boolean> {
+  if (!props.rom.has_simple_single_file) return true;
+  return confirm({
+    title: t("rom.convert-to-folder-title"),
+    body: t("rom.convert-to-folder-body"),
+    tone: "warning",
+  });
+}
 
 // ---------- ROM (shared) screenshots — RomFile-backed ----------
 const romScreenshots = computed<ScreenshotItem[]>(() => {
@@ -157,7 +164,8 @@ const romDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const myDz = ref<InstanceType<typeof RDropzone> | null>(null);
 
 async function handleRomFiles(files: File[]) {
-  if (files.length === 0 || !romSupported.value) return;
+  if (files.length === 0) return;
+  if (!(await confirmFolderConversionIfNeeded())) return;
   const responses = await romApi.uploadScreenshots({
     romId: props.rom.id,
     filesToUpload: files,
@@ -242,8 +250,8 @@ async function toggleVisibility(id: number, isPublic: boolean) {
 
 <template>
   <div class="r-v2-shots">
-    <!-- ROM (shared) screenshots — multi-file ROMs only -->
-    <section v-if="romSupported" class="r-v2-shots__section">
+    <!-- ROM (shared) screenshots -->
+    <section class="r-v2-shots__section">
       <header class="r-v2-shots__head">
         <div class="r-v2-shots__head-text">
           <h3 class="r-v2-shots__title">

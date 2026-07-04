@@ -2,7 +2,7 @@ import { useLocalStorage } from "@vueuse/core";
 import { throttle } from "lodash";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
-import type { RomFileAudioMetaSchema } from "@/__generated__";
+import type { TrackMetaSchema } from "@/__generated__";
 
 const volumeStorage = useLocalStorage<number>("soundtrack.volume", 1);
 const mutedStorage = useLocalStorage<boolean>("soundtrack.muted", false);
@@ -26,7 +26,7 @@ type AudioTagKey =
   | "disc";
 
 export type PlayerMeta = {
-  [K in AudioTagKey]?: NonNullable<RomFileAudioMetaSchema[K]>;
+  [K in AudioTagKey]?: NonNullable<TrackMetaSchema[K]>;
 } & {
   duration?: number;
   coverUrl?: string;

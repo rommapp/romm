@@ -353,12 +353,10 @@
   "soundtrack-close-player": "关闭播放器",
   "soundtrack-delete-track": "删除曲目",
   "soundtrack-empty": "暂无原声带",
-  "soundtrack-folder-hint": "单文件 ROM 无法附带曲目。将此 ROM 重新组织为文件夹后，上传选项将出现在此处。",
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "加载原声带元数据失败",
   "soundtrack-mini-player": "原声带播放器",
   "soundtrack-next": "下一曲",
-  "soundtrack-no-folder": "原声带需要文件夹形式的 ROM",
   "soundtrack-open-rom": "Open ROM details",
   "soundtrack-open-rom-tooltip": "打开 ROM",
   "soundtrack-pause": "暂停",
@@ -429,5 +427,7 @@
   "versions-count": "{n} 个版本",
   "volume-mute": "静音",
   "volume-unmute": "取消静音",
-  "youtube-video-id": "YouTube 视频 ID"
+  "youtube-video-id": "YouTube 视频 ID",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
 }

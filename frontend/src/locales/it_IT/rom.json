@@ -353,12 +353,10 @@
   "soundtrack-close-player": "Chiudi player",
   "soundtrack-delete-track": "Elimina traccia",
   "soundtrack-empty": "Nessuna colonna sonora ancora disponibile",
-  "soundtrack-folder-hint": "Le ROM a file singolo non possono avere tracce associate. Riorganizza questa ROM come cartella e qui apparirà l'opzione di caricamento.",
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "Impossibile caricare i metadati della colonna sonora",
   "soundtrack-mini-player": "Player colonna sonora",
   "soundtrack-next": "Traccia successiva",
-  "soundtrack-no-folder": "La colonna sonora richiede una ROM basata su cartella",
   "soundtrack-open-rom": "Open ROM details",
   "soundtrack-open-rom-tooltip": "Apri ROM",
   "soundtrack-pause": "Pausa",
@@ -429,5 +427,7 @@
   "versions-count": "{n} versioni",
   "volume-mute": "Disattiva audio",
   "volume-unmute": "Riattiva audio",
-  "youtube-video-id": "ID video YouTube"
+  "youtube-video-id": "ID video YouTube",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
 }
