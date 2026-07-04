@@ -44,11 +44,7 @@ from endpoints.responses.rom import (
     RomUserSchema,
     SimpleRomSchema,
 )
-from exceptions.endpoint_exceptions import (
-    CollectionNotFoundInDatabaseException,
-    CollectionPermissionError,
-    RomNotFoundInDatabaseException,
-)
+from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
@@ -56,7 +52,7 @@ from handler.auth.dependencies import (
     assert_rom_visible,
     get_permissions,
 )
-from handler.database import db_collection_handler, db_rom_handler, db_save_handler
+from handler.database import db_rom_handler, db_save_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
@@ -849,8 +845,6 @@ async def download_roms(
             detail="No ROM IDs provided",
         )
 
-        collection_name: str | None = None
-
     # Parse comma-separated string into list of integers
     try:
         rom_id_list = [int(id.strip()) for id in rom_ids.split(",") if id.strip()]
@@ -859,6 +853,12 @@ async def download_roms(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid ROM ID format. Must be comma-separated integers.",
         ) from e
+
+    if not rom_id_list:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid ROM IDs provided",
+        )
 
     rom_objects = db_rom_handler.get_roms_by_ids(rom_id_list)
 
