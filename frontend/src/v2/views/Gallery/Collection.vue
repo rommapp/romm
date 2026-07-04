@@ -242,11 +242,20 @@ watch(
   },
 );
 
+// ── Download ───────────────────────────────────────────────────
+// Triggered from the InfoPanel's download button. Delegates to the
+// API's bulk-download endpoint, which streams a ZIP of all ROMs in the
+// collection. The endpoint is smart enough to handle regular / virtual
+// / smart collections, so we just pass the right ID and let it figure
+// out which ROMs to include.
 function onDownload() {
   const c = currentCollection.value;
   if (!c || !c.rom_count) return;
+  const kind = currentKind.value;
   void romApi.bulkDownloadRoms({
-    romIDs: c.rom_ids,
+    collectionId: kind === "regular" ? Number(c.id) : undefined,
+    virtualCollectionId: kind === "virtual" ? String(c.id) : undefined,
+    smartCollectionId: kind === "smart" ? Number(c.id) : undefined,
     filename: `${c.name}.zip`,
   });
   snackbar.info(t("gallery.selection-download-many", { n: c.rom_count }));

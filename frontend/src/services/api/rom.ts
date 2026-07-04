@@ -452,17 +452,39 @@ async function downloadRom({
   return triggerFileDownload(getDownloadPath({ rom, fileIDs }));
 }
 
+// A platform/collection selector is expanded server-side into the full ROM
+// list, keeping the URL short (an explicit `romIDs` list can overflow the
+// browser's URL length limit for large libraries). Pass exactly one selector;
+// `romIDs` stays the fallback for ad-hoc multi-selections.
 async function bulkDownloadRoms({
   romIDs,
+  platformId,
+  collectionId,
+  virtualCollectionId,
+  smartCollectionId,
   filename,
 }: {
-  romIDs: number[];
+  romIDs?: number[];
+  platformId?: number;
+  collectionId?: number;
+  virtualCollectionId?: string;
+  smartCollectionId?: number;
   filename?: string;
 }) {
-  if (romIDs.length === 0) return;
-
   const queryParams = new URLSearchParams();
-  queryParams.append("rom_ids", romIDs.join(","));
+  if (platformId != null) {
+    queryParams.append("platform_id", String(platformId));
+  } else if (collectionId != null) {
+    queryParams.append("collection_id", String(collectionId));
+  } else if (virtualCollectionId != null) {
+    queryParams.append("virtual_collection_id", virtualCollectionId);
+  } else if (smartCollectionId != null) {
+    queryParams.append("smart_collection_id", String(smartCollectionId));
+  } else if (romIDs && romIDs.length > 0) {
+    queryParams.append("rom_ids", romIDs.join(","));
+  } else {
+    return;
+  }
   if (filename) queryParams.append("filename", filename);
 
   return triggerFileDownload(`/api/roms/download?${queryParams.toString()}`);

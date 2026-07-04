@@ -821,11 +821,29 @@ def get_rom_identifiers(
 async def download_roms(
     request: Request,
     rom_ids: Annotated[
-        str,
+        str | None,
         Query(
             description="Comma-separated list of ROM IDs to download as a zip file.",
         ),
-    ],
+    ] = None,
+    platform_id: Annotated[
+        int | None,
+        Query(description="Download every ROM in this platform as a zip file."),
+    ] = None,
+    collection_id: Annotated[
+        int | None,
+        Query(description="Download every ROM in this collection as a zip file."),
+    ] = None,
+    virtual_collection_id: Annotated[
+        str | None,
+        Query(
+            description="Download every ROM in this virtual collection as a zip file.",
+        ),
+    ] = None,
+    smart_collection_id: Annotated[
+        int | None,
+        Query(description="Download every ROM in this smart collection as a zip file."),
+    ] = None,
     filename: Annotated[
         str | None,
         Query(
@@ -838,33 +856,46 @@ async def download_roms(
     current_username = (
         request.user.username if request.user.is_authenticated else "unknown"
     )
+    perms = get_permissions(request)
 
-    if not rom_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No ROM IDs provided",
+    # Resolve the target ROM IDs
+    if platform_id or collection_id or virtual_collection_id or smart_collection_id:
+        rom_rows = db_rom_handler.get_roms_scalar(
+            user_id=request.user.id,
+            only_fields=[Rom.id],
+            platform_ids=[platform_id] if platform_id else None,
+            collection_id=collection_id,
+            virtual_collection_id=virtual_collection_id,
+            smart_collection_id=smart_collection_id,
+            hidden_platform_ids=list(perms.hidden_platform_ids),
+            hidden_rom_ids=list(perms.hidden_rom_ids),
         )
-
-    # Parse comma-separated string into list of integers
-    try:
-        rom_id_list = [int(id.strip()) for id in rom_ids.split(",") if id.strip()]
-    except ValueError as e:
+        rom_id_list = list(dict.fromkeys(rom.id for rom in rom_rows))
+    elif rom_ids:
+        # Parse comma-separated string into list of integers
+        try:
+            rom_id_list = [int(id.strip()) for id in rom_ids.split(",") if id.strip()]
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid ROM ID format. Must be comma-separated integers.",
+            ) from e
+    else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid ROM ID format. Must be comma-separated integers.",
-        ) from e
+            detail="No ROM IDs or platform/collection selector provided",
+        )
 
     if not rom_id_list:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No valid ROM IDs provided",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No ROMs found to download",
         )
 
     rom_objects = db_rom_handler.get_roms_by_ids(rom_id_list)
 
     # Drop roms hidden from the caller so they can't be pulled by direct id.
     if request.user.is_authenticated:
-        perms = get_permissions(request)
         rom_objects = [
             rom for rom in rom_objects if perms.can_see_rom(rom.id, rom.platform_id)
         ]

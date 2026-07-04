@@ -43,7 +43,7 @@ const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
-const { currentPlatform, total, romIdIndex } = storeToRefs(galleryRoms);
+const { currentPlatform, total } = storeToRefs(galleryRoms);
 
 const notFound = ref(false);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
@@ -355,15 +355,15 @@ async function onRandomGame() {
   }
 }
 
-// Download all — `romIdIndex` already holds every matching ROM ID for
-// this platform (the gallery store populates it on load), so hand that
-// straight to the zip download without a second fetch.
+// Download all
 function onDownload() {
   const p = currentPlatform.value;
-  const romIDs = romIdIndex.value;
-  if (!p || romIDs.length === 0) return;
-  void romApi.bulkDownloadRoms({ romIDs, filename: `${p.display_name}.zip` });
-  snackbar.info(t("gallery.selection-download-many", { n: romIDs.length }));
+  if (!p || !p.rom_count) return;
+  void romApi.bulkDownloadRoms({
+    platformId: p.id,
+    filename: `${p.display_name}.zip`,
+  });
+  snackbar.info(t("gallery.selection-download-many", { n: p.rom_count }));
 }
 
 async function onDelete() {
