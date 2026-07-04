@@ -3,7 +3,7 @@
 This migration squashes the legacy 1.6.2 -> 2.0.0 chain into a single
 fresh-install create. It reproduces the exact schema those migrations
 produced, so the rest of the chain (0009_models_refactor and later) applies
-unchanged. Databases already stamped at 2.0.0 or later are unaffected.
+unchanged. Databases already stamped at 0009 or later are unaffected.
 
 Revision ID: 0001_initial_models
 Revises:
