@@ -713,8 +713,8 @@ def get_roms(
         filter_query = db_rom_handler.filter_roms(
             query=unfiltered_query,
             user_id=request.user.id,
-            hidden_platform_ids=perms.hidden_platform_ids,
-            hidden_rom_ids=perms.hidden_rom_ids,
+            hidden_platform_ids=list(perms.hidden_platform_ids),
+            hidden_rom_ids=list(perms.hidden_rom_ids),
             platform_ids=platform_ids,
             collection_id=collection_id,
             virtual_collection_id=virtual_collection_id,
@@ -825,26 +825,11 @@ def get_rom_identifiers(
 async def download_roms(
     request: Request,
     rom_ids: Annotated[
-        str | None,
+        str,
         Query(
             description="Comma-separated list of ROM IDs to download as a zip file.",
         ),
-    ] = None,
-    collection_id: Annotated[
-        int | None,
-        Query(description="Collection internal id to download as a zip file.", ge=1),
-    ] = None,
-    virtual_collection_id: Annotated[
-        str | None,
-        Query(description="Virtual collection internal id to download as a zip file."),
-    ] = None,
-    smart_collection_id: Annotated[
-        int | None,
-        Query(
-            description="Smart collection internal id to download as a zip file.",
-            ge=1,
-        ),
-    ] = None,
+    ],
     filename: Annotated[
         str | None,
         Query(
@@ -852,83 +837,28 @@ async def download_roms(
         ),
     ] = None,
 ):
-    """Download a list of roms, or a whole collection, as a zip file."""
+    """Download a list of roms as a zip file."""
 
     current_username = (
         request.user.username if request.user.is_authenticated else "unknown"
     )
 
-    sources = (rom_ids, collection_id, virtual_collection_id, smart_collection_id)
-    if sum(1 for source in sources if source) != 1:
+    if not rom_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Exactly one of rom_ids, collection_id, virtual_collection_id or"
-                " smart_collection_id must be provided"
-            ),
+            detail="No ROM IDs provided",
         )
 
-    collection_name: str | None = None
+        collection_name: str | None = None
 
-    if rom_ids:
-        # Parse comma-separated string into list of integers
-        try:
-            rom_id_list = [int(id.strip()) for id in rom_ids.split(",") if id.strip()]
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid ROM ID format. Must be comma-separated integers.",
-            ) from e
-
-        if not rom_id_list:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No valid ROM IDs provided",
-            )
-    elif collection_id:
-        collection = db_collection_handler.get_collection(collection_id)
-        if not collection:
-            raise CollectionNotFoundInDatabaseException(collection_id)
-        if collection.user_id != request.user.id and not collection.is_public:
-            raise CollectionPermissionError(collection_id)
-
-        collection_name = collection.name
-        rom_id_list = collection.rom_ids
-    elif virtual_collection_id:
-        try:
-            virtual_collection = db_collection_handler.get_virtual_collection(
-                virtual_collection_id
-            )
-        except (binascii.Error, ValueError, KeyError, UnicodeDecodeError):
-            # Malformed opaque id (base64-encoded name/type pair)
-            virtual_collection = None
-        if not virtual_collection:
-            raise CollectionNotFoundInDatabaseException(virtual_collection_id)
-
-        collection_name = virtual_collection.name
-        rom_id_list = list(virtual_collection.rom_ids)
-    elif smart_collection_id:
-        smart_collection = db_collection_handler.get_smart_collection(
-            smart_collection_id
-        )
-        if not smart_collection:
-            raise CollectionNotFoundInDatabaseException(smart_collection_id)
-        if (
-            smart_collection.user_id != request.user.id
-            and not smart_collection.is_public
-        ):
-            raise CollectionPermissionError(smart_collection_id)
-
-        # Recompute membership so the zip reflects the current filter results
-        smart_collection = smart_collection.update_properties(request.user.id)
-        collection_name = smart_collection.name
-        rom_id_list = list(smart_collection.rom_ids)
-    else:
-        # Unreachable: the single-source check above guarantees one branch
+    # Parse comma-separated string into list of integers
+    try:
+        rom_id_list = [int(id.strip()) for id in rom_ids.split(",") if id.strip()]
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No download source provided",
-        )
+            detail="Invalid ROM ID format. Must be comma-separated integers.",
+        ) from e
 
     rom_objects = db_rom_handler.get_roms_by_ids(rom_id_list)
 
@@ -972,8 +902,6 @@ async def download_roms(
 
     if filename:
         file_name = sanitize_filename(filename)
-    elif collection_name:
-        file_name = f"{sanitize_filename(collection_name)}.zip"
     else:
         base64_content = b64encode(
             ("\n".join([str(line) for line in content_lines])).encode()

@@ -242,16 +242,11 @@ watch(
   },
 );
 
-// ── Download ────────────────────────────────────────────────────
-// Whole-collection download by id — the server resolves the current
-// member list and streams one zip, so nothing depends on how many
-// pages the gallery has loaded (issue #3659).
 function onDownload() {
   const c = currentCollection.value;
   if (!c || !c.rom_count) return;
-  void romApi.downloadCollectionRoms({
-    collectionId: c.id,
-    kind: currentKind.value,
+  void romApi.bulkDownloadRoms({
+    romIDs: c.rom_ids,
   });
   snackbar.info(t("gallery.selection-download-many", { n: c.rom_count }));
 }

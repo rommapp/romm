@@ -45,8 +45,6 @@ defineProps<{
   covers: string[];
   tab: string;
   tabs: RTabNavItem[];
-  /** Permission flag — already evaluated against `useCan` in the
-   *  parent, mirroring PlatformHead's prop-based gating. */
   canDownload: boolean;
 }>();
 
@@ -83,9 +81,6 @@ defineEmits<{
       <Stat :value="collection.rom_count" :label="t('common.games')" />
     </template>
 
-    <!-- Action ribbon — download the whole collection as one zip by
-         its id, so no pagination/selection is needed first. Same
-         circular icon-button vocabulary as PlatformHead. -->
     <template v-if="canDownload" #actions>
       <RBtn
         variant="outlined"

@@ -453,41 +453,16 @@ async function downloadRom({
 }
 
 async function bulkDownloadRoms({
-  roms,
+  romIDs,
   filename,
 }: {
-  roms: SimpleRom[];
+  romIDs: number[];
   filename?: string;
 }) {
-  if (roms.length === 0) return;
-
-  const romIds = roms.map((rom) => rom.id);
+  if (romIDs.length === 0) return;
 
   const queryParams = new URLSearchParams();
-  queryParams.append("rom_ids", romIds.join(","));
-  if (filename) queryParams.append("filename", filename);
-
-  return triggerFileDownload(`/api/roms/download?${queryParams.toString()}`);
-}
-
-async function downloadCollectionRoms({
-  collectionId,
-  kind,
-  filename,
-}: {
-  collectionId: number | string;
-  kind: "regular" | "virtual" | "smart";
-  filename?: string;
-}) {
-  const paramName =
-    kind === "virtual"
-      ? "virtual_collection_id"
-      : kind === "smart"
-        ? "smart_collection_id"
-        : "collection_id";
-
-  const queryParams = new URLSearchParams();
-  queryParams.append(paramName, String(collectionId));
+  queryParams.append("rom_ids", romIDs.join(","));
   if (filename) queryParams.append("filename", filename);
 
   return triggerFileDownload(`/api/roms/download?${queryParams.toString()}`);
@@ -901,7 +876,6 @@ export default {
   getRomByMetadataProvider,
   downloadRom,
   bulkDownloadRoms,
-  downloadCollectionRoms,
   searchRom,
   updateRom,
   uploadManuals,

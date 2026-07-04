@@ -233,7 +233,7 @@ function bulkDownload() {
   }
   // Bundle multi-selections into a single zip server-side; firing one
   // anchor download per ROM trips browser multi-download blocking.
-  void romApi.bulkDownloadRoms({ roms });
+  void romApi.bulkDownloadRoms({ romIDs: roms.map((r) => r.id) });
   snackbar.info(t("gallery.selection-download-many", { n: roms.length }));
 }
 
