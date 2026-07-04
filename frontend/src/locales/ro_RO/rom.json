@@ -353,12 +353,10 @@
   "soundtrack-close-player": "Închide player",
   "soundtrack-delete-track": "Șterge piesa",
   "soundtrack-empty": "Nicio coloană sonoră încă",
-  "soundtrack-folder-hint": "ROM-urile cu un singur fișier nu pot avea piese asociate. Reorganizează acest ROM ca folder și opțiunea de încărcare va apărea aici.",
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "Eroare la încărcarea metadatelor coloanei sonore",
   "soundtrack-mini-player": "Player coloană sonoră",
   "soundtrack-next": "Piesa următoare",
-  "soundtrack-no-folder": "Coloana sonoră are nevoie de un ROM bazat pe folder",
   "soundtrack-open-rom": "Open ROM details",
   "soundtrack-open-rom-tooltip": "Deschide ROM-ul",
   "soundtrack-pause": "Pauză",
@@ -429,5 +427,7 @@
   "versions-count": "{n} versiuni",
   "volume-mute": "Mut",
   "volume-unmute": "Activează sunetul",
-  "youtube-video-id": "ID video YouTube"
+  "youtube-video-id": "ID video YouTube",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
 }

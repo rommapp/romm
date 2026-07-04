@@ -394,6 +394,7 @@ onBeforeUnmount(() => {
     v-model="show"
     :icon="isRegenerate ? 'mdi-refresh' : 'mdi-key-plus'"
     :width="720"
+    scroll-content
     @close="closeDialog"
   >
     <template #header>
@@ -638,6 +639,11 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+}
+/* Phones: the two scope columns get cramped (and their content can push the
+   tracks past the sheet); stack them into one. */
+html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
+  grid-template-columns: 1fr;
 }
 html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
   grid-template-columns: 1fr;

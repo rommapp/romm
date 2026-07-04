@@ -20,10 +20,16 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import SettingsSidebar from "@/v2/components/Settings/SettingsSidebar.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 
 defineOptions({ inheritAttrs: false });
 
 const route = useRoute();
+// On `sm-and-down` the sidebar is dropped entirely — the navbar UserMenu
+// mirrors the same section IA, so a duplicate in-page strip is redundant on
+// phones. Mount-gated (not display:none) so the hidden links never sit in
+// the tab / spatial-nav order.
+const { mdAndUp } = useBreakpoint();
 const isBare = computed(() => route.meta?.bare === true);
 // `fill` views (e.g. Logs) pin to the viewport height and scroll their own
 // content internally instead of growing the document.
@@ -38,7 +44,7 @@ setBgArt(null);
 
 <template>
   <section class="r-v2-settings" :class="{ 'r-v2-settings--fill': isFill }">
-    <SettingsSidebar class="r-v2-settings__sidebar" />
+    <SettingsSidebar v-if="mdAndUp" class="r-v2-settings__sidebar" />
 
     <div class="r-v2-settings__content">
       <!-- Single router-view with a conditional wrapper class. Two
@@ -110,6 +116,21 @@ setBgArt(null);
    to the bottom, leaving a clean margin equal to the in-view gutters. */
 .r-v2-settings--fill {
   height: calc(100vh - var(--r-nav-h));
+  height: calc(100dvh - var(--r-nav-h));
+  /* The explicit height owns the sizing; without this the base
+     `min-height: calc(100vh - nav)` (larger, and `vh` not `dvh`) wins and
+     inflates the section past the viewport, forcing a document scroll. */
+  min-height: 0;
+}
+/* On phones the fixed bottom tab bar overlays the viewport bottom. A fill
+   view scrolls its own content internally, so it doesn't need to run under the
+   bar — reserve the bar's height so the panel stops just above it (no content
+   trapped behind the bar, no second document-level scroll). */
+html[data-bp~="sm-and-down"] .r-v2-settings--fill {
+  height: calc(
+    100dvh - var(--r-nav-h) - var(--r-bottom-nav-h) -
+      env(safe-area-inset-bottom)
+  );
 }
 .r-v2-settings--fill .r-v2-settings__content {
   align-self: stretch;
@@ -124,13 +145,16 @@ setBgArt(null);
   min-height: 0;
 }
 
-html[data-bp~="sm-and-down"] .r-v2-settings {
-  flex-direction: column;
-}
-html[data-bp~="sm-and-down"] .r-v2-settings__sidebar {
-  width: 100%;
-}
+/* On sm-and-down the sidebar is unmounted (see script), so the content
+   column fills the row on its own — just tighten the gutters to the
+   responsive page padding. */
 html[data-bp~="sm-and-down"] .r-v2-settings__content {
   padding: 24px var(--r-row-pad) 48px;
+}
+/* Fill views own their height and reserve the bottom bar separately, so the
+   generous 48px scroll gutter above just leaves a big empty band under the
+   panel — trim it to a small breather. */
+html[data-bp~="sm-and-down"] .r-v2-settings--fill .r-v2-settings__content {
+  padding-bottom: 12px;
 }
 </style>

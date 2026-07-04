@@ -299,8 +299,15 @@ function onClick(e: MouseEvent) {
 </script>
 
 <template>
-  <!-- More — opens the shared GameActionsList dropdown. -->
-  <RMenu v-if="action === 'more'" v-model="moreOpen" :offset="8" width="260px">
+  <!-- More — opens the shared GameActionsList dropdown. On phones it docks
+       as a bottom sheet (content-height) instead of a floating dropdown. -->
+  <RMenu
+    v-if="action === 'more'"
+    v-model="moreOpen"
+    :offset="8"
+    width="260px"
+    sheet-on-mobile
+  >
     <template #activator="{ props: activatorProps }">
       <button
         v-bind="activatorProps"
@@ -343,6 +350,7 @@ function onClick(e: MouseEvent) {
     :offset="8"
     width="220px"
     :close-on-content-click="false"
+    sheet-on-mobile
   >
     <template #activator="{ props: activatorProps }">
       <button

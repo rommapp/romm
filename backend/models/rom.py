@@ -10,10 +10,13 @@ from typing import TYPE_CHECKING, Any, TypedDict
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
+    Boolean,
     Enum,
+    Float,
     ForeignKey,
     Index,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -44,6 +47,8 @@ from utils.database import CustomJSON
 
 # Max length of the precomputed natural-sort key column.
 NAME_SORT_KEY_MAX_LENGTH = 500
+# Max length for free-text audio tag columns (title/artist/album).
+AUDIO_TAG_MAX_LENGTH = 512
 ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
 DIGIT_RUN_RE = re.compile(r"\d+")
 
@@ -120,12 +125,14 @@ class RomFile(BaseModel):
     category: Mapped[RomFileCategory | None] = mapped_column(
         Enum(RomFileCategory), default=None
     )
-    audio_meta: Mapped[dict[str, Any] | None] = mapped_column(
-        CustomJSON(), default=None, nullable=True
-    )
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     rom: Mapped[Rom] = relationship(back_populates="files")
+    track_meta: Mapped[TrackMeta | None] = relationship(
+        back_populates="rom_file",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
     @cached_property
     def full_path(self) -> str:
@@ -168,6 +175,43 @@ class RomFile(BaseModel):
 
     def __repr__(self) -> str:
         return f"{self.file_name} ({self.id} -> {self.rom_id})"
+
+
+class TrackMeta(BaseModel):
+    __tablename__ = "track_meta"
+
+    __table_args__ = (
+        Index("idx_track_meta_rom_id", "rom_id"),
+        Index("idx_track_meta_duration", "duration_seconds"),
+        Index("idx_track_meta_year", "year"),
+        Index("idx_track_meta_artist", "artist"),
+        Index("idx_track_meta_album", "album"),
+    )
+
+    rom_file_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_files.id", ondelete="CASCADE"), primary_key=True
+    )
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    title: Mapped[str | None] = mapped_column(
+        String(length=AUDIO_TAG_MAX_LENGTH), default=None
+    )
+    artist: Mapped[str | None] = mapped_column(
+        String(length=AUDIO_TAG_MAX_LENGTH), default=None
+    )
+    album: Mapped[str | None] = mapped_column(
+        String(length=AUDIO_TAG_MAX_LENGTH), default=None
+    )
+    genre: Mapped[str | None] = mapped_column(String(length=255), default=None)
+    year: Mapped[int | None] = mapped_column(SmallInteger(), default=None)
+    track: Mapped[int | None] = mapped_column(SmallInteger(), default=None)
+    disc: Mapped[int | None] = mapped_column(SmallInteger(), default=None)
+    duration_seconds: Mapped[float | None] = mapped_column(Float(), default=None)
+    has_embedded_cover: Mapped[bool] = mapped_column(
+        Boolean(), default=False, nullable=False
+    )
+    cover_path: Mapped[str | None] = mapped_column(String(length=1024), default=None)
+
+    rom_file: Mapped[RomFile] = relationship(back_populates="track_meta")
 
 
 class RomMetadata(BaseModel):

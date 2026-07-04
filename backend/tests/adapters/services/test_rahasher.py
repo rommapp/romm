@@ -680,6 +680,135 @@ class TestRAHasherPspNativeHashing:
         mock_subprocess.assert_called_once()
 
 
+class TestRAHasherRvzNativeHashing:
+    """GameCube and Wii .rvz/.wia disc images are hashed natively instead of
+    being handed to RAHasher, which can't read the RVZ container
+    (issues #3649 and #3650)."""
+
+    @pytest.fixture
+    def service(self):
+        return RAHasherService()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("ext", [".rvz", ".wia"])
+    @pytest.mark.parametrize(
+        "ups,slug,native_fn",
+        [
+            (UPS.NGC, "ngc", "calculate_gamecube_ra_hash"),
+            (UPS.WII, "wii", "calculate_wii_ra_hash"),
+        ],
+    )
+    async def test_native_hash_short_circuits_rahasher(
+        self, service: RAHasherService, ups, slug, native_fn, ext
+    ):
+        """A successful native hash returns without spawning RAHasher."""
+        platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[ups]
+
+        with (
+            patch(
+                f"adapters.services.rahasher.{native_fn}",
+                return_value="a1b2c3d4e5f6789012345678901234ab",
+            ) as mock_native,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": platform_id, "slug": slug}, f"/roms/{slug}/game{ext}"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_native.assert_called_once_with(f"/roms/{slug}/game{ext}")
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_rahasher_when_native_fails(
+        self, service: RAHasherService
+    ):
+        """If native hashing returns nothing, RAHasher is still attempted."""
+        ngc_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NGC]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.calculate_gamecube_ra_hash",
+                return_value="",
+            ) as mock_native,
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": ngc_id, "slug": "ngc"}, "/roms/ngc/game.rvz"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_native.assert_called_once()
+        mock_subprocess.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_native_hashing_skipped_for_other_platforms(
+        self, service: RAHasherService
+    ):
+        """An .rvz on a non-GameCube/Wii platform must not hash natively."""
+        psx_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSX]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.calculate_gamecube_ra_hash"
+            ) as mock_gc_native,
+            patch(
+                "adapters.services.rahasher.calculate_wii_ra_hash"
+            ) as mock_wii_native,
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+        ):
+            await service.calculate_hash(
+                {"ra_id": psx_id, "slug": "psx"}, "/roms/psx/game.rvz"
+            )
+
+        mock_gc_native.assert_not_called()
+        mock_wii_native.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("ups,slug", [(UPS.NGC, "ngc"), (UPS.WII, "wii")])
+    async def test_native_hashing_skipped_for_raw_iso(
+        self, service: RAHasherService, ups, slug
+    ):
+        """Plain .iso discs still go to RAHasher (it reads them fine)."""
+        platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[ups]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.calculate_gamecube_ra_hash"
+            ) as mock_gc_native,
+            patch(
+                "adapters.services.rahasher.calculate_wii_ra_hash"
+            ) as mock_wii_native,
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            await service.calculate_hash(
+                {"ra_id": platform_id, "slug": slug}, f"/roms/{slug}/game.iso"
+            )
+
+        mock_gc_native.assert_not_called()
+        mock_wii_native.assert_not_called()
+        mock_subprocess.assert_called_once()
+
+
 class TestRAHasherError:
     """Test the RAHasherError exception."""
 

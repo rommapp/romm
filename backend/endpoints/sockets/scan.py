@@ -49,7 +49,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile
+from models.rom import Rom, RomFile, TrackMeta
 from tasks.tasks import update_job_meta
 from utils import emoji
 from utils.context import initialize_context
@@ -57,6 +57,25 @@ from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
 
 STOP_SCAN_FLAG: Final = "scan:stop"
+
+
+def _clone_track_meta(src: TrackMeta | None, rom_id: int) -> TrackMeta | None:
+    """Build a fresh TrackMeta from a scanned (transient) one for a new RomFile."""
+    if src is None:
+        return None
+    return TrackMeta(
+        rom_id=rom_id,
+        title=src.title,
+        artist=src.artist,
+        album=src.album,
+        genre=src.genre,
+        year=src.year,
+        track=src.track,
+        disc=src.disc,
+        duration_seconds=src.duration_seconds,
+        has_embedded_cover=src.has_embedded_cover,
+        cover_path=src.cover_path,
+    )
 
 
 @dataclass
@@ -383,7 +402,7 @@ async def _identify_rom(
                 file_size_bytes=file.file_size_bytes,
                 last_modified=file.last_modified,
                 category=file.category,
-                audio_meta=file.audio_meta,
+                track_meta=_clone_track_meta(file.track_meta, _added_rom.id),
                 crc_hash=file.crc_hash,
                 md5_hash=file.md5_hash,
                 sha1_hash=file.sha1_hash,

@@ -151,31 +151,7 @@ def test_upload_manual_to_folder_upserts_on_reupload(
     assert len(manual_files) == 1
 
 
-def test_upload_manual_to_folder_rejects_single_file_rom(
-    client: TestClient,
-    access_token: str,
-    rom: Rom,
-    manual_fs_folder: Path,
-):
-    # Single non-nested file → has_simple_single_file is True
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name=rom.fs_name,
-            file_path=rom.fs_path,
-            file_size_bytes=1,
-            category=RomFileCategory.GAME,
-        )
-    )
-
-    response = client.post(
-        f"/api/roms/{rom.id}/manuals/files",
-        headers={**_auth(access_token), "x-upload-filename": "manual.pdf"},
-        files={"manual.pdf": ("manual.pdf", PDF_BYTES, "application/pdf")},
-    )
-
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "folder-based" in response.json()["detail"]
+# Single-file auto-convert on upload is covered in test_convert_to_folder.py.
 
 
 def test_upload_manual_to_folder_rejects_non_pdf(
