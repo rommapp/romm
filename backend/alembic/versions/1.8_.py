@@ -48,8 +48,7 @@ def _create_platforms_table() -> None:
 
 
 def _copy_old_platforms() -> None:
-    op.execute(
-        """
+    op.execute("""
         INSERT INTO platforms(igdb_id, sgdb_id, slug, fs_slug, name, logo_path, n_roms)
         SELECT
             old_platforms.igdb_id,
@@ -63,8 +62,7 @@ def _copy_old_platforms() -> None:
         LEFT JOIN platforms AS existing_platforms
             ON existing_platforms.fs_slug = old_platforms.slug
         WHERE existing_platforms.fs_slug IS NULL
-        """
-    )
+        """)
 
 
 def _upgrade_platforms(connection: sa.Connection) -> None:
@@ -148,8 +146,7 @@ def _create_roms_table() -> None:
 
 
 def _copy_old_roms() -> None:
-    op.execute(
-        """
+    op.execute("""
         INSERT INTO roms(
             r_igdb_id, p_igdb_id, r_sgdb_id, p_sgdb_id,
             p_slug, p_name, file_name, file_name_no_tags,
@@ -189,8 +186,7 @@ def _copy_old_roms() -> None:
             ON existing_roms.p_slug = old_roms.p_slug
             AND existing_roms.file_name = old_roms.file_name
         WHERE existing_roms.id IS NULL
-        """
-    )
+        """)
 
 
 def _upgrade_roms_table(connection: sa.Connection) -> None:
