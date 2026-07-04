@@ -247,6 +247,7 @@ function onDownload() {
   if (!c || !c.rom_count) return;
   void romApi.bulkDownloadRoms({
     romIDs: c.rom_ids,
+    filename: `${c.name}.zip`,
   });
   snackbar.info(t("gallery.selection-download-many", { n: c.rom_count }));
 }
