@@ -292,6 +292,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
     v-model="show"
     icon="mdi-pencil-box"
     scroll-content
+    full-height-on-mobile
     :width="lgAndUp ? 900 : '95vw'"
     @close="closeDialog"
   >

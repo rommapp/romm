@@ -5,7 +5,7 @@
 // The wizard owns all wizard-level state (current step, selection set,
 // admin form, async flight); the per-step components are pure UI that
 // emit input changes back to the orchestrator.
-import { RBtn, RImg, RSpinner, RSteps } from "@v2/lib";
+import { RBtn, RIcon, RImg, RSpinner, RSteps } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -37,8 +37,17 @@ const step = ref<1 | 2 | 3>(1);
 const stepDirection = ref<"forward" | "back">("forward");
 
 // Step 1 — library + platforms
-const libraryInfo = ref<SetupLibraryInfo | null>(null);
-const loadingLibrary = ref(false);
+const EMPTY_LIBRARY_INFO: SetupLibraryInfo = {
+  detected_structure: null,
+  existing_platforms: [],
+  supported_platforms: [],
+};
+const libraryInfo = ref<SetupLibraryInfo>({ ...EMPTY_LIBRARY_INFO });
+// Starts true so the first paint shows the spinner, not an empty flash.
+const loadingLibrary = ref(true);
+// Non-null when the library probe failed — the step 1 body swaps to an inline
+// error with a retry instead of silently showing an empty platform list.
+const libraryError = ref<string | null>(null);
 const selectedNewPlatforms = ref<string[]>([]);
 
 // Step 2 — admin user
@@ -88,20 +97,13 @@ const isLastStep = computed(() => step.value === TOTAL_STEPS);
 
 async function loadLibraryInfo() {
   loadingLibrary.value = true;
+  libraryError.value = null;
   try {
     const { data } = await setupApi.getLibraryInfo();
-    libraryInfo.value = data;
+    if (data) libraryInfo.value = data;
   } catch (err) {
-    const error = err as {
-      response?: { data?: { detail?: string } };
-      message?: string;
-    };
-    snackbar.error(
-      `${t("setup.loading-library-failed")}: ${
-        error.response?.data?.detail ?? error.message ?? ""
-      }`,
-      { icon: "mdi-close-circle" },
-    );
+    console.error("Failed to load setup library info:", err);
+    libraryError.value = t("setup.loading-library-failed");
   } finally {
     loadingLibrary.value = false;
   }
@@ -223,6 +225,23 @@ onMounted(loadLibraryInfo);
         <span>{{ t("setup.loading-library") }}</span>
       </div>
 
+      <div
+        v-else-if="libraryError && step === 1"
+        class="r-v2-setup__error"
+        role="alert"
+      >
+        <RIcon icon="mdi-alert-circle-outline" :size="32" />
+        <span>{{ libraryError }}</span>
+        <RBtn
+          variant="flat"
+          color="primary"
+          prepend-icon="mdi-refresh"
+          @click="loadLibraryInfo"
+        >
+          {{ t("common.try-again") }}
+        </RBtn>
+      </div>
+
       <Transition
         v-else
         :name="
@@ -233,7 +252,7 @@ onMounted(loadLibraryInfo);
         mode="out-in"
       >
         <SetupStepPlatforms
-          v-if="step === 1 && libraryInfo"
+          v-if="step === 1"
           key="step-1"
           :library-info="libraryInfo"
           v-model:selected-new-platforms="selectedNewPlatforms"
@@ -280,6 +299,11 @@ onMounted(loadLibraryInfo);
 .r-v2-setup {
   width: 100%;
   max-width: 1080px;
+  /* Flex item inside the centred auth stage: without `min-width: 0` it keeps
+     its min-content width and, on a phone narrower than that, spills past the
+     viewport instead of shrinking. Letting it shrink lets `overflow: hidden`
+     clip the inner chrome cleanly. */
+  min-width: 0;
   height: min(86dvh, 880px);
   display: flex;
   flex-direction: column;
@@ -353,6 +377,19 @@ onMounted(loadLibraryInfo);
   font-size: var(--r-font-size-sm);
 }
 
+.r-v2-setup__error {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--r-space-4);
+  padding: var(--r-space-6);
+  text-align: center;
+  color: var(--r-color-danger);
+  font-size: var(--r-font-size-sm);
+}
+
 .r-v2-setup__footer {
   display: flex;
   align-items: center;
@@ -397,5 +434,45 @@ onMounted(loadLibraryInfo);
 .r-v2-setup-step-back-leave-to {
   opacity: 0;
   transform: translateX(40px);
+}
+
+/* Small tablets (sm): the fixed-height card keeps header + footer pinned and
+   the BODY scrolls, instead of the desktop fixed-pane model where each list
+   scrolled in its own box. (xs overrides this below — the whole card flows
+   and the auth stage scrolls.) */
+html[data-bp~="sm-and-down"] .r-v2-setup__body {
+  /* Body clips; each step scrolls its own content region internally (the
+     platform lists, the metadata list), keeping header + footer pinned. */
+  overflow: hidden;
+}
+
+/* Phones: the card fills the auth stage via a definite flex cross-size
+   (align-self: stretch — NOT height:100%, whose percentage collapses on a
+   reactive re-layout). Header + footer stay pinned; the step's lists region
+   scrolls internally, like desktop. */
+html[data-bp~="xs"] .r-v2-setup {
+  align-self: stretch;
+  height: auto;
+  max-height: none;
+}
+html[data-bp~="xs"] .r-v2-setup__header {
+  /* Logo is hidden on xs, so the 1fr/auto/1fr grid would strand the step
+     dots in the left track. Stack the header (steps over title), centred. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--r-space-4) var(--r-space-4) var(--r-space-3);
+}
+html[data-bp~="xs"] .r-v2-setup__body {
+  overflow: hidden;
+  padding: var(--r-space-4);
+}
+html[data-bp~="xs"] .r-v2-setup__footer {
+  padding: var(--r-space-3) var(--r-space-4);
+}
+/* The RomM isotype eats vertical room in the phone header; the step dots and
+   title carry the wizard identity, so drop it on xs. */
+html[data-bp~="xs"] .r-v2-setup__logo {
+  display: none;
 }
 </style>

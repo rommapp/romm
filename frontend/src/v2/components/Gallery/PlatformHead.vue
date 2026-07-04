@@ -17,9 +17,11 @@
 // on the parent so the bar stays in sync with `useCan`.
 import { RBtn, RChip, RPlatformIcon, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
+import { computed } from "vue";
 import type { Platform } from "@/stores/platforms";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 
 defineOptions({ inheritAttrs: false });
 
@@ -66,6 +68,13 @@ defineEmits<{
   (e: "scan"): void;
   (e: "random"): void;
 }>();
+
+// A square icon sized per breakpoint (smaller on phones). Driving the size
+// in JS keeps the box able to grow to the icon (reflow) instead of forcing
+// the icon to a fixed box height, which — for a tall icon — either overflowed
+// (overlap) or, once clipped, cut it off.
+const { xs } = useBreakpoint();
+const iconSize = computed(() => (xs.value ? 116 : 148));
 </script>
 
 <template>
@@ -79,7 +88,7 @@ defineEmits<{
           :slug="platform.slug"
           :fs-slug="platform.fs_slug"
           :alt="platform.display_name"
-          :size="148"
+          :size="iconSize"
         />
       </div>
     </template>
@@ -182,21 +191,21 @@ defineEmits<{
 <style scoped>
 .r-v2-plat__panel-icon {
   width: 200px;
-  height: 148px;
+  /* `min-height` (not a fixed `height`): the icon is a square sized in JS, so
+     the box floors at the icon height and simply grows to contain it — a tall
+     icon pushes the title/stats down (reflow) instead of overflowing and
+     getting clipped or overlapping. */
+  min-height: 148px;
   display: grid;
   place-items: center;
 }
 
 /* Keep the platform icon prominent on phones (it's the page's identity)
-   rather than shrinking it to a thumbnail — just trim it a little from
-   the desktop 200×148 so it leaves room for the centred title below. */
+   rather than shrinking it to a thumbnail — just a touch smaller than the
+   desktop size (see `iconSize`) so it leaves room for the centred title. */
 html[data-bp~="xs"] .r-v2-plat__panel-icon {
   width: 150px;
-  height: 112px;
-}
-html[data-bp~="xs"] .r-v2-plat__panel-icon :deep(.r-platform-icon) {
-  width: 100% !important;
-  height: 100% !important;
+  min-height: 116px;
 }
 
 .r-v2-plat__tabs {

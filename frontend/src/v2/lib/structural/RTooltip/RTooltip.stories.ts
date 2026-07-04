@@ -1,8 +1,46 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, waitFor, within } from "storybook/test";
 import { ref } from "vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTooltip from "./RTooltip.vue";
+
+// Dispatch a pointerenter with an explicit `pointerType` — `userEvent.hover`
+// can't set it, and the touch-gating branch keys off exactly that.
+function firePointerEnter(el: Element, pointerType: "mouse" | "touch") {
+  let ev: Event;
+  try {
+    ev = new PointerEvent("pointerenter", { bubbles: false, pointerType });
+  } catch {
+    ev = new Event("pointerenter", { bubbles: false });
+  }
+  if ((ev as PointerEvent).pointerType !== pointerType) {
+    Object.defineProperty(ev, "pointerType", {
+      value: pointerType,
+      configurable: true,
+    });
+  }
+  el.dispatchEvent(ev);
+}
+
+// A tap/click of a given pointer type: pointerdown (so the tooltip can read
+// the pointer type) followed by the click.
+function fireTap(el: Element, pointerType: "mouse" | "touch") {
+  let down: Event;
+  try {
+    down = new PointerEvent("pointerdown", { bubbles: true, pointerType });
+  } catch {
+    down = new Event("pointerdown", { bubbles: true });
+  }
+  if ((down as PointerEvent).pointerType !== pointerType) {
+    Object.defineProperty(down, "pointerType", {
+      value: pointerType,
+      configurable: true,
+    });
+  }
+  el.dispatchEvent(down);
+  el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+}
 
 const meta: Meta<typeof RTooltip> = {
   title: "Structural/RTooltip",
@@ -337,6 +375,105 @@ export const IconBarRealWorld: Story = {
       </div>
     `,
   }),
+};
+
+// ── Touch gating (behavioral) ───────────────────────────────────────
+// A touch "hover" is really a tap that fires the underlying action, so a
+// tooltip there would linger over whatever the tap opened. The tooltip must
+// reveal for mouse/pen hover only, and a click must always dismiss it.
+export const TouchGating: Story = {
+  name: "Touch gating (play)",
+  args: { text: "Tooltip body text", location: "top", openDelay: 0 },
+  render: (args) => ({
+    components: { RTooltip, RBtn },
+    setup: () => ({ args }),
+    template: `
+      <div class="r-v2 r-v2-dark" style="padding:48px;display:flex;justify-content:center;background:#07070f">
+        <RTooltip v-bind="args">
+          <template #activator="{ props }">
+            <RBtn v-bind="props">Hover target</RBtn>
+          </template>
+        </RTooltip>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    // The tooltip teleports to <body>, outside canvasElement.
+    const body = within(document.body);
+    const activator = canvas.getByRole("button", { name: /hover target/i });
+
+    await step("a touch hover does NOT reveal the tooltip", async () => {
+      firePointerEnter(activator, "touch");
+      await new Promise((r) => setTimeout(r, 50));
+      expect(body.queryByRole("tooltip")).toBeNull();
+    });
+
+    await step("a mouse hover reveals it", async () => {
+      firePointerEnter(activator, "mouse");
+      const tip = await body.findByRole("tooltip");
+      expect(tip).toHaveTextContent("Tooltip body text");
+    });
+
+    await step("a click dismisses it", async () => {
+      activator.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await waitFor(() => expect(body.queryByRole("tooltip")).toBeNull());
+    });
+  },
+};
+
+// `open-on-tap` — a standalone info affordance that must reveal on touch too
+// (tap toggles; a mouse click opens rather than closing a hover-revealed tip).
+export const OpenOnTap: Story = {
+  name: "Open on tap (play)",
+  args: {
+    text: "Tooltip body text",
+    location: "top",
+    openOnTap: true,
+    openDelay: 0,
+  },
+  render: (args) => ({
+    components: { RTooltip, RBtn },
+    setup: () => ({ args }),
+    template: `
+      <div class="r-v2 r-v2-dark" style="padding:48px;display:flex;justify-content:center;background:#07070f">
+        <RTooltip v-bind="args">
+          <template #activator="{ props }">
+            <RBtn v-bind="props">Tap target</RBtn>
+          </template>
+        </RTooltip>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const body = within(document.body);
+    const activator = canvas.getByRole("button", { name: /tap target/i });
+
+    await step("a touch tap reveals the tooltip", async () => {
+      fireTap(activator, "touch");
+      const tip = await body.findByRole("tooltip");
+      expect(tip).toHaveTextContent("Tooltip body text");
+    });
+
+    await step("a second touch tap toggles it closed", async () => {
+      fireTap(activator, "touch");
+      await waitFor(() => expect(body.queryByRole("tooltip")).toBeNull());
+    });
+
+    await step("a mouse click opens it", async () => {
+      fireTap(activator, "mouse");
+      expect(await body.findByRole("tooltip")).toBeInTheDocument();
+    });
+
+    await step(
+      "a second mouse click keeps it open (no toggle-closed)",
+      async () => {
+        fireTap(activator, "mouse");
+        expect(body.queryByRole("tooltip")).not.toBeNull();
+      },
+    );
+  },
 };
 
 export const FormHelper: Story = {

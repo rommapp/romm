@@ -10,11 +10,12 @@
 // from the main ribbon by a spacer. All three share MetricMenuBtn — the
 // rating/difficulty trigger an RRating popup, completion triggers an
 // RSlider popup. Writes are optimistic via useGameActions.setScore.
-import { ref, toRef } from "vue";
+import { computed, ref, toRef } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import MetricMenuBtn from "@/v2/components/GameActions/MetricMenuBtn.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGameActions } from "@/v2/composables/useGameActions";
 import { useGridNav } from "@/v2/composables/useGridNav";
 
@@ -27,6 +28,13 @@ const props = defineProps<{
 const { t } = useI18n();
 const romRef = toRef(props, "rom");
 const actions = useGameActions(() => romRef.value);
+
+// Shrink the ribbon on phones — the large (44px) buttons crowd the narrow
+// column; the default (36px) size fits more per row and reads cleaner.
+const { smAndDown } = useBreakpoint();
+const btnSize = computed<"default" | "large">(() =>
+  smAndDown.value ? "default" : "large",
+);
 
 // Single-row gamepad/keyboard nav across the action ribbon. The root is
 // itself the row; cells are every action button (`.r-v2-game-btn`) plus
@@ -50,43 +58,48 @@ useGridNav(rootEl, {
       v-if="actions.canPlay.value"
       :rom="rom"
       action="play"
-      size="large"
+      :size="btnSize"
       variant="emphasized"
       with-label
     />
     <GameActionBtn
       :rom="rom"
       action="download"
-      size="large"
+      :size="btnSize"
       variant="surface"
     />
     <GameActionBtn
       :rom="rom"
       action="copy-link"
-      size="large"
+      :size="btnSize"
       variant="surface"
     />
     <GameActionBtn
       v-if="actions.canShareQR.value"
       :rom="rom"
       action="qr"
-      size="large"
+      :size="btnSize"
       variant="surface"
     />
     <GameActionBtn
       :rom="rom"
       action="favorite"
-      size="large"
+      :size="btnSize"
       variant="surface"
     />
     <GameActionBtn
       :rom="rom"
       action="collection"
-      size="large"
+      :size="btnSize"
       variant="surface"
     />
-    <GameActionBtn :rom="rom" action="status" size="large" variant="surface" />
-    <GameActionBtn :rom="rom" action="more" size="large" variant="surface" />
+    <GameActionBtn
+      :rom="rom"
+      action="status"
+      :size="btnSize"
+      variant="surface"
+    />
+    <GameActionBtn :rom="rom" action="more" :size="btnSize" variant="surface" />
 
     <div v-if="rom.rom_user" class="game-actions__spacer" />
 
@@ -98,6 +111,7 @@ useGridNav(rootEl, {
       icon-empty="mdi-progress-helper"
       accent="brand-primary"
       :step="5"
+      :size="btnSize"
       :value="rom.rom_user.completion ?? 0"
       @update:value="(v) => actions.setScore('completion', v)"
     />
@@ -107,6 +121,7 @@ useGridNav(rootEl, {
       icon-full="mdi-star"
       icon-empty="mdi-star-outline"
       accent="warning"
+      :size="btnSize"
       :value="rom.rom_user.rating"
       @update:value="(v) => actions.setScore('rating', v)"
     />
@@ -116,6 +131,7 @@ useGridNav(rootEl, {
       icon-full="mdi-chili-mild"
       icon-empty="mdi-chili-mild-outline"
       accent="danger"
+      :size="btnSize"
       :value="rom.rom_user.difficulty"
       @update:value="(v) => actions.setScore('difficulty', v)"
     />
@@ -133,5 +149,20 @@ useGridNav(rootEl, {
 .game-actions__spacer {
   flex: 1;
   min-width: 16px;
+}
+
+/* Mobile: centre the ribbon and force the metrics (completion / rating /
+   difficulty) onto their own row, split from the action buttons by a
+   full-width hairline so the two groups read as distinct sections. */
+html[data-bp~="sm-and-down"] .game-actions {
+  justify-content: center;
+  gap: 8px;
+}
+html[data-bp~="sm-and-down"] .game-actions__spacer {
+  flex: 0 0 100%;
+  min-width: 0;
+  height: 0;
+  margin: 6px 0 2px;
+  border-top: 1px solid var(--r-color-border);
 }
 </style>

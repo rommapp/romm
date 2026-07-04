@@ -63,12 +63,18 @@ interface Props {
   /** Viewport height. Number = px, string = any CSS length, undefined =
    * fill parent (the wrapper element gets `height: 100%`). */
   height?: number | string;
+  /** Natural min width of the content (rows). When the viewport is narrower
+   * than this the scroller scrolls HORIZONTALLY (rows keep their full width
+   * instead of squashing / clipping). The virtualised inner gets this as
+   * `min-width` and the container gets `overflow-x: auto`. Number = px. */
+  minContentWidth?: number | string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   overscan: 25,
   height: undefined,
   getItemKey: undefined,
+  minContentWidth: undefined,
 });
 
 const emit = defineEmits<{
@@ -288,18 +294,32 @@ function scrollToIndex(index: number, options: ScrollToIndexOptions = {}) {
 
 defineExpose({ scrollToIndex, containerEl, scrollTop });
 
-const wrapperStyle = computed(() => {
-  const h = props.height;
-  if (h === undefined) return { height: "100%" } as const;
-  if (typeof h === "number") return { height: `${h}px` } as const;
-  return { height: h } as const;
+const minContentWidthCss = computed(() => {
+  const w = props.minContentWidth;
+  if (w === undefined) return undefined;
+  return typeof w === "number" ? `${w}px` : w;
 });
 
-const innerStyle = computed(() => ({
-  height: `${totalHeight.value}px`,
-  position: "relative" as const,
-  width: "100%",
-}));
+const wrapperStyle = computed(() => {
+  const h = props.height;
+  const height =
+    h === undefined ? "100%" : typeof h === "number" ? `${h}px` : h;
+  const style: Record<string, string> = { height };
+  // Opt into horizontal scroll (rows wider than the viewport) — overrides the
+  // stylesheet's `overflow-x: hidden`.
+  if (minContentWidthCss.value) style.overflowX = "auto";
+  return style;
+});
+
+const innerStyle = computed(() => {
+  const style: Record<string, string> = {
+    height: `${totalHeight.value}px`,
+    position: "relative",
+    width: "100%",
+  };
+  if (minContentWidthCss.value) style.minWidth = minContentWidthCss.value;
+  return style;
+});
 </script>
 
 <template>

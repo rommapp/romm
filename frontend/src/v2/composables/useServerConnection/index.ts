@@ -20,7 +20,11 @@ import { debounce } from "lodash";
 import { computed, effectScope, watch } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
 
-const POLL_ONLINE_MS = 10_000;
+// While online, probe only occasionally — a network blip shouldn't rush to
+// flag the backend as down. Passive interceptor events still flip us offline
+// the instant a real request fails, so this slow poll is just a safety net.
+const POLL_ONLINE_MS = 5 * 60_000;
+// Once offline, poll quickly so recovery is picked up promptly.
 const POLL_OFFLINE_MS = 5_000;
 const HEARTBEAT_TIMEOUT_MS = 5_000;
 

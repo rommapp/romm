@@ -89,16 +89,19 @@ defineEmits<{
 
 <style scoped>
 .r-v2-coll__panel-cover {
-  width: 140px;
-  height: 188px;
+  width: var(--r-coll-cover-w);
+  height: var(--r-coll-cover-h);
   border-radius: var(--r-radius-lg);
   overflow: hidden;
   box-shadow: var(--r-elev-2);
 }
 
+/* Match the collection-index card covers (which fill a ~150px grid cell on
+   phones) — the InfoPanel stacks and centres the cover on xs, so there's room
+   for a proper hero instead of the old cramped 100px thumbnail. */
 html[data-bp~="xs"] .r-v2-coll__panel-cover {
-  width: 100px;
-  height: 134px;
+  width: var(--r-coll-cover-w-xs);
+  height: var(--r-coll-cover-h-xs);
 }
 
 .r-v2-coll__tabs {

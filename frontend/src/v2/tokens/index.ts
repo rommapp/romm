@@ -440,6 +440,18 @@ export const layout = {
   heroCardWidthXl: "460px",
   heroCardHeightXl: "259px",
   detailCoverWidth: "240px",
+  // Collection gallery header cover (CollectionHead). Matches the collection
+  // -index card covers; a larger hero on phones, where the InfoPanel stacks
+  // and centres the cover so there's room for it.
+  collectionCoverWidth: "140px",
+  collectionCoverHeight: "188px",
+  collectionCoverWidthXs: "150px",
+  collectionCoverHeightXs: "202px",
+  // AlphaStrip A-Z jump column (gallery). Wider on phones for bigger, more
+  // tappable letters. The gallery's stuck-toolbar overlay insets by this
+  // (plus the edge gap) so it lines up exactly with the in-flow toolbar.
+  alphaStripWidth: "24px",
+  alphaStripWidthXs: "30px",
   // List-mode (table) gallery geometry. `GameListRow`, `GameListHeader`
   // and `GameListSkeletonRow` all derive their pixel sizing from these,
   // and `useGalleryVirtualItems` reads `listRowHeight` so the virtualiser's

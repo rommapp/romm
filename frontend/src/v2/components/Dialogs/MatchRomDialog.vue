@@ -52,7 +52,7 @@ type SourceFilter = {
 };
 
 const { t } = useI18n();
-const { xs, lgAndUp } = useBreakpoint();
+const { lgAndUp } = useBreakpoint();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
@@ -283,8 +283,9 @@ function closeDialog() {
     v-model="show"
     icon="mdi-search-web"
     scroll-content
+    full-height-on-mobile
     :width="lgAndUp ? 880 : '95vw'"
-    :height="xs ? '82vh' : '88vh'"
+    height="88vh"
     :persistent="matching"
     @close="closeDialog"
   >
@@ -309,24 +310,11 @@ function closeDialog() {
             @toggle="toggleSourceFilter(f.name)"
           />
 
-          <!-- Right-aligned cluster — the results pill and the variant
-               switcher live together pushed to the right of the filter
-               row so the provider chips stay flush left even when the
-               pill is hidden (no search yet / mid-search). -->
+          <!-- Layout switcher — grid vs list. Mirrors the gallery's own
+               toggle. Pushed right and always present, so the provider chips
+               stay flush left and the row never reflows on search (the
+               results count now lives in the footer). -->
           <div class="r-v2-match__filters-end">
-            <!-- Results pill only appears once a search has actually
-                 returned (searched && !searching). Before that the chip
-                 would either say "Results found 0" (noise) or duplicate
-                 the main body's spinner (double loader). -->
-            <div v-if="searched && !searching" class="r-v2-match__results">
-              <span>{{ t("rom.results-found") }}</span>
-              <span class="r-v2-match__results-count">
-                {{ filteredMatchedRoms.length }}
-              </span>
-            </div>
-
-            <!-- Layout switcher — grid vs list. Mirrors the gallery's
-                 own toggle so the vocabulary is familiar. -->
             <RSliderBtnGroup
               :model-value="variant"
               :items="variantItems"
@@ -370,6 +358,7 @@ function closeDialog() {
             variant="flat"
             color="primary"
             prepend-icon="mdi-search-web"
+            class="r-v2-match__search-btn"
             :loading="searching"
             :disabled="searching"
             @click="searchRom"
@@ -412,6 +401,15 @@ function closeDialog() {
       <RBtn variant="text" :disabled="matching" @click="closeDialog">
         {{ t("common.cancel") }}
       </RBtn>
+      <div class="r-v2-match__footer-spacer" />
+      <!-- Results count lives here (not the filter row) so appearing after a
+           search never reflows the toolbar above. -->
+      <div v-if="searched && !searching" class="r-v2-match__results">
+        <span>{{ t("rom.results-found") }}</span>
+        <span class="r-v2-match__results-count">
+          {{ filteredMatchedRoms.length }}
+        </span>
+      </div>
     </template>
   </RDialog>
 </template>
@@ -476,9 +474,8 @@ function closeDialog() {
 }
 
 .r-v2-match__filters-end {
-  /* Pushes the results pill + variant switcher to the right of the
-     filter row; stays in place even when the pill is hidden so the
-     switcher doesn't slide left/right depending on search state. */
+  /* Pushes the variant switcher to the right of the filter row; always
+     present, so the switcher never slides as the search state changes. */
   margin-left: auto;
   display: inline-flex;
   align-items: center;
@@ -504,14 +501,32 @@ function closeDialog() {
   font-weight: var(--r-font-weight-semibold);
 }
 
+.r-v2-match__footer-spacer {
+  flex: 1 1 auto;
+}
+
 .r-v2-match__search-row {
   display: grid;
   grid-template-columns: 1fr 140px auto;
   gap: 8px;
   align-items: stretch;
 }
+/* Grid children default to `min-width: auto`, so each track can't shrink below
+   its content's min width. The search field's min width changes when its
+   `clear` button appears/disappears (e.g. once a search disables the field),
+   which would otherwise steal/return width from the fixed selector track and
+   make the name/id selector visibly jump. `min-width: 0` pins the tracks to
+   their declared sizes regardless of content. */
+.r-v2-match__search-row > * {
+  min-width: 0;
+}
 
+/* Phones: keep the text field (2/3) and the name/id selector (1/3) on one
+   row; the search button drops to its own full-width row below. */
 html[data-bp~="xs"] .r-v2-match__search-row {
-  grid-template-columns: 1fr;
+  grid-template-columns: 2fr 1fr;
+}
+html[data-bp~="xs"] .r-v2-match__search-btn {
+  grid-column: 1 / -1;
 }
 </style>
