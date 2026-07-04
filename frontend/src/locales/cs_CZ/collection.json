@@ -8,6 +8,7 @@
   "delete-collection": "Smazat kolekci",
   "delete-collection-hint": "Odstraní kolekci z RomM. Samotné soubory ROM se nesmažou.",
   "description": "Popis",
+  "download-collection": "Stáhnout kolekci",
   "edit-collection": "Upravit kolekci",
   "filters": "Filtry",
   "name": "Název",

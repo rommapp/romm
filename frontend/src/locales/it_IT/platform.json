@@ -12,6 +12,7 @@
   "danger-zone": "Zona pericolosa",
   "delete-platform": "Elimina piattaforma",
   "delete-platform-hint": "Rimuove la piattaforma e le voci di database delle sue ROM. I file su disco NON vengono eliminati.",
+  "download-platform": "Scarica piattaforma",
   "edit-platform": "Modifica piattaforma",
   "export": "Esporta",
   "family": "Famiglia",

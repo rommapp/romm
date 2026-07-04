@@ -55,6 +55,7 @@ const randomLoading = ref(false);
 // ribbon buttons hide automatically when the user's role changes.
 const canEditPlatform = useCan("platform.edit");
 const canScan = useCan("library.scan");
+const canDownload = useCan("rom.download");
 
 // ── Tabs ─────────────────────────────────────────────────────────
 // URL-persistent via `?tab=` (mirrors the GameDetails pattern). The
@@ -95,6 +96,7 @@ const headLabels = computed(() => ({
   upload: t("platform.upload-roms"),
   scan: t("platform.scan-platform"),
   random: t("platform.random-rom"),
+  download: t("platform.download-platform"),
 }));
 
 function onTabChange(next: string) {
@@ -353,6 +355,17 @@ async function onRandomGame() {
   }
 }
 
+// Download all
+function onDownload() {
+  const p = currentPlatform.value;
+  if (!p || !p.rom_count) return;
+  void romApi.bulkDownloadRoms({
+    platformId: p.id,
+    filename: `${p.display_name}.zip`,
+  });
+  snackbar.info(t("gallery.selection-download-many", { n: p.rom_count }));
+}
+
 async function onDelete() {
   const p = currentPlatform.value;
   if (!p) return;
@@ -418,12 +431,14 @@ async function onDelete() {
         :providers="providerChips"
         :can-edit="canEditPlatform"
         :can-scan="canScan"
+        :can-download="canDownload"
         :random-loading="randomLoading"
         :labels="headLabels"
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
         @random="onRandomGame"
+        @download="onDownload"
       />
     </template>
   </GalleryShell>
@@ -444,12 +459,14 @@ async function onDelete() {
         :providers="providerChips"
         :can-edit="canEditPlatform"
         :can-scan="canScan"
+        :can-download="canDownload"
         :random-loading="randomLoading"
         :labels="headLabels"
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
         @random="onRandomGame"
+        @download="onDownload"
       />
       <RDivider class="r-v2-plat-tabs__divider" />
       <div v-if="currentPlatform" class="r-v2-plat-tabs__panel">

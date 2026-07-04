@@ -1201,6 +1201,7 @@ class DBRomsHandler(DBBaseHandler):
             platform_ids=kwargs.get("platform_ids", None),
             collection_id=kwargs.get("collection_id", None),
             virtual_collection_id=kwargs.get("virtual_collection_id", None),
+            smart_collection_id=kwargs.get("smart_collection_id", None),
             search_term=kwargs.get("search_term", None),
             matched=kwargs.get("matched", None),
             favorite=kwargs.get("favorite", None),

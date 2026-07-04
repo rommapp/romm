@@ -12,6 +12,7 @@
   "danger-zone": "Danger zone",
   "delete-platform": "Delete platform",
   "delete-platform-hint": "Removes the platform and its ROM database entries. Files on disk are NOT deleted.",
+  "download-platform": "Download platform",
   "edit-platform": "Edit platform",
   "export": "Export",
   "family": "Family",

@@ -50,6 +50,7 @@ defineProps<{
    *  of the page. */
   canEdit: boolean;
   canScan: boolean;
+  canDownload: boolean;
   /** Spinner on the random-game button while the parent resolves which
    *  ROM to open. */
   randomLoading?: boolean;
@@ -59,6 +60,7 @@ defineProps<{
     upload: string;
     scan: string;
     random: string;
+    download: string;
   };
 }>();
 
@@ -67,6 +69,7 @@ defineEmits<{
   (e: "upload"): void;
   (e: "scan"): void;
   (e: "random"): void;
+  (e: "download"): void;
 }>();
 
 // A square icon sized per breakpoint (smaller on phones). Driving the size
@@ -156,6 +159,17 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         :aria-label="labels.random"
         :tooltip="labels.random"
         @click="$emit('random')"
+      />
+      <RBtn
+        v-if="canDownload"
+        variant="outlined"
+        surface
+        icon="mdi-download"
+        rounded="circle"
+        :disabled="platform.rom_count === 0"
+        :aria-label="labels.download"
+        :tooltip="labels.download"
+        @click="$emit('download')"
       />
       <RBtn
         v-if="canEdit"

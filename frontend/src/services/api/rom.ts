@@ -426,16 +426,10 @@ async function searchRom({
   });
 }
 
-async function downloadRom({
-  rom,
-  fileIDs = [],
-}: {
-  rom: SimpleRom;
-  fileIDs?: number[];
-}) {
+function triggerFileDownload(href: string) {
   return new Promise<void>((resolve) => {
     const a = document.createElement("a");
-    a.href = getDownloadPath({ rom, fileIDs });
+    a.href = href;
     a.style.display = "none";
 
     document.body.appendChild(a);
@@ -448,34 +442,52 @@ async function downloadRom({
   });
 }
 
+async function downloadRom({
+  rom,
+  fileIDs = [],
+}: {
+  rom: SimpleRom;
+  fileIDs?: number[];
+}) {
+  return triggerFileDownload(getDownloadPath({ rom, fileIDs }));
+}
+
+// A platform/collection selector is expanded server-side into the full ROM
+// list, keeping the URL short (an explicit `romIDs` list can overflow the
+// browser's URL length limit for large libraries). Pass exactly one selector;
+// `romIDs` stays the fallback for ad-hoc multi-selections.
 async function bulkDownloadRoms({
-  roms,
+  romIDs,
+  platformId,
+  collectionId,
+  virtualCollectionId,
+  smartCollectionId,
   filename,
 }: {
-  roms: SimpleRom[];
+  romIDs?: number[];
+  platformId?: number;
+  collectionId?: number;
+  virtualCollectionId?: string;
+  smartCollectionId?: number;
   filename?: string;
 }) {
-  return new Promise<void>((resolve) => {
-    if (roms.length === 0) return resolve();
+  const queryParams = new URLSearchParams();
+  if (platformId != null) {
+    queryParams.append("platform_id", String(platformId));
+  } else if (collectionId != null) {
+    queryParams.append("collection_id", String(collectionId));
+  } else if (virtualCollectionId != null) {
+    queryParams.append("virtual_collection_id", virtualCollectionId);
+  } else if (smartCollectionId != null) {
+    queryParams.append("smart_collection_id", String(smartCollectionId));
+  } else if (romIDs && romIDs.length > 0) {
+    queryParams.append("rom_ids", romIDs.join(","));
+  } else {
+    return;
+  }
+  if (filename) queryParams.append("filename", filename);
 
-    const romIds = roms.map((rom) => rom.id);
-
-    const queryParams = new URLSearchParams();
-    queryParams.append("rom_ids", romIds.join(","));
-    if (filename) queryParams.append("filename", filename);
-
-    const a = document.createElement("a");
-    a.href = `/api/roms/download?${queryParams.toString()}`;
-    a.style.display = "none";
-
-    document.body.appendChild(a);
-    a.click();
-
-    setTimeout(() => {
-      document.body.removeChild(a);
-      resolve();
-    }, DOWNLOAD_CLEANUP_DELAY);
-  });
+  return triggerFileDownload(`/api/roms/download?${queryParams.toString()}`);
 }
 
 export type UpdateRom = SimpleRom & {

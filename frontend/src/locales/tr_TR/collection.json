@@ -8,6 +8,7 @@
   "delete-collection": "Koleksiyonu sil",
   "delete-collection-hint": "Koleksiyonu RomM'den kaldırır. ROM dosyalarının kendisi silinmez.",
   "description": "Açıklama",
+  "download-collection": "Koleksiyonu indir",
   "edit-collection": "Koleksiyonu düzenle",
   "filters": "Filtreler",
   "name": "İsim",

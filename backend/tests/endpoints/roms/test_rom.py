@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from handler.database import db_rom_handler
+from handler.database import db_collection_handler, db_rom_handler
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
@@ -14,8 +14,10 @@ from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesHandler, MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
+from models.collection import Collection
 from models.platform import Platform
 from models.rom import Rom, RomFile, compute_name_sort_key
+from models.user import User
 
 MOCK_IGDB_ID = 11111
 MOCK_MOBY_ID = 22222
@@ -60,6 +62,64 @@ def test_download_multi_file_rom_content(
     assert "disc1.bin" in body
     assert "disc2.bin" in body
     assert f"{multi_file_rom.fs_name}.m3u" in body
+
+
+def test_download_roms_by_platform(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    rom_file: RomFile,
+):
+    """The `platform_id` selector expands server-side to every ROM in the
+    platform, so no ID list rides in the URL."""
+    response = client.get(
+        f"/api/roms/download?platform_id={platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.headers["X-Archive-Files"] == "zip"
+    assert rom_file.file_name in response.text
+
+
+def test_download_roms_by_collection(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom_file: RomFile,
+):
+    """The `collection_id` selector expands to the collection's ROMs."""
+    collection = db_collection_handler.add_collection(
+        Collection(
+            name="Download Test",
+            description="",
+            is_public=False,
+            is_favorite=False,
+            user_id=admin_user.id,
+        )
+    )
+    db_collection_handler.add_roms_to_collection(collection.id, [rom_file.rom_id])
+
+    response = client.get(
+        f"/api/roms/download?collection_id={collection.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.headers["X-Archive-Files"] == "zip"
+    assert rom_file.file_name in response.text
+
+
+def test_download_roms_without_selector_is_bad_request(
+    client: TestClient, access_token: str
+):
+    """Neither an ID list nor a platform/collection selector -> 400."""
+    response = client.get(
+        "/api/roms/download",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_get_all_roms(
