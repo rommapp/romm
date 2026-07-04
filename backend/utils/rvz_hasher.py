@@ -71,6 +71,8 @@ _MAX_EXCEPTIONS_PER_LIST = 3328
 _MAX_EXCEPTION_LIST_BYTES = 2 + _MAX_EXCEPTIONS_PER_LIST * 22
 # Allowance for RVZ packing descriptors on top of the unpacked payload size.
 _RVZ_PACK_STREAM_SLACK = 0x100000
+# Minimum decoded-group cache budget in bytes; see _group_cache_budget.
+_GROUP_CACHE_MIN_BUDGET = 8 * 1024 * 1024
 
 _PARSE_ERRORS = (
     OSError,
@@ -211,7 +213,7 @@ class _RvzReader:
             raise RvzHashError("truncated file header")
         magic = header_1[:4]
         if magic not in (_RVZ_MAGIC, _WIA_MAGIC):
-            raise RvzHashError(f"unrecognized container magic {magic[:4]!r}")
+            raise RvzHashError(f"unrecognized container magic {magic!r}")
         self.is_rvz = magic == _RVZ_MAGIC
 
         header_2_size = struct.unpack_from(">I", header_1, 0x0C)[0]
@@ -303,11 +305,12 @@ class _RvzReader:
         self._sectors_per_chunk = self.chunk_size // _WII_SECTOR_SIZE
         self._chunk_data_size = self._sectors_per_chunk * _WII_SECTOR_DATA_SIZE
 
-        # Sized so one Wii hash group's chunks stay cached across the data
-        # and exception passes of _encrypted_hash_group.
-        self._group_cache_capacity = max(
-            16, _WII_SECTORS_PER_HASH_GROUP // self._sectors_per_chunk + 8
-        )
+        # Byte-bounded so a crafted chunk_size can't pin gigabytes of decoded
+        # groups; still fits the chunks covering one Wii hash group (plus a
+        # raw chunk) so _encrypted_hash_group's data and exception passes
+        # stay cached.
+        self._group_cache_budget = max(_GROUP_CACHE_MIN_BUDGET, 2 * self.chunk_size)
+        self._group_cache_bytes = 0
         self._group_cache: dict[
             tuple[int, int, int, bool], tuple[bytes, list[tuple[int, int, bytes]]]
         ] = {}
@@ -390,13 +393,16 @@ class _RvzReader:
                 raise RvzHashError("truncated hash exception list")
             (count,) = struct.unpack_from(">H", stream, pos)
             pos += 2
-            if count > 3328:
+            if count > _MAX_EXCEPTIONS_PER_LIST:
                 raise RvzHashError("implausible hash exception count")
             for _ in range(count):
                 if pos + 22 > len(stream):
                     raise RvzHashError("truncated hash exception entry")
                 (offset,) = struct.unpack_from(">H", stream, pos)
-                sector = list_ix * 64 + offset // _WII_SECTOR_HASH_SIZE
+                sector = (
+                    list_ix * _WII_SECTORS_PER_HASH_GROUP
+                    + offset // _WII_SECTOR_HASH_SIZE
+                )
                 exceptions.append(
                     (
                         sector,
@@ -464,9 +470,11 @@ class _RvzReader:
                 data = data + b"\x00" * (expected - len(data))
             result = (data, exceptions)
 
-        if len(self._group_cache) >= self._group_cache_capacity:
+        if self._group_cache_bytes + len(result[0]) > self._group_cache_budget:
             self._group_cache.clear()
+            self._group_cache_bytes = 0
         self._group_cache[cache_key] = result
+        self._group_cache_bytes += len(result[0])
         return result
 
     # -- raw (non-partition) data -------------------------------------------
