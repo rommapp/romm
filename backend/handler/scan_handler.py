@@ -640,9 +640,17 @@ async def scan_rom(
         return MobyGamesRom(moby_id=None)
 
     async def fetch_ss_rom(playmatch_rom: PlaymatchRomMatch) -> SSRom:
+        # When the user has no ScreenScraper credentials, fall back to fetching
+        # ScreenScraper metadata through the Hasheous proxy (credential-free).
+        ss_via_hasheous = (
+            not meta_ss_handler.is_enabled()
+            and meta_hasheous_handler.is_enabled()
+            and rom.platform_slug in HASHEOUS_PLATFORM_LIST
+        )
         if (
             MetadataSource.SS in metadata_sources
             and platform.ss_id
+            and (meta_ss_handler.is_enabled() or ss_via_hasheous)
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
@@ -654,6 +662,13 @@ async def scan_rom(
                 )
             )
         ):
+            if ss_via_hasheous:
+                if scan_type == ScanType.UPDATE and rom.ss_id:
+                    return await meta_hasheous_handler.get_ss_rom_by_id(rom, rom.ss_id)
+                return await meta_hasheous_handler.get_ss_game(
+                    rom, platform.ss_id, get_match_files()
+                )
+
             # Use the ID to refetch metadata
             if scan_type == ScanType.UPDATE and rom.ss_id:
                 return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)

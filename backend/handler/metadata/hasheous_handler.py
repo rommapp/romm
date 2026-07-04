@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 
 from config import DEV_MODE, HASHEOUS_API_ENABLED
 from logger.logger import log
-from models.rom import RomFile
+from models.rom import Rom, RomFile
 from utils import get_version
 from utils.context import ctx_httpx_client
 
@@ -20,6 +20,15 @@ from .igdb_handler import (
     IGDBMetadataPlatform,
 )
 from .ra_handler import RAMetadata
+from .ss_handler import (
+    ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG as SS_ACCEPTABLE_EXTS,
+)
+from .ss_handler import (
+    SSRom,
+    _get_rom_type,
+    _is_notgame,
+    build_ss_game,
+)
 
 
 class HasheousMetadata(TypedDict):
@@ -123,6 +132,9 @@ class HasheousHandler(MetadataHandler):
         self.proxy_igdb_game_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Game"
         self.proxy_igdb_cover_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Cover"
         self.proxy_ra_game_endpoint = f"{self.BASE_URL}/MetadataProxy/RA/Game"
+        self.proxy_ss_jeuinfos_endpoint = (
+            f"{self.BASE_URL}/MetadataProxy/ScreenScraper/jeuInfos.php"
+        )
         self.app_api_key = (
             "UUvh9ef_CddMM4xXO1iqxl9FqEt764v33LU-UiGFc0P34odXjMP9M6MTeE4JZRxZ"
             if DEV_MODE
@@ -406,6 +418,99 @@ class HasheousHandler(MetadataHandler):
             return hasheous_rom
 
         return hasheous_rom
+
+    def _jeu_to_ss_rom(self, rom: Rom, response: dict) -> SSRom:
+        jeu = response.get("response", {}).get("jeu", {})
+        if not jeu:
+            return SSRom(ss_id=None)
+        if _is_notgame(jeu):
+            log.warning(
+                "ScreenScraper (via Hasheous): received notgame entry, ignoring"
+            )
+            return SSRom(ss_id=None)
+        return build_ss_game(rom, jeu)
+
+    async def get_ss_game(
+        self, rom: Rom, platform_ss_id: int, files: list[RomFile]
+    ) -> SSRom:
+        """Fetch ScreenScraper metadata for a ROM through the Hasheous proxy.
+
+        Used as a credential-free fallback when the user has no ScreenScraper
+        account. Mirrors the native ScreenScraper hash lookup and reuses
+        ``build_ss_game`` to produce the same ``ss_id``/``ss_metadata`` shape.
+        """
+        if not self.is_enabled() or not platform_ss_id:
+            return SSRom(ss_id=None)
+
+        filtered_files = [
+            file
+            for file in files
+            if file.file_size_bytes > 0
+            and file.is_top_level
+            and (
+                UPS(rom.platform_slug) not in SS_ACCEPTABLE_EXTS
+                or file.file_extension in SS_ACCEPTABLE_EXTS[UPS(rom.platform_slug)]
+            )
+        ]
+
+        # Largest file is most likely the main ROM, giving the best hash match.
+        first_file = max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
+        if first_file is None:
+            return SSRom(ss_id=None)
+
+        rom_name = (
+            first_file.archive_members[0]["name"].split("/")[-1]
+            if first_file.archive_members is not None
+            and len(first_file.archive_members) == 1
+            else first_file.file_name
+        )
+
+        if not (
+            first_file.md5_hash
+            or first_file.sha1_hash
+            or first_file.crc_hash
+            or rom_name
+        ):
+            log.info(
+                "No hashes or filename provided for Hasheous ScreenScraper lookup."
+            )
+            return SSRom(ss_id=None)
+
+        params: dict[str, str | int] = {"systemeid": platform_ss_id}
+        if first_file.md5_hash:
+            params["md5"] = first_file.md5_hash
+        if first_file.sha1_hash:
+            params["sha1"] = first_file.sha1_hash
+        if first_file.crc_hash:
+            params["crc"] = first_file.crc_hash
+        if first_file.file_size_bytes:
+            params["romtaille"] = first_file.file_size_bytes
+        if rom_name:
+            params["romnom"] = rom_name
+        params["romtype"] = _get_rom_type(first_file)
+
+        response = await self._request(
+            self.proxy_ss_jeuinfos_endpoint, params=params, method="GET"
+        )
+        if not response:
+            return SSRom(ss_id=None)
+
+        return self._jeu_to_ss_rom(rom, response)
+
+    async def get_ss_rom_by_id(self, rom: Rom, ss_id: int) -> SSRom:
+        """Refetch ScreenScraper metadata by game id through the Hasheous proxy."""
+        if not self.is_enabled() or not ss_id:
+            return SSRom(ss_id=None)
+
+        response = await self._request(
+            self.proxy_ss_jeuinfos_endpoint,
+            params={"gameid": ss_id},
+            method="GET",
+        )
+        if not response:
+            return SSRom(ss_id=None)
+
+        return self._jeu_to_ss_rom(rom, response)
 
 
 class SlugToHasheousId(TypedDict):
