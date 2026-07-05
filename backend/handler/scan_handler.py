@@ -4,9 +4,7 @@ import functools
 from typing import Any
 
 import socketio  # type: ignore
-from fastapi import HTTPException, status
 
-from adapters.services import screenscraper as ss_service
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
@@ -656,44 +654,30 @@ async def scan_rom(
                 )
             )
         ):
-            # Daily quota was exhausted earlier in this scan, skip the API call.
-            if ss_service.is_daily_quota_exhausted():
-                return SSRom(ss_id=None)
+            # Use the ID to refetch metadata
+            if scan_type == ScanType.UPDATE and rom.ss_id:
+                return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
 
-            try:
-                # Use the ID to refetch metadata
-                if scan_type == ScanType.UPDATE and rom.ss_id:
-                    return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
-
-                # Use Playmatch's hash-based id when available
-                if playmatch_rom["ss_id"] is not None:
-                    log.debug(
-                        f"{hl(rom_attrs['fs_name'])} identified by Playmatch as ScreenScraper "
-                        f"{hl(str(playmatch_rom['ss_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
-                        extra=LOGGER_MODULE_NAME,
-                    )
-                    return await meta_ss_handler.get_rom_by_id(
-                        rom, playmatch_rom["ss_id"]
-                    )
-
-                # Use the file hashes for lookup
-                game_by_hash, is_not_game = await meta_ss_handler.lookup_rom(
-                    rom, platform.ss_id, get_match_files()
+            # Use Playmatch's hash-based id when available
+            if playmatch_rom["ss_id"] is not None:
+                log.debug(
+                    f"{hl(rom_attrs['fs_name'])} identified by Playmatch as ScreenScraper "
+                    f"{hl(str(playmatch_rom['ss_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+                    extra=LOGGER_MODULE_NAME,
                 )
-                if game_by_hash.get("ss_id") or is_not_game:
-                    return game_by_hash
+                return await meta_ss_handler.get_rom_by_id(rom, playmatch_rom["ss_id"])
 
-                # Fallback to the filename
-                return await meta_ss_handler.get_rom(
-                    rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
-                )
-            except HTTPException as exc:
-                # ScreenScraper raises 429 only when a daily quota is exhausted (the
-                # service trips its breaker so the rest of the scan short-circuits);
-                # fall back to an empty match so other providers still match this ROM.
-                if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
-                    raise
-                return SSRom(ss_id=None)
+            # Use the file hashes for lookup
+            game_by_hash, is_not_game = await meta_ss_handler.lookup_rom(
+                rom, platform.ss_id, get_match_files()
+            )
+            if game_by_hash.get("ss_id") or is_not_game:
+                return game_by_hash
+
+            # Fallback to the filename
+            return await meta_ss_handler.get_rom(
+                rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
+            )
 
         return SSRom(ss_id=None)
 
