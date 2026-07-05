@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "{n}件のマニュアルファイルをアップロードしました。{failed}件失敗しました。 | {n}件のマニュアルファイルをアップロードしました。{failed}件失敗しました。",
   "manual-match": "手動マッチ",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "マニュアルの削除に失敗しました: {error}",
   "manual-removed": "マニュアルが正常に削除されました",

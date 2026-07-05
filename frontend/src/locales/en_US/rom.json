@@ -57,6 +57,7 @@
   "manual-files-upload-success": "{count} manual file uploaded successfully ({failed} skipped/failed). | {count} manual files uploaded successfully ({failed} skipped/failed).",
   "manual-match": "Manual match",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Failed to remove manual: {error}",
   "manual-removed": "Manual removed successfully",

@@ -402,7 +402,7 @@ class FSResourcesHandler(FSHandler):
             True if manual exists in filesystem else False
         """
         full_path = self.validate_path(f"{rom.fs_resources_path}/manual")
-        for _ in full_path.glob(f"{rom.id}.pdf"):
+        for _ in full_path.glob(f"{rom.id}.*"):
             return True
         return False
 
@@ -474,7 +474,7 @@ class FSResourcesHandler(FSHandler):
             rom: Rom object
         """
         full_path = self.validate_path(f"{rom.fs_resources_path}/manual")
-        for matched_file in full_path.glob(f"{rom.id}.pdf"):
+        for matched_file in full_path.glob(f"{rom.id}.*"):
             return str(matched_file.relative_to(self.base_path))
 
         return None

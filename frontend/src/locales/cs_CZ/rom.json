@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "Nahráno {n} souborů manuálu, {failed} selhalo. | Nahrán {n} soubor manuálu, {failed} selhalo. | Nahrány {n} soubory manuálu, {failed} selhalo. | Nahráno {n} souborů manuálu, {failed} selhalo.",
   "manual-match": "Ruční přiřazení",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Nepodařilo se odstranit manuál: {error}",
   "manual-removed": "Manuál úspěšně odstraněn",

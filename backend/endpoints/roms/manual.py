@@ -57,7 +57,16 @@ async def add_rom_manuals(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    # The stored filename is always `{rom.id}.pdf`; we only use `filename` as
+    if not _is_allowed_manual_file(filename):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Unsupported manual file type. Allowed: "
+                f"{', '.join(sorted(ALLOWED_MANUAL_EXTENSIONS))}"
+            ),
+        )
+
+    # The stored filename is always `{rom.id}{ext}`; we only use `filename` as
     # the form-field key, but normalise it to a safe basename first.
     try:
         safe_field_name = fs_resource_handler._sanitize_filename(filename)
@@ -67,11 +76,23 @@ async def add_rom_manuals(
             detail=f"Invalid upload filename: {exc}",
         ) from exc
 
+    ext = os.path.splitext(filename)[1].lower()
     manuals_path = f"{rom.fs_resources_path}/manual"
-    file_location = fs_resource_handler.validate_path(f"{manuals_path}/{rom.id}.pdf")
+    file_location = fs_resource_handler.validate_path(f"{manuals_path}/{rom.id}{ext}")
     log.info(f"Uploading manual to {hl(str(file_location))}")
 
     await fs_resource_handler.make_directory(manuals_path)
+
+    # Drop any prior manual stored under a different extension so the single
+    # primary manual stays unambiguous (the glob matches `{rom.id}.*`).
+    for allowed_ext in ALLOWED_MANUAL_EXTENSIONS:
+        if allowed_ext == ext:
+            continue
+        stale = fs_resource_handler.validate_path(
+            f"{manuals_path}/{rom.id}{allowed_ext}"
+        )
+        if stale.exists():
+            stale.unlink()
 
     parser = StreamingFormDataParser(headers=request.headers)
     parser.register("x-upload-platform", NullTarget())
@@ -99,7 +120,7 @@ async def add_rom_manuals(
     db_rom_handler.update_rom(
         id,
         {
-            "path_manual": f"{manuals_path}/{rom.id}.pdf",
+            "path_manual": f"{manuals_path}/{rom.id}{ext}",
         },
     )
 

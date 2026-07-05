@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "Caricato {n} file manuale, {failed} falliti. | Caricati {n} file manuali, {failed} falliti.",
   "manual-match": "Associazione manuale",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Errore durante la rimozione del manuale: {error}",
   "manual-removed": "Manuale rimosso con successo",
