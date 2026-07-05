@@ -37,6 +37,7 @@ export function useClipboard(): UseClipboard {
   const isSupported =
     typeof navigator !== "undefined" &&
     !!navigator.clipboard &&
+    typeof window !== "undefined" &&
     window.isSecureContext;
 
   async function copy(text: string, opts: CopyOptions = {}): Promise<boolean> {
