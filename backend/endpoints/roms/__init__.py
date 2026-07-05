@@ -65,6 +65,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_ss_handler,
 )
+from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
@@ -1534,9 +1535,14 @@ async def update_rom(
         and int(cleaned_data["launchbox_id"]) != rom.launchbox_id
     ):
         launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
-            cleaned_data["launchbox_id"]
+            cleaned_data["launchbox_id"],
+            fs_name=rom.fs_name,
+            platform_slug=rom.platform_slug,
         )
         if launchbox_rom.get("launchbox_id"):
+            metadata = launchbox_rom.get("launchbox_metadata")
+            if metadata:
+                populate_rom_specific_paths(metadata, rom)
             cleaned_data.update(launchbox_rom)
     elif rom.launchbox_id and not cleaned_data["launchbox_id"]:
         cleaned_data.update({"launchbox_id": None, "launchbox_metadata": {}})
@@ -1722,6 +1728,36 @@ async def update_rom(
             if media_path and media_url:
                 await fs_resource_handler.store_media_file(
                     add_ss_auth_to_url(media_url),
+                    media_path,
+                )
+
+    # Handle local media files from LaunchBox when the ID has changed
+    if (
+        cleaned_data["launchbox_id"]
+        and int(cleaned_data["launchbox_id"]) != rom.launchbox_id
+    ):
+        preferred_media_types = get_preferred_media_types()
+
+        for media_type in preferred_media_types:
+            # Remove old media files if the launchbox_id is changing
+            if rom.launchbox_metadata and rom.launchbox_metadata.get(
+                f"{media_type.value}_path"
+            ):
+                await fs_resource_handler.remove_media_resources_path(
+                    rom.platform_id,
+                    rom.id,
+                    media_type,
+                )
+
+            media_path = cleaned_data.get("launchbox_metadata", {}).get(
+                f"{media_type.value}_path"
+            )
+            media_url = cleaned_data.get("launchbox_metadata", {}).get(
+                f"{media_type.value}_url"
+            )
+            if media_path and media_url:
+                await fs_resource_handler.store_media_file(
+                    media_url,
                     media_path,
                 )
 
