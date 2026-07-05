@@ -259,15 +259,16 @@ onMounted(() => {
                   <RIcon icon="mdi-alert-circle-outline" size="11" />
                   {{ t(source.caveatKey) }}
                 </span>
+                <RTag
+                  class="r-setup-metadata__status"
+                  size="small"
+                  :tone="statusOf(source).tone"
+                  :prepend-icon="statusOf(source).icon"
+                >
+                  {{ statusOf(source).label }}
+                </RTag>
               </div>
             </div>
-            <RTag
-              size="small"
-              :tone="statusOf(source).tone"
-              :prepend-icon="statusOf(source).icon"
-            >
-              {{ statusOf(source).label }}
-            </RTag>
           </li>
         </ul>
       </div>
@@ -314,15 +315,16 @@ onMounted(() => {
                   <RIcon icon="mdi-alert-circle-outline" size="11" />
                   {{ t(source.caveatKey) }}
                 </span>
+                <RTag
+                  class="r-setup-metadata__status"
+                  size="small"
+                  :tone="statusOf(source).tone"
+                  :prepend-icon="statusOf(source).icon"
+                >
+                  {{ statusOf(source).label }}
+                </RTag>
               </div>
             </div>
-            <RTag
-              size="small"
-              :tone="statusOf(source).tone"
-              :prepend-icon="statusOf(source).icon"
-            >
-              {{ statusOf(source).label }}
-            </RTag>
           </li>
         </ul>
       </div>
@@ -369,15 +371,16 @@ onMounted(() => {
                   <RIcon icon="mdi-alert-circle-outline" size="11" />
                   {{ t(source.caveatKey) }}
                 </span>
+                <RTag
+                  class="r-setup-metadata__status"
+                  size="small"
+                  :tone="statusOf(source).tone"
+                  :prepend-icon="statusOf(source).icon"
+                >
+                  {{ statusOf(source).label }}
+                </RTag>
               </div>
             </div>
-            <RTag
-              size="small"
-              :tone="statusOf(source).tone"
-              :prepend-icon="statusOf(source).icon"
-            >
-              {{ statusOf(source).label }}
-            </RTag>
           </li>
         </ul>
       </div>
@@ -406,6 +409,7 @@ onMounted(() => {
 .r-setup-metadata__scroll {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -449,14 +453,14 @@ onMounted(() => {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
   gap: var(--r-space-2);
 }
 
 .r-setup-metadata__item {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
-  align-items: center;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: start;
   gap: var(--r-space-3);
   padding: var(--r-space-3) var(--r-space-4);
   border-radius: var(--r-radius-md);

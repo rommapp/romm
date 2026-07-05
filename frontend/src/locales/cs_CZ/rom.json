@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "Nahráno {n} souborů manuálu, {failed} selhalo. | Nahrán {n} soubor manuálu, {failed} selhalo. | Nahrány {n} soubory manuálu, {failed} selhalo. | Nahráno {n} souborů manuálu, {failed} selhalo.",
   "manual-match": "Ruční přiřazení",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Nepodařilo se odstranit manuál: {error}",
   "manual-removed": "Manuál úspěšně odstraněn",
@@ -353,12 +354,10 @@
   "soundtrack-close-player": "Zavřít přehrávač",
   "soundtrack-delete-track": "Smazat skladbu",
   "soundtrack-empty": "Zatím žádný soundtrack",
-  "soundtrack-folder-hint": "ROMy ve formě jediného souboru nemohou mít doprovodné skladby. Přeorganizujte tuto ROM do složky a možnost nahrávání se objeví zde.",
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "Nepodařilo se načíst metadata soundtracku",
   "soundtrack-mini-player": "Přehrávač soundtracku",
   "soundtrack-next": "Další skladba",
-  "soundtrack-no-folder": "Soundtrack vyžaduje ROM ve formě složky",
   "soundtrack-open-rom": "Open ROM details",
   "soundtrack-open-rom-tooltip": "Otevřít ROM",
   "soundtrack-pause": "Pozastavit",
@@ -429,5 +428,7 @@
   "versions-count": "{n} verzí",
   "volume-mute": "Ztlumit",
   "volume-unmute": "Zrušit ztlumení",
-  "youtube-video-id": "ID YouTube videa"
+  "youtube-video-id": "ID YouTube videa",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
 }

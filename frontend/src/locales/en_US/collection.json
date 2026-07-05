@@ -8,6 +8,7 @@
   "delete-collection": "Delete collection",
   "delete-collection-hint": "Removes the collection from RomM. The ROM files themselves are not deleted.",
   "description": "Description",
+  "download-collection": "Download collection",
   "edit-collection": "Edit collection",
   "filters": "Filters",
   "name": "Name",

@@ -99,6 +99,8 @@
   "changelog": "Cambios",
   "clear-finished": "Limpiar terminados",
   "clipboard-unavailable": "El portapapeles no está disponible. Selecciona el enlace para copiarlo manualmente.",
+  "clipboard-copied": "{label} copiado al portapapeles",
+  "clipboard-copy-failed": "No se pudo copiar al portapapeles. Requiere una conexión segura (HTTPS).",
   "close": "Cerrar",
   "cloud": "Nube",
   "collapse": "Contraer",

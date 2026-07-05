@@ -604,8 +604,22 @@ watch(
 html[data-bp~="xs"] .match-list {
   grid-template-columns: 1fr;
   gap: 12px;
+  /* Flow with the content and let the full-height dialog body scroll, rather
+     than squeezing both columns into a fixed height where the detail
+     (artwork) panel collapses to a tiny, barely-scrollable window. */
+  flex: 0 0 auto;
+  min-height: 0;
 }
 html[data-bp~="xs"] .match-list__list {
   max-height: 240px;
+}
+html[data-bp~="xs"] .match-list__detail {
+  min-height: 0;
+}
+/* The desktop inner scroll would collapse to a sliver on a phone — let the
+   covers flow at full height and scroll the dialog body instead. */
+html[data-bp~="xs"] .match-list__detail-scroll {
+  flex: none;
+  overflow: visible;
 }
 </style>

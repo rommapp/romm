@@ -444,6 +444,62 @@ class TestFSResourcesHandler:
         result = handler._get_manual_path(rom)
         assert result is None
 
+    @pytest.mark.parametrize("ext", [".pdf", ".md"])
+    def test_manual_exists_finds_extension(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path, ext: str
+    ):
+        """manual_exists locates both PDF and Markdown manuals."""
+        handler.base_path = tmp_path
+        manual_dir = tmp_path / rom.fs_resources_path / "manual"
+        manual_dir.mkdir(parents=True)
+        (manual_dir / f"{rom.id}{ext}").write_bytes(b"manual")
+
+        assert handler.manual_exists(rom)
+
+    @pytest.mark.parametrize("ext", [".pdf", ".md"])
+    def test_get_manual_path_finds_extension(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path, ext: str
+    ):
+        """_get_manual_path returns the relative path for PDF and Markdown."""
+        handler.base_path = tmp_path
+        manual_dir = tmp_path / rom.fs_resources_path / "manual"
+        manual_dir.mkdir(parents=True)
+        (manual_dir / f"{rom.id}{ext}").write_bytes(b"manual")
+
+        result = handler._get_manual_path(rom)
+        assert result == f"{rom.fs_resources_path}/manual/{rom.id}{ext}"
+
+    @pytest.mark.parametrize("ext", [".part", ".bak", ".tmp", ".txt"])
+    def test_manual_exists_ignores_disallowed_extensions(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path, ext: str
+    ):
+        """Files that aren't PDF or Markdown must not be treated as manuals."""
+        handler.base_path = tmp_path
+        manual_dir = tmp_path / rom.fs_resources_path / "manual"
+        manual_dir.mkdir(parents=True)
+        (manual_dir / f"{rom.id}{ext}").write_bytes(b"not a manual")
+
+        assert not handler.manual_exists(rom)
+        assert handler._get_manual_path(rom) is None
+
+    def test_get_manual_path_prefers_newest_when_multiple_exist(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        """When several allowed manuals coexist, the newest one wins."""
+        handler.base_path = tmp_path
+        manual_dir = tmp_path / rom.fs_resources_path / "manual"
+        manual_dir.mkdir(parents=True)
+
+        older = manual_dir / f"{rom.id}.md"
+        newer = manual_dir / f"{rom.id}.pdf"
+        older.write_bytes(b"old manual")
+        newer.write_bytes(b"new manual")
+        os.utime(older, (1000, 1000))
+        os.utime(newer, (2000, 2000))
+
+        result = handler._get_manual_path(rom)
+        assert result == f"{rom.fs_resources_path}/manual/{rom.id}.pdf"
+
     @pytest.mark.asyncio
     async def test_get_manual_no_url(self, handler: FSResourcesHandler, rom: Rom):
         """Test get_manual with no URL"""

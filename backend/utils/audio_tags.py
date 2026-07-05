@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import mimetypes
 import os
-from typing import TypedDict
+import re
+from typing import Any, TypedDict
 
 import mutagen
 from mutagen.flac import FLAC, Picture
@@ -22,7 +23,7 @@ ALLOWED_AUDIO_EXTENSIONS = frozenset(
 MAX_AUDIO_PARSE_BYTES = 512 * 1024 * 1024  # 512 MiB
 
 
-class AudioMeta(TypedDict, total=False):
+class AudioTags(TypedDict, total=False):
     title: str | None
     artist: str | None
     album: str | None
@@ -35,6 +36,55 @@ class AudioMeta(TypedDict, total=False):
     cover_path: str | None
     file_mtime: float
     file_size: int
+
+
+_YEAR_RE = re.compile(r"\d{4}")
+_LEADING_INT_RE = re.compile(r"\s*(\d+)")
+_SMALLINT_MAX = 32767
+
+
+def _parse_year(value: str | None) -> int | None:
+    if not value:
+        return None
+    match = _YEAR_RE.search(value)
+    return int(match.group()) if match else None
+
+
+def _parse_leading_int(value: str | None) -> int | None:
+    """First integer before any separator: '3/12' -> 3, 'A1' -> None."""
+    if not value:
+        return None
+    match = _LEADING_INT_RE.match(value)
+    if not match:
+        return None
+    parsed = int(match.group(1))
+    return parsed if 0 <= parsed <= _SMALLINT_MAX else None
+
+
+def _truncate(value: str | None, length: int) -> str | None:
+    return value[:length] if value is not None else None
+
+
+def track_meta_columns(tags: AudioTags) -> dict[str, Any]:
+    """Map raw AudioTags onto TrackMeta column values (year/track/disc -> int).
+
+    Free-text year/track/disc tags are parsed to ints here so the upload path,
+    the scanner, and the migration backfill stay identical. Lengths mirror the
+    TrackMeta columns. Only known keys are read, so transient keys such as
+    file_mtime/file_size are dropped.
+    """
+    return {
+        "title": _truncate(tags.get("title"), 512),
+        "artist": _truncate(tags.get("artist"), 512),
+        "album": _truncate(tags.get("album"), 512),
+        "genre": _truncate(tags.get("genre"), 255),
+        "year": _parse_year(tags.get("year")),
+        "track": _parse_leading_int(tags.get("track")),
+        "disc": _parse_leading_int(tags.get("disc")),
+        "duration_seconds": tags.get("duration_seconds"),
+        "has_embedded_cover": bool(tags.get("has_embedded_cover", False)),
+        "cover_path": _truncate(tags.get("cover_path"), 1024),
+    }
 
 
 def is_allowed_audio_file(file_name: str) -> bool:
@@ -170,7 +220,7 @@ def _open_mutagen(full_path: str) -> mutagen.FileType | None:
         return None
 
 
-def extract_audio_meta(full_path: str) -> AudioMeta | None:
+def extract_audio_meta(full_path: str) -> AudioTags | None:
     """Read tags + duration + embedded-cover presence from an audio file.
 
     Returns None if the file cannot be parsed. Never raises — on any failure
@@ -189,7 +239,7 @@ def extract_audio_meta(full_path: str) -> AudioMeta | None:
     if audio is None:
         return None
 
-    meta: AudioMeta = {
+    meta: AudioTags = {
         "file_mtime": stat.st_mtime,
         "file_size": stat.st_size,
     }
@@ -272,7 +322,7 @@ def persist_embedded_cover(
 ) -> str | None:
     """Extract the embedded cover from `audio_full_path` and write it under
     RESOURCES_BASE_PATH. Returns the relative path (suitable for storing in
-    audio_meta.cover_path), or None if no cover or write failed."""
+    track_meta.cover_path), or None if no cover or write failed."""
     from config import RESOURCES_BASE_PATH
 
     cover = extract_embedded_cover(audio_full_path)
@@ -294,30 +344,6 @@ def persist_embedded_cover(
         return None
 
     return rel_path
-
-
-def persist_cover_and_build_meta(
-    audio_full_path: str,
-    platform_id: int,
-    rom_id: int,
-    file_id: int,
-    audio_meta: AudioMeta | dict,
-) -> dict | None:
-    """Persist the embedded cover for a saved soundtrack file and return a copy
-    of `audio_meta` with `cover_path` populated. Returns None when no cover was
-    written so callers can skip the DB update."""
-    cover_path = persist_embedded_cover(
-        audio_full_path=audio_full_path,
-        platform_id=platform_id,
-        rom_id=rom_id,
-        file_id=file_id,
-    )
-    if not cover_path:
-        return None
-
-    persisted_meta = dict(audio_meta)
-    persisted_meta["cover_path"] = cover_path
-    return persisted_meta
 
 
 def remove_persisted_cover(cover_path: str | None) -> None:

@@ -453,6 +453,13 @@ function onBackdropClick(event: MouseEvent) {
   -webkit-backdrop-filter: blur(6px);
   display: grid;
   grid-template-rows: 1fr auto;
+  /* `minmax(0, 1fr)` — WITHOUT an explicit column the single implicit track
+     sizes to its content (the natural-width image, or the full thumbnail
+     strip) and blows past the viewport, so the image overflowed to the right
+     and the thumb strip + counter couldn't be constrained or scrolled. The
+     `0` minimum lets the track shrink below content so children clamp to the
+     viewport and scroll internally. */
+  grid-template-columns: minmax(0, 1fr);
   animation: r-carousel-backdrop-in var(--r-motion-med) var(--r-motion-ease-out);
 }
 
@@ -604,8 +611,8 @@ function onBackdropClick(event: MouseEvent) {
 
 /* Thumbnails --------------------------------------------------------------- */
 .r-carousel__thumbs-wrap {
-  display: flex;
-  justify-content: center;
+  /* Block, not flex-centred: the inner strip spans full width and does its
+     own `safe center` so it can scroll when it overflows. */
   padding: 12px 24px 18px;
 }
 .r-carousel--fullscreen .r-carousel__thumbs-wrap {
@@ -616,9 +623,16 @@ function onBackdropClick(event: MouseEvent) {
 
 .r-carousel__thumbs {
   display: flex;
+  /* `safe center` centres the strip when it fits but falls back to
+     flex-start when it overflows — plain `center` on an overflowing flex
+     container makes the leading items unreachable (can't scroll to them). */
+  justify-content: safe center;
   gap: 8px;
   max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
   scrollbar-width: thin;
   padding: 4px 4px 8px;
   scroll-padding-inline: 24px;
@@ -734,23 +748,32 @@ function onBackdropClick(event: MouseEvent) {
 }
 
 /* Smaller viewports -------------------------------------------------------- */
-@media (max-width: 768px) {
-  .r-carousel--fullscreen .r-carousel__stage {
-    padding: 56px 16px;
-  }
-  .r-carousel--fullscreen .r-carousel__nav {
-    width: 44px;
-    height: 44px;
-  }
-  .r-carousel--fullscreen .r-carousel__nav--prev {
-    left: 8px;
-  }
-  .r-carousel--fullscreen .r-carousel__nav--next {
-    right: 8px;
-  }
-  .r-carousel__thumb {
-    width: 72px;
-    height: 42px;
-  }
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__stage {
+  padding: 48px 12px 8px;
+}
+/* Fit the active item to the stage row (the grid gives the thumb strip +
+   counter their own row below). The desktop `86vh` cap is taller than the
+   remaining stage on a phone, so the image overflowed and read off-centre. */
+html[data-bp~="sm-and-down"] .r-carousel__item--fullscreen {
+  max-width: 100%;
+  max-height: 100%;
+}
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen :deep(img),
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen :deep(video) {
+  max-height: 100%;
+}
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav {
+  width: 44px;
+  height: 44px;
+}
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav--prev {
+  left: 8px;
+}
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav--next {
+  right: 8px;
+}
+html[data-bp~="sm-and-down"] .r-carousel__thumb {
+  width: 72px;
+  height: 42px;
 }
 </style>

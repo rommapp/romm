@@ -9,6 +9,7 @@ import { useI18n } from "vue-i18n";
 import userApi from "@/services/api/user";
 import type { Events } from "@/types/emitter";
 import { getRoleIcon } from "@/utils";
+import { useClipboard } from "@/v2/composables/useClipboard";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 
@@ -17,6 +18,7 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const clipboard = useClipboard();
 
 const show = ref(false);
 const generating = ref(false);
@@ -72,12 +74,9 @@ async function createInviteLink() {
 }
 
 async function copyLink() {
-  try {
-    await navigator.clipboard.writeText(fullInviteLink.value);
-    snackbar.success(t("settings.link-copied"), { icon: "mdi-check-bold" });
-  } catch {
-    /* clipboard unavailable */
-  }
+  await clipboard.copy(fullInviteLink.value, {
+    successMessage: t("settings.link-copied"),
+  });
 }
 
 function close() {

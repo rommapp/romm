@@ -466,14 +466,12 @@ function collectionCovers(c: {
   padding: var(--r-space-6);
 }
 
-@media (max-width: 720px) {
-  .r-v2-home-empty__choices {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--r-space-4);
-  }
-  .r-v2-home-empty__divider {
-    display: none;
-  }
+html[data-bp~="sm-and-down"] .r-v2-home-empty__choices {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--r-space-4);
+}
+html[data-bp~="sm-and-down"] .r-v2-home-empty__divider {
+  display: none;
 }
 
 .r-v2-home-empty__divider {

@@ -624,7 +624,7 @@ const currentUploadState = computed<SubtabUploadState>(() => {
   <input
     ref="manualUploadInput"
     type="file"
-    accept="application/pdf"
+    accept="application/pdf,.md"
     multiple
     class="r-v2-files__file-input"
     :aria-label="t('rom.upload-manual-files')"
@@ -990,6 +990,35 @@ const currentUploadState = computed<SubtabUploadState>(() => {
 .r-v2-files__list::-webkit-scrollbar-thumb {
   background: var(--r-color-border-strong);
   border-radius: 2px;
+}
+
+/* Mobile: the details view scrolls as one document (no fixed inner panel),
+   so FilesTab can't pin itself to a scroll viewport (`absolute; inset: 0`
+   would collapse to zero height). Unwind it: stack the folder sidebar above
+   the file list and drop every internal scroll so it flows with the page. */
+html[data-bp~="sm-and-down"] .r-v2-files {
+  position: static;
+  inset: auto;
+  overflow: visible;
+  flex-direction: column;
+  gap: 14px;
+}
+html[data-bp~="sm-and-down"] .r-v2-files__sidebar {
+  width: auto;
+}
+html[data-bp~="sm-and-down"] .r-v2-files__subtabs {
+  flex: none;
+  min-height: 0;
+  overflow-y: visible;
+}
+html[data-bp~="sm-and-down"] .r-v2-files__content {
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+html[data-bp~="sm-and-down"] .r-v2-files__list {
+  min-height: 0;
+  overflow-y: visible;
 }
 
 /* (File-row styles moved to the FileRow component.) */

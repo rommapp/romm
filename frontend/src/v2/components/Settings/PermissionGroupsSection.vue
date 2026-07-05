@@ -258,6 +258,14 @@ onMounted(fetchGroups);
 .r-v2-groups :deep(.r-table__cell:first-child) {
   padding-inline-start: 6px;
 }
+/* In the mobile card-stack that 6px indents the Name line past the other
+   captions (Description / Members). Drop it so every caption shares the
+   left edge; the row's own padding already provides the inset. */
+html[data-bp~="xs"]
+  .r-v2-groups
+  :deep(.r-table--mobile-stack .r-table__cell:first-child) {
+  padding-inline-start: 0;
+}
 .r-v2-groups__name {
   display: flex;
   align-items: center;
@@ -276,6 +284,25 @@ onMounted(fetchGroups);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* In the mobile card-stack a one-line description clips. Keep it in the
+   value column (caption left, description right) but let it wrap over as
+   many lines as it needs, at a slightly smaller size for legibility.
+   Top-align the cell so the caption lines up with the description's first
+   line and the text grows downward instead of centring against it. */
+html[data-bp~="xs"]
+  .r-v2-groups
+  :deep(.r-table--mobile-stack .r-table__cell:has(.r-v2-groups__desc)) {
+  align-items: flex-start;
+}
+html[data-bp~="xs"] .r-v2-groups__desc {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.45;
 }
 .r-v2-groups__actions {
   display: inline-flex;

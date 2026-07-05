@@ -78,8 +78,11 @@ const box3d = computed(() => {
   --r-cover-radius: var(--r-radius-lg);
 }
 
-html[data-bp~="xs"] .r-v2-det-cover {
-  width: 100px;
-  margin-top: 0;
+/* Stacked layout (sm-and-down): the cover sits centred above the info
+   column at a readable hero size instead of the old ~100px side rail. */
+html[data-bp~="sm-and-down"] .r-v2-det-cover {
+  width: clamp(160px, 50vw, 260px);
+  align-self: center;
+  padding-top: 0;
 }
 </style>

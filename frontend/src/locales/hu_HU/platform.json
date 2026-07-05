@@ -12,6 +12,7 @@
   "danger-zone": "Veszély zóna",
   "delete-platform": "Platform törlése",
   "delete-platform-hint": "Eltávolítja a platformot és a ROM-adatbázis bejegyzéseit. A lemezen lévő fájlok NEM törlődnek.",
+  "download-platform": "Platform letöltése",
   "edit-platform": "Platform szerkesztése",
   "export": "Exportálás",
   "family": "Család",

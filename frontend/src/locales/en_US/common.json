@@ -78,6 +78,8 @@
   "changelog": "Changelog",
   "clear-finished": "Clear finished",
   "clipboard-unavailable": "Clipboard is not available in this context. Select the link below to copy it manually.",
+  "clipboard-copied": "{label} copied to clipboard",
+  "clipboard-copy-failed": "Couldn't copy to clipboard. This requires a secure (HTTPS) connection.",
   "close": "Close",
   "cloud": "Cloud",
   "collapse": "Collapse",

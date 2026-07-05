@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "{n} manual subido, {failed} con error | {n} manuales subidos, {failed} con error",
   "manual-match": "Identificación manual",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Error al eliminar el manual: {error}",
   "manual-removed": "Manual eliminado con éxito",
@@ -353,12 +354,10 @@
   "soundtrack-close-player": "Cerrar reproductor",
   "soundtrack-delete-track": "Eliminar pista",
   "soundtrack-empty": "Aún no hay banda sonora",
-  "soundtrack-folder-hint": "Las bandas sonoras solo están disponibles para ROMs basadas en carpeta.",
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "Error al cargar los metadatos de la banda sonora",
   "soundtrack-mini-player": "Reproductor de banda sonora",
   "soundtrack-next": "Pista siguiente",
-  "soundtrack-no-folder": "La banda sonora requiere una ROM basada en carpeta",
   "soundtrack-open-rom": "Open ROM details",
   "soundtrack-open-rom-tooltip": "Abrir ROM",
   "soundtrack-pause": "Pausar",
@@ -429,5 +428,7 @@
   "versions-count": "{n} versiones",
   "volume-mute": "Silenciar",
   "volume-unmute": "Quitar silencio",
-  "youtube-video-id": "ID de vídeo de YouTube"
+  "youtube-video-id": "ID de vídeo de YouTube",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
 }

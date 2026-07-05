@@ -494,6 +494,44 @@ onMounted(async () => {
   text-overflow: ellipsis;
 }
 
+/* Group each selector's content (platform icon + name / type pill) with its
+   chevron right after it, instead of the value stretching and flinging the
+   chevron away — removes the big gap in the desktop table. */
+.r-v2-mappings :deep(.r-v2-fmpc .r-select__value),
+.r-v2-mappings :deep(.r-v2-fmtc .r-select__value) {
+  flex: 0 1 auto;
+}
+
+/* Mobile card-stack — the selectors fill the value column as full-width tap
+   targets but pack their content against the right edge, so Platform, Type,
+   the folder name and the delete action all line up on the right. */
+html[data-bp~="xs"] .r-v2-mappings :deep(.r-table--mobile-stack .r-v2-fmpc),
+html[data-bp~="xs"] .r-v2-mappings :deep(.r-table--mobile-stack .r-v2-fmtc) {
+  width: 100%;
+  /* A flex child defaults to `min-width: auto`, refusing to shrink below a
+     long platform name and overflowing the card. Allow it to shrink so the
+     name ellipsizes; the chevron (flex-shrink: 0) stays put. */
+  min-width: 0;
+}
+html[data-bp~="xs"]
+  .r-v2-mappings
+  :deep(.r-table--mobile-stack .r-v2-fmpc .r-select__field),
+html[data-bp~="xs"]
+  .r-v2-mappings
+  :deep(.r-table--mobile-stack .r-v2-fmtc .r-select__field) {
+  justify-content: flex-end;
+}
+/* Drop the chevron's trailing padding so it sits at the same right edge as
+   the folder name text and the delete button. */
+html[data-bp~="xs"]
+  .r-v2-mappings
+  :deep(.r-table--mobile-stack .r-v2-fmpc .r-select__adornment--append),
+html[data-bp~="xs"]
+  .r-v2-mappings
+  :deep(.r-table--mobile-stack .r-v2-fmtc .r-select__adornment--append) {
+  padding-inline-end: 0;
+}
+
 /* Delete row action — danger-tinted icon RBtn. */
 .r-v2-mappings__delete-btn {
   color: color-mix(in srgb, var(--r-color-danger) 70%, transparent) !important;

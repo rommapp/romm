@@ -51,7 +51,7 @@ from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
 from utils import emoji
-from utils.audio_tags import persist_cover_and_build_meta
+from utils.audio_tags import persist_embedded_cover
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
 
@@ -138,25 +138,27 @@ def get_priority_ordered_metadata_sources(
 
 
 def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
-    """Persist a scanned soundtrack file's embedded cover and record its path in
-    the row's audio_meta. No-op for non-soundtrack files or ones without a cover."""
+    """Persist a scanned soundtrack file's embedded cover and record its path on
+    the track_meta row. No-op for non-soundtrack files or ones without a cover."""
+    track_meta = rom_file.track_meta
     if not (
         rom_file.category == RomFileCategory.SOUNDTRACK
-        and rom_file.audio_meta
-        and rom_file.audio_meta.get("has_embedded_cover")
+        and track_meta
+        and track_meta.has_embedded_cover
     ):
         return
 
     abs_audio_path = fs_rom_handler.validate_path(rom_file.full_path)
-    persisted_meta = persist_cover_and_build_meta(
+    cover_path = persist_embedded_cover(
         audio_full_path=str(abs_audio_path),
         platform_id=rom.platform_id,
         rom_id=rom.id,
         file_id=rom_file.id,
-        audio_meta=rom_file.audio_meta,
     )
-    if persisted_meta:
-        db_rom_handler.update_rom_file(rom_file.id, {"audio_meta": persisted_meta})
+    if cover_path:
+        db_rom_handler.upsert_track_meta(
+            rom_file.id, rom.id, {"cover_path": cover_path}
+        )
 
 
 async def scan_platform(
@@ -813,7 +815,47 @@ async def scan_rom(
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
-    # Run metadata fetches concurrently
+    # Run metadata fetches concurrently. One provider raising must not discard the
+    # others' results for this ROM, so each failure falls back to an empty match.
+    provider_fetches = (
+        (
+            fetch_igdb_rom(playmatch_hash_match, hasheous_hash_match),
+            IGDBRom(igdb_id=None),
+        ),
+        (fetch_moby_rom(playmatch_hash_match), MobyGamesRom(moby_id=None)),
+        (fetch_ss_rom(playmatch_hash_match), SSRom(ss_id=None)),
+        (fetch_ra_rom(hasheous_hash_match), RAGameRom(ra_id=None)),
+        (
+            fetch_launchbox_rom(platform.slug, playmatch_hash_match),
+            LaunchboxRom(launchbox_id=None),
+        ),
+        (
+            fetch_hasheous_rom(hasheous_hash_match),
+            HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None),
+        ),
+        (fetch_flashpoint_rom(), FlashpointRom(flashpoint_id=None)),
+        (fetch_hltb_rom(), HLTBRom(hltb_id=None)),
+        (fetch_gamelist_rom(), GamelistRom(gamelist_id=None)),
+        (fetch_libretro_rom(), LibretroRom(libretro_id=None)),
+    )
+    fetch_results = await asyncio.gather(
+        *(coro for coro, _ in provider_fetches), return_exceptions=True
+    )
+
+    resolved: list[Any] = []
+    for (_, fallback), result in zip(provider_fetches, fetch_results, strict=True):
+        if isinstance(result, BaseException):
+            if not isinstance(result, Exception):
+                raise result
+            provider = fallback.__class__.__name__
+            log.error(
+                f"Error fetching {hl(provider)} metadata for {hl(rom_attrs['fs_name'])}: {result}",
+                extra=LOGGER_MODULE_NAME,
+            )
+            resolved.append(fallback)
+        else:
+            resolved.append(result)
+
     (
         igdb_handler_rom,
         moby_handler_rom,
@@ -825,18 +867,7 @@ async def scan_rom(
         hltb_handler_rom,
         gamelist_handler_rom,
         libretro_handler_rom,
-    ) = await asyncio.gather(
-        fetch_igdb_rom(playmatch_hash_match, hasheous_hash_match),
-        fetch_moby_rom(playmatch_hash_match),
-        fetch_ss_rom(playmatch_hash_match),
-        fetch_ra_rom(hasheous_hash_match),
-        fetch_launchbox_rom(platform.slug, playmatch_hash_match),
-        fetch_hasheous_rom(hasheous_hash_match),
-        fetch_flashpoint_rom(),
-        fetch_hltb_rom(),
-        fetch_gamelist_rom(),
-        fetch_libretro_rom(),
-    )
+    ) = resolved
 
     metadata_handlers: dict[MetadataSource, dict] = {
         MetadataSource.IGDB: {
@@ -959,14 +990,22 @@ async def scan_rom(
     if not newly_added and (
         scan_type == ScanType.UNMATCHED or scan_type == ScanType.UPDATE
     ):
-        # A ROM's name defaults to its raw filename (extension included) when first
+        # A ROM's name defaults to a filename-derived placeholder when first
         # created. Treat that placeholder as "no name" so a freshly matched provider
-        # name replaces it, instead of keeping the filename (with its extension) as
-        # the title.
-        existing_name = rom.name if rom.name != rom.fs_name else None
+        # name replaces it (while preserving user-edited names).
+        fs_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
+            rom_attrs["fs_name"]
+        )
+        # Both the existing name and the seeded rom_attrs name can hold the
+        # placeholder. Discard either when it's a placeholder so the parsed
+        # filename fallback can win.
+        placeholders = (None, "", rom.fs_name, fs_name_no_tags)
+        existing_name = None if rom.name in placeholders else rom.name
+        matched_name = rom_attrs.get("name")
+        matched_name = None if matched_name in placeholders else matched_name
         rom_attrs.update(
             {
-                "name": existing_name or rom_attrs.get("name") or rom.name or None,
+                "name": existing_name or matched_name or fs_name_no_tags or None,
                 "summary": rom.summary or rom_attrs.get("summary") or None,
                 # Don't overwrite existing manually uploaded cover image
                 "url_cover": (

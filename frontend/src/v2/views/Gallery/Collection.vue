@@ -20,6 +20,7 @@ import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
+import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeCollections, {
   type Collection,
@@ -29,6 +30,7 @@ import storeCollections, {
 import CollectionHead from "@/v2/components/Gallery/CollectionHead.vue";
 import CollectionSettingsTab from "@/v2/components/Gallery/CollectionSettingsTab.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
+import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
@@ -53,6 +55,7 @@ const currentKind = ref<CollectionKind>("regular");
 const currentCollection = ref<AnyCollection | null>(null);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
 const deleting = ref(false);
+const canDownload = useCan("rom.download");
 
 // Virtual collections are computed (no editable fields) — only
 // regular / smart get the Settings tab.
@@ -239,6 +242,25 @@ watch(
   },
 );
 
+// ── Download ───────────────────────────────────────────────────
+// Triggered from the InfoPanel's download button. Delegates to the
+// API's bulk-download endpoint, which streams a ZIP of all ROMs in the
+// collection. The endpoint is smart enough to handle regular / virtual
+// / smart collections, so we just pass the right ID and let it figure
+// out which ROMs to include.
+function onDownload() {
+  const c = currentCollection.value;
+  if (!c || !c.rom_count) return;
+  const kind = currentKind.value;
+  void romApi.bulkDownloadRoms({
+    collectionId: kind === "regular" ? Number(c.id) : undefined,
+    virtualCollectionId: kind === "virtual" ? String(c.id) : undefined,
+    smartCollectionId: kind === "smart" ? Number(c.id) : undefined,
+    filename: `${c.name}.zip`,
+  });
+  snackbar.info(t("gallery.selection-download-many", { n: c.rom_count }));
+}
+
 // ── Delete ──────────────────────────────────────────────────────
 // Mirrors the Platform.vue admin flow: confirm dialog with
 // `requireTyped` on the collection name, then API call → store remove
@@ -313,7 +335,9 @@ async function onDelete() {
         :covers="mosaicCovers"
         :tab="tab"
         :tabs="tabs"
+        :can-download="canDownload"
         @update:tab="onTabChange"
+        @download="onDownload"
       />
     </template>
   </GalleryShell>
@@ -331,7 +355,9 @@ async function onDelete() {
         :covers="mosaicCovers"
         :tab="tab"
         :tabs="tabs"
+        :can-download="canDownload"
         @update:tab="onTabChange"
+        @download="onDownload"
       />
       <RDivider class="r-v2-coll-tabs__divider" />
       <div
@@ -355,15 +381,35 @@ async function onDelete() {
    The CollectionHead and the tab body scroll together as one surface,
    matching the platform-view layout. */
 .r-v2-coll-tabs {
+  /* `dvh` (not `vh`) so the section matches the mobile visible viewport
+     instead of the larger address-bar-hidden one — otherwise it spills below
+     the fold and stacks a second, document-level scroll on the internal one
+     ("double scroll"). Same rationale as GalleryShell / IndexShell. */
   height: calc(100vh - var(--r-nav-h));
+  height: calc(100dvh - var(--r-nav-h));
   overflow: hidden;
   position: relative;
+}
+/* On sm-and-down the layout <main> reserves the bottom tab bar's height; this
+   full-height section would otherwise sit on top of that padding and push the
+   document past one viewport. Cancel it with a matching negative margin so the
+   section extends under the (translucent) bar with a single scroll — the inner
+   scroll's bottom spacer lifts the last content (danger zone) clear of it. */
+html[data-bp~="sm-and-down"] .r-v2-coll-tabs {
+  margin-bottom: calc(
+    -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
+  );
 }
 
 .r-v2-coll-tabs__scroll {
   height: 100%;
   overflow-y: auto;
   padding: 32px var(--r-row-pad) 60px;
+}
+html[data-bp~="sm-and-down"] .r-v2-coll-tabs__scroll {
+  padding-bottom: calc(
+    var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px
+  );
 }
 
 .r-v2-coll-tabs__divider {

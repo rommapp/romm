@@ -52,10 +52,13 @@ from models.rom import (
     RomNote,
     RomUser,
     SiblingRom,
+    TrackMeta,
     compute_name_sort_key,
 )
 from utils import get_version
 from utils.database import (
+    LIKE_ESCAPE_CHAR,
+    escape_like,
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
@@ -210,7 +213,8 @@ def with_details(func):
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
             # Multi-file downloads, 3DS QR codes, and metadata matching
             selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
+                selectinload(RomFile.track_meta),
             ),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
@@ -805,6 +809,7 @@ class DBRomsHandler(DBBaseHandler):
         has_states: bool | None = None,
         missing: bool | None = None,
         verified: bool | None = None,
+        has_soundtrack: bool | None = None,
         group_by_meta_id: bool = False,
         genres: Sequence[str] | None = None,
         franchises: Sequence[str] | None = None,
@@ -928,6 +933,13 @@ class DBRomsHandler(DBBaseHandler):
 
         if verified is not None:
             query = self._filter_by_verified(query, value=verified)
+
+        if has_soundtrack is not None:
+            query = (
+                query.filter(Rom.has_soundtrack)
+                if has_soundtrack
+                else query.filter(~Rom.has_soundtrack)
+            )
 
         if updated_after:
             query = query.filter(Rom.updated_at > updated_after)
@@ -1189,6 +1201,7 @@ class DBRomsHandler(DBBaseHandler):
             platform_ids=kwargs.get("platform_ids", None),
             collection_id=kwargs.get("collection_id", None),
             virtual_collection_id=kwargs.get("virtual_collection_id", None),
+            smart_collection_id=kwargs.get("smart_collection_id", None),
             search_term=kwargs.get("search_term", None),
             matched=kwargs.get("matched", None),
             favorite=kwargs.get("favorite", None),
@@ -1405,6 +1418,29 @@ class DBRomsHandler(DBBaseHandler):
         return session.query(Rom).filter_by(id=id).one()
 
     @begin_session
+    def convert_rom_to_folder(
+        self,
+        id: int,
+        folder: str,
+        file_path: str,
+        session: Session = None,  # type: ignore
+    ) -> None:
+        parts = compute_file_name_parts(folder)
+        session.execute(
+            update(Rom)
+            .where(Rom.id == id)
+            .values(
+                fs_name=folder,
+                fs_name_no_tags=parts.no_tags,
+                fs_name_no_ext=parts.no_ext,
+                fs_extension=parts.extension,
+            )
+        )
+        session.execute(
+            update(RomFile).where(RomFile.rom_id == id).values(file_path=file_path)
+        )
+
+    @begin_session
     def delete_rom(
         self,
         id: int,
@@ -1575,7 +1611,12 @@ class DBRomsHandler(DBBaseHandler):
         id: int,
         session: Session = None,  # type: ignore
     ) -> RomFile | None:
-        return session.scalar(select(RomFile).filter_by(id=id).limit(1))
+        return session.scalar(
+            select(RomFile)
+            .options(selectinload(RomFile.track_meta))
+            .filter_by(id=id)
+            .limit(1)
+        )
 
     @begin_session
     def get_rom_file_by_path(
@@ -1587,6 +1628,7 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
+            .options(selectinload(RomFile.track_meta))
             .filter_by(rom_id=rom_id, file_path=file_path, file_name=file_name)
             .limit(1)
         )
@@ -1602,6 +1644,7 @@ class DBRomsHandler(DBBaseHandler):
         return (
             session.scalars(
                 select(RomFile)
+                .options(selectinload(RomFile.track_meta))
                 .filter_by(rom_id=rom_id, category=category)
                 .order_by(RomFile.file_name.asc())
             )
@@ -1641,6 +1684,229 @@ class DBRomsHandler(DBBaseHandler):
         )
 
         return session.query(RomFile).filter_by(id=id).one_or_none()
+
+    @begin_session
+    def upsert_track_meta(
+        self,
+        rom_file_id: int,
+        rom_id: int,
+        values: dict,
+        session: Session = None,  # type: ignore
+    ) -> TrackMeta:
+        existing = session.get(TrackMeta, rom_file_id)
+        if existing:
+            for key, val in values.items():
+                setattr(existing, key, val)
+            session.flush()
+            return existing
+
+        track = TrackMeta(rom_file_id=rom_file_id, rom_id=rom_id, **values)
+        session.add(track)
+        session.flush()
+        return track
+
+    @begin_session
+    def delete_track_meta(
+        self,
+        rom_file_id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
+        session.execute(delete(TrackMeta).where(TrackMeta.rom_file_id == rom_file_id))
+
+    # ----------------------------------------------------------------- music
+
+    def _music_where(
+        self,
+        *,
+        hidden_platform_ids: Sequence[int] | None,
+        hidden_rom_ids: Sequence[int] | None,
+        search: str | None = None,
+        artist: str | None = None,
+        album: str | None = None,
+        genre: str | None = None,
+        platform_ids: Sequence[int] | None = None,
+        year: int | None = None,
+        min_duration: float | None = None,
+        max_duration: float | None = None,
+        exclude_field: str | None = None,
+    ) -> list[Any]:
+        clauses: list[Any] = []
+        if hidden_platform_ids:
+            clauses.append(Rom.platform_id.not_in(hidden_platform_ids))
+        if hidden_rom_ids:
+            clauses.append(Rom.id.not_in(hidden_rom_ids))
+        if search:
+            like = f"%{escape_like(search.lower())}%"
+            clauses.append(
+                or_(
+                    func.lower(TrackMeta.title).like(like, escape=LIKE_ESCAPE_CHAR),
+                    func.lower(TrackMeta.artist).like(like, escape=LIKE_ESCAPE_CHAR),
+                    func.lower(TrackMeta.album).like(like, escape=LIKE_ESCAPE_CHAR),
+                )
+            )
+        if artist and exclude_field != "artist":
+            clauses.append(func.lower(TrackMeta.artist) == artist.lower())
+        if album and exclude_field != "album":
+            clauses.append(func.lower(TrackMeta.album) == album.lower())
+        if genre and exclude_field != "genre":
+            clauses.append(func.lower(TrackMeta.genre) == genre.lower())
+        if platform_ids:
+            clauses.append(Rom.platform_id.in_(platform_ids))
+        if year is not None and exclude_field != "year":
+            clauses.append(TrackMeta.year == year)
+        if min_duration is not None:
+            clauses.append(TrackMeta.duration_seconds >= min_duration)
+        if max_duration is not None:
+            clauses.append(TrackMeta.duration_seconds <= max_duration)
+        return clauses
+
+    @begin_session
+    def get_music_tracks(
+        self,
+        *,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
+        search: str | None = None,
+        artist: str | None = None,
+        album: str | None = None,
+        genre: str | None = None,
+        platform_ids: Sequence[int] | None = None,
+        year: int | None = None,
+        min_duration: float | None = None,
+        max_duration: float | None = None,
+        order_by: str = "title",
+        order_dir: str = "asc",
+        limit: int = 50,
+        offset: int = 0,
+        session: Session = None,  # type: ignore
+    ) -> tuple[Sequence[Any], int]:
+        where = self._music_where(
+            hidden_platform_ids=hidden_platform_ids,
+            hidden_rom_ids=hidden_rom_ids,
+            search=search,
+            artist=artist,
+            album=album,
+            genre=genre,
+            platform_ids=platform_ids,
+            year=year,
+            min_duration=min_duration,
+            max_duration=max_duration,
+        )
+        base = (
+            select(
+                TrackMeta.rom_file_id,
+                TrackMeta.rom_id,
+                TrackMeta.title,
+                TrackMeta.artist,
+                TrackMeta.album,
+                TrackMeta.genre,
+                TrackMeta.year,
+                TrackMeta.track,
+                TrackMeta.disc,
+                TrackMeta.duration_seconds,
+                TrackMeta.has_embedded_cover,
+                TrackMeta.cover_path,
+                RomFile.file_name.label("file_name"),
+                Rom.name.label("game_name"),
+                Rom.path_cover_l.label("path_cover_l"),
+                Platform.id.label("platform_id"),
+                Platform.slug.label("platform_slug"),
+                Platform.name.label("platform_name"),
+            )
+            .select_from(TrackMeta)
+            .join(RomFile, TrackMeta.rom_file_id == RomFile.id)
+            .join(Rom, TrackMeta.rom_id == Rom.id)
+            .join(Platform, Rom.platform_id == Platform.id)
+            .where(*where)
+        )
+        total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+        order_map = {
+            "title": TrackMeta.title,
+            "artist": TrackMeta.artist,
+            "album": TrackMeta.album,
+            "year": TrackMeta.year,
+            "duration": TrackMeta.duration_seconds,
+            "platform": Platform.name,
+            "added": RomFile.created_at,
+        }
+        col = order_map.get(order_by, TrackMeta.title)
+        direction = col.desc() if order_dir == "desc" else col.asc()
+        rows = session.execute(
+            base.order_by(col.is_(None), direction, TrackMeta.rom_file_id)
+            .limit(limit)
+            .offset(offset)
+        ).all()
+        return rows, total
+
+    @begin_session
+    def get_music_facet(
+        self,
+        *,
+        field: str,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
+        search: str | None = None,
+        artist: str | None = None,
+        album: str | None = None,
+        genre: str | None = None,
+        platform_ids: Sequence[int] | None = None,
+        year: int | None = None,
+        min_duration: float | None = None,
+        max_duration: float | None = None,
+        order_by: str = "count",
+        order_dir: str = "desc",
+        limit: int = 50,
+        offset: int = 0,
+        session: Session = None,  # type: ignore
+    ) -> tuple[Sequence[Any], int]:
+        facet_columns = {
+            "artists": (TrackMeta.artist, "artist"),
+            "albums": (TrackMeta.album, "album"),
+            "genres": (TrackMeta.genre, "genre"),
+            "years": (TrackMeta.year, "year"),
+        }
+        col, own = facet_columns[field]
+        where = self._music_where(
+            hidden_platform_ids=hidden_platform_ids,
+            hidden_rom_ids=hidden_rom_ids,
+            artist=artist,
+            album=album,
+            genre=genre,
+            platform_ids=platform_ids,
+            year=year,
+            min_duration=min_duration,
+            max_duration=max_duration,
+            exclude_field=own,
+        )
+        where.append(col.is_not(None))
+        if field != "years":
+            where.append(func.length(func.trim(col)) > 0)
+        if search:
+            target = cast(col, String) if field == "years" else col
+            where.append(
+                func.lower(target).like(
+                    f"%{escape_like(search.lower())}%", escape=LIKE_ESCAPE_CHAR
+                )
+            )
+        count_col = func.count().label("count")
+        base = (
+            select(col.label("value"), count_col)
+            .select_from(TrackMeta)
+            .join(RomFile, TrackMeta.rom_file_id == RomFile.id)
+            .join(Rom, TrackMeta.rom_id == Rom.id)
+            .join(Platform, Rom.platform_id == Platform.id)
+            .where(*where)
+            .group_by(col)
+        )
+        total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+        if order_by == "value":
+            primary = col.asc() if order_dir != "desc" else col.desc()
+        else:
+            primary = count_col.asc() if order_dir == "asc" else count_col.desc()
+        rows = session.execute(
+            base.order_by(primary, col.asc()).limit(limit).offset(offset)
+        ).all()
+        return rows, total
 
     @begin_session
     def purge_rom_files(

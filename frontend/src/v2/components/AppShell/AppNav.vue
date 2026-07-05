@@ -1,40 +1,27 @@
 <script setup lang="ts">
 // AppNav — the top navigation. Logo on the left, centred tab pill of
 // content destinations (Home / Platforms / Collections / Search), and
-// a right cluster of utility chrome (scanning indicator, classic-UI
-// escape hatch, user menu). Highlighting is derived from `route.path`
+// a right cluster of utility chrome (scanning indicator, user menu).
+// Highlighting is derived from `route.path`
 // rather than route names so gallery subroutes (e.g. /rom/:id) still
 // light up the Home tab.
 //
 // Library tools (Scan / Upload) are administrative actions, not content
 // destinations — they live in the user menu's Library group, keeping the
 // primary nav focused on browsing destinations.
-import { RBtn, RSliderBtnGroup, RTooltip, RImg } from "@v2/lib";
+import { RSliderBtnGroup, RImg } from "@v2/lib";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useUiVersion } from "@/composables/useUiVersion";
 import ScanningIndicator from "@/v2/components/AppShell/ScanningIndicator.vue";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
-import { useCan } from "@/v2/composables/useCan";
 import { useNavDestinations } from "@/v2/composables/useNavDestinations";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const uiVersion = useUiVersion();
-
-// The classic-UI escape hatch is hidden from read-only (viewer) users —
-// they still have the toggle in UI settings, but the navbar stays clean.
-// `library.scan` is an editor-up capability, so it stands in for
-// "not a viewer" without an inline role check (see CLAUDE.md §VI.G).
-const canSwitchClassicUi = useCan("library.scan");
 
 // Primary destinations + active-tab logic shared with BottomNav.
 const { destinations: tabs, activeId: activeTab } = useNavDestinations();
-
-function switchToV1() {
-  uiVersion.value = "v1";
-}
 
 // At the top of the page the navbar is fully transparent so the page
 // bg / cover art reads cleanly. Once the user scrolls, a `::before`
@@ -89,23 +76,6 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="r-v2-nav__right">
-        <RTooltip
-          v-if="canSwitchClassicUi"
-          :text="t('common.switch-classic-ui')"
-          location="bottom"
-        >
-          <template #activator="{ props: tooltipProps }">
-            <RBtn
-              v-bind="tooltipProps"
-              icon="mdi-backup-restore"
-              size="small"
-              variant="text"
-              class="r-v2-nav__classic"
-              :aria-label="t('common.switch-classic-ui')"
-              @click="switchToV1"
-            ></RBtn>
-          </template>
-        </RTooltip>
         <ScanningIndicator />
         <UserMenu />
       </div>
@@ -175,6 +145,7 @@ onBeforeUnmount(() => {
   text-decoration: none;
   color: var(--r-color-fg);
   flex-shrink: 0;
+  justify-self: start;
   transition: filter var(--r-motion-med) var(--r-motion-ease-out);
 }
 .r-v2-nav__logo:hover,
@@ -209,19 +180,6 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   justify-self: end;
-}
-
-/* Ghost-pill styling for the "classic UI" button (matches the old RIconBtn
-   ghost variant — translucent glass, subtle border). */
-.r-v2-nav__classic {
-  background: var(--r-color-surface) !important;
-  border: 1px solid var(--r-color-border-strong) !important;
-  color: var(--r-color-fg-secondary) !important;
-  opacity: 1;
-}
-.r-v2-nav__classic:hover {
-  background: var(--r-color-surface-hover) !important;
-  color: var(--r-color-fg) !important;
 }
 
 /* On sm-and-down (phones + small tablets / landscape, <960px) the four

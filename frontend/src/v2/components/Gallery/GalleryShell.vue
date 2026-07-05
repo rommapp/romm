@@ -41,6 +41,7 @@ import { RDivider, RLetterHeading, RVirtualScroller } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
   computed,
+  type ComponentPublicInstance,
   nextTick,
   onBeforeUnmount,
   onMounted,
@@ -59,6 +60,7 @@ import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
 import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import {
+  getListMinWidth,
   LIST_COVER_HEIGHT_PX,
   LIST_COVER_WIDTH_PX,
   type ListSortKey,
@@ -299,6 +301,14 @@ const listCoverWidth = computed(() => {
   return Math.min(128, Math.max(LIST_COVER_WIDTH_PX, w));
 });
 
+// The list row's natural min-width (all fixed tracks + the title floor). Fed
+// to the virtual scroller as `minContentWidth` in list mode so a viewport
+// narrower than the columns scrolls the list HORIZONTALLY instead of clipping
+// them. Also drives the sticky column header's width so it scrolls in step.
+const listMinWidth = computed(() =>
+  getListMinWidth(props.showPlatformColumn, listCoverWidth.value),
+);
+
 // 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
 //   * Grid mode — rows are `.r-v2-shell__row` (the per-virtualizer-item
 //     wrapper around the row's GameCards). ArrowLeft/Right within a row,
@@ -355,34 +365,60 @@ const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
 // rows below the pinned toolbar) and the scroller's clip-path inset
 // (so the band the overlay covers is empty of cards).
 const inflowToolbarEl = ref<HTMLElement | null>(null);
+// A zero-height, NON-sticky marker rendered right before the inflow toolbar.
+// Its `offsetTop` is the toolbar's natural top = the stuck threshold. We can't
+// read the threshold from the sticky toolbar's own `offsetTop`: once stuck,
+// that reports the *stuck* position (which tracks scrollTop), so the threshold
+// would chase the scroll and `isStuck` would flip-flop, alternating the two
+// toolbar layers — the flicker.
+const stuckSentinelEl = ref<HTMLElement | null>(null);
 const inflowToolbarTop = ref(0);
 const toolbarHeight = ref(0);
 let inflowResizeObserver: ResizeObserver | null = null;
 
-function bindInflowToolbarEl(el: HTMLElement | null) {
+function remeasureToolbar() {
+  const toolbar = inflowToolbarEl.value;
+  const sentinel = stuckSentinelEl.value;
+  if (toolbar) toolbarHeight.value = toolbar.getBoundingClientRect().height;
+  if (sentinel) inflowToolbarTop.value = sentinel.offsetTop;
+}
+
+function rebuildToolbarObserver() {
   inflowResizeObserver?.disconnect();
   inflowResizeObserver = null;
-  inflowToolbarEl.value = el;
-  if (!el) {
+  const toolbar = inflowToolbarEl.value;
+  const sentinel = stuckSentinelEl.value;
+  if (!toolbar && !sentinel) {
     inflowToolbarTop.value = 0;
     toolbarHeight.value = 0;
     return;
   }
-  const measure = () => {
-    inflowToolbarTop.value = el.offsetTop;
-    toolbarHeight.value = el.getBoundingClientRect().height;
-  };
-  measure();
-  // Observe the toolbar itself (height changes) and its prior siblings
-  // inside the prepend (header / divider — their height shifts the
-  // toolbar's `offsetTop`).
-  inflowResizeObserver = new ResizeObserver(measure);
-  inflowResizeObserver.observe(el);
-  let prev = el.previousElementSibling;
-  while (prev) {
-    inflowResizeObserver.observe(prev);
-    prev = prev.previousElementSibling;
+  remeasureToolbar();
+  inflowResizeObserver = new ResizeObserver(remeasureToolbar);
+  if (toolbar) inflowResizeObserver.observe(toolbar);
+  if (sentinel) {
+    inflowResizeObserver.observe(sentinel);
+    // Prior siblings (header / divider) shift the sentinel's offsetTop when
+    // their height changes, so observe those too.
+    let prev = sentinel.previousElementSibling;
+    while (prev) {
+      inflowResizeObserver.observe(prev);
+      prev = prev.previousElementSibling;
+    }
   }
+}
+
+// Both bound via STABLE function refs (never inline arrows): an inline `(el) =>
+// …` ref has a new identity every render, so Vue re-invokes it with `null`
+// then the element on EVERY re-render — and this component re-renders on every
+// scroll frame. That churn would reset the measurements each frame.
+function bindInflowToolbarEl(el: Element | ComponentPublicInstance | null) {
+  inflowToolbarEl.value = (el as HTMLElement | null) ?? null;
+  rebuildToolbarObserver();
+}
+function bindStuckSentinel(el: Element | ComponentPublicInstance | null) {
+  stuckSentinelEl.value = (el as HTMLElement | null) ?? null;
+  rebuildToolbarObserver();
 }
 
 // `isStuck` flips to true the moment the inflow toolbar's top edge
@@ -831,6 +867,7 @@ defineExpose({
     :style="{
       '--r-v2-shell-toolbar-h': `${toolbarHeight}px`,
       '--r-cover-ratio': coverAspectRatio,
+      '--r-list-min-w': `${listMinWidth}px`,
     }"
   >
     <RVirtualScroller
@@ -839,6 +876,7 @@ defineExpose({
       :get-item-height="getItemHeight"
       :get-item-key="galleryItemKey"
       :overscan="virtualOverscan"
+      :min-content-width="layout === 'list' ? listMinWidth : undefined"
       class="r-v2-shell__scroller r-v2-scroll-hidden"
       @update:viewport-range="onViewportRangeChange"
     >
@@ -857,9 +895,17 @@ defineExpose({
           <RDivider class="r-v2-shell__header-divider" />
         </template>
 
+        <!-- Non-sticky stuck-threshold marker — sits at the toolbar's natural
+             top so its (stable) offsetTop is the scroll threshold. -->
         <div
           v-if="toolbarPosition === 'header'"
-          :ref="(el) => bindInflowToolbarEl(el as HTMLElement | null)"
+          :ref="bindStuckSentinel"
+          class="r-v2-shell__stuck-sentinel"
+          aria-hidden="true"
+        />
+        <div
+          v-if="toolbarPosition === 'header'"
+          :ref="bindInflowToolbarEl"
           class="r-v2-shell__toolbar r-v2-shell__toolbar--inflow"
         >
           <GalleryToolbar
@@ -1000,22 +1046,9 @@ defineExpose({
       />
     </div>
 
-    <!-- LIST COLUMN HEADER OVERLAY — twin of the inflow list header,
-         absolute against the section just below the toolbar overlay.
-         The scroller's clip strips the toolbar AND list-header bands
-         when `--stuck` + `--list`, so rows scrolling underneath never
-         reach this pixel area — the overlay paints cleanly over the
-         section's BackgroundArt blur, no see-through cards. -->
-    <GameListHeader
-      v-if="layout === 'list' && toolbarPosition === 'header'"
-      v-show="isStuck"
-      class="r-v2-shell__list-header-overlay"
-      :sort-key="listSortKey"
-      :sort-dir="orderDir"
-      :show-platform-column="showPlatformColumn"
-      :cover-width="listCoverWidth"
-      @sort="onListSort"
-    />
+    <!-- No list-header overlay twin: the list scrolls horizontally and the
+         in-flow sticky header (opaque glass, moves with the rows) owns the
+         column header in every scroll state. -->
 
     <!-- ALPHASTRIP — A-Z jump column on the right edge of the section. -->
     <AlphaStrip
@@ -1062,6 +1095,13 @@ defineExpose({
 
 <style scoped>
 .r-v2-shell {
+  /* AlphaStrip footprint as a flex sibling of the scroller = letter column
+     (`--r-alpha-strip-w`, a global token) + gap to the viewport edge. Single
+     source of truth: the strip consumes these (inherited) and the toolbar /
+     list-header overlays add them to `--r-row-pad` for their right inset, so
+     the stuck overlay lines up exactly with the in-flow toolbar instead of
+     coming up a few px short. */
+  --r-alpha-strip-gap: var(--r-space-3);
   flex: 1;
   display: flex;
   overflow: hidden;
@@ -1071,16 +1111,34 @@ defineExpose({
      browser / stacking context — when they fail to resolve the
      section becomes content-sized, the scroller inside ends up with
      `height: auto`, and overflow-y stops doing anything because
-     there's nothing to overflow. Subtracting the navbar from 100vh
-     bypasses that fragility entirely. */
+     there's nothing to overflow. Subtracting the navbar from the viewport
+     bypasses that fragility entirely. `dvh` (not `vh`) so the section
+     matches the mobile visible viewport instead of the larger address-bar-
+     hidden one, which would otherwise spill below the fold. */
   height: calc(100vh - var(--r-nav-h));
+  height: calc(100dvh - var(--r-nav-h));
   position: relative;
 }
 
-/* On sm-and-down the shell still fills `100vh - nav-h` so cards scroll
-   UNDER the translucent bottom tab bar (the glass-blur effect). The
-   scroller instead gets extra bottom padding (see below) so the last row
-   comes to rest above the bar rather than trapped behind it. */
+/* On sm-and-down the section keeps its full `100dvh - nav` height so cards
+   scroll UNDER the translucent bottom tab bar (the glass effect). The layout
+   <main> adds a bottom padding for the bar (natural-flow views need it);
+   cancel it here with a matching negative margin so this full-height section
+   doesn't push the document past one viewport — otherwise a second, global
+   scroll stacks on top of the internal one. The scroller's bottom spacer
+   (below) lifts the last row clear of the bar. */
+html[data-bp~="sm-and-down"] .r-v2-shell {
+  margin-bottom: calc(
+    -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
+  );
+}
+/* Phones: a wider letter column (bigger, more tappable letters). Keeping the
+   overlays wired to these vars means the stuck toolbar tracks the change
+   automatically. */
+html[data-bp~="xs"] .r-v2-shell {
+  --r-alpha-strip-w: var(--r-alpha-strip-w-xs);
+  --r-alpha-strip-gap: var(--r-space-2);
+}
 
 /* Scroller: padding-top moved into the prepend's first child via
    `padding-top` on the header so the inflow toolbar's `offsetTop`
@@ -1162,6 +1220,28 @@ defineExpose({
   z-index: 4;
 }
 
+/* When the list scrolls horizontally (columns wider than the viewport), the
+   page chrome — view header, divider and in-flow toolbar — belongs to the
+   page, not the table, so pin them to the left (`left: 0`). They stay in place
+   while only the column header and rows scroll sideways. `left` engages only
+   while the scroller has horizontal overflow, i.e. in list mode. */
+.r-v2-shell--list .r-v2-shell__header,
+.r-v2-shell--list .r-v2-shell__header-divider,
+.r-v2-shell--list .r-v2-shell__toolbar--inflow {
+  position: sticky;
+  left: 0;
+}
+
+/* Zero-height, non-sticky marker at the toolbar's natural top. Its stable
+   offsetTop is the stuck threshold (the sticky toolbar's own offsetTop can't
+   be used — it reports the stuck position once pinned). */
+.r-v2-shell__stuck-sentinel {
+  height: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
 /* List column header — sticky just below the toolbar. `top` matches
    the toolbar's pinned height so when both are stuck they stack
    cleanly; the toolbar's overlay layer sits at z-index 5, so we keep
@@ -1171,6 +1251,10 @@ defineExpose({
   position: sticky;
   top: var(--r-v2-shell-toolbar-h, 64px);
   z-index: 3;
+  /* Match the rows' natural width so the column header scrolls horizontally in
+     step with them when the list is wider than the viewport. When stuck it's
+     clipped away and the section-level overlay twin takes over (below). */
+  min-width: var(--r-list-min-w);
 }
 
 /* Overlay layer — absolute against the section, mirrors the
@@ -1185,42 +1269,24 @@ defineExpose({
   z-index: 5;
 }
 .r-v2-shell--has-strip .r-v2-shell__toolbar--overlay {
-  /* AlphaStrip is a flex sibling of the scroller; the overlay must
-     stop short of it so it doesn't paint over the strip. */
-  right: calc(var(--r-row-pad) + 36px);
+  /* AlphaStrip is a flex sibling of the scroller; the overlay must stop short
+     of its full footprint (column + edge gap) so it lines up exactly with the
+     in-flow toolbar (which the scroller's padding already insets). */
+  right: calc(
+    var(--r-row-pad) + var(--r-alpha-strip-w) + var(--r-alpha-strip-gap)
+  );
 }
 
-/* List column header overlay — twin of `.r-v2-shell__list-header`,
-   positioned absolutely just below the toolbar overlay. Same column
-   geometry as the toolbar overlay so columns align across both
-   surfaces. z-index 4 keeps it under the toolbar overlay (5) but
-   above any in-flow content peeking through. */
-.r-v2-shell__list-header-overlay {
-  position: absolute;
-  top: var(--r-v2-shell-toolbar-h, 64px);
-  left: var(--r-row-pad);
-  right: var(--r-row-pad);
-  z-index: 4;
-}
-.r-v2-shell--has-strip .r-v2-shell__list-header-overlay {
-  right: calc(var(--r-row-pad) + 36px);
-}
+/* While stuck, clip the scroller's top toolbar-band so cards scrolling
+   underneath the (transparent) toolbar overlay are physically removed from
+   that pixel area — the overlay then reveals only the section's background
+   blur, never the cards.
 
-/* While stuck, clip the scroller's top toolbar-band so cards
-   scrolling underneath the overlay are physically removed from
-   that pixel area. The transparent overlay then reveals only the
-   section's background (BackgroundArt blur) — never the cards.
-
-   In list mode, extend the clip to also cover the list-header band
-   below the toolbar so rows don't bleed through the (translucent)
-   sticky column header. */
+   The list column header is NOT clipped: it's the in-flow sticky header (its
+   own strong glass blur), so it stays visible and reads cleanly over the rows
+   scrolling under it — and, being in-flow, it tracks the horizontal scroll. */
 .r-v2-shell--stuck .r-v2-shell__scroller {
   clip-path: inset(var(--r-v2-shell-toolbar-h, 64px) 0 0 0);
-}
-.r-v2-shell--stuck.r-v2-shell--list .r-v2-shell__scroller {
-  clip-path: inset(
-    calc(var(--r-v2-shell-toolbar-h, 64px) + var(--r-list-header-h)) 0 0 0
-  );
 }
 
 /* Smaller cards on phones. Matches GameCard's own xs `--r-card-art-w` so
@@ -1233,12 +1299,14 @@ html[data-bp~="xs"] .r-v2-shell__scroller {
   padding-left: 14px;
   padding-right: 14px;
 }
-/* Last row rests clear of the bottom tab bar (the rest of the scroll
-   still passes under its glass). */
-html[data-bp~="sm-and-down"] .r-v2-shell__scroller {
-  padding-bottom: calc(
-    var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px
-  );
+/* Last row rests clear of the bottom tab bar (the rest of the scroll passes
+   under its glass). A real in-flow spacer, not `padding-bottom` — Safari /
+   older Chromium drop a scroll container's bottom padding from its
+   scrollable overflow, trapping the last row behind the bar. */
+html[data-bp~="sm-and-down"] .r-v2-shell__scroller::after {
+  content: "";
+  display: block;
+  height: calc(var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px);
 }
 html[data-bp~="xs"] .r-v2-shell__header {
   padding-top: 16px;

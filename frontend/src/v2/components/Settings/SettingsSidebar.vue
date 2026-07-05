@@ -14,9 +14,9 @@
 // Router's `router-link-active` (we add `--active` via active-class). Items
 // that the user can't reach (insufficient scopes/role) are filtered out.
 //
-// Responsive: at <1024px the sidebar collapses to a horizontal scrollable
-// strip. Group labels are hidden in that mode — items still appear in
-// group order so sequence is preserved.
+// Responsive: this sidebar is mount-gated to `md-and-up` by SettingsLayout.
+// On phones / small tablets it isn't rendered at all — the navbar UserMenu
+// mirrors the same section IA, so an in-page strip would only duplicate it.
 import { RChip, RIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
@@ -280,54 +280,5 @@ const groups = computed<Group[]>(() => {
 .r-v2-settings-sidebar__item--active:hover {
   color: var(--r-color-fg);
   background: var(--r-color-surface-hover);
-}
-
-/* Below md (< 960): horizontal scrollable strip — items keep their
-   group order; group labels disappear so the strip reads as a single
-   tab row. Tracks the same flush feel: no card border, just a bottom
-   hairline. */
-html[data-bp~="sm-and-down"] .r-v2-settings-sidebar {
-  flex-direction: row;
-  align-items: center;
-  gap: 0;
-  padding: 6px var(--r-row-pad);
-  border-right: none;
-  border-bottom: 1px solid var(--r-color-border);
-  overflow-x: auto;
-  overflow-y: hidden;
-  position: static;
-  top: auto;
-  height: auto;
-}
-html[data-bp~="sm-and-down"] .r-v2-settings-sidebar__group {
-  flex-direction: row;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 0;
-}
-html[data-bp~="sm-and-down"]
-  .r-v2-settings-sidebar__group
-  + .r-v2-settings-sidebar__group {
-  margin-top: 0;
-}
-html[data-bp~="sm-and-down"]
-  .r-v2-settings-sidebar__group
-  + .r-v2-settings-sidebar__group::before {
-  content: "";
-  width: 1px;
-  height: 18px;
-  background: var(--r-color-border);
-  margin: 0 6px;
-  flex-shrink: 0;
-}
-html[data-bp~="sm-and-down"] .r-v2-settings-sidebar__group-label {
-  display: none;
-}
-html[data-bp~="sm-and-down"] .r-v2-settings-sidebar__list {
-  flex-direction: row;
-}
-html[data-bp~="sm-and-down"] .r-v2-settings-sidebar__item {
-  padding: 7px 14px;
-  border-radius: var(--r-radius-pill);
 }
 </style>

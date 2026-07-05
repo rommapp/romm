@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "{n} fichier de manuel téléversé, {failed} en échec. | {n} fichiers de manuel téléversés, {failed} en échec.",
   "manual-match": "Correspondance manuelle",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Échec de la suppression du manuel : {error}",
   "manual-removed": "Manuel supprimé avec succès",
@@ -353,12 +354,10 @@
   "soundtrack-close-player": "Fermer le lecteur",
   "soundtrack-delete-track": "Supprimer la piste",
   "soundtrack-empty": "Aucune bande son pour le moment",
-  "soundtrack-folder-hint": "Les ROMs en fichier unique ne peuvent pas avoir de pistes associées. Réorganisez cette ROM en dossier et l'option de téléversement apparaîtra ici.",
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "Échec du chargement des métadonnées de la bande son",
   "soundtrack-mini-player": "Lecteur de bande son",
   "soundtrack-next": "Piste suivante",
-  "soundtrack-no-folder": "La bande son nécessite une ROM basée sur un dossier",
   "soundtrack-open-rom": "Open ROM details",
   "soundtrack-open-rom-tooltip": "Ouvrir la ROM",
   "soundtrack-pause": "Pause",
@@ -429,5 +428,7 @@
   "versions-count": "{n} versions",
   "volume-mute": "Couper le son",
   "volume-unmute": "Activer le son",
-  "youtube-video-id": "ID vidéo YouTube"
+  "youtube-video-id": "ID vidéo YouTube",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
 }

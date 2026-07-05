@@ -65,7 +65,9 @@ from handler.metadata import (
     meta_ra_handler,
     meta_ss_handler,
 )
+from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
+from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -372,6 +374,10 @@ def get_roms(
         bool | None,
         Query(description="Whether the rom is verified by Hasheous."),
     ] = None,
+    has_soundtrack: Annotated[
+        bool | None,
+        Query(description="Whether the rom has any soundtrack files."),
+    ] = None,
     group_by_meta_id: Annotated[
         bool,
         Query(
@@ -603,6 +609,7 @@ def get_roms(
         has_states=has_states,
         missing=missing,
         verified=verified,
+        has_soundtrack=has_soundtrack,
         genres=genres,
         franchises=franchises,
         collections=collections,
@@ -666,6 +673,7 @@ def get_roms(
         or has_states is not None
         or missing is not None
         or verified is not None
+        or has_soundtrack is not None
     )
 
     # Get the char index for the roms
@@ -702,8 +710,8 @@ def get_roms(
         filter_query = db_rom_handler.filter_roms(
             query=unfiltered_query,
             user_id=request.user.id,
-            hidden_platform_ids=perms.hidden_platform_ids,
-            hidden_rom_ids=perms.hidden_rom_ids,
+            hidden_platform_ids=list(perms.hidden_platform_ids),
+            hidden_rom_ids=list(perms.hidden_rom_ids),
             platform_ids=platform_ids,
             collection_id=collection_id,
             virtual_collection_id=virtual_collection_id,
@@ -814,11 +822,29 @@ def get_rom_identifiers(
 async def download_roms(
     request: Request,
     rom_ids: Annotated[
-        str,
+        str | None,
         Query(
             description="Comma-separated list of ROM IDs to download as a zip file.",
         ),
-    ],
+    ] = None,
+    platform_id: Annotated[
+        int | None,
+        Query(description="Download every ROM in this platform as a zip file."),
+    ] = None,
+    collection_id: Annotated[
+        int | None,
+        Query(description="Download every ROM in this collection as a zip file."),
+    ] = None,
+    virtual_collection_id: Annotated[
+        str | None,
+        Query(
+            description="Download every ROM in this virtual collection as a zip file.",
+        ),
+    ] = None,
+    smart_collection_id: Annotated[
+        int | None,
+        Query(description="Download every ROM in this smart collection as a zip file."),
+    ] = None,
     filename: Annotated[
         str | None,
         Query(
@@ -831,33 +857,46 @@ async def download_roms(
     current_username = (
         request.user.username if request.user.is_authenticated else "unknown"
     )
+    perms = get_permissions(request)
 
-    if not rom_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No ROM IDs provided",
+    # Resolve the target ROM IDs
+    if platform_id or collection_id or virtual_collection_id or smart_collection_id:
+        rom_rows = db_rom_handler.get_roms_scalar(
+            user_id=request.user.id,
+            only_fields=[Rom.id],
+            platform_ids=[platform_id] if platform_id else None,
+            collection_id=collection_id,
+            virtual_collection_id=virtual_collection_id,
+            smart_collection_id=smart_collection_id,
+            hidden_platform_ids=list(perms.hidden_platform_ids),
+            hidden_rom_ids=list(perms.hidden_rom_ids),
         )
-
-    # Parse comma-separated string into list of integers
-    try:
-        rom_id_list = [int(id.strip()) for id in rom_ids.split(",") if id.strip()]
-    except ValueError as e:
+        rom_id_list = list(dict.fromkeys(rom.id for rom in rom_rows))
+    elif rom_ids:
+        # Parse comma-separated string into list of integers
+        try:
+            rom_id_list = [int(id.strip()) for id in rom_ids.split(",") if id.strip()]
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid ROM ID format. Must be comma-separated integers.",
+            ) from e
+    else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid ROM ID format. Must be comma-separated integers.",
-        ) from e
+            detail="No ROM IDs or platform/collection selector provided",
+        )
 
     if not rom_id_list:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No valid ROM IDs provided",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No ROMs found to download",
         )
 
     rom_objects = db_rom_handler.get_roms_by_ids(rom_id_list)
 
     # Drop roms hidden from the caller so they can't be pulled by direct id.
     if request.user.is_authenticated:
-        perms = get_permissions(request)
         rom_objects = [
             rom for rom in rom_objects if perms.can_see_rom(rom.id, rom.platform_id)
         ]
@@ -1496,9 +1535,14 @@ async def update_rom(
         and int(cleaned_data["launchbox_id"]) != rom.launchbox_id
     ):
         launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
-            cleaned_data["launchbox_id"]
+            cleaned_data["launchbox_id"],
+            fs_name=rom.fs_name,
+            platform_slug=rom.platform_slug,
         )
         if launchbox_rom.get("launchbox_id"):
+            metadata = launchbox_rom.get("launchbox_metadata")
+            if metadata:
+                populate_rom_specific_paths(metadata, rom)
             cleaned_data.update(launchbox_rom)
     elif rom.launchbox_id and not cleaned_data["launchbox_id"]:
         cleaned_data.update({"launchbox_id": None, "launchbox_metadata": {}})
@@ -1687,6 +1731,36 @@ async def update_rom(
                     media_path,
                 )
 
+    # Handle local media files from LaunchBox when the ID has changed
+    if (
+        cleaned_data["launchbox_id"]
+        and int(cleaned_data["launchbox_id"]) != rom.launchbox_id
+    ):
+        preferred_media_types = get_preferred_media_types()
+
+        for media_type in preferred_media_types:
+            # Remove old media files if the launchbox_id is changing
+            if rom.launchbox_metadata and rom.launchbox_metadata.get(
+                f"{media_type.value}_path"
+            ):
+                await fs_resource_handler.remove_media_resources_path(
+                    rom.platform_id,
+                    rom.id,
+                    media_type,
+                )
+
+            media_path = cleaned_data.get("launchbox_metadata", {}).get(
+                f"{media_type.value}_path"
+            )
+            media_url = cleaned_data.get("launchbox_metadata", {}).get(
+                f"{media_type.value}_url"
+            )
+            if media_path and media_url:
+                await fs_resource_handler.store_media_file(
+                    media_url,
+                    media_path,
+                )
+
     log.debug(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"
     )
@@ -1735,6 +1809,40 @@ async def update_rom(
         fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))
 
     db_rom_handler.invalidate_filter_values_cache()
+    return DetailedRomSchema.from_orm_with_request(rom, request)
+
+
+@protected_route(
+    router.post,
+    "/{id}/convert-to-folder",
+    [Scope.ROMS_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_409_CONFLICT: {},
+    },
+)
+async def convert_rom_to_folder(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> DetailedRomSchema:
+    """Promote a single-file ROM to a folder ROM in place.
+
+    Keeps the same id and all relations; no rescan. A no-op (clean success) if
+    the ROM is already folder-based. Returns 409 on a folder-name collision.
+    """
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
+
+    try:
+        rom = await promote_single_file_to_folder(rom)
+    except RomAlreadyExistsException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 

@@ -27,6 +27,7 @@ import clientTokenApi, {
 } from "@/services/api/client-token";
 import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
+import { useClipboard } from "@/v2/composables/useClipboard";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 
@@ -38,6 +39,7 @@ const { t } = useI18n();
 const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const clipboard = useClipboard();
 
 type Step = "config" | "delivery" | "copy" | "pair";
 type PairStatus = "pending" | "claimed" | "expired";
@@ -249,14 +251,9 @@ async function doRegenerate() {
 }
 
 async function copyToken() {
-  try {
-    await navigator.clipboard.writeText(rawToken.value);
-    snackbar.success(t("settings.client-token-copied"), {
-      icon: "mdi-check-bold",
-    });
-  } catch {
-    /* ignore — clipboard unavailable */
-  }
+  await clipboard.copy(rawToken.value, {
+    successMessage: t("settings.client-token-copied"),
+  });
 }
 
 async function startPairing() {
@@ -394,6 +391,7 @@ onBeforeUnmount(() => {
     v-model="show"
     :icon="isRegenerate ? 'mdi-refresh' : 'mdi-key-plus'"
     :width="720"
+    scroll-content
     @close="closeDialog"
   >
     <template #header>
@@ -638,6 +636,11 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+}
+/* Phones: the two scope columns get cramped (and their content can push the
+   tracks past the sheet); stack them into one. */
+html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
+  grid-template-columns: 1fr;
 }
 html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
   grid-template-columns: 1fr;

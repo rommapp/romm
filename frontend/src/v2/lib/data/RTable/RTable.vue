@@ -77,6 +77,13 @@ const scrollStyle = computed(() =>
     : undefined,
 );
 
+// On phones a multi-column grid squashes every cell to an ellipsis. When no
+// horizontal-scroll floor is set, each row instead reflows into a stacked
+// card on `xs` (the column label becomes a per-cell caption — see <style>).
+// Setting `minWidth` opts back into the scrollable table for genuinely
+// tabular data (e.g. log lines) where the card treatment would hurt.
+const mobileStack = computed(() => resolvedMinWidth.value === undefined);
+
 function rowKey(row: T, idx: number): string | number {
   const key = props.itemKey;
   if (typeof key === "function") return key(row);
@@ -133,7 +140,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="r-table" v-bind="$attrs">
+  <div
+    class="r-table"
+    :class="{ 'r-table--mobile-stack': mobileStack }"
+    v-bind="$attrs"
+  >
     <!-- Header row — each column header is a cell `<div>` containing
          either a sort `<button>` (sortable cols) or a plain label, plus
          an optional `header.<key>` slot for adornments (e.g. a help
@@ -256,9 +267,16 @@ onBeforeUnmount(() => {
               :class="{
                 'r-table__cell--end': col.align === 'end',
                 'r-table__cell--center': col.align === 'center',
+                'r-table__cell--no-label': !col.label,
               }"
               role="cell"
             >
+              <!-- Caption — hidden on desktop (the header row labels the
+                   columns), shown only in the mobile card-stack so each
+                   value keeps its context. -->
+              <span v-if="col.label" class="r-table__cell-label">
+                {{ col.label }}
+              </span>
               <slot
                 :name="`cell.${col.key}`"
                 :row="row"
@@ -453,5 +471,57 @@ onBeforeUnmount(() => {
 }
 .r-table__empty-text {
   font-size: 13px;
+}
+
+/* Per-cell caption — carries the column label into the mobile card-stack.
+   Hidden on desktop where the header row already labels each column (and so
+   removed from the a11y tree, leaving the header as the single label
+   source); the stacked card flips this on and hides the header instead. */
+.r-table__cell-label {
+  display: none;
+}
+
+/* ------------------- Mobile card-stack (xs) ------------------
+   A multi-column grid squashes every cell to an ellipsis on a phone. With no
+   `minWidth` floor set (`.r-table--mobile-stack`), each row reflows into a
+   stacked card: the header hides, every cell becomes a `caption — value`
+   line, and action columns (no label) align their controls to the end.
+   Consumers that need the real table keep it by setting `minWidth` (then the
+   `__scroll` viewport scrolls horizontally instead). */
+html[data-bp~="xs"] .r-table--mobile-stack .r-table__header {
+  display: none;
+}
+html[data-bp~="xs"] .r-table--mobile-stack .r-table__row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  /* Beat the inline `row-height` (set via the `rowHeight` prop for the
+     dense desktop table) — a fixed height crushes the stacked cells into
+     each other, so the card must always grow to fit its content. */
+  height: auto !important;
+  padding: 12px var(--r-space-3);
+}
+html[data-bp~="xs"] .r-table--mobile-stack .r-table__cell {
+  height: auto;
+  min-height: 0;
+  justify-content: space-between;
+  gap: var(--r-space-4);
+  white-space: normal;
+  overflow: visible;
+}
+/* Action / icon-only columns carry no caption — push their controls to the
+   end so they read as the card's row of actions. */
+html[data-bp~="xs"] .r-table--mobile-stack .r-table__cell--no-label {
+  justify-content: flex-end;
+}
+html[data-bp~="xs"] .r-table--mobile-stack .r-table__cell-label {
+  display: block;
+  flex: 0 0 auto;
+  color: var(--r-color-fg-muted);
+  font-size: var(--r-font-size-xs, 10px);
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 </style>

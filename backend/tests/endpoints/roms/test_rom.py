@@ -4,7 +4,8 @@ from unittest.mock import AsyncMock, patch
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from handler.database import db_rom_handler
+from config.config_manager import MetadataMediaType
+from handler.database import db_collection_handler, db_rom_handler
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
@@ -14,8 +15,10 @@ from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesHandler, MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
+from models.collection import Collection
 from models.platform import Platform
 from models.rom import Rom, RomFile, compute_name_sort_key
+from models.user import User
 
 MOCK_IGDB_ID = 11111
 MOCK_MOBY_ID = 22222
@@ -60,6 +63,64 @@ def test_download_multi_file_rom_content(
     assert "disc1.bin" in body
     assert "disc2.bin" in body
     assert f"{multi_file_rom.fs_name}.m3u" in body
+
+
+def test_download_roms_by_platform(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    rom_file: RomFile,
+):
+    """The `platform_id` selector expands server-side to every ROM in the
+    platform, so no ID list rides in the URL."""
+    response = client.get(
+        f"/api/roms/download?platform_id={platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.headers["X-Archive-Files"] == "zip"
+    assert rom_file.file_name in response.text
+
+
+def test_download_roms_by_collection(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom_file: RomFile,
+):
+    """The `collection_id` selector expands to the collection's ROMs."""
+    collection = db_collection_handler.add_collection(
+        Collection(
+            name="Download Test",
+            description="",
+            is_public=False,
+            is_favorite=False,
+            user_id=admin_user.id,
+        )
+    )
+    db_collection_handler.add_roms_to_collection(collection.id, [rom_file.rom_id])
+
+    response = client.get(
+        f"/api/roms/download?collection_id={collection.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.headers["X-Archive-Files"] == "zip"
+    assert rom_file.file_name in response.text
+
+
+def test_download_roms_without_selector_is_bad_request(
+    client: TestClient, access_token: str
+):
+    """Neither an ID list nor a platform/collection selector -> 400."""
+    response = client.get(
+        "/api/roms/download",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_get_all_roms(
@@ -832,6 +893,62 @@ class TestUpdateMetadataIDs:
         body = response.json()
         assert body["launchbox_id"] == MOCK_LAUNCHBOX_ID
         assert get_rom_by_id_mock.called
+
+    @patch.object(FSResourcesHandler, "store_media_file", new_callable=AsyncMock)
+    @patch(
+        "handler.metadata.launchbox_handler.media.get_preferred_media_types",
+        return_value=[MetadataMediaType.VIDEO],
+    )
+    @patch(
+        "endpoints.roms.get_preferred_media_types",
+        return_value=[MetadataMediaType.VIDEO],
+    )
+    @patch.object(
+        LaunchboxHandler,
+        "get_rom_by_id",
+        return_value=LaunchboxRom(
+            launchbox_id=MOCK_LAUNCHBOX_ID,
+            launchbox_metadata={  # type: ignore[typeddict-item]
+                "video_url": "launchbox-file://Videos/NES/Mario.mp4",
+            },
+        ),
+    )
+    def test_update_rom_launchbox_id_imports_local_video(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        _get_preferred_endpoint_mock: AsyncMock,
+        _get_preferred_media_mock: AsyncMock,
+        store_media_file_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A LaunchBox match with a local video resolves a path and copies the file."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"launchbox_id": str(MOCK_LAUNCHBOX_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["launchbox_id"] == MOCK_LAUNCHBOX_ID
+        # get_rom_by_id must receive fs_name/platform_slug so local media resolves
+        assert get_rom_by_id_mock.call_args.kwargs.get("fs_name") == rom.fs_name
+        assert (
+            get_rom_by_id_mock.call_args.kwargs.get("platform_slug")
+            == rom.platform_slug
+        )
+        # populate_rom_specific_paths must have set video_path
+        video_path = body["launchbox_metadata"].get("video_path", "")
+        assert video_path.endswith("/video.mp4")
+        # and the video file must have been copied into the resource store
+        store_media_file_mock.assert_awaited_once()
+        await_args = store_media_file_mock.await_args
+        assert await_args is not None
+        called_url, called_path = await_args.args
+        assert called_url == "launchbox-file://Videos/NES/Mario.mp4"
+        assert called_path == video_path
 
     @patch.object(
         LaunchboxHandler,

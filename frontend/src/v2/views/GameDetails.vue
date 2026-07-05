@@ -391,9 +391,37 @@ const tabs = computed<RTabNavItem[]>(() => [
   font-size: 13px;
 }
 
-html[data-bp~="xs"] .r-v2-det__body {
-  padding: 12px 14px 0;
+/* Mobile / small tablet: stack the cover above the info column, and — unlike
+   desktop — let the WHOLE view scroll as one document instead of freezing the
+   cover/header/tabs and scrolling only the panel. A phone has no room to keep
+   half the screen static; the desktop "fixed cover + inner panel scroll"
+   layout makes no sense here. So the section grows with its content and the
+   AppLayout document scroll takes over (its bottom-nav padding clears the last
+   content). Every fixed-height / internal-scroll rule is unwound below. */
+html[data-bp~="sm-and-down"] .r-v2-det {
+  padding-top: 8px;
+  height: auto;
+}
+html[data-bp~="sm-and-down"] .r-v2-det__body {
+  flex-direction: column;
+  align-items: stretch;
   gap: 14px;
-  align-items: flex-start;
+  padding: 8px var(--r-row-pad) 16px;
+  flex: none;
+  min-height: 0;
+}
+html[data-bp~="sm-and-down"] .r-v2-det__info {
+  flex: none;
+  min-height: 0;
+}
+html[data-bp~="sm-and-down"] .r-v2-det__panel {
+  flex: none;
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+  padding-right: 0;
+}
+html[data-bp~="sm-and-down"] .r-v2-det__tabs {
+  margin: 10px 0 12px;
 }
 </style>

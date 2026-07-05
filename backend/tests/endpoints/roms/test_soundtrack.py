@@ -7,7 +7,8 @@ from fastapi.testclient import TestClient
 
 from endpoints.roms import soundtrack as soundtrack_endpoint
 from handler.database import db_rom_handler
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
+from utils.audio_tags import AudioTags, track_meta_columns
 
 MP3_BYTES = b"ID3\x03\x00\x00\x00\x00\x00\x21fake mp3 payload"
 
@@ -98,30 +99,7 @@ def test_upload_soundtrack_upserts_on_reupload(
     assert len(soundtracks) == 1
 
 
-def test_upload_soundtrack_rejects_single_file_rom(
-    client: TestClient,
-    access_token: str,
-    rom: Rom,
-    soundtrack_fs: Path,
-):
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name=rom.fs_name,
-            file_path=rom.fs_path,
-            file_size_bytes=1,
-            category=RomFileCategory.GAME,
-        )
-    )
-
-    response = client.post(
-        f"/api/roms/{rom.id}/soundtracks",
-        headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
-        files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
-    )
-
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "folder-based" in response.json()["detail"]
+# Single-file auto-convert on upload is covered in test_convert_to_folder.py.
 
 
 def test_upload_soundtrack_rejects_invalid_extension(
@@ -247,14 +225,11 @@ def test_upload_soundtrack_extracts_audio_meta(
     )
     monkeypatch.setattr(
         soundtrack_endpoint,
-        "persist_cover_and_build_meta",
-        lambda **kw: {
-            **kw["audio_meta"],
-            "cover_path": (
-                f"roms/{kw['platform_id']}/{kw['rom_id']}"
-                f"/soundtracks/{kw['file_id']}.jpg"
-            ),
-        },
+        "persist_embedded_cover",
+        lambda **kw: (
+            f"roms/{kw['platform_id']}/{kw['rom_id']}"
+            f"/soundtracks/{kw['file_id']}.jpg"
+        ),
     )
 
     response = client.post(
@@ -270,12 +245,16 @@ def test_upload_soundtrack_extracts_audio_meta(
     ]
     assert len(soundtracks) == 1
     track = soundtracks[0]
-    assert track.audio_meta is not None
-    assert track.audio_meta["title"] == "The Theme"
-    assert track.audio_meta["duration_seconds"] == 123.4
-    assert track.audio_meta["has_embedded_cover"] is True
+    assert track.track_meta is not None
+    assert track.track_meta.title == "The Theme"
+    assert track.track_meta.duration_seconds == 123.4
+    assert track.track_meta.has_embedded_cover is True
+    # Free-text tags parsed to ints.
+    assert track.track_meta.year == 1995
+    assert track.track_meta.track == 1
+    assert track.track_meta.disc == 1
     assert (
-        track.audio_meta["cover_path"]
+        track.track_meta.cover_path
         == f"roms/{game_folder_rom.platform_id}/{game_folder_rom.id}"
         f"/soundtracks/{track.id}.jpg"
     )
@@ -299,7 +278,7 @@ def test_upload_soundtrack_no_cover_leaves_cover_path_unset(
         cover_calls.append(kw)
 
     monkeypatch.setattr(
-        soundtrack_endpoint, "persist_cover_and_build_meta", _record_cover_call
+        soundtrack_endpoint, "persist_embedded_cover", _record_cover_call
     )
 
     response = client.post(
@@ -312,7 +291,8 @@ def test_upload_soundtrack_no_cover_leaves_cover_path_unset(
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
     track = next(f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK)
-    assert track.audio_meta.get("cover_path") is None
+    assert track.track_meta is not None
+    assert track.track_meta.cover_path is None
 
 
 # ---------- GET /api/roms/{id}/soundtracks/metadata ----------
@@ -324,7 +304,7 @@ def test_get_soundtrack_metadata_returns_tracks_sorted(
     game_folder_rom: Rom,
     soundtrack_fs: Path,
 ):
-    meta_b = {
+    meta_b: AudioTags = {
         "title": "B side",
         "artist": "A",
         "album": None,
@@ -335,7 +315,7 @@ def test_get_soundtrack_metadata_returns_tracks_sorted(
         "duration_seconds": 42.0,
         "has_embedded_cover": False,
     }
-    meta_a = {**meta_b, "title": "A side", "has_embedded_cover": True}
+    meta_a: AudioTags = {**meta_b, "title": "A side", "has_embedded_cover": True}
     db_rom_handler.add_rom_file(
         RomFile(
             rom_id=game_folder_rom.id,
@@ -343,7 +323,9 @@ def test_get_soundtrack_metadata_returns_tracks_sorted(
             file_path=f"{game_folder_rom.full_path}/soundtrack",
             file_size_bytes=10,
             category=RomFileCategory.SOUNDTRACK,
-            audio_meta=meta_b,
+            track_meta=TrackMeta(
+                rom_id=game_folder_rom.id, **track_meta_columns(meta_b)
+            ),
         )
     )
     db_rom_handler.add_rom_file(
@@ -353,7 +335,9 @@ def test_get_soundtrack_metadata_returns_tracks_sorted(
             file_path=f"{game_folder_rom.full_path}/soundtrack",
             file_size_bytes=10,
             category=RomFileCategory.SOUNDTRACK,
-            audio_meta=meta_a,
+            track_meta=TrackMeta(
+                rom_id=game_folder_rom.id, **track_meta_columns(meta_a)
+            ),
         )
     )
 
@@ -365,9 +349,9 @@ def test_get_soundtrack_metadata_returns_tracks_sorted(
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
     assert [t["file_name"] for t in body] == ["a_track.mp3", "b_track.mp3"]
-    assert body[0]["audio_meta"]["title"] == "A side"
-    assert body[0]["audio_meta"]["has_embedded_cover"] is True
-    assert body[1]["audio_meta"]["duration_seconds"] == 42.0
+    assert body[0]["track_meta"]["title"] == "A side"
+    assert body[0]["track_meta"]["has_embedded_cover"] is True
+    assert body[1]["track_meta"]["duration_seconds"] == 42.0
 
 
 def test_get_soundtrack_metadata_empty_for_rom_without_tracks(
@@ -524,9 +508,9 @@ def test_upload_soundtrack_with_malformed_audio_still_succeeds(
         f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
     ]
     assert len(soundtracks) == 1
-    # audio_meta is either None or a dict — garbage in must not raise.
-    meta = soundtracks[0].audio_meta
-    assert meta is None or isinstance(meta, dict)
+    # Garbage tags must not raise; track_meta is None or a TrackMeta row.
+    meta = soundtracks[0].track_meta
+    assert meta is None or isinstance(meta, TrackMeta)
 
 
 # ---------- missing-file delete ----------
@@ -572,13 +556,14 @@ def test_delete_soundtrack_removes_persisted_cover(
             file_path=f"{game_folder_rom.full_path}/soundtrack",
             file_size_bytes=len(MP3_BYTES),
             category=RomFileCategory.SOUNDTRACK,
-            audio_meta={
-                "has_embedded_cover": True,
-                "cover_path": (
+            track_meta=TrackMeta(
+                rom_id=game_folder_rom.id,
+                has_embedded_cover=True,
+                cover_path=(
                     f"roms/{game_folder_rom.platform_id}/{game_folder_rom.id}"
                     "/soundtracks/9999.jpg"
                 ),
-            },
+            ),
         )
     )
     removed: list[str] = []

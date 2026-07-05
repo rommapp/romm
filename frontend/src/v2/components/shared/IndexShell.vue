@@ -30,7 +30,12 @@
 //                     covered by the extended clip-path so rows don't
 //                     bleed through the translucent surface.
 //   * default       — index content (grid / list / panels).
-import { computed, onBeforeUnmount, ref } from "vue";
+import {
+  computed,
+  type ComponentPublicInstance,
+  onBeforeUnmount,
+  ref,
+} from "vue";
 
 interface Props {
   /** Enables the sticky `#listHeader` band below the toolbar. Set when
@@ -62,22 +67,26 @@ const inflowToolbarTop = ref(0);
 
 let toolbarResizeObserver: ResizeObserver | null = null;
 
-function bindInflowToolbarEl(el: HTMLElement | null) {
+// Bound via a STABLE function ref (never an inline arrow): an inline `(el) =>
+// …` ref changes identity every render, so Vue re-invokes it with `null` then
+// the element on every re-render, resetting the measurements mid-scroll.
+function bindInflowToolbarEl(el: Element | ComponentPublicInstance | null) {
+  const node = (el as HTMLElement | null) ?? null;
   toolbarResizeObserver?.disconnect();
   toolbarResizeObserver = null;
-  inflowToolbarEl.value = el;
-  if (!el) {
+  inflowToolbarEl.value = node;
+  if (!node) {
     toolbarHeight.value = 0;
     inflowToolbarTop.value = 0;
     return;
   }
   const measure = () => {
-    toolbarHeight.value = el.getBoundingClientRect().height;
-    inflowToolbarTop.value = el.offsetTop;
+    toolbarHeight.value = node.getBoundingClientRect().height;
+    inflowToolbarTop.value = node.offsetTop;
   };
   measure();
   toolbarResizeObserver = new ResizeObserver(measure);
-  toolbarResizeObserver.observe(el);
+  toolbarResizeObserver.observe(node);
 }
 
 function onScroll(e: Event) {
@@ -119,7 +128,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div
-        :ref="(el) => bindInflowToolbarEl(el as HTMLElement | null)"
+        :ref="bindInflowToolbarEl"
         class="r-v2-idx-shell__toolbar r-v2-idx-shell__toolbar--inflow"
       >
         <slot name="toolbar" />
@@ -173,10 +182,25 @@ onBeforeUnmount(() => {
   overflow: hidden;
   /* Viewport-relative height — same rationale as GalleryShell: percentage
      heights on descendants of flex-computed boxes don't always resolve,
-     and when they fail the inner scroller becomes content-sized and
-     stops overflowing. Subtracting the navbar from 100vh bypasses that. */
+     and when they fail the inner scroller becomes content-sized and stops
+     overflowing. Subtracting the navbar bypasses that. `dvh` (not `vh`)
+     matches the mobile visible viewport so the section doesn't spill below
+     the fold and force a second, document-level scroll. */
   height: calc(100vh - var(--r-nav-h));
+  height: calc(100dvh - var(--r-nav-h));
   position: relative;
+}
+
+/* On sm-and-down the section keeps its full `100dvh - nav` height so tiles
+   scroll UNDER the translucent bottom tab bar. The layout <main> adds a
+   bottom padding for the bar (flow views need it); cancel it here with a
+   matching negative margin so this full-height section doesn't push the
+   document past one viewport (a second, global scroll on top of the internal
+   one). The scroller's bottom padding lifts the last row clear of the bar. */
+html[data-bp~="sm-and-down"] .r-v2-idx-shell {
+  margin-bottom: calc(
+    -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
+  );
 }
 
 .r-v2-idx-shell__scroller {
@@ -259,7 +283,10 @@ onBeforeUnmount(() => {
 }
 
 html[data-bp~="xs"] .r-v2-idx-shell__scroller {
-  padding: 0 14px 80px;
+  /* Last row clears the bottom tab bar (content still scrolls under its
+     glass); the section extends under the bar, so the padding does the lift. */
+  padding: 0 14px
+    calc(var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px);
 }
 html[data-bp~="xs"] .r-v2-idx-shell__header {
   padding-top: 16px;

@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "{n} Handbuch-Datei hochgeladen, {failed} fehlgeschlagen. | {n} Handbuch-Dateien hochgeladen, {failed} fehlgeschlagen.",
   "manual-match": "Manuell zuweisen",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Fehler beim Entfernen des Handbuchs: {error}",
   "manual-removed": "Handbuch erfolgreich entfernt",
@@ -353,12 +354,10 @@
   "soundtrack-close-player": "Player schließen",
   "soundtrack-delete-track": "Titel löschen",
   "soundtrack-empty": "Noch kein Soundtrack",
-  "soundtrack-folder-hint": "Einzeldatei-ROMs können keine zugehörigen Tracks haben. Organisiere diese ROM als Ordner, dann erscheint hier die Upload-Option.",
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "Soundtrack-Metadaten konnten nicht geladen werden",
   "soundtrack-mini-player": "Soundtrack-Player",
   "soundtrack-next": "Nächster Titel",
-  "soundtrack-no-folder": "Soundtrack benötigt eine ordnerbasierte ROM",
   "soundtrack-open-rom": "Open ROM details",
   "soundtrack-open-rom-tooltip": "ROM öffnen",
   "soundtrack-pause": "Pause",
@@ -429,5 +428,7 @@
   "versions-count": "{n} Versionen",
   "volume-mute": "Stummschalten",
   "volume-unmute": "Stummschaltung aufheben",
-  "youtube-video-id": "YouTube-Video-ID"
+  "youtube-video-id": "YouTube-Video-ID",
+  "convert-to-folder-title": "Convert to folder ROM?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
 }

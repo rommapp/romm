@@ -300,7 +300,13 @@ const { smAndUp } = useBreakpoint();
       <!-- Kebab mirror — only visible below smAndUp. Mirrors the slider
            state: `groupBy` items disable in list mode, same way the
            inline GroupBy slider does. -->
-      <RMenu v-if="!smAndUp" location="bottom end" :offset="8" width="220px">
+      <RMenu
+        v-if="!smAndUp"
+        location="bottom end"
+        :offset="8"
+        width="220px"
+        sheet-on-mobile
+      >
         <template #activator="{ props: activatorProps }">
           <RBtn
             v-bind="activatorProps"

@@ -11,6 +11,7 @@ from rq import Worker
 from rq.job import Job
 from sqlalchemy.exc import IntegrityError
 
+from adapters.services.screenscraper import reset_daily_quota as reset_ss_daily_quota
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
@@ -49,7 +50,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile
+from models.rom import Rom, RomFile, TrackMeta
 from tasks.tasks import update_job_meta
 from utils import emoji
 from utils.context import initialize_context
@@ -57,6 +58,25 @@ from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
 
 STOP_SCAN_FLAG: Final = "scan:stop"
+
+
+def _clone_track_meta(src: TrackMeta | None, rom_id: int) -> TrackMeta | None:
+    """Build a fresh TrackMeta from a scanned (transient) one for a new RomFile."""
+    if src is None:
+        return None
+    return TrackMeta(
+        rom_id=rom_id,
+        title=src.title,
+        artist=src.artist,
+        album=src.album,
+        genre=src.genre,
+        year=src.year,
+        track=src.track,
+        disc=src.disc,
+        duration_seconds=src.duration_seconds,
+        has_embedded_cover=src.has_embedded_cover,
+        cover_path=src.cover_path,
+    )
 
 
 @dataclass
@@ -264,7 +284,7 @@ async def _identify_rom(
                     languages=parsed_tags.languages,
                     tags=parsed_tags.other_tags,
                     platform_id=platform.id,
-                    name=fs_rom["fs_name"],
+                    name=fs_rom_handler.get_file_name_with_no_tags(fs_rom["fs_name"]),
                     url_cover="",
                     url_manual="",
                     url_screenshots=[],
@@ -383,7 +403,7 @@ async def _identify_rom(
                 file_size_bytes=file.file_size_bytes,
                 last_modified=file.last_modified,
                 category=file.category,
-                audio_meta=file.audio_meta,
+                track_meta=_clone_track_meta(file.track_meta, _added_rom.id),
                 crc_hash=file.crc_hash,
                 md5_hash=file.md5_hash,
                 sha1_hash=file.sha1_hash,
@@ -692,6 +712,10 @@ async def scan_platforms(
 
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
+
+    # Reset the ScreenScraper daily-quota breaker so this scan re-evaluates the
+    # quota instead of inheriting a tripped state from a previous scan.
+    reset_ss_daily_quota()
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()

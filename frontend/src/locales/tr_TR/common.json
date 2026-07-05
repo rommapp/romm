@@ -78,6 +78,8 @@
   "changelog": "Değişiklik günlüğü",
   "clear-finished": "Tamamlananları temizle",
   "clipboard-unavailable": "Pano bu bağlamda kullanılamıyor. Aşağıdaki bağlantıyı elle kopyalayın.",
+  "clipboard-copied": "{label} panoya kopyalandı",
+  "clipboard-copy-failed": "Panoya kopyalanamadı. Bu, güvenli (HTTPS) bağlantı gerektirir.",
   "close": "Kapat",
   "cloud": "Bulut",
   "collapse": "Daralt",
