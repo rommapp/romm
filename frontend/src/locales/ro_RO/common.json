@@ -78,6 +78,8 @@
   "changelog": "Istoric modificări",
   "clear-finished": "Șterge terminate",
   "clipboard-unavailable": "Clipboardul nu este disponibil în acest context. Selectează linkul de mai jos pentru a-l copia manual.",
+  "clipboard-copied": "{label} copiat în clipboard",
+  "clipboard-copy-failed": "Copierea în clipboard a eșuat. Necesită o conexiune securizată (HTTPS).",
   "close": "Închide",
   "cloud": "Cloud",
   "collapse": "Restrânge",

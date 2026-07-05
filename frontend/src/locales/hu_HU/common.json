@@ -78,6 +78,8 @@
   "changelog": "Változási napló",
   "clear-finished": "Befejezettek törlése",
   "clipboard-unavailable": "A vágólap ebben a környezetben nem érhető el. A link kézi másolásához válaszd ki az alábbi linket.",
+  "clipboard-copied": "{label} a vágólapra másolva",
+  "clipboard-copy-failed": "Nem sikerült a vágólapra másolni. Ehhez biztonságos (HTTPS) kapcsolat szükséges.",
   "close": "Bezárás",
   "cloud": "Felhő",
   "collapse": "Összecsukás",

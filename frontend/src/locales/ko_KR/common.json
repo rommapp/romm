@@ -78,6 +78,8 @@
   "changelog": "변경 로그",
   "clear-finished": "완료 항목 지우기",
   "clipboard-unavailable": "이 환경에서는 클립보드를 사용할 수 없습니다. 아래 링크를 선택하여 수동으로 복사하세요.",
+  "clipboard-copied": "{label}을(를) 클립보드에 복사했습니다",
+  "clipboard-copy-failed": "클립보드에 복사하지 못했습니다. 보안 연결(HTTPS)이 필요합니다.",
   "close": "닫기",
   "cloud": "클라우드",
   "collapse": "접기",
