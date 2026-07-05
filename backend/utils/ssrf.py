@@ -44,9 +44,28 @@ from httpcore._backends.sync import SyncBackend
 from logger.logger import log
 from utils.validation import ValidationError
 
+# RFC 6052 well-known NAT64 prefix. DNS64 resolvers embed a public IPv4 in
+# the low 32 bits so IPv6-only clients can reach IPv4-only hosts. We must
+# judge such an address by its embedded IPv4, not the (reserved) wrapper.
+_NAT64_WELL_KNOWN_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+
+
+def _nat64_embedded_ipv4(
+    ip: ipaddress.IPv4Address | ipaddress.IPv6Address,
+) -> ipaddress.IPv4Address | None:
+    """Return the IPv4 embedded in a well-known NAT64 address, else None."""
+    if isinstance(ip, ipaddress.IPv6Address) and ip in _NAT64_WELL_KNOWN_PREFIX:
+        return ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+    return None
+
 
 def is_forbidden_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """Return True if the IP must not be reached from a server-side HTTP request."""
+    embedded = _nat64_embedded_ipv4(ip)
+    if embedded is not None:
+        # A NAT64-wrapped public IPv4 is a legitimate destination on DNS64
+        # networks; a wrapped private/internal IPv4 must still be blocked.
+        return is_forbidden_ip(embedded)
     return (
         ip.is_private
         or ip.is_loopback
