@@ -963,16 +963,13 @@ async def scan_rom(
     ):
         # A ROM's name defaults to a filename-derived placeholder when first
         # created. Treat that placeholder as "no name" so a freshly matched provider
-        # name replaces it (while preserving user-edited names). When still unmatched,
-        # fall back to the parsed filename (tags and extension stripped) rather than
-        # keeping the raw filename as the title.
+        # name replaces it (while preserving user-edited names).
         fs_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
             rom_attrs["fs_name"]
         )
         # Both the existing name and the seeded rom_attrs name can hold the
-        # placeholder (rom_attrs["name"] is seeded from rom.name earlier, and is
-        # only overwritten when a provider actually matched). Discard either when
-        # it's a placeholder so the parsed filename fallback can win.
+        # placeholder. Discard either when it's a placeholder so the parsed
+        # filename fallback can win.
         placeholders = (None, "", rom.fs_name, fs_name_no_tags)
         existing_name = None if rom.name in placeholders else rom.name
         matched_name = rom_attrs.get("name")
