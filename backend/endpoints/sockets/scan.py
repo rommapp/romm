@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import batched
 from typing import Any, Final
 
@@ -90,6 +90,9 @@ class ScanStats:
     identified_roms: int = 0
     scanned_firmware: int = 0
     new_firmware: int = 0
+
+    # Metadata sources skipped for the rest of this scan (e.g. daily quota exhausted).
+    skipped_metadata_sources: set[MetadataSource] = field(default_factory=set)
 
     def __post_init__(self):
         # Lock for thread-safe updates
@@ -363,6 +366,7 @@ async def _identify_rom(
         launchbox_remote_enabled=launchbox_remote_enabled,
         playmatch_enabled=playmatch_enabled,
         socket_manager=socket_manager,
+        skipped_metadata_sources=scan_stats.skipped_metadata_sources,
     )
 
     await scan_stats.increment(

@@ -1,16 +1,28 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi import HTTPException, status
 
 from handler.database import db_platform_handler, db_rom_handler
+from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_hasheous_handler,
+    meta_moby_handler,
     meta_playmatch_handler,
     meta_ra_handler,
+    meta_ss_handler,
 )
 from handler.metadata.hasheous_handler import HasheousRom
+from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom
-from handler.scan_handler import MetadataSource, ScanType, scan_platform, scan_rom
+from handler.metadata.ss_handler import SSRom
+from handler.scan_handler import (
+    MetadataSource,
+    ScanType,
+    mark_metadata_source_skipped,
+    scan_platform,
+    scan_rom,
+)
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from utils.context import initialize_context
@@ -561,3 +573,135 @@ async def test_lookup_rom_skips_request_when_no_hashes(mock_is_enabled, mock_req
 
     assert result["hasheous_id"] is None
     mock_request.assert_not_called()
+
+
+async def test_mark_metadata_source_skipped_notifies_once():
+    """The helper adds the source once and emits a single scan:warning."""
+    socket_manager = AsyncMock()
+    skipped: set[MetadataSource] = set()
+
+    await mark_metadata_source_skipped(
+        MetadataSource.SS, "quota exhausted", skipped, socket_manager
+    )
+    # A second hit for the same source must not re-notify.
+    await mark_metadata_source_skipped(
+        MetadataSource.SS, "quota exhausted", skipped, socket_manager
+    )
+
+    assert skipped == {MetadataSource.SS}
+    socket_manager.emit.assert_awaited_once()
+    event, payload = socket_manager.emit.await_args.args
+    assert event == "scan:warning"
+    assert payload["source"] == MetadataSource.SS.value
+
+
+def _ss_quota_platform() -> Platform:
+    platform = Platform(
+        id=1,
+        slug="snes",
+        fs_slug="snes",
+        name="Super Nintendo",
+        ss_id=4,
+        moby_id=15,
+    )
+    return db_platform_handler.add_platform(platform)
+
+
+def _ss_quota_fs_rom(fs_name: str) -> FSRom:
+    return {
+        "fs_name": fs_name,
+        "flat": True,
+        "nested": False,
+        "files": [],
+        "crc_hash": "",
+        "md5_hash": "",
+        "sha1_hash": "",
+        "ra_hash": "",
+    }
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_moby_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_ss_quota_skips_and_falls_back(
+    mock_ss_lookup, mock_moby_get_rom, mock_playmatch_enabled
+):
+    """When ScreenScraper's quota is exhausted, the scan must still save the
+    other providers' data and skip SS for the rest of the run."""
+    mock_ss_lookup.side_effect = HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="ScreenScraper daily scrape quota exhausted. Try again tomorrow.",
+    )
+    mock_moby_get_rom.return_value = MobyGamesRom(moby_id=789, name="Match")
+
+    platform = _ss_quota_platform()
+    skipped: set[MetadataSource] = set()
+    sources: list[str] = [MetadataSource.SS, MetadataSource.MOBY]
+
+    rom_one = db_rom_handler.add_rom(
+        Rom(platform_id=platform.id, fs_name="game1.sfc", fs_path="snes", tags=[])
+    )
+    async with initialize_context():
+        result_one = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom_one,
+            fs_rom=_ss_quota_fs_rom("game1.sfc"),
+            metadata_sources=sources,
+            newly_added=True,
+            skipped_metadata_sources=skipped,
+        )
+
+    # SS raised but the ROM still got MobyGames data, and SS is now skipped.
+    assert result_one.ss_id is None
+    assert result_one.moby_id == 789
+    assert MetadataSource.SS in skipped
+
+    rom_two = db_rom_handler.add_rom(
+        Rom(platform_id=platform.id, fs_name="game2.sfc", fs_path="snes", tags=[])
+    )
+    async with initialize_context():
+        result_two = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom_two,
+            fs_rom=_ss_quota_fs_rom("game2.sfc"),
+            metadata_sources=sources,
+            newly_added=True,
+            skipped_metadata_sources=skipped,
+        )
+
+    # SS was not called again for the second ROM, but MobyGames still matched.
+    mock_ss_lookup.assert_called_once()
+    assert result_two.moby_id == 789
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_moby_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_provider_error_does_not_discard_others(
+    mock_ss_lookup, mock_moby_get_rom, mock_playmatch_enabled
+):
+    """An unexpected error from one provider must not wipe the others' results."""
+    mock_moby_get_rom.side_effect = ValueError("boom")
+    mock_ss_lookup.return_value = (SSRom(ss_id=321, name="Match"), False)
+
+    platform = _ss_quota_platform()
+    rom = db_rom_handler.add_rom(
+        Rom(platform_id=platform.id, fs_name="game.sfc", fs_path="snes", tags=[])
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("game.sfc"),
+            metadata_sources=[MetadataSource.SS, MetadataSource.MOBY],
+            newly_added=True,
+            skipped_metadata_sources=set(),
+        )
+
+    # MobyGames blew up, but ScreenScraper's match survived.
+    assert result.ss_id == 321
+    assert result.moby_id is None

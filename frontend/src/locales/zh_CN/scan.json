@@ -1,4 +1,5 @@
 {
+  "provider-quota-skipped": "某个元数据提供方已达到每日上限，本次扫描的剩余部分将跳过它。",
   "source-disabled": "来源已禁用",
   "abort": "中止",
   "api-key-invalid": "API密钥无效！",

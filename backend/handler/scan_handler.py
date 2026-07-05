@@ -4,6 +4,7 @@ import functools
 from typing import Any
 
 import socketio  # type: ignore
+from fastapi import HTTPException, status
 
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
@@ -81,6 +82,32 @@ class MetadataSource(enum.StrEnum):
     GAMELIST = "gamelist"  # ES-DE gamelist.xml
     LIBRETRO = "libretro"  # Libretro thumbnails
     PLAYMATCH = "playmatch"  # Playmatch
+
+
+async def mark_metadata_source_skipped(
+    source: MetadataSource,
+    detail: str,
+    skipped_metadata_sources: set[MetadataSource],
+    socket_manager: socketio.AsyncRedisManager | None,
+) -> None:
+    """Skip a metadata source for the rest of the scan when its quota is exhausted.
+
+    Warns and notifies the client once, on the first skip, so remaining ROMs fall
+    back to the other providers instead of hammering an exhausted source.
+    """
+    if source in skipped_metadata_sources:
+        return
+
+    skipped_metadata_sources.add(source)
+    log.warning(
+        f"{hl(source.value.upper())} unavailable, skipping it for the rest of this scan: {detail}",
+        extra=LOGGER_MODULE_NAME,
+    )
+    if socket_manager:
+        await socket_manager.emit(
+            "scan:warning",
+            {"source": source.value, "message_key": "scan.provider-quota-skipped"},
+        )
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -322,7 +349,12 @@ async def scan_rom(
     launchbox_remote_enabled: bool = True,
     playmatch_enabled: bool = True,
     socket_manager: socketio.AsyncRedisManager | None = None,
+    skipped_metadata_sources: set[MetadataSource] | None = None,
 ) -> Rom:
+    # Sources skipped for the rest of the scan (e.g. daily quota exhausted). Shared
+    # across ROMs so a provider is retried at most once after it starts failing.
+    if skipped_metadata_sources is None:
+        skipped_metadata_sources = set()
     rom_attrs = {
         "id": rom.id,
         "platform_id": platform.id,
@@ -654,30 +686,49 @@ async def scan_rom(
                 )
             )
         ):
-            # Use the ID to refetch metadata
-            if scan_type == ScanType.UPDATE and rom.ss_id:
-                return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
+            # ScreenScraper quota was exhausted earlier in this scan, skip it.
+            if MetadataSource.SS in skipped_metadata_sources:
+                return SSRom(ss_id=None)
 
-            # Use Playmatch's hash-based id when available
-            if playmatch_rom["ss_id"] is not None:
-                log.debug(
-                    f"{hl(rom_attrs['fs_name'])} identified by Playmatch as ScreenScraper "
-                    f"{hl(str(playmatch_rom['ss_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
-                    extra=LOGGER_MODULE_NAME,
+            try:
+                # Use the ID to refetch metadata
+                if scan_type == ScanType.UPDATE and rom.ss_id:
+                    return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
+
+                # Use Playmatch's hash-based id when available
+                if playmatch_rom["ss_id"] is not None:
+                    log.debug(
+                        f"{hl(rom_attrs['fs_name'])} identified by Playmatch as ScreenScraper "
+                        f"{hl(str(playmatch_rom['ss_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+                        extra=LOGGER_MODULE_NAME,
+                    )
+                    return await meta_ss_handler.get_rom_by_id(
+                        rom, playmatch_rom["ss_id"]
+                    )
+
+                # Use the file hashes for lookup
+                game_by_hash, is_not_game = await meta_ss_handler.lookup_rom(
+                    rom, platform.ss_id, get_match_files()
                 )
-                return await meta_ss_handler.get_rom_by_id(rom, playmatch_rom["ss_id"])
+                if game_by_hash.get("ss_id") or is_not_game:
+                    return game_by_hash
 
-            # Use the file hashes for lookup
-            game_by_hash, is_not_game = await meta_ss_handler.lookup_rom(
-                rom, platform.ss_id, get_match_files()
-            )
-            if game_by_hash.get("ss_id") or is_not_game:
-                return game_by_hash
-
-            # Fallback to the filename
-            return await meta_ss_handler.get_rom(
-                rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
-            )
+                # Fallback to the filename
+                return await meta_ss_handler.get_rom(
+                    rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
+                )
+            except HTTPException as exc:
+                # ScreenScraper raises 429 only when a daily quota is exhausted, skip
+                # it for the rest of the scan so other providers still match this ROM.
+                if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
+                    raise
+                await mark_metadata_source_skipped(
+                    MetadataSource.SS,
+                    str(exc.detail),
+                    skipped_metadata_sources,
+                    socket_manager,
+                )
+                return SSRom(ss_id=None)
 
         return SSRom(ss_id=None)
 
@@ -815,7 +866,46 @@ async def scan_rom(
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
-    # Run metadata fetches concurrently
+    # Run metadata fetches concurrently. One provider raising must not discard the
+    # others' results for this ROM, so each failure falls back to an empty match.
+    provider_fetches = (
+        (
+            fetch_igdb_rom(playmatch_hash_match, hasheous_hash_match),
+            IGDBRom(igdb_id=None),
+        ),
+        (fetch_moby_rom(playmatch_hash_match), MobyGamesRom(moby_id=None)),
+        (fetch_ss_rom(playmatch_hash_match), SSRom(ss_id=None)),
+        (fetch_ra_rom(hasheous_hash_match), RAGameRom(ra_id=None)),
+        (
+            fetch_launchbox_rom(platform.slug, playmatch_hash_match),
+            LaunchboxRom(launchbox_id=None),
+        ),
+        (
+            fetch_hasheous_rom(hasheous_hash_match),
+            HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None),
+        ),
+        (fetch_flashpoint_rom(), FlashpointRom(flashpoint_id=None)),
+        (fetch_hltb_rom(), HLTBRom(hltb_id=None)),
+        (fetch_gamelist_rom(), GamelistRom(gamelist_id=None)),
+        (fetch_libretro_rom(), LibretroRom(libretro_id=None)),
+    )
+    fetch_results = await asyncio.gather(
+        *(coro for coro, _ in provider_fetches), return_exceptions=True
+    )
+
+    resolved: list[Any] = []
+    for (_, fallback), result in zip(provider_fetches, fetch_results, strict=True):
+        if isinstance(result, BaseException):
+            if not isinstance(result, Exception):
+                raise result
+            log.error(
+                f"Error fetching metadata for {hl(rom_attrs['fs_name'])}: {result}",
+                extra=LOGGER_MODULE_NAME,
+            )
+            resolved.append(fallback)
+        else:
+            resolved.append(result)
+
     (
         igdb_handler_rom,
         moby_handler_rom,
@@ -827,18 +917,7 @@ async def scan_rom(
         hltb_handler_rom,
         gamelist_handler_rom,
         libretro_handler_rom,
-    ) = await asyncio.gather(
-        fetch_igdb_rom(playmatch_hash_match, hasheous_hash_match),
-        fetch_moby_rom(playmatch_hash_match),
-        fetch_ss_rom(playmatch_hash_match),
-        fetch_ra_rom(hasheous_hash_match),
-        fetch_launchbox_rom(platform.slug, playmatch_hash_match),
-        fetch_hasheous_rom(hasheous_hash_match),
-        fetch_flashpoint_rom(),
-        fetch_hltb_rom(),
-        fetch_gamelist_rom(),
-        fetch_libretro_rom(),
-    )
+    ) = resolved
 
     metadata_handlers: dict[MetadataSource, dict] = {
         MetadataSource.IGDB: {

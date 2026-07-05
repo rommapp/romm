@@ -1,4 +1,5 @@
 {
+  "provider-quota-skipped": "Ein Metadaten-Anbieter hat sein Tageslimit erreicht und wurde für den Rest dieses Scans übersprungen.",
   "source-disabled": "Quelle deaktiviert",
   "abort": "Abbrechen",
   "api-key-invalid": "Ungültiger API-Schlüssel!",

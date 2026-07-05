@@ -1,4 +1,5 @@
 {
+  "provider-quota-skipped": "某個中繼資料提供者已達到每日上限，本次掃描的其餘部分將略過它。",
   "source-disabled": "來源已停用",
   "abort": "中止",
   "api-key-invalid": "API金鑰無效！",

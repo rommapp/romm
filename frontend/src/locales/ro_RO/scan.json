@@ -1,4 +1,5 @@
 {
+  "provider-quota-skipped": "Un furnizor de metadate a atins limita zilnică și a fost omis pentru restul acestei scanări.",
   "source-disabled": "Sursă dezactivată",
   "abort": "Anulează",
   "api-key-invalid": "Cheie API invalidă!",

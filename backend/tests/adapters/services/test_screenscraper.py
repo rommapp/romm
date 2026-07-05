@@ -424,6 +424,27 @@ class TestScreenScraperServiceUnit:
         assert "unrecognized" in exc_info.value.detail
 
     @pytest.mark.asyncio
+    async def test_request_daily_quota_exhausted_on_retry_raises_429(self, service):
+        """Test that HTTP 430 on the retry attempt still raises HTTP 429."""
+        mock_session = AsyncMock()
+        # First call times out, retry hits the daily quota.
+        mock_session.get.side_effect = [
+            aiohttp.ServerTimeoutError("Timeout"),
+            aiohttp.ClientResponseError(
+                request_info=MagicMock(), history=(), status=430
+            ),
+        ]
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with pytest.raises(HTTPException) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert "daily scrape quota" in exc_info.value.detail
+
+    @pytest.mark.asyncio
     async def test_request_api_offline_raises_503(self, service):
         """Test that HTTP 423 (API offline) raises HTTP 503."""
         mock_session = AsyncMock()

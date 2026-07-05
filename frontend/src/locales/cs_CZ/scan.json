@@ -1,4 +1,5 @@
 {
+  "provider-quota-skipped": "Poskytovatel metadat dosáhl denního limitu a byl přeskočen po zbytek tohoto skenování.",
   "source-disabled": "Zdroj zakázán",
   "abort": "Přerušit",
   "api-key-invalid": "API klíč je neplatný!",
