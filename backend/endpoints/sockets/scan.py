@@ -283,7 +283,7 @@ async def _identify_rom(
                     languages=parsed_tags.languages,
                     tags=parsed_tags.other_tags,
                     platform_id=platform.id,
-                    name=fs_rom["fs_name"],
+                    name=fs_rom_handler.get_file_name_with_no_tags(fs_rom["fs_name"]),
                     url_cover="",
                     url_manual="",
                     url_screenshots=[],

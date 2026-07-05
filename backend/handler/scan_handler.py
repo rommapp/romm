@@ -961,14 +961,22 @@ async def scan_rom(
     if not newly_added and (
         scan_type == ScanType.UNMATCHED or scan_type == ScanType.UPDATE
     ):
-        # A ROM's name defaults to its raw filename (extension included) when first
+        # A ROM's name defaults to a filename-derived placeholder when first
         # created. Treat that placeholder as "no name" so a freshly matched provider
-        # name replaces it, instead of keeping the filename (with its extension) as
-        # the title.
-        existing_name = rom.name if rom.name != rom.fs_name else None
+        # name replaces it (while preserving user-edited names).
+        fs_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
+            rom_attrs["fs_name"]
+        )
+        # Both the existing name and the seeded rom_attrs name can hold the
+        # placeholder. Discard either when it's a placeholder so the parsed
+        # filename fallback can win.
+        placeholders = (None, "", rom.fs_name, fs_name_no_tags)
+        existing_name = None if rom.name in placeholders else rom.name
+        matched_name = rom_attrs.get("name")
+        matched_name = None if matched_name in placeholders else matched_name
         rom_attrs.update(
             {
-                "name": existing_name or rom_attrs.get("name") or rom.name or None,
+                "name": existing_name or matched_name or fs_name_no_tags or None,
                 "summary": rom.summary or rom_attrs.get("summary") or None,
                 # Don't overwrite existing manually uploaded cover image
                 "url_cover": (

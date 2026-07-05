@@ -438,6 +438,64 @@ async def test_scan_rom_unmatched_preserves_custom_name(
     assert result.name == "My Custom Title"
 
 
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_unmatched_no_match_uses_parsed_name(
+    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+):
+    """UNMATCHED scan that still finds no provider match must heal a raw-filename
+    placeholder into the parsed name (tags and extension stripped), so the title
+    is clean and a follow-up search uses the parsed name."""
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    mock_lookup.return_value = no_match
+    mock_get_igdb.return_value = no_match
+    mock_get_ra.return_value = no_match
+
+    platform = Platform(
+        id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, hasheous_id=64
+    )
+    platform = db_platform_handler.add_platform(platform)
+
+    # Legacy ROM created before the fix: name holds the raw filename.
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Snow Brothers (USA).zip",
+        fs_name_no_tags="Snow Brothers",
+        fs_name_no_ext="Snow Brothers (USA)",
+        fs_extension="zip",
+        fs_path="n64/Snow Brothers (USA)",
+        name="Snow Brothers (USA).zip",
+        fs_size_bytes=1024,
+        tags=[],
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.UNMATCHED,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Snow Brothers (USA).zip",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.HASHEOUS],
+            newly_added=False,
+        )
+
+    assert result.hasheous_id is None
+    # The raw filename placeholder must be replaced by the parsed name.
+    assert result.name == "Snow Brothers"
+
+
 def _top_level_rom_file(**kwargs) -> RomFile:
     """Build a RomFile whose `is_top_level` cached_property is pre-seeded to
     True, so it passes lookup_rom's filtering without a persisted rom."""
