@@ -11,6 +11,7 @@ from rq import Worker
 from rq.job import Job
 from sqlalchemy.exc import IntegrityError
 
+from adapters.services.screenscraper import reset_daily_quota as reset_ss_daily_quota
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
@@ -32,11 +33,7 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.metadata import (
-    meta_gamelist_handler,
-    meta_hltb_handler,
-    reset_metadata_handlers_scan_state,
-)
+from handler.metadata import meta_gamelist_handler, meta_hltb_handler
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
 from handler.scan_handler import (
@@ -716,9 +713,9 @@ async def scan_platforms(
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
 
-    # Clear any per-scan provider state (e.g. a source skipped after its quota
-    # was exhausted) so this scan starts fresh and retries every provider.
-    reset_metadata_handlers_scan_state()
+    # Reset the ScreenScraper daily-quota breaker so this scan re-evaluates the
+    # quota instead of inheriting a tripped state from a previous scan.
+    reset_ss_daily_quota()
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()

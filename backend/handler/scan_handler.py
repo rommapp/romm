@@ -6,6 +6,7 @@ from typing import Any
 import socketio  # type: ignore
 from fastapi import HTTPException, status
 
+from adapters.services import screenscraper as ss_service
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
@@ -655,8 +656,8 @@ async def scan_rom(
                 )
             )
         ):
-            # ScreenScraper quota was exhausted earlier in this scan, skip it.
-            if meta_ss_handler.is_skipped_for_scan:
+            # Daily quota was exhausted earlier in this scan, skip the API call.
+            if ss_service.is_daily_quota_exhausted():
                 return SSRom(ss_id=None)
 
             try:
@@ -687,11 +688,11 @@ async def scan_rom(
                     rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
                 )
             except HTTPException as exc:
-                # ScreenScraper raises 429 only when a daily quota is exhausted, skip
-                # it for the rest of the scan so other providers still match this ROM.
+                # ScreenScraper raises 429 only when a daily quota is exhausted (the
+                # service trips its breaker so the rest of the scan short-circuits);
+                # fall back to an empty match so other providers still match this ROM.
                 if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
                     raise
-                meta_ss_handler.skip_for_scan(str(exc.detail))
                 return SSRom(ss_id=None)
 
         return SSRom(ss_id=None)

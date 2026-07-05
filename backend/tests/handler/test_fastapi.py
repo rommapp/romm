@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import HTTPException, status
 
+from adapters.services import screenscraper as ss_service
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
@@ -574,19 +575,6 @@ async def test_lookup_rom_skips_request_when_no_hashes(mock_is_enabled, mock_req
     mock_request.assert_not_called()
 
 
-def test_metadata_handler_skip_for_scan_is_idempotent_and_resets():
-    """A provider records the skip once, and reset_scan_state clears it."""
-    meta_ss_handler.reset_scan_state()
-    assert not meta_ss_handler.is_skipped_for_scan
-
-    meta_ss_handler.skip_for_scan("quota exhausted")
-    meta_ss_handler.skip_for_scan("quota exhausted")
-    assert meta_ss_handler.is_skipped_for_scan
-
-    meta_ss_handler.reset_scan_state()
-    assert not meta_ss_handler.is_skipped_for_scan
-
-
 def _ss_quota_platform() -> Platform:
     platform = Platform(
         id=1,
@@ -620,16 +608,22 @@ async def test_scan_rom_ss_quota_skips_and_falls_back(
 ):
     """When ScreenScraper's quota is exhausted, the scan must still save the
     other providers' data and skip SS for the rest of the run."""
-    mock_ss_lookup.side_effect = HTTPException(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail="ScreenScraper daily scrape quota exhausted. Try again tomorrow.",
-    )
+
+    def _raise_daily_quota(*args, **kwargs):
+        # Mirror the real service: a daily-quota error trips the breaker.
+        ss_service._trip_daily_quota("daily scrape quota exhausted")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="ScreenScraper daily scrape quota exhausted. Try again tomorrow.",
+        )
+
+    mock_ss_lookup.side_effect = _raise_daily_quota
     mock_moby_get_rom.return_value = MobyGamesRom(moby_id=789, name="Match")
 
     platform = _ss_quota_platform()
     sources: list[str] = [MetadataSource.SS, MetadataSource.MOBY]
 
-    meta_ss_handler.reset_scan_state()
+    ss_service.reset_daily_quota()
     try:
         rom_one = db_rom_handler.add_rom(
             Rom(platform_id=platform.id, fs_name="game1.sfc", fs_path="snes", tags=[])
@@ -644,10 +638,10 @@ async def test_scan_rom_ss_quota_skips_and_falls_back(
                 newly_added=True,
             )
 
-        # SS raised but the ROM still got MobyGames data, and SS is now skipped.
+        # SS raised but the ROM still got MobyGames data, and the breaker tripped.
         assert result_one.ss_id is None
         assert result_one.moby_id == 789
-        assert meta_ss_handler.is_skipped_for_scan
+        assert ss_service.is_daily_quota_exhausted()
 
         rom_two = db_rom_handler.add_rom(
             Rom(platform_id=platform.id, fs_name="game2.sfc", fs_path="snes", tags=[])
@@ -666,7 +660,7 @@ async def test_scan_rom_ss_quota_skips_and_falls_back(
         mock_ss_lookup.assert_called_once()
         assert result_two.moby_id == 789
     finally:
-        meta_ss_handler.reset_scan_state()
+        ss_service.reset_daily_quota()
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
@@ -684,7 +678,7 @@ async def test_scan_rom_provider_error_does_not_discard_others(
         Rom(platform_id=platform.id, fs_name="game.sfc", fs_path="snes", tags=[])
     )
 
-    meta_ss_handler.reset_scan_state()
+    ss_service.reset_daily_quota()
     try:
         async with initialize_context():
             result = await scan_rom(
@@ -700,4 +694,4 @@ async def test_scan_rom_provider_error_does_not_discard_others(
         assert result.ss_id == 321
         assert result.moby_id is None
     finally:
-        meta_ss_handler.reset_scan_state()
+        ss_service.reset_daily_quota()

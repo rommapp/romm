@@ -25,25 +25,3 @@ meta_tgdb_handler = TGDBHandler()
 meta_flashpoint_handler = FlashpointHandler()
 meta_gamelist_handler = GamelistHandler()
 meta_hltb_handler = HLTBHandler()
-
-ALL_METADATA_HANDLERS = (
-    meta_igdb_handler,
-    meta_moby_handler,
-    meta_ss_handler,
-    meta_sgdb_handler,
-    meta_ra_handler,
-    meta_playmatch_handler,
-    meta_launchbox_handler,
-    meta_libretro_handler,
-    meta_hasheous_handler,
-    meta_tgdb_handler,
-    meta_flashpoint_handler,
-    meta_gamelist_handler,
-    meta_hltb_handler,
-)
-
-
-def reset_metadata_handlers_scan_state() -> None:
-    """Clear every provider's per-scan state at the start of a scan."""
-    for handler in ALL_METADATA_HANDLERS:
-        handler.reset_scan_state()
