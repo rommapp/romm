@@ -134,10 +134,39 @@ class MetadataHandler(abc.ABC):
     SEARCH_TERM_SPLIT_PATTERN = re.compile(r"[\:\-\/]")
     SEARCH_TERM_NORMALIZER = re.compile(r"\s*[:-]\s+")
 
+    # Set mid-scan when the provider becomes unusable for the rest of the run
+    # (e.g. its daily quota is exhausted). Reset at the start of every scan via
+    # reset_scan_state() so a new scan always retries the provider.
+    _skipped_for_scan: bool = False
+
     @classmethod
     @abc.abstractmethod
     def is_enabled(cls) -> bool:
         """Return whether this metadata handler is enabled."""
+
+    @property
+    def is_skipped_for_scan(self) -> bool:
+        """Whether this provider has been skipped for the rest of the scan."""
+        return self._skipped_for_scan
+
+    def skip_for_scan(self, reason: str = "") -> None:
+        """Skip this provider for the rest of the current scan.
+
+        Logs once, on the first skip, so remaining ROMs fall back to the other
+        providers instead of hammering an unusable source.
+        """
+        if self._skipped_for_scan:
+            return
+        self._skipped_for_scan = True
+        log.warning(
+            "%s unavailable, skipping it for the rest of this scan%s",
+            type(self).__name__,
+            f": {reason}" if reason else "",
+        )
+
+    def reset_scan_state(self) -> None:
+        """Clear any per-scan state so the next scan retries this provider."""
+        self._skipped_for_scan = False
 
     def normalize_cover_url(self, url: str) -> str:
         return url if not url else f"https:{url.replace('https:', '')}"

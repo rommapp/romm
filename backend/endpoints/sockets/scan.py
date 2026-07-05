@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
 
@@ -32,7 +32,11 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.metadata import meta_gamelist_handler, meta_hltb_handler
+from handler.metadata import (
+    meta_gamelist_handler,
+    meta_hltb_handler,
+    reset_metadata_handlers_scan_state,
+)
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
 from handler.scan_handler import (
@@ -90,9 +94,6 @@ class ScanStats:
     identified_roms: int = 0
     scanned_firmware: int = 0
     new_firmware: int = 0
-
-    # Metadata sources skipped for the rest of this scan (e.g. daily quota exhausted).
-    skipped_metadata_sources: set[MetadataSource] = field(default_factory=set)
 
     def __post_init__(self):
         # Lock for thread-safe updates
@@ -366,7 +367,6 @@ async def _identify_rom(
         launchbox_remote_enabled=launchbox_remote_enabled,
         playmatch_enabled=playmatch_enabled,
         socket_manager=socket_manager,
-        skipped_metadata_sources=scan_stats.skipped_metadata_sources,
     )
 
     await scan_stats.increment(
@@ -715,6 +715,10 @@ async def scan_platforms(
 
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
+
+    # Clear any per-scan provider state (e.g. a source skipped after its quota
+    # was exhausted) so this scan starts fresh and retries every provider.
+    reset_metadata_handlers_scan_state()
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()

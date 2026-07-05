@@ -84,26 +84,6 @@ class MetadataSource(enum.StrEnum):
     PLAYMATCH = "playmatch"  # Playmatch
 
 
-def mark_metadata_source_skipped(
-    source: MetadataSource,
-    detail: str,
-    skipped_metadata_sources: set[MetadataSource],
-) -> None:
-    """Skip a metadata source for the rest of the scan when its quota is exhausted.
-
-    Warns once, on the first skip, so remaining ROMs fall back to the other
-    providers instead of hammering an exhausted source.
-    """
-    if source in skipped_metadata_sources:
-        return
-
-    skipped_metadata_sources.add(source)
-    log.warning(
-        f"{hl(source.value.upper())} unavailable, skipping it for the rest of this scan: {detail}",
-        extra=LOGGER_MODULE_NAME,
-    )
-
-
 def get_main_platform_igdb_id(platform: Platform):
     cnfg = cm.get_config()
 
@@ -343,12 +323,7 @@ async def scan_rom(
     launchbox_remote_enabled: bool = True,
     playmatch_enabled: bool = True,
     socket_manager: socketio.AsyncRedisManager | None = None,
-    skipped_metadata_sources: set[MetadataSource] | None = None,
 ) -> Rom:
-    # Sources skipped for the rest of the scan (e.g. daily quota exhausted). Shared
-    # across ROMs so a provider is retried at most once after it starts failing.
-    if skipped_metadata_sources is None:
-        skipped_metadata_sources = set()
     rom_attrs = {
         "id": rom.id,
         "platform_id": platform.id,
@@ -681,7 +656,7 @@ async def scan_rom(
             )
         ):
             # ScreenScraper quota was exhausted earlier in this scan, skip it.
-            if MetadataSource.SS in skipped_metadata_sources:
+            if meta_ss_handler.is_skipped_for_scan:
                 return SSRom(ss_id=None)
 
             try:
@@ -716,9 +691,7 @@ async def scan_rom(
                 # it for the rest of the scan so other providers still match this ROM.
                 if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
                     raise
-                mark_metadata_source_skipped(
-                    MetadataSource.SS, str(exc.detail), skipped_metadata_sources
-                )
+                meta_ss_handler.skip_for_scan(str(exc.detail))
                 return SSRom(ss_id=None)
 
         return SSRom(ss_id=None)
