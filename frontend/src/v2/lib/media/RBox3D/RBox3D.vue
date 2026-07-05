@@ -4,9 +4,8 @@
 // the front/back carry their art and the side scan wraps all four edge faces.
 // It reads right on the pair matching its orientation (the vertical spines for
 // a portrait scan, the top/bottom for a landscape N64-style strip) and is spun
-// 90° in-plane to fit the other pair. Box proportions are derived
-// from the images themselves — the
-// front's natural ratio sets width/height, the spine's sets the depth — so
+// 90° in-plane to fit the other pair. Box proportions are derived from the
+// images themselves — the front's natural ratio sets width/height and the side scan's sets the depth — so
 // a chunky N64 box and a slim DS case both look right without per-platform
 // tuning.
 //
