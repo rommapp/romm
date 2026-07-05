@@ -78,6 +78,8 @@
   "changelog": "Списък с промени",
   "clear-finished": "Изчисти завършените",
   "clipboard-unavailable": "Клипбордът не е достъпен в този контекст. Избери линка по-долу, за да го копираш ръчно.",
+  "clipboard-copied": "{label} copied to clipboard",
+  "clipboard-copy-failed": "Couldn't copy to clipboard. This requires a secure (HTTPS) connection.",
   "close": "Затвори",
   "cloud": "Облак",
   "collapse": "Свий",

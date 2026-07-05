@@ -78,6 +78,8 @@
   "changelog": "Seznam změn",
   "clear-finished": "Vymazat dokončené",
   "clipboard-unavailable": "Schránka není v tomto kontextu dostupná. Vyberte odkaz níže a zkopírujte jej ručně.",
+  "clipboard-copied": "{label} copied to clipboard",
+  "clipboard-copy-failed": "Couldn't copy to clipboard. This requires a secure (HTTPS) connection.",
   "close": "Zavřít",
   "cloud": "Cloud",
   "collapse": "Sbalit",

@@ -27,6 +27,7 @@ import clientTokenApi, {
 } from "@/services/api/client-token";
 import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
+import { useClipboard } from "@/v2/composables/useClipboard";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 
@@ -38,6 +39,7 @@ const { t } = useI18n();
 const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const clipboard = useClipboard();
 
 type Step = "config" | "delivery" | "copy" | "pair";
 type PairStatus = "pending" | "claimed" | "expired";
@@ -249,14 +251,9 @@ async function doRegenerate() {
 }
 
 async function copyToken() {
-  try {
-    await navigator.clipboard.writeText(rawToken.value);
-    snackbar.success(t("settings.client-token-copied"), {
-      icon: "mdi-check-bold",
-    });
-  } catch {
-    /* ignore — clipboard unavailable */
-  }
+  await clipboard.copy(rawToken.value, {
+    successMessage: t("settings.client-token-copied"),
+  });
 }
 
 async function startPairing() {

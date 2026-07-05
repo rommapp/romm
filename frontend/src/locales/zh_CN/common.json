@@ -78,6 +78,8 @@
   "changelog": "更新日志",
   "clear-finished": "清除已完成",
   "clipboard-unavailable": "当前环境下剪贴板不可用。请选择下方的链接手动复制。",
+  "clipboard-copied": "{label} copied to clipboard",
+  "clipboard-copy-failed": "Couldn't copy to clipboard. This requires a secure (HTTPS) connection.",
   "close": "关闭",
   "cloud": "云端",
   "collapse": "折叠",

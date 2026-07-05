@@ -14,7 +14,8 @@
 // icon stays in both sizes so the click affordance is consistent.
 import { RTag } from "@v2/lib";
 import { computed } from "vue";
-import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useI18n } from "vue-i18n";
+import { useClipboard } from "@/v2/composables/useClipboard";
 
 defineOptions({ inheritAttrs: false });
 
@@ -27,7 +28,8 @@ const props = withDefaults(
   { compact: false },
 );
 
-const snackbar = useSnackbar();
+const { t } = useI18n();
+const clipboard = useClipboard();
 
 const shortened = computed(() => {
   if (!props.value) return "";
@@ -39,16 +41,9 @@ const shortened = computed(() => {
 
 async function copy() {
   if (!props.value) return;
-  try {
-    await navigator.clipboard.writeText(props.value);
-    snackbar.success(`${props.label} copied to clipboard.`, {
-      icon: "mdi-check-bold",
-    });
-  } catch {
-    snackbar.error(`Couldn't copy ${props.label.toLowerCase()}.`, {
-      icon: "mdi-close-circle",
-    });
-  }
+  await clipboard.copy(props.value, {
+    successMessage: t("common.clipboard-copied", { label: props.label }),
+  });
 }
 </script>
 

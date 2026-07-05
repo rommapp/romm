@@ -78,6 +78,8 @@
   "changelog": "Lista zmian",
   "clear-finished": "Wyczyść ukończone",
   "clipboard-unavailable": "Schowek jest niedostępny w tym kontekście. Wybierz link poniżej, aby skopiować go ręcznie.",
+  "clipboard-copied": "{label} copied to clipboard",
+  "clipboard-copy-failed": "Couldn't copy to clipboard. This requires a secure (HTTPS) connection.",
   "close": "Zamknij",
   "cloud": "Chmura",
   "collapse": "Zwiń",

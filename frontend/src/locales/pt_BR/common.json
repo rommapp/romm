@@ -78,6 +78,8 @@
   "changelog": "Histórico de alterações",
   "clear-finished": "Limpar concluídos",
   "clipboard-unavailable": "A área de transferência não está disponível neste contexto. Selecione o link abaixo para copiá-lo manualmente.",
+  "clipboard-copied": "{label} copied to clipboard",
+  "clipboard-copy-failed": "Couldn't copy to clipboard. This requires a secure (HTTPS) connection.",
   "close": "Fechar",
   "cloud": "Nuvem",
   "collapse": "Recolher",

@@ -78,6 +78,8 @@
   "changelog": "Journal des modifications",
   "clear-finished": "Effacer les terminés",
   "clipboard-unavailable": "Le presse-papiers n'est pas disponible dans ce contexte. Sélectionnez le lien ci-dessous pour le copier manuellement.",
+  "clipboard-copied": "{label} copied to clipboard",
+  "clipboard-copy-failed": "Couldn't copy to clipboard. This requires a secure (HTTPS) connection.",
   "close": "Fermer",
   "cloud": "Cloud",
   "collapse": "Réduire",

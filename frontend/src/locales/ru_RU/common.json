@@ -78,6 +78,8 @@
   "changelog": "История изменений",
   "clear-finished": "Очистить завершённые",
   "clipboard-unavailable": "Буфер обмена недоступен в этом контексте. Выделите ссылку ниже, чтобы скопировать её вручную.",
+  "clipboard-copied": "{label} copied to clipboard",
+  "clipboard-copy-failed": "Couldn't copy to clipboard. This requires a secure (HTTPS) connection.",
   "close": "Закрыть",
   "cloud": "Облако",
   "collapse": "Свернуть",
