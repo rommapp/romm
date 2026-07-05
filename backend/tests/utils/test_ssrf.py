@@ -65,13 +65,29 @@ class TestIsForbiddenIp:
             "fc00::1",
             "fe80::1",
             "ff02::1",
+            # NAT64-wrapped internal IPv4 must stay blocked (embedded IPv4 checked).
+            "64:ff9b::7f00:1",  # 127.0.0.1 loopback
+            "64:ff9b::a00:1",  # 10.0.0.1 private
+            "64:ff9b::c0a8:101",  # 192.168.1.1 private
+            "64:ff9b::a9fe:a9fe",  # 169.254.169.254 cloud metadata
+            # RFC 8215 local-use NAT64 prefix is private; not unwrapped, stays blocked.
+            "64:ff9b:1::8d5f:accd",
         ],
     )
     def test_forbidden(self, ip):
         assert is_forbidden_ip(ipaddress.ip_address(ip)) is True
 
     @pytest.mark.parametrize(
-        "ip", ["8.8.8.8", "1.1.1.1", "93.184.216.34", "2001:4860:4860::8888"]
+        "ip",
+        [
+            "8.8.8.8",
+            "1.1.1.1",
+            "93.184.216.34",
+            "2001:4860:4860::8888",
+            # NAT64-wrapped public IPv4 (DNS64) must be allowed. See issue #3668.
+            "64:ff9b::8d5f:accd",  # 141.95.172.205
+            "64:ff9b::808:808",  # 8.8.8.8
+        ],
     )
     def test_allowed(self, ip):
         assert is_forbidden_ip(ipaddress.ip_address(ip)) is False
@@ -111,6 +127,36 @@ class TestSSRFProtectedAsyncBackend:
         # That is what pins the address against DNS rebinding.
         assert calls[0][0][0] == "93.184.216.34"
         assert calls[0][0][1] == 443
+
+    async def test_nat64_wrapped_public_ip_connects(self, monkeypatch):
+        """DNS64 case (issue #3668): a NAT64-wrapped public IPv4 must be reachable."""
+        calls: list[ConnectCall] = []
+        inner = _stub_async_inner(calls)
+        backend = SSRFProtectedAsyncBackend(inner=inner)
+
+        async def fake_getaddrinfo(host, port, *args, **kwargs):
+            return _addr_info("64:ff9b::8d5f:accd", port)  # wraps 141.95.172.205
+
+        monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", fake_getaddrinfo)
+
+        await backend.connect_tcp("neoclone.screenscraper.fr", 443)
+
+        assert calls[0][0][0] == "64:ff9b::8d5f:accd"
+        assert calls[0][0][1] == 443
+
+    async def test_nat64_wrapped_private_ip_is_rejected(self, monkeypatch):
+        """A NAT64-wrapped private/loopback IPv4 must still be blocked."""
+        inner = _stub_async_inner([])
+        backend = SSRFProtectedAsyncBackend(inner=inner)
+
+        async def fake_getaddrinfo(host, port, *args, **kwargs):
+            return _addr_info("64:ff9b::7f00:1", port)  # wraps 127.0.0.1
+
+        monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", fake_getaddrinfo)
+
+        with pytest.raises(httpcore.ConnectError, match="forbidden IP"):
+            await backend.connect_tcp("nat64.rebind.example.com", 80)
+        inner.connect_tcp.assert_not_called()
 
     async def test_hostname_resolving_to_private_ip_is_rejected(self, monkeypatch):
         """DNS rebinding case: hostname resolves to 127.0.0.1 must fail."""
