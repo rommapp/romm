@@ -81,7 +81,7 @@ const filterSummary = computed(() => {
   }
   if (filterMatched.value) filters.push("Matched only");
   if (filterFavorites.value) filters.push("Favorites");
-  if (filterDuplicates.value) filters.push("Versions");
+  if (filterDuplicates.value) filters.push(t("platform.show-duplicates"));
   if (filterPlayables.value) filters.push("Playable");
   if (filterRA.value) filters.push("Has RetroAchievements");
   if (filterMissing.value) filters.push("Missing from filesystem");
