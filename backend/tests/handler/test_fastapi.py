@@ -3,14 +3,23 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from handler.database import db_platform_handler, db_rom_handler
+from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_hasheous_handler,
+    meta_moby_handler,
     meta_playmatch_handler,
     meta_ra_handler,
+    meta_ss_handler,
 )
 from handler.metadata.hasheous_handler import HasheousRom
 from handler.metadata.ra_handler import RAGameRom
-from handler.scan_handler import MetadataSource, ScanType, scan_platform, scan_rom
+from handler.metadata.ss_handler import SSRom
+from handler.scan_handler import (
+    MetadataSource,
+    ScanType,
+    scan_platform,
+    scan_rom,
+)
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from utils.context import initialize_context
@@ -561,3 +570,58 @@ async def test_lookup_rom_skips_request_when_no_hashes(mock_is_enabled, mock_req
 
     assert result["hasheous_id"] is None
     mock_request.assert_not_called()
+
+
+def _ss_quota_platform() -> Platform:
+    platform = Platform(
+        id=1,
+        slug="snes",
+        fs_slug="snes",
+        name="Super Nintendo",
+        ss_id=4,
+        moby_id=15,
+    )
+    return db_platform_handler.add_platform(platform)
+
+
+def _ss_quota_fs_rom(fs_name: str) -> FSRom:
+    return {
+        "fs_name": fs_name,
+        "flat": True,
+        "nested": False,
+        "files": [],
+        "crc_hash": "",
+        "md5_hash": "",
+        "sha1_hash": "",
+        "ra_hash": "",
+    }
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_moby_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_provider_error_does_not_discard_others(
+    mock_ss_lookup, mock_moby_get_rom, mock_playmatch_enabled
+):
+    """An unexpected error from one provider must not wipe the others' results."""
+    mock_moby_get_rom.side_effect = ValueError("boom")
+    mock_ss_lookup.return_value = (SSRom(ss_id=321, name="Match"), False)
+
+    platform = _ss_quota_platform()
+    rom = db_rom_handler.add_rom(
+        Rom(platform_id=platform.id, fs_name="game.sfc", fs_path="snes", tags=[])
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("game.sfc"),
+            metadata_sources=[MetadataSource.SS, MetadataSource.MOBY],
+            newly_added=True,
+        )
+
+    # MobyGames blew up, but ScreenScraper's match survived.
+    assert result.ss_id == 321
+    assert result.moby_id is None

@@ -11,6 +11,7 @@ from rq import Worker
 from rq.job import Job
 from sqlalchemy.exc import IntegrityError
 
+from adapters.services.screenscraper import reset_daily_quota as reset_ss_daily_quota
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
@@ -711,6 +712,10 @@ async def scan_platforms(
 
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
+
+    # Reset the ScreenScraper daily-quota breaker so this scan re-evaluates the
+    # quota instead of inheriting a tripped state from a previous scan.
+    reset_ss_daily_quota()
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()
