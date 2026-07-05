@@ -969,14 +969,17 @@ async def scan_rom(
         fs_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
             rom_attrs["fs_name"]
         )
-        is_placeholder = rom.name in (None, "", rom.fs_name, fs_name_no_tags)
-        existing_name = None if is_placeholder else rom.name
+        # Both the existing name and the seeded rom_attrs name can hold the
+        # placeholder (rom_attrs["name"] is seeded from rom.name earlier, and is
+        # only overwritten when a provider actually matched). Discard either when
+        # it's a placeholder so the parsed filename fallback can win.
+        placeholders = (None, "", rom.fs_name, fs_name_no_tags)
+        existing_name = None if rom.name in placeholders else rom.name
+        matched_name = rom_attrs.get("name")
+        matched_name = None if matched_name in placeholders else matched_name
         rom_attrs.update(
             {
-                "name": existing_name
-                or rom_attrs.get("name")
-                or fs_name_no_tags
-                or None,
+                "name": existing_name or matched_name or fs_name_no_tags or None,
                 "summary": rom.summary or rom_attrs.get("summary") or None,
                 # Don't overwrite existing manually uploaded cover image
                 "url_cover": (
