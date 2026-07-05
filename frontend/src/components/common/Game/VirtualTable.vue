@@ -26,7 +26,7 @@ import {
   toBrowserLocale,
 } from "@/utils";
 
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 
 withDefaults(
   defineProps<{
@@ -318,7 +318,9 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 v-if="item.sibling_roms.length > 0 && showSiblings"
                 class="translucent mr-1 px-1 item-chip"
                 size="x-small"
-                :title="`${item.sibling_roms.length} version(s)`"
+                :title="
+                  t('rom.versions-count', { n: item.sibling_roms.length + 1 })
+                "
               >
                 <v-icon>mdi-card-multiple-outline</v-icon>
               </v-chip>

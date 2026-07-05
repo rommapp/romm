@@ -10,6 +10,7 @@ import {
   inject,
   useTemplateRef,
 } from "vue";
+import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import type { VImg } from "vuetify/lib/components/VImg/VImg.js";
 import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
@@ -81,6 +82,7 @@ const props = withDefaults(
 );
 
 const { smAndDown } = useDisplay();
+const { t } = useI18n();
 const romsStore = storeRoms();
 const activeMenu = ref(false);
 const gameIsHovering = ref(false);
@@ -377,7 +379,11 @@ onBeforeUnmount(() => {
                     v-if="rom.sibling_roms.length > 0 && showSiblings"
                     class="translucent mr-1 mb-1 px-1"
                     density="compact"
-                    :title="`${rom.sibling_roms.length} version(s)`"
+                    :title="
+                      t('rom.versions-count', {
+                        n: rom.sibling_roms.length + 1,
+                      })
+                    "
                   >
                     <v-icon>mdi-card-multiple-outline</v-icon>
                   </v-chip>
