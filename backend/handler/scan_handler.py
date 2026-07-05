@@ -847,8 +847,9 @@ async def scan_rom(
         if isinstance(result, BaseException):
             if not isinstance(result, Exception):
                 raise result
+            provider = fallback.__class__.__name__
             log.error(
-                f"Error fetching metadata for {hl(rom_attrs['fs_name'])}: {result}",
+                f"Error fetching {hl(provider)} metadata for {hl(rom_attrs['fs_name'])}: {result}",
                 extra=LOGGER_MODULE_NAME,
             )
             resolved.append(fallback)
