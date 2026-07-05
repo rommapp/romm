@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from config.config_manager import MetadataMediaType
 from handler.database import db_collection_handler, db_rom_handler
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
@@ -892,6 +893,62 @@ class TestUpdateMetadataIDs:
         body = response.json()
         assert body["launchbox_id"] == MOCK_LAUNCHBOX_ID
         assert get_rom_by_id_mock.called
+
+    @patch.object(FSResourcesHandler, "store_media_file", new_callable=AsyncMock)
+    @patch(
+        "handler.metadata.launchbox_handler.media.get_preferred_media_types",
+        return_value=[MetadataMediaType.VIDEO],
+    )
+    @patch(
+        "endpoints.roms.get_preferred_media_types",
+        return_value=[MetadataMediaType.VIDEO],
+    )
+    @patch.object(
+        LaunchboxHandler,
+        "get_rom_by_id",
+        return_value=LaunchboxRom(
+            launchbox_id=MOCK_LAUNCHBOX_ID,
+            launchbox_metadata={  # type: ignore[typeddict-item]
+                "video_url": "launchbox-file://Videos/NES/Mario.mp4",
+            },
+        ),
+    )
+    def test_update_rom_launchbox_id_imports_local_video(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        _get_preferred_endpoint_mock: AsyncMock,
+        _get_preferred_media_mock: AsyncMock,
+        store_media_file_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A LaunchBox match with a local video resolves a path and copies the file."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"launchbox_id": str(MOCK_LAUNCHBOX_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["launchbox_id"] == MOCK_LAUNCHBOX_ID
+        # get_rom_by_id must receive fs_name/platform_slug so local media resolves
+        assert get_rom_by_id_mock.call_args.kwargs.get("fs_name") == rom.fs_name
+        assert (
+            get_rom_by_id_mock.call_args.kwargs.get("platform_slug")
+            == rom.platform_slug
+        )
+        # populate_rom_specific_paths must have set video_path
+        video_path = body["launchbox_metadata"].get("video_path", "")
+        assert video_path.endswith("/video.mp4")
+        # and the video file must have been copied into the resource store
+        store_media_file_mock.assert_awaited_once()
+        await_args = store_media_file_mock.await_args
+        assert await_args is not None
+        called_url, called_path = await_args.args
+        assert called_url == "launchbox-file://Videos/NES/Mario.mp4"
+        assert called_path == video_path
 
     @patch.object(
         LaunchboxHandler,
