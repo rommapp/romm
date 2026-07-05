@@ -24,6 +24,7 @@ import type { PlayingStatus } from "@/utils";
 import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
+import { useClipboard } from "@/v2/composables/useClipboard";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 
@@ -46,6 +47,7 @@ export function useGameActions(
   const { morphTransition } = useViewTransition();
   const emitter = inject<Emitter<Events>>("emitter");
   const snackbar = useSnackbar();
+  const clipboard = useClipboard();
   const romsStore = storeRoms();
   const auth = storeAuth();
   const canCreateCollection = useCan("collection.create");
@@ -238,18 +240,18 @@ export function useGameActions(
     const nav = navigator as Navigator & {
       share?: (data: typeof shareData) => Promise<void>;
     };
-    try {
-      if (typeof nav.share === "function") {
+    if (typeof nav.share === "function") {
+      try {
         await nav.share(shareData);
-        return;
+      } catch {
+        // user cancelled the native share sheet — nothing to do
       }
-      await navigator.clipboard.writeText(url);
-      snackbar.success(t("rom.snackbar-link-copied"), {
-        icon: "mdi-link-variant",
-      });
-    } catch {
-      // user cancelled or clipboard denied — nothing to do
+      return;
     }
+    await clipboard.copy(url, {
+      successMessage: t("rom.snackbar-link-copied"),
+      successIcon: "mdi-link-variant",
+    });
   }
 
   function shareQR() {
