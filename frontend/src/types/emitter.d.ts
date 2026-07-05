@@ -54,6 +54,9 @@ export type Events = {
   showCopyDownloadLinkDialog: string;
   showDeleteRomDialog: SimpleRom[];
   showUploadRomDialog: Platform | null;
+  /** v2 — opens the add-physical-game dialog. When a Platform is
+   *  provided the platform field is prefilled; null lets the user pick. */
+  showAddPhysicalGameDialog: Platform | null;
   showDeleteFirmwareDialog: FirmwareSchema[];
   addFirmwareDialog: null;
   showAddPlatformDialog: null;

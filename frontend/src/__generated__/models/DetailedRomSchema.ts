@@ -91,6 +91,8 @@ export type DetailedRomSchema = {
     created_at: string;
     updated_at: string;
     missing_from_fs: boolean;
+    is_physical: boolean;
+    upc: (string | null);
     has_notes: boolean;
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;
