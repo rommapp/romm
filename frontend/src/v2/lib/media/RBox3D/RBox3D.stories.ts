@@ -17,8 +17,8 @@ const face = (label: string, w: number, h: number, color: string) =>
 const front = face("FRONT", 286, 400, "rebeccapurple");
 const back = face("BACK", 286, 400, "darkslateblue");
 const spine = face("SPINE", 48, 400, "indigo");
-// A landscape spine scan (N64's side art arrives this way). Its raw w/h would
-// drive an absurd depth; the box must clamp it instead of blowing up.
+// A landscape spine scan (N64's side art arrives this way). It runs width-wise,
+// so the box rides it along the top/bottom edges instead of the vertical spines.
 const wideSpine = face("SPINE", 400, 48, "indigo");
 
 const meta: Meta<typeof RBox3D> = {
@@ -70,7 +70,7 @@ export const SpineForward: Story = {
   args: { autoSpin: false, initialYaw: 82, initialPitch: 0 },
 };
 
-// ── Landscape spine (N64): depth clamps instead of exploding the box ──
+// ── Landscape spine (N64): strip runs width-wise along the top/bottom edges ──
 export const LandscapeSpine: Story = {
   name: "Landscape spine (N64)",
   args: { autoSpin: false, initialYaw: 36, initialPitch: -8, spine: wideSpine },

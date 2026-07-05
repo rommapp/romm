@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // RBox3D — a fake-but-believable 3D game box built from three flat scans
 // (front, back, spine). Six CSS faces under `transform-style: preserve-3d`:
-// the front/back carry their art, the spine is mirrored onto both left and
-// right edges, and the top/bottom are tinted "cardboard" edges (tokens, no
-// literals). Box proportions are derived from the images themselves — the
-// front's natural ratio sets width/height, the spine's sets the depth — so
+// the front/back carry their art and the side scan wraps all four edge faces.
+// It reads right on the pair matching its orientation (the vertical spines for
+// a portrait scan, the top/bottom for a landscape N64-style strip) and is spun
+// 90° in-plane to fit the other pair. Box proportions are derived from the
+// images themselves — the front's natural ratio sets width/height and the side scan's sets the depth — so
 // a chunky N64 box and a slim DS case both look right without per-platform
 // tuning.
 //
@@ -63,11 +64,11 @@ const FLICK_WINDOW_MS = 60; //        release this long after the last move = no
 const MOMENTUM_FRAMES = 12; //        how far a flick coasts (× last-frame velocity)
 const MOMENTUM_MAX = 540; //          cap the coast so a hard flick can't whirl forever
 const DEFAULT_FRONT_RATIO = 0.715; // typical box face w/h until measured
-const DEFAULT_SPINE_RATIO = 0.12; //  depth/height until measured
-// Depth is the spine's w/h, which assumes a tall, thin spine scan. Some side
-// scans arrive landscape (N64's, notably), measuring far above any real box
-// depth and blowing the box up toward the camera. Cap it at a chunky-but-sane
-// depth so a malformed spine can't explode the geometry.
+const DEFAULT_SPINE_RATIO = 0.12; //  depth/long-edge until measured
+// The side scan's short edge is the box depth; its long edge matches the box's
+// long dimension (height for a portrait spine, width for a landscape N64-style
+// strip). We take short/long so either orientation yields a sane fraction, then
+// cap it so a near-square or malformed scan can't over-inflate the depth.
 const MAX_SPINE_RATIO = 0.3;
 
 const rootEl = ref<HTMLElement | null>(null);
@@ -82,12 +83,19 @@ const pitch = ref(props.initialPitch);
 // the images' natural dimensions on load.
 const widthPx = ref(0);
 const frontRatio = ref(DEFAULT_FRONT_RATIO); // front w / h  → box w / h
-const spineRatio = ref(DEFAULT_SPINE_RATIO); // spine w / h  → depth / box h
+const spineRatio = ref(DEFAULT_SPINE_RATIO); // spine short/long → depth fraction
+// Side scan wider than tall (N64-style): it wraps the top/bottom edges instead
+// of the vertical spines, so the strip runs along the box width.
+const spineLandscape = ref(false);
 
 const heightPx = computed(() =>
   frontRatio.value > 0 ? widthPx.value / frontRatio.value : 0,
 );
-const depthPx = computed(() => heightPx.value * spineRatio.value);
+// Depth scales off whichever box dimension the scan's long edge maps to.
+const depthPx = computed(
+  () =>
+    (spineLandscape.value ? widthPx.value : heightPx.value) * spineRatio.value,
+);
 
 // Reduced-motion: read once on mount (it gates the idle drift only).
 const reducedMotion = ref(false);
@@ -253,19 +261,27 @@ function tick() {
 // The box mirrors the real artwork: the front (box-2D) natural ratio drives
 // the box width/height, the spine's drives the depth. Defaults only stand in
 // until the bytes are decoded.
-function measureRatio(
-  img: HTMLImageElement | null,
-  target: Ref<number>,
-  max = Infinity,
-) {
+function measureRatio(img: HTMLImageElement | null, target: Ref<number>) {
   if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
-    target.value = Math.min(img.naturalWidth / img.naturalHeight, max);
+    target.value = img.naturalWidth / img.naturalHeight;
+  }
+}
+// The spine drives depth (short/long) and its orientation decides which pair of
+// edges carries the art, so it needs its own measurement.
+function measureSpine(img: HTMLImageElement | null) {
+  if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+    spineLandscape.value = w > h;
+    spineRatio.value = Math.min(
+      Math.min(w, h) / Math.max(w, h),
+      MAX_SPINE_RATIO,
+    );
   }
 }
 const onFrontLoad = (e: Event) =>
   measureRatio(e.target as HTMLImageElement, frontRatio);
-const onSpineLoad = (e: Event) =>
-  measureRatio(e.target as HTMLImageElement, spineRatio, MAX_SPINE_RATIO);
+const onSpineLoad = (e: Event) => measureSpine(e.target as HTMLImageElement);
 
 let ro: ResizeObserver | null = null;
 onMounted(() => {
@@ -296,7 +312,7 @@ onMounted(() => {
   // A cached cover can already be decoded before the load listener binds —
   // read its dimensions now so the box adopts box-2D's ratio immediately.
   measureRatio(frontImg.value, frontRatio);
-  measureRatio(spineImg.value, spineRatio, MAX_SPINE_RATIO);
+  measureSpine(spineImg.value);
   rafId = requestAnimationFrame(tick);
 });
 onBeforeUnmount(() => {
@@ -338,26 +354,43 @@ const backStyle = computed(() => ({
   height: px(heightPx.value),
   transform: `translate(-50%, -50%) rotateY(180deg) translateZ(${depthPx.value / 2}px)`,
 }));
-const leftStyle = computed(() => ({
-  width: px(depthPx.value),
-  height: px(heightPx.value),
-  transform: `translate(-50%, -50%) rotateY(-90deg) translateZ(${widthPx.value / 2}px)`,
-}));
-const rightStyle = computed(() => ({
-  width: px(depthPx.value),
-  height: px(heightPx.value),
-  transform: `translate(-50%, -50%) rotateY(90deg) translateZ(${widthPx.value / 2}px)`,
-}));
-const topStyle = computed(() => ({
-  width: px(widthPx.value),
-  height: px(depthPx.value),
-  transform: `translate(-50%, -50%) rotateX(90deg) translateZ(${heightPx.value / 2}px)`,
-}));
-const bottomStyle = computed(() => ({
-  width: px(widthPx.value),
-  height: px(depthPx.value),
-  transform: `translate(-50%, -50%) rotateX(-90deg) translateZ(${heightPx.value / 2}px)`,
-}));
+// The scan reads the right way only on the pair matching its orientation. On
+// the perpendicular ("alternative") pair we spin it 90° in-plane and swap the
+// face's width/height so object-fit crops it exactly like the natural pair.
+// Vertical faces (left/right) are the alternative pair for a landscape scan;
+// horizontal faces (top/bottom) are the alternative pair for a portrait one.
+const leftStyle = computed(() => {
+  const alt = spineLandscape.value;
+  return {
+    width: px(alt ? heightPx.value : depthPx.value),
+    height: px(alt ? depthPx.value : heightPx.value),
+    transform: `translate(-50%, -50%) rotateY(-90deg) translateZ(${widthPx.value / 2}px)${alt ? " rotate(90deg)" : ""}`,
+  };
+});
+const rightStyle = computed(() => {
+  const alt = spineLandscape.value;
+  return {
+    width: px(alt ? heightPx.value : depthPx.value),
+    height: px(alt ? depthPx.value : heightPx.value),
+    transform: `translate(-50%, -50%) rotateY(90deg) translateZ(${widthPx.value / 2}px)${alt ? " rotate(90deg)" : ""}`,
+  };
+});
+const topStyle = computed(() => {
+  const alt = !spineLandscape.value;
+  return {
+    width: px(alt ? depthPx.value : widthPx.value),
+    height: px(alt ? widthPx.value : depthPx.value),
+    transform: `translate(-50%, -50%) rotateX(90deg) translateZ(${heightPx.value / 2}px)${alt ? " rotate(90deg)" : ""}`,
+  };
+});
+const bottomStyle = computed(() => {
+  const alt = !spineLandscape.value;
+  return {
+    width: px(alt ? depthPx.value : widthPx.value),
+    height: px(alt ? widthPx.value : depthPx.value),
+    transform: `translate(-50%, -50%) rotateX(-90deg) translateZ(${heightPx.value / 2}px)${alt ? " rotate(90deg)" : ""}`,
+  };
+});
 
 const rootStyle = computed(() => ({ aspectRatio: String(frontRatio.value) }));
 </script>
@@ -392,6 +425,10 @@ const rootStyle = computed(() => ({ aspectRatio: String(frontRatio.value) }));
           :style="backStyle"
           draggable="false"
         />
+        <!-- The side scan wraps all four edges. It runs along its long axis, so
+             it reads right on the pair matching its orientation (vertical spines
+             for a portrait scan, top/bottom for a landscape N64-style strip) and
+             is simply cropped to fit on the other pair. -->
         <img
           ref="spineImg"
           class="r-box3d__face r-box3d__face--art"
@@ -408,8 +445,20 @@ const rootStyle = computed(() => ({ aspectRatio: String(frontRatio.value) }));
           :style="rightStyle"
           draggable="false"
         />
-        <div class="r-box3d__face r-box3d__face--edge" :style="topStyle" />
-        <div class="r-box3d__face r-box3d__face--edge" :style="bottomStyle" />
+        <img
+          class="r-box3d__face r-box3d__face--art"
+          :src="spine"
+          alt=""
+          :style="topStyle"
+          draggable="false"
+        />
+        <img
+          class="r-box3d__face r-box3d__face--art"
+          :src="spine"
+          alt=""
+          :style="bottomStyle"
+          draggable="false"
+        />
       </div>
     </div>
   </div>
@@ -485,13 +534,6 @@ const rootStyle = computed(() => ({ aspectRatio: String(frontRatio.value) }));
   background: var(--r-color-cover-placeholder);
   /* No image smoothing fuzz on pixel-art spines. */
   box-shadow: inset 0 0 0 1px color-mix(in srgb, black 18%, transparent);
-}
-/* Top / bottom cardboard edges — tinted, no print. */
-.r-box3d__face--edge {
-  background: linear-gradient(
-    var(--r-color-cover-placeholder-bright),
-    var(--r-color-cover-placeholder)
-  );
 }
 
 @media (prefers-reduced-motion: reduce) {
