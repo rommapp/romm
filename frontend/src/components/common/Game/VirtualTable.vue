@@ -318,7 +318,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 v-if="item.sibling_roms.length > 0 && showSiblings"
                 class="translucent mr-1 px-1 item-chip"
                 size="x-small"
-                :title="`${item.sibling_roms.length} sibling(s)`"
+                :title="`${item.sibling_roms.length} version(s)`"
               >
                 <v-icon>mdi-card-multiple-outline</v-icon>
               </v-chip>

@@ -291,7 +291,7 @@ const FIELDS: FieldSpec[] = [
     storage: "duplicate",
     icon: "mdi-content-duplicate",
     labelKey: "platform.show-duplicates",
-    defaultLabel: "Show duplicates",
+    defaultLabel: "Show versions",
     kind: "bool",
   },
   {

@@ -377,7 +377,7 @@ onBeforeUnmount(() => {
                     v-if="rom.sibling_roms.length > 0 && showSiblings"
                     class="translucent mr-1 mb-1 px-1"
                     density="compact"
-                    :title="`${rom.sibling_roms.length} sibling(s)`"
+                    :title="`${rom.sibling_roms.length} version(s)`"
                   >
                     <v-icon>mdi-card-multiple-outline</v-icon>
                   </v-chip>
