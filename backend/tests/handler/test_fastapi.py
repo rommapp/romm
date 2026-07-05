@@ -448,9 +448,7 @@ async def test_scan_rom_unmatched_no_match_uses_parsed_name(
     """UNMATCHED scan that still finds no provider match must heal a raw-filename
     placeholder into the parsed name (tags and extension stripped), so the title
     is clean and a follow-up search uses the parsed name."""
-    no_match = HasheousRom(
-        hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None, name=None
-    )
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
     mock_lookup.return_value = no_match
     mock_get_igdb.return_value = no_match
     mock_get_ra.return_value = no_match
