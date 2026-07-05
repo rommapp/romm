@@ -61,6 +61,7 @@ defineProps<{
     scan: string;
     random: string;
     download: string;
+    addPhysical: string;
   };
 }>();
 
@@ -70,6 +71,7 @@ defineEmits<{
   (e: "scan"): void;
   (e: "random"): void;
   (e: "download"): void;
+  (e: "add-physical"): void;
 }>();
 
 // A square icon sized per breakpoint (smaller on phones). Driving the size
@@ -180,6 +182,16 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         :aria-label="labels.upload"
         :tooltip="labels.upload"
         @click="$emit('upload')"
+      />
+      <RBtn
+        v-if="canEdit"
+        variant="outlined"
+        surface
+        icon="mdi-cube-outline"
+        rounded="circle"
+        :aria-label="labels.addPhysical"
+        :tooltip="labels.addPhysical"
+        @click="$emit('add-physical')"
       />
       <RBtn
         v-if="canScan"

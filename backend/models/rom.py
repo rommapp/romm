@@ -357,6 +357,11 @@ class Rom(BaseModel):
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
+    # Physical games are manually-added rows with no file on disk; they carry the
+    # same metadata as digital ROMs but must never be flagged missing or cleaned up.
+    is_physical: Mapped[bool] = mapped_column(default=False, nullable=False)
+    upc: Mapped[str | None] = mapped_column(String(length=64), default=None)
+
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
     )

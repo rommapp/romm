@@ -37,6 +37,44 @@ def test_platforms():
     assert len(platforms) == 1
 
 
+def _add_physical_rom(platform: Platform, name: str = "Physical Game") -> Rom:
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=name,
+            fs_name=name,
+            fs_path=f"{platform.slug}/roms/.physical",
+            fs_size_bytes=0,
+            is_physical=True,
+        )
+    )
+
+
+def test_mark_missing_roms_skips_physical(rom: Rom, platform: Platform):
+    physical = _add_physical_rom(platform)
+
+    # An empty keep-list would normally flag every rom on the platform as missing.
+    still_missing = db_rom_handler.mark_missing_roms(platform.id, [])
+
+    missing_ids = {r.id for r in still_missing}
+    assert rom.id in missing_ids
+    assert physical.id not in missing_ids
+
+    refreshed = db_rom_handler.get_rom(physical.id)
+    assert refreshed is not None
+    assert refreshed.missing_from_fs is False
+
+
+def test_get_roms_scalar_missing_excludes_physical(platform: Platform):
+    physical = _add_physical_rom(platform)
+    # Even if a physical rom is erroneously flagged, it must not be returned as
+    # missing (the cleanup task hard-deletes whatever this query returns).
+    db_rom_handler.update_rom(physical.id, {"missing_from_fs": True})
+
+    missing = db_rom_handler.get_roms_scalar(platform_ids=[platform.id], missing=True)
+    assert physical.id not in {r.id for r in missing}
+
+
 def test_roms(rom: Rom, platform: Platform):
     db_rom_handler.add_rom(
         Rom(

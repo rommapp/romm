@@ -429,5 +429,17 @@
   "volume-unmute": "Stummschaltung aufheben",
   "youtube-video-id": "YouTube-Video-ID",
   "convert-to-folder-title": "Convert to folder ROM?",
-  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
+  "add-physical-game": "Physisches Spiel hinzufügen",
+  "add-physical-game-desc": "Füge ein Spiel, das du physisch besitzt, manuell hinzu. Die Metadaten werden automatisch zugeordnet.",
+  "physical-game-name": "Spielname",
+  "physical-upc": "UPC / Barcode",
+  "physical-name-or-upc-required": "Gib einen Spielnamen oder eine UPC ein",
+  "physical-game-added": "Physisches Spiel hinzugefügt",
+  "physical-game-add-failed": "Physisches Spiel konnte nicht hinzugefügt werden",
+  "barcode-scan-title": "Barcode scannen",
+  "barcode-scan-hint": "Richte die Kamera auf den Barcode des Spiels.",
+  "barcode-scan-unsupported": "Das Scannen per Kamera ist auf diesem Gerät oder Browser nicht verfügbar.",
+  "barcode-scan-denied": "Kamerazugriff wurde verweigert.",
+  "barcode-scan-failed": "Die Kamera konnte nicht gestartet werden."
 }

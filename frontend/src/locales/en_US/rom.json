@@ -429,5 +429,17 @@
   "media-video": "Video",
   "media-video-normalized": "Video (standardized)",
   "convert-to-folder-title": "Convert to folder ROM?",
-  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
+  "add-physical-game": "Add physical game",
+  "add-physical-game-desc": "Manually add a game you own physically. It will be matched to metadata automatically.",
+  "physical-game-name": "Game name",
+  "physical-upc": "UPC / barcode",
+  "physical-name-or-upc-required": "Enter a game name or a UPC",
+  "physical-game-added": "Physical game added",
+  "physical-game-add-failed": "Failed to add physical game",
+  "barcode-scan-title": "Scan barcode",
+  "barcode-scan-hint": "Point the camera at the game's barcode.",
+  "barcode-scan-unsupported": "Camera scanning isn't available on this device or browser.",
+  "barcode-scan-denied": "Camera permission was denied.",
+  "barcode-scan-failed": "Could not start the camera."
 }

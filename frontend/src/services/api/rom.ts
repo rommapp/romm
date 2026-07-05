@@ -426,6 +426,27 @@ async function searchRom({
   });
 }
 
+async function createPhysicalRom({
+  platformId,
+  name,
+  upc,
+  metadataSources,
+}: {
+  platformId: number;
+  name?: string;
+  upc?: string;
+  metadataSources?: string[];
+}) {
+  // POST /roms/physical — manually add a file-less physical game and
+  // auto-link its metadata (a single quick scan). Returns the created rom.
+  return api.post<DetailedRom>("/roms/physical", {
+    platform_id: platformId,
+    name: name || null,
+    upc: upc || null,
+    metadata_sources: metadataSources ?? null,
+  });
+}
+
 function triggerFileDownload(href: string) {
   return new Promise<void>((resolve) => {
     const a = document.createElement("a");
@@ -899,6 +920,7 @@ export default {
   downloadRom,
   bulkDownloadRoms,
   searchRom,
+  createPhysicalRom,
   updateRom,
   uploadManuals,
   removeManual,

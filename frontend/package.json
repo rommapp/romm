@@ -39,6 +39,7 @@
     "@floating-ui/vue": "^1.1.11",
     "@mdi/font": "7.4.47",
     "@vueuse/core": "^13.7.0",
+    "@zxing/browser": "^0.1.5",
     "axios": "^1.18.1",
     "bowser": "^2.14.1",
     "cronstrue": "^2.57.0",

@@ -52,10 +52,11 @@ from handler.auth.dependencies import (
     assert_rom_visible,
     get_permissions,
 )
-from handler.database import db_rom_handler, db_save_handler
+from handler.database import db_platform_handler, db_rom_handler, db_save_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
+from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_igdb_handler,
@@ -64,9 +65,18 @@ from handler.metadata import (
     meta_playmatch_handler,
     meta_ra_handler,
     meta_ss_handler,
+    meta_upc_handler,
 )
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from handler.rom_conversion import promote_single_file_to_folder
+from handler.scan_handler import (
+    MetadataSource,
+    ScanType,
+    build_physical_fs_name,
+    build_physical_fs_path,
+    download_rom_resources,
+    scan_rom,
+)
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -1352,6 +1362,127 @@ async def get_rom_content(
     return ZipResponse(
         content_lines=content_lines,
         filename=f"{quote(file_name)}.zip",
+    )
+
+
+class PhysicalRomCreateForm(BaseModel):
+    platform_id: int = Field(..., ge=1, description="Platform the game belongs to.")
+    name: str | None = Field(
+        default=None, description="Game name to match metadata against."
+    )
+    upc: str | None = Field(
+        default=None, description="UPC/EAN/barcode of the physical copy."
+    )
+    metadata_sources: list[str] | None = Field(
+        default=None,
+        description="Metadata providers to match against; defaults to all enabled.",
+    )
+
+
+@protected_route(
+    router.post,
+    "/physical",
+    [Scope.ROMS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def create_physical_rom(
+    request: Request,
+    form_data: Annotated[PhysicalRomCreateForm, Body()],
+) -> DetailedRomSchema:
+    """Manually add a physical game and auto-link its metadata (a single quick scan).
+
+    The game has no file on disk; it is stored as a `Rom` with `is_physical=True`
+    and a synthetic filesystem name, then matched by name against the metadata
+    providers exactly like a one-title scan.
+    """
+    platform = db_platform_handler.get_platform(form_data.platform_id)
+    if not platform:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Platform with id {form_data.platform_id} not found",
+        )
+
+    match_name = (form_data.name or "").strip()
+    if not match_name and form_data.upc:
+        match_name = (await meta_upc_handler.resolve_upc_to_title(form_data.upc)) or ""
+        if not match_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Could not resolve the provided UPC to a game title",
+            )
+
+    if not match_name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="A name or a resolvable UPC is required",
+        )
+
+    fs_name = build_physical_fs_name(platform.id, match_name)
+    fs_path = build_physical_fs_path(platform)
+
+    try:
+        rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                fs_name=fs_name,
+                fs_path=fs_path,
+                fs_size_bytes=0,
+                name=match_name,
+                is_physical=True,
+                upc=form_data.upc,
+                url_cover="",
+                url_manual="",
+                url_screenshots=[],
+            )
+        )
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"A game named {match_name!r} already exists on this platform",
+        ) from exc
+
+    metadata_sources = form_data.metadata_sources or [s.value for s in MetadataSource]
+
+    fs_rom: FSRom = {
+        "fs_name": fs_name,
+        "flat": True,
+        "nested": False,
+        "files": [],
+        "crc_hash": "",
+        "md5_hash": "",
+        "sha1_hash": "",
+        "ra_hash": "",
+    }
+
+    scanned_rom = await scan_rom(
+        scan_type=ScanType.QUICK,
+        platform=platform,
+        rom=rom,
+        fs_rom=fs_rom,
+        metadata_sources=metadata_sources,
+        newly_added=True,
+    )
+
+    # scan_rom returns a fresh Rom; re-assert the physical identity before persisting
+    # so a matched row can never be treated as a file-less-and-missing digital rom.
+    scanned_rom.is_physical = True
+    scanned_rom.upc = form_data.upc
+    scanned_rom.fs_path = fs_path
+
+    added_rom = db_rom_handler.add_rom(scanned_rom)
+
+    await download_rom_resources(
+        added_rom=added_rom,
+        previous_url_cover=rom.url_cover,
+        previous_url_manual=rom.url_manual,
+        previous_url_screenshots=rom.url_screenshots,
+        metadata_sources=metadata_sources,
+    )
+
+    db_rom_handler.invalidate_filter_values_cache()
+
+    return DetailedRomSchema.from_orm_with_request(
+        db_rom_handler.get_rom(added_rom.id), request
     )
 
 
