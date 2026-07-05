@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "Качен е {n} файл от ръководството, {failed} неуспешни. | Качени са {n} файла от ръководството, {failed} неуспешни.",
   "manual-match": "Ръчно разпознаване",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Грешка при премахване на ръководството: {error}",
   "manual-removed": "Ръководството е премахнато успешно",

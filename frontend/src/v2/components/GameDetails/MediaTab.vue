@@ -31,6 +31,9 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 const PdfViewer = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/PdfViewer.vue"),
 );
+const MarkdownViewer = defineAsyncComponent(
+  () => import("@/v2/components/GameDetails/MarkdownViewer.vue"),
+);
 const SoundtrackPanel = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/SoundtrackPanel.vue"),
 );
@@ -115,7 +118,11 @@ type ManualEntry = {
   label: string;
   url: string;
   isPrimary: boolean;
+  // Manuals can be PDF or Markdown; the viewer is picked by extension.
+  kind: "pdf" | "md";
 };
+
+const isMarkdown = (name: string) => /\.md$/i.test(name);
 
 const manualEntries = computed<ManualEntry[]>(() => {
   const entries: ManualEntry[] = [];
@@ -126,6 +133,7 @@ const manualEntries = computed<ManualEntry[]>(() => {
       label: t("rom.scraped-manual"),
       url: `${FRONTEND_RESOURCES_PATH}/${props.rom.path_manual}?v=${cacheBust}`,
       isPrimary: true,
+      kind: isMarkdown(props.rom.path_manual) ? "md" : "pdf",
     });
   }
   for (const file of props.rom.files ?? []) {
@@ -137,6 +145,7 @@ const manualEntries = computed<ManualEntry[]>(() => {
           file.file_name,
         )}?v=${cacheBust}`,
         isPrimary: false,
+        kind: isMarkdown(file.file_name) ? "md" : "pdf",
       });
     }
   }
@@ -417,7 +426,7 @@ async function deleteSoundtrack(fileId: number) {
           :hint="t('common.dropzone-hint')"
           :active-title="t('common.dropzone-drag-over')"
           :input-label="t('rom.upload-manual')"
-          accept="application/pdf"
+          accept="application/pdf,.md"
           multiple
           @files="handleManualFiles"
         >
@@ -441,21 +450,33 @@ async function deleteSoundtrack(fileId: number) {
           class="r-v2-media__fill"
           :release-label="t('common.dropzone-drag-over')"
           :input-label="t('rom.upload-manual')"
-          accept="application/pdf"
+          accept="application/pdf,.md"
           multiple
           @files="handleManualFiles"
         >
           <div class="r-v2-media__viewer">
-            <PdfViewer
-              v-if="selectedManual"
-              :key="`${selectedManual.id}-${rom.updated_at}`"
-              :pdf-url="selectedManual.url"
-              deletable
-              :redownloadable="!!rom.url_manual"
-              :redownloading="redownloadingManual"
-              @delete="requestDeleteManual"
-              @redownload="redownloadManual"
-            />
+            <template v-if="selectedManual">
+              <MarkdownViewer
+                v-if="selectedManual.kind === 'md'"
+                :key="`${selectedManual.id}-${rom.updated_at}`"
+                :url="selectedManual.url"
+                deletable
+                :redownloadable="!!rom.url_manual"
+                :redownloading="redownloadingManual"
+                @delete="requestDeleteManual"
+                @redownload="redownloadManual"
+              />
+              <PdfViewer
+                v-else
+                :key="`${selectedManual.id}-${rom.updated_at}`"
+                :pdf-url="selectedManual.url"
+                deletable
+                :redownloadable="!!rom.url_manual"
+                :redownloading="redownloadingManual"
+                @delete="requestDeleteManual"
+                @redownload="redownloadManual"
+              />
+            </template>
           </div>
         </RDropzone>
       </section>

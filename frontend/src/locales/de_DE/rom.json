@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "{n} Handbuch-Datei hochgeladen, {failed} fehlgeschlagen. | {n} Handbuch-Dateien hochgeladen, {failed} fehlgeschlagen.",
   "manual-match": "Manuell zuweisen",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Fehler beim Entfernen des Handbuchs: {error}",
   "manual-removed": "Handbuch erfolgreich entfernt",

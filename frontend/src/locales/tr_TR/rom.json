@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "{n} kılavuz dosyası yüklendi, {failed} başarısız. | {n} kılavuz dosyası yüklendi, {failed} başarısız.",
   "manual-match": "Manuel eşleştirme",
   "manual-redownload-failed": "Kılavuz yeniden indirilemedi: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Kılavuz başarıyla yeniden indirildi",
   "manual-remove-failed": "Kılavuz kaldırılamadı: {error}",
   "manual-removed": "Kılavuz başarıyla kaldırıldı",

@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "{n} kézikönyvfájl feltöltve, {failed} sikertelen. | {n} kézikönyvfájl feltöltve, {failed} sikertelen.",
   "manual-match": "Kézi egyeztetés",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "A kézikönyv eltávolítása sikertelen: {error}",
   "manual-removed": "A kézikönyv sikeresen eltávolítva",

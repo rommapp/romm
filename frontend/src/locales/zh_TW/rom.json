@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "已上傳 {n} 個手冊檔案，{failed} 個失敗。 | 已上傳 {n} 個手冊檔案，{failed} 個失敗。",
   "manual-match": "手動匹配",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "刪除手冊失敗：{error}",
   "manual-removed": "手冊刪除成功",

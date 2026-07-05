@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "{n}개 매뉴얼 파일을 업로드했습니다, {failed}개 실패. | {n}개 매뉴얼 파일을 업로드했습니다, {failed}개 실패.",
   "manual-match": "수동으로 DB 대응",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "매뉴얼 제거 실패: {error}",
   "manual-removed": "매뉴얼이 성공적으로 제거되었습니다",

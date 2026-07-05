@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "{n} manual subido, {failed} con error | {n} manuales subidos, {failed} con error",
   "manual-match": "Identificación manual",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Error al eliminar el manual: {error}",
   "manual-removed": "Manual eliminado con éxito",

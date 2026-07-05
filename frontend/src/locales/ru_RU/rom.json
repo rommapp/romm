@@ -152,6 +152,7 @@
   "manual-files-uploaded-with-failed": "Загружен {n} файл руководства, {failed} с ошибкой. | Загружено {n} файлов руководства, {failed} с ошибкой.",
   "manual-match": "Ручное совпадение",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
+  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Не удалось удалить руководство: {error}",
   "manual-removed": "Руководство успешно удалено",

@@ -10,6 +10,7 @@ from handler.database import db_rom_handler
 from models.rom import Rom, RomFile, RomFileCategory
 
 PDF_BYTES = b"%PDF-1.4\n%mock pdf\n%%EOF"
+MD_BYTES = b"# Manual\n\nSome **markdown** content.\n"
 
 
 def _auth(token: str) -> dict[str, str]:
@@ -88,6 +89,63 @@ def test_upload_manual_to_resources_success(
     assert written.read_bytes() == PDF_BYTES
     refreshed = db_rom_handler.get_rom(rom.id)
     assert refreshed.path_manual == f"{rom.fs_resources_path}/manual/{rom.id}.pdf"
+
+
+def test_upload_markdown_manual_to_resources_preserves_extension(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    manual_fs_resources: Path,
+):
+    response = client.post(
+        f"/api/roms/{rom.id}/manuals",
+        headers={**_auth(access_token), "x-upload-filename": "README.md"},
+        files={"README.md": ("README.md", MD_BYTES, "text/markdown")},
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    written = manual_fs_resources / f"{rom.id}.md"
+    assert written.exists()
+    assert written.read_bytes() == MD_BYTES
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed.path_manual == f"{rom.fs_resources_path}/manual/{rom.id}.md"
+
+
+def test_upload_manual_to_resources_rejects_unsupported_extension(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    manual_fs_resources: Path,
+):
+    response = client.post(
+        f"/api/roms/{rom.id}/manuals",
+        headers={**_auth(access_token), "x-upload-filename": "manual.txt"},
+        files={"manual.txt": ("manual.txt", b"not allowed", "text/plain")},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Unsupported manual file type" in response.json()["detail"]
+
+
+def test_upload_manual_to_resources_drops_stale_other_extension(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    manual_fs_resources: Path,
+):
+    # A prior PDF manual exists; uploading a Markdown one should remove it so
+    # the single primary manual stays unambiguous.
+    (manual_fs_resources / f"{rom.id}.pdf").write_bytes(PDF_BYTES)
+
+    response = client.post(
+        f"/api/roms/{rom.id}/manuals",
+        headers={**_auth(access_token), "x-upload-filename": "README.md"},
+        files={"README.md": ("README.md", MD_BYTES, "text/markdown")},
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert (manual_fs_resources / f"{rom.id}.md").exists()
+    assert not (manual_fs_resources / f"{rom.id}.pdf").exists()
 
 
 def test_upload_manual_to_resources_rom_not_found(
