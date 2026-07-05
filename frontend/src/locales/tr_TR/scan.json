@@ -1,5 +1,4 @@
 {
-  "provider-quota-skipped": "Bir üst veri sağlayıcısı günlük sınırına ulaştı ve bu taramanın geri kalanında atlandı.",
   "abort": "İptal et",
   "api-key-invalid": "API anahtarı geçersiz!",
   "api-key-missing": "API anahtarı eksik veya geçersiz",

@@ -1,5 +1,4 @@
 {
-  "provider-quota-skipped": "Egy metaadat-szolgáltató elérte a napi korlátját, és a vizsgálat hátralévő részében kihagyásra került.",
   "source-disabled": "Forrás letiltva",
   "abort": "Megszakítás",
   "api-key-invalid": "API kulcs érvénytelen!",

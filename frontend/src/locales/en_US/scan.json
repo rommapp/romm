@@ -1,5 +1,4 @@
 {
-  "provider-quota-skipped": "A metadata provider reached its daily limit and was skipped for the rest of this scan.",
   "abort": "Abort",
   "api-key-invalid": "API key invalid!",
   "api-key-missing": "API key missing or invalid",

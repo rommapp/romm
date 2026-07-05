@@ -1,5 +1,4 @@
 {
-  "provider-quota-skipped": "メタデータプロバイダーが1日の上限に達したため、このスキャンの残りではスキップされました。",
   "source-disabled": "ソースが無効です",
   "abort": "中止",
   "api-key-invalid": "APIキーが無効です!",

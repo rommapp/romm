@@ -84,16 +84,15 @@ class MetadataSource(enum.StrEnum):
     PLAYMATCH = "playmatch"  # Playmatch
 
 
-async def mark_metadata_source_skipped(
+def mark_metadata_source_skipped(
     source: MetadataSource,
     detail: str,
     skipped_metadata_sources: set[MetadataSource],
-    socket_manager: socketio.AsyncRedisManager | None,
 ) -> None:
     """Skip a metadata source for the rest of the scan when its quota is exhausted.
 
-    Warns and notifies the client once, on the first skip, so remaining ROMs fall
-    back to the other providers instead of hammering an exhausted source.
+    Warns once, on the first skip, so remaining ROMs fall back to the other
+    providers instead of hammering an exhausted source.
     """
     if source in skipped_metadata_sources:
         return
@@ -103,11 +102,6 @@ async def mark_metadata_source_skipped(
         f"{hl(source.value.upper())} unavailable, skipping it for the rest of this scan: {detail}",
         extra=LOGGER_MODULE_NAME,
     )
-    if socket_manager:
-        await socket_manager.emit(
-            "scan:warning",
-            {"source": source.value, "message_key": "scan.provider-quota-skipped"},
-        )
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -722,11 +716,8 @@ async def scan_rom(
                 # it for the rest of the scan so other providers still match this ROM.
                 if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
                     raise
-                await mark_metadata_source_skipped(
-                    MetadataSource.SS,
-                    str(exc.detail),
-                    skipped_metadata_sources,
-                    socket_manager,
+                mark_metadata_source_skipped(
+                    MetadataSource.SS, str(exc.detail), skipped_metadata_sources
                 )
                 return SSRom(ss_id=None)
 

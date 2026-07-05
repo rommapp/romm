@@ -1,5 +1,4 @@
 {
-  "provider-quota-skipped": "Dostawca metadanych osiągnął dzienny limit i został pominięty do końca tego skanowania.",
   "source-disabled": "Źródło wyłączone",
   "abort": "Przerwij",
   "api-key-invalid": "Nieprawidłowy klucz API!",

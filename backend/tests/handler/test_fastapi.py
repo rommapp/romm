@@ -575,24 +575,14 @@ async def test_lookup_rom_skips_request_when_no_hashes(mock_is_enabled, mock_req
     mock_request.assert_not_called()
 
 
-async def test_mark_metadata_source_skipped_notifies_once():
-    """The helper adds the source once and emits a single scan:warning."""
-    socket_manager = AsyncMock()
+def test_mark_metadata_source_skipped_is_idempotent():
+    """The helper records the source, and a repeat hit is a no-op."""
     skipped: set[MetadataSource] = set()
 
-    await mark_metadata_source_skipped(
-        MetadataSource.SS, "quota exhausted", skipped, socket_manager
-    )
-    # A second hit for the same source must not re-notify.
-    await mark_metadata_source_skipped(
-        MetadataSource.SS, "quota exhausted", skipped, socket_manager
-    )
+    mark_metadata_source_skipped(MetadataSource.SS, "quota exhausted", skipped)
+    mark_metadata_source_skipped(MetadataSource.SS, "quota exhausted", skipped)
 
     assert skipped == {MetadataSource.SS}
-    socket_manager.emit.assert_awaited_once()
-    event, payload = socket_manager.emit.await_args.args
-    assert event == "scan:warning"
-    assert payload["source"] == MetadataSource.SS.value
 
 
 def _ss_quota_platform() -> Platform:

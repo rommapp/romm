@@ -1,5 +1,4 @@
 {
-  "provider-quota-skipped": "Un fournisseur de métadonnées a atteint sa limite quotidienne et a été ignoré pour le reste de cette analyse.",
   "source-disabled": "Source désactivée",
   "abort": "Annuler",
   "api-key-invalid": "Clé API invalide !",

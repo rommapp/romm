@@ -1,5 +1,4 @@
 {
-  "provider-quota-skipped": "메타데이터 제공자가 일일 한도에 도달하여 이번 스캔의 나머지 동안 건너뛰었습니다.",
   "source-disabled": "소스가 비활성화됨",
   "abort": "중지",
   "api-key-invalid": "API 키가 유효하지 않습니다!",

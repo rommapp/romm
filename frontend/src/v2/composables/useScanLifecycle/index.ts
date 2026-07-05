@@ -17,9 +17,6 @@
 //                                then refetch platforms to reconcile counts.
 //   * `scan:done_ko`           — scan errored; surface the message as a
 //                                snackbar and flip `scanning` off.
-//   * `scan:warning`           — a provider was skipped mid-scan (e.g. its
-//                                daily quota ran out); surface a non-fatal
-//                                warning snackbar. The scan keeps running.
 //
 // `useSocketEvent` is the typed subscription wrapper that auto-cleans up
 // on unmount; since AppLayout never unmounts during normal use the
@@ -27,7 +24,6 @@
 import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
-import { useI18n } from "vue-i18n";
 import type { ScanStats } from "@/__generated__";
 import platformApi from "@/services/api/platform";
 import storePlatforms from "@/stores/platforms";
@@ -41,7 +37,6 @@ export function installScanLifecycle() {
   const romsStore = storeRoms();
   const platformsStore = storePlatforms();
   const emitter = inject<Emitter<Events>>("emitter");
-  const { t } = useI18n();
 
   useSocketEvent<ScanningPlatform>(
     "scan:scanning_platform",
@@ -178,17 +173,6 @@ export function installScanLifecycle() {
       msg: `Scan failed: ${msg}`,
       color: "error",
       icon: "mdi-close-circle",
-      timeout: 6000,
-    });
-  });
-
-  // A provider (e.g. ScreenScraper) exhausted its daily quota and was skipped
-  // for the rest of the scan. Non-fatal: other providers keep matching ROMs.
-  useSocketEvent<{ source: string }>("scan:warning", () => {
-    emitter?.emit("snackbarShow", {
-      msg: t("scan.provider-quota-skipped"),
-      color: "warning",
-      icon: "mdi-alert",
       timeout: 6000,
     });
   });
