@@ -15,6 +15,7 @@ from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.filesystem.resources_handler import ALLOWED_MANUAL_EXTENSIONS
 from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -25,7 +26,6 @@ from utils.router import APIRouter
 router = APIRouter()
 
 MANUAL_FOLDER = "manual"
-ALLOWED_MANUAL_EXTENSIONS = frozenset({".pdf", ".md"})
 
 
 def _is_allowed_manual_file(file_name: str) -> bool:

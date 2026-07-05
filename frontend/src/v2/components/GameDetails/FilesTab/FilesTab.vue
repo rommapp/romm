@@ -624,7 +624,7 @@ const currentUploadState = computed<SubtabUploadState>(() => {
   <input
     ref="manualUploadInput"
     type="file"
-    accept="application/pdf,.md,text/markdown"
+    accept="application/pdf,text/markdown"
     multiple
     class="r-v2-files__file-input"
     :aria-label="t('rom.upload-manual-files')"

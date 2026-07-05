@@ -426,7 +426,7 @@ async function deleteSoundtrack(fileId: number) {
           :hint="t('common.dropzone-hint')"
           :active-title="t('common.dropzone-drag-over')"
           :input-label="t('rom.upload-manual')"
-          accept="application/pdf,.md,text/markdown"
+          accept="application/pdf,text/markdown"
           multiple
           @files="handleManualFiles"
         >
@@ -450,7 +450,7 @@ async function deleteSoundtrack(fileId: number) {
           class="r-v2-media__fill"
           :release-label="t('common.dropzone-drag-over')"
           :input-label="t('rom.upload-manual')"
-          accept="application/pdf,.md,text/markdown"
+          accept="application/pdf,text/markdown"
           multiple
           @files="handleManualFiles"
         >

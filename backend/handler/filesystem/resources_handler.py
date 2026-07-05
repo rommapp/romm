@@ -20,6 +20,8 @@ from .base_handler import CoverSize, FSHandler
 
 LOCAL_FILE_SCHEMES = ("file://", "launchbox-file://")
 
+ALLOWED_MANUAL_EXTENSIONS = frozenset({".pdf", ".md"})
+
 
 def _resolve_local_file_uri(uri: str) -> Path | None:
     """Resolve a local-file URI to an absolute Path, or None if unsafe/unknown.
@@ -402,9 +404,10 @@ class FSResourcesHandler(FSHandler):
             True if manual exists in filesystem else False
         """
         full_path = self.validate_path(f"{rom.fs_resources_path}/manual")
-        for _ in full_path.glob(f"{rom.id}.*"):
-            return True
-        return False
+        return any(
+            (full_path / f"{rom.id}{ext}").is_file()
+            for ext in ALLOWED_MANUAL_EXTENSIONS
+        )
 
     async def _store_manual(self, rom: Rom, url_manual: str):
         manual_path = f"{rom.fs_resources_path}/manual"
@@ -474,10 +477,19 @@ class FSResourcesHandler(FSHandler):
             rom: Rom object
         """
         full_path = self.validate_path(f"{rom.fs_resources_path}/manual")
-        for matched_file in full_path.glob(f"{rom.id}.*"):
-            return str(matched_file.relative_to(self.base_path))
+        candidates = [
+            candidate
+            for ext in ALLOWED_MANUAL_EXTENSIONS
+            if (candidate := full_path / f"{rom.id}{ext}").is_file()
+        ]
+        if not candidates:
+            return None
 
-        return None
+        # Multiple allowed manuals can coexist (e.g. an uploaded `.md` and a
+        # redownloaded `.pdf`). Pick the most recently written one, breaking
+        # mtime ties by name so the result is deterministic.
+        newest = max(candidates, key=lambda p: (p.stat().st_mtime, p.name))
+        return str(newest.relative_to(self.base_path))
 
     async def get_manual(
         self, rom: Rom, overwrite: bool, url_manual: str | None
