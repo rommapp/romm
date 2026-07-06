@@ -27,9 +27,9 @@
 //     within. Established eagerly on mount and re-synced as virtualised
 //     rows mount / unmount, not just after the first arrow / gamepad move.
 //   * Card action row — those swept-out overlay buttons are still
-//     reachable: the ContextMenu key / Shift+F10 (keyboard) or X/Y
-//     (gamepad) drops focus into the focused card's actions. From there
-//     Arrow keys move between the actions and Escape returns to the card.
+//     reachable on a gamepad: X/Y drops focus into the focused card's
+//     actions, then D-pad moves between them and B (Escape) returns to
+//     the card.
 //
 // Integration:
 //   * Input modality flipping to `"pad"` (gamepad connected / pressed)
@@ -132,7 +132,7 @@ export function useGridNav(
   // A cell's nested action controls: everything focusable inside it EXCEPT
   // the primary (card link). For a GameCard these are the hover-overlay
   // buttons (play / download / favorite / more / status) — kept out of the
-  // Tab order by `markRoving`, reached instead via the context-menu key.
+  // Tab order by `markRoving`, reached instead via gamepad X/Y.
   function cellActions(cell: HTMLElement): HTMLElement[] {
     const primary = focusableIn(cell);
     return cellFocusables(cell).filter((el) => el !== primary);
@@ -307,9 +307,9 @@ export function useGridNav(
       active !== primary && actions.includes(active as HTMLElement);
 
     // ── Inside a card's action row ──────────────────────────────────
-    // The user descended into the overlay actions (via the context-menu
-    // key / gamepad below). Arrows move between the actions; Escape
-    // returns to the card. `stopImmediatePropagation` so neither the
+    // The user descended into the overlay actions (gamepad X/Y, handled
+    // in `onGamepadButton`). Arrows move between the actions; Escape (pad
+    // B) returns to the card. `stopImmediatePropagation` so neither the
     // card→card nav nor the shell's Escape-clears-selection also fire.
     if (onAction) {
       const i = actions.indexOf(active as HTMLElement);
@@ -325,21 +325,6 @@ export function useGridNav(
         e.preventDefault();
         e.stopImmediatePropagation();
         actions[Math.max(i - 1, 0)]?.focus();
-      }
-      return;
-    }
-
-    // ── Context-menu affordance ─────────────────────────────────────
-    // ContextMenu key / Shift+F10 drops focus into the card's action row
-    // so keyboard users can reach the overlay buttons that Tab skips.
-    // Gamepad X/Y do the same via `onGamepadButton`.
-    if (
-      active === primary &&
-      (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10"))
-    ) {
-      if (actions.length > 0) {
-        e.preventDefault();
-        actions[0].focus();
       }
       return;
     }

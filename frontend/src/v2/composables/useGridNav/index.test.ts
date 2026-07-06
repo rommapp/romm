@@ -170,17 +170,19 @@ describe("useGridNav roving tabindex", () => {
 });
 
 describe("useGridNav card action row", () => {
-  it("ContextMenu drops focus into the card's actions; arrows move between them", async () => {
+  it("gamepad X descends into the card's actions; arrows move between them", async () => {
     const wrapper = mountCards();
     await nextTick();
     await raf();
     const root = wrapper.element as HTMLElement;
 
-    const card = root.querySelector<HTMLElement>('[data-focus-key="k-0-0"]')!;
-    card.focus();
+    root.querySelector<HTMLElement>('[data-focus-key="k-0-0"]')!.focus();
 
-    // ContextMenu → focus the first overlay action.
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ContextMenu" }));
+    // Gamepad X → focus the first overlay action. (D-pad and B are
+    // dispatched as synthetic Arrow / Escape keydowns by useGamepad.)
+    window.dispatchEvent(
+      new CustomEvent("gamepad:buttondown", { detail: { name: "x" } }),
+    );
     expect(
       (document.activeElement as HTMLElement).getAttribute("data-act"),
     ).toBe("a");
@@ -196,22 +198,6 @@ describe("useGridNav card action row", () => {
     expect(
       (document.activeElement as HTMLElement).getAttribute("data-focus-key"),
     ).toBe("k-0-0");
-    wrapper.unmount();
-  });
-
-  it("gamepad X descends into the card's actions", async () => {
-    const wrapper = mountCards();
-    await nextTick();
-    await raf();
-    const root = wrapper.element as HTMLElement;
-
-    root.querySelector<HTMLElement>('[data-focus-key="k-0-0"]')!.focus();
-    window.dispatchEvent(
-      new CustomEvent("gamepad:buttondown", { detail: { name: "x" } }),
-    );
-    expect(
-      (document.activeElement as HTMLElement).getAttribute("data-act"),
-    ).toBe("a");
     wrapper.unmount();
   });
 });
