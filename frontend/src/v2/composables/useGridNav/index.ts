@@ -26,10 +26,6 @@
 //     region instead of walking hundreds of stops; Arrow keys move
 //     within. Established eagerly on mount and re-synced as virtualised
 //     rows mount / unmount, not just after the first arrow / gamepad move.
-//   * Card action row — those swept-out overlay buttons are still
-//     reachable on a gamepad: X/Y drops focus into the focused card's
-//     actions, then D-pad moves between them and B (Escape) returns to
-//     the card.
 //
 // Integration:
 //   * Input modality flipping to `"pad"` (gamepad connected / pressed)
@@ -127,15 +123,6 @@ export function useGridNav(
       .querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
       .forEach((el) => out.push(el));
     return out;
-  }
-
-  // A cell's nested action controls: everything focusable inside it EXCEPT
-  // the primary (card link). For a GameCard these are the hover-overlay
-  // buttons (play / download / favorite / more / status) — kept out of the
-  // Tab order by `markRoving`, reached instead via gamepad X/Y.
-  function cellActions(cell: HTMLElement): HTMLElement[] {
-    const primary = focusableIn(cell);
-    return cellFocusables(cell).filter((el) => el !== primary);
   }
 
   // Roving tabindex — the whole grid is ONE tab stop. `activePrimary`
@@ -299,37 +286,8 @@ export function useGridNav(
     const cur = current();
     if (!cur) return;
 
-    const rs = rows();
-    const cell = cells(rs[cur.rowIdx])[cur.colIdx];
-    const primary = focusableIn(cell);
-    const actions = cellActions(cell);
-    const onAction =
-      active !== primary && actions.includes(active as HTMLElement);
-
-    // ── Inside a card's action row ──────────────────────────────────
-    // The user descended into the overlay actions (gamepad X/Y, handled
-    // in `onGamepadButton`). Arrows move between the actions; Escape (pad
-    // B) returns to the card. `stopImmediatePropagation` so neither the
-    // card→card nav nor the shell's Escape-clears-selection also fire.
-    if (onAction) {
-      const i = actions.indexOf(active as HTMLElement);
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        primary.focus();
-      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        actions[Math.min(i + 1, actions.length - 1)]?.focus();
-      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        actions[Math.max(i - 1, 0)]?.focus();
-      }
-      return;
-    }
-
     // ── Card → card 2D nav ──────────────────────────────────────────
+    const rs = rows();
     let { rowIdx, colIdx } = cur;
     const rowCells = cells(rs[rowIdx]);
     let verticalJump = false;
@@ -358,25 +316,6 @@ export function useGridNav(
 
     e.preventDefault();
     focusAt(rowIdx, colIdx, { verticalJump });
-  }
-
-  // Gamepad X / Y → descend into the focused card's action row (the pad
-  // equivalent of the ContextMenu key). useGamepad fires this on window;
-  // the synthetic arrow keydowns it also dispatches then flow through
-  // `onKey` above, so navigating the action row works on a pad too.
-  function onGamepadButton(e: Event) {
-    const name = (e as CustomEvent<{ name?: string }>).detail?.name;
-    if (name !== "x" && name !== "y") return;
-    if (!rootRef.value) return;
-    const active = document.activeElement;
-    if (!(active instanceof Node) || !rootRef.value.contains(active)) return;
-    const cur = current();
-    if (!cur) return;
-    const cell = cells(rows()[cur.rowIdx])[cur.colIdx];
-    // Only enter from the card itself, not when already on an action.
-    if (active !== focusableIn(cell)) return;
-    const actions = cellActions(cell);
-    if (actions.length > 0) actions[0].focus();
   }
 
   // Watches card rows for late-arriving children (data fetching finishes
@@ -419,7 +358,6 @@ export function useGridNav(
   onMounted(() => {
     window.addEventListener("keydown", onKey);
     window.addEventListener("focusin", onFocusIn);
-    window.addEventListener("gamepad:buttondown", onGamepadButton);
     if (rootRef.value) {
       observer = new MutationObserver(scheduleRefresh);
       observer.observe(rootRef.value, { childList: true, subtree: true });
@@ -430,7 +368,6 @@ export function useGridNav(
   onBeforeUnmount(() => {
     window.removeEventListener("keydown", onKey);
     window.removeEventListener("focusin", onFocusIn);
-    window.removeEventListener("gamepad:buttondown", onGamepadButton);
     observer?.disconnect();
     observer = null;
     if (refreshRaf) cancelAnimationFrame(refreshRaf);

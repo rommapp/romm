@@ -62,20 +62,6 @@ function mountGrid(shape: number[]) {
   );
 }
 
-// A single row of two cards; the first carries two overlay actions so we
-// can move between them.
-function mountCards() {
-  return mountHost(() => [
-    h("div", { class: "row" }, [
-      h("a", { href: "#", class: "card", "data-focus-key": "k-0-0" }, [
-        h("button", { class: "overlay", "data-act": "a" }, "a"),
-        h("button", { class: "overlay", "data-act": "b" }, "b"),
-      ]),
-      h("a", { href: "#", class: "card", "data-focus-key": "k-0-1" }, []),
-    ]),
-  ]);
-}
-
 function focusables(root: Element) {
   return Array.from(root.querySelectorAll<HTMLElement>(".card, .overlay"));
 }
@@ -165,39 +151,6 @@ describe("useGridNav roving tabindex", () => {
     expect(newCard.querySelector(".overlay")!.getAttribute("tabindex")).toBe(
       "-1",
     );
-    wrapper.unmount();
-  });
-});
-
-describe("useGridNav card action row", () => {
-  it("gamepad X descends into the card's actions; arrows move between them", async () => {
-    const wrapper = mountCards();
-    await nextTick();
-    await raf();
-    const root = wrapper.element as HTMLElement;
-
-    root.querySelector<HTMLElement>('[data-focus-key="k-0-0"]')!.focus();
-
-    // Gamepad X → focus the first overlay action. (D-pad and B are
-    // dispatched as synthetic Arrow / Escape keydowns by useGamepad.)
-    window.dispatchEvent(
-      new CustomEvent("gamepad:buttondown", { detail: { name: "x" } }),
-    );
-    expect(
-      (document.activeElement as HTMLElement).getAttribute("data-act"),
-    ).toBe("a");
-
-    // ArrowRight → next action; the card→card nav must NOT fire.
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
-    expect(
-      (document.activeElement as HTMLElement).getAttribute("data-act"),
-    ).toBe("b");
-
-    // Escape → back to the card link.
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-    expect(
-      (document.activeElement as HTMLElement).getAttribute("data-focus-key"),
-    ).toBe("k-0-0");
     wrapper.unmount();
   });
 });
