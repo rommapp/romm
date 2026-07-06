@@ -112,7 +112,6 @@ Here are a few projects that we think you might like:
 
 <!-- docs links -->
 
-[docs]: https://docs.romm.app/latest/
 [docs-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
 [docs-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
 [docs-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
