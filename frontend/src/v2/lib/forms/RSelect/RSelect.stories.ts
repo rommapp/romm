@@ -211,12 +211,9 @@ export const Validation: Story = {
 // ── Clearable ──────────────────────────────────────────────────────
 
 export const Clearable: Story = {
-  // a11y todo (#1848): the clear <button> is nested inside the activator
-  // <button> (nested-interactive). The fix is to lift the clear/chip-close
-  // controls out of the activator so they're siblings (select-only combobox
-  // pattern), which moves the field's border/hover/focus/error chrome onto a
-  // wrapper. Deferred: it's a visual-layout refactor that needs in-browser
-  // verification, not a semantics-only change like the rest of this pass.
+  // a11y todo (#1848): clear <button> nested in the activator <button>
+  // (nested-interactive). Fix = lift clear/chip-close out as siblings; a
+  // visual-layout refactor deferred pending in-browser verification.
   parameters: { a11y: { test: "todo" } },
   render: () => ({
     components: { RSelect },

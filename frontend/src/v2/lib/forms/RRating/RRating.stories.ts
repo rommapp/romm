@@ -40,8 +40,7 @@ export const Default: Story = { args: { halfIncrements: true, hover: true } };
 export const Readonly: Story = { args: { readonly: true } };
 export const Large: Story = { args: { size: "large" } };
 
-// Keyboard operability — each star is a native `<button role="radio">`, so
-// Tab walks focus across them and Enter / Space commits the focused rating.
+// Keyboard: Tab across the star buttons, Enter/Space commits the rating.
 export const KeyboardNav: Story = {
   name: "Keyboard navigation (play)",
   args: { ariaLabel: "Rating" },

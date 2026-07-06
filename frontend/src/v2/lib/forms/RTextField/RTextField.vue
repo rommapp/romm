@@ -58,13 +58,11 @@ interface Props {
   /** Tooltip text shown on hover/focus over the append-inner
    *  adornment. The canonical use is the password-reveal eye icon. */
   appendInnerTooltip?: string;
-  /** Accessible name for the prepend-inner adornment when it is
-   *  interactive (a parent listens to `click:prepend-inner`). Falls back
-   *  to `prependInnerTooltip`. */
+  /** Accessible name for the interactive prepend-inner adornment button.
+   *  Falls back to `prependInnerTooltip`. */
   prependInnerLabel?: string;
-  /** Accessible name for the append-inner adornment when it is
-   *  interactive (a parent listens to `click:append-inner`). Falls back
-   *  to `appendInnerTooltip`. */
+  /** Accessible name for the interactive append-inner adornment button.
+   *  Falls back to `appendInnerTooltip`. */
   appendInnerLabel?: string;
   autocomplete?: string;
   name?: string;
@@ -367,8 +365,7 @@ function hasListener(name: string): boolean {
 const prependInteractive = computed(() => hasListener("click:prepend-inner"));
 const appendInteractive = computed(() => hasListener("click:append-inner"));
 
-// An interactive adornment is a real <button>, so it needs an accessible
-// name. Prefer the explicit label prop, fall back to the tooltip text.
+// Interactive adornments are real buttons; name them (label, else tooltip).
 const prependAdornmentLabel = computed(
   () => props.prependInnerLabel ?? props.prependInnerTooltip,
 );

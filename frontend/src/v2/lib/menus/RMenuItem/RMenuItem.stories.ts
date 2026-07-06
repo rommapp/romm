@@ -83,8 +83,7 @@ export const WithNavigation: Story = {
   render: () => ({
     components: { RMenuItem },
     setup: () => ({ panelStyle: PANEL_STYLE }),
-    // Link items carry role="menuitem", which needs a role="menu" parent.
-    // RMenu supplies that in the app; the bare-item story adds it here.
+    // Link items get role="menuitem", which needs a role="menu" parent.
     template: `
       <div style="padding:40px">
         <div :style="panelStyle" role="menu" aria-label="Navigation">

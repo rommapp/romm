@@ -410,10 +410,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <!-- The combobox role lives on this wrapper (a real element that owns
-       the textbox), not on RTextField: when a visible label is present
-       RTextField renders a `<label>`, and a role there both voids the
-       implicit label association and is a disallowed role. -->
+  <!-- combobox role goes here, not on RTextField: with a visible label
+       RTextField renders a <label>, where the role is disallowed and voids
+       the input's label association. -->
   <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -->
   <div
     ref="referenceEl"

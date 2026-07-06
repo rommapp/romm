@@ -61,9 +61,7 @@ export const Disabled: Story = {
   args: { label: "Disabled", disabled: true },
 };
 
-// Keyboard operability — the switch is a native `<button role="switch">`,
-// so Tab focuses it and Space / Enter flip `aria-checked` without any
-// custom key handling.
+// Keyboard: Tab focuses the switch, Space/Enter toggle it.
 export const KeyboardToggle: Story = {
   name: "Keyboard toggle (play)",
   args: { label: "Notifications" },

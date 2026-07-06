@@ -4,11 +4,8 @@ import { describe, expect, it } from "vitest";
 
 type StoryModule = Record<string, unknown>;
 
-// The addon-a11y story parameter shape we honour here. `test` mirrors
-// @storybook/addon-a11y's own knob: "error" fails the test on any
-// violation, "todo" surfaces them as warnings without failing (a ratchet
-// escape hatch), "off" skips the scan entirely. `options` is forwarded to
-// axe.run so a story can scope or disable individual rules.
+// Per-story addon-a11y config. `test`: "error" fails on violations, "todo"
+// warns (ratchet escape hatch), "off" skips. `options` forwards to axe.run.
 type A11yParameters = {
   test?: "error" | "todo" | "off";
   options?: axe.RunOptions;
@@ -19,9 +16,8 @@ type ComposedStory = {
   parameters?: { a11y?: A11yParameters };
 };
 
-// color-contrast needs real layout + computed colors, which happy-dom does
-// not provide, so it is disabled in this (non-browser) runner. Contrast is
-// covered by the Storybook a11y panel and, when added, a browser-mode run.
+// color-contrast needs real layout, which happy-dom lacks; disable it here
+// (covered by the a11y panel / a future browser-mode run).
 const DEFAULT_AXE_OPTIONS: axe.RunOptions = {
   rules: { "color-contrast": { enabled: false } },
 };

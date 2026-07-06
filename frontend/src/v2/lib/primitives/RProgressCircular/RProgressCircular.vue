@@ -34,10 +34,8 @@ interface Props {
   color?: string;
   /** 0–100. Only consulted when `indeterminate` is false. */
   modelValue?: number;
-  /** Accessible name for the progressbar (e.g. "Upload progress"). An
-   *  indeterminate ring with neither a label nor slot content is treated
-   *  as decorative (aria-hidden) so it doesn't announce as an unnamed
-   *  progressbar; slot content names the ring via aria-labelledby. */
+  /** Accessible name for the progressbar. Without it (and without slot
+   *  content), an indeterminate ring is treated as decorative. */
   label?: string;
 }
 
@@ -52,10 +50,8 @@ const props = withDefaults(defineProps<Props>(), {
 
 const slots = useSlots();
 
-// A ring with no name and no visible value is decorative — usually an
-// inline "busy" spinner sitting next to real text. Drop it from the a11y
-// tree rather than expose an unnamed progressbar. Slot content (a "35%"
-// overlay) names the ring instead, so it's not decorative.
+// An unnamed indeterminate ring is decorative (a "busy" spinner beside
+// real text): hide it rather than expose an unnamed progressbar.
 const hasSlotContent = computed(() => !!slots.default);
 const decorative = computed(
   () => props.indeterminate && !props.label && !hasSlotContent.value,

@@ -152,10 +152,8 @@ onBeforeUnmount(() => {
          icon next to "Type"). The sort button is the only interactive
          element so adornments stay focusable / clickable on their own
          without nesting buttons. -->
-    <!-- scroll + body are layout-only containers; mark them presentational
-         so rows sit directly under the role="table" root and satisfy the
-         row/columnheader/cell parent requirements across the loading,
-         empty, and populated states (the header row is always present). -->
+    <!-- Presentational so rows resolve their role="table" parent (the
+         scroll/body divs are layout-only). -->
     <div class="r-table__scroll" :style="scrollStyle" role="presentation">
       <div class="r-table__header" :style="gridStyle" role="row">
         <div

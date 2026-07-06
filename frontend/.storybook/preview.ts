@@ -55,7 +55,7 @@ const preview: Preview = {
   parameters: {
     layout: "centered",
     backgrounds: { disable: true },
-    // Accessibility gate: axe fails on any violation; known gaps opt down to `test: "todo"`. See #1848.
+    // Accessibility gate
     a11y: {
       test: "error",
     },
