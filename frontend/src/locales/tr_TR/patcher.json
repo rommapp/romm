@@ -16,7 +16,6 @@
   "error-upload-failed": "ROM yüklenemedi: {error}",
   "missing-from-fs": "Dosya sisteminde bulunamadı",
   "no-files": "Bu ROM'a ait dosya yok.",
-  "no-patch-files": "Bu ROM'da desteklenen yama dosyası bulunamadı.",
   "output-filename": "Çıktı dosya adı (isteğe bağlı)",
   "patch-file": "Yama dosyası",
   "powered-by": "patcherjs ile çalışmaktadır",

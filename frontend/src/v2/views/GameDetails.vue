@@ -217,20 +217,13 @@ const saveDataCount = computed(() => savesCount.value + statesCount.value);
 
 const filesCount = computed(() => currentRom.value?.files?.length ?? 0);
 
-// The patcher applies one of the ROM's bundled patch files to a base game
-// file, so it's only meaningful when the ROM carries nested files. Mirrors
-// v1's AdminMenu `hasNestedFiles` gate.
-const canPatch = computed(() =>
-  Boolean(
-    currentRom.value?.has_multiple_files &&
-    currentRom.value.files.some((f) => !f.is_top_level),
-  ),
-);
-
+// The patcher tab is always available: a base game file can be patched with
+// one of the ROM's bundled patch files or with a patch uploaded from disk, so
+// users don't have to store patches in the library until they need them.
 const tabs = computed<RTabNavItem[]>(() => [
   { id: "overview", label: t("rom.tab-overview") },
   { id: "files", label: t("rom.tab-files"), badge: filesCount.value },
-  ...(canPatch.value ? [{ id: "patcher", label: t("common.patcher") }] : []),
+  { id: "patcher", label: t("common.patcher") },
   { id: "media", label: t("rom.media") },
   { id: "notes", label: t("rom.tab-notes") },
   {

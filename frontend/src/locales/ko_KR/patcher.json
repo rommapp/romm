@@ -16,7 +16,6 @@
   "error-upload-failed": "ROM을 업로드할 수 없습니다: {error}",
   "missing-from-fs": "Missing from filesystem",
   "no-files": "This ROM has no files.",
-  "no-patch-files": "No supported patch files found on this ROM.",
   "output-filename": "출력 파일명 (선택사항)",
   "patch-file": "패치 파일",
   "powered-by": "patcherjs 기반",

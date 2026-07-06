@@ -16,7 +16,6 @@
   "error-upload-failed": "無法上傳ROM：{error}",
   "missing-from-fs": "Missing from filesystem",
   "no-files": "This ROM has no files.",
-  "no-patch-files": "No supported patch files found on this ROM.",
   "output-filename": "輸出檔案名稱（選填）",
   "patch-file": "修補檔案",
   "powered-by": "由patcherjs提供支援",
