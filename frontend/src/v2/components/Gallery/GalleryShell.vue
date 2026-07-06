@@ -878,6 +878,7 @@ defineExpose({
       :overscan="virtualOverscan"
       :min-content-width="layout === 'list' ? listMinWidth : undefined"
       class="r-v2-shell__scroller r-v2-scroll-hidden"
+      :tabindex="-1"
       @update:viewport-range="onViewportRangeChange"
     >
       <!-- HEADER (Section 1) + INFLOW TOOLBAR (Section 2 — first
