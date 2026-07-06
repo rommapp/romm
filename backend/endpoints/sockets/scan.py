@@ -169,7 +169,7 @@ async def _identify_firmware(
     return 1 if not firmware else 0
 
 
-def _should_scan_rom(
+def should_scan_rom(
     scan_type: ScanType,
     rom: Rom | None,
     roms_ids: list[int],
@@ -643,7 +643,7 @@ async def _identify_platform(
 
         for fs_rom in fs_roms_batch:
             rom = roms_by_fs_name.get(fs_rom["fs_name"])
-            if _should_scan_rom(
+            if should_scan_rom(
                 scan_type=scan_type,
                 rom=rom,
                 roms_ids=roms_ids,
@@ -870,7 +870,7 @@ async def scan_platforms(
     return scan_stats
 
 
-async def _reject_unauthorized_scan(sid: str) -> bool:
+async def reject_unauthorized_scan(sid: str) -> bool:
     """Return ``True`` (and notify the caller) if the socket may not run scans.
 
     Scans are a privileged, destructive operation, so gate them on the same
@@ -898,7 +898,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         options (dict): Socket options
     """
 
-    if await _reject_unauthorized_scan(sid):
+    if await reject_unauthorized_scan(sid):
         return
 
     log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
@@ -941,7 +941,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
 async def stop_scan_handler(sid: str):
     """Stop scan socket endpoint"""
 
-    if await _reject_unauthorized_scan(sid):
+    if await reject_unauthorized_scan(sid):
         return
 
     log.info(f"{emoji.EMOJI_STOP_BUTTON} Stop scan requested...")
