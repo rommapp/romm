@@ -32,6 +32,25 @@ export default defineStore("language", {
     setLanguage(lang: { value: string; name: string }) {
       this.selectedLanguage = lang;
     },
+    // Match the browser's preferred languages against the available locales,
+    // falling back to the default (en_US) when none line up. Tries an exact
+    // match first (e.g. "en-US" -> "en_US"), then a language-only match
+    // (e.g. "fr" -> "fr_FR").
+    detectBrowserLanguage() {
+      for (const pref of navigator.languages) {
+        const normalized = pref.replace("-", "_").toLowerCase();
+        const exact = this.languages.find(
+          (lang) => lang.value.toLowerCase() === normalized,
+        );
+        if (exact) return exact;
+        const base = normalized.split("_")[0];
+        const partial = this.languages.find(
+          (lang) => lang.value.toLowerCase().split("_")[0] === base,
+        );
+        if (partial) return partial;
+      }
+      return this.defaultLanguage;
+    },
     reset() {
       Object.assign(this, { ...defaultLanguageState });
     },
