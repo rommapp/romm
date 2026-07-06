@@ -5,14 +5,12 @@ import RProgressCircular from "./RProgressCircular.vue";
 const meta: Meta<typeof RProgressCircular> = {
   title: "Primitives/RProgressCircular",
   component: RProgressCircular,
-  // a11y todo (#1848): role="progressbar" needs an accessible name. The
-  // consumer must supply one until RProgressCircular grows a labelling API.
-  parameters: { a11y: { test: "todo" } },
   argTypes: {
     indeterminate: { control: "boolean" },
     size: { control: "number" },
     width: { control: "number" },
     color: { control: "text" },
+    label: { control: "text" },
     modelValue: { control: { type: "range", min: 0, max: 100 } },
   },
 };
@@ -28,7 +26,13 @@ export const Indeterminate: Story = {
 };
 
 export const Determinate: Story = {
-  args: { indeterminate: false, modelValue: 65, size: 64, width: 4 },
+  args: {
+    indeterminate: false,
+    modelValue: 65,
+    size: 64,
+    width: 4,
+    label: "Download progress",
+  },
 };
 
 // ── Size ladder ─────────────────────────────────────────────────────
@@ -71,23 +75,23 @@ export const DeterminateLadder: Story = {
     template: `
       <div style="display:flex;align-items:flex-end;gap:24px;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
-          <RProgressCircular :indeterminate="false" :model-value="0" :size="48" :width="4" />
+          <RProgressCircular :indeterminate="false" :model-value="0" :size="48" :width="4" label="Progress" />
           <span>0%</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
-          <RProgressCircular :indeterminate="false" :model-value="25" :size="48" :width="4" />
+          <RProgressCircular :indeterminate="false" :model-value="25" :size="48" :width="4" label="Progress" />
           <span>25%</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
-          <RProgressCircular :indeterminate="false" :model-value="50" :size="48" :width="4" />
+          <RProgressCircular :indeterminate="false" :model-value="50" :size="48" :width="4" label="Progress" />
           <span>50%</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
-          <RProgressCircular :indeterminate="false" :model-value="75" :size="48" :width="4" />
+          <RProgressCircular :indeterminate="false" :model-value="75" :size="48" :width="4" label="Progress" />
           <span>75%</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
-          <RProgressCircular :indeterminate="false" :model-value="100" :size="48" :width="4" />
+          <RProgressCircular :indeterminate="false" :model-value="100" :size="48" :width="4" label="Progress" />
           <span>100%</span>
         </div>
       </div>

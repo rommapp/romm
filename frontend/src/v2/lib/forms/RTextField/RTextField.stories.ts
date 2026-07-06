@@ -217,8 +217,6 @@ export const Validation: Story = {
 };
 
 export const Loading: Story = {
-  // a11y todo (#1848): loading spinner (role="progressbar") needs a name.
-  parameters: { a11y: { test: "todo" } },
   args: {
     placeholder: "Searching…",
     loading: true,
@@ -293,10 +291,6 @@ export const ColorLadder: Story = {
 // ── Real-world ─────────────────────────────────────────────────────
 
 export const LoginForm: Story = {
-  // a11y todo (#1848): the clickable append-inner icon (password reveal)
-  // renders as a button without an accessible name. Needs an RTextField
-  // API to label append/prepend-inner actions.
-  parameters: { a11y: { test: "todo" } },
   name: "Login (underlined)",
   render: () => ({
     components: { RTextField, RBtn },
@@ -309,17 +303,20 @@ export const LoginForm: Story = {
       <div style="width:320px;display:flex;flex-direction:column;gap:16px;padding:24px;background:var(--r-color-bg-elevated);border:1px solid var(--r-color-border);border-radius:12px">
         <RTextField
           v-model="user"
+          label="Username"
           variant="underlined"
           placeholder="username"
           prepend-inner-icon="mdi-account"
         />
         <RTextField
           v-model="pass"
+          label="Password"
           variant="underlined"
           :type="show ? 'text' : 'password'"
           placeholder="password"
           prepend-inner-icon="mdi-lock"
           :append-inner-icon="show ? 'mdi-eye-off' : 'mdi-eye'"
+          :append-inner-tooltip="show ? 'Hide password' : 'Show password'"
           @click:append-inner="show = !show"
         />
         <RBtn block color="primary">Sign in</RBtn>

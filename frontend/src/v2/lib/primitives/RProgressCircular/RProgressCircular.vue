@@ -19,7 +19,7 @@
 //
 // Default slot — overlay content centred over the ring (percentage
 // text, status icon). Lives outside the SVG so it isn't rotated.
-import { computed, useSlots } from "vue";
+import { computed, getCurrentInstance, useSlots } from "vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -34,6 +34,11 @@ interface Props {
   color?: string;
   /** 0–100. Only consulted when `indeterminate` is false. */
   modelValue?: number;
+  /** Accessible name for the progressbar (e.g. "Upload progress"). An
+   *  indeterminate ring with neither a label nor slot content is treated
+   *  as decorative (aria-hidden) so it doesn't announce as an unnamed
+   *  progressbar; slot content names the ring via aria-labelledby. */
+  label?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -42,9 +47,20 @@ const props = withDefaults(defineProps<Props>(), {
   width: 2,
   color: "primary",
   modelValue: undefined,
+  label: undefined,
 });
 
 const slots = useSlots();
+
+// A ring with no name and no visible value is decorative — usually an
+// inline "busy" spinner sitting next to real text. Drop it from the a11y
+// tree rather than expose an unnamed progressbar. Slot content (a "35%"
+// overlay) names the ring instead, so it's not decorative.
+const hasSlotContent = computed(() => !!slots.default);
+const decorative = computed(
+  () => props.indeterminate && !props.label && !hasSlotContent.value,
+);
+const contentId = `r-pc-label-${getCurrentInstance()?.uid ?? ""}`;
 
 const TONE_MAP: Record<string, string> = {
   primary: "var(--r-color-brand-primary)",
@@ -101,11 +117,16 @@ const dashOffset = computed(() => 100 - progressValue.value);
       height: `${diameter}px`,
       '--r-pc-color': resolvedColor,
     }"
-    role="progressbar"
-    :aria-valuemin="0"
-    :aria-valuemax="100"
-    :aria-valuenow="indeterminate ? undefined : progressValue"
-    :aria-busy="indeterminate || undefined"
+    :role="decorative ? undefined : 'progressbar'"
+    :aria-hidden="decorative ? 'true' : undefined"
+    :aria-label="!decorative && label ? label : undefined"
+    :aria-labelledby="
+      !decorative && !label && hasSlotContent ? contentId : undefined
+    "
+    :aria-valuemin="decorative ? undefined : 0"
+    :aria-valuemax="decorative ? undefined : 100"
+    :aria-valuenow="!decorative && !indeterminate ? progressValue : undefined"
+    :aria-busy="!decorative && indeterminate ? true : undefined"
   >
     <svg class="r-pc__svg" :viewBox="`0 0 ${diameter} ${diameter}`">
       <!-- Track — faint underlay so the empty portion still reads
@@ -131,7 +152,7 @@ const dashOffset = computed(() => 100 - progressValue.value);
         :stroke-dashoffset="indeterminate ? undefined : dashOffset"
       />
     </svg>
-    <span v-if="slots.default" class="r-pc__content">
+    <span v-if="slots.default" :id="contentId" class="r-pc__content">
       <slot />
     </span>
   </span>

@@ -5,9 +5,8 @@ import RSlider from "./RSlider.vue";
 const meta: Meta<typeof RSlider> = {
   title: "Forms/RSlider",
   component: RSlider,
-  // a11y todo (#1848): the slider thumb needs an accessible name (label or
-  // aria-label). Track a labelling API / required-label lint on RSlider.
-  parameters: { a11y: { test: "todo" } },
+  // RSlider has no visible label, so every instance needs `ariaLabel`.
+  args: { ariaLabel: "Value" },
   argTypes: {
     min: { control: "number" },
     max: { control: "number" },
@@ -115,11 +114,11 @@ export const ColorLadder: Story = {
     }),
     template: `
       <div style="display:flex;flex-direction:column;gap:18px;padding:24px;min-width:380px">
-        <RSlider v-model="primary" color="primary" value-position="right" value-suffix="%" />
-        <RSlider v-model="success" color="success" value-position="right" value-suffix="%" />
-        <RSlider v-model="warning" color="warning" value-position="right" value-suffix="%" />
-        <RSlider v-model="danger" color="danger" value-position="right" value-suffix="%" />
-        <RSlider v-model="info" color="info" value-position="right" value-suffix="%" />
+        <RSlider v-model="primary" color="primary" value-position="right" value-suffix="%" aria-label="Primary" />
+        <RSlider v-model="success" color="success" value-position="right" value-suffix="%" aria-label="Success" />
+        <RSlider v-model="warning" color="warning" value-position="right" value-suffix="%" aria-label="Warning" />
+        <RSlider v-model="danger" color="danger" value-position="right" value-suffix="%" aria-label="Danger" />
+        <RSlider v-model="info" color="info" value-position="right" value-suffix="%" aria-label="Info" />
       </div>
     `,
   }),
@@ -151,7 +150,7 @@ export const CommitOnEnd: Story = {
     },
     template: `
       <div style="padding:24px;min-width:380px;display:flex;flex-direction:column;gap:10px">
-        <RSlider v-model="preview" value-position="thumb" value-suffix="%" @end="onEnd" />
+        <RSlider v-model="preview" value-position="thumb" value-suffix="%" aria-label="Volume" @end="onEnd" />
         <div style="font:12px sans-serif;color:var(--r-color-fg-muted)">
           previewing: {{ preview }} · last committed: {{ committed }}
         </div>

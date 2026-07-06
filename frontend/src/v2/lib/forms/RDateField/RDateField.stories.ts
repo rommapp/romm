@@ -5,9 +5,6 @@ import RDateField from "./RDateField.vue";
 const meta: Meta<typeof RDateField> = {
   title: "Forms/RDateField",
   component: RDateField,
-  // a11y todo (#1848): calendar grid cells use an unsupported role and the
-  // field input lacks a programmatic label. Needs a component-level fix.
-  parameters: { a11y: { test: "todo" } },
   argTypes: {
     firstDayOfWeek: {
       control: "inline-radio",

@@ -143,6 +143,7 @@ onBeforeUnmount(() => {
   <div
     class="r-table"
     :class="{ 'r-table--mobile-stack': mobileStack }"
+    role="table"
     v-bind="$attrs"
   >
     <!-- Header row — each column header is a cell `<div>` containing
@@ -151,7 +152,11 @@ onBeforeUnmount(() => {
          icon next to "Type"). The sort button is the only interactive
          element so adornments stay focusable / clickable on their own
          without nesting buttons. -->
-    <div class="r-table__scroll" :style="scrollStyle">
+    <!-- scroll + body are layout-only containers; mark them presentational
+         so rows sit directly under the role="table" root and satisfy the
+         row/columnheader/cell parent requirements across the loading,
+         empty, and populated states (the header row is always present). -->
+    <div class="r-table__scroll" :style="scrollStyle" role="presentation">
       <div class="r-table__header" :style="gridStyle" role="row">
         <div
           v-for="col in columns"
@@ -198,7 +203,7 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Body — skeletons / real rows / empty state, in that order. -->
-      <div class="r-table__body">
+      <div class="r-table__body" role="presentation">
         <template v-if="loading">
           <div
             v-for="i in loadingRows"

@@ -80,15 +80,14 @@ export const Variants: Story = {
 };
 
 export const WithNavigation: Story = {
-  // a11y todo (#1848): role="menuitem" needs its required menu parent. In
-  // the app RMenu provides it; the bare-item story renders without one.
-  parameters: { a11y: { test: "todo" } },
   render: () => ({
     components: { RMenuItem },
     setup: () => ({ panelStyle: PANEL_STYLE }),
+    // Link items carry role="menuitem", which needs a role="menu" parent.
+    // RMenu supplies that in the app; the bare-item story adds it here.
     template: `
       <div style="padding:40px">
-        <div :style="panelStyle">
+        <div :style="panelStyle" role="menu" aria-label="Navigation">
           <RMenuItem to="/platforms" icon="mdi-gamepad-variant-outline" label="Platforms" />
           <RMenuItem href="https://romm.app" icon="mdi-open-in-new" label="External link" />
         </div>
@@ -102,8 +101,6 @@ export const WithNavigation: Story = {
 // and closing would unmount the <a> before the browser opens the new tab.
 // A plain click still activates the item normally.
 export const NewTabGesture: Story = {
-  // a11y todo (#1848): role="menuitem" needs its required menu parent.
-  parameters: { a11y: { test: "todo" } },
   name: "New-tab gesture (Ctrl/⌘-click)",
   args: {
     href: "#platforms",
@@ -116,7 +113,7 @@ export const NewTabGesture: Story = {
     setup: () => ({ args, panelStyle: PANEL_STYLE }),
     template: `
       <div style="padding:40px">
-        <div :style="panelStyle">
+        <div :style="panelStyle" role="menu" aria-label="Actions">
           <RMenuItem v-bind="args" @click="args.onClick" />
         </div>
       </div>

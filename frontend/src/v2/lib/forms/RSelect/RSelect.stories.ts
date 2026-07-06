@@ -177,8 +177,6 @@ export const Disabled: Story = {
 };
 
 export const Loading: Story = {
-  // a11y todo (#1848): loading spinner (role="progressbar") needs a name.
-  parameters: { a11y: { test: "todo" } },
   args: { placeholder: "Loading platforms…", loading: true },
 };
 
@@ -213,8 +211,12 @@ export const Validation: Story = {
 // ── Clearable ──────────────────────────────────────────────────────
 
 export const Clearable: Story = {
-  // a11y todo (#1848): the clear affordance nests an interactive control
-  // inside the combobox; needs restructuring so roles don't nest.
+  // a11y todo (#1848): the clear <button> is nested inside the activator
+  // <button> (nested-interactive). The fix is to lift the clear/chip-close
+  // controls out of the activator so they're siblings (select-only combobox
+  // pattern), which moves the field's border/hover/focus/error chrome onto a
+  // wrapper. Deferred: it's a visual-layout refactor that needs in-browser
+  // verification, not a semantics-only change like the rest of this pass.
   parameters: { a11y: { test: "todo" } },
   render: () => ({
     components: { RSelect },
