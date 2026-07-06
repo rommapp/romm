@@ -35,13 +35,9 @@ export default defineStore("language", {
     // Match the browser's preferred languages against the available locales,
     // falling back to the default (en_US) when none line up. Tries an exact
     // match first (e.g. "en-US" -> "en_US"), then a language-only match
-    // (e.g. "fr" -> "fr_FR"). See rommapp/romm#3139.
+    // (e.g. "fr" -> "fr_FR").
     detectBrowserLanguage() {
-      const preferred = navigator.languages?.length
-        ? navigator.languages
-        : [navigator.language];
-      for (const pref of preferred) {
-        if (!pref) continue;
+      for (const pref of navigator.languages) {
         const normalized = pref.replace("-", "_").toLowerCase();
         const exact = this.languages.find(
           (lang) => lang.value.toLowerCase() === normalized,
