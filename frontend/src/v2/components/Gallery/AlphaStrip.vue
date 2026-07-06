@@ -11,7 +11,7 @@
 //
 // When both are set, `visible` wins visually because it reflects the real
 // scroll position.
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
@@ -64,10 +64,74 @@ function isActive(letter: string): boolean {
   if (visibleSet.value.size > 0) return visibleSet.value.has(letter);
   return props.current === letter;
 }
+
+// ── Keyboard roving ──────────────────────────────────────────────
+// The strip is a SINGLE tab stop (mirrors the gallery grid): Tab lands
+// on one letter, Arrow Up/Down move between the AVAILABLE letters
+// (disabled ones are skipped), Home/End jump to the ends. Only enabled
+// letters are reachable — the rest are `:disabled` and never focusable.
+const stripEl = ref<HTMLElement | null>(null);
+// The letter the user last moved to; pins the tab stop once they steer.
+const steeredLetter = ref<string | null>(null);
+
+const availableLetters = computed(() =>
+  letters.value.filter((l) => availableSet.value.has(l)),
+);
+
+// The single tab stop: the letter the user steered to, else the
+// scroll-spied current letter, else the first available one — so Tab
+// into the strip lands where the gallery currently is.
+const rovingLetter = computed<string | null>(() => {
+  const avail = availableLetters.value;
+  if (steeredLetter.value && avail.includes(steeredLetter.value))
+    return steeredLetter.value;
+  if (props.current && avail.includes(props.current)) return props.current;
+  return avail[0] ?? null;
+});
+
+function focusLetter(letter: string) {
+  steeredLetter.value = letter;
+  stripEl.value
+    ?.querySelector<HTMLElement>(`[data-letter="${letter}"]`)
+    ?.focus();
+}
+
+function onKeydown(e: KeyboardEvent) {
+  const avail = availableLetters.value;
+  if (avail.length === 0) return;
+  const active = document.activeElement as HTMLElement | null;
+  let idx = active
+    ? avail.indexOf(active.getAttribute("data-letter") ?? "")
+    : -1;
+
+  switch (e.key) {
+    case "ArrowDown":
+      idx = idx < 0 ? 0 : Math.min(idx + 1, avail.length - 1);
+      break;
+    case "ArrowUp":
+      idx = idx < 0 ? 0 : Math.max(idx - 1, 0);
+      break;
+    case "Home":
+      idx = 0;
+      break;
+    case "End":
+      idx = avail.length - 1;
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+  focusLetter(avail[idx]);
+}
 </script>
 
 <template>
-  <aside class="alpha-strip" :aria-label="t('gallery.jump-to-letter')">
+  <aside
+    ref="stripEl"
+    class="alpha-strip"
+    :aria-label="t('gallery.jump-to-letter')"
+    @keydown="onKeydown"
+  >
     <button
       v-for="l in letters"
       :key="l"
@@ -78,6 +142,10 @@ function isActive(letter: string): boolean {
         'alpha-strip__btn--current': isActive(l),
       }"
       :disabled="!availableSet.has(l)"
+      :data-letter="l"
+      :tabindex="
+        availableSet.has(l) ? (l === rovingLetter ? 0 : -1) : undefined
+      "
       :aria-label="`Jump to ${l}`"
       @click="availableSet.has(l) && $emit('pick', l)"
     >

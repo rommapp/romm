@@ -51,11 +51,11 @@ function mountGrid(shape: number[]) {
   return mount(Host, { attachTo: document.body });
 }
 
-function cards(root: Element) {
-  return Array.from(root.querySelectorAll<HTMLElement>(".card"));
+function focusables(root: Element) {
+  return Array.from(root.querySelectorAll<HTMLElement>(".card, .overlay"));
 }
-function overlays(root: Element) {
-  return Array.from(root.querySelectorAll<HTMLElement>(".overlay"));
+function tabStops(root: Element) {
+  return focusables(root).filter((el) => el.getAttribute("tabindex") === "0");
 }
 
 beforeEach(() => {
@@ -68,25 +68,31 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-describe("useGridNav tab order", () => {
-  it("keeps every card in the tab order but drops the in-card overlay buttons", async () => {
+describe("useGridNav roving tabindex", () => {
+  it("makes the whole grid a single tab stop on mount", async () => {
     const wrapper = mountGrid([3, 3]);
     await nextTick();
     await raf();
 
     const root = wrapper.element as HTMLElement;
-    // Every one of the 6 cards is tabbable, so Tab walks card → card.
-    for (const card of cards(root)) {
-      expect(card.getAttribute("tabindex")).toBe("0");
-    }
-    // ...and none of the hidden overlay buttons are (Tab skips them).
-    for (const overlay of overlays(root)) {
-      expect(overlay.getAttribute("tabindex")).toBe("-1");
+    const stops = tabStops(root);
+    // Exactly one tabbable element across 6 cards + 6 overlay buttons.
+    expect(stops).toHaveLength(1);
+    // ...and it's the first card, not an overlay button.
+    expect(stops[0].classList.contains("card")).toBe(true);
+    expect(stops[0].getAttribute("data-focus-key")).toBe("k-0-0");
+    expect(stops[0].hasAttribute("data-grid-nav-cell")).toBe(true);
+
+    // Every other focusable — including the active card's own overlay
+    // button — is out of the tab order.
+    for (const el of focusables(root)) {
+      if (el === stops[0]) continue;
+      expect(el.getAttribute("tabindex")).toBe("-1");
     }
     wrapper.unmount();
   });
 
-  it("moves focus to the adjacent card with arrow keys", async () => {
+  it("moves the single tab stop with arrow keys", async () => {
     const wrapper = mountGrid([3, 3]);
     await nextTick();
     await raf();
@@ -99,20 +105,22 @@ describe("useGridNav tab order", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
     await nextTick();
 
-    const active = document.activeElement as HTMLElement;
-    expect(active.getAttribute("data-focus-key")).toBe("k-0-1");
+    const stops = tabStops(root);
+    expect(stops).toHaveLength(1);
+    expect(stops[0].getAttribute("data-focus-key")).toBe("k-0-1");
+    expect(document.activeElement).toBe(stops[0]);
     wrapper.unmount();
   });
 
-  it("keeps overlay buttons out of the tab order after new rows mount", async () => {
+  it("re-establishes a single tab stop after new rows mount", async () => {
     const wrapper = mountGrid([2]);
     await nextTick();
     await raf();
     const root = wrapper.element as HTMLElement;
 
     // Append a fresh row straight into the DOM (as the virtualiser does
-    // when the user scrolls) — its overlay button arrives as a natural
-    // tab stop until the mutation observer re-syncs.
+    // when the user scrolls) — its cards arrive as natural tab stops
+    // until the mutation observer re-syncs.
     const newRow = document.createElement("div");
     newRow.className = "row";
     newRow.innerHTML =
@@ -123,11 +131,12 @@ describe("useGridNav tab order", () => {
     await raf();
     await raf();
 
+    expect(tabStops(root)).toHaveLength(1);
+    // The new card is demoted like every other non-active cell.
     const newCard = root.querySelector<HTMLElement>(
       '[data-focus-key="k-9-0"]',
     )!;
-    // The new card joins the tab order; its overlay button stays out.
-    expect(newCard.getAttribute("tabindex")).toBe("0");
+    expect(newCard.getAttribute("tabindex")).toBe("-1");
     expect(newCard.querySelector(".overlay")!.getAttribute("tabindex")).toBe(
       "-1",
     );
