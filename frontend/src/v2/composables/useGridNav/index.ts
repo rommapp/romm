@@ -27,9 +27,10 @@
 //     within. Established eagerly on mount and re-synced as virtualised
 //     rows mount / unmount, not just after the first arrow / gamepad move.
 //   * Card action row — those swept-out overlay buttons are still
-//     reachable: the ContextMenu key / Shift+F10 (keyboard) or X/Y
-//     (gamepad) drops focus into the focused card's actions. From there
-//     Arrow keys move between the actions and Escape returns to the card.
+//     reachable: Space (cross-platform), the ContextMenu key / Shift+F10
+//     (Windows / Linux keyboards), or gamepad X/Y drop focus into the
+//     focused card's actions. From there Arrow keys move between the
+//     actions and Escape returns to the card.
 //
 // Integration:
 //   * Input modality flipping to `"pad"` (gamepad connected / pressed)
@@ -329,15 +330,23 @@ export function useGridNav(
       return;
     }
 
-    // ── Context-menu affordance ─────────────────────────────────────
-    // ContextMenu key / Shift+F10 drops focus into the card's action row
-    // so keyboard users can reach the overlay buttons that Tab skips.
-    // Gamepad X/Y do the same via `onGamepadButton`.
-    if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
-      if (actions.length > 0) {
-        e.preventDefault();
-        actions[0].focus();
-      }
+    // ── Card actions affordance ─────────────────────────────────────
+    // Drop focus into the card's action row so keyboard users can reach
+    // the overlay buttons that Tab skips. Space is the cross-platform
+    // trigger — macOS has no ContextMenu key and doesn't treat Shift+F10
+    // as a context-menu shortcut, so those two only help on Windows /
+    // Linux keyboards that have them. Gamepad X/Y route here too via
+    // `onGamepadButton`.
+    if (
+      active === primary &&
+      (e.key === " " ||
+        e.key === "ContextMenu" ||
+        (e.shiftKey && e.key === "F10"))
+    ) {
+      // Always swallow Space on a card so it never scrolls the grid,
+      // even when the card happens to have no actions.
+      e.preventDefault();
+      if (actions.length > 0) actions[0].focus();
       return;
     }
 
