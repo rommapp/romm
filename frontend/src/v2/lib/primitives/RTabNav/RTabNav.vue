@@ -226,6 +226,11 @@ onBeforeUnmount(() => {
   border: none;
   cursor: pointer;
   white-space: nowrap;
+  /* Anchor + own stacking context for the contained focus highlight
+     (below), so its `z-index: -1` pseudo stays behind the label but above
+     the button's own background. The underlined variant raises this to 1. */
+  position: relative;
+  z-index: 0;
   /* Keep natural width so the horizontal nav scrolls on overflow
      (`.r-tab-nav--horizontal { overflow-x: auto }`) instead of squishing
      the tabs below their content on narrow viewports. */
@@ -263,6 +268,30 @@ onBeforeUnmount(() => {
 .r-tab-nav__label {
   flex: 1;
   text-align: left;
+}
+
+/* ---------- Focus ----------
+   The global modality-gated ring (global.css) is an `outline`, which the
+   nav's `overflow-y: hidden` clip slices into two vertical slivers on
+   either side of the focused tab. Suppress it and paint a contained,
+   rounded highlight that lives INSIDE the button (a pseudo-element, so
+   nothing can be clipped away). Gated to keyboard / pad exactly like the
+   global rule. The `::before` sits behind the label (z-index: -1) and
+   leaves the bottom edge clear so the active tab's underline still reads. */
+html[data-input="key"] .r-tab-nav__btn:focus-visible,
+html[data-input="pad"] .r-tab-nav__btn:focus-visible {
+  outline: none;
+}
+html[data-input="key"] .r-tab-nav__btn:focus-visible::before,
+html[data-input="pad"] .r-tab-nav__btn:focus-visible::before {
+  content: "";
+  position: absolute;
+  inset: 3px 3px 5px;
+  z-index: -1;
+  border-radius: var(--r-radius-sm);
+  background: var(--r-color-surface-hover);
+  box-shadow: inset 0 0 0 2px var(--r-color-focus);
+  pointer-events: none;
 }
 
 /* ---------- Underlined variant (horizontal only) ---------- */

@@ -18,6 +18,14 @@
 //   * On autofocus we remember a "preferred column" and restore it when
 //     moving up/down through rows of different lengths — common media-UI
 //     pattern so row switching doesn't permanently lose horizontal place.
+//   * Tab order — every cell's primary focusable (the card link / row
+//     anchor) stays in the natural Tab sequence, so Tab walks card → card
+//     and only leaves the grid past the last rendered cell. What does NOT
+//     stay are the nested in-card action buttons (the hover overlay's
+//     play / download / favorite / more — focusable even while invisible):
+//     they're set to tabindex="-1" so Tab never detours through them.
+//     Applied eagerly on mount and re-synced as virtualised rows mount /
+//     unmount, so it holds before the first arrow / gamepad move too.
 //
 // Integration:
 //   * Input modality flipping to `"pad"` (gamepad connected / pressed)
@@ -103,6 +111,37 @@ export function useGridNav(
     return inner ?? el;
   }
 
+  // Every focusable inside a cell: the cell's own focusable (a card
+  // link / list-row anchor) plus any nested ones. A GameCard nests its
+  // hidden hover-overlay actions (play / download / favorite / more /
+  // platform icon) here — all natural tab stops even while invisible,
+  // so they must be swept out of the tab order alongside the card link.
+  function cellFocusables(cell: HTMLElement): HTMLElement[] {
+    const out: HTMLElement[] = [];
+    if (cell.matches(FOCUSABLE_SELECTOR)) out.push(cell);
+    cell
+      .querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+      .forEach((el) => out.push(el));
+    return out;
+  }
+
+  // Keep every cell's primary focusable (the card link / row anchor) in
+  // the natural Tab order so Tab walks card → card, but pull the nested
+  // in-card action buttons (the hidden hover overlay's play / download /
+  // favorite / more) OUT of it (tabindex="-1") so Tab never detours
+  // through them. Arrow keys still layer 2D nav on top. Cheap and
+  // idempotent — safe on mount and on every row mount / unmount.
+  function syncRoving() {
+    for (const row of rows()) {
+      for (const cell of cells(row)) {
+        const primary = focusableIn(cell);
+        for (const el of cellFocusables(cell)) {
+          el.setAttribute("tabindex", el === primary ? "0" : "-1");
+        }
+      }
+    }
+  }
+
   function current(): { rowIdx: number; colIdx: number } | null {
     const active = document.activeElement as HTMLElement | null;
     if (!active) return null;
@@ -133,20 +172,6 @@ export function useGridNav(
     const clamped = Math.min(Math.max(colIdx, 0), cs.length - 1);
     const cell = cs[clamped];
     const target = focusableIn(cell);
-
-    // Roving tabindex — only the current cell is a tab stop, every other
-    // cell sets tabindex="-1". Lets the user land on the last focused
-    // card via Tab from outside the grid, and keeps Shift+Tab escape
-    // behaviour clean. Borrowed from the v1 console useRovingDom.
-    const previous = rootRef.value?.querySelectorAll<HTMLElement>(
-      "[data-grid-nav-cell]",
-    );
-    previous?.forEach((other) => {
-      other.setAttribute("tabindex", "-1");
-      other.removeAttribute("data-grid-nav-cell");
-    });
-    target.setAttribute("data-grid-nav-cell", "");
-    target.setAttribute("tabindex", "0");
 
     target.focus({ preventScroll: true });
 
@@ -253,6 +278,18 @@ export function useGridNav(
   // land focus on it.
   let observer: MutationObserver | null = null;
 
+  // Coalesce roving + autofocus into one rAF so a burst of row mounts
+  // during a fast scroll doesn't sweep the whole grid per mutation.
+  let refreshRaf = 0;
+  function scheduleRefresh() {
+    if (refreshRaf) return;
+    refreshRaf = requestAnimationFrame(() => {
+      refreshRaf = 0;
+      syncRoving();
+      maybeAutofocus();
+    });
+  }
+
   function maybeAutofocus() {
     if (modality.value !== "pad") return;
     if (!rootRef.value) return;
@@ -276,10 +313,10 @@ export function useGridNav(
     window.addEventListener("keydown", onKey);
     window.addEventListener("focusin", onFocusIn);
     if (rootRef.value) {
-      observer = new MutationObserver(() => maybeAutofocus());
+      observer = new MutationObserver(scheduleRefresh);
       observer.observe(rootRef.value, { childList: true, subtree: true });
     }
-    requestAnimationFrame(maybeAutofocus);
+    scheduleRefresh();
   });
 
   onBeforeUnmount(() => {
@@ -287,6 +324,8 @@ export function useGridNav(
     window.removeEventListener("focusin", onFocusIn);
     observer?.disconnect();
     observer = null;
+    if (refreshRaf) cancelAnimationFrame(refreshRaf);
+    refreshRaf = 0;
   });
 
   // Reactively autofocus when modality becomes "pad". Useful when the
