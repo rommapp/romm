@@ -6,13 +6,16 @@
   <h3 style="font-size: 25px;">
     A beautiful, powerful, self-hosted ROM manager and player.
   </h3>
+</div>
 
-[![discord-badge-img]][discord-badge]
-[![docs-badge-img]][docs]
-[![license-badge-img]][license-badge]
-[![release-badge-img]][release-badge]
-[![docker-pulls-badge-img]][docker-pulls-badge]
-
+<div align="center">
+  <div dir="auto">
+    <a href="https://trendshift.io/repositories/14133?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14133" target="_blank" rel="noopener noreferrer"><img src=".github/resources/trendshift-badge.svg" alt="Trendshift" width="250" height="58"/></a>
+    &nbsp;
+    <a href="https://news.ycombinator.com/item?id=44247964" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hackernews-badge.svg" width="250px" alt="hackernews badge"></a>
+    <br />
+    <a href="https://selfh.st/survey/2025-results/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/selfhst-badge.svg" width="250px" alt="selfh.st badge"></a>
+    <a href="https://discord.gg/invite/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/discord-badge.svg" alt="Discord" width="250" height="58"/></a>
   </div>
 </div>
 
@@ -106,38 +109,14 @@ Here are a few projects that we think you might like:
 - [LanCommander](https://lancommander.app/): Digital game platform for PC games
 - [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
 
-<div align="center">
-  <br />
-  <div dir="auto">
-    <a href="https://news.ycombinator.com/item?id=44247964" target="_blank"><img src=".github/resources/hackernews-badge.svg" width="250px" alt="hackernews badge"></a>
-    &nbsp;
-    <a href="https://selfh.st/survey/2025-results/" target="_blank"><img src=".github/resources/selfhst-badge.svg" width="250px" alt="selfh.st badge"></a>
-    &nbsp;
-    <span><img src=".github/resources/aikido-badge.png" alt="Aikido Security Audit Report" height="58" /></span>
-  </div>
-</div>
-
 <!-- docs links -->
 
-[docs]: https://docs.romm.app/latest/
 [docs-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
 [docs-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
 [docs-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
 [docs-rufflers]: https://docs.romm.app/latest/Platforms-and-Players/RuffleRS-Player/
 [docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/Scanning-Issues/
 [docs-tag-support]: https://docs.romm.app/latest/Getting-Started/Folder-Structure/#tag-support
-
-<!-- Badges -->
-
-[license-badge-img]: https://img.shields.io/github/license/rommapp/romm?style=for-the-badge&color=a32d2a
-[license-badge]: LICENSE
-[release-badge-img]: https://img.shields.io/github/v/release/rommapp/romm?style=for-the-badge
-[release-badge]: https://github.com/rommapp/romm/releases/latest
-[discord-badge-img]: https://img.shields.io/badge/discord-7289da?style=for-the-badge
-[discord-badge]: https://discord.gg/P5HtHnhUDH
-[docs-badge-img]: https://img.shields.io/badge/docs-736e9b?style=for-the-badge
-[docker-pulls-badge-img]: https://img.shields.io/docker/pulls/rommapp/romm?style=for-the-badge&label=pulls
-[docker-pulls-badge]: https://hub.docker.com/r/rommapp/romm
 
 <!-- Links -->
 
