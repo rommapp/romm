@@ -146,7 +146,7 @@ def test_hidden_rom_patch_is_404_masked(client, viewer_user, rom, rom_file):
     resp = client.post(
         f"/api/roms/{rom_file.id}/patch",
         headers=_auth(viewer_user),
-        json={"patch_file_id": rom_file.id},
+        data={"patch_file_id": rom_file.id},
     )
     assert resp.status_code == status.HTTP_404_NOT_FOUND
 

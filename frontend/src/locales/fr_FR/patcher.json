@@ -16,7 +16,6 @@
   "error-upload-failed": "Impossible de téléverser la ROM : {error}",
   "missing-from-fs": "Absent du système de fichiers",
   "no-files": "Cette ROM n'a aucun fichier.",
-  "no-patch-files": "Aucun fichier de patch pris en charge trouvé sur cette ROM.",
   "output-filename": "Nom du fichier de sortie (optionnel)",
   "patch-file": "Fichier de patch",
   "powered-by": "Propulsé par patcherjs",

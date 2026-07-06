@@ -16,7 +16,6 @@
   "error-upload-failed": "Nem sikerült feltölteni a ROM-ot: {error}",
   "missing-from-fs": "Missing from filesystem",
   "no-files": "This ROM has no files.",
-  "no-patch-files": "No supported patch files found on this ROM.",
   "output-filename": "Kimeneti fájlnév (opcionális)",
   "patch-file": "Patch fájl",
   "powered-by": "Működteti: patcherjs",

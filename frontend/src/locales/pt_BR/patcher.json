@@ -16,7 +16,6 @@
   "error-upload-failed": "Não foi possível enviar a ROM: {error}",
   "missing-from-fs": "Ausente do sistema de arquivos",
   "no-files": "Esta ROM não tem arquivos.",
-  "no-patch-files": "Nenhum arquivo de patch compatível encontrado nesta ROM.",
   "output-filename": "Nome do arquivo de saída (opcional)",
   "patch-file": "Arquivo de patch",
   "powered-by": "Desenvolvido com patcherjs",

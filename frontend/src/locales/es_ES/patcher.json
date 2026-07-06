@@ -16,7 +16,6 @@
   "error-upload-failed": "No se pudo subir la ROM: {error}",
   "missing-from-fs": "Ausente del sistema de archivos",
   "no-files": "Esta ROM no tiene archivos.",
-  "no-patch-files": "No se encontraron archivos de parche compatibles en esta ROM.",
   "output-filename": "Nombre del archivo de salida (opcional)",
   "patch-file": "Archivo de parche",
   "powered-by": "Con tecnología de patcherjs",
