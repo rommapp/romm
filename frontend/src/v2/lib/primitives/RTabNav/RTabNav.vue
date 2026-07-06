@@ -278,10 +278,12 @@ onBeforeUnmount(() => {
    nothing can be clipped away). Gated to keyboard / pad exactly like the
    global rule. The `::before` sits behind the label (z-index: -1) and
    leaves the bottom edge clear so the active tab's underline still reads. */
+html:not([data-input]) .r-tab-nav__btn:focus-visible,
 html[data-input="key"] .r-tab-nav__btn:focus-visible,
 html[data-input="pad"] .r-tab-nav__btn:focus-visible {
   outline: none;
 }
+html:not([data-input]) .r-tab-nav__btn:focus-visible::before,
 html[data-input="key"] .r-tab-nav__btn:focus-visible::before,
 html[data-input="pad"] .r-tab-nav__btn:focus-visible::before {
   content: "";
