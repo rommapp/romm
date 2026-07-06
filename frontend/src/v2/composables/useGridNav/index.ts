@@ -18,14 +18,6 @@
 //   * On autofocus we remember a "preferred column" and restore it when
 //     moving up/down through rows of different lengths — common media-UI
 //     pattern so row switching doesn't permanently lose horizontal place.
-//   * Roving tabindex — the grid is a SINGLE tab stop. Exactly one cell
-//     is tabbable at a time; every other card link AND every nested
-//     in-card action button (the hidden hover overlay's play / download /
-//     favorite / more, natural tab stops even while invisible) drops to
-//     tabindex="-1". So Tab enters the grid once and leaves to the next
-//     region instead of walking hundreds of stops; Arrow keys move
-//     within. Established eagerly on mount and re-synced as virtualised
-//     rows mount / unmount, not just after the first arrow / gamepad move.
 //
 // Integration:
 //   * Input modality flipping to `"pad"` (gamepad connected / pressed)
@@ -111,84 +103,6 @@ export function useGridNav(
     return inner ?? el;
   }
 
-  // Every focusable inside a cell: the cell's own focusable (a card
-  // link / list-row anchor) plus any nested ones. A GameCard nests its
-  // hidden hover-overlay actions (play / download / favorite / more /
-  // platform icon) here — all natural tab stops even while invisible,
-  // so they must be swept out of the tab order alongside the card link.
-  function cellFocusables(cell: HTMLElement): HTMLElement[] {
-    const out: HTMLElement[] = [];
-    if (cell.matches(FOCUSABLE_SELECTOR)) out.push(cell);
-    cell
-      .querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
-      .forEach((el) => out.push(el));
-    return out;
-  }
-
-  // Roving tabindex — the whole grid is ONE tab stop. `activePrimary`
-  // (the card the user last touched, or the first one) gets tabindex="0";
-  // every other focusable in every cell drops to "-1". So Tab enters the
-  // grid on the active card and the next Tab leaves to the following
-  // region (AlphaStrip, nav) instead of walking hundreds of cards and
-  // their hidden action buttons. Arrow keys do the in-grid 2D nav.
-  function markRoving(activePrimary: HTMLElement | null) {
-    for (const row of rows()) {
-      for (const cell of cells(row)) {
-        for (const el of cellFocusables(cell)) {
-          if (el === activePrimary) {
-            el.setAttribute("tabindex", "0");
-            el.setAttribute("data-grid-nav-cell", "");
-          } else {
-            el.setAttribute("tabindex", "-1");
-            el.removeAttribute("data-grid-nav-cell");
-          }
-        }
-      }
-    }
-  }
-
-  // Which cell should own the tab stop right now, in priority order:
-  // whatever currently holds focus inside the grid (so scrolling / late
-  // mounts never steal focus), then the previously-marked cell if still
-  // in the DOM, then the tile saved for this route, then the first cell.
-  function activeCell(): HTMLElement | null {
-    const rs = rows();
-    if (rs.length === 0) return null;
-
-    const active = document.activeElement;
-    const marked =
-      rootRef.value?.querySelector<HTMLElement>("[data-grid-nav-cell]") ?? null;
-    const savedKey = focusStore.restore(route.fullPath);
-
-    let firstCell: HTMLElement | null = null;
-    let markedCell: HTMLElement | null = null;
-    let savedCell: HTMLElement | null = null;
-
-    for (const row of rs) {
-      for (const cell of cells(row)) {
-        if (
-          active instanceof Node &&
-          (cell === active || cell.contains(active))
-        )
-          return cell;
-        if (!firstCell) firstCell = cell;
-        if (marked && (cell === marked || cell.contains(marked)))
-          markedCell = cell;
-        if (savedKey && !savedCell && focusKeyOf(cell) === savedKey)
-          savedCell = cell;
-      }
-    }
-    return markedCell ?? savedCell ?? firstCell;
-  }
-
-  // (Re)establish the single tab stop against the current DOM. Cheap and
-  // idempotent — safe to call on mount and whenever rows mount / unmount.
-  function syncRoving() {
-    const cell = activeCell();
-    if (!cell) return;
-    markRoving(focusableIn(cell));
-  }
-
   function current(): { rowIdx: number; colIdx: number } | null {
     const active = document.activeElement as HTMLElement | null;
     if (!active) return null;
@@ -220,9 +134,19 @@ export function useGridNav(
     const cell = cs[clamped];
     const target = focusableIn(cell);
 
-    // Point the roving tab stop at this cell before focusing it, so Tab
-    // from outside always lands here and Shift+Tab escapes cleanly.
-    markRoving(target);
+    // Roving tabindex — only the current cell is a tab stop, every other
+    // cell sets tabindex="-1". Lets the user land on the last focused
+    // card via Tab from outside the grid, and keeps Shift+Tab escape
+    // behaviour clean. Borrowed from the v1 console useRovingDom.
+    const previous = rootRef.value?.querySelectorAll<HTMLElement>(
+      "[data-grid-nav-cell]",
+    );
+    previous?.forEach((other) => {
+      other.setAttribute("tabindex", "-1");
+      other.removeAttribute("data-grid-nav-cell");
+    });
+    target.setAttribute("data-grid-nav-cell", "");
+    target.setAttribute("tabindex", "0");
 
     target.focus({ preventScroll: true });
 
@@ -277,18 +201,25 @@ export function useGridNav(
   }
 
   function onKey(e: KeyboardEvent) {
+    if (
+      e.key !== "ArrowLeft" &&
+      e.key !== "ArrowRight" &&
+      e.key !== "ArrowUp" &&
+      e.key !== "ArrowDown"
+    ) {
+      return;
+    }
     if (!rootRef.value) return;
     // Only steer when focus is already inside the grid — don't hijack
-    // keys meant for input fields, menus, or other widgets.
+    // arrow keys meant for input fields, menus, or other widgets.
     const active = document.activeElement;
     if (!(active instanceof Node) || !rootRef.value.contains(active)) return;
 
     const cur = current();
     if (!cur) return;
 
-    // ── Card → card 2D nav ──────────────────────────────────────────
-    const rs = rows();
     let { rowIdx, colIdx } = cur;
+    const rs = rows();
     const rowCells = cells(rs[rowIdx]);
     let verticalJump = false;
 
@@ -310,8 +241,6 @@ export function useGridNav(
       rowIdx += 1;
       colIdx = preferredCol;
       verticalJump = true;
-    } else {
-      return;
     }
 
     e.preventDefault();
@@ -323,18 +252,6 @@ export function useGridNav(
   // up — and the user is in pad modality without focus in the grid — we
   // land focus on it.
   let observer: MutationObserver | null = null;
-
-  // Coalesce roving + autofocus into one rAF so a burst of row mounts
-  // during a fast scroll doesn't sweep the whole grid per mutation.
-  let refreshRaf = 0;
-  function scheduleRefresh() {
-    if (refreshRaf) return;
-    refreshRaf = requestAnimationFrame(() => {
-      refreshRaf = 0;
-      syncRoving();
-      maybeAutofocus();
-    });
-  }
 
   function maybeAutofocus() {
     if (modality.value !== "pad") return;
@@ -359,10 +276,10 @@ export function useGridNav(
     window.addEventListener("keydown", onKey);
     window.addEventListener("focusin", onFocusIn);
     if (rootRef.value) {
-      observer = new MutationObserver(scheduleRefresh);
+      observer = new MutationObserver(() => maybeAutofocus());
       observer.observe(rootRef.value, { childList: true, subtree: true });
     }
-    scheduleRefresh();
+    requestAnimationFrame(maybeAutofocus);
   });
 
   onBeforeUnmount(() => {
@@ -370,8 +287,6 @@ export function useGridNav(
     window.removeEventListener("focusin", onFocusIn);
     observer?.disconnect();
     observer = null;
-    if (refreshRaf) cancelAnimationFrame(refreshRaf);
-    refreshRaf = 0;
   });
 
   // Reactively autofocus when modality becomes "pad". Useful when the
