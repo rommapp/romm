@@ -18,6 +18,7 @@ from config.config_manager import config_manager as cm
 from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
+from endpoints.sockets.activity import get_authenticated_user
 from exceptions.fs_exceptions import (
     FOLDER_STRUCT_MSG,
     FirmwareNotFoundException,
@@ -25,6 +26,7 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from exceptions.socket_exceptions import ScanStoppedException
+from handler.auth.constants import Scope
 from handler.database import db_firmware_handler, db_platform_handler, db_rom_handler
 from handler.filesystem import (
     fs_firmware_handler,
@@ -167,7 +169,7 @@ async def _identify_firmware(
     return 1 if not firmware else 0
 
 
-def _should_scan_rom(
+def should_scan_rom(
     scan_type: ScanType,
     rom: Rom | None,
     roms_ids: list[int],
@@ -641,7 +643,7 @@ async def _identify_platform(
 
         for fs_rom in fs_roms_batch:
             rom = roms_by_fs_name.get(fs_rom["fs_name"])
-            if _should_scan_rom(
+            if should_scan_rom(
                 scan_type=scan_type,
                 rom=rom,
                 roms_ids=roms_ids,
@@ -868,13 +870,36 @@ async def scan_platforms(
     return scan_stats
 
 
+async def reject_unauthorized_scan(sid: str) -> bool:
+    """Return ``True`` (and notify the caller) if the socket may not run scans.
+
+    Scans are a privileged, destructive operation, so gate them on the same
+    ``TASKS_RUN`` scope the REST task endpoints require, resolved from the
+    server-side session (never from the client payload).
+    """
+    user = await get_authenticated_user(sid)
+    if user is not None and Scope.TASKS_RUN in user.oauth_scopes:
+        return False
+
+    log.warning(f"{emoji.EMOJI_STOP_SIGN} Unauthorized scan request rejected")
+    await socket_handler.socket_server.emit(
+        "scan:done_ko",
+        "You are not authorized to run scans",
+        to=sid,
+    )
+    return True
+
+
 @socket_handler.socket_server.on("scan")  # type: ignore
-async def scan_handler(_sid: str, options: dict[str, Any]):
+async def scan_handler(sid: str, options: dict[str, Any]):
     """Scan socket endpoint
 
     Args:
         options (dict): Socket options
     """
+
+    if await reject_unauthorized_scan(sid):
+        return
 
     log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
@@ -913,8 +938,11 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
 
 
 @socket_handler.socket_server.on("scan:stop")  # type: ignore
-async def stop_scan_handler(_sid: str):
+async def stop_scan_handler(sid: str):
     """Stop scan socket endpoint"""
+
+    if await reject_unauthorized_scan(sid):
+        return
 
     log.info(f"{emoji.EMOJI_STOP_BUTTON} Stop scan requested...")
 
