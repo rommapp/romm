@@ -152,6 +152,8 @@ watch(
     // otherwise start on upload so a plain game is patchable right away.
     patchSource.value = hasLibraryPatches.value ? "library" : "upload";
     uploadedPatch.value = null;
+    // Preselect the ROM's own platform as the upload target.
+    selectedPlatformId.value = props.rom.platform_id;
   },
   { immediate: true },
 );
@@ -305,7 +307,7 @@ async function uploadPatchedFile(file: File, platformId: number) {
     { icon: "mdi-check-bold", timeout: 3000 },
   );
 
-  selectedPlatformId.value = null;
+  selectedPlatformId.value = props.rom.platform_id;
   saveIntoRomM.value = false;
 
   scanningStore.setScanning(true);
@@ -568,21 +570,6 @@ const applyLabel = computed(() => {
         />
       </div>
 
-      <RExpandTransition>
-        <PlatformSelect
-          v-if="saveIntoRomM"
-          v-model="selectedPlatformId"
-          :items="filteredPlatforms"
-          :label="t('common.platforms')"
-          prepend-inner-icon="mdi-controller"
-          density="comfortable"
-          :icon-size="32"
-          show-meta
-          clearable
-          hide-details
-        />
-      </RExpandTransition>
-
       <RTextField
         v-model="customFileName"
         prefix-label="stacked"
@@ -597,6 +584,21 @@ const applyLabel = computed(() => {
           {{ t("patcher.output-filename") }}
         </template>
       </RTextField>
+
+      <RExpandTransition>
+        <PlatformSelect
+          v-if="saveIntoRomM"
+          v-model="selectedPlatformId"
+          :items="filteredPlatforms"
+          :label="t('common.platforms')"
+          prepend-inner-icon="mdi-controller"
+          density="comfortable"
+          :icon-size="32"
+          show-meta
+          clearable
+          hide-details
+        />
+      </RExpandTransition>
 
       <div class="r-v2-patch__apply-row">
         <RBtn
@@ -625,7 +627,6 @@ const applyLabel = computed(() => {
   margin: 0;
   color: var(--r-color-fg-secondary);
   font-size: var(--r-font-size-sm);
-  max-width: 560px;
 }
 
 .r-v2-patch__status {
