@@ -1,7 +1,14 @@
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h, nextTick, ref, type Ref } from "vue";
+import {
+  defineComponent,
+  h,
+  nextTick,
+  ref,
+  type Ref,
+  type VNodeChild,
+} from "vue";
 import { useGridNav } from "./index";
 
 // useGridNav reads the input modality and the current route; stub both so
@@ -18,10 +25,9 @@ vi.mock("vue-router", () => ({
 const raf = () =>
   new Promise<void>((res) => requestAnimationFrame(() => res()));
 
-// A grid host: one row per entry in `shape`, that many cards in it. Each
-// card is an <a> wrapping a hidden overlay <button> (mirrors GameCard's
-// hover-overlay actions — focusable even while invisible).
-function mountGrid(shape: number[]) {
+// Mount a `<section>` wired to useGridNav around caller-supplied children.
+// A single component definition keeps `vue/one-component-per-file` happy.
+function mountHost(children: () => VNodeChild[]) {
   const Host = defineComponent({
     setup() {
       const root = ref<HTMLElement | null>(null) as Ref<HTMLElement | null>;
@@ -29,26 +35,45 @@ function mountGrid(shape: number[]) {
       return { root };
     },
     render() {
-      return h(
-        "section",
-        { ref: "root" },
-        shape.map((count, r) =>
-          h(
-            "div",
-            { class: "row" },
-            Array.from({ length: count }, (_, c) =>
-              h(
-                "a",
-                { href: "#", class: "card", "data-focus-key": `k-${r}-${c}` },
-                [h("button", { class: "overlay" }, "action")],
-              ),
-            ),
-          ),
-        ),
-      );
+      return h("section", { ref: "root" }, children());
     },
   });
   return mount(Host, { attachTo: document.body });
+}
+
+// A grid host: one row per entry in `shape`, that many cards in it. Each
+// card is an <a> wrapping a hidden overlay <button> (mirrors GameCard's
+// hover-overlay actions — focusable even while invisible).
+function mountGrid(shape: number[]) {
+  return mountHost(() =>
+    shape.map((count, r) =>
+      h(
+        "div",
+        { class: "row" },
+        Array.from({ length: count }, (_, c) =>
+          h(
+            "a",
+            { href: "#", class: "card", "data-focus-key": `k-${r}-${c}` },
+            [h("button", { class: "overlay" }, "action")],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+// A single row of two cards; the first carries two overlay actions so we
+// can move between them.
+function mountCards() {
+  return mountHost(() => [
+    h("div", { class: "row" }, [
+      h("a", { href: "#", class: "card", "data-focus-key": "k-0-0" }, [
+        h("button", { class: "overlay", "data-act": "a" }, "a"),
+        h("button", { class: "overlay", "data-act": "b" }, "b"),
+      ]),
+      h("a", { href: "#", class: "card", "data-focus-key": "k-0-1" }, []),
+    ]),
+  ]);
 }
 
 function focusables(root: Element) {
@@ -140,6 +165,53 @@ describe("useGridNav roving tabindex", () => {
     expect(newCard.querySelector(".overlay")!.getAttribute("tabindex")).toBe(
       "-1",
     );
+    wrapper.unmount();
+  });
+});
+
+describe("useGridNav card action row", () => {
+  it("ContextMenu drops focus into the card's actions; arrows move between them", async () => {
+    const wrapper = mountCards();
+    await nextTick();
+    await raf();
+    const root = wrapper.element as HTMLElement;
+
+    const card = root.querySelector<HTMLElement>('[data-focus-key="k-0-0"]')!;
+    card.focus();
+
+    // ContextMenu → focus the first overlay action.
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ContextMenu" }));
+    expect(
+      (document.activeElement as HTMLElement).getAttribute("data-act"),
+    ).toBe("a");
+
+    // ArrowRight → next action; the card→card nav must NOT fire.
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    expect(
+      (document.activeElement as HTMLElement).getAttribute("data-act"),
+    ).toBe("b");
+
+    // Escape → back to the card link.
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(
+      (document.activeElement as HTMLElement).getAttribute("data-focus-key"),
+    ).toBe("k-0-0");
+    wrapper.unmount();
+  });
+
+  it("gamepad X descends into the card's actions", async () => {
+    const wrapper = mountCards();
+    await nextTick();
+    await raf();
+    const root = wrapper.element as HTMLElement;
+
+    root.querySelector<HTMLElement>('[data-focus-key="k-0-0"]')!.focus();
+    window.dispatchEvent(
+      new CustomEvent("gamepad:buttondown", { detail: { name: "x" } }),
+    );
+    expect(
+      (document.activeElement as HTMLElement).getAttribute("data-act"),
+    ).toBe("a");
     wrapper.unmount();
   });
 });

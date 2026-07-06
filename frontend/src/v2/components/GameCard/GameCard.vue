@@ -756,6 +756,10 @@ html[data-input="touch"] .r-gc:hover .r-gc__art,
 html[data-input="mouse"] .r-gc:hover .r-gc__overlay,
 html[data-input="touch"] .r-gc:hover .r-gc__overlay,
 .r-gc:focus-visible .r-gc__overlay,
+/* Keep the overlay up while focus is on one of its own action buttons
+   (keyboard/gamepad descend into the action row via the context-menu
+   key) — `:focus-visible` only matches the card itself, not descendants. */
+.r-gc:focus-within .r-gc__overlay,
 .r-gc--focused .r-gc__overlay,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__overlay,
 .r-gc:has(.sibling-badge--pinned) .r-gc__overlay {
@@ -828,6 +832,7 @@ html[data-input="touch"] .r-gc:hover .r-gc__rating,
 html[data-input="mouse"] .r-gc:hover :deep(.r-v2-game-btn--action-status),
 html[data-input="touch"] .r-gc:hover :deep(.r-v2-game-btn--action-status),
 .r-gc:focus-visible :deep(.r-v2-game-btn--action-status),
+.r-gc:focus-within :deep(.r-v2-game-btn--action-status),
 .r-gc--focused :deep(.r-v2-game-btn--action-status),
 .r-gc:has(.r-v2-game-btn--pinned) :deep(.r-v2-game-btn--action-status),
 .r-gc:has(.sibling-badge--pinned) :deep(.r-v2-game-btn--action-status),
