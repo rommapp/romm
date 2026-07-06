@@ -25,55 +25,63 @@ def upgrade() -> None:
         connection.execute(
             sa.text("""
                 CREATE OR REPLACE VIEW virtual_collections AS
-                WITH genres_collection AS (
+                WITH base AS (
                     SELECT
                         r.id as rom_id,
                         r.path_cover_s as path_cover_s,
                         r.path_cover_l as path_cover_l,
-                        jsonb_array_elements_text(rm.genres) as collection_name,
-                        'genre' as collection_type
+                        rm.genres as genres,
+                        rm.franchises as franchises,
+                        rm.collections as collections,
+                        rm.game_modes as game_modes,
+                        rm.companies as companies
                     FROM roms r
                     JOIN roms_metadata rm ON rm.rom_id = r.id
+                ),
+                genres_collection AS (
+                    SELECT
+                        rom_id,
+                        path_cover_s,
+                        path_cover_l,
+                        jsonb_array_elements_text(genres) as collection_name,
+                        'genre' as collection_type
+                    FROM base
                 ),
                 franchises_collection AS (
                     SELECT
-                        r.id as rom_id,
-                        r.path_cover_s as path_cover_s,
-                        r.path_cover_l as path_cover_l,
-                        jsonb_array_elements_text(rm.franchises) as collection_name,
+                        rom_id,
+                        path_cover_s,
+                        path_cover_l,
+                        jsonb_array_elements_text(franchises) as collection_name,
                         'franchise' as collection_type
-                    FROM roms r
-                    JOIN roms_metadata rm ON rm.rom_id = r.id
+                    FROM base
                 ),
                 collection_collection AS (
                     SELECT
-                        r.id as rom_id,
-                        r.path_cover_s as path_cover_s,
-                        r.path_cover_l as path_cover_l,
-                        jsonb_array_elements_text(rm.collections) as collection_name,
+                        rom_id,
+                        path_cover_s,
+                        path_cover_l,
+                        jsonb_array_elements_text(collections) as collection_name,
                         'collection' as collection_type
-                    FROM roms r
-                    JOIN roms_metadata rm ON rm.rom_id = r.id
+                    FROM base
                 ),
                 modes_collection AS (
                     SELECT
-                        r.id as rom_id,
-                        r.path_cover_s as path_cover_s,
-                        r.path_cover_l as path_cover_l,
-                        jsonb_array_elements_text(rm.game_modes) as collection_name,
+                        rom_id,
+                        path_cover_s,
+                        path_cover_l,
+                        jsonb_array_elements_text(game_modes) as collection_name,
                         'mode' as collection_type
-                    FROM roms r
-                    JOIN roms_metadata rm ON rm.rom_id = r.id
+                    FROM base
                 ),
                 companies_collection AS (
                     SELECT
-                        r.id as rom_id,
-                        r.path_cover_s as path_cover_s,
-                        r.path_cover_l as path_cover_l,
-                        jsonb_array_elements_text(rm.companies) as collection_name,
+                        rom_id,
+                        path_cover_s,
+                        path_cover_l,
+                        jsonb_array_elements_text(companies) as collection_name,
                         'company' as collection_type
-                    FROM roms r
-                    JOIN roms_metadata rm ON rm.rom_id = r.id
+                    FROM base
                 )
                 SELECT
                     collection_name as name,
@@ -104,78 +112,87 @@ def upgrade() -> None:
         connection.execute(
             sa.text("""
                 CREATE OR REPLACE VIEW virtual_collections AS
-                WITH genres AS (
+                WITH base AS (
                     SELECT
                         r.id as rom_id,
                         r.path_cover_s as path_cover_s,
                         r.path_cover_l as path_cover_l,
-                        CONCAT(j.genre) as collection_name,
-                        'genre' as collection_type
+                        rm.genres as genres,
+                        rm.franchises as franchises,
+                        rm.collections as collections,
+                        rm.game_modes as game_modes,
+                        rm.companies as companies
                     FROM
                         roms r
                         JOIN roms_metadata rm ON rm.rom_id = r.id
+                ),
+                genres AS (
+                    SELECT
+                        base.rom_id as rom_id,
+                        base.path_cover_s as path_cover_s,
+                        base.path_cover_l as path_cover_l,
+                        CONCAT(j.genre) as collection_name,
+                        'genre' as collection_type
+                    FROM
+                        base
                         CROSS JOIN JSON_TABLE(
-                            rm.genres,
+                            base.genres,
                             '$[*]' COLUMNS (genre VARCHAR(255) PATH '$')
                         ) j
                 ),
                 franchises AS (
                     SELECT
-                        r.id as rom_id,
-                        r.path_cover_s as path_cover_s,
-                        r.path_cover_l as path_cover_l,
+                        base.rom_id as rom_id,
+                        base.path_cover_s as path_cover_s,
+                        base.path_cover_l as path_cover_l,
                         CONCAT(j.franchise) as collection_name,
                         'franchise' as collection_type
                     FROM
-                        roms r
-                        JOIN roms_metadata rm ON rm.rom_id = r.id
+                        base
                         CROSS JOIN JSON_TABLE(
-                            rm.franchises,
+                            base.franchises,
                             '$[*]' COLUMNS (franchise VARCHAR(255) PATH '$')
                         ) j
                 ),
                 collections AS (
                     SELECT
-                        r.id as rom_id,
-                        r.path_cover_s as path_cover_s,
-                        r.path_cover_l as path_cover_l,
+                        base.rom_id as rom_id,
+                        base.path_cover_s as path_cover_s,
+                        base.path_cover_l as path_cover_l,
                         CONCAT(j.collection) as collection_name,
                         'collection' as collection_type
                     FROM
-                        roms r
-                        JOIN roms_metadata rm ON rm.rom_id = r.id
+                        base
                         CROSS JOIN JSON_TABLE(
-                            rm.collections,
+                            base.collections,
                             '$[*]' COLUMNS (collection VARCHAR(255) PATH '$')
                         ) j
                 ),
                 modes AS (
                     SELECT
-                        r.id as rom_id,
-                        r.path_cover_s as path_cover_s,
-                        r.path_cover_l as path_cover_l,
+                        base.rom_id as rom_id,
+                        base.path_cover_s as path_cover_s,
+                        base.path_cover_l as path_cover_l,
                         CONCAT(j.mode) as collection_name,
                         'mode' as collection_type
                     FROM
-                        roms r
-                        JOIN roms_metadata rm ON rm.rom_id = r.id
+                        base
                         CROSS JOIN JSON_TABLE(
-                            rm.game_modes,
+                            base.game_modes,
                             '$[*]' COLUMNS (mode VARCHAR(255) PATH '$')
                         ) j
                 ),
                 companies AS (
                     SELECT
-                        r.id as rom_id,
-                        r.path_cover_s as path_cover_s,
-                        r.path_cover_l as path_cover_l,
+                        base.rom_id as rom_id,
+                        base.path_cover_s as path_cover_s,
+                        base.path_cover_l as path_cover_l,
                         CONCAT(j.company) as collection_name,
                         'company' as collection_type
                     FROM
-                        roms r
-                        JOIN roms_metadata rm ON rm.rom_id = r.id
+                        base
                         CROSS JOIN JSON_TABLE(
-                            rm.companies,
+                            base.companies,
                             '$[*]' COLUMNS (company VARCHAR(255) PATH '$')
                         ) j
                 )
