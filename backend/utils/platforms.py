@@ -26,7 +26,16 @@ def get_supported_platforms() -> list[PlatformSchema]:
         Flashpoint, and HowLongToBeat.
     """
     db_platforms = db_platform_handler.get_platforms()
-    db_platforms_map = {p.slug: p for p in db_platforms}
+
+    # Multiple folders can resolve to the same slug (a folder alias or a
+    # platform variant bound to a parent platform). When that happens, prefer
+    # the canonical platform (the one whose fs_slug matches its slug) so a
+    # variant folder doesn't shadow the parent and rename it in the picker.
+    db_platforms_map: dict[str, Platform] = {}
+    for p in db_platforms:
+        existing = db_platforms_map.get(p.slug)
+        if existing is None or p.fs_slug == p.slug:
+            db_platforms_map[p.slug] = p
 
     now = datetime.now(timezone.utc)
     supported_platforms = []
