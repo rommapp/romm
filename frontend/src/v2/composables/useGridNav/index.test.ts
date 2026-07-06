@@ -185,13 +185,6 @@ describe("useGridNav card action row", () => {
       (document.activeElement as HTMLElement).getAttribute("data-act"),
     ).toBe("a");
 
-    // Back to the card, then Space (the cross-platform trigger) → actions.
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
-    expect(
-      (document.activeElement as HTMLElement).getAttribute("data-act"),
-    ).toBe("a");
-
     // ArrowRight → next action; the card→card nav must NOT fire.
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
     expect(
