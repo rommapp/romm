@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import RRating from "./RRating.vue";
 
@@ -38,6 +39,39 @@ type Story = StoryObj<typeof RRating>;
 export const Default: Story = { args: { halfIncrements: true, hover: true } };
 export const Readonly: Story = { args: { readonly: true } };
 export const Large: Story = { args: { size: "large" } };
+
+// Keyboard operability — each star is a native `<button role="radio">`, so
+// Tab walks focus across them and Enter / Space commits the focused rating.
+export const KeyboardNav: Story = {
+  name: "Keyboard navigation (play)",
+  args: { ariaLabel: "Rating" },
+  render: (args) => ({
+    components: { RRating },
+    setup: () => {
+      const value = ref(0);
+      return { args, value };
+    },
+    template: `<RRating v-bind="args" v-model="value" />`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const stars = canvas.getAllByRole("radio");
+
+    await step("Tab focuses the stars in order", async () => {
+      await userEvent.tab();
+      expect(stars[0]).toHaveFocus();
+      await userEvent.tab();
+      await userEvent.tab();
+      expect(stars[2]).toHaveFocus();
+    });
+
+    await step("Enter commits the focused star as the rating", async () => {
+      await userEvent.keyboard("{Enter}");
+      expect(stars[2]).toHaveAttribute("aria-checked", "true");
+      expect(stars[0]).toHaveAttribute("aria-checked", "false");
+    });
+  },
+};
 
 // Difficulty preset — same primitive driven by props. Exercises the
 // new emptyIcon/fullIcon/activeColor pass-through used by the

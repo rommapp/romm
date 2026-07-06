@@ -5,6 +5,9 @@ import RProgressCircular from "./RProgressCircular.vue";
 const meta: Meta<typeof RProgressCircular> = {
   title: "Primitives/RProgressCircular",
   component: RProgressCircular,
+  // a11y todo (#1848): role="progressbar" needs an accessible name. The
+  // consumer must supply one until RProgressCircular grows a labelling API.
+  parameters: { a11y: { test: "todo" } },
   argTypes: {
     indeterminate: { control: "boolean" },
     size: { control: "number" },

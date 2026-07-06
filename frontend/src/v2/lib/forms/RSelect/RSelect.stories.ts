@@ -177,6 +177,8 @@ export const Disabled: Story = {
 };
 
 export const Loading: Story = {
+  // a11y todo (#1848): loading spinner (role="progressbar") needs a name.
+  parameters: { a11y: { test: "todo" } },
   args: { placeholder: "Loading platforms…", loading: true },
 };
 
@@ -211,6 +213,9 @@ export const Validation: Story = {
 // ── Clearable ──────────────────────────────────────────────────────
 
 export const Clearable: Story = {
+  // a11y todo (#1848): the clear affordance nests an interactive control
+  // inside the combobox; needs restructuring so roles don't nest.
+  parameters: { a11y: { test: "todo" } },
   render: () => ({
     components: { RSelect },
     setup: () => ({ value: ref("psx"), items: PLATFORMS }),

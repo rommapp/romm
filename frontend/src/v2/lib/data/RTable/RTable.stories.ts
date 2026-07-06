@@ -11,6 +11,9 @@ const meta: Meta = {
   // RTable is generic, so its component-typed shape doesn't fit
   // Storybook's `component` slot. The cast is narrow + intentional.
   component: RTable as never,
+  // a11y todo (#1848): grid roles need their required parent structure so
+  // rows/cells are announced correctly (incl. the mobile card-stack mode).
+  parameters: { a11y: { test: "todo" } },
   argTypes: {
     loading: { control: "boolean" },
     sortKey: { control: "text" },

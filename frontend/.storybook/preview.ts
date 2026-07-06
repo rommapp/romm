@@ -55,6 +55,10 @@ const preview: Preview = {
   parameters: {
     layout: "centered",
     backgrounds: { disable: true },
+    // Accessibility gate: axe fails on any violation; known gaps opt down to `test: "todo"`. See #1848.
+    a11y: {
+      test: "error",
+    },
     controls: {
       matchers: {
         color: /(background|color)$/i,

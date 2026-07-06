@@ -6,6 +6,9 @@ import RDropzone from "./RDropzone.vue";
 const meta: Meta<typeof RDropzone> = {
   title: "Forms/RDropzone",
   component: RDropzone,
+  // a11y todo (#1848): the hidden file input needs a programmatic label
+  // tied to the visible drop-zone copy.
+  parameters: { a11y: { test: "todo" } },
   argTypes: {
     title: { control: "text" },
     hint: { control: "text" },

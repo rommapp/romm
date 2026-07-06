@@ -4,6 +4,9 @@ import RSpinner from "./RSpinner.vue";
 const meta: Meta<typeof RSpinner> = {
   title: "Primitives/RSpinner",
   component: RSpinner,
+  // a11y todo (#1848): inherits RProgressCircular's role="progressbar";
+  // needs an accessible name from the consumer or a component-level default.
+  parameters: { a11y: { test: "todo" } },
   argTypes: {
     size: { control: "number" },
     width: { control: "number" },

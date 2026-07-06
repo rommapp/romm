@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import RSwitch from "./RSwitch.vue";
 
@@ -58,4 +59,32 @@ export const Small: Story = {
 
 export const Disabled: Story = {
   args: { label: "Disabled", disabled: true },
+};
+
+// Keyboard operability — the switch is a native `<button role="switch">`,
+// so Tab focuses it and Space / Enter flip `aria-checked` without any
+// custom key handling.
+export const KeyboardToggle: Story = {
+  name: "Keyboard toggle (play)",
+  args: { label: "Notifications" },
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const sw = canvas.getByRole("switch");
+
+    await step("Tab moves focus onto the switch", async () => {
+      await userEvent.tab();
+      expect(sw).toHaveFocus();
+      expect(sw).toHaveAttribute("aria-checked", "false");
+    });
+
+    await step("Space toggles it on", async () => {
+      await userEvent.keyboard(" ");
+      expect(sw).toHaveAttribute("aria-checked", "true");
+    });
+
+    await step("Enter toggles it back off", async () => {
+      await userEvent.keyboard("{Enter}");
+      expect(sw).toHaveAttribute("aria-checked", "false");
+    });
+  },
 };

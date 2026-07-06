@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import RTabNav from "./RTabNav.vue";
 
@@ -108,6 +109,46 @@ export const HiddenItems: Story = {
 // Image variant — items can carry a logo / brand mark via the `image`
 // field instead of an MDI icon. Mirrors the per-provider raw-metadata
 // tabs in EditRomDialog (IGDB / MobyGames / etc).
+// Keyboard operability — each tab is a native `<button role="tab">`, so
+// Tab walks focus across them in order and Enter / Space activates the
+// focused tab (flipping `aria-selected`).
+export const KeyboardNav: Story = {
+  name: "Keyboard navigation (play)",
+  args: {
+    modelValue: "overview",
+    items: [
+      { id: "overview", label: "Overview" },
+      { id: "media", label: "Media" },
+      { id: "notes", label: "Notes" },
+    ],
+  },
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const tabs = canvas.getAllByRole("tab");
+
+    await step("Tab focuses the tabs in DOM order", async () => {
+      await userEvent.tab();
+      expect(tabs[0]).toHaveFocus();
+      await userEvent.tab();
+      expect(tabs[1]).toHaveFocus();
+    });
+
+    await step("Enter activates the focused tab", async () => {
+      expect(tabs[1]).toHaveAttribute("aria-selected", "false");
+      await userEvent.keyboard("{Enter}");
+      expect(tabs[1]).toHaveAttribute("aria-selected", "true");
+      expect(tabs[0]).toHaveAttribute("aria-selected", "false");
+    });
+
+    await step("Space activates the next tab", async () => {
+      await userEvent.tab();
+      expect(tabs[2]).toHaveFocus();
+      await userEvent.keyboard(" ");
+      expect(tabs[2]).toHaveAttribute("aria-selected", "true");
+    });
+  },
+};
+
 export const WithImages: Story = {
   args: {
     size: "small",

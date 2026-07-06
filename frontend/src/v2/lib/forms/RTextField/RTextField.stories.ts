@@ -164,6 +164,7 @@ export const WithSubtitle: Story = {
 
 export const WithHint: Story = {
   args: {
+    label: "Email address",
     placeholder: "your@email.com",
     hint: "We'll only contact you about account events.",
     prependInnerIcon: "mdi-email",
@@ -172,6 +173,7 @@ export const WithHint: Story = {
 
 export const WithError: Story = {
   args: {
+    label: "Email address",
     placeholder: "your@email.com",
     error: true,
     errorMessages: "Must be a valid email address",
@@ -215,6 +217,8 @@ export const Validation: Story = {
 };
 
 export const Loading: Story = {
+  // a11y todo (#1848): loading spinner (role="progressbar") needs a name.
+  parameters: { a11y: { test: "todo" } },
   args: {
     placeholder: "Searching…",
     loading: true,
@@ -289,6 +293,10 @@ export const ColorLadder: Story = {
 // ── Real-world ─────────────────────────────────────────────────────
 
 export const LoginForm: Story = {
+  // a11y todo (#1848): the clickable append-inner icon (password reveal)
+  // renders as a button without an accessible name. Needs an RTextField
+  // API to label append/prepend-inner actions.
+  parameters: { a11y: { test: "todo" } },
   name: "Login (underlined)",
   render: () => ({
     components: { RTextField, RBtn },

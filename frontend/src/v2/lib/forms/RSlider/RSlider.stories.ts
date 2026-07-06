@@ -5,6 +5,9 @@ import RSlider from "./RSlider.vue";
 const meta: Meta<typeof RSlider> = {
   title: "Forms/RSlider",
   component: RSlider,
+  // a11y todo (#1848): the slider thumb needs an accessible name (label or
+  // aria-label). Track a labelling API / required-label lint on RSlider.
+  parameters: { a11y: { test: "todo" } },
   argTypes: {
     min: { control: "number" },
     max: { control: "number" },
