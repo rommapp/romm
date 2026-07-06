@@ -4,7 +4,15 @@ import pytest
 import socketio
 
 from endpoints.sockets import scan as scan_module
-from endpoints.sockets.scan import ScanStats, _should_scan_rom, scan_platforms
+from endpoints.sockets.scan import (
+    ScanStats,
+    _reject_unauthorized_scan,
+    _should_scan_rom,
+    scan_handler,
+    scan_platforms,
+    stop_scan_handler,
+)
+from handler.auth.constants import Scope
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import ScanType
@@ -341,6 +349,72 @@ class TestShouldScanRom:
 
         result = _should_scan_rom(scan_type, rom, roms_ids, ["igdb"])
         assert result is expected
+
+
+class TestScanAuthorization:
+    """The scan/scan:stop socket handlers must require the TASKS_RUN scope."""
+
+    @pytest.fixture
+    def emit(self, mocker):
+        emit = AsyncMock()
+        mocker.patch.object(scan_module.socket_handler.socket_server, "emit", emit)
+        return emit
+
+    def _user(self, *scopes):
+        user = MagicMock()
+        user.oauth_scopes = list(scopes)
+        return user
+
+    async def test_reject_unauthenticated(self, mocker, emit):
+        mocker.patch.object(
+            scan_module, "get_authenticated_user", AsyncMock(return_value=None)
+        )
+        assert await _reject_unauthorized_scan("sid") is True
+        emit.assert_awaited_once()
+
+    async def test_reject_user_without_tasks_run(self, mocker, emit):
+        mocker.patch.object(
+            scan_module,
+            "get_authenticated_user",
+            AsyncMock(return_value=self._user(Scope.ROMS_READ)),
+        )
+        assert await _reject_unauthorized_scan("sid") is True
+        emit.assert_awaited_once()
+
+    async def test_allow_user_with_tasks_run(self, mocker, emit):
+        mocker.patch.object(
+            scan_module,
+            "get_authenticated_user",
+            AsyncMock(return_value=self._user(Scope.TASKS_RUN)),
+        )
+        assert await _reject_unauthorized_scan("sid") is False
+        emit.assert_not_awaited()
+
+    async def test_scan_handler_does_not_enqueue_when_unauthorized(self, mocker, emit):
+        mocker.patch.object(
+            scan_module, "get_authenticated_user", AsyncMock(return_value=None)
+        )
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        scan_platforms_mock = mocker.patch.object(
+            scan_module, "scan_platforms", AsyncMock()
+        )
+
+        await scan_handler("sid", {"type": "complete"})
+
+        enqueue.assert_not_called()
+        scan_platforms_mock.assert_not_awaited()
+
+    async def test_stop_scan_handler_does_not_cancel_when_unauthorized(
+        self, mocker, emit
+    ):
+        mocker.patch.object(
+            scan_module, "get_authenticated_user", AsyncMock(return_value=None)
+        )
+        get_jobs = mocker.patch.object(scan_module.high_prio_queue, "get_jobs")
+
+        await stop_scan_handler("sid")
+
+        get_jobs.assert_not_called()
 
 
 class TestGetPico8CoverUrl:
