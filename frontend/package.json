@@ -75,6 +75,7 @@
     "@vitest/ui": "^4.1.5",
     "@vue/test-utils": "^2.4.9",
     "@vue/tsconfig": "^0.7.0",
+    "axe-core": "^4.12.1",
     "eslint": "^10.0.3",
     "eslint-plugin-vue": "^10.8.0",
     "eslint-plugin-vuejs-accessibility": "^2.5.0",

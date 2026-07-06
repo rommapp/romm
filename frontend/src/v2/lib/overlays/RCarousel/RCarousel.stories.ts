@@ -58,7 +58,7 @@ export const Inline: Story = {
             <img :src="item" :alt="'Slide ' + (index + 1)" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;" />
           </template>
           <template #thumbnail="{ item }">
-            <img :src="item" />
+            <img :src="item" alt="" />
           </template>
         </RCarousel>
       </div>
@@ -124,7 +124,7 @@ export const InlineLight: Story = {
             <img :src="item" :alt="'Slide ' + (index + 1)" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;" />
           </template>
           <template #thumbnail="{ item }">
-            <img :src="item" />
+            <img :src="item" alt="" />
           </template>
         </RCarousel>
       </div>

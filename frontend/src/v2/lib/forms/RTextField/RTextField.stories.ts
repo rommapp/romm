@@ -164,6 +164,7 @@ export const WithSubtitle: Story = {
 
 export const WithHint: Story = {
   args: {
+    label: "Email address",
     placeholder: "your@email.com",
     hint: "We'll only contact you about account events.",
     prependInnerIcon: "mdi-email",
@@ -172,6 +173,7 @@ export const WithHint: Story = {
 
 export const WithError: Story = {
   args: {
+    label: "Email address",
     placeholder: "your@email.com",
     error: true,
     errorMessages: "Must be a valid email address",
@@ -301,17 +303,20 @@ export const LoginForm: Story = {
       <div style="width:320px;display:flex;flex-direction:column;gap:16px;padding:24px;background:var(--r-color-bg-elevated);border:1px solid var(--r-color-border);border-radius:12px">
         <RTextField
           v-model="user"
+          label="Username"
           variant="underlined"
           placeholder="username"
           prepend-inner-icon="mdi-account"
         />
         <RTextField
           v-model="pass"
+          label="Password"
           variant="underlined"
           :type="show ? 'text' : 'password'"
           placeholder="password"
           prepend-inner-icon="mdi-lock"
           :append-inner-icon="show ? 'mdi-eye-off' : 'mdi-eye'"
+          :append-inner-tooltip="show ? 'Hide password' : 'Show password'"
           @click:append-inner="show = !show"
         />
         <RBtn block color="primary">Sign in</RBtn>

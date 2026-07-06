@@ -410,8 +410,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <!-- combobox role goes here, not on RTextField: with a visible label
+       RTextField renders a <label>, where the role is disallowed and voids
+       the input's label association. -->
   <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -->
-  <div ref="referenceEl" class="r-date-field" @keydown="onFieldKeydown">
+  <div
+    ref="referenceEl"
+    class="r-date-field"
+    role="combobox"
+    aria-haspopup="dialog"
+    :aria-expanded="isOpen"
+    @keydown="onFieldKeydown"
+  >
     <!-- Single `@click` on the wrapper is enough: native clicks on
          every part of the field (input, icon, label well) bubble up
          here. We deliberately don't subscribe to `click:append-inner` —
@@ -425,9 +435,6 @@ onBeforeUnmount(() => {
       :append-inner-icon="
         clearable && selectedDate ? undefined : 'mdi-calendar'
       "
-      :aria-haspopup="'dialog'"
-      :aria-expanded="isOpen"
-      role="combobox"
       @click="toggle"
     >
       <template v-if="clearable && selectedDate" #append-inner>

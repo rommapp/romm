@@ -161,7 +161,7 @@ onBeforeUnmount(() => {
       <RImg
         v-if="t.image"
         :src="t.image"
-        :alt="t.label"
+        alt=""
         width="1em"
         height="1em"
         contain
