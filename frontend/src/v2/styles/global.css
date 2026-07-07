@@ -145,6 +145,9 @@ html[data-input="pad"] .r-v2 * {
 .r-v2-bg__layer {
   position: absolute;
   inset: 0;
+  /* Fallback art when no cover is set (settings, admin, etc.). Kept in CSS
+     rather than inline so Firefox can swap it for the static variant below. */
+  background-image: url("/assets/auth_background.svg");
   background-size: cover;
   background-position: center 20%;
   background-repeat: no-repeat;
@@ -152,6 +155,17 @@ html[data-input="pad"] .r-v2 * {
   transform: scale(1.08);
   transition: opacity 0.7s ease;
   will-change: opacity;
+}
+
+/* Firefox: the animated fallback SVG is re-rasterized every frame under the
+   28px blur (and re-sampled by every backdrop-filter surface), pegging the
+   WebRender backend. Use the static variant in Gecko only (the empty
+   `url-prefix()` hack matches all Firefox pages and stays enabled by
+   default). Cover art is raster, so it's unaffected. */
+@-moz-document url-prefix() {
+  .r-v2-bg__layer {
+    background-image: url("/assets/auth_background_static.svg");
+  }
 }
 
 .r-v2-bg__layer--a {
