@@ -22,10 +22,6 @@ const { t } = useI18n();
 const artwork = computed(() => resolveRomArtwork(props.rom));
 const images = computed(() => artwork.value.filter((a) => !a.isVideo));
 
-// Scraped assets carry an i18n key; library files carry their own name.
-const labelOf = (entry: RomArtworkEntry) =>
-  entry.label ?? (entry.labelKey ? t(entry.labelKey) : "");
-
 // Lightbox indexes into the image-only list, so map a clicked card to its
 // position there (videos are skipped).
 const lightboxIndex = ref(0);
@@ -70,13 +66,13 @@ function close() {
           v-else
           type="button"
           class="r-v2-art__btn"
-          :aria-label="t('rom.artwork-open', { name: labelOf(entry) })"
+          :aria-label="t('rom.artwork-open', { name: entry.label })"
           @click="openImage(entry)"
         >
           <img
             class="r-v2-art__media"
             :src="entry.url"
-            :alt="labelOf(entry)"
+            :alt="entry.label"
             loading="lazy"
           />
         </button>
@@ -87,7 +83,7 @@ function close() {
             "
             size="13"
           />
-          {{ labelOf(entry) }}
+          {{ entry.label }}
         </figcaption>
       </figure>
     </section>
@@ -104,13 +100,13 @@ function close() {
       <template #default="{ item }">
         <img
           :src="(item as RomArtworkEntry).url"
-          :alt="labelOf(item as RomArtworkEntry)"
+          :alt="(item as RomArtworkEntry).label"
         />
       </template>
       <template #thumbnail="{ item }">
         <img
           :src="(item as RomArtworkEntry).url"
-          :alt="labelOf(item as RomArtworkEntry)"
+          :alt="(item as RomArtworkEntry).label"
         />
       </template>
     </RCarousel>
