@@ -30,7 +30,17 @@ from .utils import (
     sanitize_filename,
 )
 
-VIDEO_EXTS: tuple[str, ...] = (".mp4", ".webm", ".avi", ".mkv", ".mov", ".wmv")
+# Video container extensions recognized when probing for local LaunchBox media
+# and when validating a metadata video URL's suffix. A tuple because the probe
+# order is a preference order.
+RECOGNIZED_VIDEO_EXTENSIONS: tuple[str, ...] = (
+    ".mp4",
+    ".webm",
+    ".avi",
+    ".mkv",
+    ".mov",
+    ".wmv",
+)
 
 
 def local_media_req(
@@ -356,7 +366,7 @@ def _get_video(req: MediaRequest) -> str | None:
         return None
 
     for stem in ctx["stems"]:
-        for ext in VIDEO_EXTS:
+        for ext in RECOGNIZED_VIDEO_EXTENSIONS:
             candidate = ctx["base"] / f"{stem}{ext}"
             if candidate.is_file():
                 return file_uri_for_local_path(candidate)
@@ -553,7 +563,7 @@ def populate_rom_specific_paths(
             rom.platform_id, rom.id, MetadataMediaType.VIDEO
         )
         ext = Path(metadata["video_url"]).suffix.lower()
-        if ext not in VIDEO_EXTS:
+        if ext not in RECOGNIZED_VIDEO_EXTENSIONS:
             ext = ".mp4"
         metadata["video_path"] = f"{base}/video{ext}"
     return metadata

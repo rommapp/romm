@@ -13,6 +13,7 @@ from mutagen.oggopus import OggOpus
 from mutagen.oggvorbis import OggVorbis
 
 from logger.logger import log
+from utils.media_types import IMAGE_EXT_BY_MIME_TYPE
 
 ALLOWED_AUDIO_EXTENSIONS = frozenset(
     {".mp3", ".ogg", ".oga", ".opus", ".m4a", ".aac", ".wav", ".flac"}
@@ -295,17 +296,8 @@ def _extract_picture_from_mp4(audio: MP4) -> tuple[bytes, str] | None:
     return bytes(cover), mime
 
 
-_COVER_EXT_BY_MIME = {
-    "image/jpeg": "jpg",
-    "image/jpg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/gif": "gif",
-}
-
-
 def _ext_for_mime(mime: str) -> str:
-    return _COVER_EXT_BY_MIME.get(mime.lower().split(";")[0].strip(), "bin")
+    return IMAGE_EXT_BY_MIME_TYPE.get(mime.lower().split(";")[0].strip(), "bin")
 
 
 def soundtrack_cover_dir(platform_id: int, rom_id: int) -> str:

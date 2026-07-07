@@ -17,11 +17,11 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.filesystem import sanitize_filename
-from utils.router import APIRouter
-from utils.screenshots import (
-    ALLOWED_SCREENSHOT_EXTENSIONS,
-    is_allowed_screenshot_file,
+from utils.media_types import (
+    ALLOWED_IMAGE_EXTENSIONS,
+    is_inline_media_file,
 )
+from utils.router import APIRouter
 
 router = APIRouter(
     prefix="/screenshots",
@@ -69,12 +69,12 @@ async def add_screenshot(
             detail=f"Invalid screenshot filename: {str(exc)}",
         ) from exc
 
-    if not is_allowed_screenshot_file(sanitized_screenshot_filename):
+    if not is_inline_media_file(sanitized_screenshot_filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"Unsupported image file type. Allowed: "
-                f"{', '.join(sorted(ALLOWED_SCREENSHOT_EXTENSIONS))}"
+                f"{', '.join(sorted(ALLOWED_IMAGE_EXTENSIONS))}"
             ),
         )
 

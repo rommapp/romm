@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import mimetypes
 import os
+from typing import Final
 
 # File extensions that are safe to serve inline (rendered/streamed by the
 # browser) from the ROM download endpoint. Images and videos never execute
@@ -9,7 +10,7 @@ import os
 # avoids the content-sniffing/XSS risk that keeps arbitrary files served as
 # attachments.
 ALLOWED_IMAGE_EXTENSIONS = frozenset(
-    {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".avif"}
+    {".png", ".jpg", ".jpeg", ".webp", ".gif", ".tiff", ".tif", ".bmp", ".avif"}
 )
 ALLOWED_VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".ogv", ".mov", ".m4v"})
 
@@ -23,6 +24,17 @@ MEDIA_MIME_OVERRIDES = {
     ".webm": "video/webm",
     ".ogv": "video/ogg",
     ".mov": "video/quicktime",
+}
+
+# Image MIME types we trust to (a) accept as avatar uploads and (b) serve
+# inline from the raw asset endpoint. Maps each trusted MIME type to its
+# canonical file extension.
+IMAGE_EXT_BY_MIME_TYPE: Final[dict[str, str]] = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif",
 }
 
 
