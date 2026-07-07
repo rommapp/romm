@@ -10,6 +10,7 @@ from config import DEV_MODE, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.rom import RomFileSchema
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from logger.formatter import BLUE
@@ -42,6 +43,16 @@ async def get_romfile(
             detail="File not found",
         )
 
+    # Resolve back to the parent rom and enforce its visibility, so a file
+    # belonging to a hidden rom can't be read by direct RomFile.id.
+    rom = db_rom_handler.get_rom(file.rom_id)
+    if not rom:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+    assert_rom_visible(request, rom, not_found_detail="File not found")
+
     return RomFileSchema.model_validate(file)
 
 
@@ -68,6 +79,16 @@ async def get_romfile_content(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="File not found",
         )
+
+    # 404-mask file bytes of roms hidden from the caller: resolve the parent
+    # rom and apply its visibility before serving any content.
+    rom = db_rom_handler.get_rom(file.rom_id)
+    if not rom:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+    assert_rom_visible(request, rom, not_found_detail="File not found")
 
     log.info(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(file.file_name)}"

@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from config.config_manager import MetadataMediaType
 from handler.database import db_collection_handler, db_rom_handler
+from handler.database.base_handler import sync_session
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
@@ -16,6 +17,7 @@ from handler.metadata.moby_handler import MobyGamesHandler, MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
 from models.collection import Collection
+from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile, compute_name_sort_key
 from models.user import User
@@ -314,6 +316,50 @@ def test_get_rom_content_missing_rom_returns_404(client: TestClient, access_toke
         "/api/roms/999999/content/missing.zip",
         headers={"Authorization": f"Bearer {access_token}"},
         follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def _hide_rom_for_user(rom_id: int, user_id: int) -> None:
+    with sync_session.begin() as s:
+        s.add(HiddenEntity(entity=PermEntity.ROMS, entity_id=rom_id, user_id=user_id))
+
+
+def test_get_romfile_content_visible_rom(
+    client: TestClient, viewer_access_token: str, rom: Rom, rom_file
+):
+    # Baseline: a rom the viewer can see is downloadable by direct RomFile.id.
+    response = client.get(
+        f"/api/roms/{rom_file.id}/files/content/whatever.bin",
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert "X-Accel-Redirect" in response.headers
+
+
+def test_get_romfile_content_hidden_rom_returns_404(
+    client: TestClient, viewer_access_token: str, viewer_user, rom: Rom, rom_file
+):
+    # A file belonging to a hidden rom must 404 even by direct RomFile.id,
+    # matching the ROM-level content endpoint (visibility-bypass regression).
+    _hide_rom_for_user(rom.id, viewer_user.id)
+    response = client.get(
+        f"/api/roms/{rom_file.id}/files/content/whatever.bin",
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_get_romfile_hidden_rom_returns_404(
+    client: TestClient, viewer_access_token: str, viewer_user, rom: Rom, rom_file
+):
+    # The file metadata endpoint must not leak files of a hidden rom either.
+    _hide_rom_for_user(rom.id, viewer_user.id)
+    response = client.get(
+        f"/api/roms/{rom_file.id}/files",
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
