@@ -49,6 +49,7 @@ const createPlayerStorage = (romId: number, platformSlug: string) => ({
     null as string | null,
   ),
   disc: useLocalStorage(`player:${romId}:disc`, null as string | null),
+  gameCore: useLocalStorage(`player:${romId}:core`, null as string | null),
   core: useLocalStorage(`player:${platformSlug}:core`, null as string | null),
   biosId: useLocalStorage(
     `player:${platformSlug}:bios_id`,
@@ -409,10 +410,12 @@ async function boot() {
     rom.platform_slug,
     configStore.config.EJS_NETPLAY_ENABLED,
   );
+  // Prefer the core saved for this game, then the platform default, validating
+  // each candidate so a stale entry falls through instead of masking the next
   const core =
-    playerStorage.core.value && supported.includes(playerStorage.core.value)
-      ? playerStorage.core.value
-      : supported[0];
+    [playerStorage.gameCore.value, playerStorage.core.value].find(
+      (c): c is string => !!c && supported.includes(c),
+    ) ?? supported[0];
 
   const coreOptions = configStore.getEJSCoreOptions(core);
   window.EJS_core = core;

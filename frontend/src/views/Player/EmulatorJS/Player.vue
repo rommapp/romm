@@ -199,11 +199,14 @@ onMounted(() => {
   }
 
   if (props.core) {
+    // Remember the core per-game, and per-platform as the fallback default
+    localStorage.setItem(`player:${romRef.value.id}:core`, props.core);
     localStorage.setItem(
       `player:${romRef.value.platform_slug}:core`,
       props.core,
     );
   } else {
+    localStorage.removeItem(`player:${romRef.value.id}:core`);
     localStorage.removeItem(`player:${romRef.value.platform_slug}:core`);
   }
 
