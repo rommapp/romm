@@ -1,8 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { ref } from "vue";
+import { type Component, ref } from "vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RCarousel from "./RCarousel.vue";
+
+// RCarousel is generic (`<T>`), so its component-typed shape doesn't fit
+// Storybook's `component` slot or `Meta<typeof RCarousel>` — Vue narrows T
+// to `unknown` here. The casts below are narrow + intentional.
+//
+// The generic's fixed named slots also don't reconcile with Storybook's
+// `components` map (which types each entry as a plain `Component`), so the
+// render stories register the carousel through this cast alias.
+const RCarouselStory = RCarousel as unknown as Component;
 
 // Sample images — picsum is deterministic by seed and works offline through
 // the Storybook CDN cache.
@@ -14,9 +23,9 @@ const SAMPLES = [
   "https://picsum.photos/seed/r-carousel-5/1280/720",
 ];
 
-const meta: Meta<typeof RCarousel> = {
+const meta: Meta = {
   title: "Overlays/RCarousel",
-  component: RCarousel,
+  component: RCarousel as never,
   argTypes: {
     fullscreen: { control: "boolean" },
     loop: { control: "boolean" },
@@ -32,7 +41,7 @@ const meta: Meta<typeof RCarousel> = {
 
 export default meta;
 
-type Story = StoryObj<typeof RCarousel>;
+type Story = StoryObj;
 
 export const Inline: Story = {
   args: {
@@ -42,7 +51,7 @@ export const Inline: Story = {
     ariaLabel: "Image carousel",
   },
   render: (args) => ({
-    components: { RCarousel },
+    components: { RCarousel: RCarouselStory },
     setup() {
       const index = ref(0);
       return { args, index };
@@ -108,7 +117,7 @@ export const InlineLight: Story = {
     showThumbnails: true,
   },
   render: (args) => ({
-    components: { RCarousel },
+    components: { RCarousel: RCarouselStory },
     setup() {
       const index = ref(0);
       return { args, index };
@@ -141,7 +150,7 @@ export const Fullscreen: Story = {
     ariaLabel: "Screenshot lightbox",
   },
   render: (args) => ({
-    components: { RCarousel, RBtn },
+    components: { RCarousel: RCarouselStory, RBtn },
     setup() {
       const index = ref<number | null>(null);
       const onClose = fn(() => (index.value = null));
@@ -174,7 +183,7 @@ export const NoLoop: Story = {
     loop: false,
   },
   render: (args) => ({
-    components: { RCarousel },
+    components: { RCarousel: RCarouselStory },
     setup() {
       const index = ref(0);
       return { args, index };
@@ -200,7 +209,7 @@ export const SingleItem: Story = {
     items: SAMPLES.slice(0, 1),
   },
   render: (args) => ({
-    components: { RCarousel },
+    components: { RCarousel: RCarouselStory },
     setup() {
       const index = ref(0);
       return { args, index };

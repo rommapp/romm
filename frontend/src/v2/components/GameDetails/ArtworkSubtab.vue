@@ -98,16 +98,10 @@ function close() {
       @close="close"
     >
       <template #default="{ item }">
-        <img
-          :src="(item as RomArtworkEntry).url"
-          :alt="(item as RomArtworkEntry).label"
-        />
+        <img :src="item.url" :alt="item.label" />
       </template>
       <template #thumbnail="{ item }">
-        <img
-          :src="(item as RomArtworkEntry).url"
-          :alt="(item as RomArtworkEntry).label"
-        />
+        <img :src="item.url" :alt="item.label" />
       </template>
     </RCarousel>
   </div>

@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="T">
 // RCarousel — slide-through viewer for an array of items.
 //
 // Two modes:
@@ -32,41 +32,11 @@ import {
 } from "vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import type { RCarouselProps } from "./types";
 
 defineOptions({ inheritAttrs: false });
 
-// Items are typed as `unknown` so the primitive stays free of any
-// product-domain knowledge (premise II.criterion-2). Consumers narrow the
-// slot payload with `v-slot="{ item }"` and an explicit cast or local
-// generic component.
-type CarouselItem = unknown;
-
-interface Props {
-  /** Active item index. */
-  modelValue: number;
-  /** Items array — the slot decides how each one is rendered. */
-  items: readonly CarouselItem[];
-  /** Render as a viewport-filling overlay with scrim and close button. */
-  fullscreen?: boolean;
-  /** Wrap from last → first and first → last. */
-  loop?: boolean;
-  /** Show "n / total" counter. Defaults to true when `items.length > 1`. */
-  showCounter?: boolean;
-  /** Show prev/next arrows. Defaults to true when `items.length > 1`. */
-  showArrows?: boolean;
-  /** Show a thumbnail strip below the active item. */
-  showThumbnails?: boolean;
-  /** Localised label for the close button. */
-  closeLabel?: string;
-  /** Localised label for the prev button. */
-  prevLabel?: string;
-  /** Localised label for the next button. */
-  nextLabel?: string;
-  /** Accessibility label for the carousel region. */
-  ariaLabel?: string;
-}
-
-const props = withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<RCarouselProps<T>>(), {
   fullscreen: false,
   loop: true,
   showCounter: undefined,
@@ -86,16 +56,8 @@ const emit = defineEmits<{
 }>();
 
 defineSlots<{
-  default(slotProps: {
-    item: CarouselItem;
-    index: number;
-    active: boolean;
-  }): unknown;
-  thumbnail(slotProps: {
-    item: CarouselItem;
-    index: number;
-    active: boolean;
-  }): unknown;
+  default(slotProps: { item: T; index: number; active: boolean }): unknown;
+  thumbnail(slotProps: { item: T; index: number; active: boolean }): unknown;
   empty(): unknown;
   counter(slotProps: { index: number; total: number }): unknown;
 }>();
@@ -117,9 +79,7 @@ const safeIndex = computed(() => {
   const i = Math.max(0, Math.min(props.modelValue, total.value - 1));
   return i;
 });
-const activeItem = computed<CarouselItem | undefined>(
-  () => props.items[safeIndex.value],
-);
+const activeItem = computed<T | undefined>(() => props.items[safeIndex.value]);
 
 // `direction` drives the slide direction of the <Transition> below. Updated
 // before we emit a new index so the transition class on the way out matches
