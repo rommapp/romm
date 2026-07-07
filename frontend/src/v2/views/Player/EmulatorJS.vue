@@ -406,15 +406,16 @@ onMounted(async () => {
     selectedDisc.value = rom.value.files[0]?.id ?? null;
   }
 
-  // Prefer the core saved for this game, falling back to the platform default
-  const storedCore =
-    localStorage.getItem(`player:${rom.value.id}:core`) ??
-    localStorage.getItem(`player:${rom.value.platform_slug}:core`);
-  if (storedCore && supportedCores.value.includes(storedCore)) {
-    selectedCore.value = storedCore;
-  } else {
-    selectedCore.value = supportedCores.value[0];
-  }
+  // Prefer the core saved for this game, then the platform default, validating
+  // each candidate so a stale entry falls through instead of masking the next
+  const gameCore = localStorage.getItem(`player:${rom.value.id}:core`);
+  const platformCore = localStorage.getItem(
+    `player:${rom.value.platform_slug}:core`,
+  );
+  selectedCore.value =
+    [gameCore, platformCore].find(
+      (core): core is string => !!core && supportedCores.value.includes(core),
+    ) ?? supportedCores.value[0];
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
   const storedBiosID = localStorage.getItem(

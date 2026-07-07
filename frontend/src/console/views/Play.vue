@@ -410,13 +410,12 @@ async function boot() {
     rom.platform_slug,
     configStore.config.EJS_NETPLAY_ENABLED,
   );
-  // Prefer the core saved for this game, falling back to the platform default
-  const preferredCore =
-    playerStorage.gameCore.value ?? playerStorage.core.value;
+  // Prefer the core saved for this game, then the platform default, validating
+  // each candidate so a stale entry falls through instead of masking the next
   const core =
-    preferredCore && supported.includes(preferredCore)
-      ? preferredCore
-      : supported[0];
+    [playerStorage.gameCore.value, playerStorage.core.value].find(
+      (c): c is string => !!c && supported.includes(c),
+    ) ?? supported[0];
 
   const coreOptions = configStore.getEJSCoreOptions(core);
   window.EJS_core = core;
