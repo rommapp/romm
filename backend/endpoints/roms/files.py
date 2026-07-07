@@ -17,6 +17,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFileCategory
 from utils.audio_tags import guess_audio_media_type
+from utils.media_types import guess_media_file_type, is_inline_media_file
 from utils.nginx import FileRedirectResponse
 from utils.router import APIRouter
 
@@ -77,13 +78,17 @@ async def get_romfile_content(
     # record, never from the client-supplied file_name path param — otherwise a
     # caller could request the same bytes with an arbitrary extension to force a
     # mismatched Content-Type while served inline (content-sniffing/XSS).
-    is_audio = file.category == RomFileCategory.SOUNDTRACK
-    media_type = (
-        guess_audio_media_type(file.file_name)
-        if is_audio
-        else "application/octet-stream"
-    )
-    disposition = "inline" if is_audio else "attachment"
+    # Audio, images and videos are served inline so <audio>/<video>/<img> in the
+    # details view can render and seek them; everything else downloads.
+    if file.category == RomFileCategory.SOUNDTRACK:
+        media_type = guess_audio_media_type(file.file_name)
+        disposition = "inline"
+    elif is_inline_media_file(file.file_name):
+        media_type = guess_media_file_type(file.file_name)
+        disposition = "inline"
+    else:
+        media_type = "application/octet-stream"
+        disposition = "attachment"
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:

@@ -86,8 +86,9 @@ const { t } = useI18n();
 const collectionsStore = storeCollections();
 const { toWebp } = useWebpSupport();
 
-// Scraped videos surface on the overview (the rest of the art lives in the
-// Media tab's Artwork subtab). Same resolver, filtered to videos.
+// Videos surface on the overview (the rest of the art lives in the Media tab's
+// Artwork subtab). Same resolver, filtered to videos: scraped clips plus any
+// video files in the game folder.
 const videos = computed(() =>
   resolveRomArtwork(props.rom).filter((a) => a.isVideo),
 );

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // ArtworkSubtab — the Media tab's Artwork panel. A read-only gallery of every
-// scraped art asset that doesn't already get its own surface (covers live on
-// the page, screenshots have their own subtab, manual + soundtrack their own
-// subtabs). Surfaces bezel / logo / marquee / box art / fan art / mix images /
-// title screen plus the scraped videos, which the V2 GUI otherwise hid.
+// art asset that doesn't already get its own surface (covers live on the page,
+// screenshots have their own subtab, manual + soundtrack their own subtabs).
+// Surfaces bezel / logo / marquee / box art / fan art / mix images / title
+// screen plus the scraped videos, which the V2 GUI otherwise hid, and any
+// image/video files sitting in the game folder in the library.
 //
 // Each asset is a labelled card. Images are contained (not cropped) since the
 // set spans wildly different aspect ratios (wide marquees, tall box art) and
@@ -20,6 +21,10 @@ const { t } = useI18n();
 
 const artwork = computed(() => resolveRomArtwork(props.rom));
 const images = computed(() => artwork.value.filter((a) => !a.isVideo));
+
+// Scraped assets carry an i18n key; library files carry their own name.
+const labelOf = (entry: RomArtworkEntry) =>
+  entry.label ?? (entry.labelKey ? t(entry.labelKey) : "");
 
 // Lightbox indexes into the image-only list, so map a clicked card to its
 // position there (videos are skipped).
@@ -65,13 +70,13 @@ function close() {
           v-else
           type="button"
           class="r-v2-art__btn"
-          :aria-label="t('rom.artwork-open', { name: t(entry.labelKey) })"
+          :aria-label="t('rom.artwork-open', { name: labelOf(entry) })"
           @click="openImage(entry)"
         >
           <img
             class="r-v2-art__media"
             :src="entry.url"
-            :alt="t(entry.labelKey)"
+            :alt="labelOf(entry)"
             loading="lazy"
           />
         </button>
@@ -82,7 +87,7 @@ function close() {
             "
             size="13"
           />
-          {{ t(entry.labelKey) }}
+          {{ labelOf(entry) }}
         </figcaption>
       </figure>
     </section>
@@ -99,13 +104,13 @@ function close() {
       <template #default="{ item }">
         <img
           :src="(item as RomArtworkEntry).url"
-          :alt="t((item as RomArtworkEntry).labelKey)"
+          :alt="labelOf(item as RomArtworkEntry)"
         />
       </template>
       <template #thumbnail="{ item }">
         <img
           :src="(item as RomArtworkEntry).url"
-          :alt="t((item as RomArtworkEntry).labelKey)"
+          :alt="labelOf(item as RomArtworkEntry)"
         />
       </template>
     </RCarousel>
