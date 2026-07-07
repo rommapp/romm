@@ -236,7 +236,6 @@ def with_details(func):
             selectinload(Rom.notes),
             undefer(Rom.multi_file),
             undefer(Rom.top_level_file_count),
-            undefer(Rom.has_manual_files),
             undefer(Rom.has_soundtrack),
         )
         return func(*args, **kwargs)
@@ -876,7 +875,6 @@ class DBRomsHandler(DBBaseHandler):
             query = query.options(
                 undefer(Rom.multi_file),
                 undefer(Rom.top_level_file_count),
-                undefer(Rom.has_manual_files),
                 undefer(Rom.has_soundtrack),
             )
 

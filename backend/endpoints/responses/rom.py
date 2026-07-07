@@ -312,7 +312,6 @@ class RomSchema(BaseModel):
     url_cover: str | None
 
     has_manual: bool
-    has_manual_files: bool
     has_soundtrack: bool
     path_manual: str | None
     url_manual: str | None
