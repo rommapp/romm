@@ -38,10 +38,21 @@ IMAGE_EXT_BY_MIME_TYPE: Final[dict[str, str]] = {
 }
 
 
-def is_inline_media_file(file_name: str) -> bool:
-    """Whether a library file is an image/video the browser can render inline."""
+def is_allowed_image_file(file_name: str) -> bool:
+    """Whether a library file is an image the browser can render inline."""
     ext = os.path.splitext(file_name)[1].lower()
-    return ext in ALLOWED_IMAGE_EXTENSIONS or ext in ALLOWED_VIDEO_EXTENSIONS
+    return ext in ALLOWED_IMAGE_EXTENSIONS
+
+
+def is_allowed_video_file(file_name: str) -> bool:
+    """Whether a library file is a video the browser can render inline."""
+    ext = os.path.splitext(file_name)[1].lower()
+    return ext in ALLOWED_VIDEO_EXTENSIONS
+
+
+def is_allowed_media_file(file_name: str) -> bool:
+    """Whether a library file is an image/video the browser can render inline."""
+    return is_allowed_image_file(file_name) or is_allowed_video_file(file_name)
 
 
 def guess_media_file_type(file_name: str) -> str:

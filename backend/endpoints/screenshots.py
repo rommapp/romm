@@ -19,7 +19,7 @@ from logger.logger import log
 from utils.filesystem import sanitize_filename
 from utils.media_types import (
     ALLOWED_IMAGE_EXTENSIONS,
-    is_inline_media_file,
+    is_allowed_image_file,
 )
 from utils.router import APIRouter
 
@@ -69,7 +69,7 @@ async def add_screenshot(
             detail=f"Invalid screenshot filename: {str(exc)}",
         ) from exc
 
-    if not is_inline_media_file(sanitized_screenshot_filename):
+    if not is_allowed_image_file(sanitized_screenshot_filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(

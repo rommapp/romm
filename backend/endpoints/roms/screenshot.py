@@ -22,7 +22,7 @@ from logger.logger import log
 from models.rom import RomFile, RomFileCategory
 from utils.media_types import (
     ALLOWED_IMAGE_EXTENSIONS,
-    is_inline_media_file,
+    is_allowed_image_file,
 )
 from utils.router import APIRouter
 
@@ -79,7 +79,7 @@ async def add_rom_screenshots(
             detail="Upload filename must be a plain file name, not a path",
         )
 
-    if not is_inline_media_file(safe_filename):
+    if not is_allowed_image_file(safe_filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(

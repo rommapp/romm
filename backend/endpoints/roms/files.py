@@ -17,7 +17,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFileCategory
 from utils.audio_tags import guess_audio_media_type
-from utils.media_types import guess_media_file_type, is_inline_media_file
+from utils.media_types import guess_media_file_type, is_allowed_media_file
 from utils.nginx import FileRedirectResponse
 from utils.router import APIRouter
 
@@ -83,7 +83,7 @@ async def get_romfile_content(
     if file.category == RomFileCategory.SOUNDTRACK:
         media_type = guess_audio_media_type(file.file_name)
         disposition = "inline"
-    elif is_inline_media_file(file.file_name):
+    elif is_allowed_media_file(file.file_name):
         media_type = guess_media_file_type(file.file_name)
         disposition = "inline"
     else:
