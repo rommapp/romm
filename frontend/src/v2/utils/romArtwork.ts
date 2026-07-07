@@ -134,7 +134,9 @@ export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
         isVideo,
       };
     })
-    .filter((entry) => entry !== null);
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+    // Images before videos; sort is stable so original order holds within each group.
+    .sort((a, b) => Number(a.isVideo) - Number(b.isVideo));
 
   for (const def of artworkDefs) {
     if (!def.url || seen.has(def.url)) continue;
