@@ -153,16 +153,10 @@ function canToggle(shot: ScreenshotItem): boolean {
     @close="close"
   >
     <template #default="{ item, index }">
-      <img
-        :src="item as string"
-        :alt="t('rom.screenshot-num', { n: index + 1 })"
-      />
+      <img :src="item" :alt="t('rom.screenshot-num', { n: index + 1 })" />
     </template>
     <template #thumbnail="{ item, index }">
-      <img
-        :src="item as string"
-        :alt="t('rom.screenshot-num-thumb', { n: index + 1 })"
-      />
+      <img :src="item" :alt="t('rom.screenshot-num-thumb', { n: index + 1 })" />
     </template>
   </RCarousel>
 </template>

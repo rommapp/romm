@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // ArtworkSubtab — the Media tab's Artwork panel. A read-only gallery of every
-// scraped art asset that doesn't already get its own surface (covers live on
-// the page, screenshots have their own subtab, manual + soundtrack their own
-// subtabs). Surfaces bezel / logo / marquee / box art / fan art / mix images /
-// title screen plus the scraped videos, which the V2 GUI otherwise hid.
+// art asset that doesn't already get its own surface (covers live on the page,
+// screenshots have their own subtab, manual + soundtrack their own subtabs).
+// Surfaces bezel / logo / marquee / box art / fan art / mix images / title
+// screen plus the scraped videos, which the V2 GUI otherwise hid, and any
+// image/video files sitting in the game folder in the library.
 //
 // Each asset is a labelled card. Images are contained (not cropped) since the
 // set spans wildly different aspect ratios (wide marquees, tall box art) and
@@ -65,13 +66,13 @@ function close() {
           v-else
           type="button"
           class="r-v2-art__btn"
-          :aria-label="t('rom.artwork-open', { name: t(entry.labelKey) })"
+          :aria-label="t('rom.artwork-open', { name: entry.label })"
           @click="openImage(entry)"
         >
           <img
             class="r-v2-art__media"
             :src="entry.url"
-            :alt="t(entry.labelKey)"
+            :alt="entry.label"
             loading="lazy"
           />
         </button>
@@ -82,7 +83,7 @@ function close() {
             "
             size="13"
           />
-          {{ t(entry.labelKey) }}
+          {{ entry.label }}
         </figcaption>
       </figure>
     </section>
@@ -97,16 +98,10 @@ function close() {
       @close="close"
     >
       <template #default="{ item }">
-        <img
-          :src="(item as RomArtworkEntry).url"
-          :alt="t((item as RomArtworkEntry).labelKey)"
-        />
+        <img :src="item.url" :alt="item.label" />
       </template>
       <template #thumbnail="{ item }">
-        <img
-          :src="(item as RomArtworkEntry).url"
-          :alt="t((item as RomArtworkEntry).labelKey)"
-        />
+        <img :src="item.url" :alt="item.label" />
       </template>
     </RCarousel>
   </div>
