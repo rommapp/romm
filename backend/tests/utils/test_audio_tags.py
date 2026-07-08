@@ -1,11 +1,14 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from mutagen.mp4 import MP4, MP4Cover
 
 from utils.audio_tags import (
+    _allowed_mime_types,
     _extract_picture_from_mp4,
     _parse_leading_int,
     _parse_year,
+    persist_embedded_cover,
     track_meta_columns,
 )
 
@@ -105,14 +108,14 @@ class TestExtractPictureFromMp4:
         return audio
 
     def test_jpeg_cover(self):
-        cover_data = b"\xff\xd8\xff fake jpeg"
+        cover_data = b"\xff\xd8\xff\xe0\x00\x10JFIF"
         audio = self._mp4_with_covers(
             [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_JPEG)]
         )
         assert _extract_picture_from_mp4(audio) == (cover_data, "image/jpeg")
 
     def test_png_cover(self):
-        cover_data = b"\x89PNG fake png"
+        cover_data = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
         audio = self._mp4_with_covers(
             [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_PNG)]
         )
@@ -126,3 +129,51 @@ class TestExtractPictureFromMp4:
     def test_empty_covr_list(self):
         audio = self._mp4_with_covers([])
         assert _extract_picture_from_mp4(audio) is None
+
+    def test_unknown_format_sniffs_jpeg(self):
+        cover_data = b"\xff\xd8\xff\xe0\x00\x10JFIF"
+        audio = self._mp4_with_covers([MP4Cover(cover_data)])
+        assert _extract_picture_from_mp4(audio) == (cover_data, "image/jpeg")
+
+    def test_rejects_gif_labeled_as_jpeg(self):
+        cover_data = b"GIF89a\x00\x00\x01\x00\x01"
+        audio = self._mp4_with_covers(
+            [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_JPEG)]
+        )
+        with pytest.raises(ValueError, match="JPEG or PNG"):
+            _extract_picture_from_mp4(audio)
+
+
+class TestAllowedMimeTypes:
+    def test_sniffs_png(self):
+        data = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+        assert _allowed_mime_types(data) == "image/png"
+
+    def test_sniffs_jpeg(self):
+        data = b"\xff\xd8\xff\xe0\x00\x10JFIF"
+        assert _allowed_mime_types(data) == "image/jpeg"
+
+    def test_rejects_gif(self):
+        with pytest.raises(ValueError, match="JPEG or PNG"):
+            _allowed_mime_types(b"GIF89a")
+
+
+class TestPersistEmbeddedCover:
+    def test_extraction_failure_returns_none_without_raising(self):
+        """A cover that fails to extract (e.g. unsupported format) must not
+        raise out of persist_embedded_cover, and must not be written to disk."""
+        with (
+            patch(
+                "utils.audio_tags.extract_embedded_cover",
+                side_effect=ValueError("embedded cover is not JPEG or PNG"),
+            ),
+            patch("builtins.open") as mock_open,
+        ):
+            result = persist_embedded_cover(
+                audio_full_path="/fake/track.m4a",
+                platform_id=1,
+                rom_id=1,
+                file_id=1,
+            )
+        assert result is None
+        mock_open.assert_not_called()

@@ -8,7 +8,7 @@ from typing import Any, TypedDict
 import mutagen
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3
-from mutagen.mp4 import MP4, MP4Cover
+from mutagen.mp4 import MP4
 from mutagen.oggopus import OggOpus
 from mutagen.oggvorbis import OggVorbis
 
@@ -140,6 +140,15 @@ def _mp4_track_tuple(value: object) -> str | None:
     return str(first)
 
 
+def _allowed_mime_types(data: bytes) -> str:
+    """Return MIME type for embedded cover bytes; only JPEG and PNG are allowed."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    raise ValueError("embedded cover is not JPEG or PNG")
+
+
 # NOTE: the per-format tag and embedded-cover handling below (ID3 / MP4 /
 # Vorbis comments / FLAC pictures) was largely AI-generated against mutagen's
 # API — verify against real files when adding or changing a format.
@@ -261,14 +270,14 @@ def extract_audio_meta(full_path: str) -> AudioTags | None:
 def _extract_picture_from_id3(tags: ID3) -> tuple[bytes, str] | None:
     for frame in tags.values():
         if isinstance(frame, APIC):
-            return frame.data, frame.mime or "image/jpeg"
+            return frame.data, _allowed_mime_types(frame.data)
     return None
 
 
 def _extract_picture_from_flac(audio: FLAC) -> tuple[bytes, str] | None:
     if audio.pictures:
         pic = audio.pictures[0]
-        return pic.data, pic.mime or "image/jpeg"
+        return pic.data, _allowed_mime_types(pic.data)
     return None
 
 
@@ -282,7 +291,7 @@ def _extract_picture_from_ogg(audio: OggVorbis | OggOpus) -> tuple[bytes, str] |
         except Exception as exc:
             log.debug(f"[audio_tags] ogg picture decode failed: {exc}")
             continue
-        return pic.data, pic.mime or "image/jpeg"
+        return pic.data, _allowed_mime_types(pic.data)
     return None
 
 
@@ -291,9 +300,8 @@ def _extract_picture_from_mp4(audio: MP4) -> tuple[bytes, str] | None:
     if not covers:
         return None
     cover = covers[0]
-    fmt = getattr(cover, "imageformat", None)
-    mime = "image/png" if fmt == MP4Cover.FORMAT_PNG else "image/jpeg"
-    return bytes(cover), mime
+    data = bytes(cover)
+    return data, _allowed_mime_types(data)
 
 
 def _ext_for_mime(mime: str) -> str:
@@ -317,7 +325,11 @@ def persist_embedded_cover(
     track_meta.cover_path), or None if no cover or write failed."""
     from config import RESOURCES_BASE_PATH
 
-    cover = extract_embedded_cover(audio_full_path)
+    try:
+        cover = extract_embedded_cover(audio_full_path)
+    except Exception as exc:
+        log.error(f"[audio_tags] cover extract failed for {audio_full_path}: {exc}")
+        return None
     if cover is None:
         return None
 
@@ -355,27 +367,25 @@ def remove_persisted_cover(cover_path: str | None) -> None:
 
 
 def extract_embedded_cover(full_path: str) -> tuple[bytes, str] | None:
-    """Return (image_bytes, mime_type) for the first embedded picture, or None.
+    """Return (image_bytes, mime_type) for the first embedded picture, or None
+    if the file has no embedded cover.
 
-    Never raises — on any failure we log and return None so the upload path
-    keeps moving even when cover extraction fails.
+    Raises if a cover is present but cannot be read (e.g. an unsupported
+    image format) so callers can tell that failure apart from "no cover".
     """
     audio = _open_mutagen(full_path)
     if audio is None:
         return None
 
-    try:
-        if isinstance(audio, FLAC):
-            return _extract_picture_from_flac(audio)
-        if isinstance(audio, (OggVorbis, OggOpus)):
-            return _extract_picture_from_ogg(audio)
-        if isinstance(audio, MP4):
-            return _extract_picture_from_mp4(audio)
+    if isinstance(audio, FLAC):
+        return _extract_picture_from_flac(audio)
+    if isinstance(audio, (OggVorbis, OggOpus)):
+        return _extract_picture_from_ogg(audio)
+    if isinstance(audio, MP4):
+        return _extract_picture_from_mp4(audio)
 
-        tags = getattr(audio, "tags", None)
-        if isinstance(tags, ID3):
-            return _extract_picture_from_id3(tags)
-    except Exception as exc:
-        log.warning(f"[audio_tags] cover extract failed for {full_path}: {exc}")
+    tags = getattr(audio, "tags", None)
+    if isinstance(tags, ID3):
+        return _extract_picture_from_id3(tags)
 
     return None
