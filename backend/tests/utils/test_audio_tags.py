@@ -1,4 +1,9 @@
+from unittest.mock import MagicMock
+
+from mutagen.mp4 import MP4, MP4Cover
+
 from utils.audio_tags import (
+    _extract_picture_from_mp4,
     _parse_leading_int,
     _parse_year,
     track_meta_columns,
@@ -91,3 +96,33 @@ class TestTrackMetaColumns:
         cols = track_meta_columns({"title": "x" * 1000, "genre": "y" * 1000})
         assert len(cols["title"]) == 512
         assert len(cols["genre"]) == 255
+
+
+class TestExtractPictureFromMp4:
+    def _mp4_with_covers(self, covers: list[MP4Cover] | None) -> MP4:
+        audio = MagicMock(spec=MP4)
+        audio.tags = {"covr": covers} if covers is not None else None
+        return audio
+
+    def test_jpeg_cover(self):
+        cover_data = b"\xff\xd8\xff fake jpeg"
+        audio = self._mp4_with_covers(
+            [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_JPEG)]
+        )
+        assert _extract_picture_from_mp4(audio) == (cover_data, "image/jpeg")
+
+    def test_png_cover(self):
+        cover_data = b"\x89PNG fake png"
+        audio = self._mp4_with_covers(
+            [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_PNG)]
+        )
+        assert _extract_picture_from_mp4(audio) == (cover_data, "image/png")
+
+    def test_no_covr_tag(self):
+        audio = MagicMock(spec=MP4)
+        audio.tags = None
+        assert _extract_picture_from_mp4(audio) is None
+
+    def test_empty_covr_list(self):
+        audio = self._mp4_with_covers([])
+        assert _extract_picture_from_mp4(audio) is None

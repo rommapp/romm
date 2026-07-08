@@ -8,7 +8,7 @@ from typing import Any, TypedDict
 import mutagen
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3
-from mutagen.mp4 import MP4
+from mutagen.mp4 import MP4, MP4Cover
 from mutagen.oggopus import OggOpus
 from mutagen.oggvorbis import OggVorbis
 
@@ -292,7 +292,7 @@ def _extract_picture_from_mp4(audio: MP4) -> tuple[bytes, str] | None:
         return None
     cover = covers[0]
     fmt = getattr(cover, "imageformat", None)
-    mime = "image/png" if fmt == MP4.Cover.FORMAT_PNG else "image/jpeg"
+    mime = "image/png" if fmt == MP4Cover.FORMAT_PNG else "image/jpeg"
     return bytes(cover), mime
 
 
@@ -355,20 +355,27 @@ def remove_persisted_cover(cover_path: str | None) -> None:
 
 
 def extract_embedded_cover(full_path: str) -> tuple[bytes, str] | None:
-    """Return (image_bytes, mime_type) for the first embedded picture, or None."""
+    """Return (image_bytes, mime_type) for the first embedded picture, or None.
+
+    Never raises — on any failure we log and return None so the upload path
+    keeps moving even when cover extraction fails.
+    """
     audio = _open_mutagen(full_path)
     if audio is None:
         return None
 
-    if isinstance(audio, FLAC):
-        return _extract_picture_from_flac(audio)
-    if isinstance(audio, (OggVorbis, OggOpus)):
-        return _extract_picture_from_ogg(audio)
-    if isinstance(audio, MP4):
-        return _extract_picture_from_mp4(audio)
+    try:
+        if isinstance(audio, FLAC):
+            return _extract_picture_from_flac(audio)
+        if isinstance(audio, (OggVorbis, OggOpus)):
+            return _extract_picture_from_ogg(audio)
+        if isinstance(audio, MP4):
+            return _extract_picture_from_mp4(audio)
 
-    tags = getattr(audio, "tags", None)
-    if isinstance(tags, ID3):
-        return _extract_picture_from_id3(tags)
+        tags = getattr(audio, "tags", None)
+        if isinstance(tags, ID3):
+            return _extract_picture_from_id3(tags)
+    except Exception as exc:
+        log.warning(f"[audio_tags] cover extract failed for {full_path}: {exc}")
 
     return None
