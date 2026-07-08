@@ -415,6 +415,6 @@ html[data-bp~="sm-and-down"] .r-v2-det__panel {
   padding-right: 0;
 }
 html[data-bp~="sm-and-down"] .r-v2-det__tabs {
-  margin: 10px 0 12px;
+  margin: 28px 0 12px;
 }
 </style>
