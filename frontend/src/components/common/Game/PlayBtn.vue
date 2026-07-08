@@ -11,6 +11,7 @@ import { ROUTES } from "@/plugins/router";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import { isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
 
@@ -23,6 +24,10 @@ const router = useRouter();
 const { config } = storeToRefs(configStore);
 const { value: heartbeat } = storeToRefs(heartbeatStore);
 const emitter = inject<Emitter<Events>>("emitter");
+const streamingStore = useStreamingStore();
+const streamingContainer = computed(() =>
+  streamingStore.containerForPlatform(props.rom.platform_slug),
+);
 
 const isAprilFools = computed(() => {
   const today = new Date();
@@ -98,4 +103,16 @@ async function goToPlayer(rom: SimpleRom) {
       <v-icon>mdi-play</v-icon>
     </v-btn>
   </template>
+  <!-- Streaming play button - shows for any platform with a container configured -->
+  <v-btn
+    v-if="streamingContainer && !rom.missing_from_fs"
+    v-bind="attrs"
+    :aria-label="`Play ${rom.name} via ${streamingContainer.label}`"
+    :to="{
+      name: ROUTES.STREAM,
+      params: { rom: rom.id },
+    }"
+  >
+    <v-icon>mdi-cast</v-icon>
+  </v-btn>
 </template>
