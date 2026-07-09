@@ -111,6 +111,11 @@ async def get_romfile_content(
         media_type = "application/octet-stream"
         disposition = "attachment"
 
+    # Inline files are served under an explicit, trusted Content-Type; nosniff
+    # keeps the browser from sniffing them into anything script-capable (e.g. a
+    # Markdown manual into HTML).
+    headers = {"X-Content-Type-Options": "nosniff"} if disposition == "inline" else {}
+
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
         rom_path = fs_rom_handler.validate_path(file.full_path)
@@ -121,6 +126,7 @@ async def get_romfile_content(
             filename=file.file_name,
             media_type=media_type,
             content_disposition_type=disposition,
+            headers=headers,
         )
 
     # Otherwise proxy through nginx (which parses Range itself via X-Accel-Redirect)
@@ -128,4 +134,5 @@ async def get_romfile_content(
         download_path=Path(f"/library/{file.full_path}"),
         disposition=disposition,
         media_type=media_type,
+        headers=headers,
     )
