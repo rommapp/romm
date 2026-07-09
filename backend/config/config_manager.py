@@ -237,6 +237,7 @@ class ConfigManager:
             # Reset any previously loaded singleton state so parsing reflects
             # the newly created empty config file.
             self._raw_config = {}
+            self._config_file_parse_error = None
             self._config_file_mounted = True
             self._config_file_writable = os.access(self.config_file, os.W_OK)
         except PermissionError:
@@ -731,6 +732,8 @@ class ConfigManager:
                 self._raw_config = self._safe_load_yaml(config_file)
         except FileNotFoundError:
             log.debug("Config file not found!")
+            # No file to parse, so clear any stale parse error from a prior load.
+            self._config_file_parse_error = None
 
         self._parse_config()
         self._validate_config()

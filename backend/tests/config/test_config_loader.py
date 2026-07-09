@@ -198,6 +198,38 @@ def test_mixed_gamelist_syntax_surfaces_parse_error(tmp_path):
     assert loader.config.SCAN_MEDIA == ["box2d", "screenshot", "manual"]
 
 
+def test_parse_error_is_cleared_when_config_is_missing(tmp_path):
+    """A stale parse error from a malformed config must not persist once the
+    file is gone. The loader is a singleton, so a later reload that skips YAML
+    parsing (e.g. the file was deleted) has to clear the flag."""
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("scan:\n  - broken: true\n  media: [box2d]\n")
+
+    loader = ConfigManager(str(config_file))
+    assert loader.config.CONFIG_FILE_PARSE_ERROR is not None
+
+    # get_config's FileNotFoundError branch must clear the stale error.
+    config_file.unlink()
+    loader.get_config()
+    assert loader.config.CONFIG_FILE_PARSE_ERROR is None
+
+
+def test_parse_error_is_cleared_when_config_is_recreated(tmp_path):
+    """Reloading via a missing file goes through _create_missing_config_file,
+    which must also clear a stale parse error from a prior malformed load."""
+    broken_file = tmp_path / "config.yml"
+    broken_file.write_text("scan:\n  - broken: true\n  media: [box2d]\n")
+
+    ConfigManager(str(broken_file))
+
+    # Reusing the singleton with a missing path exercises the __init__
+    # FileNotFoundError -> _create_missing_config_file recreate path.
+    broken_file.unlink()
+    loader = ConfigManager(str(broken_file))
+
+    assert loader.config.CONFIG_FILE_PARSE_ERROR is None
+
+
 def test_config_updates_serialize_gamelist_media_as_plain_strings(tmp_path):
     config_file = tmp_path / "config.yml"
     config_file.write_text(
