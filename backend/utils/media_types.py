@@ -62,12 +62,8 @@ def is_allowed_document_file(file_name: str) -> bool:
 
 
 def is_allowed_media_file(file_name: str) -> bool:
-    """Whether a library file is an image/video/document the browser can render inline."""
-    return (
-        is_allowed_image_file(file_name)
-        or is_allowed_video_file(file_name)
-        or is_allowed_document_file(file_name)
-    )
+    """Whether a library file is an image/video the browser can render inline."""
+    return is_allowed_image_file(file_name) or is_allowed_video_file(file_name)
 
 
 def guess_media_file_type(file_name: str) -> str:
