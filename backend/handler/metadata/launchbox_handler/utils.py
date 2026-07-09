@@ -2,7 +2,33 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from handler.filesystem.base_handler import region_name_to_provider_shortcode
+
 from .types import LAUNCHBOX_LOCAL_DIR
+
+# LaunchBox region names that don't map cleanly onto the shared REGIONS table
+# (which ROM filename tags use). Keyed lowercase for case-insensitive lookup.
+_LAUNCHBOX_REGION_OVERRIDES: dict[str, str] = {
+    "north america": "us",
+    "united states": "us",
+    "united kingdom": "uk",
+    "the netherlands": "nl",
+}
+
+
+def launchbox_region_to_shortcode(region_name: str | None) -> str | None:
+    """Map a LaunchBox image Region name to a provider shortcode (e.g. "us").
+
+    LaunchBox labels the US region as "North America", so its names can't be
+    compared directly against ROM filename regions; normalize both sides to a
+    shortcode before matching.
+    """
+    if not region_name:
+        return None
+    key = region_name.strip().lower()
+    if key in _LAUNCHBOX_REGION_OVERRIDES:
+        return _LAUNCHBOX_REGION_OVERRIDES[key]
+    return region_name_to_provider_shortcode(region_name)
 
 
 def sanitize_filename(stem: str) -> str:

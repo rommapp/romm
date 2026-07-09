@@ -20,11 +20,14 @@ from defusedxml import ElementTree as ET
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.local_source import LocalSource
 from handler.metadata.launchbox_handler.media import (
+    _get_cover,
     _get_video,
+    _select_remote_cover,
     build_launchbox_metadata,
     build_rom,
     populate_rom_specific_paths,
     remote_media_req,
+    rom_region_shortcodes,
 )
 from handler.metadata.launchbox_handler.platforms import get_platform
 from handler.metadata.launchbox_handler.remote_source import RemoteSource
@@ -40,6 +43,7 @@ from handler.metadata.launchbox_handler.types import (
 )
 from handler.metadata.launchbox_handler.utils import (
     coalesce,
+    launchbox_region_to_shortcode,
     parse_playmode,
     parse_release_date,
     parse_videourl,
@@ -882,6 +886,72 @@ class TestRemoteMediaReq:
             remote_enabled=True,
         )
         assert req.platform_name is None
+
+
+class TestRegionAwareCover:
+    """Regression tests for #3706: remote cover art should match the ROM region."""
+
+    def _image(self, file_name: str, region: str, type_: str = "Box - Front") -> dict:
+        return {"FileName": file_name, "Type": type_, "Region": region}
+
+    def _req(self, images: list[dict], shortcodes: tuple[str, ...]) -> MediaRequest:
+        return MediaRequest(
+            platform_name=None,
+            fs_name="",
+            title="",
+            region_hint=None,
+            remote_images=images,
+            remote_enabled=True,
+            region_shortcodes=shortcodes,
+        )
+
+    def test_launchbox_region_to_shortcode(self):
+        assert launchbox_region_to_shortcode("North America") == "us"
+        assert launchbox_region_to_shortcode("Europe") == "eu"
+        assert launchbox_region_to_shortcode("Japan") == "jp"
+        assert launchbox_region_to_shortcode("World") == "wor"
+        assert launchbox_region_to_shortcode("United Kingdom") == "uk"
+        assert launchbox_region_to_shortcode("") is None
+        assert launchbox_region_to_shortcode(None) is None
+
+    def test_select_prefers_region_match_within_type(self):
+        images = [
+            self._image("eu.png", "Europe"),
+            self._image("us.png", "North America"),
+        ]
+        # USA rom must pick the North America box, not the first (EU) one.
+        best = _select_remote_cover(images, ("us", "eu"))
+        assert best is not None and best["FileName"] == "us.png"
+
+    def test_select_falls_back_to_first_without_region_info(self):
+        images = [
+            self._image("eu.png", "Europe"),
+            self._image("us.png", "North America"),
+        ]
+        best = _select_remote_cover(images, ())
+        assert best is not None and best["FileName"] == "eu.png"
+
+    def test_select_type_priority_beats_region(self):
+        images = [
+            self._image("us-3d.png", "North America", type_="Box - 3D"),
+            self._image("eu-front.png", "Europe", type_="Box - Front"),
+        ]
+        # A same-region "Box - 3D" must not win over a higher-priority "Box - Front".
+        best = _select_remote_cover(images, ("us", "eu"))
+        assert best is not None and best["FileName"] == "eu-front.png"
+
+    def test_get_cover_uses_region_shortcodes(self):
+        # The 007: Nightfire (USA) scenario: two Box - Front covers, EU listed first.
+        images = [
+            self._image("nightfire-eu.png", "Europe"),
+            self._image("nightfire-us.png", "North America"),
+        ]
+        cover = _get_cover(self._req(images, ("us", "wor", "eu")))
+        assert cover == "https://images.launchbox-app.com/nightfire-us.png"
+
+    def test_rom_region_shortcodes_from_filename(self):
+        codes = rom_region_shortcodes("007 - Nightfire (USA).chd")
+        assert codes[0] == "us"
 
 
 class TestRemoteMatchLocalImages:
