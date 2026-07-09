@@ -925,11 +925,13 @@ class TestRegionAwareCover:
 
     def test_select_falls_back_to_first_without_region_info(self):
         images = [
-            self._image("eu.png", "Europe"),
-            self._image("us.png", "North America"),
+            self._image("first.png", ""),
+            self._image("second.png", ""),
         ]
-        best = _select_remote_cover(images, ())
-        assert best is not None and best["FileName"] == "eu.png"
+        # With preferred regions present but no usable Region data on images,
+        # selection should fall back to the first image (preserves prior behavior).
+        best = _select_remote_cover(images, ("us",))
+        assert best is not None and best["FileName"] == "first.png"
 
     def test_select_type_priority_beats_region(self):
         images = [
