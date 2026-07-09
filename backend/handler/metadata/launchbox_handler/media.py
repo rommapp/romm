@@ -68,6 +68,9 @@ def rom_region_shortcodes(fs_name: str) -> tuple[str, ...]:
         key=lambda code: priority.index(code) if code in priority else len(priority)
     )
 
+    if not rom_codes:
+        return ()
+
     return tuple(dict.fromkeys(rom_codes + priority))
 
 
