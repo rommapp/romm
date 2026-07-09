@@ -9,6 +9,7 @@ from handler.metadata import (
     meta_moby_handler,
     meta_playmatch_handler,
     meta_ra_handler,
+    meta_sgdb_handler,
     meta_ss_handler,
 )
 from handler.metadata.hasheous_handler import HasheousRom
@@ -625,3 +626,86 @@ async def test_scan_rom_provider_error_does_not_discard_others(
     # MobyGames blew up, but ScreenScraper's match survived.
     assert result.ss_id == 321
     assert result.moby_id is None
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_sgdb_handler, "get_details_by_names", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_sgdb_error_does_not_abort_scan(
+    mock_ss_lookup, mock_sgdb_details, mock_playmatch_enabled
+):
+    """SteamGridDB runs after the other providers; a failure there (issue #2236)
+    must not abort the scan or discard the metadata already gathered."""
+    mock_ss_lookup.return_value = (SSRom(ss_id=321, name="Match"), False)
+    mock_sgdb_details.side_effect = ValueError("boom")
+
+    platform = _ss_quota_platform()
+    rom = db_rom_handler.add_rom(
+        Rom(platform_id=platform.id, fs_name="game.sfc", fs_path="snes", tags=[])
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("game.sfc"),
+            metadata_sources=[MetadataSource.SS, MetadataSource.SGDB],
+            newly_added=True,
+        )
+
+    # SteamGridDB was attempted and blew up, but the ROM kept ScreenScraper's match.
+    mock_sgdb_details.assert_awaited_once()
+    assert type(result) is Rom
+    assert result.ss_id == 321
+    assert result.sgdb_id is None
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_hash_match_error_does_not_abort_scan(
+    mock_ss_lookup,
+    mock_hasheous_lookup,
+    mock_hasheous_igdb,
+    mock_hasheous_ra,
+    mock_playmatch_enabled,
+):
+    """A failure in the concurrent hash-match step (e.g. Hasheous unreachable,
+    issue #2236) must not abort the scan for the ROM."""
+    mock_hasheous_lookup.side_effect = ValueError("boom")
+    mock_hasheous_igdb.return_value = {}
+    mock_hasheous_ra.return_value = {}
+    mock_ss_lookup.return_value = (SSRom(ss_id=321, name="Match"), False)
+
+    platform = db_platform_handler.add_platform(
+        Platform(
+            id=1,
+            slug="snes",
+            fs_slug="snes",
+            name="Super Nintendo",
+            ss_id=4,
+            hasheous_id=7,
+        )
+    )
+    rom = db_rom_handler.add_rom(
+        Rom(platform_id=platform.id, fs_name="game.sfc", fs_path="snes", tags=[])
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("game.sfc"),
+            metadata_sources=[MetadataSource.HASHEOUS, MetadataSource.SS],
+            newly_added=True,
+        )
+
+    # The Hasheous hash lookup raised, but ScreenScraper still identified the ROM.
+    mock_hasheous_lookup.assert_awaited_once()
+    assert type(result) is Rom
+    assert result.ss_id == 321
+    assert result.hasheous_id is None

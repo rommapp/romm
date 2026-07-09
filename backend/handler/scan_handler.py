@@ -1,6 +1,7 @@
 import asyncio
 import enum
 import functools
+from collections.abc import Awaitable, Sequence
 from typing import Any
 
 import socketio  # type: ignore
@@ -159,6 +160,34 @@ def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
         db_rom_handler.upsert_track_meta(
             rom_file.id, rom.id, {"cover_path": cover_path}
         )
+
+
+async def _gather_provider_fetches(
+    fetches: Sequence[tuple[Awaitable[Any], Any]],
+    fs_name: str,
+) -> list[Any]:
+    """Run provider fetches concurrently, swapping any that raise for their
+    fallback so one provider failing never discards the others' results."""
+    results = await asyncio.gather(
+        *(coro for coro, _ in fetches), return_exceptions=True
+    )
+
+    resolved: list[Any] = []
+    for (_, fallback), result in zip(fetches, results, strict=True):
+        if isinstance(result, BaseException):
+            # Never swallow cancellation or other non-Exception signals.
+            if not isinstance(result, Exception):
+                raise result
+            log.error(
+                f"Error fetching {hl(fallback.__class__.__name__)} metadata for "
+                f"{hl(fs_name)}: {result}",
+                extra=LOGGER_MODULE_NAME,
+            )
+            resolved.append(fallback)
+        else:
+            resolved.append(result)
+
+    return resolved
 
 
 async def scan_platform(
@@ -466,13 +495,36 @@ async def scan_rom(
             },
         )
 
-    # Run hash fetches concurrently
+    # Run hash fetches concurrently. One provider raising must not discard the
+    # other's result for this ROM, so each failure falls back to an empty match.
     (
         playmatch_hash_match,
         hasheous_hash_match,
-    ) = await asyncio.gather(
-        fetch_playmatch_hash_match(),
-        fetch_hasheous_hash_match(),
+    ) = await _gather_provider_fetches(
+        (
+            (
+                fetch_playmatch_hash_match(),
+                PlaymatchRomMatch(
+                    igdb_id=None,
+                    moby_id=None,
+                    ss_id=None,
+                    launchbox_id=None,
+                    sgdb_id=None,
+                    ra_id=None,
+                    hasheous_id=None,
+                    tgdb_id=None,
+                    flashpoint_id=None,
+                    hltb_id=None,
+                    libretro_id=None,
+                    gamelist_id=None,
+                ),
+            ),
+            (
+                fetch_hasheous_hash_match(),
+                HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None),
+            ),
+        ),
+        str(rom_attrs["fs_name"]),
     )
 
     async def fetch_igdb_rom(
@@ -838,23 +890,9 @@ async def scan_rom(
         (fetch_gamelist_rom(), GamelistRom(gamelist_id=None)),
         (fetch_libretro_rom(), LibretroRom(libretro_id=None)),
     )
-    fetch_results = await asyncio.gather(
-        *(coro for coro, _ in provider_fetches), return_exceptions=True
+    resolved = await _gather_provider_fetches(
+        provider_fetches, str(rom_attrs["fs_name"])
     )
-
-    resolved: list[Any] = []
-    for (_, fallback), result in zip(provider_fetches, fetch_results, strict=True):
-        if isinstance(result, BaseException):
-            if not isinstance(result, Exception):
-                raise result
-            provider = fallback.__class__.__name__
-            log.error(
-                f"Error fetching {hl(provider)} metadata for {hl(rom_attrs['fs_name'])}: {result}",
-                extra=LOGGER_MODULE_NAME,
-            )
-            resolved.append(fallback)
-        else:
-            resolved.append(result)
 
     (
         igdb_handler_rom,
@@ -1084,7 +1122,12 @@ async def scan_rom(
 
         return SGDBRom(sgdb_id=None)
 
-    sgdb_hander_rom = await fetch_sgdb_details(playmatch_hash_match)
+    # SteamGridDB runs after the other providers (it reuses their resolved
+    # names), so a failure here must not discard the metadata already gathered.
+    (sgdb_hander_rom,) = await _gather_provider_fetches(
+        ((fetch_sgdb_details(playmatch_hash_match), SGDBRom(sgdb_id=None)),),
+        str(rom_attrs["fs_name"]),
+    )
     if sgdb_hander_rom.get("sgdb_id"):
         rom_attrs["sgdb_id"] = sgdb_hander_rom["sgdb_id"]
 
