@@ -43,6 +43,8 @@
   "config-file-not-mounted-title": "Konfigurační soubor není připojen!",
   "config-file-not-writable-desc": "Soubor config.yml nelze zapisovat. Veškeré změny provedené v konfiguraci se po restartování aplikace neuchovají.",
   "config-file-not-writable-title": "Konfigurační soubor nelze zapisovat!",
+  "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
+  "config-file-parse-error-title": "Configuration file could not be parsed!",
   "config-tab": "Konfigurace",
   "confirm-delete-mapping": "Potvrzujete?",
   "continue-playing-as-grid": "Pokračovat ve hraní jako mřížka",

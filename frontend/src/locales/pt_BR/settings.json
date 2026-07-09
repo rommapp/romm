@@ -43,6 +43,8 @@
   "config-file-not-mounted-title": "Arquivo de configuração não montado!",
   "config-file-not-writable-desc": "O arquivo config.yml não é gravável. Qualquer alteração feita na configuração não persistirá após o reinício da aplicação.",
   "config-file-not-writable-title": "Arquivo de configuração não gravável!",
+  "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
+  "config-file-parse-error-title": "Configuration file could not be parsed!",
   "config-tab": "Configuração",
   "confirm-delete-mapping": "Você confirma?",
   "continue-playing-as-grid": "Continuar jogando como grade",

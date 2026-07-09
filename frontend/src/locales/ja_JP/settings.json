@@ -43,6 +43,8 @@
   "config-file-not-mounted-title": "設定ファイルがマウントされていません！",
   "config-file-not-writable-desc": "config.ymlファイルは書き込み不可です。設定に加えられた変更は、アプリケーションの再起動後に保持されません。",
   "config-file-not-writable-title": "設定ファイルが書き込み不可です！",
+  "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
+  "config-file-parse-error-title": "Configuration file could not be parsed!",
   "config-tab": "設定",
   "confirm-delete-mapping": "確認しますか？",
   "continue-playing-as-grid": "プレイを継続をグリッドで表示",

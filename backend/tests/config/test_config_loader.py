@@ -160,6 +160,42 @@ def test_malformed_yaml_falls_back_to_defaults():
     assert loader.config.ROMS_FOLDER_NAME == "roms"
     assert loader.config.FIRMWARE_FOLDER_NAME == "bios"
     assert loader.config.SCAN_MEDIA == ["box2d", "screenshot", "manual"]
+    # The parse error is surfaced so the UI can warn the user their whole
+    # config (not just the broken part) was discarded.
+    assert loader.config.CONFIG_FILE_PARSE_ERROR is not None
+
+
+def test_valid_config_has_no_parse_error():
+    """A syntactically valid config should not report a parse error."""
+    loader = ConfigManager(
+        os.path.join(Path(__file__).resolve().parent, "fixtures", "config/config.yml")
+    )
+
+    assert loader.config.CONFIG_FILE_PARSE_ERROR is None
+
+
+def test_mixed_gamelist_syntax_surfaces_parse_error(tmp_path):
+    """Regression for #3708: mixing the old (`scan.export`) and new
+    (`scan.gamelist.export`) syntax produces invalid YAML. The whole config is
+    discarded and defaults are used, so the parse error must be surfaced rather
+    than silently swallowed."""
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "scan:\n"
+        "  gamelist:\n"
+        "    export: true\n"
+        "  - gamelist_xml: true\n"
+        "  media:\n"
+        "    - box2d\n"
+        "    - video\n"
+        "    - manual\n"
+    )
+
+    loader = ConfigManager(str(config_file))
+
+    assert loader.config.CONFIG_FILE_PARSE_ERROR is not None
+    # The user's scan.media list is lost, falling back to defaults.
+    assert loader.config.SCAN_MEDIA == ["box2d", "screenshot", "manual"]
 
 
 def test_config_updates_serialize_gamelist_media_as_plain_strings(tmp_path):

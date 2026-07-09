@@ -43,6 +43,8 @@
   "config-file-not-mounted-title": "組態檔案未掛載！",
   "config-file-not-writable-desc": "config.yml 檔案不可寫。對組態所做的任何變更在應用程式重新啟動後都不會保留。",
   "config-file-not-writable-title": "組態檔案不可寫！",
+  "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
+  "config-file-parse-error-title": "Configuration file could not be parsed!",
   "config-tab": "組態",
   "confirm-delete-mapping": "確認嗎？",
   "continue-playing-as-grid": "顯示繼續遊玩卡片",

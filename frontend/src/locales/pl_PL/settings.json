@@ -43,6 +43,8 @@
   "config-file-not-mounted-title": "Plik konfiguracyjny nie jest zamontowany!",
   "config-file-not-writable-desc": "Plik config.yml nie do zapisu. Wszelkie zmiany dokonane w konfiguracji nie będą zachowywane po ponownym uruchomieniu aplikacji.",
   "config-file-not-writable-title": "Plik konfiguracyjny nie do zapisu!",
+  "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
+  "config-file-parse-error-title": "Configuration file could not be parsed!",
   "config-tab": "Konfiguracja",
   "confirm-delete-mapping": "Potwierdzasz?",
   "continue-playing-as-grid": "Kontynuuj grę w widoku siatki",

@@ -43,6 +43,8 @@
   "config-file-not-mounted-title": "Yapılandırma dosyası bağlanmamış!",
   "config-file-not-writable-desc": "config.yml dosyası yazılabilir değil. Yapılandırmada yapılan değişiklikler uygulama yeniden başlatıldıktan sonra kaybolacak.",
   "config-file-not-writable-title": "Yapılandırma dosyası yazılabilir değil!",
+  "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
+  "config-file-parse-error-title": "Configuration file could not be parsed!",
   "config-tab": "Yapılandırma",
   "confirm-delete-mapping": "Onaylıyor musunuz?",
   "continue-playing-as-grid": "Devam edilen oyunları ızgara olarak göster",

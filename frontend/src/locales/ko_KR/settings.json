@@ -43,6 +43,8 @@
   "config-file-not-mounted-title": "구성 파일이 마운트되지 않음!",
   "config-file-not-writable-desc": "config.yml 파일을 쓸 수 없습니다. 구성에 대한 모든 변경 사항은 애플리케이션이 다시 시작된 후 유지되지 않습니다.",
   "config-file-not-writable-title": "구성 파일을 쓸 수 없음!",
+  "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
+  "config-file-parse-error-title": "Configuration file could not be parsed!",
   "config-tab": "구성",
   "confirm-delete-mapping": "확인하시겠습니까?",
   "continue-playing-as-grid": "계속 플레이하기 그리드 뷰",

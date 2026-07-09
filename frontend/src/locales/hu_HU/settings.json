@@ -43,6 +43,8 @@
   "config-file-not-mounted-title": "Konfigurációs fájl nincs csatolva!",
   "config-file-not-writable-desc": "A config.yml fájl nem írható. A konfigurációban végrehajtott összes módosítás az alkalmazás újraindítása után nem marad meg.",
   "config-file-not-writable-title": "Konfigurációs fájl nem írható!",
+  "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
+  "config-file-parse-error-title": "Configuration file could not be parsed!",
   "config-tab": "Konfigurálás",
   "confirm-delete-mapping": "Megerősíted?",
   "continue-playing-as-grid": "Folytatás rácsnézetben",

@@ -43,6 +43,8 @@
   "config-file-not-mounted-title": "Конфигурационният файл не е монтиран!",
   "config-file-not-writable-desc": "Файлът config.yml не е записваем. Промените в конфигурацията няма да се запазят след рестартиране на приложението.",
   "config-file-not-writable-title": "Конфигурационният файл не е записваем!",
+  "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
+  "config-file-parse-error-title": "Configuration file could not be parsed!",
   "config-tab": "Конфигурация",
   "confirm-delete-mapping": "Потвърди?",
   "continue-playing-as-grid": "Продължи игра като решетка",
