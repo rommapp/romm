@@ -85,7 +85,7 @@ watch(
         </template>
       </v-alert>
       <v-alert
-        v-else-if="config.CONFIG_FILE_PARSE_ERROR"
+        v-if="config.CONFIG_FILE_MOUNTED && config.CONFIG_FILE_PARSE_ERROR"
         type="error"
         variant="tonal"
         class="my-2"
@@ -102,7 +102,7 @@ watch(
         </template>
       </v-alert>
       <v-alert
-        v-else-if="!config.CONFIG_FILE_WRITABLE"
+        v-if="config.CONFIG_FILE_MOUNTED && !config.CONFIG_FILE_WRITABLE"
         type="warning"
         variant="tonal"
         class="my-2"
