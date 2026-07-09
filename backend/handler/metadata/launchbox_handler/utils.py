@@ -28,7 +28,7 @@ def launchbox_region_to_shortcode(region_name: str | None) -> str | None:
     key = region_name.strip().lower()
     if key in _LAUNCHBOX_REGION_OVERRIDES:
         return _LAUNCHBOX_REGION_OVERRIDES[key]
-    return region_name_to_provider_shortcode(region_name)
+    return region_name_to_provider_shortcode(region_name.strip())
 
 
 def sanitize_filename(stem: str) -> str:
