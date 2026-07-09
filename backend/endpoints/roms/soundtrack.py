@@ -205,7 +205,9 @@ async def add_rom_soundtracks(
             )
         else:
             log.error(f"[audio_tags] cover persist failed for {file_location}")
-            db_rom_handler.upsert_track_meta(saved.id, rom.id, {"has_embedded_cover": False})
+            db_rom_handler.upsert_track_meta(
+                saved.id, rom.id, {"has_embedded_cover": False}
+            )
 
     return Response(status_code=status.HTTP_201_CREATED)
 
