@@ -173,7 +173,6 @@ defineExpose({ open, isOver: isOverDropZone });
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 180px;
   padding: 24px 16px;
   text-align: center;
   cursor: pointer;
