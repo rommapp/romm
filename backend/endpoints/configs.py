@@ -42,7 +42,10 @@ def get_config(request: Request) -> ConfigResponse:
     return ConfigResponse(
         CONFIG_FILE_MOUNTED=cfg.CONFIG_FILE_MOUNTED,
         CONFIG_FILE_WRITABLE=cfg.CONFIG_FILE_WRITABLE,
-        CONFIG_FILE_PARSE_ERROR=cfg.CONFIG_FILE_PARSE_ERROR,
+        # Raw parser error may leak the config file path, so only send when authenticated
+        CONFIG_FILE_PARSE_ERROR=(
+            cfg.CONFIG_FILE_PARSE_ERROR if request.user.is_authenticated else None
+        ),
         EXCLUDED_PLATFORMS=cfg.EXCLUDED_PLATFORMS,
         EXCLUDED_SINGLE_EXT=cfg.EXCLUDED_SINGLE_EXT,
         EXCLUDED_SINGLE_FILES=cfg.EXCLUDED_SINGLE_FILES,
