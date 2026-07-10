@@ -9,6 +9,7 @@ name: Frontend v1 Frozen Check
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - "frontend/src/views/**"
       - "frontend/src/components/**"
