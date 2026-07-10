@@ -18,7 +18,11 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFileCategory
 from utils.audio_tags import guess_audio_media_type
-from utils.media_types import guess_media_file_type, is_allowed_media_file
+from utils.media_types import (
+    guess_media_file_type,
+    is_allowed_document_file,
+    is_allowed_media_file,
+)
 from utils.nginx import FileRedirectResponse
 from utils.router import APIRouter
 
@@ -104,12 +108,25 @@ async def get_romfile_content(
     if file.category == RomFileCategory.SOUNDTRACK:
         media_type = guess_audio_media_type(file.file_name)
         disposition = "inline"
+    elif file.category == RomFileCategory.MANUAL and is_allowed_document_file(
+        file.file_name
+    ):
+        # Only manuals are served inline as documents so the in-page viewer can
+        # render them; a game/extra file that happens to end in .pdf/.md still
+        # downloads.
+        media_type = guess_media_file_type(file.file_name)
+        disposition = "inline"
     elif is_allowed_media_file(file.file_name):
         media_type = guess_media_file_type(file.file_name)
         disposition = "inline"
     else:
         media_type = "application/octet-stream"
         disposition = "attachment"
+
+    # Inline files are served under an explicit, trusted Content-Type; nosniff
+    # keeps the browser from sniffing them into anything script-capable (e.g. a
+    # Markdown manual into HTML).
+    headers = {"X-Content-Type-Options": "nosniff"} if disposition == "inline" else {}
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
@@ -121,6 +138,7 @@ async def get_romfile_content(
             filename=file.file_name,
             media_type=media_type,
             content_disposition_type=disposition,
+            headers=headers,
         )
 
     # Otherwise proxy through nginx (which parses Range itself via X-Accel-Redirect)
@@ -128,4 +146,5 @@ async def get_romfile_content(
         download_path=Path(f"/library/{file.full_path}"),
         disposition=disposition,
         media_type=media_type,
+        headers=headers,
     )

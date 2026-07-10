@@ -72,6 +72,59 @@ def test_video_file_served_inline(
     assert r.headers["content-disposition"].startswith("inline")
 
 
+def test_pdf_manual_served_inline(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    rom = _make_rom(admin_user, platform)
+    file = _add_file(rom, "manual.pdf", RomFileCategory.MANUAL)
+
+    r = client.get(
+        f"/api/roms/{file.id}/files/content/manual.pdf",
+        headers=_auth(access_token),
+    )
+
+    assert r.status_code == status.HTTP_200_OK
+    assert r.headers["content-type"].startswith("application/pdf")
+    assert r.headers["content-disposition"].startswith("inline")
+    assert r.headers["x-content-type-options"] == "nosniff"
+
+
+def test_markdown_manual_served_inline(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    rom = _make_rom(admin_user, platform)
+    file = _add_file(rom, "manual.md", RomFileCategory.MANUAL)
+
+    r = client.get(
+        f"/api/roms/{file.id}/files/content/manual.md",
+        headers=_auth(access_token),
+    )
+
+    assert r.status_code == status.HTTP_200_OK
+    assert r.headers["content-type"].startswith("text/markdown")
+    assert r.headers["content-disposition"].startswith("inline")
+    # nosniff keeps the browser from sniffing the Markdown into HTML.
+    assert r.headers["x-content-type-options"] == "nosniff"
+
+
+def test_non_manual_document_served_as_attachment(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    # A game/extra file that happens to end in .pdf must still download; only
+    # manual-category documents are served inline.
+    rom = _make_rom(admin_user, platform)
+    file = _add_file(rom, "readme.pdf", RomFileCategory.GAME)
+
+    r = client.get(
+        f"/api/roms/{file.id}/files/content/readme.pdf",
+        headers=_auth(access_token),
+    )
+
+    assert r.status_code == status.HTTP_200_OK
+    assert r.headers["content-type"].startswith("application/octet-stream")
+    assert r.headers["content-disposition"].startswith("attachment")
+
+
 def test_rom_file_served_as_attachment(
     client: TestClient, access_token: str, admin_user: User, platform: Platform
 ):
