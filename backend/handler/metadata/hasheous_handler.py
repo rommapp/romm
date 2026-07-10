@@ -232,6 +232,12 @@ class HasheousHandler(MetadataHandler):
         )
 
     async def lookup_rom(self, platform_slug: str, files: list[RomFile]) -> HasheousRom:
+        """Identify a ROM by its file hashes.
+
+        Returns a HasheousRom with the matched IDs, or an empty match if the
+        lookup fails. The lookup is best-effort and never raises to the caller,
+        so an unreachable Hasheous can't abort a scan.
+        """
         fallback_rom = HasheousRom(
             hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None
         )
@@ -280,14 +286,18 @@ class HasheousHandler(MetadataHandler):
             )
             return fallback_rom
 
-        hasheous_game = await self._request(
-            self.games_endpoint,
-            params={
-                "returnAllSources": "true",
-                "returnFields": "Signatures, Metadata, Attributes",
-            },
-            data=data,
-        )
+        try:
+            hasheous_game = await self._request(
+                self.games_endpoint,
+                params={
+                    "returnAllSources": "true",
+                    "returnFields": "Signatures, Metadata, Attributes",
+                },
+                data=data,
+            )
+        except Exception as exc:
+            log.error("Hasheous hash lookup failed, skipping: %s", exc)
+            return fallback_rom
 
         if not hasheous_game:
             return fallback_rom
