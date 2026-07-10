@@ -133,19 +133,6 @@ const ids = {
 
       <span class="r-v2-pdfv__spacer" />
 
-      <RTooltip :text="t('common.zoom-in')">
-        <template #activator="{ props: activator }">
-          <button
-            :id="ids.zoomIn"
-            v-bind="activator"
-            type="button"
-            class="r-v2-pdfv__btn"
-          >
-            <RIcon icon="mdi-magnify-plus-outline" size="18" />
-          </button>
-        </template>
-      </RTooltip>
-
       <RTooltip :text="t('common.zoom-out')">
         <template #activator="{ props: activator }">
           <button
@@ -155,6 +142,19 @@ const ids = {
             class="r-v2-pdfv__btn"
           >
             <RIcon icon="mdi-magnify-minus-outline" size="18" />
+          </button>
+        </template>
+      </RTooltip>
+
+      <RTooltip :text="t('common.zoom-in')">
+        <template #activator="{ props: activator }">
+          <button
+            :id="ids.zoomIn"
+            v-bind="activator"
+            type="button"
+            class="r-v2-pdfv__btn"
+          >
+            <RIcon icon="mdi-magnify-plus-outline" size="18" />
           </button>
         </template>
       </RTooltip>
@@ -221,10 +221,9 @@ const ids = {
   flex-direction: column;
   /* Fills the parent container exactly — height comes from the chain
      `.r-v2-det__panel → .r-v2-media → .r-v2-media__panel →
-     .r-v2-media__viewer`, all flex-sized. The viewer never overflows
+     .r-v2-manual__viewer`, all flex-sized. The viewer never overflows
      so the only visible scroll is the PDF's own internal one. */
   height: 100%;
-  min-height: 0;
 }
 
 /* Toolbar inherits the parent's bg-elevated — no separate background

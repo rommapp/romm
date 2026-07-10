@@ -396,11 +396,10 @@ async function deleteSoundtrack(fileId: number) {
              act on the currently displayed entry, so colocating them
              with Download reads as one action cluster. -->
         <header
-          v-if="manualEntries.length > 0"
+          v-if="manualEntries.length > 1"
           class="r-v2-media__section-head"
         >
           <RSelect
-            v-if="manualEntries.length > 1"
             v-model="selectedManualId"
             :items="manualItems"
             density="compact"
@@ -408,16 +407,6 @@ async function deleteSoundtrack(fileId: number) {
             hide-details
             class="r-v2-media__manual-select"
           />
-          <div class="r-v2-media__section-actions">
-            <RBtn
-              variant="outlined"
-              size="small"
-              prepend-icon="mdi-cloud-upload-outline"
-              @click="manualDz?.open()"
-            >
-              {{ t("common.upload") }}
-            </RBtn>
-          </div>
         </header>
 
         <RDropzone
@@ -443,42 +432,41 @@ async function deleteSoundtrack(fileId: number) {
           </template>
         </RDropzone>
 
+        <template v-if="selectedManual">
+          <div class="r-v2-manual__viewer">
+            <MarkdownViewer
+              v-if="selectedManual.kind === 'md'"
+              :key="`${selectedManual.id}-${rom.updated_at}-md`"
+              :url="selectedManual.url"
+              deletable
+              :redownloadable="!!rom.url_manual"
+              :redownloading="redownloadingManual"
+              @delete="requestDeleteManual"
+              @redownload="redownloadManual"
+            />
+            <PdfViewer
+              v-else
+              :key="`${selectedManual.id}-${rom.updated_at}-pdf`"
+              :pdf-url="selectedManual.url"
+              deletable
+              :redownloadable="!!rom.url_manual"
+              :redownloading="redownloadingManual"
+              @delete="requestDeleteManual"
+              @redownload="redownloadManual"
+            />
+          </div>
+        </template>
+
         <RDropzone
-          v-else
+          v-if="manualEntries.length > 0"
           ref="manualDz"
-          overlay
           class="r-v2-media__fill"
           :release-label="t('common.dropzone-drag-over')"
           :input-label="t('rom.upload-manual')"
           accept="application/pdf,.md"
           multiple
           @files="handleManualFiles"
-        >
-          <div class="r-v2-media__viewer">
-            <template v-if="selectedManual">
-              <MarkdownViewer
-                v-if="selectedManual.kind === 'md'"
-                :key="`${selectedManual.id}-${rom.updated_at}`"
-                :url="selectedManual.url"
-                deletable
-                :redownloadable="!!rom.url_manual"
-                :redownloading="redownloadingManual"
-                @delete="requestDeleteManual"
-                @redownload="redownloadManual"
-              />
-              <PdfViewer
-                v-else
-                :key="`${selectedManual.id}-${rom.updated_at}`"
-                :pdf-url="selectedManual.url"
-                deletable
-                :redownloadable="!!rom.url_manual"
-                :redownloading="redownloadingManual"
-                @delete="requestDeleteManual"
-                @redownload="redownloadManual"
-              />
-            </template>
-          </div>
-        </RDropzone>
+        />
       </section>
 
       <!-- Screenshots subtab — its own component (ROM / Mine / Community
@@ -673,9 +661,9 @@ html[data-bp~="xs"] .r-v2-media__sidebar {
 
 /* Manual viewer — fills the available panel height so the inner PDF
    uses 100% and only its own scroll triggers (no outer panel scroll). */
-.r-v2-media__viewer {
+.r-v2-manual__viewer {
   flex: 1;
-  min-height: 0;
+  min-height: 30rem;
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
   overflow: hidden;
