@@ -127,6 +127,9 @@ async function confirmFolderConversionIfNeeded(): Promise<boolean> {
 }
 
 // ---------- Upload / refresh plumbing ----------
+// The filled viewer is wrapped in an overlay RDropzone (drag files onto the
+// manual to add another); the header's Upload button opens its picker.
+const manualDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const redownloadingManual = ref(false);
 
 async function refreshRom() {
@@ -186,10 +189,12 @@ function requestDeleteManual() {
   <div class="r-v2-manual">
     <!-- The subtab label in the sidebar already names the section, so the
          header skips a redundant title and just hosts the entry selector
-         (when multiple). Delete and Redownload live inside the viewer's
-         toolbar — they act on the currently displayed entry. -->
-    <header v-if="manualEntries.length > 1" class="r-v2-manual__head">
+         (when multiple) + the Upload button. Delete and Redownload live
+         inside the viewer's toolbar; they act on the currently displayed
+         entry. -->
+    <header v-if="manualEntries.length > 0" class="r-v2-manual__head">
       <RSelect
+        v-if="manualEntries.length > 1"
         v-model="selectedManualId"
         :items="manualItems"
         density="compact"
@@ -197,6 +202,16 @@ function requestDeleteManual() {
         hide-details
         class="r-v2-manual__select"
       />
+      <div class="r-v2-manual__actions">
+        <RBtn
+          variant="outlined"
+          size="small"
+          prepend-icon="mdi-cloud-upload-outline"
+          @click="manualDz?.open()"
+        >
+          {{ t("common.upload") }}
+        </RBtn>
+      </div>
     </header>
 
     <RDropzone
@@ -222,7 +237,17 @@ function requestDeleteManual() {
       </template>
     </RDropzone>
 
-    <template v-if="selectedManual">
+    <RDropzone
+      v-if="selectedManual"
+      ref="manualDz"
+      overlay
+      class="r-v2-manual__fill"
+      :release-label="t('common.dropzone-drag-over')"
+      :input-label="t('rom.upload-manual')"
+      accept="application/pdf,.md"
+      multiple
+      @files="handleManualFiles"
+    >
       <div class="r-v2-manual__viewer">
         <MarkdownViewer
           v-if="selectedManual.kind === 'md'"
@@ -245,7 +270,7 @@ function requestDeleteManual() {
           @redownload="redownloadManual"
         />
       </div>
-    </template>
+    </RDropzone>
   </div>
 </template>
 
@@ -261,7 +286,8 @@ function requestDeleteManual() {
   scrollbar-color: var(--r-color-border-strong) transparent;
 }
 
-/* Header — hosts the manual entry selector (when more than one manual). */
+/* Header — hosts the manual entry selector (when more than one manual) and
+   the Upload button, pushed to the right. */
 .r-v2-manual__head {
   display: flex;
   align-items: center;
@@ -276,21 +302,31 @@ function requestDeleteManual() {
   min-width: 200px;
   flex-shrink: 1;
 }
+.r-v2-manual__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Overlay-mode RDropzone wrapping the viewer must fill the panel height so
+   the inner viewer can stretch to 100%. The min-height keeps the flex chain
+   from collapsing the viewer to zero. */
+.r-v2-manual__fill {
+  flex: 1;
+  min-height: 30rem;
+  display: flex;
+  flex-direction: column;
+}
 
 /* Viewer — fills the available panel height so the inner PDF / Markdown uses
    100% and only its own scroll triggers. */
 .r-v2-manual__viewer {
   flex: 1;
+  min-height: 0;
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
   overflow: hidden;
   background: var(--r-color-bg-elevated);
-}
-
-.r-v2-manual__fill {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
 }
 </style>
