@@ -107,6 +107,7 @@ class NetplayICEServer(TypedDict):
 class Config:
     CONFIG_FILE_MOUNTED: bool
     CONFIG_FILE_WRITABLE: bool
+    CONFIG_FILE_PARSE_ERROR: str | None
     EXCLUDED_PLATFORMS: list[str]
     EXCLUDED_SINGLE_EXT: list[str]
     EXCLUDED_SINGLE_FILES: list[str]
@@ -174,6 +175,7 @@ class ConfigManager:
     _raw_config: dict = {}
     _config_file_mounted: bool = False
     _config_file_writable: bool = False
+    _config_file_parse_error: str | None = None
 
     def __new__(cls, *args, **kwargs):
         if cls._self is None:
@@ -208,13 +210,18 @@ class ConfigManager:
         """Load YAML, falling back to an empty config on syntax errors so the
         app can still boot with defaults rather than crashing."""
         try:
-            return yaml.load(cf, Loader=SafeLoader) or {}
+            config = yaml.load(cf, Loader=SafeLoader) or {}
+            self._config_file_parse_error = None
+            return config
         except yaml.YAMLError as exc:
             log.critical(
                 f"Failed to parse {hl(self.config_file, BLUE)}: {exc}. "
                 "Falling back to default configuration, fix the YAML "
                 "syntax to apply your settings."
             )
+            # Keep the error around so it can be surfaced in the UI, since the
+            # whole config (not just the broken part) is discarded here.
+            self._config_file_parse_error = str(exc)
             return {}
 
     def _create_missing_config_file(self) -> None:
@@ -230,6 +237,7 @@ class ConfigManager:
             # Reset any previously loaded singleton state so parsing reflects
             # the newly created empty config file.
             self._raw_config = {}
+            self._config_file_parse_error = None
             self._config_file_mounted = True
             self._config_file_writable = os.access(self.config_file, os.W_OK)
         except PermissionError:
@@ -287,6 +295,7 @@ class ConfigManager:
         self.config = Config(
             CONFIG_FILE_MOUNTED=self._config_file_mounted,
             CONFIG_FILE_WRITABLE=self._config_file_writable,
+            CONFIG_FILE_PARSE_ERROR=self._config_file_parse_error,
             EXCLUDED_PLATFORMS=sorted(
                 {
                     *DEFAULT_EXCLUDED_DIRS,
@@ -723,6 +732,8 @@ class ConfigManager:
                 self._raw_config = self._safe_load_yaml(config_file)
         except FileNotFoundError:
             log.debug("Config file not found!")
+            # No file to parse, so clear any stale parse error from a prior load.
+            self._config_file_parse_error = None
 
         self._parse_config()
         self._validate_config()

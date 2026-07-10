@@ -43,6 +43,8 @@
   "config-file-not-mounted-title": "Konfigurationsdatei nicht eingebunden!",
   "config-file-not-writable-desc": "Die config.yml-Datei ist nicht beschreibbar. Alle an der Konfiguration vorgenommenen Änderungen werden nach dem Neustart der Anwendung nicht beibehalten.",
   "config-file-not-writable-title": "Konfigurationsdatei nicht beschreibbar!",
+  "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
+  "config-file-parse-error-title": "Configuration file could not be parsed!",
   "config-tab": "Konfiguration",
   "confirm-delete-mapping": "Bestätigen Sie?",
   "continue-playing-as-grid": "Weiterspielen als Raster",

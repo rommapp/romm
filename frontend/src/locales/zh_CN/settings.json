@@ -43,6 +43,8 @@
   "config-file-not-mounted-title": "配置文件未挂载！",
   "config-file-not-writable-desc": "config.yml 文件不可写。对配置所做的任何更改在应用程序重新启动后都不会保留。",
   "config-file-not-writable-title": "配置文件不可写！",
+  "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
+  "config-file-parse-error-title": "Configuration file could not be parsed!",
   "config-tab": "配置",
   "confirm-delete-mapping": "确认吗？",
   "continue-playing-as-grid": "继续游玩（网格）",
