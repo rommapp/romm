@@ -72,6 +72,40 @@ def _check_content_type(
     return True
 
 
+# Some providers (notably ScreenScraper) serve a solid chroma-key green square
+# as a stand-in when a requested image doesn't exist. Persisting it would paint
+# a bright green cover or 3D-box face, so we detect and drop it instead.
+_CHROMA_KEY_GREEN = (0, 255, 0)
+_CHROMA_KEY_TOLERANCE = 24
+_CHROMA_KEY_COVERAGE = 0.9
+
+
+def _is_chroma_key_placeholder(image_path: Path) -> bool:
+    """True if the image is (almost) entirely a chroma-key green fill."""
+    try:
+        with Image.open(image_path) as img:
+            sample = img.convert("RGB")
+            sample.thumbnail((32, 32))  # cheap: sample a downscaled copy
+            raw = sample.tobytes()  # flat RGB triples
+    except (UnidentifiedImageError, OSError, ValueError):
+        return False
+
+    total = len(raw) // 3
+    if total == 0:
+        return False
+
+    r0, g0, b0 = _CHROMA_KEY_GREEN
+    green = 0
+    for i in range(0, total * 3, 3):
+        if (
+            abs(raw[i] - r0) <= _CHROMA_KEY_TOLERANCE
+            and abs(raw[i + 1] - g0) <= _CHROMA_KEY_TOLERANCE
+            and abs(raw[i + 2] - b0) <= _CHROMA_KEY_TOLERANCE
+        ):
+            green += 1
+    return green / total >= _CHROMA_KEY_COVERAGE
+
+
 class FSResourcesHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=RESOURCES_BASE_PATH)
@@ -110,6 +144,22 @@ class FSResourcesHandler(FSHandler):
 
         small_img.save(save_path)
 
+    async def _discard_if_chroma_key(self, relative_path: str) -> bool:
+        """Remove a just-downloaded image if it's a chroma-key placeholder.
+
+        Returns True when the file was discarded, so callers can treat the
+        artwork as missing (falling back to the dark placeholder).
+        """
+        if not await self.file_exists(relative_path):
+            return False
+
+        if not _is_chroma_key_placeholder(self.validate_path(relative_path)):
+            return False
+
+        log.debug(f"Discarding chroma-key placeholder image {relative_path}")
+        await self.remove_file(relative_path)
+        return True
+
     async def _store_cover(
         self, entity: Rom | Collection, url_cover: str, size: CoverSize
     ) -> None:
@@ -135,6 +185,9 @@ class FSResourcesHandler(FSHandler):
                 # Small-size covers get resized in place, which would mutate
                 # the user's source image if the destination were a hardlink.
                 await self.copy_file(resolved, dest_path, allow_link=False)
+
+                if await self._discard_if_chroma_key(dest_path):
+                    return None
 
                 if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
                     self.image_converter.convert_to_webp(
@@ -176,6 +229,11 @@ class FSResourcesHandler(FSHandler):
                                 # Content is not gzipped, stream directly
                                 async for chunk in response.aiter_raw():
                                     await f.write(chunk)
+
+                        if await self._discard_if_chroma_key(
+                            f"{cover_file}/{size.value}.png"
+                        ):
+                            return None
 
                         if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
                             self.image_converter.convert_to_webp(
@@ -551,48 +609,52 @@ class FSResourcesHandler(FSHandler):
         return os.path.join("roms", str(platform_id), str(rom_id), media_type.value)
 
     async def store_media_file(self, url_media: str, dest_path: str) -> None:
-        httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(dest_path)
 
         if await self.file_exists(dest_path):
             log.debug(f"Media file {dest_path} already exists, skipping download")
-            return
-
-        # Ensure destination directory exists
-        await self.make_directory(directory)
-
-        # Handle local-file URIs from metadata handlers (gamelist, LaunchBox)
-        if url_media.startswith(LOCAL_FILE_SCHEMES):
-            try:
-                resolved = _resolve_local_file_uri(url_media)
-                if resolved is not None and await AnyioPath(resolved).exists():
-                    await self.copy_file(resolved, dest_path, allow_link=True)
-            except Exception as exc:
-                log.error(f"Unable to copy media file {url_media}: {str(exc)}")
-                return None
         else:
-            # Handle HTTP URLs
-            httpx_client = ctx_httpx_client.get()
-            try:
-                async with httpx_client.stream(
-                    "GET", url_media, timeout=120
-                ) as response:
-                    if response.status_code == status.HTTP_200_OK:
-                        if not _check_content_type(
-                            response,
-                            ("image/", "video/", "application/pdf"),
-                            "media",
-                        ):
-                            return None
+            # Ensure destination directory exists
+            await self.make_directory(directory)
 
-                        async with await self.write_file_streamed(
-                            path=directory, filename=filename
-                        ) as f:
-                            async for chunk in response.aiter_raw():
-                                await f.write(chunk)
-            except httpx.TransportError as exc:
-                log.error(f"Unable to fetch media file at {url_media}: {str(exc)}")
-                return None
+            # Handle local-file URIs from metadata handlers (gamelist, LaunchBox)
+            if url_media.startswith(LOCAL_FILE_SCHEMES):
+                try:
+                    resolved = _resolve_local_file_uri(url_media)
+                    if resolved is not None and await AnyioPath(resolved).exists():
+                        await self.copy_file(resolved, dest_path, allow_link=True)
+                except Exception as exc:
+                    log.error(f"Unable to copy media file {url_media}: {str(exc)}")
+                    return None
+            else:
+                # Handle HTTP URLs
+                httpx_client = ctx_httpx_client.get()
+                try:
+                    async with httpx_client.stream(
+                        "GET", url_media, timeout=120
+                    ) as response:
+                        if response.status_code == status.HTTP_200_OK:
+                            if not _check_content_type(
+                                response,
+                                ("image/", "video/", "application/pdf"),
+                                "media",
+                            ):
+                                return None
+
+                            async with await self.write_file_streamed(
+                                path=directory, filename=filename
+                            ) as f:
+                                async for chunk in response.aiter_raw():
+                                    await f.write(chunk)
+                except httpx.TransportError as exc:
+                    log.error(f"Unable to fetch media file at {url_media}: {str(exc)}")
+                    return None
+
+        # Drop ScreenScraper's green "missing art" placeholder so a box face
+        # (box-2D-back / box-2D-side) falls back to the dark placeholder rather
+        # than rendering bright green. Runs for pre-existing files too, cleaning
+        # them up on rescan.
+        await self._discard_if_chroma_key(dest_path)
 
     async def remove_media_resources_path(
         self,
