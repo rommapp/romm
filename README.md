@@ -66,6 +66,7 @@ Here are a few projects maintained by members of our community. Please note that
 - [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by [@Covin90](https://github.com/Covin90)
 - [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
 - [romm-client][romm-client]: Desktop client by [@chaun14](https://github.com/chaun14)
+- [Freegosy][freegosy]: All-in-one game manager (download, launch, sync saves, and manage emulators) by [@abduznik](https://github.com/abduznik)
 
 ### Handhelds
 
@@ -142,6 +143,7 @@ Here are a few projects that we think you might like:
 [romm-client]: https://github.com/chaun14/romm-client
 [romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
 [rommate]: https://github.com/brenoprata10/rommate
+[freegosy]: https://github.com/abduznik/freegosy
 [grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
 [argosy-launcher]: https://github.com/rommapp/argosy-launcher
