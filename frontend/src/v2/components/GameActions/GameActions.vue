@@ -86,6 +86,14 @@ useGridNav(rootEl, {
       variant="surface"
     />
     <GameActionBtn
+      v-if="actions.canOpenInFlashpoint.value"
+      :rom="rom"
+      action="flashpoint"
+      :size="btnSize"
+      variant="surface"
+      with-label
+    />
+    <GameActionBtn
       :rom="rom"
       action="favorite"
       :size="btnSize"
