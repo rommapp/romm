@@ -338,19 +338,9 @@ const coverSource = computed(() => {
           >
         </template>
       </i18n-t>
-      <i18n-t
-        v-if="coverSource && rom.url_cover"
-        keypath="rom.cover-art-provided-by"
-        tag="div"
-      >
+      <i18n-t v-if="coverSource" keypath="rom.cover-art-provided-by" tag="div">
         <template #source>
-          <a
-            class="overview-tab__attribution-link"
-            :href="rom.url_cover"
-            target="_blank"
-            rel="noopener"
-            >{{ coverSource }}</a
-          >
+          <span>{{ coverSource }}</span>
         </template>
       </i18n-t>
     </div>
