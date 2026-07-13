@@ -258,6 +258,18 @@ function requestDeleteManual() {
         />
       </div>
     </RDropzone>
+
+    <div v-if="manualEntries.length > 0" class="r-v2-manual__actions">
+      <RBtn
+        block
+        variant="outlined"
+        size="small"
+        prepend-icon="mdi-cloud-upload-outline"
+        @click="manualDz?.open()"
+      >
+        {{ t("common.upload") }}
+      </RBtn>
+    </div>
   </div>
 </template>
 

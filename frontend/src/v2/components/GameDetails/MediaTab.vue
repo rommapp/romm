@@ -311,6 +311,19 @@ async function deleteSoundtrack(fileId: number) {
             @delete-track="deleteSoundtrack"
           />
         </RDropzone>
+
+        <div v-if="rom.has_soundtrack" class="r-v2-media__section-head">
+          <div class="r-v2-media__section-actions">
+            <RBtn
+              variant="outlined"
+              size="small"
+              prepend-icon="mdi-cloud-upload-outline"
+              @click="soundtrackDz?.open()"
+            >
+              {{ t("common.upload") }}
+            </RBtn>
+          </div>
+        </div>
       </section>
     </div>
   </div>
