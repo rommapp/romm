@@ -407,6 +407,7 @@ function close() {
           </div>
 
           <RBtn
+            block
             variant="text"
             size="small"
             :prepend-icon="

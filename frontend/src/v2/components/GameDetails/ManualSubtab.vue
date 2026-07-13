@@ -189,12 +189,9 @@ function requestDeleteManual() {
   <div class="r-v2-manual">
     <!-- The subtab label in the sidebar already names the section, so the
          header skips a redundant title and just hosts the entry selector
-         (when multiple) + the Upload button. Delete and Redownload live
-         inside the viewer's toolbar; they act on the currently displayed
-         entry. -->
-    <header v-if="manualEntries.length > 0" class="r-v2-manual__head">
+         (when multiple). -->
+    <header v-if="manualEntries.length > 1" class="r-v2-manual__head">
       <RSelect
-        v-if="manualEntries.length > 1"
         v-model="selectedManualId"
         :items="manualItems"
         density="compact"
@@ -202,16 +199,6 @@ function requestDeleteManual() {
         hide-details
         class="r-v2-manual__select"
       />
-      <div class="r-v2-manual__actions">
-        <RBtn
-          variant="outlined"
-          size="small"
-          prepend-icon="mdi-cloud-upload-outline"
-          @click="manualDz?.open()"
-        >
-          {{ t("common.upload") }}
-        </RBtn>
-      </div>
     </header>
 
     <RDropzone
@@ -271,6 +258,18 @@ function requestDeleteManual() {
         />
       </div>
     </RDropzone>
+
+    <div v-if="manualEntries.length > 0">
+      <RBtn
+        block
+        variant="outlined"
+        size="small"
+        prepend-icon="mdi-cloud-upload-outline"
+        @click="manualDz?.open()"
+      >
+        {{ t("common.upload") }}
+      </RBtn>
+    </div>
   </div>
 </template>
 
@@ -301,12 +300,6 @@ function requestDeleteManual() {
   max-width: 360px;
   min-width: 200px;
   flex-shrink: 1;
-}
-.r-v2-manual__actions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 /* Overlay-mode RDropzone wrapping the viewer must fill the panel height so
