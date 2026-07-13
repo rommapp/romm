@@ -282,19 +282,6 @@ async function deleteSoundtrack(fileId: number) {
 
       <!-- Soundtrack subtab -->
       <section v-show="subTab === 'soundtrack'" class="r-v2-media__panel">
-        <header v-if="rom.has_soundtrack" class="r-v2-media__section-head">
-          <div class="r-v2-media__section-actions">
-            <RBtn
-              variant="outlined"
-              size="small"
-              prepend-icon="mdi-cloud-upload-outline"
-              @click="soundtrackDz?.open()"
-            >
-              {{ t("common.upload") }}
-            </RBtn>
-          </div>
-        </header>
-
         <RDropzone
           v-if="!rom.has_soundtrack"
           :title="t('rom.soundtrack-empty')"
