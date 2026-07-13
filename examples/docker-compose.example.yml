@@ -1,5 +1,6 @@
 volumes:
   mysql_data:
+  romm_data:
   romm_resources:
   romm_redis_data:
 
@@ -20,6 +21,7 @@ services:
       - STEAMGRIDDB_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
       - HASHEOUS_API_ENABLED=true # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#hasheous
     volumes:
+      - romm_data:/romm # Base data dir; named so Docker doesn't create an anonymous volume for the image's /romm VOLUME
       - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
       - romm_redis_data:/redis-data # Cached data for background tasks
       - /path/to/library:/romm/library # Your game library. Check https://docs.romm.app/latest/Getting-Started/Folder-Structure/ for more details.
