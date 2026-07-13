@@ -57,7 +57,6 @@ Here are a few projects maintained by members of our community. Please note that
 
 - 🔷 [Argosy][argosy-launcher]: Native client for installing and launching games by [@tmgast](https://github.com/tmgast)
 - [romm-ios-app][romm-ios-app]: Native iOS app by [@ilyas-hallak](https://github.com/ilyas-hallak)
-- [romm-mobile][romm-mobile]: Android (Archived) app by [@mattsays](https://github.com/mattsays)
 
 ### Desktop
 
@@ -71,7 +70,7 @@ Here are a few projects maintained by members of our community. Please note that
 ### Handhelds
 
 - 🔷 [Grout][grout]: Download client for muOS and NextUI by [@BrandonKowalski](https://github.com/BrandonKowalski)
-- [DeckyRommSync](https://github.com/danielcopper/decky-romm-sync): SteamOS downloader and syncer by [@danielcopper](https://github.com/danielcopper)
+- [DeckyRommSync][decky-romm-sync]: SteamOS downloader and syncer by [@danielcopper](https://github.com/danielcopper)
 - [SwitchRomM][switch-romm]: Homebrew NRO for Switch by [@Shalasere](https://github.com/Shalasere)
 
 ### Other
@@ -133,7 +132,7 @@ Here are a few projects that we think you might like:
 [steamgriddb-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
 [retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
-[deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
+[decky-romm-sync]: https://github.com/danielcopper/decky-romm-sync
 [switch-romm]: https://github.com/Shalasere/SwitchRomM
 [romm-browser]: https://github.com/smurflabs/RommBrowser/
 [playnite-app]: https://github.com/rommapp/playnite-plugin
