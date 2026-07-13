@@ -364,16 +364,8 @@ function getFilterValues(path: string): string[] {
               </span> </template
             >.
           </div>
-          <div v-if="rom.url_cover && coverImageSource" class="mt-1">
-            Cover art provided by
-            <a
-              :href="rom.url_cover"
-              target="_blank"
-              rel="noopener noreferrer"
-              style="color: inherit"
-            >
-              {{ coverImageSource }}</a
-            >.
+          <div v-if="coverImageSource" class="mt-1">
+            Cover art provided by {{ coverImageSource }}.
           </div>
         </v-col>
       </v-row>
