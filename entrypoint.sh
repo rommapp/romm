@@ -69,8 +69,12 @@ else
 fi
 
 # Set PYTHONPATH so RQ can find the tasks module
+# Sweep registries hourly instead of every ~10 min, using a worker class that
+# drops the noisy per-sweep "cleaning registries for queue" log line.
 PYTHONPATH="/app/backend:${PYTHONPATH-}" rq worker \
 	--path /app/backend \
+	--worker-class handler.rq_worker.RomMWorker \
+	--maintenance-interval 3600 \
 	--pid /tmp/rq_worker.pid \
 	--url "${REDIS_URL}" \
 	--logging_level "${LOGLEVEL:-INFO}" \
