@@ -57,7 +57,7 @@ Here are a few projects maintained by members of our community. Please note that
 
 - 🔷 [Argosy][argosy-launcher]: Native client for installing and launching games by [@tmgast](https://github.com/tmgast)
 - [romm-ios-app][romm-ios-app]: Native iOS app by [@ilyas-hallak](https://github.com/ilyas-hallak)
-- [romm-mobile][romm-mobile]: Android (and soon iOS) app by [@mattsays](https://github.com/mattsays)
+- [romm-mobile][romm-mobile]: Android (Archived) app by [@mattsays](https://github.com/mattsays)
 
 ### Desktop
 
@@ -71,7 +71,7 @@ Here are a few projects maintained by members of our community. Please note that
 ### Handhelds
 
 - 🔷 [Grout][grout]: Download client for muOS and NextUI by [@BrandonKowalski](https://github.com/BrandonKowalski)
-- [DeckRommSync][deck-romm-sync]: SteamOS downloader and syncer by [@PeriBluGaming](https://github.com/PeriBluGaming)
+- [DeckyRommSync](https://github.com/danielcopper/decky-romm-sync): SteamOS downloader and syncer by [@danielcopper](https://github.com/danielcopper)
 - [SwitchRomM][switch-romm]: Homebrew NRO for Switch by [@Shalasere](https://github.com/Shalasere)
 
 ### Other
