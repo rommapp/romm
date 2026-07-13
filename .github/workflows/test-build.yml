@@ -107,6 +107,9 @@ jobs:
           platforms: linux/arm64,linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           target: full-image
+          build-args: |
+            SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
+            SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
 
       # PR builds always push to GHCR only, so the image link is hardcoded to GHCR.
       - name: Comment PR with GHCR image link

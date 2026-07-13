@@ -89,6 +89,9 @@ MOBYGAMES_API_KEY: Final[str | None] = _get_env("MOBYGAMES_API_KEY")
 # SCREENSCRAPER
 SCREENSCRAPER_USER: Final[str | None] = _get_env("SCREENSCRAPER_USER")
 SCREENSCRAPER_PASSWORD: Final[str | None] = _get_env("SCREENSCRAPER_PASSWORD")
+# Developer credentials, injected at build time.
+SCREENSCRAPER_DEV_ID: Final[str | None] = _get_env("SCREENSCRAPER_DEV_ID")
+SCREENSCRAPER_DEV_PASSWORD: Final[str | None] = _get_env("SCREENSCRAPER_DEV_PASSWORD")
 
 # STEAMGRIDDB
 STEAMGRIDDB_API_KEY: Final[str | None] = _get_env("STEAMGRIDDB_API_KEY")

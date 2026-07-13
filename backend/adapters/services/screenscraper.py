@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import http
 import json
 from typing import Final, cast
@@ -10,14 +9,17 @@ from aiohttp.client import ClientTimeout
 from fastapi import HTTPException, status
 
 from adapters.services.screenscraper_types import SSGame
-from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
+from config import (
+    SCREENSCRAPER_DEV_ID,
+    SCREENSCRAPER_DEV_PASSWORD,
+    SCREENSCRAPER_PASSWORD,
+    SCREENSCRAPER_USER,
+)
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
 from utils.rate_limiter import ConcurrencyLimiter
 
-SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
-SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
 LOGIN_ERROR_CHECK: Final = "Erreur de login"
 
 # ScreenScraper enforces a per-account *thread* (concurrency) cap rather than a
@@ -82,8 +84,8 @@ async def auth_middleware(
     """ScreenScraper API authentication mechanism."""
     req.url = req.url.update_query(
         {
-            "devid": SS_DEV_ID,
-            "devpassword": SS_DEV_PASSWORD,
+            "devid": SCREENSCRAPER_DEV_ID or "",
+            "devpassword": SCREENSCRAPER_DEV_PASSWORD or "",
             "output": "json",
             "softname": "romm",
             "ssid": SCREENSCRAPER_USER or "",
