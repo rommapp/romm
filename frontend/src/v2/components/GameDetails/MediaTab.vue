@@ -312,9 +312,10 @@ async function deleteSoundtrack(fileId: number) {
           />
         </RDropzone>
 
-        <div v-if="rom.has_soundtrack" class="r-v2-media__section-head">
+        <div v-if="rom.has_soundtrack">
           <div class="r-v2-media__section-actions">
             <RBtn
+              block
               variant="outlined"
               size="small"
               prepend-icon="mdi-cloud-upload-outline"
@@ -414,15 +415,9 @@ async function deleteSoundtrack(fileId: number) {
   min-height: 0;
 }
 
-/* Section header — toolbar row. The sidebar's subtab label already
+/* Section footer. The sidebar's subtab label already
    names the section, so the header skips the title and hosts the
    contextual controls only: the action cluster pushed to the right. */
-.r-v2-media__section-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
 .r-v2-media__section-actions {
   margin-left: auto;
   display: flex;

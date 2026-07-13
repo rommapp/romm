@@ -259,7 +259,7 @@ function requestDeleteManual() {
       </div>
     </RDropzone>
 
-    <div v-if="manualEntries.length > 0" class="r-v2-manual__actions">
+    <div v-if="manualEntries.length > 0">
       <RBtn
         block
         variant="outlined"
@@ -300,12 +300,6 @@ function requestDeleteManual() {
   max-width: 360px;
   min-width: 200px;
   flex-shrink: 1;
-}
-.r-v2-manual__actions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 /* Overlay-mode RDropzone wrapping the viewer must fill the panel height so
