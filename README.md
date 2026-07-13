@@ -138,7 +138,6 @@ Here are a few projects that we think you might like:
 [playnite-app]: https://github.com/rommapp/playnite-plugin
 [ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
 [syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
-[romm-mobile]: https://github.com/mattsays/romm-mobile
 [romm-client]: https://github.com/chaun14/romm-client
 [romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
 [rommate]: https://github.com/brenoprata10/rommate
