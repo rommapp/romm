@@ -13,7 +13,7 @@ class _DropRegistryCleanupFilter(logging.Filter):
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
-        return "cleaning registries for queue" not in record.getMessage()
+        return "cleaning registries for queue" not in record.getMessage().lower()
 
 
 class RomMWorker(Worker):
