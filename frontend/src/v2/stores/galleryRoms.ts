@@ -566,26 +566,8 @@ export default defineStore("v2GalleryRoms", {
       }
     },
 
-    /** Drop ROMs by id (delete flow) from loaded metadata and windows. */
+    /** Reconcile the gallery after ROMs are deleted. */
     remove(roms: SimpleRom[]) {
-      const ids = new Set(roms.map((r) => r.id));
-      const removedIds = new Set<number>();
-
-      for (const [pos, existing] of this.byPosition) {
-        if (ids.has(existing.id)) {
-          this.byPosition.delete(pos);
-          removedIds.add(existing.id);
-        }
-      }
-
-      this.romIdIndex = this.romIdIndex.filter((id) => {
-        if (!ids.has(id)) return true;
-        removedIds.add(id);
-        return false;
-      });
-
-      this.total = Math.max(0, this.total - removedIds.size);
-
       if (this.currentPlatform) {
         const removedFromPlatform = roms.filter(
           (rom) => rom.platform_id === this.currentPlatform?.id,
@@ -597,6 +579,11 @@ export default defineStore("v2GalleryRoms", {
             this.currentPlatform.rom_count - removedFromPlatform,
           ),
         };
+      }
+
+      if (this.onGalleryView && roms.length > 0) {
+        this.invalidateWindows();
+        void this.fetchInitialMetadata();
       }
     },
   },
