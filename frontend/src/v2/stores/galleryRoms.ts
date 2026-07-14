@@ -228,33 +228,6 @@ export default defineStore("v2GalleryRoms", {
       return null;
     },
 
-    /** Add a ROM announced by the scan socket to the active gallery. */
-    addLiveRom(rom: SimpleRom) {
-      let existingPosition: number | undefined;
-      for (const [position, existing] of this.byPosition) {
-        if (existing.id === rom.id) {
-          existingPosition = position;
-          break;
-        }
-      }
-      if (existingPosition !== undefined) {
-        this.byPosition.set(existingPosition, rom);
-        return;
-      }
-
-      const position = this.total;
-      this.byPosition.set(position, rom);
-      this.total += 1;
-      this.romIdIndex.push(rom.id);
-
-      if (this.currentPlatform?.id === rom.platform_id) {
-        this.currentPlatform = {
-          ...this.currentPlatform,
-          rom_count: this.currentPlatform.rom_count + 1,
-        };
-      }
-    },
-
     /** Drop everything tied to the previous gallery context but keep
      * order-by / order-dir. Call before switching platform / collection
      * or when filters change. */

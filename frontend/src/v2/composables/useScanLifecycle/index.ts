@@ -26,7 +26,6 @@ import type { Emitter } from "mitt";
 import { inject } from "vue";
 import type { ScanStats } from "@/__generated__";
 import platformApi from "@/services/api/platform";
-import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning, { type ScanningPlatform } from "@/stores/scanning";
@@ -38,7 +37,6 @@ export function installScanLifecycle() {
   const scanningStore = storeScanning();
   const romsStore = storeRoms();
   const platformsStore = storePlatforms();
-  const galleryFilterStore = storeGalleryFilter();
   const galleryRomsStore = storeGalleryRoms();
   const emitter = inject<Emitter<Events>>("emitter");
 
@@ -91,6 +89,14 @@ export function installScanLifecycle() {
   // ROM. Queue drains every 100ms; matches the v1 behavior. Stored
   // outside the handler so multiple events share the same queue + flush.
   const romUpdateQueue: SimpleRom[] = [];
+  const refreshGallery = debounce(
+    () => {
+      galleryRomsStore.invalidateWindows();
+      void galleryRomsStore.fetchInitialMetadata();
+    },
+    250,
+    { maxWait: 1000 },
+  );
   const processRomUpdates = debounce(() => {
     if (romUpdateQueue.length === 0) return;
     const updates = romUpdateQueue.splice(0, romUpdateQueue.length);
@@ -101,13 +107,9 @@ export function installScanLifecycle() {
       romsStore.addToRecent(rom);
 
       // If the user is currently looking at the gallery of the platform
-      // being scanned, fold the new ROM into the visible list.
-      if (
-        galleryRomsStore.currentPlatform?.id === rom.platform_id &&
-        !galleryFilterStore.searchTerm &&
-        !galleryFilterStore.isFiltered()
-      ) {
-        galleryRomsStore.addLiveRom(rom);
+      // being scanned, refresh from the server to preserve sorting/filtering.
+      if (galleryRomsStore.currentPlatform?.id === rom.platform_id) {
+        refreshGallery();
       }
       if (romsStore.currentPlatform?.id === rom.platform_id) {
         const existing = romsStore.filteredRoms.find((r) => r.id === rom.id);
