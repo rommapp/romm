@@ -230,9 +230,13 @@ export default defineStore("v2GalleryRoms", {
 
     /** Add a ROM announced by the scan socket to the active gallery. */
     addLiveRom(rom: SimpleRom) {
-      const existingPosition = [...this.byPosition.entries()].find(
-        ([, existing]) => existing.id === rom.id,
-      )?.[0];
+      let existingPosition: number | undefined;
+      for (const [position, existing] of this.byPosition) {
+        if (existing.id === rom.id) {
+          existingPosition = position;
+          break;
+        }
+      }
       if (existingPosition !== undefined) {
         this.byPosition.set(existingPosition, rom);
         return;
