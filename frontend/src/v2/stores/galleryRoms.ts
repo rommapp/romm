@@ -228,6 +228,29 @@ export default defineStore("v2GalleryRoms", {
       return null;
     },
 
+    /** Add a ROM announced by the scan socket to the active gallery. */
+    addLiveRom(rom: SimpleRom) {
+      const existingPosition = [...this.byPosition.entries()].find(
+        ([, existing]) => existing.id === rom.id,
+      )?.[0];
+      if (existingPosition !== undefined) {
+        this.byPosition.set(existingPosition, rom);
+        return;
+      }
+
+      const position = this.total;
+      this.byPosition.set(position, rom);
+      this.total += 1;
+      this.romIdIndex.push(rom.id);
+
+      if (this.currentPlatform?.id === rom.platform_id) {
+        this.currentPlatform = {
+          ...this.currentPlatform,
+          rom_count: this.currentPlatform.rom_count + 1,
+        };
+      }
+    },
+
     /** Drop everything tied to the previous gallery context but keep
      * order-by / order-dir. Call before switching platform / collection
      * or when filters change. */
@@ -566,13 +589,37 @@ export default defineStore("v2GalleryRoms", {
       }
     },
 
-    /** Drop ROMs by id (delete flow). Positions become "holes" — kept
-     * sparse rather than re-indexed; the next gallery refresh closes the
-     * gaps. */
+    /** Drop ROMs by id (delete flow) from loaded metadata and windows. */
     remove(roms: SimpleRom[]) {
       const ids = new Set(roms.map((r) => r.id));
+      const removedIds = new Set<number>();
+
       for (const [pos, existing] of this.byPosition) {
-        if (ids.has(existing.id)) this.byPosition.delete(pos);
+        if (ids.has(existing.id)) {
+          this.byPosition.delete(pos);
+          removedIds.add(existing.id);
+        }
+      }
+
+      this.romIdIndex = this.romIdIndex.filter((id) => {
+        if (!ids.has(id)) return true;
+        removedIds.add(id);
+        return false;
+      });
+
+      this.total = Math.max(0, this.total - removedIds.size);
+
+      if (this.currentPlatform) {
+        const removedFromPlatform = roms.filter(
+          (rom) => rom.platform_id === this.currentPlatform?.id,
+        ).length;
+        this.currentPlatform = {
+          ...this.currentPlatform,
+          rom_count: Math.max(
+            0,
+            this.currentPlatform.rom_count - removedFromPlatform,
+          ),
+        };
       }
     },
   },

@@ -31,11 +31,13 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning, { type ScanningPlatform } from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 export function installScanLifecycle() {
   const scanningStore = storeScanning();
   const romsStore = storeRoms();
   const platformsStore = storePlatforms();
+  const galleryRomsStore = storeGalleryRoms();
   const emitter = inject<Emitter<Events>>("emitter");
 
   useSocketEvent<ScanningPlatform>(
@@ -98,6 +100,9 @@ export function installScanLifecycle() {
 
       // If the user is currently looking at the gallery of the platform
       // being scanned, fold the new ROM into the visible list.
+      if (galleryRomsStore.currentPlatform?.id === rom.platform_id) {
+        galleryRomsStore.addLiveRom(rom);
+      }
       if (romsStore.currentPlatform?.id === rom.platform_id) {
         const existing = romsStore.filteredRoms.find((r) => r.id === rom.id);
         if (existing) romsStore.update(rom);
