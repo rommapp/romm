@@ -26,6 +26,7 @@ import type { Emitter } from "mitt";
 import { inject } from "vue";
 import type { ScanStats } from "@/__generated__";
 import platformApi from "@/services/api/platform";
+import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning, { type ScanningPlatform } from "@/stores/scanning";
@@ -37,6 +38,7 @@ export function installScanLifecycle() {
   const scanningStore = storeScanning();
   const romsStore = storeRoms();
   const platformsStore = storePlatforms();
+  const galleryFilterStore = storeGalleryFilter();
   const galleryRomsStore = storeGalleryRoms();
   const emitter = inject<Emitter<Events>>("emitter");
 
@@ -100,7 +102,11 @@ export function installScanLifecycle() {
 
       // If the user is currently looking at the gallery of the platform
       // being scanned, fold the new ROM into the visible list.
-      if (galleryRomsStore.currentPlatform?.id === rom.platform_id) {
+      if (
+        galleryRomsStore.currentPlatform?.id === rom.platform_id &&
+        !galleryFilterStore.searchTerm &&
+        !galleryFilterStore.isFiltered()
+      ) {
         galleryRomsStore.addLiveRom(rom);
       }
       if (romsStore.currentPlatform?.id === rom.platform_id) {
