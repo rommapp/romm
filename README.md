@@ -49,18 +49,24 @@ To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] i
 
 To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md).
 
+## Official apps
+
+Apps and integrations built and maintained by the RomM team.
+
+- [Argosy][argosy-launcher] by [@tmgast](https://github.com/tmgast): Native Android client for installing and launching games.
+- [Grout][grout] by [@BrandonKowalski](https://github.com/BrandonKowalski): Download and manage games from your RomM instance directly on your Linux based retro handheld. Supports: Allium, Batocera, Knulli, MinUI, muOS, NextUI, Onion, ROCKNIX, Spruce, TrimUI
+- [Playnite plugin][playnite-app] by [@gantoine](https://github.com/gantoine): Library plugin for Playnite
+
 ## Community
 
 Here are a few projects maintained by members of our community. Please note that the RomM team does not regularly review their source code.
 
 ### Mobile
 
-- 🔷 [Argosy][argosy-launcher]: Native client for installing and launching games by [@tmgast](https://github.com/tmgast)
 - [romm-ios-app][romm-ios-app]: Native iOS app by [@ilyas-hallak](https://github.com/ilyas-hallak)
 
 ### Desktop
 
-- 🔷 [Playnite plugin][playnite-app]: Library plugin for Playnite by [@gantoine](https://github.com/gantoine)
 - [RommBrowser][romm-browser]: Electron client by [@smurflabs](https://github.com/smurflabs)
 - [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by [@Covin90](https://github.com/Covin90)
 - [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
@@ -69,7 +75,6 @@ Here are a few projects maintained by members of our community. Please note that
 
 ### Handhelds
 
-- 🔷 [Grout][grout]: Download client for muOS and NextUI by [@BrandonKowalski](https://github.com/BrandonKowalski)
 - [DeckyRommSync][decky-romm-sync]: SteamOS downloader and syncer by [@danielcopper](https://github.com/danielcopper)
 - [SwitchRomM][switch-romm]: Homebrew NRO for Switch by [@Shalasere](https://github.com/Shalasere)
 
@@ -78,8 +83,6 @@ Here are a few projects maintained by members of our community. Please note that
 - [romm-comm][romm-comm-discord-bot]: Discord bot by [@idio-sync](https://github.com/idio-sync)
 - [GGRequestz][ggrequestz]: Game discovery and request tool by [@XTREEMMAK](https://github.com/XTREEMMAK)
 - [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by [@amn-96](https://github.com/amn-96)
-
-[🔷] Official first-party app
 
 Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
 
