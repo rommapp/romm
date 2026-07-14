@@ -12,6 +12,7 @@ import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
@@ -19,6 +20,7 @@ const router = useRouter();
 const route = useRoute();
 const show = ref(false);
 const romsStore = storeRoms();
+const galleryRomsStore = storeGalleryRoms();
 const roms = ref<SimpleRom[]>([]);
 const romsToDeleteFromFs = ref<number[]>([]);
 const excludeOnDelete = ref(false);
@@ -74,6 +76,7 @@ async function deleteRoms() {
       }
       romsStore.resetSelection();
       romsStore.remove(roms.value);
+      galleryRomsStore.remove(roms.value);
       romsStore.setRecentRoms(
         romsStore.recentRoms.filter(
           (r) => !roms.value.some((rom) => rom.id === r.id),
