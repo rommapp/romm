@@ -67,7 +67,6 @@ Here are a few projects maintained by members of our community. Please note that
 
 ### Desktop
 
-- [RommBrowser][romm-browser]: Electron client by [@smurflabs](https://github.com/smurflabs)
 - [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by [@Covin90](https://github.com/Covin90)
 - [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
 - [romm-client][romm-client]: Desktop client by [@chaun14](https://github.com/chaun14)
@@ -137,7 +136,6 @@ Here are a few projects that we think you might like:
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
 [decky-romm-sync]: https://github.com/danielcopper/decky-romm-sync
 [switch-romm]: https://github.com/Shalasere/SwitchRomM
-[romm-browser]: https://github.com/smurflabs/RommBrowser/
 [playnite-app]: https://github.com/rommapp/playnite-plugin
 [ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
 [syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
