@@ -169,6 +169,8 @@ async def delete_rom_file(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
+    assert_rom_visible(request, rom, not_found_detail="File not found")
+
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if not rom_file or rom_file.rom_id != rom.id:
         raise HTTPException(
