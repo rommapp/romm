@@ -141,7 +141,7 @@ class PlaymatchHandler(MetadataHandler):
             if value is not None and value != ""  # drop None and ""
         }
 
-        url_with_query = yarl.URL(url).update_query(**filtered_query)
+        url_with_query = yarl.URL(url).update_query(filtered_query)
 
         log.debug(
             "API request: URL=%s, Timeout=%s",
