@@ -537,7 +537,10 @@ async function deleteSelectedFiles() {
   const platformSlug = route.params["platform"] as string | undefined;
   if (romsStore.currentRom && romsStore.currentRom.files?.length === 0) {
     if (platformSlug) {
-      await router.push({ name: "platform", params: { platform: platformSlug } });
+      await router.push({
+        name: "platform",
+        params: { platform: platformSlug },
+      });
     } else {
       await router.push({ name: "home" });
     }
