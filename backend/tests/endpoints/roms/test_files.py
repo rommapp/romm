@@ -11,6 +11,7 @@ from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
 
+
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
