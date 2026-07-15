@@ -272,6 +272,15 @@ class TestFSRomsHandler:
         assert parsed_tags.version == ""
         assert "versionB" in parsed_tags.other_tags
 
+    def test_parse_tags_reg_prefix_resolves_shortcode(self, handler: FSRomsHandler):
+        """A "Reg-" prefixed shortcode resolves to its full region name."""
+        assert "Japan" in handler.parse_tags("Game [Reg-J].rom").regions
+        assert "USA" in handler.parse_tags("Game [Reg-U].rom").regions
+        assert "Netherlands" in handler.parse_tags("Game [Reg-NL].rom").regions
+
+        # A value that is not a shortcode is kept verbatim.
+        assert "PAL" in handler.parse_tags("Game [Reg-PAL].rom").regions
+
     def test_exclude_multi_roms_filters_excluded(self, handler: FSRomsHandler, config):
         """Test exclude_multi_roms filters out excluded multi-file ROMs"""
         roms = ["Game1", "excluded_multi", "Game2", "Game3"]
