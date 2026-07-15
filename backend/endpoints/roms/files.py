@@ -4,11 +4,13 @@ from anyio import Path
 from fastapi import HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
+from fastapi.responses import Response
 from starlette.responses import FileResponse
 
 from config import DEV_MODE, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.rom import RomFileSchema
+from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
@@ -148,3 +150,53 @@ async def get_romfile_content(
         media_type=media_type,
         headers=headers,
     )
+
+
+@protected_route(
+    router.delete,
+    "/{rom_id}/files/{file_id}",
+    [Scope.ROMS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def delete_rom_file(
+    request: Request,
+    rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
+) -> Response:
+    """Delete a single file from a ROM."""
+
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
+    rom_file = db_rom_handler.get_rom_file_by_id(file_id)
+    if not rom_file or rom_file.rom_id != rom.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+
+    file_rel_path = rom_file.full_path
+
+    try:
+        await fs_rom_handler.remove_file(file_rel_path)
+    except FileNotFoundError:
+        log.warning(
+            f"ROM file {hl(file_rel_path)} not found on disk; "
+            f"removing DB row anyway"
+        )
+    except Exception as exc:
+        log.error(f"Error deleting ROM file {hl(file_rel_path)}", exc_info=exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="There was an error deleting the file",
+        ) from exc
+
+    db_rom_handler.delete_rom_file(file_id)
+
+    log.info(
+        f"Deleted file {hl(rom_file.file_name)} from "
+        f"{hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
+    )
+
+    return Response()
