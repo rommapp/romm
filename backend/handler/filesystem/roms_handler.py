@@ -214,8 +214,8 @@ class FSRomsHandler(FSHandler):
             # Region prefix
             region_match = REGION_TAG_REGEX.match(raw_tag)
             if region_match:
-                key = region_match[1].lower()
-                regions.append(REGIONS_BY_SHORTCODE.get(key, region_match[1]))
+                region = region_match[1]
+                regions.append(REGIONS_BY_SHORTCODE.get(region, region))
                 continue
 
             # Revision prefix
