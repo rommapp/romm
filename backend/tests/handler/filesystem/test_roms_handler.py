@@ -241,6 +241,24 @@ class TestFSRomsHandler:
         parsed_tags = handler.parse_tags(fs_name)
         assert parsed_tags.version == "1.2.3"
 
+        # A dot separator (e.g. "v.1.0", "Ver. 1.00") must not leak into the
+        # version as a leading dot.
+        fs_name = "My Game (v.1.2.3).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2.3"
+
+        fs_name = "My Game (Ver.1.2.3).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2.3"
+
+        fs_name = "My Game (Ver. 1.00).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.00"
+
+        fs_name = "My Game (Version.2).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "2"
+
     def test_parse_tags_non_version_tags_starting_with_v(self, handler: FSRomsHandler):
         """Test parse_tags keeps non-version tags starting with v as generic tags"""
         fs_name = "Rom [2026] [Variation].rom"
