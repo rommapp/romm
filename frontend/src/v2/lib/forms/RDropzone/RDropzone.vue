@@ -151,6 +151,9 @@ defineExpose({ open, isOver: isOverDropZone });
 
 <style scoped>
 .r-dropzone {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   position: relative;
   border-radius: var(--r-radius-md);
 }
