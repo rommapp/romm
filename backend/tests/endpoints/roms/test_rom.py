@@ -148,6 +148,31 @@ def test_get_all_roms(
     assert items[0]["sibling_roms"] == []
 
 
+def test_get_roms_without_rom_id_index(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+):
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={
+            "platform_id": platform.id,
+            "limit": 15,
+            "with_rom_id_index": False,
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+
+    # The page and total stay correct, but the full id index is not built.
+    assert body["total"] == 1
+    assert body["rom_id_index"] == []
+
+    items = body["items"]
+    assert len(items) == 1
+    assert items[0]["id"] == rom.id
+
+
 def test_get_roms_filter_by_metadata_providers(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):
