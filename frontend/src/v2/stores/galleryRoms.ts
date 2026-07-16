@@ -61,9 +61,9 @@ type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 // fewer requests but each one downloads more.
 const WINDOW_SIZE = 72;
 
-// In-flight `AbortController`s keyed by request — `window:${offset}`
-// for the windowed initial fetch, `range:${offset}:${limit}` for the
-// per-row dwell prefetch. Lives outside store state so Pinia doesn't
+// In-flight `AbortController`s keyed by request: `window:${offset}`
+// for a windowed fetch, `bootstrap` for the lightweight metadata
+// bootstrap. Lives outside store state so Pinia doesn't
 // try to proxy native abort objects (which break under reactivity).
 // `invalidateWindows()` / `resetGallery()` abort every pending request,
 // so a fast-typed search box or a platform-switch mid-load doesn't
@@ -140,10 +140,10 @@ interface State {
   // phase.
   initialFetching: boolean;
   // True once total / charIndex / romIdIndex / filter_values have been
-  // populated — either by the lightweight `fetchInitialMetadata()`
-  // bootstrap or by `fetchWindowAt(0)`. Used to gate the initial fetch
-  // dedup independently of `loadedWindows` (metadata bootstrap doesn't
-  // load any window).
+  // populated, either by the lightweight `fetchInitialMetadata()`
+  // bootstrap or by `fetchWindowAt(0)`. Used to gate the initial
+  // bootstrap dedup independently of `loadedWindows` (metadata
+  // bootstrap doesn't load any window).
   metadataLoaded: boolean;
   // Order params — gallery-list scoped (separate from v1's localStorage
   // keys so v1/v2 don't fight over the same value).
@@ -363,15 +363,14 @@ export default defineStore("v2GalleryRoms", {
 
     /** Lightweight bootstrap: fetch only the gallery's metadata (total,
      * char_index, rom_id_index, filter_values) without loading any
-     * items. Use this when items will be hydrated lazily through the
-     * per-card `fetchRomAt(p)` viewport sync — e.g. grid-mode galleries.
+     * items. Sizes the virtualiser (via `total`) before any window
+     * lands, so both layouts can render skeleton rows immediately and
+     * then hydrate them through the viewport-driven `fetchWindowAt`
+     * sync.
      *
      * The backend's `limit` minimum is 1, so we still pay for one
-     * `SimpleRomSchema` build server-side, but we discard the item
-     * client-side: every position (including 0) loads through the
-     * unified per-card path so the staggered fade-in applies to the
-     * first rows the same as the rest. List mode still wants
-     * `fetchWindowAt(0)` because the table reads `byPosition` directly. */
+     * `SimpleRomSchema` build server-side, but the item is discarded
+     * client-side. */
     async fetchInitialMetadata(): Promise<void> {
       if (this.metadataLoaded) return;
       if (this.initialFetching) return;
@@ -480,76 +479,6 @@ export default defineStore("v2GalleryRoms", {
         inFlightControllers.delete(ctrlKey);
         this.pendingWindows.delete(offset);
         if (offset === 0) this.initialFetching = false;
-      }
-    },
-
-    /** Fetch an arbitrary `[offset, offset + limit)` range. Used by the
-     * per-row dwell prefetch in the gallery views — instead of always
-     * pulling the full 72-item window, a row asks for exactly its 8
-     * positions, so visible rows can resolve in parallel and the user
-     * sees covers stream in row-by-row.
-     *
-     * Skips the request when every position in the range is already
-     * loaded; dedupes concurrent identical requests by (offset, limit)
-     * key. The initial window — total / charIndex bootstrapping — still
-     * goes through `fetchWindowAt(0)`. */
-    /** Fetch the single ROM at `position` via `GET /roms/{id}/simple` —
-     * the lightweight schema endpoint that skips the eager `user_saves`
-     * / `user_states` / `user_screenshots` / `user_collections` /
-     * `all_user_notes` arrays (those are 5 separate DB queries each;
-     * dropping them takes the call from ~500ms to a typical by-id
-     * lookup). The gallery card only needs the `has_*` indicator
-     * flags + cover paths + platform info — all on `SimpleRomSchema`.
-     * Detailed arrays are pulled on demand by the game-details page
-     * or by quick-action dialogs (note editor, achievements panel)
-     * when the user actually opens them.
-     *
-     * Requires `romIdIndex[position]` — populated by the first
-     * `fetchWindowAt(0)` for the active gallery. Returns silently
-     * if the index isn't loaded yet.
-     *
-     * Per-position `AbortController` allows the shell to cancel
-     * fetches for cards that left the viewport before resolving.
-     * `cancelFetchAt(position)` is the cancel side. */
-    async fetchRomAt(position: number): Promise<void> {
-      if (position < 0) return;
-      if (this.total > 0 && position >= this.total) return;
-      if (this.byPosition.has(position)) return;
-      const romId = this.romIdIndex[position];
-      if (!romId) return;
-
-      const ctrlKey = `rom:${position}`;
-      if (inFlightControllers.has(ctrlKey)) return;
-
-      const controller = new AbortController();
-      inFlightControllers.set(ctrlKey, controller);
-
-      try {
-        const response = await romApi.getRomSimple({
-          romId,
-          signal: controller.signal,
-        });
-        // Re-check that the shell still wants this position — a fast
-        // scroll past + cancel races against the response landing.
-        if (!inFlightControllers.has(ctrlKey)) return;
-        this.byPosition.set(position, response.data);
-      } catch (err) {
-        if (axios.isCancel(err)) return;
-        console.error("[v2GalleryRoms] rom fetch failed", position, romId, err);
-      } finally {
-        inFlightControllers.delete(ctrlKey);
-      }
-    },
-
-    /** Cancel an in-flight per-position fetch — typically called by
-     * the shell when a card leaves the viewport before its request
-     * resolves. No-op if nothing is in flight for that position. */
-    cancelFetchAt(position: number) {
-      const ctrlKey = `rom:${position}`;
-      const ctrl = inFlightControllers.get(ctrlKey);
-      if (ctrl) {
-        ctrl.abort();
-        inFlightControllers.delete(ctrlKey);
       }
     },
 

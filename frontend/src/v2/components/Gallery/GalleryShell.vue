@@ -551,23 +551,20 @@ const currentLetter = computed<string>(() => {
   return "";
 });
 
-// Per-card viewport-driven fetch. The shell tracks which positions
-// are currently visible (from the rows in `viewportRange`) and keeps
-// `byPosition` in sync via per-card `getRom(id)` calls — pure by-id
-// DB lookups on the backend, much faster than the paginated
-// `getRoms(limit/offset)` pipeline. Each fetch is independent, so
-// covers stream in as their individual responses land.
+// Viewport-driven fetch. The shell tracks which positions are
+// currently visible (from the rows in `viewportRange`) and keeps
+// `byPosition` in sync by fetching the 72-item windows those positions
+// fall into via `fetchWindowAt`. Windows are shared across cards and
+// cached in the store, so a full viewport resolves in a handful of
+// paginated requests rather than one per card.
 //
 // No idle-time prefetch: when the user stops scrolling, no new
-// requests are fired. Cards already in the viewport that are still
-// missing keep loading; everything off-screen waits until the user
-// scrolls there.
+// requests are fired. Windows already covering the viewport keep
+// loading; everything off-screen waits until the user scrolls there.
 //
-// Cancellation: positions that leave the viewport while their fetch
-// is in flight are aborted via `cancelFetchAt`. A small debounce on
-// viewport changes prevents fire-and-cancel storms during smooth
-// scrolling — only when the viewport settles for `FETCH_DEBOUNCE_MS`
-// do we sync.
+// A small debounce on viewport changes prevents request storms during
+// smooth scrolling: only when the viewport settles for
+// `FETCH_DEBOUNCE_MS` do we sync.
 const FETCH_DEBOUNCE_MS = 80;
 const visiblePositions = new Set<number>();
 let fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -591,20 +588,17 @@ function collectVisiblePositions(range: {
 function syncFetches(range: { first: number; last: number }) {
   const next = collectVisiblePositions(range);
 
-  // Cancel positions that left the viewport before their fetch
-  // resolved. The store's per-position controller handles the network
-  // abort; idempotent if nothing was in flight.
-  for (const p of visiblePositions) {
-    if (!next.has(p) && !galleryRoms.byPosition.has(p)) {
-      galleryRoms.cancelFetchAt(p);
-    }
-  }
-
-  // Fire per-card fetches for positions that just entered. The store
-  // dedupes against in-flight + already-loaded internally.
+  // Fetch the windows covering the positions that just entered. The
+  // store aligns each position to its 72-item window and dedupes
+  // against pending + loaded windows, so this collapses to one
+  // paginated request per window regardless of how many cards are on
+  // screen. (Fetching per-card instead issued one request plus one DB
+  // lookup per visible card, so ~100 simultaneous round-trips on a full
+  // grid, which the browser's per-host connection cap then serialized
+  // into slow waves on low-power devices.)
   for (const p of next) {
     if (!galleryRoms.byPosition.has(p)) {
-      void galleryRoms.fetchRomAt(p);
+      void galleryRoms.fetchWindowAt(p);
     }
   }
 
@@ -792,12 +786,6 @@ onBeforeUnmount(() => {
   gallerySelection.clear();
   if (searchDebounce) clearTimeout(searchDebounce);
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
-  // Cancel any per-position fetches still in flight for our last
-  // visible set — `invalidateWindows` / `resetGallery` already aborts
-  // window-level fetches; this covers per-card cleanup on unmount.
-  for (const p of visiblePositions) {
-    if (!galleryRoms.byPosition.has(p)) galleryRoms.cancelFetchAt(p);
-  }
   visiblePositions.clear();
   inflowResizeObserver?.disconnect();
   inflowResizeObserver = null;
