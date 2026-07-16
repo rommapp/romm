@@ -286,7 +286,7 @@
   "recently-added-as-grid": "Rom-uri adăugate recent în grilă",
   "recently-added-as-grid-desc": "Vezi cardurile rom-urilor adăugate recent în grilă pe pagina principală",
   "reduced-effects": "Reduced effects",
-  "reduced-effects-desc": "Disable GPU-heavy visuals (background blur and cover blur-in) for smoother performance on low-powered devices",
+  "reduced-effects-desc": "Disable GPU-heavy visuals and animations (background blur, cover effects, spinning discs, motion) for smoother performance on low-powered devices",
   "regenerate-code": "Regenerează codul",
   "regenerate-token": "Regenerează token-ul",
   "regenerate-token-title": "Regenerează token-ul",

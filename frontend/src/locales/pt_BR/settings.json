@@ -286,7 +286,7 @@
   "recently-added-as-grid": "ROMs adicionados recentemente como grade",
   "recently-added-as-grid-desc": "Ver cartões de ROMs adicionados recentemente como uma grade na página inicial",
   "reduced-effects": "Efeitos reduzidos",
-  "reduced-effects-desc": "Desativa efeitos gráficos pesados (desfoque de fundo e da capa) para melhor desempenho em dispositivos de baixa potência",
+  "reduced-effects-desc": "Desativa efeitos gráficos e animações pesados (desfoque de fundo e da capa, discos girando, movimento) para melhor desempenho em dispositivos de baixa potência",
   "regenerate-code": "Regenerar código",
   "regenerate-token": "Regenerar token",
   "regenerate-token-title": "Regenerar token",

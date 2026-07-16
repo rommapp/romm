@@ -19,7 +19,8 @@
 // fight the eased slide).
 //
 // All motion is gated by the user's `disableAnimations` setting (via
-// `motionEnabled`) AND the OS `prefers-reduced-motion`.
+// `motionEnabled`), the OS `prefers-reduced-motion`, AND the app's
+// reduced-effects low-power mode.
 import {
   computed,
   onBeforeUnmount,
@@ -28,6 +29,7 @@ import {
   type ComputedRef,
   type Ref,
 } from "vue";
+import { useReducedEffects } from "@/v2/composables/useReducedEffects";
 
 export interface SpinConfig {
   /** Top rotational speed, deg/sec. */
@@ -121,8 +123,15 @@ export interface UseCoverAnimation {
 export function useCoverAnimation(
   opts: UseCoverAnimationOptions,
 ): UseCoverAnimation {
+  // Reactive so the spin/video stops the instant low-power mode is toggled.
+  // The OS check stays independent of it: an explicit reduced-effects "off"
+  // must not re-enable motion for a user whose system asks to reduce it.
+  const { enabled: reducedEffects } = useReducedEffects();
   const motionOk = computed(
-    () => opts.motionEnabled.value && !prefersReducedMotion(),
+    () =>
+      opts.motionEnabled.value &&
+      !prefersReducedMotion() &&
+      !reducedEffects.value,
   );
 
   // The slide (`margin-top`) is eased in CSS (`.game-cover__img`) so it

@@ -286,7 +286,7 @@
   "recently-added-as-grid": "Недавно добавленные ромы в виде сетки",
   "recently-added-as-grid-desc": "Просмотр карточек недавно добавленных ромов в виде сетки на главной странице",
   "reduced-effects": "Reduced effects",
-  "reduced-effects-desc": "Disable GPU-heavy visuals (background blur and cover blur-in) for smoother performance on low-powered devices",
+  "reduced-effects-desc": "Disable GPU-heavy visuals and animations (background blur, cover effects, spinning discs, motion) for smoother performance on low-powered devices",
   "regenerate-code": "Перегенерировать код",
   "regenerate-token": "Перегенерировать токен",
   "regenerate-token-title": "Перегенерировать токен",

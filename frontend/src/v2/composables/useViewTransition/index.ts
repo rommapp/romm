@@ -20,9 +20,11 @@
 //
 // Graceful degradation:
 //   * `prefers-reduced-motion: reduce` → no transition, just navigate.
+//   * reduced-effects low-power mode → no transition, just navigate.
 //   * Browser without `document.startViewTransition` → just navigate.
 import { nextTick, ref } from "vue";
 import type { RouteLocationNormalized, Router } from "vue-router";
+import { useReducedEffects } from "@/v2/composables/useReducedEffects";
 
 export interface MorphSource {
   el: HTMLElement;
@@ -60,11 +62,13 @@ function prefersReducedMotion(): boolean {
 }
 
 export function useViewTransition() {
+  const { enabled: reducedEffects } = useReducedEffects();
+
   function morphTransition(
     source: MorphSource,
     navigate: () => void | Promise<void>,
   ): void {
-    if (!isSupported() || prefersReducedMotion()) {
+    if (!isSupported() || prefersReducedMotion() || reducedEffects.value) {
       void navigate();
       return;
     }
@@ -147,6 +151,7 @@ export function installBackMorph(router: Router): () => void {
   const removeGuard = router.beforeResolve(async (to, from) => {
     if (forwardTransitionActive) return true;
     if (!isSupported() || prefersReducedMotion()) return true;
+    if (useReducedEffects().enabled.value) return true;
     // No morph between two views of the same kind (e.g. /platform/A →
     // /platform/B) — that would compete with the in-route transition
     // and there's no shared element to pair anyway.

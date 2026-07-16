@@ -286,7 +286,7 @@
   "recently-added-as-grid": "Recently added ROMs as grid",
   "recently-added-as-grid-desc": "View recently added ROM cards as a grid at the home page",
   "reduced-effects": "Reduced effects",
-  "reduced-effects-desc": "Disable GPU-heavy visuals (background blur and cover blur-in) for smoother performance on low-powered devices",
+  "reduced-effects-desc": "Disable GPU-heavy visuals and animations (background blur, cover effects, spinning discs, motion) for smoother performance on low-powered devices",
   "regenerate-code": "Regenerate code",
   "regenerate-token": "Regenerate token",
   "regenerate-token-title": "Regenerate token",
