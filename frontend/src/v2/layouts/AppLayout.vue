@@ -15,6 +15,7 @@ import {
   onMounted,
   provide,
   ref,
+  watch,
 } from "vue";
 import { useRouter } from "vue-router";
 import storeCollections from "@/stores/collections";
@@ -33,6 +34,7 @@ import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
 
@@ -46,6 +48,21 @@ installScanLifecycle();
 // can branch on viewport via `html[data-bp~="xs"] .foo { … }` instead of
 // hardcoding `@media (max-width: …)` values across every SFC.
 installBreakpointAttribute();
+
+// Reduced-motion mode: mirror the flag onto <html> so global CSS can drop
+// its heaviest work via `html.r-v2-reduced-motion .foo { … }` (background-art
+// blur, cover blur-up, the global animation/transition neutralize). On <html>
+// (not the shell root) for the same reason as the theme classes: Vuetify
+// teleports overlays outside the app tree, and this keeps the flag reachable
+// there too.
+const { enabled: reducedMotion } = useReducedMotion();
+watch(
+  reducedMotion,
+  (on) => {
+    document.documentElement.classList.toggle("r-v2-reduced-motion", on);
+  },
+  { immediate: true },
+);
 
 const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
@@ -136,6 +153,9 @@ onBeforeUnmount(() => {
     clearTimeout(bgTimer);
     bgTimer = null;
   }
+  // Leaving v2 (e.g. switching back to the v1 UI): drop the root flag so
+  // the class doesn't linger on a non-v2 document.
+  document.documentElement.classList.remove("r-v2-reduced-motion");
 });
 </script>
 

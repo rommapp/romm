@@ -141,7 +141,7 @@ def _make_file_hash(
 
 
 GENERIC_TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
-VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)(?:[\s_-](.*)|([.\d].*))", re.I)
+VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)(?:[\s._-](.*)|([.\d].*))", re.I)
 REGION_TAG_REGEX = re.compile(r"^reg[\s|-](.*)$", re.I)
 REVISION_TAG_REGEX = re.compile(r"^rev[\s|-](.*)$", re.I)
 
@@ -214,8 +214,8 @@ class FSRomsHandler(FSHandler):
             # Region prefix
             region_match = REGION_TAG_REGEX.match(raw_tag)
             if region_match:
-                key = region_match[1].lower()
-                regions.append(REGIONS_BY_SHORTCODE.get(key, region_match[1]))
+                region = region_match[1]
+                regions.append(REGIONS_BY_SHORTCODE.get(region, region))
                 continue
 
             # Revision prefix

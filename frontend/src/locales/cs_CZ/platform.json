@@ -29,6 +29,8 @@
   "franchise": "Franšíza",
   "generation": "Generace",
   "genre": "Žánr",
+  "has-saves": "Má uložení",
+  "has-states": "Má stavy",
   "in-library": "V knihovně",
   "language": "Jazyk",
   "local-source": "Lokální",
@@ -91,7 +93,5 @@
   "tags": "Štítky",
   "updated": "Platforma aktualizována",
   "upload-firmware": "Nahrát firmware",
-  "upload-roms": "Nahrát ROMy",
-  "has-saves": "Má uložení",
-  "has-states": "Má stavy"
+  "upload-roms": "Nahrát ROMy"
 }

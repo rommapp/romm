@@ -2,7 +2,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from config.config_manager import MetadataMediaType
-from handler.filesystem import fs_resource_handler
+from config.config_manager import config_manager as cm
+from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from handler.metadata.ss_handler import get_preferred_media_types
 from utils.database import safe_str_to_bool
 
@@ -23,12 +25,54 @@ from .utils import (
     coalesce,
     dedupe_words,
     file_uri_for_local_path,
+    launchbox_region_to_shortcode,
     parse_list,
     parse_playmode,
     parse_release_date,
     parse_videourl,
     sanitize_filename,
 )
+
+# Cover image types in descending preference. Region acts as a tiebreaker
+# within a single type (see `_select_remote_cover`).
+COVER_PRIORITY_TYPES: tuple[str, ...] = (
+    "Box - Front",
+    "Box - Front - Reconstructed",
+    "Fanart - Box - Front",
+    "Box - 3D",
+    "Amazon Poster",
+    "Epic Games Poster",
+    "GOG Poster",
+    "Steam Poster",
+)
+
+
+def rom_region_shortcodes(fs_name: str) -> tuple[str, ...]:
+    """Provider region shortcodes to prefer for a ROM, most-preferred first.
+
+    Combines the regions tagged in the filename (reordered by the user's
+    SCAN_REGION_PRIORITY) with the configured priority list, so a ROM tagged
+    "(USA)" prefers its US cover even when another region sorts first.
+    """
+    if not fs_name:
+        return ()
+
+    priority = cm.get_config().SCAN_REGION_PRIORITY
+
+    rom_codes: list[str] = []
+    for region_name in fs_rom_handler.parse_tags(fs_name).regions:
+        code = region_name_to_provider_shortcode(region_name)
+        if code and code not in rom_codes:
+            rom_codes.append(code)
+    rom_codes.sort(
+        key=lambda code: priority.index(code) if code in priority else len(priority)
+    )
+
+    if not rom_codes:
+        return ()
+
+    return tuple(dict.fromkeys(rom_codes + priority))
+
 
 # Video container extensions recognized when probing for local LaunchBox media
 # and when validating a metadata video URL's suffix. A tuple because the probe
@@ -61,6 +105,7 @@ def local_media_req(
         region_hint,
         remote_images,
         remote_enabled,
+        rom_region_shortcodes(fs_name),
     )
 
 
@@ -86,6 +131,7 @@ def remote_media_req(
         None,
         remote_images,
         remote_enabled,
+        rom_region_shortcodes(fs_name),
     )
 
 
@@ -220,31 +266,39 @@ def _find_local_media_candidates(
     return [], ""
 
 
+def _select_remote_cover(
+    remote_images: list[dict], region_shortcodes: tuple[str, ...]
+) -> dict | None:
+    """Pick the best remote cover: highest-priority type, region as tiebreaker.
+
+    Within the best available image type, prefer the image whose region matches
+    the ROM (e.g. a "(USA)" ROM gets the North America box, not a random one).
+    """
+    for image_type in COVER_PRIORITY_TYPES:
+        typed = [
+            image
+            for image in remote_images
+            if image.get("Type") == image_type and image.get("FileName")
+        ]
+        if not typed:
+            continue
+
+        for code in region_shortcodes:
+            for image in typed:
+                if launchbox_region_to_shortcode(image.get("Region")) == code:
+                    return image
+
+        return typed[0]
+
+    return None
+
+
 def _get_cover(req: MediaRequest) -> str | None:
     cover: str | None = None
 
-    cover_priority_types = (
-        "Box - Front",
-        "Box - Front - Reconstructed",
-        "Fanart - Box - Front",
-        "Box - 3D",
-        "Amazon Poster",
-        "Epic Games Poster",
-        "GOG Poster",
-        "Steam Poster",
-    )
-
     # Remote media (overridden by local if available)
     if req.remote_enabled and req.remote_images:
-        best_cover: dict | None = None
-        for image_type in cover_priority_types:
-            for image in req.remote_images:
-                if image.get("Type") == image_type and image.get("FileName"):
-                    best_cover = image
-                    break
-            if best_cover is not None:
-                break
-
+        best_cover = _select_remote_cover(req.remote_images, req.region_shortcodes)
         if best_cover and best_cover.get("FileName"):
             cover = f"https://images.launchbox-app.com/{best_cover.get('FileName')}"
 
@@ -252,7 +306,7 @@ def _get_cover(req: MediaRequest) -> str | None:
         req, LAUNCHBOX_IMAGES_DIR, include_region_hints=True
     )
     if ctx is not None:
-        for category in cover_priority_types:
+        for category in COVER_PRIORITY_TYPES:
             candidate_files, _region = _find_local_media_candidates(
                 ctx,
                 category,

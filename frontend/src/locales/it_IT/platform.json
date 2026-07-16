@@ -29,6 +29,8 @@
   "franchise": "Franchise",
   "generation": "Generazione",
   "genre": "Genere",
+  "has-saves": "Ha salvataggi",
+  "has-states": "Ha stati di salvataggio",
   "in-library": "In libreria",
   "language": "Lingua",
   "local-source": "Locale",
@@ -91,7 +93,5 @@
   "tags": "Tag",
   "updated": "Piattaforma aggiornata",
   "upload-firmware": "Carica firmware",
-  "upload-roms": "Carica Rom",
-  "has-saves": "Ha salvataggi",
-  "has-states": "Ha stati di salvataggio"
+  "upload-roms": "Carica Rom"
 }

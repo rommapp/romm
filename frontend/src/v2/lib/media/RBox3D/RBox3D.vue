@@ -21,6 +21,7 @@
 // three image URLs and a label. The feature composite (CoverColumn) decides
 // when a rom actually has all three faces and feeds them in.
 import { computed, onBeforeUnmount, onMounted, ref, type Ref } from "vue";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
 defineOptions({ inheritAttrs: false });
 
@@ -97,8 +98,9 @@ const depthPx = computed(
     (spineLandscape.value ? widthPx.value : heightPx.value) * spineRatio.value,
 );
 
-// Reduced-motion: read once on mount (it gates the idle drift only).
-const reducedMotion = ref(false);
+// Reduced-motion gates the idle auto-spin drift. Reactive, so toggling
+// reduced-motion mode live stops/resumes the drift without a remount.
+const { enabled: reducedMotion } = useReducedMotion();
 
 // Interaction bookkeeping.
 const dragging = ref(false);
@@ -285,10 +287,6 @@ const onSpineLoad = (e: Event) => measureSpine(e.target as HTMLImageElement);
 
 let ro: ResizeObserver | null = null;
 onMounted(() => {
-  reducedMotion.value =
-    typeof window !== "undefined" &&
-    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-
   const root = rootEl.value;
   if (root) {
     widthPx.value = root.clientWidth;

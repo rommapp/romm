@@ -241,6 +241,24 @@ class TestFSRomsHandler:
         parsed_tags = handler.parse_tags(fs_name)
         assert parsed_tags.version == "1.2.3"
 
+        # A dot separator (e.g. "v.1.0", "Ver. 1.00") must not leak into the
+        # version as a leading dot.
+        fs_name = "My Game (v.1.2.3).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2.3"
+
+        fs_name = "My Game (Ver.1.2.3).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2.3"
+
+        fs_name = "My Game (Ver. 1.00).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.00"
+
+        fs_name = "My Game (Version.2).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "2"
+
     def test_parse_tags_non_version_tags_starting_with_v(self, handler: FSRomsHandler):
         """Test parse_tags keeps non-version tags starting with v as generic tags"""
         fs_name = "Rom [2026] [Variation].rom"
@@ -253,6 +271,15 @@ class TestFSRomsHandler:
         parsed_tags = handler.parse_tags(fs_name)
         assert parsed_tags.version == ""
         assert "versionB" in parsed_tags.other_tags
+
+    def test_parse_tags_reg_prefix_resolves_shortcode(self, handler: FSRomsHandler):
+        """A "Reg-" prefixed shortcode resolves to its full region name."""
+        assert "Japan" in handler.parse_tags("Game [Reg-J].rom").regions
+        assert "USA" in handler.parse_tags("Game [Reg-U].rom").regions
+        assert "Netherlands" in handler.parse_tags("Game [Reg-NL].rom").regions
+
+        # A value that is not a shortcode is kept verbatim.
+        assert "PAL" in handler.parse_tags("Game [Reg-PAL].rom").regions
 
     def test_exclude_multi_roms_filters_excluded(self, handler: FSRomsHandler, config):
         """Test exclude_multi_roms filters out excluded multi-file ROMs"""

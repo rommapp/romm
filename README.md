@@ -49,28 +49,32 @@ To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] i
 
 To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md).
 
+## Official apps
+
+Apps and integrations built and maintained by the RomM team.
+
+- [Argosy][argosy-launcher] by [@tmgast](https://github.com/tmgast): Native Android client for installing and launching games.
+- [Grout][grout] by [@BrandonKowalski](https://github.com/BrandonKowalski): Download and manage games from your RomM instance directly on your Linux based retro handheld. Supports: Allium, Batocera, Knulli, MinUI, muOS, NextUI, Onion, ROCKNIX, Spruce, TrimUI
+- [Playnite plugin][playnite-app] by [@gantoine](https://github.com/gantoine): Library plugin for Playnite
+
 ## Community
 
 Here are a few projects maintained by members of our community. Please note that the RomM team does not regularly review their source code.
 
 ### Mobile
 
-- 🔷 [Argosy][argosy-launcher]: Native client for installing and launching games by [@tmgast](https://github.com/tmgast)
 - [romm-ios-app][romm-ios-app]: Native iOS app by [@ilyas-hallak](https://github.com/ilyas-hallak)
-- [romm-mobile][romm-mobile]: Android (and soon iOS) app by [@mattsays](https://github.com/mattsays)
 
 ### Desktop
 
-- 🔷 [Playnite plugin][playnite-app]: Library plugin for Playnite by [@gantoine](https://github.com/gantoine)
-- [RommBrowser][romm-browser]: Electron client by [@smurflabs](https://github.com/smurflabs)
 - [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by [@Covin90](https://github.com/Covin90)
 - [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
 - [romm-client][romm-client]: Desktop client by [@chaun14](https://github.com/chaun14)
+- [Freegosy][freegosy]: All-in-one game manager (download, launch, sync saves, and manage emulators) by [@abduznik](https://github.com/abduznik)
 
 ### Handhelds
 
-- 🔷 [Grout][grout]: Download client for muOS and NextUI by [@BrandonKowalski](https://github.com/BrandonKowalski)
-- [DeckRommSync][deck-romm-sync]: SteamOS downloader and syncer by [@PeriBluGaming](https://github.com/PeriBluGaming)
+- [DeckyRommSync][decky-romm-sync]: SteamOS downloader and syncer by [@danielcopper](https://github.com/danielcopper)
 - [SwitchRomM][switch-romm]: Homebrew NRO for Switch by [@Shalasere](https://github.com/Shalasere)
 
 ### Other
@@ -78,8 +82,6 @@ Here are a few projects maintained by members of our community. Please note that
 - [romm-comm][romm-comm-discord-bot]: Discord bot by [@idio-sync](https://github.com/idio-sync)
 - [GGRequestz][ggrequestz]: Game discovery and request tool by [@XTREEMMAK](https://github.com/XTREEMMAK)
 - [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by [@amn-96](https://github.com/amn-96)
-
-[🔷] Official first-party app
 
 Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
 
@@ -132,16 +134,15 @@ Here are a few projects that we think you might like:
 [steamgriddb-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
 [retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
-[deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
+[decky-romm-sync]: https://github.com/danielcopper/decky-romm-sync
 [switch-romm]: https://github.com/Shalasere/SwitchRomM
-[romm-browser]: https://github.com/smurflabs/RommBrowser/
 [playnite-app]: https://github.com/rommapp/playnite-plugin
 [ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
 [syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
-[romm-mobile]: https://github.com/mattsays/romm-mobile
 [romm-client]: https://github.com/chaun14/romm-client
 [romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
 [rommate]: https://github.com/brenoprata10/rommate
+[freegosy]: https://github.com/abduznik/freegosy
 [grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
 [argosy-launcher]: https://github.com/rommapp/argosy-launcher

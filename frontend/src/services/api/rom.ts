@@ -783,6 +783,16 @@ async function deleteManualFile({
   return api.delete(`/roms/${romId}/manuals/files/${fileId}`);
 }
 
+async function deleteRomFile({
+  romId,
+  fileId,
+}: {
+  romId: number;
+  fileId: number;
+}) {
+  return api.delete(`/roms/${romId}/files/${fileId}`);
+}
+
 async function updateUserRomProps({
   romId,
   data,
@@ -905,6 +915,7 @@ export default {
   redownloadManual,
   uploadManualFiles,
   deleteManualFile,
+  deleteRomFile,
   uploadSoundtracks,
   removeSoundtrack,
   getSoundtrackMetadata,

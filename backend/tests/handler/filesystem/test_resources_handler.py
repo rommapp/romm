@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 import httpx
 import pytest
+from PIL import Image
 
 from config import RESOURCES_BASE_PATH
 from handler.filesystem.base_handler import CoverSize
@@ -11,6 +12,7 @@ from handler.filesystem.resources_handler import (
     FSResourcesHandler,
     _check_content_type,
     _content_type_essence,
+    _is_chroma_key_placeholder,
 )
 from models.collection import Collection
 from models.rom import Rom
@@ -662,3 +664,101 @@ class TestFSResourcesHandler:
         assert isinstance(ra_badges, str)
         assert "retroachievements" in ra_base
         assert "badges" in ra_badges
+
+
+class TestChromaKeyDetection:
+    """Tests for ScreenScraper chroma-key green placeholder handling."""
+
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler()
+
+    def _write_image(self, path: Path, color: tuple[int, int, int]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (64, 64), color).save(path)
+
+    def test_detects_solid_chroma_key_green(self, tmp_path):
+        image = tmp_path / "green.png"
+        self._write_image(image, (0, 255, 0))
+        assert _is_chroma_key_placeholder(image) is True
+
+    def test_detects_near_chroma_key_green(self, tmp_path):
+        # Within tolerance of pure #00FF00.
+        image = tmp_path / "near_green.png"
+        self._write_image(image, (10, 250, 8))
+        assert _is_chroma_key_placeholder(image) is True
+
+    def test_ignores_normal_artwork(self, tmp_path):
+        image = tmp_path / "cover.png"
+        self._write_image(image, (85, 62, 152))  # the placeholder purple
+        assert _is_chroma_key_placeholder(image) is False
+
+    def test_ignores_forest_green_artwork(self, tmp_path):
+        # A dark/natural green cover must not be mistaken for the chroma key.
+        image = tmp_path / "forest.png"
+        self._write_image(image, (34, 139, 34))
+        assert _is_chroma_key_placeholder(image) is False
+
+    def test_ignores_non_image_file(self, tmp_path):
+        not_an_image = tmp_path / "data.bin"
+        not_an_image.write_bytes(b"not an image")
+        assert _is_chroma_key_placeholder(not_an_image) is False
+
+    @pytest.mark.asyncio
+    async def test_discard_removes_chroma_key_file(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+        self._write_image(tmp_path / rel, (0, 255, 0))
+
+        discarded = await handler._discard_if_chroma_key(rel)
+
+        assert discarded is True
+        assert not (tmp_path / rel).exists()
+
+    @pytest.mark.asyncio
+    async def test_discard_keeps_real_artwork(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+        self._write_image(tmp_path / rel, (85, 62, 152))
+
+        discarded = await handler._discard_if_chroma_key(rel)
+
+        assert discarded is False
+        assert (tmp_path / rel).exists()
+
+    @pytest.mark.asyncio
+    async def test_discard_missing_file_is_noop(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        assert await handler._discard_if_chroma_key("roms/1/1/nope.png") is False
+
+    @pytest.mark.asyncio
+    async def test_store_media_file_discards_existing_chroma_key(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # A green placeholder already on disk is dropped on rescan, so the box
+        # face falls back to the dark placeholder instead of rendering green.
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+        self._write_image(tmp_path / rel, (0, 255, 0))
+
+        await handler.store_media_file("http://example.com/x.png", rel)
+
+        assert not (tmp_path / rel).exists()
+
+    @pytest.mark.asyncio
+    async def test_store_media_file_keeps_existing_real_art(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+        self._write_image(tmp_path / rel, (85, 62, 152))
+
+        await handler.store_media_file("http://example.com/x.png", rel)
+
+        assert (tmp_path / rel).exists()

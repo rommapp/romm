@@ -8,6 +8,7 @@ import type { NetplayICEServer } from './NetplayICEServer';
 export type ConfigResponse = {
     CONFIG_FILE_MOUNTED: boolean;
     CONFIG_FILE_WRITABLE: boolean;
+    CONFIG_FILE_PARSE_ERROR: (string | null);
     EXCLUDED_PLATFORMS: Array<string>;
     EXCLUDED_SINGLE_EXT: Array<string>;
     EXCLUDED_SINGLE_FILES: Array<string>;

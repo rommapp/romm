@@ -29,6 +29,8 @@
   "franchise": "Franciză",
   "generation": "Generație",
   "genre": "Gen",
+  "has-saves": "Are salvări",
+  "has-states": "Are stări salvate",
   "in-library": "În bibliotecă",
   "language": "Limba",
   "local-source": "Local",
@@ -91,7 +93,5 @@
   "tags": "Etichete",
   "updated": "Platformă actualizată",
   "upload-firmware": "Încarcă firmware",
-  "upload-roms": "Încărcare ROM-uri",
-  "has-saves": "Are salvări",
-  "has-states": "Are stări salvate"
+  "upload-roms": "Încărcare ROM-uri"
 }

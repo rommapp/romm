@@ -23,9 +23,10 @@ User-visible strings are **never hard-coded** in components — they come from l
 
 ```bash
 python3 frontend/src/locales/check_i18n_locales.py
+python3 frontend/src/locales/check_i18n_sorted.py   # add --fix to auto-sort
 ```
 
-It compares every non-English locale against `en_US` and **fails on any missing file, missing key, or extra key**. CI runs the same script (`.github/workflows/i18n.yml`) on any change under `frontend/src/locales/**`. It must pass with zero missing/extra keys.
+`check_i18n_locales.py` compares every non-English locale against `en_US` and **fails on any missing file, missing key, or extra key**. `check_i18n_sorted.py` **fails if any locale JSON file's keys aren't sorted alphabetically** (run with `--fix` to sort them in place). CI runs both scripts (`.github/workflows/i18n.yml`) on any change under `frontend/src/locales/**`; both must pass.
 
 ## Adding a new language
 

@@ -159,6 +159,11 @@ def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
         db_rom_handler.upsert_track_meta(
             rom_file.id, rom.id, {"cover_path": cover_path}
         )
+    else:
+        log.error(f"[audio_tags] cover persist failed for {abs_audio_path}")
+        db_rom_handler.upsert_track_meta(
+            rom_file.id, rom.id, {"has_embedded_cover": False}
+        )
 
 
 async def scan_platform(

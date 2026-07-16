@@ -96,6 +96,7 @@ npm run generate                    # regenerate types from backend OpenAPI (bac
 npm run build:tokens                # regenerate v2 tokens.css (auto on predev/prebuild)
 npm run storybook                   # component library on :6006
 python3 src/locales/check_i18n_locales.py   # i18n parity check
+python3 src/locales/check_i18n_sorted.py    # locale keys sorted (--fix to sort)
 ```
 
 **Lint (both stacks):** `trunk fmt && trunk check`.

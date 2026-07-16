@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import http
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -11,8 +10,6 @@ from fastapi import HTTPException, status
 
 from adapters.services.screenscraper import (
     LOGIN_ERROR_CHECK,
-    SS_DEV_ID,
-    SS_DEV_PASSWORD,
     ScreenScraperService,
     auth_middleware,
     is_daily_quota_exhausted,
@@ -26,22 +23,14 @@ INVALID_SYSTEM_ID = 999999
 class TestScreenScraperConstants:
     """Test ScreenScraper constants and configuration."""
 
-    def test_ss_dev_id_decoded(self):
-        """Test that SS_DEV_ID is properly decoded."""
-        expected = base64.b64decode("enVyZGkxNQ==").decode()
-        assert SS_DEV_ID == expected
-
-    def test_ss_dev_password_decoded(self):
-        """Test that SS_DEV_PASSWORD is properly decoded."""
-        expected = base64.b64decode("eFRKd29PRmpPUUc=").decode()
-        assert SS_DEV_PASSWORD == expected
-
     def test_login_error_check_constant(self):
         """Test that LOGIN_ERROR_CHECK constant is defined."""
         assert LOGIN_ERROR_CHECK == "Erreur de login"
 
 
 class TestAuthMiddleware:
+    @patch("adapters.services.screenscraper.SCREENSCRAPER_DEV_ID", "dev_id")
+    @patch("adapters.services.screenscraper.SCREENSCRAPER_DEV_PASSWORD", "dev_pass")
     @patch("adapters.services.screenscraper.SCREENSCRAPER_USER", "test_user")
     @patch("adapters.services.screenscraper.SCREENSCRAPER_PASSWORD", "test_pass")
     @pytest.mark.asyncio
@@ -59,8 +48,8 @@ class TestAuthMiddleware:
 
         # Check that the URL now contains all auth parameters
         expected_params = {
-            "devid": SS_DEV_ID,
-            "devpassword": SS_DEV_PASSWORD,
+            "devid": "dev_id",
+            "devpassword": "dev_pass",
             "output": "json",
             "softname": "romm",
             "ssid": "test_user",
@@ -73,6 +62,8 @@ class TestAuthMiddleware:
         mock_handler.assert_called_once_with(mock_request)
         assert result == mock_response
 
+    @patch("adapters.services.screenscraper.SCREENSCRAPER_DEV_ID", None)
+    @patch("adapters.services.screenscraper.SCREENSCRAPER_DEV_PASSWORD", None)
     @patch("adapters.services.screenscraper.SCREENSCRAPER_USER", "")
     @patch("adapters.services.screenscraper.SCREENSCRAPER_PASSWORD", "")
     @pytest.mark.asyncio
@@ -88,8 +79,8 @@ class TestAuthMiddleware:
         result = await auth_middleware(mock_request, mock_handler)
 
         expected_params = {
-            "devid": SS_DEV_ID,
-            "devpassword": SS_DEV_PASSWORD,
+            "devid": "",
+            "devpassword": "",
             "output": "json",
             "softname": "romm",
             "ssid": "",

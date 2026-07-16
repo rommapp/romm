@@ -68,9 +68,14 @@ else
 	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
 fi
 
-# Set PYTHONPATH so RQ can find the tasks module
+# Set PYTHONPATH so RQ can find the tasks module.
+# Use a worker class that drops the noisy per-sweep "cleaning registries for
+# queue" log line. The maintenance interval keeps its default (~10 min) so
+# orphaned STARTED jobs and stale workers are still pruned promptly, which the
+# watcher's Worker.all() scan dedupe relies on.
 PYTHONPATH="/app/backend:${PYTHONPATH-}" rq worker \
 	--path /app/backend \
+	--worker-class handler.rq_worker.RomMWorker \
 	--pid /tmp/rq_worker.pid \
 	--url "${REDIS_URL}" \
 	--logging_level "${LOGLEVEL:-INFO}" \

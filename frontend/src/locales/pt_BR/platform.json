@@ -29,6 +29,8 @@
   "franchise": "Franquia",
   "generation": "Geração",
   "genre": "Gênero",
+  "has-saves": "Tem saves",
+  "has-states": "Tem save states",
   "in-library": "Na biblioteca",
   "language": "Idioma",
   "local-source": "Local",
@@ -91,7 +93,5 @@
   "tags": "Tags",
   "updated": "Plataforma atualizada",
   "upload-firmware": "Enviar firmware",
-  "upload-roms": "Carregar ROMs",
-  "has-saves": "Tem saves",
-  "has-states": "Tem save states"
+  "upload-roms": "Carregar ROMs"
 }

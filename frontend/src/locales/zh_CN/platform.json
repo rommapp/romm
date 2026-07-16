@@ -29,6 +29,8 @@
   "franchise": "系列",
   "generation": "世代",
   "genre": "类型",
+  "has-saves": "有存档",
+  "has-states": "有即时存档",
   "in-library": "在游戏库中",
   "language": "语言",
   "local-source": "本地",
@@ -91,7 +93,5 @@
   "tags": "标签",
   "updated": "平台已更新",
   "upload-firmware": "上传固件",
-  "upload-roms": "上传 ROMs",
-  "has-saves": "有存档",
-  "has-states": "有即时存档"
+  "upload-roms": "上传 ROMs"
 }

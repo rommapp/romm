@@ -184,6 +184,39 @@ html[data-input="pad"] .r-v2 * {
   filter: blur(28px) brightness(1.12) saturate(0.7);
 }
 
+/* Reduced-motion mode (Settings, per device; defaults to the OS
+   `prefers-reduced-motion`): the backdrop art is authored to be read only
+   through the 28px blur — unblurred it shows hard seams and a bright diagonal
+   wedge. And a full-viewport blur(28px) is one of the heaviest things we ask
+   of the GPU (see the Firefox note above). So drop the whole fixed art +
+   overlay stack and let the solid page background (`.r-v2` bg) show through:
+   cheaper, and no weird seam. */
+html.r-v2-reduced-motion .r-v2-bg,
+html.r-v2-reduced-motion .r-v2-bg__overlay {
+  display: none;
+}
+
+/* The OS `prefers-reduced-motion` query is honored per-component (each R*
+   primitive / overlay carries its own tuned fallback), but a CSS class cannot
+   trigger those media blocks, and this toggle must also work when the user
+   forces it while the OS setting is off. So neutralize animation / transition
+   here globally: it kills continuously-running keyframes (CRT flicker, disc
+   spins, skeleton shimmer, spinners, scan pulses) that tax weak GPUs, and
+   collapses one-shot transitions. Near-zero (not zero) durations so JS still
+   gets its `transitionend` / `animationend` and Vue `<transition>` teardown
+   fires. `!important` intentionally overrides inline JS-set transitions (e.g.
+   RExpandTransition). JS-driven motion (the cover CD-spin, view-transition
+   morphs) is gated separately in its composables. */
+html.r-v2-reduced-motion *,
+html.r-v2-reduced-motion *::before,
+html.r-v2-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+}
+
 .r-v2-bg__overlay {
   position: fixed;
   /* Match .r-v2-bg — cover the large viewport so the dark overlay reaches the
