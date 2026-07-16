@@ -37,7 +37,7 @@ def upgrade() -> None:
             name="romfilecategory",
             create_type=False,
         )
-        rom_file_category_enum.create(connection, checkfirst=False)
+        rom_file_category_enum.create(connection, checkfirst=True)
     else:
         rom_file_category_enum = sa.Enum(
             "GAME",
@@ -263,4 +263,4 @@ def downgrade() -> None:
     op.drop_table("rom_files", if_exists=True)
 
     if is_postgresql(connection):
-        ENUM(name="romfilecategory").drop(connection, checkfirst=False)
+        ENUM(name="romfilecategory").drop(connection, checkfirst=True)
