@@ -29,6 +29,8 @@
   "franchise": "Franchise",
   "generation": "Generation",
   "genre": "Genre",
+  "has-saves": "Has saves",
+  "has-states": "Has save states",
   "in-library": "In library",
   "language": "Language",
   "local-source": "Local",
@@ -91,7 +93,5 @@
   "tags": "Tags",
   "updated": "Platform updated",
   "upload-firmware": "Upload firmware",
-  "upload-roms": "Upload ROMs",
-  "has-saves": "Has saves",
-  "has-states": "Has save states"
+  "upload-roms": "Upload ROMs"
 }

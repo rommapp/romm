@@ -29,6 +29,8 @@
   "franchise": "Franquicia",
   "generation": "Generación",
   "genre": "Género",
+  "has-saves": "Tiene partidas guardadas",
+  "has-states": "Tiene estados guardados",
   "in-library": "En biblioteca",
   "language": "Idioma",
   "local-source": "Local",
@@ -91,7 +93,5 @@
   "tags": "Etiquetas",
   "updated": "Colección actualizada",
   "upload-firmware": "Subir firmware",
-  "upload-roms": "Subir ROMs",
-  "has-saves": "Tiene partidas guardadas",
-  "has-states": "Tiene estados guardados"
+  "upload-roms": "Subir ROMs"
 }

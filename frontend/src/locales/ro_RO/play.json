@@ -20,12 +20,12 @@
   "no-states-available": "Nicio stare disponibilă",
   "play": "Joacă",
   "powered-by": "Susținut de",
+  "quit": "Ieși",
   "resume-from-save": "Reia din salvare",
   "resume-from-state": "Reia din stare",
-  "start-fresh-hint": "Alege una mai jos pentru a relua sau apasă Joacă pentru a începe de la zero.",
-  "quit": "Ieși",
   "save-and-quit": "Salvează și ieși",
   "select-background-color": "Selectează culoarea de fundal",
   "select-save": "Selectează salvare",
-  "select-state": "Selectează stare"
+  "select-state": "Selectează stare",
+  "start-fresh-hint": "Alege una mai jos pentru a relua sau apasă Joacă pentru a începe de la zero."
 }

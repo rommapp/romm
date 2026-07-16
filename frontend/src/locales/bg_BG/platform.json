@@ -29,6 +29,8 @@
   "franchise": "Франчайз",
   "generation": "Поколение",
   "genre": "Жанр",
+  "has-saves": "Има записи",
+  "has-states": "Има състояния",
   "in-library": "В библиотеката",
   "language": "Език",
   "local-source": "Локален",
@@ -91,7 +93,5 @@
   "tags": "Тагове",
   "updated": "Платформата е обновена",
   "upload-firmware": "Качи фърмуер",
-  "upload-roms": "Качи ROM-ове",
-  "has-saves": "Има записи",
-  "has-states": "Има състояния"
+  "upload-roms": "Качи ROM-ове"
 }

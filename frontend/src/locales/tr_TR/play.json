@@ -20,12 +20,12 @@
   "no-states-available": "Mevcut durum kaydı yok",
   "play": "Oyna",
   "powered-by": "Tarafından desteklenmektedir",
+  "quit": "Çık",
   "resume-from-save": "Kayıttan devam et",
   "resume-from-state": "Durum kaydından devam et",
-  "start-fresh-hint": "Devam etmek için aşağıdan birini seçin veya baştan başlamak için Oyna'ya basın.",
-  "quit": "Çık",
   "save-and-quit": "Kaydet ve çık",
   "select-background-color": "Arka plan rengi seç",
   "select-save": "Kayıt seç",
-  "select-state": "Durum kaydı seç"
+  "select-state": "Durum kaydı seç",
+  "start-fresh-hint": "Devam etmek için aşağıdan birini seçin veya baştan başlamak için Oyna'ya basın."
 }

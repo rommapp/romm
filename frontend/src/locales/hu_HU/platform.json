@@ -29,6 +29,8 @@
   "franchise": "Franchise",
   "generation": "Generáció",
   "genre": "Műfaj",
+  "has-saves": "Van mentése",
+  "has-states": "Van állásmentése",
   "in-library": "A könyvtárban",
   "language": "Nyelv",
   "local-source": "Helyi",
@@ -91,7 +93,5 @@
   "tags": "Címkék",
   "updated": "Platform frissítve",
   "upload-firmware": "Firmware feltöltése",
-  "upload-roms": "ROM-ok Feltöltése",
-  "has-saves": "Van mentése",
-  "has-states": "Van állásmentése"
+  "upload-roms": "ROM-ok Feltöltése"
 }
