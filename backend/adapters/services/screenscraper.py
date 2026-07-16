@@ -27,7 +27,7 @@ LOGIN_ERROR_CHECK: Final = "Erreur de login"
 # text fields (e.g. game synopses), which the strict parser rejects with
 # "Invalid \escape" and discards the whole response. Match any backslash that is
 # not part of a valid JSON escape so we can repair those before parsing.
-_INVALID_ESCAPE_RE: Final = re.compile(r'\\(?!["\\/bfnrtu])')
+_INVALID_ESCAPE_RE: Final = re.compile(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})')
 
 
 def _loads_lenient(text: str) -> dict:
