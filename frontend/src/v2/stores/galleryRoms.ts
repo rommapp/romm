@@ -70,9 +70,31 @@ const WINDOW_SIZE = 72;
 // leave server work going for results we'll throw away.
 const inFlightControllers = new Map<string, AbortController>();
 
+// A failed window is only refetched when `fetchWindowAt` is called for it
+// again, which for a static viewport (no scroll) never happens on its own.
+// So a transient failure would strand up to `WINDOW_SIZE` visible cards as
+// skeletons. To self-heal, a failed window schedules a bounded, backing-off
+// retry; `retryTimers` holds the pending timeouts (keyed by offset) and
+// `retryCounts` the attempts so far. Both are cleared by `abortAllInFlight`
+// on any gallery-context switch so we never retry against a stale context.
+const RETRY_BACKOFF_MS = 2000;
+const MAX_WINDOW_RETRIES = 3;
+const retryTimers = new Map<number, ReturnType<typeof setTimeout>>();
+const retryCounts = new Map<number, number>();
+
+function clearRetry(offset: number) {
+  const timer = retryTimers.get(offset);
+  if (timer !== undefined) clearTimeout(timer);
+  retryTimers.delete(offset);
+  retryCounts.delete(offset);
+}
+
 function abortAllInFlight() {
   for (const ctrl of inFlightControllers.values()) ctrl.abort();
   inFlightControllers.clear();
+  for (const timer of retryTimers.values()) clearTimeout(timer);
+  retryTimers.clear();
+  retryCounts.clear();
 }
 
 // Apply items to `byPosition` in row-sized batches with a rAF yield
@@ -466,15 +488,32 @@ export default defineStore("v2GalleryRoms", {
         );
 
         this.loadedWindows.add(offset);
+        // Recovered — drop any retry bookkeeping for this window.
+        clearRetry(offset);
       } catch (err) {
         // An explicit abort isn't a failure — keep `failedWindows`
         // clean so the window is eligible to refetch under the new
         // gallery context without the UI flagging it as broken.
         if (axios.isCancel(err)) return;
         this.failedWindows.add(offset);
-        // Surface in console; UI keeps the skeletons in place — the
-        // window can be retried by re-entering the row.
+        // Surface in console; UI keeps the skeletons in place until the
+        // retry below (or a viewport / gallery-state change) refetches.
         console.error("[v2GalleryRoms] window fetch failed", offset, err);
+        // Self-heal a stranded viewport: schedule a bounded, backing-off
+        // refetch so a transient blip doesn't leave the window's cards as
+        // skeletons until the user happens to scroll.
+        const attempts = retryCounts.get(offset) ?? 0;
+        if (attempts < MAX_WINDOW_RETRIES && !retryTimers.has(offset)) {
+          retryCounts.set(offset, attempts + 1);
+          const timer = setTimeout(
+            () => {
+              retryTimers.delete(offset);
+              void this.fetchWindowAt(offset);
+            },
+            RETRY_BACKOFF_MS * (attempts + 1),
+          );
+          retryTimers.set(offset, timer);
+        }
       } finally {
         inFlightControllers.delete(ctrlKey);
         this.pendingWindows.delete(offset);
