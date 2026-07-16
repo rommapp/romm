@@ -20,12 +20,12 @@
   "no-states-available": "Nejsou k dispozici žádné stavy",
   "play": "Hrát",
   "powered-by": "Poháněno",
+  "quit": "Ukončit",
   "resume-from-save": "Pokračovat z uložené pozice",
   "resume-from-state": "Pokračovat ze stavu",
-  "start-fresh-hint": "Vyberte níže pro pokračování, nebo stiskněte Hrát pro nový začátek.",
-  "quit": "Ukončit",
   "save-and-quit": "Uložit a ukončit",
   "select-background-color": "Vybrat barvu pozadí",
   "select-save": "Vybrat uloženou pozici",
-  "select-state": "Vybrat stav"
+  "select-state": "Vybrat stav",
+  "start-fresh-hint": "Vyberte níže pro pokračování, nebo stiskněte Hrát pro nový začátek."
 }

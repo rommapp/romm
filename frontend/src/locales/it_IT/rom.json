@@ -59,6 +59,8 @@
   "completion": "Completamento",
   "completionist": "Completista",
   "confirm-delete-note": "Sei sicuro di voler eliminare la nota \"{title}\"?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
+  "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Copia link per il download",
   "copy-link": "Copia link per il download",
   "copy-link-action": "Copia link",
@@ -150,9 +152,9 @@
   "manual-files-upload-success": "{count} manual file uploaded successfully ({failed} skipped/failed). | {count} manual files uploaded successfully ({failed} skipped/failed).",
   "manual-files-uploaded-n": "Caricato {n} file manuale. | Caricati {n} file manuali.",
   "manual-files-uploaded-with-failed": "Caricato {n} file manuale, {failed} falliti. | Caricati {n} file manuali, {failed} falliti.",
+  "manual-load-failed": "Unable to load manual",
   "manual-match": "Associazione manuale",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
-  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Errore durante la rimozione del manuale: {error}",
   "manual-removed": "Manuale rimosso con successo",
@@ -200,7 +202,6 @@
   "metadata-sources-label": "Fonti metadati",
   "metric-completion": "Completamento",
   "metric-difficulty": "Difficoltà",
-  "your-progress": "Your progress",
   "metric-rating": "Valutazione",
   "missing-platform": "Piattaforma mancante dal filesystem",
   "more-actions": "Altre azioni",
@@ -429,7 +430,6 @@
   "versions-count": "{n} versioni",
   "volume-mute": "Disattiva audio",
   "volume-unmute": "Riattiva audio",
-  "youtube-video-id": "ID video YouTube",
-  "convert-to-folder-title": "Convert to folder ROM?",
-  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
+  "your-progress": "Your progress",
+  "youtube-video-id": "ID video YouTube"
 }

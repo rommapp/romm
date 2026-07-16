@@ -59,6 +59,8 @@
   "completion": "Durchgespielt",
   "completionist": "Vollendung",
   "confirm-delete-note": "Sind Sie sicher, dass Sie die Notiz \"{title}\" löschen möchten?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
+  "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Download-Link kopieren",
   "copy-link": "Download-Link kopieren",
   "copy-link-action": "Link kopieren",
@@ -150,9 +152,9 @@
   "manual-files-upload-success": "{count} manual file uploaded successfully ({failed} skipped/failed). | {count} manual files uploaded successfully ({failed} skipped/failed).",
   "manual-files-uploaded-n": "{n} Handbuch-Datei hochgeladen. | {n} Handbuch-Dateien hochgeladen.",
   "manual-files-uploaded-with-failed": "{n} Handbuch-Datei hochgeladen, {failed} fehlgeschlagen. | {n} Handbuch-Dateien hochgeladen, {failed} fehlgeschlagen.",
+  "manual-load-failed": "Unable to load manual",
   "manual-match": "Manuell zuweisen",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
-  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Fehler beim Entfernen des Handbuchs: {error}",
   "manual-removed": "Handbuch erfolgreich entfernt",
@@ -200,7 +202,6 @@
   "metadata-sources-label": "Metadaten-Quellen",
   "metric-completion": "Abschluss",
   "metric-difficulty": "Schwierigkeit",
-  "your-progress": "Your progress",
   "metric-rating": "Bewertung",
   "missing-platform": "Plattform im Dateisystem fehlt",
   "more-actions": "Weitere Aktionen",
@@ -429,7 +430,6 @@
   "versions-count": "{n} Versionen",
   "volume-mute": "Stummschalten",
   "volume-unmute": "Stummschaltung aufheben",
-  "youtube-video-id": "YouTube-Video-ID",
-  "convert-to-folder-title": "Convert to folder ROM?",
-  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
+  "your-progress": "Your progress",
+  "youtube-video-id": "YouTube-Video-ID"
 }

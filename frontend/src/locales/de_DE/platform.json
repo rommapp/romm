@@ -29,6 +29,8 @@
   "franchise": "Franchise",
   "generation": "Generation",
   "genre": "Genre",
+  "has-saves": "Hat Spielstände",
+  "has-states": "Hat Savestates",
   "in-library": "In der Bibliothek",
   "language": "Sprache",
   "local-source": "Lokal",
@@ -91,7 +93,5 @@
   "tags": "Tags",
   "updated": "Plattform aktualisiert",
   "upload-firmware": "Firmware hochladen",
-  "upload-roms": "ROMs hochladen",
-  "has-saves": "Hat Spielstände",
-  "has-states": "Hat Savestates"
+  "upload-roms": "ROMs hochladen"
 }

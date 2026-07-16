@@ -29,6 +29,8 @@
   "franchise": "Франшиза",
   "generation": "Поколение",
   "genre": "Жанр",
+  "has-saves": "Есть сохранения",
+  "has-states": "Есть состояния",
   "in-library": "В библиотеке",
   "language": "Язык",
   "local-source": "Локально",
@@ -91,7 +93,5 @@
   "tags": "Теги",
   "updated": "Платформа обновлена",
   "upload-firmware": "Загрузить прошивку",
-  "upload-roms": "Загрузить ромы",
-  "has-saves": "Есть сохранения",
-  "has-states": "Есть состояния"
+  "upload-roms": "Загрузить ромы"
 }

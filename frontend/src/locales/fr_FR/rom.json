@@ -59,6 +59,8 @@
   "completion": "Complétion",
   "completionist": "Complétionniste",
   "confirm-delete-note": "Êtes-vous sûr de vouloir supprimer la note \"{title}\" ?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
+  "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Copier le lien de téléchargement",
   "copy-link": "Copier le lien de téléchargement",
   "copy-link-action": "Copier le lien",
@@ -150,9 +152,9 @@
   "manual-files-upload-success": "{count} manual file uploaded successfully ({failed} skipped/failed). | {count} manual files uploaded successfully ({failed} skipped/failed).",
   "manual-files-uploaded-n": "{n} fichier de manuel téléversé. | {n} fichiers de manuel téléversés.",
   "manual-files-uploaded-with-failed": "{n} fichier de manuel téléversé, {failed} en échec. | {n} fichiers de manuel téléversés, {failed} en échec.",
+  "manual-load-failed": "Unable to load manual",
   "manual-match": "Correspondance manuelle",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
-  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Échec de la suppression du manuel : {error}",
   "manual-removed": "Manuel supprimé avec succès",
@@ -200,7 +202,6 @@
   "metadata-sources-label": "Sources de métadonnées",
   "metric-completion": "Complétion",
   "metric-difficulty": "Difficulté",
-  "your-progress": "Your progress",
   "metric-rating": "Note",
   "missing-platform": "Plateforme manquante du système de fichiers",
   "more-actions": "Plus d'actions",
@@ -429,7 +430,6 @@
   "versions-count": "{n} versions",
   "volume-mute": "Couper le son",
   "volume-unmute": "Activer le son",
-  "youtube-video-id": "ID vidéo YouTube",
-  "convert-to-folder-title": "Convert to folder ROM?",
-  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
+  "your-progress": "Your progress",
+  "youtube-video-id": "ID vidéo YouTube"
 }

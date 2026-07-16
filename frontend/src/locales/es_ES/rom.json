@@ -59,6 +59,8 @@
   "completion": "Completado",
   "completionist": "Completista",
   "confirm-delete-note": "¿Estás seguro de que quieres eliminar la nota \"{title}\"?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
+  "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Copiar enlace de descarga",
   "copy-link": "Copiar link de descarga",
   "copy-link-action": "Copiar enlace",
@@ -150,9 +152,9 @@
   "manual-files-upload-success": "{count} manual file uploaded successfully ({failed} skipped/failed). | {count} manual files uploaded successfully ({failed} skipped/failed).",
   "manual-files-uploaded-n": "{n} manual subido | {n} manuales subidos",
   "manual-files-uploaded-with-failed": "{n} manual subido, {failed} con error | {n} manuales subidos, {failed} con error",
+  "manual-load-failed": "Unable to load manual",
   "manual-match": "Identificación manual",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
-  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Error al eliminar el manual: {error}",
   "manual-removed": "Manual eliminado con éxito",
@@ -200,7 +202,6 @@
   "metadata-sources-label": "Fuentes de metadatos",
   "metric-completion": "Completado",
   "metric-difficulty": "Dificultad",
-  "your-progress": "Tu progreso",
   "metric-rating": "Valoración",
   "missing-platform": "Plataforma ausente en el sistema de archivos",
   "more-actions": "Más acciones",
@@ -429,7 +430,6 @@
   "versions-count": "{n} versiones",
   "volume-mute": "Silenciar",
   "volume-unmute": "Quitar silencio",
-  "youtube-video-id": "ID de vídeo de YouTube",
-  "convert-to-folder-title": "Convert to folder ROM?",
-  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
+  "your-progress": "Tu progreso",
+  "youtube-video-id": "ID de vídeo de YouTube"
 }

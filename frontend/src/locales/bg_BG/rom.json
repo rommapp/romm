@@ -59,6 +59,8 @@
   "completion": "Завършеност",
   "completionist": "Перфекционист",
   "confirm-delete-note": "Сигурен ли си, че искаш да изтриеш бележката \"{title}\"?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
+  "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Копирай линк за сваляне",
   "copy-link": "Копирай линк за сваляне",
   "copy-link-action": "Копирай линка",
@@ -150,9 +152,9 @@
   "manual-files-upload-success": "{count} manual file uploaded successfully ({failed} skipped/failed). | {count} manual files uploaded successfully ({failed} skipped/failed).",
   "manual-files-uploaded-n": "Качен е {n} файл от ръководството. | Качени са {n} файла от ръководството.",
   "manual-files-uploaded-with-failed": "Качен е {n} файл от ръководството, {failed} неуспешни. | Качени са {n} файла от ръководството, {failed} неуспешни.",
+  "manual-load-failed": "Unable to load manual",
   "manual-match": "Ръчно разпознаване",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
-  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Грешка при премахване на ръководството: {error}",
   "manual-removed": "Ръководството е премахнато успешно",
@@ -200,7 +202,6 @@
   "metadata-sources-label": "Източници на метаданни",
   "metric-completion": "Завършеност",
   "metric-difficulty": "Трудност",
-  "your-progress": "Your progress",
   "metric-rating": "Оценка",
   "missing-platform": "Липсваща платформа от файловата система",
   "more-actions": "Още действия",
@@ -429,7 +430,6 @@
   "versions-count": "{n} версии",
   "volume-mute": "Заглуши",
   "volume-unmute": "Включи звука",
-  "youtube-video-id": "YouTube видео ID",
-  "convert-to-folder-title": "Convert to folder ROM?",
-  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
+  "your-progress": "Your progress",
+  "youtube-video-id": "YouTube видео ID"
 }

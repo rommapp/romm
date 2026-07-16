@@ -59,6 +59,8 @@
   "completion": "Ukończenie",
   "completionist": "Kompletista",
   "confirm-delete-note": "Czy na pewno chcesz usunąć notatkę \"{title}\"?",
+  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
+  "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Kopiuj link do pobrania",
   "copy-link": "Kopiuj link do pobrania",
   "copy-link-action": "Kopiuj link",
@@ -150,9 +152,9 @@
   "manual-files-upload-success": "{count} manual file uploaded successfully ({failed} skipped/failed). | {count} manual files uploaded successfully ({failed} skipped/failed).",
   "manual-files-uploaded-n": "Przesłano {n} plik instrukcji. | Przesłano {n} pliki instrukcji. | Przesłano {n} plików instrukcji.",
   "manual-files-uploaded-with-failed": "Przesłano {n} plik instrukcji, {failed} niepowodzeń. | Przesłano {n} pliki instrukcji, {failed} niepowodzeń.",
+  "manual-load-failed": "Unable to load manual",
   "manual-match": "Ręczne dopasowanie",
   "manual-redownload-failed": "Failed to re-download manual: {error}",
-  "manual-load-failed": "Unable to load manual",
   "manual-redownloaded": "Manual re-downloaded successfully",
   "manual-remove-failed": "Nie udało się usunąć instrukcji: {error}",
   "manual-removed": "Instrukcja została pomyślnie usunięta",
@@ -200,7 +202,6 @@
   "metadata-sources-label": "Źródła metadanych",
   "metric-completion": "Ukończenie",
   "metric-difficulty": "Trudność",
-  "your-progress": "Your progress",
   "metric-rating": "Ocena",
   "missing-platform": "Brakująca platforma z systemu plików",
   "more-actions": "Więcej akcji",
@@ -429,7 +430,6 @@
   "versions-count": "{n} wersji",
   "volume-mute": "Wycisz",
   "volume-unmute": "Wyłącz wyciszenie",
-  "youtube-video-id": "ID filmu YouTube",
-  "convert-to-folder-title": "Convert to folder ROM?",
-  "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible."
+  "your-progress": "Your progress",
+  "youtube-video-id": "ID filmu YouTube"
 }

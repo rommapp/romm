@@ -29,6 +29,8 @@
   "franchise": "Seria",
   "generation": "Generacja",
   "genre": "Gatunek",
+  "has-saves": "Ma zapisy",
+  "has-states": "Ma stany gry",
   "in-library": "W bibliotece",
   "language": "Język",
   "local-source": "Lokalne",
@@ -91,7 +93,5 @@
   "tags": "Tagi",
   "updated": "Platforma zaktualizowana",
   "upload-firmware": "Prześlij firmware",
-  "upload-roms": "Prześlij ROMy",
-  "has-saves": "Ma zapisy",
-  "has-states": "Ma stany gry"
+  "upload-roms": "Prześlij ROMy"
 }

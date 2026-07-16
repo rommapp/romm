@@ -29,6 +29,8 @@
   "franchise": "Franchise",
   "generation": "Nesil",
   "genre": "Tür",
+  "has-saves": "Kayıtları var",
+  "has-states": "Durum kayıtları var",
   "in-library": "Kütüphanede",
   "language": "Dil",
   "local-source": "Yerel",
@@ -91,7 +93,5 @@
   "tags": "Etiketler",
   "updated": "Platform güncellendi",
   "upload-firmware": "Firmware yükle",
-  "upload-roms": "ROM yükle",
-  "has-saves": "Kayıtları var",
-  "has-states": "Durum kayıtları var"
+  "upload-roms": "ROM yükle"
 }

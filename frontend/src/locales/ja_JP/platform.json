@@ -29,6 +29,8 @@
   "franchise": "フランチャイズ",
   "generation": "生成",
   "genre": "ジャンル",
+  "has-saves": "セーブデータあり",
+  "has-states": "ステートセーブあり",
   "in-library": "ライブラリ内",
   "language": "言語",
   "local-source": "ローカル",
@@ -91,7 +93,5 @@
   "tags": "タグ",
   "updated": "プラットフォームを更新しました",
   "upload-firmware": "ファームウェアをアップロード",
-  "upload-roms": "Romをアップロード",
-  "has-saves": "セーブデータあり",
-  "has-states": "ステートセーブあり"
+  "upload-roms": "Romをアップロード"
 }
