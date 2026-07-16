@@ -97,6 +97,14 @@ function abortAllInFlight() {
   retryCounts.clear();
 }
 
+// Abort a single in-flight window fetch. The rejected request is caught
+// as a cancel in `fetchWindowAt` (no `failedWindows` entry, no retry) and
+// its `finally` clears the pending/controller bookkeeping.
+function cancelWindow(offset: number) {
+  const ctrl = inFlightControllers.get(`window:${offset}`);
+  if (ctrl) ctrl.abort();
+}
+
 // Apply items to `byPosition` in row-sized batches with a rAF yield
 // between batches. Each Map.set() invalidates Vue's per-key dep, and
 // when many cards are in the viewport / overscan zone they all
@@ -519,6 +527,45 @@ export default defineStore("v2GalleryRoms", {
         this.pendingWindows.delete(offset);
         if (offset === 0) this.initialFetching = false;
       }
+    },
+
+    /** Reconcile in-flight window fetches with the currently visible
+     * positions. Starts any window covering a visible position (deduped
+     * inside `fetchWindowAt`) and aborts any in-flight or retry-pending
+     * window that no longer covers one. Without the abort, scrolling
+     * through a large library would leave every window it passed
+     * downloading and applying in the background — the exact wasted
+     * network / backend / render work this store exists to avoid on
+     * low-power devices. Driven by the shell's debounced viewport sync. */
+    syncVisibleWindows(positions: Iterable<number>) {
+      const wanted = new Set<number>();
+      for (const p of positions) {
+        if (p < 0) continue;
+        if (this.total > 0 && p >= this.total) continue;
+        wanted.add(alignToWindow(p));
+      }
+      // Cancel windows that drifted out of view. Snapshot first: aborting
+      // settles a fetch's `finally` (which mutates these sets) on a later
+      // microtask, but iterate a copy to stay safe regardless.
+      for (const offset of [...this.pendingWindows]) {
+        if (!wanted.has(offset)) cancelWindow(offset);
+      }
+      for (const offset of [...retryTimers.keys()]) {
+        if (!wanted.has(offset)) clearRetry(offset);
+      }
+      for (const offset of wanted) {
+        void this.fetchWindowAt(offset);
+      }
+    },
+
+    /** Abort every in-flight window fetch + pending retry without wiping
+     * the loaded cache. The shell calls this when the gallery unmounts so
+     * navigating away mid-scroll doesn't leave downloads running; a
+     * return to the same gallery still reuses `loadedWindows`. */
+    abortInFlight() {
+      abortAllInFlight();
+      this.pendingWindows = new Set();
+      this.initialFetching = false;
     },
 
     /** Apply (in place) an updated ROM to whatever position currently

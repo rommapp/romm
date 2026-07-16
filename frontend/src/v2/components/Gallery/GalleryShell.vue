@@ -551,22 +551,26 @@ const currentLetter = computed<string>(() => {
   return "";
 });
 
-// Viewport-driven fetch. The shell tracks which positions are
-// currently visible (from the rows in `viewportRange`) and keeps
+// Viewport-driven fetch. The shell collects the positions currently in
+// view (rows in `viewportRange`) and hands them to the store, which keeps
 // `byPosition` in sync by fetching the 72-item windows those positions
-// fall into via `fetchWindowAt`. Windows are shared across cards and
-// cached in the store, so a full viewport resolves in a handful of
-// paginated requests rather than one per card.
+// fall into. Windows are shared across cards and cached, so a full
+// viewport resolves in a handful of paginated requests rather than one
+// per card. (Fetching per-card instead issued one request plus one DB
+// lookup per visible card, so ~100 simultaneous round-trips on a full
+// grid, which the browser's per-host connection cap then serialized into
+// slow waves on low-power devices.)
 //
-// No idle-time prefetch: when the user stops scrolling, no new
-// requests are fired. Windows already covering the viewport keep
-// loading; everything off-screen waits until the user scrolls there.
+// The store also aborts windows that scrolled out of view, so paging
+// through a large library doesn't leave departed windows downloading.
+//
+// No idle-time prefetch: when the user stops scrolling, no new requests
+// are fired for off-screen positions.
 //
 // A small debounce on viewport changes prevents request storms during
 // smooth scrolling: only when the viewport settles for
 // `FETCH_DEBOUNCE_MS` do we sync.
 const FETCH_DEBOUNCE_MS = 80;
-const visiblePositions = new Set<number>();
 let fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingRange: { first: number; last: number } | null = null;
 
@@ -586,24 +590,7 @@ function collectVisiblePositions(range: {
 }
 
 function syncFetches(range: { first: number; last: number }) {
-  const next = collectVisiblePositions(range);
-
-  // Fetch the windows covering the positions that just entered. The
-  // store aligns each position to its 72-item window and dedupes
-  // against pending + loaded windows, so this collapses to one
-  // paginated request per window regardless of how many cards are on
-  // screen. (Fetching per-card instead issued one request plus one DB
-  // lookup per visible card, so ~100 simultaneous round-trips on a full
-  // grid, which the browser's per-host connection cap then serialized
-  // into slow waves on low-power devices.)
-  for (const p of next) {
-    if (!galleryRoms.byPosition.has(p)) {
-      void galleryRoms.fetchWindowAt(p);
-    }
-  }
-
-  visiblePositions.clear();
-  for (const p of next) visiblePositions.add(p);
+  galleryRoms.syncVisibleWindows(collectVisiblePositions(range));
 }
 
 function scheduleFetchSync(range: { first: number; last: number }) {
@@ -619,11 +606,10 @@ function scheduleFetchSync(range: { first: number; last: number }) {
 }
 
 // When the virtualItems list itself changes (gallery context switch,
-// search invalidate), drop the visible-position bookkeeping. The
-// store's `invalidateWindows` / `resetGallery` already aborts every
-// in-flight request, so we just clear local state.
+// search invalidate), drop the pending debounced sync. The store's
+// `invalidateWindows` / `resetGallery` already aborts every in-flight
+// request, so we just clear local state.
 watch(virtualItems, () => {
-  visiblePositions.clear();
   if (fetchDebounceTimer) {
     clearTimeout(fetchDebounceTimer);
     fetchDebounceTimer = null;
@@ -786,7 +772,11 @@ onBeforeUnmount(() => {
   gallerySelection.clear();
   if (searchDebounce) clearTimeout(searchDebounce);
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
-  visiblePositions.clear();
+  // Leaving the gallery entirely (onBeforeRouteLeave doesn't reset the
+  // store): stop any window fetches still downloading so navigating away
+  // mid-scroll doesn't keep the network / backend busy. Keeps the loaded
+  // cache so returning to the same gallery is instant.
+  galleryRoms.abortInFlight();
   inflowResizeObserver?.disconnect();
   inflowResizeObserver = null;
   // Drop the debug stats so the overlay doesn't show stale gallery numbers
