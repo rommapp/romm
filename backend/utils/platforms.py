@@ -90,6 +90,7 @@ def get_supported_platforms() -> list[PlatformSchema]:
                 or None,
                 "tgdb_id": moby_platform.get("tgdb_id")
                 or hasheous_platform.get("tgdb_id")
+                or tgdb_platform.get("tgdb_id")
                 or None,
                 "name": igdb_platform.get("name")
                 or ss_platform.get("name")
