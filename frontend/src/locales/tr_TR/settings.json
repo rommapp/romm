@@ -285,6 +285,8 @@
   "rating-header": "Puan",
   "recently-added-as-grid": "Son eklenen ROM'lar ızgara olarak",
   "recently-added-as-grid-desc": "Ana sayfada son eklenen ROM kartlarını ızgara görünümünde göster",
+  "reduced-motion": "Reduced motion",
+  "reduced-motion-desc": "Disable GPU-heavy visuals and animations (background blur, cover effects, spinning discs, motion) for smoother performance on low-powered devices",
   "regenerate-code": "Kodu yeniden oluştur",
   "regenerate-token": "Tokenı yeniden oluştur",
   "regenerate-token-title": "Tokenı yeniden oluştur",

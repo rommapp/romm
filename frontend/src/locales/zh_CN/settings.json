@@ -285,6 +285,8 @@
   "rating-header": "评分",
   "recently-added-as-grid": "显示最近添加的 Rom 文件（网格）",
   "recently-added-as-grid-desc": "以网格形式在主页上显示最近添加的 Rom 文件（卡片）部分",
+  "reduced-motion": "Reduced motion",
+  "reduced-motion-desc": "Disable GPU-heavy visuals and animations (background blur, cover effects, spinning discs, motion) for smoother performance on low-powered devices",
   "regenerate-code": "重新生成代码",
   "regenerate-token": "重新生成令牌",
   "regenerate-token-title": "重新生成令牌",

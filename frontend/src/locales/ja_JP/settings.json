@@ -285,6 +285,8 @@
   "rating-header": "評価",
   "recently-added-as-grid": "最近追加されたromをグリッドで表示",
   "recently-added-as-grid-desc": "ホームの最近追加されたromをグリッドで表示",
+  "reduced-motion": "Reduced motion",
+  "reduced-motion-desc": "Disable GPU-heavy visuals and animations (background blur, cover effects, spinning discs, motion) for smoother performance on low-powered devices",
   "regenerate-code": "コードを再生成",
   "regenerate-token": "トークンを再生成",
   "regenerate-token-title": "トークンを再生成",

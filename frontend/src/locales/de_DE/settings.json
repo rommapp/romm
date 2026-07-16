@@ -285,6 +285,8 @@
   "rating-header": "Bewertung",
   "recently-added-as-grid": "Kürzlich hinzugefügte ROMs als Raster darstellen",
   "recently-added-as-grid-desc": "Kürzlich hinzugefügte ROMs werden auf der Startseite als Raster gezeigt",
+  "reduced-motion": "Reduzierte Bewegung",
+  "reduced-motion-desc": "Deaktiviert GPU-intensive Effekte und Animationen (Hintergrund- und Cover-Unschärfe, drehende Discs, Bewegung) für flüssigere Leistung auf leistungsschwachen Geräten",
   "regenerate-code": "Code regenerieren",
   "regenerate-token": "Token regenerieren",
   "regenerate-token-title": "Token regenerieren",

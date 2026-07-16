@@ -285,6 +285,8 @@
   "rating-header": "Valutazione",
   "recently-added-as-grid": "Rom aggiunte di recente come griglia",
   "recently-added-as-grid-desc": "Visualizza le ROM aggiunte di recente come una griglia nella home",
+  "reduced-motion": "Movimento ridotto",
+  "reduced-motion-desc": "Disattiva gli effetti grafici e le animazioni pesanti (sfocatura dello sfondo e delle copertine, dischi rotanti, movimento) per prestazioni più fluide su dispositivi poco potenti",
   "regenerate-code": "Rigenera codice",
   "regenerate-token": "Rigenera token",
   "regenerate-token-title": "Rigenera token",

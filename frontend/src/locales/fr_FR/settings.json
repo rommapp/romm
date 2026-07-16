@@ -285,6 +285,8 @@
   "rating-header": "Note",
   "recently-added-as-grid": "ROMs récemment ajoutés en grille",
   "recently-added-as-grid-desc": "Voir les cartes des ROMs récemment ajoutés en grille sur la page d'accueil",
+  "reduced-motion": "Mouvement réduit",
+  "reduced-motion-desc": "Désactive les effets graphiques et animations coûteux (flou de l'arrière-plan et des jaquettes, disques qui tournent, mouvements) pour de meilleures performances sur les appareils peu puissants",
   "regenerate-code": "Régénérer le code",
   "regenerate-token": "Régénérer le token",
   "regenerate-token-title": "Régénérer le token",
