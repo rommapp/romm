@@ -285,6 +285,8 @@
   "rating-header": "Hodnocení",
   "recently-added-as-grid": "Nedávno přidané ROM jako mřížka",
   "recently-added-as-grid-desc": "Zobrazit karty nedávno přidaných ROM jako mřížku na hlavní stránce",
+  "reduced-effects": "Reduced effects",
+  "reduced-effects-desc": "Disable GPU-heavy visuals (background blur and cover blur-in) for smoother performance on low-powered devices",
   "regenerate-code": "Vygenerovat nový kód",
   "regenerate-token": "Vygenerovat nový token",
   "regenerate-token-title": "Vygenerovat nový token",

@@ -285,6 +285,8 @@
   "rating-header": "Ocena",
   "recently-added-as-grid": "Ostatnio dodane ROM-y w widoku siatki",
   "recently-added-as-grid-desc": "Wyświetl ostatnio dodane ROM-y w formie siatki na stronie głównej",
+  "reduced-effects": "Reduced effects",
+  "reduced-effects-desc": "Disable GPU-heavy visuals (background blur and cover blur-in) for smoother performance on low-powered devices",
   "regenerate-code": "Wygeneruj kod ponownie",
   "regenerate-token": "Wygeneruj token ponownie",
   "regenerate-token-title": "Wygeneruj token ponownie",

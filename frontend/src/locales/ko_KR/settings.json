@@ -285,6 +285,8 @@
   "rating-header": "평가",
   "recently-added-as-grid": "최근에 추가된 롬을 그리드 뷰로",
   "recently-added-as-grid-desc": "홈페이지에 최근에 추가된 롬을 그리드 뷰로 보여줍니다",
+  "reduced-effects": "Reduced effects",
+  "reduced-effects-desc": "Disable GPU-heavy visuals (background blur and cover blur-in) for smoother performance on low-powered devices",
   "regenerate-code": "코드 재생성",
   "regenerate-token": "토큰 재생성",
   "regenerate-token-title": "토큰 재생성",

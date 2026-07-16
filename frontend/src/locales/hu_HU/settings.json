@@ -285,6 +285,8 @@
   "rating-header": "Értékelés",
   "recently-added-as-grid": "Legutóbb hozzáadott ROM-ok rácsnézetben",
   "recently-added-as-grid-desc": "A főoldalon a legutóbb hozzáadott ROM-kártyák rácsnézetben jelennek meg",
+  "reduced-effects": "Reduced effects",
+  "reduced-effects-desc": "Disable GPU-heavy visuals (background blur and cover blur-in) for smoother performance on low-powered devices",
   "regenerate-code": "Kód újragenerálása",
   "regenerate-token": "Token újragenerálása",
   "regenerate-token-title": "Token újragenerálása",
