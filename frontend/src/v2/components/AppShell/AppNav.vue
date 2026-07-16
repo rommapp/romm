@@ -123,6 +123,17 @@ onBeforeUnmount(() => {
   border-bottom-color: var(--r-color-border);
 }
 
+/* Reduced-motion / low-power: the glass is a backdrop-filter blur, which is
+   expensive on weak GPUs and, against the now-solid page background (the
+   backdrop art is dropped in this mode), just reads as murky. Swap it for a
+   flat opaque surface so the fixed bar stays a clean, solid strip as content
+   scrolls under it. */
+:global(html.r-v2-reduced-motion) .r-v2-nav-bar::before {
+  background: var(--r-color-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 /* Grid `1fr auto 1fr` keeps the tab pill geometrically centred on the
    viewport regardless of the side clusters' widths. With flex +
    justify-content:center the pill drifts whenever logo and right

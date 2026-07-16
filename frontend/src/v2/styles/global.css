@@ -185,15 +185,15 @@ html[data-input="pad"] .r-v2 * {
 }
 
 /* Reduced-motion mode (Settings, per device; defaults to the OS
-   `prefers-reduced-motion`): a full-viewport blur(28px) is one of the heaviest
-   things we ask of the GPU and pegs weak rendering backends (see the Firefox
-   note above). Keep the same tone shift but drop the blur so low-power devices
-   only composite a sharp, dimmed backdrop. */
-html.r-v2-reduced-motion .r-v2-bg__layer {
-  filter: brightness(0.45);
-}
-html.r-v2-reduced-motion.r-v2-light .r-v2-bg__layer {
-  filter: brightness(1.12) saturate(0.7);
+   `prefers-reduced-motion`): the backdrop art is authored to be read only
+   through the 28px blur — unblurred it shows hard seams and a bright diagonal
+   wedge. And a full-viewport blur(28px) is one of the heaviest things we ask
+   of the GPU (see the Firefox note above). So drop the whole fixed art +
+   overlay stack and let the solid page background (`.r-v2` bg) show through:
+   cheaper, and no weird seam. */
+html.r-v2-reduced-motion .r-v2-bg,
+html.r-v2-reduced-motion .r-v2-bg__overlay {
+  display: none;
 }
 
 /* The OS `prefers-reduced-motion` query is honored per-component (each R*
