@@ -30,6 +30,7 @@ import {
   type Ref,
 } from "vue";
 import { useReducedEffects } from "@/v2/composables/useReducedEffects";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
 export interface SpinConfig {
   /** Top rotational speed, deg/sec. */
@@ -80,15 +81,6 @@ export function stepSpin(
   return { angle, velocity };
 }
 
-/** True when the OS asks for reduced motion. */
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
-
 export interface UseCoverAnimationOptions {
   /** The cover <img> element (the thing that spins / slides). */
   el: Ref<HTMLElement | null>;
@@ -123,15 +115,15 @@ export interface UseCoverAnimation {
 export function useCoverAnimation(
   opts: UseCoverAnimationOptions,
 ): UseCoverAnimation {
-  // Reactive so the spin/video stops the instant low-power mode is toggled.
-  // The OS check stays independent of it: an explicit reduced-effects "off"
-  // must not re-enable motion for a user whose system asks to reduce it.
+  // All reactive, so the spin/video stops the instant any of these flips.
+  // The OS check stays independent of reduced-effects: an explicit
+  // reduced-effects "off" must not re-enable motion for a user whose system
+  // asks to reduce it.
+  const reducedMotion = useReducedMotion();
   const { enabled: reducedEffects } = useReducedEffects();
   const motionOk = computed(
     () =>
-      opts.motionEnabled.value &&
-      !prefersReducedMotion() &&
-      !reducedEffects.value,
+      opts.motionEnabled.value && !reducedMotion.value && !reducedEffects.value,
   );
 
   // The slide (`margin-top`) is eased in CSS (`.game-cover__img`) so it

@@ -16,8 +16,9 @@
 // the machine RomM is viewed on, not the user's account. Same singleton-ref
 // rationale as useCrtMode — vueuse's useLocalStorage / useMediaQuery make an
 // independent ref per call, so we create them once here and share.
-import { useLocalStorage, useMediaQuery } from "@vueuse/core";
+import { useLocalStorage } from "@vueuse/core";
 import { computed } from "vue";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
 // null = no explicit choice yet (follow the system); true/false = user
 // override. An explicit serializer is required: with a null default vueuse
@@ -33,7 +34,7 @@ const override = useLocalStorage<boolean | null>(
     },
   },
 );
-const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+const prefersReducedMotion = useReducedMotion();
 
 const enabled = computed<boolean>({
   get: () => override.value ?? prefersReducedMotion.value,

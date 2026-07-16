@@ -24,6 +24,7 @@
 //
 // Only handles vertical (height) expansion — width transitions are
 // rare enough to not justify a sibling primitive yet.
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
 defineOptions({ inheritAttrs: false });
 
@@ -65,12 +66,7 @@ function restore(el: HTMLElement) {
   el.style.transition = "";
 }
 
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
+const reducedMotion = useReducedMotion();
 
 function buildTransition(): string {
   const dur = props.duration ?? "var(--r-motion-med)";
@@ -81,7 +77,7 @@ function buildTransition(): string {
 
 function onEnter(el: Element, done: () => void) {
   const e = el as HTMLElement;
-  if (prefersReducedMotion()) {
+  if (reducedMotion.value) {
     done();
     return;
   }
@@ -107,7 +103,7 @@ function onEnter(el: Element, done: () => void) {
 
 function onLeave(el: Element, done: () => void) {
   const e = el as HTMLElement;
-  if (prefersReducedMotion()) {
+  if (reducedMotion.value) {
     done();
     return;
   }

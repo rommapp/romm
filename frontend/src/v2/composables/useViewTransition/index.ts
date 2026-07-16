@@ -25,6 +25,7 @@
 import { nextTick, ref } from "vue";
 import type { RouteLocationNormalized, Router } from "vue-router";
 import { useReducedEffects } from "@/v2/composables/useReducedEffects";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
 export interface MorphSource {
   el: HTMLElement;
@@ -54,21 +55,15 @@ function isSupported(): boolean {
   );
 }
 
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
-
 export function useViewTransition() {
+  const reducedMotion = useReducedMotion();
   const { enabled: reducedEffects } = useReducedEffects();
 
   function morphTransition(
     source: MorphSource,
     navigate: () => void | Promise<void>,
   ): void {
-    if (!isSupported() || prefersReducedMotion() || reducedEffects.value) {
+    if (!isSupported() || reducedMotion.value || reducedEffects.value) {
       void navigate();
       return;
     }
@@ -150,8 +145,9 @@ function morphNameForRoute(route: RouteLocationNormalized): string | null {
 export function installBackMorph(router: Router): () => void {
   const removeGuard = router.beforeResolve(async (to, from) => {
     if (forwardTransitionActive) return true;
-    if (!isSupported() || prefersReducedMotion()) return true;
-    if (useReducedEffects().enabled.value) return true;
+    if (!isSupported()) return true;
+    if (useReducedMotion().value || useReducedEffects().enabled.value)
+      return true;
     // No morph between two views of the same kind (e.g. /platform/A →
     // /platform/B) — that would compete with the in-route transition
     // and there's no shared element to pair anyway.
