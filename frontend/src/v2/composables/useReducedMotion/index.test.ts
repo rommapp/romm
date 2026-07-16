@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 
-const KEY = "settings.v2.reducedEffects";
+const KEY = "settings.v2.reducedMotion";
 
-// A minimal in-memory Storage. The composable reads `window.localStorage`
-// (via vueuse), which under this env + Node isn't reliably wired up for a
-// pure, non-DOM test file, so we install our own and assert against it.
+// A minimal in-memory Storage. The hook reads `window.localStorage` (via
+// vueuse), which under this env + Node isn't reliably wired up for a pure,
+// non-DOM test file, so we install our own and assert against it.
 function makeStorage(): Storage {
   const map = new Map<string, string>();
   return {
@@ -35,13 +35,14 @@ function stubReducedMotion(matches: boolean) {
   }));
 }
 
-// `override` / `enabled` are module-level singletons created at import time, so
-// they read localStorage + matchMedia exactly once on load. Re-import fresh
-// after seeding both to exercise the default / override paths in isolation.
+// `override` / `systemPreference` / `enabled` are module-level singletons
+// created at import time, so they read localStorage + matchMedia exactly once
+// on load. Re-import fresh after seeding both to exercise the default /
+// override paths in isolation.
 async function loadFresh() {
   vi.resetModules();
-  const { useReducedEffects } = await import("./index");
-  return useReducedEffects();
+  const { useReducedMotion } = await import("./index");
+  return useReducedMotion();
 }
 
 const realMatchMedia = window.matchMedia;
@@ -62,7 +63,7 @@ afterEach(() => {
   window.matchMedia = realMatchMedia;
 });
 
-describe("useReducedEffects", () => {
+describe("useReducedMotion", () => {
   it("defaults to the system prefers-reduced-motion setting when unset", async () => {
     stubReducedMotion(true);
     const { enabled } = await loadFresh();
@@ -111,9 +112,9 @@ describe("useReducedEffects", () => {
 
   it("shares a single instance across calls within a load", async () => {
     vi.resetModules();
-    const { useReducedEffects } = await import("./index");
-    const a = useReducedEffects();
-    const b = useReducedEffects();
+    const { useReducedMotion } = await import("./index");
+    const a = useReducedMotion();
+    const b = useReducedMotion();
     a.toggle();
     expect(b.enabled.value).toBe(true);
   });

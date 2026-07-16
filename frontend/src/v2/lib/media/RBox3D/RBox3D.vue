@@ -98,9 +98,9 @@ const depthPx = computed(
     (spineLandscape.value ? widthPx.value : heightPx.value) * spineRatio.value,
 );
 
-// Reduced-motion gates the idle auto-spin drift. Reactive, so toggling the
-// OS setting live stops/resumes the drift without a remount.
-const reducedMotion = useReducedMotion();
+// Reduced-motion gates the idle auto-spin drift. Reactive, so toggling
+// reduced-motion mode live stops/resumes the drift without a remount.
+const { enabled: reducedMotion } = useReducedMotion();
 
 // Interaction bookkeeping.
 const dragging = ref(false);

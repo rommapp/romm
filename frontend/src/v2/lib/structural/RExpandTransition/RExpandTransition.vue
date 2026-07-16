@@ -66,7 +66,7 @@ function restore(el: HTMLElement) {
   el.style.transition = "";
 }
 
-const reducedMotion = useReducedMotion();
+const { enabled: reducedMotion } = useReducedMotion();
 
 function buildTransition(): string {
   const dur = props.duration ?? "var(--r-motion-med)";

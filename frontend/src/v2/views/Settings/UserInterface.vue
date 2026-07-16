@@ -26,7 +26,7 @@ import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
 import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
 import { useCrtMode } from "@/v2/composables/useCrtMode";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
-import { useReducedEffects } from "@/v2/composables/useReducedEffects";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
 const { t } = useI18n();
 const uiVersion = useUiVersion();
@@ -91,9 +91,10 @@ function onCrtToggle(value: boolean) {
   if (value) crtWarmup.value?.play();
 }
 
-// Reduced-effects mode — drop GPU-heavy decoration (background blur, cover
-// blur-up) for smoother rendering on low-power devices. Per-device flag.
-const { enabled: reducedEffects } = useReducedEffects();
+// Reduced-motion mode — drop GPU-heavy decoration and animation (background
+// blur, cover blur-up, spins, transitions) for smoother rendering on low-power
+// devices. Per-device flag, defaults to the OS prefers-reduced-motion setting.
+const { enabled: reducedMotion } = useReducedMotion();
 
 function setVersion(value: "v1" | "v2") {
   uiVersion.value = value;
@@ -190,9 +191,9 @@ function onVirtualCollectionTypeChange(value: unknown) {
           @update:model-value="onCrtToggle"
         />
         <SettingsToggleRow
-          v-model="reducedEffects"
-          :title="t('settings.reduced-effects')"
-          :description="t('settings.reduced-effects-desc')"
+          v-model="reducedMotion"
+          :title="t('settings.reduced-motion')"
+          :description="t('settings.reduced-motion-desc')"
         />
       </div>
     </SettingsSection>

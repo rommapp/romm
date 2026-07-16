@@ -184,32 +184,32 @@ html[data-input="pad"] .r-v2 * {
   filter: blur(28px) brightness(1.12) saturate(0.7);
 }
 
-/* Reduced-effects mode (Settings, per device): a full-viewport blur(28px)
-   is one of the heaviest things we ask of the GPU and pegs weak rendering
-   backends (see the Firefox note above). Keep the same tone shift but drop
-   the blur so low-power devices only composite a sharp, dimmed backdrop. */
-html.r-v2-reduced-effects .r-v2-bg__layer {
+/* Reduced-motion mode (Settings, per device; defaults to the OS
+   `prefers-reduced-motion`): a full-viewport blur(28px) is one of the heaviest
+   things we ask of the GPU and pegs weak rendering backends (see the Firefox
+   note above). Keep the same tone shift but drop the blur so low-power devices
+   only composite a sharp, dimmed backdrop. */
+html.r-v2-reduced-motion .r-v2-bg__layer {
   filter: brightness(0.45);
 }
-html.r-v2-reduced-effects.r-v2-light .r-v2-bg__layer {
+html.r-v2-reduced-motion.r-v2-light .r-v2-bg__layer {
   filter: brightness(1.12) saturate(0.7);
 }
 
-/* Reduced-effects also implies reduced motion. The OS `prefers-reduced-motion`
-   query is honored per-component (each R* primitive / overlay carries its own
-   tuned fallback), but a CSS class cannot trigger those media blocks, and the
-   toggle is an explicit low-power switch that must work even when the OS
-   setting is off. So neutralize animation / transition here globally: it kills
-   continuously-running keyframes (CRT flicker, disc spins, skeleton shimmer,
-   spinners, scan pulses) that tax weak GPUs, and collapses one-shot
-   transitions. Near-zero (not zero) durations so JS still gets its
-   `transitionend` / `animationend` and Vue `<transition>` teardown fires.
-   `!important` intentionally overrides inline JS-set transitions (e.g.
+/* The OS `prefers-reduced-motion` query is honored per-component (each R*
+   primitive / overlay carries its own tuned fallback), but a CSS class cannot
+   trigger those media blocks, and this toggle must also work when the user
+   forces it while the OS setting is off. So neutralize animation / transition
+   here globally: it kills continuously-running keyframes (CRT flicker, disc
+   spins, skeleton shimmer, spinners, scan pulses) that tax weak GPUs, and
+   collapses one-shot transitions. Near-zero (not zero) durations so JS still
+   gets its `transitionend` / `animationend` and Vue `<transition>` teardown
+   fires. `!important` intentionally overrides inline JS-set transitions (e.g.
    RExpandTransition). JS-driven motion (the cover CD-spin, view-transition
    morphs) is gated separately in its composables. */
-html.r-v2-reduced-effects *,
-html.r-v2-reduced-effects *::before,
-html.r-v2-reduced-effects *::after {
+html.r-v2-reduced-motion *,
+html.r-v2-reduced-motion *::before,
+html.r-v2-reduced-motion *::after {
   animation-duration: 0.01ms !important;
   animation-delay: 0ms !important;
   animation-iteration-count: 1 !important;
