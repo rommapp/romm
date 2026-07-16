@@ -13,6 +13,7 @@ from handler.database import (
     db_state_handler,
     db_user_handler,
 )
+from handler.database.roms_handler import _postgresql_trgm_available
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom, compute_name_sort_key
@@ -249,13 +250,19 @@ def test_filter_by_search_term_multi_word_and_ranking(platform: Platform):
     # Only titles containing BOTH words appear (AND semantics).
     assert set(result_ids) == {ff.id, ff7.id, fantasy_final.id}
 
-    # Relevance ordering uses MATCH ... AGAINST, which only runs on
-    # MySQL/MariaDB; PostgreSQL falls back to name ordering, so the
-    # phrase-ranking assertions only hold on those drivers.
+    # Relevance ordering is engine-specific: MySQL/MariaDB rank with
+    # MATCH ... AGAINST, PostgreSQL ranks with pg_trgm similarity() (when the
+    # extension is installed), and each has its own tie-breaking behavior.
     if ROMM_DB_DRIVER in ("mariadb", "mysql"):
         # Exact-order phrase matches rank above the reversed-order match.
         assert result_ids.index(ff.id) < result_ids.index(fantasy_final.id)
         assert result_ids.index(ff7.id) < result_ids.index(fantasy_final.id)
+    elif ROMM_DB_DRIVER == "postgresql" and _postgresql_trgm_available():
+        # "Final Fantasy" and "Fantasy Final" share the same trigram set as the
+        # query, so both are maximally similar; "Final Fantasy VII" carries the
+        # extra "VII" trigrams, lowering its similarity, so it ranks last.
+        assert result_ids.index(ff7.id) > result_ids.index(ff.id)
+        assert result_ids.index(ff7.id) > result_ids.index(fantasy_final.id)
 
     # The relevance ORDER BY must also survive the group_by_meta_id subquery
     # wrapping used by the gallery (each ROM here is its own group).

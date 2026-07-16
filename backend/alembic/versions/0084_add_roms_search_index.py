@@ -26,6 +26,7 @@ Create Date: 2026-06-16 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op
 
+from logger.logger import log
 from models.rom import NAME_SORT_KEY_MAX_LENGTH, compute_name_sort_key
 from utils.database import is_mariadb, is_mysql, is_postgresql
 
@@ -61,20 +62,36 @@ def upgrade() -> None:
             )
     elif is_postgresql(bind):
         # pg_trgm is a trusted extension since PostgreSQL 13, so a non-superuser
-        # with CREATE on the database can install it.
-        op.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
-        op.execute(
-            sa.text(
-                f"CREATE INDEX IF NOT EXISTS {PG_NAME_INDEX} "
-                "ON roms USING gin (name gin_trgm_ops)"
+        # with CREATE on the database can install it. Some managed providers
+        # still gate it behind an allowlist, so fail soft: skip the trigram
+        # indexes and let search fall back to the (unindexed) ILIKE path rather
+        # than aborting the whole upgrade. A SAVEPOINT keeps the surrounding
+        # migration transaction usable after a failed CREATE EXTENSION.
+        trgm_available = True
+        try:
+            with bind.begin_nested():
+                op.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        except Exception:
+            trgm_available = False
+            log.warning(
+                "[0084] Could not create the pg_trgm extension; skipping the "
+                "trigram search indexes. ROM search will use a slower "
+                "sequential scan. Enable pg_trgm on your PostgreSQL instance "
+                "and re-run migrations to restore index-backed search."
             )
-        )
-        op.execute(
-            sa.text(
-                f"CREATE INDEX IF NOT EXISTS {PG_FS_NAME_INDEX} "
-                "ON roms USING gin (fs_name gin_trgm_ops)"
+        if trgm_available:
+            op.execute(
+                sa.text(
+                    f"CREATE INDEX IF NOT EXISTS {PG_NAME_INDEX} "
+                    "ON roms USING gin (name gin_trgm_ops)"
+                )
             )
-        )
+            op.execute(
+                sa.text(
+                    f"CREATE INDEX IF NOT EXISTS {PG_FS_NAME_INDEX} "
+                    "ON roms USING gin (fs_name gin_trgm_ops)"
+                )
+            )
 
     # 2. Plain index on roms.name.
     with op.batch_alter_table("roms", schema=None) as batch_op:

@@ -40,6 +40,7 @@ from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.redis_handler import sync_cache
+from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.base import compute_file_name_parts
 from models.platform import Platform
@@ -64,7 +65,7 @@ from utils.database import (
     json_array_contains_value,
 )
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, sync_engine
 
 EJS_SUPPORTED_PLATFORMS = [
     UPS._3DO,
@@ -125,6 +126,33 @@ FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
 
 # 3 is the default minimum size in InnoDB
 FULLTEXT_MIN_TOKEN_SIZE = 3
+
+# Whether the pg_trgm extension is installed, resolved once and cached. Search
+# on PostgreSQL only ranks by trigram similarity when it is available, so it can
+# degrade to the plain ILIKE fallback on providers where migration 0084 could
+# not create the extension.
+_pg_trgm_available: bool | None = None
+
+
+def _postgresql_trgm_available() -> bool:
+    global _pg_trgm_available
+    if _pg_trgm_available is None:
+        if ROMM_DB_DRIVER != "postgresql":
+            _pg_trgm_available = False
+        else:
+            try:
+                with sync_engine.connect() as conn:
+                    _pg_trgm_available = (
+                        conn.execute(
+                            text("SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm'")
+                        ).scalar()
+                        is not None
+                    )
+            except Exception:
+                log.warning("Could not determine pg_trgm availability", exc_info=True)
+                _pg_trgm_available = False
+    return _pg_trgm_available
+
 
 # Cached ROM filter values (genres/franchises/etc.) so it doesn't get
 # recomputed on every call to /api/roms
@@ -430,6 +458,14 @@ class DBRomsHandler(DBBaseHandler):
             if len(words) > 1:
                 parts.append('"' + " ".join(words) + '"')
         return " ".join(parts) if parts else None
+
+    def _build_pg_relevance_term(self, search_term: str) -> str | None:
+        # pg_trgm similarity() compares plain trigram sets, so flatten the OR
+        # groups and operators into a single string to rank candidates against.
+        words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(
+            " ", search_term.replace("|", " ")
+        ).split()
+        return " ".join(words) if words else None
 
     def _filter_by_search_term(self, query: Query, search_term: str):
         terms = [term.strip() for term in search_term.split("|")]
@@ -1163,6 +1199,22 @@ class DBRomsHandler(DBBaseHandler):
                 relevance_clause = text(
                     "MATCH(roms.name, roms.fs_name) "
                     "AGAINST(:relevance IN BOOLEAN MODE) DESC"
+                ).bindparams(relevance=relevance)
+        elif (
+            search_term
+            and ROMM_DB_DRIVER == "postgresql"
+            and _postgresql_trgm_available()
+        ):
+            # Rank by the best trigram similarity across name and fs_name. The
+            # ILIKE filter (index-backed by pg_trgm) already narrows the set, so
+            # similarity() only runs over the matches.
+            relevance = self._build_pg_relevance_term(search_term)
+            if relevance:
+                relevance_clause = text(
+                    "GREATEST("
+                    "similarity(roms.name, :relevance), "
+                    "similarity(roms.fs_name, :relevance)"
+                    ") DESC"
                 ).bindparams(relevance=relevance)
 
         if order_by:  # explicit sort wins, relevance breaks ties
