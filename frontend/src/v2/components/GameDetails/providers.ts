@@ -65,7 +65,8 @@ export const PROVIDERS: Provider[] = [
     name: "Hasheous",
     color: "var(--r-color-provider-hasheous)",
     logo: "/assets/scrappers/hasheous.png",
-    url: null,
+    url: (id) =>
+      `https://hasheous.org/index.html?page=dataobjectdetail&type=game&id=${id}`,
   },
   {
     key: "flashpoint_id",
