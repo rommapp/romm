@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 from adapters.services.screenscraper import (
     LOGIN_ERROR_CHECK,
     ScreenScraperService,
+    _loads_lenient,
     auth_middleware,
     is_daily_quota_exhausted,
     reset_daily_quota,
@@ -1124,3 +1125,23 @@ class TestScreenScraperServiceEdgeCases:
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
         assert "Invalid ScreenScraper credentials" in exc_info.value.detail
         assert mock_session.get.call_count == 2
+
+
+class TestLoadsLenient:
+    """Test tolerant parsing of ScreenScraper's occasionally malformed JSON."""
+
+    def test_parses_valid_json(self):
+        assert _loads_lenient('{"a": 1, "b": "x"}') == {"a": 1, "b": "x"}
+
+    def test_repairs_invalid_backslash_escape(self):
+        # ScreenScraper sometimes emits raw backslashes in text fields, which the
+        # strict parser rejects with "Invalid \escape".
+        raw = '{"synopsis": "path C:\\emu\\games"}'
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(raw)
+        assert _loads_lenient(raw) == {"synopsis": "path C:\\emu\\games"}
+
+    def test_preserves_valid_escapes(self):
+        assert _loads_lenient('{"s": "line\\nbreak \\"quoted\\" \\u00e9"}') == {
+            "s": 'line\nbreak "quoted" é'
+        }
