@@ -13,8 +13,10 @@ export type Provider = {
   color: string;
   /** Optional favicon for the provider's identity. */
   logo: string | null;
-  /** Optional URL builder; when null the card renders unlinked. */
-  url: ((id: string | number) => string) | null;
+  /** Optional URL builder; when null the card renders unlinked. The ROM is
+   *  passed so builders can reach fields beyond the provider ID (e.g. IGDB
+   *  links by slug, not by numeric ID). */
+  url: ((id: string | number, rom: DetailedRom) => string) | null;
 };
 
 export const PROVIDERS: Provider[] = [
@@ -23,7 +25,13 @@ export const PROVIDERS: Provider[] = [
     name: "IGDB",
     color: "var(--r-color-provider-igdb)",
     logo: "/assets/scrappers/igdb.png",
-    url: (id) => `https://www.igdb.com/search?type=1&q=${id}`,
+    // IGDB game pages live at /games/<slug>; the numeric ID only feeds a text
+    // search that returns nothing. Fall back to the ID search when the slug
+    // (populated from the IGDB match) is missing.
+    url: (id, rom) =>
+      rom.slug
+        ? `https://www.igdb.com/games/${rom.slug}`
+        : `https://www.igdb.com/search?type=1&q=${id}`,
   },
   {
     key: "moby_id",

@@ -133,7 +133,7 @@ const dataProviders = computed(() =>
   PROVIDERS.map((p) => {
     const id = providerId(props.rom, p);
     if (id === null) return null;
-    return { name: p.name, href: p.url ? p.url(id) : null };
+    return { name: p.name, href: p.url ? p.url(id, props.rom) : null };
   }).filter((e): e is { name: string; href: string | null } => e !== null),
 );
 

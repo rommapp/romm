@@ -27,7 +27,7 @@ const entries = computed<Entry[]>(() => {
       accent: p.color,
       logo: p.logo,
       id,
-      href: id !== null && p.url ? p.url(id) : null,
+      href: id !== null && p.url ? p.url(id, props.rom) : null,
     };
   });
   // Linked first; the cards know how to dim themselves when unlinked.
