@@ -24,6 +24,7 @@ from models.collection import (
 from models.rom import Rom
 
 from .base_handler import DBBaseHandler
+from .materialized_metadata import refresh_virtual_collections
 
 
 def with_roms(func):
@@ -229,6 +230,15 @@ class DBCollectionsHandler(DBBaseHandler):
         )
 
     # Virtual collections
+    @begin_session
+    def rebuild_virtual_collections(
+        self,
+        session: Session = None,  # type: ignore
+    ) -> None:
+        """Rebuild the materialized virtual_collections table from the current
+        library (issue #3768)."""
+        refresh_virtual_collections(session)
+
     @begin_session
     def get_virtual_collection(
         self,

@@ -114,8 +114,9 @@ class TestScanTotals:
             return_value=[existing_platform],
         )
         mocker.patch.object(
-            scan_module.db_rom_handler, "invalidate_filter_values_cache"
+            scan_module.db_rom_handler, "invalidate_gallery_sidecar_cache"
         )
+        mocker.patch.object(scan_module, "enqueue_virtual_collections_rebuild")
         config = MagicMock()
         config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
         config.PEGASUS_AUTO_EXPORT_ON_SCAN = False

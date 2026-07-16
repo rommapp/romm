@@ -24,6 +24,7 @@ from handler.database import (
 )
 from models.assets import Save, Screenshot, State
 from models.client_token import ClientToken
+from models.collection import VirtualCollection
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from models.platform import Platform
@@ -100,11 +101,14 @@ def clear_database():
         s.query(Screenshot).delete(synchronize_session="evaluate")
         s.query(RomFile).delete(synchronize_session="evaluate")
         s.query(Rom).delete(synchronize_session="evaluate")
+        # Materialized aggregate with no FK back to roms; clear it explicitly so
+        # a rebuild in one test can't leak rows into the next.
+        s.query(VirtualCollection).delete(synchronize_session="evaluate")
         s.query(Platform).delete(synchronize_session="evaluate")
         s.query(User).delete(synchronize_session="evaluate")
 
-    # Drop any cached gallery filter values to keep tests isolated.
-    db_rom_handler.invalidate_filter_values_cache()
+    # Drop any cached gallery sidecars to keep tests isolated.
+    db_rom_handler.invalidate_gallery_sidecar_cache()
 
 
 @pytest.fixture(scope="module")

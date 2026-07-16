@@ -8,7 +8,7 @@ from config.config_manager import ConfigManager
 from logger.logger import unify_logger
 from models.assets import Save, Screenshot, State  # noqa
 from models.base import BaseModel
-from models.collection import VirtualCollection
+from models.collection import VirtualCollection  # noqa
 from models.firmware import Firmware  # noqa
 from models.platform import Platform  # noqa
 from models.rom import Rom, RomMetadata, SiblingRom  # noqa
@@ -36,9 +36,7 @@ target_metadata = BaseModel.metadata
 def include_object(object, name, type_, reflected, compare_to):
     if type_ == "table" and name in [
         SiblingRom.__tablename__,
-        VirtualCollection.__tablename__,
-        RomMetadata.__tablename__,
-    ]:  # Virtual table
+    ]:  # Virtual table (SQL view)
         return False
 
     # Skip DB-specific search indexes in autogenerate

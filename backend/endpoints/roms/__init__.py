@@ -718,12 +718,10 @@ def get_roms(
             smart_collection_id=smart_collection_id,
             search_term=search_term,
         )
-        cache_key = build_unscoped_sidecar_cache_key(
-            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
-        )
+        # Filter values now read from the materialized `roms_metadata` table, so
+        # they no longer need a Redis result cache (issue #3768).
         query_filters = db_rom_handler.with_filter_values(
             query=filter_query,
-            cache_key=cache_key,
         )
         # trunk-ignore(mypy/typeddict-item)
         filter_values = RomFiltersDict(**query_filters)
@@ -1429,7 +1427,7 @@ async def update_rom(
         if not rom:
             raise RomNotFoundInDatabaseException(id)
 
-        db_rom_handler.invalidate_filter_values_cache()
+        db_rom_handler.invalidate_gallery_sidecar_cache()
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
     provided_fields = form_data.model_fields_set
@@ -1808,7 +1806,7 @@ async def update_rom(
     if meta_playmatch_handler.is_manual_match(form_data.model_fields_set):
         fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))
 
-    db_rom_handler.invalidate_filter_values_cache()
+    db_rom_handler.invalidate_gallery_sidecar_cache()
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
@@ -1936,7 +1934,7 @@ async def delete_roms(
             errors.append(f"Failed to delete ROM {id}: {str(e)}")
 
     if successful_items:
-        db_rom_handler.invalidate_filter_values_cache()
+        db_rom_handler.invalidate_gallery_sidecar_cache()
 
     return {
         "successful_items": successful_items,
@@ -1990,6 +1988,6 @@ async def update_rom_user(
     rom_user = db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
 
     if "hidden" in cleaned_data:
-        db_rom_handler.invalidate_filter_values_cache()
+        db_rom_handler.invalidate_gallery_sidecar_cache()
 
     return RomUserSchema.model_validate(rom_user)

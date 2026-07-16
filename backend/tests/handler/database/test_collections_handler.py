@@ -23,11 +23,12 @@ def _add_rom(platform: Platform, index: int, manual_metadata: dict) -> Rom:
 def test_get_virtual_collections_includes_manual_franchises(
     platform: Platform, admin_user: User
 ):
-    # The virtual_collections view sources from roms_metadata, so manually-set
-    # franchises (with no IGDB match) must generate a franchise collection once
-    # shared by more than 2 ROMs.
+    # The materialized virtual_collections table sources from roms_metadata, so
+    # manually-set franchises (with no IGDB match) must generate a franchise
+    # collection once shared by more than 2 ROMs.
     for index in range(3):
         _add_rom(platform, index, {"franchises": ["Grow"]})
+    db_collection_handler.rebuild_virtual_collections()
 
     collections = db_collection_handler.get_virtual_collections(type="franchise")
 
@@ -43,6 +44,7 @@ def test_get_virtual_collections_respects_min_rom_threshold(
     # Fewer than 3 ROMs sharing a value must not surface as a collection.
     for index in range(2):
         _add_rom(platform, index, {"franchises": ["Sparse"]})
+    db_collection_handler.rebuild_virtual_collections()
 
     collections = db_collection_handler.get_virtual_collections(type="franchise")
 

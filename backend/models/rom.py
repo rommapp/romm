@@ -217,6 +217,9 @@ class TrackMeta(BaseModel):
 class RomMetadata(BaseModel):
     __tablename__ = "roms_metadata"
 
+    # Facet values are materialized from the raw provider metadata on each rom
+    # (issue #3768). Maintained by handler.database.materialized_metadata.
+
     rom_id: Mapped[int] = mapped_column(
         ForeignKey("roms.id", ondelete="CASCADE"), primary_key=True
     )
@@ -231,7 +234,21 @@ class RomMetadata(BaseModel):
     first_release_date: Mapped[int | None] = mapped_column(BigInteger(), default=None)
     average_rating: Mapped[float | None] = mapped_column(default=None)
 
+    # Denormalized from `roms` so facet queries never read the wide roms table.
+    platform_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platforms.id", ondelete="CASCADE"), default=None
+    )
+    regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")
+
+    __table_args__ = (
+        Index("idx_roms_metadata_platform_id", "platform_id"),
+        Index("idx_roms_metadata_first_release_date", "first_release_date"),
+        Index("idx_roms_metadata_average_rating", "average_rating"),
+    )
 
 
 class Rom(BaseModel):

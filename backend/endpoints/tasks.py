@@ -36,6 +36,7 @@ from handler.redis_handler import (
 )
 from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
 from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
+from tasks.manual.rebuild_virtual_collections import rebuild_virtual_collections_task
 from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
@@ -124,6 +125,13 @@ manual_tasks: list[ManualTask] = [
             "name": "recompute_save_content_hashes",
             "type": TaskType.CLEANUP,
             "task": recompute_save_content_hashes_task,
+        }
+    ),
+    ManualTask(
+        {
+            "name": "rebuild_virtual_collections",
+            "type": TaskType.CLEANUP,
+            "task": rebuild_virtual_collections_task,
         }
     ),
 ]

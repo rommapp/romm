@@ -55,7 +55,6 @@ from models.rom import (
     TrackMeta,
     compute_name_sort_key,
 )
-from utils import get_version
 from utils.database import (
     LIKE_ESCAPE_CHAR,
     escape_like,
@@ -64,7 +63,11 @@ from utils.database import (
     json_array_contains_value,
 )
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, mark_roms_changed
+from .materialized_metadata import (
+    VIRTUAL_COLLECTION_SOURCE_COLUMNS,
+    refresh_roms_metadata,
+)
 
 EJS_SUPPORTED_PLATFORMS = [
     UPS._3DO,
@@ -126,11 +129,28 @@ FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
 # 3 is the default minimum size in InnoDB
 FULLTEXT_MIN_TOKEN_SIZE = 3
 
-# Cached ROM filter values (genres/franchises/etc.) so it doesn't get
-# recomputed on every call to /api/roms
-ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
-ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
-ROM_FILTERS_CACHE_SCHEMA_VERSION = get_version().replace(".", "_")
+# Facet filter values (genres/franchises/etc.) now read from the materialized
+# `roms_metadata` table, so `_FILTER_VALUE_COLUMNS` is the projection used to
+# collect them.
+_FILTER_VALUE_COLUMNS = (
+    RomMetadata.genres,
+    RomMetadata.franchises,
+    RomMetadata.collections,
+    RomMetadata.companies,
+    RomMetadata.game_modes,
+    RomMetadata.age_ratings,
+    RomMetadata.player_count,
+    RomMetadata.regions,
+    RomMetadata.languages,
+    RomMetadata.tags,
+    RomMetadata.platform_id,
+)
+
+# Versioned Redis cache shared by the gallery sidecars (`with_char_index` /
+# `get_rom_id_index`). A single global version counter is bumped whenever the
+# library changes; a bump sweeps every key registered under the old version.
+GALLERY_SIDECAR_CACHE_VERSION_KEY = "gallery_sidecar:ver"
+GALLERY_SIDECAR_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
 
 
 def _cache_value_to_str(value: Any) -> str | None:
@@ -141,33 +161,29 @@ def _cache_value_to_str(value: Any) -> str | None:
     return str(value)
 
 
-def _filter_values_cache_version() -> str:
-    return _cache_value_to_str(sync_cache.get(ROM_FILTERS_CACHE_VERSION_KEY)) or "0"
+def _gallery_sidecar_cache_version() -> str:
+    return _cache_value_to_str(sync_cache.get(GALLERY_SIDECAR_CACHE_VERSION_KEY)) or "0"
 
 
-def _filter_values_cache_keys_key(version: str) -> str:
-    return f"filter_values:keys:v{version}"
-
-
-def _filter_values_redis_key(cache_key: str, version: str) -> str:
-    return f"filter_values:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+def _gallery_sidecar_cache_keys_key(version: str) -> str:
+    return f"gallery_sidecar:keys:v{version}"
 
 
 def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
-    version_keys_set = _filter_values_cache_keys_key(version)
+    version_keys_set = _gallery_sidecar_cache_keys_key(version)
     with sync_cache.pipeline() as pipe:
         try:
-            pipe.watch(ROM_FILTERS_CACHE_VERSION_KEY)
+            pipe.watch(GALLERY_SIDECAR_CACHE_VERSION_KEY)
             current_version = (
-                _cache_value_to_str(pipe.get(ROM_FILTERS_CACHE_VERSION_KEY)) or "0"
+                _cache_value_to_str(pipe.get(GALLERY_SIDECAR_CACHE_VERSION_KEY)) or "0"
             )
             if current_version != version:
                 pipe.unwatch()
             else:
                 pipe.multi()
-                pipe.set(redis_key, json.dumps(result), ex=ROM_FILTERS_CACHE_TTL)
+                pipe.set(redis_key, json.dumps(result), ex=GALLERY_SIDECAR_CACHE_TTL)
                 pipe.sadd(version_keys_set, redis_key)
-                pipe.expire(version_keys_set, ROM_FILTERS_CACHE_TTL)
+                pipe.expire(version_keys_set, GALLERY_SIDECAR_CACHE_TTL)
                 pipe.execute()
         except WatchError:
             pass
@@ -254,6 +270,10 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Rom:
         rom = session.merge(rom)
         session.flush()
+
+        # Materialized facet row must exist before the eager-joined `metadatum`
+        # relationship is read (issue #3768).
+        refresh_roms_metadata(session, [rom.id])
 
         return session.scalar(query.filter_by(id=rom.id).limit(1))
 
@@ -1276,7 +1296,7 @@ class DBRomsHandler(DBBaseHandler):
         redis_key: str | None = None
         version: str | None = None
         if cache_key:
-            version = _filter_values_cache_version()
+            version = _gallery_sidecar_cache_version()
             redis_key = f"char_index:{cache_key}:v{version}"
             cached = sync_cache.get(redis_key)
             if cached is not None:
@@ -1335,7 +1355,7 @@ class DBRomsHandler(DBBaseHandler):
         redis_key: str | None = None
         version: str | None = None
         if cache_key:
-            version = _filter_values_cache_version()
+            version = _gallery_sidecar_cache_version()
             redis_key = f"rom_id_index:{cache_key}:v{version}"
             cached = sync_cache.get(redis_key)
             if cached is not None:
@@ -1413,6 +1433,15 @@ class DBRomsHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
+        session.flush()
+
+        # Recompute the rom's materialized facet row from its new metadata.
+        refresh_roms_metadata(session, [id])
+        # Only a change to a facet source blob can alter virtual collections;
+        # cover/path-only updates (e.g. during a scan) must not trigger rebuilds.
+        if VIRTUAL_COLLECTION_SOURCE_COLUMNS & data.keys():
+            mark_roms_changed(session)
+
         return session.query(Rom).filter_by(id=id).one()
 
     @begin_session
@@ -1449,6 +1478,9 @@ class DBRomsHandler(DBBaseHandler):
             .where(Rom.id == id)
             .execution_options(synchronize_session="evaluate")
         )
+        # roms_metadata rows are removed by ON DELETE CASCADE; schedule a
+        # virtual_collections rebuild after commit.
+        mark_roms_changed(session)
 
     @begin_session
     def bulk_mark_present(
@@ -2194,9 +2226,11 @@ class DBRomsHandler(DBBaseHandler):
             "platforms": sorted(platforms),
         }
 
-    def invalidate_filter_values_cache(self) -> None:
-        old_version = str(int(sync_cache.incr(ROM_FILTERS_CACHE_VERSION_KEY)) - 1)
-        old_keys_set = _filter_values_cache_keys_key(old_version)
+    def invalidate_gallery_sidecar_cache(self) -> None:
+        """Bump the version so the cached char-index / rom-id-index sidecars are
+        recomputed after a library change."""
+        old_version = str(int(sync_cache.incr(GALLERY_SIDECAR_CACHE_VERSION_KEY)) - 1)
+        old_keys_set = _gallery_sidecar_cache_keys_key(old_version)
         old_cache_keys = [
             key
             for raw_key in sync_cache.smembers(old_keys_set)
@@ -2211,46 +2245,22 @@ class DBRomsHandler(DBBaseHandler):
         self,
         query: Query,
         *,
-        cache_key: str | None = None,
         session: Session = None,  # type: ignore
     ) -> dict:
         """
-        Returns the list of filters given the current subset of ROMs in the query
-        """
-        redis_key: str | None = None
-        version: str | None = None
-        if cache_key:
-            version = _filter_values_cache_version()
-            redis_key = _filter_values_redis_key(cache_key, version)
-            cached = sync_cache.get(redis_key)
-            if cached is not None:
-                return json.loads(cached)
+        Returns the list of filters given the current subset of ROMs in the query.
 
+        Reads entirely from the materialized `roms_metadata` table (facets plus
+        the denormalized regions/languages/tags/platform_id), so the wide `roms`
+        table is never scanned (issue #3768).
+        """
         ids_subq = query.order_by(None).with_only_columns(Rom.id).scalar_subquery()  # type: ignore
 
-        statement = (
-            select(
-                RomMetadata.genres,
-                RomMetadata.franchises,
-                RomMetadata.collections,
-                RomMetadata.companies,
-                RomMetadata.game_modes,
-                RomMetadata.age_ratings,
-                RomMetadata.player_count,
-                Rom.regions,
-                Rom.languages,
-                Rom.tags,
-                Rom.platform_id,
-            )
-            .select_from(Rom)
-            .join(RomMetadata, Rom.id == RomMetadata.rom_id)
-            .where(Rom.id.in_(ids_subq))
+        statement = select(*_FILTER_VALUE_COLUMNS).where(
+            RomMetadata.rom_id.in_(ids_subq)
         )
 
-        result = self._collect_filter_values(session, statement)
-        if redis_key is not None and version is not None:
-            _store_versioned_cache(redis_key, version, result)
-        return result
+        return self._collect_filter_values(session, statement)
 
     @begin_session
     def get_rom_filters(
@@ -2260,18 +2270,6 @@ class DBRomsHandler(DBBaseHandler):
         """
         Returns all filter values across all ROM metadata
         """
-        statement = select(
-            RomMetadata.genres,
-            RomMetadata.franchises,
-            RomMetadata.collections,
-            RomMetadata.companies,
-            RomMetadata.game_modes,
-            RomMetadata.age_ratings,
-            RomMetadata.player_count,
-            Rom.regions,
-            Rom.languages,
-            Rom.tags,
-            Rom.platform_id,
-        )
+        statement = select(*_FILTER_VALUE_COLUMNS)
 
         return self._collect_filter_values(session, statement)

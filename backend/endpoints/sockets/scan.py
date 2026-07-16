@@ -53,6 +53,9 @@ from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom, RomFile, TrackMeta
+from tasks.manual.rebuild_virtual_collections import (
+    enqueue_virtual_collections_rebuild,
+)
 from tasks.tasks import update_job_meta
 from utils import emoji
 from utils.context import initialize_context
@@ -807,8 +810,10 @@ async def scan_platforms(
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
 
-        # The library changed; drop cached filter values.
-        db_rom_handler.invalidate_filter_values_cache()
+        # The library changed: drop the cached gallery sidecars and rebuild the
+        # materialized virtual_collections table (issue #3768).
+        db_rom_handler.invalidate_gallery_sidecar_cache()
+        enqueue_virtual_collections_rebuild()
 
         # Export metadata files if enabled in config
         config = cm.get_config()
