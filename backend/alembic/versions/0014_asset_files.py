@@ -168,18 +168,13 @@ def upgrade() -> None:
         batch_op.drop_constraint(constraint_name=pk_constraint_name, type_="primary")
         batch_op.drop_column("n_roms", if_exists=True)
 
-    # Switch to new id column as platform primary key. Raw DDL has no portable
-    # "IF NOT EXISTS", so guard it to stay idempotent on a partial-failure rerun.
-    platform_columns = {
-        column["name"] for column in sa.inspect(connection).get_columns("platforms")
-    }
-    if "id" not in platform_columns:
-        if is_postgresql(connection):
-            op.execute("ALTER TABLE platforms ADD COLUMN id SERIAL PRIMARY KEY")
-        else:
-            op.execute(
-                "ALTER TABLE platforms ADD COLUMN id INTEGER(11) NOT NULL AUTO_INCREMENT PRIMARY KEY"
-            )
+    # Switch to new id column as platform primary key
+    if is_postgresql(connection):
+        op.execute("ALTER TABLE platforms ADD COLUMN id SERIAL PRIMARY KEY")
+    else:
+        op.execute(
+            "ALTER TABLE platforms ADD COLUMN id INTEGER(11) NOT NULL AUTO_INCREMENT PRIMARY KEY"
+        )
 
     # Add new columns to roms table
     with op.batch_alter_table("roms", schema=None) as batch_op:
