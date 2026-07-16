@@ -20,6 +20,7 @@ import {
 import { useRouter } from "vue-router";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
+import { useStreamingStore } from "@/stores/streaming";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import BottomNav from "@/v2/components/AppShell/BottomNav.vue";
@@ -66,6 +67,12 @@ watch(
 
 const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
+// Streaming config is fetched once on app load so the Play action knows
+// whether a container is configured for a given platform. Non-fatal —
+// on failure streaming stays disabled and no stream buttons appear.
+// v1 ran this in `Main.vue`; v2's AppLayout owns the same responsibility
+// since v2 users never mount the v1 layout.
+const streamingStore = useStreamingStore();
 
 // Developer debug overlay — opt-in via Settings → Developer (per-device).
 // Lazily loaded so its chunk (and the vueuse perf hooks it pulls in) is only
@@ -120,6 +127,7 @@ onMounted(() => {
   installInputModality();
   installGamepad();
   installGlobalHotkeys();
+  void streamingStore.fetchConfig();
   // Mirror morph: GameDetails cover → destination card on back/navbar/popstate.
   // Forward direction is handled at the source side in GameCard.
   removeBackMorph = installBackMorph(router);
