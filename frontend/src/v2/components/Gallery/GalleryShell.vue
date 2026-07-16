@@ -772,10 +772,9 @@ onBeforeUnmount(() => {
   gallerySelection.clear();
   if (searchDebounce) clearTimeout(searchDebounce);
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
-  // Leaving the gallery entirely (onBeforeRouteLeave doesn't reset the
-  // store): stop any window fetches still downloading so navigating away
-  // mid-scroll doesn't keep the network / backend busy. Keeps the loaded
-  // cache so returning to the same gallery is instant.
+  // When leaving the gallery entirely, stop any window fetches still
+  // downloading so navigating away mid-scroll doesn't keep the network /
+  // backend busy. Keeps the loaded cache so returning to the same gallery is instant.
   galleryRoms.abortInFlight();
   inflowResizeObserver?.disconnect();
   inflowResizeObserver = null;

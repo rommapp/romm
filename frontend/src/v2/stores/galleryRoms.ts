@@ -460,16 +460,11 @@ export default defineStore("v2GalleryRoms", {
       const controller = new AbortController();
       inFlightControllers.set(ctrlKey, controller);
 
-      // Once the bootstrap (or window 0) has populated the filter panel,
-      // alpha strip, and id index, later windows only need their paged
-      // items — skip the char index / filter-value aggregations so the
-      // backend doesn't recompute them for every window.
-      const skipMetadata = this.metadataLoaded;
-
       try {
         const response = await romApi.getRoms({
           ...params,
-          ...(skipMetadata
+          // Skip char index / filter-value aggregations when initial data is loaded
+          ...(this.metadataLoaded
             ? { withCharIndex: false, withFilterValues: false }
             : {}),
           signal: controller.signal,

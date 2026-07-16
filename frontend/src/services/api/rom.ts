@@ -182,14 +182,10 @@ export interface GetRomsParams {
   playerCountsLogic?: string | null;
   metadataProvidersLogic?: string | null;
   tagsLogic?: string | null;
-  // Skip the char index / filter-value aggregations server-side. Left
-  // undefined (the server default is `true`) unless a caller has already
-  // hydrated that metadata and only wants the paged items.
+  // Skip the char index / filter-value aggregations server-side
   withCharIndex?: boolean;
   withFilterValues?: boolean;
-  // Cancellation: pass an AbortSignal to let the caller abort an
-  // in-flight request (e.g. search-typing → previous query aborted,
-  // gallery-context switch → previous platform's windows aborted).
+  // Cancel an in-flight request
   signal?: AbortSignal;
 }
 
