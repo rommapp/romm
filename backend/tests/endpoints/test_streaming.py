@@ -136,6 +136,54 @@ def test_claim_unknown_rom_returns_404(client, access_token):
     assert r.status_code == 404
 
 
+def test_claim_skips_container_with_schemeless_host(client, access_token, rom: Rom):
+    """A container whose host has no scheme would produce a broken broker URL
+    and a colliding session key; it must be skipped (404), not a 500 KeyError."""
+    bad = {"platform": rom.platform_slug, "host": "192.168.1.10:3000"}
+    with patch(
+        "endpoints.streaming.cm.get_config",
+        return_value=_mock_cm(containers=[bad]),
+    ):
+        r = _claim(client, access_token, rom.id)
+    assert r.status_code == 404
+
+
+def test_claim_skips_container_missing_host(client, access_token, rom: Rom):
+    """An entry with platform set but host missing must not KeyError into a 500."""
+    bad = {"platform": rom.platform_slug, "broker_host": "http://192.168.1.10:8000"}
+    with patch(
+        "endpoints.streaming.cm.get_config",
+        return_value=_mock_cm(containers=[bad]),
+    ):
+        r = _claim(client, access_token, rom.id)
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_claim_sets_session_ttl(access_token, rom: Rom):
+    """A claimed session must carry a TTL so an abandoned one eventually frees
+    the container instead of wedging it forever."""
+    from endpoints.streaming import SESSION_TTL_SECONDS, _session_redis_key
+
+    with patch(
+        "endpoints.streaming.cm.get_config",
+        return_value=_mock_cm(containers=[_container_for(rom)]),
+    ):
+        with patch("endpoints.streaming._call_broker"):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            ) as ac:
+                r = await ac.post(
+                    "/api/streaming/sessions",
+                    json={"rom_id": rom.id},
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+    assert r.status_code == 200
+    ttl = await async_cache.ttl(_session_redis_key(_container_for(rom)["broker_host"]))
+    assert ttl > 0
+    assert ttl <= SESSION_TTL_SECONDS
+
+
 def test_second_claim_on_same_container_rejected(client, access_token, rom: Rom):
     """The container is single-tenant: a second claim must 409 with the holder."""
     with patch(
@@ -328,6 +376,39 @@ def test_save_and_exit_failure_still_releases_session(client, access_token, rom:
     assert r.status_code == 200
     assert r.json()["saved"] is False
     assert r2.status_code == 200
+
+
+def test_save_and_exit_wait_false_drains_instead_of_freeing(
+    client, access_token, rom: Rom
+):
+    """wait=false means the broker is still killing in the background; the
+    session key must briefly block a re-claim (drain) rather than be deleted
+    immediately, so a new launch can't land on a not-yet-dead emulator."""
+    from endpoints.streaming import SESSION_DRAIN_SECONDS, _session_redis_key
+
+    with patch(
+        "endpoints.streaming.cm.get_config",
+        return_value=_mock_cm(containers=[_container_for(rom)]),
+    ):
+        with patch("endpoints.streaming._call_broker"):
+            _claim(client, access_token, rom.id)
+        with patch("endpoints.streaming._save_and_exit_broker", return_value=True):
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 0, "wait": False},
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+        # The drain key briefly holds the container.
+        with patch("endpoints.streaming._call_broker"):
+            r2 = _claim(client, access_token, rom.id)
+    assert r.status_code == 200
+    # Re-claim during the drain window is rejected (409), not accepted (200).
+    assert r2.status_code == 409
+    # Drain TTL is bounded to the short window, not the full session TTL.
+    ttl = asyncio.run(
+        async_cache.ttl(_session_redis_key(_container_for(rom)["broker_host"]))
+    )
+    assert 0 < ttl <= SESSION_DRAIN_SECONDS
 
 
 def test_force_release_all_stops_brokers(client, access_token, rom: Rom):

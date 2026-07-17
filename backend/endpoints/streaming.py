@@ -31,6 +31,21 @@ router = APIRouter(prefix="/streaming", tags=["streaming"])
 # the same container cannot both succeed, with no in-process locking needed.
 _SESSION_KEY_PREFIX = "romm:streaming:session:"
 
+# An active session is long-lived (a game can run for hours), but the key
+# must not live forever: if the broker container dies or the backend
+# crashes mid-session, the TTL ensures the container is eventually
+# reclaimable instead of wedged until an admin force-releases. Control
+# calls (save-state / volume / mute / save-and-exit) refresh the TTL so a
+# session in active use never expires.
+SESSION_TTL_SECONDS = 6 * 60 * 60
+
+# When save-and-exit runs with wait=false the broker is still killing the
+# emulator in the background when the route returns. A short drain TTL
+# keeps the key briefly so a concurrent new claim can't /launch on top of
+# a not-yet-dead emulator (which would lose the in-flight save). The key
+# expires on its own; no explicit DELETE.
+SESSION_DRAIN_SECONDS = 5
+
 
 def _session_redis_key(session_key: str) -> str:
     return f"{_SESSION_KEY_PREFIX}{session_key}"
@@ -48,6 +63,13 @@ async def _get_session(session_key: str) -> dict[str, Any] | None:
         return None
 
 
+async def _refresh_session(session_key: str) -> None:
+    """Reset the session TTL back to the full window. Called after every
+    successful control op so a session in active use never expires; only an
+    abandoned one (broker dead / backend crashed) ages out."""
+    await async_cache.expire(_session_redis_key(session_key), SESSION_TTL_SECONDS)
+
+
 def _assert_session_owner(session: dict[str, Any], request: Request) -> None:
     """Only the user who claimed a session (or an admin) may control it."""
     if session.get("user_id") == request.user.id:
@@ -57,18 +79,37 @@ def _assert_session_owner(session: dict[str, Any], request: Request) -> None:
     raise HTTPException(status_code=403, detail="Session is claimed by another user")
 
 
+def _parse_host_url(host: str) -> str | None:
+    """Validate a configured host/broker_host string and return it stripped,
+    or None when it has no scheme (urlparse yields hostname=None for a bare
+    'host:port', which would produce the broken '//None:8000/...' string).
+    Operators must write a scheme, matching the documented config examples."""
+    host = (host or "").strip().rstrip("/")
+    if not host:
+        return None
+    parsed = urlparse(host)
+    if not parsed.scheme or not parsed.hostname:
+        return None
+    return host
+
+
+def _derive_broker_host(container: dict[str, Any]) -> str | None:
+    """Resolve the broker API host for a container: broker_host if set,
+    otherwise the stream host with its port swapped to 8000. Returns None
+    when neither resolves to a usable scheme-bearing URL."""
+    broker_host = _parse_host_url(container.get("broker_host", ""))
+    if broker_host:
+        return broker_host.rstrip("/")
+    stream_host = _parse_host_url(container.get("host", ""))
+    if not stream_host:
+        return None
+    parsed = urlparse(stream_host)
+    return urlunparse(parsed._replace(netloc=f"{parsed.hostname}:8000")).rstrip("/")
+
+
 def _container_key(container: dict[str, Any]) -> str:
     """Stable unique key for a container, derived the same way as the broker URL."""
-    broker_host = container.get("broker_host", "").rstrip("/")
-    if broker_host:
-        return broker_host
-    # Derive from stream host the same way _broker_url does: replace port with 8000
-    stream_host = container.get("host", "").rstrip("/")
-    try:
-        parsed = urlparse(stream_host)
-        return urlunparse(parsed._replace(netloc=f"{parsed.hostname}:8000")).rstrip("/")
-    except ValueError:
-        return stream_host
+    return _derive_broker_host(container) or ""
 
 
 class ClaimSessionRequest(BaseModel):
@@ -125,8 +166,23 @@ def _container_for_platform(platform: str) -> dict[str, Any] | None:
         return None
     lower = platform.lower()
     for entry in cfg.get("containers", []):
-        if entry.get("platform", "").lower() == lower:
-            return entry
+        if not isinstance(entry, dict):
+            continue
+        # Match get_config's validation: an entry needs both a platform and a
+        # scheme-bearing host. Skipping a malformed entry here means claim /
+        # control routes raise a clean 404 ("no container configured") instead
+        # of a 500 KeyError on container["host"].
+        if entry.get("platform", "").lower() != lower:
+            continue
+        if not _parse_host_url(entry.get("host", "")):
+            log.warning(
+                "streaming: container for platform '%s' missing a scheme-bearing "
+                "host - skipping: %s",
+                platform,
+                entry,
+            )
+            continue
+        return entry
     return None
 
 
@@ -171,18 +227,18 @@ def _broker_url(container: dict[str, Any], path: str) -> str:
       host:         http://192.168.1.51:3000   (Selkies web UI, browser-facing)
       broker_host:  http://192.168.1.51:8000   (broker API, server-to-server)
     """
-    broker_host = container.get("broker_host", "").rstrip("/")
-
+    broker_host = _derive_broker_host(container)
     if not broker_host:
-        # Derive broker URL from stream host - replace port with 8000
-        stream_host = container.get("host", "").rstrip("/")
-        # Parse out just the scheme + hostname, replace port
-        # e.g. http://192.168.1.51:3000 → http://192.168.1.51:8000
-        try:
-            parsed = urlparse(stream_host)
-            broker_host = urlunparse(parsed._replace(netloc=f"{parsed.hostname}:8000"))
-        except Exception:
-            broker_host = stream_host
+        # No usable broker host - raise a 502 with a clear cause so the
+        # operator sees the misconfiguration instead of an opaque KeyError.
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Streaming container has no usable broker_host/host. "
+                "Set broker_host (or host with a scheme, e.g. http://...) "
+                "in the streaming.containers config."
+            ),
+        )
 
     return f"{broker_host}{path}"
 
@@ -483,9 +539,14 @@ async def claim_session(
         "user_id": request.user.id,
     }
 
-    # SET NX is atomic: exactly one concurrent claim wins the key.
+    # SET NX is atomic: exactly one concurrent claim wins the key. The TTL
+    # bounds how long an abandoned session (broker dead / backend crashed)
+    # can hold the container; control calls refresh it while in active use.
     claimed = await async_cache.set(
-        _session_redis_key(session_key), json.dumps(session), nx=True
+        _session_redis_key(session_key),
+        json.dumps(session),
+        nx=True,
+        ex=SESSION_TTL_SECONDS,
     )
     if not claimed:
         existing = await _get_session(session_key) or {}
@@ -512,7 +573,7 @@ async def claim_session(
     return JSONResponse(
         {
             "platform": platform,
-            "host": container["host"],
+            "host": container.get("host", ""),
             "label": container.get("label", platform.upper()),
             "rom_name": rom_name,
             "claimed_at": now,
@@ -535,7 +596,22 @@ async def save_and_exit_session(
         _save_and_exit_broker, container, slot=req.slot, wait=req.wait
     )
 
-    await async_cache.delete(_session_redis_key(session_key))
+    if req.wait:
+        # Broker confirmed the save+kill is done - the key can go now.
+        await async_cache.delete(_session_redis_key(session_key))
+    else:
+        # Broker is still killing the emulator in the background. Drop the
+        # key to a short drain TTL instead of deleting it outright: a
+        # concurrent new claim is briefly blocked so it can't /launch on
+        # top of a not-yet-dead emulator (which would lose the in-flight
+        # save). The marker is JSON so _get_session leaves it in place
+        # (a bare string would parse as corrupt and be deleted, ending
+        # the drain early). The key expires on its own once the window passes.
+        await async_cache.set(
+            _session_redis_key(session_key),
+            json.dumps({"draining": True}),
+            ex=SESSION_DRAIN_SECONDS,
+        )
     log.info("streaming: save-and-exit - platform=%s saved=%s", platform, saved)
     return JSONResponse({"status": "ok", "saved": saved, "platform": platform})
 
@@ -545,12 +621,13 @@ async def set_volume(
     request: Request, platform: str, req: Annotated[VolumeRequest, Body()]
 ) -> JSONResponse:
     """Set emulator audio volume (0-100)."""
-    container, _, _ = await _resolve_owned_session(platform, request)
+    container, session_key, _ = await _resolve_owned_session(platform, request)
 
     ok = await asyncio.to_thread(_volume_broker, container, req.level)
     if not ok:
         raise HTTPException(status_code=502, detail="Broker failed to set volume")
 
+    await _refresh_session(session_key)
     return JSONResponse({"status": "ok", "level": req.level, "platform": platform})
 
 
@@ -559,12 +636,13 @@ async def set_mute(
     request: Request, platform: str, req: Annotated[MuteRequest, Body()]
 ) -> JSONResponse:
     """Toggle or explicitly set mute state. Omit body to toggle."""
-    container, _, _ = await _resolve_owned_session(platform, request)
+    container, session_key, _ = await _resolve_owned_session(platform, request)
 
     confirmed = await asyncio.to_thread(_mute_broker, container, req.mute)
     if confirmed is None:
         raise HTTPException(status_code=502, detail="Broker failed to set mute state")
 
+    await _refresh_session(session_key)
     return JSONResponse({"status": "ok", "mute": confirmed, "platform": platform})
 
 
@@ -573,12 +651,13 @@ async def save_state(
     request: Request, platform: str, req: Annotated[SaveStateRequest, Body()]
 ) -> JSONResponse:
     """Save game state to a slot (1-9) without stopping the emulator."""
-    container, _, _ = await _resolve_owned_session(platform, request)
+    container, session_key, _ = await _resolve_owned_session(platform, request)
 
     ok = await asyncio.to_thread(_save_state_broker, container, req.slot)
     if not ok:
         raise HTTPException(status_code=502, detail="Broker failed to save state")
 
+    await _refresh_session(session_key)
     return JSONResponse({"status": "saving", "slot": req.slot, "platform": platform})
 
 
@@ -587,12 +666,13 @@ async def load_state(
     request: Request, platform: str, req: Annotated[LoadStateRequest, Body()]
 ) -> JSONResponse:
     """Load game state from a slot (1-10). Slot 10 is the autosave."""
-    container, _, _ = await _resolve_owned_session(platform, request)
+    container, session_key, _ = await _resolve_owned_session(platform, request)
 
     ok = await asyncio.to_thread(_load_state_broker, container, req.slot)
     if not ok:
         raise HTTPException(status_code=502, detail="Broker failed to load state")
 
+    await _refresh_session(session_key)
     return JSONResponse(
         {"status": "ok", "loaded": True, "slot": req.slot, "platform": platform}
     )

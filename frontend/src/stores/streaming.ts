@@ -136,13 +136,22 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Release the active session when the user leaves the player page.
    * Best-effort - never throws.
    */
-  async function releaseSession(platform: string): Promise<void> {
-    if (!platform) return;
-    activeSession.value = null;
+  /**
+   * Release the active session when the user leaves the player page.
+   * Best-effort - never throws. Returns true when the backend acknowledged
+   * the release (the local session record is dropped); false when the call
+   * failed (the session is still held server-side, so the record is kept so
+   * the user can retry instead of being wedged behind their own session).
+   */
+  async function releaseSession(platform: string): Promise<boolean> {
+    if (!platform) return false;
     try {
       await api.delete(`/streaming/sessions/${platform}`);
+      activeSession.value = null;
+      return true;
     } catch (err) {
       console.warn("[streaming] Could not release session:", err);
+      return false;
     }
   }
 
@@ -150,7 +159,9 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Save game state then release the session.
    * wait=true (default): blocks until broker confirms save+kill - use for explicit button press.
    * wait=false: broker fires save+kill in background, returns immediately - use for navigation away.
-   * Best-effort - never throws.
+   * Best-effort - never throws. Drops the local session record only on a
+   * confirmed release so a failed call doesn't leave the user wedged behind
+   * their own still-held session.
    */
   async function saveAndExit(
     platform: string,
@@ -158,12 +169,12 @@ export const useStreamingStore = defineStore("streaming", () => {
     wait = true,
   ): Promise<boolean> {
     if (!platform) return false;
-    activeSession.value = null;
     try {
       const { data } = await api.post(
         `/streaming/sessions/${platform}/save-and-exit`,
         { slot, wait },
       );
+      activeSession.value = null;
       return data.saved ?? false;
     } catch (err) {
       console.warn("[streaming] Could not save-and-exit:", err);

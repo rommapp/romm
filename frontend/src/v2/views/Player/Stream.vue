@@ -29,7 +29,12 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
-type ErrorType = "occupied" | "not_configured" | "server" | null;
+type ErrorType =
+  | "occupied"
+  | "not_configured"
+  | "rom_not_found"
+  | "server"
+  | null;
 
 const { t } = useI18n();
 const route = useRoute();
@@ -290,18 +295,28 @@ async function handlePlay(): Promise<void> {
 
     const error = err as {
       status?: number;
-      detail?: { rom_name: string; claimed_at: string } | null;
+      detail?: string | { rom_name: string; claimed_at: string } | null;
       message?: string;
     };
 
     if (error.status === 409) {
       errorType.value = "occupied";
-      occupiedBy.value = error.detail ?? null;
+      occupiedBy.value = typeof error.detail === "object" ? error.detail : null;
     } else if (error.status === 404) {
-      errorType.value = "not_configured";
-      errorMessage.value = t("play.stream-error-not-configured", {
-        platform: rom.value.platform_slug,
-      });
+      // The backend raises 404 for two distinct cases: a missing streaming
+      // container for the platform, and the ROM itself not being found
+      // (e.g. deleted between fetchRom and the claim). Disambiguate by the
+      // detail string so the message matches the real failure.
+      const detail = typeof error.detail === "string" ? error.detail : "";
+      if (detail.includes("ROM not found")) {
+        errorType.value = "rom_not_found";
+        errorMessage.value = t("play.stream-error-rom-not-found");
+      } else {
+        errorType.value = "not_configured";
+        errorMessage.value = t("play.stream-error-not-configured", {
+          platform: rom.value.platform_slug,
+        });
+      }
     } else {
       errorType.value = "server";
       errorMessage.value = error.message ?? t("play.stream-error-generic");

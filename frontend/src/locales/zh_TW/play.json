@@ -31,6 +31,7 @@
   "stream-error-generic": "An unexpected error occurred.",
   "stream-error-load-rom": "Could not load ROM details.",
   "stream-error-not-configured": "No streaming container is configured for {platform}.",
+  "stream-error-rom-not-found": "This ROM could not be found. It may have been removed.",
   "stream-exit-fullscreen": "Exit fullscreen",
   "stream-frame-title": "Game stream",
   "stream-fullscreen": "Fullscreen",
