@@ -362,6 +362,7 @@ async function getRecentRoms() {
       limit: RECENT_ROMS_LIMIT,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
     },
   });
 }
@@ -374,6 +375,7 @@ async function getRecentPlayedRoms() {
       limit: RECENT_PLAYED_ROMS_LIMIT,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
       last_played: true,
     },
   });

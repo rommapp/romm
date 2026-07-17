@@ -307,6 +307,14 @@ def get_roms(
     with_filter_values: Annotated[
         bool, Query(description="Whether to return filter values.")
     ] = True,
+    with_rom_id_index: Annotated[
+        bool,
+        Query(
+            description=(
+                "Whether to return the full ordered rom id index that backs virtual scroll."
+            )
+        ),
+    ] = True,
     search_term: Annotated[
         str | None,
         Query(description="Search term to filter roms."),
@@ -729,14 +737,18 @@ def get_roms(
         filter_values = RomFiltersDict(**query_filters)
 
     # The full ordered id list backs virtual scroll, so it's computed over the
-    # whole result set on every request. Memoise the unscoped library scan (same
-    # key scheme as the other sidecars); scoped/searched sets stay live.
-    rom_id_index_cache_key = build_unscoped_sidecar_cache_key(
-        request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
-    )
-    rom_id_index = db_rom_handler.get_rom_id_index(
-        query=query, cache_key=rom_id_index_cache_key
-    )
+    # whole result set. Callers that only need a page (e.g. the home rails) opt
+    # out with with_rom_id_index=false and avoid the full-library scan.
+    rom_id_index: list[int] = []
+    if with_rom_id_index:
+        # Memoise the unscoped library scan (same key scheme as the other
+        # sidecars); scoped/searched sets stay live.
+        rom_id_index_cache_key = build_unscoped_sidecar_cache_key(
+            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
+        )
+        rom_id_index = db_rom_handler.get_rom_id_index(
+            query=query, cache_key=rom_id_index_cache_key
+        )
 
     # Hydrate the requested page and its additional data
     with sync_session.begin() as session:
@@ -779,14 +791,22 @@ def get_roms(
             ]
 
         params = resolve_params()
-        total = len(rom_id_index)
-        page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
-        if page_ids:
-            page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
-            rows_by_id = {rom.id: rom for rom in page_rows}
-            page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
+        if with_rom_id_index:
+            total = len(rom_id_index)
+            page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
+            if page_ids:
+                page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
+                rows_by_id = {rom.id: rom for rom in page_rows}
+                page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
+            else:
+                page_items = []
         else:
-            page_items = []
+            # Let the database serve the page from the sort index instead of
+            # walking the whole primary key to build a full id list.
+            page_items = list(
+                session.scalars(query.offset(params.offset).limit(params.limit)).all()
+            )
+            total = db_rom_handler.get_rom_count(query=query, session=session)
 
         return CustomLimitOffsetPage.create(
             _transform(page_items),

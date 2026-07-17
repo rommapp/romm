@@ -1404,6 +1404,26 @@ class DBRomsHandler(DBBaseHandler):
         return ids
 
     @begin_session
+    def get_rom_count(
+        self,
+        query: Query,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> int:
+        """Count matching roms without materialising their ids.
+
+        For callers that need a page and its total but not the full
+        ordered id list, so the database can serve the page from the
+        sort index instead of scanning the whole library.
+        """
+        return (
+            session.scalar(
+                select(func.count()).select_from(query.order_by(None).subquery())
+            )
+            or 0
+        )
+
+    @begin_session
     def get_roms_by_fs_name(
         self,
         platform_id: int,
