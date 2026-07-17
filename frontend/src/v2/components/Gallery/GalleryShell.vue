@@ -551,26 +551,23 @@ const currentLetter = computed<string>(() => {
   return "";
 });
 
-// Viewport-driven fetch. The shell collects the positions currently in
-// view (rows in `viewportRange`) and hands them to the store, which keeps
-// `byPosition` in sync by fetching the 72-item windows those positions
-// fall into. Windows are shared across cards and cached, so a full
-// viewport resolves in a handful of paginated requests rather than one
-// per card. (Fetching per-card instead issued one request plus one DB
-// lookup per visible card, so ~100 simultaneous round-trips on a full
-// grid, which the browser's per-host connection cap then serialized into
-// slow waves on low-power devices.)
-//
-// The store also aborts windows that scrolled out of view, so paging
-// through a large library doesn't leave departed windows downloading.
+// Per-card viewport-driven fetch. The shell tracks which positions are
+// currently visible (from the rows in `viewportRange`) and keeps
+// `byPosition` in sync via per-card `GET /roms/{id}/simple` calls — pure
+// by-id lookups on the backend, much faster than the paginated
+// `getRoms(limit/offset)` pipeline. Each fetch is independent, so covers
+// stream in as their individual responses land.
 //
 // No idle-time prefetch: when the user stops scrolling, no new requests
-// are fired for off-screen positions.
+// are fired. Cards already in the viewport that are still missing keep
+// loading; everything off-screen waits until the user scrolls there.
 //
-// A small debounce on viewport changes prevents request storms during
-// smooth scrolling: only when the viewport settles for
-// `FETCH_DEBOUNCE_MS` do we sync.
+// Cancellation: positions that leave the viewport while their fetch is in
+// flight are aborted via `cancelFetchAt`. A small debounce on viewport
+// changes prevents fire-and-cancel storms during smooth scrolling — only
+// when the viewport settles for `FETCH_DEBOUNCE_MS` do we sync.
 const FETCH_DEBOUNCE_MS = 80;
+const visiblePositions = new Set<number>();
 let fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingRange: { first: number; last: number } | null = null;
 
@@ -590,7 +587,27 @@ function collectVisiblePositions(range: {
 }
 
 function syncFetches(range: { first: number; last: number }) {
-  galleryRoms.syncVisibleWindows(collectVisiblePositions(range));
+  const next = collectVisiblePositions(range);
+
+  // Cancel positions that left the viewport before their fetch resolved.
+  // The store's per-position controller handles the network abort;
+  // idempotent if nothing was in flight.
+  for (const p of visiblePositions) {
+    if (!next.has(p) && !galleryRoms.byPosition.has(p)) {
+      galleryRoms.cancelFetchAt(p);
+    }
+  }
+
+  // Fire per-card fetches for positions that just entered. The store
+  // dedupes against in-flight + already-loaded internally.
+  for (const p of next) {
+    if (!galleryRoms.byPosition.has(p)) {
+      void galleryRoms.fetchRomAt(p);
+    }
+  }
+
+  visiblePositions.clear();
+  for (const p of next) visiblePositions.add(p);
 }
 
 function scheduleFetchSync(range: { first: number; last: number }) {
@@ -772,10 +789,12 @@ onBeforeUnmount(() => {
   gallerySelection.clear();
   if (searchDebounce) clearTimeout(searchDebounce);
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
-  // When leaving the gallery entirely, stop any window fetches still
-  // downloading so navigating away mid-scroll doesn't keep the network /
-  // backend busy. Keeps the loaded cache so returning to the same gallery is instant.
+  // When leaving the gallery entirely, stop any per-card fetches still in
+  // flight so navigating away mid-scroll doesn't keep the network /
+  // backend busy. Keeps the hydrated cache so returning to the same
+  // gallery is instant.
   galleryRoms.abortInFlight();
+  visiblePositions.clear();
   inflowResizeObserver?.disconnect();
   inflowResizeObserver = null;
   // Drop the debug stats so the overlay doesn't show stale gallery numbers
