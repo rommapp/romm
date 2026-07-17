@@ -1,6 +1,6 @@
 """Tests for the IGDB metadata handler."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -13,6 +13,7 @@ from handler.metadata.igdb_handler import (
     IGDBHandler,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
+    get_igdb_preferred_locale,
 )
 
 GENESIS_IGDB_ID = 29
@@ -60,6 +61,19 @@ def _make_game(
         "multiplayer_modes": [],
         "game_localizations": [{"name": n} for n in (game_localizations or [])],
     }
+
+
+class TestGetIGDBPreferredLocale:
+    def test_multi_region_rom_respects_user_priority(self):
+        """The configured priority wins over filename tag order."""
+        rom = MagicMock()
+        rom.regions = ["Japan", "USA"]
+        config = MagicMock(SCAN_REGION_PRIORITY=["us", "jp"])
+
+        with patch("handler.metadata.igdb_handler.cm.get_config", return_value=config):
+            locale = get_igdb_preferred_locale(rom)
+
+        assert locale is None
 
 
 class TestSearchRomGameTypeFilter:
