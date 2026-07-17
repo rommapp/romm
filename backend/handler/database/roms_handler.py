@@ -1412,8 +1412,8 @@ class DBRomsHandler(DBBaseHandler):
     ) -> int:
         """Count matching roms without materialising their ids.
 
-        For callers that need a page and its total but not the full ordered id
-        list (e.g. the home rails), so the database can serve the page from the
+        For callers that need a page and its total but not the full
+        ordered id list, so the database can serve the page from the
         sort index instead of scanning the whole library.
         """
         return (

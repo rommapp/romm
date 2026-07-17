@@ -311,9 +311,7 @@ def get_roms(
         bool,
         Query(
             description=(
-                "Whether to return the full ordered rom id index that backs"
-                " virtual scroll. Disable it for small rails that only need a"
-                " page, to skip the full-library scan."
+                "Whether to return the full ordered rom id index that backs virtual scroll."
             )
         ),
     ] = True,
