@@ -60,6 +60,7 @@ class HasheousRom(BaseRom):
     ra_id: NotRequired[int | None]
     ra_metadata: NotRequired[RAMetadata]
     tgdb_id: NotRequired[int | None]
+    ss_id: NotRequired[int | None]
     hasheous_metadata: NotRequired[HasheousMetadata]
 
 
@@ -431,7 +432,7 @@ class HasheousHandler(MetadataHandler):
         return build_ss_game(rom, jeu)
 
     async def get_ss_game(
-        self, rom: Rom, platform_ss_id: int, files: list[RomFile]
+        self, rom: Rom, platform_ss_id: int | None, files: list[RomFile]
     ) -> SSRom:
         """Fetch ScreenScraper metadata for a ROM through the Hasheous proxy.
 

@@ -144,12 +144,9 @@ export default defineStore("heartbeat", {
           name: "Screenscraper",
           value: "ss",
           logo_path: "/assets/scrappers/ss.png",
-          // Usable with own credentials, or credential-free via the Hasheous proxy.
-          disabled:
-            !this.value.METADATA_SOURCES?.SS_API_ENABLED &&
-            !this.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED
-              ? i18n.global.t("scan.api-key-missing")
-              : "",
+          disabled: !this.value.METADATA_SOURCES?.SS_API_ENABLED
+            ? i18n.global.t("scan.api-key-missing")
+            : "",
         },
         {
           name: "Mobygames",
