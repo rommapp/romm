@@ -444,9 +444,7 @@ async def scan_rom(
                 platform.slug, get_match_files()
             )
 
-        return HasheousRom(
-            hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None, ss_id=None
-        )
+        return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
     _added_rom = db_rom_handler.add_rom(Rom(**rom_attrs))
     _added_rom.is_identifying = True
@@ -656,13 +654,6 @@ async def scan_rom(
                 )
             )
         ):
-            # if ss_via_hasheous:
-            #     if scan_type == ScanType.UPDATE and rom.ss_id:
-            #         return await meta_hasheous_handler.get_ss_rom_by_id(rom, rom.ss_id)
-            #     return await meta_hasheous_handler.get_ss_game(
-            #         rom, platform.ss_id, get_match_files()
-            #     )
-
             # Use the ID to refetch metadata
             if scan_type == ScanType.UPDATE and rom.ss_id:
                 return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
