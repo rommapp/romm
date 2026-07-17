@@ -15,12 +15,12 @@ from utils.zip_cache import (
     ZipFileEntry,
     build_cached_zip,
     cleanup_stale_zips,
-    ensure_space_for_cache,
     get_bulk_namespace,
     get_cache_key,
     get_cached_zip,
     get_ttl_hours,
     get_zip_redirect_path,
+    resolve_cached_zip,
 )
 
 
@@ -263,64 +263,51 @@ class TestGetZipRedirectPath:
         assert path.endswith("/abc123.zip")
 
 
-class TestEnsureSpaceForCache:
-    def test_returns_true_with_enough_space(self, tmp_path, mocker):
-        mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
-        assert ensure_space_for_cache([_entry(size=1024)]) is True
+class TestResolveCachedZip:
+    async def test_returns_none_for_empty_entries(self):
+        result = await resolve_cached_zip("42", [], log_label="test")
+        assert result is None
 
-    def test_returns_false_with_insufficient_space(self, tmp_path, mocker):
-        mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
-        mocker.patch("utils.zip_cache._get_available_space", return_value=100)
-        assert ensure_space_for_cache([_entry(size=1024)]) is False
-
-    def test_requires_2x_buffer(self, tmp_path, mocker):
-        mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
-        # 500 bytes available, entry is 300 -> 2x = 600 > 500 -> False
-        mocker.patch("utils.zip_cache._get_available_space", return_value=500)
-        assert ensure_space_for_cache([_entry(size=300)]) is False
-
-    def test_evicts_old_entries_to_make_space(self, tmp_path, mocker):
-        mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
-
-        ns_dir = tmp_path / "old_rom"
+    async def test_returns_redirect_on_cache_hit(self, tmp_path, mocker):
+        entries = [_entry()]
+        cache_key = get_cache_key("42", entries)
+        ns_dir = tmp_path / "42"
         ns_dir.mkdir()
-        old_zip = ns_dir / "stale.zip"
-        old_zip.write_bytes(b"x" * 1024)
-        old_time = time.time() - (2 * SECONDS_PER_HOUR)
-        os.utime(old_zip, (old_time, old_time))
-
-        call_count = [0]
-
-        def fake_space():
-            call_count[0] += 1
-            return 100 if call_count[0] <= 1 else 999999
-
-        mocker.patch("utils.zip_cache._get_available_space", side_effect=fake_space)
-
-        assert ensure_space_for_cache([_entry(size=512)]) is True
-        assert not old_zip.exists()
-
-    def test_does_not_evict_recent_entries(self, tmp_path, mocker):
+        (ns_dir / f"{cache_key}.zip").write_bytes(b"cached")
         mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
-        mocker.patch("utils.zip_cache._get_available_space", return_value=100)
 
-        ns_dir = tmp_path / "active_rom"
-        ns_dir.mkdir()
-        fresh_zip = ns_dir / "fresh.zip"
-        fresh_zip.write_bytes(b"x" * 1024)
+        build = mocker.patch("utils.zip_cache.build_cached_zip")
+        result = await resolve_cached_zip("42", entries, log_label="test")
 
-        ensure_space_for_cache([_entry(size=512)])
-        assert fresh_zip.exists()
+        assert str(result) == f"/cache/zips/42/{cache_key}.zip"
+        build.assert_not_called()
+
+    async def test_builds_and_returns_redirect_on_miss(self, tmp_path, mocker):
+        entries = [_entry()]
+        cache_key = get_cache_key("42", entries)
+        mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
+        build = mocker.patch("utils.zip_cache.build_cached_zip")
+
+        result = await resolve_cached_zip("42", entries, log_label="test")
+
+        assert str(result) == f"/cache/zips/42/{cache_key}.zip"
+        build.assert_called_once()
+
+    async def test_returns_none_when_build_fails(self, tmp_path, mocker):
+        mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
+        mocker.patch(
+            "utils.zip_cache.build_cached_zip", side_effect=OSError("disk full")
+        )
+        result = await resolve_cached_zip("42", [_entry()], log_label="test")
+        assert result is None
 
 
 class TestGetTtlHours:
     def test_small_zip_gets_default_ttl(self):
-        entries = [_entry(size=1024)]
-        assert get_ttl_hours(entries) == DEFAULT_TTL_HOURS
+        assert get_ttl_hours(1024) == DEFAULT_TTL_HOURS
 
     def test_large_zip_gets_reduced_ttl(self):
-        entries = [_entry(size=LARGE_ZIP_THRESHOLD_BYTES + 1)]
-        assert get_ttl_hours(entries) == LARGE_ZIP_TTL_HOURS
+        assert get_ttl_hours(LARGE_ZIP_THRESHOLD_BYTES + 1) == LARGE_ZIP_TTL_HOURS
 
 
 class TestCleanupStaleZips:
@@ -393,6 +380,53 @@ class TestCleanupStaleZips:
 
         mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
         assert cleanup_stale_zips() == 1
+
+
+class TestZipFileEntryFromRomFile:
+    def test_maps_fields(self, mocker):
+        rom_file = mocker.MagicMock()
+        rom_file.file_name_for_download.return_value = ".hidden/game.chd"
+        rom_file.full_path = "roms/nes/game.chd"
+        rom_file.file_size_bytes = 2048
+        rom_file.updated_at.timestamp.return_value = 1234.5
+
+        entry = ZipFileEntry.from_rom_file(rom_file, hidden_folder=True)
+
+        rom_file.file_name_for_download.assert_called_once_with(True)
+        assert entry == ZipFileEntry(
+            ".hidden/game.chd", "roms/nes/game.chd", 2048, 1234.5
+        )
+
+
+class TestEnsureZipfileWritable:
+    def test_writestr_works_after_inflate64_patch(self, tmp_path, mocker):
+        # Simulates the zipfile_inflate64 patch: a wrapper that drops the
+        # compresslevel argument, which breaks ZipFile.write() on CPython 3.13.
+        import zipfile
+
+        original = zipfile._get_compressor  # type: ignore[attr-defined]
+
+        def one_arg_wrapper(compress_type):
+            return original(compress_type)
+
+        mocker.patch.object(zipfile, "_get_compressor", one_arg_wrapper)
+
+        lib = tmp_path / "library"
+        (lib / "roms").mkdir(parents=True)
+        (lib / "roms" / "a.bin").write_bytes(b"data")
+        mocker.patch("utils.zip_cache.LIBRARY_BASE_PATH", str(lib))
+        mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path / "cache"))
+
+        result = build_cached_zip(
+            namespace="42",
+            entries=[ZipFileEntry("a.bin", "roms/a.bin", 4, 1000.0)],
+            m3u_content=b"a.bin",
+            m3u_filename="game.m3u",
+            cache_key="key",
+        )
+        with ZipFile(result) as zf:
+            assert zf.read("a.bin") == b"data"
+            assert zf.read("game.m3u") == b"a.bin"
 
 
 class TestConstants:
