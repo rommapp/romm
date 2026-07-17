@@ -378,15 +378,22 @@ export default defineStore("v2GalleryRoms", {
           romId,
           signal: controller.signal,
         });
-        // Re-check that the shell still wants this position — a fast
-        // scroll past + cancel races against the response landing.
-        if (!inFlightControllers.has(ctrlKey)) return;
+        // Re-check that we're still the relevant request for this key — a
+        // fast scroll-past + cancel + re-enter can replace our controller
+        // with a newer one under the same key before we land. Identity
+        // comparison keeps us from applying our stale response over it.
+        if (inFlightControllers.get(ctrlKey) !== controller) return;
         this.byPosition.set(position, response.data);
       } catch (err) {
         if (axios.isCancel(err)) return;
         console.error("[v2GalleryRoms] rom fetch failed", position, romId, err);
       } finally {
-        inFlightControllers.delete(ctrlKey);
+        // Only clear our own entry — a replacement request may already own
+        // the key (see the identity check above), and deleting it would
+        // strand that request's response and leave the card a skeleton.
+        if (inFlightControllers.get(ctrlKey) === controller) {
+          inFlightControllers.delete(ctrlKey);
+        }
       }
     },
 
