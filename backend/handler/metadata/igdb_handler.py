@@ -364,6 +364,7 @@ def get_igdb_preferred_locale(rom: Rom | None = None) -> str | None:
     """
     config = cm.get_config()
     priority = config.SCAN_REGION_PRIORITY
+    normalized_priority = [region.lower() for region in priority]
 
     if rom is not None and isinstance(rom.regions, list):
         rom_codes: list[str] = []
@@ -373,7 +374,11 @@ def get_igdb_preferred_locale(rom: Rom | None = None) -> str | None:
                 rom_codes.append(code)
 
         rom_codes.sort(
-            key=lambda code: priority.index(code) if code in priority else len(priority)
+            key=lambda code: (
+                normalized_priority.index(code)
+                if code in normalized_priority
+                else len(normalized_priority)
+            )
         )
         if rom_codes:
             return REGION_TO_IGDB_LOCALE[rom_codes[0]]
