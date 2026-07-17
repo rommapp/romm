@@ -170,6 +170,7 @@ class CachedApiService {
       limit: 15,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
     });
 
     return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
@@ -184,6 +185,7 @@ class CachedApiService {
       limit: 15,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
       last_played: true,
     });
 
@@ -202,6 +204,7 @@ class CachedApiService {
       limit: 15,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
     });
   }
 
@@ -212,6 +215,7 @@ class CachedApiService {
       limit: 15,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
       last_played: true,
     });
   }

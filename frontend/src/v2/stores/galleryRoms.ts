@@ -1,16 +1,17 @@
-// galleryRoms (v2) — windowed/sparse store for the active gallery list.
+// galleryRoms (v2) — sparse store for the active gallery list.
 //
 // Replaces v1's `stores/roms.ts` for the gallery-list responsibility.
 // What lives here:
 //   - the gallery context (currentPlatform / Collection / Virtual / Smart),
-//   - the total ROM count + per-letter offset table from the backend,
-//   - a sparse `byPosition` map that holds whatever windows have been
-//     fetched so far,
-//   - book-keeping for in-flight / loaded / failed windows.
+//   - the total ROM count + per-letter offset table + id index from the
+//     backend,
+//   - a sparse `byPosition` map that holds whatever positions have been
+//     hydrated so far (per-card, driven by row visibility),
+//   - book-keeping for in-flight per-card fetches.
 //
 // Why a NEW store rather than extending v1:
 //   v1 collapses pagination into `fetchRoms()` advancing a single
-//   `fetchOffset`. v2 needs random-access window loads (driven by which
+//   `fetchOffset`. v2 needs random-access per-card loads (driven by which
 //   rows enter the virtualiser's viewport, including skeleton rows for
 //   positions we've never touched). Forking lets v2 model that cleanly
 //   while v1 stays frozen. Per the constitution, the v1 gallery-list
@@ -56,15 +57,14 @@ export type GalleryOrderKey =
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
-// Default window size — the backend's pagination limit. Smaller windows
-// mean more round-trips but finer-grained fills; larger windows mean
-// fewer requests but each one downloads more.
+// Default page size — the backend's pagination limit, used by the
+// metadata bootstrap's request params.
 const WINDOW_SIZE = 72;
 
-// In-flight `AbortController`s keyed by request — `window:${offset}`
-// for the windowed initial fetch, `range:${offset}:${limit}` for the
-// per-row dwell prefetch. Lives outside store state so Pinia doesn't
-// try to proxy native abort objects (which break under reactivity).
+// In-flight `AbortController`s keyed by request: `rom:${position}` for a
+// per-card hydration fetch, `bootstrap` for the lightweight metadata
+// bootstrap. Lives outside store state so Pinia doesn't try to proxy
+// native abort objects (which break under reactivity).
 // `invalidateWindows()` / `resetGallery()` abort every pending request,
 // so a fast-typed search box or a platform-switch mid-load doesn't
 // leave server work going for results we'll throw away.
@@ -73,47 +73,6 @@ const inFlightControllers = new Map<string, AbortController>();
 function abortAllInFlight() {
   for (const ctrl of inFlightControllers.values()) ctrl.abort();
   inFlightControllers.clear();
-}
-
-// Apply items to `byPosition` in row-sized batches with a rAF yield
-// between batches. Each Map.set() invalidates Vue's per-key dep, and
-// when many cards are in the viewport / overscan zone they all
-// re-render in the same microtask flush — synchronously, on the main
-// thread. With dozens of items landing back-to-back (initial window,
-// or rapid-fire background fill), the flush can run >30ms and queued
-// input events (AlphaStrip clicks especially) miss their frame.
-//
-// Yielding every `BATCH_SIZE` items lets the browser paint the new
-// cards AND dispatch any pending input between batches. We pick 8 as
-// the default — one row's worth — so a per-row dwell fetch (8 items)
-// stays a single batch (no extra frames), while a 72-item window
-// becomes 9 small batches that each fit comfortably in a frame.
-const APPLY_BATCH_SIZE = 8;
-
-function nextFrame(): Promise<void> {
-  return new Promise((resolve) => {
-    if (typeof requestAnimationFrame !== "undefined") {
-      requestAnimationFrame(() => resolve());
-    } else {
-      setTimeout(resolve, 0);
-    }
-  });
-}
-
-async function applyItemsBatched(
-  byPosition: Map<number, SimpleRom>,
-  items: SimpleRom[],
-  baseOffset: number,
-  isStillRelevant: () => boolean,
-): Promise<void> {
-  for (let i = 0; i < items.length; i += APPLY_BATCH_SIZE) {
-    if (!isStillRelevant()) return;
-    const end = Math.min(i + APPLY_BATCH_SIZE, items.length);
-    for (let j = i; j < end; j++) {
-      byPosition.set(baseOffset + j, items[j]);
-    }
-    if (end < items.length) await nextFrame();
-  }
 }
 
 interface State {
@@ -132,18 +91,13 @@ interface State {
   charIndex: Record<string, number>;
   romIdIndex: number[];
   byPosition: Map<number, SimpleRom>;
-  loadedWindows: Set<number>;
-  pendingWindows: Set<number>;
-  failedWindows: Set<number>;
-  // True until the very first metadata bootstrap (or fetchWindow(0))
-  // resolves — view shows a skeleton hero/skeleton rows during this
-  // phase.
+  // True until the very first metadata bootstrap resolves — view shows a
+  // skeleton hero/skeleton rows during this phase.
   initialFetching: boolean;
   // True once total / charIndex / romIdIndex / filter_values have been
-  // populated — either by the lightweight `fetchInitialMetadata()`
-  // bootstrap or by `fetchWindowAt(0)`. Used to gate the initial fetch
-  // dedup independently of `loadedWindows` (metadata bootstrap doesn't
-  // load any window).
+  // populated by the lightweight `fetchInitialMetadata()` bootstrap.
+  // Gates the bootstrap dedup and the per-card hydration (which needs
+  // `romIdIndex` before it can resolve a position to a rom id).
   metadataLoaded: boolean;
   // Order params — gallery-list scoped (separate from v1's localStorage
   // keys so v1/v2 don't fight over the same value).
@@ -161,18 +115,11 @@ const defaults = (): State => ({
   charIndex: {},
   romIdIndex: [],
   byPosition: new Map(),
-  loadedWindows: new Set(),
-  pendingWindows: new Set(),
-  failedWindows: new Set(),
   initialFetching: false,
   metadataLoaded: false,
   orderBy: "name",
   orderDir: "asc",
 });
-
-function alignToWindow(offset: number): number {
-  return Math.floor(offset / WINDOW_SIZE) * WINDOW_SIZE;
-}
 
 export default defineStore("v2GalleryRoms", {
   state: () => defaults(),
@@ -186,8 +133,6 @@ export default defineStore("v2GalleryRoms", {
         state.currentSmartCollection ||
         state.currentSearch
       ),
-    /** True when at least the first window has loaded. */
-    hasInitial: (state) => state.loadedWindows.size > 0,
   },
 
   actions: {
@@ -242,9 +187,6 @@ export default defineStore("v2GalleryRoms", {
       this.charIndex = {};
       this.romIdIndex = [];
       this.byPosition = new Map();
-      this.loadedWindows = new Set();
-      this.pendingWindows = new Set();
-      this.failedWindows = new Set();
       this.initialFetching = false;
       this.metadataLoaded = false;
     },
@@ -258,9 +200,6 @@ export default defineStore("v2GalleryRoms", {
       this.charIndex = {};
       this.romIdIndex = [];
       this.byPosition = new Map();
-      this.loadedWindows = new Set();
-      this.pendingWindows = new Set();
-      this.failedWindows = new Set();
       this.initialFetching = false;
       this.metadataLoaded = false;
     },
@@ -299,6 +238,7 @@ export default defineStore("v2GalleryRoms", {
         filterRA: galleryFilter.filterRA,
         filterSaves: galleryFilter.filterSaves,
         filterStates: galleryFilter.filterStates,
+        filterSoundtrack: galleryFilter.filterSoundtrack,
         filterMissing: galleryFilter.filterMissing,
         filterVerified: galleryFilter.filterVerified,
         selectedGenres: galleryFilter.selectedGenres,
@@ -327,9 +267,8 @@ export default defineStore("v2GalleryRoms", {
     },
 
     /** Apply the metadata side effects from a `getRoms` response —
-     * total, char_index, rom_id_index, plus filter side panels (only on
-     * first fetch). Shared by `fetchWindowAt(0)` and the lightweight
-     * `fetchInitialMetadata()` bootstrap. */
+     * total, char_index, rom_id_index, plus filter side panels. Used by
+     * the lightweight `fetchInitialMetadata()` bootstrap. */
     _applyMetadata(
       data: GetRomsResponse,
       galleryFilter: GalleryFilterStore,
@@ -363,15 +302,13 @@ export default defineStore("v2GalleryRoms", {
 
     /** Lightweight bootstrap: fetch only the gallery's metadata (total,
      * char_index, rom_id_index, filter_values) without loading any
-     * items. Use this when items will be hydrated lazily through the
-     * per-card `fetchRomAt(p)` viewport sync — e.g. grid-mode galleries.
+     * items. Sizes the virtualiser (via `total`) so both layouts can
+     * render skeleton rows immediately, then hydrate each visible
+     * position through the viewport-driven per-card `fetchRomAt(p)` sync.
      *
      * The backend's `limit` minimum is 1, so we still pay for one
-     * `SimpleRomSchema` build server-side, but we discard the item
-     * client-side: every position (including 0) loads through the
-     * unified per-card path so the staggered fade-in applies to the
-     * first rows the same as the rest. List mode still wants
-     * `fetchWindowAt(0)` because the table reads `byPosition` directly. */
+     * `SimpleRomSchema` build server-side, but the item is discarded
+     * client-side. */
     async fetchInitialMetadata(): Promise<void> {
       if (this.metadataLoaded) return;
       if (this.initialFetching) return;
@@ -408,108 +345,21 @@ export default defineStore("v2GalleryRoms", {
       }
     },
 
-    /** Fetch the window that contains `position` (rounding down to the
-     * window grid). Dedupes against pending / loaded windows. The very
-     * first window also seeds `total` and `charIndex`. */
-    async fetchWindowAt(position: number): Promise<void> {
-      if (position < 0) return;
-      const offset = alignToWindow(position);
-      // Total is unknown for offset 0; for any non-initial offset, refuse
-      // to fetch past total.
-      if (this.total > 0 && offset >= this.total) return;
-      if (this.loadedWindows.has(offset)) return;
-      if (this.pendingWindows.has(offset)) return;
-
-      this.pendingWindows.add(offset);
-      this.failedWindows.delete(offset);
-      if (offset === 0 && !this.metadataLoaded) this.initialFetching = true;
-
-      const galleryFilter = storeGalleryFilter();
-      const platformsStore = storePlatforms();
-      const params = this._buildRequestParams(galleryFilter, offset);
-      const ctrlKey = `window:${offset}`;
-      const controller = new AbortController();
-      inFlightControllers.set(ctrlKey, controller);
-
-      try {
-        const response = await romApi.getRoms({
-          ...params,
-          signal: controller.signal,
-        });
-        // Re-check that this window is still relevant — invalidateWindows
-        // / resetGallery may have run while we were waiting.
-        if (!this.pendingWindows.has(offset)) return;
-
-        const data = response.data;
-        if (offset === 0) {
-          this._applyMetadata(data, galleryFilter, platformsStore);
-        } else if (data.total !== null && data.total !== undefined) {
-          this.total = data.total;
-        }
-
-        // Place items at their absolute positions (offset .. offset + N).
-        // We rely on Vue 3's reactive Map: `set(k, v)` triggers per-key
-        // dependents. Earlier passes reassigned `this.byPosition` to a
-        // new Map after each window which DEFEATED that — every
-        // `getRomAt(p)` reader was invalidated, and the gallery
-        // virtualItems computed (which iterates positions) had to
-        // rebuild end-to-end on every window response. That blocked the
-        // event loop hard enough to freeze the scroller. Mutating in
-        // place keeps the dependents narrow: only positions that just
-        // resolved trigger a re-render.
-        //
-        // Batched + frame-yielded: 72 sets in one microtask block the
-        // main thread long enough that AlphaStrip clicks queued during
-        // the flush miss their frame. `applyItemsBatched` pauses every
-        // row (8 items) so input dispatches between paints.
-        await applyItemsBatched(this.byPosition, data.items, offset, () =>
-          this.pendingWindows.has(offset),
-        );
-
-        this.loadedWindows.add(offset);
-      } catch (err) {
-        // An explicit abort isn't a failure — keep `failedWindows`
-        // clean so the window is eligible to refetch under the new
-        // gallery context without the UI flagging it as broken.
-        if (axios.isCancel(err)) return;
-        this.failedWindows.add(offset);
-        // Surface in console; UI keeps the skeletons in place — the
-        // window can be retried by re-entering the row.
-        console.error("[v2GalleryRoms] window fetch failed", offset, err);
-      } finally {
-        inFlightControllers.delete(ctrlKey);
-        this.pendingWindows.delete(offset);
-        if (offset === 0) this.initialFetching = false;
-      }
-    },
-
-    /** Fetch an arbitrary `[offset, offset + limit)` range. Used by the
-     * per-row dwell prefetch in the gallery views — instead of always
-     * pulling the full 72-item window, a row asks for exactly its 8
-     * positions, so visible rows can resolve in parallel and the user
-     * sees covers stream in row-by-row.
-     *
-     * Skips the request when every position in the range is already
-     * loaded; dedupes concurrent identical requests by (offset, limit)
-     * key. The initial window — total / charIndex bootstrapping — still
-     * goes through `fetchWindowAt(0)`. */
     /** Fetch the single ROM at `position` via `GET /roms/{id}/simple` —
      * the lightweight schema endpoint that skips the eager `user_saves`
      * / `user_states` / `user_screenshots` / `user_collections` /
-     * `all_user_notes` arrays (those are 5 separate DB queries each;
-     * dropping them takes the call from ~500ms to a typical by-id
-     * lookup). The gallery card only needs the `has_*` indicator
-     * flags + cover paths + platform info — all on `SimpleRomSchema`.
-     * Detailed arrays are pulled on demand by the game-details page
-     * or by quick-action dialogs (note editor, achievements panel)
-     * when the user actually opens them.
+     * `all_user_notes` arrays. The gallery card only needs the `has_*`
+     * indicator flags + cover paths + platform info — all on
+     * `SimpleRomSchema`. Detailed arrays are pulled on demand by the
+     * game-details page or by quick-action dialogs (note editor,
+     * achievements panel) when the user actually opens them.
      *
-     * Requires `romIdIndex[position]` — populated by the first
-     * `fetchWindowAt(0)` for the active gallery. Returns silently
-     * if the index isn't loaded yet.
+     * Requires `romIdIndex[position]` — populated by the
+     * `fetchInitialMetadata()` bootstrap for the active gallery. Returns
+     * silently if the index isn't loaded yet.
      *
-     * Per-position `AbortController` allows the shell to cancel
-     * fetches for cards that left the viewport before resolving.
+     * Per-position `AbortController` allows the shell to cancel fetches
+     * for cards that left the viewport before resolving.
      * `cancelFetchAt(position)` is the cancel side. */
     async fetchRomAt(position: number): Promise<void> {
       if (position < 0) return;
@@ -529,21 +379,28 @@ export default defineStore("v2GalleryRoms", {
           romId,
           signal: controller.signal,
         });
-        // Re-check that the shell still wants this position — a fast
-        // scroll past + cancel races against the response landing.
-        if (!inFlightControllers.has(ctrlKey)) return;
+        // Re-check that we're still the relevant request for this key — a
+        // fast scroll-past + cancel + re-enter can replace our controller
+        // with a newer one under the same key before we land. Identity
+        // comparison keeps us from applying our stale response over it.
+        if (inFlightControllers.get(ctrlKey) !== controller) return;
         this.byPosition.set(position, response.data);
       } catch (err) {
         if (axios.isCancel(err)) return;
         console.error("[v2GalleryRoms] rom fetch failed", position, romId, err);
       } finally {
-        inFlightControllers.delete(ctrlKey);
+        // Only clear our own entry — a replacement request may already own
+        // the key (see the identity check above), and deleting it would
+        // strand that request's response and leave the card a skeleton.
+        if (inFlightControllers.get(ctrlKey) === controller) {
+          inFlightControllers.delete(ctrlKey);
+        }
       }
     },
 
-    /** Cancel an in-flight per-position fetch — typically called by
-     * the shell when a card leaves the viewport before its request
-     * resolves. No-op if nothing is in flight for that position. */
+    /** Cancel an in-flight per-position fetch — typically called by the
+     * shell when a card leaves the viewport before its request resolves.
+     * No-op if nothing is in flight for that position. */
     cancelFetchAt(position: number) {
       const ctrlKey = `rom:${position}`;
       const ctrl = inFlightControllers.get(ctrlKey);
@@ -551,6 +408,15 @@ export default defineStore("v2GalleryRoms", {
         ctrl.abort();
         inFlightControllers.delete(ctrlKey);
       }
+    },
+
+    /** Abort every in-flight per-card fetch without wiping the hydrated
+     * cache. The shell calls this when the gallery unmounts so navigating
+     * away mid-scroll doesn't leave requests running; a return to the
+     * same gallery still reuses whatever `byPosition` already holds. */
+    abortInFlight() {
+      abortAllInFlight();
+      this.initialFetching = false;
     },
 
     /** Apply (in place) an updated ROM to whatever position currently

@@ -2,11 +2,13 @@
 // GameListRow — single row of the list-mode gallery.
 //
 // Owns:
-//   * Per-row lazy fetch — onMount fires `fetchRomAt(position)`; the
-//     store dedupes against in-flight + already-loaded. onUnmount aborts
+//   * Per-row lazy fetch: a watch fires `fetchRomAt(position)` whenever
+//     the row is missing its rom but the store knows the id — covering
+//     both mount ("entered the overscan window") and a context refresh
+//     that clears `byPosition` under a still-mounted row. onUnmount aborts
 //     the fetch via `cancelFetchAt(position)` so a fast scroll past
 //     mid-flight doesn't keep server work queued for invisible rows.
-//     Mirror of the per-card flow in grid mode — same "row mount =
+//     Mirror of the per-card grid flow, with the same "row mount =
 //     entered viewport" contract via the shell's RVirtualScroller
 //     overscan window.
 //
@@ -27,7 +29,7 @@ import {
   RSkeletonBlock,
   RTooltip,
 } from "@v2/lib";
-import { computed, onBeforeUnmount, onMounted } from "vue";
+import { computed, onBeforeUnmount, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import storePlatforms from "@/stores/platforms";
@@ -262,14 +264,28 @@ function onRowPointerEnd() {
   selectionInput.handlePointerEnd();
 }
 
-onMounted(() => {
-  // Static mode (rom passed as prop) skips the gallery's per-row fetch
-  // entirely — the consumer already owns the rom data.
-  if (isStatic.value || props.position === undefined) return;
-  // Entered the overscan window — kick the per-row fetch. Store dedupes
-  // against in-flight + already-loaded.
-  void galleryRoms.fetchRomAt(props.position);
-});
+// Kick the per-row fetch whenever this position is missing its rom but
+// the store knows its id. This covers both mount ("entered the overscan
+// window") and a context refresh: a filter / search / sort / scan clears
+// `byPosition` and repopulates `romIdIndex`, but the row can stay mounted
+// at the same position — without this watch it would sit on skeletons
+// until it scrolled out and remounted. The store dedupes against
+// in-flight + already-loaded, so re-runs are cheap. Guarding on the id
+// (not just null rom) also re-fetches when a resort lands a different rom
+// at the same position.
+watch(
+  () => {
+    if (isStatic.value || props.position === undefined) return null;
+    if (galleryRoms.byPosition.has(props.position)) return null;
+    return galleryRoms.romIdIndex[props.position] ?? null;
+  },
+  (romId) => {
+    if (romId != null && props.position !== undefined) {
+      void galleryRoms.fetchRomAt(props.position);
+    }
+  },
+  { immediate: true },
+);
 
 onBeforeUnmount(() => {
   if (isStatic.value || props.position === undefined) return;

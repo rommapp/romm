@@ -353,22 +353,37 @@ REGION_TO_IGDB_LOCALE: dict[str, str | None] = {
 
 
 def get_igdb_preferred_locale(rom: Rom | None = None) -> str | None:
-    """Get IGDB locale, preferring the rom's own region tag when available.
+    """Get IGDB locale from the ROM's prioritized regions when available.
 
     Maps region priority codes to IGDB's game_localizations region identifiers.
-    Checks the rom's tagged regions first, then falls back to scan.priority.region.
+    Prioritizes the ROM's tagged regions by scan.priority.region, then falls
+    back to scan.priority.region.
 
     Returns:
         IGDB region identifier (e.g., "ja-JP", "EU") or None for default
     """
+    config = cm.get_config()
+    priority = config.SCAN_REGION_PRIORITY
+    normalized_priority = [region.lower() for region in priority]
+
     if rom is not None and isinstance(rom.regions, list):
+        rom_codes: list[str] = []
         for region_name in rom.regions:
             code = region_name_to_provider_shortcode(region_name)
             if code and code in REGION_TO_IGDB_LOCALE:
-                return REGION_TO_IGDB_LOCALE[code]
+                rom_codes.append(code)
 
-    config = cm.get_config()
-    for region in config.SCAN_REGION_PRIORITY:
+        rom_codes.sort(
+            key=lambda code: (
+                normalized_priority.index(code)
+                if code in normalized_priority
+                else len(normalized_priority)
+            )
+        )
+        if rom_codes:
+            return REGION_TO_IGDB_LOCALE[rom_codes[0]]
+
+    for region in priority:
         if region.lower() in REGION_TO_IGDB_LOCALE:
             return REGION_TO_IGDB_LOCALE[region.lower()]
 

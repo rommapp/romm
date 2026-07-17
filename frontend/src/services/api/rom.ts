@@ -155,6 +155,7 @@ export interface GetRomsParams {
   filterRA?: boolean | null;
   filterSaves?: boolean | null;
   filterStates?: boolean | null;
+  filterSoundtrack?: boolean | null;
   filterMissing?: boolean | null;
   filterVerified?: boolean | null;
   groupByMetaId?: boolean;
@@ -182,9 +183,10 @@ export interface GetRomsParams {
   playerCountsLogic?: string | null;
   metadataProvidersLogic?: string | null;
   tagsLogic?: string | null;
-  // Cancellation: pass an AbortSignal to let the caller abort an
-  // in-flight request (e.g. search-typing → previous query aborted,
-  // gallery-context switch → previous platform's windows aborted).
+  // Skip the char index / filter-value aggregations server-side
+  withCharIndex?: boolean;
+  withFilterValues?: boolean;
+  // Cancel an in-flight request
   signal?: AbortSignal;
 }
 
@@ -205,6 +207,7 @@ async function getRoms({
   filterRA = null,
   filterSaves = null,
   filterStates = null,
+  filterSoundtrack = null,
   filterMissing = null,
   filterVerified = null,
   groupByMetaId = false,
@@ -231,6 +234,8 @@ async function getRoms({
   playerCountsLogic = null,
   metadataProvidersLogic = null,
   tagsLogic = null,
+  withCharIndex = undefined,
+  withFilterValues = undefined,
   signal = undefined,
 }: GetRomsParams) {
   const params = {
@@ -335,7 +340,12 @@ async function getRoms({
     ...(filterRA !== null ? { has_ra: filterRA } : {}),
     ...(filterSaves !== null ? { has_saves: filterSaves } : {}),
     ...(filterStates !== null ? { has_states: filterStates } : {}),
+    ...(filterSoundtrack !== null ? { has_soundtrack: filterSoundtrack } : {}),
     ...(filterVerified !== null ? { verified: filterVerified } : {}),
+    ...(withCharIndex !== undefined ? { with_char_index: withCharIndex } : {}),
+    ...(withFilterValues !== undefined
+      ? { with_filter_values: withFilterValues }
+      : {}),
   };
 
   return api.get<GetRomsResponse>(`/roms`, {
@@ -355,6 +365,7 @@ async function getRecentRoms() {
       limit: RECENT_ROMS_LIMIT,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
     },
   });
 }
@@ -367,6 +378,7 @@ async function getRecentPlayedRoms() {
       limit: RECENT_PLAYED_ROMS_LIMIT,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
       last_played: true,
     },
   });

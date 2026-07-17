@@ -243,6 +243,50 @@ def with_details(func):
     return wrapper
 
 
+def with_simple_details(func):
+    """Lightweight eager-load for the `SimpleRomSchema` (v2 gallery card).
+
+    Loads only the relationships `SimpleRomSchema` serializes (rom_users,
+    files, sibling_roms + their rom_users, notes) and the deferred file-count
+    columns, skipping the `saves` / `states` / `screenshots` / `collections`
+    arrays that `with_details` pulls for the detail view. Keeps per-card
+    hydration cheap on low-power hosts.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        kwargs["query"] = select(Rom).options(
+            selectinload(Rom.platform),
+            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
+            selectinload(Rom.files).options(
+                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
+                selectinload(RomFile.track_meta),
+            ),
+            selectinload(Rom.sibling_roms).options(
+                noload(Rom.platform),
+                noload(Rom.metadatum),
+                # Per-sibling is_main_sibling resolution needs each sibling's
+                # RomUser (relationship is `lazy="raise"`).
+                selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+                load_only(
+                    Rom.id,
+                    Rom.name,
+                    Rom.platform_id,
+                    Rom.fs_name_no_tags,
+                    Rom.fs_name_no_ext,
+                ),
+            ),
+            selectinload(Rom.notes),
+            undefer(Rom.multi_file),
+            undefer(Rom.top_level_file_count),
+            undefer(Rom.has_soundtrack),
+        )
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 class DBRomsHandler(DBBaseHandler):
     @begin_session
     @with_details
@@ -266,6 +310,18 @@ class DBRomsHandler(DBBaseHandler):
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Rom | None:
+        return session.scalar(query.filter_by(id=id).limit(1))
+
+    @begin_session
+    @with_simple_details
+    def get_rom_simple(
+        self,
+        id: int,
+        *,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
+    ) -> Rom | None:
+        """Get a rom by ID with only the loads `SimpleRomSchema` needs."""
         return session.scalar(query.filter_by(id=id).limit(1))
 
     @begin_session
@@ -1346,6 +1402,26 @@ class DBRomsHandler(DBBaseHandler):
         if redis_key is not None and version is not None:
             _store_versioned_cache(redis_key, version, ids)
         return ids
+
+    @begin_session
+    def get_rom_count(
+        self,
+        query: Query,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> int:
+        """Count matching roms without materialising their ids.
+
+        For callers that need a page and its total but not the full
+        ordered id list, so the database can serve the page from the
+        sort index instead of scanning the whole library.
+        """
+        return (
+            session.scalar(
+                select(func.count()).select_from(query.order_by(None).subquery())
+            )
+            or 0
+        )
 
     @begin_session
     def get_roms_by_fs_name(

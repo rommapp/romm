@@ -44,6 +44,32 @@ def test_get_rom(client: TestClient, access_token: str, rom: Rom):
     assert body["id"] == rom.id
 
 
+def test_get_rom_simple(client: TestClient, access_token: str, rom: Rom):
+    response = client.get(
+        f"/api/roms/{rom.id}/simple",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["id"] == rom.id
+    # SimpleRomSchema stays lightweight: none of the detail-only arrays are
+    # present, so the endpoint must not eager-load them.
+    assert "user_saves" not in body
+    assert "user_states" not in body
+    assert "user_screenshots" not in body
+    assert "user_collections" not in body
+    assert "all_user_notes" not in body
+
+
+def test_get_rom_simple_missing_returns_404(client: TestClient, access_token: str):
+    response = client.get(
+        "/api/roms/999999/simple",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_download_multi_file_rom_content(
     client: TestClient, access_token: str, multi_file_rom: Rom
 ):
@@ -146,6 +172,31 @@ def test_get_all_roms(
     assert items[0]["id"] == rom.id
     assert items[0]["files"] == []
     assert items[0]["sibling_roms"] == []
+
+
+def test_get_roms_without_rom_id_index(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+):
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={
+            "platform_id": platform.id,
+            "limit": 15,
+            "with_rom_id_index": False,
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+
+    # The page and total stay correct, but the full id index is not built.
+    assert body["total"] == 1
+    assert body["rom_id_index"] == []
+
+    items = body["items"]
+    assert len(items) == 1
+    assert items[0]["id"] == rom.id
 
 
 def test_get_roms_filter_by_metadata_providers(
