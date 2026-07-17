@@ -1105,7 +1105,7 @@ def get_rom_simple(
     fetched on user-driven detail interactions (game details page, quick-
     note dialog open, achievements panel)."""
 
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_simple(id)
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)

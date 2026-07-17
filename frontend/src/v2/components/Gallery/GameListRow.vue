@@ -2,11 +2,10 @@
 // GameListRow — single row of the list-mode gallery.
 //
 // Owns:
-//   * Per-row lazy fetch — onMount fires `fetchRomAt(position)`; the
-//     store dedupes against in-flight + already-loaded. onUnmount aborts
-//     the fetch via `cancelFetchAt(position)` so a fast scroll past
-//     mid-flight doesn't keep server work queued for invisible rows.
-//     Mirror of the per-card flow in grid mode — same "row mount =
+//   * Per-row lazy fetch: onMount fires `fetchWindowAt(position)` and
+//     the store aligns the position to its 72-item window, deduping
+//     against pending + loaded windows, so rows sharing a window share
+//     one request. Mirror of the grid flow, with the same "row mount =
 //     entered viewport" contract via the shell's RVirtualScroller
 //     overscan window.
 //
@@ -27,7 +26,7 @@ import {
   RSkeletonBlock,
   RTooltip,
 } from "@v2/lib";
-import { computed, onBeforeUnmount, onMounted } from "vue";
+import { computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import storePlatforms from "@/stores/platforms";
@@ -266,19 +265,9 @@ onMounted(() => {
   // Static mode (rom passed as prop) skips the gallery's per-row fetch
   // entirely — the consumer already owns the rom data.
   if (isStatic.value || props.position === undefined) return;
-  // Entered the overscan window — kick the per-row fetch. Store dedupes
-  // against in-flight + already-loaded.
-  void galleryRoms.fetchRomAt(props.position);
-});
-
-onBeforeUnmount(() => {
-  if (isStatic.value || props.position === undefined) return;
-  // Left the overscan window before the fetch resolved — abort so the
-  // server doesn't keep building a row the user already scrolled past.
-  // Idempotent if nothing was in flight.
-  if (!galleryRoms.byPosition.has(props.position)) {
-    galleryRoms.cancelFetchAt(props.position);
-  }
+  // Entered the overscan window, so kick the window fetch. Store aligns
+  // to the window grid and dedupes against pending + loaded windows.
+  void galleryRoms.fetchWindowAt(props.position);
 });
 </script>
 

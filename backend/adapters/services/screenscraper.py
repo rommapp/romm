@@ -1,6 +1,7 @@
 import asyncio
 import http
 import json
+import re
 from typing import Final, cast
 
 import aiohttp
@@ -21,6 +22,26 @@ from utils.context import ctx_aiohttp_session
 from utils.rate_limiter import ConcurrencyLimiter
 
 LOGIN_ERROR_CHECK: Final = "Erreur de login"
+
+# ScreenScraper occasionally returns malformed JSON with unescaped backslashes in
+# text fields (e.g. game synopses), which the strict parser rejects with
+# "Invalid \escape" and discards the whole response. Match any backslash that is
+# not part of a valid JSON escape so we can repair those before parsing.
+_INVALID_ESCAPE_RE: Final = re.compile(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})')
+
+
+def _loads_lenient(text: str) -> dict:
+    """Parse a ScreenScraper JSON payload, repairing invalid escapes on failure.
+
+    A single unescaped backslash would otherwise sink an entire response (and thus
+    the match), so on a decode error we double any backslash that isn't a valid
+    JSON escape and try once more.
+    """
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return json.loads(_INVALID_ESCAPE_RE.sub(r"\\\\", text))
+
 
 # ScreenScraper enforces a per-account *thread* (concurrency) cap rather than a
 # request rate. Because a request can take several seconds, spacing out request
@@ -140,7 +161,7 @@ class ScreenScraperService:
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="Invalid ScreenScraper credentials",
                     )
-                data = await res.json()
+                data = await res.json(loads=_loads_lenient)
             _update_thread_allowance(data)
             return data
         except aiohttp.ServerTimeoutError:
@@ -213,7 +234,7 @@ class ScreenScraperService:
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="Invalid ScreenScraper credentials",
                     )
-                data = await res.json()
+                data = await res.json(loads=_loads_lenient)
             _update_thread_allowance(data)
             return data
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as err:

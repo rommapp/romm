@@ -61,18 +61,48 @@ type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 // fewer requests but each one downloads more.
 const WINDOW_SIZE = 72;
 
-// In-flight `AbortController`s keyed by request — `window:${offset}`
-// for the windowed initial fetch, `range:${offset}:${limit}` for the
-// per-row dwell prefetch. Lives outside store state so Pinia doesn't
+// In-flight `AbortController`s keyed by request: `window:${offset}`
+// for a windowed fetch, `bootstrap` for the lightweight metadata
+// bootstrap. Lives outside store state so Pinia doesn't
 // try to proxy native abort objects (which break under reactivity).
 // `invalidateWindows()` / `resetGallery()` abort every pending request,
 // so a fast-typed search box or a platform-switch mid-load doesn't
 // leave server work going for results we'll throw away.
 const inFlightControllers = new Map<string, AbortController>();
 
+// A failed window is only refetched when `fetchWindowAt` is called for it
+// again, which for a static viewport (no scroll) never happens on its own.
+// So a transient failure would strand up to `WINDOW_SIZE` visible cards as
+// skeletons. To self-heal, a failed window schedules a bounded, backing-off
+// retry; `retryTimers` holds the pending timeouts (keyed by offset) and
+// `retryCounts` the attempts so far. Both are cleared by `abortAllInFlight`
+// on any gallery-context switch so we never retry against a stale context.
+const RETRY_BACKOFF_MS = 2000;
+const MAX_WINDOW_RETRIES = 3;
+const retryTimers = new Map<number, ReturnType<typeof setTimeout>>();
+const retryCounts = new Map<number, number>();
+
+function clearRetry(offset: number) {
+  const timer = retryTimers.get(offset);
+  if (timer !== undefined) clearTimeout(timer);
+  retryTimers.delete(offset);
+  retryCounts.delete(offset);
+}
+
 function abortAllInFlight() {
   for (const ctrl of inFlightControllers.values()) ctrl.abort();
   inFlightControllers.clear();
+  for (const timer of retryTimers.values()) clearTimeout(timer);
+  retryTimers.clear();
+  retryCounts.clear();
+}
+
+// Abort a single in-flight window fetch. The rejected request is caught
+// as a cancel in `fetchWindowAt` (no `failedWindows` entry, no retry) and
+// its `finally` clears the pending/controller bookkeeping.
+function cancelWindow(offset: number) {
+  const ctrl = inFlightControllers.get(`window:${offset}`);
+  if (ctrl) ctrl.abort();
 }
 
 // Apply items to `byPosition` in row-sized batches with a rAF yield
@@ -140,10 +170,10 @@ interface State {
   // phase.
   initialFetching: boolean;
   // True once total / charIndex / romIdIndex / filter_values have been
-  // populated — either by the lightweight `fetchInitialMetadata()`
-  // bootstrap or by `fetchWindowAt(0)`. Used to gate the initial fetch
-  // dedup independently of `loadedWindows` (metadata bootstrap doesn't
-  // load any window).
+  // populated, either by the lightweight `fetchInitialMetadata()`
+  // bootstrap or by `fetchWindowAt(0)`. Used to gate the initial
+  // bootstrap dedup independently of `loadedWindows` (metadata
+  // bootstrap doesn't load any window).
   metadataLoaded: boolean;
   // Order params — gallery-list scoped (separate from v1's localStorage
   // keys so v1/v2 don't fight over the same value).
@@ -363,15 +393,14 @@ export default defineStore("v2GalleryRoms", {
 
     /** Lightweight bootstrap: fetch only the gallery's metadata (total,
      * char_index, rom_id_index, filter_values) without loading any
-     * items. Use this when items will be hydrated lazily through the
-     * per-card `fetchRomAt(p)` viewport sync — e.g. grid-mode galleries.
+     * items. Sizes the virtualiser (via `total`) before any window
+     * lands, so both layouts can render skeleton rows immediately and
+     * then hydrate them through the viewport-driven `fetchWindowAt`
+     * sync.
      *
      * The backend's `limit` minimum is 1, so we still pay for one
-     * `SimpleRomSchema` build server-side, but we discard the item
-     * client-side: every position (including 0) loads through the
-     * unified per-card path so the staggered fade-in applies to the
-     * first rows the same as the rest. List mode still wants
-     * `fetchWindowAt(0)` because the table reads `byPosition` directly. */
+     * `SimpleRomSchema` build server-side, but the item is discarded
+     * client-side. */
     async fetchInitialMetadata(): Promise<void> {
       if (this.metadataLoaded) return;
       if (this.initialFetching) return;
@@ -434,6 +463,10 @@ export default defineStore("v2GalleryRoms", {
       try {
         const response = await romApi.getRoms({
           ...params,
+          // Skip char index / filter-value aggregations when initial data is loaded
+          ...(this.metadataLoaded
+            ? { withCharIndex: false, withFilterValues: false }
+            : {}),
           signal: controller.signal,
         });
         // Re-check that this window is still relevant — invalidateWindows
@@ -467,15 +500,32 @@ export default defineStore("v2GalleryRoms", {
         );
 
         this.loadedWindows.add(offset);
+        // Recovered — drop any retry bookkeeping for this window.
+        clearRetry(offset);
       } catch (err) {
         // An explicit abort isn't a failure — keep `failedWindows`
         // clean so the window is eligible to refetch under the new
         // gallery context without the UI flagging it as broken.
         if (axios.isCancel(err)) return;
         this.failedWindows.add(offset);
-        // Surface in console; UI keeps the skeletons in place — the
-        // window can be retried by re-entering the row.
+        // Surface in console; UI keeps the skeletons in place until the
+        // retry below (or a viewport / gallery-state change) refetches.
         console.error("[v2GalleryRoms] window fetch failed", offset, err);
+        // Self-heal a stranded viewport: schedule a bounded, backing-off
+        // refetch so a transient blip doesn't leave the window's cards as
+        // skeletons until the user happens to scroll.
+        const attempts = retryCounts.get(offset) ?? 0;
+        if (attempts < MAX_WINDOW_RETRIES && !retryTimers.has(offset)) {
+          retryCounts.set(offset, attempts + 1);
+          const timer = setTimeout(
+            () => {
+              retryTimers.delete(offset);
+              void this.fetchWindowAt(offset);
+            },
+            RETRY_BACKOFF_MS * (attempts + 1),
+          );
+          retryTimers.set(offset, timer);
+        }
       } finally {
         inFlightControllers.delete(ctrlKey);
         this.pendingWindows.delete(offset);
@@ -483,74 +533,43 @@ export default defineStore("v2GalleryRoms", {
       }
     },
 
-    /** Fetch an arbitrary `[offset, offset + limit)` range. Used by the
-     * per-row dwell prefetch in the gallery views — instead of always
-     * pulling the full 72-item window, a row asks for exactly its 8
-     * positions, so visible rows can resolve in parallel and the user
-     * sees covers stream in row-by-row.
-     *
-     * Skips the request when every position in the range is already
-     * loaded; dedupes concurrent identical requests by (offset, limit)
-     * key. The initial window — total / charIndex bootstrapping — still
-     * goes through `fetchWindowAt(0)`. */
-    /** Fetch the single ROM at `position` via `GET /roms/{id}/simple` —
-     * the lightweight schema endpoint that skips the eager `user_saves`
-     * / `user_states` / `user_screenshots` / `user_collections` /
-     * `all_user_notes` arrays (those are 5 separate DB queries each;
-     * dropping them takes the call from ~500ms to a typical by-id
-     * lookup). The gallery card only needs the `has_*` indicator
-     * flags + cover paths + platform info — all on `SimpleRomSchema`.
-     * Detailed arrays are pulled on demand by the game-details page
-     * or by quick-action dialogs (note editor, achievements panel)
-     * when the user actually opens them.
-     *
-     * Requires `romIdIndex[position]` — populated by the first
-     * `fetchWindowAt(0)` for the active gallery. Returns silently
-     * if the index isn't loaded yet.
-     *
-     * Per-position `AbortController` allows the shell to cancel
-     * fetches for cards that left the viewport before resolving.
-     * `cancelFetchAt(position)` is the cancel side. */
-    async fetchRomAt(position: number): Promise<void> {
-      if (position < 0) return;
-      if (this.total > 0 && position >= this.total) return;
-      if (this.byPosition.has(position)) return;
-      const romId = this.romIdIndex[position];
-      if (!romId) return;
-
-      const ctrlKey = `rom:${position}`;
-      if (inFlightControllers.has(ctrlKey)) return;
-
-      const controller = new AbortController();
-      inFlightControllers.set(ctrlKey, controller);
-
-      try {
-        const response = await romApi.getRomSimple({
-          romId,
-          signal: controller.signal,
-        });
-        // Re-check that the shell still wants this position — a fast
-        // scroll past + cancel races against the response landing.
-        if (!inFlightControllers.has(ctrlKey)) return;
-        this.byPosition.set(position, response.data);
-      } catch (err) {
-        if (axios.isCancel(err)) return;
-        console.error("[v2GalleryRoms] rom fetch failed", position, romId, err);
-      } finally {
-        inFlightControllers.delete(ctrlKey);
+    /** Reconcile in-flight window fetches with the currently visible
+     * positions. Starts any window covering a visible position (deduped
+     * inside `fetchWindowAt`) and aborts any in-flight or retry-pending
+     * window that no longer covers one. Without the abort, scrolling
+     * through a large library would leave every window it passed
+     * downloading and applying in the background — the exact wasted
+     * network / backend / render work this store exists to avoid on
+     * low-power devices. Driven by the shell's debounced viewport sync. */
+    syncVisibleWindows(positions: Iterable<number>) {
+      const wanted = new Set<number>();
+      for (const p of positions) {
+        if (p < 0) continue;
+        if (this.total > 0 && p >= this.total) continue;
+        wanted.add(alignToWindow(p));
+      }
+      // Cancel windows that drifted out of view. Snapshot first: aborting
+      // settles a fetch's `finally` (which mutates these sets) on a later
+      // microtask, but iterate a copy to stay safe regardless.
+      for (const offset of [...this.pendingWindows]) {
+        if (!wanted.has(offset)) cancelWindow(offset);
+      }
+      for (const offset of [...retryTimers.keys()]) {
+        if (!wanted.has(offset)) clearRetry(offset);
+      }
+      for (const offset of wanted) {
+        void this.fetchWindowAt(offset);
       }
     },
 
-    /** Cancel an in-flight per-position fetch — typically called by
-     * the shell when a card leaves the viewport before its request
-     * resolves. No-op if nothing is in flight for that position. */
-    cancelFetchAt(position: number) {
-      const ctrlKey = `rom:${position}`;
-      const ctrl = inFlightControllers.get(ctrlKey);
-      if (ctrl) {
-        ctrl.abort();
-        inFlightControllers.delete(ctrlKey);
-      }
+    /** Abort every in-flight window fetch + pending retry without wiping
+     * the loaded cache. The shell calls this when the gallery unmounts so
+     * navigating away mid-scroll doesn't leave downloads running; a
+     * return to the same gallery still reuses `loadedWindows`. */
+    abortInFlight() {
+      abortAllInFlight();
+      this.pendingWindows = new Set();
+      this.initialFetching = false;
     },
 
     /** Apply (in place) an updated ROM to whatever position currently
