@@ -65,6 +65,7 @@ const {
   filterRA,
   filterSaves,
   filterStates,
+  filterSoundtrack,
   selectedPlatforms,
   filterGenres,
   selectedGenres,
@@ -220,6 +221,15 @@ const boolFilters: BoolFilterConfig[] = [
     yesAria: t("platform.show-states-only"),
     noAria: t("platform.show-not-states-only"),
     value: filterStates,
+  },
+  {
+    label: t("platform.has-soundtrack"),
+    icon: "mdi-music-note",
+    yesIcon: "mdi-music-note",
+    noIcon: "mdi-music-note-off",
+    yesAria: t("platform.show-soundtrack-only"),
+    noAria: t("platform.show-no-soundtrack-only"),
+    value: filterSoundtrack,
   },
 ];
 

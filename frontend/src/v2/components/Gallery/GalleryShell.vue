@@ -160,6 +160,7 @@ const {
   filterRA,
   filterSaves,
   filterStates,
+  filterSoundtrack,
   selectedPlatforms,
   selectedGenres,
   selectedFranchises,
@@ -192,6 +193,7 @@ const filterActiveCount = computed(() => {
   if (filterRA.value !== null) n += 1;
   if (filterSaves.value !== null) n += 1;
   if (filterStates.value !== null) n += 1;
+  if (filterSoundtrack.value !== null) n += 1;
   if (selectedPlatforms.value.length > 0) n += 1;
   for (const arr of [
     selectedGenres,
@@ -227,6 +229,7 @@ watch(
     filterRA,
     filterSaves,
     filterStates,
+    filterSoundtrack,
     selectedPlatforms,
     selectedGenres,
     selectedFranchises,

@@ -20,6 +20,7 @@ function emptySnapshot(): GalleryFilterSnapshot {
     filterDuplicates: null,
     filterPlayables: null,
     filterRA: null,
+    filterSoundtrack: null,
     filterMissing: null,
     filterVerified: null,
     selectedPlatforms: [],
@@ -109,5 +110,24 @@ describe("buildSmartFilterCriteria — tags", () => {
     expect(row).toBeDefined();
     expect(row?.values).toEqual(["Proto"]);
     expect(row?.logic).toBe("any");
+  });
+});
+
+describe("buildSmartFilterCriteria — soundtrack", () => {
+  it("serializes the soundtrack filter", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      filterSoundtrack: true,
+    });
+
+    expect(out.has_soundtrack).toBe(true);
+  });
+
+  it("surfaces the soundtrack filter in the human-readable summary", () => {
+    const rows = summarizeSmartFilterCriteria({ has_soundtrack: true }, tStub);
+
+    expect(rows).toContainEqual(
+      expect.objectContaining({ key: "has_soundtrack" }),
+    );
   });
 });

@@ -43,6 +43,7 @@ const buildDefaultFilterState = () => ({
   filterRA: null as boolean | null, // null = all, true = has RA, false = no RA
   filterSaves: null as boolean | null, // null = all, true = has saves, false = no saves
   filterStates: null as boolean | null, // null = all, true = has states, false = no states
+  filterSoundtrack: null as boolean | null, // null = all, true = has soundtrack, false = no soundtrack
   filterMissing: null as boolean | null, // null = all, true = missing, false = not missing
   filterVerified: null as boolean | null, // null = all, true = verified, false = not verified
   selectedPlatform: null as Platform | null,
@@ -338,6 +339,9 @@ export default defineStore("galleryFilter", {
     setFilterStates(value: boolean | null) {
       this.filterStates = value;
     },
+    setFilterSoundtrack(value: boolean | null) {
+      this.filterSoundtrack = value;
+    },
     setFilterStatesState(state: "all" | "has-states" | "no-states") {
       switch (state) {
         case "has-states":
@@ -419,6 +423,7 @@ export default defineStore("galleryFilter", {
         this.filterRA !== null ||
         this.filterSaves !== null ||
         this.filterStates !== null ||
+        this.filterSoundtrack !== null ||
         this.filterMissing !== null ||
         this.filterVerified !== null ||
         this.selectedPlatform ||
@@ -460,6 +465,7 @@ export default defineStore("galleryFilter", {
       this.filterRA = null;
       this.filterSaves = null;
       this.filterStates = null;
+      this.filterSoundtrack = null;
       this.filterMissing = null;
       this.filterVerified = null;
       // Reset logic operators to default

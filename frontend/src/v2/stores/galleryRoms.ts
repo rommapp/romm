@@ -238,6 +238,7 @@ export default defineStore("v2GalleryRoms", {
         filterRA: galleryFilter.filterRA,
         filterSaves: galleryFilter.filterSaves,
         filterStates: galleryFilter.filterStates,
+        filterSoundtrack: galleryFilter.filterSoundtrack,
         filterMissing: galleryFilter.filterMissing,
         filterVerified: galleryFilter.filterVerified,
         selectedGenres: galleryFilter.selectedGenres,
