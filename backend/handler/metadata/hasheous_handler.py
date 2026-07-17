@@ -24,6 +24,7 @@ from .ss_handler import (
     ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG as SS_ACCEPTABLE_EXTS,
 )
 from .ss_handler import (
+    SSMetadata,
     SSRom,
     _get_rom_type,
     _is_notgame,
@@ -61,6 +62,7 @@ class HasheousRom(BaseRom):
     ra_metadata: NotRequired[RAMetadata]
     tgdb_id: NotRequired[int | None]
     ss_id: NotRequired[int | None]
+    ss_metadata: NotRequired[SSMetadata]
     hasheous_metadata: NotRequired[HasheousMetadata]
 
 
