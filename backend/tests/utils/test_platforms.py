@@ -23,3 +23,18 @@ def test_supported_platform_not_shadowed_by_variant():
 
     assert arcade.name == "Arcade"
     assert arcade.fs_slug == "arcade"
+
+
+def test_supported_platform_keeps_tgdb_id_from_tgdb():
+    """The TGDB platform ID must survive the metadata merge.
+
+    Regression for the tgdb_id fallback chain missing the TGDB handler
+    itself: MobyGames platforms never carry a tgdb_id and the Hasheous
+    platform list has no TGDB mappings, so every unmatched platform was
+    reported with tgdb_id=None even when TGDB knows the platform.
+    """
+    supported = get_supported_platforms()
+    threedo = next(p for p in supported if p.slug == "3do")
+
+    # TGDB maps the 3DO platform to ID 25.
+    assert threedo.tgdb_id == 25
