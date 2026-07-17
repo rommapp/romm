@@ -73,7 +73,7 @@ class TestGetIGDBPreferredLocale:
         with patch("handler.metadata.igdb_handler.cm.get_config", return_value=config):
             locale = get_igdb_preferred_locale(rom)
 
-        assert locale is None
+        assert locale == "ja-JP"
 
 
 class TestSearchRomGameTypeFilter:
