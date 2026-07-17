@@ -89,6 +89,7 @@ const openHandler = () => {
       filterDuplicates: galleryFilter.filterDuplicates,
       filterPlayables: galleryFilter.filterPlayables,
       filterRA: galleryFilter.filterRA,
+      filterSoundtrack: galleryFilter.filterSoundtrack,
       filterMissing: galleryFilter.filterMissing,
       filterVerified: galleryFilter.filterVerified,
       selectedPlatforms: galleryFilter.selectedPlatforms,

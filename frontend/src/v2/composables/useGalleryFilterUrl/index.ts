@@ -19,6 +19,7 @@
 //   ?filterRA=true|false
 //   ?filterSaves=true|false
 //   ?filterStates=true|false
+//   ?filterSoundtrack=true|false
 //   ?platforms=1,2,3                  (selectedPlatforms IDs)
 //   ?genres=a,b&genresLogic=any|all|none
 //   ?franchises=…&franchisesLogic=…
@@ -107,6 +108,7 @@ export function useGalleryFilterUrl() {
     filterRA,
     filterSaves,
     filterStates,
+    filterSoundtrack,
     selectedPlatforms,
     selectedGenres,
     selectedFranchises,
@@ -150,6 +152,7 @@ export function useGalleryFilterUrl() {
       filterRA: qBool(q.filterRA),
       filterSaves: qBool(q.filterSaves),
       filterStates: qBool(q.filterStates),
+      filterSoundtrack: qBool(q.filterSoundtrack),
       platformIds: qList(q.platforms)
         .map((s) => Number(s))
         .filter((n) => !Number.isNaN(n)),
@@ -195,6 +198,8 @@ export function useGalleryFilterUrl() {
       filterSaves.value = url.filterSaves;
     if (url.filterStates !== filterStates.value)
       filterStates.value = url.filterStates;
+    if (url.filterSoundtrack !== filterSoundtrack.value)
+      filterSoundtrack.value = url.filterSoundtrack;
 
     // Platforms — lookup objects from IDs. If the platform store hasn't
     // hydrated yet, the watch below retries when it does.
@@ -328,6 +333,7 @@ export function useGalleryFilterUrl() {
     setBool("filterRA", filterRA.value);
     setBool("filterSaves", filterSaves.value);
     setBool("filterStates", filterStates.value);
+    setBool("filterSoundtrack", filterSoundtrack.value);
 
     setList(
       "platforms",
@@ -424,6 +430,7 @@ export function useGalleryFilterUrl() {
       filterRA,
       filterSaves,
       filterStates,
+      filterSoundtrack,
       selectedPlatforms,
       selectedGenres,
       genresLogic,
