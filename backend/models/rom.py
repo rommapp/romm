@@ -268,8 +268,6 @@ class Rom(BaseModel):
             "tgdb_id",
             "id",
         ),
-        # Covering index so per-platform and whole-library SUM(fs_size_bytes)
-        # are index-only scans that never touch the wide roms rows
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
         Index("idx_roms_name", "name"),
         Index("idx_roms_name_sort_key", "name_sort_key"),
