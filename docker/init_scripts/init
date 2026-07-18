@@ -86,28 +86,31 @@ run_startup() {
 	fi
 }
 
-wait_for_gunicorn_socket() {
-	debug_log "Waiting for gunicorn socket file..."
+wait_for_gunicorn() {
+	local host="127.0.0.1"
+	local port="${DEV_PORT:-5000}"
+	debug_log "Waiting for gunicorn on ${host}:${port}..."
 	local wait_seconds=${WEB_SERVER_GUNICORN_WAIT_SECONDS:=30}
 	local retries=$((wait_seconds * 2))
 
-	while [[ ! -S /tmp/gunicorn.sock && retries -gt 0 ]]; do
+	# Temporarily disable errexit while polling the TCP port.
+	set +o errexit
+	while ((retries > 0)); do
+		if (echo >/dev/tcp/"${host}"/"${port}") 2>/dev/null; then
+			set -o errexit
+			debug_log "Gunicorn is ready and accepting connections"
+			return 0
+		fi
 		sleep 0.5
 		((retries--))
 	done
+	set -o errexit
 
-	if [[ -S /tmp/gunicorn.sock ]]; then
-		debug_log "Gunicorn socket file found"
-	else
-		warn_log "Gunicorn socket file not found after waiting ${wait_seconds}s!"
-	fi
+	warn_log "Gunicorn did not become ready after waiting ${wait_seconds}s!"
 }
 
 # Runs our main process and creates a corresponding PID file
 start_bin_gunicorn() {
-	# cleanup potentially leftover socket
-	rm /tmp/gunicorn.sock -f
-
 	# Wire LOGLEVEL into Gunicorn's logging config so it respects the env var.
 	local gunicorn_level="${LOGLEVEL^^}"
 	local gunicorn_log_config="/tmp/gunicorn/logging.conf"
@@ -126,7 +129,6 @@ start_bin_gunicorn() {
 	otel_prefix wrap api
 	"${wrap[@]}" gunicorn \
 		--bind=0.0.0.0:"${DEV_PORT:-5000}" \
-		--bind=unix:/tmp/gunicorn.sock \
 		--pid=/tmp/gunicorn.pid \
 		--forwarded-allow-ips="*" \
 		--worker-class uvicorn_worker.UvicornWorker \
@@ -143,7 +145,7 @@ start_bin_gunicorn() {
 
 # Commands to start nginx (handling PID creation internally)
 start_bin_nginx() {
-	wait_for_gunicorn_socket
+	wait_for_gunicorn
 
 	info_log "Starting nginx"
 	if [[ ${EUID} -ne 0 ]]; then
