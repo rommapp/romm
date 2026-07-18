@@ -20,12 +20,7 @@ import deviceAuthApi, {
 type ApiError = AxiosError<{ detail?: string }>;
 
 type Status =
-  | "loading"
-  | "ready"
-  | "submitting"
-  | "approved"
-  | "denied"
-  | "error";
+  "loading" | "ready" | "submitting" | "approved" | "denied" | "error";
 
 const route = useRoute();
 const { t } = useI18n();
@@ -227,6 +222,7 @@ async function deny() {
       <RTextField
         v-model="editedDeviceName"
         :label="t('settings.device-auth-device-name')"
+        prefix-label="stacked"
         variant="outlined"
         density="comfortable"
       />
@@ -279,6 +275,7 @@ async function deny() {
       <RSelect
         v-model="expiresIn"
         :label="t('settings.device-auth-expires-in')"
+        prefix-label="stacked"
         :items="EXPIRY_OPTIONS"
         item-title="label"
         item-value="value"
