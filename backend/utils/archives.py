@@ -399,7 +399,9 @@ def read_rar_archive_files(
 ) -> Iterator[tuple[str, int, Iterator[bytes]]]:
     """Yield eligible files from a RAR archive, sorted by internal path (ASCII).
 
-    Delegates to the 7zz binary, which natively supports RAR (v3-v5, read-only).
+    Delegates to the 7zz binary. Listing RAR members always works, but
+    streaming their contents requires a 7zz build with the RAR codec; the
+    bundled Alpine build lacks it, so content reads fail and log an error.
     """
     return read_7z_archive_files(file_path, excluded_names, excluded_exts)
 
