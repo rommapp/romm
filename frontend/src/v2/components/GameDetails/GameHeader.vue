@@ -67,6 +67,7 @@ const actions = useGameActions(() => props.rom);
         v-if="verified"
         class="r-v2-det-header__verified"
         :aria-label="t('rom.verified-rom')"
+        tabindex="0"
       >
         <RIcon icon="mdi-check-decagram" :size="18" color="success" />
         <RTooltip
