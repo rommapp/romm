@@ -33,8 +33,8 @@ from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
 from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
-from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
 from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
+from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
 from tasks.scheduled.sync_retroachievements_progress import (
