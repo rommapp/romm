@@ -243,40 +243,77 @@ def _broker_url(container: dict[str, Any], path: str) -> str:
     return f"{broker_host}{path}"
 
 
+def _broker_secret(container: dict[str, Any]) -> str:
+    return os.environ.get("STREAMING_BROKER_SECRET", container.get("broker_secret", ""))
+
+
+def _broker_request(
+    container: dict[str, Any],
+    path: str,
+    *,
+    method: str = "POST",
+    body: dict[str, Any] | None = None,
+    timeout: float,
+) -> Any:
+    """
+    Send a signed request to the broker and return its parsed JSON body (an
+    empty dict when the broker replies with no content). Uses only Python
+    stdlib urllib - no extra dependencies. Raises the underlying urllib/OS
+    error; callers decide whether to surface or swallow it.
+    """
+    url = _broker_url(container, path)
+    secret = _broker_secret(container)
+    headers = {"X-Broker-Secret": secret} if secret else {}
+    data = None
+    if body is not None:
+        data = json.dumps(body).encode()
+        headers["Content-Type"] = "application/json"
+        headers["Content-Length"] = str(len(data))
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+        raw = resp.read()
+    return json.loads(raw) if raw else {}
+
+
+def _broker_request_safe(
+    container: dict[str, Any],
+    path: str,
+    label: str,
+    *,
+    method: str = "POST",
+    body: dict[str, Any] | None = None,
+    timeout: float,
+) -> Any | None:
+    """
+    Best-effort variant of _broker_request: returns the parsed body, or None if
+    the broker is unreachable or errors. Never raises - control ops must not 500
+    on a broker hiccup.
+    """
+    try:
+        return _broker_request(
+            container, path, method=method, body=body, timeout=timeout
+        )
+    except Exception as exc:
+        log.warning("streaming: broker %s failed - %s", label, exc)
+        return None
+
+
 def _call_broker(container: dict[str, Any], rom_path: str, rom_name: str) -> None:
     """
     POST to the broker's /launch endpoint to tell the emulator container to
-    load a ROM. Uses only Python stdlib urllib - no extra dependencies.
+    load a ROM.
 
     Raises HTTPException if the broker is unreachable or returns an error.
     """
     url = _broker_url(container, "/launch")
-    secret = os.environ.get(
-        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
-    )
-
-    payload = json.dumps(
-        {
-            "rom_path": rom_path,
-            "rom_name": rom_name,
-        }
-    ).encode()
-
-    req = urllib.request.Request(
-        url,
-        data=payload,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "Content-Length": str(len(payload)),
-            **({"X-Broker-Secret": secret} if secret else {}),
-        },
-    )
-
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
-            body = json.loads(resp.read())
-            log.info("streaming: broker launched ROM - %s", body)
+        body = _broker_request(
+            container,
+            "/launch",
+            body={"rom_path": rom_path, "rom_name": rom_name},
+            timeout=10,
+        )
+        log.info("streaming: broker launched ROM - %s", body)
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode(errors="replace")
         log.error("streaming: broker HTTP error %d - %s", exc.code, error_body)
@@ -309,21 +346,6 @@ def _save_and_exit_broker(
     With wait=False the broker fires save+kill in the background (use for navigation away).
     Returns True if the broker reported a successful save.
     """
-    url = _broker_url(container, "/save-and-exit")
-    secret = os.environ.get(
-        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
-    )
-    payload = json.dumps({"slot": slot, "wait": wait}).encode()
-    req = urllib.request.Request(
-        url,
-        data=payload,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "Content-Length": str(len(payload)),
-            **({"X-Broker-Secret": secret} if secret else {}),
-        },
-    )
     # Waiting brokers can legitimately block for a while: rpcs3 polls the
     # savestate write for up to SAVE_WAIT (30s default) and xemu's QMP
     # save + reset path can approach that too. Time out past the slowest
@@ -336,151 +358,60 @@ def _save_and_exit_broker(
             timeout = 45.0
     else:
         timeout = 5.0
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
-            body = json.loads(resp.read())
-            saved = bool(body.get("saved", False))
-            log.info(
-                "streaming: broker save-and-exit - saved=%s slot=%d wait=%s",
-                saved,
-                slot,
-                wait,
-            )
-            return saved
-    except Exception as exc:
-        log.warning("streaming: broker save-and-exit failed - %s", exc)
-        return False
+    body = _broker_request_safe(
+        container,
+        "/save-and-exit",
+        "save-and-exit",
+        body={"slot": slot, "wait": wait},
+        timeout=timeout,
+    )
+    saved = bool(body and body.get("saved", False))
+    log.info(
+        "streaming: broker save-and-exit - saved=%s slot=%d wait=%s", saved, slot, wait
+    )
+    return saved
 
 
 def _volume_broker(container: dict[str, Any], level: int) -> bool:
     """POST /volume to the broker. Best-effort - logs but never raises."""
-    url = _broker_url(container, "/volume")
-    secret = os.environ.get(
-        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
+    body = _broker_request_safe(
+        container, "/volume", "volume", body={"level": level}, timeout=5
     )
-    payload = json.dumps({"level": level}).encode()
-    req = urllib.request.Request(
-        url,
-        data=payload,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "Content-Length": str(len(payload)),
-            **({"X-Broker-Secret": secret} if secret else {}),
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
-            body = json.loads(resp.read())
-            log.debug("streaming: broker volume set to %d - %s", level, body)
-            return body.get("status") == "ok"
-    except Exception as exc:
-        log.warning("streaming: broker volume failed - %s", exc)
-        return False
+    return bool(body and body.get("status") == "ok")
 
 
 def _mute_broker(container: dict[str, Any], mute: bool | None) -> bool | None:
     """POST /mute to the broker. Returns confirmed mute state, or None on error."""
-    url = _broker_url(container, "/mute")
-    secret = os.environ.get(
-        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
+    body = _broker_request_safe(
+        container,
+        "/mute",
+        "mute",
+        body={} if mute is None else {"mute": mute},
+        timeout=5,
     )
-    body_dict: dict[str, Any] = {} if mute is None else {"mute": mute}
-    payload = json.dumps(body_dict).encode()
-    req = urllib.request.Request(
-        url,
-        data=payload,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "Content-Length": str(len(payload)),
-            **({"X-Broker-Secret": secret} if secret else {}),
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
-            body = json.loads(resp.read())
-            confirmed = body.get("mute")
-            log.debug("streaming: broker mute - %s", body)
-            return confirmed
-    except Exception as exc:
-        log.warning("streaming: broker mute failed - %s", exc)
-        return None
+    return body.get("mute") if body is not None else None
 
 
 def _save_state_broker(container: dict[str, Any], slot: int) -> bool:
     """POST /save-state to the broker. Returns True if the request was accepted."""
-    url = _broker_url(container, "/save-state")
-    secret = os.environ.get(
-        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
+    body = _broker_request_safe(
+        container, "/save-state", "save-state", body={"slot": slot}, timeout=5
     )
-    payload = json.dumps({"slot": slot}).encode()
-    req = urllib.request.Request(
-        url,
-        data=payload,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "Content-Length": str(len(payload)),
-            **({"X-Broker-Secret": secret} if secret else {}),
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
-            body = json.loads(resp.read())
-            log.debug("streaming: broker save-state slot=%d - %s", slot, body)
-            return body.get("status") == "saving"
-    except Exception as exc:
-        log.warning("streaming: broker save-state failed - %s", exc)
-        return False
+    return bool(body and body.get("status") == "saving")
 
 
 def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
     """POST /load-state to the broker. Returns True if broker confirmed success."""
-    url = _broker_url(container, "/load-state")
-    secret = os.environ.get(
-        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
+    # Timeout covers the worst case: 9 slot cycles x ~5s xdotool timeout.
+    body = _broker_request_safe(
+        container, "/load-state", "load-state", body={"slot": slot}, timeout=60
     )
-    payload = json.dumps({"slot": slot}).encode()
-    req = urllib.request.Request(
-        url,
-        data=payload,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "Content-Length": str(len(payload)),
-            **({"X-Broker-Secret": secret} if secret else {}),
-        },
-    )
-    try:
-        with urllib.request.urlopen(
-            req, timeout=60
-        ) as resp:  # nosec B310 - worst-case: 9 slot cycles × ~5s xdotool timeout
-            body = json.loads(resp.read())
-            loaded = bool(body.get("loaded", False))
-            log.debug("streaming: broker load-state slot=%d loaded=%s", slot, loaded)
-            return loaded
-    except Exception as exc:
-        log.warning("streaming: broker load-state failed - %s", exc)
-        return False
+    return bool(body and body.get("loaded", False))
 
 
 def _stop_broker(container: dict[str, Any]) -> None:
     """Tell the broker to stop emulator. Best-effort - don't raise on failure."""
-    url = _broker_url(container, "/launch")
-    secret = os.environ.get(
-        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
-    )
-    req = urllib.request.Request(
-        url,
-        method="DELETE",
-        headers={**({"X-Broker-Secret": secret} if secret else {})},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=5):  # nosec B310
-            pass
-    except Exception as exc:
-        log.warning("streaming: could not stop broker session - %s", exc)
+    _broker_request_safe(container, "/launch", "stop", method="DELETE", timeout=5)
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
