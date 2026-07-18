@@ -431,6 +431,7 @@
   "upload-tracks": "Parça yükle",
   "verification": "Doğrulama",
   "verified-rom": "Doğrulanmış ROM",
+  "verified-rom-hint": "Hash verified against ROM database",
   "versions-count": "{n} sürüm",
   "volume-mute": "Sesi kapat",
   "volume-unmute": "Sesi aç",

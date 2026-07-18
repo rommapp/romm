@@ -431,6 +431,7 @@
   "upload-tracks": "Add tracks",
   "verification": "驗證",
   "verified-rom": "已驗證 ROM",
+  "verified-rom-hint": "Hash verified against ROM database",
   "versions-count": "{n} 個版本",
   "volume-mute": "靜音",
   "volume-unmute": "取消靜音",

@@ -431,6 +431,7 @@
   "upload-tracks": "Add tracks",
   "verification": "Ellenőrzés",
   "verified-rom": "Ellenőrzött ROM",
+  "verified-rom-hint": "Hash verified against ROM database",
   "versions-count": "{n} verzió",
   "volume-mute": "Némítás",
   "volume-unmute": "Némítás feloldása",

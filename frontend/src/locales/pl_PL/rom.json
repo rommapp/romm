@@ -431,6 +431,7 @@
   "upload-tracks": "Add tracks",
   "verification": "Weryfikacja",
   "verified-rom": "Zweryfikowany ROM",
+  "verified-rom-hint": "Hash verified against ROM database",
   "versions-count": "{n} wersji",
   "volume-mute": "Wycisz",
   "volume-unmute": "Wyłącz wyciszenie",
