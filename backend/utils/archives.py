@@ -5,6 +5,7 @@ import fnmatch
 import os
 import subprocess
 import tarfile
+import tempfile
 import threading
 import time
 import zipfile
@@ -155,7 +156,7 @@ def _process_largest_7z_member(
         start_decompression_time = time.monotonic()
 
         with subprocess.Popen(
-            [SEVEN_ZIP_PATH, "e", str(file_path), largest_file, "-so", "-y"],
+            [SEVEN_ZIP_PATH, "e", str(file_path), largest_file, "-so", "-y", "-spd"],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
@@ -369,7 +370,7 @@ def read_7z_archive_files(
             break
         try:
             with subprocess.Popen(
-                [SEVEN_ZIP_PATH, "e", str(file_path), name, "-so", "-y"],
+                [SEVEN_ZIP_PATH, "e", str(file_path), name, "-so", "-y", "-spd"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 shell=False,  # trunk-ignore(bandit/B603)
@@ -468,38 +469,42 @@ def _extract_member_to_dir(
     and exits non-zero, e.g. for RAR).
     """
     dest_path = dest_dir / Path(member).name
-    stderr_output = b""
     try:
-        with (
-            open(dest_path, "wb") as dest_file,
-            subprocess.Popen(
-                [SEVEN_ZIP_PATH, "e", str(file_path), member, "-so", "-y"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
-            ) as process,
-        ):
-            assert process.stdout is not None
-            while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
-                if time.monotonic() > deadline:
-                    process.terminate()
-                    log.error(f"Extraction of {member} from {file_path} timed out")
-                    dest_path.unlink(missing_ok=True)
-                    return None
-                dest_file.write(chunk)
-            if process.stderr is not None:
-                stderr_output = process.stderr.read()
+        # stderr goes to an unlinked temp file rather than a pipe: a pipe can
+        # fill and block 7zz while this thread waits on stdout, stalling past
+        # the deadline. "-spd" disables wildcard matching so a member name
+        # containing "*" or "?" can't select (and concatenate) other members.
+        with tempfile.TemporaryFile() as stderr_file:
+            with (
+                open(dest_path, "wb") as dest_file,
+                subprocess.Popen(
+                    [SEVEN_ZIP_PATH, "e", str(file_path), member, "-so", "-y", "-spd"],
+                    stdout=subprocess.PIPE,
+                    stderr=stderr_file,
+                    shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
+                ) as process,
+            ):
+                assert process.stdout is not None
+                while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
+                    if time.monotonic() > deadline:
+                        process.terminate()
+                        log.error(f"Extraction of {member} from {file_path} timed out")
+                        dest_path.unlink(missing_ok=True)
+                        return None
+                    dest_file.write(chunk)
 
-        if process.returncode != 0:
-            # Surface the 7zz reason (e.g. "Unsupported Method" from a build
-            # without the RAR codec) so scan logs explain the missing hash.
-            detail = stderr_output.decode(errors="replace").strip()
-            log.error(
-                f"Extraction of {member} from {file_path} failed "
-                f"with code {process.returncode}: {detail or 'no error output'}"
-            )
-            dest_path.unlink(missing_ok=True)
-            return None
+            if process.returncode != 0:
+                # Surface the 7zz reason (e.g. "Unsupported Method" from a
+                # build without the RAR codec) so scan logs explain the
+                # missing hash.
+                stderr_file.seek(0)
+                detail = stderr_file.read().decode(errors="replace").strip()
+                log.error(
+                    f"Extraction of {member} from {file_path} failed "
+                    f"with code {process.returncode}: {detail or 'no error output'}"
+                )
+                dest_path.unlink(missing_ok=True)
+                return None
 
         return dest_path
     except OSError as e:

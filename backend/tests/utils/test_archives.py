@@ -33,16 +33,29 @@ def _mock_popen_streaming(
     stderr: bytes = b"",
 ):
     """Build a subprocess.Popen mock whose consecutive context-managed calls
-    stream the given chunk lists and finish with the given return codes."""
+    stream the given chunk lists and finish with the given return codes.
+
+    `stderr` bytes are written into the file object the caller passes as the
+    `stderr` argument, mirroring 7zz writing diagnostics to a file-backed
+    stderr."""
     popen = MagicMock()
     processes = []
     for chunks, returncode in zip(chunk_streams, returncodes, strict=True):
         process = MagicMock()
         process.stdout.read.side_effect = [*chunks, b""]
-        process.stderr.read.return_value = stderr
         process.returncode = returncode
         processes.append(process)
-    popen.return_value.__enter__.side_effect = processes
+    process_iter = iter(processes)
+
+    def _popen_call(*args, **kwargs):
+        stderr_target = kwargs.get("stderr")
+        if stderr and stderr_target is not None:
+            stderr_target.write(stderr)
+        context = MagicMock()
+        context.__enter__.return_value = next(process_iter)
+        return context
+
+    popen.side_effect = _popen_call
     return popen
 
 
@@ -120,9 +133,12 @@ class TestExtractLargestArchiveMember:
         assert result is not None
         assert result == tmp_path / "game.gba"
         assert result.read_bytes() == b"abcdef"
-        # The largest member, not the first, must be requested from 7zz.
+        # The largest member, not the first, must be requested from 7zz, with
+        # wildcard matching disabled so a member name containing "*" or "?"
+        # can't select (and concatenate) other members.
         extract_args = popen.call_args[0][0]
         assert "game.gba" in extract_args
+        assert "-spd" in extract_args
 
     def test_member_folder_prefix_is_stripped_from_dest_name(self, tmp_path):
         """Members nested in archive folders extract to a flat file name."""
