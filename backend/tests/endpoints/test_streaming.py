@@ -78,6 +78,25 @@ def _container_for(rom: Rom, broker_host="http://192.168.1.10:8000"):
     }
 
 
+def _rom_on(slug: str) -> Rom:
+    """Create a platform with the given slug and a ROM on it."""
+    platform = db_platform_handler.add_platform(
+        Platform(name=slug, slug=slug, fs_slug=slug)
+    )
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=f"{slug}-rom",
+            slug=f"{slug}-rom",
+            fs_name=f"{slug}.zip",
+            fs_name_no_tags=slug,
+            fs_name_no_ext=slug,
+            fs_extension="zip",
+            fs_path=f"{slug}/roms",
+        )
+    )
+
+
 def _auth(token):
     return {"Authorization": f"Bearer {token}"}
 
@@ -118,6 +137,20 @@ def test_get_config_warns_on_missing_platform(client, access_token, caplog):
     assert response.status_code == 200
     assert response.json()["containers"] == []
     assert "missing platform/host" in caplog.text
+
+
+def test_get_config_ships_platform_capabilities(client, access_token):
+    """The slot capabilities the frontend selector reads come from /config, so
+    they are not a second hardcoded copy."""
+    container = {"platform": "ps2", "host": "http://192.168.1.10:3000"}
+    with _streaming(container):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert r.status_code == 200
+    assert r.json()["containers"][0]["capabilities"] == {
+        "max_slots": 9,
+        "has_autosave": True,
+        "autosave_slot": 10,
+    }
 
 
 # ── Claiming ──────────────────────────────────────────────────────────────────
@@ -301,6 +334,48 @@ def test_save_state_by_other_user_is_forbidden(
             headers=_auth(viewer_access_token),
         )
     assert r.status_code == 403
+
+
+def test_save_state_rejects_slot_above_platform_max(client, access_token):
+    """Dolphin exposes 7 manual slots; slot 8 clears the coarse union bound
+    (<=9) but must be rejected against the platform's real ceiling."""
+    rom = _rom_on("ngc")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        r = client.post(
+            "/api/streaming/sessions/ngc/save-state",
+            json={"slot": 8},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 422
+
+
+def test_load_state_allows_platform_autosave_slot(client, access_token):
+    """Dolphin's slot 8 is not manually savable but is loadable as the autosave."""
+    rom = _rom_on("wii")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._load_state_broker", return_value=True):
+            r = client.post(
+                "/api/streaming/sessions/wii/load-state",
+                json={"slot": 8},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    assert r.json()["loaded"] is True
+
+
+def test_load_state_rejects_slot_between_max_and_autosave(client, access_token):
+    """Dolphin: slot 9 is neither a manual slot (1-7) nor the autosave (8)."""
+    rom = _rom_on("wiiu")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        r = client.post(
+            "/api/streaming/sessions/wiiu/load-state",
+            json={"slot": 9},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 422
 
 
 def test_save_and_exit_releases_session(client, access_token, rom: Rom):

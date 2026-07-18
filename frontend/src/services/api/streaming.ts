@@ -2,10 +2,17 @@ import api from "@/services/api";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+export interface PlatformCapabilities {
+  max_slots: number; // manual save slots, selectable as 1..max_slots
+  has_autosave: boolean; // whether a dedicated autosave slot can be loaded
+  autosave_slot: number; // that slot's index (loadable, not savable), 0 if none
+}
+
 export interface StreamingContainer {
   platform: string; // "ps2"
   host: string; // "http://192.168.1.50:3000"
   label: string; // "PCSX2"
+  capabilities: PlatformCapabilities;
 }
 
 export interface StreamingConfig {

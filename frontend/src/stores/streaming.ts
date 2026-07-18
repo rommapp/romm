@@ -9,9 +9,16 @@ import type {
 
 export type {
   ActiveSession,
+  PlatformCapabilities,
   StreamingConfig,
   StreamingContainer,
 } from "@/services/api/streaming";
+
+const NO_CAPABILITIES = {
+  maxSlots: 0,
+  hasAutosave: false,
+  autosaveSlot: 0,
+} as const;
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
@@ -41,32 +48,27 @@ export const useStreamingStore = defineStore("streaming", () => {
   }
 
   /**
-   * Returns per-platform save-state capabilities for the streaming player UI.
+   * Returns per-platform save-state capabilities for the streaming player UI,
+   * sourced from the container config the backend ships in /config (the single
+   * source of truth). Platforms with no configured container, or none the
+   * backend gives slots to, get an empty capability set (no save-state UI).
    *
-   * maxSlots  - number of user-accessible save slots (slot selector range)
+   * maxSlots    - number of user-accessible save slots (slot selector range)
    * hasAutosave - whether a dedicated "load autosave" action is available
-   *
-   * Dolphin (ngc, wii, wiiu): slots 1-7 user-accessible; slot 8 reserved for auto-save.
-   * PCSX2 (ps2), xemu (xbox): 9 slots + slot 10 autosave.
-   * Eden (switch) and unknown platforms: no save state UI - a platform gets
-   * slots only once its broker's slot semantics are known.
+   * autosaveSlot - the slot index used for autosave (0 when none)
    */
   function platformCapabilities(slug: string | null | undefined): {
     maxSlots: number;
     hasAutosave: boolean;
     autosaveSlot: number;
   } {
-    const lower = (slug ?? "").toLowerCase();
-    if (lower === "ngc" || lower === "wii" || lower === "wiiu") {
-      return { maxSlots: 7, hasAutosave: true, autosaveSlot: 8 };
-    }
-    if (lower === "switch") {
-      return { maxSlots: 0, hasAutosave: false, autosaveSlot: 0 };
-    }
-    if (lower === "ps2" || lower === "xbox") {
-      return { maxSlots: 9, hasAutosave: true, autosaveSlot: 10 };
-    }
-    return { maxSlots: 0, hasAutosave: false, autosaveSlot: 0 };
+    const caps = containerForPlatform(slug)?.capabilities;
+    if (!caps) return { ...NO_CAPABILITIES };
+    return {
+      maxSlots: caps.max_slots,
+      hasAutosave: caps.has_autosave,
+      autosaveSlot: caps.autosave_slot,
+    };
   }
 
   /**

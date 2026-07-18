@@ -5,7 +5,7 @@ import os
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
-from typing import Annotated, Any
+from typing import Annotated, Any, TypedDict
 from urllib.parse import urlparse, urlunparse
 
 from fastapi import Body, HTTPException, Request
@@ -112,6 +112,68 @@ def _container_key(container: dict[str, Any]) -> str:
     return _derive_broker_host(container) or ""
 
 
+# Per-platform save-state capabilities - the single source of truth for how
+# many save slots each emulator exposes. The broker enforces its own ceiling;
+# this table lets RomM reject an out-of-range slot before calling the broker
+# (a clean 422 instead of a broker 502) and ships the same numbers to the
+# frontend via /config, so the slot selector is not a second hardcoded copy.
+
+
+class PlatformCapabilities(TypedDict):
+    max_slots: int  # manual save slots, selectable as 1..max_slots
+    has_autosave: bool  # whether a dedicated autosave slot can be loaded
+    autosave_slot: int  # that slot's index (loadable, not savable), 0 if none
+
+
+# Keyed by platform slug (lowercase). A platform absent here gets no save-state
+# UI until its broker's slot semantics are known.
+_PLATFORM_CAPABILITIES: dict[str, PlatformCapabilities] = {
+    # Dolphin (ngc, wii, wiiu): slots 1-7 manual, slot 8 autosave.
+    "ngc": {"max_slots": 7, "has_autosave": True, "autosave_slot": 8},
+    "wii": {"max_slots": 7, "has_autosave": True, "autosave_slot": 8},
+    "wiiu": {"max_slots": 7, "has_autosave": True, "autosave_slot": 8},
+    # PCSX2 (ps2) and xemu (xbox): slots 1-9 manual, slot 10 autosave.
+    "ps2": {"max_slots": 9, "has_autosave": True, "autosave_slot": 10},
+    "xbox": {"max_slots": 9, "has_autosave": True, "autosave_slot": 10},
+}
+
+_NO_CAPABILITIES: PlatformCapabilities = {
+    "max_slots": 0,
+    "has_autosave": False,
+    "autosave_slot": 0,
+}
+
+
+def platform_capabilities(platform: str) -> PlatformCapabilities:
+    """Save-state capabilities for a platform slug, or a no-slots default."""
+    return _PLATFORM_CAPABILITIES.get(platform.lower(), _NO_CAPABILITIES)
+
+
+# Coarse request-body bounds, derived from the table so the slot ranges live in
+# exactly one place. The per-platform check in the routes is the tighter,
+# authoritative guard; these just reject obviously out-of-range input up front.
+_MAX_SAVE_SLOT = max(
+    (c["max_slots"] for c in _PLATFORM_CAPABILITIES.values()), default=1
+)
+_MAX_LOAD_SLOT = max(
+    (max(c["max_slots"], c["autosave_slot"]) for c in _PLATFORM_CAPABILITIES.values()),
+    default=1,
+)
+
+
+def _assert_valid_slot(platform: str, slot: int, *, allow_autosave: bool) -> None:
+    """Reject a slot the platform does not expose before hitting the broker."""
+    caps = platform_capabilities(platform)
+    valid = 1 <= slot <= caps["max_slots"]
+    if allow_autosave and caps["has_autosave"] and slot == caps["autosave_slot"]:
+        valid = True
+    if not valid:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Slot {slot} is not available for platform '{platform}'",
+        )
+
+
 class ClaimSessionRequest(BaseModel):
     rom_id: Annotated[int, Field(ge=1)]
 
@@ -130,16 +192,15 @@ class MuteRequest(BaseModel):
 
 
 class SaveStateRequest(BaseModel):
-    # Range 1-9 covers PCSX2 (slots 1-9) and Dolphin (slots 1-8).
-    # The broker enforces the per-emulator ceiling; the frontend further limits
-    # the slot selector via platformCapabilities().
-    slot: Annotated[int, Field(ge=1, le=9)] = 1
+    # Coarse union bound; the route validates the exact per-platform ceiling
+    # against _PLATFORM_CAPABILITIES.
+    slot: Annotated[int, Field(ge=1, le=_MAX_SAVE_SLOT)] = 1
 
 
 class LoadStateRequest(BaseModel):
-    # Range 1-10 covers PCSX2 (slots 1-9 + slot 10 autosave) and Dolphin (1-8).
-    # The broker enforces the per-emulator ceiling.
-    slot: Annotated[int, Field(ge=1, le=10)] = 1
+    # Coarse union bound (widest is the autosave slot); the route validates the
+    # exact per-platform ceiling against _PLATFORM_CAPABILITIES.
+    slot: Annotated[int, Field(ge=1, le=_MAX_LOAD_SLOT)] = 1
 
 
 def _get_streaming_config() -> dict[str, Any]:
@@ -428,11 +489,15 @@ async def get_config(request: Request) -> JSONResponse:
             log.warning("streaming: container missing platform/host - skipping: %s", c)
             continue
 
+        platform = c.get("platform", "")
         safe_containers.append(
             {
-                "platform": c.get("platform"),
+                "platform": platform,
                 "host": c.get("host"),
-                "label": c.get("label") or c.get("platform", "").upper(),
+                "label": c.get("label") or platform.upper(),
+                # Ship slot capabilities so the frontend selector reads them
+                # instead of keeping its own hardcoded per-platform copy.
+                "capabilities": platform_capabilities(platform),
             }
         )
 
@@ -595,8 +660,9 @@ async def set_mute(
 async def save_state(
     request: Request, platform: str, req: Annotated[SaveStateRequest, Body()]
 ) -> JSONResponse:
-    """Save game state to a slot (1-9) without stopping the emulator."""
+    """Save game state to a manual slot without stopping the emulator."""
     container, session_key, _ = await _resolve_owned_session(platform, request)
+    _assert_valid_slot(platform, req.slot, allow_autosave=False)
 
     ok = await asyncio.to_thread(_save_state_broker, container, req.slot)
     if not ok:
@@ -610,8 +676,9 @@ async def save_state(
 async def load_state(
     request: Request, platform: str, req: Annotated[LoadStateRequest, Body()]
 ) -> JSONResponse:
-    """Load game state from a slot (1-10). Slot 10 is the autosave."""
+    """Load game state from a manual slot or the platform's autosave slot."""
     container, session_key, _ = await _resolve_owned_session(platform, request)
+    _assert_valid_slot(platform, req.slot, allow_autosave=True)
 
     ok = await asyncio.to_thread(_load_state_broker, container, req.slot)
     if not ok:
