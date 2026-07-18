@@ -1,5 +1,6 @@
 import asyncio
 import re
+import tempfile
 from pathlib import Path
 
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
@@ -7,6 +8,7 @@ from handler.metadata.ra_handler import RAGamesPlatform
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.archives import extract_largest_archive_member
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
 from utils.psp_hasher import calculate_psp_ra_hash, is_psp_native_hash_file
 from utils.rvz_hasher import (
@@ -16,6 +18,11 @@ from utils.rvz_hasher import (
 )
 
 RAHASHER_VALID_HASH_REGEX = re.compile(r"[0-9a-f]{32}")
+
+# The only archive format RAHasher decompresses itself (via miniz). Any other
+# container is hashed as its raw archive bytes, silently producing a hash that
+# matches nothing on RetroAchievements (issue #3808).
+RAHASHER_NATIVE_ARCHIVE_EXTENSIONS: tuple[str, ...] = (".zip",)
 
 # Disc descriptor / playlist files that point RAHasher at the real data
 # tracks. Handing RAHasher one of these reproduces the hash a shell-expanded
@@ -179,6 +186,7 @@ RA_BUFFER_HASH_UNSUPPORTED_IDS: frozenset[int] = frozenset(
 PSP_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSP]
 NGC_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NGC]
 WII_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.WII]
+ARCADE_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.ARCADE]
 
 
 class RAHasherError(Exception): ...
@@ -263,6 +271,38 @@ class RAHasherService:
                 if is_native_entry:
                     file_path = entry_str
 
+        # RAHasher only decompresses .zip archives itself; any other container
+        # gets hashed as its raw archive bytes, silently storing a hash that
+        # matches nothing on RetroAchievements (issue #3808). Extract the ROM
+        # to a temp file and hash that instead. Arcade is exempt: its RA hash
+        # is the file's own basename, so the container format never matters
+        # and extraction (which renames the file) would break it.
+        lower_path = file_path.lower()
+        if (
+            lower_path.endswith(tuple(COMPRESSED_FILE_EXTENSIONS))
+            and not lower_path.endswith(RAHASHER_NATIVE_ARCHIVE_EXTENSIONS)
+            and platform["ra_id"] != ARCADE_RA_ID
+        ):
+            with tempfile.TemporaryDirectory(prefix="romm_rahasher_") as tmp_dir:
+                extracted = await asyncio.to_thread(
+                    extract_largest_archive_member, Path(file_path), Path(tmp_dir)
+                )
+                if extracted is None:
+                    log.debug(
+                        f"Skipping {hl('RAHasher', color=LIGHTMAGENTA)} for "
+                        f"{hl(file_path)}: could not extract a ROM from the archive"
+                    )
+                    return ""
+                return await self._hash_resolved_file(platform, str(extracted))
+
+        return await self._hash_resolved_file(platform, file_path)
+
+    async def _hash_resolved_file(
+        self, platform: RAGamesPlatform, file_path: str
+    ) -> str:
+        """Hash a single real file: natively for containers RAHasher can't
+        read (PSP compressed ISOs, RVZ/WIA), via the RAHasher binary otherwise.
+        """
         # PSP compressed-ISO containers (.cso/.ciso/.zso/.dax) can't be read by
         # RAHasher ("Could not open track"). Compute the PSP RA hash natively
         # from the container instead, decompressing only PARAM.SFO + EBOOT.BIN.
