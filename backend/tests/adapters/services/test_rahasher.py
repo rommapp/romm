@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -1151,6 +1151,260 @@ class TestRAHasherM3uNativeResolution:
         mock_native.assert_called_once_with(str(disc1))
         call_args = mock_subprocess.call_args[0]
         assert str(disc1) in call_args
+
+
+class TestRAHasherArchiveExtraction:
+    """Non-zip archives on buffer-hash platforms must be extracted to a temp
+    file before hashing. RAHasher only decompresses .zip itself; any other
+    container is hashed as raw archive bytes, silently producing a hash that
+    matches nothing on RetroAchievements (GitHub issue #3808)."""
+
+    @pytest.fixture
+    def service(self):
+        return RAHasherService()
+
+    @staticmethod
+    def _fake_extractor(inner_name: str):
+        """Build an extractor mock that writes `inner_name` into the given
+        destination directory, like the real helper does."""
+
+        def _extract(archive_path, dest_dir):
+            extracted = dest_dir / inner_name
+            extracted.write_bytes(b"rom-bytes")
+            return extracted
+
+        return MagicMock(side_effect=_extract)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "ext", [".7z", ".rar", ".gz", ".bz2", ".xz", ".tar", ".tgz"]
+    )
+    async def test_non_zip_archive_extracted_before_hashing(
+        self, service: RAHasherService, ext
+    ):
+        """RAHasher must receive the extracted ROM file, never the archive."""
+        gba_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GBA]
+        extractor = self._fake_extractor("game.gba")
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member",
+                extractor,
+            ),
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": gba_id, "slug": "gba"}, f"/roms/gba/game{ext}"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        extractor.assert_called_once()
+        call_args = mock_subprocess.call_args[0]
+        assert any(str(a).endswith("game.gba") for a in call_args)
+        assert not any(str(a).endswith(ext) for a in call_args)
+
+    @pytest.mark.asyncio
+    async def test_zip_archive_still_handed_to_rahasher_directly(
+        self, service: RAHasherService
+    ):
+        """RAHasher decompresses .zip natively; no extraction round-trip."""
+        gba_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GBA]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member"
+            ) as extractor,
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": gba_id, "slug": "gba"}, "/roms/gba/game.zip"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        extractor.assert_not_called()
+        call_args = mock_subprocess.call_args[0]
+        assert "/roms/gba/game.zip" in call_args
+
+    @pytest.mark.asyncio
+    async def test_extraction_failure_returns_empty_hash_without_rahasher(
+        self, service: RAHasherService
+    ):
+        """When extraction fails (unsupported codec, corrupt archive), no
+        hash is produced at all; the archive must never reach RAHasher,
+        which would silently hash the raw container bytes."""
+        gba_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GBA]
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member",
+                return_value=None,
+            ) as extractor,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": gba_id, "slug": "gba"}, "/roms/gba/game.rar"
+            )
+
+        assert result == ""
+        extractor.assert_called_once()
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_arcade_archives_bypass_extraction(self, service: RAHasherService):
+        """Arcade RA hashes are computed from the file's basename, not its
+        contents, so any container format already hashes correctly and
+        extraction (which renames the file) would break it."""
+        arcade_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.ARCADE]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member"
+            ) as extractor,
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": arcade_id, "slug": "arcade"}, "/roms/arcade/sf2.7z"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        extractor.assert_not_called()
+        call_args = mock_subprocess.call_args[0]
+        assert "/roms/arcade/sf2.7z" in call_args
+
+    @pytest.mark.asyncio
+    async def test_disc_platform_archives_still_skipped_without_extraction(
+        self, service: RAHasherService
+    ):
+        """Disc platforms keep the existing skip; no extraction is attempted
+        (a multi-gigabyte disc image round-trip is out of scope)."""
+        psx_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSX]
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member"
+            ) as extractor,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": psx_id, "slug": "psx"}, "/roms/psx/game.7z"
+            )
+
+        assert result == ""
+        extractor.assert_not_called()
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_folder_of_non_zip_archives_extracts_largest(
+        self, service: RAHasherService, tmp_path
+    ):
+        """Folder-based ROM holding non-zip archives: the largest archive is
+        picked (existing behavior) and must then go through extraction."""
+        gba_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GBA]
+        (tmp_path / "small.7z").write_bytes(b"s" * 100)
+        large = tmp_path / "large.7z"
+        large.write_bytes(b"l" * 500)
+        extractor = self._fake_extractor("game.gba")
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member",
+                extractor,
+            ),
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": gba_id, "slug": "gba"}, f"{tmp_path}/*"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        assert extractor.call_args[0][0] == large
+        call_args = mock_subprocess.call_args[0]
+        assert any(str(a).endswith("game.gba") for a in call_args)
+
+    @pytest.mark.asyncio
+    async def test_extracted_rvz_short_circuits_native_hasher(
+        self, service: RAHasherService
+    ):
+        """GameCube is buffer-hash capable, so its archives are extracted;
+        when the archive holds an .rvz the native hasher must see it."""
+        ngc_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NGC]
+        extractor = self._fake_extractor("game.rvz")
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member",
+                extractor,
+            ),
+            patch(
+                "adapters.services.rahasher.calculate_gamecube_ra_hash",
+                return_value="a1b2c3d4e5f6789012345678901234ab",
+            ) as mock_native,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": ngc_id, "slug": "ngc"}, "/roms/ngc/game.7z"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        assert mock_native.call_args[0][0].endswith("game.rvz")
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_temp_extraction_dir_removed_after_hashing(
+        self, service: RAHasherService
+    ):
+        """The temp directory holding the extracted ROM must not outlive the
+        hash calculation."""
+        gba_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GBA]
+        extractor = self._fake_extractor("game.gba")
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member",
+                extractor,
+            ),
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": gba_id, "slug": "gba"}, "/roms/gba/game.7z"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        dest_dir = extractor.call_args[0][1]
+        assert not dest_dir.exists()
 
 
 class TestRAHasherError:
