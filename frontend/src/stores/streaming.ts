@@ -1,28 +1,17 @@
-import { isAxiosError } from "axios";
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import api from "@/services/api";
+import streamingApi from "@/services/api/streaming";
+import type {
+  ActiveSession,
+  StreamingConfig,
+  StreamingContainer,
+} from "@/services/api/streaming";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface StreamingContainer {
-  platform: string; // "ps2"
-  host: string; // "http://192.168.1.50:3000"
-  label: string; // "PCSX2"
-}
-
-export interface StreamingConfig {
-  enabled: boolean;
-  containers: StreamingContainer[];
-}
-
-export interface ActiveSession {
-  platform: string;
-  host: string;
-  label: string;
-  rom_name: string;
-  claimed_at: string;
-}
+export type {
+  ActiveSession,
+  StreamingConfig,
+  StreamingContainer,
+} from "@/services/api/streaming";
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
@@ -88,9 +77,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     loading.value = true;
     error.value = null;
     try {
-      const { data } = await api.get<StreamingConfig>("/streaming/config", {
-        headers: { "Cache-Control": "no-cache" },
-      });
+      const { data } = await streamingApi.fetchConfig();
       config.value = {
         enabled: data.enabled ?? false,
         containers: data.containers ?? [],
@@ -114,9 +101,7 @@ export const useStreamingStore = defineStore("streaming", () => {
    *   503 - broker/unreachable
    */
   async function claimSession(romId: number): Promise<ActiveSession> {
-    const { data } = await api.post<ActiveSession>("/streaming/sessions", {
-      rom_id: romId,
-    });
+    const { data } = await streamingApi.claimSession(romId);
     activeSession.value = data;
     return data;
   }
@@ -131,7 +116,7 @@ export const useStreamingStore = defineStore("streaming", () => {
   async function releaseSession(platform: string): Promise<boolean> {
     if (!platform) return false;
     try {
-      await api.delete(`/streaming/sessions/${platform}`);
+      await streamingApi.releaseSession(platform);
       activeSession.value = null;
       return true;
     } catch (err) {
@@ -154,78 +139,11 @@ export const useStreamingStore = defineStore("streaming", () => {
   ): Promise<boolean> {
     if (!platform) return false;
     try {
-      const { data } = await api.post(
-        `/streaming/sessions/${platform}/save-and-exit`,
-        { slot, wait },
-      );
+      const { data } = await streamingApi.saveAndExit(platform, slot, wait);
       activeSession.value = null;
       return data.saved ?? false;
     } catch (err) {
       console.warn("[streaming] Could not save-and-exit:", err);
-      return false;
-    }
-  }
-
-  /**
-   * Set emulator volume (0-100).
-   */
-  async function setVolume(platform: string, level: number): Promise<void> {
-    if (!platform) return;
-    try {
-      await api.post(`/streaming/sessions/${platform}/volume`, {
-        level: Math.round(level),
-      });
-    } catch (err) {
-      console.warn("[streaming] Could not set volume:", err);
-    }
-  }
-
-  /**
-   * Toggle or explicitly set mute. Pass true/false to set, omit for toggle.
-   */
-  async function setMute(platform: string, mute?: boolean): Promise<void> {
-    if (!platform) return;
-    try {
-      await api.post(
-        `/streaming/sessions/${platform}/mute`,
-        mute !== undefined ? { mute } : {},
-      );
-    } catch (err) {
-      console.warn("[streaming] Could not set mute:", err);
-    }
-  }
-
-  /**
-   * Save game state to a slot (1-9) without stopping the emulator.
-   * The broker fires the save in the background and returns immediately.
-   */
-  async function saveState(platform: string, slot = 1): Promise<boolean> {
-    if (!platform) return false;
-    try {
-      const { data } = await api.post(
-        `/streaming/sessions/${platform}/save-state`,
-        { slot },
-      );
-      return data.status === "saving";
-    } catch (err) {
-      console.warn("[streaming] Could not save state:", err);
-      return false;
-    }
-  }
-
-  /**
-   * Load game state from a slot (1-10). Slot 10 is the autosave slot on xemu and rpcs3.
-   */
-  async function loadState(platform: string, slot = 1): Promise<boolean> {
-    if (!platform) return false;
-    try {
-      const { data } = await api.post(
-        `/streaming/sessions/${platform}/load-state`,
-        { slot },
-      );
-      return data.loaded ?? false;
-    } catch (err) {
-      console.warn("[streaming] Could not load state:", err);
       return false;
     }
   }
@@ -242,9 +160,5 @@ export const useStreamingStore = defineStore("streaming", () => {
     claimSession,
     releaseSession,
     saveAndExit,
-    setVolume,
-    setMute,
-    saveState,
-    loadState,
   };
 });

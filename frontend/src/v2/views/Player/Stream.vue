@@ -21,6 +21,7 @@ import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
+import streamingApi from "@/services/api/streaming";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import GameCover from "@/v2/components/shared/GameCover.vue";
@@ -143,7 +144,9 @@ watch(volume, (val) => {
   volumeDebounce = setTimeout(() => {
     const platform = rom.value?.platform_slug;
     if (platform)
-      void streamingStore.setVolume(platform, Math.round(val * 100));
+      streamingApi
+        .setVolume(platform, Math.round(val * 100))
+        .catch((err) => console.warn("[streaming] Could not set volume:", err));
   }, 150);
 });
 
@@ -355,7 +358,9 @@ async function handleSaveState(): Promise<void> {
   if (!rom.value || playerState.value !== "playing") return;
   isSavingState.value = true;
   try {
-    await streamingStore.saveState(rom.value.platform_slug, selectedSlot.value);
+    await streamingApi.saveState(rom.value.platform_slug, selectedSlot.value);
+  } catch (err) {
+    console.warn("[streaming] Could not save state:", err);
   } finally {
     isSavingState.value = false;
   }
@@ -365,7 +370,9 @@ async function handleLoadState(): Promise<void> {
   if (!rom.value || playerState.value !== "playing") return;
   isLoadingState.value = true;
   try {
-    await streamingStore.loadState(rom.value.platform_slug, selectedSlot.value);
+    await streamingApi.loadState(rom.value.platform_slug, selectedSlot.value);
+  } catch (err) {
+    console.warn("[streaming] Could not load state:", err);
   } finally {
     isLoadingState.value = false;
   }
@@ -375,10 +382,12 @@ async function handleLoadAutosave(): Promise<void> {
   if (!rom.value || playerState.value !== "playing") return;
   isLoadingAutosave.value = true;
   try {
-    await streamingStore.loadState(
+    await streamingApi.loadState(
       rom.value.platform_slug,
       capabilities.value.autosaveSlot,
     );
+  } catch (err) {
+    console.warn("[streaming] Could not load state:", err);
   } finally {
     isLoadingAutosave.value = false;
   }
@@ -400,7 +409,10 @@ async function toggleFullscreen(): Promise<void> {
 function toggleMute(): void {
   isMuted.value = !isMuted.value;
   const platform = rom.value?.platform_slug;
-  if (platform) void streamingStore.setMute(platform, isMuted.value);
+  if (platform)
+    streamingApi
+      .setMute(platform, isMuted.value)
+      .catch((err) => console.warn("[streaming] Could not set mute:", err));
 }
 
 function onFullscreenChange(): void {
