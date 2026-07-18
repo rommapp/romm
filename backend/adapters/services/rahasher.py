@@ -59,6 +59,32 @@ def _pick_ra_file(folder: Path) -> Path | None:
     return picked if _size(picked) >= 0 else None
 
 
+def _first_m3u_entry(m3u_path: Path) -> Path | None:
+    """Resolve an ``.m3u`` playlist to the first disc file it points at.
+
+    Mirrors RAHasher's own playlist handling (rcheevos hashes the first
+    entry): the first non-empty, non-comment line is the disc path, taken
+    relative to the playlist's folder unless absolute. Returns ``None`` when
+    the playlist can't be read or that entry doesn't exist on disk.
+    """
+    try:
+        lines = m3u_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        entry = line.strip()
+        if not entry or entry.startswith("#"):
+            continue
+        entry_path = Path(entry)
+        if not entry_path.is_absolute():
+            entry_path = m3u_path.parent / entry
+        try:
+            return entry_path if entry_path.is_file() else None
+        except OSError:
+            return None
+    return None
+
+
 # Platforms whose hash algorithm requires an on-disk disc image
 # (ISO9660/bin+cue/CHD). When the source file is an archive, RAHasher falls
 # back to "buffer hash" mode which these consoles don't support, failing
@@ -217,6 +243,25 @@ class RAHasherService:
                 resolved = await asyncio.to_thread(_pick_ra_file, folder)
                 if resolved is not None:
                     file_path = str(resolved)
+
+        # Multi-disc .m3u playlists are followed by RAHasher itself, but only
+        # to formats it can read. When the first playlist entry is a container
+        # we hash natively (RVZ/WIA on GameCube/Wii, compressed ISO on PSP),
+        # resolve the playlist to that disc so the native-hash dispatch below
+        # sees it (issue #3797).
+        if file_path.lower().endswith(".m3u"):
+            entry = await asyncio.to_thread(_first_m3u_entry, Path(file_path))
+            if entry is not None:
+                entry_str = str(entry)
+                is_native_entry = (
+                    platform["ra_id"] == PSP_RA_ID
+                    and is_psp_native_hash_file(entry_str)
+                ) or (
+                    platform["ra_id"] in (NGC_RA_ID, WII_RA_ID)
+                    and is_rvz_native_hash_file(entry_str)
+                )
+                if is_native_entry:
+                    file_path = entry_str
 
         # PSP compressed-ISO containers (.cso/.ciso/.zso/.dax) can't be read by
         # RAHasher ("Could not open track"). Compute the PSP RA hash natively
