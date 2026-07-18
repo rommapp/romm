@@ -12,7 +12,7 @@ from fastapi import Body, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from config import LIBRARY_BASE_PATH
+from config import LIBRARY_BASE_PATH, STREAMING_BROKER_SECRET, STREAMING_SAVE_TIMEOUT
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/streaming", tags=["streaming"])
 
 # Sessions are stored in Redis so they are shared across uvicorn workers and
 # survive backend restarts (the emulator container keeps running either way).
-# Claiming uses SET NX, which is atomic in Redis - two concurrent claims for
+# Claiming uses SET NX, which is atomic in Redis. Two concurrent claims for
 # the same container cannot both succeed, with no in-process locking needed.
 _SESSION_KEY_PREFIX = "romm:streaming:session:"
 
@@ -58,7 +58,7 @@ async def _get_session(session_key: str) -> dict[str, Any] | None:
     try:
         return json.loads(raw)
     except (TypeError, json.JSONDecodeError):
-        # Corrupt entry - drop it rather than wedging the container forever.
+        # Corrupt entry, drop it rather than wedging the container forever.
         await async_cache.delete(_session_redis_key(session_key))
         return None
 
@@ -84,7 +84,7 @@ def _parse_host_url(host: str) -> str | None:
     or None when it has no scheme (urlparse yields hostname=None for a bare
     'host:port', which would produce the broken '//None:8000/...' string).
     Operators must write a scheme, matching the documented config examples."""
-    host = (host or "").strip().rstrip("/")
+    host = host.strip().rstrip("/")
     if not host:
         return None
     parsed = urlparse(host)
@@ -112,7 +112,7 @@ def _container_key(container: dict[str, Any]) -> str:
     return _derive_broker_host(container) or ""
 
 
-# Per-platform save-state capabilities - the single source of truth for how
+# Per-platform save-state capabilities, the single source of truth for how
 # many save slots each emulator exposes. The broker enforces its own ceiling;
 # this table lets RomM reject an out-of-range slot before calling the broker
 # (a clean 422 instead of a broker 502) and ships the same numbers to the
@@ -205,20 +205,12 @@ class LoadStateRequest(BaseModel):
 
 def _get_streaming_config() -> dict[str, Any]:
     """Extract streaming config from the parsed Config object"""
-    try:
-        cfg = cm.get_config()
+    cfg = cm.get_config()
 
-        enabled = getattr(cfg, "STREAMING_ENABLED", False)
-        containers = getattr(cfg, "STREAMING_CONTAINERS", [])
+    return {"enabled": cfg.STREAMING_ENABLED, "containers": cfg.STREAMING_CONTAINERS}
 
-        return {"enabled": enabled, "containers": containers}
 
-    except Exception:
-        log.exception(
-            "streaming: failed to read streaming config - check the streaming "
-            "section of config.yml; treating streaming as disabled"
-        )
-        return {"enabled": False, "containers": []}
+# ── Routes ────────────────────────────────────────────────────────────────────
 
 
 def _container_for_platform(platform: str) -> dict[str, Any] | None:
@@ -229,16 +221,15 @@ def _container_for_platform(platform: str) -> dict[str, Any] | None:
     for entry in cfg.get("containers", []):
         if not isinstance(entry, dict):
             continue
-        # Match get_config's validation: an entry needs both a platform and a
-        # scheme-bearing host. Skipping a malformed entry here means claim /
-        # control routes raise a clean 404 ("no container configured") instead
-        # of a 500 KeyError on container["host"].
+        # An entry needs both a platform and a scheme-bearing host.
+        # Skipping a malformed entry here means claim / control routes raise
+        # a clean 404 instead of a 500 on container["host"].
         if entry.get("platform", "").lower() != lower:
             continue
         if not _parse_host_url(entry.get("host", "")):
             log.warning(
-                "streaming: container for platform '%s' missing a scheme-bearing "
-                "host - skipping: %s",
+                "container for platform '%s' missing a scheme-bearing "
+                "host, skipping: %s",
                 platform,
                 entry,
             )
@@ -272,7 +263,7 @@ async def _resolve_owned_session(
     return container, session_key, session
 
 
-# broker communication
+# ── Broker communication ────────────────────────────────────────────────────────────────────
 
 
 def _broker_url(container: dict[str, Any], path: str) -> str:
@@ -290,7 +281,7 @@ def _broker_url(container: dict[str, Any], path: str) -> str:
     """
     broker_host = _derive_broker_host(container)
     if not broker_host:
-        # No usable broker host - raise a 502 with a clear cause so the
+        # No usable broker host, raise a 502 with a clear cause so the
         # operator sees the misconfiguration instead of an opaque KeyError.
         raise HTTPException(
             status_code=502,
@@ -305,7 +296,7 @@ def _broker_url(container: dict[str, Any], path: str) -> str:
 
 
 def _broker_secret(container: dict[str, Any]) -> str:
-    return os.environ.get("STREAMING_BROKER_SECRET", container.get("broker_secret", ""))
+    return STREAMING_BROKER_SECRET or container.get("broker_secret", "")
 
 
 def _broker_request(
@@ -319,7 +310,7 @@ def _broker_request(
     """
     Send a signed request to the broker and return its parsed JSON body (an
     empty dict when the broker replies with no content). Uses only Python
-    stdlib urllib - no extra dependencies. Raises the underlying urllib/OS
+    stdlib urllib, no extra dependencies. Raises the underlying urllib/OS
     error; callers decide whether to surface or swallow it.
     """
     url = _broker_url(container, path)
@@ -347,7 +338,7 @@ def _broker_request_safe(
 ) -> Any | None:
     """
     Best-effort variant of _broker_request: returns the parsed body, or None if
-    the broker is unreachable or errors. Never raises - control ops must not 500
+    the broker is unreachable or errors. Never raises, control ops must not 500
     on a broker hiccup.
     """
     try:
@@ -355,7 +346,7 @@ def _broker_request_safe(
             container, path, method=method, body=body, timeout=timeout
         )
     except Exception as exc:
-        log.warning("streaming: broker %s failed - %s", label, exc)
+        log.warning("broker %s failed, %s", label, exc)
         return None
 
 
@@ -374,10 +365,10 @@ def _call_broker(container: dict[str, Any], rom_path: str, rom_name: str) -> Non
             body={"rom_path": rom_path, "rom_name": rom_name},
             timeout=10,
         )
-        log.info("streaming: broker launched ROM - %s", body)
+        log.info("broker launched ROM, %s", body)
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode(errors="replace")
-        log.error("streaming: broker HTTP error %d - %s", exc.code, error_body)
+        log.error("broker HTTP error %d: %s", exc.code, error_body)
         try:
             detail = json.loads(error_body)
         except Exception:
@@ -387,7 +378,7 @@ def _call_broker(container: dict[str, Any], rom_path: str, rom_name: str) -> Non
             detail=f"Broker returned {exc.code}: {detail}",
         ) from exc
     except (urllib.error.URLError, OSError) as exc:
-        log.error("streaming: broker unreachable at %s - %s", url, exc)
+        log.error("broker unreachable at %s: %s", url, exc)
         raise HTTPException(
             status_code=503,
             detail=(
@@ -402,7 +393,7 @@ def _save_and_exit_broker(
     container: dict[str, Any], slot: int = 0, wait: bool = True
 ) -> bool:
     """
-    POST /save-and-exit to the broker. Best-effort - logs but never raises.
+    POST /save-and-exit to the broker. Best-effort, logs but never raises.
     With wait=True the call blocks until save+kill completes (use for button press).
     With wait=False the broker fires save+kill in the background (use for navigation away).
     Returns True if the broker reported a successful save.
@@ -412,29 +403,20 @@ def _save_and_exit_broker(
     # save + reset path can approach that too. Time out past the slowest
     # broker so a slow-but-successful save is not reported as saved=False.
     # Overridable for operators who raise SAVE_WAIT on a broker.
-    if wait:
-        try:
-            timeout = float(os.environ.get("STREAMING_SAVE_TIMEOUT", "45"))
-        except ValueError:
-            timeout = 45.0
-    else:
-        timeout = 5.0
     body = _broker_request_safe(
         container,
         "/save-and-exit",
         "save-and-exit",
         body={"slot": slot, "wait": wait},
-        timeout=timeout,
+        timeout=STREAMING_SAVE_TIMEOUT if wait else 5,
     )
     saved = bool(body and body.get("saved", False))
-    log.info(
-        "streaming: broker save-and-exit - saved=%s slot=%d wait=%s", saved, slot, wait
-    )
+    log.info("broker save-and-exit, saved=%s slot=%d wait=%s", saved, slot, wait)
     return saved
 
 
 def _volume_broker(container: dict[str, Any], level: int) -> bool:
-    """POST /volume to the broker. Best-effort - logs but never raises."""
+    """POST /volume to the broker. Best-effort, logs but never raises."""
     body = _broker_request_safe(
         container, "/volume", "volume", body={"level": level}, timeout=5
     )
@@ -471,7 +453,7 @@ def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
 
 
 def _stop_broker(container: dict[str, Any]) -> None:
-    """Tell the broker to stop emulator. Best-effort - don't raise on failure."""
+    """Tell the broker to stop emulator. Best-effort, don't raise on failure."""
     _broker_request_safe(container, "/launch", "stop", method="DELETE", timeout=5)
 
 
@@ -486,7 +468,7 @@ async def get_config(request: Request) -> JSONResponse:
     safe_containers = []
     for c in cfg.get("containers", []):
         if not c.get("platform") or not c.get("host"):
-            log.warning("streaming: container missing platform/host - skipping: %s", c)
+            log.warning("container missing platform/host, skipping: %s", c)
             continue
 
         platform = c.get("platform", "")
@@ -526,12 +508,11 @@ async def claim_session(
     if rom is None:
         raise HTTPException(status_code=404, detail="ROM not found")
 
-    platform = rom.platform_slug
-    container = _container_for_platform(platform)
+    container = _container_for_platform(rom.platform_slug)
     if container is None:
         raise HTTPException(
             status_code=404,
-            detail=f"No streaming container configured for platform '{platform}'",
+            detail=f"No streaming container configured for platform '{rom.platform_slug}'",
         )
 
     # The emulator containers mount the RomM library at the same path the
@@ -570,21 +551,21 @@ async def claim_session(
         )
 
     try:
-        # Tell the broker to load the ROM - raises HTTPException on failure.
+        # Tell the broker to load the ROM, raises HTTPException on failure.
         # Wrapped in asyncio.to_thread because urllib is synchronous.
         await asyncio.to_thread(_call_broker, container, rom_path, rom_name)
     except Exception:
-        # Launch failed - free the claim so the container isn't wedged.
+        # Launch failed, free the claim so the container isn't wedged.
         await async_cache.delete(_session_redis_key(session_key))
         raise
 
-    log.info("streaming: session claimed - platform=%s rom=%s", platform, rom_name)
+    log.info("session claimed, platform=%s rom=%s", rom.platform_slug, rom_name)
 
     return JSONResponse(
         {
-            "platform": platform,
+            "platform": rom.platform_slug,
             "host": container.get("host", ""),
-            "label": container.get("label", platform.upper()),
+            "label": container.get("label", rom.platform_slug.upper()),
             "rom_name": rom_name,
             "claimed_at": now,
         }
@@ -607,7 +588,7 @@ async def save_and_exit_session(
     )
 
     if req.wait:
-        # Broker confirmed the save+kill is done - the key can go now.
+        # Broker confirmed the save+kill is done, the key can go now.
         await async_cache.delete(_session_redis_key(session_key))
     else:
         # Broker is still killing the emulator in the background. Drop the
@@ -622,7 +603,7 @@ async def save_and_exit_session(
             json.dumps({"draining": True}),
             ex=SESSION_DRAIN_SECONDS,
         )
-    log.info("streaming: save-and-exit - platform=%s saved=%s", platform, saved)
+    log.info("save-and-exit, platform=%s saved=%s", platform, saved)
     return JSONResponse({"status": "ok", "saved": saved, "platform": platform})
 
 
@@ -695,7 +676,7 @@ async def release_session(request: Request, platform: str) -> JSONResponse:
     """Release a session and tell the broker to stop the emulator."""
     container = _container_for_platform(platform)
     if container is None:
-        # Streaming disabled or platform unconfigured - nothing to release.
+        # Streaming disabled or platform unconfigured, nothing to release.
         return JSONResponse({"status": "not_found", "platform": platform})
 
     session_key = _container_key(container)
@@ -709,13 +690,13 @@ async def release_session(request: Request, platform: str) -> JSONResponse:
     # Best-effort stop, don't block the user on broker errors.
     await asyncio.to_thread(_stop_broker, container)
 
-    log.info("streaming: session released - platform=%s", platform)
+    log.info("session released, platform=%s", platform)
     return JSONResponse({"status": "released", "platform": platform})
 
 
 @protected_route(router.get, "/sessions", [Scope.ROMS_READ])
 async def list_sessions(request: Request) -> JSONResponse:
-    """Admin debug view - active sessions keyed by broker URL."""
+    """Admin debug view, active sessions keyed by broker URL."""
     if request.user.role != Role.ADMIN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -740,7 +721,7 @@ async def list_sessions(request: Request) -> JSONResponse:
 
 @protected_route(router.delete, "/sessions", [Scope.ROMS_READ])
 async def force_release_all(request: Request) -> JSONResponse:
-    """Admin - force-release all active sessions."""
+    """Force-release all active sessions."""
     if request.user.role != Role.ADMIN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -763,5 +744,5 @@ async def force_release_all(request: Request) -> JSONResponse:
             # Best-effort stop; a broker error must not abort the sweep.
             await asyncio.to_thread(_stop_broker, container)
         released.append(container_key)
-    log.info("streaming: all sessions force-released by admin - %s", released)
+    log.info("all sessions force-released by admin, %s", released)
     return JSONResponse({"status": "released", "platforms": released})

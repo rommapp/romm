@@ -273,6 +273,12 @@ TINFOIL_WELCOME_MESSAGE: Final[str] = _get_env(
     "TINFOIL_WELCOME_MESSAGE", "RomM Switch Library"
 )
 
+# EMULATOR STREAMING
+STREAMING_BROKER_SECRET: Final[str] = _get_env("STREAMING_BROKER_SECRET", "")
+STREAMING_SAVE_TIMEOUT: Final[int] = safe_int(
+    _get_env("STREAMING_SAVE_TIMEOUT"), 45
+)  # 45 seconds
+
 # SENTRY
 SENTRY_DSN: Final[str | None] = _get_env("SENTRY_DSN")
 
