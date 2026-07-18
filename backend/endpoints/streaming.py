@@ -251,7 +251,9 @@ def _call_broker(container: dict[str, Any], rom_path: str, rom_name: str) -> Non
     Raises HTTPException if the broker is unreachable or returns an error.
     """
     url = _broker_url(container, "/launch")
-    secret = os.environ.get("BROKER_SECRET", container.get("broker_secret", ""))
+    secret = os.environ.get(
+        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
+    )
 
     payload = json.dumps(
         {
@@ -308,7 +310,9 @@ def _save_and_exit_broker(
     Returns True if the broker reported a successful save.
     """
     url = _broker_url(container, "/save-and-exit")
-    secret = os.environ.get("BROKER_SECRET", container.get("broker_secret", ""))
+    secret = os.environ.get(
+        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
+    )
     payload = json.dumps({"slot": slot, "wait": wait}).encode()
     req = urllib.request.Request(
         url,
@@ -351,7 +355,9 @@ def _save_and_exit_broker(
 def _volume_broker(container: dict[str, Any], level: int) -> bool:
     """POST /volume to the broker. Best-effort - logs but never raises."""
     url = _broker_url(container, "/volume")
-    secret = os.environ.get("BROKER_SECRET", container.get("broker_secret", ""))
+    secret = os.environ.get(
+        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
+    )
     payload = json.dumps({"level": level}).encode()
     req = urllib.request.Request(
         url,
@@ -376,7 +382,9 @@ def _volume_broker(container: dict[str, Any], level: int) -> bool:
 def _mute_broker(container: dict[str, Any], mute: bool | None) -> bool | None:
     """POST /mute to the broker. Returns confirmed mute state, or None on error."""
     url = _broker_url(container, "/mute")
-    secret = os.environ.get("BROKER_SECRET", container.get("broker_secret", ""))
+    secret = os.environ.get(
+        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
+    )
     body_dict: dict[str, Any] = {} if mute is None else {"mute": mute}
     payload = json.dumps(body_dict).encode()
     req = urllib.request.Request(
@@ -403,7 +411,9 @@ def _mute_broker(container: dict[str, Any], mute: bool | None) -> bool | None:
 def _save_state_broker(container: dict[str, Any], slot: int) -> bool:
     """POST /save-state to the broker. Returns True if the request was accepted."""
     url = _broker_url(container, "/save-state")
-    secret = os.environ.get("BROKER_SECRET", container.get("broker_secret", ""))
+    secret = os.environ.get(
+        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
+    )
     payload = json.dumps({"slot": slot}).encode()
     req = urllib.request.Request(
         url,
@@ -428,7 +438,9 @@ def _save_state_broker(container: dict[str, Any], slot: int) -> bool:
 def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
     """POST /load-state to the broker. Returns True if broker confirmed success."""
     url = _broker_url(container, "/load-state")
-    secret = os.environ.get("BROKER_SECRET", container.get("broker_secret", ""))
+    secret = os.environ.get(
+        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
+    )
     payload = json.dumps({"slot": slot}).encode()
     req = urllib.request.Request(
         url,
@@ -456,7 +468,9 @@ def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
 def _stop_broker(container: dict[str, Any]) -> None:
     """Tell the broker to stop emulator. Best-effort - don't raise on failure."""
     url = _broker_url(container, "/launch")
-    secret = os.environ.get("BROKER_SECRET", container.get("broker_secret", ""))
+    secret = os.environ.get(
+        "STREAMING_BROKER_SECRET", container.get("broker_secret", "")
+    )
     req = urllib.request.Request(
         url,
         method="DELETE",

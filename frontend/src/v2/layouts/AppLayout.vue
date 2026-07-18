@@ -67,11 +67,6 @@ watch(
 
 const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
-// Streaming config is fetched once on app load so the Play action knows
-// whether a container is configured for a given platform. Non-fatal —
-// on failure streaming stays disabled and no stream buttons appear.
-// v1 ran this in `Main.vue`; v2's AppLayout owns the same responsibility
-// since v2 users never mount the v1 layout.
 const streamingStore = useStreamingStore();
 
 // Developer debug overlay — opt-in via Settings → Developer (per-device).
@@ -127,7 +122,6 @@ onMounted(() => {
   installInputModality();
   installGamepad();
   installGlobalHotkeys();
-  void streamingStore.fetchConfig();
   // Mirror morph: GameDetails cover → destination card on back/navbar/popstate.
   // Forward direction is handled at the source side in GameCard.
   removeBackMorph = installBackMorph(router);
@@ -152,6 +146,9 @@ onMounted(() => {
   } else {
     prefetchPlatformIcons(platformsStore.allPlatforms.map((p) => p.slug));
   }
+
+  // Streaming config is fetched once on app load
+  void streamingStore.fetchConfig();
 });
 
 onBeforeUnmount(() => {

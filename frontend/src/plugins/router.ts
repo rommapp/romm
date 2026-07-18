@@ -272,9 +272,6 @@ const routes = [
       {
         path: "rom/:rom/stream",
         name: ROUTES.STREAM,
-        // Streaming is v2-only. v1 never had a streaming player; v1 users
-        // landing here fall back to Home (no v1 surface to render). The v2
-        // named view renders the Stream player via v2For.
         components: {
           default: () => import("@/views/Home.vue"),
           v2: v2For(ROUTES.STREAM),

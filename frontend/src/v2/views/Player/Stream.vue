@@ -30,11 +30,7 @@ import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
 type ErrorType =
-  | "occupied"
-  | "not_configured"
-  | "rom_not_found"
-  | "server"
-  | null;
+  "occupied" | "not_configured" | "rom_not_found" | "server" | null;
 
 const { t } = useI18n();
 const route = useRoute();

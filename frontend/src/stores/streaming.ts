@@ -6,9 +6,9 @@ import api from "@/services/api";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface StreamingContainer {
-  platform: string; // e.g. "ps2"
-  host: string; // browser-facing URL, e.g. "http://192.168.1.50:3000"
-  label: string; // e.g. "PCSX2"
+  platform: string; // "ps2"
+  host: string; // "http://192.168.1.50:3000"
+  label: string; // "PCSX2"
 }
 
 export interface StreamingConfig {
@@ -39,7 +39,6 @@ export const useStreamingStore = defineStore("streaming", () => {
   /**
    * Returns the streaming container for a given platform slug, or null if
    * streaming is disabled or no container is configured for that platform.
-   * Case-insensitive so "PS2" and "ps2" both match.
    */
   function containerForPlatform(
     slug: string | null | undefined,
@@ -83,7 +82,7 @@ export const useStreamingStore = defineStore("streaming", () => {
 
   /**
    * Fetch streaming config from the backend once on app load.
-   * Non-fatal - if it fails, streaming stays disabled and no buttons appear.
+   * If it fails, streaming stays disabled and no buttons appear.
    */
   async function fetchConfig(): Promise<void> {
     loading.value = true;
@@ -112,34 +111,20 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Throws an error with a `status` property on failure:
    *   409 session in use - error has who/what is playing
    *   404 - ROM or platform container not configured
-   *   503 - broker unreachable
+   *   503 - broker/unreachable
    */
   async function claimSession(romId: number): Promise<ActiveSession> {
-    try {
-      const { data } = await api.post<ActiveSession>("/streaming/sessions", {
-        rom_id: romId,
-      });
-      activeSession.value = data;
-      return data;
-    } catch (e) {
-      const response = isAxiosError(e) ? e.response : undefined;
-      const detail = response?.data?.detail;
-      const err = Object.assign(
-        new Error(detail?.message ?? `HTTP ${response?.status}`),
-        { status: response?.status, detail },
-      );
-      throw err;
-    }
+    const { data } = await api.post<ActiveSession>("/streaming/sessions", {
+      rom_id: romId,
+    });
+    activeSession.value = data;
+    return data;
   }
 
   /**
    * Release the active session when the user leaves the player page.
-   * Best-effort - never throws.
-   */
-  /**
-   * Release the active session when the user leaves the player page.
-   * Best-effort - never throws. Returns true when the backend acknowledged
-   * the release (the local session record is dropped); false when the call
+   * Returns true when the backend acknowledged the release
+   * (the local session record is dropped); false when the call
    * failed (the session is still held server-side, so the record is kept so
    * the user can retry instead of being wedged behind their own session).
    */
@@ -159,9 +144,8 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Save game state then release the session.
    * wait=true (default): blocks until broker confirms save+kill - use for explicit button press.
    * wait=false: broker fires save+kill in background, returns immediately - use for navigation away.
-   * Best-effort - never throws. Drops the local session record only on a
-   * confirmed release so a failed call doesn't leave the user wedged behind
-   * their own still-held session.
+   * Drops the local session record only on a confirmed release so a failed
+   * call doesn't leave the user wedged behind their own still-held session.
    */
   async function saveAndExit(
     platform: string,
@@ -183,7 +167,7 @@ export const useStreamingStore = defineStore("streaming", () => {
   }
 
   /**
-   * Set emulator volume (0-100). Best-effort - never throws.
+   * Set emulator volume (0-100).
    */
   async function setVolume(platform: string, level: number): Promise<void> {
     if (!platform) return;
@@ -198,7 +182,6 @@ export const useStreamingStore = defineStore("streaming", () => {
 
   /**
    * Toggle or explicitly set mute. Pass true/false to set, omit for toggle.
-   * Best-effort - never throws.
    */
   async function setMute(platform: string, mute?: boolean): Promise<void> {
     if (!platform) return;
@@ -215,7 +198,6 @@ export const useStreamingStore = defineStore("streaming", () => {
   /**
    * Save game state to a slot (1-9) without stopping the emulator.
    * The broker fires the save in the background and returns immediately.
-   * Best-effort - never throws.
    */
   async function saveState(platform: string, slot = 1): Promise<boolean> {
     if (!platform) return false;
@@ -233,7 +215,6 @@ export const useStreamingStore = defineStore("streaming", () => {
 
   /**
    * Load game state from a slot (1-10). Slot 10 is the autosave slot on xemu and rpcs3.
-   * Best-effort - never throws.
    */
   async function loadState(platform: string, slot = 1): Promise<boolean> {
     if (!platform) return false;
