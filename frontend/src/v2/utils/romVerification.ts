@@ -5,6 +5,7 @@
 // "verified" filter all agree. Merely having a computed hash
 // (crc/md5/sha1) does NOT make a ROM verified.
 import type { RomHasheousMetadata } from "@/__generated__";
+import type { SimpleRom } from "@/stores/roms";
 
 // Each database this ROM's hash can be checked against, with the Hasheous
 // match flag(s) that count as a hit. MAME reports Arcade and MESS
@@ -28,11 +29,9 @@ export const VERIFICATION_DATABASES: {
 export const VERIFICATION_KEYS: (keyof RomHasheousMetadata)[] =
   VERIFICATION_DATABASES.flatMap((db) => db.keys);
 
-type WithHasheous = { hasheous_metadata?: RomHasheousMetadata | null };
-
 // Whether a single database matched for this ROM.
 export function matchesDatabase(
-  rom: WithHasheous,
+  rom: SimpleRom,
   keys: (keyof RomHasheousMetadata)[],
 ): boolean {
   const h = rom.hasheous_metadata;
@@ -41,6 +40,6 @@ export function matchesDatabase(
 }
 
 // Whether the ROM is verified against any known database.
-export function isRomVerified(rom: WithHasheous): boolean {
+export function isRomVerified(rom: SimpleRom): boolean {
   return matchesDatabase(rom, VERIFICATION_KEYS);
 }
