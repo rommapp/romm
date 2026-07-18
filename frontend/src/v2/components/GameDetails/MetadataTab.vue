@@ -3,9 +3,8 @@
 //   1. File info — name + size only.
 //   2. Hashes — CRC, MD5, SHA1, all mono. RTag with eyebrow label.
 //   3. Verification — RTag per database; tone="success" for match,
-//      neutral for miss. Independent from the "Verified" pill in the
-//      title header which only checks `crc_hash`. RA match comes from
-//      `rom.ra_id`.
+//      neutral for miss. Same source of truth (Hasheous match flags) as
+//      the "Verified" badge in the header, via `VERIFICATION_DATABASES`.
 //   4. Metadata sources — ProviderGrid (linked + unlinked).
 import { RTag } from "@v2/lib";
 import { computed } from "vue";
@@ -14,6 +13,10 @@ import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import ProviderGrid from "@/v2/components/GameDetails/ProviderGrid.vue";
 import HashChip from "@/v2/components/shared/HashChip.vue";
+import {
+  matchesDatabase,
+  VERIFICATION_DATABASES,
+} from "@/v2/utils/romVerification";
 
 defineOptions({ inheritAttrs: false });
 
@@ -55,24 +58,16 @@ const hashRows = computed<{ label: string; value: string | null }[]>(() => {
 
 type Verification = { label: string; match: boolean };
 
-// Per-database match badges. Hasheous covers TOSEC / No-Intro / Redump
-// / FBNeo / MAME (either Arcade or MESS counts). RA is independent —
-// the rom is "verified as RA" when it has an `ra_id` linked.
-const verifications = computed<Verification[]>(() => {
-  const r = props.rom;
-  const h = r.hasheous_metadata ?? null;
-  return [
-    { label: "TOSEC", match: Boolean(h?.tosec_match) },
-    { label: "No-Intro", match: Boolean(h?.nointro_match) },
-    { label: "Redump", match: Boolean(h?.redump_match) },
-    { label: "FBNeo", match: Boolean(h?.fbneo_match) },
-    {
-      label: "MAME",
-      match: Boolean(h?.mame_arcade_match || h?.mame_mess_match),
-    },
-    { label: "RA", match: Boolean(r.ra_id) },
-  ];
-});
+// Per-database match badges, driven by the shared VERIFICATION_DATABASES
+// so this list stays in lockstep with the header badge and the backend
+// filter. A match means the ROM's hash was found in that database (via
+// Hasheous), which is what "verified" communicates.
+const verifications = computed<Verification[]>(() =>
+  VERIFICATION_DATABASES.map((db) => ({
+    label: db.label,
+    match: matchesDatabase(props.rom, db.keys),
+  })),
+);
 </script>
 
 <template>

@@ -431,6 +431,7 @@
   "upload-tracks": "Add tracks",
   "verification": "Потвърждение",
   "verified-rom": "Потвърден ROM",
+  "verified-rom-hint": "Hash verified against ROM database",
   "versions-count": "{n} версии",
   "volume-mute": "Заглуши",
   "volume-unmute": "Включи звука",
