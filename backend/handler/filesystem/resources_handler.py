@@ -23,7 +23,7 @@ from .base_handler import CoverSize, FSHandler
 
 LOCAL_FILE_SCHEMES = ("file://", "launchbox-file://")
 
-ALLOWED_MANUAL_EXTENSIONS = frozenset({".pdf", ".md"})
+ALLOWED_MANUAL_EXTENSIONS = frozenset({".pdf", ".md", ".txt"})
 
 
 def _resolve_local_file_uri(uri: str) -> Path | None:
