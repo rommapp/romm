@@ -778,6 +778,39 @@ class TestRAHasherRvzNativeHashing:
         mock_subprocess.assert_not_called()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "ups,slug,native_fn",
+        [
+            (UPS.NGC, "ngc", "calculate_gamecube_ra_hash"),
+            (UPS.WII, "wii", "calculate_wii_ra_hash"),
+        ],
+    )
+    async def test_folder_glob_without_descriptor_hashes_largest_rvz_natively(
+        self, service: RAHasherService, tmp_path, ups, slug, native_fn
+    ):
+        """A disc folder with no .cue/.gdi/.m3u falls back to the largest
+        file; when that is an .rvz it must reach the native hasher."""
+        platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[ups]
+        (tmp_path / "game (Disc 1).rvz").write_bytes(b"x" * 200)
+        disc2 = tmp_path / "game (Disc 2).rvz"
+        disc2.write_bytes(b"x" * 300)
+
+        with (
+            patch(
+                f"adapters.services.rahasher.{native_fn}",
+                return_value="a1b2c3d4e5f6789012345678901234ab",
+            ) as mock_native,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": platform_id, "slug": slug}, f"{tmp_path}/*"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_native.assert_called_once_with(str(disc2))
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_falls_back_to_rahasher_when_native_fails(
         self, service: RAHasherService
     ):
