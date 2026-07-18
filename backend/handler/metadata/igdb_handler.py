@@ -738,7 +738,7 @@ class IGDBHandler(MetadataHandler):
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)
 
         # Support for sony serial filename format (PS, PS2, PSP)
-        match = SONY_SERIAL_REGEX.search(fs_name, re.IGNORECASE)
+        match = SONY_SERIAL_REGEX.search(fs_name)
         if platform_igdb_id == PS1_IGDB_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)
