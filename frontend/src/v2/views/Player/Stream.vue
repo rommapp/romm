@@ -1,19 +1,19 @@
 <script setup lang="ts">
-// Stream — v2 player for the emulator streaming framework. A native
+// Player for the emulator streaming framework. A native
 // emulator (PCSX2 / Dolphin / xemu / Eden) runs in a separate container
-// with a Selkies WebRTC stream; RomM claims a session through the
+// with a Selkies WebRTC stream. RomM claims a session through the
 // backend `/api/streaming` endpoints and displays the stream in an
 // iframe pointed at the container's web UI. Session lifecycle, save
 // state control, and volume are proxied to a broker sidecar inside
 // that container via the shared `useStreamingStore`.
 //
-// Layout — two states, mirroring the Ruffle/EmulatorJS v2 players:
+// Layout — two states, mirroring the Ruffle/EmulatorJS players:
 //   1. Launch screen: hero cover + title + Play CTA + back links, plus
 //      an in-use / error alert when the session can't be claimed.
 //   2. Active player: full-bleed iframe with an auto-hiding control
 //      bar (volume, save/load state, fullscreen, save-and-exit, stop).
 //
-// The streaming store owns the session state; this view owns only the
+// The streaming store owns the session state. This view only owns the
 // local player chrome (UI visibility, fullscreen, pending flags).
 import { RAlert, RBtn, RIcon, RSpinner } from "@v2/lib";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -40,6 +40,9 @@ const streamingStore = useStreamingStore();
 const snackbar = useSnackbar();
 const setBgArt = useBackgroundArt();
 
+const romsStore = storeRoms();
+const galleryRoms = storeGalleryRoms();
+
 const rom = ref<DetailedRom | null>(null);
 const playerState = ref<PlayerState>("idle");
 const errorType = ref<ErrorType>(null);
@@ -59,13 +62,7 @@ const isMuted = ref(false);
 const playerWrapper = ref<HTMLElement | null>(null);
 const streamFrame = ref<HTMLIFrameElement | null>(null);
 
-// Rom id from the route param (available before `rom` resolves) so the
-// hero cover paints its `view-transition-name` immediately and the
-// shared-element morph from the gallery / details cover pairs on entry.
-const morphRomId = computed(() => {
-  const r = route.params.rom;
-  return typeof r === "string" ? r : null;
-});
+const romId = computed(() => Number(route.params.rom));
 
 // Seed synchronously so the hero cover is in the DOM when the view
 // transition captures this view and the morph pairs on entry. From
@@ -73,19 +70,18 @@ const morphRomId = computed(() => {
 // gallery→play only a SimpleRom exists, so seed a cover-only `heroSeed`
 // (`rom` stays null until `onMounted` refetches). See EmulatorJS / Ruffle
 // for the same pattern.
-const seededRom = storeRoms().currentRom;
-if (seededRom && String(seededRom.id) === morphRomId.value) {
-  rom.value = seededRom;
+if (romsStore.currentRom && romsStore.currentRom.id === romId.value) {
+  rom.value = romsStore.currentRom;
 }
+
 const heroSeed = ref<SimpleRom | null>(null);
-if (!rom.value && morphRomId.value != null) {
-  heroSeed.value = storeGalleryRoms().getRomById(Number(morphRomId.value));
+if (!rom.value && romId.value != null) {
+  heroSeed.value = galleryRoms.getRomById(romId.value);
 }
+
 const heroRom = computed<DetailedRom | SimpleRom | null>(
   () => rom.value ?? heroSeed.value,
 );
-
-const romId = computed(() => Number(route.params.rom));
 
 const container = computed(() =>
   rom.value
@@ -121,10 +117,15 @@ const backRoute = computed(() =>
 // clear it once the player goes full-bleed so the stream isn't fought
 // by a blurred backdrop behind the iframe.
 const bgCoverUrl = computed(() => {
-  const r = rom.value;
-  if (!r) return null;
-  return r.path_cover_large ?? r.path_cover_small ?? r.url_cover ?? null;
+  if (!rom.value) return null;
+  return (
+    rom.value.path_cover_large ??
+    rom.value.path_cover_small ??
+    rom.value.url_cover ??
+    null
+  );
 });
+
 watch(
   bgCoverUrl,
   (url) => setBgArt(playerState.value === "playing" ? null : url),
@@ -132,6 +133,7 @@ watch(
     immediate: true,
   },
 );
+
 watch(playerState, (state) =>
   setBgArt(state === "playing" ? null : bgCoverUrl.value),
 );
@@ -174,11 +176,11 @@ onBeforeUnmount(() => {
   contentWindowCleanup?.();
   contentWindowCleanup = null;
   if (playerState.value === "exited") {
-    // handleSaveAndExit already released the session — nothing to do.
+    // handleSaveAndExit already released the session, nothing to do.
     return;
   }
   if (playerState.value === "playing") {
-    // Navigation away while a game is active — fire save+kill in the
+    // Navigation away while a game is active. Fire save+kill in the
     // broker background and return immediately so navigation is never
     // held up.
     void streamingStore.saveAndExit(
@@ -211,10 +213,6 @@ function showUI(): void {
   }, 1500);
 }
 
-function handleMouseMove(): void {
-  showUI();
-}
-
 /** Attach mousemove listener to iframe contentWindow if same-origin.
  * Cleans up any previous load listener before adding a new one. Guards
  * against double-attachment across repeated calls. */
@@ -230,23 +228,14 @@ function attachIframeListeners(): void {
     if (contentWindowCleanup) return;
     try {
       if (frame.contentWindow) {
-        frame.contentWindow.addEventListener("mousemove", handleMouseMove);
-        frame.contentWindow.addEventListener("mousedown", handleMouseMove);
-        frame.contentWindow.addEventListener("touchstart", handleMouseMove);
+        frame.contentWindow.addEventListener("mousemove", showUI);
+        frame.contentWindow.addEventListener("mousedown", showUI);
+        frame.contentWindow.addEventListener("touchstart", showUI);
         contentWindowCleanup = () => {
           try {
-            frame.contentWindow?.removeEventListener(
-              "mousemove",
-              handleMouseMove,
-            );
-            frame.contentWindow?.removeEventListener(
-              "mousedown",
-              handleMouseMove,
-            );
-            frame.contentWindow?.removeEventListener(
-              "touchstart",
-              handleMouseMove,
-            );
+            frame.contentWindow?.removeEventListener("mousemove", showUI);
+            frame.contentWindow?.removeEventListener("mousedown", showUI);
+            frame.contentWindow?.removeEventListener("touchstart", showUI);
           } catch {
             // Cross-origin — listeners were never added, nothing to remove.
           }
@@ -445,7 +434,7 @@ const showLaunchScreen = computed(
           :rom="heroRom"
           :title="title"
           :identified="heroRom?.is_identified ?? true"
-          :morph-id="morphRomId"
+          :morph-id="`stream-cover-${romId}`"
           morph-static
           hover-motion
         />
@@ -521,7 +510,7 @@ const showLaunchScreen = computed(
       class="r-v2-stream__player"
       :class="{ 'r-v2-stream__player--hide-cursor': !isUIVisible }"
       role="presentation"
-      @mousemove="handleMouseMove"
+      @mousemove="showUI"
     >
       <!-- iframe points at the emulator container's built-in web UI. -->
       <iframe
@@ -537,7 +526,7 @@ const showLaunchScreen = computed(
 
       <!-- Hover sensor for cross-origin fallback — bottom only so the
            top of the stream isn't blocked by an invisible trigger zone. -->
-      <div class="r-v2-stream__sensor" @mousemove="handleMouseMove" />
+      <div class="r-v2-stream__sensor" @mousemove="showUI" />
 
       <!-- Control bar. -->
       <div
