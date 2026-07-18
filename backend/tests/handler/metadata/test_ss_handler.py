@@ -1,5 +1,6 @@
 """Tests for the ScreenScraper metadata handler."""
 
+import json
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, urlparse
@@ -9,7 +10,9 @@ from fastapi import HTTPException, status
 
 from adapters.services.screenscraper_types import SSGame
 from config.config_manager import Config, MetadataMediaType
+from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.ss_handler import (
+    PS1_SS_ID,
     SSHandler,
     _get_rom_type,
     _is_notgame,
@@ -18,6 +21,7 @@ from handler.metadata.ss_handler import (
     extract_metadata_from_ss_rom,
     get_preferred_regions,
 )
+from handler.redis_handler import async_cache
 
 
 def _make_config(
@@ -1207,3 +1211,33 @@ class TestSearchTermEncoding:
         url = captured["url"]
         assert "%2B" in url
         assert "%252B" not in url
+
+
+class TestSonySerialFilenames:
+    """Tests for Sony serial resolution in get_rom."""
+
+    @pytest.mark.asyncio
+    async def test_serial_at_filename_start_resolves_title(self):
+        """A serial in the first two characters of the filename must still hit
+        the serial index. Regression: re.IGNORECASE was passed as the ``pos``
+        argument of ``Pattern.search()``, skipping the first two characters,
+        so files named by their serial (e.g. ``SCUS-94163.bin``) were never
+        resolved."""
+        handler = SSHandler()
+
+        with (
+            patch(
+                "handler.metadata.ss_handler.SSHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
+            patch.object(
+                SSHandler, "_search_rom", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            mock_hget.return_value = json.dumps({"title": "Gran Turismo"})
+            result = await handler.get_rom(MagicMock(), "SCUS-94163.bin", PS1_SS_ID)
+
+        mock_hget.assert_awaited_once_with(PS1_SERIAL_INDEX_KEY, "SCUS-94163")
+        assert result.get("name") == "Gran Turismo"
+        assert result["ss_id"] is None

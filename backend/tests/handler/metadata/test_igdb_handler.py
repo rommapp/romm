@@ -1,13 +1,16 @@
 """Tests for the IGDB metadata handler."""
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from adapters.services.igdb_types import GameType
+from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.igdb_handler import (
     FAMICOM_IGDB_ID,
     NES_IGDB_ID,
+    PS1_IGDB_ID,
     SNES_IGDB_ID,
     SUPER_FAMICOM_IGDB_ID,
     IGDBHandler,
@@ -15,6 +18,7 @@ from handler.metadata.igdb_handler import (
     _platform_igdb_ids_with_twin,
     get_igdb_preferred_locale,
 )
+from handler.redis_handler import async_cache
 
 GENESIS_IGDB_ID = 29
 
@@ -671,3 +675,33 @@ class TestSearchRomRegionalTwinPlatforms:
         assert any(
             f"platforms=[{GENESIS_IGDB_ID}]" in w for w in captured_wheres
         ), captured_wheres
+
+
+class TestSonySerialFilenames:
+    """Tests for Sony serial resolution in get_rom."""
+
+    @pytest.mark.asyncio
+    async def test_serial_at_filename_start_resolves_title(self):
+        """A serial in the first two characters of the filename must still hit
+        the serial index. Regression: re.IGNORECASE was passed as the ``pos``
+        argument of ``Pattern.search()``, skipping the first two characters,
+        so files named by their serial (e.g. ``SCUS-94163.bin``) were never
+        resolved."""
+        handler = IGDBHandler()
+
+        with (
+            patch(
+                "handler.metadata.igdb_handler.IGDBHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
+            patch.object(
+                IGDBHandler, "_search_rom", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            mock_hget.return_value = json.dumps({"title": "Gran Turismo"})
+            result = await handler.get_rom(MagicMock(), "SCUS-94163.bin", PS1_IGDB_ID)
+
+        mock_hget.assert_awaited_once_with(PS1_SERIAL_INDEX_KEY, "SCUS-94163")
+        assert result.get("name") == "Gran Turismo"
+        assert result["igdb_id"] is None
