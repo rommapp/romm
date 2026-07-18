@@ -89,6 +89,7 @@ from .patch import router as patch_router
 from .screenshot import router as screenshot_router
 from .soundtrack import router as soundtrack_router
 from .upload import router as upload_router
+from .walkthrough import router as walkthrough_router
 
 router = APIRouter(
     prefix="/roms",
@@ -97,6 +98,7 @@ router = APIRouter(
 router.include_router(upload_router)
 router.include_router(files_router)
 router.include_router(manual_router)
+router.include_router(walkthrough_router)
 router.include_router(soundtrack_router)
 router.include_router(screenshot_router)
 router.include_router(notes_router)

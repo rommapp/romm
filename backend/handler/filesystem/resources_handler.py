@@ -20,7 +20,11 @@ from .base_handler import CoverSize, FSHandler
 
 LOCAL_FILE_SCHEMES = ("file://", "launchbox-file://")
 
-ALLOWED_MANUAL_EXTENSIONS = frozenset({".pdf", ".md"})
+# Manual files (primary resources slot + rom manual/ folder). HTML is
+# intentionally excluded here: the primary manual is served straight from the
+# static resources path without a sandboxing CSP. HTML walkthroughs go through
+# the content endpoint instead, which sandboxes them.
+ALLOWED_MANUAL_EXTENSIONS = frozenset({".pdf", ".md", ".txt"})
 
 
 def _resolve_local_file_uri(uri: str) -> Path | None:
