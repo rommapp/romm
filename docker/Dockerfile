@@ -17,8 +17,8 @@ ARG ALPINE_VERSION=3.23
 ARG ALPINE_SHA256=25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659
 ARG PYTHON_VERSION=3.13
 ARG PYTHON_ALPINE_SHA256=bb1f2fdb1065c85468775c9d680dcd344f6442a2d1181ef7916b60a623f11d40
-ARG NODE_VERSION=24.13
-ARG NODE_ALPINE_SHA256=4f696fbf39f383c1e486030ba6b289a5d9af541642fc78ab197e584a113b9c03
+ARG NODE_VERSION=24.16
+ARG NODE_ALPINE_SHA256=2bdb65ed1dab192432bc31c95f94155ca5ad7fc1392fb7eb7526ab682fa5bf14
 ARG NGINX_VERSION=1.29.5
 ARG NGINX_SHA256=1d13701a5f9f3fb01aaa88cef2344d65b6b5bf6b7d9fa4cf0dca557a8d7702ba
 ARG UV_VERSION=0.11.2
@@ -29,7 +29,10 @@ FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA
 
 
 # FRONTEND BUILD
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS frontend-build
+# Built on the native build platform: the output (/front/dist) is static JS/CSS,
+# fully architecture-independent, so there is no need to emulate the target arch.
+# This avoids running `npm ci`/Node under QEMU arm64 emulation, which hangs.
+FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS frontend-build
 WORKDIR /front
 
 COPY ./frontend/package*.json ./
@@ -37,6 +40,13 @@ RUN npm ci --ignore-scripts --no-audit --no-fund
 
 COPY ./frontend ./
 RUN npm run build
+
+
+# BACKEND NODE HELPERS BUILD (server-side ROM patching via RomPatcher.js)
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS backend-node-build
+WORKDIR /backend-node/rom_patcher
+COPY ./backend/utils/rom_patcher/package*.json ./
+RUN npm ci --ignore-scripts --no-audit --no-fund
 
 
 # https://github.com/astral-sh/uv/pkgs/container/uv/452595714
@@ -61,7 +71,7 @@ COPY --from=uv-stage /usr/local/bin/uv /usr/local/bin/uvx /bin/
 WORKDIR /src
 
 COPY ./pyproject.toml ./uv.lock /src/
-RUN uv sync --locked --no-cache
+RUN uv sync --frozen --no-cache
 
 FROM backend-build AS backend-dev-build
 
@@ -69,7 +79,7 @@ FROM backend-build AS backend-dev-build
 RUN apk add --no-cache \
     linux-headers
 
-RUN uv sync --locked --no-cache --all-extras
+RUN uv sync --frozen --no-cache --all-extras
 
 
 # CUSTOM RAHASHER FOR RETROACHIEVEMENTS
@@ -79,20 +89,18 @@ RUN apk add --no-cache \
     git \
     linux-headers \
     make \
-    zlib-dev
+    zlib-dev \
+    bash
 
-ARG RALIBRETRO_VERSION=1.8.1
+ARG RALIBRETRO_VERSION=1.8.3
 
-# TODO: Remove `sed` command adding "ctime", when RAHasher can be compiled without it.
-# TODO: Remove `sed` command adding "unistd.h", when RAHasher can be compiled without it.
-#       Related pull request: https://github.com/madler/zlib/pull/1022
 RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://github.com/RetroAchievements/RALibretro.git && \
     cd ./RALibretro && \
     sed -i '22a #include <ctime>' ./src/Util.h && \
     sed -i '6a #include <unistd.h>' \
-      ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
-      ./src/libchdr/deps/zlib-1.3.1/gzread.c \
-      ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
+        ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
+        ./src/libchdr/deps/zlib-1.3.1/gzread.c \
+        ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
     make HAVE_CHD=1 -f ./Makefile.RAHasher
 
 
@@ -162,6 +170,7 @@ RUN apk add --no-cache \
     libmagic \
     mariadb-connector-c \
     libpq \
+    nodejs \
     7zip \
     tzdata \
     valkey
@@ -180,11 +189,11 @@ COPY --from=python-alias /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/p
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
+COPY --from=backend-node-build /backend-node/rom_patcher/node_modules/rom-patcher/rom-patcher-js /backend/utils/rom_patcher/rom-patcher-js
 
 COPY ./frontend/assets ${WEBSERVER_FOLDER}/assets
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
-    ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
-    ln -sf /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
+    ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
 COPY ./backend /backend
 
 # Setup init script and config files
@@ -202,7 +211,8 @@ RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
     mkdir /romm /redis-data && \
     chown romm:romm /romm /redis-data && \
     chmod 755 /romm /redis-data && \
-    chmod -R a+w /etc/nginx/conf.d
+    chmod -R a+w /etc/nginx/conf.d && \
+    chmod -R a+w /etc/gunicorn
 
 
 # SLIM IMAGE
@@ -214,13 +224,21 @@ COPY --from=backend-build /src/.venv /src/.venv
 
 ENV PATH="/src/.venv/bin:${PATH}"
 
+# ScreenScraper developer (application) credentials, injected at build time from
+# CI secrets. Kept out of the source tree; empty when not supplied at build.
+ARG SCREENSCRAPER_DEV_ID
+ARG SCREENSCRAPER_DEV_PASSWORD
+ENV SCREENSCRAPER_DEV_ID=${SCREENSCRAPER_DEV_ID}
+ENV SCREENSCRAPER_DEV_PASSWORD=${SCREENSCRAPER_DEV_PASSWORD}
+
 # Security: Set security-focused environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/backend
 
-# Declare the supported volumes
-VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/redis-data"]
+# Declare only the parent `/romm`, not its subdirs, so Docker keeps them 
+# on one mount (`st_dev`) and cross-directory `os.link()` hardlinks don't fail.
+VOLUME ["/romm", "/redis-data"]
 
 # Expose non-privileged ports
 EXPOSE 8080 6379/tcp

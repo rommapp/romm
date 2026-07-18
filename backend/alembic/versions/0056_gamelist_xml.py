@@ -19,7 +19,8 @@ depends_on = None
 def upgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(
-            sa.Column("gamelist_id", sa.String(length=100), nullable=True)
+            sa.Column("gamelist_id", sa.String(length=100), nullable=True),
+            if_not_exists=True,
         )
         batch_op.add_column(
             sa.Column(
@@ -28,13 +29,16 @@ def upgrade() -> None:
                     postgresql.JSONB(astext_type=sa.Text()), "postgresql"
                 ),
                 nullable=True,
-            )
+            ),
+            if_not_exists=True,
         )
-        batch_op.create_index("idx_roms_gamelist_id", ["gamelist_id"], unique=False)
+        batch_op.create_index(
+            "idx_roms_gamelist_id", ["gamelist_id"], unique=False, if_not_exists=True
+        )
 
 
 def downgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_index("idx_roms_gamelist_id")
-        batch_op.drop_column("gamelist_metadata")
-        batch_op.drop_column("gamelist_id")
+        batch_op.drop_index("idx_roms_gamelist_id", if_exists=True)
+        batch_op.drop_column("gamelist_metadata", if_exists=True)
+        batch_op.drop_column("gamelist_id", if_exists=True)

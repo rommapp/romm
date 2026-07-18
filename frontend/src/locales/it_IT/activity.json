@@ -1,0 +1,14 @@
+{
+  "active-sessions": "Sessioni attive",
+  "days-ago": "{n} g fa",
+  "hours-ago": "{n} h fa",
+  "hours-minutes-ago": "{h} h {m} min fa",
+  "just-now": "Proprio ora",
+  "live": "IN DIRETTA",
+  "minutes-ago": "{n} min fa",
+  "no-activity": "Al momento non sta giocando nessuno",
+  "now-playing": "In gioco",
+  "playing-on": "Sta giocando su {device}",
+  "playing-since": "Sta giocando da {time}",
+  "total-sessions": "Sessioni totali"
+}

@@ -23,6 +23,7 @@ class UserSchema(BaseModel):
     email: str | None
     enabled: bool
     role: Role
+    permission_group_id: int | None = None
     oauth_scopes: list[str]
     avatar_path: str
     last_login: UTCDatetime | None
@@ -43,7 +44,9 @@ class UserSchema(BaseModel):
             return None
 
         schema = cls.model_validate(db_user)
-        schema.current_device_id = request.session.get("device_id")
+        schema.current_device_id = getattr(
+            request.state, "device_id", None
+        ) or request.session.get("device_id")
         return schema
 
 

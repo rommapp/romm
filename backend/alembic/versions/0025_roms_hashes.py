@@ -18,15 +18,22 @@ depends_on = None
 
 def upgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("crc_hash", sa.String(length=100), nullable=True))
-        batch_op.add_column(sa.Column("md5_hash", sa.String(length=100), nullable=True))
         batch_op.add_column(
-            sa.Column("sha1_hash", sa.String(length=100), nullable=True)
+            sa.Column("crc_hash", sa.String(length=100), nullable=True),
+            if_not_exists=True,
+        )
+        batch_op.add_column(
+            sa.Column("md5_hash", sa.String(length=100), nullable=True),
+            if_not_exists=True,
+        )
+        batch_op.add_column(
+            sa.Column("sha1_hash", sa.String(length=100), nullable=True),
+            if_not_exists=True,
         )
 
 
 def downgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_column("sha1_hash")
-        batch_op.drop_column("md5_hash")
-        batch_op.drop_column("crc_hash")
+        batch_op.drop_column("sha1_hash", if_exists=True)
+        batch_op.drop_column("md5_hash", if_exists=True)
+        batch_op.drop_column("crc_hash", if_exists=True)

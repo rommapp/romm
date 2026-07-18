@@ -18,21 +18,26 @@ depends_on = None
 
 def upgrade() -> None:
     with op.batch_alter_table("platforms", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("flashpoint_id", sa.Integer(), nullable=True))
         batch_op.add_column(
-            sa.Column("igdb_slug", sa.String(length=100), nullable=True)
+            sa.Column("flashpoint_id", sa.Integer(), nullable=True), if_not_exists=True
         )
         batch_op.add_column(
-            sa.Column("moby_slug", sa.String(length=100), nullable=True)
+            sa.Column("igdb_slug", sa.String(length=100), nullable=True),
+            if_not_exists=True,
         )
         batch_op.add_column(
-            sa.Column("hltb_slug", sa.String(length=100), nullable=True)
+            sa.Column("moby_slug", sa.String(length=100), nullable=True),
+            if_not_exists=True,
+        )
+        batch_op.add_column(
+            sa.Column("hltb_slug", sa.String(length=100), nullable=True),
+            if_not_exists=True,
         )
 
 
 def downgrade() -> None:
     with op.batch_alter_table("platforms", schema=None) as batch_op:
-        batch_op.drop_column("hltb_slug")
-        batch_op.drop_column("moby_slug")
-        batch_op.drop_column("igdb_slug")
-        batch_op.drop_column("flashpoint_id")
+        batch_op.drop_column("hltb_slug", if_exists=True)
+        batch_op.drop_column("moby_slug", if_exists=True)
+        batch_op.drop_column("igdb_slug", if_exists=True)
+        batch_op.drop_column("flashpoint_id", if_exists=True)

@@ -1,7 +1,5 @@
 from pydantic import ConfigDict, Field, computed_field, field_validator
 
-from models.platform import DEFAULT_COVER_ASPECT_RATIO
-
 from .base import BaseModel, UTCDatetime
 from .firmware import FirmwareSchema
 
@@ -17,6 +15,7 @@ class PlatformSchema(BaseModel):
     igdb_slug: str | None
     moby_slug: str | None
     hltb_slug: str | None
+    libretro_slug: str | None
     custom_name: str | None = None
     igdb_id: int | None = None
     sgdb_id: int | None = None
@@ -34,7 +33,6 @@ class PlatformSchema(BaseModel):
     url: str | None = None
     url_logo: str | None = None
     firmware: list[FirmwareSchema] = Field(default_factory=list)
-    aspect_ratio: str = DEFAULT_COVER_ASPECT_RATIO
     created_at: UTCDatetime
     updated_at: UTCDatetime
     fs_size_bytes: int

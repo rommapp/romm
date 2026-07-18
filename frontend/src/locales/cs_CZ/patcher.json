@@ -14,12 +14,20 @@
   "error-no-platform": "Prosím vyberte platformu pro nahrání.",
   "error-no-rom": "Prosím vyberte ROM soubor.",
   "error-upload-failed": "Nelze nahrát ROM: {error}",
+  "missing-from-fs": "Missing from filesystem",
+  "no-files": "This ROM has no files.",
   "output-filename": "Název výstupního souboru (volitelné)",
   "patch-file": "Patch soubor",
   "powered-by": "Běží na patcherjs",
   "replace": "Nahradit",
   "rom-file": "ROM soubor",
+  "search-patch-library": "Search patches in library",
+  "search-rom-library": "Search ROMs in library",
+  "select-file": "Select file",
+  "select-patch-file": "Select patch file",
+  "start-typing": "Start typing to search...",
   "status-downloading": "Stahování opatchovaného ROMu...",
+  "status-patching": "Applying patch on server...",
   "status-preparing": "Příprava souborů...",
   "status-uploading": "Nahrávání do RomM...",
   "subtitle": "Vyberte základní ROM a patch soubor, poté aplikujte pro stažení opatchovaného ROMu.",
@@ -30,5 +38,6 @@
   "title": "ROM Patcher",
   "upload-errors": " (s některými chybami)",
   "upload-success": "Opatchovaný ROM úspěšně nahrán{errors}. Spouštění skenování...",
-  "upload-to-romm": "Nahrát do RomM"
+  "upload-to-romm": "Nahrát do RomM",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

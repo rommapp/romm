@@ -45,10 +45,6 @@ export default defineStore("navigation", {
       this.reset();
       this.$router.push({ name: ROUTES.SCAN });
     },
-    goPatcher() {
-      this.reset();
-      this.$router.push({ name: ROUTES.PATCHER });
-    },
     goSearch() {
       this.reset();
       this.$router.push({ name: ROUTES.SEARCH });

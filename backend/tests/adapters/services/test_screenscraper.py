@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import http
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -11,10 +10,11 @@ from fastapi import HTTPException, status
 
 from adapters.services.screenscraper import (
     LOGIN_ERROR_CHECK,
-    SS_DEV_ID,
-    SS_DEV_PASSWORD,
     ScreenScraperService,
+    _loads_lenient,
     auth_middleware,
+    is_daily_quota_exhausted,
+    reset_daily_quota,
 )
 
 INVALID_GAME_ID = 999999
@@ -24,22 +24,14 @@ INVALID_SYSTEM_ID = 999999
 class TestScreenScraperConstants:
     """Test ScreenScraper constants and configuration."""
 
-    def test_ss_dev_id_decoded(self):
-        """Test that SS_DEV_ID is properly decoded."""
-        expected = base64.b64decode("enVyZGkxNQ==").decode()
-        assert SS_DEV_ID == expected
-
-    def test_ss_dev_password_decoded(self):
-        """Test that SS_DEV_PASSWORD is properly decoded."""
-        expected = base64.b64decode("eFRKd29PRmpPUUc=").decode()
-        assert SS_DEV_PASSWORD == expected
-
     def test_login_error_check_constant(self):
         """Test that LOGIN_ERROR_CHECK constant is defined."""
         assert LOGIN_ERROR_CHECK == "Erreur de login"
 
 
 class TestAuthMiddleware:
+    @patch("adapters.services.screenscraper.SCREENSCRAPER_DEV_ID", "dev_id")
+    @patch("adapters.services.screenscraper.SCREENSCRAPER_DEV_PASSWORD", "dev_pass")
     @patch("adapters.services.screenscraper.SCREENSCRAPER_USER", "test_user")
     @patch("adapters.services.screenscraper.SCREENSCRAPER_PASSWORD", "test_pass")
     @pytest.mark.asyncio
@@ -57,8 +49,8 @@ class TestAuthMiddleware:
 
         # Check that the URL now contains all auth parameters
         expected_params = {
-            "devid": SS_DEV_ID,
-            "devpassword": SS_DEV_PASSWORD,
+            "devid": "dev_id",
+            "devpassword": "dev_pass",
             "output": "json",
             "softname": "romm",
             "ssid": "test_user",
@@ -71,6 +63,8 @@ class TestAuthMiddleware:
         mock_handler.assert_called_once_with(mock_request)
         assert result == mock_response
 
+    @patch("adapters.services.screenscraper.SCREENSCRAPER_DEV_ID", None)
+    @patch("adapters.services.screenscraper.SCREENSCRAPER_DEV_PASSWORD", None)
     @patch("adapters.services.screenscraper.SCREENSCRAPER_USER", "")
     @patch("adapters.services.screenscraper.SCREENSCRAPER_PASSWORD", "")
     @pytest.mark.asyncio
@@ -86,8 +80,8 @@ class TestAuthMiddleware:
         result = await auth_middleware(mock_request, mock_handler)
 
         expected_params = {
-            "devid": SS_DEV_ID,
-            "devpassword": SS_DEV_PASSWORD,
+            "devid": "",
+            "devpassword": "",
             "output": "json",
             "softname": "romm",
             "ssid": "",
@@ -102,6 +96,14 @@ class TestAuthMiddleware:
 
 class TestScreenScraperServiceUnit:
     """Unit tests with mocked dependencies."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_daily_quota(self):
+        """The daily-quota breaker is module-level state; reset it around each
+        test so a tripped breaker can't leak into unrelated tests."""
+        reset_daily_quota()
+        yield
+        reset_daily_quota()
 
     @pytest.fixture
     def service(self):
@@ -147,6 +149,78 @@ class TestScreenScraperServiceUnit:
         mock_session.get.assert_called_once()
         mock_response.raise_for_status.assert_called_once()
         mock_response.json.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_request_holds_concurrency_slot(self, service, monkeypatch):
+        """Test that the request acquires and releases a concurrency slot."""
+        import adapters.services.screenscraper as ss_module
+
+        acquire_mock = AsyncMock()
+        release_mock = MagicMock()
+        monkeypatch.setattr(ss_module._concurrency_limiter, "acquire", acquire_mock)
+        monkeypatch.setattr(ss_module._concurrency_limiter, "release", release_mock)
+
+        mock_session = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(return_value={"response": {}})
+        mock_response.text = AsyncMock(return_value="{}")
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.return_value = mock_response
+
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        acquire_mock.assert_awaited_once()
+        release_mock.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_request_updates_thread_allowance_from_ssuser(self, service):
+        """Test that `ssuser.maxthreads` raises the concurrency cap (donor perk)."""
+        import adapters.services.screenscraper as ss_module
+
+        assert ss_module._concurrency_limiter.max_concurrency == 1
+
+        mock_session = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(
+            return_value={"response": {"ssuser": {"maxthreads": "5"}}}
+        )
+        mock_response.text = AsyncMock(return_value="{}")
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.return_value = mock_response
+
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert ss_module._concurrency_limiter.max_concurrency == 5
+
+    @pytest.mark.asyncio
+    async def test_request_ignores_invalid_maxthreads(self, service):
+        """Test that a missing or unparsable `maxthreads` leaves the cap untouched."""
+        import adapters.services.screenscraper as ss_module
+
+        mock_session = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(
+            return_value={"response": {"ssuser": {"maxthreads": "not-a-number"}}}
+        )
+        mock_response.text = AsyncMock(return_value="{}")
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.return_value = mock_response
+
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert ss_module._concurrency_limiter.max_concurrency == 1
 
     @pytest.mark.asyncio
     async def test_request_login_error(self, service):
@@ -299,6 +373,178 @@ class TestScreenScraperServiceUnit:
             )
 
         assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_request_blacklisted_raises_403(self, service):
+        """Test that HTTP 426 (blacklisted version) raises HTTP 403."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(), history=(), status=426
+        )
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with pytest.raises(HTTPException) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+        assert "blacklisted" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_request_daily_quota_exhausted_raises_429(self, service):
+        """Test that HTTP 430 (daily scrape quota) raises HTTP 429."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(), history=(), status=430
+        )
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with pytest.raises(HTTPException) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert "daily scrape quota" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_request_unrecognized_rom_quota_exhausted_raises_429(self, service):
+        """Test that HTTP 431 (unrecognized ROM quota) raises HTTP 429."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(), history=(), status=431
+        )
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with pytest.raises(HTTPException) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert "unrecognized" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_request_daily_quota_exhausted_on_retry_raises_429(self, service):
+        """Test that HTTP 430 on the retry attempt still raises HTTP 429."""
+        mock_session = AsyncMock()
+        # First call times out, retry hits the daily quota.
+        mock_session.get.side_effect = [
+            aiohttp.ServerTimeoutError("Timeout"),
+            aiohttp.ClientResponseError(
+                request_info=MagicMock(), history=(), status=430
+            ),
+        ]
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with pytest.raises(HTTPException) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert "daily scrape quota" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_request_daily_quota_trips_breaker_and_short_circuits(self, service):
+        """A 430 (daily quota) trips the breaker; subsequent requests short-circuit
+        without hitting the API, but still raise 429 so callers see the message."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(), history=(), status=430
+        )
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with pytest.raises(HTTPException):
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+            assert is_daily_quota_exhausted() is True
+            assert mock_session.get.call_count == 1
+
+            # The breaker is tripped: the next request must not hit the API, but
+            # must still raise 429 so manual search surfaces a clear message.
+            with pytest.raises(HTTPException) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert "quota exhausted" in exc_info.value.detail
+        assert mock_session.get.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_reset_daily_quota_clears_breaker(self, service):
+        """reset_daily_quota() re-enables requests after the breaker tripped."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(), history=(), status=431
+        )
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with pytest.raises(HTTPException):
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert is_daily_quota_exhausted() is True
+
+        reset_daily_quota()
+        assert is_daily_quota_exhausted() is False
+
+        # After reset, a fresh request reaches the API again.
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(return_value={"response": {"jeu": {"id": "1"}}})
+        mock_response.text = AsyncMock(
+            return_value='{"response": {"jeu": {"id": "1"}}}'
+        )
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.side_effect = None
+        mock_session.get.return_value = mock_response
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            result = await service._request(
+                "https://api.screenscraper.fr/api2/jeuInfos.php"
+            )
+
+        assert result == {"response": {"jeu": {"id": "1"}}}
+
+    @pytest.mark.asyncio
+    async def test_request_api_offline_raises_503(self, service):
+        """Test that HTTP 423 (API offline) raises HTTP 503."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(), history=(), status=423
+        )
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with pytest.raises(HTTPException) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert "offline" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_request_cpu_throttle_returns_empty_dict(self, service):
+        """Test that HTTP 401 (server CPU throttle) returns empty dict without retrying."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=http.HTTPStatus.UNAUTHORIZED,
+        )
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            result = await service._request(
+                "https://api.screenscraper.fr/api2/jeuInfos.php"
+            )
+
+        assert result == {}
+        assert mock_session.get.call_count == 1
 
     @pytest.mark.asyncio
     async def test_get_game_info_with_crc(self, service):
@@ -879,3 +1125,23 @@ class TestScreenScraperServiceEdgeCases:
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
         assert "Invalid ScreenScraper credentials" in exc_info.value.detail
         assert mock_session.get.call_count == 2
+
+
+class TestLoadsLenient:
+    """Test tolerant parsing of ScreenScraper's occasionally malformed JSON."""
+
+    def test_parses_valid_json(self):
+        assert _loads_lenient('{"a": 1, "b": "x"}') == {"a": 1, "b": "x"}
+
+    def test_repairs_invalid_backslash_escape(self):
+        # ScreenScraper sometimes emits raw backslashes in text fields, which the
+        # strict parser rejects with "Invalid \escape".
+        raw = '{"synopsis": "path C:\\emu\\games"}'
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(raw)
+        assert _loads_lenient(raw) == {"synopsis": "path C:\\emu\\games"}
+
+    def test_preserves_valid_escapes(self):
+        assert _loads_lenient('{"s": "line\\nbreak \\"quoted\\" \\u00e9"}') == {
+            "s": 'line\nbreak "quoted" é'
+        }

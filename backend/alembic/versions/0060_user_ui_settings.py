@@ -27,11 +27,12 @@ def upgrade() -> None:
                     postgresql.JSONB(astext_type=sa.Text()), "postgresql"
                 ),
                 nullable=True,
-            )
+            ),
+            if_not_exists=True,
         )
 
 
 def downgrade() -> None:
     """Remove ui_settings column from users table."""
     with op.batch_alter_table("users", schema=None) as batch_op:
-        batch_op.drop_column("ui_settings")
+        batch_op.drop_column("ui_settings", if_exists=True)

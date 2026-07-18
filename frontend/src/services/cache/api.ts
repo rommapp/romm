@@ -78,6 +78,15 @@ class CachedApiService {
         params.selectedPlayerCounts && params.selectedPlayerCounts.length > 0
           ? params.selectedPlayerCounts
           : undefined,
+      metadata_providers:
+        params.selectedMetadataProviders &&
+        params.selectedMetadataProviders.length > 0
+          ? params.selectedMetadataProviders
+          : undefined,
+      tags:
+        params.selectedTags && params.selectedTags.length > 0
+          ? params.selectedTags
+          : undefined,
       // Logic operators
       genres_logic:
         params.selectedGenres && params.selectedGenres.length > 0
@@ -115,6 +124,15 @@ class CachedApiService {
         params.selectedPlayerCounts && params.selectedPlayerCounts.length > 0
           ? params.playerCountsLogic || "any"
           : undefined,
+      metadata_providers_logic:
+        params.selectedMetadataProviders &&
+        params.selectedMetadataProviders.length > 0
+          ? params.metadataProvidersLogic || "any"
+          : undefined,
+      tags_logic:
+        params.selectedTags && params.selectedTags.length > 0
+          ? params.tagsLogic || "any"
+          : undefined,
       ...(params.filterMatched !== null
         ? { matched: params.filterMatched }
         : {}),
@@ -131,6 +149,10 @@ class CachedApiService {
         ? { missing: params.filterMissing }
         : {}),
       ...(params.filterRA !== null ? { has_ra: params.filterRA } : {}),
+      ...(params.filterSaves !== null ? { has_saves: params.filterSaves } : {}),
+      ...(params.filterStates !== null
+        ? { has_states: params.filterStates }
+        : {}),
       ...(params.filterVerified !== null
         ? { verified: params.filterVerified }
         : {}),
@@ -148,6 +170,7 @@ class CachedApiService {
       limit: 15,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
     });
 
     return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
@@ -162,6 +185,7 @@ class CachedApiService {
       limit: 15,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
       last_played: true,
     });
 
@@ -180,6 +204,7 @@ class CachedApiService {
       limit: 15,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
     });
   }
 
@@ -190,6 +215,7 @@ class CachedApiService {
       limit: 15,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
       last_played: true,
     });
   }

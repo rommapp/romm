@@ -1,0 +1,417 @@
+/*
+ * RomM v2 global styles. Scoped under .r-v2 so the v1 UI is never affected.
+ * The mockup's visual centre-piece is a blurred art backdrop with a dark
+ * gradient overlay; the AppLayout provides the DOM, this file provides the
+ * styling hooks so any view can drop in a background without re-declaring
+ * its own layers.
+ */
+
+@import "./tokens.css";
+
+.r-v2 {
+  background-color: var(--r-color-bg);
+  color: var(--r-color-fg);
+  font-family: var(--r-font-family-sans);
+  font-size: var(--r-font-size-md);
+  line-height: var(--r-line-height-normal);
+  min-height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Responsive page padding — `--r-row-pad` is consumed everywhere as the
+   horizontal gutter for page rows / toolbars / nav / widgets. Shrinking
+   it here tightens every consumer at once on narrower viewports, so
+   individual components don't each re-declare a smaller `xs` padding.
+   The selector is COMPOUND (`html[...].r-v2`, no descendant combinator):
+   the `.r-v2` scope class lives on `<html>` itself, so a descendant
+   selector would never match it and the override would silently no-op. */
+html[data-bp~="sm-and-down"].r-v2 {
+  --r-row-pad: 20px;
+}
+html[data-bp~="xs"].r-v2 {
+  --r-row-pad: 14px;
+}
+
+/* Focus rings are modality-gated — invisible for mouse/touch so we don't
+   dog-pile the hover states, visible and prominent for keyboard/pad so
+   the user always knows where they are.
+   Form controls (text fields, textareas, selects, combobox inputs) are
+   excluded from the generic rule — they paint their own focus treatment,
+   and stacking our outline on top reads as a grey rectangle around the
+   raw <input>. The generic rules are wrapped in `:where()` so they
+   evaluate at the lowest specificity — any component that paints its
+   own focus state (GameCard, PlatformTile, CollectionTile, …) can
+   override with a plain class selector and its rule will win. */
+html[data-input="mouse"] :where(.r-v2 *:focus-visible),
+html[data-input="touch"] :where(.r-v2 *:focus-visible) {
+  outline: none;
+}
+
+html[data-input="key"]
+  :where(
+    .r-v2
+      *:focus-visible:not(input):not(textarea):not(select):not(
+        [contenteditable="true"]
+      )
+  ),
+html[data-input="pad"]
+  :where(
+    .r-v2
+      *:focus-visible:not(input):not(textarea):not(select):not(
+        [contenteditable="true"]
+      )
+  ) {
+  outline: var(--r-focus-ring-width) solid var(--r-color-focus);
+  outline-offset: var(--r-focus-ring-offset);
+  border-radius: 6px;
+}
+
+html[data-input="pad"]
+  :where(
+    .r-v2
+      *:focus-visible:not(input):not(textarea):not(select):not(
+        [contenteditable="true"]
+      )
+  ) {
+  outline-width: 3px;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px
+    color-mix(in srgb, var(--r-color-brand-primary) 20%, transparent);
+}
+
+/* Explicitly clear any outline on bare form controls so a lingering
+   browser default / UA stylesheet doesn't leak through. Each form
+   primitive paints its own focus state inside the wrapper. */
+.r-v2 input:focus-visible,
+.r-v2 textarea:focus-visible,
+.r-v2 select:focus-visible,
+.r-v2 [contenteditable="true"]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Before useInputModality installs (between initial paint and mount) we
+   want keyboard users to still see a ring. Default to the key variant. */
+html:not([data-input])
+  :where(
+    .r-v2
+      *:focus-visible:not(input):not(textarea):not(select):not(
+        [contenteditable="true"]
+      )
+  ) {
+  outline: var(--r-focus-ring-width) solid var(--r-color-focus);
+  outline-offset: var(--r-focus-ring-offset);
+}
+
+.r-v2 ::selection {
+  background-color: var(--r-color-brand-primary);
+  color: var(--r-color-overlay-fg);
+}
+
+/* Hide the mouse cursor when the user is driving the UI with a gamepad —
+   the cursor parked over a tile would otherwise compete visually with
+   the focused-tile selection state. The cursor reappears as soon as the
+   user clicks (useInputModality flips back to "mouse" on mousedown;
+   mousemove / wheel are ignored while in pad mode). */
+html[data-input="pad"],
+html[data-input="pad"] body,
+html[data-input="pad"] .r-v2,
+html[data-input="pad"] .r-v2 * {
+  cursor: none !important;
+}
+
+/* ── Background art layers ─────────────────────────────────────
+   Two layers (A / B) so we can cross-fade between backdrops when the user
+   hovers a new game without a flash. The overlay blends the blur down so
+   text stays readable.
+──────────────────────────────────────────────────────────────── */
+
+.r-v2-bg {
+  position: fixed;
+  /* Cover the LARGE viewport (mobile address bar hidden), not the dynamic
+     one: `inset: 0` tracks the current viewport, so as the address bar hides
+     during a scroll the layer lags a frame behind and the freshly-revealed
+     strip at the bottom flashes uncovered until scroll stops. A fixed 100lvh
+     height always reaches the bottom. `100vh` is the fallback (already the
+     large viewport on mobile) for engines without `lvh`. */
+  inset: 0 0 auto 0;
+  height: 100vh;
+  height: 100lvh;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.r-v2-bg__layer {
+  position: absolute;
+  inset: 0;
+  /* Fallback art when no cover is set (settings, admin, etc.). Kept in CSS
+     rather than inline so Firefox can swap it for the static variant below. */
+  background-image: url("/assets/auth_background.svg");
+  background-size: cover;
+  background-position: center 20%;
+  background-repeat: no-repeat;
+  filter: blur(28px) brightness(0.45);
+  transform: scale(1.08);
+  transition: opacity 0.7s ease;
+  will-change: opacity;
+}
+
+/* Firefox: the animated fallback SVG is re-rasterized every frame under the
+   28px blur (and re-sampled by every backdrop-filter surface), pegging the
+   WebRender backend. Use the static variant in Gecko only (the empty
+   `url-prefix()` hack matches all Firefox pages and stays enabled by
+   default). Cover art is raster, so it's unaffected. */
+@-moz-document url-prefix() {
+  .r-v2-bg__layer {
+    background-image: url("/assets/auth_background_static.svg");
+  }
+}
+
+.r-v2-bg__layer--a {
+  opacity: 1;
+}
+.r-v2-bg__layer--b {
+  opacity: 0;
+}
+
+/* Light theme: the dark-tuned brightness(0.45) here would let the darkened
+   art bleed through as a muddy mottle once the light wash sits on top. In
+   light mode we instead lift the art so its surviving contribution skews
+   light, and lean on a stronger, more even overlay (below) to keep it a
+   soft frosted backdrop rather than a busy field. */
+.r-v2-light .r-v2-bg__layer {
+  filter: blur(28px) brightness(1.12) saturate(0.7);
+}
+
+/* Reduced-motion mode (Settings, per device; defaults to the OS
+   `prefers-reduced-motion`): the backdrop art is authored to be read only
+   through the 28px blur — unblurred it shows hard seams and a bright diagonal
+   wedge. And a full-viewport blur(28px) is one of the heaviest things we ask
+   of the GPU (see the Firefox note above). So drop the whole fixed art +
+   overlay stack and let the solid page background (`.r-v2` bg) show through:
+   cheaper, and no weird seam. */
+html.r-v2-reduced-motion .r-v2-bg,
+html.r-v2-reduced-motion .r-v2-bg__overlay {
+  display: none;
+}
+
+/* The OS `prefers-reduced-motion` query is honored per-component (each R*
+   primitive / overlay carries its own tuned fallback), but a CSS class cannot
+   trigger those media blocks, and this toggle must also work when the user
+   forces it while the OS setting is off. So neutralize animation / transition
+   here globally: it kills continuously-running keyframes (CRT flicker, disc
+   spins, skeleton shimmer, spinners, scan pulses) that tax weak GPUs, and
+   collapses one-shot transitions. Near-zero (not zero) durations so JS still
+   gets its `transitionend` / `animationend` and Vue `<transition>` teardown
+   fires. `!important` intentionally overrides inline JS-set transitions (e.g.
+   RExpandTransition). JS-driven motion (the cover CD-spin, view-transition
+   morphs) is gated separately in its composables. */
+html.r-v2-reduced-motion *,
+html.r-v2-reduced-motion *::before,
+html.r-v2-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+}
+
+.r-v2-bg__overlay {
+  position: fixed;
+  /* Match .r-v2-bg — cover the large viewport so the dark overlay reaches the
+     bottom while the mobile address bar animates out during a scroll. */
+  inset: 0 0 auto 0;
+  height: 100vh;
+  height: 100lvh;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--r-color-bg) 72%, transparent) 0%,
+      color-mix(in srgb, var(--r-color-bg) 30%, transparent) 55%,
+      color-mix(in srgb, var(--r-color-bg) 55%, transparent) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--r-color-bg) 10%, transparent) 0%,
+      color-mix(in srgb, var(--r-color-bg) 0%, transparent) 35%,
+      color-mix(in srgb, var(--r-color-bg) 70%, transparent) 72%,
+      color-mix(in srgb, var(--r-color-bg) 92%, transparent) 100%
+    );
+}
+
+/* Light theme overlay — a stronger, near-even light wash so content always
+   sits on a calm off-white field. The dark default dips to 0-30% bg in the
+   centre (right where the home rows live), which on light reads as the muddy
+   bleed-through. Here the field never drops below ~74% bg: a faint cover
+   tint survives mid-page for some life, and the top/bottom rise so titles
+   and dense list rows land on a stable, legible ground. */
+.r-v2-light .r-v2-bg__overlay {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--r-color-bg) 88%, transparent) 0%,
+    color-mix(in srgb, var(--r-color-bg) 84%, transparent) 40%,
+    color-mix(in srgb, var(--r-color-bg) 93%, transparent) 100%
+  );
+}
+
+/* ── Utility classes ───────────────────────────────────────── */
+
+.r-v2-surface {
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.r-v2-scroll-hidden {
+  scrollbar-width: none;
+}
+.r-v2-scroll-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* Section stack — vertical flow with breathing room between sibling
+   cards. Applied to view roots that host multiple stacked sections
+   (Settings views, Library Tools views). The fixed 14px gap matches
+   the bare-mode rhythm SettingsLayout uses for its own direct
+   children, so panel-mode and bare-mode views read
+   with the same spacing language. Centralised here so the value
+   lives in exactly one place; views opt in by adding this class to
+   their root. */
+.r-v2-section-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Typography utility: small uppercase label ("eyebrow") used above titles. */
+.r-eyebrow {
+  font-size: 10px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--r-color-fg-muted);
+}
+
+/* Chevron rotation — single source of truth for the spring-curve flip
+   used on every disclosure / dropdown / collapsible trigger. Drop the
+   class onto the chevron icon; it rotates 180° when either:
+   • an ancestor declares `aria-expanded="true"` (covers menus, selects,
+     collapsibles — already required for a11y), or
+   • the icon (or any ancestor) carries the explicit
+     `.r-chevron-toggle--open` modifier (escape hatch for callers
+     without an aria-expanded surface).
+   `--r-motion-ease-back` adds a touch of overshoot so the flip reads as
+   the same family of motion across the app. */
+.r-chevron-toggle {
+  transition: transform var(--r-motion-med) var(--r-motion-ease-back);
+  will-change: transform;
+}
+[aria-expanded="true"] .r-chevron-toggle,
+.r-chevron-toggle--open,
+.r-chevron-toggle--open .r-chevron-toggle {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .r-chevron-toggle {
+    transition: none;
+  }
+}
+
+/* Card reveal — the whole card (cover box + title) pops in with a
+   scale-up + rise and a gentle overshoot, staggered across the row via
+   --card-fade-i so a freshly fetched window cascades in instead of
+   snapping. Shared between the gallery grid (re-fires every time the
+   virtualiser recycles a card on scroll) and the Home dashboard rows.
+   Kept to transform + opacity (compositor-cheap): a filter/blur here
+   would risk jank on long lists — the blur-up flourish lives on the
+   <img> inside GameCover instead, layering on top of this pop. */
+.r-v2-card-fade {
+  animation: r-v2-card-fade 380ms cubic-bezier(0.34, 1.28, 0.64, 1) both;
+  animation-delay: calc(var(--card-fade-i, 0) * 32ms);
+  transform-origin: center 65%;
+}
+@keyframes r-v2-card-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* No pop/rise — just a quick, flat fade. */
+  .r-v2-card-fade {
+    animation: r-v2-card-fade-reduced 200ms ease-out both;
+    animation-delay: 0ms;
+  }
+  @keyframes r-v2-card-fade-reduced {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+/* Asset reveal — the list/strip variant of the card pop. Saves,
+   states, file rows, screenshot thumbs and soundtrack tracks are
+   dense info content, so the pop+overshoot of `.r-v2-card-fade`
+   reads as too "showy"; this variant keeps the same direction (rise
+   from below + fade) but drops the scale, swaps the bouncy easing for
+   a plain ease-out, and uses a tighter 24ms stagger. Shared by
+   AssetList, AssetStrip, FileRow, ScreenshotsTab and SoundtrackPanel
+   via --asset-fade-i. */
+.r-v2-asset-fade {
+  animation: r-v2-asset-fade 320ms var(--r-motion-ease-out) both;
+  animation-delay: calc(var(--asset-fade-i, 0) * 24ms);
+}
+@keyframes r-v2-asset-fade {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .r-v2-asset-fade {
+    animation: r-v2-asset-fade-reduced 180ms ease-out both;
+    animation-delay: 0ms;
+  }
+  @keyframes r-v2-asset-fade-reduced {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+/* Shimmer loading — matches the mockup's card skeleton. */
+.r-v2-shimmer {
+  animation: r-v2-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes r-v2-shimmer {
+  0% {
+    background-color: var(--r-color-cover-placeholder);
+  }
+  50% {
+    background-color: var(--r-color-cover-placeholder-bright);
+  }
+  100% {
+    background-color: var(--r-color-cover-placeholder);
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "active-sessions": "アクティブなセッション",
+  "days-ago": "{n}日前",
+  "hours-ago": "{n}時間前",
+  "hours-minutes-ago": "{h}時間{m}分前",
+  "just-now": "たった今",
+  "live": "ライブ",
+  "minutes-ago": "{n}分前",
+  "no-activity": "現在プレイ中のユーザーはいません",
+  "now-playing": "プレイ中",
+  "playing-on": "{device}でプレイ中",
+  "playing-since": "{time}からプレイ中",
+  "total-sessions": "セッション合計"
+}

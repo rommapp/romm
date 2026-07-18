@@ -1,1 +1,11 @@
 **/tests/cassettes/*.yaml linguist-generated
+
+# Keep this file itself in LF so git can parse it reliably on all platforms.
+.gitattributes text eol=lf
+
+# Ensure shell scripts always use LF line endings in the repository,
+# regardless of the developer's OS or core.autocrlf setting.
+# Without this, Windows checkouts produce CRLF scripts that fail to
+# execute inside Linux containers with "no such file or directory".
+*.sh text eol=lf
+docker/init_scripts/init text eol=lf

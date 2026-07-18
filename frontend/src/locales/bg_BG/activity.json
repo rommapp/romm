@@ -1,0 +1,14 @@
+{
+  "active-sessions": "Активни сесии",
+  "days-ago": "преди {n} д",
+  "hours-ago": "преди {n} ч",
+  "hours-minutes-ago": "преди {h} ч {m} мин",
+  "just-now": "Току-що",
+  "live": "НА ЖИВО",
+  "minutes-ago": "преди {n} мин",
+  "no-activity": "В момента никой не играе",
+  "now-playing": "Сега играе",
+  "playing-on": "Играе на {device}",
+  "playing-since": "Играе от {time}",
+  "total-sessions": "Общо сесии"
+}

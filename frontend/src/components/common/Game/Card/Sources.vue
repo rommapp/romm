@@ -5,7 +5,7 @@ defineProps<{ rom: SearchRom }>();
 </script>
 
 <template>
-  <v-row no-gutters class="text-white pa-1">
+  <v-row no-gutters class="pa-1">
     <v-tooltip
       location="top"
       class="tooltip"

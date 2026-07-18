@@ -2,7 +2,7 @@ import axios from "axios";
 import { default as Cookies } from "js-cookie";
 import { debounce } from "lodash";
 import router from "@/plugins/router";
-import { ROUTES } from "@/plugins/router";
+import { ROUTES, isAuthExemptRoute } from "@/plugins/router";
 
 const api = axios.create({
   // This will keep the url query params on refresh
@@ -54,6 +54,11 @@ api.interceptors.response.use(
     // Remove request from set of inflight requests
     inflightRequests.delete(response.config.url);
 
+    // A successful response proves the backend is reachable. Surfaced via a
+    // DOM event (mirroring `network-quiesced`) so the v2 connection layer can
+    // react without this shared module importing anything from v2.
+    document.dispatchEvent(new CustomEvent("backend-online"));
+
     // If there are no more inflight requests, fetch app-wide data
     if (inflightRequests.size === 0) {
       networkQuiesced();
@@ -62,6 +67,50 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
+    // Mirror the success path's bookkeeping: a settled request — even a failed
+    // or canceled one — leaves the inflight set so `network-quiesced` can still
+    // fire once the network goes quiet.
+    inflightRequests.delete(error.config?.url);
+    if (inflightRequests.size === 0) {
+      networkQuiesced();
+    }
+
+    // Canceled requests (AbortController / `signal`) are routine here (gallery /
+    // search aborts). They surface as a response-less error but are not a
+    // network failure, so they must never flip the connection state.
+    if (axios.isCancel(error)) {
+      return Promise.reject(error);
+    }
+
+    // Reachability signalling (see useServerConnection):
+    //   * no response (ERR_NETWORK / timeout) → definitively offline.
+    //   * 5xx from a non-heartbeat endpoint → "suspect"; ask the connection
+    //     layer to confirm via the authoritative /heartbeat probe (so one
+    //     buggy endpoint doesn't flash the banner, and the heartbeat request
+    //     itself never re-triggers this — which would loop).
+    //   * 4xx → backend is alive; emit backend-online so a stale offline banner
+    //     clears immediately instead of waiting for the next heartbeat poll.
+    const status = error.response?.status as number | undefined;
+    const url: string = error.config?.url ?? "";
+
+    // Ignore intentionally canceled requests (AbortController / signal). They do
+    // not indicate backend reachability problems.
+    if (axios.isCancel(error) || error.code === "ERR_CANCELED") {
+      return Promise.reject(error);
+    }
+
+    if (!error.response) {
+      document.dispatchEvent(new CustomEvent("backend-offline"));
+    } else if (
+      status !== undefined &&
+      status >= 500 &&
+      !url.includes("heartbeat")
+    ) {
+      document.dispatchEvent(new CustomEvent("backend-suspect"));
+    } else if (status !== undefined && status >= 400 && status < 500) {
+      document.dispatchEvent(new CustomEvent("backend-online"));
+    }
+
     if (error.response?.status === 403) {
       // Clear cookies and redirect to login page
       Cookies.remove("romm_session");
@@ -74,14 +123,17 @@ api.interceptors.response.use(
       const params = new URLSearchParams(search);
       const fullPath = pathname + search;
 
-      // Don't redirect to login if already on an auth-exempt route
-      const authExemptRoutes = [
-        ROUTES.REGISTER,
-        ROUTES.RESET_PASSWORD,
-        ROUTES.PAIR,
-        ROUTES.SETUP,
-      ];
-      if (authExemptRoutes.some((route) => pathname.startsWith(`/${route}`))) {
+      // Don't redirect to login if already on an auth-exempt route.
+      // Also resolve the route from the browser URL to handle the case where
+      // the router hasn't been started yet (e.g., during app initialization),
+      // which would otherwise cause router.currentRoute.value.name to be undefined.
+      const currentRoute = router.currentRoute.value.name?.toString() ?? "";
+      const resolvedRoute = router.resolve(window.location.pathname);
+      const resolvedRouteName = resolvedRoute.name?.toString() ?? "";
+      if (
+        isAuthExemptRoute(currentRoute) ||
+        isAuthExemptRoute(resolvedRouteName)
+      ) {
         return Promise.reject(error);
       }
 

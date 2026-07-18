@@ -1,19 +1,16 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import EmptyManualMatch from "@/components/common/EmptyStates/EmptyManualMatch.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
-import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
-import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getMissingCoverImage } from "@/utils/covers";
 
 type MatchedSource = {
   url_cover: string | undefined;
@@ -23,6 +20,7 @@ type MatchedSource = {
     | "Screenscraper"
     | "Flashpoint"
     | "Launchbox"
+    | "Libretro"
     | "SteamGridDB";
   logo_path: string;
 };
@@ -32,7 +30,6 @@ const { xs, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
-const galleryViewStore = storeGalleryView();
 const searching = ref(false);
 const route = useRoute();
 const searchText = ref("");
@@ -52,13 +49,7 @@ const isMobyFiltered = ref(true);
 const isSSFiltered = ref(true);
 const isFlashpointFiltered = ref(true);
 const isLaunchboxFiltered = ref(true);
-
-const computedAspectRatio = computed(() => {
-  return galleryViewStore.getAspectRatio({
-    platformId: rom.value?.platform_id,
-    boxartStyle: "cover_path",
-  });
-});
+const isLibretroFiltered = ref(true);
 
 const handleShowMatchRomDialog = (romToSearch: SimpleRom) => {
   rom.value = romToSearch;
@@ -69,10 +60,6 @@ const handleShowMatchRomDialog = (romToSearch: SimpleRom) => {
     : romToSearch.fs_name_no_tags;
 };
 emitter?.on("showMatchRomDialog", handleShowMatchRomDialog);
-
-const missingCoverImage = computed(() =>
-  getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
-);
 
 function toggleSourceFilter(source: MatchedSource["name"]) {
   if (source == "IGDB" && heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED) {
@@ -97,6 +84,11 @@ function toggleSourceFilter(source: MatchedSource["name"]) {
     heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED
   ) {
     isLaunchboxFiltered.value = !isLaunchboxFiltered.value;
+  } else if (
+    source == "Libretro" &&
+    heartbeat.value.METADATA_SOURCES.LIBRETRO_API_ENABLED
+  ) {
+    isLibretroFiltered.value = !isLibretroFiltered.value;
   }
 
   filteredMatchedRoms.value = matchedRoms.value.filter((rom) => {
@@ -105,7 +97,8 @@ function toggleSourceFilter(source: MatchedSource["name"]) {
       (rom.moby_id && isMobyFiltered.value) ||
       (rom.ss_id && isSSFiltered.value) ||
       (rom.flashpoint_id && isFlashpointFiltered.value) ||
-      (rom.launchbox_id && isLaunchboxFiltered.value)
+      (rom.launchbox_id && isLaunchboxFiltered.value) ||
+      (rom.libretro_id && isLibretroFiltered.value)
     ) {
       return true;
     }
@@ -137,7 +130,8 @@ async function searchRom() {
             (rom.moby_id && isMobyFiltered.value) ||
             (rom.ss_id && isSSFiltered.value) ||
             (rom.flashpoint_id && isFlashpointFiltered.value) ||
-            (rom.launchbox_id && isLaunchboxFiltered.value)
+            (rom.launchbox_id && isLaunchboxFiltered.value) ||
+            (rom.libretro_id && isLibretroFiltered.value)
           ) {
             return true;
           }
@@ -209,6 +203,13 @@ function showSources(matchedRom: SearchRom) {
       logo_path: "/assets/scrappers/launchbox.png",
     });
   }
+  if (matchedRom.libretro_url_cover) {
+    sources.value.push({
+      url_cover: matchedRom.libretro_url_cover,
+      name: "Libretro",
+      logo_path: "/assets/scrappers/libretro.png",
+    });
+  }
   if (sources.value.length == 1) {
     selectedCover.value = sources.value[0];
   }
@@ -257,6 +258,7 @@ async function updateRom(selectedRom: SearchRom, urlCover: string | undefined) {
     moby_id: selectedRom.moby_id || null,
     flashpoint_id: selectedRom.flashpoint_id || null,
     launchbox_id: selectedRom.launchbox_id || null,
+    libretro_id: selectedRom.libretro_id || null,
     name: selectedRom.name || null,
     slug: selectedRom.slug || null,
     summary: selectedRom.summary || null,
@@ -267,6 +269,7 @@ async function updateRom(selectedRom: SearchRom, urlCover: string | undefined) {
       selectedRom.moby_url_cover ||
       selectedRom.flashpoint_url_cover ||
       selectedRom.launchbox_url_cover ||
+      selectedRom.libretro_url_cover ||
       null,
   };
 
@@ -482,6 +485,37 @@ onBeforeUnmount(() => {
             @click="toggleSourceFilter('Flashpoint')"
           >
             <v-img src="/assets/scrappers/flashpoint.png" />
+          </v-avatar>
+        </template>
+      </v-tooltip>
+      <v-tooltip
+        location="top"
+        class="tooltip"
+        transition="fade-transition"
+        :text="
+          heartbeat.value.METADATA_SOURCES.LIBRETRO_API_ENABLED
+            ? 'Filter Libretro matches'
+            : 'Libretro source is not enabled'
+        "
+        open-delay="500"
+      >
+        <template #activator="{ props }">
+          <v-avatar
+            v-bind="props"
+            variant="text"
+            class="ml-3 cursor-pointer opacity-40"
+            :class="{
+              'opacity-100':
+                isLibretroFiltered &&
+                heartbeat.value.METADATA_SOURCES.LIBRETRO_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.LIBRETRO_API_ENABLED,
+            }"
+            size="30"
+            rounded="1"
+            @click="toggleSourceFilter('Libretro')"
+          >
+            <v-img src="/assets/scrappers/libretro.png" />
           </v-avatar>
         </template>
       </v-tooltip>

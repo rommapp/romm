@@ -21,7 +21,7 @@ depends_on = None
 def upgrade() -> None:
     # Drop the fs_name_no_tags index created in 0069, no longer used
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_index("idx_roms_fs_name_no_tags")
+        batch_op.drop_index("idx_roms_fs_name_no_tags", if_exists=True)
 
     connection = op.get_bind()
     null_safe_equal_operator = (
@@ -78,7 +78,9 @@ def downgrade() -> None:
 
     # Recreate the fs_name_no_tags index needed by the restored view
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.create_index("idx_roms_fs_name_no_tags", ["fs_name_no_tags"])
+        batch_op.create_index(
+            "idx_roms_fs_name_no_tags", ["fs_name_no_tags"], if_not_exists=True
+        )
 
     # Restore view with fs_name_no_tags matching (from 0071)
     connection.execute(

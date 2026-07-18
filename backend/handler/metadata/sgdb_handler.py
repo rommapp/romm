@@ -96,50 +96,64 @@ class SGDBBaseHandler(MetadataHandler):
         return list(filter(None, results))
 
     async def get_details_by_names(self, game_names: list[str]) -> SGDBRom:
+        """Get ROM details by candidate game names.
+
+        Returns an empty match if the lookup fails. The lookup is best-effort
+        and never raises to the caller, so an unreachable SteamGridDB can't
+        abort a scan.
+        """
         if not self.is_enabled():
             return SGDBRom(sgdb_id=None)
 
-        for game_name in game_names:
-            search_term = self.normalize_search_term(game_name, remove_articles=False)
-            games = await self.sgdb_service.search_games(term=search_term)
-            if not games:
-                log.debug(f"Could not find '{search_term}' on SteamGridDB")
-                continue
+        try:
+            for game_name in game_names:
+                search_term = self.normalize_search_term(
+                    game_name, remove_articles=False
+                )
+                games = await self.sgdb_service.search_games(term=search_term)
+                if not games:
+                    log.debug(f"Could not find '{search_term}' on SteamGridDB")
+                    continue
 
-            games_by_name: dict[str, SGDBGame] = {}
-            for game in games:
-                if (
-                    game["name"] not in games_by_name
-                    or game["id"] < games_by_name[game["name"]]["id"]
-                ):
-                    games_by_name[game["name"]] = game
+                games_by_name: dict[str, SGDBGame] = {}
+                for game in games:
+                    if (
+                        game["name"] not in games_by_name
+                        or game["id"] < games_by_name[game["name"]]["id"]
+                    ):
+                        games_by_name[game["name"]] = game
 
-            best_match, best_score = self.find_best_match(
-                search_term,
-                list(games_by_name.keys()),
-                min_similarity_score=self.min_similarity_score,
+                best_match, best_score = self.find_best_match(
+                    search_term,
+                    list(games_by_name.keys()),
+                    min_similarity_score=self.min_similarity_score,
+                )
+                if best_match:
+                    game_details = await self._get_game_covers(
+                        game_id=games_by_name[best_match]["id"],
+                        game_name=games_by_name[best_match]["name"],
+                        types=(SGDBType.STATIC,),
+                        is_nsfw=False,
+                        is_humor=False,
+                        is_epilepsy=False,
+                    )
+
+                    first_resource = next(
+                        (res for res in game_details["resources"] if res["url"]), None
+                    )
+                    if first_resource:
+                        log.debug(
+                            f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
+                        )
+                        return SGDBRom(
+                            sgdb_id=games_by_name[best_match]["id"],
+                            url_cover=first_resource["url"],
+                        )
+        except Exception as e:
+            log.error(
+                f"Failed to fetch SteamGridDB details for '{', '.join(game_names)}': {e}"
             )
-            if best_match:
-                game_details = await self._get_game_covers(
-                    game_id=games_by_name[best_match]["id"],
-                    game_name=games_by_name[best_match]["name"],
-                    types=(SGDBType.STATIC,),
-                    is_nsfw=False,
-                    is_humor=False,
-                    is_epilepsy=False,
-                )
-
-                first_resource = next(
-                    (res for res in game_details["resources"] if res["url"]), None
-                )
-                if first_resource:
-                    log.debug(
-                        f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
-                    )
-                    return SGDBRom(
-                        sgdb_id=games_by_name[best_match]["id"],
-                        url_cover=first_resource["url"],
-                    )
+            return SGDBRom(sgdb_id=None)
 
         log.debug(f"No good match found for '{', '.join(game_names)}' on SteamGridDB")
         return SGDBRom(sgdb_id=None)

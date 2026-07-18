@@ -4,19 +4,13 @@ import enum
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import TIMESTAMP, Enum, String
+from sqlalchemy import TIMESTAMP, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
 
-from config import KIOSK_MODE
-from handler.auth.constants import (
-    EDIT_SCOPES,
-    FULL_SCOPES,
-    READ_SCOPES,
-    WRITE_SCOPES,
-    Scope,
-)
+from handler.auth.constants import Scope
 from models.base import BaseModel
+from models.permission import PermissionGroup
 from utils.database import CustomJSON
 
 if TYPE_CHECKING:
@@ -24,13 +18,23 @@ if TYPE_CHECKING:
     from models.client_token import ClientToken
     from models.collection import Collection, SmartCollection
     from models.device import Device
+    from models.play_session import PlaySession
     from models.rom import RomNote, RomUser
 
 
-class Role(enum.Enum):
-    VIEWER = "viewer"
-    EDITOR = "editor"
+class Role(enum.StrEnum):
+    # Two kinds only: admins bypass all permission checks; everyone else is a
+    # `user` whose access comes entirely from their permission group + overrides.
+    # (The old viewer/editor split was folded into groups.)
+    USER = "user"
     ADMIN = "admin"
+
+    @classmethod
+    def coerce(cls, value: str | None) -> Role:
+        """Map any role string to the two-value set. Only an exact ``admin``
+        becomes ADMIN; everything else (``user``, the legacy ``viewer`` /
+        ``editor`` from in-flight invites, unknown, empty) collapses to USER."""
+        return cls.ADMIN if (value or "").strip().lower() == "admin" else cls.USER
 
 
 TEXT_FIELD_LENGTH = 255
@@ -52,7 +56,24 @@ class User(BaseModel, SimpleUser):
         String(length=TEXT_FIELD_LENGTH), unique=True, index=True
     )
     enabled: Mapped[bool] = mapped_column(default=True)
-    role: Mapped[Role] = mapped_column(Enum(Role), default=Role.VIEWER)
+    # VARCHAR-backed (native_enum=False) storing the lowercase value, so the
+    # vocabulary stays portable across SQLite/MariaDB/Postgres.
+    role: Mapped[Role] = mapped_column(
+        Enum(
+            Role,
+            native_enum=False,
+            length=20,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        default=Role.USER,
+    )
+    # The granular permission group this user belongs to. NULL falls back to the
+    # server-wide default group in the resolver. Admins bypass groups entirely.
+    permission_group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("permission_groups.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     avatar_path: Mapped[str] = mapped_column(
         String(length=TEXT_FIELD_LENGTH), default=""
     )
@@ -87,6 +108,12 @@ class User(BaseModel, SimpleUser):
     client_tokens: Mapped[list["ClientToken"]] = relationship(
         lazy="raise", back_populates="user", cascade="all, delete-orphan"
     )
+    play_sessions: Mapped[list["PlaySession"]] = relationship(
+        lazy="raise", back_populates="user", cascade="all, delete-orphan"
+    )
+    # Loaded explicitly by the permission resolver; lazy="raise" keeps it off
+    # every other user query so the schema-wide query shape is unchanged.
+    permission_group: Mapped[PermissionGroup | None] = relationship(lazy="raise")
 
     @classmethod
     def kiosk_mode_user(cls) -> User:
@@ -94,7 +121,7 @@ class User(BaseModel, SimpleUser):
         return cls(
             id=-1,
             username="kiosk",
-            role=Role.VIEWER,
+            role=Role.USER,
             enabled=True,
             avatar_path="",
             last_active=now,
@@ -105,16 +132,13 @@ class User(BaseModel, SimpleUser):
 
     @property
     def oauth_scopes(self) -> list[Scope]:
-        if self.role == Role.ADMIN:
-            return FULL_SCOPES
+        # Derived from the granular permission model (groups + overrides),
+        # projected onto the legacy coarse scopes. Resolved per access via its
+        # own session; admins short-circuit without touching the DB.
+        # Local import: breaks the models.user <-> handler.auth.permissions cycle.
+        from handler.auth.permissions import compute_oauth_scopes
 
-        if self.role == Role.EDITOR:
-            return EDIT_SCOPES
-
-        if KIOSK_MODE:
-            return READ_SCOPES
-
-        return WRITE_SCOPES
+        return compute_oauth_scopes(self)
 
     @property
     def fs_safe_folder_name(self):

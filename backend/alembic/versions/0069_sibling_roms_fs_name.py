@@ -21,7 +21,9 @@ depends_on = None
 def upgrade() -> None:
     # Add index on fs_name_no_tags for better join performance
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.create_index("idx_roms_fs_name_no_tags", ["fs_name_no_tags"])
+        batch_op.create_index(
+            "idx_roms_fs_name_no_tags", ["fs_name_no_tags"], if_not_exists=True
+        )
 
     connection = op.get_bind()
     null_safe_equal_operator = (
@@ -122,4 +124,4 @@ def downgrade() -> None:
 
     # Remove the index
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_index("idx_roms_fs_name_no_tags")
+        batch_op.drop_index("idx_roms_fs_name_no_tags", if_exists=True)

@@ -1,4 +1,3 @@
-import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -6,8 +5,114 @@ from fastapi import Request
 
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
+from models.platform import Platform
 from models.rom import Rom
+from utils.filesystem import link_or_copy_file
+
+# Map RomM platform slugs to canonical Pegasus (collection name, shortname) pairs.
+# Source: https://www.pegasus-frontend.org/docs/user-guide/meta-files/
+# Only platforms present in the official Pegasus "Common platform names" table are listed.
+SLUG_TO_PEGASUS: dict[UPS, tuple[str, str]] = {
+    # Atari
+    UPS.ATARI2600: ("Atari 2600", "atari2600"),
+    UPS.ATARI5200: ("Atari 5200", "atari5200"),
+    UPS.ATARI7800: ("Atari 7800", "atari7800"),
+    UPS.ATARI800: ("Atari 800", "atari800"),
+    UPS.ATARI_JAGUAR_CD: ("Atari Jaguar CD", "atarijaguarcd"),
+    UPS.JAGUAR: ("Atari Jaguar", "atarijaguar"),
+    UPS.LYNX: ("Atari Lynx", "atarilynx"),
+    UPS.ATARI_ST: ("Atari ST", "atarist"),
+    UPS.ATARI_XEGS: ("Atari XE", "atarixe"),
+    # Nintendo handhelds
+    UPS.GB: ("Game Boy", "gb"),
+    UPS.GBC: ("Game Boy Color", "gbc"),
+    UPS.GBA: ("Game Boy Advance", "gba"),
+    UPS.NDS: ("Nintendo DS", "nds"),
+    UPS.N3DS: ("Nintendo 3DS", "3ds"),
+    UPS.G_AND_W: ("Nintendo Game-and-Watch", "gameandwatch"),
+    UPS.VIRTUALBOY: ("Nintendo VirtualBoy", "virtualboy"),
+    # Nintendo home consoles
+    UPS.NES: ("Nintendo Entertainment System", "nes"),
+    UPS.FAMICOM: ("Nintendo Entertainment System", "nes"),
+    UPS.FDS: ("Famicom Disk System", "fds"),
+    UPS.SNES: ("Super Nintendo Entertainment System", "snes"),
+    UPS.SFAM: ("Super Nintendo Entertainment System", "snes"),
+    UPS.N64: ("Nintendo 64", "n64"),
+    UPS.NGC: ("Nintendo GameCube", "gc"),
+    UPS.WII: ("Nintendo Wii", "wii"),
+    UPS.WIIU: ("Nintendo WiiU", "wiiu"),
+    UPS.SWITCH: ("Nintendo Switch", "switch"),
+    # Sega
+    UPS.SG1000: ("SEGA SG-1000", "sg1000"),
+    UPS.SMS: ("Sega Master System", "mastersystem"),
+    UPS.GENESIS: ("Sega Genesis", "genesis"),
+    UPS.SEGACD: ("SEGA CD", "segacd"),
+    UPS.SEGA32: ("SEGA 32X", "sega32x"),
+    UPS.SEGACD32: ("SEGA CD 32X", "sega32x"),
+    UPS.SATURN: ("Sega Saturn", "saturn"),
+    UPS.DC: ("Sega Dreamcast", "dreamcast"),
+    UPS.GAMEGEAR: ("SEGA GameGear", "gamegear"),
+    # Sony
+    UPS.PSX: ("PlayStation", "psx"),
+    UPS.PS2: ("PlayStation 2", "ps2"),
+    UPS.PS3: ("PlayStation 3", "ps3"),
+    UPS.PSP: ("PlayStation Portable", "psp"),
+    UPS.PSVITA: ("PlayStation Vita", "psvita"),
+    # Microsoft
+    UPS.XBOX: ("Xbox", "xbox"),
+    UPS.XBOX360: ("Xbox 360", "xbox360"),
+    # NEC / PC Engine
+    UPS.TG16: ("TurboGrafx 16", "turbografx16"),
+    UPS.TURBOGRAFX_CD: ("PC Engine CD", "pcengine"),
+    UPS.PC_FX: ("PC-FX", "pcfx"),
+    # SNK Neo Geo
+    UPS.NEOGEOAES: ("Neo Geo", "neogeo"),
+    UPS.NEOGEOMVS: ("Neo Geo", "neogeo"),
+    UPS.NEO_GEO_CD: ("Neo Geo CD", "neogeocd"),
+    UPS.NEO_GEO_POCKET: ("Neo Geo Pocket", "ngp"),
+    UPS.NEO_GEO_POCKET_COLOR: ("Neo Geo Pocket Color", "ngpc"),
+    # Commodore / Amiga
+    UPS.AMIGA: ("Amiga", "amiga"),
+    UPS.AMIGA_CD32: ("Amiga CD32", "amigacd32"),
+    UPS.COMMODORE_CDTV: ("Amiga CDTV", "amigacdtv"),
+    UPS.C64: ("Commodore 64", "c64"),
+    # Amstrad / Sharp / other home computers
+    UPS.ACPC: ("Amstrad CPC", "amstradcpc"),
+    UPS.SHARP_X68000: ("Sharp X68000", "x68000"),
+    UPS.MSX: ("MSX", "msx"),
+    UPS.DOS: ("DOS", "dos"),
+    UPS.PC_BOOTER: ("PC", "pc"),
+    UPS.LINUX: ("Linux", "linux"),
+    UPS.MAC: ("Macintosh", "macintosh"),
+    UPS.ANDROID: ("Android", "android"),
+    UPS.WIN: ("Windows", "windows"),
+    # Arcade
+    UPS.ARCADE: ("Arcade", "arcade"),
+    # Other consoles / platforms
+    UPS._3DO: ("3DO", "3do"),
+    UPS.APPLEII: ("Apple II", "apple2"),
+    UPS.COLECOVISION: ("ColecoVision", "colecovision"),
+    UPS.INTELLIVISION: ("Intellivision", "intellivision"),
+    UPS.ODYSSEY_2: ("Odyssey 2", "odyssey2"),
+    UPS.VECTREX: ("Vectrex", "vectrex"),
+    UPS.SUPERGRAFX: ("SuperGrafx", "supergrafx"),
+    UPS.SAM_COUPE: ("SAM coupe", "samcoupe"),
+    UPS.SCUMMVM: ("Scumm VM", "scummvm"),
+    UPS.TIC_80: ("TIC80", "tic80"),
+    UPS.DRAGON_32_SLASH_64: ("Dragon 32", "dragon32"),
+    # PC-88 / PC-98
+    UPS.PC_8800_SERIES: ("PC 88", "pc88"),
+    UPS.PC_9800_SERIES: ("PC 98", "pc98"),
+    # WonderSwan
+    UPS.WONDERSWAN: ("WonderSwan", "wonderswan"),
+    UPS.SWANCRYSTAL: ("WonderSwan/Color", "wonderswancolor"),
+    # ZX Spectrum / ZX81
+    UPS.ZXS: ("ZX Spectrum", "zxspectrum"),
+    UPS.ZX81: ("ZX81", "zx81"),
+    UPS.STEAM: ("Steam", "steam"),
+}
 
 # Map Pegasus asset keys to subdirectory names inside assets/
 ASSET_DIRS: dict[str, str] = {
@@ -30,6 +135,14 @@ class PegasusExporter:
 
     def __init__(self, local_export: bool = False):
         self.local_export = local_export
+
+    @staticmethod
+    def _resolve_collection(platform: Platform) -> tuple[str, str]:
+        """Return (collection_name, shortname) for a platform."""
+        if platform.slug in SLUG_TO_PEGASUS:
+            return SLUG_TO_PEGASUS[UPS(platform.slug)]
+
+        return (platform.custom_name or platform.name, platform.slug)
 
     def _format_release_date(self, timestamp: int) -> str:
         """Format release date to YYYY-MM-DD format"""
@@ -177,14 +290,14 @@ class PegasusExporter:
         return "\n".join(lines)
 
     def _copy_asset(self, source: Path, dest: Path) -> bool:
-        """Copy a file from source to dest using raw read/write. Returns True on success."""
+        """Place ``source`` at ``dest`` via hardlink (same filesystem) or copy
+        (otherwise). Returns True on success."""
         dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
             return True
 
         try:
-            with open(source, "rb") as src, open(dest, "wb") as dst:
-                shutil.copyfileobj(src, dst)
+            link_or_copy_file(source, dest)
             return True
         except OSError as e:
             log.warning(f"Failed to copy {source} -> {dest}: {e}")
@@ -211,8 +324,9 @@ class PegasusExporter:
         lines: list[str] = []
 
         # Collection header
-        lines.append(f"collection: {platform.custom_name or platform.name}")
-        lines.append(f"shortname: {platform.slug}")
+        collection_name, shortname = self._resolve_collection(platform)
+        lines.append(f"collection: {collection_name}")
+        lines.append(f"shortname: {shortname}")
         lines.append("")
 
         # Game entries
@@ -258,8 +372,9 @@ class PegasusExporter:
             lines: list[str] = []
 
             # Collection header
-            lines.append(f"collection: {platform.custom_name or platform.name}")
-            lines.append(f"shortname: {platform.slug}")
+            collection_name, shortname = self._resolve_collection(platform)
+            lines.append(f"collection: {collection_name}")
+            lines.append(f"shortname: {shortname}")
             lines.append("")
 
             game_count = 0

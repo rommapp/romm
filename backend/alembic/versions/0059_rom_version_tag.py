@@ -18,9 +18,12 @@ depends_on = None
 
 def upgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("version", sa.String(length=100), nullable=True))
+        batch_op.add_column(
+            sa.Column("version", sa.String(length=100), nullable=True),
+            if_not_exists=True,
+        )
 
 
 def downgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_column("version")
+        batch_op.drop_column("version", if_exists=True)

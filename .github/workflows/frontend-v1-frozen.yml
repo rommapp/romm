@@ -1,0 +1,60 @@
+name: Frontend v1 Frozen Check
+
+# The v1 UI is frozen and slated for deletion. New frontend work goes in
+# frontend/src/v2/. This check fails if a PR modifies any v1 UI code so the
+# freeze is enforced automatically.
+#
+# Sanctioned exception: for a critical v1 bug fix, add the "allow-v1-changes"
+# label to the PR to bypass this check.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - "frontend/src/views/**"
+      - "frontend/src/components/**"
+      - "frontend/src/console/**"
+      - "frontend/src/layouts/**"
+
+permissions: read-all
+
+jobs:
+  check-v1-frozen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.3.0
+        with:
+          fetch-depth: 0
+
+      - name: Fail if v1 UI files changed
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HAS_BYPASS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'allow-v1-changes') }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+
+          v1_files=$(git diff --name-only "origin/$BASE_REF...HEAD" -- \
+            "frontend/src/views/" \
+            "frontend/src/components/" \
+            "frontend/src/console/" \
+            "frontend/src/layouts/")
+
+          if [ -z "$v1_files" ]; then
+            echo "No v1 UI files changed."
+            exit 0
+          fi
+
+          echo "This PR modifies frozen v1 UI files:"
+          echo "$v1_files" | sed 's/^/  - /'
+          echo ""
+
+          if [ "$HAS_BYPASS_LABEL" = "true" ]; then
+            echo "The 'allow-v1-changes' label is present; allowing v1 changes."
+            exit 0
+          fi
+
+          echo "::error::The v1 UI (frontend/src/{views,components,console,layouts}) is frozen."
+          echo "New frontend work must go in frontend/src/v2/."
+          echo "For a sanctioned critical bug fix, add the 'allow-v1-changes' label to this PR."
+          exit 1

@@ -11,6 +11,7 @@ class SearchRomSchema(BaseModel):
     sgdb_id: int | None = None
     flashpoint_id: str | None = None
     launchbox_id: int | None = None
+    libretro_id: str | None = None
     platform_id: int
     name: str
     slug: str = ""
@@ -21,6 +22,7 @@ class SearchRomSchema(BaseModel):
     sgdb_url_cover: str = ""
     flashpoint_url_cover: str = ""
     launchbox_url_cover: str = ""
+    libretro_url_cover: str = ""
     is_unidentified: bool
     is_identified: bool
 

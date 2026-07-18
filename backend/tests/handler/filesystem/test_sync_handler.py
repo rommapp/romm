@@ -1,13 +1,15 @@
 """Tests for filesystem sync handler."""
 
+import errno
 import os
 import shutil
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
-from handler.filesystem.sync_handler import FSSyncHandler
+from handler.filesystem.sync_handler import FSSyncHandler, get_fs_sync_handler
 
 
 class TestFSSyncHandler:
@@ -133,3 +135,22 @@ class TestFSSyncHandler:
     def test_remove_incoming_file_nonexistent(self, handler: FSSyncHandler):
         # Should not raise for nonexistent files
         handler.remove_incoming_file("/nonexistent/path/file.sav")
+
+
+class TestFSSyncHandlerLazyFactory:
+    """Sync is an optional feature: if /romm/sync isn't writable (bad mount,
+    wrong ownership), the app must still boot. The factory defers construction
+    until first use so the error surfaces at the call site, not at startup."""
+
+    def test_factory_raises_at_call_time_when_unwritable(self):
+        """Regression for the PermissionError on /romm/sync at boot: the
+        failure must surface from the factory call, not from module import."""
+        get_fs_sync_handler.cache_clear()
+        try:
+            with patch.object(
+                Path, "mkdir", side_effect=PermissionError(errno.EACCES, "denied")
+            ):
+                with pytest.raises(PermissionError):
+                    get_fs_sync_handler()
+        finally:
+            get_fs_sync_handler.cache_clear()

@@ -128,7 +128,7 @@ function closeDialog() {
             <v-select
               v-model="user.role"
               variant="outlined"
-              :items="['viewer', 'editor', 'admin']"
+              :items="['admin', 'user']"
               :label="t('settings.role')"
               required
               class="ma-2"
@@ -158,7 +158,7 @@ function closeDialog() {
                     :src="
                       imagePreviewUrl ||
                       (user.avatar_path
-                        ? `/assets/romm/assets/${user.avatar_path}?ts=${user.updated_at}`
+                        ? `/api/raw/assets/${user.avatar_path}?ts=${user.updated_at}`
                         : defaultAvatarPath)
                     "
                   >

@@ -1,13 +1,14 @@
 """Tests for validation utilities."""
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from utils.validation import (
     ValidationError,
     validate_ascii_only,
     validate_email,
     validate_password,
-    validate_url_for_http_request,
     validate_username,
 )
 
@@ -160,224 +161,27 @@ class TestValidateEmail:
         assert "ASCII characters" in exc_info.value.message
 
 
-class TestValidateUrlForHttpRequest:
-    """Test URL validation for HTTP requests to prevent SSRF attacks."""
+_USERNAME_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+_LOWER_ALNUM = "abcdefghijklmnopqrstuvwxyz0123456789"
+_LOWER = "abcdefghijklmnopqrstuvwxyz"
 
-    def test_valid_http_urls(self):
-        """Test that valid HTTP/HTTPS URLs pass validation."""
-        validate_url_for_http_request("http://example.com", "test_url")
-        validate_url_for_http_request("https://example.com", "test_url")
-        validate_url_for_http_request("http://example.com/path", "test_url")
-        validate_url_for_http_request("https://example.com/path?query=1", "test_url")
-        validate_url_for_http_request("http://subdomain.example.com", "test_url")
 
-    def test_invalid_empty_url(self):
-        """Test that empty URLs fail validation."""
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("", "test_url")
-        assert "cannot be empty" in exc_info.value.message
+class TestValidateUsernameProperties:
+    @given(st.text(alphabet=_USERNAME_ALPHABET, min_size=3, max_size=255))
+    def test_well_formed_usernames_pass(self, username):
+        validate_username(username)
 
-    def test_invalid_scheme(self):
-        """Test that non-HTTP/HTTPS schemes fail validation."""
-        # FTP scheme
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("ftp://example.com", "test_url")
-        assert "only http and https schemes are allowed" in exc_info.value.message
+    @given(st.text(alphabet=_USERNAME_ALPHABET, min_size=1, max_size=2))
+    def test_too_short_usernames_are_rejected(self, username):
+        with pytest.raises(ValidationError):
+            validate_username(username)
 
-        # File scheme
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("file:///etc/passwd", "test_url")
-        assert "only http and https schemes are allowed" in exc_info.value.message
 
-        # Data scheme
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("data:text/html,<h1>test</h1>", "test_url")
-        assert "only http and https schemes are allowed" in exc_info.value.message
-
-        # JavaScript scheme (XSS attack vector)
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("javascript:alert(1)", "test_url")
-        assert "only http and https schemes are allowed" in exc_info.value.message
-
-    def test_invalid_localhost(self):
-        """Test that localhost and reserved hostnames fail validation."""
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://localhost", "test_url")
-        assert (
-            "localhost and reserved hostnames are not allowed" in exc_info.value.message
-        )
-
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://127.0.0.1", "test_url")
-        assert (
-            "localhost and reserved hostnames are not allowed" in exc_info.value.message
-        )
-
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://[::1]", "test_url")
-        assert (
-            "localhost and reserved hostnames are not allowed" in exc_info.value.message
-        )
-
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://0.0.0.0", "test_url")
-        assert (
-            "localhost and reserved hostnames are not allowed" in exc_info.value.message
-        )
-
-    def test_invalid_private_ipv4_addresses(self):
-        """Test that private IPv4 addresses fail validation."""
-        # 10.x.x.x range
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://10.0.0.1", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-        # 192.168.x.x range
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://192.168.1.1", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-        # 172.16.x.x - 172.31.x.x range
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://172.16.0.1", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://172.31.255.254", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-    def test_invalid_loopback_addresses(self):
-        """Test that loopback addresses fail validation."""
-        # 127.x.x.x range
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://127.0.0.2", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://127.255.255.255", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-    def test_invalid_private_ipv6_addresses(self):
-        """Test that private/link-local IPv6 addresses fail validation."""
-        # Link-local IPv6: fe80::/10
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://[fe80::1]", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-        # Unique local address: fc00::/7
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://[fc00::1]", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://[fd00::1]", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-    def test_invalid_multicast_addresses(self):
-        """Test that multicast addresses fail validation."""
-        # IPv4 multicast: 224.0.0.0/4
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://224.0.0.1", "test_url")
-        assert "multicast addresses are not allowed" in exc_info.value.message
-
-        # IPv6 multicast: ff00::/8
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://[ff02::1]", "test_url")
-        assert "multicast addresses are not allowed" in exc_info.value.message
-
-    def test_invalid_internal_tlds(self):
-        """Test that internal TLDs fail validation."""
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://server.local", "test_url")
-        assert "internal domain names are not allowed" in exc_info.value.message
-
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://server.internal", "test_url")
-        assert "internal domain names are not allowed" in exc_info.value.message
-
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://server.localhost", "test_url")
-        assert "internal domain names are not allowed" in exc_info.value.message
-
-    def test_invalid_non_standard_ip_representations(self):
-        """Test that non-standard IP representations are blocked (SSRF bypass vectors)."""
-        # Hexadecimal integer for 127.0.0.1
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://0x7f000001", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-        # Decimal integer for 127.0.0.1
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://2130706433", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-        # Shorthand dotted for 127.0.0.1
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://127.1", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-        # Hexadecimal integer for 10.0.0.1
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://0x0a000001", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-        # Decimal integer for 192.168.1.1
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://3232235777", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-        # Hexadecimal integer for 169.254.169.254 (cloud metadata)
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://0xa9fea9fe", "test_url")
-        assert (
-            "private, internal, and reserved IP addresses are not allowed"
-            in exc_info.value.message
-        )
-
-    def test_invalid_missing_hostname(self):
-        """Test that URLs without hostnames fail validation."""
-        with pytest.raises(ValidationError) as exc_info:
-            validate_url_for_http_request("http://", "test_url")
-        assert "missing hostname" in exc_info.value.message
+class TestValidateEmailProperties:
+    @given(
+        st.text(alphabet=_LOWER_ALNUM, min_size=1, max_size=20),
+        st.text(alphabet=_LOWER_ALNUM, min_size=1, max_size=20),
+        st.text(alphabet=_LOWER, min_size=2, max_size=6),
+    )
+    def test_well_formed_emails_pass(self, local, domain, tld):
+        validate_email(f"{local}@{domain}.{tld}")

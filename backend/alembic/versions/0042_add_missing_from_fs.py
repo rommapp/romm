@@ -21,70 +21,77 @@ def upgrade():
         batch_op.add_column(
             sa.Column(
                 "missing_from_fs", sa.Boolean(), nullable=False, server_default="0"
-            )
+            ),
+            if_not_exists=True,
         )
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
                 "missing_from_fs", sa.Boolean(), nullable=False, server_default="0"
-            )
+            ),
+            if_not_exists=True,
         )
 
     with op.batch_alter_table("rom_files", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
                 "missing_from_fs", sa.Boolean(), nullable=False, server_default="0"
-            )
+            ),
+            if_not_exists=True,
         )
 
     with op.batch_alter_table("firmware", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
                 "missing_from_fs", sa.Boolean(), nullable=False, server_default="0"
-            )
+            ),
+            if_not_exists=True,
         )
 
     with op.batch_alter_table("saves", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
                 "missing_from_fs", sa.Boolean(), nullable=False, server_default="0"
-            )
+            ),
+            if_not_exists=True,
         )
 
     with op.batch_alter_table("states", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
                 "missing_from_fs", sa.Boolean(), nullable=False, server_default="0"
-            )
+            ),
+            if_not_exists=True,
         )
 
     with op.batch_alter_table("screenshots", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
                 "missing_from_fs", sa.Boolean(), nullable=False, server_default="0"
-            )
+            ),
+            if_not_exists=True,
         )
 
 
 def downgrade():
     with op.batch_alter_table("platforms", schema=None) as batch_op:
-        batch_op.drop_column("missing_from_fs")
+        batch_op.drop_column("missing_from_fs", if_exists=True)
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_column("missing_from_fs")
+        batch_op.drop_column("missing_from_fs", if_exists=True)
 
     with op.batch_alter_table("rom_files", schema=None) as batch_op:
-        batch_op.drop_column("missing_from_fs")
+        batch_op.drop_column("missing_from_fs", if_exists=True)
 
     with op.batch_alter_table("firmware", schema=None) as batch_op:
-        batch_op.drop_column("missing_from_fs")
+        batch_op.drop_column("missing_from_fs", if_exists=True)
 
     with op.batch_alter_table("saves", schema=None) as batch_op:
-        batch_op.drop_column("missing_from_fs")
+        batch_op.drop_column("missing_from_fs", if_exists=True)
 
     with op.batch_alter_table("states", schema=None) as batch_op:
-        batch_op.drop_column("missing_from_fs")
+        batch_op.drop_column("missing_from_fs", if_exists=True)
 
     with op.batch_alter_table("screenshots", schema=None) as batch_op:
-        batch_op.drop_column("missing_from_fs")
+        batch_op.drop_column("missing_from_fs", if_exists=True)

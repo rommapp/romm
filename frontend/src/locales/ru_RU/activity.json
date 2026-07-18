@@ -1,0 +1,14 @@
+{
+  "active-sessions": "Активные сессии",
+  "days-ago": "{n} дн. назад",
+  "hours-ago": "{n} ч назад",
+  "hours-minutes-ago": "{h} ч {m} мин назад",
+  "just-now": "Только что",
+  "live": "В ЭФИРЕ",
+  "minutes-ago": "{n} мин назад",
+  "no-activity": "Сейчас никто не играет",
+  "now-playing": "Сейчас играют",
+  "playing-on": "Играет на {device}",
+  "playing-since": "Играет с {time}",
+  "total-sessions": "Всего сессий"
+}

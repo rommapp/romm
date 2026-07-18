@@ -37,7 +37,6 @@ class TestDeviceEndpoints:
         assert "device_id" in data
 
     def test_list_devices(self, client, access_token: str, admin_user: User):
-
         db_device_handler.add_device(
             Device(
                 id="test-device-1",
@@ -66,7 +65,6 @@ class TestDeviceEndpoints:
         assert "Device 2" in names
 
     def test_get_device(self, client, access_token: str, admin_user: User):
-
         device = db_device_handler.add_device(
             Device(
                 id="test-device-get",
@@ -131,7 +129,6 @@ class TestDeviceEndpoints:
         assert data["sync_enabled"] is False
 
     def test_delete_device(self, client, access_token: str, admin_user: User):
-
         device = db_device_handler.add_device(
             Device(
                 id="test-device-delete",
@@ -152,6 +149,26 @@ class TestDeviceEndpoints:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert get_response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_get_device_exposes_client_device_identifier(
+        self, client, access_token: str, admin_user: User
+    ):
+        device = db_device_handler.add_device(
+            Device(
+                id="test-device-cid",
+                user_id=admin_user.id,
+                name="CID Device",
+                client_device_identifier="install-uuid-abc123",
+            )
+        )
+
+        response = client.get(
+            f"/api/devices/{device.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["client_device_identifier"] == "install-uuid-abc123"
 
 
 class TestDeviceUserIsolation:

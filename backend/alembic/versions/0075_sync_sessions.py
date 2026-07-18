@@ -88,20 +88,32 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["device_id"], ["devices.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
-    op.create_index("ix_sync_sessions_device_id", "sync_sessions", ["device_id"])
-    op.create_index("ix_sync_sessions_user_id", "sync_sessions", ["user_id"])
-    op.create_index("ix_sync_sessions_status", "sync_sessions", ["status"])
+    op.create_index(
+        "ix_sync_sessions_device_id", "sync_sessions", ["device_id"], if_not_exists=True
+    )
+    op.create_index(
+        "ix_sync_sessions_user_id", "sync_sessions", ["user_id"], if_not_exists=True
+    )
+    op.create_index(
+        "ix_sync_sessions_status", "sync_sessions", ["status"], if_not_exists=True
+    )
 
-    op.add_column("devices", sa.Column("sync_config", sa.JSON(), nullable=True))
+    with op.batch_alter_table("devices", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column("sync_config", sa.JSON(), nullable=True),
+            if_not_exists=True,
+        )
 
 
 def downgrade() -> None:
-    op.drop_column("devices", "sync_config")
+    with op.batch_alter_table("devices", schema=None) as batch_op:
+        batch_op.drop_column("sync_config", if_exists=True)
 
-    op.drop_index("ix_sync_sessions_status", table_name="sync_sessions")
+    op.drop_index("ix_sync_sessions_status", table_name="sync_sessions", if_exists=True)
 
-    op.drop_table("sync_sessions")
+    op.drop_table("sync_sessions", if_exists=True)
 
     connection = op.get_bind()
     if is_postgresql(connection):

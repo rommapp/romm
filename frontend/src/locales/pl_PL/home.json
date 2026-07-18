@@ -1,4 +1,22 @@
 {
   "continue-playing": "Kontynuuj grę",
-  "recently-added": "Ostatnio dodane"
+  "empty-detected-games": "{count} gra wykryta | {count} gry wykryte | {count} gier wykrytych",
+  "empty-detected-platforms": "{count} platforma wykryta | {count} platformy wykryte | {count} platform wykrytych",
+  "empty-headline": "Twoja biblioteka jest pusta",
+  "empty-hint": "Wybierz, jak chcesz dodać swoje pierwsze gry. Drugą opcję możesz zawsze wykorzystać później.",
+  "empty-scan-cta": "Uruchom skanowanie",
+  "empty-scan-desc": "Umieściłeś już swoje gry w folderze biblioteki? Uruchom skanowanie, aby je wykryć i pobrać metadane.",
+  "empty-scan-title": "Skanuj bibliotekę",
+  "empty-upload-cta": "Prześlij gry",
+  "empty-upload-desc": "Przeciągnij i upuść pliki ROM lub wybierz je z komputera. Najlepsze, gdy chcesz dodać kilka gier samodzielnie.",
+  "empty-upload-title": "Prześlij ręcznie",
+  "no-games-yet": "Brak dodanych gier.",
+  "recently-added": "Ostatnio dodane",
+  "widget-library-favorites": "Ulubione",
+  "widget-library-screenshots": "Zrzuty ekranu",
+  "widget-library-stats": "Statystyki biblioteki",
+  "widget-random-pick": "Losowy wybór",
+  "widget-random-pick-empty": "Nie wczytano jeszcze żadnych gier",
+  "widget-random-pick-open": "Otwórz",
+  "widget-random-pick-reroll": "Losuj ponownie"
 }

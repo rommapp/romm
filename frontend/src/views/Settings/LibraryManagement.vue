@@ -85,7 +85,24 @@ watch(
         </template>
       </v-alert>
       <v-alert
-        v-else-if="!config.CONFIG_FILE_WRITABLE"
+        v-if="config.CONFIG_FILE_MOUNTED && config.CONFIG_FILE_PARSE_ERROR"
+        type="error"
+        variant="tonal"
+        class="my-2"
+      >
+        <template #title>{{
+          t("settings.config-file-parse-error-title")
+        }}</template>
+        <template #text>
+          {{
+            t("settings.config-file-parse-error-desc", {
+              error: config.CONFIG_FILE_PARSE_ERROR,
+            })
+          }}
+        </template>
+      </v-alert>
+      <v-alert
+        v-if="config.CONFIG_FILE_MOUNTED && !config.CONFIG_FILE_WRITABLE"
         type="warning"
         variant="tonal"
         class="my-2"

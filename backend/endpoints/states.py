@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import Body, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import StateSchema
@@ -9,6 +10,7 @@ from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
+from handler.filesystem.assets_handler import build_asset_file_response
 from handler.scan_handler import scan_screenshot, scan_state
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -208,6 +210,34 @@ def get_state(request: Request, id: int) -> StateSchema:
     return StateSchema.model_validate(state)
 
 
+@protected_route(router.get, "/{id}/content", [Scope.ASSETS_READ])
+def download_state(request: Request, id: int) -> FileResponse:
+    """Download a state file. Owner can download any of their states; everyone
+    else only public ones."""
+    state = db_state_handler.get_state_by_id(id)
+    if not state or (state.user_id != request.user.id and not state.is_public):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"State with ID {id} not found",
+        )
+
+    try:
+        file_path = fs_asset_handler.validate_path(state.full_path)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="State file not found",
+        ) from None
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="State file not found on disk",
+        )
+
+    return build_asset_file_response(file_path, filename=state.file_name)
+
+
 @protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
 async def update_state(
     request: Request,
@@ -283,6 +313,37 @@ async def update_state(
 
     # Refetch the state to get updated fields
     return StateSchema.model_validate(db_state)
+
+
+@protected_route(
+    router.put,
+    "/{id}/visibility",
+    [Scope.ASSETS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def update_state_visibility(
+    request: Request,
+    id: int,
+    is_public: Annotated[bool, Body(embed=True)],
+) -> StateSchema:
+    """Toggle a state's public/private visibility (owner only)."""
+    state = db_state_handler.get_state_by_id(id)
+    if not state or state.user_id != request.user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"State with ID {id} not found",
+        )
+
+    updated = db_state_handler.update_state(id, {"is_public": is_public})
+
+    # Keep the auto-captured thumbnail's visibility in sync so a shared state
+    # still renders its preview for other users.
+    if state.screenshot:
+        db_screenshot_handler.update_screenshot(
+            state.screenshot.id, {"is_public": is_public}
+        )
+
+    return StateSchema.model_validate(updated)
 
 
 @protected_route(

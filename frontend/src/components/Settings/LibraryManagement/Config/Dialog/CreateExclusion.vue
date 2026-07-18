@@ -129,9 +129,7 @@ function closeDialog() {
                     size="32"
                     :class="[
                       'mb-2',
-                      exclusionType === item.type
-                        ? 'text-white'
-                        : 'text-primary',
+                      exclusionType === item.type ? '' : 'text-primary',
                     ]"
                   />
                   <div
@@ -146,7 +144,7 @@ function closeDialog() {
                     :class="[
                       'text-xs mt-1',
                       exclusionType === item.type
-                        ? 'text-white opacity-90'
+                        ? 'opacity-90'
                         : 'text-romm-gray',
                     ]"
                   >

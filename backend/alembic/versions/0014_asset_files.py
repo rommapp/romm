@@ -108,6 +108,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["rom_id"], ["roms.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
     op.create_table(
         "screenshots",
@@ -129,6 +130,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["rom_id"], ["roms.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
     op.create_table(
         "states",
@@ -151,6 +153,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["rom_id"], ["roms.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
 
     # Drop the constraint to platform slug
@@ -163,7 +166,7 @@ def upgrade() -> None:
             connection, table_name="platforms"
         )["name"]
         batch_op.drop_constraint(constraint_name=pk_constraint_name, type_="primary")
-        batch_op.drop_column("n_roms")
+        batch_op.drop_column("n_roms", if_exists=True)
 
     # Switch to new id column as platform primary key
     if is_postgresql(connection):
@@ -176,13 +179,19 @@ def upgrade() -> None:
     # Add new columns to roms table
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(
-            sa.Column("file_name_no_ext", sa.String(length=450), nullable=False)
+            sa.Column("file_name_no_ext", sa.String(length=450), nullable=False),
+            if_not_exists=True,
         )
         batch_op.add_column(
-            sa.Column("file_size_bytes", sa.BigInteger(), nullable=False)
+            sa.Column("file_size_bytes", sa.BigInteger(), nullable=False),
+            if_not_exists=True,
         )
-        batch_op.add_column(sa.Column("igdb_metadata", CustomJSON(), nullable=True))
-        batch_op.add_column(sa.Column("platform_id", sa.Integer(), nullable=False))
+        batch_op.add_column(
+            sa.Column("igdb_metadata", CustomJSON(), nullable=True), if_not_exists=True
+        )
+        batch_op.add_column(
+            sa.Column("platform_id", sa.Integer(), nullable=False), if_not_exists=True
+        )
         batch_op.alter_column(
             "revision",
             existing_type=sa.VARCHAR(length=20),
@@ -238,12 +247,12 @@ def upgrade() -> None:
             ["id"],
             ondelete="CASCADE",
         )
-        batch_op.drop_column("file_size")
-        batch_op.drop_column("file_size_units")
-        batch_op.drop_column("p_sgdb_id")
-        batch_op.drop_column("p_name")
-        batch_op.drop_column("p_igdb_id")
-        batch_op.drop_column("platform_slug")
+        batch_op.drop_column("file_size", if_exists=True)
+        batch_op.drop_column("file_size_units", if_exists=True)
+        batch_op.drop_column("p_sgdb_id", if_exists=True)
+        batch_op.drop_column("p_name", if_exists=True)
+        batch_op.drop_column("p_igdb_id", if_exists=True)
+        batch_op.drop_column("platform_slug", if_exists=True)
 
 
 def downgrade() -> None:
@@ -251,19 +260,28 @@ def downgrade() -> None:
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(
-            sa.Column("platform_slug", sa.VARCHAR(length=50), nullable=False)
+            sa.Column("platform_slug", sa.VARCHAR(length=50), nullable=False),
+            if_not_exists=True,
         )
         batch_op.add_column(
-            sa.Column("p_igdb_id", sa.VARCHAR(length=10), nullable=True)
-        )
-        batch_op.add_column(sa.Column("p_name", sa.VARCHAR(length=150), nullable=True))
-        batch_op.add_column(
-            sa.Column("p_sgdb_id", sa.VARCHAR(length=10), nullable=True)
+            sa.Column("p_igdb_id", sa.VARCHAR(length=10), nullable=True),
+            if_not_exists=True,
         )
         batch_op.add_column(
-            sa.Column("file_size_units", sa.VARCHAR(length=10), nullable=False)
+            sa.Column("p_name", sa.VARCHAR(length=150), nullable=True),
+            if_not_exists=True,
         )
-        batch_op.add_column(sa.Column("file_size", sa.FLOAT(), nullable=False))
+        batch_op.add_column(
+            sa.Column("p_sgdb_id", sa.VARCHAR(length=10), nullable=True),
+            if_not_exists=True,
+        )
+        batch_op.add_column(
+            sa.Column("file_size_units", sa.VARCHAR(length=10), nullable=False),
+            if_not_exists=True,
+        )
+        batch_op.add_column(
+            sa.Column("file_size", sa.FLOAT(), nullable=False), if_not_exists=True
+        )
         batch_op.drop_constraint("fk_platform_id_roms", type_="foreignkey")
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
@@ -302,10 +320,10 @@ def downgrade() -> None:
 
     # Cleanup roms table
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_column("platform_id")
-        batch_op.drop_column("igdb_metadata")
-        batch_op.drop_column("file_size_bytes")
-        batch_op.drop_column("file_name_no_ext")
+        batch_op.drop_column("platform_id", if_exists=True)
+        batch_op.drop_column("igdb_metadata", if_exists=True)
+        batch_op.drop_column("file_size_bytes", if_exists=True)
+        batch_op.drop_column("file_name_no_ext", if_exists=True)
         batch_op.alter_column(
             "revision",
             existing_type=sa.String(length=100),
@@ -320,9 +338,10 @@ def downgrade() -> None:
                 sa.INTEGER(),
                 autoincrement=False,
                 nullable=True,
-            )
+            ),
+            if_not_exists=True,
         )
-        batch_op.drop_column("id")
+        batch_op.drop_column("id", if_exists=True)
         batch_op.create_primary_key(constraint_name=None, columns=["slug"])
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
@@ -334,6 +353,6 @@ def downgrade() -> None:
             ondelete="CASCADE",
         )
 
-    op.drop_table("states")
-    op.drop_table("screenshots")
-    op.drop_table("saves")
+    op.drop_table("states", if_exists=True)
+    op.drop_table("screenshots", if_exists=True)
+    op.drop_table("saves", if_exists=True)

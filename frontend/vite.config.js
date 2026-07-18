@@ -4,7 +4,6 @@ import { URL, fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
-import { viteStaticCopy } from "vite-plugin-static-copy";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
 
 // Vuetify components to preoptimize for faster dev startup
@@ -66,15 +65,12 @@ export default defineConfig(({ mode }) => {
   };
 
   const backendPort = env.DEV_PORT ?? "5000";
-  // const devMode = env.DEV_MODE === "true";
   const httpsMode = env.DEV_HTTPS === "true";
+  const pwaDevEnabled = env.DEV_PWA === "true";
 
   return {
     optimizeDeps: {
       include: VUETIFY_COMPONENTS,
-      esbuildOptions: {
-        target: "esnext",
-      },
     },
     build: {
       target: "esnext",
@@ -100,7 +96,7 @@ export default defineConfig(({ mode }) => {
           ],
         },
         devOptions: {
-          enabled: true,
+          enabled: pwaDevEnabled,
           type: "module",
         },
       }),
@@ -109,14 +105,6 @@ export default defineConfig(({ mode }) => {
           savePath: "/app/.vite-plugin-mkcert",
           hosts: ["localhost", "127.0.0.1", "romm.dev"],
         }),
-      viteStaticCopy({
-        targets: [
-          {
-            src: "node_modules/rom-patcher/rom-patcher-js/**/*.js",
-            dest: "rom-patcher",
-          },
-        ],
-      }),
     ],
     define: {
       "process.env": {},
@@ -125,10 +113,17 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": fileURLToPath(new URL("./src", import.meta.url)),
+        "@v2": fileURLToPath(new URL("./src/v2", import.meta.url)),
       },
       extensions: [".js", ".json", ".jsx", ".mjs", ".ts", ".tsx", ".vue"],
     },
     server: {
+      watch: {
+        // Never crawl the served library resources: this path is a symlink
+        // into the user's library (covers, screenshots) and can hold hundreds
+        // of thousands of files, which OOMs the dev server's file watcher.
+        ignored: ["**/assets/romm/resources/**", "**/assets/romm/resources"],
+      },
       proxy: {
         "/api": {
           target: `http://127.0.0.1:${backendPort}`,

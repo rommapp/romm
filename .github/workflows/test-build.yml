@@ -7,8 +7,17 @@ on:
     inputs:
       # trunk-ignore(checkov/CKV_GHA_7)
       branch:
-        description: "Git branch to build"
+        description: "Git branch"
         required: true
+      registry:
+        description: "Container registry"
+        required: true
+        default: "ghcr"
+        type: choice
+        options:
+          - ghcr
+          - dockerhub
+          - both
 
 permissions:
   id-token: write
@@ -28,6 +37,11 @@ jobs:
       contents: write
       packages: write
       pull-requests: write
+    env:
+      USE_GHCR: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.registry == 'ghcr' || github.event.inputs.registry == 'both' }}
+      USE_DOCKERHUB: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.registry == 'dockerhub' || github.event.inputs.registry == 'both') }}
+      # Key the Docker Hub namespace off the push credential rather than the GitHub owner.
+      DOCKERHUB_NAMESPACE: ${{ secrets.DOCKER_NAMESPACE || secrets.DOCKER_USERNAME || github.repository_owner }}
     steps:
       - name: Run only once per workflow
         run: echo "Triggered by ${{ github.event_name }}"
@@ -58,7 +72,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.11.1
 
+      - name: Login to GHCR
+        if: env.USE_GHCR == 'true'
+        uses: docker/login-action@v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Login to Docker Hub
+        if: env.USE_DOCKERHUB == 'true'
         uses: docker/login-action@v3.5.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -69,7 +92,8 @@ jobs:
         uses: docker/metadata-action@v5.8.0
         with:
           images: |
-            name=rommapp/romm-testing
+            ${{ env.USE_GHCR == 'true' && format('name=ghcr.io/{0}/romm-testing', github.repository_owner) || '' }}
+            ${{ env.USE_DOCKERHUB == 'true' && format('name={0}/romm-testing', env.DOCKERHUB_NAMESPACE) || '' }}
           tags: |
             type=raw,value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
 
@@ -83,17 +107,23 @@ jobs:
           platforms: linux/arm64,linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           target: full-image
+          build-args: |
+            SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
+            SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
 
-      - name: Comment PR with Docker image link
+      # PR builds always push to GHCR only, so the image link is hardcoded to GHCR.
+      - name: Comment PR with GHCR image link
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         env:
           HEAD_REF: ${{ github.head_ref }}
         with:
           script: |
+            const owner = context.repo.owner;
+            const tag = process.env.HEAD_REF;
             github.rest.issues.updateComment({
               comment_id: ${{ steps.build-comment.outputs.comment-id }},
-              owner: context.repo.owner,
+              owner: owner,
               repo: context.repo.repo,
-              body: `✅ Preview build completed!\n\nDocker image: \`rommapp/romm-testing:${process.env.HEAD_REF}\``
+              body: `✅ Preview build completed!\n\nDocker image: \`ghcr.io/${owner}/romm-testing:${tag}\``
             })

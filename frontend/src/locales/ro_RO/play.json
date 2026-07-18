@@ -1,4 +1,6 @@
 {
+  "all-saves": "Toate salvările",
+  "all-states": "Toate stările",
   "back-to-gallery": "Înapoi la galerie",
   "back-to-game-details": "Înapoi la detaliile jocului",
   "background-color": "Culoare de fundal",
@@ -13,12 +15,17 @@
   "full-screen": "Ecran complet",
   "no-save-selected": "Nicio salvare selectată",
   "no-saves-available": "Nicio salvare disponibilă",
+  "no-screenshot-available": "Nicio captură disponibilă",
   "no-state-selected": "Nicio stare selectată",
   "no-states-available": "Nicio stare disponibilă",
   "play": "Joacă",
+  "powered-by": "Susținut de",
   "quit": "Ieși",
+  "resume-from-save": "Reia din salvare",
+  "resume-from-state": "Reia din stare",
   "save-and-quit": "Salvează și ieși",
   "select-background-color": "Selectează culoarea de fundal",
   "select-save": "Selectează salvare",
-  "select-state": "Selectează stare"
+  "select-state": "Selectează stare",
+  "start-fresh-hint": "Alege una mai jos pentru a relua sau apasă Joacă pentru a începe de la zero."
 }

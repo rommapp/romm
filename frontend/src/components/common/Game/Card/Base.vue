@@ -10,6 +10,7 @@ import {
   inject,
   useTemplateRef,
 } from "vue";
+import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import type { VImg } from "vuetify/lib/components/VImg/VImg.js";
 import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
@@ -81,6 +82,7 @@ const props = withDefaults(
 );
 
 const { smAndDown } = useDisplay();
+const { t } = useI18n();
 const romsStore = storeRoms();
 const activeMenu = ref(false);
 const gameIsHovering = ref(false);
@@ -158,10 +160,7 @@ const {
 });
 
 const computedAspectRatio = computed(() => {
-  return galleryViewStore.getAspectRatio({
-    platformId: props.rom.platform_id,
-    boxartStyle: boxartStyle.value,
-  });
+  return galleryViewStore.getAspectRatio({ boxartStyle: boxartStyle.value });
 });
 
 const fallbackCoverImage = computed(() =>
@@ -281,8 +280,7 @@ onBeforeUnmount(() => {
           <v-img
             ref="game-image-ref"
             :key="romsStore.isSimpleRom(rom) ? rom.id : rom.name"
-            :cover="!boxartStyleCover"
-            :contain="boxartStyleCover"
+            :cover="false"
             content-class="d-flex flex-column justify-space-between"
             :class="{
               pointer: pointerOnHover,
@@ -290,7 +288,6 @@ onBeforeUnmount(() => {
               transitioning: !isVideoPlaying,
             }"
             :src="largeCover || fallbackCoverImage"
-            :aspect-ratio="computedAspectRatio"
             @click="handleClick"
             @touchstart="handleTouchStart"
             @touchend="handleTouchEnd"
@@ -311,7 +308,7 @@ onBeforeUnmount(() => {
                   v-if="
                     isOuterHovering ||
                     showGameTitleAlways ||
-                    (romsStore.isSimpleRom(rom) && !rom.path_cover_large) ||
+                    (romsStore.isSimpleRom(rom) && !largeCover) ||
                     (!romsStore.isSimpleRom(rom) &&
                       !rom.igdb_url_cover &&
                       !rom.moby_url_cover &&
@@ -320,7 +317,7 @@ onBeforeUnmount(() => {
                       !rom.launchbox_url_cover &&
                       !rom.flashpoint_url_cover)
                   "
-                  class="translucent text-white"
+                  class="translucent"
                   :class="
                     sizeActionBar === 1 ? 'text-subtitle-1' : 'text-caption'
                   "
@@ -340,7 +337,7 @@ onBeforeUnmount(() => {
                 </div>
               </v-expand-transition>
             </template>
-            <v-row no-gutters class="text-white px-1">
+            <v-row no-gutters class="px-1">
               <v-col>
                 <Sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
                 <Flags
@@ -372,17 +369,21 @@ onBeforeUnmount(() => {
                   />
                   <v-chip
                     v-if="rom.hasheous_id"
-                    class="translucent text-white mr-1 mb-1 px-1"
+                    class="translucent mr-1 mb-1 px-1"
                     density="compact"
                     title="Verified with Hasheous"
                   >
                     <v-icon>mdi-check-decagram-outline</v-icon>
                   </v-chip>
                   <v-chip
-                    v-if="rom.siblings.length > 0 && showSiblings"
-                    class="translucent text-white mr-1 mb-1 px-1"
+                    v-if="rom.sibling_roms.length > 0 && showSiblings"
+                    class="translucent mr-1 mb-1 px-1"
                     density="compact"
-                    :title="`${rom.siblings.length} sibling(s)`"
+                    :title="
+                      t('rom.versions-count', {
+                        n: rom.sibling_roms.length + 1,
+                      })
+                    "
                   >
                     <v-icon>mdi-card-multiple-outline</v-icon>
                   </v-chip>
@@ -391,13 +392,13 @@ onBeforeUnmount(() => {
                     text="Favorite"
                     color="secondary"
                     density="compact"
-                    class="translucent text-white mr-1 mb-1 px-1"
+                    class="translucent mr-1 mb-1 px-1"
                   >
                     <v-icon>mdi-star</v-icon>
                   </v-chip>
                   <v-chip
                     v-if="rom.has_notes && showChips"
-                    class="translucent text-white mr-1 mb-1 px-1"
+                    class="translucent mr-1 mb-1 px-1"
                     density="compact"
                     title="View notes"
                     @click.stop="showNoteDialog"
@@ -429,25 +430,18 @@ onBeforeUnmount(() => {
             </div>
             <template #placeholder>
               <v-img
-                :cover="!boxartStyleCover"
-                :contain="boxartStyleCover"
+                :cover="false"
                 eager
                 :src="smallCover || fallbackCoverImage"
-                :aspect-ratio="computedAspectRatio"
               >
                 <template #placeholder>
-                  <Skeleton
-                    :platform-id="rom.platform_id"
-                    :aspect-ratio="computedAspectRatio"
-                    type="image"
-                  />
+                  <Skeleton :aspect-ratio="computedAspectRatio" type="image" />
                 </template>
               </v-img>
             </template>
             <template #error>
               <v-img
-                :cover="!boxartStyleCover"
-                :contain="boxartStyleCover"
+                :cover="false"
                 eager
                 :src="fallbackCoverImage"
                 :aspect-ratio="computedAspectRatio"

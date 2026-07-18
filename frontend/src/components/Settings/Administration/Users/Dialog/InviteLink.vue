@@ -12,7 +12,7 @@ const show = ref(false);
 const fullInviteLink = ref("");
 const selectedRole = ref("");
 const selectedExpiration = ref<number>(86400);
-const roles = ["viewer", "editor", "admin"];
+const roles = ["admin", "user"];
 const expirationOptions = [
   { label: "1 hour", value: 3600 },
   { label: "6 hours", value: 21600 },

@@ -31,6 +31,7 @@ class Platform(BaseModel):
     igdb_slug: Mapped[str | None] = mapped_column(String(length=100), default=None)
     moby_slug: Mapped[str | None] = mapped_column(String(length=100), default=None)
     hltb_slug: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    libretro_slug: Mapped[str | None] = mapped_column(String(length=100), default=None)
     slug: Mapped[str] = mapped_column(String(length=100))
     fs_slug: Mapped[str] = mapped_column(String(length=100))
     name: Mapped[str] = mapped_column(String(length=400))

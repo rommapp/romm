@@ -26,7 +26,7 @@ import {
   toBrowserLocale,
 } from "@/utils";
 
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 
 withDefaults(
   defineProps<{
@@ -130,12 +130,17 @@ function updateSelectedRom(rom: SimpleRom) {
 type SortBy = { key: keyof SimpleRom; order: "asc" | "desc" }[];
 
 function updateOptions({ sortBy }: { sortBy: SortBy }) {
-  if (!sortBy[0]) return;
-  const { key, order } = sortBy[0];
-
   romsStore.resetPagination();
-  romsStore.setOrderBy(key);
-  romsStore.setOrderDir(order);
+  if (sortBy[0]) {
+    const { key, order } = sortBy[0];
+    romsStore.setOrderBy(key);
+    romsStore.setOrderDir(order);
+  } else {
+    // Clear the `orderBy` key when the user removes
+    // the sort column from the table
+    romsStore.setOrderBy("");
+    romsStore.setOrderDir("asc");
+  }
   romsStore.fetchRoms();
 }
 </script>
@@ -300,16 +305,28 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 </v-avatar>
               </v-chip>
               <v-chip
-                v-if="item.siblings.length > 0 && showSiblings"
-                class="translucent text-white mr-1 px-1 item-chip"
+                v-if="item.libretro_id"
+                class="mr-1 pa-0 item-chip"
                 size="x-small"
-                :title="`${item.siblings.length} sibling(s)`"
+                title="Libretro match"
+              >
+                <v-avatar variant="text" size="20" rounded>
+                  <v-img src="/assets/scrappers/libretro.png" />
+                </v-avatar>
+              </v-chip>
+              <v-chip
+                v-if="item.sibling_roms.length > 0 && showSiblings"
+                class="translucent mr-1 px-1 item-chip"
+                size="x-small"
+                :title="
+                  t('rom.versions-count', { n: item.sibling_roms.length + 1 })
+                "
               >
                 <v-icon>mdi-card-multiple-outline</v-icon>
               </v-chip>
               <v-chip
                 v-if="item.has_notes"
-                class="translucent text-white mr-1 px-1"
+                class="translucent mr-1 px-1"
                 chip
                 size="x-small"
                 title="View notes"

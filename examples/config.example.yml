@@ -82,41 +82,43 @@
 #   priority:
 #     # Below are the default priority values used
 #     metadata: # Top-level metadata source priority
-#       - "igdb" # IGDB (highest priority)
-#       - "moby" # MobyGames
-#       - "ss" # Screenscraper
-#       - "ra" # RetroAchievements
-#       - "launchbox" # Launchbox
-#       - "gamelist" # ES-DE gamelist.xml
-#       - "hasheous" # Hasheous
-#       - "flashpoint" # Flashpoint Project
-#       - "hltb" # HowLongToBeat (lowest priority)
+#       - igdb # IGDB (highest priority)
+#       - moby # MobyGames
+#       - ss # Screenscraper
+#       - ra # RetroAchievements
+#       - launchbox # Launchbox
+#       - gamelist # ES-DE gamelist.xml
+#       - hasheous # Hasheous
+#       - flashpoint # Flashpoint Project
+#       - hltb # HowLongToBeat (lowest priority)
 #     artwork: # Cover art and screenshots
-#       - "igdb" # IGDB
-#       - "moby" # MobyGames
-#       - "ss" # Screenscraper
-#       - "ra" # RetroAchievements
-#       - "launchbox" # Launchbox
-#       - "gamelist" # ES-DE gamelist.xml
-#       - "hasheous" # Hasheous
-#       - "flashpoint" # Flashpoint Project
-#       - "hltb" # HowLongToBeat
+#       - igdb # IGDB
+#       - moby # MobyGames
+#       - ss # Screenscraper
+#       - ra # RetroAchievements
+#       - launchbox # Launchbox
+#       - libretro # Libretro
+#       - gamelist # ES-DE gamelist.xml
+#       - hasheous # Hasheous
+#       - flashpoint # Flashpoint Project
+#       - hltb # HowLongToBeat
 #     region: # Used by IGDB and ScreenScraper for regional variants
-#       - "us"
-#       - "wor"
-#       - "ss"
-#       - "eu"
-#       - "jp"
+#       - us
+#       - wor
+#       - ss
+#       - eu
+#       - jp
 #     language: # Used by ScreenScraper for descriptions
-#       - "en"
-#       - "fr"
+#       - en
+#       - fr
 #     # Media assets to download
 #     # Only used by Screenscraper and ES-DE gamelist.xml
 #   media:
 #     # Used as alternative cover art
 #     - box2d  # Normal cover art (always enabled)
 #     - box3d  # 3D box art
-#     - miximage  # Mixed image of multiple media
+#     - miximage  # Mixed image of multiple media (v1 / mixrbv1)
+#     - miximage_v2  # Mixed image of multiple media (v2 / mixrbv2)
 #     - physical  # Disc, cartridge, etc.
 #     # Added to the screenshots carousel
 #     - screenshot  # Screenshot (enabled by default)
@@ -131,6 +133,7 @@
 #     - video_normalized  # Normalized video (smaller file size than video)
 #     # Media used for batocera gamelist.xml export
 #     - box2d_back  # Back cover art
+#     - box2d_side  # Box spine (enables the interactive 3D box on detail pages)
 #     - logo  # Transparent logo
 #     # Other media assets (might be used in the future)
 #     - marquee  # Custom marquee

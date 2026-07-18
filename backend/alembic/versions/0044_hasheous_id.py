@@ -19,8 +19,12 @@ depends_on = None
 
 def upgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("hasheous_id", sa.Integer(), nullable=True))
-        batch_op.add_column(sa.Column("tgdb_id", sa.Integer(), nullable=True))
+        batch_op.add_column(
+            sa.Column("hasheous_id", sa.Integer(), nullable=True), if_not_exists=True
+        )
+        batch_op.add_column(
+            sa.Column("tgdb_id", sa.Integer(), nullable=True), if_not_exists=True
+        )
         batch_op.add_column(
             sa.Column(
                 "hasheous_metadata",
@@ -28,24 +32,33 @@ def upgrade() -> None:
                     postgresql.JSONB(astext_type=sa.Text()), "postgresql"
                 ),
                 nullable=True,
-            )
+            ),
+            if_not_exists=True,
         )
-        batch_op.create_index("idx_roms_hasheous_id", ["hasheous_id"], unique=False)
-        batch_op.create_index("idx_roms_tgdb_id", ["tgdb_id"], unique=False)
+        batch_op.create_index(
+            "idx_roms_hasheous_id", ["hasheous_id"], unique=False, if_not_exists=True
+        )
+        batch_op.create_index(
+            "idx_roms_tgdb_id", ["tgdb_id"], unique=False, if_not_exists=True
+        )
 
     with op.batch_alter_table("platforms", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("hasheous_id", sa.Integer(), nullable=True))
-        batch_op.add_column(sa.Column("tgdb_id", sa.Integer(), nullable=True))
+        batch_op.add_column(
+            sa.Column("hasheous_id", sa.Integer(), nullable=True), if_not_exists=True
+        )
+        batch_op.add_column(
+            sa.Column("tgdb_id", sa.Integer(), nullable=True), if_not_exists=True
+        )
 
 
 def downgrade() -> None:
     with op.batch_alter_table("platforms", schema=None) as batch_op:
-        batch_op.drop_column("hasheous_id")
-        batch_op.drop_column("tgdb_id")
+        batch_op.drop_column("hasheous_id", if_exists=True)
+        batch_op.drop_column("tgdb_id", if_exists=True)
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_index("idx_roms_tgdb_id")
-        batch_op.drop_index("idx_roms_hasheous_id")
-        batch_op.drop_column("hasheous_metadata")
-        batch_op.drop_column("tgdb_id")
-        batch_op.drop_column("hasheous_id")
+        batch_op.drop_index("idx_roms_tgdb_id", if_exists=True)
+        batch_op.drop_index("idx_roms_hasheous_id", if_exists=True)
+        batch_op.drop_column("hasheous_metadata", if_exists=True)
+        batch_op.drop_column("tgdb_id", if_exists=True)
+        batch_op.drop_column("hasheous_id", if_exists=True)

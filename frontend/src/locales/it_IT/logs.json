@@ -1,0 +1,20 @@
+{
+  "clear": "Clear",
+  "click-to-copy": "Click to copy to clipboard",
+  "copied": "Logs copied to clipboard",
+  "copy": "Copy to clipboard",
+  "copy-error": "Failed to copy logs",
+  "download": "Download",
+  "empty": "No logs yet",
+  "jump-to-latest": "Jump to latest",
+  "level-all": "All levels",
+  "level-filter": "Filter by level",
+  "line-copied": "Line copied to clipboard",
+  "load-error": "Failed to load logs",
+  "module-all": "All modules",
+  "module-filter": "Filter by module",
+  "no-matches": "No logs match your filters",
+  "pause": "Pause",
+  "resume": "Resume",
+  "search-placeholder": "Search logs"
+}

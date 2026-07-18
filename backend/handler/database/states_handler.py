@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from sqlalchemy import and_, delete, select, update
+from sqlalchemy import and_, delete, desc, or_, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
 
 from decorators.database import begin_session
@@ -64,6 +64,38 @@ class DBStatesHandler(DBBaseHandler):
         if only_fields:
             query = query.options(load_only(*only_fields))
 
+        return session.scalars(query).all()
+
+    @begin_session
+    def get_state_by_id(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> State | None:
+        """Fetch a state by id without scoping to an owner. Used for the
+        visibility toggle and community downloads, where the caller may not own
+        the state. Mirrors db_screenshot_handler.get_screenshot_by_id."""
+        return session.get(State, id)
+
+    @begin_session
+    def get_rom_shared_states(
+        self,
+        rom_id: int,
+        user_id: int,
+        public_only: bool = False,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[State]:
+        """States for a ROM visible to the requesting user: own (public +
+        private) plus other users' public ones. Mirrors
+        db_screenshot_handler.get_rom_gallery_screenshots."""
+        query = select(State).filter(State.rom_id == rom_id)
+
+        if public_only:
+            query = query.filter(State.is_public)
+        else:
+            query = query.filter(or_(State.user_id == user_id, State.is_public))
+
+        query = query.order_by(desc(State.updated_at))
         return session.scalars(query).all()
 
     @begin_session

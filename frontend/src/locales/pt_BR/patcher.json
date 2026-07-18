@@ -14,12 +14,20 @@
   "error-no-platform": "Por favor, selecione uma plataforma para enviar.",
   "error-no-rom": "Por favor, selecione um arquivo ROM.",
   "error-upload-failed": "Não foi possível enviar a ROM: {error}",
+  "missing-from-fs": "Ausente do sistema de arquivos",
+  "no-files": "Esta ROM não tem arquivos.",
   "output-filename": "Nome do arquivo de saída (opcional)",
   "patch-file": "Arquivo de patch",
   "powered-by": "Desenvolvido com patcherjs",
   "replace": "Substituir",
   "rom-file": "Arquivo ROM",
+  "search-patch-library": "Pesquisar patches na biblioteca",
+  "search-rom-library": "Pesquisar ROMs na biblioteca",
+  "select-file": "Selecionar arquivo",
+  "select-patch-file": "Selecionar arquivo de patch",
+  "start-typing": "Comece a digitar para pesquisar...",
   "status-downloading": "Baixando ROM com patch...",
+  "status-patching": "Aplicando patch no servidor...",
   "status-preparing": "Preparando arquivos...",
   "status-uploading": "Enviando para RomM...",
   "subtitle": "Escolha uma ROM base e um arquivo de patch, depois aplique para baixar a ROM com patch.",
@@ -30,5 +38,6 @@
   "title": "Patchador de ROM",
   "upload-errors": " (com alguns erros)",
   "upload-success": "ROM com patch enviada com sucesso{errors}. Iniciando varredura...",
-  "upload-to-romm": "Enviar para RomM"
+  "upload-to-romm": "Enviar para RomM",
+  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

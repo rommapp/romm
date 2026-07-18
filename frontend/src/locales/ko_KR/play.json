@@ -1,4 +1,6 @@
 {
+  "all-saves": "모든 세이브",
+  "all-states": "모든 상태",
   "back-to-gallery": "갤러리로 가기",
   "back-to-game-details": "게임 설명으로 가기",
   "background-color": "배경색",
@@ -13,12 +15,17 @@
   "full-screen": "전체 화면",
   "no-save-selected": "선택된 세이브 없음",
   "no-saves-available": "사용 가능한 세이브 없음",
+  "no-screenshot-available": "사용 가능한 스크린샷이 없습니다",
   "no-state-selected": "선택된 상태 없음",
   "no-states-available": "사용 가능한 상태 없음",
   "play": "실행",
+  "powered-by": "제공",
   "quit": "종료",
+  "resume-from-save": "세이브에서 이어하기",
+  "resume-from-state": "상태에서 이어하기",
   "save-and-quit": "저장하고 종료",
   "select-background-color": "배경색 선택",
   "select-save": "세이브 선택",
-  "select-state": "상태 선택"
+  "select-state": "상태 선택",
+  "start-fresh-hint": "아래에서 하나를 선택하여 이어 하거나, 실행을 눌러 새로 시작하세요."
 }

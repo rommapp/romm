@@ -1,9 +1,10 @@
 import functools
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import delete, insert, literal, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     Query,
     QueryableAttribute,
@@ -143,6 +144,75 @@ class DBCollectionsHandler(DBBaseHandler):
                             for rom_id in valid_rom_ids
                         ],
                     )
+
+        return session.scalar(query.filter_by(id=id).limit(1))
+
+    @begin_session
+    @with_roms
+    def add_roms_to_collection(
+        self,
+        id: int,
+        rom_ids: list[int],
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
+    ) -> Collection:
+        if rom_ids:
+            valid_rom_ids = set(
+                session.scalars(select(Rom.id).where(Rom.id.in_(rom_ids))).all()
+            )
+            existing_ids = set(
+                session.scalars(
+                    select(CollectionRom.rom_id).where(
+                        CollectionRom.collection_id == id
+                    )
+                ).all()
+            )
+            new_ids = valid_rom_ids - existing_ids
+            if new_ids:
+                try:
+                    with session.begin_nested():
+                        session.execute(
+                            insert(CollectionRom),
+                            [
+                                {"collection_id": id, "rom_id": rom_id}
+                                for rom_id in new_ids
+                            ],
+                        )
+                except IntegrityError:
+                    # Concurrent request inserted the same rows; data is consistent
+                    pass
+                session.execute(
+                    update(Collection)
+                    .where(Collection.id == id)
+                    .values(updated_at=datetime.now(timezone.utc))
+                    .execution_options(synchronize_session="evaluate")
+                )
+
+        return session.scalar(query.filter_by(id=id).limit(1))
+
+    @begin_session
+    @with_roms
+    def remove_roms_from_collection(
+        self,
+        id: int,
+        rom_ids: list[int],
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
+    ) -> Collection:
+        if rom_ids:
+            result = session.execute(
+                delete(CollectionRom).where(
+                    CollectionRom.collection_id == id,
+                    CollectionRom.rom_id.in_(rom_ids),
+                )
+            )
+            if result.rowcount > 0:
+                session.execute(
+                    update(Collection)
+                    .where(Collection.id == id)
+                    .values(updated_at=datetime.now(timezone.utc))
+                    .execution_options(synchronize_session="evaluate")
+                )
 
         return session.scalar(query.filter_by(id=id).limit(1))
 
@@ -288,7 +358,7 @@ class DBCollectionsHandler(DBBaseHandler):
             if new_value := criteria.get(new_key):
                 return new_value if isinstance(new_value, list) else [new_value]
             if old_value := criteria.get(old_key):
-                return [old_value]
+                return old_value if isinstance(old_value, list) else [old_value]
             return None
 
         # Apply conversions
@@ -299,6 +369,7 @@ class DBCollectionsHandler(DBBaseHandler):
         age_ratings = convert_legacy_filter("age_ratings", "selected_age_rating")
         regions = convert_legacy_filter("regions", "selected_region")
         languages = convert_legacy_filter("languages", "selected_language")
+        tags = convert_legacy_filter("tags", "selected_tag")
         statuses = convert_legacy_filter("statuses", "selected_status")
 
         # Use the existing filter_roms method with the stored criteria
@@ -327,6 +398,8 @@ class DBCollectionsHandler(DBBaseHandler):
             statuses=statuses,
             regions=regions,
             languages=languages,
+            tags=tags,
+            metadata_providers=criteria.get("metadata_providers"),
             # Logic operators for multi-value filters
             genres_logic=criteria.get("genres_logic", "any"),
             franchises_logic=criteria.get("franchises_logic", "any"),
@@ -336,6 +409,8 @@ class DBCollectionsHandler(DBBaseHandler):
             regions_logic=criteria.get("regions_logic", "any"),
             languages_logic=criteria.get("languages_logic", "any"),
             statuses_logic=criteria.get("statuses_logic", "any"),
+            metadata_providers_logic=criteria.get("metadata_providers_logic", "any"),
+            tags_logic=criteria.get("tags_logic", "any"),
             user_id=user_id,
             order_by=criteria.get("order_by", "name"),
             order_dir=criteria.get("order_dir", "asc"),

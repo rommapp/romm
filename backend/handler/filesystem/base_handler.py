@@ -16,11 +16,14 @@ from anyio import open_file
 from starlette.datastructures import UploadFile
 
 from config.config_manager import config_manager as cm
-from models.base import FILE_NAME_MAX_LENGTH
-from utils.filesystem import iter_directories, iter_files
+from models.base import (
+    FILE_NAME_MAX_LENGTH,
+    compute_file_extension,
+    compute_file_name_no_ext,
+    compute_file_name_no_tags,
+)
+from utils.filesystem import iter_directories, iter_files, link_or_copy_file
 
-TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
-EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
 UUID_V4_REGEX = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}",
     re.IGNORECASE,
@@ -88,6 +91,50 @@ REGIONS = (
 REGIONS_BY_SHORTCODE = {region[0]: region[1] for region in REGIONS}
 REGIONS_NAME_KEYS = frozenset(region[1].lower() for region in REGIONS)
 
+# Maps full REGIONS names to lowercase shortcodes used by metadata providers
+REGION_NAME_TO_PROVIDER_SHORTCODE: dict[str, str] = {
+    "Australia": "au",
+    "Asia": "asi",
+    "Brazil": "br",
+    "Canada": "ca",
+    "China": "cn",
+    "England": "uk",
+    "Europe": "eu",
+    "Finland": "fi",
+    "France": "fr",
+    "Germany": "de",
+    "Greece": "gr",
+    "Holland": "nl",
+    "Hong Kong": "hk",
+    "Italy": "it",
+    "Japan": "jp",
+    "Korea": "kr",
+    "Netherlands": "nl",
+    "Norway": "no",
+    "Russia": "ru",
+    "Spain": "sp",
+    "Sweden": "se",
+    "Taiwan": "tw",
+    "USA": "us",
+    "World": "wor",
+}
+
+_REGION_NAME_TO_PROVIDER_SHORTCODE_CI = {
+    k.lower(): v for k, v in REGION_NAME_TO_PROVIDER_SHORTCODE.items()
+}
+
+
+def region_name_to_provider_shortcode(region_name: str | None) -> str | None:
+    """Look up a provider shortcode for a region name (case-insensitive).
+
+    ROM filename parsing can leave region names in their raw casing
+    (e.g. "europe", "EUROPE"), so callers must normalize before lookup.
+    """
+    if not region_name:
+        return None
+    return _REGION_NAME_TO_PROVIDER_SHORTCODE_CI.get(region_name.lower())
+
+
 LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}
 LANGUAGES_NAME_KEYS = frozenset(lang[1].lower() for lang in LANGUAGES)
 
@@ -108,8 +155,6 @@ class FSHandler:
         self.base_path = Path(base_path).resolve()
         self._locks: dict[str, asyncio.Lock] = {}
         self._lock_mutex = asyncio.Lock()
-
-        # Create base directory synchronously during initialization
         self.base_path.mkdir(parents=True, exist_ok=True)
 
     async def _get_file_lock(self, file_path: str) -> asyncio.Lock:
@@ -158,11 +203,24 @@ class FSHandler:
         full_path = base_path_obj / path_path
 
         try:
-            if full_path.is_symlink():
-                # For symlinks, ensure the symlink itself is within base directory
+            # Detect a symlink anywhere in the path, not just at the leaf —
+            # users may symlink an intermediate directory (e.g. the library
+            # root) to point at storage on another filesystem.
+            has_symlink_in_path = full_path.is_symlink()
+            if not has_symlink_in_path:
+                for parent in full_path.parents:
+                    if parent == base_path_obj:
+                        break
+                    if parent.is_symlink():
+                        has_symlink_in_path = True
+                        break
+
+            if has_symlink_in_path:
+                # Validate lexically — `..` and absolute paths are already
+                # rejected above, so the symlink target is reachable only via
+                # an intentionally-configured link.
                 full_path.relative_to(base_path_obj)
             else:
-                # For regular files/dirs, ensure resolved path is within base directory
                 full_path.resolve().relative_to(base_path_obj)
         except ValueError as exc:
             raise ValueError(
@@ -186,6 +244,8 @@ class FSHandler:
 
         try:
             yield temp_path
+            # mkstemp creates files with 0600 permissions
+            os.chmod(temp_path, 0o644)
             os.replace(str(temp_path), str(target_path))
 
         except Exception:
@@ -195,37 +255,37 @@ class FSHandler:
             raise
 
     def get_file_name_with_no_extension(self, file_name: str) -> str:
-        return EXTENSION_REGEX.sub("", file_name).strip()
+        return compute_file_name_no_ext(file_name)
 
     def get_file_name_with_no_tags(self, file_name: str) -> str:
-        file_name_no_extension = self.get_file_name_with_no_extension(file_name)
-        return TAG_REGEX.split(file_name_no_extension)[0].strip()
+        return compute_file_name_no_tags(file_name)
 
     def parse_file_extension(self, file_name: str) -> str:
-        match = EXTENSION_REGEX.search(file_name)
-        return match.group(1) if match else ""
+        return compute_file_extension(file_name)
 
     def extract_uuid_v4_from_filename(self, file_name: str) -> str:
         match = UUID_V4_REGEX.search(file_name)
         return match.group(0) if match else ""
 
     def exclude_single_files(self, files: list[str]) -> list[str]:
-        excluded_extensions = cm.get_config().EXCLUDED_SINGLE_EXT
-        excluded_names = cm.get_config().EXCLUDED_SINGLE_FILES
+        cnfg = cm.get_config()
+        excluded_extensions = cnfg.EXCLUDED_SINGLE_EXT
+        excluded_names = cnfg.EXCLUDED_SINGLE_FILES
         excluded_files: list[str] = []
 
         for file_name in files:
-            # Split the file name to get the extension.
-            ext = self.parse_file_extension(file_name)
+            file_name_lower = file_name.lower()
 
-            # Exclude the file if it has no extension or the extension is in the excluded list.
-            if ext and ext.lower() in excluded_extensions:
+            # Check whether the filename ends with any excluded extension entry.
+            if any(file_name_lower.endswith("." + ext) for ext in excluded_extensions):
                 excluded_files.append(file_name)
+                continue
 
-            # Additionally, check if the file name mathes a pattern in the excluded list.
-            for name in excluded_names:
-                if file_name == name or fnmatch.fnmatch(file_name, name):
-                    excluded_files.append(file_name)
+            # Check if the file name matches a pattern in the excluded list.
+            if file_name in excluded_names or any(
+                fnmatch.fnmatch(file_name, name) for name in excluded_names
+            ):
+                excluded_files.append(file_name)
 
         # Return files that are not in the filtered list.
         return [f for f in files if f not in excluded_files]
@@ -441,13 +501,21 @@ class FSHandler:
 
             return await open_file(full_path, "rb")
 
-    async def copy_file(self, source_full_path: Path, dest_path: str) -> None:
+    async def copy_file(
+        self,
+        source_full_path: Path,
+        dest_path: str,
+        allow_link: bool = False,
+    ) -> None:
         """
         Copy a file from source to destination.
 
         Args:
             source_full_path: Absolute path to the source file
             dest_path: Relative path to the destination file
+            allow_link: Try a hardlink first and fall back to
+            a copy when the link isn't possible (cross-device,
+            unsupported filesystem, etc.)
 
         Raises:
             FileNotFoundError: If source file does not exist
@@ -472,7 +540,10 @@ class FSHandler:
             # Create destination directory if needed
             dest_parent_anyio_path = AnyioPath(str(dest_full_path.parent))
             await dest_parent_anyio_path.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(str(source_full_path), str(dest_full_path))
+            if allow_link:
+                link_or_copy_file(source_full_path, dest_full_path)
+            else:
+                shutil.copy2(str(source_full_path), str(dest_full_path))
 
     async def move_file_or_folder(self, source_path: str, dest_path: str) -> None:
         """

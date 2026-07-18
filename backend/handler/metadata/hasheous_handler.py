@@ -153,7 +153,7 @@ class HasheousHandler(MetadataHandler):
         url: str,
         method: str = "POST",
         params: dict | None = None,
-        data: dict | None = None,
+        data: dict | list | None = None,
     ) -> dict:
         httpx_client = ctx_httpx_client.get()
 
@@ -172,7 +172,7 @@ class HasheousHandler(MetadataHandler):
             )
 
             # Prepare request kwargs
-            request_kwargs = {
+            request_kwargs: dict[str, Any] = {
                 "url": url,
                 "params": params,
                 "headers": {
@@ -232,6 +232,12 @@ class HasheousHandler(MetadataHandler):
         )
 
     async def lookup_rom(self, platform_slug: str, files: list[RomFile]) -> HasheousRom:
+        """Identify a ROM by its file hashes.
+
+        Returns a HasheousRom with the matched IDs, or an empty match if the
+        lookup fails. The lookup is best-effort and never raises to the caller,
+        so an unreachable Hasheous can't abort a scan.
+        """
         fallback_rom = HasheousRom(
             hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None
         )
@@ -251,40 +257,47 @@ class HasheousHandler(MetadataHandler):
             )
         ]
 
-        # Select the largest file by size, as it is most likely to be the main ROM file.
-        # This increases the accuracy of metadata lookups, since the largest file is
-        # expected to have the correct and complete hash values for external services.
-        first_file = max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
-        if first_file is None:
-            return fallback_rom
+        # The lookup endpoint accepts the hashes of all top-level files, which
+        # increases the accuracy of metadata lookups by letting Hasheous match
+        # against any of them.
+        data: list[dict] = []
+        for file in filtered_files:
+            file_hashes: dict[str, str | None]
+            if file.chd_sha1_hash:
+                # CHD files are indexed by disc-data SHA1 only
+                # Raw file MD5/CRC are hashes of the container and won't match
+                file_hashes = {"shA1": file.chd_sha1_hash}
+            else:
+                file_hashes = {
+                    "mD5": file.md5_hash,
+                    "shA1": file.sha1_hash,
+                    "crc": file.crc_hash,
+                }
 
-        md5_hash = first_file.md5_hash
-        sha1_hash = first_file.sha1_hash
-        crc_hash = first_file.crc_hash
+            # Drop empty hashes and skip files that have none.
+            file_hashes = {key: value for key, value in file_hashes.items() if value}
+            if file_hashes:
+                data.append(file_hashes)
 
-        if not (md5_hash or sha1_hash or crc_hash):
+        if not data:
             log.warning(
                 "No hashes provided for Hasheous lookup. "
-                "At least one of md5_hash, sha1_hash, or crc_hash is required."
+                "At least one of md5, sha1, or crc is required."
             )
             return fallback_rom
 
-        data = {}
-        if md5_hash:
-            data["mD5"] = md5_hash
-        if sha1_hash:
-            data["shA1"] = sha1_hash
-        if crc_hash:
-            data["crc"] = crc_hash
-
-        hasheous_game = await self._request(
-            self.games_endpoint,
-            params={
-                "returnAllSources": "true",
-                "returnFields": "Signatures, Metadata, Attributes",
-            },
-            data=data,
-        )
+        try:
+            hasheous_game = await self._request(
+                self.games_endpoint,
+                params={
+                    "returnAllSources": "true",
+                    "returnFields": "Signatures, Metadata, Attributes",
+                },
+                data=data,
+            )
+        except Exception as exc:
+            log.error("Hasheous hash lookup failed, skipping: %s", exc)
+            return fallback_rom
 
         if not hasheous_game:
             return fallback_rom

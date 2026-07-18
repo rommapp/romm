@@ -1,10 +1,20 @@
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+from config.config_manager import MetadataMediaType
+from config.config_manager import config_manager as cm
+from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.filesystem.base_handler import region_name_to_provider_shortcode
+from handler.metadata.ss_handler import get_preferred_media_types
 from utils.database import safe_str_to_bool
+
+if TYPE_CHECKING:
+    from models.rom import Rom
 
 from .types import (
     LAUNCHBOX_IMAGES_DIR,
     LAUNCHBOX_MANUALS_DIR,
+    LAUNCHBOX_VIDEOS_DIR,
     LaunchboxImage,
     LaunchboxMetadata,
     LaunchboxRom,
@@ -15,11 +25,65 @@ from .utils import (
     coalesce,
     dedupe_words,
     file_uri_for_local_path,
+    launchbox_region_to_shortcode,
     parse_list,
     parse_playmode,
     parse_release_date,
     parse_videourl,
     sanitize_filename,
+)
+
+# Cover image types in descending preference. Region acts as a tiebreaker
+# within a single type (see `_select_remote_cover`).
+COVER_PRIORITY_TYPES: tuple[str, ...] = (
+    "Box - Front",
+    "Box - Front - Reconstructed",
+    "Fanart - Box - Front",
+    "Box - 3D",
+    "Amazon Poster",
+    "Epic Games Poster",
+    "GOG Poster",
+    "Steam Poster",
+)
+
+
+def rom_region_shortcodes(fs_name: str) -> tuple[str, ...]:
+    """Provider region shortcodes to prefer for a ROM, most-preferred first.
+
+    Combines the regions tagged in the filename (reordered by the user's
+    SCAN_REGION_PRIORITY) with the configured priority list, so a ROM tagged
+    "(USA)" prefers its US cover even when another region sorts first.
+    """
+    if not fs_name:
+        return ()
+
+    priority = cm.get_config().SCAN_REGION_PRIORITY
+
+    rom_codes: list[str] = []
+    for region_name in fs_rom_handler.parse_tags(fs_name).regions:
+        code = region_name_to_provider_shortcode(region_name)
+        if code and code not in rom_codes:
+            rom_codes.append(code)
+    rom_codes.sort(
+        key=lambda code: priority.index(code) if code in priority else len(priority)
+    )
+
+    if not rom_codes:
+        return ()
+
+    return tuple(dict.fromkeys(rom_codes + priority))
+
+
+# Video container extensions recognized when probing for local LaunchBox media
+# and when validating a metadata video URL's suffix. A tuple because the probe
+# order is a preference order.
+RECOGNIZED_VIDEO_EXTENSIONS: tuple[str, ...] = (
+    ".mp4",
+    ".webm",
+    ".avi",
+    ".mkv",
+    ".mov",
+    ".wmv",
 )
 
 
@@ -41,6 +105,7 @@ def local_media_req(
         region_hint,
         remote_images,
         remote_enabled,
+        rom_region_shortcodes(fs_name),
     )
 
 
@@ -49,15 +114,24 @@ def remote_media_req(
     remote: dict | None,
     remote_images: list[dict] | None,
     remote_enabled: bool,
+    platform_name: str | None = None,
+    fs_name: str = "",
 ) -> MediaRequest:
     title = ((remote or {}).get("Name") or "").strip()
+    # Without a platform_name, _build_local_media_context bails and local
+    # Images/Manuals/Videos never get searched. Fall back to the platform
+    # recorded on the remote entry so remote-matched ROMs can still surface
+    # on-disk media.
+    if not platform_name and remote:
+        platform_name = (remote.get("Platform") or "").strip() or None
     return MediaRequest(
-        None,
-        "",
+        platform_name,
+        fs_name,
         title,
         None,
         remote_images,
         remote_enabled,
+        rom_region_shortcodes(fs_name),
     )
 
 
@@ -192,31 +266,39 @@ def _find_local_media_candidates(
     return [], ""
 
 
+def _select_remote_cover(
+    remote_images: list[dict], region_shortcodes: tuple[str, ...]
+) -> dict | None:
+    """Pick the best remote cover: highest-priority type, region as tiebreaker.
+
+    Within the best available image type, prefer the image whose region matches
+    the ROM (e.g. a "(USA)" ROM gets the North America box, not a random one).
+    """
+    for image_type in COVER_PRIORITY_TYPES:
+        typed = [
+            image
+            for image in remote_images
+            if image.get("Type") == image_type and image.get("FileName")
+        ]
+        if not typed:
+            continue
+
+        for code in region_shortcodes:
+            for image in typed:
+                if launchbox_region_to_shortcode(image.get("Region")) == code:
+                    return image
+
+        return typed[0]
+
+    return None
+
+
 def _get_cover(req: MediaRequest) -> str | None:
     cover: str | None = None
 
-    cover_priority_types = (
-        "Box - Front",
-        "Box - Front - Reconstructed",
-        "Fanart - Box - Front",
-        "Box - 3D",
-        "Amazon Poster",
-        "Epic Games Poster",
-        "GOG Poster",
-        "Steam Poster",
-    )
-
     # Remote media (overridden by local if available)
     if req.remote_enabled and req.remote_images:
-        best_cover: dict | None = None
-        for image_type in cover_priority_types:
-            for image in req.remote_images:
-                if image.get("Type") == image_type and image.get("FileName"):
-                    best_cover = image
-                    break
-            if best_cover is not None:
-                break
-
+        best_cover = _select_remote_cover(req.remote_images, req.region_shortcodes)
         if best_cover and best_cover.get("FileName"):
             cover = f"https://images.launchbox-app.com/{best_cover.get('FileName')}"
 
@@ -224,7 +306,7 @@ def _get_cover(req: MediaRequest) -> str | None:
         req, LAUNCHBOX_IMAGES_DIR, include_region_hints=True
     )
     if ctx is not None:
-        for category in cover_priority_types:
+        for category in COVER_PRIORITY_TYPES:
             candidate_files, _region = _find_local_media_candidates(
                 ctx,
                 category,
@@ -322,6 +404,28 @@ def _get_manuals(req: MediaRequest) -> str | None:
                     return url
 
     return manual
+
+
+def _get_video(req: MediaRequest) -> str | None:
+    """Resolve a local LaunchBox video for the given ROM.
+
+    LaunchBox stores videos flat under `Videos/<Platform>/<GameStem>.<ext>`
+    (no region or category subdirectories). Return a `launchbox-file://` URL
+    to the first match, or None.
+    """
+    ctx = _build_local_media_context(
+        req, LAUNCHBOX_VIDEOS_DIR, include_region_hints=False
+    )
+    if ctx is None:
+        return None
+
+    for stem in ctx["stems"]:
+        for ext in RECOGNIZED_VIDEO_EXTENSIONS:
+            candidate = ctx["base"] / f"{stem}{ext}"
+            if candidate.is_file():
+                return file_uri_for_local_path(candidate)
+
+    return None
 
 
 def _get_images(req: MediaRequest) -> list[LaunchboxImage]:
@@ -495,6 +599,30 @@ def build_launchbox_metadata(
     )
 
 
+def populate_rom_specific_paths(
+    metadata: LaunchboxMetadata, rom: "Rom"
+) -> LaunchboxMetadata:
+    """Populate rom-specific media paths on a LaunchBox metadata dict.
+
+    Called after the Rom is known (in the scan pipeline) to compute the
+    destination path for local media that the handler surfaced a URL for.
+    Currently just covers video.
+    """
+    if (
+        MetadataMediaType.VIDEO in get_preferred_media_types()
+        and "video_url" in metadata
+        and metadata.get("video_url")
+    ):
+        base = fs_resource_handler.get_media_resources_path(
+            rom.platform_id, rom.id, MetadataMediaType.VIDEO
+        )
+        ext = Path(metadata["video_url"]).suffix.lower()
+        if ext not in RECOGNIZED_VIDEO_EXTENSIONS:
+            ext = ".mp4"
+        metadata["video_path"] = f"{base}/video{ext}"
+    return metadata
+
+
 def build_rom(
     *,
     local: dict[str, str] | None,
@@ -509,10 +637,12 @@ def build_rom(
     url_cover: str | None = None
     url_screenshots: list[str] = []
     url_manual: str | None = None
+    video_url: str | None = None
     if media_req is not None:
         url_cover = _get_cover(media_req)
         url_screenshots = _get_screenshots(media_req)
         url_manual = _get_manuals(media_req)
+        video_url = _get_video(media_req)
     url_screenshots = url_screenshots or []
 
     name = (
@@ -532,6 +662,13 @@ def build_rom(
     ).strip()
 
     launchbox_id = int(launchbox_id) if launchbox_id is not None else None
+    metadata = build_launchbox_metadata(
+        local=local,
+        remote=remote,
+        images=images,
+    )
+    if video_url:
+        metadata["video_url"] = video_url
     return LaunchboxRom(
         launchbox_id=launchbox_id,
         name=name,
@@ -539,9 +676,5 @@ def build_rom(
         url_cover=url_cover or "",
         url_screenshots=url_screenshots,
         url_manual=url_manual or "",
-        launchbox_metadata=build_launchbox_metadata(
-            local=local,
-            remote=remote,
-            images=images,
-        ),
+        launchbox_metadata=metadata,
     )

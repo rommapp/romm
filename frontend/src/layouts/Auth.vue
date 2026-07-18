@@ -14,7 +14,7 @@ const heartbeatStore = storeHeartbeat();
   <div id="language-selector">
     <LanguageSelector density="compact" />
   </div>
-  <span id="version" class="text-white text-subtitle-1 text-shadow">
+  <span id="version" class="text-subtitle-1 text-shadow">
     {{ heartbeatStore.value.SYSTEM.VERSION }}
   </span>
 </template>
@@ -26,6 +26,11 @@ const heartbeatStore = storeHeartbeat();
   background-position: center;
   max-width: 100vw;
   /* align-items: unset !important; */
+}
+@-moz-document url-prefix() {
+  #container {
+    background-image: url("/assets/auth_background_static.svg");
+  }
 }
 #version {
   position: absolute !important;

@@ -62,11 +62,26 @@ error_log() {
 	exit 1
 }
 
+# Populate a caller-provided array with the opentelemetry-instrument wrapper
+# argv tokens for service "$2", or leave it empty if OTEL is disabled or the
+# wrapper binary is missing. Use "${arr[@]}" to exec directly, or
+# "${arr[*]@Q}" to embed as a shell-quoted prefix string.
+otel_prefix() {
+	local -n out_arr="$1"
+	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then return 0; fi
+	if ! command -v opentelemetry-instrument >/dev/null 2>&1; then
+		warn_log "opentelemetry-instrument not found, starting $2 without OpenTelemetry instrumentation"
+		return 0
+	fi
+	# shellcheck disable=SC2034  # nameref binds out_arr to caller variable
+	out_arr=(opentelemetry-instrument --service_name "${OTEL_SERVICE_NAME_PREFIX-}$2")
+}
+
 # Commands to run initial startup tasks
 run_startup() {
-	if ! PYTHONPATH="/backend:${PYTHONPATH-}" opentelemetry-instrument \
-		--service_name "${OTEL_SERVICE_NAME_PREFIX-}startup" \
-		python3 /backend/startup.py; then
+	local -a wrap=()
+	otel_prefix wrap startup
+	if ! PYTHONPATH="/backend:${PYTHONPATH-}" "${wrap[@]}" python3 /backend/startup.py; then
 		error_log "Startup script failed, exiting"
 	fi
 }
@@ -88,10 +103,18 @@ wait_for_gunicorn_socket() {
 	fi
 }
 
-# function that runs or main process and creates a corresponding PID file,
+# Runs our main process and creates a corresponding PID file
 start_bin_gunicorn() {
 	# cleanup potentially leftover socket
 	rm /tmp/gunicorn.sock -f
+
+	# Wire LOGLEVEL into Gunicorn's logging config so it respects the env var.
+	local gunicorn_level="${LOGLEVEL^^}"
+	local gunicorn_log_config="/tmp/gunicorn/logging.conf"
+	# Copy the config to a writable runtime path so this works on read-only root filesystems.
+	mkdir -p /tmp/gunicorn
+	cp /etc/gunicorn/logging.conf "${gunicorn_log_config}"
+	sed -i '/\[logger_gunicorn\]/,/^\[/ s/^level=.*/level='"${gunicorn_level}"'/' "${gunicorn_log_config}"
 
 	# commands to start our main application and store its PID to check for crashes
 	info_log "Starting backend"
@@ -99,9 +122,9 @@ start_bin_gunicorn() {
 	export PYTHONUNBUFFERED=1
 	export PYTHONDONTWRITEBYTECODE=1
 
-	opentelemetry-instrument \
-		--service_name "${OTEL_SERVICE_NAME_PREFIX-}api" \
-		gunicorn \
+	local -a wrap=()
+	otel_prefix wrap api
+	"${wrap[@]}" gunicorn \
 		--bind=0.0.0.0:"${DEV_PORT:-5000}" \
 		--bind=unix:/tmp/gunicorn.sock \
 		--pid=/tmp/gunicorn.pid \
@@ -114,7 +137,7 @@ start_bin_gunicorn() {
 		--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
 		--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
 		--error-logfile - \
-		--log-config /etc/gunicorn/logging.conf \
+		--log-config "${gunicorn_log_config}" \
 		main:app &
 }
 
@@ -209,47 +232,43 @@ start_bin_rq_worker() {
 		redis_url="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
 	fi
 
-	# Set PYTHONPATH so RQ can find the tasks module
+	# Set PYTHONPATH so RQ can find the tasks module.
+	# Use a worker class that drops the noisy per-sweep "cleaning registries for
+	# queue" log line. The maintenance interval keeps its default (~10 min) so
+	# orphaned STARTED jobs and stale workers are still pruned promptly, which the
+	# watcher's Worker.all() scan dedupe relies on.
 	PYTHONPATH="/backend:${PYTHONPATH-}" rq worker \
 		--path /backend \
+		--worker-class handler.rq_worker.RomMWorker \
 		--pid /tmp/rq_worker.pid \
 		--url "${redis_url}" \
 		--results-ttl "${TASK_RESULT_TTL:-86400}" \
+		--logging_level "${LOGLEVEL}" \
 		high default low &
 }
 
 start_bin_watcher() {
 	info_log "Starting watcher"
-	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
-		# Skip opentelemetry-instrument when OTEL is disabled to ensure
-		# WATCHFILES_CHANGES env var is properly passed to watcher.py
-		watchfiles \
-			--target-type command \
-			"python3 watcher.py" \
-			/romm/library &
-	else
-		watchfiles \
-			--target-type command \
-			"opentelemetry-instrument --service_name '${OTEL_SERVICE_NAME_PREFIX-}watcher' python3 watcher.py" \
-			/romm/library &
-	fi
+	local -a wrap=()
+	otel_prefix wrap watcher
+	watchfiles \
+		--target-type command \
+		"${wrap[*]@Q} python3 watcher.py" \
+		/romm/library &
 	WATCHER_PID=$!
 	echo "${WATCHER_PID}" >/tmp/watcher.pid
 }
 
 start_bin_sync_watcher() {
 	info_log "Starting sync folder watcher"
-	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
-		watchfiles \
-			--target-type command \
-			"python3 sync_watcher.py" \
-			/romm/sync &
-	else
-		watchfiles \
-			--target-type command \
-			"opentelemetry-instrument --service_name '${OTEL_SERVICE_NAME_PREFIX-}sync_watcher' python3 sync_watcher.py" \
-			/romm/sync &
-	fi
+	sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
+	mkdir -p "${sync_base_path}"
+	local -a wrap=()
+	otel_prefix wrap sync_watcher
+	watchfiles \
+		--target-type command \
+		"${wrap[*]@Q} python3 sync_watcher.py" \
+		"${sync_base_path}" &
 	SYNC_WATCHER_PID=$!
 	echo "${SYNC_WATCHER_PID}" >/tmp/sync_watcher.pid
 }

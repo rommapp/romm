@@ -113,3 +113,139 @@ def test_empty_config_loader():
     assert loader.config.EJS_CONTROLS == {}
     assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box2d"
     assert loader.config.GAMELIST_MEDIA_IMAGE == "screenshot"
+
+
+def test_missing_config_file_is_created(tmp_path):
+    config_file = tmp_path / "config" / "config.yml"
+
+    loader = ConfigManager(str(config_file))
+
+    assert config_file.parent.exists()
+    assert config_file.exists()
+    assert config_file.read_text() == ""
+    assert loader.config.CONFIG_FILE_MOUNTED
+    assert loader.config.CONFIG_FILE_WRITABLE
+
+
+def test_forward_compat_unknown_values_are_tolerated():
+    """A newer release may ship sample configs that reference media types
+    this version doesn't yet recognize. The loader should drop unknowns and
+    fall back to defaults rather than exiting."""
+    loader = ConfigManager(
+        os.path.join(
+            Path(__file__).resolve().parent,
+            "fixtures",
+            "config/forward_compat_config.yml",
+        )
+    )
+
+    # Unknown entries in scan.media are filtered out; known ones survive.
+    assert loader.config.SCAN_MEDIA == ["box2d", "screenshot"]
+    # Unknown thumbnail/image values fall back to their defaults.
+    assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box2d"
+    assert loader.config.GAMELIST_MEDIA_IMAGE == "screenshot"
+
+
+def test_malformed_yaml_falls_back_to_defaults():
+    """A YAML parse error should log critically and leave the app on
+    defaults, not crash."""
+    loader = ConfigManager(
+        os.path.join(
+            Path(__file__).resolve().parent,
+            "fixtures",
+            "config/malformed_config.yml",
+        )
+    )
+
+    assert loader.config.ROMS_FOLDER_NAME == "roms"
+    assert loader.config.FIRMWARE_FOLDER_NAME == "bios"
+    assert loader.config.SCAN_MEDIA == ["box2d", "screenshot", "manual"]
+    # The parse error is surfaced so the UI can warn the user their whole
+    # config (not just the broken part) was discarded.
+    assert loader.config.CONFIG_FILE_PARSE_ERROR is not None
+
+
+def test_valid_config_has_no_parse_error():
+    """A syntactically valid config should not report a parse error."""
+    loader = ConfigManager(
+        os.path.join(Path(__file__).resolve().parent, "fixtures", "config/config.yml")
+    )
+
+    assert loader.config.CONFIG_FILE_PARSE_ERROR is None
+
+
+def test_mixed_gamelist_syntax_surfaces_parse_error(tmp_path):
+    """Regression for #3708: mixing the old (`scan.export`) and new
+    (`scan.gamelist.export`) syntax produces invalid YAML. The whole config is
+    discarded and defaults are used, so the parse error must be surfaced rather
+    than silently swallowed."""
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "scan:\n"
+        "  gamelist:\n"
+        "    export: true\n"
+        "  - gamelist_xml: true\n"
+        "  media:\n"
+        "    - box2d\n"
+        "    - video\n"
+        "    - manual\n"
+    )
+
+    loader = ConfigManager(str(config_file))
+
+    assert loader.config.CONFIG_FILE_PARSE_ERROR is not None
+    # The user's scan.media list is lost, falling back to defaults.
+    assert loader.config.SCAN_MEDIA == ["box2d", "screenshot", "manual"]
+
+
+def test_parse_error_is_cleared_when_config_is_missing(tmp_path):
+    """A stale parse error from a malformed config must not persist once the
+    file is gone. The loader is a singleton, so a later reload that skips YAML
+    parsing (e.g. the file was deleted) has to clear the flag."""
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("scan:\n  - broken: true\n  media: [box2d]\n")
+
+    loader = ConfigManager(str(config_file))
+    assert loader.config.CONFIG_FILE_PARSE_ERROR is not None
+
+    # get_config's FileNotFoundError branch must clear the stale error.
+    config_file.unlink()
+    loader.get_config()
+    assert loader.config.CONFIG_FILE_PARSE_ERROR is None
+
+
+def test_parse_error_is_cleared_when_config_is_recreated(tmp_path):
+    """Reloading via a missing file goes through _create_missing_config_file,
+    which must also clear a stale parse error from a prior malformed load."""
+    broken_file = tmp_path / "config.yml"
+    broken_file.write_text("scan:\n  - broken: true\n  media: [box2d]\n")
+
+    ConfigManager(str(broken_file))
+
+    # Reusing the singleton with a missing path exercises the __init__
+    # FileNotFoundError -> _create_missing_config_file recreate path.
+    broken_file.unlink()
+    loader = ConfigManager(str(broken_file))
+
+    assert loader.config.CONFIG_FILE_PARSE_ERROR is None
+
+
+def test_config_updates_serialize_gamelist_media_as_plain_strings(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "scan:\n"
+        "  gamelist:\n"
+        "    media:\n"
+        "      thumbnail: box2d\n"
+        "      image: screenshot\n"
+    )
+    loader = ConfigManager(str(config_file))
+    loader.add_platform_binding("atarist", "atari-st")
+
+    config_text = config_file.read_text()
+    assert "!!python/object" not in config_text
+    assert "thumbnail: box2d" in config_text
+    assert "image: screenshot" in config_text
+
+    reloaded = ConfigManager(str(config_file))
+    assert reloaded.config.PLATFORMS_BINDING == {"atarist": "atari-st"}

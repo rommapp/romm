@@ -138,14 +138,29 @@ class TestFSFirmwareHandler:
         assert hasattr(handler, "stream_file")
         assert hasattr(handler, "exclude_single_files")
 
-    def test_firmware_path_construction(self, handler: FSFirmwareHandler, config):
-        """Test that firmware paths are constructed correctly"""
+    def test_firmware_path_construction_structure_a(
+        self, handler: FSFirmwareHandler, config
+    ):
+        """Test that firmware paths are constructed correctly for Structure A"""
         platform_fs_slug = "n64"
+        config.has_structure_path_b = False
 
         with patch(
             "handler.filesystem.firmware_handler.cm.get_config", return_value=config
         ):
-            # Test normal path (high prio doesn't exist)
+            path = handler.get_firmware_fs_structure(platform_fs_slug)
+            assert path == f"{config.FIRMWARE_FOLDER_NAME}/{platform_fs_slug}"
+
+    def test_firmware_path_construction_structure_b(
+        self, handler: FSFirmwareHandler, config
+    ):
+        """Test that firmware paths are constructed correctly for Structure B"""
+        platform_fs_slug = "n64"
+        config.has_structure_path_b = True
+
+        with patch(
+            "handler.filesystem.firmware_handler.cm.get_config", return_value=config
+        ):
             path = handler.get_firmware_fs_structure(platform_fs_slug)
             assert path == f"{platform_fs_slug}/{config.FIRMWARE_FOLDER_NAME}"
 

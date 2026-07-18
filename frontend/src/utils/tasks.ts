@@ -24,6 +24,12 @@ export const TaskStatusItem: Record<
   JobStatus,
   { color: string; icon: string; status: string; text: string }
 > = {
+  created: {
+    color: "orange",
+    icon: "mdi-clock-outline",
+    status: "queued",
+    text: t("settings.queued"),
+  },
   queued: {
     color: "orange",
     icon: "mdi-clock-outline",

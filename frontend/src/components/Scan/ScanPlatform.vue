@@ -179,6 +179,16 @@ const { t } = useI18n();
               <v-img src="/assets/scrappers/esde.png" />
             </v-avatar>
           </v-chip>
+          <v-chip
+            v-if="rom.libretro_id"
+            class="pa-1 bg-surface"
+            size="small"
+            title="Libretro match"
+          >
+            <v-avatar variant="text" size="18" rounded>
+              <v-img src="/assets/scrappers/libretro.png" />
+            </v-avatar>
+          </v-chip>
         </template>
       </template>
     </RomListItem>

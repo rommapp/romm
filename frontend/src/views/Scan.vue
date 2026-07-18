@@ -46,18 +46,15 @@ const calculateHashes = computed(
 const metadataOptions = computed(() => {
   return heartbeat.getMetadataOptionsByPriority().map((option) => {
     // Check if option requires hashes but hash calculation is disabled
-    const requiresHashes = option.value === "hasheous" || option.value === "ra";
+    const requiresHashes =
+      option.value === "hasheous" ||
+      option.value === "ra" ||
+      option.value === "playmatch";
     const hashingDisabled = !calculateHashes.value;
-
-    let disabled = option.disabled;
-
-    if (hashingDisabled && requiresHashes) {
-      if (option.value === "hasheous") {
-        disabled = t("scan.hasheous-requires-hashes");
-      } else if (option.value === "ra") {
-        disabled = t("scan.retroachievements-requires-hashes");
-      }
-    }
+    const disabled =
+      hashingDisabled && requiresHashes
+        ? t("scan.requires-hashes", { source: option.name })
+        : option.disabled;
 
     return {
       ...option,
@@ -225,7 +222,7 @@ async function stopScan() {
                   />
                   <v-row
                     v-if="item.raw.is_identified"
-                    class="text-white text-shadow text-center"
+                    class="text-center"
                     no-gutters
                   >
                     <v-col cols="12">
@@ -302,20 +299,26 @@ async function stopScan() {
 
                       <v-avatar
                         v-if="item.raw.hltb_slug"
-                        class="bg-surface"
+                        class="bg-surface mr-1"
                         variant="text"
                         size="25"
                         rounded
                       >
                         <v-img src="/assets/scrappers/hltb.png" />
                       </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.libretro_slug"
+                        class="bg-surface"
+                        variant="text"
+                        size="25"
+                        rounded
+                      >
+                        <v-img src="/assets/scrappers/libretro.png" />
+                      </v-avatar>
                     </v-col>
                   </v-row>
-                  <v-row
-                    v-else
-                    class="text-white text-shadow text-center"
-                    no-gutters
-                  >
+                  <v-row v-else class="text-center" no-gutters>
                     <v-chip color="red" size="small" label>
                       <v-icon class="mr-1"> mdi-close </v-icon>
                       {{ t("scan.not-identified").toUpperCase() }}
@@ -451,6 +454,7 @@ async function stopScan() {
                       <a
                         href="https://docs.romm.app/latest/Usage/LibraryManagement/#scan"
                         target="_blank"
+                        rel="noopener"
                         style="font-style: italic; text-decoration: underline"
                       >
                         {{ t("scan.scan-types-more-info") }}

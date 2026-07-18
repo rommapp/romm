@@ -48,12 +48,17 @@ def upgrade() -> None:
         sa.UniqueConstraint(
             "rom_id", "user_id", "title", name="unique_rom_user_note_title"
         ),
+        if_not_exists=True,
     )
 
     # Create indexes for performance
-    op.create_index("idx_rom_notes_public", "rom_notes", ["is_public"])
-    op.create_index("idx_rom_notes_rom_user", "rom_notes", ["rom_id", "user_id"])
-    op.create_index("idx_rom_notes_title", "rom_notes", ["title"])
+    op.create_index(
+        "idx_rom_notes_public", "rom_notes", ["is_public"], if_not_exists=True
+    )
+    op.create_index(
+        "idx_rom_notes_rom_user", "rom_notes", ["rom_id", "user_id"], if_not_exists=True
+    )
+    op.create_index("idx_rom_notes_title", "rom_notes", ["title"], if_not_exists=True)
 
     # Add default values to old note columns to prevent insertion errors
     # This allows new rom_user records to be created without specifying note fields
@@ -97,25 +102,29 @@ def upgrade() -> None:
                 "user_id": row.user_id,
             },
         )
-        # Remove the old note columns from rom_user table in a future migration
-        # op.drop_column("rom_user", "note_raw_markdown")
-        # op.drop_column("rom_user", "note_is_public")
+        # TODO: Remove the old note columns from rom_user table in a future migration
 
 
 def downgrade() -> None:
     """Drop the rom_notes table and restore note columns to rom_user."""
 
     # Add back the old columns to rom_user
-    op.add_column(
-        "rom_user",
-        sa.Column("note_raw_markdown", sa.Text(), nullable=False, server_default=""),
-    )
-    op.add_column(
-        "rom_user",
-        sa.Column(
-            "note_is_public", sa.Boolean(), nullable=False, server_default=text("false")
-        ),
-    )
+    with op.batch_alter_table("rom_user", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column(
+                "note_raw_markdown", sa.Text(), nullable=False, server_default=""
+            ),
+            if_not_exists=True,
+        )
+        batch_op.add_column(
+            sa.Column(
+                "note_is_public",
+                sa.Boolean(),
+                nullable=False,
+                server_default=text("false"),
+            ),
+            if_not_exists=True,
+        )
 
     # Migrate notes back to rom_user (take first note per user/rom)
     connection = op.get_bind()
@@ -142,8 +151,8 @@ def downgrade() -> None:
         )
 
     # These indexes were created with op.create_index for all dialects.
-    op.drop_index("idx_rom_notes_title", table_name="rom_notes")
-    op.drop_index("idx_rom_notes_rom_user", table_name="rom_notes")
-    op.drop_index("idx_rom_notes_public", table_name="rom_notes")
+    op.drop_index("idx_rom_notes_title", table_name="rom_notes", if_exists=True)
+    op.drop_index("idx_rom_notes_rom_user", table_name="rom_notes", if_exists=True)
+    op.drop_index("idx_rom_notes_public", table_name="rom_notes", if_exists=True)
 
-    op.drop_table("rom_notes")
+    op.drop_table("rom_notes", if_exists=True)

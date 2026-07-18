@@ -2,7 +2,7 @@ import asyncio
 import http
 import json
 from collections.abc import Collection
-from typing import Literal, overload
+from typing import Final, Literal, overload
 
 import aiohttp
 import yarl
@@ -14,6 +14,11 @@ from config import MOBYGAMES_API_KEY
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
+from utils.rate_limiter import RateLimiter
+
+# MobyGames caps the free/non-commercial tier at 1 request per second.
+MOBYGAMES_MAX_REQUESTS_PER_SECOND: Final[float] = 1
+_rate_limiter = RateLimiter(MOBYGAMES_MAX_REQUESTS_PER_SECOND)
 
 
 async def auth_middleware(
@@ -45,6 +50,7 @@ class MobyGamesService:
         )
 
         try:
+            await _rate_limiter.acquire()
             res = await aiohttp_session.get(
                 url,
                 headers={"user-agent": f"RomM/{get_version()}"},
@@ -85,6 +91,7 @@ class MobyGamesService:
                 url,
                 request_timeout,
             )
+            await _rate_limiter.acquire()
             res = await aiohttp_session.get(
                 url,
                 headers={"user-agent": f"RomM/{get_version()}"},

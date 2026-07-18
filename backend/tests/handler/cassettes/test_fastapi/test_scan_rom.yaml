@@ -13,7 +13,7 @@ interactions:
         user-agent:
           - RomM/development (https://github.com/rommapp/romm)
       method: GET
-      uri: https://playmatch.retrorealm.dev/api/identify/ids?fileName=Paper+Mario+(USA).z64&fileSize=1024
+      uri: https://playmatch.retrorealm.dev/api/v2/identify/ids?fileName=Paper+Mario+(USA).z64&fileSize=1024
     response:
       body:
         string: '{"gameMatchType":"NoMatch","id":null}'
@@ -259,7 +259,7 @@ interactions:
         code: 200
         message: OK
   - request:
-      body: '{"mD5":"7de64234ee20788b9d74d2fdb3462aed","shA1":"77693a00418a9d8971b7a005f2001d997e359bff","crc":"d56d1c89"}'
+      body: '[{"mD5":"7de64234ee20788b9d74d2fdb3462aed","shA1":"77693a00418a9d8971b7a005f2001d997e359bff","crc":"d56d1c89"}]'
       headers:
         accept:
           - "*/*"
@@ -743,7 +743,7 @@ interactions:
         code: 200
         message: OK
   - request:
-      body: '{"mD5":"7de64234ee20788b9d74d2fdb3462aed","shA1":"77693a00418a9d8971b7a005f2001d997e359bff","crc":"d56d1c89"}'
+      body: '[{"mD5":"7de64234ee20788b9d74d2fdb3462aed","shA1":"77693a00418a9d8971b7a005f2001d997e359bff","crc":"d56d1c89"}]'
       headers:
         accept:
           - "*/*"

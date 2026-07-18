@@ -5,4 +5,4 @@
 /**
  * The Status of Job within its lifecycle at any given time.
  */
-export type JobStatus = 'queued' | 'finished' | 'failed' | 'started' | 'deferred' | 'scheduled' | 'stopped' | 'canceled';
+export type JobStatus = 'created' | 'queued' | 'finished' | 'failed' | 'started' | 'deferred' | 'scheduled' | 'stopped' | 'canceled';

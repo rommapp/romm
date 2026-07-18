@@ -57,10 +57,9 @@ onMounted(async () => {
         v-bind="props"
         :src="game.cover_url || missingCoverImage"
         :aspect-ratio="computedAspectRatio"
-        cover
       >
         <v-chip
-          class="px-2 position-absolute chip-type text-white translucent"
+          class="px-2 position-absolute chip-type translucent"
           density="compact"
           label
         >

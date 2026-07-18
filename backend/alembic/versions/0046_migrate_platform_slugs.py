@@ -21,9 +21,10 @@ depends_on = None
 def upgrade() -> None:
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.add_column(
-            sa.Column("temp_old_slug", sa.String(length=100), nullable=True)
+            sa.Column("temp_old_slug", sa.String(length=100), nullable=True),
+            if_not_exists=True,
         )
-        batch_op.drop_column("logo_path")
+        batch_op.drop_column("logo_path", if_exists=True)
 
     with op.batch_alter_table("rom_files", schema=None) as batch_op:
         batch_op.alter_column(
@@ -154,9 +155,10 @@ def downgrade() -> None:
 
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.add_column(
-            sa.Column("logo_path", sa.VARCHAR(length=1000), nullable=True)
+            sa.Column("logo_path", sa.VARCHAR(length=1000), nullable=True),
+            if_not_exists=True,
         )
-        batch_op.drop_column("temp_old_slug")
+        batch_op.drop_column("temp_old_slug", if_exists=True)
 
 
 OLD_SLUGS_TO_NEW_MAP = {

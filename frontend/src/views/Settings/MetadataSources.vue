@@ -162,8 +162,8 @@ onMounted(() => {
                 <v-img :src="source.logo_path" />
               </v-avatar>
               <div class="flex-grow-1">
-                <h3 class="text-h6 text-white">{{ source.name }}</h3>
-                <p class="text-caption text-grey-lighten-1 mb-0">
+                <h3 class="text-h6">{{ source.name }}</h3>
+                <p class="text-caption mb-0">
                   {{ getSourceStatusText(source) }}
                 </p>
               </div>

@@ -9,7 +9,9 @@ from handler.metadata import (
     meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
+    meta_libretro_handler,
     meta_moby_handler,
+    meta_playmatch_handler,
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
@@ -47,10 +49,12 @@ class ScanLibraryTask(PeriodicTask):
             MetadataSource.RA: meta_ra_handler.is_enabled(),
             MetadataSource.LAUNCHBOX: meta_launchbox_handler.is_enabled(),
             MetadataSource.HASHEOUS: meta_hasheous_handler.is_enabled(),
+            MetadataSource.PLAYMATCH: meta_playmatch_handler.is_enabled(),
             MetadataSource.SGDB: meta_sgdb_handler.is_enabled(),
             MetadataSource.FLASHPOINT: meta_flashpoint_handler.is_enabled(),
             MetadataSource.HLTB: meta_hltb_handler.is_enabled(),
             MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),
+            MetadataSource.LIBRETRO: meta_libretro_handler.is_enabled(),
         }
 
         metadata_sources = [source for source, flag in source_mapping.items() if flag]

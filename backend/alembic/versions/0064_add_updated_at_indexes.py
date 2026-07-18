@@ -17,15 +17,19 @@ depends_on = None
 
 def upgrade():
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.create_index("ix_roms_updated_at", ["updated_at"], unique=False)
+        batch_op.create_index(
+            "ix_roms_updated_at", ["updated_at"], unique=False, if_not_exists=True
+        )
 
     with op.batch_alter_table("platforms", schema=None) as batch_op:
-        batch_op.create_index("ix_platforms_updated_at", ["updated_at"], unique=False)
+        batch_op.create_index(
+            "ix_platforms_updated_at", ["updated_at"], unique=False, if_not_exists=True
+        )
 
 
 def downgrade():
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_index("ix_roms_updated_at")
+        batch_op.drop_index("ix_roms_updated_at", if_exists=True)
 
     with op.batch_alter_table("platforms", schema=None) as batch_op:
-        batch_op.drop_index("ix_platforms_updated_at")
+        batch_op.drop_index("ix_platforms_updated_at", if_exists=True)

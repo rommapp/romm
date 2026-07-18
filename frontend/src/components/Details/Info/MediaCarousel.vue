@@ -80,6 +80,7 @@ const carouselHeight = computed(() => {
         height="100%"
         width="100%"
         :src="`${heartbeat.FRONTEND.YOUTUBE_BASE_URL}/embed/${youtubeVideoId}`"
+        credentialless
         title="YouTube video player"
         frameborder="0"
         allow="

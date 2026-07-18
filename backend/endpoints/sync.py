@@ -1,11 +1,17 @@
 from datetime import datetime
 
 from fastapi import HTTPException, Request, status
+from pydantic import Field, model_validator
 
 from config import TASK_TIMEOUT
 from decorators.auth import protected_route
 from endpoints.responses.base import BaseModel
+from endpoints.responses.play_session import (
+    PlaySessionIngestResponse,
+    PlaySessionIngestResult,
+)
 from endpoints.responses.sync import (
+    SyncCompleteResponse,
     SyncNegotiateResponse,
     SyncOperationSchema,
     SyncSessionSchema,
@@ -17,6 +23,7 @@ from handler.database import (
     db_save_handler,
     db_sync_session_handler,
 )
+from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import high_prio_queue
 from handler.sync.comparison import compare_save_state
 from logger.logger import log
@@ -33,23 +40,67 @@ router = APIRouter(
 
 
 class ClientSaveState(BaseModel):
-    rom_id: int
-    file_name: str
-    slot: str | None = None
-    emulator: str | None = None
-    content_hash: str | None = None
-    updated_at: datetime
-    file_size_bytes: int
+    rom_id: int = Field(description="ID of the ROM this save belongs to.")
+    file_name: str = Field(description="Name of the save file on the client.")
+    slot: str | None = Field(
+        default=None,
+        description=(
+            "Save slot name. Saves are paired between client and server on "
+            "(rom_id, slot), so provide a stable slot name (e.g. 'autosave') to "
+            "keep a save in sync across negotiations. A null slot is treated as "
+            "an archival, manual-upload save: it is never paired with slotted "
+            "server saves, so a null-slot client save always negotiates as an "
+            "'upload' even when an identical file already exists on the server "
+            "under a slot."
+        ),
+    )
+    emulator: str | None = Field(
+        default=None, description="Emulator that produced the save, if known."
+    )
+    content_hash: str | None = Field(
+        default=None,
+        description="Hash of the save contents, used to detect identical saves.",
+    )
+    updated_at: datetime = Field(
+        description="Last-modified timestamp of the save on the client."
+    )
+    file_size_bytes: int = Field(description="Size of the save file in bytes.")
 
 
 class SyncNegotiatePayload(BaseModel):
-    device_id: str
-    saves: list[ClientSaveState]
+    device_id: str | None = Field(
+        default=None,
+        description=(
+            "ID of the syncing device. Optional when the request uses a "
+            "device-bound client token, in which case the device is inferred "
+            "from the token."
+        ),
+    )
+    saves: list[ClientSaveState] = Field(
+        description="Current save state on the client."
+    )
+
+
+class SyncPlaySessionEntry(BaseModel):
+    rom_id: int | None = None
+    save_slot: str | None = None
+    start_time: datetime
+    end_time: datetime
+    duration_ms: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_times(self) -> "SyncPlaySessionEntry":
+        self.start_time = self.start_time.replace(microsecond=0)
+        self.end_time = self.end_time.replace(microsecond=0)
+        if self.end_time <= self.start_time:
+            raise ValueError("end_time must be after start_time")
+        return self
 
 
 class SyncCompletePayload(BaseModel):
     operations_completed: int = 0
     operations_failed: int = 0
+    play_sessions: list[SyncPlaySessionEntry] | None = None
 
 
 @protected_route(router.post, "/negotiate", [Scope.ASSETS_READ, Scope.DEVICES_READ])
@@ -61,14 +112,32 @@ def negotiate_sync(
 
     The client sends its current save state, and the server returns a list of
     operations (upload, download, conflict, no_op) to bring both sides in sync.
+
+    Saves are paired on (rom_id, slot). Clients that want a save to stay in sync
+    should send a stable, non-null slot name (e.g. "autosave"). Null-slot saves
+    are treated as archival, manual uploads: they are excluded from pairing, so a
+    null-slot client save always negotiates as an "upload" even when an identical
+    file (same content_hash) already exists on the server under a slot. This is
+    intentional, since saves can be cloned across slots and null slots overlap
+    with manual uploads.
     """
-    device = db_device_handler.get_device(
-        device_id=payload.device_id, user_id=request.user.id
+    device_id: str | None = payload.device_id or getattr(
+        request.state, "device_id", None
     )
+    if not device_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "device_id is required (either in the request payload or "
+                "implicit via a device-bound client token)"
+            ),
+        )
+
+    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {payload.device_id} not found",
+            detail=f"Device with ID {device_id} not found",
         )
 
     if not device.sync_enabled:
@@ -91,12 +160,16 @@ def negotiate_sync(
 
     operations: list[SyncOperationSchema] = []
 
-    # Build a set of server saves for this user, keyed by (rom_id, file_name)
-    # We'll also track which server saves were mentioned by the client
-    server_saves = db_save_handler.get_saves(user_id=request.user.id)
-    server_save_map: dict[tuple[int, str], Save] = {}
+    # Pair on (rom_id, slot), keeping the newest row per slot: slot uploads are datetime-tagged (spec) so tagged filenames never equal the client's untagged name, and a slot accrues many rows over time. Null-slot rows stay archival-only.
+    server_saves = db_save_handler.get_saves(
+        user_id=request.user.id, slot_not_null=True
+    )
+    server_save_map: dict[tuple[int, str | None], Save] = {}
     for save in server_saves:
-        server_save_map[(save.rom_id, save.file_name)] = save
+        key = (save.rom_id, save.slot)
+        current = server_save_map.get(key)
+        if current is None or to_utc(save.updated_at) > to_utc(current.updated_at):
+            server_save_map[key] = save
 
     # Get all sync records for this device
     all_save_ids = [s.id for s in server_saves]
@@ -110,7 +183,7 @@ def negotiate_sync(
 
     # Process each client save
     for client_save in payload.saves:
-        key = (client_save.rom_id, client_save.file_name)
+        key = (client_save.rom_id, client_save.slot)
         server_save = server_save_map.get(key)
 
         if server_save is None:
@@ -168,8 +241,8 @@ def negotiate_sync(
             )
         )
 
-    # Check for server saves the client didn't mention
-    for save in server_saves:
+    # Check for current saves the client didn't mention (superseded older rows per slot are history, not downloads)
+    for save in server_save_map.values():
         if save.id in matched_server_save_ids:
             continue
 
@@ -256,8 +329,8 @@ def complete_sync_session(
     request: Request,
     session_id: int,
     payload: SyncCompletePayload,
-) -> SyncSessionSchema:
-    """Mark a sync session as completed."""
+) -> SyncCompleteResponse:
+    """Mark a sync session as completed, optionally ingesting play sessions."""
     sync_session = db_sync_session_handler.get_session(
         session_id=session_id, user_id=request.user.id
     )
@@ -287,7 +360,42 @@ def complete_sync_session(
         f"{payload.operations_completed} succeeded, {payload.operations_failed} failed"
     )
 
-    return SyncSessionSchema.model_validate(completed)
+    play_session_ingest = None
+    if payload.play_sessions:
+        summary = ingest_play_sessions(
+            user_id=request.user.id,
+            username=request.user.username,
+            entries=[
+                {
+                    "rom_id": s.rom_id,
+                    "save_slot": s.save_slot,
+                    "start_time": s.start_time,
+                    "end_time": s.end_time,
+                    "duration_ms": s.duration_ms,
+                }
+                for s in payload.play_sessions
+            ],
+            device_id=sync_session.device_id,
+            sync_session_id=session_id,
+        )
+        play_session_ingest = PlaySessionIngestResponse(
+            results=[
+                PlaySessionIngestResult(
+                    index=r["index"],
+                    status=r["status"],
+                    id=r.get("id"),
+                    detail=r.get("detail"),
+                )
+                for r in summary["results"]
+            ],
+            created_count=summary["created_count"],
+            skipped_count=summary["skipped_count"],
+        )
+
+    return SyncCompleteResponse(
+        session=SyncSessionSchema.model_validate(completed),
+        play_session_ingest=play_session_ingest,
+    )
 
 
 @protected_route(router.get, "/sessions", [Scope.DEVICES_READ])

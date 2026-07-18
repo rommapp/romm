@@ -1,4 +1,22 @@
 {
   "continue-playing": "Continuă să joci",
-  "recently-added": "Adăugate recent"
+  "empty-detected-games": "{count} joc detectat | {count} jocuri detectate",
+  "empty-detected-platforms": "{count} platformă detectată | {count} platforme detectate",
+  "empty-headline": "Biblioteca ta este goală",
+  "empty-hint": "Alege cum vrei să adaugi primele jocuri. Cealaltă opțiune rămâne disponibilă mai târziu.",
+  "empty-scan-cta": "Rulează scanarea",
+  "empty-scan-desc": "Ai pus deja jocurile în folderul bibliotecii? Rulează o scanare pentru a le detecta și a aduce metadatele.",
+  "empty-scan-title": "Scanează biblioteca",
+  "empty-upload-cta": "Încarcă jocuri",
+  "empty-upload-desc": "Trage și plasează fișiere ROM sau alege-le de pe computer. Ideal când vrei să adaugi câteva jocuri tu însuți.",
+  "empty-upload-title": "Încarcă manual",
+  "no-games-yet": "Niciun joc adăugat încă.",
+  "recently-added": "Adăugate recent",
+  "widget-library-favorites": "Favorite",
+  "widget-library-screenshots": "Capturi de ecran",
+  "widget-library-stats": "Statistici bibliotecă",
+  "widget-random-pick": "Alegere aleatorie",
+  "widget-random-pick-empty": "Niciun joc încărcat încă",
+  "widget-random-pick-open": "Deschide",
+  "widget-random-pick-reroll": "Reîncearcă"
 }

@@ -80,8 +80,9 @@ function onClose() {
       'my-2': mdAndUp || (smAndDown && activeSettingsDrawer),
       'ml-2': (mdAndUp && activeSettingsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
+      'unset-height': mdAndUp,
     }"
-    class="bg-surface pa-1 unset-height"
+    class="bg-surface pa-1"
     rounded
     :border="0"
     @keydown.esc="onClose"
@@ -91,7 +92,7 @@ function onClose() {
         <v-img
           :src="
             user?.avatar_path
-              ? `/assets/romm/assets/${user?.avatar_path}?ts=${user?.updated_at}`
+              ? `/api/raw/assets/${user?.avatar_path}?ts=${user?.updated_at}`
               : defaultAvatarPath
           "
           cover

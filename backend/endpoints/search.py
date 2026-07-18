@@ -6,11 +6,13 @@ from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
 from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
 from handler.auth.constants import Scope
+from handler.auth.dependencies import get_permissions
 from handler.database import db_rom_handler
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
+    meta_libretro_handler,
     meta_moby_handler,
     meta_sgdb_handler,
     meta_ss_handler,
@@ -18,6 +20,7 @@ from handler.metadata import (
 from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.launchbox_handler.types import LaunchboxRom
+from handler.metadata.libretro_handler import LibretroRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SSRom
@@ -76,6 +79,12 @@ async def search_rom(
     if not rom:
         return []
 
+    # Treat a rom hidden from the caller as non-existent.
+    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
+        rom.id, rom.platform_id
+    ):
+        return []
+
     search_term = search_term or rom.fs_name_no_tags
     if not search_term:
         return []
@@ -98,7 +107,7 @@ async def search_rom(
     if search_by.lower() == "id":
         try:
             igdb_rom, moby_rom, ss_rom, lb_rom = await asyncio.gather(
-                meta_igdb_handler.get_matched_rom_by_id(int(search_term)),
+                meta_igdb_handler.get_matched_rom_by_id(rom, int(search_term)),
                 meta_moby_handler.get_matched_rom_by_id(int(search_term)),
                 meta_ss_handler.get_matched_rom_by_id(rom, int(search_term)),
                 meta_launchbox_handler.get_matched_rom_by_id(int(search_term)),
@@ -123,7 +132,7 @@ async def search_rom(
             launchbox_matched_roms,
         ) = await asyncio.gather(
             meta_igdb_handler.get_matched_roms_by_name(
-                search_term, get_main_platform_igdb_id(rom.platform)
+                rom, search_term, get_main_platform_igdb_id(rom.platform)
             ),
             meta_moby_handler.get_matched_roms_by_name(
                 search_term, rom.platform.moby_id
@@ -195,8 +204,13 @@ async def search_rom(
     async def get_sgdb_rom(name: str) -> tuple[str, SGDBRom]:
         return name, await meta_sgdb_handler.get_details_by_names([name])
 
-    sgdb_roms = await asyncio.gather(
-        *[get_sgdb_rom(name) for name in list(merged_dict.keys())]
+    async def get_libretro_rom(name: str) -> tuple[str, LibretroRom]:
+        return name, await meta_libretro_handler.get_rom(name, rom.platform.slug)
+
+    merged_names = list(merged_dict.keys())
+    sgdb_roms, libretro_roms = await asyncio.gather(
+        asyncio.gather(*[get_sgdb_rom(name) for name in merged_names]),
+        asyncio.gather(*[get_libretro_rom(name) for name in merged_names]),
     )
 
     for name, sgdb_rom in sgdb_roms:
@@ -205,6 +219,14 @@ async def search_rom(
                 **merged_dict[name],
                 "sgdb_id": sgdb_rom.get("sgdb_id", ""),
                 "sgdb_url_cover": sgdb_rom.get("url_cover", ""),
+            }
+
+    for name, libretro_rom in libretro_roms:
+        if libretro_rom["libretro_id"]:
+            merged_dict[name] = {
+                **merged_dict[name],
+                "libretro_id": libretro_rom.get("libretro_id", ""),
+                "libretro_url_cover": libretro_rom.get("url_cover", ""),
             }
 
     matched_roms: list = list(merged_dict.values())
@@ -221,7 +243,6 @@ async def search_cover(
     request: Request,
     search_term: str = "",
 ) -> list[SearchCoverSchema]:
-
     if not meta_sgdb_handler.is_enabled():
         log.error("Search error: No SteamGridDB enabled")
         raise HTTPException(

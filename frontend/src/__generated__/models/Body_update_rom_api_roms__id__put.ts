@@ -6,7 +6,7 @@ export type Body_update_rom_api_roms__id__put = {
     /**
      * Custom artwork to set as cover.
      */
-    artwork?: (Blob | null);
+    artwork?: (string | null);
     igdb_id?: (string | null);
     sgdb_id?: (string | null);
     moby_id?: (string | null);
@@ -17,6 +17,7 @@ export type Body_update_rom_api_roms__id__put = {
     tgdb_id?: (string | null);
     flashpoint_id?: (string | null);
     hltb_id?: (string | null);
+    libretro_id?: (string | null);
     raw_igdb_metadata?: (string | null);
     raw_moby_metadata?: (string | null);
     raw_ss_metadata?: (string | null);
@@ -26,6 +27,7 @@ export type Body_update_rom_api_roms__id__put = {
     raw_hltb_metadata?: (string | null);
     raw_manual_metadata?: (string | null);
     name?: (string | null);
+    name_sort_key?: (string | null);
     summary?: (string | null);
     fs_name?: (string | null);
     url_cover?: (string | null);

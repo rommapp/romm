@@ -1,4 +1,6 @@
 {
+  "all-saves": "Всички записи",
+  "all-states": "Всички бързи записи",
   "back-to-gallery": "Към галерията",
   "back-to-game-details": "Към детайлите на играта",
   "background-color": "Цвят на фона",
@@ -13,12 +15,17 @@
   "full-screen": "Цял екран",
   "no-save-selected": "Няма избран запис",
   "no-saves-available": "Няма налични записи",
+  "no-screenshot-available": "Няма налична екранна снимка",
   "no-state-selected": "Няма избран бърз запис",
   "no-states-available": "Няма налични бързи записи",
   "play": "Играй",
+  "powered-by": "Захранено от",
   "quit": "Излез",
+  "resume-from-save": "Продължи от запис",
+  "resume-from-state": "Продължи от бърз запис",
   "save-and-quit": "Запази и излез",
   "select-background-color": "Избери цвят на фона",
   "select-save": "Избери запис",
-  "select-state": "Избери бърз запис"
+  "select-state": "Избери бърз запис",
+  "start-fresh-hint": "Избери един по-долу, за да продължиш, или натисни Играй, за да започнеш отначало."
 }

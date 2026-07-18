@@ -1,4 +1,6 @@
 {
+  "all-saves": "Toutes les sauvegardes",
+  "all-states": "Tous les états",
   "back-to-gallery": "Retour à la galerie",
   "back-to-game-details": "Retour aux détails du jeu",
   "background-color": "Couleur d'arrière-plan",
@@ -13,12 +15,17 @@
   "full-screen": "Plein écran",
   "no-save-selected": "Aucune sauvegarde sélectionnée",
   "no-saves-available": "Aucune sauvegarde disponible",
+  "no-screenshot-available": "Aucune capture d'écran disponible",
   "no-state-selected": "Aucun état sélectionné",
   "no-states-available": "Aucun état disponible",
   "play": "Jouer",
+  "powered-by": "Propulsé par",
   "quit": "Quitter",
+  "resume-from-save": "Reprendre depuis une sauvegarde",
+  "resume-from-state": "Reprendre depuis un état",
   "save-and-quit": "Sauvegarder et quitter",
   "select-background-color": "Sélectionner la couleur d'arrière-plan",
   "select-save": "Sélectionner la sauvegarde",
-  "select-state": "Sélectionner l'état"
+  "select-state": "Sélectionner l'état",
+  "start-fresh-hint": "Choisissez-en un ci-dessous pour reprendre, ou appuyez sur Jouer pour démarrer une nouvelle partie."
 }

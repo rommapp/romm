@@ -4,7 +4,13 @@
 /* eslint-disable */
 import type { ClientSaveState } from './ClientSaveState';
 export type SyncNegotiatePayload = {
-    device_id: string;
+    /**
+     * ID of the syncing device. Optional when the request uses a device-bound client token, in which case the device is inferred from the token.
+     */
+    device_id?: (string | null);
+    /**
+     * Current save state on the client.
+     */
     saves: Array<ClientSaveState>;
 };
 

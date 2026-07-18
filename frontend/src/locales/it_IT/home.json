@@ -1,4 +1,22 @@
 {
   "continue-playing": "Continua a giocare",
-  "recently-added": "Aggiunti recentemente"
+  "empty-detected-games": "{count} gioco rilevato | {count} giochi rilevati",
+  "empty-detected-platforms": "{count} piattaforma rilevata | {count} piattaforme rilevate",
+  "empty-headline": "La tua libreria è vuota",
+  "empty-hint": "Scegli come aggiungere i tuoi primi giochi. Potrai sempre fare il resto in seguito.",
+  "empty-scan-cta": "Esegui scansione",
+  "empty-scan-desc": "Hai già posizionato i giochi nella cartella della libreria? Esegui una scansione per rilevarli e recuperarne i metadati.",
+  "empty-scan-title": "Scansiona libreria",
+  "empty-upload-cta": "Carica giochi",
+  "empty-upload-desc": "Trascina e rilascia i file ROM o selezionali dal computer. Ideale quando vuoi aggiungere qualche gioco a mano.",
+  "empty-upload-title": "Carica manualmente",
+  "no-games-yet": "Nessun gioco ancora aggiunto.",
+  "recently-added": "Aggiunti recentemente",
+  "widget-library-favorites": "Preferiti",
+  "widget-library-screenshots": "Screenshot",
+  "widget-library-stats": "Statistiche della libreria",
+  "widget-random-pick": "Scelta casuale",
+  "widget-random-pick-empty": "Nessun gioco ancora caricato",
+  "widget-random-pick-open": "Apri",
+  "widget-random-pick-reroll": "Rilancia"
 }

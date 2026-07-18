@@ -30,7 +30,8 @@ def upgrade():
                     postgresql.JSONB(astext_type=sa.Text()), "postgresql"
                 ),
                 nullable=True,
-            )
+            ),
+            if_not_exists=True,
         )
 
     if is_postgresql(connection):
@@ -388,4 +389,4 @@ def upgrade():
 
 def downgrade():
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_column("manual_metadata")
+        batch_op.drop_column("manual_metadata", if_exists=True)

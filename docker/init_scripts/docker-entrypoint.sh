@@ -39,6 +39,18 @@ done
 export ROMM_BASE_PATH=${ROMM_BASE_PATH:-/romm}
 export ROMM_PORT=${ROMM_PORT:-8080}
 
+# Disable nginx access logs when log level is WARNING, ERROR, or CRITICAL
+loglevel="${LOGLEVEL:-INFO}"
+loglevel="${loglevel^^}"
+case "${loglevel}" in
+WARNING | WARN | ERROR | CRITICAL)
+	export NGINX_ACCESS_LOG="access_log off;"
+	;;
+*)
+	export NGINX_ACCESS_LOG=""
+	;;
+esac
+
 # Set IPV6_LISTEN based on IPV4_ONLY
 if [[ ${IPV4_ONLY} == "true" ]]; then
 	export IPV6_LISTEN="#listen [::]:${ROMM_PORT};"
@@ -49,18 +61,17 @@ fi
 # Replace environment variables used in nginx configuration templates.
 /docker-entrypoint.d/20-envsubst-on-templates.sh >/dev/null
 
-# Fix symbolic links used by nginx for assets, if they do not point to the correct location,
+# Fix symbolic links used by nginx for resources,
+# if they don't point to the correct location,
 # set by the ROMM_BASE_PATH environment variable.
-for subfolder in assets resources; do
-	if [[ -L /var/www/html/assets/romm/${subfolder} ]]; then
-		target=$(readlink "/var/www/html/assets/romm/${subfolder}")
+if [[ -L /var/www/html/assets/romm/resources ]]; then
+	target=$(readlink "/var/www/html/assets/romm/resources")
 
-		# If the target is not the same as ${ROMM_BASE_PATH}/${subfolder}, recreate the symbolic link.
-		if [[ ${target} != "${ROMM_BASE_PATH}/${subfolder}" ]]; then
-			rm "/var/www/html/assets/romm/${subfolder}"
-			ln -s "${ROMM_BASE_PATH}/${subfolder}" "/var/www/html/assets/romm/${subfolder}"
-		fi
+	# If the target is not the same as ${ROMM_BASE_PATH}/resources, recreate the symbolic link.
+	if [[ ${target} != "${ROMM_BASE_PATH}/resources" ]]; then
+		rm "/var/www/html/assets/romm/resources"
+		ln -s "${ROMM_BASE_PATH}/resources" "/var/www/html/assets/romm/resources"
 	fi
-done
+fi
 
 exec "$@"

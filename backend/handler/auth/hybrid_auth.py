@@ -6,7 +6,11 @@ from starlette.requests import HTTPConnection
 
 from config import KIOSK_MODE
 from handler.auth import auth_handler, oauth_handler
-from handler.database import db_client_token_handler, db_user_handler
+from handler.database import (
+    db_client_token_handler,
+    db_device_handler,
+    db_user_handler,
+)
 from models.user import User
 from utils.datetime import to_utc
 
@@ -25,7 +29,11 @@ class HybridAuthBackend(AuthenticationBackend):
 
         # Check if Authorization header exists
         if "Authorization" in conn.headers:
-            scheme, token = conn.headers["Authorization"].split()
+            auth_header_parts = conn.headers["Authorization"].split()
+            if len(auth_header_parts) != 2:
+                return None
+
+            scheme, token = auth_header_parts
 
             # Check if basic auth header is valid
             if scheme.lower() == "basic":
@@ -66,6 +74,11 @@ class HybridAuthBackend(AuthenticationBackend):
                     db_client_token_handler.update_last_used(client_token.id)
                     user.set_last_active()
                     conn.state.client_token_id = client_token.id
+                    conn.state.device_id = client_token.device_id
+                    if client_token.device_id:
+                        db_device_handler.update_last_seen_debounced(
+                            client_token.device_id
+                        )
                     return (AuthCredentials(effective_scopes), user)
 
                 # OAuth JWT bearer tokens

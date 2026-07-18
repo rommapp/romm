@@ -40,21 +40,21 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
     with op.batch_alter_table("client_tokens") as batch_op:
         batch_op.create_index(
             batch_op.f("ix_client_tokens_hashed_token"),
             ["hashed_token"],
             unique=True,
+            if_not_exists=True,
         )
         batch_op.create_index(
             batch_op.f("ix_client_tokens_user_id"),
             ["user_id"],
+            if_not_exists=True,
         )
 
 
 def downgrade() -> None:
-    with op.batch_alter_table("client_tokens") as batch_op:
-        batch_op.drop_index(batch_op.f("ix_client_tokens_user_id"))
-        batch_op.drop_index(batch_op.f("ix_client_tokens_hashed_token"))
-    op.drop_table("client_tokens")
+    op.drop_table("client_tokens", if_exists=True)

@@ -118,7 +118,6 @@ async function goToRandomGame() {
   <v-btn
     icon
     variant="text"
-    color="text-white"
     :disabled="romsStore.filteredRoms.length === 0"
     rounded="0"
     :title="t('common.random')"

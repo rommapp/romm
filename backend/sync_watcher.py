@@ -27,7 +27,7 @@ from handler.database import (
     db_save_handler,
     db_sync_session_handler,
 )
-from handler.filesystem import fs_asset_handler, fs_sync_handler
+from handler.filesystem import fs_asset_handler, get_fs_sync_handler
 from handler.sync.comparison import compare_save_state
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -46,8 +46,9 @@ Change = tuple[str, str]
 def _extract_device_and_platform(path: str) -> tuple[str, str, str] | None:
     """Extract device_id, platform_slug, and filename from a sync incoming path.
 
-    Expected path format: {SYNC_BASE_PATH}/{device_id}/incoming/{platform_slug}/filename.ext
+    Expected path format: {ROMM_BASE_PATH}/sync/{device_id}/incoming/{platform_slug}/filename.ext
     """
+    fs_sync_handler = get_fs_sync_handler()
     try:
         rel_path = os.path.relpath(path, start=str(fs_sync_handler.base_path))
         parts = rel_path.split(os.sep)
@@ -62,6 +63,7 @@ def _extract_device_and_platform(path: str) -> tuple[str, str, str] | None:
 
 
 def _ensure_conflicts_dir(device_id: str, platform_slug: str) -> str:
+    fs_sync_handler = get_fs_sync_handler()
     conflicts_dir = str(
         fs_sync_handler.base_path
         / fs_sync_handler.build_conflicts_path(device_id, platform_slug)
@@ -207,6 +209,8 @@ def _process_incoming_file(
     """Process a single incoming file from a device's sync folder."""
     from endpoints.sockets.sync import emit_sync_conflict
 
+    fs_sync_handler = get_fs_sync_handler()
+
     # Look up platform
     platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
     if not platform:
@@ -218,10 +222,14 @@ def _process_incoming_file(
     file_size = os.path.getsize(full_path)
     file_mtime = datetime.fromtimestamp(os.path.getmtime(full_path), tz=timezone.utc)
 
-    # Try to find matching saves on this platform for this user
+    # Try to find matching saves on this platform for this user. Only
+    # slot-bound saves participate in sync; null-slot saves are web-UI /
+    # archival uploads and must never be paired with a device push. Filter
+    # in SQL so archival rows never load.
     saves_on_platform = db_save_handler.get_saves(
         user_id=device.user_id,
         platform_id=platform.id,
+        slot_not_null=True,
     )
 
     matched_save = None

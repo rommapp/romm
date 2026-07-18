@@ -19,6 +19,7 @@ class MetadataSourcesDict(TypedDict):
     TGDB_API_ENABLED: bool
     FLASHPOINT_API_ENABLED: bool
     HLTB_API_ENABLED: bool
+    LIBRETRO_API_ENABLED: bool
 
 
 class FilesystemDict(TypedDict):
@@ -32,6 +33,7 @@ class EmulationDict(TypedDict):
 
 class FrontendDict(TypedDict):
     DISABLE_USERPASS_LOGIN: bool
+    DISABLE_LOGS_VIEWER: bool
     YOUTUBE_BASE_URL: str
 
 

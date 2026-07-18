@@ -2,7 +2,7 @@
 import { identity } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, ref, watch } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
@@ -32,112 +32,6 @@ const { currentPlatform } = storeToRefs(romsStore);
 const auth = storeAuth();
 const navigationStore = storeNavigation();
 const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
-const selectedAspectRatio = ref(0);
-
-// Some platform boxes have specific aspect ratios
-const DVD_PLATFORMS = new Set([
-  "dvd-player",
-  "ps2",
-  "ngc",
-  "wii",
-  "wiiu",
-  "xbox",
-  "xbox360",
-  "win",
-]);
-const BLU_RAY_PLATFORMS = new Set([
-  "blu-ray-player",
-  "ps3",
-  "ps4",
-  "ps5",
-  "psvita",
-  "xboxone",
-  "series-x-s",
-]);
-const DS_3DS_PLATFORMS = new Set([
-  "nds",
-  "nintendo-dsi",
-  "3ds",
-  "new-nintendo-3ds",
-]);
-const PSP_PLATFORMS = new Set(["psp", "psp-minis"]);
-const SWITCH_PLATFORMS = new Set(["switch", "switch-2"]);
-
-const aspectRatioOptions = computed(() => {
-  const slug = currentPlatform.value?.slug?.toLowerCase() ?? "";
-  return [
-    {
-      name: "2 / 3",
-      size: 2 / 3,
-      source: "SteamGridDB",
-    },
-    {
-      name: "3 / 4",
-      size: 3 / 4,
-      source: "IGDB / MobyGames",
-    },
-    {
-      name: "1 / 1",
-      size: 1 / 1,
-      source: t("platform.old-squared-cases"),
-    },
-    {
-      name: "16 / 11",
-      size: 16 / 11,
-      source: t("platform.old-horizontal-cases"),
-    },
-    ...(DVD_PLATFORMS.has(slug)
-      ? [
-          {
-            name: "0.71 / 1",
-            size: 0.71 / 1,
-            source: "DVD",
-          },
-        ]
-      : []),
-    ...(BLU_RAY_PLATFORMS.has(slug)
-      ? [
-          {
-            name: "0.79 / 1",
-            size: 0.79 / 1,
-            source: "Blu-ray (Full artwork)",
-          },
-          {
-            name: "0.87 / 1",
-            size: 0.87 / 1,
-            source: "Blu-ray (Plastic header)",
-          },
-        ]
-      : []),
-    ...(DS_3DS_PLATFORMS.has(slug)
-      ? [
-          {
-            name: "1.08 / 1",
-            size: 1.08 / 1,
-            source: "Nintendo DS / 3DS",
-          },
-        ]
-      : []),
-    ...(PSP_PLATFORMS.has(slug)
-      ? [
-          {
-            name: "0.58 / 1",
-            size: 0.58 / 1,
-            source: "PSP",
-          },
-        ]
-      : []),
-    ...(SWITCH_PLATFORMS.has(slug)
-      ? [
-          {
-            name: "0.62 / 1",
-            size: 0.62 / 1,
-            source: "Switch",
-          },
-        ]
-      : []),
-  ];
-});
 const tabIndex = computed(() => (activePlatformInfoDrawer.value ? 0 : -1));
 
 const PLATFORM_INFO_FIELDS: {
@@ -214,56 +108,6 @@ async function scan() {
     apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
   });
 }
-
-async function setAspectRatio() {
-  if (currentPlatform.value) {
-    const selectedOption = aspectRatioOptions.value[selectedAspectRatio.value];
-    platformApi
-      .updatePlatform({
-        platform: {
-          ...currentPlatform.value,
-          aspect_ratio: selectedOption.name,
-        },
-      })
-      .then(() => {
-        emitter?.emit("snackbarShow", {
-          msg: "Platform updated successfully",
-          icon: "mdi-check-bold",
-          color: "green",
-        });
-        if (currentPlatform.value) {
-          currentPlatform.value.aspect_ratio = selectedOption.name;
-          platformsStore.update(currentPlatform.value);
-        }
-      })
-      .catch((error) => {
-        emitter?.emit("snackbarShow", {
-          msg: `Failed to update aspect ratio: ${
-            error.response?.data?.msg || error.message
-          }`,
-          icon: "mdi-close-circle",
-          color: "red",
-        });
-      });
-  }
-}
-
-watch(
-  () => currentPlatform.value?.aspect_ratio,
-  (aspectRatio) => {
-    if (aspectRatio) {
-      // Find the index of the aspect ratio option that matches the current aspect ratio
-      const defaultAspectRatio = aspectRatioOptions.value.findIndex(
-        (option) => option.name == aspectRatio,
-      );
-      // If a matching aspect ratio option is found, update the selectedAspectRatio
-      if (defaultAspectRatio !== -1) {
-        selectedAspectRatio.value = defaultAspectRatio;
-      }
-    }
-  },
-  { immediate: true }, // Execute the callback immediately with the current value
-);
 </script>
 
 <template>
@@ -342,7 +186,6 @@ watch(
             <v-text-field
               v-model="updatedPlatform.display_name"
               variant="outlined"
-              class="text-white"
               hide-details
               density="compact"
               :readonly="!isEditable"
@@ -388,7 +231,7 @@ watch(
         </div>
         <v-row
           v-if="currentPlatform.is_identified"
-          class="text-white text-shadow mt-2 text-center"
+          class="mt-2 text-center"
           no-gutters
         >
           <v-col cols="12">
@@ -397,6 +240,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://www.igdb.com/platforms/${currentPlatform.igdb_slug}`"
               target="_blank"
+              rel="noopener noreferrer"
               :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
@@ -411,6 +255,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://www.screenscraper.fr/gamesinfos.php?plateforme=${currentPlatform.ss_id}`"
               target="_blank"
+              rel="noopener noreferrer"
               class="ml-1"
               :tabindex="tabIndex"
             >
@@ -429,6 +274,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://www.mobygames.com/platform/${currentPlatform.moby_slug}`"
               target="_blank"
+              rel="noopener noreferrer"
               class="ml-1"
               :tabindex="tabIndex"
             >
@@ -444,6 +290,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://retroachievements.org/system/${currentPlatform.ra_id}/games`"
               target="_blank"
+              rel="noopener noreferrer"
               class="ml-1"
               :tabindex="tabIndex"
             >
@@ -462,6 +309,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://gamesdb.launchbox-app.com/platforms/games/${currentPlatform.launchbox_id}`"
               target="_blank"
+              rel="noopener noreferrer"
               class="ml-1"
               :tabindex="tabIndex"
             >
@@ -483,6 +331,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://hasheous.org/index.html?page=dataobjectdetail&type=platform&id=${currentPlatform.hasheous_id}`"
               target="_blank"
+              rel="noopener"
               class="ml-1"
               :tabindex="tabIndex"
             >
@@ -501,6 +350,32 @@ watch(
                   <v-img src="/assets/scrappers/hasheous.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.hasheous_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.tgdb_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://thegamesdb.net/platform.php?id=${currentPlatform.tgdb_id}`"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="ml-1"
+              :tabindex="tabIndex"
+            >
+              <v-chip
+                class="pl-0 mt-1"
+                size="small"
+                title="TheGamesDB ID"
+                @click.stop
+              >
+                <v-avatar
+                  variant="text"
+                  class="mr-2 bg-surface pa-1"
+                  size="30"
+                  rounded="0"
+                >
+                  <v-img src="/assets/scrappers/tgdb.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.tgdb_id }}</span>
               </v-chip>
             </a>
             <v-chip
@@ -523,13 +398,19 @@ watch(
                 <v-img src="/assets/scrappers/hltb.png" />
               </v-avatar>
             </v-chip>
+            <v-chip
+              v-if="currentPlatform.libretro_slug"
+              class="px-0 ml-1 mt-1"
+              size="small"
+              title="Libretro"
+            >
+              <v-avatar variant="text" class="bg-surface" size="30" rounded="0">
+                <v-img src="/assets/scrappers/libretro.png" />
+              </v-avatar>
+            </v-chip>
           </v-col>
         </v-row>
-        <v-row
-          v-else
-          class="text-white text-shadow mt-2 text-center"
-          no-gutters
-        >
+        <v-row v-else class="mt-2 text-center" no-gutters>
           <v-col cols="12">
             <v-chip color="red" size="small" label>
               <v-icon class="mr-1"> mdi-close </v-icon>
@@ -555,73 +436,6 @@ watch(
         </v-card>
       </v-col>
     </v-row>
-    <RSection
-      v-if="auth.scopes.includes('platforms.write')"
-      icon="mdi-cog"
-      :title="t('platform.settings')"
-      elevation="0"
-      title-divider
-      bg-color="bg-toplayer"
-      class="mx-2"
-    >
-      <template #content>
-        <v-chip
-          label
-          variant="text"
-          class="ml-2 mt-2"
-          prepend-icon="mdi-aspect-ratio"
-          :tabindex="tabIndex"
-        >
-          {{ t("platform.cover-style") }}
-        </v-chip>
-        <v-divider class="border-opacity-25 mx-2" />
-        <v-item-group
-          v-model="selectedAspectRatio"
-          :tabindex="tabIndex"
-          mandatory
-          @update:model-value="setAspectRatio"
-        >
-          <v-row
-            no-gutters
-            class="text-center justify-center align-center pa-2"
-          >
-            <v-col
-              v-for="aspectRatio in aspectRatioOptions"
-              :key="aspectRatio.name"
-              cols="6"
-              class="pa-2"
-            >
-              <v-item v-slot="{ isSelected, toggle }">
-                <v-card
-                  :color="isSelected ? 'primary' : 'romm-gray'"
-                  variant="outlined"
-                  @click="toggle"
-                >
-                  <v-card-text
-                    class="pa-0 text-center align-center justify-center"
-                  >
-                    <v-img
-                      :aspect-ratio="aspectRatio.size"
-                      cover
-                      src="/assets/default/cover/empty.svg"
-                      :class="{ greyscale: !isSelected }"
-                      class="d-flex align-center justify-center"
-                    >
-                      <p class="text-h5 text-romm-white">
-                        {{ aspectRatio.name }}
-                      </p>
-                    </v-img>
-                    <p class="text-center text-caption">
-                      {{ aspectRatio.source }}
-                    </p>
-                  </v-card-text>
-                </v-card>
-              </v-item>
-            </v-col>
-          </v-row>
-        </v-item-group>
-      </template>
-    </RSection>
     <RSection
       v-if="auth.scopes.includes('platforms.write')"
       icon="mdi-alert"

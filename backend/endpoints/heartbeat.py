@@ -5,6 +5,7 @@ from fastapi import HTTPException, Request, status
 
 from config import (
     DISABLE_EMULATOR_JS,
+    DISABLE_LOGS_VIEWER,
     DISABLE_RUFFLE_RS,
     DISABLE_SETUP_WIZARD,
     DISABLE_USERPASS_LOGIN,
@@ -30,6 +31,7 @@ from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
+from handler.filesystem.base_handler import LibraryStructure
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_gamelist_handler,
@@ -37,6 +39,7 @@ from handler.metadata import (
     meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
+    meta_libretro_handler,
     meta_moby_handler,
     meta_playmatch_handler,
     meta_ra_handler,
@@ -73,6 +76,7 @@ async def heartbeat() -> HeartbeatResponse:
     playmatch_enabled = meta_playmatch_handler.is_enabled()
     hltb_enabled = meta_hltb_handler.is_enabled()
     tgdb_enabled = meta_tgdb_handler.is_enabled()
+    libretro_enabled = meta_libretro_handler.is_enabled()
 
     return {
         "SYSTEM": {
@@ -91,6 +95,7 @@ async def heartbeat() -> HeartbeatResponse:
                 or tgdb_enabled
                 or flashpoint_enabled
                 or hltb_enabled
+                or libretro_enabled
             ),
             "IGDB_API_ENABLED": igdb_enabled,
             "SS_API_ENABLED": ss_enabled,
@@ -103,6 +108,7 @@ async def heartbeat() -> HeartbeatResponse:
             "TGDB_API_ENABLED": tgdb_enabled,
             "FLASHPOINT_API_ENABLED": flashpoint_enabled,
             "HLTB_API_ENABLED": hltb_enabled,
+            "LIBRETRO_API_ENABLED": libretro_enabled,
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
@@ -113,6 +119,7 @@ async def heartbeat() -> HeartbeatResponse:
         },
         "FRONTEND": {
             "DISABLE_USERPASS_LOGIN": DISABLE_USERPASS_LOGIN,
+            "DISABLE_LOGS_VIEWER": DISABLE_LOGS_VIEWER,
             "YOUTUBE_BASE_URL": YOUTUBE_BASE_URL,
         },
         "OIDC": {
@@ -155,6 +162,8 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_launchbox_handler.heartbeat()
         case MetadataSource.HASHEOUS:
             return await meta_hasheous_handler.heartbeat()
+        case MetadataSource.PLAYMATCH:
+            return await meta_playmatch_handler.heartbeat()
         case MetadataSource.TGDB:
             return await meta_tgdb_handler.heartbeat()
         case MetadataSource.SGDB:
@@ -165,6 +174,8 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_hltb_handler.heartbeat()
         case MetadataSource.GAMELIST:
             return await meta_gamelist_handler.heartbeat()
+        case MetadataSource.LIBRETRO:
+            return await meta_libretro_handler.heartbeat()
         case _:
             return False
 
@@ -218,7 +229,7 @@ async def get_setup_library_info(request: Request):
             rom_count = 0
             try:
                 # Determine the roms directory based on structure
-                if detected_structure == "struct_a":
+                if detected_structure == LibraryStructure.A:
                     roms_path = os.path.join(
                         LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME, fs_slug
                     )

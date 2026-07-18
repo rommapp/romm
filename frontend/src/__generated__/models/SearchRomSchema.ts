@@ -10,6 +10,7 @@ export type SearchRomSchema = {
     sgdb_id?: (number | null);
     flashpoint_id?: (string | null);
     launchbox_id?: (number | null);
+    libretro_id?: (string | null);
     platform_id: number;
     name: string;
     slug?: string;
@@ -20,6 +21,7 @@ export type SearchRomSchema = {
     sgdb_url_cover?: string;
     flashpoint_url_cover?: string;
     launchbox_url_cover?: string;
+    libretro_url_cover?: string;
     is_unidentified: boolean;
     is_identified: boolean;
 };

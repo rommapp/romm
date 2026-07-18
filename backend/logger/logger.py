@@ -1,8 +1,9 @@
 import logging
 import sys
 
-from config import LOGLEVEL
+from config import IS_PYTEST_RUN, LOGLEVEL
 from logger.formatter import Formatter
+from logger.log_stream_handler import LogStreamHandler
 
 # Set up logger
 log = logging.getLogger("romm")
@@ -13,6 +14,13 @@ log.propagate = False
 stdout_handler = logging.StreamHandler(sys.stdout)
 stdout_handler.setFormatter(Formatter())
 log.addHandler(stdout_handler)
+
+# Mirror records to Redis for the real-time admin log viewer. Skipped under
+# pytest, where there is no live Redis to stream to.
+if not IS_PYTEST_RUN:
+    stream_handler = LogStreamHandler()
+    stream_handler.setLevel(LOGLEVEL)
+    log.addHandler(stream_handler)
 
 # Hush passlib warnings
 logging.getLogger("passlib").setLevel(logging.ERROR)

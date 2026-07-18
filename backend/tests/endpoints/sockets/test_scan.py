@@ -1,9 +1,18 @@
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 import socketio
 
-from endpoints.sockets.scan import ScanStats, _should_scan_rom
+from endpoints.sockets import scan as scan_module
+from endpoints.sockets.scan import (
+    ScanStats,
+    reject_unauthorized_scan,
+    scan_handler,
+    scan_platforms,
+    should_scan_rom,
+    stop_scan_handler,
+)
+from handler.auth.constants import Scope
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import ScanType
@@ -74,46 +83,131 @@ async def test_merging_scan_stats():
     assert stats.new_firmware == 25
 
 
+class TestScanTotals:
+    """The scan tracker totals must reflect the platforms/roms actually scanned."""
+
+    @pytest.fixture
+    def patched(self, mocker):
+        """Patch the collaborators of scan_platforms so totals can be inspected."""
+        socket_manager = AsyncMock()
+        mocker.patch.object(
+            scan_module, "_get_socket_manager", return_value=socket_manager
+        )
+        mocker.patch.object(
+            scan_module.fs_platform_handler,
+            "get_platforms",
+            AsyncMock(return_value=["existing", "new1", "new2"]),
+        )
+        # Each platform reports 100 roms on disk.
+        mocker.patch.object(
+            scan_module.fs_rom_handler, "count_roms", AsyncMock(return_value=100)
+        )
+        mocker.patch.object(scan_module.meta_gamelist_handler, "clear_cache")
+        mocker.patch.object(
+            scan_module.db_platform_handler, "mark_missing_platforms", return_value=[]
+        )
+        # The "existing" platform is already in the database; "new1"/"new2" are not.
+        existing_platform = MagicMock(id=1, fs_slug="existing")
+        mocker.patch.object(
+            scan_module.db_platform_handler,
+            "get_platforms",
+            return_value=[existing_platform],
+        )
+        mocker.patch.object(
+            scan_module.db_rom_handler, "invalidate_filter_values_cache"
+        )
+        config = MagicMock()
+        config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
+        config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+        # Skip the actual per-platform scanning, returning the stats unchanged.
+        async def fake_identify(**kwargs):
+            return kwargs["scan_stats"]
+
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=fake_identify
+        )
+        return socket_manager
+
+    async def test_new_platforms_total_excludes_existing(self, patched, mocker):
+        """NEW_PLATFORMS totals must skip platforms already in the database."""
+        result = await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[],
+            scan_type=ScanType.NEW_PLATFORMS,
+        )
+
+        # Only the two new platforms (and their roms) should be counted.
+        assert result.total_platforms == 2
+        assert result.total_roms == 200
+
+    async def test_complete_scan_counts_all_selected(self, patched, mocker):
+        """COMPLETE totals include every filesystem platform being scanned."""
+        mocker.patch.object(
+            scan_module.db_platform_handler,
+            "get_platform_by_fs_slug",
+            return_value=MagicMock(),
+        )
+
+        result = await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[],
+            scan_type=ScanType.COMPLETE,
+        )
+
+        assert result.total_platforms == 3
+        assert result.total_roms == 300
+
+
 class TestShouldScanRom:
     def test_new_platforms_scan_with_no_rom(self):
         """NEW_PLATFORMS should scan when rom is None"""
-        result = _should_scan_rom(ScanType.NEW_PLATFORMS, None, [], ["igdb"])
+        result = should_scan_rom(ScanType.NEW_PLATFORMS, None, [], ["igdb"])
         assert result is True
 
     def test_new_platforms_scan_with_existing_rom(self, rom: Rom):
         """NEW_PLATFORMS should not scan when rom exists"""
-        result = _should_scan_rom(ScanType.NEW_PLATFORMS, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.NEW_PLATFORMS, rom, [], ["igdb"])
         assert result is False
 
     # Test QUICK scan type
     def test_quick_scan_with_no_rom(self):
         """QUICK should scan when rom is None"""
-        result = _should_scan_rom(ScanType.QUICK, None, [], ["igdb"])
+        result = should_scan_rom(ScanType.QUICK, None, [], ["igdb"])
         assert result is True
 
     def test_quick_scan_with_existing_rom(self, rom: Rom):
         """QUICK should not scan when rom exists"""
-        result = _should_scan_rom(ScanType.QUICK, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.QUICK, rom, [], ["igdb"])
         assert result is False
 
     # Test COMPLETE scan type
     def test_complete_scan_always_scans(self, rom: Rom):
-        """COMPLETE should always scan regardless of rom state"""
-        assert _should_scan_rom(ScanType.COMPLETE, None, [], ["igdb"]) is True
-        assert _should_scan_rom(ScanType.COMPLETE, rom, [], ["igdb"]) is True
-        assert _should_scan_rom(ScanType.COMPLETE, rom, [2, 3], ["igdb"]) is True
+        """COMPLETE should scan everything when unscoped, but respect roms_ids when scoped"""
+        assert should_scan_rom(ScanType.COMPLETE, None, [], ["igdb"]) is True
+        assert should_scan_rom(ScanType.COMPLETE, rom, [], ["igdb"]) is True
+        # Scoped scan should not scan/add new filesystem ROMs when rom is None
+        assert should_scan_rom(ScanType.COMPLETE, None, [rom.id], ["igdb"]) is False
+        # Scoped scan: rom not in list → skip even for COMPLETE
+        assert should_scan_rom(ScanType.COMPLETE, rom, [rom.id + 99], ["igdb"]) is False
+        assert should_scan_rom(ScanType.COMPLETE, rom, [rom.id], ["igdb"]) is True
 
     # Test HASHES scan type
     def test_hashes_scan_always_scans(self, rom: Rom):
-        """HASHES should always scan regardless of rom state"""
-        assert _should_scan_rom(ScanType.HASHES, None, [], ["igdb"]) is True
-        assert _should_scan_rom(ScanType.HASHES, rom, [], ["igdb"]) is True
-        assert _should_scan_rom(ScanType.HASHES, rom, [2, 3], ["igdb"]) is True
+        """HASHES should scan everything when unscoped, but respect roms_ids when scoped"""
+        assert should_scan_rom(ScanType.HASHES, None, [], ["igdb"]) is True
+        assert should_scan_rom(ScanType.HASHES, rom, [], ["igdb"]) is True
+        # Scoped scan should not scan/add new filesystem ROMs when rom is None
+        assert should_scan_rom(ScanType.HASHES, None, [rom.id], ["igdb"]) is False
+        # Scoped scan: rom not in list → skip even for HASHES
+        assert should_scan_rom(ScanType.HASHES, rom, [rom.id + 99], ["igdb"]) is False
+        assert should_scan_rom(ScanType.HASHES, rom, [rom.id], ["igdb"]) is True
 
     # Test UNMATCHED scan type
     def test_unmatched_scan_with_no_rom(self):
         """UNMATCHED should not scan when rom is None"""
-        result = _should_scan_rom(ScanType.UNMATCHED, None, [], ["igdb"])
+        result = should_scan_rom(ScanType.UNMATCHED, None, [], ["igdb"])
         assert result is False
 
     def test_unmatched_scan_with_unmatched_rom(self, rom: Rom):
@@ -123,25 +217,25 @@ class TestShouldScanRom:
         rom.ss_id = None
         rom.ra_id = None
         rom.launchbox_id = None
-        result = _should_scan_rom(ScanType.UNMATCHED, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.UNMATCHED, rom, [], ["igdb"])
         assert result is True
 
     def test_unmatched_scan_with_identified_rom(self, rom: Rom):
         """UNMATCHED should also scan when rom is identified"""
         rom.igdb_id = 1
-        result = _should_scan_rom(ScanType.UNMATCHED, rom, [], ["moby"])
+        result = should_scan_rom(ScanType.UNMATCHED, rom, [], ["moby"])
         assert result is True
 
     # Test UPDATE scan type
     def test_update_scan_with_no_rom(self):
         """UPDATE should not scan when rom is None"""
-        result = _should_scan_rom(ScanType.UPDATE, None, [], ["igdb"])
+        result = should_scan_rom(ScanType.UPDATE, None, [], ["igdb"])
         assert result is False
 
     def test_update_scan_with_identified_rom(self, rom: Rom):
         """UPDATE should scan when rom is identified"""
         rom.igdb_id = 1
-        result = _should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"])
         assert result is True
 
     def test_update_scan_with_unmatched_rom(self, rom: Rom):
@@ -151,7 +245,7 @@ class TestShouldScanRom:
         rom.ss_id = None
         rom.ra_id = None
         rom.launchbox_id = None
-        result = _should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"])
         assert result is False
 
     # Test rom_ids parameter
@@ -166,21 +260,28 @@ class TestShouldScanRom:
             ScanType.UNMATCHED,
             ScanType.UPDATE,
         ]:
-            result = _should_scan_rom(scan_type, rom, roms_ids, ["igdb"])
+            result = should_scan_rom(scan_type, rom, roms_ids, ["igdb"])
             assert result is True
 
     def test_no_scan_when_rom_id_not_in_list(self, rom: Rom):
-        """Should follow normal rules when rom.id is not in roms_ids list"""
+        """When roms_ids is non-empty, scan is scoped: roms outside the list are skipped for every scan type"""
         rom.id = 4
+        rom.igdb_id = None
+        rom.moby_id = None
+        rom.ss_id = None
+        rom.ra_id = None
+        rom.launchbox_id = None
         roms_ids = [1, 2, 3]
 
-        # These should not scan because rom exists and id not in list
-        assert (
-            _should_scan_rom(ScanType.NEW_PLATFORMS, rom, roms_ids, ["igdb"]) is False
-        )
-        assert _should_scan_rom(ScanType.QUICK, rom, roms_ids, ["igdb"]) is False
-        assert _should_scan_rom(ScanType.UPDATE, rom, roms_ids, ["igdb"]) is False
-        assert _should_scan_rom(ScanType.UNMATCHED, rom, roms_ids, ["igdb"]) is True
+        for scan_type in [
+            ScanType.NEW_PLATFORMS,
+            ScanType.QUICK,
+            ScanType.UPDATE,
+            ScanType.UNMATCHED,
+            ScanType.COMPLETE,
+            ScanType.HASHES,
+        ]:
+            assert should_scan_rom(scan_type, rom, roms_ids, ["igdb"]) is False
 
     # Edge cases
     def test_empty_roms_ids_list(self, rom: Rom):
@@ -188,8 +289,8 @@ class TestShouldScanRom:
         rom.id = 1
         rom.igdb_id = 1
 
-        assert _should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"]) is True
-        assert _should_scan_rom(ScanType.NEW_PLATFORMS, rom, [], ["igdb"]) is False
+        assert should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"]) is True
+        assert should_scan_rom(ScanType.NEW_PLATFORMS, rom, [], ["igdb"]) is False
 
     def test_rom_id_type_conversion(self, rom: Rom):
         """Test that rom.id (int) is properly compared with roms_ids (list of strings)"""
@@ -197,7 +298,7 @@ class TestShouldScanRom:
         roms_ids = [123, 456]
 
         # This should scan because 123 should match "123"
-        result = _should_scan_rom(ScanType.QUICK, rom, roms_ids, ["igdb"])
+        result = should_scan_rom(ScanType.QUICK, rom, roms_ids, ["igdb"])
         assert result is True
 
     @pytest.mark.parametrize(
@@ -244,8 +345,74 @@ class TestShouldScanRom:
             if rom_in_list:
                 roms_ids = [1]
 
-        result = _should_scan_rom(scan_type, rom, roms_ids, ["igdb"])
+        result = should_scan_rom(scan_type, rom, roms_ids, ["igdb"])
         assert result is expected
+
+
+class TestScanAuthorization:
+    """The scan/scan:stop socket handlers must require the TASKS_RUN scope."""
+
+    @pytest.fixture
+    def emit(self, mocker):
+        emit = AsyncMock()
+        mocker.patch.object(scan_module.socket_handler.socket_server, "emit", emit)
+        return emit
+
+    def _user(self, *scopes):
+        user = MagicMock()
+        user.oauth_scopes = list(scopes)
+        return user
+
+    async def test_reject_unauthenticated(self, mocker, emit):
+        mocker.patch.object(
+            scan_module, "get_authenticated_user", AsyncMock(return_value=None)
+        )
+        assert await reject_unauthorized_scan("sid") is True
+        emit.assert_awaited_once()
+
+    async def test_reject_user_without_tasks_run(self, mocker, emit):
+        mocker.patch.object(
+            scan_module,
+            "get_authenticated_user",
+            AsyncMock(return_value=self._user(Scope.ROMS_READ)),
+        )
+        assert await reject_unauthorized_scan("sid") is True
+        emit.assert_awaited_once()
+
+    async def test_allow_user_with_tasks_run(self, mocker, emit):
+        mocker.patch.object(
+            scan_module,
+            "get_authenticated_user",
+            AsyncMock(return_value=self._user(Scope.TASKS_RUN)),
+        )
+        assert await reject_unauthorized_scan("sid") is False
+        emit.assert_not_awaited()
+
+    async def test_scan_handler_does_not_enqueue_when_unauthorized(self, mocker, emit):
+        mocker.patch.object(
+            scan_module, "get_authenticated_user", AsyncMock(return_value=None)
+        )
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        scan_platforms_mock = mocker.patch.object(
+            scan_module, "scan_platforms", AsyncMock()
+        )
+
+        await scan_handler("sid", {"type": "complete"})
+
+        enqueue.assert_not_called()
+        scan_platforms_mock.assert_not_awaited()
+
+    async def test_stop_scan_handler_does_not_cancel_when_unauthorized(
+        self, mocker, emit
+    ):
+        mocker.patch.object(
+            scan_module, "get_authenticated_user", AsyncMock(return_value=None)
+        )
+        get_jobs = mocker.patch.object(scan_module.high_prio_queue, "get_jobs")
+
+        await stop_scan_handler("sid")
+
+        get_jobs.assert_not_called()
 
 
 class TestGetPico8CoverUrl:

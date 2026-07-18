@@ -1,11 +1,12 @@
 import json
 from datetime import datetime
 from io import BytesIO
-from typing import Annotated
+from typing import Annotated, TypeVar
 
 from fastapi import File, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Query, Request, UploadFile, status
+from pydantic import BaseModel as PydanticBaseModel
 
 from decorators.auth import protected_route
 from endpoints.responses.collection import (
@@ -19,8 +20,10 @@ from exceptions.endpoint_exceptions import (
     CollectionPermissionError,
 )
 from handler.auth.constants import Scope
-from handler.database import db_collection_handler
+from handler.auth.dependencies import get_permissions
+from handler.database import db_collection_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler
+from handler.filesystem.assets_handler import validate_image_upload
 from handler.filesystem.base_handler import CoverSize
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -39,6 +42,43 @@ router = APIRouter(
 )
 
 COLLECTION_ARTWORK_FILE = File(default=None, description="Collection artwork file.")
+
+CollectionSchemaT = TypeVar(
+    "CollectionSchemaT",
+    CollectionSchema,
+    VirtualCollectionSchema,
+    SmartCollectionSchema,
+)
+
+
+def _hide_collection_roms(
+    schemas: list[CollectionSchemaT], request: Request
+) -> list[CollectionSchemaT]:
+    """Drop hidden roms from each collection's `rom_ids`/`rom_count` for the caller.
+
+    Without this a collection leaks the ids (and inflated count) of roms hidden
+    from the user via the opt-out visibility model.
+    """
+    if not request.user.is_authenticated or not schemas:
+        return schemas
+    perms = get_permissions(request)
+    if perms.is_admin or (not perms.hidden_platform_ids and not perms.hidden_rom_ids):
+        return schemas
+
+    all_ids = {rid for s in schemas for rid in s.rom_ids}
+    hidden = db_rom_handler.get_hidden_rom_ids_among(
+        list(all_ids),
+        list(perms.hidden_platform_ids),
+        list(perms.hidden_rom_ids),
+    )
+    if not hidden:
+        return schemas
+    for s in schemas:
+        visible = set(s.rom_ids) - hidden
+        if len(visible) != len(s.rom_ids):
+            s.rom_ids = visible
+            s.rom_count = len(visible)
+    return schemas
 
 
 @protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
@@ -81,7 +121,7 @@ async def add_collection(
 
     try:
         if artwork is not None and artwork.filename is not None:
-            file_ext = artwork.filename.split(".")[-1]
+            file_ext = validate_image_upload(artwork, label="Artwork")
             artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
@@ -189,7 +229,9 @@ def get_collections(
 
     collections = db_collection_handler.get_collections(updated_after=updated_after)
 
-    return CollectionSchema.for_user(request.user.id, collections)
+    return _hide_collection_roms(
+        CollectionSchema.for_user(request.user.id, collections), request
+    )
 
 
 @protected_route(router.get, "/identifiers", [Scope.COLLECTIONS_READ])
@@ -236,7 +278,10 @@ def get_virtual_collections(
         type=type, limit=limit
     )
 
-    return [VirtualCollectionSchema.model_validate(vc) for vc in virtual_collections]
+    return _hide_collection_roms(
+        [VirtualCollectionSchema.model_validate(vc) for vc in virtual_collections],
+        request,
+    )
 
 
 @protected_route(router.get, "/virtual/identifiers", [Scope.COLLECTIONS_READ])
@@ -284,7 +329,9 @@ def get_smart_collections(
         request.user.id, updated_after=updated_after
     )
 
-    return SmartCollectionSchema.for_user(request.user.id, smart_collections)
+    return _hide_collection_roms(
+        SmartCollectionSchema.for_user(request.user.id, smart_collections), request
+    )
 
 
 @protected_route(router.get, "/smart/identifiers", [Scope.COLLECTIONS_READ])
@@ -327,7 +374,9 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
     if collection.user_id != request.user.id and not collection.is_public:
         raise CollectionPermissionError(id)
 
-    return CollectionSchema.model_validate(collection)
+    return _hide_collection_roms(
+        [CollectionSchema.model_validate(collection)], request
+    )[0]
 
 
 @protected_route(router.get, "/virtual/{id}", [Scope.COLLECTIONS_READ])
@@ -346,7 +395,9 @@ def get_virtual_collection(request: Request, id: str) -> VirtualCollectionSchema
     if not virtual_collection:
         raise CollectionNotFoundInDatabaseException(id)
 
-    return VirtualCollectionSchema.model_validate(virtual_collection)
+    return _hide_collection_roms(
+        [VirtualCollectionSchema.model_validate(virtual_collection)], request
+    )[0]
 
 
 @protected_route(router.get, "/smart/{id}", [Scope.COLLECTIONS_READ])
@@ -368,7 +419,9 @@ def get_smart_collection(request: Request, id: int) -> SmartCollectionSchema:
     if smart_collection.user_id != request.user.id and not smart_collection.is_public:
         raise CollectionPermissionError(id)
 
-    return SmartCollectionSchema.model_validate(smart_collection)
+    return _hide_collection_roms(
+        [SmartCollectionSchema.model_validate(smart_collection)], request
+    )[0]
 
 
 @protected_route(router.put, "/{id}", [Scope.COLLECTIONS_WRITE])
@@ -426,7 +479,7 @@ async def update_collection(
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
-            file_ext = artwork.filename.split(".")[-1]
+            file_ext = validate_image_upload(artwork, label="Artwork")
             artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
@@ -471,6 +524,68 @@ async def update_collection(
         id, cleaned_data, parsed_rom_ids
     )
 
+    return CollectionSchema.model_validate(updated_collection)
+
+
+class CollectionRomsPayload(PydanticBaseModel):
+    rom_ids: list[int]
+
+
+@protected_route(router.post, "/{id}/roms", [Scope.COLLECTIONS_WRITE])
+async def add_roms_to_collection(
+    request: Request,
+    id: int,
+    payload: CollectionRomsPayload,
+) -> CollectionSchema:
+    """Atomically add ROMs to a collection without replacing the full list.
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): Collection id
+        payload (CollectionRomsPayload): ROM IDs to add
+
+    Returns:
+        CollectionSchema: Updated collection
+    """
+    collection = db_collection_handler.get_collection(id)
+    if not collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    if collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
+
+    updated_collection = db_collection_handler.add_roms_to_collection(
+        id, payload.rom_ids
+    )
+    return CollectionSchema.model_validate(updated_collection)
+
+
+@protected_route(router.delete, "/{id}/roms", [Scope.COLLECTIONS_WRITE])
+async def remove_roms_from_collection(
+    request: Request,
+    id: int,
+    payload: CollectionRomsPayload,
+) -> CollectionSchema:
+    """Atomically remove ROMs from a collection without replacing the full list.
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): Collection id
+        payload (CollectionRomsPayload): ROM IDs to remove
+
+    Returns:
+        CollectionSchema: Updated collection
+    """
+    collection = db_collection_handler.get_collection(id)
+    if not collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    if collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
+
+    updated_collection = db_collection_handler.remove_roms_from_collection(
+        id, payload.rom_ids
+    )
     return CollectionSchema.model_validate(updated_collection)
 
 

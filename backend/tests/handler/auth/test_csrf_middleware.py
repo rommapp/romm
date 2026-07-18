@@ -242,8 +242,12 @@ class TestCSRFMiddleware:
 
     def test_user_id_mismatch_fails(self) -> None:
         """Tokens issued for one user must not validate for another."""
+
         # We simulate two users by calling _generate_csrf_token with different IDs
-        mw = CSRFMiddleware(app=lambda s, r, se: None, secret="test")
+        async def noop_app(scope, receive, send):
+            pass
+
+        mw = CSRFMiddleware(app=noop_app, secret="test")
         user1_token = mw._generate_csrf_token(user_id=1)
 
         # user1_token should not validate for user_id=2
@@ -270,8 +274,33 @@ class TestCSRFMiddleware:
         resp = client.post("/post", headers={"x-csrftoken": cookie2})
         assert resp.status_code == 403
 
+    def test_existing_cookie_is_rotated_when_authenticated_user_changes(self) -> None:
+        """GET should rotate CSRF cookie when cookie user_id doesn't match current user."""
+        app = create_test_app()
+        client = TestClient(app)
+        serializer = URLSafeSerializer("test-secret", "csrftoken")
+
+        anonymous_cookie = serializer.dumps({"token": "old-token", "user_id": None})
+        client.cookies.set(
+            "csrftoken", anonymous_cookie, domain="testserver.local", path="/"
+        )
+
+        resp = client.get("/get")
+        assert resp.status_code == 200
+
+        rotated_cookie = client.cookies.get(
+            "csrftoken", domain="testserver.local", path="/"
+        )
+        assert rotated_cookie is not None
+        assert rotated_cookie != anonymous_cookie
+        assert serializer.loads(rotated_cookie)["user_id"] == 1
+
     def test_bad_signature_returns_false(self) -> None:
         """_csrf_tokens_match should return False on BadSignature."""
-        mw = CSRFMiddleware(app=lambda s, r, se: None, secret="test")
+
+        async def noop_app(scope, receive, send):
+            pass
+
+        mw = CSRFMiddleware(app=noop_app, secret="test")
         ok = mw._csrf_tokens_match("bad-token", "bad-token", user_id=None)
         assert ok is False

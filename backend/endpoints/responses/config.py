@@ -6,6 +6,7 @@ from config.config_manager import EjsControls, MetadataMediaType, NetplayICEServ
 class ConfigResponse(TypedDict):
     CONFIG_FILE_MOUNTED: bool
     CONFIG_FILE_WRITABLE: bool
+    CONFIG_FILE_PARSE_ERROR: str | None
     EXCLUDED_PLATFORMS: list[str]
     EXCLUDED_SINGLE_EXT: list[str]
     EXCLUDED_SINGLE_FILES: list[str]

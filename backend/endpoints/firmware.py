@@ -8,6 +8,12 @@ from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
 from handler.auth.constants import Scope
+from handler.auth.dependencies import (
+    assert_can,
+    assert_firmware_visible,
+    assert_platform_visible,
+    get_permissions,
+)
 from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler
 from handler.scan_handler import scan_firmware
@@ -15,6 +21,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.firmware import Firmware
+from models.permission import PermAction, PermEntity
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -48,6 +55,13 @@ async def add_firmware(
         error = f"Platform with ID {platform_id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    # Platform-hide cascades to firmware; 404-mask uploads to hidden platforms.
+    assert_platform_visible(
+        request,
+        db_platform,
+        not_found_detail=f"Platform with ID {platform_id} not found",
+    )
 
     uploaded_firmware = []
     firmware_path = fs_firmware_handler.get_firmware_fs_structure(db_platform.fs_slug)
@@ -119,9 +133,13 @@ def get_platform_firmware(
     Returns:
         list[FirmwareSchema]: Firmware stored in the database
     """
+    perms = get_permissions(request)
     return [
         FirmwareSchema.model_validate(f)
-        for f in db_firmware_handler.list_firmware(platform_id=platform_id)
+        for f in db_firmware_handler.list_firmware(
+            platform_id=platform_id,
+            hidden_platform_ids=perms.hidden_platform_ids,
+        )
     ]
 
 
@@ -137,8 +155,10 @@ def get_firmware_identifiers(
     Returns:
         list[int]: List of firmware IDs
     """
+    perms = get_permissions(request)
     firmware = db_firmware_handler.list_firmware(
         only_fields=[Firmware.id],
+        hidden_platform_ids=perms.hidden_platform_ids,
     )
     return [f.id for f in firmware]
 
@@ -163,6 +183,8 @@ def get_firmware(request: Request, id: int) -> FirmwareSchema:
         error = f"Firmware with ID {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    assert_firmware_visible(request, firmware)
 
     return FirmwareSchema.model_validate(firmware)
 
@@ -189,6 +211,8 @@ def head_firmware_content(request: Request, id: int, file_name: str):
         error = f"Firmware with ID {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    assert_firmware_visible(request, firmware)
 
     firmware_path = fs_firmware_handler.validate_path(firmware.full_path)
 
@@ -228,6 +252,8 @@ def get_firmware_content(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+    assert_firmware_visible(request, firmware)
+
     firmware_path = fs_firmware_handler.validate_path(firmware.full_path)
 
     return FileResponse(path=firmware_path, filename=firmware.file_name)
@@ -254,13 +280,17 @@ async def delete_firmware(
 ) -> BulkOperationResponse:
     """Delete firmware."""
 
+    perms = get_permissions(request)
+    assert_can(perms, PermEntity.FIRMWARE, PermAction.DELETE)
+
     successful_items = 0
     failed_items = 0
     errors = []
 
     for id in firmware:
         fw = db_firmware_handler.get_firmware(id)
-        if not fw:
+        # Treat firmware on a hidden platform as non-existent for this caller.
+        if not fw or not perms.can_see_platform(fw.platform_id):
             failed_items += 1
             errors.append(f"Firmware with ID {id} not found")
             continue

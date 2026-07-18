@@ -1,0 +1,14 @@
+{
+  "active-sessions": "活躍工作階段",
+  "days-ago": "{n}天前",
+  "hours-ago": "{n}小時前",
+  "hours-minutes-ago": "{h}小時{m}分鐘前",
+  "just-now": "剛剛",
+  "live": "直播",
+  "minutes-ago": "{n}分鐘前",
+  "no-activity": "目前無人遊玩",
+  "now-playing": "正在遊玩",
+  "playing-on": "正在 {device} 上遊玩",
+  "playing-since": "自 {time} 起遊玩",
+  "total-sessions": "工作階段總數"
+}

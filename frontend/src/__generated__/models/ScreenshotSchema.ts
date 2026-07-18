@@ -17,5 +17,7 @@ export type ScreenshotSchema = {
     missing_from_fs: boolean;
     created_at: string;
     updated_at: string;
+    is_gallery?: boolean;
+    is_public?: boolean;
 };
 

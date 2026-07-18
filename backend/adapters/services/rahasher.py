@@ -1,12 +1,111 @@
 import asyncio
 import re
+from pathlib import Path
 
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from handler.metadata.ra_handler import RAGamesPlatform
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
+from utils.psp_hasher import calculate_psp_ra_hash, is_psp_native_hash_file
+from utils.rvz_hasher import (
+    calculate_gamecube_ra_hash,
+    calculate_wii_ra_hash,
+    is_rvz_native_hash_file,
+)
 
 RAHASHER_VALID_HASH_REGEX = re.compile(r"[0-9a-f]{32}")
+
+# Disc descriptor / playlist files that point RAHasher at the real data
+# tracks. Handing RAHasher one of these reproduces the hash a shell-expanded
+# glob would, in priority order: a per-disc descriptor (.cue/.gdi) wins over
+# an .m3u playlist so single-disc folders resolve to their own disc.
+RA_DISC_DESCRIPTOR_EXTENSIONS: tuple[str, ...] = (".cue", ".gdi", ".m3u")
+
+
+def _pick_ra_file(folder: Path) -> Path | None:
+    """Pick a single real file to hand RAHasher for a folder-based ROM.
+
+    RAHasher is launched without a shell, so it never expands a ``/*`` glob —
+    it must be given a concrete file. Prefer a disc descriptor
+    (``.cue``/``.gdi``/``.m3u``), which RAHasher follows to the referenced
+    tracks; otherwise fall back to the largest file in the folder (a raw
+    ``.iso``/``.bin`` image, or the main file of a multi-file cartridge set).
+    Returns ``None`` when the folder is missing or holds no files.
+    """
+    if not folder.is_dir():
+        return None
+    try:
+        files = [f for f in folder.iterdir() if f.is_file()]
+    except (OSError, PermissionError):
+        return None
+    if not files:
+        return None
+
+    def _size(p: Path) -> int:
+        try:
+            return p.stat().st_size
+        except (OSError, PermissionError):
+            return -1
+
+    for ext in RA_DISC_DESCRIPTOR_EXTENSIONS:
+        matches = [f for f in files if f.name.lower().endswith(ext)]
+        if matches:
+            picked = max(matches, key=_size)
+            return picked if _size(picked) >= 0 else None
+
+    picked = max(files, key=_size)
+    return picked if _size(picked) >= 0 else None
+
+
+def _first_m3u_entry(m3u_path: Path) -> Path | None:
+    """Resolve an ``.m3u`` playlist to the first disc file it points at.
+
+    Mirrors RAHasher's own playlist handling (rcheevos hashes the first
+    entry): the first non-empty, non-comment line is the disc path, taken
+    relative to the playlist's folder unless absolute. Returns ``None`` when
+    the playlist can't be read or that entry doesn't exist on disk.
+    """
+    try:
+        lines = m3u_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        entry = line.strip()
+        if not entry or entry.startswith("#"):
+            continue
+        entry_path = Path(entry)
+        if not entry_path.is_absolute():
+            entry_path = m3u_path.parent / entry
+        try:
+            return entry_path if entry_path.is_file() else None
+        except OSError:
+            return None
+    return None
+
+
+# Platforms whose hash algorithm requires an on-disk disc image
+# (ISO9660/bin+cue/CHD). When the source file is an archive, RAHasher falls
+# back to "buffer hash" mode which these consoles don't support, failing
+# with "Unsupported console for buffer hash: <id>" after paying a full
+# subprocess spawn.
+RA_BUFFER_HASH_UNSUPPORTED: frozenset[UPS] = frozenset(
+    {
+        UPS.SEGACD,
+        UPS.PSX,
+        UPS.PS2,
+        UPS.SATURN,
+        UPS.DC,
+        UPS.PSP,
+        UPS._3DO,
+        UPS.PC_FX,
+        UPS.NEO_GEO_CD,
+        UPS.TURBOGRAFX_CD,
+        UPS.ATARI_JAGUAR_CD,
+        UPS.WII,
+    }
+)
 
 PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[UPS, int] = {
     UPS._3DO: 43,
@@ -23,6 +122,7 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[UPS, int] = {
     UPS.ELEKTOR: 75,
     UPS.FAIRCHILD_CHANNEL_F: 57,
     UPS.FAMICOM: 7,
+    UPS.FDS: 81,
     UPS.GAMEGEAR: 15,
     UPS.GB: 4,
     UPS.GBA: 5,
@@ -34,6 +134,7 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[UPS, int] = {
     UPS.LYNX: 13,
     UPS.MEGA_DUCK_SLASH_COUGAR_BOY: 69,
     UPS.MSX: 29,
+    UPS.MSX2: 29,
     UPS.N64: 2,
     UPS.NDS: 18,
     UPS.NEO_GEO_CD: 56,
@@ -59,6 +160,7 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[UPS, int] = {
     UPS.SNES: 3,
     UPS.TURBOGRAFX_CD: 76,
     UPS.TG16: 8,
+    UPS.SUPERGRAFX: 8,
     UPS.UZEBOX: 80,
     UPS.VECTREX: 46,
     UPS.VIRTUALBOY: 28,
@@ -70,6 +172,14 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[UPS, int] = {
     UPS.WONDERSWAN_COLOR: 53,
 }
 
+RA_BUFFER_HASH_UNSUPPORTED_IDS: frozenset[int] = frozenset(
+    PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[ups] for ups in RA_BUFFER_HASH_UNSUPPORTED
+)
+
+PSP_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSP]
+NGC_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NGC]
+WII_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.WII]
+
 
 class RAHasherError(Exception): ...
 
@@ -77,13 +187,121 @@ class RAHasherError(Exception): ...
 class RAHasherService:
     """Service to calculate RetroAchievements hashes using RAHasher."""
 
-    async def calculate_hash(self, platform_id: int, file_path: str) -> str:
-        from handler.metadata.ra_handler import RA_ID_TO_SLUG
+    async def calculate_hash(self, platform: RAGamesPlatform, file_path: str) -> str:
+        # Skip the subprocess entirely when the file is an archive and the
+        # RA platform needs an on-disk disc image. RAHasher would just spawn,
+        # fail with "Unsupported console for buffer hash: {id}", and return
+        # nothing, so we'd pay process-spawn overhead per ROM for no result.
+        if file_path.lower().endswith(tuple(COMPRESSED_FILE_EXTENSIONS)):
+            if platform["ra_id"] in RA_BUFFER_HASH_UNSUPPORTED_IDS:
+                log.debug(
+                    f"Skipping {hl('RAHasher', color=LIGHTMAGENTA)} for archived "
+                    f"{platform['slug']} file {hl(file_path)}: "
+                    f"disc-based platforms don't support buffer hashing"
+                )
+                return ""
+
+        # For folder-based multi-file ROMs the path ends with /*. RAHasher is
+        # launched without a shell (create_subprocess_exec), so it never expands
+        # the glob — it receives the literal "*" and fails ("Could not open
+        # track/file"). Resolve "/*" to a single real file: hash the largest
+        # archive directly when the folder holds archives (or skip for disc
+        # platforms that can't buffer-hash them), otherwise pick a disc
+        # descriptor / track via _pick_ra_file.
+        if file_path.endswith("/*"):
+            folder = Path(file_path[:-2])
+
+            def _find_archives() -> list[Path]:
+                if not folder.is_dir():
+                    return []
+                return [
+                    f
+                    for f in folder.iterdir()
+                    if f.is_file()
+                    and f.name.lower().endswith(tuple(COMPRESSED_FILE_EXTENSIONS))
+                ]
+
+            archive_files = await asyncio.to_thread(_find_archives)
+            if archive_files:
+                if platform["ra_id"] in RA_BUFFER_HASH_UNSUPPORTED_IDS:
+                    log.debug(
+                        f"Skipping {hl('RAHasher', color=LIGHTMAGENTA)} for folder "
+                        f"{hl(file_path)}: contains compressed files on disc-based platform"
+                    )
+                    return ""
+                # Cartridge platform: buffer-hash the largest archive directly
+                largest = await asyncio.to_thread(
+                    max, archive_files, key=lambda f: f.stat().st_size
+                )
+                file_path = str(largest)
+            else:
+                # Folder of uncompressed disc tracks (the standard Redump
+                # .cue + .bin layout, .gdi sets, multi-bin) or a multi-file
+                # cartridge set. RAHasher never expands the "/*" glob itself,
+                # so resolve it to a single real file — the disc descriptor
+                # when present, otherwise the largest track.
+                resolved = await asyncio.to_thread(_pick_ra_file, folder)
+                if resolved is not None:
+                    file_path = str(resolved)
+
+        # Multi-disc .m3u playlists are followed by RAHasher itself, but only
+        # to formats it can read. When the first playlist entry is a container
+        # we hash natively (RVZ/WIA on GameCube/Wii, compressed ISO on PSP),
+        # resolve the playlist to that disc so the native-hash dispatch below
+        # sees it (issue #3797).
+        if file_path.lower().endswith(".m3u"):
+            entry = await asyncio.to_thread(_first_m3u_entry, Path(file_path))
+            if entry is not None:
+                entry_str = str(entry)
+                is_native_entry = (
+                    platform["ra_id"] == PSP_RA_ID
+                    and is_psp_native_hash_file(entry_str)
+                ) or (
+                    platform["ra_id"] in (NGC_RA_ID, WII_RA_ID)
+                    and is_rvz_native_hash_file(entry_str)
+                )
+                if is_native_entry:
+                    file_path = entry_str
+
+        # PSP compressed-ISO containers (.cso/.ciso/.zso/.dax) can't be read by
+        # RAHasher ("Could not open track"). Compute the PSP RA hash natively
+        # from the container instead, decompressing only PARAM.SFO + EBOOT.BIN.
+        # On failure we fall through to RAHasher (no worse than before).
+        if platform["ra_id"] == PSP_RA_ID and is_psp_native_hash_file(file_path):
+            native_hash = await asyncio.to_thread(calculate_psp_ra_hash, file_path)
+            if native_hash:
+                log.debug(
+                    f"Computed native {hl('RA', color=LIGHTMAGENTA)} hash for PSP "
+                    f"container {hl(file_path)}"
+                )
+                return native_hash
+
+        # GameCube/Wii RVZ and WIA images can't be read by RAHasher ("Not a
+        # Gamecube disc" / "Not a supported Wii file"). Compute the RA hash
+        # natively instead, reconstructing only the disc byte ranges the hash
+        # covers. On failure we fall through to RAHasher (no worse than before).
+        if platform["ra_id"] in (NGC_RA_ID, WII_RA_ID) and is_rvz_native_hash_file(
+            file_path
+        ):
+            native_hash = await asyncio.to_thread(
+                (
+                    calculate_gamecube_ra_hash
+                    if platform["ra_id"] == NGC_RA_ID
+                    else calculate_wii_ra_hash
+                ),
+                file_path,
+            )
+            if native_hash:
+                log.debug(
+                    f"Computed native {hl('RA', color=LIGHTMAGENTA)} hash for "
+                    f"{platform['slug']} RVZ/WIA image {hl(file_path)}"
+                )
+                return native_hash
 
         log.debug(
-            f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(RA_ID_TO_SLUG[platform_id])} - file: {hl(file_path.split('/')[-1])}"
+            f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(platform['slug'], color=LIGHTMAGENTA)} - file: {hl(file_path)}"
         )
-        args = (str(platform_id), file_path)
+        args = (str(platform["ra_id"]), file_path)
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -112,14 +330,14 @@ class RAHasherService:
         file_hash = (await proc.stdout.read()).decode("utf-8").strip()
         if not file_hash:
             log.error(
-                f"RAHasher returned an empty hash for file {file_path} (platform ID: {platform_id})"
+                f"RAHasher returned an empty hash for file {file_path} (platform ID: {platform['ra_id']})"
             )
             return ""
 
         match = RAHASHER_VALID_HASH_REGEX.search(file_hash)
         if not match:
             log.error(
-                f"RAHasher returned invalid hash {file_hash} for file {file_path} (platform ID: {platform_id}"
+                f"RAHasher returned invalid hash {file_hash} for file {file_path} (platform ID: {platform['ra_id']})"
             )
             return ""
 

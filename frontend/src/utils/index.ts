@@ -7,7 +7,7 @@ import type { RomFileSchema, RomUserStatus } from "@/__generated__";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
-import type { SimpleRom } from "@/stores/roms";
+import type { DetailedRom, SimpleRom } from "@/stores/roms";
 
 /**
  * Views configuration object.
@@ -63,6 +63,9 @@ export function getRoleIcon(role: string) {
   switch (role) {
     case "admin":
       return "mdi-shield-crown-outline";
+    case "user":
+      return "mdi-account-outline";
+    // Legacy roles, kept so any lingering value still renders an icon.
     case "editor":
       return "mdi-file-edit-outline";
     case "viewer":
@@ -256,9 +259,6 @@ export function regionToEmoji(region: string) {
     case "no":
     case "norway":
       return "🇳🇴";
-    case "pd":
-    case "public domain":
-      return "🇵🇱";
     case "r":
     case "russia":
       return "🇷🇺";
@@ -521,13 +521,49 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   "super-famicom-jr-model-shvc-101": ["snes9x"],
   "new-style-super-nes-model-sns-101": ["snes9x"],
   tg16: ["mednafen_pce"],
+  "turbografx-cd": ["mednafen_pce"],
+  supergrafx: ["mednafen_pce"],
   "vic-20": ["vice_xvic"],
   virtualboy: ["beetle_vb"],
   wonderswan: ["mednafen_wswan"],
   swancrystal: ["mednafen_wswan"],
   "wonderswan-color": ["mednafen_wswan"],
-  zsx: ["fuse"],
+  zxs: ["fuse"],
 } as const;
+
+// TODO: Merge with _EJS_CORES_MAP next emukatorjs release (post 4.2.3)
+const _EJS_NIGHTLY_CORES_MAP: Record<string, string[]> = {
+  "3ds": ["azahar"],
+  "new-nintendo-3ds": ["azahar"],
+  intellivision: ["freeintv"],
+  segacd: ["genesis_plus_gx", "genesis_plus_gx_wide", "picodrive"],
+  gamegear: ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  sms: ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-mark-iii": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-game-box-9": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-master-system-ii": [
+    "genesis_plus_gx",
+    "genesis_plus_gx_wide",
+    "smsplus",
+  ],
+  "master-system-super-compact": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "master-system-girl": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  genesis: ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-mega-drive-2-slash-genesis": [
+    "genesis_plus_gx",
+    "genesis_plus_gx_wide",
+  ],
+  "sega-mega-jet": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "mega-pc": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "tera-drive": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-nomad": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  snes: ["snes9x", "bsnes"],
+  sfam: ["snes9x", "bsnes"],
+  "super-nintendo-original-european-version": ["snes9x", "bsnes"],
+  "super-famicom-shvc-001": ["snes9x", "bsnes"],
+  "super-famicom-jr-model-shvc-101": ["snes9x", "bsnes"],
+  "new-style-super-nes-model-sns-101": ["snes9x", "bsnes"],
+};
 
 export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
 
@@ -535,10 +571,17 @@ export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
  * Get the supported EJS cores for a given platform.
  *
  * @param platformSlug The platform slug.
+ * @param netplayEnabled Pull nightly cores if netplay is enabled.
  * @returns An array of supported cores.
  */
-export function getSupportedEJSCores(platformSlug: string): string[] {
-  return _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
+export function getSupportedEJSCores(
+  platformSlug: string,
+  netplayEnabled: boolean = false,
+): string[] {
+  const coresMap = netplayEnabled
+    ? { ..._EJS_CORES_MAP, ..._EJS_NIGHTLY_CORES_MAP }
+    : _EJS_CORES_MAP;
+  return coresMap[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
 }
 
 /**
@@ -548,7 +591,7 @@ export function getSupportedEJSCores(platformSlug: string): string[] {
  * @returns True if threads are required, false otherwise.
  */
 export function areThreadsRequiredForEJSCore(core: string): boolean {
-  return ["dosbox_pure", "ppsspp"].includes(core);
+  return ["dosbox_pure", "ppsspp", "azahar"].includes(core);
 }
 
 const canvas = document.createElement("canvas");
@@ -572,7 +615,8 @@ export function isEJSEmulationSupported(
 
   const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
   return (
-    getSupportedEJSCores(slug).length > 0 && gl instanceof WebGLRenderingContext
+    getSupportedEJSCores(slug, config?.EJS_NETPLAY_ENABLED).length > 0 &&
+    gl instanceof WebGLRenderingContext
   );
 }
 
@@ -711,8 +755,15 @@ export function isNintendoDSFile(rom: SimpleRom): boolean {
   return ["cia", "nds", "3ds", "dsi"].includes(rom.fs_extension.toLowerCase());
 }
 
-export function getNintendoDSFiles(rom: SimpleRom): RomFileSchema[] {
-  return rom.files.filter((file) => {
+export function getNintendoDSFiles(
+  rom: DetailedRom | SimpleRom,
+): RomFileSchema[] {
+  // `files` only ships on DetailedRom. Gallery surfaces pass SimpleRom,
+  // where the inner-file check is impossible — return an empty list so
+  // the caller falls back to the extension check.
+  const files = (rom as DetailedRom).files;
+  if (!files) return [];
+  return files.filter((file) => {
     const fileName = file.file_name.toLowerCase();
     return (
       fileName.endsWith(".cia") ||
@@ -724,11 +775,13 @@ export function getNintendoDSFiles(rom: SimpleRom): RomFileSchema[] {
 }
 
 /**
- * Check if a ROM is a valid NDS/3DS/DSi game
- * @param rom The ROM object.
- * @returns {boolean} True if the ROM is a valid game, otherwise false.
+ * Check if a ROM is a valid NDS/3DS/DSi game.
+ *
+ * Accepts both SimpleRom (gallery cards) and DetailedRom (detail view).
+ * With SimpleRom the inner-file check is skipped — only the root
+ * extension counts — which is what every gallery surface can ever see.
  */
-export function isNintendoDSRom(rom: SimpleRom): boolean {
+export function isNintendoDSRom(rom: DetailedRom | SimpleRom): boolean {
   if (
     !["3ds", "nds", "new-nintendo-3ds", "nintendo-dsi"].includes(
       rom.platform_slug,
@@ -810,7 +863,7 @@ export const CD_BASED_SYSTEMS = new Set([
   "saturn", // Sega Saturn
   "super-nes-cd-rom-system", // Super NES CD-ROM System
   "tandy-vis", // Tandy Video Information System
-  "tg16", // TurboGrafx-16
+  "turbografx-cd", // TurboGrafx-CD
   "vflash", // V.Flash
   "wii", // Wii
   "wiiu", // Wii U
@@ -821,4 +874,10 @@ export const CD_BASED_SYSTEMS = new Set([
 
 export function isCDBasedSystem(platformSlug: string): boolean {
   return CD_BASED_SYSTEMS.has(platformSlug.toLowerCase());
+}
+
+export const ARCADE_SYSTEMS = new Set(["arcade", "neogeoaes", "neogeomvs"]);
+
+export function isArcadeSystem(platformSlug: string): boolean {
+  return ARCADE_SYSTEMS.has(platformSlug.toLowerCase());
 }

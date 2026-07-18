@@ -54,6 +54,8 @@ class LaunchboxMetadata(TypedDict):
     genres: NotRequired[list[str]]
     companies: NotRequired[list[str]]
     images: list[LaunchboxImage]
+    video_url: NotRequired[str]
+    video_path: NotRequired[str]
 
 
 class LaunchboxRom(BaseRom):
@@ -75,3 +77,6 @@ class MediaRequest:
     region_hint: str | None
     remote_images: list[dict] | None
     remote_enabled: bool
+    # Provider region shortcodes (e.g. "us", "eu") ordered by preference, used
+    # to pick a region-matched remote cover. Derived from the ROM filename.
+    region_shortcodes: tuple[str, ...] = ()

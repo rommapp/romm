@@ -20,8 +20,8 @@ depends_on = None
 
 def upgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.create_index("idx_roms_igdb_id", ["igdb_id"])
-        batch_op.create_index("idx_roms_moby_id", ["moby_id"])
+        batch_op.create_index("idx_roms_igdb_id", ["igdb_id"], if_not_exists=True)
+        batch_op.create_index("idx_roms_moby_id", ["moby_id"], if_not_exists=True)
 
     connection = op.get_bind()
     null_safe_equal_operator = (
@@ -65,5 +65,5 @@ def downgrade() -> None:
     )
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_index("idx_roms_igdb_id")
-        batch_op.drop_index("idx_roms_moby_id")
+        batch_op.drop_index("idx_roms_igdb_id", if_exists=True)
+        batch_op.drop_index("idx_roms_moby_id", if_exists=True)

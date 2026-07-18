@@ -113,6 +113,7 @@ const coverImageSource = computed(() => {
     if (hostname === "hasheous.org") return "Hasheous";
     if (hostname === "infinity.unstable.life") return "Flashpoint";
     if (hostname === "howlongtobeat.com") return "HowLongToBeat";
+    if (hostname === "thumbnails.libretro.com") return "Libretro";
 
     return null;
   } catch {
@@ -354,6 +355,7 @@ function getFilterValues(path: string): string[] {
                 style="color: inherit"
                 :href="source.url"
                 target="_blank"
+                rel="noopener noreferrer"
               >
                 {{ source.name }}
               </a>
@@ -362,11 +364,8 @@ function getFilterValues(path: string): string[] {
               </span> </template
             >.
           </div>
-          <div v-if="rom.url_cover && coverImageSource" class="mt-1">
-            Cover art provided by
-            <a :href="rom.url_cover" target="_blank" style="color: inherit">
-              {{ coverImageSource }}</a
-            >.
+          <div v-if="coverImageSource" class="mt-1">
+            Cover art provided by {{ coverImageSource }}.
           </div>
         </v-col>
       </v-row>

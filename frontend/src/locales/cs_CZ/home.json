@@ -1,4 +1,22 @@
 {
   "continue-playing": "Pokračovat ve hraní",
-  "recently-added": "Nedávno přidané"
+  "empty-detected-games": "{count} her detekováno | {count} hra detekována | {count} hry detekovány | {count} her detekováno",
+  "empty-detected-platforms": "{count} platforem detekováno | {count} platforma detekována | {count} platformy detekovány | {count} platforem detekováno",
+  "empty-headline": "Vaše knihovna je prázdná",
+  "empty-hint": "Vyberte, jak chcete přidat své první hry. Druhou možnost můžete použít kdykoli později.",
+  "empty-scan-cta": "Spustit skenování",
+  "empty-scan-desc": "Už máte své hry ve složce knihovny? Spusťte skenování, RomM je detekuje a stáhne metadata.",
+  "empty-scan-title": "Skenovat knihovnu",
+  "empty-upload-cta": "Nahrát hry",
+  "empty-upload-desc": "Přetáhněte soubory ROM nebo je vyberte z počítače. Vhodné, když chcete přidat několik her sami.",
+  "empty-upload-title": "Nahrát ručně",
+  "no-games-yet": "Zatím nebyly přidány žádné hry.",
+  "recently-added": "Nedávno přidané",
+  "widget-library-favorites": "Oblíbené",
+  "widget-library-screenshots": "Snímky obrazovky",
+  "widget-library-stats": "Statistiky knihovny",
+  "widget-random-pick": "Náhodný výběr",
+  "widget-random-pick-empty": "Zatím nebyly načteny žádné hry",
+  "widget-random-pick-open": "Otevřít",
+  "widget-random-pick-reroll": "Vybrat znovu"
 }

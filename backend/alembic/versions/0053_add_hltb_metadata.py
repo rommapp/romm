@@ -19,7 +19,9 @@ depends_on = None
 
 def upgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("hltb_id", sa.Integer(), nullable=True))
+        batch_op.add_column(
+            sa.Column("hltb_id", sa.Integer(), nullable=True), if_not_exists=True
+        )
         batch_op.add_column(
             sa.Column(
                 "hltb_metadata",
@@ -27,13 +29,16 @@ def upgrade() -> None:
                     postgresql.JSONB(astext_type=sa.Text()), "postgresql"
                 ),
                 nullable=True,
-            )
+            ),
+            if_not_exists=True,
         )
-        batch_op.create_index("idx_roms_hltb_id", ["hltb_id"], unique=False)
+        batch_op.create_index(
+            "idx_roms_hltb_id", ["hltb_id"], unique=False, if_not_exists=True
+        )
 
 
 def downgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_index("idx_roms_hltb_id")
-        batch_op.drop_column("hltb_metadata")
-        batch_op.drop_column("hltb_id")
+        batch_op.drop_index("idx_roms_hltb_id", if_exists=True)
+        batch_op.drop_column("hltb_metadata", if_exists=True)
+        batch_op.drop_column("hltb_id", if_exists=True)

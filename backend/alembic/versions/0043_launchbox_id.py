@@ -20,13 +20,17 @@ depends_on = None
 
 def upgrade() -> None:
     with op.batch_alter_table("rom_user", schema=None) as batch_op:
-        batch_op.drop_column("ra_metadata")
+        batch_op.drop_column("ra_metadata", if_exists=True)
 
     with op.batch_alter_table("platforms", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("launchbox_id", sa.Integer(), nullable=True))
+        batch_op.add_column(
+            sa.Column("launchbox_id", sa.Integer(), nullable=True), if_not_exists=True
+        )
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("launchbox_id", sa.Integer(), nullable=True))
+        batch_op.add_column(
+            sa.Column("launchbox_id", sa.Integer(), nullable=True), if_not_exists=True
+        )
         batch_op.add_column(
             sa.Column(
                 "launchbox_metadata",
@@ -34,23 +38,32 @@ def upgrade() -> None:
                     postgresql.JSONB(astext_type=sa.Text()), "postgresql"
                 ),
                 nullable=True,
-            )
+            ),
+            if_not_exists=True,
         )
-        batch_op.create_index("idx_roms_launchbox_id", ["launchbox_id"], unique=False)
-        batch_op.create_index("idx_roms_ra_id", ["ra_id"], unique=False)
-        batch_op.create_index("idx_roms_sgdb_id", ["sgdb_id"], unique=False)
+        batch_op.create_index(
+            "idx_roms_launchbox_id", ["launchbox_id"], unique=False, if_not_exists=True
+        )
+        batch_op.create_index(
+            "idx_roms_ra_id", ["ra_id"], unique=False, if_not_exists=True
+        )
+        batch_op.create_index(
+            "idx_roms_sgdb_id", ["sgdb_id"], unique=False, if_not_exists=True
+        )
 
 
 def downgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_index("idx_roms_sgdb_id")
-        batch_op.drop_index("idx_roms_ra_id")
-        batch_op.drop_index("idx_roms_launchbox_id")
-        batch_op.drop_column("launchbox_metadata")
-        batch_op.drop_column("launchbox_id")
+        batch_op.drop_index("idx_roms_sgdb_id", if_exists=True)
+        batch_op.drop_index("idx_roms_ra_id", if_exists=True)
+        batch_op.drop_index("idx_roms_launchbox_id", if_exists=True)
+        batch_op.drop_column("launchbox_metadata", if_exists=True)
+        batch_op.drop_column("launchbox_id", if_exists=True)
 
     with op.batch_alter_table("platforms", schema=None) as batch_op:
-        batch_op.drop_column("launchbox_id")
+        batch_op.drop_column("launchbox_id", if_exists=True)
 
     with op.batch_alter_table("rom_user", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("ra_metadata", CustomJSON(), nullable=True))
+        batch_op.add_column(
+            sa.Column("ra_metadata", CustomJSON(), nullable=True), if_not_exists=True
+        )

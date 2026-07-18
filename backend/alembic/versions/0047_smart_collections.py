@@ -53,10 +53,11 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
 
 
 def downgrade() -> None:
     """Drop smart collections table."""
 
-    op.drop_table("smart_collections")
+    op.drop_table("smart_collections", if_exists=True)

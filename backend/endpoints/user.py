@@ -4,14 +4,20 @@ from typing import Annotated, Any, cast
 from fastapi import Body, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
+from fastapi.responses import FileResponse
 
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
+from endpoints.permissions import emit_permissions_changed
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
+from handler.filesystem.assets_handler import (
+    build_asset_file_response,
+    validate_image_upload,
+)
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from logger.logger import log
@@ -56,14 +62,26 @@ def add_user(
         UserSchema: Newly created user
     """
 
+    admins_exist = len(db_user_handler.get_admin_users()) > 0
+
     # If there are admin users already, enforce the USERS_WRITE scope.
-    if (
-        Scope.USERS_WRITE not in request.auth.scopes
-        and len(db_user_handler.get_admin_users()) > 0
-    ):
+    if Scope.USERS_WRITE not in request.auth.scopes and admins_exist:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",
+        )
+
+    coerced_role = Role.coerce(role)
+    # USERS_WRITE is delegable to non-admins via permission groups, but creating
+    # an admin must stay admin-only or it becomes a privilege-escalation path.
+    if (
+        admins_exist
+        and coerced_role == Role.ADMIN
+        and getattr(request.user, "role", None) != Role.ADMIN
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an administrator can create admin users",
         )
 
     try:
@@ -96,7 +114,7 @@ def add_user(
         username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
         email=email.lower() or None,
-        role=Role[role.upper()],
+        role=coerced_role,
     )
 
     return UserSchema.model_validate(db_user_handler.add_user(user))
@@ -123,10 +141,9 @@ def create_invite_link(
         InviteLinkSchema: Invite link
     """
 
-    if (
-        Scope.USERS_WRITE not in request.auth.scopes
-        and len(db_user_handler.get_admin_users()) > 0
-    ):
+    admins_exist = len(db_user_handler.get_admin_users()) > 0
+
+    if Scope.USERS_WRITE not in request.auth.scopes and admins_exist:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",
@@ -138,6 +155,17 @@ def create_invite_link(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=msg,
+        )
+
+    # Mirrors add_user: only a real admin can mint admin invite links.
+    if (
+        admins_exist
+        and Role.coerce(role) == Role.ADMIN
+        and getattr(request.user, "role", None) != Role.ADMIN
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an administrator can create admin invite links",
         )
 
     if expiration is not None and expiration <= 0:
@@ -204,7 +232,7 @@ def create_user_from_invite(
         username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
         email=email.lower() or None,
-        role=Role[role.upper()],
+        role=Role.coerce(role),
     )
 
     created_user = db_user_handler.add_user(user)
@@ -273,6 +301,39 @@ def get_user(request: Request, id: int) -> UserSchema:
         raise HTTPException(status_code=404, detail="User not found")
 
     return UserSchema.model_validate(user)
+
+
+@protected_route(
+    router.get,
+    "/{id}/avatar",
+    [Scope.ASSETS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def get_user_avatar(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+) -> FileResponse:
+    """Serve a user's avatar image. Avatars are public to any authenticated
+    user (rendered next to community content, activity, and user lists)."""
+    user = db_user_handler.get_user(id)
+    if not user or not user.avatar_path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found"
+        )
+
+    try:
+        file_path = fs_asset_handler.validate_path(user.avatar_path)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found"
+        ) from None
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found"
+        )
+
+    return build_asset_file_response(file_path)
 
 
 @protected_route(router.put, "/{id}", [Scope.ME_WRITE])
@@ -358,7 +419,18 @@ async def update_user(
 
     # You can't change your own role
     if form_data.role and request.user.id != id:
-        cleaned_data["role"] = Role[form_data.role.upper()]  # type: ignore[assignment]
+        new_role = Role.coerce(form_data.role)
+        # You can't demote the last admin (mirrors the delete guard).
+        if (
+            db_user.role == Role.ADMIN
+            and new_role != Role.ADMIN
+            and len(db_user_handler.get_admin_users()) == 1
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot demote the last admin user",
+            )
+        cleaned_data["role"] = new_role  # type: ignore[assignment]
 
     # You can't disable yourself
     if form_data.enabled is not None and request.user.id != id:
@@ -387,9 +459,10 @@ async def update_user(
             ) from exc
 
     if form_data.avatar is not None and form_data.avatar.filename is not None:
+        safe_extension = validate_image_upload(form_data.avatar, label="Avatar")
+
         user_avatar_path = fs_asset_handler.build_avatar_path(user=db_user)
-        file_extension = form_data.avatar.filename.split(".")[-1]
-        file_name = f"avatar.{file_extension}"
+        file_name = f"avatar.{safe_extension}"
 
         await fs_asset_handler.write_file(
             file=form_data.avatar.file, path=user_avatar_path, filename=file_name
@@ -399,6 +472,10 @@ async def update_user(
 
     if cleaned_data:
         db_user_handler.update_user(id, cleaned_data)
+
+        # A role change alters the user's effective permissions; tell their UI.
+        if "role" in cleaned_data:
+            await emit_permissions_changed(id)
 
         # Log out the current user if username or password changed
         creds_updated = cleaned_data.get("username") or cleaned_data.get(

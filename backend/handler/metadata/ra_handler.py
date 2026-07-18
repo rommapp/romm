@@ -3,7 +3,7 @@ import os
 import re
 import time
 from datetime import datetime
-from typing import NotRequired, TypedDict
+from typing import NotRequired, TypedDict, cast
 
 import pydash
 from anyio import Path as AnyioPath
@@ -11,7 +11,6 @@ from anyio import Path as AnyioPath
 from adapters.services.retroachievements import RetroAchievementsService
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
-    RAGameListItem,
 )
 from config import (
     REFRESH_RETROACHIEVEMENTS_CACHE_DAYS,
@@ -128,7 +127,7 @@ def extract_metadata_from_rom_details(
 class RAHandler(MetadataHandler):
     def __init__(self) -> None:
         self.ra_service = RetroAchievementsService()
-        self.HASHES_FILE_NAME = "ra_hashes.json"
+        self.HASHES_FILE_NAME = "ra_hashes_v2.json"
 
     @classmethod
     def is_enabled(cls) -> bool:
@@ -174,47 +173,44 @@ class RAHandler(MetadataHandler):
         file_stat = await AnyioPath(str(full_path)).stat()
         return int((time.time() - file_stat.st_mtime) / (24 * 3600))
 
-    async def _search_rom(self, rom: Rom, ra_hash: str) -> RAGameListItem | None:
+    async def _search_rom(self, rom: Rom, ra_hash: str) -> int | None:
         if not rom.platform.ra_id:
             return None
 
-        # Fetch all hashes for specific platform
-        roms: list[RAGameListItem]
+        # hash_index maps lowercase hash -> game ID for O(1) lookups
+        hash_index: dict[str, int]
         if (
             REFRESH_RETROACHIEVEMENTS_CACHE_DAYS
             <= await self._days_since_last_cache_file_update(rom.platform.id)
             or not await self._exists_cache_file(rom.platform.id)
         ):
-            # Write the roms result to a JSON file if older than REFRESH_RETROACHIEVEMENTS_CACHE_DAYS days
+            # Fetch all games (including those without achievements) and build index
             roms = await self.ra_service.get_game_list(
                 system_id=rom.platform.ra_id,
-                only_games_with_achievements=True,
+                only_games_with_achievements=False,
                 include_hashes=True,
             )
+
+            hash_index = {h.lower(): r["ID"] for r in roms for h in r.get("Hashes", ())}
 
             platform_resources_path = fs_resource_handler.get_platform_resources_path(
                 rom.platform.id
             )
 
-            json_file = json.dumps(roms, indent=4)
+            json_file = json.dumps(hash_index, indent=4)
             await fs_resource_handler.write_file(
                 json_file.encode("utf-8"),
                 platform_resources_path,
                 self.HASHES_FILE_NAME,
             )
         else:
-            # Read the roms result from the JSON file
+            # Read the hash index from the JSON file
             json_file_bytes = await fs_resource_handler.read_file(
                 self._get_hashes_file_path(rom.platform.id)
             )
-            roms = json.loads(json_file_bytes.decode("utf-8"))
+            hash_index = json.loads(json_file_bytes.decode("utf-8"))
 
-        ra_hash_lower = ra_hash.lower()
-        for r in roms:
-            if any(ra_hash_lower == h.lower() for h in r.get("Hashes", ())):
-                return r
-
-        return None
+        return hash_index.get(ra_hash.lower())
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
         if slug not in RA_PLATFORM_LIST:
@@ -250,15 +246,13 @@ class RAHandler(MetadataHandler):
         if not ra_hash:
             return RAGameRom(ra_id=None)
 
-        ra_game_list_item = await self._search_rom(rom, ra_hash)
+        ra_game_id = await self._search_rom(rom, ra_hash)
 
-        if not ra_game_list_item:
+        if ra_game_id is None:
             return RAGameRom(ra_id=None)
 
         try:
-            rom_details = await self.ra_service.get_game_extended_details(
-                ra_game_list_item["ID"]
-            )
+            rom_details = await self.ra_service.get_game_extended_details(ra_game_id)
 
             return RAGameRom(
                 ra_id=rom_details["ID"],
@@ -347,10 +341,13 @@ class RAHandler(MetadataHandler):
                     game_current_progression.get("highest_award_kind")
                     != highest_award_kind
                 ):
-                    game_current_progression = {
-                        **game_current_progression,
-                        "highest_award_kind": highest_award_kind,
-                    }
+                    game_current_progression = cast(
+                        RAUserGameProgression,
+                        {
+                            **game_current_progression,
+                            "highest_award_kind": highest_award_kind,
+                        },
+                    )
                 game_progressions.append(game_current_progression)
                 continue
 
@@ -424,12 +421,14 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
     UPS.JAGUAR: {"id": 17, "name": "Jaguar"},
     UPS.LYNX: {"id": 13, "name": "Lynx"},
     UPS.MSX: {"id": 29, "name": "MSX"},
+    UPS.MSX2: {"id": 29, "name": "MSX2"},
     UPS.MEGA_DUCK_SLASH_COUGAR_BOY: {
         "id": 69,
         "name": "Mega Duck/Cougar Boy",
     },
     UPS.NES: {"id": 7, "name": "NES"},
     UPS.FAMICOM: {"id": 7, "name": "Family Computer"},
+    UPS.FDS: {"id": 81, "name": "Famicom Disk System"},
     UPS.NEO_GEO_CD: {"id": 56, "name": "Neo Geo CD"},
     UPS.NEO_GEO_POCKET: {"id": 14, "name": "Neo Geo Pocket"},
     UPS.NEO_GEO_POCKET_COLOR: {
@@ -455,6 +454,7 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
     UPS.SFAM: {"id": 3, "name": "Super Famicom"},
     UPS.TURBOGRAFX_CD: {"id": 76, "name": "TurboGrafx CD"},
     UPS.TG16: {"id": 8, "name": "TurboGrafx-16"},
+    UPS.SUPERGRAFX: {"id": 8, "name": "SuperGrafx"},
     UPS.UZEBOX: {"id": 80, "name": "Uzebox"},
     UPS.VECTREX: {"id": 46, "name": "Vectrex"},
     UPS.VIRTUALBOY: {"id": 28, "name": "Virtual Boy"},

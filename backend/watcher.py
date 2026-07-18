@@ -28,7 +28,9 @@ from handler.metadata import (
     meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
+    meta_libretro_handler,
     meta_moby_handler,
+    meta_playmatch_handler,
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
@@ -47,8 +49,6 @@ sentry_sdk.init(
     release=f"romm@{get_version()}",
 )
 tracer = trace.get_tracer(__name__)
-
-structure_level = 2 if os.path.exists(cm.get_config().HIGH_PRIO_STRUCTURE_PATH) else 1
 
 
 @enum.unique
@@ -121,11 +121,12 @@ def process_changes(changes: Sequence[Change]) -> None:
     # Filter for valid events, applying the same exclusion rules as the scanner:
     # exact-match and fnmatch patterns for files, plus excluded directory names
     # checked against every path component so events inside excluded dirs are ignored.
-    config = cm.get_config()
+    cnfg = cm.get_config()
+    structure_level = 1 if cnfg.has_structure_path_b else 2
     excluded_patterns = (
-        config.EXCLUDED_SINGLE_FILES
-        + config.EXCLUDED_MULTI_FILES
-        + config.EXCLUDED_MULTI_PARTS_FILES
+        cnfg.EXCLUDED_SINGLE_FILES
+        + cnfg.EXCLUDED_MULTI_FILES
+        + cnfg.EXCLUDED_MULTI_PARTS_FILES
     )
 
     def _is_excluded(path: str) -> bool:
@@ -181,10 +182,12 @@ def process_changes(changes: Sequence[Change]) -> None:
             MetadataSource.RA: meta_ra_handler.is_enabled(),
             MetadataSource.LAUNCHBOX: meta_launchbox_handler.is_enabled(),
             MetadataSource.HASHEOUS: meta_hasheous_handler.is_enabled(),
+            MetadataSource.PLAYMATCH: meta_playmatch_handler.is_enabled(),
             MetadataSource.SGDB: meta_sgdb_handler.is_enabled(),
             MetadataSource.FLASHPOINT: meta_flashpoint_handler.is_enabled(),
             MetadataSource.HLTB: meta_hltb_handler.is_enabled(),
             MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),
+            MetadataSource.LIBRETRO: meta_libretro_handler.is_enabled(),
         }
         metadata_sources = [source for source, flag in source_mapping.items() if flag]
         if not metadata_sources:

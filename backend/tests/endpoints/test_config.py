@@ -31,6 +31,28 @@ def test_config(client):
     assert config.get("GAMELIST_MEDIA_IMAGE") == "screenshot"
 
 
+def test_config_parse_error_gated_by_auth(client, access_token: str):
+    # The raw parser error can leak the config file path, so it is only
+    # returned to authenticated users.
+    cfg = cm.get_config()
+    cfg.CONFIG_FILE_PARSE_ERROR = 'in "/data/config.yml", line 2'
+
+    with patch.object(cm, "get_config", return_value=cfg):
+        anon = client.get("/api/config")
+        assert anon.status_code == status.HTTP_200_OK
+        assert anon.json().get("CONFIG_FILE_PARSE_ERROR") is None
+
+        auth = client.get(
+            "/api/config",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert auth.status_code == status.HTTP_200_OK
+        assert (
+            auth.json().get("CONFIG_FILE_PARSE_ERROR")
+            == 'in "/data/config.yml", line 2'
+        )
+
+
 def test_add_platform_binding_payload_shape(client, access_token: str):
     with patch.object(cm, "add_platform_binding") as add_platform_binding:
         response = client.post(
