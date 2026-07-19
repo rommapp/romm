@@ -705,3 +705,177 @@ class TestSonySerialFilenames:
         mock_hget.assert_awaited_once_with(PS1_SERIAL_INDEX_KEY, "SCUS-94163")
         assert result.get("name") == "Gran Turismo"
         assert result["igdb_id"] is None
+
+
+class TestIsPrefixSupersetMatch:
+    """Unit tests for the prefix/superset title heuristic (issue #3805)."""
+
+    @pytest.mark.parametrize(
+        ("search_term", "candidate", "expected"),
+        [
+            # A more specific variant's search term extends the base title.
+            (
+                "metal gear solid portable ops plus",
+                "Metal Gear Solid: Portable Ops",
+                True,
+            ),
+            # Reversed: the base term is a prefix of the variant candidate.
+            (
+                "Metal Gear Solid: Portable Ops",
+                "Metal Gear Solid: Portable Ops Plus",
+                True,
+            ),
+            ("pokemon ranger shadows of almia", "Pokemon Ranger", True),
+            # Extra word is not a trailing suffix, so not a prefix relationship.
+            ("sonic hedgehog", "Sonic the Hedgehog", False),
+            # Identical titles are an exact match, not a prefix ambiguity.
+            ("Metal Gear Solid", "metal gear solid", False),
+            # Unrelated titles.
+            ("contra", "Probotector", False),
+        ],
+    )
+    def test_prefix_superset_detection(self, search_term, candidate, expected):
+        handler = IGDBHandler()
+        assert handler._is_prefix_superset_match(search_term, candidate) is expected
+
+
+class TestSearchRomPrefixSupersetVariant:
+    """A base title that is a prefix of the searched variant must not be
+    accepted when the more specific variant exists (issue #3805).
+
+    'Metal Gear Solid - Portable Ops Plus' and 'Portable Ops' (and the Pokemon
+    Ranger series) scored the same IGDB id because the first search pass only
+    returned the base game and its ~0.99 Jaro-Winkler score cleared the match
+    threshold.
+    """
+
+    BASE_ID = 1001
+    VARIANT_ID = 1002
+    BASE_NAME = "Metal Gear Solid: Portable Ops"
+    VARIANT_NAME = "Metal Gear Solid: Portable Ops Plus"
+
+    @pytest.mark.asyncio
+    async def test_variant_excluded_by_game_type_is_recovered(self):
+        """When the game_type filter hides the variant (IGDB classifies it as an
+        expansion), dropping the filter must surface it so the exact match wins
+        over the base near-miss."""
+        handler = IGDBHandler()
+
+        base = _make_game(self.BASE_ID, self.BASE_NAME)
+        variant = _make_game(self.VARIANT_ID, self.VARIANT_NAME)
+
+        async def mock_list_games(
+            search_term=None, fields=None, where=None, limit=None
+        ):
+            # game_type-filtered pass excludes the variant (an expansion type).
+            if where and "game_type" in where:
+                return [base]
+            # Re-query without the game_type filter surfaces both.
+            return [base, variant]
+
+        with (
+            patch(
+                "handler.metadata.igdb_handler.IGDBHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "list_games",
+                side_effect=mock_list_games,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "search",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+        ):
+            result = await handler._search_rom(
+                "metal gear solid portable ops plus",
+                GENESIS_IGDB_ID,
+                with_game_type=True,
+            )
+
+        assert result is not None
+        assert result["id"] == self.VARIANT_ID, (
+            f"Expected the '{self.VARIANT_NAME}' variant (id={self.VARIANT_ID}), "
+            f"got {result.get('name')} (id={result.get('id')}). The base title is "
+            "only a prefix near-miss and must not win over the exact variant."
+        )
+
+    @pytest.mark.asyncio
+    async def test_base_title_still_matches_when_it_is_the_target(self):
+        """Scanning the base game itself must return the base on the first pass
+        without any widening (exact match short-circuits)."""
+        handler = IGDBHandler()
+
+        base = _make_game(self.BASE_ID, self.BASE_NAME)
+        variant = _make_game(self.VARIANT_ID, self.VARIANT_NAME)
+
+        search_mock = AsyncMock(return_value=[])
+
+        async def mock_list_games(
+            search_term=None, fields=None, where=None, limit=None
+        ):
+            # First pass includes both; the base is an exact match.
+            if where and "game_type" in where:
+                return [base, variant]
+            raise AssertionError("widening should not run for an exact match")
+
+        with (
+            patch(
+                "handler.metadata.igdb_handler.IGDBHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "list_games",
+                side_effect=mock_list_games,
+            ),
+            patch.object(handler.igdb_service, "search", search_mock),
+        ):
+            result = await handler._search_rom(
+                "metal gear solid portable ops",
+                GENESIS_IGDB_ID,
+                with_game_type=True,
+            )
+
+        assert result is not None
+        assert result["id"] == self.BASE_ID
+        search_mock.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_non_prefix_fuzzy_match_does_not_widen(self):
+        """A benign non-exact match that is not a prefix/superset must be
+        returned from the first pass without extra queries."""
+        handler = IGDBHandler()
+
+        game = _make_game(42, "Sonic the Hedgehog")
+        search_mock = AsyncMock(return_value=[])
+
+        async def mock_list_games(
+            search_term=None, fields=None, where=None, limit=None
+        ):
+            if where and "game_type" in where:
+                return [game]
+            raise AssertionError("widening should not run for a non-prefix match")
+
+        with (
+            patch(
+                "handler.metadata.igdb_handler.IGDBHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "list_games",
+                side_effect=mock_list_games,
+            ),
+            patch.object(handler.igdb_service, "search", search_mock),
+        ):
+            result = await handler._search_rom(
+                "sonic hedgehog", GENESIS_IGDB_ID, with_game_type=True
+            )
+
+        assert result is not None
+        assert result["id"] == 42
+        search_mock.assert_not_awaited()
