@@ -149,6 +149,5 @@ TaskStatusResponse = Union[
 
 class BulkOperationResponse(TypedDict):
     successful_items: int
-    # IDs that failed to delete, so the client can keep them selected for retry.
     failed_ids: list[int]
     errors: list[str]

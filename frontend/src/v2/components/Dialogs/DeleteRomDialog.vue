@@ -117,10 +117,7 @@ async function deleteRoms() {
       }
     }
     romsStore.resetSelection();
-    // Drop the deleted ROMs from the v2 gallery selection too — otherwise
-    // the SelectionBar stays open pointing at rows that no longer exist,
-    // and re-running an action 404s. removeIds only touches the deleted
-    // subset, so a partial (or failed) delete keeps the rest selected.
+    // Drop the deleted ROMs from the gallery selection
     gallerySelectionStore.removeIds(deletedRoms.map((rom) => rom.id));
     romsStore.remove(deletedRoms);
     galleryRomsStore.remove(deletedRoms);
