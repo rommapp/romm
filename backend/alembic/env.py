@@ -50,6 +50,12 @@ def include_object(object, name, type_, reflected, compare_to):
     ):
         return False
 
+    # roms.rm_* are STORED generated columns backing the roms_metadata view.
+    # They are maintained in raw SQL (dialect-specific expressions) rather than
+    # the ORM model, so hide them from autogenerate to avoid false drops.
+    if type_ == "column" and name.startswith("rm_"):
+        return False
+
     return True
 
 
