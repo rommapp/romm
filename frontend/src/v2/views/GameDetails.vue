@@ -225,6 +225,13 @@ watch(
   { immediate: true },
 );
 
+// IGDB's own "similar games" are kept as a discovery row below the
+// library-based list. The grid filters out any that are already owned
+// (those surface in the library section above), so this row is purely
+// games to look up externally.
+const igdbSimilarGames = computed<IGDBRelatedGame[]>(
+  () => igdb.value?.similar_games ?? [],
+);
 const remakes = computed<IGDBRelatedGame[]>(() => igdb.value?.remakes ?? []);
 const remasters = computed<IGDBRelatedGame[]>(
   () => igdb.value?.remasters ?? [],
@@ -299,6 +306,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :remakes="remakes"
             :remasters="remasters"
             :similar-games="similarGames"
+            :igdb-similar-games="igdbSimilarGames"
           />
           <FilesTab v-if="tab === 'files'" :rom="currentRom" />
           <PatcherTab v-if="tab === 'patcher'" :rom="currentRom" />

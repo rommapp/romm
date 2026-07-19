@@ -31,6 +31,7 @@ import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
 import AgeRatingBadges from "@/v2/components/GameDetails/AgeRatingBadges.vue";
 import HLTBStrip from "@/v2/components/GameDetails/HLTBStrip.vue";
+import IgdbSimilarGamesGrid from "@/v2/components/GameDetails/IgdbSimilarGamesGrid.vue";
 import type { InfoGridSection } from "@/v2/components/GameDetails/InfoGrid.vue";
 import InfoGrid from "@/v2/components/GameDetails/InfoGrid.vue";
 import PlayerCountBadge from "@/v2/components/GameDetails/PlayerCountBadge.vue";
@@ -61,6 +62,9 @@ const props = defineProps<{
   // Library games ranked by shared metadata (not IGDB related games) — every
   // entry is a real owned ROM, so these link straight to their detail page.
   similarGames: SimpleRom[];
+  // IGDB's own similar games, shown below as an external discovery row. The
+  // grid drops any that are already owned (covered by `similarGames`).
+  igdbSimilarGames: IGDBRelatedGame[];
 }>();
 
 const hasAgeRatings = computed(
@@ -124,7 +128,8 @@ const hasRelated = computed(
       props.dlcs.length +
       props.remakes.length +
       props.remasters.length +
-      props.similarGames.length >
+      props.similarGames.length +
+      props.igdbSimilarGames.length >
     0,
 );
 
@@ -306,12 +311,16 @@ const coverSource = computed(() => {
         </h4>
         <RelatedGamesGrid title="" :items="remasters" />
       </div>
-      <div v-if="similarGames.length" class="overview-tab__section">
+      <div
+        v-if="similarGames.length || igdbSimilarGames.length"
+        class="overview-tab__section"
+      >
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-shape-outline" size="14" />
           Similar games
         </h4>
         <SimilarGamesGrid :items="similarGames" />
+        <IgdbSimilarGamesGrid :items="igdbSimilarGames" />
       </div>
     </template>
 

@@ -29,7 +29,12 @@ import GameCard from "@/v2/components/GameCard/GameCard.vue";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{ game: IGDBRelatedGame }>();
+const props = defineProps<{
+  game: IGDBRelatedGame;
+  // Skip the IGDB -> RomM lookup and always link out. Used when the parent
+  // has already resolved ownership (e.g. the unowned-only discovery row).
+  forceExternal?: boolean;
+}>();
 
 const { t } = useI18n();
 const router = useRouter();
@@ -37,6 +42,7 @@ const romId = ref<number | null>(null);
 const inLibrary = computed(() => romId.value !== null);
 
 onMounted(async () => {
+  if (props.forceExternal) return;
   try {
     const res = await romApi.getRomByMetadataProvider({
       field: "igdb_id",
