@@ -5,7 +5,7 @@ eight raw provider-metadata blobs on every ``roms`` row, on every query. On
 large libraries that made galleries, search, and sorts CPU-bound and slow.
 
 This moves the per-row derivation into STORED generated columns on ``roms``
-(``rm_*``), which the database engine computes once at write time and keeps in
+(``generated_*``), which the database engine computes once at write time and keeps in
 sync automatically (no application hook, no background job). ``roms_metadata``
 is redefined as a thin projection over those columns, so the ``RomMetadata``
 model, every handler query, and the ``virtual_collections`` view are unchanged
@@ -42,8 +42,8 @@ depends_on = None
 # MariaDB / MySQL generated-column expressions
 # ---------------------------------------------------------------------------
 
-_MY_ARRAY_COALESCE = {
-    "rm_genres": [
+_MARIA_ARRAY_COALESCE = {
+    "generated_genres": [
         "manual_metadata",
         "igdb_metadata",
         "moby_metadata",
@@ -53,14 +53,14 @@ _MY_ARRAY_COALESCE = {
         "flashpoint_metadata",
         "gamelist_metadata",
     ],
-    "rm_franchises": [
+    "generated_franchises": [
         "manual_metadata",
         "igdb_metadata",
         "ss_metadata",
         "flashpoint_metadata",
         "gamelist_metadata",
     ],
-    "rm_companies": [
+    "generated_companies": [
         "manual_metadata",
         "igdb_metadata",
         "ss_metadata",
@@ -69,7 +69,7 @@ _MY_ARRAY_COALESCE = {
         "flashpoint_metadata",
         "gamelist_metadata",
     ],
-    "rm_game_modes": [
+    "generated_game_modes": [
         "manual_metadata",
         "igdb_metadata",
         "ss_metadata",
@@ -78,8 +78,8 @@ _MY_ARRAY_COALESCE = {
 }
 
 
-def _my_array_expr(column: str, sources: list[str]) -> str:
-    key = column[len("rm_") :]
+def _maria_array_expr(column: str, sources: list[str]) -> str:
+    key = column[len("generated_") :]
     branches = [
         f"CASE WHEN JSON_LENGTH(JSON_EXTRACT({src}, '$.{key}')) > 0 "
         f"THEN JSON_EXTRACT({src}, '$.{key}') ELSE NULL END"
@@ -89,7 +89,7 @@ def _my_array_expr(column: str, sources: list[str]) -> str:
     return "COALESCE(\n    " + ",\n    ".join(branches) + "\n)"
 
 
-def _my_first_release_date() -> str:
+def _maria_first_release_date() -> str:
     # (source, multiplier, integer-only regex flag)
     int_sources = [
         ("manual_metadata", 1),
@@ -122,7 +122,7 @@ def _my_first_release_date() -> str:
     return "CASE\n    " + "\n    ".join(branches) + "\n    ELSE NULL END"
 
 
-def _my_rating(source: str, key: str, multiplier: int) -> str:
+def _maria_rating(source: str, key: str, multiplier: int) -> str:
     val = f"JSON_UNQUOTE(JSON_EXTRACT({source}, '$.{key}'))"
     cast = f"CAST({val} AS DECIMAL(10,2))"
     if multiplier != 1:
@@ -134,12 +134,12 @@ def _my_rating(source: str, key: str, multiplier: int) -> str:
     )
 
 
-_MY_RATINGS = [
-    _my_rating("igdb_metadata", "total_rating", 1),
-    _my_rating("moby_metadata", "moby_score", 10),
-    _my_rating("ss_metadata", "ss_score", 10),
-    _my_rating("launchbox_metadata", "community_rating", 20),
-    _my_rating("gamelist_metadata", "rating", 100),
+_MARIA_RATINGS = [
+    _maria_rating("igdb_metadata", "total_rating", 1),
+    _maria_rating("moby_metadata", "moby_score", 10),
+    _maria_rating("ss_metadata", "ss_score", 10),
+    _maria_rating("launchbox_metadata", "community_rating", 20),
+    _maria_rating("gamelist_metadata", "rating", 100),
 ]
 
 
@@ -155,7 +155,7 @@ def _average_expr(ratings: list[str]) -> str:
     )
 
 
-_MY_AGE_RATINGS = """COALESCE(
+_MARIA_AGE_RATINGS = """COALESCE(
     JSON_EXTRACT(manual_metadata, '$.age_ratings'),
     CASE WHEN JSON_CONTAINS_PATH(igdb_metadata, 'one', '$.age_ratings')
         AND JSON_LENGTH(JSON_EXTRACT(igdb_metadata, '$.age_ratings')) > 0
@@ -178,7 +178,7 @@ _MY_AGE_RATINGS = """COALESCE(
     JSON_ARRAY()
 )"""
 
-_MY_PLAYER_COUNT = """COALESCE(
+_MARIA_PLAYER_COUNT = """COALESCE(
     NULLIF(JSON_UNQUOTE(JSON_EXTRACT(manual_metadata, '$.player_count')), '1'),
     NULLIF(JSON_UNQUOTE(JSON_EXTRACT(ss_metadata, '$.player_count')), '1'),
     NULLIF(JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.player_count')), '1'),
@@ -190,19 +190,19 @@ _MY_PLAYER_COUNT = """COALESCE(
 def _mysql_columns() -> list[tuple[str, str, str]]:
     """Return (name, type, expression) for each MariaDB generated column."""
     cols: list[tuple[str, str, str]] = []
-    for name, sources in _MY_ARRAY_COALESCE.items():
-        cols.append((name, "JSON", _my_array_expr(name, sources)))
+    for name, sources in _MARIA_ARRAY_COALESCE.items():
+        cols.append((name, "JSON", _maria_array_expr(name, sources)))
     cols.append(
         (
-            "rm_collections",
+            "generated_collections",
             "JSON",
             "COALESCE(JSON_EXTRACT(igdb_metadata, '$.collections'), JSON_ARRAY())",
         )
     )
-    cols.append(("rm_age_ratings", "JSON", _MY_AGE_RATINGS))
-    cols.append(("rm_first_release_date", "BIGINT", _my_first_release_date()))
-    cols.append(("rm_average_rating", "DOUBLE", _average_expr(_MY_RATINGS)))
-    cols.append(("rm_player_count", "VARCHAR(100)", _MY_PLAYER_COUNT))
+    cols.append(("generated_age_ratings", "JSON", _MARIA_AGE_RATINGS))
+    cols.append(("generated_first_release_date", "BIGINT", _maria_first_release_date()))
+    cols.append(("generated_average_rating", "DOUBLE", _average_expr(_MARIA_RATINGS)))
+    cols.append(("generated_player_count", "VARCHAR(100)", _MARIA_PLAYER_COUNT))
     return cols
 
 
@@ -210,17 +210,17 @@ def _mysql_columns() -> list[tuple[str, str, str]]:
 # PostgreSQL generated-column expressions
 # ---------------------------------------------------------------------------
 
-_PG_ARRAY_COALESCE = _MY_ARRAY_COALESCE  # same source precedence per column
+_POSTGRES_ARRAY_COALESCE = _MARIA_ARRAY_COALESCE  # same source precedence per column
 
 
-def _pg_array_expr(column: str, sources: list[str]) -> str:
-    key = column[len("rm_") :]
+def _postgres_array_expr(column: str, sources: list[str]) -> str:
+    key = column[len("generated_") :]
     branches = [f"NULLIF({src} -> '{key}', '[]'::jsonb)" for src in sources]
     branches.append("'[]'::jsonb")
     return "COALESCE(\n    " + ",\n    ".join(branches) + "\n)"
 
 
-def _pg_first_release_date() -> str:
+def _postgres_first_release_date() -> str:
     int_sources = [
         ("manual_metadata", 1),
         ("igdb_metadata", 1000),
@@ -250,7 +250,7 @@ def _pg_first_release_date() -> str:
     return "CASE\n    " + "\n    ".join(branches) + "\n    ELSE NULL END"
 
 
-def _pg_rating(source: str, key: str, multiplier: int) -> str:
+def _postgres_rating(source: str, key: str, multiplier: int) -> str:
     val = f"{source} ->> '{key}'"
     cast = f"({val})::float"
     if multiplier != 1:
@@ -262,23 +262,23 @@ def _pg_rating(source: str, key: str, multiplier: int) -> str:
     )
 
 
-_PG_RATINGS = [
-    _pg_rating("igdb_metadata", "total_rating", 1),
-    _pg_rating("moby_metadata", "moby_score", 10),
-    _pg_rating("ss_metadata", "ss_score", 10),
-    _pg_rating("launchbox_metadata", "community_rating", 20),
-    _pg_rating("gamelist_metadata", "rating", 100),
+_POSTGRES_RATINGS = [
+    _postgres_rating("igdb_metadata", "total_rating", 1),
+    _postgres_rating("moby_metadata", "moby_score", 10),
+    _postgres_rating("ss_metadata", "ss_score", 10),
+    _postgres_rating("launchbox_metadata", "community_rating", 20),
+    _postgres_rating("gamelist_metadata", "rating", 100),
 ]
 
 # jsonb_build_array is STABLE (not usable in a generated column), so the whole
 # age-ratings derivation is wrapped in an IMMUTABLE helper. The computation is
 # deterministic on its inputs; the STABLE marking of jsonb_build_array is only a
 # conservative default for its timestamp-typed overloads, which we never hit.
-_PG_AGE_RATINGS = (
+_POSTGRES_AGE_RATINGS = (
     "romm_age_ratings(manual_metadata, igdb_metadata, ss_metadata, launchbox_metadata)"
 )
 
-_PG_PLAYER_COUNT = """COALESCE(
+_POSTGRES_PLAYER_COUNT = """COALESCE(
     NULLIF(manual_metadata ->> 'player_count', '1'),
     NULLIF(ss_metadata ->> 'player_count', '1'),
     NULLIF(igdb_metadata ->> 'player_count', '1'),
@@ -287,41 +287,49 @@ _PG_PLAYER_COUNT = """COALESCE(
 )"""
 
 
-def _pg_columns() -> list[tuple[str, str, str]]:
+def _postgres_columns() -> list[tuple[str, str, str]]:
     cols: list[tuple[str, str, str]] = []
-    for name, sources in _PG_ARRAY_COALESCE.items():
-        cols.append((name, "JSONB", _pg_array_expr(name, sources)))
+    for name, sources in _POSTGRES_ARRAY_COALESCE.items():
+        cols.append((name, "JSONB", _postgres_array_expr(name, sources)))
     cols.append(
         (
-            "rm_collections",
+            "generated_collections",
             "JSONB",
             "COALESCE((igdb_metadata -> 'collections'), '[]'::jsonb)",
         )
     )
-    cols.append(("rm_age_ratings", "JSONB", _PG_AGE_RATINGS))
-    cols.append(("rm_first_release_date", "BIGINT", _pg_first_release_date()))
-    cols.append(("rm_average_rating", "DOUBLE PRECISION", _average_expr(_PG_RATINGS)))
-    cols.append(("rm_player_count", "VARCHAR(100)", _PG_PLAYER_COUNT))
+    cols.append(("generated_age_ratings", "JSONB", _POSTGRES_AGE_RATINGS))
+    cols.append(
+        ("generated_first_release_date", "BIGINT", _postgres_first_release_date())
+    )
+    cols.append(
+        (
+            "generated_average_rating",
+            "DOUBLE PRECISION",
+            _average_expr(_POSTGRES_RATINGS),
+        )
+    )
+    cols.append(("generated_player_count", "VARCHAR(100)", _POSTGRES_PLAYER_COUNT))
     return cols
 
 
 # Order of columns in the roms_metadata projection (name -> view alias).
 _VIEW_COLUMNS = [
-    ("rm_genres", "genres"),
-    ("rm_franchises", "franchises"),
-    ("rm_collections", "collections"),
-    ("rm_companies", "companies"),
-    ("rm_game_modes", "game_modes"),
-    ("rm_age_ratings", "age_ratings"),
-    ("rm_first_release_date", "first_release_date"),
-    ("rm_average_rating", "average_rating"),
-    ("rm_player_count", "player_count"),
+    ("generated_genres", "genres"),
+    ("generated_franchises", "franchises"),
+    ("generated_collections", "collections"),
+    ("generated_companies", "companies"),
+    ("generated_game_modes", "game_modes"),
+    ("generated_age_ratings", "age_ratings"),
+    ("generated_first_release_date", "first_release_date"),
+    ("generated_average_rating", "average_rating"),
+    ("generated_player_count", "player_count"),
 ]
 
 _INDEXED_COLUMNS = [
-    "rm_first_release_date",
-    "rm_average_rating",
-    "rm_player_count",
+    "generated_first_release_date",
+    "generated_average_rating",
+    "generated_player_count",
 ]
 
 
@@ -389,7 +397,7 @@ def upgrade() -> None:
     if pg:
         connection.execute(sa.text(_GAMELIST_EPOCH_FN))
         connection.execute(sa.text(_AGE_RATINGS_FN))
-        columns = _pg_columns()
+        columns = _postgres_columns()
     else:
         columns = _mysql_columns()
 
@@ -411,9 +419,9 @@ def downgrade() -> None:
     # Restore the derive-on-read view before dropping the columns it no longer
     # references, so virtual_collections (which depends on it) stays valid.
     if is_postgresql(connection):
-        op.execute(_PG_LEGACY_VIEW)
+        op.execute(_POSTGRES_LEGACY_VIEW)
     else:
-        op.execute(_MY_LEGACY_VIEW)
+        op.execute(_MARIA_LEGACY_VIEW)
 
     for col in _INDEXED_COLUMNS:
         op.drop_index(f"idx_roms_{col}", table_name="roms")
@@ -433,7 +441,7 @@ def downgrade() -> None:
 # downgrade() to restore the pre-0098 behavior.
 # ---------------------------------------------------------------------------
 
-_PG_LEGACY_VIEW = """
+_POSTGRES_LEGACY_VIEW = """
 CREATE OR REPLACE VIEW roms_metadata AS
 SELECT
     r.id AS rom_id,
@@ -604,7 +612,7 @@ FROM (
 ) AS r
 """
 
-_MY_LEGACY_VIEW = """
+_MARIA_LEGACY_VIEW = """
 CREATE OR REPLACE VIEW roms_metadata AS
     SELECT
         r.id as rom_id,
