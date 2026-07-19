@@ -27,6 +27,7 @@
   "select-background-color": "Seleccionar color de fondo",
   "select-save": "Seleccionar guardado",
   "select-state": "Seleccionar estado",
+  "slot": "Ranura",
   "start-fresh-hint": "Empezar desde cero — sin partidas guardadas.",
   "stream-error-generic": "Se produjo un error inesperado.",
   "stream-error-load-rom": "No se pudieron cargar los detalles de la ROM.",

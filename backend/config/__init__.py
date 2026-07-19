@@ -108,6 +108,10 @@ LAUNCHBOX_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("LAUNCHBOX_API_EN
 
 # PLAYMATCH
 PLAYMATCH_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("PLAYMATCH_API_ENABLED"))
+# Base URL of the Playmatch API, overridable to point at a self-hosted instance.
+PLAYMATCH_API_URL: Final[str] = _get_env(
+    "PLAYMATCH_API_URL", "https://playmatch.retrorealm.dev/api/v2"
+).rstrip("/")
 
 # HASHEOUS
 HASHEOUS_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HASHEOUS_API_ENABLED"))

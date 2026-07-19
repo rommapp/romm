@@ -27,6 +27,7 @@
   "select-background-color": "Arka plan rengi seç",
   "select-save": "Kayıt seç",
   "select-state": "Durum kaydı seç",
+  "slot": "Slot",
   "start-fresh-hint": "Devam etmek için aşağıdan birini seçin veya baştan başlamak için Oyna'ya basın.",
   "stream-error-generic": "Beklenmeyen bir hata oluştu.",
   "stream-error-load-rom": "ROM ayrıntıları yüklenemedi.",

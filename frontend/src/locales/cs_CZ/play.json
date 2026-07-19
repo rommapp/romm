@@ -27,6 +27,7 @@
   "select-background-color": "Vybrat barvu pozadí",
   "select-save": "Vybrat uloženou pozici",
   "select-state": "Vybrat stav",
+  "slot": "Slot",
   "start-fresh-hint": "Vyberte níže pro pokračování, nebo stiskněte Hrát pro nový začátek.",
   "stream-error-generic": "Došlo k neočekávané chybě.",
   "stream-error-load-rom": "Podrobnosti o ROM se nepodařilo načíst.",

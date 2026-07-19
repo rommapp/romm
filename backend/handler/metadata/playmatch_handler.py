@@ -7,7 +7,7 @@ import httpx
 import yarl
 from fastapi import HTTPException, status
 
-from config import PLAYMATCH_API_ENABLED
+from config import PLAYMATCH_API_ENABLED, PLAYMATCH_API_URL
 from handler.metadata.base_handler import MetadataHandler
 from logger.logger import log
 from models.rom import Rom, RomFile
@@ -104,7 +104,7 @@ class PlaymatchHandler(MetadataHandler):
     """
 
     def __init__(self):
-        self.base_url = "https://playmatch.retrorealm.dev/api/v2"
+        self.base_url = PLAYMATCH_API_URL
         self.identify_url = f"{self.base_url}/identify/ids"
         self.healthcheck_url = f"{self.base_url}/health"
         self.suggestion_url = f"{self.base_url}/suggestion/external/game"

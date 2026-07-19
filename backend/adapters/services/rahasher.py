@@ -1,5 +1,6 @@
 import asyncio
 import re
+import tempfile
 from pathlib import Path
 
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
@@ -7,6 +8,7 @@ from handler.metadata.ra_handler import RAGamesPlatform
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.archives import extract_largest_archive_member
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
 from utils.psp_hasher import calculate_psp_ra_hash, is_psp_native_hash_file
 from utils.rvz_hasher import (
@@ -16,6 +18,11 @@ from utils.rvz_hasher import (
 )
 
 RAHASHER_VALID_HASH_REGEX = re.compile(r"[0-9a-f]{32}")
+
+# The only archive format RAHasher decompresses itself (via miniz). Any other
+# container is hashed as its raw archive bytes, silently producing a hash that
+# matches nothing on RetroAchievements (issue #3808).
+RAHASHER_NATIVE_ARCHIVE_EXTENSIONS: tuple[str, ...] = (".zip",)
 
 # Disc descriptor / playlist files that point RAHasher at the real data
 # tracks. Handing RAHasher one of these reproduces the hash a shell-expanded
@@ -57,6 +64,32 @@ def _pick_ra_file(folder: Path) -> Path | None:
 
     picked = max(files, key=_size)
     return picked if _size(picked) >= 0 else None
+
+
+def _first_m3u_entry(m3u_path: Path) -> Path | None:
+    """Resolve an ``.m3u`` playlist to the first disc file it points at.
+
+    Mirrors RAHasher's own playlist handling (rcheevos hashes the first
+    entry): the first non-empty, non-comment line is the disc path, taken
+    relative to the playlist's folder unless absolute. Returns ``None`` when
+    the playlist can't be read or that entry doesn't exist on disk.
+    """
+    try:
+        lines = m3u_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        entry = line.strip()
+        if not entry or entry.startswith("#"):
+            continue
+        entry_path = Path(entry)
+        if not entry_path.is_absolute():
+            entry_path = m3u_path.parent / entry
+        try:
+            return entry_path if entry_path.is_file() else None
+        except OSError:
+            return None
+    return None
 
 
 # Platforms whose hash algorithm requires an on-disk disc image
@@ -153,6 +186,7 @@ RA_BUFFER_HASH_UNSUPPORTED_IDS: frozenset[int] = frozenset(
 PSP_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSP]
 NGC_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NGC]
 WII_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.WII]
+ARCADE_RA_ID: int = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.ARCADE]
 
 
 class RAHasherError(Exception): ...
@@ -218,6 +252,57 @@ class RAHasherService:
                 if resolved is not None:
                     file_path = str(resolved)
 
+        # Multi-disc .m3u playlists are followed by RAHasher itself, but only
+        # to formats it can read. When the first playlist entry is a container
+        # we hash natively (RVZ/WIA on GameCube/Wii, compressed ISO on PSP),
+        # resolve the playlist to that disc so the native-hash dispatch below
+        # sees it (issue #3797).
+        if file_path.lower().endswith(".m3u"):
+            entry = await asyncio.to_thread(_first_m3u_entry, Path(file_path))
+            if entry is not None:
+                entry_str = str(entry)
+                is_native_entry = (
+                    platform["ra_id"] == PSP_RA_ID
+                    and is_psp_native_hash_file(entry_str)
+                ) or (
+                    platform["ra_id"] in (NGC_RA_ID, WII_RA_ID)
+                    and is_rvz_native_hash_file(entry_str)
+                )
+                if is_native_entry:
+                    file_path = entry_str
+
+        # RAHasher only decompresses .zip archives itself; any other container
+        # gets hashed as its raw archive bytes, silently storing a hash that
+        # matches nothing on RetroAchievements (issue #3808). Extract the ROM
+        # to a temp file and hash that instead. Arcade is exempt: its RA hash
+        # is the file's own basename, so the container format never matters
+        # and extraction (which renames the file) would break it.
+        lower_path = file_path.lower()
+        if (
+            lower_path.endswith(tuple(COMPRESSED_FILE_EXTENSIONS))
+            and not lower_path.endswith(RAHASHER_NATIVE_ARCHIVE_EXTENSIONS)
+            and platform["ra_id"] != ARCADE_RA_ID
+        ):
+            with tempfile.TemporaryDirectory(prefix="romm_rahasher_") as tmp_dir:
+                extracted = await asyncio.to_thread(
+                    extract_largest_archive_member, Path(file_path), Path(tmp_dir)
+                )
+                if extracted is None:
+                    log.debug(
+                        f"Skipping {hl('RAHasher', color=LIGHTMAGENTA)} for "
+                        f"{hl(file_path)}: could not extract a ROM from the archive"
+                    )
+                    return ""
+                return await self._hash_resolved_file(platform, str(extracted))
+
+        return await self._hash_resolved_file(platform, file_path)
+
+    async def _hash_resolved_file(
+        self, platform: RAGamesPlatform, file_path: str
+    ) -> str:
+        """Hash a single real file: natively for containers RAHasher can't
+        read (PSP compressed ISOs, RVZ/WIA), via the RAHasher binary otherwise.
+        """
         # PSP compressed-ISO containers (.cso/.ciso/.zso/.dax) can't be read by
         # RAHasher ("Could not open track"). Compute the PSP RA hash natively
         # from the container instead, decompressing only PARAM.SFO + EBOOT.BIN.

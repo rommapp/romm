@@ -64,6 +64,10 @@ IGDB_REGIONAL_TWIN_PLATFORMS: Final[dict[int, int]] = {
 # Regex to detect IGDB ID tags in filenames like (igdb-12345)
 IGDB_TAG_REGEX = re.compile(r"\(igdb-(\d+)\)", re.IGNORECASE)
 
+# Jaro-Winkler score of an exact (post-normalization) title match. Only a first
+# pass hitting this may be trusted without widening the search.
+EXACT_MATCH_SCORE: Final = 1.0
+
 
 class IGDBPlatform(TypedDict):
     slug: str
@@ -558,6 +562,23 @@ class IGDBHandler(MetadataHandler):
             return int(match.group(1))
         return None
 
+    def _is_prefix_superset_match(self, search_term: str, candidate_name: str) -> bool:
+        """Whether one title's words are a proper prefix of the other's.
+
+        Jaro-Winkler scores a base title and a longer variant that starts with
+        it (e.g. "Portable Ops" vs "Portable Ops Plus") well above the match
+        threshold, so a fuzzy pass can settle for the base when the variant is
+        simply absent from that pass's candidates. Detecting this prefix/superset
+        ambiguity lets the caller widen the search before committing. (#3805)
+        """
+        search_tokens = self.normalize_search_term(search_term).split()
+        candidate_tokens = self.normalize_search_term(candidate_name).split()
+        if not search_tokens or not candidate_tokens:
+            return False
+
+        shorter, longer = sorted((search_tokens, candidate_tokens), key=len)
+        return len(shorter) < len(longer) and longer[: len(shorter)] == shorter
+
     async def _search_rom(
         self, search_term: str, platform_igdb_id: int, with_game_type: bool = False
     ) -> Game | None:
@@ -578,18 +599,18 @@ class IGDBHandler(MetadataHandler):
             game_type_filter = ""
 
         log.debug("Searching in games endpoint with game_type %s", game_type_filter)
-        where_filter = f"{_build_platforms_where(platform_igdb_id)} {game_type_filter}"
+        base_where = _build_platforms_where(platform_igdb_id)
 
         # Special case for ScummVM games
         # https://github.com/rommapp/romm/issues/2424
         scummvm_platform = self.get_platform(UPS.SCUMMVM)
         if scummvm_platform["igdb_id"] == platform_igdb_id:
-            where_filter = f"keywords=[{platform_igdb_id}] {game_type_filter}"
+            base_where = f"keywords=[{platform_igdb_id}]"
 
         roms = await self.igdb_service.list_games(
             search_term=search_term,
             fields=GAMES_FIELDS,
-            where=where_filter,
+            where=f"{base_where} {game_type_filter}",
             limit=self.pagination_limit,
         )
 
@@ -599,11 +620,36 @@ class IGDBHandler(MetadataHandler):
             search_term,
             list(games_by_name.keys()),
         )
-        if best_match:
+
+        # Trust an exact first-pass hit outright. A non-exact hit that is only a
+        # prefix/superset of the search term (e.g. matching "Portable Ops" for a
+        # "Portable Ops Plus" search) may be a near-miss for a more specific
+        # variant this pass never saw, so widen the search and re-rank across
+        # every candidate before committing. (#3805)
+        if best_match is not None and (
+            best_score >= EXACT_MATCH_SCORE
+            or not self._is_prefix_superset_match(search_term, best_match)
+        ):
             log.debug(
                 f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
             )
             return games_by_name[best_match]
+
+        extra_roms: list[Game] = []
+
+        # The game_type filter can hide a more specific variant that IGDB
+        # classifies as an excluded type (e.g. an expansion). Re-query without
+        # it so such variants become candidates.
+        if game_type_filter:
+            log.debug("Searching in games endpoint without game_type")
+            extra_roms.extend(
+                await self.igdb_service.list_games(
+                    search_term=search_term,
+                    fields=GAMES_FIELDS,
+                    where=base_where,
+                    limit=self.pagination_limit,
+                )
+            )
 
         log.debug("Searching expanded in search endpoint")
         roms_expanded = await self.igdb_service.search(
@@ -629,25 +675,30 @@ class IGDBHandler(MetadataHandler):
                 unique_game_ids,
             )
             id_filter = " | ".join(f"id={gid}" for gid in unique_game_ids)
-            extra_roms = await self.igdb_service.list_games(
-                fields=GAMES_FIELDS,
-                where=f"({id_filter})",
-                limit=self.pagination_limit,
+            extra_roms.extend(
+                await self.igdb_service.list_games(
+                    fields=GAMES_FIELDS,
+                    where=f"({id_filter})",
+                    limit=self.pagination_limit,
+                )
             )
 
-            extra_games_by_name = _index_games_by_searchable_name(extra_roms)
-
+        if extra_roms:
+            # Re-rank across the union of every pass so an exact variant surfaced
+            # only after widening can outrank the first-pass near-miss on the
+            # base title. The base stays in the pool, so it remains the fallback
+            # when no better match exists.
+            games_by_name = _index_games_by_searchable_name(roms + extra_roms)
             best_match, best_score = self.find_best_match(
                 search_term,
-                list(extra_games_by_name.keys()),
+                list(games_by_name.keys()),
             )
-            if best_match:
-                log.debug(
-                    f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
-                )
-                return extra_games_by_name[best_match]
 
-            roms.extend(extra_roms)
+        if best_match:
+            log.debug(
+                f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
+            )
+            return games_by_name[best_match]
 
         return None
 
@@ -738,7 +789,7 @@ class IGDBHandler(MetadataHandler):
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)
 
         # Support for sony serial filename format (PS, PS2, PSP)
-        match = SONY_SERIAL_REGEX.search(fs_name, re.IGNORECASE)
+        match = SONY_SERIAL_REGEX.search(fs_name)
         if platform_igdb_id == PS1_IGDB_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)

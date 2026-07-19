@@ -29,6 +29,7 @@ import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import { isRomVerified } from "@/v2/utils/romVerification";
 
 const route = useRoute();
 const router = useRouter();
@@ -129,7 +130,9 @@ const regions = computed(() => currentRom.value?.regions ?? []);
 const languages = computed(() => currentRom.value?.languages ?? []);
 const tags = computed(() => currentRom.value?.tags ?? []);
 
-const verified = computed(() => Boolean(currentRom.value?.crc_hash));
+const verified = computed(() =>
+  currentRom.value ? isRomVerified(currentRom.value) : false,
+);
 
 const coverPath = computed(() => {
   const r = currentRom.value;

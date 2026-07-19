@@ -27,6 +27,7 @@
   "select-background-color": "Háttérszín kiválasztása",
   "select-save": "Mentés kiválasztása",
   "select-state": "Állás kiválasztása",
+  "slot": "Hely",
   "start-fresh-hint": "Válassz egyet az alábbiak közül a folytatáshoz, vagy nyomd meg az Indítást egy új játékhoz.",
   "stream-error-generic": "Váratlan hiba történt.",
   "stream-error-load-rom": "A ROM adatait nem sikerült betölteni.",

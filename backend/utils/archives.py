@@ -5,6 +5,7 @@ import fnmatch
 import os
 import subprocess
 import tarfile
+import tempfile
 import threading
 import time
 import zipfile
@@ -155,7 +156,7 @@ def _process_largest_7z_member(
         start_decompression_time = time.monotonic()
 
         with subprocess.Popen(
-            [SEVEN_ZIP_PATH, "e", str(file_path), largest_file, "-so", "-y"],
+            [SEVEN_ZIP_PATH, "e", str(file_path), largest_file, "-so", "-y", "-spd"],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
@@ -369,7 +370,7 @@ def read_7z_archive_files(
             break
         try:
             with subprocess.Popen(
-                [SEVEN_ZIP_PATH, "e", str(file_path), name, "-so", "-y"],
+                [SEVEN_ZIP_PATH, "e", str(file_path), name, "-so", "-y", "-spd"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 shell=False,  # trunk-ignore(bandit/B603)
@@ -399,9 +400,149 @@ def read_rar_archive_files(
 ) -> Iterator[tuple[str, int, Iterator[bytes]]]:
     """Yield eligible files from a RAR archive, sorted by internal path (ASCII).
 
-    Delegates to the 7zz binary, which natively supports RAR (v3-v5, read-only).
+    Delegates to the 7zz binary. Listing RAR members always works, but
+    streaming their contents requires a 7zz build with the RAR codec; the
+    bundled Alpine build lacks it, so content reads fail and log an error.
     """
     return read_7z_archive_files(file_path, excluded_names, excluded_exts)
+
+
+def _list_archive_file_members(file_path: Path) -> list[tuple[str, int]]:
+    """List `(member_path, size)` for every file member via `7zz l -slt -ba`.
+
+    Single-stream formats (.gz/.xz) list no `Attributes` line at all, so an
+    entry is committed when the next `Path =` starts or the listing ends,
+    and only dropped when its attributes mark it as a directory.
+    """
+    try:
+        result = subprocess.run(
+            [SEVEN_ZIP_PATH, "l", "-slt", "-ba", str(file_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=SEVEN_ZIP_TIMEOUT,
+            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
+        )
+    except (
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+    ) as e:
+        log.error(f"Error listing archive {file_path}: {e}")
+        return []
+
+    entries: list[tuple[str, int]] = []
+    current_file: str | None = None
+    current_size = 0
+    current_is_dir = False
+
+    def _commit() -> None:
+        if current_file and not current_is_dir:
+            entries.append((current_file, current_size))
+
+    for line in result.stdout.split("\n"):
+        line = line.lstrip()
+        if line.startswith("Path = "):
+            _commit()
+            current_file = line.split(" = ", 1)[1]
+            current_size = 0
+            current_is_dir = False
+        elif line.startswith("Size = "):
+            try:
+                current_size = int(line.split(" = ")[1].strip())
+            except ValueError:
+                current_size = 0
+        elif line.startswith("Attributes = "):
+            current_is_dir = line.split(" = ")[1].strip().startswith("D")
+    _commit()
+
+    return entries
+
+
+def _extract_member_to_dir(
+    file_path: Path, member: str, dest_dir: Path, deadline: float
+) -> Path | None:
+    """Stream one archive member into `dest_dir`, named after its basename.
+
+    Returns None (leaving no partial file) when extraction fails, exceeds
+    the deadline, or the 7zz build lacks the codec (it then streams nothing
+    and exits non-zero, e.g. for RAR).
+    """
+    dest_path = dest_dir / Path(member).name
+    try:
+        # stderr goes to an unlinked temp file rather than a pipe: a pipe can
+        # fill and block 7zz while this thread waits on stdout, stalling past
+        # the deadline. "-spd" disables wildcard matching so a member name
+        # containing "*" or "?" can't select (and concatenate) other members.
+        with tempfile.TemporaryFile() as stderr_file:
+            with (
+                open(dest_path, "wb") as dest_file,
+                subprocess.Popen(
+                    [SEVEN_ZIP_PATH, "e", str(file_path), member, "-so", "-y", "-spd"],
+                    stdout=subprocess.PIPE,
+                    stderr=stderr_file,
+                    shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
+                ) as process,
+            ):
+                assert process.stdout is not None
+                while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
+                    if time.monotonic() > deadline:
+                        process.terminate()
+                        log.error(f"Extraction of {member} from {file_path} timed out")
+                        dest_path.unlink(missing_ok=True)
+                        return None
+                    dest_file.write(chunk)
+
+            if process.returncode != 0:
+                # Surface the 7zz reason (e.g. "Unsupported Method" from a
+                # build without the RAR codec) so scan logs explain the
+                # missing hash.
+                stderr_file.seek(0)
+                detail = stderr_file.read().decode(errors="replace").strip()
+                log.error(
+                    f"Extraction of {member} from {file_path} failed "
+                    f"with code {process.returncode}: {detail or 'no error output'}"
+                )
+                dest_path.unlink(missing_ok=True)
+                return None
+
+        return dest_path
+    except OSError as e:
+        log.error(f"Error extracting {member} from {file_path}: {e}")
+        dest_path.unlink(missing_ok=True)
+        return None
+
+
+def extract_largest_archive_member(file_path: Path, dest_dir: Path) -> Path | None:
+    """Extract an archive's largest file member into `dest_dir` via 7zz.
+
+    Compressed tarballs (.tgz/.tbz2/.txz) list only their inner .tar, so one
+    nested extraction pass unwraps it; deeper nesting gives up. Returns the
+    extracted file's path, or None on any failure (no partial files remain).
+    """
+    deadline = time.monotonic() + SEVEN_ZIP_TIMEOUT
+    source = file_path
+
+    for _ in range(2):
+        members = _list_archive_file_members(source)
+        extracted = (
+            _extract_member_to_dir(
+                source, max(members, key=lambda m: m[1])[0], dest_dir, deadline
+            )
+            if members
+            else None
+        )
+        if source != file_path:
+            source.unlink(missing_ok=True)
+        if extracted is None:
+            return None
+        if not str(extracted).lower().endswith(tuple(COMPRESSED_FILE_EXTENSIONS)):
+            return extracted
+        source = extracted
+
+    log.error(f"Archive {file_path} is nested too deeply to extract")
+    source.unlink(missing_ok=True)
+    return None
 
 
 def is_chd_file(file_path: Path) -> bool:

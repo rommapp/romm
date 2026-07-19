@@ -27,6 +27,7 @@
   "select-background-color": "背景色を選択",
   "select-save": "セーブデータを選択",
   "select-state": "ステートを選択",
+  "slot": "スロット",
   "start-fresh-hint": "下から選んで再開するか、Playを押して最初から始めてください。",
   "stream-error-generic": "予期しないエラーが発生しました。",
   "stream-error-load-rom": "ROMの詳細を読み込めませんでした。",

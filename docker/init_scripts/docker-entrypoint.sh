@@ -38,6 +38,8 @@ done
 # support the default value syntax `${VAR:-default}`.
 export ROMM_BASE_PATH=${ROMM_BASE_PATH:-/romm}
 export ROMM_PORT=${ROMM_PORT:-8080}
+# Keep the nginx upstream port in sync with the port gunicorn binds to.
+export DEV_PORT=${DEV_PORT:-5000}
 
 # Disable nginx access logs when log level is WARNING, ERROR, or CRITICAL
 loglevel="${LOGLEVEL:-INFO}"

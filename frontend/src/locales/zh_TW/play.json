@@ -27,6 +27,7 @@
   "select-background-color": "選擇背景顏色",
   "select-save": "選擇存檔",
   "select-state": "選擇即時存檔",
+  "slot": "存檔槽",
   "start-fresh-hint": "從下方選擇一項繼續遊玩，或按下 Play 重新開始。",
   "stream-error-generic": "發生意外錯誤。",
   "stream-error-load-rom": "無法載入 ROM 詳細資訊。",
