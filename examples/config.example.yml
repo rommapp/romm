@@ -91,7 +91,7 @@
 #       - hasheous # Hasheous
 #       - flashpoint # Flashpoint Project
 #       - hltb # HowLongToBeat (lowest priority)
-#     artwork: # Cover art and screenshots (fallback for the fields below)
+#     artwork: # Cover art and screenshots
 #       - igdb # IGDB
 #       - moby # MobyGames
 #       - ss # Screenscraper
@@ -102,9 +102,7 @@
 #       - hasheous # Hasheous
 #       - flashpoint # Flashpoint Project
 #       - hltb # HowLongToBeat
-#     # Optional per-field overrides. Each falls back to "artwork" when omitted,
-#     # so you can, for example, keep original box art while pulling screenshots
-#     # from a different source.
+#     # Optional per-field overrides, each falls back to "artwork" when omitted
 #     cover: # Cover art only
 #       - igdb
 #       - ss

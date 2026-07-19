@@ -168,8 +168,6 @@ class Config:
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
     SCAN_METADATA_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY: list[str]
-    # Per-field overrides for SCAN_ARTWORK_PRIORITY, keyed by Rom field name
-    # (e.g. "url_cover"). Absent fields fall back to SCAN_ARTWORK_PRIORITY.
     SCAN_ARTWORK_PRIORITY_OVERRIDES: dict[str, list[str]]
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
@@ -714,16 +712,17 @@ class ConfigManager:
             override = self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES.get(field)
             if override is None:
                 continue
+
             if not isinstance(override, list):
                 log.critical(f"Invalid config.yml: scan.priority.{key} must be a list")
                 sys.exit(3)
-            # Unknown sources are dropped downstream; surface likely typos here
-            # rather than letting the override silently do nothing.
+
+            # Unknown sources are dropped downstream
             unknown = [s for s in override if s not in VALID_SCAN_PRIORITY_SOURCES]
             if unknown:
                 log.warning(
                     f"Ignoring unknown values in scan.priority.{key}: {unknown}. "
-                    "Check for typos, or update RomM if these are newer sources."
+                    "Check for typos, or update if these are newer sources."
                 )
 
         if not isinstance(self.config.SCAN_REGION_PRIORITY, list):
