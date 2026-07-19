@@ -16,7 +16,10 @@ User-visible strings are **never hard-coded** in components — they come from l
 ## The rule (enforced in CI)
 
 - **`en_US` is the source of truth**, but **every key added to `en_US` must be added to all other locale directories in the same change.** Never leave a key English-only.
-- **Actually translate the value into each locale's language** — do not copy the English text into non-English locales. This applies to editing an existing string too: changing `en_US` means re-translating that key in every other locale, not pasting the new English into all of them. Reuse each locale's established terms for recurring words (grep a sibling key for how it renders "metadata", "provider", etc.). Copying the English value is a last-resort placeholder only when a translation is genuinely unavailable, and it must be flagged to revisit.
+- **Actually translate the value into each locale's language** — never paste English into non-English locales.
+- Editing an existing string counts: changing `en_US` means re-translating that key in every other locale.
+- Reuse each locale's established terms — grep a sibling key for how it renders "metadata", "provider", etc.
+- Copying the English value is a last-resort placeholder, only when no translation is available, and must be flagged to revisit.
 - Removing or renaming a key means doing it across **every** locale.
 
 ## Verify before handoff
