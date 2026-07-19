@@ -75,18 +75,27 @@ async function deleteRoms() {
   if (deleting.value) return;
   deleting.value = true;
 
+  // Snapshot the dialog state up front: the dialog is a singleton, so a
+  // fresh `showDeleteRomDialog` event could replace these refs while the
+  // request is in flight. Acting on the snapshot keeps the response tied
+  // to the ROMs it actually processed.
+  const targetRoms = roms.value;
+  const targetPlatformId = platformId.value;
+  const deleteFromFs = romsToDeleteFromFs.value;
+  const exclude = excludeOnDelete.value;
+
   try {
     const response = await romApi.deleteRoms({
-      roms: roms.value,
-      deleteFromFs: romsToDeleteFromFs.value,
+      roms: targetRoms,
+      deleteFromFs,
     });
     // The backend deletes per-ROM and can partially fail; only prune the
     // ROMs it actually removed so a failed subset stays visible and
     // selected for the user to retry.
     const failedIds = new Set(response.data.failed_ids);
-    const deletedRoms = roms.value.filter((rom) => !failedIds.has(rom.id));
+    const deletedRoms = targetRoms.filter((rom) => !failedIds.has(rom.id));
     snackbar.success(
-      fsCount.value > 0
+      deleteFromFs.length > 0
         ? t("rom.deleted-from-filesystem", {
             count: response.data.successful_items,
           })
@@ -95,7 +104,7 @@ async function deleteRoms() {
           }),
       { icon: "mdi-check-bold" },
     );
-    if (excludeOnDelete.value) {
+    if (exclude) {
       for (const rom of deletedRoms) {
         const type = rom.has_simple_single_file
           ? "EXCLUDED_SINGLE_FILES"
@@ -131,7 +140,7 @@ async function deleteRoms() {
     if (route.name === "rom" && deletedRoms.length > 0) {
       router.push({
         name: ROUTES.PLATFORM,
-        params: { platform: platformId.value },
+        params: { platform: targetPlatformId },
       });
     }
   } catch (error: unknown) {
