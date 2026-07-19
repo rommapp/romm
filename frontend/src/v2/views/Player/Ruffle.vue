@@ -4,11 +4,19 @@
 // `src/views/Player/RuffleRS/Base.vue` so playback stays identical; only the
 // chrome is v2. No shared state with EJS — Flash has its own config.
 import { RBtn, RCard, RIcon, RSwitch } from "@v2/lib";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
+import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import type { RuffleSourceAPI } from "@/types/ruffle";
 import { getDownloadPath } from "@/utils";
@@ -25,6 +33,7 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const { fullscreenOnPlay } = useFullscreenPref();
+const playingStore = storePlaying();
 
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
@@ -106,6 +115,9 @@ const platformLabel = computed(
 
 function onPlay() {
   gameRunning.value = true;
+  // Flash games are keyboard-driven; flag the session so global hotkeys
+  // and pad-to-UI translation stay muted while the game owns input.
+  playingStore.setPlaying(true);
 
   nextTick(() => {
     if (!rom.value) return;
@@ -181,6 +193,11 @@ onMounted(async () => {
     document.body.appendChild(fallback);
   };
   document.body.appendChild(script);
+});
+
+onBeforeUnmount(() => {
+  // Hand the keyboard and gamepad back to the UI on any exit path.
+  playingStore.setPlaying(false);
 });
 </script>
 

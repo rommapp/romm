@@ -473,6 +473,9 @@ onBeforeUnmount(() => {
   // the user never exited the game to the config screen first.
   stopActivityHeartbeat();
   emitActivityStop();
+  // Hand the keyboard and gamepad back to the UI; the flag otherwise
+  // stays true and pad/hotkey navigation is dead until a reload.
+  playing.value = false;
   window.EJS_emulator?.callEvent("exit");
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = null;
