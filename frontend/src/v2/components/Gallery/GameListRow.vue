@@ -2,16 +2,6 @@
 // GameListRow — single row of the list-mode gallery.
 //
 // Owns:
-//   * Per-row lazy fetch: a watch fires `fetchRomAt(position)` whenever
-//     the row is missing its rom but the store knows the id — covering
-//     both mount ("entered the overscan window") and a context refresh
-//     that clears `byPosition` under a still-mounted row. onUnmount aborts
-//     the fetch via `cancelFetchAt(position)` so a fast scroll past
-//     mid-flight doesn't keep server work queued for invisible rows.
-//     Mirror of the per-card grid flow, with the same "row mount =
-//     entered viewport" contract via the shell's RVirtualScroller
-//     overscan window.
-//
 //   * Skeleton ↔ real swap — when `getRomAt(position)` returns null the
 //     row paints skeleton placeholders in every column; once the fetch
 //     resolves it flips to the real cells. Same row height in both
@@ -29,7 +19,7 @@ import {
   RSkeletonBlock,
   RTooltip,
 } from "@v2/lib";
-import { computed, onBeforeUnmount, watch } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import storePlatforms from "@/stores/platforms";
@@ -59,13 +49,13 @@ defineOptions({ inheritAttrs: false });
 const PILLS_VISIBLE = 4;
 
 interface Props {
-  /** Absolute position in the active gallery (0-indexed). Drives the
-   * row's per-row fetch + serves as the lookup key into the store's
-   * `byPosition` map. Pass either this or `rom`, not both. */
+  /** Absolute position in the active gallery (0-indexed). Serves as the
+   * lookup key into the store's `byPosition` map; the shell drives the
+   * windowed fetch that fills it. Pass either this or `rom`, not both. */
   position?: number;
   /** Static ROM data — used by non-gallery surfaces (Settings → Missing
    * games) that already own the rom list. When provided, the row skips
-   * the galleryRoms position lookup and the per-row lazy fetch. */
+   * the galleryRoms position lookup. */
   rom?: SimpleRom | null;
   /** Cover variant — when the browser supports webp the thumb URL is
    * rewritten to .webp before the request. Wired from the shell so the
@@ -263,39 +253,6 @@ function onRowPointerEnd() {
   if (isStatic.value) return;
   selectionInput.handlePointerEnd();
 }
-
-// Kick the per-row fetch whenever this position is missing its rom but
-// the store knows its id. This covers both mount ("entered the overscan
-// window") and a context refresh: a filter / search / sort / scan clears
-// `byPosition` and repopulates `romIdIndex`, but the row can stay mounted
-// at the same position — without this watch it would sit on skeletons
-// until it scrolled out and remounted. The store dedupes against
-// in-flight + already-loaded, so re-runs are cheap. Guarding on the id
-// (not just null rom) also re-fetches when a resort lands a different rom
-// at the same position.
-watch(
-  () => {
-    if (isStatic.value || props.position === undefined) return null;
-    if (galleryRoms.byPosition.has(props.position)) return null;
-    return galleryRoms.romIdIndex[props.position] ?? null;
-  },
-  (romId) => {
-    if (romId != null && props.position !== undefined) {
-      void galleryRoms.fetchRomAt(props.position);
-    }
-  },
-  { immediate: true },
-);
-
-onBeforeUnmount(() => {
-  if (isStatic.value || props.position === undefined) return;
-  // Left the overscan window before the fetch resolved — abort so the
-  // server doesn't keep building a row the user already scrolled past.
-  // Idempotent if nothing was in flight.
-  if (!galleryRoms.byPosition.has(props.position)) {
-    galleryRoms.cancelFetchAt(props.position);
-  }
-});
 </script>
 
 <template>
