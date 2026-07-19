@@ -390,10 +390,15 @@ class DBRomsHandler(DBBaseHandler):
             return []
 
         # Sibling ROMs are the same game (different dump/region); never
-        # surface them as "similar".
+        # surface them as "similar". Match both directions of the pairing
+        # rather than assuming the view stores symmetric rows.
         sibling_ids = set(
             session.scalars(
                 select(SiblingRom.sibling_rom_id).where(SiblingRom.rom_id == rom.id)
+            ).all()
+        ) | set(
+            session.scalars(
+                select(SiblingRom.rom_id).where(SiblingRom.sibling_rom_id == rom.id)
             ).all()
         )
         exclude_ids = {rom.id, *sibling_ids}

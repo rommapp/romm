@@ -101,7 +101,7 @@ class TestGetSimilarRomIds:
             igdb_metadata={"franchises": ["Zelda"]},
         )
         # Same platform + same igdb_id -> sibling (same game, other dump).
-        _add_rom(
+        sibling = _add_rom(
             platform,
             "Zelda Target (Rev 1)",
             igdb_id=2000,
@@ -114,9 +114,10 @@ class TestGetSimilarRomIds:
             igdb_metadata={"franchises": ["Zelda"]},
         )
 
-        result = db_rom_handler.get_similar_rom_ids(target)
-
-        assert result == [real_match.id]
+        # Exclusion must hold in both directions of the sibling pairing:
+        # neither dump should surface the other as "similar".
+        assert db_rom_handler.get_similar_rom_ids(target) == [real_match.id]
+        assert db_rom_handler.get_similar_rom_ids(sibling) == [real_match.id]
 
     def test_returns_empty_without_metadata(self, platform: Platform, admin_user: User):
         target = _add_rom(platform, "No Metadata", igdb_id=3000)
