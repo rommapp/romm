@@ -14,7 +14,7 @@ from hypothesis import strategies as st
 from utils.ssrf import (
     SSRFProtectedAsyncBackend,
     SSRFProtectedSyncBackend,
-    build_internal_origin_allowlist,
+    _parse_origin,
     is_forbidden_ip,
     parse_ip_literal,
     validate_url_for_http_request,
@@ -283,23 +283,14 @@ class TestInternalOriginAllowlist:
     """Admin-configured origins (e.g. self-hosted Playmatch) bypass SSRF checks,
     but only for the exact host:port that was trusted."""
 
-    def test_build_normalizes_origins(self):
-        allow = build_internal_origin_allowlist(
-            [
-                "http://playmatch:8000/api/v2",  # explicit port
-                "https://pm.example.com/api",  # default https port
-                "http://LAN-HOST/",  # default http port, mixed case
-                "",  # empty is skipped
-                "ftp://nope",  # non-http scheme is skipped
-            ]
-        )
-        assert allow == frozenset(
-            {
-                ("playmatch", 8000),
-                ("pm.example.com", 443),
-                ("lan-host", 80),
-            }
-        )
+    def test_parse_origin_normalizes(self):
+        assert _parse_origin("http://playmatch:8000/api/v2") == ("playmatch", 8000)
+        assert _parse_origin("https://pm.example.com/api") == ("pm.example.com", 443)
+        assert _parse_origin("http://LAN-HOST/") == ("lan-host", 80)
+
+    def test_parse_origin_rejects_invalid(self):
+        assert _parse_origin("") is None  # empty is skipped
+        assert _parse_origin("ftp://nope") is None  # non-http scheme is skipped
 
     async def test_async_allowlisted_ip_connects_without_validation(self):
         """A trusted private LAN IP:port connects directly, no rebinding check."""
