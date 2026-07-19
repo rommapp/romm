@@ -1896,7 +1896,6 @@ async def delete_roms(
     assert_can(perms, PermEntity.ROMS, PermAction.DELETE)
 
     successful_items = 0
-    failed_items = 0
     failed_ids = []
     errors = []
 
@@ -1905,7 +1904,6 @@ async def delete_roms(
 
         # Hidden roms are masked as not-found rather than reported deletable.
         if not rom or not perms.can_see_rom(rom.id, rom.platform_id):
-            failed_items += 1
             failed_ids.append(id)
             errors.append(f"ROM with ID {id} not found")
             continue
@@ -1954,7 +1952,6 @@ async def delete_roms(
 
             successful_items += 1
         except Exception as e:
-            failed_items += 1
             failed_ids.append(id)
             errors.append(f"Failed to delete ROM {id}: {str(e)}")
 
@@ -1963,7 +1960,6 @@ async def delete_roms(
 
     return {
         "successful_items": successful_items,
-        "failed_items": failed_items,
         "failed_ids": failed_ids,
         "errors": errors,
     }
