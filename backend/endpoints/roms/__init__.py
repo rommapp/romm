@@ -1120,7 +1120,7 @@ def get_rom_simple(
 @protected_route(
     router.get,
     "/{id}/similar",
-    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
 def get_similar_roms(
