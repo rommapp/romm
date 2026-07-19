@@ -22,6 +22,7 @@ import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import streamingApi from "@/services/api/streaming";
+import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import GameCover from "@/v2/components/shared/GameCover.vue";
@@ -42,6 +43,7 @@ const setBgArt = useBackgroundArt();
 
 const romsStore = storeRoms();
 const galleryRoms = storeGalleryRoms();
+const playingStore = storePlaying();
 
 const rom = ref<DetailedRom | null>(null);
 const playerState = ref<PlayerState>("idle");
@@ -138,6 +140,14 @@ watch(playerState, (state) =>
   setBgArt(state === "playing" ? null : bgCoverUrl.value),
 );
 
+// While a session is launching or playing the emulator owns the controller:
+// this flag mutes useGamepad's pad->UI translation so button presses reach
+// the stream instead of navigating (or closing) the RomM UI.
+const sessionActive = computed(
+  () => playerState.value === "playing" || playerState.value === "loading",
+);
+watch(sessionActive, (active) => playingStore.setPlaying(active));
+
 // Sync volume slider (0-1) and mute button to the broker in real time.
 // Debounced via watch — only fires after the value settles for 150ms.
 let volumeDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -175,6 +185,8 @@ onBeforeUnmount(() => {
   iframeLoadCleanup = null;
   contentWindowCleanup?.();
   contentWindowCleanup = null;
+  // Hand controller input back to the UI regardless of how we leave.
+  playingStore.setPlaying(false);
   if (playerState.value === "exited") {
     // handleSaveAndExit already released the session, nothing to do.
     return;
