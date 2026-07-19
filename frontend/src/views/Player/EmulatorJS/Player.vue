@@ -389,6 +389,45 @@ window.EJS_onSaveState = async function ({
 window.EJS_onGameStart = async () => {
   sessionStartTime.value = new Date();
 
+  // Install netplay overrides synchronously, before any await below, so they
+  // are in place before room polling or a Create/Join action can start.
+  // EmulatorJS' nightly netplay builds its URLs from `netplay.url` (the page
+  // host by default), which does not match how RomM serves netplay: the room
+  // list lives at /api/netplay/list and the socket at /netplay/socket.io. Point
+  // both at the right place so netplay works behind any reverse proxy / domain.
+  const netplay = window.EJS_emulator?.netplay;
+  if (netplay) {
+    // Room-list polling: use RomM's REST endpoint with a root-relative path,
+    // instead of `netplay.url + "/list"` (which resolves relative to the SPA
+    // route and duplicates the domain inside the request path).
+    netplay.getOpenRooms = async () => {
+      try {
+        const response = await fetch(
+          `/api/netplay/list?game_id=${window.EJS_gameID}`,
+        );
+        if (!response.ok) return {};
+        return await response.json();
+      } catch (error) {
+        console.error("Error fetching netplay rooms:", error);
+        return {};
+      }
+    };
+  }
+
+  // EmulatorJS connects with `io(netplay.url)` using Socket.IO's default path.
+  // Wrap the bundled global `io` so netplay uses RomM's mounted socket path.
+  // Only EmulatorJS uses this global; RomM's own app socket imports the client.
+  if (window.io && !window.io.__rommNetplayPatched) {
+    const originalIo = window.io;
+    const patchedIo = ((url: string, opts?: Record<string, unknown>) =>
+      originalIo(url, {
+        ...opts,
+        path: "/netplay/socket.io",
+      })) as NonNullable<Window["io"]>;
+    patchedIo.__rommNetplayPatched = true;
+    window.io = patchedIo;
+  }
+
   void (async () => {
     const ready = await waitForGameManager();
     if (!ready) {
@@ -470,43 +509,6 @@ window.EJS_onGameStart = async () => {
     romsStore.update(romRef.value);
     immediateExit();
   });
-
-  // EmulatorJS' nightly netplay builds its URLs from `netplay.url` (the page
-  // host by default), which does not match how RomM serves netplay: the room
-  // list lives at /api/netplay/list and the socket at /netplay/socket.io. Point
-  // both at the right place so netplay works behind any reverse proxy / domain.
-  const netplay = window.EJS_emulator?.netplay;
-  if (netplay) {
-    // Room-list polling: use RomM's REST endpoint with a root-relative path,
-    // instead of `netplay.url + "/list"` (which resolves relative to the SPA
-    // route and duplicates the domain inside the request path).
-    netplay.getOpenRooms = async () => {
-      try {
-        const response = await fetch(
-          `/api/netplay/list?game_id=${window.EJS_gameID}`,
-        );
-        if (!response.ok) return {};
-        return await response.json();
-      } catch (error) {
-        console.error("Error fetching netplay rooms:", error);
-        return {};
-      }
-    };
-  }
-
-  // EmulatorJS connects with `io(netplay.url)` using Socket.IO's default path.
-  // Wrap the bundled global `io` so netplay uses RomM's mounted socket path.
-  // Only EmulatorJS uses this global; RomM's own app socket imports the client.
-  if (window.io && !window.io.__rommNetplayPatched) {
-    const originalIo = window.io;
-    const patchedIo = ((url: string, opts?: Record<string, unknown>) =>
-      originalIo(url, {
-        ...opts,
-        path: "/netplay/socket.io",
-      })) as NonNullable<Window["io"]>;
-    patchedIo.__rommNetplayPatched = true;
-    window.io = patchedIo;
-  }
 };
 
 function immediateExit() {
