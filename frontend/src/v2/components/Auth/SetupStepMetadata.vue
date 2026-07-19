@@ -38,6 +38,12 @@ interface Source {
   setupKey: string;
   /** Optional locale key for a warning / caveat pill. Shared too. */
   caveatKey?: string;
+  /** True when the provider is enabled by configuring an API key. False
+   *  for flag-only providers (LaunchBox, Flashpoint, HowLongToBeat,
+   *  Hasheous, PlayMatch) toggled by a plain `*_API_ENABLED` flag — for
+   *  those, "API key invalid" is wrong wording; they speak about the
+   *  connection / enabled state instead. Mirrors Settings → Metadata. */
+  requiresKey: boolean;
   disabled: boolean;
 }
 
@@ -52,6 +58,7 @@ const catalogs = computed<Source[]>(() => {
       logoPath: "/assets/scrappers/igdb.png",
       descKey: "setup.provider-igdb-desc",
       setupKey: "setup.provider-igdb-setup",
+      requiresKey: true,
       disabled: !m.IGDB_API_ENABLED,
     },
     {
@@ -60,6 +67,7 @@ const catalogs = computed<Source[]>(() => {
       logoPath: "/assets/scrappers/ss.png",
       descKey: "setup.provider-ss-desc",
       setupKey: "setup.provider-ss-setup",
+      requiresKey: true,
       disabled: !m.SS_API_ENABLED,
     },
     {
@@ -69,6 +77,7 @@ const catalogs = computed<Source[]>(() => {
       descKey: "setup.provider-moby-desc",
       setupKey: "setup.provider-moby-setup",
       caveatKey: "setup.provider-moby-caveat",
+      requiresKey: true,
       disabled: !m.MOBY_API_ENABLED,
     },
     {
@@ -78,6 +87,7 @@ const catalogs = computed<Source[]>(() => {
       descKey: "setup.provider-launchbox-desc",
       setupKey: "setup.provider-launchbox-setup",
       caveatKey: "setup.provider-launchbox-caveat",
+      requiresKey: false,
       disabled: !m.LAUNCHBOX_API_ENABLED,
     },
     {
@@ -86,6 +96,7 @@ const catalogs = computed<Source[]>(() => {
       logoPath: "/assets/scrappers/flashpoint.png",
       descKey: "setup.provider-flashpoint-desc",
       setupKey: "setup.provider-flashpoint-setup",
+      requiresKey: false,
       disabled: !m.FLASHPOINT_API_ENABLED,
     },
   ];
@@ -101,6 +112,7 @@ const specialised = computed<Source[]>(() => {
       descKey: "setup.provider-ra-desc",
       setupKey: "setup.provider-ra-setup",
       caveatKey: "setup.provider-ra-caveat",
+      requiresKey: true,
       disabled: !m.RA_API_ENABLED,
     },
     {
@@ -110,6 +122,7 @@ const specialised = computed<Source[]>(() => {
       descKey: "setup.provider-sgdb-desc",
       setupKey: "setup.provider-sgdb-setup",
       caveatKey: "setup.provider-sgdb-caveat",
+      requiresKey: true,
       disabled: !m.STEAMGRIDDB_API_ENABLED,
     },
     {
@@ -119,6 +132,7 @@ const specialised = computed<Source[]>(() => {
       descKey: "setup.provider-hltb-desc",
       setupKey: "setup.provider-hltb-setup",
       caveatKey: "setup.provider-hltb-caveat",
+      requiresKey: false,
       disabled: !m.HLTB_API_ENABLED,
     },
   ];
@@ -134,6 +148,7 @@ const proxies = computed<Source[]>(() => {
       descKey: "setup.proxy-hasheous-desc",
       setupKey: "setup.proxy-hasheous-setup",
       caveatKey: "setup.proxy-hasheous-caveat",
+      requiresKey: false,
       disabled: !m.HASHEOUS_API_ENABLED,
     },
     {
@@ -143,6 +158,7 @@ const proxies = computed<Source[]>(() => {
       descKey: "setup.proxy-playmatch-desc",
       setupKey: "setup.proxy-playmatch-setup",
       caveatKey: "setup.proxy-playmatch-caveat",
+      requiresKey: false,
       disabled: !m.PLAYMATCH_API_ENABLED,
     },
   ];
@@ -157,9 +173,15 @@ interface StatusInfo {
 
 function statusOf(source: Source): StatusInfo {
   if (source.disabled) {
+    // Flag-only providers have no key to be "missing"; they are simply
+    // disabled server-side until their `*_API_ENABLED` flag is set.
     return {
-      label: t("setup.metadata-status-key-missing"),
-      icon: "mdi-key-alert-outline",
+      label: source.requiresKey
+        ? t("setup.metadata-status-key-missing")
+        : t("setup.metadata-status-disabled"),
+      icon: source.requiresKey
+        ? "mdi-key-alert-outline"
+        : "mdi-power-plug-off-outline",
       tone: "warning",
     };
   }
@@ -172,8 +194,12 @@ function statusOf(source: Source): StatusInfo {
     };
   }
   if (probe === "ko") {
+    // For flag-only providers (e.g. PlayMatch) a failed probe means the
+    // service is unreachable, not that an API key is invalid.
     return {
-      label: t("setup.metadata-status-key-invalid"),
+      label: source.requiresKey
+        ? t("setup.metadata-status-key-invalid")
+        : t("setup.metadata-status-unreachable"),
       icon: "mdi-alert-circle-outline",
       tone: "danger",
     };
