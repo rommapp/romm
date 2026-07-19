@@ -300,10 +300,6 @@ async function onPlay() {
   }
 }
 
-// A save file and a savestate are orthogonal artifacts, so selecting one
-// no longer clears the other — both can be armed at launch. Keeping the
-// save bound is what lets "Save & Quit" update it in place (PUT) instead
-// of spawning a new slot-less file.
 function selectSave(save: SaveSchema) {
   selectedSave.value = save;
   localStorage.setItem(
@@ -376,22 +372,27 @@ onMounted(async () => {
     });
   }
 
-  // Default selection — save and state are independent, so preselect both
-  // when present. The origin save stays bound even when the view opens on
-  // the States tab, so "Save & Quit" writes back to it instead of creating
-  // a new slot-less save. The visible tab still defaults to States when a
-  // compatible state exists (quick-resume), else Saves.
+  // Default selection — save and state are independent, so both can be
+  // armed at once. The bound save is the write-back target for "Save &
+  // Quit" (PUT in place), so we only auto-bind it when the choice is
+  // unambiguous: never silently pick a slot when a state is armed and
+  // there are multiple saves, since loading the state injects a different
+  // SRAM timeline that would overwrite an arbitrary save the user never
+  // picked. In that case the user must select the save slot explicitly.
   const initiallyCompatibleStates = rom.value.user_states.filter(
     (s) => !s.emulator || s.emulator === supportedCores.value[0],
   );
+  const hasCompatibleState = initiallyCompatibleStates.length > 0;
 
-  if (rom.value.user_saves.length > 0) {
-    selectedSave.value = rom.value.user_saves[0];
-  }
-  if (initiallyCompatibleStates.length > 0) {
+  if (hasCompatibleState) {
     selectedState.value = initiallyCompatibleStates[0];
   }
-  isSavesTabSelected.value = initiallyCompatibleStates.length === 0;
+  const safeToBindSave =
+    rom.value.user_saves.length === 1 || !hasCompatibleState;
+  if (rom.value.user_saves.length > 0 && safeToBindSave) {
+    selectedSave.value = rom.value.user_saves[0];
+  }
+  isSavesTabSelected.value = !hasCompatibleState;
 
   const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
   if (storedDisc) {
