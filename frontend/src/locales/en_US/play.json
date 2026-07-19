@@ -27,5 +27,6 @@
   "select-background-color": "Select background color",
   "select-save": "Select save",
   "select-state": "Select state",
+  "slot": "Slot",
   "start-fresh-hint": "Pick one below to resume, or hit Play to start fresh."
 }

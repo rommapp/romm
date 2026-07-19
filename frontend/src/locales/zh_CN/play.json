@@ -27,5 +27,6 @@
   "select-background-color": "选择背景颜色",
   "select-save": "选择存档",
   "select-state": "选择状态",
+  "slot": "存档位",
   "start-fresh-hint": "选择下方任一项继续，或点击开始从头开始。"
 }

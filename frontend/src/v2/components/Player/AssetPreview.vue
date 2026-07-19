@@ -133,6 +133,14 @@ const emptyText = computed(() =>
         </RTooltip>
       </p>
       <div class="r-asset-preview__chips">
+        <RTag
+          v-if="'slot' in asset && asset.slot"
+          tone="brand"
+          size="x-small"
+          prepend-icon="mdi-bookmark-outline"
+          :label="t('play.slot')"
+          :text="asset.slot"
+        />
         <span class="r-asset-preview__chip">
           <RIcon icon="mdi-clock-outline" size="12" />
           {{ formatRelativeDate(asset.updated_at) }}
