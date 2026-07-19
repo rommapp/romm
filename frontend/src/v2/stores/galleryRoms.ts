@@ -569,16 +569,13 @@ export default defineStore("v2GalleryRoms", {
           retryTimers.set(offset, timer);
         }
       } finally {
-        // Only clear our own bookkeeping — a replacement fetch may already
-        // own the key (see the identity checks above), and deleting it would
-        // strand that request's window as a skeleton.
         if (inFlightControllers.get(ctrlKey) === controller) {
           inFlightControllers.delete(ctrlKey);
           this.pendingWindows.delete(offset);
           if (offset === 0) this.initialFetching = false;
+          // A slot freed up — start the next queued window, if any.
+          this._drainWindowQueue();
         }
-        // A slot freed up — start the next queued window, if any.
-        this._drainWindowQueue();
       }
     },
 
