@@ -29,6 +29,7 @@ class ConfigResponse(TypedDict):
     EJS_CONTROLS: dict[str, EjsControls]
     SCAN_METADATA_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY: list[str]
+    SCAN_ARTWORK_PRIORITY_OVERRIDES: dict[str, list[str]]
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]

@@ -39,6 +39,11 @@ scan:
     artwork:
       - "igdb" # IGDB
       - "ss" # Screenscraper
+    cover:
+      - "ss"
+      - "tgdb"
+    screenshot:
+      - "igdb"
     region:
       - jp
       - eu

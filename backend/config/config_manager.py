@@ -88,6 +88,15 @@ class MetadataMediaType(enum.StrEnum):
     MANUAL = "manual"
 
 
+# User-facing scan.priority.* keys that each override SCAN_ARTWORK_PRIORITY for a
+# single artwork field. Maps the config key to the Rom field it controls.
+ARTWORK_PRIORITY_KEYS = {
+    "cover": "url_cover",
+    "screenshot": "url_screenshots",
+    "manual": "url_manual",
+}
+
+
 class EjsControls(TypedDict):
     _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
     _1: dict[int, EjsControlsButton]
@@ -138,6 +147,9 @@ class Config:
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
     SCAN_METADATA_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY: list[str]
+    # Per-field overrides for SCAN_ARTWORK_PRIORITY, keyed by Rom field name
+    # (e.g. "url_cover"). Absent fields fall back to SCAN_ARTWORK_PRIORITY.
+    SCAN_ARTWORK_PRIORITY_OVERRIDES: dict[str, list[str]]
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
@@ -430,6 +442,12 @@ class ConfigManager:
                     "hltb",
                 ],
             ),
+            SCAN_ARTWORK_PRIORITY_OVERRIDES={
+                field: override
+                for key, field in ARTWORK_PRIORITY_KEYS.items()
+                if (override := pydash.get(self._raw_config, f"scan.priority.{key}"))
+                is not None
+            },
             SCAN_REGION_PRIORITY=pydash.get(
                 self._raw_config,
                 "scan.priority.region",
@@ -671,6 +689,13 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.priority.artwork must be a list")
             sys.exit(3)
 
+        for key, field in ARTWORK_PRIORITY_KEYS.items():
+            if field in self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES and not isinstance(
+                self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES[field], list
+            ):
+                log.critical(f"Invalid config.yml: scan.priority.{key} must be a list")
+                sys.exit(3)
+
         if not isinstance(self.config.SCAN_REGION_PRIORITY, list):
             log.critical("Invalid config.yml: scan.priority.region must be a list")
             sys.exit(3)
@@ -808,6 +833,11 @@ class ConfigManager:
                 "priority": {
                     "metadata": self.config.SCAN_METADATA_PRIORITY,
                     "artwork": self.config.SCAN_ARTWORK_PRIORITY,
+                    **{
+                        key: self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES[field]
+                        for key, field in ARTWORK_PRIORITY_KEYS.items()
+                        if field in self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES
+                    },
                     "region": self.config.SCAN_REGION_PRIORITY,
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
