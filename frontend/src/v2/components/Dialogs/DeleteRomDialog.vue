@@ -80,6 +80,11 @@ async function deleteRoms() {
       roms: roms.value,
       deleteFromFs: romsToDeleteFromFs.value,
     });
+    // The backend deletes per-ROM and can partially fail; only prune the
+    // ROMs it actually removed so a failed subset stays visible and
+    // selected for the user to retry.
+    const failedIds = new Set(response.data.failed_ids);
+    const deletedRoms = roms.value.filter((rom) => !failedIds.has(rom.id));
     snackbar.success(
       fsCount.value > 0
         ? t("rom.deleted-from-filesystem", {
@@ -91,7 +96,7 @@ async function deleteRoms() {
       { icon: "mdi-check-bold" },
     );
     if (excludeOnDelete.value) {
-      for (const rom of roms.value) {
+      for (const rom of deletedRoms) {
         const type = rom.has_simple_single_file
           ? "EXCLUDED_SINGLE_FILES"
           : "EXCLUDED_MULTI_FILES";
@@ -106,23 +111,24 @@ async function deleteRoms() {
     // Drop the deleted ROMs from the v2 gallery selection too — otherwise
     // the SelectionBar stays open pointing at rows that no longer exist,
     // and re-running an action 404s. removeIds only touches the deleted
-    // subset, so a partial delete keeps the rest of the selection intact.
-    gallerySelectionStore.removeIds(roms.value.map((rom) => rom.id));
-    romsStore.remove(roms.value);
-    galleryRomsStore.remove(roms.value);
+    // subset, so a partial (or failed) delete keeps the rest selected.
+    gallerySelectionStore.removeIds(deletedRoms.map((rom) => rom.id));
+    romsStore.remove(deletedRoms);
+    galleryRomsStore.remove(deletedRoms);
     romsStore.setRecentRoms(
       romsStore.recentRoms.filter(
-        (r) => !roms.value.some((rom) => rom.id === r.id),
+        (r) => !deletedRoms.some((rom) => rom.id === r.id),
       ),
     );
     romsStore.setContinuePlayingRoms(
       romsStore.continuePlayingRoms.filter(
-        (r) => !roms.value.some((rom) => rom.id === r.id),
+        (r) => !deletedRoms.some((rom) => rom.id === r.id),
       ),
     );
     emitter?.emit("refreshDrawer", null);
     closeDialog();
-    if (route.name === "rom") {
+    // Only leave the single-ROM route when that ROM was actually deleted.
+    if (route.name === "rom" && deletedRoms.length > 0) {
       router.push({
         name: ROUTES.PLATFORM,
         params: { platform: platformId.value },

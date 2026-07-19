@@ -5,6 +5,7 @@
 export type BulkOperationResponse = {
     successful_items: number;
     failed_items: number;
+    failed_ids: Array<number>;
     errors: Array<string>;
 };
 

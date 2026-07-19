@@ -570,6 +570,24 @@ def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
     assert body["successful_items"] == 1
 
 
+def test_delete_roms_reports_failed_ids(
+    client: TestClient, access_token: str, rom: Rom
+):
+    missing_id = rom.id + 999999
+    response = client.post(
+        "/api/roms/delete",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [rom.id, missing_id], "delete_from_fs": []},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["successful_items"] == 1
+    assert body["failed_items"] == 1
+    # The failed id stays reported so the client can keep it selected for retry.
+    assert body["failed_ids"] == [missing_id]
+
+
 @patch(
     "endpoints.roms.fs_rom_handler.remove_directory",
     new_callable=AsyncMock,
