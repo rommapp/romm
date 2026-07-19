@@ -50,6 +50,12 @@ def include_object(object, name, type_, reflected, compare_to):
     ):
         return False
 
+    # generated_* are STORED generated columns backing views.
+    # They are maintained in raw SQL (dialect-specific expressions) rather
+    # than the ORM model, so hide them from autogenerate to avoid false drops.
+    if type_ == "column" and name.startswith("generated_"):
+        return False
+
     return True
 
 
