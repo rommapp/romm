@@ -19,6 +19,7 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
+import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
 import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
@@ -53,7 +54,19 @@ export function useGameActions(
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
-  const { canPlay, canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
+  const { canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
+  const streamingStore = useStreamingStore();
+
+  // Streaming is the preferred way to play where a container is
+  // configured for the platform — the native emulator runs in a
+  // separate container and RomM streams it back. Wins over in-browser
+  // EJS/Ruffle when both are available.
+  const canPlayStream = computed(() =>
+    Boolean(streamingStore.containerForPlatform(getRom()?.platform_slug)),
+  );
+  const canPlay = computed(
+    () => canPlayStream.value || canPlayEJS.value || canPlayRuffle.value,
+  );
 
   const isFavorited = computed(() => {
     const rom = getRom();
@@ -182,7 +195,8 @@ export function useGameActions(
     // player view itself — see EmulatorJS's onPlay — so navigation is
     // immediate here.
     let path: string | null = null;
-    if (canPlayEJS.value) path = `/rom/${rom.id}/ejs`;
+    if (canPlayStream.value) path = `/rom/${rom.id}/stream`;
+    else if (canPlayEJS.value) path = `/rom/${rom.id}/ejs`;
     else if (canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
     if (!path) return;
     const target = path;
@@ -352,6 +366,7 @@ export function useGameActions(
     canManageCollections,
     canShareQR,
     canPlay,
+    canPlayStream,
     canRemoveFromContinuePlaying,
     currentStatusKey,
     setStatus,
