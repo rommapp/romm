@@ -284,14 +284,14 @@ async def delete_firmware(
     assert_can(perms, PermEntity.FIRMWARE, PermAction.DELETE)
 
     successful_items = 0
-    failed_items = 0
+    failed_ids = []
     errors = []
 
     for id in firmware:
         fw = db_firmware_handler.get_firmware(id)
         # Treat firmware on a hidden platform as non-existent for this caller.
         if not fw or not perms.can_see_platform(fw.platform_id):
-            failed_items += 1
+            failed_ids.append(id)
             errors.append(f"Firmware with ID {id} not found")
             continue
 
@@ -308,16 +308,16 @@ async def delete_firmware(
                     error = f"Firmware file {hl(fw.file_name)} not found for platform {hl(fw.platform.slug)}"
                     log.error(error)
                     errors.append(error)
-                    failed_items += 1
+                    failed_ids.append(id)
                     continue
 
             successful_items += 1
         except Exception as e:
-            failed_items += 1
+            failed_ids.append(id)
             errors.append(f"Failed to delete firmware {id}: {str(e)}")
 
     return {
         "successful_items": successful_items,
-        "failed_items": failed_items,
+        "failed_ids": failed_ids,
         "errors": errors,
     }
