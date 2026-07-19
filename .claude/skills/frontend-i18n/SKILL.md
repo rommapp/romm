@@ -10,13 +10,13 @@ User-visible strings are **never hard-coded** in components — they come from l
 ## Structure
 
 - Locales live in `frontend/src/locales/<locale>/<namespace>.json`, loaded by dynamic glob import in `src/locales/index.ts`.
-- **18 locales**: `en_US` (default + fallback), `en_GB`, `bg_BG`, `cs_CZ`, `de_DE`, `es_ES`, `fr_FR`, `hu_HU`, `it_IT`, `ja_JP`, `ko_KR`, `pl_PL`, `pt_BR`, `ro_RO`, `ru_RU`, `zh_CN`, `zh_TW`.
+- **18 locales**: `en_US` (default + fallback), `en_GB`, `bg_BG`, `cs_CZ`, `de_DE`, `es_ES`, `fr_FR`, `hu_HU`, `it_IT`, `ja_JP`, `ko_KR`, `pl_PL`, `pt_BR`, `ro_RO`, `ru_RU`, `tr_TR`, `zh_CN`, `zh_TW`.
 - Namespaces are per-feature files (e.g. `collection`, `common`, `console`, `detail`, `emulator`, `gallery`, `home`, `library`, `login`, `navigation`, `patcher`, `platform`, `scan`, `settings`, `task`).
 
 ## The rule (enforced in CI)
 
 - **`en_US` is the source of truth**, but **every key added to `en_US` must be added to all other locale directories in the same change.** Never leave a key English-only.
-- Translate where you can; otherwise copy the English value as a placeholder so the key exists.
+- **Actually translate the value into each locale's language** — do not copy the English text into non-English locales. This applies to editing an existing string too: changing `en_US` means re-translating that key in every other locale, not pasting the new English into all of them. Reuse each locale's established terms for recurring words (grep a sibling key for how it renders "metadata", "provider", etc.). Copying the English value is a last-resort placeholder only when a translation is genuinely unavailable, and it must be flagged to revisit.
 - Removing or renaming a key means doing it across **every** locale.
 
 ## Verify before handoff
