@@ -6,6 +6,7 @@
 // orchestrator — data + tab state live here, every visual piece is a
 // sub-component under components/GameDetails/.
 import { RTabNav, type RTabNavItem } from "@v2/lib";
+import axios from "axios";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -13,7 +14,7 @@ import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { toBrowserLocale } from "@/utils";
 import AchievementsTab from "@/v2/components/GameDetails/AchievementsTab.vue";
 import CoverColumn from "@/v2/components/GameDetails/CoverColumn.vue";
@@ -198,13 +199,32 @@ const earnedAchievementIds = computed<ReadonlySet<string>>(() => {
 const achievementsEarned = computed(() => earnedAchievementIds.value.size);
 
 const igdb = computed(() => currentRom.value?.igdb_metadata ?? null);
-// IGDB ships up to ~10 similar games per title; rendering all of them
-// would dominate the overview and push HLTB/Achievements below the
-// fold. Cap to keep the section to ~2 rows of cards at typical widths.
-const SIMILAR_GAMES_MAX = 6;
-const similarGames = computed<IGDBRelatedGame[]>(() =>
-  (igdb.value?.similar_games ?? []).slice(0, SIMILAR_GAMES_MAX),
+// "Similar games" is computed from the local library (shared metadata),
+// not IGDB's similar_games list — so every entry is a ROM the user owns
+// and can open directly. Fetched per-ROM and refreshed on navigation.
+const similarGames = ref<SimpleRom[]>([]);
+let similarAbort: AbortController | null = null;
+watch(
+  () => currentRom.value?.id,
+  async (romId) => {
+    similarAbort?.abort();
+    similarGames.value = [];
+    if (!romId) return;
+    similarAbort = new AbortController();
+    try {
+      const { data } = await romApi.getSimilarRoms({
+        romId,
+        signal: similarAbort.signal,
+      });
+      // Guard against a stale response landing after a fast navigation.
+      if (currentRom.value?.id === romId) similarGames.value = data;
+    } catch (error) {
+      if (!axios.isCancel(error)) console.error(error);
+    }
+  },
+  { immediate: true },
 );
+
 const remakes = computed<IGDBRelatedGame[]>(() => igdb.value?.remakes ?? []);
 const remasters = computed<IGDBRelatedGame[]>(
   () => igdb.value?.remasters ?? [],

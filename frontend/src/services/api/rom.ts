@@ -420,6 +420,23 @@ async function getRomByMetadataProvider({
   });
 }
 
+async function getSimilarRoms({
+  romId,
+  limit,
+  signal,
+}: {
+  romId: number;
+  limit?: number;
+  signal?: AbortSignal;
+}) {
+  // Library ROMs ranked by shared metadata (franchises, collections, genres,
+  // companies, age ratings). Only returns games already in the library.
+  return api.get<SimpleRom[]>(`/roms/${romId}/similar`, {
+    params: limit != null ? { limit } : undefined,
+    signal,
+  });
+}
+
 async function searchRom({
   romId,
   searchTerm,
@@ -918,6 +935,7 @@ export default {
   getRom,
   getRomSimple,
   getRomByMetadataProvider,
+  getSimilarRoms,
   downloadRom,
   bulkDownloadRoms,
   searchRom,

@@ -66,6 +66,27 @@ from utils.database import (
 
 from .base_handler import DBBaseHandler
 
+# Default and hard cap for the "similar games in your library" list.
+SIMILAR_ROMS_LIMIT = 6
+MAX_SIMILAR_ROMS_LIMIT = 24
+# Per-signal weights for the metadata-overlap similarity score. Series
+# membership (franchise/collection) dominates, then genre, then the studio,
+# with age rating as a light tiebreaker.
+SIMILARITY_WEIGHTS = {
+    "franchises": 5.0,
+    "collections": 4.0,
+    "genres": 3.0,
+    "companies": 2.0,
+    "age_ratings": 1.0,
+}
+# Multiplier applied to a candidate's score when it shares the target's
+# platform, so same-console matches float to the top without eclipsing a
+# strong cross-platform series match.
+SAME_PLATFORM_BOOST = 1.25
+# Upper bound on weak-signal (genre/company/age) candidates pulled for scoring;
+# strong-signal (franchise/collection) candidates are always scored in full.
+MAX_SIMILAR_CANDIDATES = 400
+
 EJS_SUPPORTED_PLATFORMS = [
     UPS._3DO,
     UPS.AMIGA,
@@ -337,6 +358,125 @@ class DBRomsHandler(DBBaseHandler):
         if not ids:
             return []
         return session.scalars(query.filter(Rom.id.in_(ids))).all()
+
+    @begin_session
+    def get_similar_rom_ids(
+        self,
+        rom: Rom,
+        *,
+        limit: int = SIMILAR_ROMS_LIMIT,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
+        session: Session = None,  # type: ignore
+    ) -> list[int]:
+        """Rank other library ROMs by shared normalized metadata.
+
+        Similarity is a weighted overlap of the target ROM's `RomMetadata`
+        signals (franchises, collections, genres, companies, age ratings)
+        against every other identified ROM, with a multiplicative boost for
+        same-platform matches. Returns rom ids ordered by descending score,
+        capped at `limit`. Purely metadata-driven, so unidentified ROMs (no
+        `RomMetadata` row, or empty signals) yield an empty list.
+        """
+        target = session.get(RomMetadata, rom.id)
+        if target is None:
+            return []
+
+        signals = {
+            field: [v for v in (getattr(target, field) or []) if v]
+            for field in SIMILARITY_WEIGHTS
+        }
+        if not any(signals.values()):
+            return []
+
+        # Sibling ROMs are the same game (different dump/region); never
+        # surface them as "similar".
+        sibling_ids = set(
+            session.scalars(
+                select(SiblingRom.sibling_rom_id).where(SiblingRom.rom_id == rom.id)
+            ).all()
+        )
+        exclude_ids = {rom.id, *sibling_ids}
+        if hidden_rom_ids:
+            exclude_ids.update(hidden_rom_ids)
+
+        columns = (
+            RomMetadata.rom_id,
+            RomMetadata.franchises,
+            RomMetadata.collections,
+            RomMetadata.genres,
+            RomMetadata.companies,
+            RomMetadata.age_ratings,
+            RomMetadata.average_rating,
+            Rom.platform_id,
+        )
+
+        def _candidate_query(where):
+            query = (
+                select(*columns)
+                .join(Rom, Rom.id == RomMetadata.rom_id)
+                .where(where)
+                .where(RomMetadata.rom_id.not_in(exclude_ids))
+                .where(Rom.missing_from_fs.is_(False))
+            )
+            if hidden_platform_ids:
+                query = query.where(Rom.platform_id.not_in(hidden_platform_ids))
+            return query
+
+        # Strong signals (franchise / collection) are selective, so every
+        # match is scored. Weak signals (genre / company / age rating) can
+        # match a large slice of the library, so they are capped and ordered
+        # by rating to keep the candidate set bounded.
+        strong_conditions = [
+            json_array_contains_any(
+                getattr(RomMetadata, field), values, session=session
+            )
+            for field in ("franchises", "collections")
+            if (values := signals[field])
+        ]
+        weak_conditions = [
+            json_array_contains_any(
+                getattr(RomMetadata, field), values, session=session
+            )
+            for field in ("genres", "companies", "age_ratings")
+            if (values := signals[field])
+        ]
+
+        rows: dict[int, Any] = {}
+        if strong_conditions:
+            for row in session.execute(_candidate_query(or_(*strong_conditions))).all():
+                rows[row.rom_id] = row
+        if weak_conditions:
+            weak_query = (
+                _candidate_query(or_(*weak_conditions))
+                .order_by(
+                    # Portable NULLs-last: rating-less ROMs sort after rated ones.
+                    RomMetadata.average_rating.is_(None),
+                    RomMetadata.average_rating.desc(),
+                )
+                .limit(MAX_SIMILAR_CANDIDATES)
+            )
+            for row in session.execute(weak_query).all():
+                rows.setdefault(row.rom_id, row)
+
+        target_sets = {field: set(values) for field, values in signals.items()}
+
+        def _score(row) -> float:
+            score = 0.0
+            for field, weight in SIMILARITY_WEIGHTS.items():
+                shared = target_sets[field] & set(getattr(row, field) or [])
+                score += weight * len(shared)
+            if score and row.platform_id == rom.platform_id:
+                score *= SAME_PLATFORM_BOOST
+            return score
+
+        scored = [
+            (score, row.average_rating or 0.0, row.rom_id)
+            for row in rows.values()
+            if (score := _score(row)) > 0
+        ]
+        scored.sort(key=lambda t: (t[0], t[1], t[2]), reverse=True)
+        return [rom_id for _, _, rom_id in scored[:limit]]
 
     def get_files_for_roms(
         self,

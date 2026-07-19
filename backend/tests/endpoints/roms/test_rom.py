@@ -70,6 +70,46 @@ def test_get_rom_simple_missing_returns_404(client: TestClient, access_token: st
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
+def test_get_similar_roms(
+    client: TestClient, access_token: str, platform: Platform, admin_user: User
+):
+    def _add(name: str, igdb_id: int, metadata: dict) -> Rom:
+        return db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name=name,
+                slug=name.lower().replace(" ", "-"),
+                fs_name=f"{name}.zip",
+                fs_path=f"{platform.slug}/roms",
+                igdb_id=igdb_id,
+                igdb_metadata=metadata,
+            )
+        )
+
+    target = _add("Similar Target", 611111, {"franchises": ["Metroid"]})
+    match = _add("Similar Match", 611112, {"franchises": ["Metroid"]})
+    _add("Similar Unrelated", 611113, {"genres": ["Racing"]})
+
+    response = client.get(
+        f"/api/roms/{target.id}/similar",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    ids = [r["id"] for r in body]
+    assert match.id in ids
+    assert target.id not in ids
+
+
+def test_get_similar_roms_missing_returns_404(client: TestClient, access_token: str):
+    response = client.get(
+        "/api/roms/999999/similar",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_download_multi_file_rom_content(
     client: TestClient, access_token: str, multi_file_rom: Rom
 ):
