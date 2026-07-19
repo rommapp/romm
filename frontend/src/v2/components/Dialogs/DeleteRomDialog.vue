@@ -15,6 +15,7 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
 
 defineOptions({ inheritAttrs: false });
 
@@ -24,6 +25,7 @@ const route = useRoute();
 const show = ref(false);
 const romsStore = storeRoms();
 const galleryRomsStore = storeGalleryRoms();
+const gallerySelectionStore = storeGallerySelection();
 const roms = ref<SimpleRom[]>([]);
 const romsToDeleteFromFs = ref<number[]>([]);
 const excludeOnDelete = ref(false);
@@ -101,6 +103,11 @@ async function deleteRoms() {
       }
     }
     romsStore.resetSelection();
+    // Drop the deleted ROMs from the v2 gallery selection too — otherwise
+    // the SelectionBar stays open pointing at rows that no longer exist,
+    // and re-running an action 404s. removeIds only touches the deleted
+    // subset, so a partial delete keeps the rest of the selection intact.
+    gallerySelectionStore.removeIds(roms.value.map((rom) => rom.id));
     romsStore.remove(roms.value);
     galleryRomsStore.remove(roms.value);
     romsStore.setRecentRoms(
