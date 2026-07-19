@@ -81,6 +81,12 @@ server {
         alias "${ROMM_BASE_PATH}/library/";
     }
 
+    # Internally redirect cached zip file requests (Range-resumable downloads)
+    location /cache/ {
+        internal;
+        alias "${ROMM_BASE_PATH}/cache/";
+    }
+
     # Internal decoding endpoint, used to decode base64 encoded data
     location /decode {
         internal;
