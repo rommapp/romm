@@ -88,6 +88,36 @@ class MetadataMediaType(enum.StrEnum):
     MANUAL = "manual"
 
 
+# User-facing scan.priority.* keys that each override SCAN_ARTWORK_PRIORITY for a
+# single artwork field. Maps the config key to the Rom field it controls.
+ARTWORK_PRIORITY_KEYS = {
+    "cover": "url_cover",
+    "screenshot": "url_screenshots",
+    "manual": "url_manual",
+}
+
+# Valid provider slugs for scan.priority.* lists. Mirrors
+# handler.scan_handler.MetadataSource, which can't be imported here without a
+# circular import; test_config_loader guards against drift.
+VALID_SCAN_PRIORITY_SOURCES = frozenset(
+    {
+        "igdb",
+        "moby",
+        "ss",
+        "ra",
+        "launchbox",
+        "hasheous",
+        "tgdb",
+        "sgdb",
+        "flashpoint",
+        "hltb",
+        "gamelist",
+        "libretro",
+        "playmatch",
+    }
+)
+
+
 class EjsControls(TypedDict):
     _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
     _1: dict[int, EjsControlsButton]
@@ -138,6 +168,7 @@ class Config:
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
     SCAN_METADATA_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY: list[str]
+    SCAN_ARTWORK_PRIORITY_OVERRIDES: dict[str, list[str]]
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
@@ -430,6 +461,12 @@ class ConfigManager:
                     "hltb",
                 ],
             ),
+            SCAN_ARTWORK_PRIORITY_OVERRIDES={
+                field: override
+                for key, field in ARTWORK_PRIORITY_KEYS.items()
+                if (override := pydash.get(self._raw_config, f"scan.priority.{key}"))
+                is not None
+            },
             SCAN_REGION_PRIORITY=pydash.get(
                 self._raw_config,
                 "scan.priority.region",
@@ -671,6 +708,23 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.priority.artwork must be a list")
             sys.exit(3)
 
+        for key, field in ARTWORK_PRIORITY_KEYS.items():
+            override = self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES.get(field)
+            if override is None:
+                continue
+
+            if not isinstance(override, list):
+                log.critical(f"Invalid config.yml: scan.priority.{key} must be a list")
+                sys.exit(3)
+
+            # Unknown sources are dropped downstream
+            unknown = [s for s in override if s not in VALID_SCAN_PRIORITY_SOURCES]
+            if unknown:
+                log.warning(
+                    f"Ignoring unknown values in scan.priority.{key}: {unknown}. "
+                    "Check for typos, or update if these are newer sources."
+                )
+
         if not isinstance(self.config.SCAN_REGION_PRIORITY, list):
             log.critical("Invalid config.yml: scan.priority.region must be a list")
             sys.exit(3)
@@ -808,6 +862,11 @@ class ConfigManager:
                 "priority": {
                     "metadata": self.config.SCAN_METADATA_PRIORITY,
                     "artwork": self.config.SCAN_ARTWORK_PRIORITY,
+                    **{
+                        key: self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES[field]
+                        for key, field in ARTWORK_PRIORITY_KEYS.items()
+                        if field in self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES
+                    },
                     "region": self.config.SCAN_REGION_PRIORITY,
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },

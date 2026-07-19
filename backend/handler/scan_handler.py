@@ -108,7 +108,8 @@ def get_priority_ordered_metadata_sources(
 
     Args:
         metadata_sources: List of available metadata sources
-        priority_type: Type of priority to use ("metadata" or "artwork")
+        priority_type: Priority list to use: "metadata", "artwork", or an artwork
+            field name (e.g. "url_cover") that can carry a per-field override.
 
     Returns:
         List of metadata sources ordered by priority
@@ -118,7 +119,11 @@ def get_priority_ordered_metadata_sources(
     if priority_type == "metadata":
         priority_order = cnfg.SCAN_METADATA_PRIORITY
     else:
-        priority_order = cnfg.SCAN_ARTWORK_PRIORITY
+        # Per-field artwork overrides win, otherwise fall back to the shared
+        # artwork priority list.
+        priority_order = cnfg.SCAN_ARTWORK_PRIORITY_OVERRIDES.get(
+            priority_type, cnfg.SCAN_ARTWORK_PRIORITY
+        )
 
     # Filter priority order to only include sources that are available
     ordered_sources = [
@@ -978,16 +983,16 @@ async def scan_rom(
             if field_value:
                 rom_attrs[key] = field_value
 
-    # Artwork sources are prioritized separately
-    priority_ordered_artwork = get_priority_ordered_metadata_sources(
-        available_sources, "artwork"
-    )
-    # Reverse priority order to apply highest priority last
-    for source_name in reversed(priority_ordered_artwork):
-        handler_data = metadata_handlers[source_name]["handler"]
-        for field in ["url_cover", "url_screenshots", "url_manual"]:
+    # Artwork sources are prioritized separately, and each field can carry its
+    # own override on top of the shared artwork priority.
+    for field in ["url_cover", "url_screenshots", "url_manual"]:
+        priority_ordered_artwork = get_priority_ordered_metadata_sources(
+            available_sources, field
+        )
+        # Reverse priority order to apply highest priority last
+        for source_name in reversed(priority_ordered_artwork):
             # Only update fields that have valid values
-            field_value = handler_data.get(field)
+            field_value = metadata_handlers[source_name]["handler"].get(field)
             if field_value:
                 rom_attrs[field] = field_value
 
@@ -1094,7 +1099,7 @@ async def scan_rom(
         rom_attrs["sgdb_id"] = sgdb_hander_rom["sgdb_id"]
 
         # Apply SGDB's cover only when it outranks every other source that
-        # already produced one under SCAN_ARTWORK_PRIORITY, and never over a
+        # already produced one under the cover priority, and never over a
         # manually uploaded cover preserved by the UNMATCHED/UPDATE block above.
         sgdb_cover = sgdb_hander_rom.get("url_cover")
         manual_cover_preserved = (
@@ -1109,7 +1114,7 @@ async def scan_rom(
                 if fields["handler"].get("url_cover")
             ]
             ranked = get_priority_ordered_metadata_sources(
-                cover_sources + [MetadataSource.SGDB], "artwork"
+                cover_sources + [MetadataSource.SGDB], "url_cover"
             )
             if ranked[0] == MetadataSource.SGDB:
                 rom_attrs["url_cover"] = sgdb_cover

@@ -102,6 +102,15 @@
 #       - hasheous # Hasheous
 #       - flashpoint # Flashpoint Project
 #       - hltb # HowLongToBeat
+#     # Optional per-field overrides, each falls back to "artwork" when omitted
+#     cover: # Cover art only
+#       - igdb
+#       - ss
+#     screenshot: # Screenshots only
+#       - ss
+#       - igdb
+#     manual: # Game manuals only
+#       - launchbox
 #     region: # Used by IGDB and ScreenScraper for regional variants
 #       - us
 #       - wor
