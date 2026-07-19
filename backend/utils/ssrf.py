@@ -31,6 +31,7 @@ import typing
 from urllib.parse import urlparse
 
 import httpcore
+import pydash
 from httpcore._backends.auto import AutoBackend
 from httpcore._backends.base import (
     SOCKET_OPTION,
@@ -41,7 +42,7 @@ from httpcore._backends.base import (
 )
 from httpcore._backends.sync import SyncBackend
 
-from config import SSRF_ALLOWED_INTERNAL_ORIGINS
+from config import PLAYMATCH_API_URL
 from logger.logger import log
 from utils.validation import ValidationError
 
@@ -102,29 +103,22 @@ def _parse_origin(origin: str) -> tuple[str, int] | None:
     parts = urlparse(origin)
     if parts.scheme not in ("http", "https") or not parts.hostname:
         return None
+
     try:
         port = parts.port
     except ValueError:
         return None
+
     if port is None:
         port = 443 if parts.scheme == "https" else 80
+
     return parts.hostname.lower(), port
 
 
-def build_internal_origin_allowlist(
-    origins: typing.Iterable[str],
-) -> frozenset[tuple[str, int]]:
-    """Normalize admin-configured trusted origins into (host, port) pairs."""
-    return frozenset(
-        parsed for parsed in (_parse_origin(o) for o in origins if o) if parsed
-    )
-
-
-# Origins the admin explicitly configured (e.g. a self-hosted Playmatch on a
-# LAN or Docker network) are trusted to reach private addresses. Matched by
-# exact host and port so the exception stays as narrow as possible.
-INTERNAL_ORIGIN_ALLOWLIST: frozenset[tuple[str, int]] = build_internal_origin_allowlist(
-    SSRF_ALLOWED_INTERNAL_ORIGINS
+# Origins the admin explicitly configured are trusted to reach private addresses.
+# Matched by exact host and port so the exception stays as narrow as possible.
+INTERNAL_ORIGIN_ALLOWLIST: frozenset[tuple[str, int]] = frozenset(
+    pydash.compact([_parse_origin(PLAYMATCH_API_URL)])
 )
 
 

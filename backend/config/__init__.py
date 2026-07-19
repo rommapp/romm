@@ -113,11 +113,6 @@ PLAYMATCH_API_URL: Final[str] = _get_env(
     "PLAYMATCH_API_URL", "https://playmatch.retrorealm.dev/api/v2"
 ).rstrip("/")
 
-# Origins allowed to resolve to private/internal addresses despite SSRF
-# protection, so admin-configured self-hosted providers on a LAN or Docker
-# network stay reachable. Only user-configured provider URLs belong here.
-SSRF_ALLOWED_INTERNAL_ORIGINS: Final[tuple[str, ...]] = (PLAYMATCH_API_URL,)
-
 # HASHEOUS
 HASHEOUS_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HASHEOUS_API_ENABLED"))
 
