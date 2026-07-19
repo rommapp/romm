@@ -487,13 +487,26 @@ export default defineStore("v2GalleryRoms", {
       const controller = new AbortController();
       inFlightControllers.set(ctrlKey, controller);
 
+      // Skip the char-index / filter-value / id-index aggregations when the
+      // bootstrap already loaded them. Capture the decision now: it also gates
+      // whether this response is allowed to re-apply that metadata below. The
+      // backend returns an EMPTY (but truthy) `char_index: {}` / `filter_values`
+      // object when these are skipped, so re-applying it would wipe the
+      // populated values and blank the AlphaStrip / filter drawer. The id
+      // index is a full-library scan we already paid for in the bootstrap, so
+      // window fetches opt out of recomputing it.
+      const withAggregations = !this.metadataLoaded;
+
       try {
         const response = await romApi.getRoms({
           ...params,
-          // Skip char index / filter-value aggregations when initial data is loaded
-          ...(this.metadataLoaded
-            ? { withCharIndex: false, withFilterValues: false }
-            : {}),
+          ...(withAggregations
+            ? {}
+            : {
+                withCharIndex: false,
+                withFilterValues: false,
+                withRomIdIndex: false,
+              }),
           signal: controller.signal,
         });
         // Re-check identity: invalidateWindows / resetGallery / a context
@@ -504,7 +517,11 @@ export default defineStore("v2GalleryRoms", {
         if (inFlightControllers.get(ctrlKey) !== controller) return;
 
         const data = response.data;
-        if (offset === 0) {
+        // Only apply the full metadata when this window actually fetched the
+        // aggregations (the very first window before the bootstrap resolved).
+        // Otherwise char_index / filter_values come back empty and would
+        // clobber what the bootstrap populated, so just refresh `total`.
+        if (offset === 0 && withAggregations) {
           this._applyMetadata(data, galleryFilter, platformsStore);
         } else if (data.total !== null && data.total !== undefined) {
           this.total = data.total;

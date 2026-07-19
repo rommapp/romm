@@ -126,6 +126,43 @@ describe("galleryRoms windowed fetch", () => {
     expect(getRoms).toHaveBeenCalledTimes(8);
   });
 
+  it("keeps the bootstrap char_index when the first window skips aggregations", async () => {
+    getRoms.mockImplementation((params: { limit?: number }) => {
+      // The bootstrap (limit 1) carries the char index; the follow-up
+      // window skips it and the backend returns an empty (but truthy) {}.
+      if (params.limit === 1) {
+        return Promise.resolve({
+          data: {
+            total: 500,
+            items: [],
+            char_index: { A: 0, B: 10 },
+            rom_id_index: [1, 2, 3],
+          },
+        });
+      }
+      return Promise.resolve(windowResponse(0, 500));
+    });
+    const store = storeGalleryRoms();
+
+    await store.fetchInitialMetadata();
+    expect(store.charIndex).toEqual({ A: 0, B: 10 });
+    expect(store.metadataLoaded).toBe(true);
+
+    // Window 0 loads with the aggregations skipped; its empty char_index
+    // must not wipe what the bootstrap populated (the AlphaStrip bug).
+    store.syncVisibleWindows([0]);
+    await flushPromises();
+
+    const windowCall = getRoms.mock.calls.find(
+      (c) => c[0].withCharIndex === false,
+    );
+    expect(windowCall).toBeTruthy();
+    // The follow-up window also opts out of the full-library id-index scan
+    // the bootstrap already paid for.
+    expect(windowCall?.[0].withRomIdIndex).toBe(false);
+    expect(store.charIndex).toEqual({ A: 0, B: 10 });
+  });
+
   it("does not mark a window loaded when the context is invalidated mid-apply", async () => {
     // Controllable frame yield so we can interleave a context switch between
     // the batched-apply's frames.
