@@ -276,7 +276,19 @@ const coverSource = computed(() => {
       <HLTBStrip :metadata="hltb" />
     </div>
 
-    <!-- 5. Related games — each category gets its own labelled section,
+    <!-- 6. Similar games -->
+    <div
+      v-if="similarGames.length || igdbSimilarGames.length"
+      class="overview-tab__section"
+    >
+      <h4 class="overview-tab__section-heading">
+        <RIcon icon="mdi-shape-outline" size="14" />
+        Similar games
+      </h4>
+      <SimilarGamesGrid :items="similarGames" />
+    </div>
+
+    <!-- 7. Related games — each category gets its own labelled section,
          rendered inline as siblings to the rest of the overview blocks.
          No collapsible wrapper: these sections aren't a distinct
          "surface" the user needs to expand into; they're just more
@@ -316,10 +328,9 @@ const coverSource = computed(() => {
         class="overview-tab__section"
       >
         <h4 class="overview-tab__section-heading">
-          <RIcon icon="mdi-shape-outline" size="14" />
-          Similar games
+          <RIcon icon="mdi-compass-outline" size="14" />
+          Similar on IGDB
         </h4>
-        <SimilarGamesGrid :items="similarGames" />
         <IgdbSimilarGamesGrid :items="igdbSimilarGames" />
       </div>
     </template>

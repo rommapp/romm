@@ -102,6 +102,34 @@ def test_get_similar_roms(
     assert target.id not in ids
 
 
+def test_get_similar_roms_respects_limit(
+    client: TestClient, access_token: str, platform: Platform, admin_user: User
+):
+    def _add(name: str, igdb_id: int, metadata: dict) -> Rom:
+        return db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name=name,
+                slug=name.lower().replace(" ", "-"),
+                fs_name=f"{name}.zip",
+                fs_path=f"{platform.slug}/roms",
+                igdb_id=igdb_id,
+                igdb_metadata=metadata,
+            )
+        )
+
+    target = _add("Limit Target", 612000, {"franchises": ["Metroid"]})
+    for i in range(5):
+        _add(f"Limit Match {i}", 612100 + i, {"franchises": ["Metroid"]})
+
+    response = client.get(
+        f"/api/roms/{target.id}/similar?limit=2",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.json()) == 2
+
+
 def test_get_similar_roms_missing_returns_404(client: TestClient, access_token: str):
     response = client.get(
         "/api/roms/999999/similar",

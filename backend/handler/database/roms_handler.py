@@ -86,6 +86,10 @@ SAME_PLATFORM_BOOST = 1.25
 # Upper bound on weak-signal (genre/company/age) candidates pulled for scoring;
 # strong-signal (franchise/collection) candidates are always scored in full.
 MAX_SIMILAR_CANDIDATES = 400
+# How many ranked candidates to cache per ROM. Larger than
+# MAX_SIMILAR_ROMS_LIMIT so per-user visibility filtering has headroom before
+# the endpoint slices to the requested limit.
+SIMILAR_ROMS_CACHE_SIZE = 60
 
 EJS_SUPPORTED_PLATFORMS = [
     UPS._3DO,
@@ -172,6 +176,12 @@ def _filter_values_cache_keys_key(version: str) -> str:
 
 def _filter_values_redis_key(cache_key: str, version: str) -> str:
     return f"filter_values:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+
+
+def _similar_roms_redis_key(rom_id: int, version: str) -> str:
+    # Shares the filter-values cache version so `invalidate_filter_values_cache`
+    # (called on every scan / ROM write) also drops stale similarity rankings.
+    return f"similar_roms:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{rom_id}:v{version}"
 
 
 def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
@@ -360,24 +370,35 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalars(query.filter(Rom.id.in_(ids))).all()
 
     @begin_session
-    def get_similar_rom_ids(
+    def get_similar_rom_candidates(
         self,
         rom: Rom,
         *,
-        limit: int = SIMILAR_ROMS_LIMIT,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
-    ) -> list[int]:
-        """Rank other library ROMs by shared normalized metadata.
+    ) -> list[tuple[int, int]]:
+        """Ranked `(rom_id, platform_id)` library candidates similar to `rom`.
 
-        Similarity is a weighted overlap of the target ROM's `RomMetadata`
-        signals (franchises, collections, genres, companies, age ratings)
-        against every other identified ROM, with a multiplicative boost for
-        same-platform matches. Returns rom ids ordered by descending score,
-        capped at `limit`. Purely metadata-driven, so unidentified ROMs (no
-        `RomMetadata` row, or empty signals) yield an empty list.
+        Result is user-independent (no visibility filtering) so it is shared
+        across callers and cached: the expensive part is materializing the
+        `roms_metadata` view over the whole library, which is a database VIEW
+        derived from the per-provider JSON columns and cannot be indexed. The
+        endpoint applies per-user hidden-platform / hidden-rom filtering and
+        slices to the requested limit. Purely metadata-driven, so unidentified
+        ROMs (no `RomMetadata` row, or empty signals) yield an empty list.
         """
+        version = _filter_values_cache_version()
+        redis_key = _similar_roms_redis_key(rom.id, version)
+        cached = sync_cache.get(redis_key)
+        if cached is not None:
+            return [(pair[0], pair[1]) for pair in json.loads(cached)]
+
+        candidates = self._compute_similar_rom_candidates(rom, session=session)
+        _store_versioned_cache(redis_key, version, candidates)
+        return candidates
+
+    def _compute_similar_rom_candidates(
+        self, rom: Rom, *, session: Session
+    ) -> list[tuple[int, int]]:
         target = session.get(RomMetadata, rom.id)
         if target is None:
             return []
@@ -402,36 +423,13 @@ class DBRomsHandler(DBBaseHandler):
             ).all()
         )
         exclude_ids = {rom.id, *sibling_ids}
-        if hidden_rom_ids:
-            exclude_ids.update(hidden_rom_ids)
 
-        columns = (
-            RomMetadata.rom_id,
-            RomMetadata.franchises,
-            RomMetadata.collections,
-            RomMetadata.genres,
-            RomMetadata.companies,
-            RomMetadata.age_ratings,
-            RomMetadata.average_rating,
-            Rom.platform_id,
-        )
-
-        def _candidate_query(where):
-            query = (
-                select(*columns)
-                .join(Rom, Rom.id == RomMetadata.rom_id)
-                .where(where)
-                .where(RomMetadata.rom_id.not_in(exclude_ids))
-                .where(Rom.missing_from_fs.is_(False))
-            )
-            if hidden_platform_ids:
-                query = query.where(Rom.platform_id.not_in(hidden_platform_ids))
-            return query
-
-        # Strong signals (franchise / collection) are selective, so every
-        # match is scored. Weak signals (genre / company / age rating) can
-        # match a large slice of the library, so they are capped and ordered
-        # by rating to keep the candidate set bounded.
+        # Strong signals (franchise / collection) are selective. Weak signals
+        # (genre / company / age rating) can match a large slice of the
+        # library. Both are OR'd into a single scan of the (view-backed,
+        # unindexable) metadata table, with strong matches floated to the top
+        # so the MAX_SIMILAR_CANDIDATES cap never drops them in favor of a
+        # weakly-related but higher-rated ROM.
         strong_conditions = [
             json_array_contains_any(
                 getattr(RomMetadata, field), values, session=session
@@ -446,23 +444,38 @@ class DBRomsHandler(DBBaseHandler):
             for field in ("genres", "companies", "age_ratings")
             if (values := signals[field])
         ]
+        all_conditions = strong_conditions + weak_conditions
+        if not all_conditions:
+            return []
 
-        rows: dict[int, Any] = {}
+        order_by: list[Any] = []
         if strong_conditions:
-            for row in session.execute(_candidate_query(or_(*strong_conditions))).all():
-                rows[row.rom_id] = row
-        if weak_conditions:
-            weak_query = (
-                _candidate_query(or_(*weak_conditions))
-                .order_by(
-                    # Portable NULLs-last: rating-less ROMs sort after rated ones.
-                    RomMetadata.average_rating.is_(None),
-                    RomMetadata.average_rating.desc(),
-                )
-                .limit(MAX_SIMILAR_CANDIDATES)
+            order_by.append(or_(*strong_conditions).desc())
+        order_by += [
+            # Portable NULLs-last: rating-less ROMs sort after rated ones.
+            RomMetadata.average_rating.is_(None),
+            RomMetadata.average_rating.desc(),
+        ]
+
+        query = (
+            select(
+                RomMetadata.rom_id,
+                RomMetadata.franchises,
+                RomMetadata.collections,
+                RomMetadata.genres,
+                RomMetadata.companies,
+                RomMetadata.age_ratings,
+                RomMetadata.average_rating,
+                Rom.platform_id,
             )
-            for row in session.execute(weak_query).all():
-                rows.setdefault(row.rom_id, row)
+            .join(Rom, Rom.id == RomMetadata.rom_id)
+            .where(or_(*all_conditions))
+            .where(RomMetadata.rom_id.not_in(exclude_ids))
+            .where(Rom.missing_from_fs.is_(False))
+            .order_by(*order_by)
+            .limit(MAX_SIMILAR_CANDIDATES)
+        )
+        rows = session.execute(query).all()
 
         target_sets = {field: set(values) for field, values in signals.items()}
 
@@ -476,12 +489,15 @@ class DBRomsHandler(DBBaseHandler):
             return score
 
         scored = [
-            (score, row.average_rating or 0.0, row.rom_id)
-            for row in rows.values()
+            (score, row.average_rating or 0.0, row.rom_id, row.platform_id)
+            for row in rows
             if (score := _score(row)) > 0
         ]
         scored.sort(key=lambda t: (t[0], t[1], t[2]), reverse=True)
-        return [rom_id for _, _, rom_id in scored[:limit]]
+        return [
+            (rom_id, platform_id)
+            for _, _, rom_id, platform_id in scored[:SIMILAR_ROMS_CACHE_SIZE]
+        ]
 
     def get_files_for_roms(
         self,

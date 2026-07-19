@@ -1149,18 +1149,25 @@ def get_similar_roms(
 
     assert_rom_visible(request, rom)
 
-    perms = get_permissions(request)
-    similar_ids = db_rom_handler.get_similar_rom_ids(
-        rom,
-        limit=limit,
-        hidden_platform_ids=list(perms.hidden_platform_ids),
-        hidden_rom_ids=list(perms.hidden_rom_ids),
-    )
-    if not similar_ids:
+    # The ranking is user-independent and cached; apply this caller's
+    # visibility filter here (using the cached platform ids) and hydrate only
+    # the roms that survive, up to the requested limit.
+    candidates = db_rom_handler.get_similar_rom_candidates(rom)
+    if not candidates:
         return []
 
-    roms_by_id = {r.id: r for r in db_rom_handler.get_roms_by_ids(similar_ids)}
-    ordered = [roms_by_id[i] for i in similar_ids if i in roms_by_id]
+    perms = get_permissions(request)
+    visible_ids = [
+        rom_id
+        for rom_id, platform_id in candidates
+        if platform_id not in perms.hidden_platform_ids
+        and rom_id not in perms.hidden_rom_ids
+    ][:limit]
+    if not visible_ids:
+        return []
+
+    roms_by_id = {r.id: r for r in db_rom_handler.get_roms_by_ids(visible_ids)}
+    ordered = [roms_by_id[i] for i in visible_ids if i in roms_by_id]
     return [SimpleRomSchema.from_orm_with_request(r, request) for r in ordered]
 
 

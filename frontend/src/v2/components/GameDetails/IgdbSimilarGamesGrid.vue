@@ -60,7 +60,6 @@ const shown = computed(() => unowned.value.slice(0, props.max));
 
 <template>
   <div v-if="shown.length" class="r-v2-igdb-similar">
-    <p class="r-v2-igdb-similar__label">Not in your library</p>
     <div class="r-v2-igdb-similar__grid">
       <RelatedGameCard
         v-for="g in shown"

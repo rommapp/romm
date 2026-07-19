@@ -1,10 +1,12 @@
 """Tests for the metadata-overlap "similar games in your library" ranking.
 
-`get_similar_rom_ids` reads the `roms_metadata` DB view (derived from the
-per-provider JSON columns), so candidates are seeded by writing `igdb_metadata`
-rather than inserting into the view. Similarity is a weighted overlap of
-franchises / collections / genres / companies / age ratings, with a
-same-platform multiplier, excluding the ROM itself and its siblings.
+`get_similar_rom_candidates` reads the `roms_metadata` DB view (derived from
+the per-provider JSON columns), so candidates are seeded by writing
+`igdb_metadata` rather than inserting into the view. Similarity is a weighted
+overlap of franchises / collections / genres / companies / age ratings, with a
+same-platform multiplier, excluding the ROM itself and its siblings. It returns
+`(rom_id, platform_id)` pairs (user-independent and cached); per-user
+visibility filtering and the result limit are applied by the endpoint.
 """
 
 import pytest
@@ -41,7 +43,11 @@ def _add_rom(
     return db_rom_handler.add_rom(rom)
 
 
-class TestGetSimilarRomIds:
+def _ids(candidates: list[tuple[int, int]]) -> list[int]:
+    return [rom_id for rom_id, _ in candidates]
+
+
+class TestGetSimilarRomCandidates:
     def test_ranks_by_weighted_overlap_and_platform_boost(
         self, platform: Platform, other_platform: Platform, admin_user: User
     ):
@@ -85,9 +91,9 @@ class TestGetSimilarRomIds:
             igdb_metadata={"genres": ["Racing"]},
         )
 
-        result = db_rom_handler.get_similar_rom_ids(target)
+        result = db_rom_handler.get_similar_rom_candidates(target)
 
-        assert result == [
+        assert _ids(result) == [
             same_platform_franchise.id,
             cross_platform_franchise.id,
             genre_only.id,
@@ -116,8 +122,12 @@ class TestGetSimilarRomIds:
 
         # Exclusion must hold in both directions of the sibling pairing:
         # neither dump should surface the other as "similar".
-        assert db_rom_handler.get_similar_rom_ids(target) == [real_match.id]
-        assert db_rom_handler.get_similar_rom_ids(sibling) == [real_match.id]
+        assert _ids(db_rom_handler.get_similar_rom_candidates(target)) == [
+            real_match.id
+        ]
+        assert _ids(db_rom_handler.get_similar_rom_candidates(sibling)) == [
+            real_match.id
+        ]
 
     def test_returns_empty_without_metadata(self, platform: Platform, admin_user: User):
         target = _add_rom(platform, "No Metadata", igdb_id=3000)
@@ -128,28 +138,9 @@ class TestGetSimilarRomIds:
             igdb_metadata={"franchises": ["Zelda"]},
         )
 
-        assert db_rom_handler.get_similar_rom_ids(target) == []
+        assert db_rom_handler.get_similar_rom_candidates(target) == []
 
-    def test_respects_limit(self, platform: Platform, admin_user: User):
-        target = _add_rom(
-            platform,
-            "Zelda Target",
-            igdb_id=4000,
-            igdb_metadata={"franchises": ["Zelda"]},
-        )
-        for i in range(5):
-            _add_rom(
-                platform,
-                f"Zelda Match {i}",
-                igdb_id=4100 + i,
-                igdb_metadata={"franchises": ["Zelda"]},
-            )
-
-        result = db_rom_handler.get_similar_rom_ids(target, limit=2)
-
-        assert len(result) == 2
-
-    def test_excludes_hidden_platforms(
+    def test_returns_platform_ids_for_visibility_filtering(
         self, platform: Platform, other_platform: Platform, admin_user: User
     ):
         target = _add_rom(
@@ -158,16 +149,22 @@ class TestGetSimilarRomIds:
             igdb_id=5000,
             igdb_metadata={"franchises": ["Zelda"]},
         )
-        hidden = _add_rom(
-            other_platform,
-            "Zelda Hidden Platform",
+        same_platform = _add_rom(
+            platform,
+            "Zelda Same Platform",
             igdb_id=5001,
             igdb_metadata={"franchises": ["Zelda"]},
         )
-
-        result = db_rom_handler.get_similar_rom_ids(
-            target, hidden_platform_ids=[other_platform.id]
+        other = _add_rom(
+            other_platform,
+            "Zelda Other Platform",
+            igdb_id=5002,
+            igdb_metadata={"franchises": ["Zelda"]},
         )
 
-        assert hidden.id not in result
-        assert result == []
+        # Each candidate carries its platform id so the endpoint can drop
+        # hidden platforms without re-querying.
+        result = dict(db_rom_handler.get_similar_rom_candidates(target))
+
+        assert result[same_platform.id] == platform.id
+        assert result[other.id] == other_platform.id
