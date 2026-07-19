@@ -173,6 +173,17 @@ const {
   selectedMetadataProviders,
   selectedTags,
   selectedStatuses,
+  genresLogic,
+  franchisesLogic,
+  collectionsLogic,
+  companiesLogic,
+  ageRatingsLogic,
+  regionsLogic,
+  languagesLogic,
+  playerCountsLogic,
+  metadataProvidersLogic,
+  tagsLogic,
+  statusesLogic,
 } = storeToRefs(galleryFilterStore);
 
 // Drawer open state — bound to FilterDrawer via v-model.
@@ -242,6 +253,19 @@ watch(
     selectedMetadataProviders,
     selectedTags,
     selectedStatuses,
+    // Logic operators (any/all/none) also change the result set, e.g.
+    // switching statuses to "none" to invert the selection.
+    genresLogic,
+    franchisesLogic,
+    collectionsLogic,
+    companiesLogic,
+    ageRatingsLogic,
+    regionsLogic,
+    languagesLogic,
+    playerCountsLogic,
+    metadataProvidersLogic,
+    tagsLogic,
+    statusesLogic,
   ],
   () => {
     galleryRoms.invalidateWindows();
