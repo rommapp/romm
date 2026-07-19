@@ -57,6 +57,12 @@ lint:
         - backend/utils/rom_patcher/patcher.js
         # Intentionally malformed YAML, used as a test fixture
         - backend/tests/config/fixtures/config/malformed_config.yml
+    # Alembic env/migrations rely on runtime-injected globals (context, op)
+    # that mypy cannot resolve; already excluded in mypy.ini, but Trunk passes
+    # changed files explicitly, which bypasses that exclude.
+    - linters: [mypy]
+      paths:
+        - backend/alembic/**
   files:
     - name: vue
       extensions: [vue]

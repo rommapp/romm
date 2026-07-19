@@ -198,12 +198,12 @@ function isHashMatcherOn(matcher: HashMatcher): boolean {
 }
 
 // Per-ROM scan types — the Scan view's "new platforms" / "quick"
-// options don't apply to an already-ingested ROM. We keep `unmatched`
-// (re-fetch from providers that haven't matched yet), `hashes`
-// (recalculate file hashes only — useful when files changed on disk
-// or hashing was disabled at scan time), and `complete` (wipe +
-// rematch from scratch).
-type ScanType = "unmatched" | "hashes" | "complete";
+// options don't apply to an already-ingested ROM. We keep `update`
+// (re-fetch by existing id and repopulate missing fields like summary
+// or cover), `hashes` (recalculate file hashes only — useful when
+// files changed on disk or hashing was disabled at scan time), and
+// `complete` (wipe + rematch from scratch).
+type ScanType = "update" | "hashes" | "complete";
 
 const isBulk = computed(() => roms.value.length > 1);
 
@@ -220,7 +220,7 @@ const scanOptions = computed<ScanOption[]>(() => [
     subtitle: isBulk.value
       ? t("rom.refresh-update-desc-bulk")
       : t("rom.refresh-update-desc"),
-    value: "unmatched",
+    value: "update",
   },
   {
     title: t("scan.hashes"),
@@ -238,14 +238,14 @@ const scanOptions = computed<ScanOption[]>(() => [
     value: "complete",
   },
 ]);
-const scanType = ref<ScanType>("unmatched");
+const scanType = ref<ScanType>("update");
 
 // Reset scan type back to the safe default if the current selection
 // becomes disabled (e.g. user toggles SKIP_HASH_CALCULATION while the
 // dialog is open and `hashes` was selected).
 watch(scanOptions, (options) => {
   const current = options.find((o) => o.value === scanType.value);
-  if (current?.disabled) scanType.value = "unmatched";
+  if (current?.disabled) scanType.value = "update";
 });
 
 const openSingle = (payload: SimpleRom) => {

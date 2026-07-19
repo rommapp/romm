@@ -31,6 +31,7 @@ import typing
 from urllib.parse import urlparse
 
 import httpcore
+import pydash
 from httpcore._backends.auto import AutoBackend
 from httpcore._backends.base import (
     SOCKET_OPTION,
@@ -41,6 +42,7 @@ from httpcore._backends.base import (
 )
 from httpcore._backends.sync import SyncBackend
 
+from config import PLAYMATCH_API_URL
 from logger.logger import log
 from utils.validation import ValidationError
 
@@ -96,6 +98,37 @@ def parse_ip_literal(
     return ipaddress.IPv4Address(packed)
 
 
+def _parse_origin(origin: str) -> tuple[str, int] | None:
+    """Return the (lowercased host, port) of an http(s) origin, else None."""
+    parts = urlparse(origin)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        return None
+
+    try:
+        port = parts.port
+    except ValueError:
+        return None
+
+    if port is None:
+        port = 443 if parts.scheme == "https" else 80
+
+    return parts.hostname.lower(), port
+
+
+# Origins the admin explicitly configured are trusted to reach private addresses.
+# Matched by exact host and port so the exception stays as narrow as possible.
+INTERNAL_ORIGIN_ALLOWLIST: frozenset[tuple[str, int]] = frozenset(
+    pydash.compact([_parse_origin(PLAYMATCH_API_URL)])
+)
+
+
+def _is_allowlisted_origin(
+    host: str, port: int, allowlist: frozenset[tuple[str, int]]
+) -> bool:
+    """True if this exact host:port was explicitly trusted by the admin."""
+    return (host.lower(), port) in allowlist
+
+
 def _pick_safe_address(addr_infos: typing.Iterable[typing.Any], host: str) -> str:
     """Validate every resolved address and return the literal IP to connect to.
 
@@ -142,8 +175,13 @@ def _check_literal(host: str) -> bool:
 class SSRFProtectedAsyncBackend(AsyncNetworkBackend):
     """Async backend that validates resolved IPs before establishing TCP."""
 
-    def __init__(self, inner: AsyncNetworkBackend | None = None) -> None:
+    def __init__(
+        self,
+        inner: AsyncNetworkBackend | None = None,
+        allowlist: frozenset[tuple[str, int]] = INTERNAL_ORIGIN_ALLOWLIST,
+    ) -> None:
         self._inner = inner or AutoBackend()
+        self._allowlist = allowlist
 
     # `timeout` parameter is required by AsyncNetworkBackend.connect_tcp;
     # ruff/ASYNC109 advises against timeout parameters on async APIs *we*
@@ -165,6 +203,11 @@ class SSRFProtectedAsyncBackend(AsyncNetworkBackend):
         only timed out the TCP connect inside the inner backend, leaving
         `loop.getaddrinfo` unbounded.
         """
+        if _is_allowlisted_origin(host, port, self._allowlist):
+            return await self._inner.connect_tcp(
+                host, port, timeout, local_address, socket_options
+            )
+
         if _check_literal(host):
             return await self._inner.connect_tcp(
                 host, port, timeout, local_address, socket_options
@@ -204,8 +247,13 @@ class SSRFProtectedAsyncBackend(AsyncNetworkBackend):
 class SSRFProtectedSyncBackend(NetworkBackend):
     """Sync backend that validates resolved IPs before establishing TCP."""
 
-    def __init__(self, inner: NetworkBackend | None = None) -> None:
+    def __init__(
+        self,
+        inner: NetworkBackend | None = None,
+        allowlist: frozenset[tuple[str, int]] = INTERNAL_ORIGIN_ALLOWLIST,
+    ) -> None:
         self._inner = inner if inner is not None else SyncBackend()
+        self._allowlist = allowlist
 
     def connect_tcp(
         self,
@@ -215,6 +263,11 @@ class SSRFProtectedSyncBackend(NetworkBackend):
         local_address: str | None = None,
         socket_options: typing.Iterable[SOCKET_OPTION] | None = None,
     ) -> NetworkStream:
+        if _is_allowlisted_origin(host, port, self._allowlist):
+            return self._inner.connect_tcp(
+                host, port, timeout, local_address, socket_options
+            )
+
         if _check_literal(host):
             return self._inner.connect_tcp(
                 host, port, timeout, local_address, socket_options
@@ -268,7 +321,11 @@ RESERVED_HOSTNAMES = [
 ]
 
 
-def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
+def validate_url_for_http_request(
+    url: str,
+    field_name: str = "URL",
+    allowlist: frozenset[tuple[str, int]] = INTERNAL_ORIGIN_ALLOWLIST,
+) -> None:
     """Syntactically validate a URL before passing it to an HTTP client.
 
     Fast-fail check for cases that don't need DNS to detect:
@@ -321,6 +378,18 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
         msg = f"Invalid {field_name}: missing hostname"
         log.error(msg)
         raise ValidationError(msg, field_name)
+
+    # Allow admin-configured internal origins (e.g. self-hosted Playmatch)
+    # through the static gate; connect-time validation still pins the IP.
+    if allowlist:
+        try:
+            effective_port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        except ValueError:
+            effective_port = None
+        if effective_port is not None and _is_allowlisted_origin(
+            hostname, effective_port, allowlist
+        ):
+            return
 
     # Block reserved hostnames that are commonly used to refer to internal services.
     if hostname.lower() in RESERVED_HOSTNAMES:
