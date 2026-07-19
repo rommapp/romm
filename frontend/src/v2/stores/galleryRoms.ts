@@ -496,9 +496,12 @@ export default defineStore("v2GalleryRoms", {
             : {}),
           signal: controller.signal,
         });
-        // Re-check that this window is still relevant — invalidateWindows
-        // / resetGallery may have run while we were waiting.
-        if (!this.pendingWindows.has(offset)) return;
+        // Re-check identity: invalidateWindows / resetGallery / a context
+        // switch may have run while we were waiting, and a fresh fetch may
+        // already own this offset. Compare the controller rather than
+        // `pendingWindows` membership (which a replacement fetch re-adds)
+        // so we never apply stale data over the new context.
+        if (inFlightControllers.get(ctrlKey) !== controller) return;
 
         const data = response.data;
         if (offset === 0) {
@@ -522,9 +525,18 @@ export default defineStore("v2GalleryRoms", {
         // main thread long enough that AlphaStrip clicks queued during
         // the flush miss their frame. `applyItemsBatched` pauses every
         // row (8 items) so input dispatches between paints.
-        await applyItemsBatched(this.byPosition, data.items, offset, () =>
-          this.pendingWindows.has(offset),
+        await applyItemsBatched(
+          this.byPosition,
+          data.items,
+          offset,
+          () => inFlightControllers.get(ctrlKey) === controller,
         );
+
+        // A context switch during the frame-yielded apply may have
+        // superseded us partway through. Marking the window loaded now would
+        // leave it partially applied yet skipped by later syncs — permanent
+        // skeletons for the fresh context. Bail unless we're still current.
+        if (inFlightControllers.get(ctrlKey) !== controller) return;
 
         this.loadedWindows.add(offset);
         // Recovered — drop any retry bookkeeping for this window.
@@ -534,6 +546,9 @@ export default defineStore("v2GalleryRoms", {
         // clean so the window is eligible to refetch under the new
         // gallery context without the UI flagging it as broken.
         if (axios.isCancel(err)) return;
+        // A late error for a window a newer fetch already owns isn't ours to
+        // record or retry against the current context.
+        if (inFlightControllers.get(ctrlKey) !== controller) return;
         this.failedWindows.add(offset);
         // Surface in console; UI keeps the skeletons in place until the
         // retry below (or a viewport / gallery-state change) refetches.
@@ -554,9 +569,14 @@ export default defineStore("v2GalleryRoms", {
           retryTimers.set(offset, timer);
         }
       } finally {
-        inFlightControllers.delete(ctrlKey);
-        this.pendingWindows.delete(offset);
-        if (offset === 0) this.initialFetching = false;
+        // Only clear our own bookkeeping — a replacement fetch may already
+        // own the key (see the identity checks above), and deleting it would
+        // strand that request's window as a skeleton.
+        if (inFlightControllers.get(ctrlKey) === controller) {
+          inFlightControllers.delete(ctrlKey);
+          this.pendingWindows.delete(offset);
+          if (offset === 0) this.initialFetching = false;
+        }
         // A slot freed up — start the next queued window, if any.
         this._drainWindowQueue();
       }

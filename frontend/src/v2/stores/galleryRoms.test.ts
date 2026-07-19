@@ -125,4 +125,49 @@ describe("galleryRoms windowed fetch", () => {
     expect(peak).toBe(4);
     expect(getRoms).toHaveBeenCalledTimes(8);
   });
+
+  it("does not mark a window loaded when the context is invalidated mid-apply", async () => {
+    // Controllable frame yield so we can interleave a context switch between
+    // the batched-apply's frames.
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      frames.push(cb);
+      return frames.length;
+    });
+
+    const first = deferred();
+    getRoms.mockImplementation(() => first.promise);
+    const store = storeGalleryRoms();
+
+    store.syncVisibleWindows([0]);
+    expect(getRoms).toHaveBeenCalledTimes(1);
+
+    // More than one apply batch (APPLY_BATCH_SIZE = 8) so the apply parks on
+    // a frame partway through.
+    const items = Array.from({ length: 16 }, (_, i) => ({ id: i }));
+    first.resolve({
+      data: { total: 1000, items, char_index: {}, rom_id_index: [] },
+    });
+    await flushPromises();
+    expect(frames.length).toBeGreaterThan(0);
+
+    // Context switch (filter / sort / scan refresh) while the response is
+    // still being applied.
+    store.invalidateWindows();
+
+    // Resume the parked frame(s): the apply sees it is no longer current and
+    // bails without marking the window loaded.
+    while (frames.length > 0) {
+      frames.shift()?.(0);
+      await flushPromises();
+    }
+    expect(store.loadedWindows.has(0)).toBe(false);
+
+    // The fresh context must be able to refetch offset 0 — not skip it as
+    // "already loaded" and strand its cards as permanent skeletons.
+    getRoms.mockClear();
+    getRoms.mockImplementation(() => deferred().promise);
+    store.syncVisibleWindows([0]);
+    expect(getRoms).toHaveBeenCalledTimes(1);
+  });
 });
