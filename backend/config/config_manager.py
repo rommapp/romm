@@ -96,6 +96,27 @@ ARTWORK_PRIORITY_KEYS = {
     "manual": "url_manual",
 }
 
+# Valid provider slugs for scan.priority.* lists. Mirrors
+# handler.scan_handler.MetadataSource, which can't be imported here without a
+# circular import; test_config_loader guards against drift.
+VALID_SCAN_PRIORITY_SOURCES = frozenset(
+    {
+        "igdb",
+        "moby",
+        "ss",
+        "ra",
+        "launchbox",
+        "hasheous",
+        "tgdb",
+        "sgdb",
+        "flashpoint",
+        "hltb",
+        "gamelist",
+        "libretro",
+        "playmatch",
+    }
+)
+
 
 class EjsControls(TypedDict):
     _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
@@ -690,11 +711,20 @@ class ConfigManager:
             sys.exit(3)
 
         for key, field in ARTWORK_PRIORITY_KEYS.items():
-            if field in self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES and not isinstance(
-                self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES[field], list
-            ):
+            override = self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES.get(field)
+            if override is None:
+                continue
+            if not isinstance(override, list):
                 log.critical(f"Invalid config.yml: scan.priority.{key} must be a list")
                 sys.exit(3)
+            # Unknown sources are dropped downstream; surface likely typos here
+            # rather than letting the override silently do nothing.
+            unknown = [s for s in override if s not in VALID_SCAN_PRIORITY_SOURCES]
+            if unknown:
+                log.warning(
+                    f"Ignoring unknown values in scan.priority.{key}: {unknown}. "
+                    "Check for typos, or update RomM if these are newer sources."
+                )
 
         if not isinstance(self.config.SCAN_REGION_PRIORITY, list):
             log.critical("Invalid config.yml: scan.priority.region must be a list")

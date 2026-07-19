@@ -85,6 +85,15 @@ def test_config_loader():
     assert loader.config.GAMELIST_MEDIA_IMAGE == "title_screen"
 
 
+def test_scan_priority_sources_match_metadata_source_enum():
+    """VALID_SCAN_PRIORITY_SOURCES duplicates MetadataSource to avoid a circular
+    import; guard against the two drifting apart."""
+    from config.config_manager import VALID_SCAN_PRIORITY_SOURCES
+    from handler.scan_handler import MetadataSource
+
+    assert VALID_SCAN_PRIORITY_SOURCES == {source.value for source in MetadataSource}
+
+
 def test_empty_config_loader():
     loader = ConfigManager(
         os.path.join(

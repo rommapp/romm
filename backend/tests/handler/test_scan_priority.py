@@ -51,6 +51,16 @@ def test_sources_absent_from_priority_are_appended():
     assert set(ordered) == set(available)
 
 
+def test_unknown_override_source_is_ignored_not_fatal():
+    """A typo in an override list is dropped, never raising ValueError."""
+    available = [MetadataSource.IGDB, MetadataSource.SS]
+    config = _fake_config(url_cover=["sss", "igdb"])  # "sss" is a typo
+    with patch("handler.scan_handler.cm.get_config", return_value=config):
+        ordered = get_priority_ordered_metadata_sources(available, "url_cover")
+
+    assert ordered == [MetadataSource.IGDB, MetadataSource.SS]
+
+
 def test_metadata_priority_is_unaffected_by_artwork_overrides():
     """Artwork overrides must never leak into the metadata priority pass."""
     available = [MetadataSource.SS, MetadataSource.IGDB]
