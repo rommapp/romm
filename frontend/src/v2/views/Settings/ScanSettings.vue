@@ -357,36 +357,34 @@ function setMedia(value: unknown) {
         :title="t('settings.scan-artwork-overrides')"
         icon="mdi-tune-variant"
       >
-        <p class="r-v2-scan-settings__desc">
+        <p class="r-v2-scan-settings__desc mb-4">
           {{ t("settings.scan-artwork-overrides-desc") }}
         </p>
-        <div class="r-v2-scan-settings__toggle-grid">
-          <SettingsToggleRow
-            v-model="form.coverEnabled"
-            :title="t('settings.scan-override-cover')"
-            :disabled="!canEdit"
-          />
-          <SettingsToggleRow
-            v-model="form.screenshotEnabled"
-            :title="t('settings.scan-override-screenshot')"
-            :disabled="!canEdit"
-          />
-          <SettingsToggleRow
-            v-model="form.manualEnabled"
-            :title="t('settings.scan-override-manual')"
-            :disabled="!canEdit"
-          />
-        </div>
+        <SettingsToggleRow
+          v-model="form.coverEnabled"
+          :title="t('settings.scan-override-cover')"
+          :disabled="!canEdit"
+        />
         <ScanPriorityList
           v-if="form.coverEnabled"
           v-model="form.cover"
           :sources="ARTWORK_SOURCES"
           :disabled="!canEdit"
         />
+        <SettingsToggleRow
+          v-model="form.screenshotEnabled"
+          :title="t('settings.scan-override-screenshot')"
+          :disabled="!canEdit"
+        />
         <ScanPriorityList
           v-if="form.screenshotEnabled"
           v-model="form.screenshot"
           :sources="ARTWORK_SOURCES"
+          :disabled="!canEdit"
+        />
+        <SettingsToggleRow
+          v-model="form.manualEnabled"
+          :title="t('settings.scan-override-manual')"
           :disabled="!canEdit"
         />
         <ScanPriorityList
