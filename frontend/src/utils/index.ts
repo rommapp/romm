@@ -135,7 +135,9 @@ export function getDownloadPath({
     fileIDs.length === 1
       ? rom.files?.find((f) => f.id === fileIDs[0])
       : undefined;
-  const contentName = selectedFile?.file_name ?? rom.fs_name;
+  const contentName = selectedFile
+    ? encodeURIComponent(selectedFile.file_name)
+    : rom.fs_name;
   return `/api/roms/${rom.id}/content/${contentName}${
     queryString ? `?${queryString}` : ""
   }`;
