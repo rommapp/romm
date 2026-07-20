@@ -43,6 +43,9 @@ defineProps<{
   tab: string;
   tabs: RTabNavItem[];
   tags: string[];
+  /** User-authored platform description, rendered alongside the
+   *  metadata chips (mirrors CollectionHead). Empty when unset. */
+  description: string;
   stats: StatRow[];
   providers: ProviderChip[];
   /** Permission flags — already evaluated against `useCan` in the
@@ -96,7 +99,7 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
       </div>
     </template>
 
-    <template v-if="tags.length" #tags>
+    <template v-if="tags.length || description" #tags>
       <RChip
         v-for="tag in tags"
         :key="tag"
@@ -105,6 +108,14 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         :rounded="20"
       >
         {{ tag }}
+      </RChip>
+      <RChip
+        v-if="description"
+        size="small"
+        variant="translucent"
+        :rounded="20"
+      >
+        {{ description }}
       </RChip>
     </template>
 

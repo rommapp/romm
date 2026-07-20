@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Integer, String, func, select
+from sqlalchemy import Integer, String, Text, func, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from models.base import BaseModel
@@ -36,6 +36,7 @@ class Platform(BaseModel):
     fs_slug: Mapped[str] = mapped_column(String(length=100))
     name: Mapped[str] = mapped_column(String(length=400))
     custom_name: Mapped[str | None] = mapped_column(String(length=400), default="")
+    description: Mapped[str | None] = mapped_column(Text, default="")
     category: Mapped[str | None] = mapped_column(String(length=100), default="")
     generation: Mapped[int | None]
     family_name: Mapped[str | None] = mapped_column(String(length=1000), default="")

@@ -53,3 +53,88 @@ def test_update_platform_custom_name(client, access_token, platform):
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["custom_name"] == "My Custom Name"
+
+
+def test_get_platform_description_defaults_to_empty(client, access_token, platform):
+    response = client.get(
+        f"/api/platforms/{platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["description"] == ""
+
+
+def test_update_platform_description(client, access_token, platform):
+    response = client.put(
+        f"/api/platforms/{platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "description": "Contains all Aftermarket, Beta, Demo, Proto, Unl, etc. roms"
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert (
+        response.json()["description"]
+        == "Contains all Aftermarket, Beta, Demo, Proto, Unl, etc. roms"
+    )
+
+
+def test_update_platform_description_and_custom_name_together(
+    client, access_token, platform
+):
+    response = client.put(
+        f"/api/platforms/{platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "custom_name": "Sega - Genesis/ Mega Drive (Unofficial)",
+            "description": "Aftermarket and unlicensed titles only",
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["custom_name"] == "Sega - Genesis/ Mega Drive (Unofficial)"
+    assert body["description"] == "Aftermarket and unlicensed titles only"
+
+
+def test_update_platform_omitted_description_is_preserved(
+    client, access_token, platform
+):
+    # An omitted field must not blank the stored value; the endpoint patches
+    # only what the caller sent.
+    client.put(
+        f"/api/platforms/{platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"description": "Keep me"},
+    )
+
+    response = client.put(
+        f"/api/platforms/{platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"custom_name": "Renamed"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["description"] == "Keep me"
+
+
+def test_update_platform_description_can_be_cleared(client, access_token, platform):
+    client.put(
+        f"/api/platforms/{platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"description": "Temporary"},
+    )
+
+    response = client.put(
+        f"/api/platforms/{platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"description": ""},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["description"] == ""
+
+
+def test_update_platform_description_requires_write_scope(client, platform):
+    response = client.put(
+        f"/api/platforms/{platform.id}",
+        json={"description": "Nope"},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN

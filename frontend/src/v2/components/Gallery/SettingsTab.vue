@@ -5,7 +5,7 @@
 // "Delete platform" action.
 //
 // Mutation path:
-//   • `custom_name` → `platformApi.updatePlatform({ platform: { …, custom_name } })`
+//   • `custom_name` / `description` → `platformApi.updatePlatform(...)`
 //     Optimistic — the form updates the local platform reactively, a
 //     snackbar fires on success/failure.
 //
@@ -41,34 +41,43 @@ const galleryRoms = storeGalleryRoms();
 const canEdit = useCan("platform.edit");
 const canDelete = useCan("platform.delete");
 
-// ── Name edit form ─────────────────────────────────────────────
+// ── Details edit form ──────────────────────────────────────────
 const formRef = ref<InstanceType<typeof RForm> | null>(null);
 const customName = ref<string>(props.platform.display_name);
-const savingName = ref(false);
+const description = ref<string>(props.platform.description ?? "");
+const saving = ref(false);
 
 // Re-seed on platform change (route swap, socket update) so the
-// field reflects the live canonical name. Discard pending edits in
+// fields reflect the live canonical values. Discard pending edits in
 // that case — the source-of-truth changed under us.
 watch(
-  () => props.platform.display_name,
-  (next) => {
-    if (!savingName.value) customName.value = next;
+  () => [props.platform.display_name, props.platform.description],
+  ([nextName, nextDescription]) => {
+    if (saving.value) return;
+    customName.value = nextName ?? "";
+    description.value = nextDescription ?? "";
   },
 );
 
 const nameRules = computed(() => [required(t("common.required", "Required"))]);
-const nameDirty = computed(
-  () => customName.value.trim() !== props.platform.display_name,
+const dirty = computed(
+  () =>
+    customName.value.trim() !== props.platform.display_name ||
+    description.value.trim() !== (props.platform.description ?? ""),
 );
 
-async function saveName() {
-  if (!nameDirty.value) return;
+async function save() {
+  if (!dirty.value) return;
   const valid = await formRef.value?.validate();
   if (!valid) return;
-  savingName.value = true;
+  saving.value = true;
   try {
     const { data } = await platformApi.updatePlatform({
-      platform: { ...props.platform, custom_name: customName.value.trim() },
+      platform: {
+        ...props.platform,
+        custom_name: customName.value.trim(),
+        description: description.value.trim(),
+      },
     });
     platformsStore.update(data);
     if (galleryRoms.currentPlatform?.id === data.id) {
@@ -89,12 +98,13 @@ async function saveName() {
       { icon: "mdi-close-circle" },
     );
   } finally {
-    savingName.value = false;
+    saving.value = false;
   }
 }
 
-function discardName() {
+function discard() {
   customName.value = props.platform.display_name;
+  description.value = props.platform.description ?? "";
 }
 
 // ── Details (read-only) ────────────────────────────────────────
@@ -136,14 +146,11 @@ const details = computed<DetailRow[]>(() => {
           <span>{{ t("common.details", "Details") }}</span>
         </header>
 
-        <!-- Editable name field — only `custom_name` is user-editable
-             today. The rest of the metadata (slug, fs_slug, etc.) is
-             derived from the upstream sources, surfaced read-only. -->
-        <RForm
-          ref="formRef"
-          class="r-v2-plat-settings__name-form"
-          @submit="saveName"
-        >
+        <!-- Editable fields — `custom_name` and `description` are the
+             only user-authored ones. The rest of the metadata (slug,
+             fs_slug, etc.) is derived from the upstream sources and is
+             surfaced read-only below. -->
+        <RForm ref="formRef" class="r-v2-plat-settings__form" @submit="save">
           <RTextField
             v-model="customName"
             :label="t('common.name', 'Name')"
@@ -155,16 +162,26 @@ const details = computed<DetailRow[]>(() => {
             density="comfortable"
             hide-details="auto"
           />
-          <div v-if="nameDirty" class="r-v2-plat-settings__name-actions">
-            <RBtn variant="text" :disabled="savingName" @click="discardName">
+          <RTextField
+            v-model="description"
+            :label="t('platform.description', 'Description')"
+            :disabled="!canEdit"
+            multiline
+            :rows="3"
+            variant="outlined"
+            density="comfortable"
+            hide-details="auto"
+          />
+          <div v-if="dirty" class="r-v2-plat-settings__form-actions">
+            <RBtn variant="text" :disabled="saving" @click="discard">
               {{ t("common.discard", "Discard") }}
             </RBtn>
             <RBtn
               variant="flat"
               color="primary"
               prepend-icon="mdi-check"
-              :loading="savingName"
-              @click="saveName"
+              :loading="saving"
+              @click="save"
             >
               {{ t("common.save", "Save") }}
             </RBtn>
@@ -264,13 +281,13 @@ const details = computed<DetailRow[]>(() => {
 }
 
 /* ── Name form ────────────────────────────────────────────────── */
-.r-v2-plat-settings__name-form {
+.r-v2-plat-settings__form {
   display: flex;
   flex-direction: column;
   gap: 10px;
   margin-bottom: 14px;
 }
-.r-v2-plat-settings__name-actions {
+.r-v2-plat-settings__form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;

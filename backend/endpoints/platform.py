@@ -136,6 +136,9 @@ async def update_platform(
     custom_name: Annotated[
         str | None, Body(embed=True, description="Custom platform name.")
     ] = None,
+    description: Annotated[
+        str | None, Body(embed=True, description="Custom platform description.")
+    ] = None,
 ) -> PlatformSchema:
     """Update a platform."""
 
@@ -146,6 +149,8 @@ async def update_platform(
 
     if custom_name is not None:
         platform_db.custom_name = custom_name
+    if description is not None:
+        platform_db.description = description
     platform_db = db_platform_handler.add_platform(platform_db)
 
     return PlatformSchema.model_validate(platform_db)

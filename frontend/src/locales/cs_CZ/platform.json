@@ -12,6 +12,7 @@
   "danger-zone": "Nebezpečná zóna",
   "delete-platform": "Smazat platformu",
   "delete-platform-hint": "Odstraní platformu a její záznamy ROM z databáze. Soubory na disku NEBUDOU smazány.",
+  "description": "Popis",
   "download-platform": "Stáhnout platformu",
   "edit-platform": "Upravit platformu",
   "export": "Export",

@@ -12,6 +12,7 @@
   "danger-zone": "Tehlikeli bölge",
   "delete-platform": "Platformu sil",
   "delete-platform-hint": "Platformu ve ROM veritabanı kayıtlarını kaldırır. Diskteki dosyalar SİLİNMEZ.",
+  "description": "Açıklama",
   "download-platform": "Platformu indir",
   "edit-platform": "Platformu düzenle",
   "export": "Dışa aktar",

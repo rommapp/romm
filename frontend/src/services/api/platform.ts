@@ -32,6 +32,7 @@ async function getFilesystemPlatforms() {
 async function updatePlatform({ platform }: { platform: Platform }) {
   return api.put<Platform>(`/platforms/${platform.id}`, {
     custom_name: platform.custom_name,
+    description: platform.description,
   });
 }
 
