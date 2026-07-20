@@ -126,7 +126,17 @@ export function getDownloadPath({
     queryParams.append("file_ids", fileIDs.join(","));
   }
   const queryString = queryParams.toString();
-  return `/api/roms/${rom.id}/content/${rom.fs_name}${
+
+  // If a single file is selected, use its name for the download path
+  const selectedFile =
+    fileIDs.length === 1
+      ? rom.files?.find((f) => f.id === fileIDs[0])
+      : undefined;
+  const contentName = selectedFile
+    ? encodeURIComponent(selectedFile.file_name)
+    : rom.fs_name;
+
+  return `/api/roms/${rom.id}/content/${contentName}${
     queryString ? `?${queryString}` : ""
   }`;
 }
