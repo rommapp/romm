@@ -182,9 +182,7 @@ const {
   EJS_NETPLAY_ICE_SERVERS,
   EJS_NETPLAY_ENABLED,
 } = configStore.config;
-// Full origin (with scheme), so EmulatorJS' `io(netplay.url)` connects to the
-// right server behind any reverse proxy / custom domain. The socket path and
-// room-list endpoint are corrected in the netplay overrides below.
+// Full origin (with scheme)
 window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.origin : "";
 window.EJS_netplayICEServers = EJS_NETPLAY_ENABLED
   ? EJS_NETPLAY_ICE_SERVERS
@@ -391,15 +389,8 @@ window.EJS_onGameStart = async () => {
 
   // Install netplay overrides synchronously, before any await below, so they
   // are in place before room polling or a Create/Join action can start.
-  // EmulatorJS' nightly netplay builds its URLs from `netplay.url` (the page
-  // host by default), which does not match how RomM serves netplay: the room
-  // list lives at /api/netplay/list and the socket at /netplay/socket.io. Point
-  // both at the right place so netplay works behind any reverse proxy / domain.
   const netplay = window.EJS_emulator?.netplay;
   if (netplay) {
-    // Room-list polling: use RomM's REST endpoint with a root-relative path,
-    // instead of `netplay.url + "/list"` (which resolves relative to the SPA
-    // route and duplicates the domain inside the request path).
     netplay.getOpenRooms = async () => {
       try {
         const response = await fetch(
@@ -414,9 +405,7 @@ window.EJS_onGameStart = async () => {
     };
   }
 
-  // EmulatorJS connects with `io(netplay.url)` using Socket.IO's default path.
-  // Wrap the bundled global `io` so netplay uses RomM's mounted socket path.
-  // Only EmulatorJS uses this global; RomM's own app socket imports the client.
+  // Wrap the bundled global `io` so netplay uses mounted socket path.
   if (window.io && !window.io.__rommNetplayPatched) {
     const originalIo = window.io;
     const patchedIo = ((url: string, opts?: Record<string, unknown>) =>
