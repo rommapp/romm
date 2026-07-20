@@ -104,14 +104,16 @@ const BUTTON_MAP: Record<number, Binding | undefined> = {
   15: { key: "ArrowRight", code: "ArrowRight" },
 };
 
-// Guards the polling loop against phantom / non-standard pads. All button
-// and axis reads use W3C standard-mapping indices, so a pad that is
-// disconnected or reports a non-standard mapping cannot be interpreted
-// safely. Firefox surfaces such devices and their analog drift would
-// otherwise trigger index-based actions (e.g. LB/RB section cycling) on
-// their own. See issue #3851.
+// Guards the polling loop against phantom pads. Firefox keeps
+// disconnected entries in the getGamepads() array (rather than nulling
+// them like Chrome), and their stale analog values drift across the
+// press threshold, firing index-based actions (e.g. LB/RB section
+// cycling) with no user input. Gate on `connected` only: mapping is not
+// a usable filter here since legitimate controllers (some Switch Pro,
+// Joy-Con, 8BitDo browser/OS combos) report an empty mapping while still
+// exposing the standard button indices. See issue #3851.
 function isUsablePad(pad: Gamepad | null): pad is Gamepad {
-  return pad !== null && pad.connected && pad.mapping === "standard";
+  return pad !== null && pad.connected;
 }
 
 function dispatchKey(binding: Binding) {
@@ -267,11 +269,9 @@ export function useGamepad() {
       const actionsDisabled = ACTIONS_DISABLED_PATHS.has(route.path);
 
       for (const pad of pads) {
-        // Only act on connected, standard-mapping pads: every button/axis
-        // read below is by W3C standard index, so a phantom or non-standard
-        // pad (Firefox keeps disconnected entries around and reports
-        // uncalibrated analog controls) would map drifting values onto LB/RB
-        // and cycle AppNav sections with no user input. See issue #3851.
+        // Skip disconnected phantom pads: Firefox keeps their stale,
+        // drifting analog values in the array and they would map onto
+        // LB/RB, cycling AppNav sections with no user input. See #3851.
         if (!isUsablePad(pad)) continue;
         const key = `${pad.index}:${pad.id}`;
         const st = (states[key] ||= {
