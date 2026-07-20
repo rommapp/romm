@@ -39,6 +39,7 @@ export const ROUTES = {
   USER_PROFILE: "user-profile",
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
+  SCAN_SETTINGS: "scan-settings",
   METADATA_SOURCES: "metadata-sources",
   CLIENT_API_TOKENS: "client-api-tokens",
   ADMINISTRATION: "administration",
@@ -363,6 +364,20 @@ const routes = [
             },
           },
           {
+            path: "scan-settings",
+            name: ROUTES.SCAN_SETTINGS,
+            meta: {
+              title: i18n.global.t("settings.scan-settings"),
+              bare: true,
+            },
+            components: {
+              // v2-only view; v1 has no scan-settings screen so it
+              // redirects home if a v1 user deep-links here.
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.SCAN_SETTINGS),
+            },
+          },
+          {
             path: "metadata-sources",
             name: ROUTES.METADATA_SOURCES,
             meta: {
@@ -557,6 +572,7 @@ const routePermissions: RoutePermissions[] = [
   { path: ROUTES.SCAN, requiredScopes: ["platforms.write"] },
   { path: ROUTES.UPLOAD, requiredScopes: ["roms.write"] },
   { path: ROUTES.LIBRARY_MANAGEMENT, requiredScopes: ["platforms.write"] },
+  { path: ROUTES.SCAN_SETTINGS, requiredScopes: ["platforms.write"] },
   { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
   { path: ROUTES.LOGS, requiredScopes: ["logs.read"] },
 ];

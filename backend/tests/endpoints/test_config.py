@@ -29,6 +29,8 @@ def test_config(client):
     assert not config.get("SKIP_HASH_CALCULATION")
     assert config.get("GAMELIST_MEDIA_THUMBNAIL") == "box2d"
     assert config.get("GAMELIST_MEDIA_IMAGE") == "screenshot"
+    assert config.get("GAMELIST_AUTO_EXPORT_ON_SCAN") is False
+    assert config.get("PEGASUS_AUTO_EXPORT_ON_SCAN") is False
 
 
 def test_config_parse_error_gated_by_auth(client, access_token: str):
@@ -87,3 +89,98 @@ def test_add_exclusion_payload_shape(client, access_token: str):
 
     assert response.status_code == status.HTTP_200_OK
     add_exclusion.assert_called_once_with("single_files", "README.txt")
+
+
+def _scan_payload(**overrides):
+    payload = {
+        "metadata_priority": ["igdb", "moby"],
+        "artwork_priority": ["sgdb", "igdb"],
+        "cover_priority": ["igdb", "ss"],
+        "screenshot_priority": None,
+        "manual_priority": None,
+        "region_priority": ["us", "eu"],
+        "language_priority": ["en", "fr"],
+        "media": ["box2d", "screenshot"],
+        "gamelist_export": True,
+        "gamelist_thumbnail": "box2d",
+        "gamelist_image": "screenshot",
+        "pegasus_export": False,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_update_scan_settings_payload_shape(client, access_token: str):
+    with patch.object(cm, "update_scan_settings") as update_scan_settings:
+        response = client.put(
+            "/api/config/scan",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json=_scan_payload(),
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    update_scan_settings.assert_called_once_with(
+        metadata_priority=["igdb", "moby"],
+        artwork_priority=["sgdb", "igdb"],
+        artwork_overrides={
+            "cover": ["igdb", "ss"],
+            "screenshot": None,
+            "manual": None,
+        },
+        region_priority=["us", "eu"],
+        language_priority=["en", "fr"],
+        media=["box2d", "screenshot"],
+        gamelist_export=True,
+        gamelist_thumbnail="box2d",
+        gamelist_image="screenshot",
+        pegasus_export=False,
+    )
+
+
+def test_update_scan_settings_requires_auth(client):
+    response = client.put("/api/config/scan", json=_scan_payload())
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_update_scan_settings_rejects_unknown_source(client, access_token: str):
+    with patch.object(cm, "update_scan_settings") as update_scan_settings:
+        response = client.put(
+            "/api/config/scan",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json=_scan_payload(metadata_priority=["igdb", "not-a-source"]),
+        )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    update_scan_settings.assert_not_called()
+
+
+def test_update_scan_settings_rejects_invalid_gamelist_thumbnail(
+    client, access_token: str
+):
+    # `screenshot` is a valid media type but not a valid gamelist thumbnail.
+    with patch.object(cm, "update_scan_settings") as update_scan_settings:
+        response = client.put(
+            "/api/config/scan",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json=_scan_payload(gamelist_thumbnail="screenshot"),
+        )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    update_scan_settings.assert_not_called()
+
+
+def test_update_scan_settings_normalizes_codes(client, access_token: str):
+    with patch.object(cm, "update_scan_settings") as update_scan_settings:
+        response = client.put(
+            "/api/config/scan",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json=_scan_payload(
+                region_priority=["US", " eu ", "us", ""],
+                language_priority=["EN", "en"],
+            ),
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    _, kwargs = update_scan_settings.call_args
+    assert kwargs["region_priority"] == ["us", "eu"]
+    assert kwargs["language_priority"] == ["en"]

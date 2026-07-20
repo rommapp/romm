@@ -98,6 +98,12 @@ const groups = computed<Group[]>(() => {
           visible: scopes.value.includes("platforms.write"),
         },
         {
+          icon: "mdi-magnify-scan",
+          label: t("settings.scan-settings"),
+          to: { name: ROUTES.SCAN_SETTINGS },
+          visible: scopes.value.includes("platforms.write"),
+        },
+        {
           icon: "mdi-database-cog-outline",
           label: t("scan.metadata-sources"),
           to: { name: ROUTES.METADATA_SOURCES },

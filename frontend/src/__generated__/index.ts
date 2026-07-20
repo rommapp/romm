@@ -149,6 +149,7 @@ export type { RomUserStatus } from './models/RomUserStatus';
 export type { RoomsResponse } from './models/RoomsResponse';
 export type { SaveSchema } from './models/SaveSchema';
 export type { SaveSummarySchema } from './models/SaveSummarySchema';
+export type { ScanSettingsPayload } from './models/ScanSettingsPayload';
 export type { ScanStats } from './models/ScanStats';
 export type { ScanTaskMeta } from './models/ScanTaskMeta';
 export type { ScanTaskStatusResponse } from './models/ScanTaskStatusResponse';

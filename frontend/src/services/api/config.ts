@@ -1,5 +1,9 @@
 import type { AxiosResponse } from "axios";
-import type { ExclusionPayload, PlatformBindingPayload } from "@/__generated__";
+import type {
+  ExclusionPayload,
+  PlatformBindingPayload,
+  ScanSettingsPayload,
+} from "@/__generated__";
 import api from "@/services/api";
 
 export const configApi = api;
@@ -64,6 +68,13 @@ async function deleteExclusion({
   return api.delete(`/config/exclude/${exclusionType}/${exclusionValue}`);
 }
 
+async function updateScanSettings(payload: ScanSettingsPayload) {
+  return api.put<void, AxiosResponse<void>, ScanSettingsPayload>(
+    "/config/scan",
+    payload,
+  );
+}
+
 export default {
   addPlatformBindConfig,
   deletePlatformBindConfig,
@@ -71,4 +82,5 @@ export default {
   deletePlatformVersionConfig,
   addExclusion,
   deleteExclusion,
+  updateScanSettings,
 };

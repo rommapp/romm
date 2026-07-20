@@ -41,8 +41,10 @@ const defaultConfig = {
   SCAN_REGION_PRIORITY: [],
   SCAN_LANGUAGE_PRIORITY: [],
   SCAN_MEDIA: [],
+  GAMELIST_AUTO_EXPORT_ON_SCAN: false,
   GAMELIST_MEDIA_THUMBNAIL: "box2d",
   GAMELIST_MEDIA_IMAGE: "screenshot",
+  PEGASUS_AUTO_EXPORT_ON_SCAN: false,
 } as ConfigResponse;
 
 export default defineStore("config", {

@@ -48,6 +48,7 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   "user-interface": () => import("@/v2/views/Settings/UserInterface.vue"),
   "library-management": () =>
     import("@/v2/views/Settings/LibraryManagement.vue"),
+  "scan-settings": () => import("@/v2/views/Settings/ScanSettings.vue"),
   "metadata-sources": () => import("@/v2/views/Settings/MetadataSources.vue"),
   "client-api-tokens": () => import("@/v2/views/Settings/ClientApiTokens.vue"),
   administration: () => import("@/v2/views/Settings/Administration.vue"),
