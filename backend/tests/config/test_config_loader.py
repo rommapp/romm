@@ -263,3 +263,68 @@ def test_config_updates_serialize_gamelist_media_as_plain_strings(tmp_path):
 
     reloaded = ConfigManager(str(config_file))
     assert reloaded.config.PLATFORMS_BINDING == {"atarist": "atari-st"}
+
+
+def test_update_scan_settings_round_trip(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("scan:\n  media:\n    - box2d\n")
+    loader = ConfigManager(str(config_file))
+
+    loader.update_scan_settings(
+        metadata_priority=["ss", "igdb"],
+        artwork_priority=["igdb", "ss"],
+        artwork_overrides={"cover": ["ss"], "screenshot": None, "manual": None},
+        region_priority=["jp", "us"],
+        language_priority=["ja", "en"],
+        media=["box2d", "screenshot", "manual"],
+        gamelist_export=True,
+        gamelist_thumbnail="box3d",
+        gamelist_image="title_screen",
+        pegasus_export=True,
+    )
+
+    config_text = config_file.read_text()
+    assert "!!python/object" not in config_text
+
+    reloaded = ConfigManager(str(config_file))
+    assert reloaded.config.SCAN_METADATA_PRIORITY == ["ss", "igdb"]
+    assert reloaded.config.SCAN_ARTWORK_PRIORITY == ["igdb", "ss"]
+    # Only the "cover" override was provided; the others fall back to artwork.
+    assert reloaded.config.SCAN_ARTWORK_PRIORITY_OVERRIDES == {"url_cover": ["ss"]}
+    assert reloaded.config.SCAN_REGION_PRIORITY == ["jp", "us"]
+    assert reloaded.config.SCAN_LANGUAGE_PRIORITY == ["ja", "en"]
+    assert reloaded.config.SCAN_MEDIA == ["box2d", "screenshot", "manual"]
+    assert reloaded.config.GAMELIST_AUTO_EXPORT_ON_SCAN is True
+    assert reloaded.config.GAMELIST_MEDIA_THUMBNAIL == "box3d"
+    assert reloaded.config.GAMELIST_MEDIA_IMAGE == "title_screen"
+    assert reloaded.config.PEGASUS_AUTO_EXPORT_ON_SCAN is True
+
+
+def test_config_update_preserves_streaming_section(tmp_path):
+    """A runtime write (e.g. saving scan settings) must not drop the
+    streaming section, which isn't otherwise re-serialized."""
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "streaming:\n"
+        "  enabled: true\n"
+        "  containers:\n"
+        "    - platform: ps2\n"
+        "      host: https://192.168.1.51:3001\n"
+        "      broker_host: http://192.168.1.51:8000\n"
+        "      label: PCSX2\n"
+    )
+    loader = ConfigManager(str(config_file))
+    assert loader.config.STREAMING_ENABLED
+
+    loader.add_platform_binding("gc", "ngc")
+
+    reloaded = ConfigManager(str(config_file))
+    assert reloaded.config.STREAMING_ENABLED
+    assert reloaded.config.STREAMING_CONTAINERS == [
+        {
+            "platform": "ps2",
+            "host": "https://192.168.1.51:3001",
+            "broker_host": "http://192.168.1.51:8000",
+            "label": "PCSX2",
+        }
+    ]

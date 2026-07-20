@@ -33,5 +33,7 @@ class ConfigResponse(TypedDict):
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
+    GAMELIST_AUTO_EXPORT_ON_SCAN: bool
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
+    PEGASUS_AUTO_EXPORT_ON_SCAN: bool
