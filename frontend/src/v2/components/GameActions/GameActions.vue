@@ -91,7 +91,6 @@ useGridNav(rootEl, {
       action="flashpoint"
       :size="btnSize"
       variant="surface"
-      with-label
     />
     <GameActionBtn
       :rom="rom"

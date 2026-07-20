@@ -149,6 +149,8 @@ type Preset = {
   activeIcon: string | null;
   onClick: (() => void) | null;
   active: boolean;
+  /** Renders an <img> in place of the mdi glyph (e.g. the Flashpoint logo). */
+  image?: string;
 };
 
 // Presentation metadata per action — icon swaps when active, different
@@ -194,6 +196,7 @@ const preset = computed<Preset>(() => {
   if (props.action === "flashpoint") {
     return {
       icon: "mdi-rocket-launch-outline",
+      image: "/assets/scrappers/flashpoint.png",
       label: t("rom.open-in-flashpoint"),
       activeIcon: null,
       onClick: actions.openInFlashpoint,
@@ -499,7 +502,13 @@ function onClick(e: MouseEvent) {
     :aria-label="preset.label"
     @click="onClick"
   >
-    <RIcon :icon="displayedIcon" />
+    <img
+      v-if="preset.image"
+      :src="preset.image"
+      :alt="preset.label"
+      class="r-v2-game-btn__img"
+    />
+    <RIcon v-else :icon="displayedIcon" />
     <span v-if="withLabel" class="r-v2-game-btn__label">
       {{ preset.label }}
     </span>
@@ -559,6 +568,10 @@ function onClick(e: MouseEvent) {
 .r-v2-game-btn--x-small :deep(.mdi) {
   font-size: 14px;
 }
+.r-v2-game-btn--x-small :deep(img) {
+  width: 14px;
+  height: 14px;
+}
 .r-v2-game-btn--small {
   width: 28px;
   height: 28px;
@@ -566,6 +579,10 @@ function onClick(e: MouseEvent) {
 }
 .r-v2-game-btn--small :deep(.mdi) {
   font-size: 16px;
+}
+.r-v2-game-btn--small :deep(img) {
+  width: 16px;
+  height: 16px;
 }
 .r-v2-game-btn--default {
   width: 40px;
@@ -575,6 +592,10 @@ function onClick(e: MouseEvent) {
 .r-v2-game-btn--default :deep(.mdi) {
   font-size: 20px;
 }
+.r-v2-game-btn--default :deep(img) {
+  width: 20px;
+  height: 20px;
+}
 .r-v2-game-btn--large {
   width: 44px;
   height: 44px;
@@ -583,6 +604,10 @@ function onClick(e: MouseEvent) {
 .r-v2-game-btn--large :deep(.mdi) {
   font-size: 22px;
 }
+.r-v2-game-btn--large :deep(img) {
+  width: 22px;
+  height: 22px;
+}
 .r-v2-game-btn--x-large {
   width: 52px;
   height: 52px;
@@ -590,6 +615,10 @@ function onClick(e: MouseEvent) {
 }
 .r-v2-game-btn--x-large :deep(.mdi) {
   font-size: 26px;
+}
+.r-v2-game-btn--x-large :deep(img) {
+  width: 26px;
+  height: 26px;
 }
 
 /* Labelled — expands to a pill with text. Used by Play in the
