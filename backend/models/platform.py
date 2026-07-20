@@ -14,8 +14,7 @@ if TYPE_CHECKING:
 
 DEFAULT_COVER_ASPECT_RATIO = "2 / 3"
 
-# Bounds for the user-authored fields, mirroring their column types so
-# oversized input is rejected by validation instead of by the database.
+# Bounds for the user-authored fields
 CUSTOM_NAME_MAX_LENGTH = 400
 DESCRIPTION_MAX_LENGTH = 65535  # TEXT
 

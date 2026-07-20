@@ -48,21 +48,26 @@ const description = ref<string>(props.platform.description ?? "");
 const saving = ref(false);
 
 // Re-seed on platform change (route swap, socket update) so the fields
-// reflect the live canonical values. Discard the pending edit in that
-// case — the source-of-truth changed under us. Each field is watched
-// independently so a change to one doesn't throw away an unsaved edit
-// to the other.
+// reflect the live canonical values. Each field is watched independently,
+// and only re-seeded when it still holds the previous canonical value,
+// i.e. the user has no pending local edit to it. A background update to
+// one field therefore never discards an unsaved edit to the other (or to
+// itself).
 watch(
   () => props.platform.display_name,
-  (next) => {
-    if (!saving.value) customName.value = next ?? "";
+  (next, prev) => {
+    if (!saving.value && customName.value === (prev ?? "")) {
+      customName.value = next ?? "";
+    }
   },
 );
 
 watch(
   () => props.platform.description,
-  (next) => {
-    if (!saving.value) description.value = next ?? "";
+  (next, prev) => {
+    if (!saving.value && description.value === (prev ?? "")) {
+      description.value = next ?? "";
+    }
   },
 );
 
@@ -81,10 +86,7 @@ async function save() {
   if (!valid) return;
   saving.value = true;
   try {
-    // Send each field only when it actually changed. Writing the name
-    // unconditionally would stamp `custom_name` onto a platform that never
-    // had one just because its description was edited, pinning it against
-    // later upstream metadata renames.
+    // Send each field only when it actually changed.
     const { data } = await platformApi.updatePlatform({
       platform: {
         ...props.platform,

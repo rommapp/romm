@@ -43,22 +43,18 @@ defineProps<{
   tab: string;
   tabs: RTabNavItem[];
   tags: string[];
-  /** User-authored platform description, rendered alongside the
-   *  metadata chips (mirrors CollectionHead). Empty when unset. */
+  /** User-authored platform description, empty when unset. */
   description: string;
   stats: StatRow[];
   providers: ProviderChip[];
-  /** Permission flags — already evaluated against `useCan` in the
-   *  parent so the buttons render in or out atomically with the rest
-   *  of the page. */
+  /** Permission flags */
   canEdit: boolean;
   canScan: boolean;
   canDownload: boolean;
-  /** Spinner on the random-game button while the parent resolves which
-   *  ROM to open. */
+  /** Spinner on the random-game button while the parent resolves the ROM. */
   randomLoading?: boolean;
-  /** Label text — passed in so the parent owns i18n and this stays a
-   *  presentational composite (no `useI18n` here). */
+  /** Label text passed in so the parent owns i18n and this stays a
+   *  presentational composite. */
   labels: {
     upload: string;
     scan: string;

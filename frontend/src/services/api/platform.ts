@@ -30,12 +30,6 @@ async function getFilesystemPlatforms() {
   return api.get<Platform[]>("/platforms/filesystem");
 }
 
-/**
- * Partial update — `description` is opt-in and only sent when explicitly
- * passed. Callers that just rename a platform therefore can't replay a stale
- * description they happened to be holding and clobber a newer value; the
- * backend leaves any omitted field untouched.
- */
 async function updatePlatform({
   platform,
   description,
@@ -43,8 +37,10 @@ async function updatePlatform({
   platform: Platform;
   description?: string;
 }) {
-  const payload: UpdatePlatformInput = { custom_name: platform.custom_name };
-  if (description !== undefined) payload.description = description;
+  const payload: UpdatePlatformInput = {
+    custom_name: platform.custom_name,
+    ...(description !== undefined ? { description } : {}),
+  };
   return api.put<Platform>(`/platforms/${platform.id}`, payload);
 }
 
