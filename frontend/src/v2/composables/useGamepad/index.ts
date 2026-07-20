@@ -104,14 +104,10 @@ const BUTTON_MAP: Record<number, Binding | undefined> = {
   15: { key: "ArrowRight", code: "ArrowRight" },
 };
 
-// Guards the polling loop against phantom pads. Firefox keeps
-// disconnected entries in the getGamepads() array (rather than nulling
-// them like Chrome), and their stale analog values drift across the
-// press threshold, firing index-based actions (e.g. LB/RB section
-// cycling) with no user input. Gate on `connected` only: mapping is not
-// a usable filter here since legitimate controllers (some Switch Pro,
-// Joy-Con, 8BitDo browser/OS combos) report an empty mapping while still
-// exposing the standard button indices. See issue #3851.
+// Guards the polling loop against phantom gamepads.
+// Firefox keeps disconnected entries in the getGamepads() array,
+// and their stale analog values drift across the press threshold,
+// firing index-based actions with no user input. #3851.
 function isUsablePad(pad: Gamepad | null): pad is Gamepad {
   return pad !== null && pad.connected;
 }
@@ -269,9 +265,7 @@ export function useGamepad() {
       const actionsDisabled = ACTIONS_DISABLED_PATHS.has(route.path);
 
       for (const pad of pads) {
-        // Skip disconnected phantom pads: Firefox keeps their stale,
-        // drifting analog values in the array and they would map onto
-        // LB/RB, cycling AppNav sections with no user input. See #3851.
+        // Skip disconnected phantom gamepads.
         if (!isUsablePad(pad)) continue;
         const key = `${pad.index}:${pad.id}`;
         const st = (states[key] ||= {
