@@ -40,10 +40,7 @@ import {
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 export type BoxartStyle =
-  | "cover_path"
-  | "box3d_path"
-  | "physical_path"
-  | "miximage_path";
+  "cover_path" | "box3d_path" | "physical_path" | "miximage_path";
 
 /** Styles that resolve to an alternative artwork on the rom's metadata
  *  (everything except the default box art). These literals are exactly

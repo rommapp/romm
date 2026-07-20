@@ -311,12 +311,7 @@ function onScroll(e: Event) {
 }
 
 type ScanType =
-  | "new_platforms"
-  | "quick"
-  | "unmatched"
-  | "update"
-  | "hashes"
-  | "complete";
+  "new_platforms" | "quick" | "unmatched" | "update" | "hashes" | "complete";
 
 const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
   {

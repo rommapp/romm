@@ -520,8 +520,7 @@ async function deleteSelectedFiles() {
   }
   if (failed > 0) {
     const firstError = results.find((r) => r.status === "rejected") as
-      | PromiseRejectedResult
-      | undefined;
+      PromiseRejectedResult | undefined;
     snackbar.error(
       t("rom.file-delete-failed", {
         error: firstError ? errorMessage(firstError.reason) : "",

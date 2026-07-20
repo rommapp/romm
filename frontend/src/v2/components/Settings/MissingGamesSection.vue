@@ -120,8 +120,7 @@ const listSortKey = computed<ListSortKey | null>(() => {
 // table never collapses to "empty" between the fetch firing and total
 // resolving.
 type VItem =
-  | { kind: "list-row"; position: number }
-  | { kind: "skeleton"; key: number };
+  { kind: "list-row"; position: number } | { kind: "skeleton"; key: number };
 
 const virtualItems = computed<VItem[]>(() => {
   if (!metadataLoaded.value) {

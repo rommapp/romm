@@ -228,10 +228,7 @@ const arrowStyle = computed<Record<string, string>>(() => {
   const data = middlewareData.value.arrow;
   if (!data) return {};
   const side = activePlacement.value.split("-")[0] as
-    | "top"
-    | "right"
-    | "bottom"
-    | "left";
+    "top" | "right" | "bottom" | "left";
   const staticSide = {
     top: "bottom",
     right: "left",
