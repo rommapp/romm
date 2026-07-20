@@ -19,6 +19,7 @@
   "firmware-found": "发现固件：{n} 个文件 | 发现固件：{n} 个文件",
   "firmware-scanned-n": "固件：已扫描 {n} 个",
   "firmware-scanned-with-details": "固件：已扫描 {n_scanned_firmware} 个，新增 {n_new_firmware} 个",
+  "folder-not-scanned": "未扫描",
   "hash-calculation-disabled": "哈希计算已禁用",
   "hash-matchers": "哈希匹配器",
   "hashes": "哈希",

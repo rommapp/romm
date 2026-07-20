@@ -19,6 +19,7 @@
   "firmware-found": "Firmware găsit: {n} fișier | Firmware găsit: {n} fișiere",
   "firmware-scanned-n": "Firmware: {n} scanat",
   "firmware-scanned-with-details": "Firmware: {n_scanned_firmware} scanate, dintre care {n_new_firmware} noi",
+  "folder-not-scanned": "Nescanat",
   "hash-calculation-disabled": "Calculul hash-ului este dezactivat",
   "hash-matchers": "Asocieri pe bază de hash",
   "hashes": "Recalculează hash-urile",

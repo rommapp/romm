@@ -19,6 +19,7 @@
   "firmware-found": "Firmware trovato: {n} file | Firmware trovati: {n} file",
   "firmware-scanned-n": "Firmware: {n} scansionato",
   "firmware-scanned-with-details": "Firmware: {n_scanned_firmware} scansionati, di cui {n_new_firmware} nuovi",
+  "folder-not-scanned": "Non scansionato",
   "hash-calculation-disabled": "Il calcolo dell'hash è disabilitato",
   "hash-matchers": "Matcher per hash",
   "hashes": "Ricalcola hash",

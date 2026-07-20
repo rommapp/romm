@@ -8,6 +8,7 @@ export type Platform = PlatformSchema;
 export default defineStore("platforms", {
   state: () => ({
     allPlatforms: [] as Platform[],
+    filesystemPlatforms: [] as Platform[],
     filterText: "" as string,
     fetchingPlatforms: false as boolean,
   }),
@@ -27,6 +28,11 @@ export default defineStore("platforms", {
             p.display_name.toLowerCase().includes(filterText.toLowerCase()),
         )
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
+    // Existing database platforms + unscanned folders on disk
+    scannablePlatforms: ({ allPlatforms: all, filesystemPlatforms: fs }) =>
+      uniqBy([...all, ...fs], "fs_slug").sort((a, b) =>
+        a.display_name.localeCompare(b.display_name),
+      ),
   },
 
   actions: {
@@ -55,6 +61,20 @@ export default defineStore("platforms", {
           });
       });
     },
+    fetchFilesystemPlatforms(): Promise<Platform[]> {
+      return new Promise((resolve, reject) => {
+        platformApi
+          .getFilesystemPlatforms()
+          .then(({ data: platforms }) => {
+            this.filesystemPlatforms = platforms;
+            resolve(platforms);
+          })
+          .catch((error) => {
+            console.error(error);
+            reject(error);
+          });
+      });
+    },
     set(platforms: Platform[]) {
       this.allPlatforms = platforms;
     },
@@ -80,6 +100,7 @@ export default defineStore("platforms", {
     },
     reset() {
       this.allPlatforms = [] as Platform[];
+      this.filesystemPlatforms = [] as Platform[];
       this.filterText = "";
     },
   },

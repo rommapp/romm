@@ -23,7 +23,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.permission import PermAction, PermEntity
 from models.platform import Platform
-from utils.platforms import get_supported_platforms
+from utils.platforms import get_filesystem_platforms, get_supported_platforms
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -96,6 +96,13 @@ def get_supported_platforms_endpoint(request: Request) -> list[PlatformSchema]:
     """Retrieve the list of supported platforms."""
 
     return get_supported_platforms()
+
+
+@protected_route(router.get, "/filesystem", [Scope.PLATFORMS_READ])
+async def get_filesystem_platforms_endpoint(request: Request) -> list[PlatformSchema]:
+    """Retrieve platform folders on disk that have no database row yet."""
+
+    return await get_filesystem_platforms()
 
 
 @protected_route(
