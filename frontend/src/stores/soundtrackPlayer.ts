@@ -17,13 +17,7 @@ export interface PlayerTrack {
 // Audio-tag fields are sourced from the generated schema; the rest (duration in
 // seconds + resolved cover URLs) are UI-specific to the player.
 type AudioTagKey =
-  | "title"
-  | "artist"
-  | "album"
-  | "year"
-  | "genre"
-  | "track"
-  | "disc";
+  "title" | "artist" | "album" | "year" | "genre" | "track" | "disc";
 
 export type PlayerMeta = {
   [K in AudioTagKey]?: NonNullable<TrackMetaSchema[K]>;

@@ -675,10 +675,7 @@ export function isRuffleEmulationSupported(
 }
 
 export type PlayingStatus =
-  | RomUserStatus
-  | "backlogged"
-  | "now_playing"
-  | "hidden";
+  RomUserStatus | "backlogged" | "now_playing" | "hidden";
 
 /**
  * Map of ROM statuses to their corresponding emoji, text, and i18n key.

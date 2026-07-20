@@ -37,7 +37,7 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 
 ## Preview
 
-|                                       🖥 Desktop                                       |                                                           📱 Mobile                                                            |
+|                                       🖥 Desktop                                        |                                                           📱 Mobile                                                            |
 | :------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------: |
 | <img src=".github/resources/screenshots/preview-desktop.webp" alt="desktop preview" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/preview-mobile.webp" alt="mobile preview" /> |
 

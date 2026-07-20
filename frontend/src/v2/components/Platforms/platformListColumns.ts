@@ -9,12 +9,7 @@
 // column to keep the row legible without horizontal scroll.
 
 export type PlatformSortKey =
-  | "name"
-  | "family"
-  | "category"
-  | "generation"
-  | "playable"
-  | "rom_count";
+  "name" | "family" | "category" | "generation" | "playable" | "rom_count";
 
 export interface PlatformColumn {
   key: PlatformSortKey;

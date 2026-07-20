@@ -50,7 +50,7 @@ jobs:
           --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=2s --health-retries=3
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.3.0
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Install mariadb connectors
         run: |
@@ -58,7 +58,7 @@ jobs:
           sudo apt-get install -y libmariadb3 libmariadb-dev
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6.7.0
+        uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4 # v6.7.0
 
       - name: Install python
         run: |
