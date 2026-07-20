@@ -159,6 +159,19 @@ class TestScanTotals:
         assert result.total_platforms == 3
         assert result.total_roms == 300
 
+    async def test_scan_selected_filesystem_slug(self, patched, mocker):
+        """A never-scanned folder can be targeted by its filesystem slug."""
+        result = await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[],
+            scan_type=ScanType.QUICK,
+            platform_fs_slugs=["new1"],
+        )
+
+        # Only the selected folder is scanned, not every filesystem platform.
+        assert result.total_platforms == 1
+        assert result.total_roms == 100
+
 
 class TestShouldScanRom:
     def test_new_platforms_scan_with_no_rom(self):

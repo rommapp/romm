@@ -19,6 +19,7 @@
   "firmware-found": "發現韌體：{n} 個檔案 | 發現韌體：{n} 個檔案",
   "firmware-scanned-n": "韌體：已掃描 {n} 個",
   "firmware-scanned-with-details": "韌體：已掃描 {n_scanned_firmware} 個，新增 {n_new_firmware} 個",
+  "folder-not-scanned": "未掃描",
   "hash-calculation-disabled": "雜湊計算已停用",
   "hash-matchers": "雜湊匹配器",
   "hashes": "雜湊",

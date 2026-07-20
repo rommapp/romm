@@ -19,6 +19,7 @@
   "firmware-found": "Firmware található: {n} fájl | Firmware található: {n} fájl",
   "firmware-scanned-n": "Firmware: {n} beolvasva",
   "firmware-scanned-with-details": "Firmware: {n_scanned_firmware} beolvasva, ebből {n_new_firmware} új",
+  "folder-not-scanned": "Nincs beolvasva",
   "hash-calculation-disabled": "A hash számítás le van tiltva",
   "hash-matchers": "Hash-egyeztetők",
   "hashes": "Hash-értékek újraszámítása",

@@ -19,6 +19,7 @@
   "firmware-found": "펌웨어 발견: {n}개 파일 | 펌웨어 발견: {n}개 파일",
   "firmware-scanned-n": "펌웨어: {n}개 스캔됨",
   "firmware-scanned-with-details": "펌웨어: {n_scanned_firmware}개 스캔됨, 새 항목 {n_new_firmware}개",
+  "folder-not-scanned": "스캔되지 않음",
   "hash-calculation-disabled": "해시 계산이 비활성화되어 있습니다",
   "hash-matchers": "해시 매처",
   "hashes": "해시",

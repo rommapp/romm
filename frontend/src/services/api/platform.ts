@@ -25,6 +25,10 @@ async function getSupportedPlatforms() {
   return api.get<Platform[]>("/platforms/supported");
 }
 
+async function getFilesystemPlatforms() {
+  return api.get<Platform[]>("/platforms/filesystem");
+}
+
 async function updatePlatform({ platform }: { platform: Platform }) {
   return api.put<Platform>(`/platforms/${platform.id}`, {
     custom_name: platform.custom_name,
@@ -40,6 +44,7 @@ export default {
   getPlatforms,
   getPlatform,
   getSupportedPlatforms,
+  getFilesystemPlatforms,
   updatePlatform,
   deletePlatform,
 };

@@ -19,6 +19,7 @@
   "firmware-found": "ファームウェアが見つかりました: {n} ファイル | ファームウェアが見つかりました: {n} ファイル",
   "firmware-scanned-n": "ファームウェア: {n} 件をスキャン",
   "firmware-scanned-with-details": "ファームウェア: {n_scanned_firmware} 件をスキャン、うち新規 {n_new_firmware} 件",
+  "folder-not-scanned": "未スキャン",
   "hash-calculation-disabled": "ハッシュ計算が無効になっています",
   "hash-matchers": "ハッシュマッチャー",
   "hashes": "ハッシュ値の再計算",

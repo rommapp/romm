@@ -43,7 +43,7 @@ import {
 } from "@v2/lib";
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
+import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import socket from "@/services/socket";
@@ -71,11 +71,20 @@ const { t } = useI18n();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
-const { filteredPlatforms } = storeToRefs(platformsStore);
+const { scannablePlatforms } = storeToRefs(platformsStore);
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const heartbeat = storeHeartbeat();
-const platformsToScan = ref<number[]>([]);
+// Selection is keyed by fs_slug: the scan list mixes database platforms
+// (including zero-ROM ones) and never-scanned folders that share no stable
+// numeric id, and the backend scans folder slugs regardless.
+const platformsToScan = ref<string[]>([]);
+
+// Never-scanned folders have no database row, so they are fetched on demand
+// rather than living in the globally-loaded platform list.
+onMounted(() => {
+  platformsStore.fetchFilesystemPlatforms();
+});
 // IDs of platforms whose ScanPlatform panel is currently open.
 const openPlatforms = ref<Set<number>>(new Set());
 
@@ -90,7 +99,7 @@ const scanLog = useTemplateRef<HTMLDivElement>("scan-log");
 const infoDialogOpen = ref(false);
 
 const sortedPlatforms = computed(() =>
-  [...filteredPlatforms.value].sort((a, b) =>
+  [...scannablePlatforms.value].sort((a, b) =>
     a.display_name.localeCompare(b.display_name),
   ),
 );
@@ -445,7 +454,7 @@ function scan() {
   );
 
   socket.emit("scan", {
-    platforms: platformsToScan.value,
+    platform_fs_slugs: platformsToScan.value,
     type: scanType.value,
     apis,
     launchbox_remote_enabled: launchboxRemoteEnabled.value,
@@ -493,6 +502,7 @@ function stopScan() {
           <PlatformSelect
             v-model="platformsToScan"
             :items="sortedPlatforms"
+            item-key="fs_slug"
             :label="t('common.platforms')"
             prepend-inner-icon="mdi-controller"
             :icon-size="32"
@@ -501,6 +511,8 @@ function stopScan() {
             hide-details
             chips
             show-meta
+            mark-unscanned
+            :unscanned-label="t('scan.folder-not-scanned')"
             show-all-option
           />
         </section>

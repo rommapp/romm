@@ -700,6 +700,7 @@ async def scan_platforms(
     roms_ids: list[int] | None = None,
     launchbox_remote_enabled: bool = True,
     playmatch_enabled: bool = True,
+    platform_fs_slugs: list[str] | None = None,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -708,9 +709,14 @@ async def scan_platforms(
         metadata_sources (list[str]): List of metadata sources to be used
         scan_type (ScanType): Type of scan to be performed.
         roms_ids (list[int], optional): List of selected roms to be scanned.
+        platform_fs_slugs (list[str], optional): Filesystem slugs of folders to
+            scan that have no database row yet (never-scanned platforms).
     """
     if not roms_ids:
         roms_ids = []
+
+    if not platform_fs_slugs:
+        platform_fs_slugs = []
 
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
@@ -738,10 +744,20 @@ async def scan_platforms(
     db_platforms = db_platform_handler.get_platforms()
     db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
 
-    platform_list = [
-        p.fs_slug for p in db_platforms if p.id in platform_ids
-    ] or fs_platforms
-    platform_list = sorted(platform_list)
+    # Selected platforms arrive as database ids (existing platforms) and/or
+    # filesystem slugs (a folder can be an existing platform or one on disk
+    # without a database row yet). Both resolve to a folder slug the scanner
+    # walks. Known database platforms are always accepted; a bare slug is only
+    # accepted when it maps to a folder on disk. When nothing is selected,
+    # every filesystem platform is scanned.
+    selected_slugs = [p.fs_slug for p in db_platforms if p.id in platform_ids]
+    for fs_slug in platform_fs_slugs:
+        if fs_slug in selected_slugs:
+            continue
+        if fs_slug in db_platforms_by_slug or fs_slug in fs_platforms:
+            selected_slugs.append(fs_slug)
+
+    platform_list = sorted(selected_slugs or fs_platforms)
 
     # A "new platforms" scan skips platforms that already exist in the database,
     # so they must be excluded from the totals to keep the tracker accurate. This
@@ -904,6 +920,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
     platform_ids = options.get("platforms", [])
+    platform_fs_slugs = options.get("platform_fs_slugs", [])
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
@@ -918,6 +935,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
             playmatch_enabled=playmatch_enabled,
+            platform_fs_slugs=platform_fs_slugs,
         )
 
     return high_prio_queue.enqueue(
@@ -928,6 +946,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         roms_ids=roms_ids,
         launchbox_remote_enabled=launchbox_remote_enabled,
         playmatch_enabled=playmatch_enabled,
+        platform_fs_slugs=platform_fs_slugs,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={

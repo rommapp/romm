@@ -19,6 +19,7 @@
   "firmware-found": "Намерен фърмуер: {n} файл | Намерен фърмуер: {n} файла",
   "firmware-scanned-n": "Фърмуер: {n} сканирани",
   "firmware-scanned-with-details": "Фърмуер: {n_scanned_firmware} сканирани, от които {n_new_firmware} нови",
+  "folder-not-scanned": "Не сканирано",
   "hash-calculation-disabled": "Изчисляването на хешове е деактивирано",
   "hash-matchers": "Хеш разпознавачи",
   "hashes": "Преизчисли хешове",

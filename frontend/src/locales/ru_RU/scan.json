@@ -19,6 +19,7 @@
   "firmware-found": "Найдено прошивок: {n} файл | Найдено прошивок: {n} файлов",
   "firmware-scanned-n": "Прошивки: отсканировано {n}",
   "firmware-scanned-with-details": "Прошивки: отсканировано {n_scanned_firmware}, новых {n_new_firmware}",
+  "folder-not-scanned": "Не отсканировано",
   "hash-calculation-disabled": "Вычисление хешей отключено",
   "hash-matchers": "Сопоставители по хешу",
   "hashes": "Пересчитать хеши",
