@@ -39,10 +39,7 @@ export interface GameActionsOptions {
   coverEl?: () => HTMLElement | null;
 }
 
-// Flashpoint game IDs are UUIDs. Validate before feeding the value into the
-// `flashpoint://` URI so a malformed stored id (e.g. containing `#` or `?`,
-// which the URI parser would treat as a fragment/query) can't silently launch
-// the wrong title.
+// Validate flashpoint game IDs are UUIDs
 const FLASHPOINT_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -195,8 +192,6 @@ export function useGameActions(
     return rom ? isNintendoDSRom(rom) : false;
   });
 
-  // The stored `flashpoint_id` is the game's UUID, which the `flashpoint://`
-  // protocol handler resolves to launch the title locally.
   const canOpenInFlashpoint = computed(() => {
     const rom = getRom();
     return Boolean(
@@ -290,10 +285,7 @@ export function useGameActions(
     emitter?.emit("showQRCodeDialog", rom);
   }
 
-  // Hands the game's Flashpoint UUID to the OS `flashpoint://` protocol
-  // handler so the locally installed Flashpoint launcher starts it.
-  // We click a synthesized anchor rather than window.open so no blank
-  // tab is left behind when the handler takes over.
+  // Launch the game in installed Flashpoint
   function openInFlashpoint() {
     const rom = getRom();
     if (!rom?.flashpoint_id || !FLASHPOINT_ID_RE.test(rom.flashpoint_id))
