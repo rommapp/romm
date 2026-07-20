@@ -24,10 +24,15 @@ defineOptions({ inheritAttrs: false });
 
 export type AssetType = "save" | "state";
 
-const props = defineProps<{
-  asset: SaveSchema | StateSchema | null;
-  type: AssetType;
-}>();
+const props = withDefaults(
+  defineProps<{
+    asset: SaveSchema | StateSchema | null;
+    type: AssetType;
+    /** Set false where the surrounding panel already carries the title. */
+    showHeading?: boolean;
+  }>(),
+  { showHeading: true },
+);
 
 defineEmits<{
   clear: [];
@@ -58,7 +63,7 @@ const emptyText = computed(() =>
 
 <template>
   <div class="r-asset-preview">
-    <p class="r-asset-preview__eyebrow">{{ heading }}</p>
+    <p v-if="showHeading" class="r-asset-preview__eyebrow">{{ heading }}</p>
 
     <!-- ── Stage — same 16:9 dimensions across all variants ───── -->
     <div

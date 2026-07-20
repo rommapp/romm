@@ -6,22 +6,14 @@
 //
 // Layout mirrors the EmulatorJS view, three columns pre-game:
 //   1. Hero: cover + title + "Play on <emulator>" CTA + back links.
-//   2. Session: where the game runs, save-slot capabilities, and any
-//      claim errors (occupied / not configured / server).
-//   3. Setup: default save slot + fullscreen-on-play.
+//   2. Session: where the game runs and any claim errors (occupied /
+//      not configured / server).
+//   3. Aside: memory card picker + fullscreen-on-play.
 //
 // The running state is a fixed stage hosting the Selkies iframe with an
 // auto-hiding control bar (volume, save/load state, fullscreen, exit).
-import {
-  RAlert,
-  RBtn,
-  RCard,
-  RDialog,
-  RIcon,
-  RSelect,
-  RSlider,
-  RSwitch,
-} from "@v2/lib";
+import { RAlert, RBtn, RCard, RDialog, RIcon, RSlider, RSwitch } from "@v2/lib";
+import { useLocalStorage } from "@vueuse/core";
 import { isAxiosError } from "axios";
 import {
   computed,
@@ -48,7 +40,9 @@ import {
 } from "@/stores/streaming";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import MemoryCardPicker from "@/v2/components/Player/MemoryCardPicker.vue";
-import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
+import AssetStrip, {
+  type AssetLayout,
+} from "@/v2/components/shared/AssetStrip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
@@ -84,8 +78,6 @@ const isUIVisible = ref(true);
 const isSavingAndExiting = ref(false);
 const isSavingState = ref(false);
 const isLoadingState = ref(false);
-const isLoadingAutosave = ref(false);
-const selectedSlot = ref(1);
 const volume = ref(100);
 const isMuted = ref(false);
 
@@ -182,6 +174,20 @@ const streamStates = computed<UserStateSchema[]>(() => {
   );
 });
 
+// Every capture is kept, so a heavy save-stater ends up with a history the
+// horizontal strip buries. Grid and list trade thumbnail size for how many
+// entries fit at once; the choice sticks across sessions.
+const STATE_LAYOUTS = [
+  { value: "strip", icon: "mdi-view-carousel-outline" },
+  { value: "grid", icon: "mdi-view-grid-outline" },
+  { value: "list", icon: "mdi-view-list" },
+] as const satisfies readonly { value: AssetLayout; icon: string }[];
+
+const stateLayout = useLocalStorage<AssetLayout>(
+  "romm:v2:stream:states-layout",
+  "strip",
+);
+
 // Preselect the newest state so Play resumes where the user left off;
 // clearing the preview (start fresh) is one click away.
 watch(
@@ -209,21 +215,12 @@ function pickState(state: UserStateSchema): void {
 // fetch + default-newest selection; we just carry the id to claim.
 const selectedMemoryCardId = ref<number | null>(null);
 
-// Clamp so a platform switch to fewer slots never sends an
-// out-of-range slot to the broker.
-watch(
-  () => capabilities.value.maxSlots,
-  (max) => {
-    if (selectedSlot.value > max) selectedSlot.value = 1;
-  },
-);
-
-const slotItems = computed(() =>
-  Array.from({ length: capabilities.value.maxSlots }, (_, i) => ({
-    title: t("play.stream-slot-n", { n: i + 1 }),
-    value: i + 1,
-  })),
-);
+// RomM keeps every capture, so slots are no longer a user-facing concept:
+// they are just the register the emulator writes through. Everything rides
+// the autosave slot, which is also what hydration pushes into and what
+// save-and-exit already uses, so quick-load in game lands on the same file
+// the picker last sent down.
+const streamSlot = computed(() => capabilities.value.autosaveSlot);
 
 const title = computed(
   () => heroRom.value?.name || heroRom.value?.fs_name_no_ext || "",
@@ -716,7 +713,7 @@ async function handleSaveState(): Promise<void> {
   if (!rom.value || playerState.value !== "playing") return;
   isSavingState.value = true;
   try {
-    await streamingApi.saveState(rom.value.platform_slug, selectedSlot.value);
+    await streamingApi.saveState(rom.value.platform_slug, streamSlot.value);
   } catch (err) {
     console.warn("[streaming] Could not save state:", err);
   } finally {
@@ -728,7 +725,7 @@ async function handleLoadState(): Promise<void> {
   if (!rom.value || playerState.value !== "playing") return;
   isLoadingState.value = true;
   try {
-    await streamingApi.loadState(rom.value.platform_slug, selectedSlot.value);
+    await streamingApi.loadState(rom.value.platform_slug, streamSlot.value);
   } catch (err) {
     console.warn("[streaming] Could not load state:", err);
   } finally {
@@ -736,27 +733,8 @@ async function handleLoadState(): Promise<void> {
   }
 }
 
-async function handleLoadAutosave(): Promise<void> {
-  if (!rom.value || playerState.value !== "playing") return;
-  isLoadingAutosave.value = true;
-  try {
-    await streamingApi.loadState(
-      rom.value.platform_slug,
-      capabilities.value.autosaveSlot,
-    );
-  } catch (err) {
-    console.warn("[streaming] Could not load state:", err);
-  } finally {
-    isLoadingAutosave.value = false;
-  }
-}
-
 const stateActionBusy = computed(
-  () =>
-    isSavingState.value ||
-    isLoadingState.value ||
-    isLoadingAutosave.value ||
-    isSavingAndExiting.value,
+  () => isSavingState.value || isLoadingState.value || isSavingAndExiting.value,
 );
 
 // ── Fullscreen ─────────────────────────────────────────────────────
@@ -1015,11 +993,7 @@ onBeforeUnmount(() => {
 <template>
   <section v-if="rom || heroSeed" class="r-v2-stream">
     <!-- Pre-game configuration -->
-    <div
-      v-if="!gameRunning"
-      class="r-v2-stream__config"
-      :class="{ 'r-v2-stream__config--resume': streamStates.length > 0 }"
-    >
+    <div v-if="!gameRunning" class="r-v2-stream__config">
       <!-- Hero: cover + title + Play CTA -->
       <RCard class="r-v2-stream__panel r-v2-stream__hero" variant="flat">
         <div
@@ -1081,14 +1055,11 @@ onBeforeUnmount(() => {
         </div>
       </RCard>
 
-      <!-- Resume: preview + strip of own and shared states. Only rendered
-           when this emulator has states to offer; owner chips distinguish
-           states shared by other users. -->
-      <RCard
-        v-if="streamStates.length > 0"
-        class="r-v2-stream__panel r-v2-stream__resume"
-        variant="flat"
-      >
+      <!-- Resume: preview + strip of own and shared states. Always present
+           so a first run and a long history read as the same screen; the
+           strip carries its own empty state. Owner chips distinguish states
+           shared by other users. -->
+      <RCard class="r-v2-stream__panel r-v2-stream__resume" variant="flat">
         <div class="r-v2-stream__panel-head r-v2-stream__panel-head--label">
           <RIcon icon="mdi-content-save-outline" size="14" />
           <span>{{ t("play.resume-from-state") }}</span>
@@ -1097,25 +1068,46 @@ onBeforeUnmount(() => {
           <AssetPreview
             :asset="selectedState"
             type="state"
+            :show-heading="false"
             @clear="selectedState = null"
           />
-          <div class="r-v2-stream__strip-label" aria-hidden="true">
-            <span>{{ t("play.all-states") }}</span>
-            <span class="r-v2-stream__strip-count">{{
+          <div class="r-v2-stream__strip-label">
+            <span aria-hidden="true">{{ t("play.all-states") }}</span>
+            <span class="r-v2-stream__strip-count" aria-hidden="true">{{
               streamStates.length
             }}</span>
+            <div
+              class="r-v2-stream__strip-views"
+              role="group"
+              :aria-label="t('play.states-view')"
+            >
+              <RBtn
+                v-for="view in STATE_LAYOUTS"
+                :key="view.value"
+                variant="text"
+                size="x-small"
+                :icon="view.icon"
+                :aria-pressed="stateLayout === view.value"
+                :class="{
+                  'r-v2-stream__strip-view--on': stateLayout === view.value,
+                }"
+                :aria-label="t(`play.states-view-${view.value}`)"
+                @click="stateLayout = view.value"
+              />
+            </div>
           </div>
           <AssetStrip
             :assets="streamStates"
             type="state"
             :selected-id="selectedState?.id ?? null"
+            :layout="stateLayout"
             show-owner
             @select="pickState($event as UserStateSchema)"
           />
         </div>
       </RCard>
 
-      <!-- Session: container info + capabilities + claim errors -->
+      <!-- Session: container info + claim errors -->
       <RCard class="r-v2-stream__panel r-v2-stream__session" variant="flat">
         <div class="r-v2-stream__panel-head r-v2-stream__panel-head--label">
           <RIcon icon="mdi-cast" size="14" />
@@ -1160,62 +1152,47 @@ onBeforeUnmount(() => {
               }}</span>
               <span class="r-v2-stream__fact-value">{{ emulatorLabel }}</span>
             </div>
-            <div class="r-v2-stream__fact">
-              <RIcon icon="mdi-content-save-outline" size="16" />
-              <span class="r-v2-stream__fact-label">{{
-                t("play.save-slots")
-              }}</span>
-              <span class="r-v2-stream__fact-value">
-                {{
-                  capabilities.maxSlots > 0
-                    ? capabilities.maxSlots
-                    : t("play.not-supported")
-                }}
-              </span>
-            </div>
-            <div class="r-v2-stream__fact">
-              <RIcon icon="mdi-history" size="16" />
-              <span class="r-v2-stream__fact-label">{{
-                t("play.autosave")
-              }}</span>
-              <span class="r-v2-stream__fact-value">
-                {{
-                  capabilities.hasAutosave
-                    ? t("play.stream-slot-n", { n: capabilities.autosaveSlot })
-                    : t("play.not-supported")
-                }}
-              </span>
-            </div>
           </div>
         </div>
       </RCard>
 
-      <!-- Setup: default slot + fullscreen -->
-      <RCard class="r-v2-stream__panel r-v2-stream__setup" variant="flat">
-        <div class="r-v2-stream__panel-head r-v2-stream__panel-head--label">
-          <RIcon icon="mdi-cog-outline" size="14" />
-          <span>{{ t("common.settings") }}</span>
-        </div>
-        <div class="r-v2-stream__setup-body">
-          <MemoryCardPicker
-            v-if="container?.supports_memory_cards && container.emulator"
-            v-model="selectedMemoryCardId"
-            :emulator="container.emulator"
-            :platform-id="rom?.platform_id ?? null"
-          />
-          <RSelect
-            v-if="capabilities.maxSlots > 0"
-            v-model="selectedSlot"
-            variant="outlined"
-            density="comfortable"
-            prepend-inner-icon="mdi-content-save-outline"
-            hide-details
-            :label="t('play.stream-save-slot')"
-            :items="slotItems"
-          />
-          <RSwitch v-model="fullscreenOnPlay" :label="t('play.full-screen')" />
-        </div>
-      </RCard>
+      <!-- Aside: the panels stack as one grid cell, so the memory card
+           section can come and go without leaving a hole in the layout. -->
+      <div class="r-v2-stream__aside">
+        <!-- Memory cards: their own section, since a card is picked per run
+             and has nothing to do with the client-side preferences below. -->
+        <RCard
+          v-if="container?.supports_memory_cards && container.emulator"
+          class="r-v2-stream__panel r-v2-stream__cards"
+          variant="flat"
+        >
+          <div class="r-v2-stream__panel-head r-v2-stream__panel-head--label">
+            <RIcon icon="mdi-sd" size="14" />
+            <span>{{ t("play.memory-card") }}</span>
+          </div>
+          <div class="r-v2-stream__cards-body">
+            <MemoryCardPicker
+              v-model="selectedMemoryCardId"
+              :emulator="container.emulator"
+              :platform-id="rom?.platform_id ?? null"
+            />
+          </div>
+        </RCard>
+
+        <!-- Setup: client-side play preferences -->
+        <RCard class="r-v2-stream__panel r-v2-stream__setup" variant="flat">
+          <div class="r-v2-stream__panel-head r-v2-stream__panel-head--label">
+            <RIcon icon="mdi-cog-outline" size="14" />
+            <span>{{ t("common.settings") }}</span>
+          </div>
+          <div class="r-v2-stream__setup-body">
+            <RSwitch
+              v-model="fullscreenOnPlay"
+              :label="t('play.full-screen')"
+            />
+          </div>
+        </RCard>
+      </div>
     </div>
 
     <!-- Running state -->
@@ -1269,16 +1246,7 @@ onBeforeUnmount(() => {
           :aria-label="t('play.stream-volume')"
         />
 
-        <template v-if="capabilities.maxSlots > 0">
-          <RSelect
-            v-model="selectedSlot"
-            class="r-v2-stream__slot"
-            variant="outlined"
-            density="compact"
-            hide-details
-            :aria-label="t('play.stream-save-slot')"
-            :items="slotItems"
-          />
+        <template v-if="capabilities.hasAutosave">
           <RBtn
             icon="mdi-content-save-outline"
             variant="text"
@@ -1296,16 +1264,6 @@ onBeforeUnmount(() => {
             :loading="isLoadingState"
             :disabled="stateActionBusy"
             @click="handleLoadState"
-          />
-          <RBtn
-            v-if="capabilities.hasAutosave"
-            icon="mdi-history"
-            variant="text"
-            density="compact"
-            :tooltip="t('play.stream-load-autosave')"
-            :loading="isLoadingAutosave"
-            :disabled="stateActionBusy"
-            @click="handleLoadAutosave"
           />
         </template>
 
@@ -1445,20 +1403,23 @@ onBeforeUnmount(() => {
   padding: 32px var(--r-row-pad) 48px;
 }
 
-/* Pre-game layout: hero | session | setup. Mirrors the EmulatorJS grid
-   so the two players read as siblings. */
+/* Pre-game layout: hero | resume | session over aside. Mirrors the
+   EmulatorJS grid so the two players read as siblings. */
 .r-v2-stream__config {
   display: grid;
   grid-template-columns: minmax(240px, 280px) minmax(0, 1.4fr) minmax(
       220px,
-      240px
+      260px
     );
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "hero resume session"
+    "hero resume aside";
   gap: 20px;
   max-width: 1280px;
   margin: 0 auto;
   align-items: stretch;
 }
-
 /* Shared glass-panel skin: single visual vocabulary across panels. */
 .r-v2-stream__panel {
   background: var(--r-color-bg-elevated) !important;
@@ -1489,6 +1450,7 @@ onBeforeUnmount(() => {
 
 /* ── Hero column ─────────────────────────────────────────── */
 .r-v2-stream__hero {
+  grid-area: hero;
   padding: 16px;
   gap: 12px;
   text-align: center;
@@ -1558,35 +1520,17 @@ onBeforeUnmount(() => {
   border-top: 1px solid var(--r-color-border);
 }
 
-/* With states to pick from, the resume panel takes the wide middle
-   column (mirrors the EmulatorJS layout) and session + setup stack in
-   the right column. */
-.r-v2-stream__config--resume {
-  grid-template-columns: minmax(240px, 280px) minmax(0, 1.4fr) minmax(
-      220px,
-      260px
-    );
-  grid-template-rows: 1fr auto;
-  grid-template-areas:
-    "hero resume session"
-    "hero resume setup";
-}
-.r-v2-stream__config--resume .r-v2-stream__hero {
-  grid-area: hero;
-}
-.r-v2-stream__config--resume .r-v2-stream__resume {
-  grid-area: resume;
-}
-.r-v2-stream__config--resume .r-v2-stream__session {
-  grid-area: session;
-  min-height: 0;
-}
-.r-v2-stream__config--resume .r-v2-stream__setup {
-  grid-area: setup;
+.r-v2-stream__aside {
+  grid-area: aside;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
 }
 
 /* ── Resume column ───────────────────────────────────────── */
 .r-v2-stream__resume {
+  grid-area: resume;
   min-height: 420px;
 }
 .r-v2-stream__resume-body {
@@ -1607,6 +1551,15 @@ onBeforeUnmount(() => {
   color: var(--r-color-fg-secondary);
   margin-top: 4px;
 }
+.r-v2-stream__strip-views {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.r-v2-stream__strip-view--on {
+  color: var(--r-color-brand-primary);
+}
 .r-v2-stream__strip-count {
   display: inline-grid;
   place-items: center;
@@ -1621,7 +1574,8 @@ onBeforeUnmount(() => {
 
 /* ── Session column ──────────────────────────────────────── */
 .r-v2-stream__session {
-  min-height: 420px;
+  grid-area: session;
+  min-height: 0;
 }
 .r-v2-stream__session-body {
   padding: 14px;
@@ -1664,6 +1618,7 @@ onBeforeUnmount(() => {
 }
 
 /* ── Setup column ────────────────────────────────────────── */
+.r-v2-stream__cards-body,
 .r-v2-stream__setup-body {
   padding: 14px;
   display: flex;
@@ -1751,10 +1706,6 @@ onBeforeUnmount(() => {
 .r-v2-stream__volume {
   width: 90px;
 }
-.r-v2-stream__slot {
-  width: 110px;
-  flex-shrink: 0;
-}
 
 /* ── Exit dialog ─────────────────────────────────────────── */
 .r-v2-stream__exit-text {
@@ -1816,8 +1767,13 @@ onBeforeUnmount(() => {
 /* ── Responsive ──────────────────────────────────────────── */
 html[data-bp~="md-and-down"] .r-v2-stream__config {
   grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  grid-template-rows: auto;
+  grid-template-areas:
+    "hero resume"
+    "session session"
+    "aside aside";
 }
-html[data-bp~="md-and-down"] .r-v2-stream__setup {
+html[data-bp~="md-and-down"] .r-v2-stream__aside {
   grid-column: 1 / -1;
 }
 html[data-bp~="md-and-down"] .r-v2-stream__setup-body {
@@ -1826,27 +1782,17 @@ html[data-bp~="md-and-down"] .r-v2-stream__setup-body {
   gap: 10px;
 }
 
-html[data-bp~="md-and-down"] .r-v2-stream__config--resume {
-  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
-  grid-template-rows: auto;
-  grid-template-areas:
-    "hero resume"
-    "session session"
-    "setup setup";
-}
 html[data-bp~="md-and-down"] .r-v2-stream__resume {
   min-height: 0;
 }
 
 html[data-bp~="sm-and-down"] .r-v2-stream__config {
   grid-template-columns: 1fr;
-}
-html[data-bp~="sm-and-down"] .r-v2-stream__config--resume {
   grid-template-areas:
     "hero"
     "resume"
     "session"
-    "setup";
+    "aside";
 }
 html[data-bp~="sm-and-down"] .r-v2-stream__hero {
   flex-direction: row;

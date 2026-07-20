@@ -2,6 +2,7 @@ import asyncio
 import io
 import json
 import logging
+import re
 import zipfile
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -746,17 +747,32 @@ def test_force_release_all_stops_brokers(client, access_token, rom: Rom):
 
 
 def test_save_state_rejects_slot_above_platform_max(client, access_token):
-    """Dolphin exposes 7 manual slots; slot 8 clears the coarse union bound
-    (<=9) but must be rejected against the platform's real ceiling."""
+    """Dolphin's slots stop at the autosave (8); slot 9 clears the coarse union
+    bound (<=10) but must be rejected against the platform's real ceiling."""
     rom = _rom_on("ngc")
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         r = client.post(
             "/api/streaming/sessions/ngc/save-state",
-            json={"slot": 8},
+            json={"slot": 9},
             headers=_auth(access_token),
         )
     assert r.status_code == 422
+
+
+def test_save_state_allows_platform_autosave_slot(client, access_token):
+    """The player writes through the autosave slot, so it is a valid target."""
+    rom = _rom_on("ngc")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._save_state_broker", return_value=True):
+            r = client.post(
+                "/api/streaming/sessions/ngc/save-state",
+                json={"slot": 8},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    assert r.json()["slot"] == 8
 
 
 def test_load_state_allows_platform_autosave_slot(client, access_token):
@@ -946,7 +962,11 @@ def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):
         )
     assert ok is True
     wf.assert_awaited_once()
-    assert wf.await_args_list[0].kwargs["filename"] == "Game.03.p2s"
+    # The library keeps every capture, so the stored name carries a stamp ahead of
+    # the slot token; the container-side name is recovered by dropping it.
+    stored_name = wf.await_args_list[0].kwargs["filename"]
+    assert re.fullmatch(r"Game\.\d{8}-\d{12}\.03\.p2s", stored_name)
+    assert streaming._container_state_filename(stored_name) == "Game.03.p2s"
     db_state = db_state_handler.get_state_by_filename(
         user_id=admin_user.id, rom_id=rom.id, file_name="Game.03.p2s"
     )
@@ -1006,6 +1026,102 @@ def test_hydrate_skips_states_missing_on_disk(rom: Rom, admin_user: User):
         )
     assert pushed == 0
     push.assert_not_called()
+
+
+def _add_state_at(rom: Rom, user: User, file_name: str, day: int) -> State:
+    """Add a state with an explicit updated_at, so history order is deterministic."""
+    state = _state_for(rom, user, file_name, "pcsx2")
+    stored = db_state_handler.add_state(state)
+    db_state_handler.update_state(
+        stored.id, {"updated_at": datetime(2026, 1, day, tzinfo=timezone.utc)}
+    )
+    return stored
+
+
+def test_hydrate_skipped_when_resume_state_already_pushed(rom: Rom, admin_user: User):
+    """Every history entry collapses to the same container-side name, so pushing
+    anything here would overwrite the state the player picked to resume from."""
+    db_state_handler.add_state(_state_for(rom, admin_user, "Game.01.p2s", "pcsx2"))
+    container = {**_container_for(rom), "label": "PCSX2"}
+    with patch("endpoints.streaming._push_state_file", return_value=True) as push:
+        pushed = asyncio.run(
+            streaming._hydrate_states_to_broker(
+                admin_user.id, rom.id, container, resume_pushed=True
+            )
+        )
+    assert pushed == 0
+    push.assert_not_called()
+
+
+def test_hydrate_pushes_newest_state_under_container_name(rom: Rom, admin_user: User):
+    """Only the newest capture is hydrated, and it lands under the unstamped name
+    the emulator expects on disk."""
+    _add_state_at(rom, admin_user, "Game.20260101-000000000000.01.p2s", 1)
+    _add_state_at(rom, admin_user, "Game.20260202-000000000000.01.p2s", 2)
+    container = {**_container_for(rom), "label": "PCSX2"}
+    with (
+        patch(
+            "endpoints.streaming.fs_asset_handler.read_file",
+            new=AsyncMock(return_value=b"state-bytes"),
+        ),
+        patch("endpoints.streaming._push_state_file", return_value=True) as push,
+    ):
+        pushed = asyncio.run(
+            streaming._hydrate_states_to_broker(admin_user.id, rom.id, container)
+        )
+    assert pushed == 1
+    push.assert_called_once()
+    assert push.call_args[0][1] == "Game.01.p2s"
+
+
+def test_pull_state_skips_capture_identical_to_previous(rom: Rom, admin_user: User):
+    """Saving twice without playing in between produces the same bytes, and the
+    duplicate must not take a history slot."""
+    content = b"state-bytes"
+    existing = _state_for(rom, admin_user, "Game.20260101-000000000000.03.p2s", "pcsx2")
+    existing.file_size_bytes = len(content)
+    db_state_handler.add_state(existing)
+    container = {**_container_for(rom), "label": "PCSX2"}
+    with (
+        patch(
+            "endpoints.streaming._fetch_state_file",
+            return_value=("Game.03.p2s", content),
+        ),
+        patch(
+            "endpoints.streaming.fs_asset_handler.read_file",
+            new=AsyncMock(return_value=content),
+        ),
+        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+    ):
+        ok = asyncio.run(
+            streaming._pull_state_to_library(admin_user.id, rom.id, container, 3)
+        )
+    assert ok is True
+    wf.assert_not_awaited()
+
+
+def test_prune_state_history_drops_oldest_past_limit(rom: Rom, admin_user: User):
+    """Once the retention limit is reached the oldest captures go, newest first
+    order preserved."""
+    for day in range(1, 4):
+        _add_state_at(rom, admin_user, f"Game.2026010{day}-000000000000.01.p2s", day)
+    with (
+        patch("endpoints.streaming.STREAMING_STATE_HISTORY_LIMIT", 2),
+        patch(
+            "endpoints.streaming.fs_asset_handler.remove_file", new=AsyncMock()
+        ) as remove,
+    ):
+        pruned = asyncio.run(streaming._prune_state_history(admin_user, rom, "pcsx2"))
+    assert pruned == 1
+    remove.assert_awaited_once()
+    remaining = {
+        s.file_name
+        for s in db_state_handler.get_states(user_id=admin_user.id, rom_id=rom.id)
+    }
+    assert remaining == {
+        "Game.20260102-000000000000.01.p2s",
+        "Game.20260103-000000000000.01.p2s",
+    }
 
 
 def _p2s_bytes(screenshot: bytes | None = b"PNGDATA") -> bytes:
@@ -1357,7 +1473,7 @@ def test_claim_with_own_state_pushes_file_and_slot(
     assert push.call_args[0][1] == "Game.03.p2s"
     assert push.call_args[0][2] == b"state-bytes"
     assert call_broker.call_args[0][3] == 3
-    assert hydrate.call_args.kwargs["skip_filename"] == "Game.03.p2s"
+    assert hydrate.call_args.kwargs["resume_pushed"] is True
 
 
 def test_claim_with_other_users_public_state_allowed(
@@ -1419,7 +1535,7 @@ def test_claim_failed_push_launches_fresh(
     assert r.status_code == 200
     assert r.json()["resume"] is False
     assert call_broker.call_args[0][3] is None
-    assert hydrate.call_args.kwargs["skip_filename"] is None
+    assert hydrate.call_args.kwargs["resume_pushed"] is False
 
 
 def test_claim_without_state_reports_no_resume(client, access_token, rom: Rom):

@@ -16,7 +16,12 @@ from fastapi import Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from config import LIBRARY_BASE_PATH, STREAMING_BROKER_SECRET, STREAMING_SAVE_TIMEOUT
+from config import (
+    LIBRARY_BASE_PATH,
+    STREAMING_BROKER_SECRET,
+    STREAMING_SAVE_TIMEOUT,
+    STREAMING_STATE_HISTORY_LIMIT,
+)
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
@@ -39,7 +44,7 @@ from handler.scan_handler import (
     scan_state,
 )
 from handler.socket_handler import socket_handler
-from models.assets import MemoryCard
+from models.assets import MemoryCard, State
 from models.rom import Rom
 from models.user import Role, User
 from utils.filesystem import sanitize_filename
@@ -258,7 +263,7 @@ def _container_key(container: dict[str, Any]) -> str:
 class PlatformCapabilities(TypedDict):
     max_slots: int  # manual save slots, selectable as 1..max_slots
     has_autosave: bool  # whether a dedicated autosave slot can be loaded
-    autosave_slot: int  # that slot's index (loadable, not savable), 0 if none
+    autosave_slot: int  # that slot's index, 0 if none
 
 
 # Keyed by platform slug (lowercase). A platform absent here gets no save-state
@@ -285,23 +290,20 @@ def platform_capabilities(platform: str) -> PlatformCapabilities:
     return _PLATFORM_CAPABILITIES.get(platform.lower(), _NO_CAPABILITIES)
 
 
-# Coarse request-body bounds, derived from the table so the slot ranges live in
+# Coarse request-body bound, derived from the table so the slot range lives in
 # exactly one place. The per-platform check in the routes is the tighter,
-# authoritative guard; these just reject obviously out-of-range input up front.
-_MAX_SAVE_SLOT = max(
-    (c["max_slots"] for c in _PLATFORM_CAPABILITIES.values()), default=1
-)
-_MAX_LOAD_SLOT = max(
+# authoritative guard; this just rejects obviously out-of-range input up front.
+_MAX_SLOT = max(
     (max(c["max_slots"], c["autosave_slot"]) for c in _PLATFORM_CAPABILITIES.values()),
     default=1,
 )
 
 
-def _assert_valid_slot(platform: str, slot: int, *, allow_autosave: bool) -> None:
+def _assert_valid_slot(platform: str, slot: int) -> None:
     """Reject a slot the platform does not expose before hitting the broker."""
     caps = platform_capabilities(platform)
     valid = 1 <= slot <= caps["max_slots"]
-    if allow_autosave and caps["has_autosave"] and slot == caps["autosave_slot"]:
+    if caps["has_autosave"] and slot == caps["autosave_slot"]:
         valid = True
     if not valid:
         raise HTTPException(
@@ -336,15 +338,15 @@ class MuteRequest(BaseModel):
 
 
 class SaveStateRequest(BaseModel):
-    # Coarse union bound; the route validates the exact per-platform ceiling
-    # against _PLATFORM_CAPABILITIES.
-    slot: Annotated[int, Field(ge=1, le=_MAX_SAVE_SLOT)] = 1
+    # Coarse union bound (widest is the autosave slot); the route validates the
+    # exact per-platform ceiling against _PLATFORM_CAPABILITIES.
+    slot: Annotated[int, Field(ge=1, le=_MAX_SLOT)] = 1
 
 
 class LoadStateRequest(BaseModel):
     # Coarse union bound (widest is the autosave slot); the route validates the
     # exact per-platform ceiling against _PLATFORM_CAPABILITIES.
-    slot: Annotated[int, Field(ge=1, le=_MAX_LOAD_SLOT)] = 1
+    slot: Annotated[int, Field(ge=1, le=_MAX_SLOT)] = 1
 
 
 def _get_streaming_config() -> dict[str, Any]:
@@ -816,29 +818,111 @@ async def _store_state_screenshot(
         db_screenshot_handler.add_screenshot(screenshot=scanned)
 
 
+def _user_states_for_emulator(user_id: int, rom_id: int, emulator: str) -> list[State]:
+    """The user's states for this ROM and emulator, newest first."""
+    states = [
+        s
+        for s in db_state_handler.get_states(user_id=user_id, rom_id=rom_id)
+        if (s.emulator or "").lower() == emulator
+    ]
+    states.sort(key=lambda s: s.updated_at, reverse=True)
+    return states
+
+
+async def _is_duplicate_of_latest(latest: State | None, content: bytes) -> bool:
+    """Whether ``content`` matches the most recent stored state byte for byte.
+
+    Saving twice without playing in between is common (the exit autosave right
+    after a manual save), and those captures are identical. Only the newest is
+    compared: an older match is a genuine revisit of the same point.
+    """
+    if latest is None or latest.file_size_bytes != len(content):
+        return False
+    try:
+        existing = await fs_asset_handler.read_file(
+            f"{latest.file_path}/{latest.file_name}"
+        )
+    except FileNotFoundError:
+        return False
+    return existing == content
+
+
+async def _prune_state_history(user: User, rom: Rom, emulator: str) -> int:
+    """Delete the oldest states past the retention limit. Returns how many went.
+
+    A file already gone from disk still loses its row, since a stale entry that
+    no longer opens is worse than a missing file.
+    """
+    limit = STREAMING_STATE_HISTORY_LIMIT
+    if limit <= 0:
+        return 0
+    states = _user_states_for_emulator(user.id, rom.id, emulator)
+    stale = states[limit:]
+    for state in stale:
+        screenshot = state.screenshot
+        db_state_handler.delete_state(state.id)
+        try:
+            await fs_asset_handler.remove_file(
+                file_path=f"{state.file_path}/{state.file_name}"
+            )
+        except FileNotFoundError:
+            log.warning("pruned state file already gone, %s", state.file_name)
+        if screenshot is not None:
+            db_screenshot_handler.delete_screenshot(screenshot.id)
+            try:
+                await fs_asset_handler.remove_file(
+                    file_path=f"{screenshot.file_path}/{screenshot.file_name}"
+                )
+            except FileNotFoundError:
+                log.warning(
+                    "pruned screenshot file already gone, %s", screenshot.file_name
+                )
+    if stale:
+        log.info(
+            "pruned %d state(s) past the %d limit, rom=%s",
+            len(stale),
+            limit,
+            rom.name,
+        )
+    return len(stale)
+
+
 async def _store_state_asset(
     user: User, rom: Rom, emulator: str, filename: str, content: bytes
 ) -> None:
-    """Store a pulled state file through the same flow as POST /api/states."""
+    """Store a pulled state file as a new entry in the ROM's state history.
+
+    Each capture is kept rather than overwriting the slot it came from, so the
+    player can resume from any earlier point. An unchanged capture is dropped
+    and the oldest entries are pruned once the retention limit is reached.
+    """
+    history = _user_states_for_emulator(user.id, rom.id, emulator)
+    if await _is_duplicate_of_latest(history[0] if history else None, content):
+        log.info("state identical to the last capture, skipping, rom=%s", rom.name)
+        return
+
+    stamped = _stamped_state_filename(emulator, filename, datetime.now(timezone.utc))
     states_path = fs_asset_handler.build_states_file_path(
         user=user,
         platform_fs_slug=rom.platform.fs_slug,
         rom_id=rom.id,
         emulator=emulator,
     )
-    await fs_asset_handler.write_file(file=content, path=states_path, filename=filename)
+    await fs_asset_handler.write_file(file=content, path=states_path, filename=stamped)
 
     scanned_state = await scan_state(
-        file_name=filename,
+        file_name=stamped,
         user=user,
         platform_fs_slug=rom.platform.fs_slug,
         rom_id=rom.id,
         emulator=emulator,
     )
     db_state = db_state_handler.get_state_by_filename(
-        user_id=user.id, rom_id=rom.id, file_name=filename
+        user_id=user.id, rom_id=rom.id, file_name=stamped
     )
     if db_state:
+        # Only reachable when the stamp collides, so the file on disk was just
+        # overwritten and the row needs to agree with it.
         db_state_handler.update_state(
             db_state.id, {"file_size_bytes": scanned_state.file_size_bytes}
         )
@@ -853,9 +937,11 @@ async def _store_state_asset(
     image = _extract_state_screenshot(emulator, content)
     if image is not None:
         try:
-            await _store_state_screenshot(user, rom, filename, image)
+            await _store_state_screenshot(user, rom, stamped, image)
         except Exception:
-            log.exception("failed to store state screenshot for %s", filename)
+            log.exception("failed to store state screenshot for %s", stamped)
+
+    await _prune_state_history(user, rom, emulator)
 
 
 async def _pull_state_to_library(
@@ -905,43 +991,50 @@ async def _hydrate_states_to_broker(
     user_id: int,
     rom_id: int,
     container: dict[str, Any],
-    skip_filename: str | None = None,
+    resume_pushed: bool = False,
 ) -> int:
-    """Background task: push the user's stored states for this ROM down to the
-    freshly claimed container, overwriting whatever slots it holds. Emulators
-    read state files lazily, so pushing right after launch is safe.
+    """Background task: push the newest stored state for this ROM down to the
+    freshly claimed container. Emulators read state files lazily, so pushing
+    right after launch is safe.
 
-    skip_filename protects a resume-from-state file already pushed at claim
-    time: the user's own state for the same slot shares its filename and
-    would otherwise overwrite it before the broker's deferred load fires.
+    Only the newest is sent: every history entry collapses to the same
+    container-side name, and that name is what the in-emulator quick-load lands
+    on. Older captures are reached through the resume picker instead.
+
+    For the same reason, a resume pick already sent at claim time means there is
+    nothing to add here: any push would overwrite it before the broker's
+    deferred load fires.
     """
+    if resume_pushed:
+        return 0
+
     user = db_user_handler.get_user(user_id)
     rom = db_rom_handler.get_rom(rom_id)
     if user is None or rom is None:
         return 0
     emulator = _emulator_for_container(container)
 
-    pushed = 0
-    for state in db_state_handler.get_states(user_id=user_id, rom_id=rom_id):
-        if (state.emulator or "").lower() != emulator:
-            continue
-        if skip_filename is not None and state.file_name == skip_filename:
-            continue
-        try:
-            content = await fs_asset_handler.read_file(
-                f"{state.file_path}/{state.file_name}"
-            )
-        except FileNotFoundError:
-            log.warning("stored state missing on disk, %s", state.file_name)
-            continue
-        ok = await asyncio.to_thread(
-            _push_state_file, container, state.file_name, content
+    states = _user_states_for_emulator(user_id, rom_id, emulator)
+    if not states:
+        return 0
+
+    newest = states[0]
+    try:
+        content = await fs_asset_handler.read_file(
+            f"{newest.file_path}/{newest.file_name}"
         )
-        if ok:
-            pushed += 1
-    if pushed:
-        log.info("hydrated %d state file(s) to container, rom=%s", pushed, rom.name)
-    return pushed
+    except FileNotFoundError:
+        log.warning("stored state missing on disk, %s", newest.file_name)
+        return 0
+    ok = await asyncio.to_thread(
+        _push_state_file,
+        container,
+        _container_state_filename(newest.file_name),
+        content,
+    )
+    if ok:
+        log.info("hydrated newest state to container, rom=%s", rom.name)
+    return 1 if ok else 0
 
 
 # ── In-game save sync ─────────────────────────────────────────────────────────
@@ -1586,6 +1679,38 @@ def _slot_from_state_filename(emulator: str, filename: str) -> int | None:
     return slot if slot >= 1 else None
 
 
+# Every capture is kept, so the library needs one file per save, not one per
+# slot. The stamp goes immediately before the slot token so the patterns above
+# still match at the end of the name: states written before this keep
+# resolving, and the container-side name is recovered by dropping the stamp.
+_STATE_STAMP_FORMAT = "%Y%m%d-%H%M%S%f"
+_STATE_STAMP_PATTERN = re.compile(r"\.\d{8}-\d{12}(?=\.)")
+
+
+def _stamped_state_filename(emulator: str, filename: str, when: datetime) -> str:
+    """Return ``filename`` with a capture stamp inserted before its slot token.
+
+    An emulator with no known slot convention keeps the original name, since
+    there is nowhere unambiguous to put the stamp. That emulator gets no
+    history: each capture lands on the same name and updates its row in place,
+    the pre-history behavior. xemu is the current case, its states are QMP
+    snapshot tags rather than slot files.
+    """
+    pattern = _STATE_SLOT_PATTERNS.get(emulator)
+    if pattern is None:
+        return filename
+    match = pattern.search(filename)
+    if match is None:
+        return filename
+    stamp = when.strftime(_STATE_STAMP_FORMAT)
+    return f"{filename[: match.start()]}.{stamp}{filename[match.start() :]}"
+
+
+def _container_state_filename(filename: str) -> str:
+    """Strip any capture stamp, giving the name the emulator expects on disk."""
+    return _STATE_STAMP_PATTERN.sub("", filename, count=1)
+
+
 def _resolve_resume_state(
     user_id: int, rom: Rom, container: dict[str, Any], state_id: int
 ) -> tuple[Any, int]:
@@ -1819,7 +1944,10 @@ async def claim_session(
                 f"{resume_state.file_path}/{resume_state.file_name}"
             )
             resume_pushed = await asyncio.to_thread(
-                _push_state_file, container, resume_state.file_name, content
+                _push_state_file,
+                container,
+                _container_state_filename(resume_state.file_name),
+                content,
             )
         except Exception:
             log.exception("could not read resume state %s", resume_state.file_name)
@@ -1873,18 +2001,14 @@ async def claim_session(
 
     log.info("session claimed, platform=%s rom=%s", platform, rom_name)
 
-    # Hydrate the container's save-state slots from the user's stored states
-    # in the background - the stream should not wait on file transfers.
+    # Hydrate the container with the user's newest stored state in the
+    # background, the stream should not wait on file transfers.
     _spawn_sync_task(
         _hydrate_states_to_broker(
             request.user.id,
             rom.id,
             container,
-            skip_filename=(
-                resume_state.file_name
-                if resume_state is not None and resume_pushed
-                else None
-            ),
+            resume_pushed=resume_pushed,
         )
     )
 
@@ -2047,9 +2171,13 @@ async def set_mute(
 async def save_state(
     request: Request, platform: str, req: Annotated[SaveStateRequest, Body()]
 ) -> JSONResponse:
-    """Save game state to a manual slot without stopping the emulator."""
+    """Save game state to a slot without stopping the emulator.
+
+    The autosave slot is a valid target: the library keeps every capture, so
+    the player writes through one slot rather than picking one.
+    """
     container, session_key, session = await _resolve_owned_session(platform, request)
-    _assert_valid_slot(platform, req.slot, allow_autosave=False)
+    _assert_valid_slot(platform, req.slot)
 
     ok = await asyncio.to_thread(_save_state_broker, container, req.slot)
     if not ok:
@@ -2074,7 +2202,7 @@ async def load_state(
 ) -> JSONResponse:
     """Load game state from a manual slot or the platform's autosave slot."""
     container, session_key, _ = await _resolve_owned_session(platform, request)
-    _assert_valid_slot(platform, req.slot, allow_autosave=True)
+    _assert_valid_slot(platform, req.slot)
 
     ok = await asyncio.to_thread(_load_state_broker, container, req.slot)
     if not ok:
