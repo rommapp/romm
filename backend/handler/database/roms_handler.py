@@ -1533,7 +1533,12 @@ class DBRomsHandler(DBBaseHandler):
         rom_ids: list[int],
         session: Session = None,  # type: ignore
     ) -> None:
-        """Bulk set missing_from_fs=False for a list of ROM IDs."""
+        """Bulk set missing_from_fs=False for a list of ROM IDs.
+
+        Only rows that actually flip are written, so a re-scan of an
+        unchanged platform issues no updates and leaves `updated_at`
+        untouched, keeping it a usable incremental signal.
+        """
         if not rom_ids:
             return
 
@@ -1545,6 +1550,7 @@ class DBRomsHandler(DBBaseHandler):
                     and_(
                         Rom.platform_id == platform_id,
                         Rom.id.in_(chunk),
+                        Rom.missing_from_fs.is_(True),
                     )
                 )
                 .values(missing_from_fs=False)
