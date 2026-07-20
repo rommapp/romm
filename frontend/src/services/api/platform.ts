@@ -31,23 +31,21 @@ async function getFilesystemPlatforms() {
 }
 
 /**
- * Partial update. Only the fields passed here are sent, and the backend
- * leaves anything omitted untouched — so a name-only caller can't replay a
- * stale description it happened to be holding and clobber a newer value.
+ * Partial update — `description` is opt-in and only sent when explicitly
+ * passed. Callers that just rename a platform therefore can't replay a stale
+ * description they happened to be holding and clobber a newer value; the
+ * backend leaves any omitted field untouched.
  */
 async function updatePlatform({
-  id,
-  customName,
+  platform,
   description,
 }: {
-  id: number;
-  customName?: string;
+  platform: Platform;
   description?: string;
 }) {
-  const payload: UpdatePlatformInput = {};
-  if (customName !== undefined) payload.custom_name = customName;
+  const payload: UpdatePlatformInput = { custom_name: platform.custom_name };
   if (description !== undefined) payload.description = description;
-  return api.put<Platform>(`/platforms/${id}`, payload);
+  return api.put<Platform>(`/platforms/${platform.id}`, payload);
 }
 
 async function deletePlatform({ platform }: { platform: Platform }) {

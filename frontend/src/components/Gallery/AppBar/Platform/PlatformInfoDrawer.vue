@@ -67,15 +67,13 @@ function closeEditable() {
 }
 
 async function updatePlatform() {
-  const platformId = updatedPlatform.value?.id;
-  if (!platformId) return;
+  if (!updatedPlatform.value) return;
   updating.value = true;
   isEditable.value = false;
   updatedPlatform.value.custom_name = updatedPlatform.value.display_name;
   await platformApi
     .updatePlatform({
-      id: platformId,
-      customName: updatedPlatform.value.custom_name ?? "",
+      platform: updatedPlatform.value as Platform,
     })
     .then(({ data: platform }) => {
       emitter?.emit("snackbarShow", {

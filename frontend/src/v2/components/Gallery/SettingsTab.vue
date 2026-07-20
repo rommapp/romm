@@ -80,8 +80,7 @@ async function save() {
   saving.value = true;
   try {
     const { data } = await platformApi.updatePlatform({
-      id: props.platform.id,
-      customName: customName.value.trim(),
+      platform: { ...props.platform, custom_name: customName.value.trim() },
       description: description.value.trim(),
     });
     platformsStore.update(data);
