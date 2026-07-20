@@ -32,7 +32,7 @@ describe("getDownloadPath", () => {
       ] as SimpleRom["files"],
     });
     expect(getDownloadPath({ rom, fileIDs: [29] })).toBe(
-      "/api/roms/24/content/B.A.T. Disk1.adf?file_ids=29",
+      "/api/roms/24/content/B.A.T.%20Disk1.adf?file_ids=29",
     );
   });
 
