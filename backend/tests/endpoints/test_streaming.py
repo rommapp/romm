@@ -954,6 +954,7 @@ def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):
             "endpoints.streaming._fetch_state_file",
             return_value=("Game.03.p2s", b"state-bytes"),
         ),
+        patch("endpoints.streaming._fetch_state_screenshot", return_value=None),
         patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch("endpoints.streaming.scan_state", new=AsyncMock(return_value=scanned)),
     ):
@@ -972,6 +973,46 @@ def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):
     )
     assert db_state is not None
     assert db_state.emulator == "pcsx2"
+
+
+def test_pull_state_falls_back_to_broker_screenshot(rom: Rom, admin_user: User):
+    """Dolphin states embed no frame, so the pull takes the broker's capture."""
+    container = {**_container_for(rom), "label": "Dolphin"}
+    scanned = _state_for(rom, admin_user, "Game.s03", "dolphin")
+    scanned_shot = Screenshot(
+        file_name="Game.s03.png",
+        file_name_no_tags="Game.s03",
+        file_name_no_ext="Game.s03",
+        file_extension="png",
+        file_path=f"{rom.platform_slug}/screenshots",
+        file_size_bytes=7,
+    )
+    with (
+        patch(
+            "endpoints.streaming._fetch_state_file",
+            return_value=("Game.s03", b"state-bytes"),
+        ),
+        patch(
+            "endpoints.streaming._fetch_state_screenshot", return_value=b"PNGDATA"
+        ) as fetch_shot,
+        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("endpoints.streaming.scan_state", new=AsyncMock(return_value=scanned)),
+        patch(
+            "endpoints.streaming.scan_screenshot",
+            new=AsyncMock(return_value=scanned_shot),
+        ) as scan_shot,
+    ):
+        ok = asyncio.run(
+            streaming._pull_state_to_library(admin_user.id, rom.id, container, 3)
+        )
+    assert ok is True
+    fetch_shot.assert_called_once()
+    scan_shot.assert_awaited_once()
+    db_state = db_state_handler.get_state_by_filename(
+        user_id=admin_user.id, rom_id=rom.id, file_name="Game.s03"
+    )
+    assert db_state is not None
+    assert db_state.screenshot is not None
 
 
 def test_pull_state_rejects_unsanitizable_filename(rom: Rom, admin_user: User):
@@ -1087,6 +1128,7 @@ def test_pull_state_skips_capture_identical_to_previous(rom: Rom, admin_user: Us
             "endpoints.streaming._fetch_state_file",
             return_value=("Game.03.p2s", content),
         ),
+        patch("endpoints.streaming._fetch_state_screenshot", return_value=None),
         patch(
             "endpoints.streaming.fs_asset_handler.read_file",
             new=AsyncMock(return_value=content),
@@ -1143,7 +1185,7 @@ def test_extract_state_screenshot_pcsx2_returns_png():
 
 
 def test_extract_state_screenshot_non_pcsx2_returns_none():
-    # Other emulators are out of scope until #21 generalizes the model.
+    # Dolphin states embed no frame; its broker serves one from /state-screenshot.
     assert streaming._extract_state_screenshot("dolphin", _p2s_bytes()) is None
 
 
@@ -1157,6 +1199,31 @@ def test_extract_state_screenshot_empty_entry_returns_none():
 
 def test_extract_state_screenshot_not_a_zip_returns_none():
     assert streaming._extract_state_screenshot("pcsx2", b"not-a-zip") is None
+
+
+def test_fetch_state_screenshot_returns_png(rom: Rom):
+    resp = MagicMock()
+    resp.__enter__.return_value.read.return_value = b"PNGDATA"
+    with patch("endpoints.streaming.urllib.request.urlopen", return_value=resp):
+        assert streaming._fetch_state_screenshot(_container_for(rom), 1) == b"PNGDATA"
+
+
+def test_fetch_state_screenshot_404_returns_none(rom: Rom):
+    """A broker that captures no frames answers 404; that is not an error."""
+    with patch(
+        "endpoints.streaming.urllib.request.urlopen", side_effect=_http_error(404)
+    ):
+        assert streaming._fetch_state_screenshot(_container_for(rom), 1) is None
+
+
+def test_fetch_state_screenshot_transport_error_returns_none(rom: Rom):
+    import urllib.error
+
+    with patch(
+        "endpoints.streaming.urllib.request.urlopen",
+        side_effect=urllib.error.URLError("broker down"),
+    ):
+        assert streaming._fetch_state_screenshot(_container_for(rom), 1) is None
 
 
 def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
@@ -1193,9 +1260,8 @@ def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
     assert state.screenshot.is_gallery is False
 
 
-def test_store_state_asset_binds_extracted_screenshot(admin_user: User, rom: Rom):
-    """End to end: pulling a .p2s stores the state and binds its embedded frame
-    as the state's thumbnail."""
+def test_store_state_asset_binds_screenshot(admin_user: User, rom: Rom):
+    """End to end: storing a state with a frame binds it as the thumbnail."""
     scanned_state = _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
     scanned_shot = Screenshot(
         file_name="Game.03.png",
@@ -1218,7 +1284,7 @@ def test_store_state_asset_binds_extracted_screenshot(admin_user: User, rom: Rom
     ):
         asyncio.run(
             streaming._store_state_asset(
-                admin_user, rom, "pcsx2", "Game.03.p2s", _p2s_bytes(b"PNG")
+                admin_user, rom, "pcsx2", "Game.03.p2s", _p2s_bytes(b"PNG"), b"PNG"
             )
         )
     scan_shot.assert_awaited_once()
@@ -1232,8 +1298,8 @@ def test_store_state_asset_binds_extracted_screenshot(admin_user: User, rom: Rom
 def test_store_state_asset_without_screenshot_still_stores_state(
     admin_user: User, rom: Rom
 ):
-    """A .p2s with no embedded frame syncs the state with no thumbnail; the
-    missing screenshot must not fail the state sync."""
+    """A state with no frame syncs with no thumbnail; the missing screenshot
+    must not fail the state sync."""
     scanned_state = _state_for(rom, admin_user, "Game.04.p2s", "pcsx2")
     with (
         patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),

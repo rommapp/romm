@@ -764,8 +764,8 @@ _STATE_SCREENSHOT_MAX_BYTES = 16 * 1024 * 1024
 
 def _extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | None:
     """Pull the embedded frame PNG out of a savestate archive, or None when the
-    format carries no embedded screenshot. Only PCSX2 (.p2s zip) is mapped
-    today; #21 handles the other emulators when the model is generalized."""
+    format carries no embedded screenshot. Only PCSX2 (.p2s zip) embeds one;
+    Dolphin's broker captures a frame instead, served by /state-screenshot."""
     if emulator != "pcsx2":
         return None
     try:
@@ -782,10 +782,38 @@ def _extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | No
     return data
 
 
+def _fetch_state_screenshot(container: dict[str, Any], slot: int) -> bytes | None:
+    """GET /state-screenshot from the broker, for emulators whose state files
+    carry no frame of their own. A 404 is the normal "this broker does not
+    capture frames" answer, so it is not logged."""
+    url = _broker_url(container, f"/state-screenshot?slot={slot}")
+    secret = _broker_secret(container)
+    req = urllib.request.Request(
+        url,
+        method="GET",
+        headers={**({"X-Broker-Secret": secret} if secret else {})},
+    )
+    try:
+        with urllib.request.urlopen(  # nosec B310
+            req, timeout=_BROKER_TRANSFER_TIMEOUT
+        ) as resp:
+            content = resp.read(_STATE_SCREENSHOT_MAX_BYTES + 1)
+    except urllib.error.HTTPError as exc:
+        if exc.code != 404:
+            log.warning("broker state-screenshot GET failed, HTTP %d", exc.code)
+        return None
+    except Exception as exc:
+        log.warning("broker state-screenshot GET failed, %s", exc)
+        return None
+    if not content or len(content) > _STATE_SCREENSHOT_MAX_BYTES:
+        return None
+    return content
+
+
 async def _store_state_screenshot(
     user: User, rom: Rom, state_filename: str, image: bytes
 ) -> None:
-    """Store an extracted state screenshot so it binds to the state as its
+    """Store a state screenshot so it binds to the state as its
     thumbnail. State.screenshot matches by filename stem, so the image reuses
     the state's stem with a .png extension. is_gallery stays False (the default)
     so it never shows in the user's screenshot gallery - it only helps the
@@ -888,7 +916,12 @@ async def _prune_state_history(user: User, rom: Rom, emulator: str) -> int:
 
 
 async def _store_state_asset(
-    user: User, rom: Rom, emulator: str, filename: str, content: bytes
+    user: User,
+    rom: Rom,
+    emulator: str,
+    filename: str,
+    content: bytes,
+    screenshot: bytes | None = None,
 ) -> None:
     """Store a pulled state file as a new entry in the ROM's state history.
 
@@ -934,10 +967,9 @@ async def _store_state_asset(
 
     # Bind a thumbnail to the state so the resume picker shows the right frame.
     # Best-effort: a missing or unreadable screenshot must not fail the sync.
-    image = _extract_state_screenshot(emulator, content)
-    if image is not None:
+    if screenshot is not None:
         try:
-            await _store_state_screenshot(user, rom, stamped, image)
+            await _store_state_screenshot(user, rom, stamped, screenshot)
         except Exception:
             log.exception("failed to store state screenshot for %s", stamped)
 
@@ -970,8 +1002,15 @@ async def _pull_state_to_library(
         except ValueError:
             log.warning("broker returned invalid state filename")
             return False
+        # PCSX2 embeds the frame in the state file itself. Dolphin's broker
+        # captures one alongside the save, so fall back to fetching it.
+        screenshot = _extract_state_screenshot(emulator, content)
+        if screenshot is None:
+            screenshot = await asyncio.to_thread(
+                _fetch_state_screenshot, container, slot
+            )
         try:
-            await _store_state_asset(user, rom, emulator, filename, content)
+            await _store_state_asset(user, rom, emulator, filename, content, screenshot)
         except Exception:
             log.exception("failed to store pulled state %s", filename)
             return False
@@ -1234,10 +1273,10 @@ async def _hydrate_saves_to_broker(
 
 # ── Whole memory-card sync (per-user card model) ──────────────────────────────
 # Opt-in per container via `memory_card_sync: true`. When on, the container's
-# entire Slot-1 folder card is one owned image: hydrated (or wiped to a fresh
-# blank card) on claim, and evacuated to the library before the game is stopped.
-# This REPLACES the /save-file in-game-save path above for that container; save-
-# STATE sync is untouched. Only PCSX2 carries the flag today (#21 generalizes).
+# entire card (PCSX2 Slot 1, Dolphin Slot A) is one owned image: hydrated (or
+# wiped to a fresh blank card) on claim, and evacuated to the library before the
+# game is stopped. This REPLACES the /save-file in-game-save path above for that
+# container; save-STATE sync is untouched.
 
 _MEMORY_CARD_MAX_BYTES = 256 * 1024 * 1024
 

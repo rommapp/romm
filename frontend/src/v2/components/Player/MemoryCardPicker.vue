@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // MemoryCardPicker: picks which whole memory card gets hydrated onto the
-// streaming container at claim (PCSX2 whole-card sync). Shows the user's own
+// streaming container at claim (whole-card sync). Shows the user's own
 // cards for this emulator, newest-first, and lets them mint a fresh named
 // card inline. The selected card id rides along to claimSession as the third
 // argument.
