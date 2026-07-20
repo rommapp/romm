@@ -38,11 +38,9 @@ interface Source {
   setupKey: string;
   /** Optional locale key for a warning / caveat pill. Shared too. */
   caveatKey?: string;
-  /** True when the provider is enabled by configuring an API key. False
-   *  for flag-only providers (LaunchBox, Flashpoint, HowLongToBeat,
-   *  Hasheous, PlayMatch) toggled by a plain `*_API_ENABLED` flag — for
-   *  those, "API key invalid" is wrong wording; they speak about the
-   *  connection / enabled state instead. Mirrors Settings → Metadata. */
+  /** True when the provider is enabled by configuring an API key /
+   *  credentials (so a "get API key" link is meaningful). False for
+   *  free/public providers toggled by a plain `*_API_ENABLED` flag. */
   requiresKey: boolean;
   disabled: boolean;
 }
@@ -173,8 +171,7 @@ interface StatusInfo {
 
 function statusOf(source: Source): StatusInfo {
   if (source.disabled) {
-    // Flag-only providers have no key to be "missing"; they are simply
-    // disabled server-side until their `*_API_ENABLED` flag is set.
+    // Flag-only providers have no key to be "missing"
     return {
       label: source.requiresKey
         ? t("setup.metadata-status-key-missing")
@@ -194,7 +191,7 @@ function statusOf(source: Source): StatusInfo {
     };
   }
   if (probe === "ko") {
-    // For flag-only providers (e.g. PlayMatch) a failed probe means the
+    // For flag-only providers a failed probe means the
     // service is unreachable, not that an API key is invalid.
     return {
       label: source.requiresKey
