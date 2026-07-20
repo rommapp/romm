@@ -253,8 +253,6 @@ watch(
     selectedMetadataProviders,
     selectedTags,
     selectedStatuses,
-    // Logic operators (any/all/none) also change the result set, e.g.
-    // switching statuses to "none" to invert the selection.
     genresLogic,
     franchisesLogic,
     collectionsLogic,
