@@ -13,11 +13,18 @@ from handler.database import (
     db_device_save_sync_handler,
     db_save_handler,
 )
+from handler.database.base_handler import sync_session
 from models.assets import Save
 from models.device import Device
+from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+
+
+def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
+    with sync_session.begin() as s:
+        s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
 
 
 @pytest.fixture
@@ -1932,6 +1939,68 @@ class TestSaveDownload:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert "99999" in response.json()["detail"]
+
+    @mock.patch("endpoints.saves.fs_asset_handler.validate_path")
+    def test_other_user_downloads_public_save_on_visible_rom(
+        self,
+        mock_validate_path,
+        client,
+        viewer_access_token: str,
+        save: Save,
+        tmp_path,
+    ):
+        # Sanity: public sharing still works when the ROM is visible.
+        db_save_handler.update_save(save.id, {"is_public": True})
+        test_file = tmp_path / "test.sav"
+        test_file.write_bytes(b"SHARED_SAVE")
+        mock_validate_path.return_value = test_file
+
+        response = client.get(
+            f"/api/saves/{save.id}/content",
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.content == b"SHARED_SAVE"
+
+    def test_hidden_rom_masks_public_save_download(
+        self,
+        client,
+        viewer_access_token: str,
+        viewer_user: User,
+        save: Save,
+        rom: Rom,
+    ):
+        # A public save on a ROM hidden from the caller must stay 404-masked;
+        # sharing cannot override the hidden-resource boundary.
+        db_save_handler.update_save(save.id, {"is_public": True})
+        _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+
+        response = client.get(
+            f"/api/saves/{save.id}/content",
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_hidden_platform_masks_public_save_download(
+        self,
+        client,
+        viewer_access_token: str,
+        viewer_user: User,
+        save: Save,
+        platform: Platform,
+    ):
+        # Hiding the parent platform cascades to its saves as well.
+        db_save_handler.update_save(save.id, {"is_public": True})
+        _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+
+        response = client.get(
+            f"/api/saves/{save.id}/content",
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     @mock.patch("endpoints.saves.fs_asset_handler.validate_path")
     def test_download_save_file_missing_on_disk(
