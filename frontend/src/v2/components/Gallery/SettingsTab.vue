@@ -67,11 +67,13 @@ watch(
 );
 
 const nameRules = computed(() => [required(t("common.required", "Required"))]);
-const dirty = computed(
-  () =>
-    customName.value.trim() !== props.platform.display_name ||
-    description.value.trim() !== (props.platform.description ?? ""),
+const nameDirty = computed(
+  () => customName.value.trim() !== props.platform.display_name,
 );
+const descriptionDirty = computed(
+  () => description.value.trim() !== (props.platform.description ?? ""),
+);
+const dirty = computed(() => nameDirty.value || descriptionDirty.value);
 
 async function save() {
   if (!dirty.value) return;
@@ -79,9 +81,20 @@ async function save() {
   if (!valid) return;
   saving.value = true;
   try {
+    // Send each field only when it actually changed. Writing the name
+    // unconditionally would stamp `custom_name` onto a platform that never
+    // had one just because its description was edited, pinning it against
+    // later upstream metadata renames.
     const { data } = await platformApi.updatePlatform({
-      platform: { ...props.platform, custom_name: customName.value.trim() },
-      description: description.value.trim(),
+      platform: {
+        ...props.platform,
+        custom_name: nameDirty.value
+          ? customName.value.trim()
+          : props.platform.custom_name,
+      },
+      description: descriptionDirty.value
+        ? description.value.trim()
+        : undefined,
     });
     platformsStore.update(data);
     if (galleryRoms.currentPlatform?.id === data.id) {
