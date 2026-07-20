@@ -15,6 +15,7 @@ from config import LIBRARY_BASE_PATH, STREAMING_BROKER_SECRET, STREAMING_SAVE_TI
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
 from handler.redis_handler import async_cache
 from models.user import Role
@@ -506,6 +507,11 @@ async def claim_session(
     rom = db_rom_handler.get_rom(req.rom_id)
     if rom is None:
         raise HTTPException(status_code=404, detail="ROM not found")
+
+    # A hidden ROM/platform must not be launchable via its id: enforce the same
+    # visibility policy as the ROM detail/content endpoints before any broker
+    # launch. Raises a 404 that masks the hidden ROM's existence.
+    assert_rom_visible(request, rom, not_found_detail="ROM not found")
 
     container = _container_for_platform(rom.platform_slug)
     if container is None:

@@ -12,10 +12,17 @@ from main import app
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.database import db_platform_handler, db_rom_handler
+from handler.database.base_handler import sync_session
 from handler.redis_handler import async_cache
+from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+
+
+def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
+    with sync_session.begin() as s:
+        s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
 
 
 @pytest.fixture
@@ -171,6 +178,32 @@ def test_claim_unknown_rom_returns_404(client, access_token):
     with _streaming():
         r = _claim(client, access_token, 999999)
     assert r.status_code == 404
+
+
+def test_claim_hidden_rom_is_404_masked(
+    client, viewer_access_token, viewer_user: User, rom: Rom
+):
+    """A user with roms.read cannot claim a session for a ROM hidden from them;
+    the launch must be 404-masked before any broker call."""
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    with _streaming(_container_for(rom)):
+        # If the visibility check were missing this would 200 and launch.
+        with patch("endpoints.streaming._call_broker") as call_broker:
+            r = _claim(client, viewer_access_token, rom.id)
+    assert r.status_code == 404
+    call_broker.assert_not_called()
+
+
+def test_claim_rom_on_hidden_platform_is_404_masked(
+    client, viewer_access_token, viewer_user: User, rom: Rom, platform: Platform
+):
+    """Hiding the parent platform cascades: its ROMs cannot be streamed either."""
+    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+    with _streaming(_container_for(rom)):
+        with patch("endpoints.streaming._call_broker") as call_broker:
+            r = _claim(client, viewer_access_token, rom.id)
+    assert r.status_code == 404
+    call_broker.assert_not_called()
 
 
 def test_claim_skips_container_with_schemeless_host(client, access_token, rom: Rom):

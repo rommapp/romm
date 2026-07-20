@@ -12,6 +12,7 @@ from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummar
 from endpoints.responses.device import DeviceSyncSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
@@ -482,6 +483,13 @@ def download_save(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Save with ID {id} not found",
         )
+
+    # Sharing must not override the hidden-ROM/platform policy: a save on a ROM
+    # hidden from the caller stays 404-masked, just like the ROM itself.
+    assert_rom_visible(
+        request, save.rom, not_found_detail=f"Save with ID {id} not found"
+    )
+
     is_owner = save.user_id == request.user.id
 
     try:
