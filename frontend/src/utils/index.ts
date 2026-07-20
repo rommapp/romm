@@ -126,11 +126,8 @@ export function getDownloadPath({
     queryParams.append("file_ids", fileIDs.join(","));
   }
   const queryString = queryParams.toString();
-  // When a single file is selected, use its real name (extension included) as
-  // the path segment. EmulatorJS derives the on-disk filename, and therefore
-  // the file format handed to the core, from the URL. Multi-file roms have no
-  // root extension (`fs_name` is the folder name), so falling back to it would
-  // give the core an extension-less file and fail with "Unsupported file format".
+
+  // If a single file is selected, use its name for the download path
   const selectedFile =
     fileIDs.length === 1
       ? rom.files?.find((f) => f.id === fileIDs[0])
@@ -138,6 +135,7 @@ export function getDownloadPath({
   const contentName = selectedFile
     ? encodeURIComponent(selectedFile.file_name)
     : rom.fs_name;
+
   return `/api/roms/${rom.id}/content/${contentName}${
     queryString ? `?${queryString}` : ""
   }`;
