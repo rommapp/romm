@@ -39,6 +39,13 @@ export interface GameActionsOptions {
   coverEl?: () => HTMLElement | null;
 }
 
+// Flashpoint game IDs are UUIDs. Validate before feeding the value into the
+// `flashpoint://` URI so a malformed stored id (e.g. containing `#` or `?`,
+// which the URI parser would treat as a fragment/query) can't silently launch
+// the wrong title.
+const FLASHPOINT_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function useGameActions(
   getRom: () => SimpleRom | null | undefined,
   options: GameActionsOptions = {},
@@ -192,7 +199,9 @@ export function useGameActions(
   // protocol handler resolves to launch the title locally.
   const canOpenInFlashpoint = computed(() => {
     const rom = getRom();
-    return Boolean(rom?.flashpoint_id);
+    return Boolean(
+      rom?.flashpoint_id && FLASHPOINT_ID_RE.test(rom.flashpoint_id),
+    );
   });
 
   function play() {
@@ -287,7 +296,8 @@ export function useGameActions(
   // tab is left behind when the handler takes over.
   function openInFlashpoint() {
     const rom = getRom();
-    if (!rom?.flashpoint_id) return;
+    if (!rom?.flashpoint_id || !FLASHPOINT_ID_RE.test(rom.flashpoint_id))
+      return;
     const a = document.createElement("a");
     a.href = `flashpoint://${rom.flashpoint_id}`;
     document.body.appendChild(a);
