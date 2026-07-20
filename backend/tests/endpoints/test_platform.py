@@ -2,6 +2,8 @@ from unittest.mock import patch
 
 from fastapi import status
 
+from models.platform import CUSTOM_NAME_MAX_LENGTH, DESCRIPTION_MAX_LENGTH
+
 
 def test_get_platforms(client, access_token, platform):
     response = client.get("/api/platforms")
@@ -130,6 +132,42 @@ def test_update_platform_description_can_be_cleared(client, access_token, platfo
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["description"] == ""
+
+
+def test_update_platform_oversized_description_is_rejected(
+    client, access_token, platform
+):
+    # Without a bound the oversized value reaches the database and surfaces as
+    # an unhandled DataError (500); it must be a validation error instead.
+    response = client.put(
+        f"/api/platforms/{platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"description": "A" * (DESCRIPTION_MAX_LENGTH + 1)},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def test_update_platform_oversized_custom_name_is_rejected(
+    client, access_token, platform
+):
+    response = client.put(
+        f"/api/platforms/{platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"custom_name": "A" * (CUSTOM_NAME_MAX_LENGTH + 1)},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def test_update_platform_description_at_max_length_is_accepted(
+    client, access_token, platform
+):
+    response = client.put(
+        f"/api/platforms/{platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"description": "A" * DESCRIPTION_MAX_LENGTH},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.json()["description"]) == DESCRIPTION_MAX_LENGTH
 
 
 def test_update_platform_description_requires_write_scope(client, platform):

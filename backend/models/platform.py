@@ -14,6 +14,11 @@ if TYPE_CHECKING:
 
 DEFAULT_COVER_ASPECT_RATIO = "2 / 3"
 
+# Bounds for the user-authored fields, mirroring their column types so
+# oversized input is rejected by validation instead of by the database.
+CUSTOM_NAME_MAX_LENGTH = 400
+DESCRIPTION_MAX_LENGTH = 65535  # TEXT
+
 
 class Platform(BaseModel):
     __tablename__ = "platforms"
@@ -35,7 +40,9 @@ class Platform(BaseModel):
     slug: Mapped[str] = mapped_column(String(length=100))
     fs_slug: Mapped[str] = mapped_column(String(length=100))
     name: Mapped[str] = mapped_column(String(length=400))
-    custom_name: Mapped[str | None] = mapped_column(String(length=400), default="")
+    custom_name: Mapped[str | None] = mapped_column(
+        String(length=CUSTOM_NAME_MAX_LENGTH), default=""
+    )
     description: Mapped[str | None] = mapped_column(Text, default="")
     category: Mapped[str | None] = mapped_column(String(length=100), default="")
     generation: Mapped[int | None]

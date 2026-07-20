@@ -47,15 +47,22 @@ const customName = ref<string>(props.platform.display_name);
 const description = ref<string>(props.platform.description ?? "");
 const saving = ref(false);
 
-// Re-seed on platform change (route swap, socket update) so the
-// fields reflect the live canonical values. Discard pending edits in
-// that case — the source-of-truth changed under us.
+// Re-seed on platform change (route swap, socket update) so the fields
+// reflect the live canonical values. Discard the pending edit in that
+// case — the source-of-truth changed under us. Each field is watched
+// independently so a change to one doesn't throw away an unsaved edit
+// to the other.
 watch(
-  () => [props.platform.display_name, props.platform.description],
-  ([nextName, nextDescription]) => {
-    if (saving.value) return;
-    customName.value = nextName ?? "";
-    description.value = nextDescription ?? "";
+  () => props.platform.display_name,
+  (next) => {
+    if (!saving.value) customName.value = next ?? "";
+  },
+);
+
+watch(
+  () => props.platform.description,
+  (next) => {
+    if (!saving.value) description.value = next ?? "";
   },
 );
 
@@ -73,11 +80,9 @@ async function save() {
   saving.value = true;
   try {
     const { data } = await platformApi.updatePlatform({
-      platform: {
-        ...props.platform,
-        custom_name: customName.value.trim(),
-        description: description.value.trim(),
-      },
+      id: props.platform.id,
+      customName: customName.value.trim(),
+      description: description.value.trim(),
     });
     platformsStore.update(data);
     if (galleryRoms.currentPlatform?.id === data.id) {

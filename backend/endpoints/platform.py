@@ -22,7 +22,11 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.permission import PermAction, PermEntity
-from models.platform import Platform
+from models.platform import (
+    CUSTOM_NAME_MAX_LENGTH,
+    DESCRIPTION_MAX_LENGTH,
+    Platform,
+)
 from utils.platforms import get_filesystem_platforms, get_supported_platforms
 from utils.router import APIRouter
 
@@ -134,10 +138,20 @@ async def update_platform(
     request: Request,
     id: Annotated[int, PathVar(description="Platform id.", ge=1)],
     custom_name: Annotated[
-        str | None, Body(embed=True, description="Custom platform name.")
+        str | None,
+        Body(
+            embed=True,
+            max_length=CUSTOM_NAME_MAX_LENGTH,
+            description="Custom platform name.",
+        ),
     ] = None,
     description: Annotated[
-        str | None, Body(embed=True, description="Custom platform description.")
+        str | None,
+        Body(
+            embed=True,
+            max_length=DESCRIPTION_MAX_LENGTH,
+            description="Custom platform description.",
+        ),
     ] = None,
 ) -> PlatformSchema:
     """Update a platform."""
