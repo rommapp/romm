@@ -760,6 +760,7 @@ def _push_state_file(container: dict[str, Any], filename: str, content: bytes) -
 # mirroring how in-browser EmulatorJS states carry a screenshot.
 _STATE_SCREENSHOT_ZIP_ENTRY = "Screenshot.png"
 _STATE_SCREENSHOT_MAX_BYTES = 16 * 1024 * 1024
+_PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
 def _extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | None:
@@ -820,6 +821,12 @@ async def _store_state_screenshot(
     resume picker show the right frame. Mirrors the POST /api/states thumbnail
     path so streaming and in-browser states share one screenshots directory.
     """
+    # Both sources are unverified bytes: a zip entry that only claims to be a
+    # PNG, or whatever the broker returned. Guard here so one check covers both.
+    if not image.startswith(_PNG_MAGIC):
+        log.warning("state screenshot for %s is not a PNG, skipping", state_filename)
+        return
+
     filename = sanitize_filename(f"{os.path.splitext(state_filename)[0]}.png")
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
         user=user, platform_fs_slug=rom.platform_slug, rom_id=rom.id

@@ -993,7 +993,7 @@ def test_pull_state_falls_back_to_broker_screenshot(rom: Rom, admin_user: User):
             return_value=("Game.s03", b"state-bytes"),
         ),
         patch(
-            "endpoints.streaming._fetch_state_screenshot", return_value=b"PNGDATA"
+            "endpoints.streaming._fetch_state_screenshot", return_value=_PNG
         ) as fetch_shot,
         patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
         patch("endpoints.streaming.scan_state", new=AsyncMock(return_value=scanned)),
@@ -1166,7 +1166,12 @@ def test_prune_state_history_drops_oldest_past_limit(rom: Rom, admin_user: User)
     }
 
 
-def _p2s_bytes(screenshot: bytes | None = b"PNGDATA") -> bytes:
+# _store_state_screenshot rejects anything without PNG magic, so fixtures that
+# reach it need real header bytes rather than a stand-in string.
+_PNG = b"\x89PNG\r\n\x1a\n" + b"pixels"
+
+
+def _p2s_bytes(screenshot: bytes | None = _PNG) -> bytes:
     """Build a PCSX2 .p2s-shaped zip, optionally embedding a Screenshot.png."""
     from tests._zipfile_shim import reload_zipfile
 
@@ -1181,7 +1186,7 @@ def _p2s_bytes(screenshot: bytes | None = b"PNGDATA") -> bytes:
 
 
 def test_extract_state_screenshot_pcsx2_returns_png():
-    assert streaming._extract_state_screenshot("pcsx2", _p2s_bytes(b"PNG")) == b"PNG"
+    assert streaming._extract_state_screenshot("pcsx2", _p2s_bytes(_PNG)) == _PNG
 
 
 def test_extract_state_screenshot_non_pcsx2_returns_none():
@@ -1203,9 +1208,9 @@ def test_extract_state_screenshot_not_a_zip_returns_none():
 
 def test_fetch_state_screenshot_returns_png(rom: Rom):
     resp = MagicMock()
-    resp.__enter__.return_value.read.return_value = b"PNGDATA"
+    resp.__enter__.return_value.read.return_value = _PNG
     with patch("endpoints.streaming.urllib.request.urlopen", return_value=resp):
-        assert streaming._fetch_state_screenshot(_container_for(rom), 1) == b"PNGDATA"
+        assert streaming._fetch_state_screenshot(_container_for(rom), 1) == _PNG
 
 
 def test_fetch_state_screenshot_404_returns_none(rom: Rom):
@@ -1246,9 +1251,7 @@ def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
         ),
     ):
         asyncio.run(
-            streaming._store_state_screenshot(
-                admin_user, rom, "Game.03.p2s", b"PNGDATA"
-            )
+            streaming._store_state_screenshot(admin_user, rom, "Game.03.p2s", _PNG)
         )
     wf.assert_awaited_once()
     assert wf.await_args_list[0].kwargs["filename"] == "Game.03.png"
@@ -1258,6 +1261,26 @@ def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
     assert state.screenshot is not None
     assert state.screenshot.file_name == "Game.03.png"
     assert state.screenshot.is_gallery is False
+
+
+def test_store_state_screenshot_rejects_non_png(admin_user: User, rom: Rom):
+    """A broker error page must never be written out as a thumbnail."""
+    db_state_handler.add_state(_state_for(rom, admin_user, "Game.05.p2s", "pcsx2"))
+    with (
+        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+        patch("endpoints.streaming.scan_screenshot", new=AsyncMock()) as scan,
+    ):
+        asyncio.run(
+            streaming._store_state_screenshot(
+                admin_user, rom, "Game.05.p2s", b"<html>404</html>"
+            )
+        )
+    wf.assert_not_awaited()
+    scan.assert_not_awaited()
+    state = db_state_handler.get_state_by_filename(
+        user_id=admin_user.id, rom_id=rom.id, file_name="Game.05.p2s"
+    )
+    assert state.screenshot is None
 
 
 def test_store_state_asset_binds_screenshot(admin_user: User, rom: Rom):
@@ -1284,7 +1307,7 @@ def test_store_state_asset_binds_screenshot(admin_user: User, rom: Rom):
     ):
         asyncio.run(
             streaming._store_state_asset(
-                admin_user, rom, "pcsx2", "Game.03.p2s", _p2s_bytes(b"PNG"), b"PNG"
+                admin_user, rom, "pcsx2", "Game.03.p2s", _p2s_bytes(_PNG), _PNG
             )
         )
     scan_shot.assert_awaited_once()
