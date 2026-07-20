@@ -11,6 +11,8 @@
   "playing-on": "Hraje na {device}",
   "playing-since": "Hraje od {time}",
   "release-failed": "Relaci se nepodařilo uvolnit",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
   "release-session": "Uvolnit",
   "release-session-body": "Tímto se okamžitě zastaví {game} a odpojí se {user}. Neuložený postup bude ztracen.",
   "release-session-title": "Uvolnit streamovací relaci?",

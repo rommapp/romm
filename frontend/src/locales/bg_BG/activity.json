@@ -11,6 +11,8 @@
   "playing-on": "Играе на {device}",
   "playing-since": "Играе от {time}",
   "release-failed": "Сесията не можа да бъде освободена",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
   "release-session": "Освобождаване",
   "release-session-body": "Това незабавно ще спре {game} и ще прекъсне връзката на {user}. Незапазеният напредък ще бъде загубен.",
   "release-session-title": "Освобождаване на стрийминг сесията?",

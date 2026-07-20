@@ -11,6 +11,8 @@
   "playing-on": "Joue sur {device}",
   "playing-since": "Joue depuis {time}",
   "release-failed": "Impossible de libérer la session",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
   "release-session": "Libérer",
   "release-session-body": "Cela arrêtera {game} immédiatement et déconnectera {user}. La progression non sauvegardée sera perdue.",
   "release-session-title": "Libérer la session de streaming ?",

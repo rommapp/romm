@@ -50,6 +50,23 @@ export interface AdminStreamingSession {
   username: string | null;
 }
 
+/** Why a session the caller used to hold is gone. Present only when an admin
+ *  ended it; an expired or self-released session carries no notice. */
+export interface SessionTermination {
+  ended_by: string | null;
+  reason: string | null;
+  ended_at: string | null;
+  platform: string | null;
+  rom_id: number | null;
+  rom_name: string | null;
+}
+
+export interface SessionStatus {
+  status: "active" | "ended";
+  platform: string;
+  termination?: SessionTermination | null;
+}
+
 // ── Requests ──────────────────────────────────────────────────────────────────
 
 async function fetchConfig() {
@@ -70,8 +87,12 @@ async function claimSession(
   });
 }
 
-async function releaseSession(platform: string) {
-  return api.delete(`/streaming/sessions/${platform}`);
+async function releaseSession(platform: string, reason?: string) {
+  return api.delete(`/streaming/sessions/${platform}`, {
+    // Sent whenever the caller supplied one, empty string included: the
+    // backend treats the param's presence as "this is an admin force-release".
+    ...(reason !== undefined ? { params: { reason } } : {}),
+  });
 }
 
 async function saveAndExit(platform: string, slot = 0, wait = true) {
@@ -82,7 +103,11 @@ async function saveAndExit(platform: string, slot = 0, wait = true) {
 }
 
 async function heartbeatSession(platform: string) {
-  return api.post(`/streaming/sessions/${platform}/heartbeat`);
+  return api.post<SessionStatus>(`/streaming/sessions/${platform}/heartbeat`);
+}
+
+async function sessionStatus(platform: string) {
+  return api.get<SessionStatus>(`/streaming/sessions/${platform}/status`);
 }
 
 async function setVolume(platform: string, level: number) {
@@ -148,6 +173,7 @@ export default {
   releaseSession,
   saveAndExit,
   heartbeatSession,
+  sessionStatus,
   setVolume,
   setMute,
   saveState,

@@ -7,7 +7,14 @@
 // Elapsed-time labels are recomputed off a `now` ref that ticks every
 // 30s, so "5m ago" advances without a full refetch. The grid is wired
 // to `useWrapGridNav` so arrow keys / gamepad move across the cards.
-import { RBtn, RIcon, RSkeletonBlock, RTooltip } from "@v2/lib";
+import {
+  RBtn,
+  RDialog,
+  RIcon,
+  RSkeletonBlock,
+  RTextField,
+  RTooltip,
+} from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -22,7 +29,6 @@ import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import ActivityCard from "@/v2/components/Activity/ActivityCard.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import { useCan } from "@/v2/composables/useCan";
-import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
@@ -32,7 +38,6 @@ const { t } = useI18n();
 const activityStore = storeActivity();
 const streamingStore = useStreamingStore();
 const snackbar = useSnackbar();
-const confirm = useConfirm();
 const isAdmin = useCan("app.admin");
 const { toWebp } = useWebpSupport();
 const { activities: rawActivities, initialized } = storeToRefs(activityStore);
@@ -119,23 +124,42 @@ function sessionTitle(session: AdminStreamingSession): string {
   return session.label ?? session.platform ?? session.container;
 }
 
-async function releaseStreamingSession(session: AdminStreamingSession) {
+// Releasing kicks someone out of a running game, so the admin gets a
+// dedicated dialog rather than a plain confirm: the optional reason is
+// shown to the displaced player alongside the admin's name.
+const releaseTarget = ref<AdminStreamingSession | null>(null);
+const releaseReason = ref("");
+
+const releaseBody = computed(() => {
+  const session = releaseTarget.value;
+  if (!session) return "";
+  return t("activity.release-session-body", {
+    game: session.rom_name ?? sessionTitle(session),
+    user: session.username ?? t("activity.unknown-user"),
+  });
+});
+
+function promptRelease(session: AdminStreamingSession) {
   // The DELETE route is platform-keyed; sessions without a stored platform
   // (pre-upgrade records) can only be cleared with a backend force-release.
   if (!session.platform) return;
-  const ok = await confirm({
-    title: t("activity.release-session-title"),
-    body: t("activity.release-session-body", {
-      game: session.rom_name ?? sessionTitle(session),
-      user: session.username ?? t("activity.unknown-user"),
-    }),
-    confirmText: t("activity.release-session"),
-    tone: "danger",
-  });
-  if (!ok) return;
+  releaseReason.value = "";
+  releaseTarget.value = session;
+}
+
+async function confirmRelease() {
+  const session = releaseTarget.value;
+  if (!session?.platform) return;
+  // Always passed, even blank, so the backend records a notice for the
+  // displaced player rather than treating this as a self-release.
+  const reason = releaseReason.value.trim();
+  releaseTarget.value = null;
   releasingContainer.value = session.container;
   try {
-    const released = await streamingStore.adminReleaseSession(session.platform);
+    const released = await streamingStore.adminReleaseSession(
+      session.platform,
+      reason,
+    );
     if (released) {
       snackbar.success(t("activity.session-released"), {
         icon: "mdi-check-bold",
@@ -262,13 +286,45 @@ function elapsedLabel(startedAt: string): string {
             color="danger"
             :disabled="!session.platform"
             :loading="releasingContainer === session.container"
-            @click="releaseStreamingSession(session)"
+            @click="promptRelease(session)"
           >
             {{ t("activity.release-session") }}
           </RBtn>
         </li>
       </ul>
     </section>
+
+    <RDialog
+      :model-value="releaseTarget !== null"
+      icon="mdi-account-cancel"
+      :width="440"
+      @close="releaseTarget = null"
+      @update:model-value="releaseTarget = null"
+    >
+      <template #header>
+        <span>{{ t("activity.release-session-title") }}</span>
+      </template>
+      <template #content>
+        <p class="r-v2-activity__release-body">{{ releaseBody }}</p>
+        <RTextField
+          v-model="releaseReason"
+          :placeholder="t('activity.release-reason-placeholder')"
+          prefix-label="stacked"
+        >
+          <template #prefix-label>
+            {{ t("activity.release-reason") }}
+          </template>
+        </RTextField>
+      </template>
+      <template #footer>
+        <RBtn variant="text" @click="releaseTarget = null">
+          {{ t("common.cancel") }}
+        </RBtn>
+        <RBtn variant="flat" color="danger" @click="confirmRelease">
+          {{ t("activity.release-session") }}
+        </RBtn>
+      </template>
+    </RDialog>
   </div>
 </template>
 
@@ -278,6 +334,11 @@ function elapsedLabel(startedAt: string): string {
 .r-v2-activity {
   display: flex;
   flex-direction: column;
+}
+
+.r-v2-activity__release-body {
+  margin: 0 0 14px;
+  color: var(--r-color-fg-muted);
 }
 
 /* Counter row — left-aligned stat replacing the page header. */

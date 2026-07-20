@@ -11,6 +11,8 @@
   "playing-on": "{device}에서 플레이 중",
   "playing-since": "{time}부터 플레이 중",
   "release-failed": "세션을 해제할 수 없습니다",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
   "release-session": "해제",
   "release-session-body": "{game}이(가) 즉시 중지되고 {user}의 연결이 끊어집니다. 저장되지 않은 진행 상황은 사라집니다.",
   "release-session-title": "스트리밍 세션을 해제하시겠습니까?",

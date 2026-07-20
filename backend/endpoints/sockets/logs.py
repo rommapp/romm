@@ -1,9 +1,10 @@
 """Real-time backend log streaming over Socket.IO (admin only).
 
 Pieces:
-- ``connect`` handler on the main socket server: resolves the session user and,
-  if they are an admin, joins them to the ``admin`` room. It never rejects a
-  connection, so the existing scan/sync sockets keep working for everyone.
+- ``connect`` handler on the main socket server: resolves the session user,
+  joins them to their own ``user:{id}`` room, and, if they are an admin, also
+  joins the ``admin`` room. It never rejects a connection, so the existing
+  scan/sync sockets keep working for everyone.
 - ``start_log_forwarder``: a single background task (Redis-lock guarded) that
   subscribes to the ``romm:logs`` pub/sub channel — fed by ``LogStreamHandler``
   in every backend process — and relays each line to the ``admin`` room.
@@ -37,10 +38,12 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     """Resolve the authenticated user on socket connect.
 
     Stores the user id in the socket session so activity events can trust the
-    server-resolved identity instead of a client-supplied ``user_id``, and joins
-    admin users to the log-streaming room. Always returns ``None`` (accepts the
-    connection) — only identity storage and room membership are gated, so the
-    existing scan/sync sockets keep working for everyone.
+    server-resolved identity instead of a client-supplied ``user_id``, joins
+    every authenticated user to their own ``user:{id}`` room (the target for
+    sync and streaming push notifications), and joins admins to the
+    log-streaming room. Always returns ``None`` (accepts the connection) —
+    only identity storage and room membership are gated, so the existing
+    scan/sync sockets keep working for everyone.
     """
     try:
         session = await get_session_from_environ(environ)
@@ -56,6 +59,7 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
             return
 
         await store_authenticated_user(sid, user.id)
+        await socket_handler.socket_server.enter_room(sid, f"user:{user.id}")
 
         if not DISABLE_LOGS_VIEWER and user.role == Role.ADMIN:
             await socket_handler.socket_server.enter_room(sid, ADMIN_ROOM)

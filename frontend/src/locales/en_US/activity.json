@@ -11,6 +11,8 @@
   "playing-on": "Playing on {device}",
   "playing-since": "Playing since {time}",
   "release-failed": "Could not release the session",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
   "release-session": "Release",
   "release-session-body": "This will stop {game} immediately and disconnect {user}. Unsaved progress will be lost.",
   "release-session-title": "Release streaming session?",

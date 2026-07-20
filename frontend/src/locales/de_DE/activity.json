@@ -11,6 +11,8 @@
   "playing-on": "Spielt auf {device}",
   "playing-since": "Spielt seit {time}",
   "release-failed": "Sitzung konnte nicht freigegeben werden",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
   "release-session": "Freigeben",
   "release-session-body": "Dadurch wird {game} sofort beendet und {user} getrennt. Nicht gespeicherter Fortschritt geht verloren.",
   "release-session-title": "Streaming-Sitzung freigeben?",

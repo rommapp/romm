@@ -11,6 +11,8 @@
   "playing-on": "{device}でプレイ中",
   "playing-since": "{time}からプレイ中",
   "release-failed": "セッションを解放できませんでした",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
   "release-session": "解放",
   "release-session-body": "{game} を直ちに停止し、{user} を切断します。保存されていない進行状況は失われます。",
   "release-session-title": "ストリーミングセッションを解放しますか？",

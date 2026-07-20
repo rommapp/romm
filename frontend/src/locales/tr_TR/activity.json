@@ -11,6 +11,8 @@
   "playing-on": "{device} üzerinde oynuyor",
   "playing-since": "{time} dan beri oynanıyor",
   "release-failed": "Oturum serbest bırakılamadı",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
   "release-session": "Serbest bırak",
   "release-session-body": "Bu, {game} oyununu hemen durduracak ve {user} bağlantısını kesecek. Kaydedilmemiş ilerleme kaybolacak.",
   "release-session-title": "Yayın oturumu serbest bırakılsın mı?",

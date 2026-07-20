@@ -41,7 +41,11 @@ import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
-import { useStreamingStore } from "@/stores/streaming";
+import {
+  type SessionStatus,
+  type SessionTermination,
+  useStreamingStore,
+} from "@/stores/streaming";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import MemoryCardPicker from "@/v2/components/Player/MemoryCardPicker.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
@@ -51,6 +55,7 @@ import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
@@ -93,7 +98,11 @@ const gameRunning = computed(() => playerState.value === "playing");
 const sessionActive = computed(
   () => playerState.value === "playing" || playerState.value === "loading",
 );
-watch(sessionActive, (active) => playingStore.setPlaying(active));
+watch(sessionActive, (active) => {
+  playingStore.setPlaying(active);
+  if (active) startSessionPoll();
+  else stopSessionPoll();
+});
 
 // Rom id straight from the route param (available before `rom` resolves),
 // so the hero cover paints its `view-transition-name` immediately and the
@@ -254,7 +263,7 @@ function emitActivityStart() {
   });
 }
 
-function emitActivityHeartbeat() {
+async function emitActivityHeartbeat() {
   if (!auth.user || !rom.value) return;
   socket.emit("activity:heartbeat", {
     rom_id: rom.value.id,
@@ -262,9 +271,121 @@ function emitActivityHeartbeat() {
   });
   // Also refresh the backend claim's liveness stamp: a session whose
   // heartbeat stops long enough counts as abandoned and can be taken over.
+  // The same reply reports whether the claim is still ours, which is how an
+  // admin force-release reaches this tab.
   if (sessionActive.value) {
-    void streamingStore.heartbeatSession(rom.value.platform_slug);
+    await handleSessionStatus(
+      await streamingStore.heartbeatSession(rom.value.platform_slug),
+    );
   }
+}
+
+// ── Force-release handling ─────────────────────────────────────────
+// An admin can end this session from the activity panel. Nothing about the
+// stream itself changes when that happens (the picture just stops), so the
+// poll reply is what drives the player out, naming who ended it and why.
+// The notice is a dialog rather than a snackbar: the player has just lost a
+// running game and must acknowledge that before being sent back.
+const endedDialogOpen = ref(false);
+const endedNotice = ref<SessionTermination | null>(null);
+
+// Headline: who ended it, said plainly enough that the player knows this was
+// an admin action and not a crash. The reason, when one was given, is a
+// separate line in the dialog rather than part of this sentence.
+const endedMessage = computed(() => {
+  const endedBy = endedNotice.value?.ended_by;
+  if (endedBy) return t("play.session-ended-by", { user: endedBy });
+  // No notice recorded: the claim expired or was released elsewhere.
+  return t("play.session-ended");
+});
+
+const endedReason = computed(() => endedNotice.value?.reason ?? "");
+
+async function handleSessionStatus(
+  status: SessionStatus | null,
+): Promise<void> {
+  // Null means the poll failed, not that the session is gone. A transient
+  // network error must never tear down a live game.
+  if (!status || status.status !== "ended") return;
+  // Already leaving under our own power (stop, save-and-exit, unload).
+  if (!sessionActive.value) return;
+  // The socket push arrives per-user, not per-platform (one room for every
+  // stream the account touches), so a stale event for a different platform
+  // must not tear down the one actually on screen.
+  if (rom.value && status.platform !== rom.value.platform_slug) return;
+
+  // Leave fullscreen before anything else. RDialog teleports to <body>,
+  // outside the stage, so the notice would otherwise be painted under a
+  // fullscreened stage; and tearing the stage down first would unmount the
+  // fullscreen element out from under the in-flight exit request, leaving the
+  // browser fullscreen over a dead stream.
+  await leaveFullscreen();
+
+  // "exited" both stops the route guard prompting and suppresses the unmount
+  // release path, since the claim is already gone server-side.
+  playerState.value = "exited";
+  containerHost.value = "";
+  stopActivityHeartbeat();
+
+  endedNotice.value = status.termination ?? null;
+  endedDialogOpen.value = true;
+}
+
+function dismissEndedDialog(): void {
+  endedDialogOpen.value = false;
+  backToRom();
+}
+
+// The socket push below is what actually drives an admin release out in
+// close to real time. This poll is the fallback for a dropped/missed push
+// (socket reconnecting, event lost) and for a background tab's throttled
+// timers, so it runs far less often than the push needs to react.
+const SESSION_POLL_MS = 30_000;
+
+// Pushed by the backend the instant an admin force-releases this user's
+// session (`_record_termination` in streaming.py), to the caller's own
+// `user:{id}` room. Near-instant, unlike the poll above.
+useSocketEvent<SessionTermination>("streaming:session-ended", (notice) => {
+  void handleSessionStatus({
+    status: "ended",
+    platform: notice.platform ?? "",
+    termination: notice,
+  });
+});
+let sessionPollTimer: ReturnType<typeof setInterval> | null = null;
+let sessionPollInFlight = false;
+
+async function pollSessionStatus(): Promise<void> {
+  // Skip rather than queue: a slow reply must not stack up requests.
+  if (sessionPollInFlight || !sessionActive.value || !rom.value) return;
+  sessionPollInFlight = true;
+  try {
+    await handleSessionStatus(
+      await streamingStore.fetchSessionStatus(rom.value.platform_slug),
+    );
+  } finally {
+    sessionPollInFlight = false;
+  }
+}
+
+function startSessionPoll() {
+  if (sessionPollTimer) return;
+  sessionPollTimer = setInterval(pollSessionStatus, SESSION_POLL_MS);
+}
+
+function stopSessionPoll() {
+  if (sessionPollTimer) {
+    clearInterval(sessionPollTimer);
+    sessionPollTimer = null;
+  }
+}
+
+// A background tab's timers are throttled, so the poll may not have run for
+// minutes. Re-check on the way back rather than leaving a dead stream on
+// screen.
+async function onVisibilityChange(): Promise<void> {
+  if (document.hidden) return;
+  await pollSessionStatus();
 }
 
 function emitActivityStop() {
@@ -656,6 +777,19 @@ function onFullscreenChange(): void {
   isFullscreen.value = !!document.fullscreenElement;
 }
 
+// Drop out of fullscreen before showing anything teleported to <body>: a
+// fullscreened element paints over the whole page, dialogs included.
+async function leaveFullscreen(): Promise<void> {
+  if (!document.fullscreenElement) return;
+  try {
+    await document.exitFullscreen();
+  } catch (error) {
+    // Worst case the dialog opens behind fullscreen, so this is not fatal, but
+    // it is invisible from the UI and worth surfacing to anyone debugging it.
+    console.warn("Failed to exit fullscreen", error);
+  }
+}
+
 // ── Navigation ─────────────────────────────────────────────────────
 function backToRom() {
   router.push({ name: ROUTES.ROM, params: { rom: rom.value?.id } });
@@ -680,15 +814,7 @@ let pendingLeave: (() => void) | null = null;
 
 async function openExitDialog(): Promise<void> {
   if (exitDialogOpen.value) return;
-  // RDialog teleports to <body>, outside the stage element, so it would
-  // be invisible behind a fullscreened stage. Drop out of fullscreen first.
-  if (document.fullscreenElement) {
-    try {
-      await document.exitFullscreen();
-    } catch {
-      // Ignore: worst case the dialog opens behind fullscreen.
-    }
-  }
+  await leaveFullscreen();
   exitDialogOpen.value = true;
 }
 
@@ -821,6 +947,7 @@ function onPageHide(): void {
 
 onMounted(async () => {
   document.addEventListener("fullscreenchange", onFullscreenChange);
+  document.addEventListener("visibilitychange", onVisibilityChange);
   window.addEventListener("pagehide", onPageHide);
 
   try {
@@ -850,6 +977,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   playingStore.setPlaying(false);
   document.removeEventListener("fullscreenchange", onFullscreenChange);
+  document.removeEventListener("visibilitychange", onVisibilityChange);
   window.removeEventListener("pagehide", onPageHide);
   if (uiTimeout) clearTimeout(uiTimeout);
   if (volumeDebounce) clearTimeout(volumeDebounce);
@@ -864,6 +992,7 @@ onBeforeUnmount(() => {
   contentWindowCleanup?.();
   contentWindowCleanup = null;
   stopActivityHeartbeat();
+  stopSessionPoll();
   emitActivityStop();
   if (playerState.value === "exited") {
     // handleSaveAndExit / handleStop already released the session.
@@ -1215,6 +1344,38 @@ onBeforeUnmount(() => {
     <!-- Exit dialog: the single confirmed way out of an active session.
          Opened by the route-leave guard (B, browser back, any link) and
          by holding Select+Start on the pad. Closing it resumes play. -->
+    <RDialog
+      :model-value="endedDialogOpen"
+      icon="mdi-account-cancel"
+      width="440"
+      persistent
+      @close="dismissEndedDialog"
+      @update:model-value="dismissEndedDialog"
+    >
+      <template #header>
+        <span>{{ t("play.session-ended-title") }}</span>
+      </template>
+      <template #content>
+        <p class="r-v2-stream__exit-text">{{ endedMessage }}</p>
+        <div v-if="endedReason" class="r-v2-stream__ended-reason">
+          <span class="r-v2-stream__ended-reason-label">
+            {{ t("play.session-ended-reason-label") }}
+          </span>
+          <span>{{ endedReason }}</span>
+        </div>
+      </template>
+      <template #footer>
+        <RBtn
+          autofocus
+          color="primary"
+          variant="flat"
+          @click="dismissEndedDialog"
+        >
+          {{ t("play.back-to-game-details") }}
+        </RBtn>
+      </template>
+    </RDialog>
+
     <RDialog v-model="exitDialogOpen" width="480">
       <template #header>
         <span>{{ t("play.exit-dialog-title") }}</span>
@@ -1602,6 +1763,28 @@ onBeforeUnmount(() => {
   color: var(--r-color-fg-secondary);
   line-height: 1.5;
 }
+.r-v2-stream__ended-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-radius-md);
+  border-left: 3px solid var(--r-color-warning);
+  background: var(--r-color-surface);
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.r-v2-stream__ended-reason-label {
+  font-size: var(--r-font-size-xs);
+  font-weight: var(--r-font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--r-color-fg-muted);
+}
+
 .r-v2-stream__exit-actions {
   display: flex;
   justify-content: flex-end;

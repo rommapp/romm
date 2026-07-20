@@ -4,6 +4,7 @@ import streamingApi from "@/services/api/streaming";
 import type {
   ActiveSession,
   AdminStreamingSession,
+  SessionStatus,
   StreamingConfig,
   StreamingContainer,
 } from "@/services/api/streaming";
@@ -12,6 +13,8 @@ export type {
   ActiveSession,
   AdminStreamingSession,
   PlatformCapabilities,
+  SessionStatus,
+  SessionTermination,
   StreamingConfig,
   StreamingContainer,
 } from "@/services/api/streaming";
@@ -171,14 +174,41 @@ export const useStreamingStore = defineStore("streaming", () => {
 
   /**
    * Refresh the session's liveness stamp so the backend does not treat it as
-   * abandoned. Called periodically while playing. Best-effort, never throws.
+   * abandoned, and report back whether the session still exists. Called
+   * periodically while playing.
+   *
+   * Returns null when the answer is unknown (network error): the caller must
+   * not tear the player down on a transient failure, only on a definite
+   * `ended`. Best-effort, never throws.
    */
-  async function heartbeatSession(platform: string): Promise<void> {
-    if (!platform) return;
+  async function heartbeatSession(
+    platform: string,
+  ): Promise<SessionStatus | null> {
+    if (!platform) return null;
     try {
-      await streamingApi.heartbeatSession(platform);
+      const { data } = await streamingApi.heartbeatSession(platform);
+      return data;
     } catch (err) {
       console.warn("[streaming] Could not heartbeat session:", err);
+      return null;
+    }
+  }
+
+  /**
+   * Ask whether this platform's session is still ours, without refreshing it.
+   * Used on mount and on tab refocus, where a heartbeat would wrongly extend a
+   * claim we may no longer hold. Null means unknown, as above.
+   */
+  async function fetchSessionStatus(
+    platform: string,
+  ): Promise<SessionStatus | null> {
+    if (!platform) return null;
+    try {
+      const { data } = await streamingApi.sessionStatus(platform);
+      return data;
+    } catch (err) {
+      console.warn("[streaming] Could not fetch session status:", err);
+      return null;
     }
   }
 
@@ -231,10 +261,13 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Does not touch local activeSession state - the target session belongs
    * to someone else. Returns whether the release succeeded.
    */
-  async function adminReleaseSession(platform: string): Promise<boolean> {
+  async function adminReleaseSession(
+    platform: string,
+    reason?: string,
+  ): Promise<boolean> {
     if (!platform) return false;
     try {
-      await streamingApi.releaseSession(platform);
+      await streamingApi.releaseSession(platform, reason);
       return true;
     } catch (err) {
       console.warn("[streaming] Could not release session:", err);
@@ -255,6 +288,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     releaseSession,
     saveAndExit,
     heartbeatSession,
+    fetchSessionStatus,
     saveAndExitKeepalive,
     releaseSessionKeepalive,
     adminListSessions,

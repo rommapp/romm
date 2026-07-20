@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Any, TypedDict
 from urllib.parse import quote, urlparse, urlunparse
 
-from fastapi import Body, HTTPException, Request
+from fastapi import Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -38,6 +38,7 @@ from handler.scan_handler import (
     scan_screenshot,
     scan_state,
 )
+from handler.socket_handler import socket_handler
 from models.assets import MemoryCard
 from models.rom import Rom
 from models.user import Role, User
@@ -117,6 +118,92 @@ def _session_is_stale(session: dict[str, Any]) -> bool:
         seen = seen.replace(tzinfo=timezone.utc)
     age = (datetime.now(timezone.utc) - seen).total_seconds()
     return age > _SESSION_STALE_SECONDS
+
+
+# ── Termination notices ───────────────────────────────────────────────────────
+
+# An admin force-release deletes the session key, but the displaced player's
+# browser is still showing a stream that no longer exists. A tombstone keyed by
+# container and displaced user lets their next poll say who ended it and why,
+# instead of the picture simply stopping. Cleared when that user claims again;
+# the TTL covers the case where they never come back.
+_TERMINATION_KEY_PREFIX = "romm:streaming:terminated:"
+_TERMINATION_TTL_SECONDS = 15 * 60
+
+
+def _termination_redis_key(session_key: str, user_id: int) -> str:
+    return f"{_TERMINATION_KEY_PREFIX}{session_key}:{user_id}"
+
+
+async def _record_termination(
+    session: dict[str, Any],
+    session_key: str,
+    *,
+    ended_by: str | None,
+    reason: str | None,
+) -> None:
+    """Leave a note for the player whose session was taken away, and push it
+    over the socket so the poll isn't the only way that tab finds out. No-op
+    when the session records no owner, since there is nobody to notify."""
+    user_id = session.get("user_id")
+    if not isinstance(user_id, int):
+        return
+    notice = {
+        "ended_by": ended_by,
+        "reason": reason or None,
+        "ended_at": datetime.now(timezone.utc).isoformat(),
+        "platform": session.get("platform"),
+        "rom_id": session.get("rom_id"),
+        "rom_name": session.get("rom_name"),
+    }
+    await async_cache.set(
+        _termination_redis_key(session_key, user_id),
+        json.dumps(notice),
+        ex=_TERMINATION_TTL_SECONDS,
+    )
+    # Best-effort: the poll is the source of truth and covers a missed or
+    # dropped push, so a socket error here must not fail the release itself.
+    try:
+        await socket_handler.socket_server.emit(
+            "streaming:session-ended", notice, room=f"user:{user_id}"
+        )
+    except Exception:  # noqa: BLE001
+        log.warning("Failed to push session-ended notice", exc_info=True)
+
+
+async def _get_termination(session_key: str, user_id: int) -> dict[str, Any] | None:
+    raw = await async_cache.get(_termination_redis_key(session_key, user_id))
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        await async_cache.delete(_termination_redis_key(session_key, user_id))
+        return None
+
+
+async def _clear_termination(session_key: str, user_id: int) -> None:
+    await async_cache.delete(_termination_redis_key(session_key, user_id))
+
+
+async def _session_status(platform: str, request: Request) -> dict[str, Any]:
+    """Whether the caller still holds this platform's session, and if not, why
+    it ended. Read-only, so it is safe to poll."""
+    container = _container_for_platform(platform)
+    if container is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No streaming container configured for platform '{platform}'",
+        )
+    session_key = _container_key(container)
+    session = await _get_session(session_key)
+    if session is not None and session.get("user_id") == request.user.id:
+        return {"status": "active", "platform": platform}
+    return {
+        "status": "ended",
+        "platform": platform,
+        "termination": await _get_termination(session_key, request.user.id),
+    }
 
 
 def _assert_session_owner(session: dict[str, Any], request: Request) -> None:
@@ -1702,6 +1789,10 @@ async def claim_session(
             },
         )
 
+    # The player is back in a session, so any note about their previous one
+    # being force-released has served its purpose.
+    await _clear_termination(session_key, request.user.id)
+
     # Auto-create the blank card only after the claim is won, so a lost race
     # (409) never leaves an orphan card behind. If a later step fails and aborts
     # the claim, delete the blank we just made so an aborted claim leaks nothing.
@@ -1878,13 +1969,27 @@ async def save_and_exit_session(
 
 @protected_route(router.post, "/sessions/{platform}/heartbeat", [Scope.ROMS_READ])
 async def heartbeat_session(request: Request, platform: str) -> JSONResponse:
-    """Refresh the session's liveness stamp.
+    """Refresh the session's liveness stamp and report whether it still exists.
 
     The frontend calls this every ~30s while a session is active. A session
     that stops refreshing counts as abandoned after _SESSION_STALE_SECONDS
     and the next claim may take the container over.
+
+    Reports `ended` rather than raising 404 when the caller no longer holds the
+    session, so a force-released player learns why on the poll they are already
+    making rather than watching a dead stream.
     """
-    _, session_key, session = await _resolve_owned_session(platform, request)
+    container = _container_for_platform(platform)
+    if container is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No streaming container configured for platform '{platform}'",
+        )
+    session_key = _container_key(container)
+    session = await _get_session(session_key)
+    if session is None or session.get("user_id") != request.user.id:
+        return JSONResponse(await _session_status(platform, request))
+
     session["last_seen"] = datetime.now(timezone.utc).isoformat()
     # XX: only rewrite a key that still exists, so a heartbeat racing a
     # teardown cannot resurrect a released session as a ghost claim. The
@@ -1895,7 +2000,17 @@ async def heartbeat_session(request: Request, platform: str) -> JSONResponse:
         xx=True,
         ex=SESSION_TTL_SECONDS,
     )
-    return JSONResponse({"status": "ok", "platform": platform})
+    return JSONResponse({"status": "active", "platform": platform})
+
+
+@protected_route(router.get, "/sessions/{platform}/status", [Scope.ROMS_READ])
+async def session_status(request: Request, platform: str) -> JSONResponse:
+    """Does the caller still hold this platform's session?
+
+    Unlike the heartbeat this has no side effects, so a client can call it on
+    mount or after a reconnect without extending a claim it may not own.
+    """
+    return JSONResponse(await _session_status(platform, request))
 
 
 @protected_route(router.post, "/sessions/{platform}/volume", [Scope.ROMS_READ])
@@ -1972,8 +2087,16 @@ async def load_state(
 
 
 @protected_route(router.delete, "/sessions/{platform}", [Scope.ROMS_READ])
-async def release_session(request: Request, platform: str) -> JSONResponse:
-    """Release a session and tell the broker to stop the emulator."""
+async def release_session(
+    request: Request,
+    platform: str,
+    reason: str | None = Query(default=None, max_length=200),
+) -> JSONResponse:
+    """Release a session and tell the broker to stop the emulator.
+
+    `reason` is only meaningful when an admin ends someone else's session; it
+    is surfaced to the displaced player.
+    """
     container = _container_for_platform(platform)
     if container is None:
         # Streaming disabled or platform unconfigured, nothing to release.
@@ -1998,6 +2121,22 @@ async def release_session(request: Request, platform: str) -> JSONResponse:
     safe_to_wipe = await _evacuate_session_card(session, container)
     if safe_to_wipe:
         await _wipe_session_card(container)
+
+    # Leave a note when this is a force-release rather than a player closing
+    # their own game. A different user is the obvious case; a reason covers the
+    # rest, since only the admin panel sends one and an admin can be logged in
+    # as the same account that is playing in another tab.
+    if session.get("user_id") != request.user.id or reason is not None:
+        await _record_termination(
+            session, session_key, ended_by=request.user.username, reason=reason
+        )
+        log.info(
+            "session force-released, platform=%s by=%s user_id=%s reason=%s",
+            platform,
+            request.user.username,
+            session.get("user_id"),
+            reason or "-",
+        )
 
     await async_cache.delete(_session_redis_key(session_key))
     await _record_play_session(session)
@@ -2060,8 +2199,13 @@ async def list_sessions(request: Request) -> JSONResponse:
 
 
 @protected_route(router.delete, "/sessions", [Scope.ROMS_READ])
-async def force_release_all(request: Request) -> JSONResponse:
-    """Admin, force-release all active sessions."""
+async def force_release_all(
+    request: Request, reason: str | None = Query(default=None, max_length=200)
+) -> JSONResponse:
+    """Admin, force-release all active sessions.
+
+    `reason` is surfaced to every displaced player alongside the admin's name.
+    """
     if request.user.role != Role.ADMIN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -2075,6 +2219,9 @@ async def force_release_all(request: Request) -> JSONResponse:
 
     async def _teardown(key: str | bytes, container_key: str) -> None:
         container = containers_by_key.get(container_key)
+        # Read before the teardown so the displaced player can be identified
+        # even when the container config has since been removed.
+        session = await _get_session(container_key)
 
         # Stop the emulator, then evacuate and wipe the card, all while the claim
         # still guards the container and before deleting the key. Stopping first
@@ -2082,13 +2229,19 @@ async def force_release_all(request: Request) -> JSONResponse:
         if container is not None:
             # Best-effort stop; a broker error must not abort the sweep.
             await asyncio.to_thread(_stop_broker, container)
-            session = await _get_session(container_key)
             if session is not None:
                 safe_to_wipe = await _evacuate_session_card(session, container)
                 if safe_to_wipe:
                     await _wipe_session_card(container)
                 # Credit playtime to the session's owner, not the admin.
                 await _record_play_session(session)
+
+        # Note who ended it before the key goes, so the player's next poll can
+        # explain the stream vanishing.
+        if session is not None:
+            await _record_termination(
+                session, container_key, ended_by=request.user.username, reason=reason
+            )
 
         await async_cache.delete(key)
 

@@ -11,6 +11,8 @@
   "playing-on": "Gra na {device}",
   "playing-since": "Gra od {time}",
   "release-failed": "Nie udało się zwolnić sesji",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
   "release-session": "Zwolnij",
   "release-session-body": "To natychmiast zatrzyma {game} i rozłączy użytkownika {user}. Niezapisany postęp zostanie utracony.",
   "release-session-title": "Zwolnić sesję streamingu?",

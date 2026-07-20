@@ -11,6 +11,8 @@
   "playing-on": "Joacă pe {device}",
   "playing-since": "Joacă din {time}",
   "release-failed": "Sesiunea nu a putut fi eliberată",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
   "release-session": "Eliberează",
   "release-session-body": "Aceasta va opri imediat {game} și va deconecta {user}. Progresul nesalvat va fi pierdut.",
   "release-session-title": "Eliberezi sesiunea de streaming?",

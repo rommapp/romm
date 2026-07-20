@@ -11,6 +11,8 @@
   "playing-on": "Играет на {device}",
   "playing-since": "Играет с {time}",
   "release-failed": "Не удалось освободить сессию",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
   "release-session": "Освободить",
   "release-session-body": "Это немедленно остановит {game} и отключит {user}. Несохранённый прогресс будет потерян.",
   "release-session-title": "Освободить стриминговую сессию?",

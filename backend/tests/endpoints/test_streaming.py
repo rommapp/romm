@@ -429,30 +429,221 @@ def test_heartbeat_refreshes_last_seen(client, access_token, rom: Rom):
             headers=_auth(access_token),
         )
     assert r.status_code == 200
+    assert r.json()["status"] == "active"
     key = streaming._session_redis_key(streaming._container_key(_container_for(rom)))
     session = json.loads(asyncio.run(async_cache.get(key)))
     assert not streaming._session_is_stale(session)
 
 
-def test_heartbeat_without_session_returns_404(client, access_token, rom: Rom):
+def test_heartbeat_without_session_reports_ended(client, access_token, rom: Rom):
+    """No session at all still answers 200/ended: the poll is how a player
+    learns their stream is gone, so it must not look like a route error."""
     with _streaming(_container_for(rom)):
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
             headers=_auth(access_token),
         )
-    assert r.status_code == 404
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+    assert r.json()["termination"] is None
 
 
-def test_heartbeat_by_other_user_is_forbidden(
+def test_heartbeat_by_other_user_reports_ended(
     client, access_token, viewer_access_token, rom: Rom
 ):
+    """A non-owner's heartbeat must not refresh or 403 the session; it just
+    reports that the caller does not hold it."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
             headers=_auth(viewer_access_token),
         )
-    assert r.status_code == 403
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+
+
+def test_heartbeat_for_unknown_platform_returns_404(client, access_token, rom: Rom):
+    with _streaming(_container_for(rom)):
+        r = client.post(
+            "/api/streaming/sessions/not-a-platform/heartbeat",
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 404
+
+
+# ── Session status / termination notices ──────────────────────────────────────
+
+
+def test_status_reports_active_for_owner(client, access_token, rom: Rom):
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 200
+    assert r.json() == {"status": "active", "platform": rom.platform_slug}
+
+
+def test_status_does_not_refresh_the_session(client, access_token, rom: Rom):
+    """Status is read-only: polling it must not extend a claim, otherwise a
+    background tab could keep a container hostage without playing."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, streaming._SESSION_STALE_SECONDS + 60)
+        client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            headers=_auth(access_token),
+        )
+    key = streaming._session_redis_key(streaming._container_key(_container_for(rom)))
+    session = json.loads(asyncio.run(async_cache.get(key)))
+    assert streaming._session_is_stale(session)
+
+
+def test_admin_release_leaves_termination_notice(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The displaced player's next poll must name who ended the session and
+    why, since nothing about the dead stream itself says so."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        released = client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"reason": "maintenance window"},
+            headers=_auth(access_token),
+        )
+        assert released.status_code == 200
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            headers=_auth(viewer_access_token),
+        )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ended"
+    assert body["termination"]["reason"] == "maintenance window"
+    assert body["termination"]["ended_by"]
+
+
+def test_heartbeat_carries_termination_notice(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The heartbeat is the poll a player is already making, so it must carry
+    the same notice as the status route: that is the path a force-released
+    browser actually learns the reason on."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"reason": "patching the host"},
+            headers=_auth(access_token),
+        )
+        r = client.post(
+            f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
+            headers=_auth(viewer_access_token),
+        )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ended"
+    assert body["termination"]["reason"] == "patching the host"
+
+
+def test_force_release_all_leaves_termination_notice(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The sweep is the other admin path out of a session, so it must leave the
+    same notice as the platform-keyed release."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        swept = client.delete(
+            "/api/streaming/sessions",
+            params={"reason": "server restart"},
+            headers=_auth(access_token),
+        )
+        assert swept.status_code == 200
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            headers=_auth(viewer_access_token),
+        )
+    assert r.json()["termination"]["reason"] == "server restart"
+
+
+def test_self_release_leaves_no_termination_notice(client, access_token, rom: Rom):
+    """A user who closed their own session already knows why it stopped. The
+    player's own release path sends no reason, which is what marks it as such."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            headers=_auth(access_token),
+        )
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            headers=_auth(access_token),
+        )
+    assert r.json()["termination"] is None
+
+
+def test_admin_release_of_own_session_leaves_notice(client, access_token, rom: Rom):
+    """An admin can be logged in as the account that is playing in another tab,
+    so a panel release must still notify: only that path sends the reason
+    param, which is how it is told apart from the player closing their game."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"reason": "clearing the container"},
+            headers=_auth(access_token),
+        )
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            headers=_auth(access_token),
+        )
+    body = r.json()
+    assert body["status"] == "ended"
+    assert body["termination"]["reason"] == "clearing the container"
+    assert body["termination"]["ended_by"]
+
+
+def test_admin_release_with_blank_reason_still_names_the_admin(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The panel sends the param even when the field is left empty, so the
+    player is still told who ended it."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"reason": ""},
+            headers=_auth(access_token),
+        )
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            headers=_auth(viewer_access_token),
+        )
+    body = r.json()
+    assert body["termination"]["ended_by"]
+    assert body["termination"]["reason"] is None
+
+
+def test_reclaim_clears_termination_notice(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Once the player is back in a session the old notice is spent, so a
+    later poll must not resurface it."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"reason": "maintenance window"},
+            headers=_auth(access_token),
+        )
+        _claim_ok(client, viewer_access_token, rom.id)
+        r = client.post(
+            f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
+            headers=_auth(viewer_access_token),
+        )
+    assert r.json()["status"] == "active"
 
 
 # ── Release / ownership ───────────────────────────────────────────────────────

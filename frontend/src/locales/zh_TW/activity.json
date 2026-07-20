@@ -11,6 +11,8 @@
   "playing-on": "正在 {device} 上遊玩",
   "playing-since": "自 {time} 起遊玩",
   "release-failed": "無法釋放工作階段",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
   "release-session": "釋放",
   "release-session-body": "這將立即停止 {game} 並中斷 {user} 的連線。未儲存的進度將會遺失。",
   "release-session-title": "釋放串流工作階段？",
