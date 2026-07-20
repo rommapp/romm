@@ -104,6 +104,16 @@ const BUTTON_MAP: Record<number, Binding | undefined> = {
   15: { key: "ArrowRight", code: "ArrowRight" },
 };
 
+// Guards the polling loop against phantom / non-standard pads. All button
+// and axis reads use W3C standard-mapping indices, so a pad that is
+// disconnected or reports a non-standard mapping cannot be interpreted
+// safely. Firefox surfaces such devices and their analog drift would
+// otherwise trigger index-based actions (e.g. LB/RB section cycling) on
+// their own. See issue #3851.
+function isUsablePad(pad: Gamepad | null): pad is Gamepad {
+  return pad !== null && pad.connected && pad.mapping === "standard";
+}
+
 function dispatchKey(binding: Binding) {
   const target =
     (document.activeElement as HTMLElement | null) ?? document.body;
@@ -229,7 +239,7 @@ export function useGamepad() {
     // or first button press takes over.
     function detectPadPresence() {
       const list = navigator.getGamepads?.() ?? [];
-      const hasPad = Array.from(list).some((p) => p !== null);
+      const hasPad = Array.from(list).some((p) => isUsablePad(p));
       if (hasPad && !everSawPad) {
         everSawPad = true;
         setModality("pad");
@@ -257,7 +267,12 @@ export function useGamepad() {
       const actionsDisabled = ACTIONS_DISABLED_PATHS.has(route.path);
 
       for (const pad of pads) {
-        if (!pad) continue;
+        // Only act on connected, standard-mapping pads: every button/axis
+        // read below is by W3C standard index, so a phantom or non-standard
+        // pad (Firefox keeps disconnected entries around and reports
+        // uncalibrated analog controls) would map drifting values onto LB/RB
+        // and cycle AppNav sections with no user input. See issue #3851.
+        if (!isUsablePad(pad)) continue;
         const key = `${pad.index}:${pad.id}`;
         const st = (states[key] ||= {
           buttons: {},
