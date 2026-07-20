@@ -238,7 +238,7 @@ function onUpdate(v: unknown) {
     <!-- Item — consumer slot wins; otherwise icon + name (+ meta). -->
     <template #item="slotProps">
       <slot name="item" v-bind="slotProps">
-        <li v-bind="slotProps.props">
+        <li v-bind="slotProps.props" class="r-v2-platsel__row">
           <RPlatformIcon
             :key="(slotProps.item.raw as Platform).slug"
             :slug="(slotProps.item.raw as Platform).slug"
@@ -356,12 +356,31 @@ function onUpdate(v: unknown) {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.r-v2-platsel__row {
+  container-name: r-v2-platsel__row;
+  container-type: inline-size;
+}
 .r-v2-platsel__meta {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin-left: auto;
   color: var(--r-color-fg-muted);
+}
+
+/* Narrow: shed the low-priority descriptors. */
+@container r-v2-platsel__row (max-width: 560px) {
+  .r-v2-platsel__fs-slug,
+  .r-v2-platsel__family,
+  .r-v2-platsel__meta-icon {
+    display: none;
+  }
+}
+/* Narrower still: drop the scrapper match strip too. */
+@container r-v2-platsel__row (max-width: 400px) {
+  .r-v2-platsel__scrappers {
+    display: none;
+  }
 }
 .r-v2-platsel__meta-icon {
   flex-shrink: 0;
