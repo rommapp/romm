@@ -361,6 +361,8 @@
   "scan-region-priority": "Régió prioritás",
   "scan-region-priority-desc": "Az IGDB és a ScreenScraper által a regionális változatokhoz használt régiókódok sorrendje. Az első elérhető régió nyer.",
   "scan-settings": "Szkennelési beállítások",
+  "scan-settings-load-error-desc": "The scan settings could not be loaded from the server. Editing is disabled to avoid overwriting your existing configuration.",
+  "scan-settings-load-error-title": "Unable to load scan settings",
   "scan-settings-save-error": "Nem sikerült menteni a szkennelési beállításokat: {detail}",
   "scan-settings-saved": "Szkennelési beállítások mentve",
   "scan-unsaved-changes": "Nem mentett módosításaid vannak",

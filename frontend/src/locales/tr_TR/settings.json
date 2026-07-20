@@ -361,6 +361,8 @@
   "scan-region-priority": "Bölge önceliği",
   "scan-region-priority-desc": "IGDB ve ScreenScraper tarafından bölgesel varyantlar için kullanılan bölge kodlarının sırası. İlk mevcut bölge kazanır.",
   "scan-settings": "Tarama ayarları",
+  "scan-settings-load-error-desc": "The scan settings could not be loaded from the server. Editing is disabled to avoid overwriting your existing configuration.",
+  "scan-settings-load-error-title": "Unable to load scan settings",
   "scan-settings-save-error": "Tarama ayarları kaydedilemedi: {detail}",
   "scan-settings-saved": "Tarama ayarları kaydedildi",
   "scan-unsaved-changes": "Kaydedilmemiş değişiklikleriniz var",

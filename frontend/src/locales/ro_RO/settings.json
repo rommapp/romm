@@ -361,6 +361,8 @@
   "scan-region-priority": "Prioritate regiune",
   "scan-region-priority-desc": "Ordinea codurilor de regiune folosite de IGDB și ScreenScraper pentru variantele regionale. Prima regiune disponibilă câștigă.",
   "scan-settings": "Setări de scanare",
+  "scan-settings-load-error-desc": "The scan settings could not be loaded from the server. Editing is disabled to avoid overwriting your existing configuration.",
+  "scan-settings-load-error-title": "Unable to load scan settings",
   "scan-settings-save-error": "Nu s-au putut salva setările de scanare: {detail}",
   "scan-settings-saved": "Setări de scanare salvate",
   "scan-unsaved-changes": "Ai modificări nesalvate",

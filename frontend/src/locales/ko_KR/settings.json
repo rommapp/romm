@@ -361,6 +361,8 @@
   "scan-region-priority": "지역 우선순위",
   "scan-region-priority-desc": "IGDB와 ScreenScraper가 지역별 변형에 사용하는 지역 코드의 순서입니다. 사용 가능한 첫 번째 지역이 선택됩니다.",
   "scan-settings": "스캔 설정",
+  "scan-settings-load-error-desc": "The scan settings could not be loaded from the server. Editing is disabled to avoid overwriting your existing configuration.",
+  "scan-settings-load-error-title": "Unable to load scan settings",
   "scan-settings-save-error": "스캔 설정을 저장할 수 없습니다: {detail}",
   "scan-settings-saved": "스캔 설정이 저장되었습니다",
   "scan-unsaved-changes": "저장되지 않은 변경 사항이 있습니다",

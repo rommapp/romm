@@ -256,13 +256,22 @@ const canEdit = computed(
 );
 
 const loading = ref(true);
+const loadError = ref(false);
 const saving = ref(false);
 
-onMounted(async () => {
-  const cfg = await configStore.fetchConfig();
-  resetForm(cfg);
-  loading.value = false;
-});
+async function loadConfig() {
+  loading.value = true;
+  loadError.value = false;
+  try {
+    resetForm(await configStore.fetchConfig({ rethrow: true }));
+  } catch {
+    loadError.value = true;
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(loadConfig);
 
 function onReset() {
   resetForm(config.value);
@@ -271,9 +280,10 @@ function onReset() {
 async function onSave() {
   saving.value = true;
   try {
-    await configApi.updateScanSettings(formToPayload(form));
-    const cfg = await configStore.fetchConfig();
-    resetForm(cfg);
+    const payload = formToPayload(form);
+    await configApi.updateScanSettings(payload);
+    savedSnapshot.value = JSON.stringify(payload);
+    await configStore.fetchConfig();
     snackbar.success(t("settings.scan-settings-saved"));
   } catch (err) {
     const e = err as {
@@ -325,6 +335,19 @@ onBeforeUnmount(() =>
 <template>
   <div v-if="loading" class="r-v2-scan-settings__loading">
     <RSpinner />
+  </div>
+  <div v-else-if="loadError" class="r-v2-section-stack r-v2-scan-settings">
+    <RAlert type="error">
+      <template #title>
+        {{ t("settings.scan-settings-load-error-title") }}
+      </template>
+      {{ t("settings.scan-settings-load-error-desc") }}
+      <template #actions>
+        <RBtn variant="text" :loading="loading" @click="loadConfig">
+          {{ t("common.try-again") }}
+        </RBtn>
+      </template>
+    </RAlert>
   </div>
   <div v-else class="r-v2-section-stack r-v2-scan-settings">
     <RAlert v-if="!config.CONFIG_FILE_MOUNTED" type="error">

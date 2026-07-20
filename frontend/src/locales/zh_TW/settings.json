@@ -361,6 +361,8 @@
   "scan-region-priority": "地區優先順序",
   "scan-region-priority-desc": "IGDB 和 ScreenScraper 用於地區變體的地區代碼順序。第一個可用的地區將被採用。",
   "scan-settings": "掃描設定",
+  "scan-settings-load-error-desc": "The scan settings could not be loaded from the server. Editing is disabled to avoid overwriting your existing configuration.",
+  "scan-settings-load-error-title": "Unable to load scan settings",
   "scan-settings-save-error": "無法儲存掃描設定：{detail}",
   "scan-settings-saved": "掃描設定已儲存",
   "scan-unsaved-changes": "您有未儲存的變更",

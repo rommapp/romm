@@ -53,13 +53,16 @@ export default defineStore("config", {
   }),
 
   actions: {
-    async fetchConfig(): Promise<ConfigResponse> {
+    async fetchConfig({
+      rethrow = false,
+    }: { rethrow?: boolean } = {}): Promise<ConfigResponse> {
       try {
         const response = await api.get("/config");
         this.config = response.data;
         return this.config;
       } catch (error) {
         console.error("Error fetching config: ", error);
+        if (rethrow) throw error;
         return this.config;
       }
     },

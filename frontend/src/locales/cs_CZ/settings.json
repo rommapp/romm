@@ -361,6 +361,8 @@
   "scan-region-priority": "Priorita regionů",
   "scan-region-priority-desc": "Pořadí kódů regionů používaných IGDB a ScreenScraper pro regionální varianty. Vyhrává první dostupný region.",
   "scan-settings": "Nastavení skenování",
+  "scan-settings-load-error-desc": "The scan settings could not be loaded from the server. Editing is disabled to avoid overwriting your existing configuration.",
+  "scan-settings-load-error-title": "Unable to load scan settings",
   "scan-settings-save-error": "Nelze uložit nastavení skenování: {detail}",
   "scan-settings-saved": "Nastavení skenování uloženo",
   "scan-unsaved-changes": "Máte neuložené změny",

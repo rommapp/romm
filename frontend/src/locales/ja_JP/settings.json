@@ -361,6 +361,8 @@
   "scan-region-priority": "リージョン優先順位",
   "scan-region-priority-desc": "IGDB と ScreenScraper が地域別バリアントに使用するリージョンコードの順序。最初に利用可能なリージョンが使用されます。",
   "scan-settings": "スキャン設定",
+  "scan-settings-load-error-desc": "The scan settings could not be loaded from the server. Editing is disabled to avoid overwriting your existing configuration.",
+  "scan-settings-load-error-title": "Unable to load scan settings",
   "scan-settings-save-error": "スキャン設定を保存できませんでした: {detail}",
   "scan-settings-saved": "スキャン設定を保存しました",
   "scan-unsaved-changes": "保存されていない変更があります",
