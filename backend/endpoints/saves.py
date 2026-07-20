@@ -267,11 +267,7 @@ async def add_save(
             )
 
     if db_save is None:
-        # The write above landed on saves_path/actual_filename, whose bytes can
-        # already belong to a save in another slot (file identity is path+name,
-        # independent of slot). If that row's recorded hash no longer matches
-        # what we just wrote, refresh it instead of inserting a duplicate, so it
-        # does not keep reporting metadata that mismatches the bytes on disk.
+        # Refresh hash if the file already exists to avoid mismatched metadata.
         colliding_save = db_save_handler.get_save_by_path(
             user_id=request.user.id,
             rom_id=rom.id,
@@ -282,10 +278,7 @@ async def add_save(
             db_save = colliding_save
 
     if db_save:
-        # Track where the bytes actually landed: the file is written under a
-        # path derived from this request's emulator, which may differ from the
-        # existing row's location. Persisting file_path/emulator keeps the row's
-        # hash and its on-disk content from drifting apart.
+        # Track file path and emulator to prevent hash-content drift.
         stale_full_path = db_save.full_path
         update_data: dict = {
             "file_size_bytes": scanned_save.file_size_bytes,
@@ -297,9 +290,7 @@ async def add_save(
             update_data["slot"] = slot
         db_save = db_save_handler.update_save(db_save.id, update_data)
 
-        # The row moved to a new path, so the previously stored bytes may now
-        # be orphaned. Slot is not part of the on-disk location, so another
-        # row can still point at the old path; only unlink it if none do.
+        # Delete orphaned bytes only if no other row references the old path.
         if stale_full_path != db_save.full_path:
             still_referenced = any(
                 other.id != db_save.id and other.full_path == stale_full_path
