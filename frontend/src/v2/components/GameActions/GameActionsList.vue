@@ -56,6 +56,12 @@ function run(fn: () => void | Promise<void>) {
     icon="mdi-qrcode"
     @click="run(actions.shareQR)"
   />
+  <RMenuItem
+    v-if="actions.canOpenInFlashpoint.value"
+    :label="t('rom.open-in-flashpoint')"
+    icon="mdi-rocket-launch-outline"
+    @click="run(actions.openInFlashpoint)"
+  />
 
   <RDivider />
 

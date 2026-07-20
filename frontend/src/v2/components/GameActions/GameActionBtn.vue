@@ -68,6 +68,7 @@ export type GameAction =
   | "download"
   | "copy-link"
   | "qr"
+  | "flashpoint"
   | "favorite"
   | "collection"
   | "status"
@@ -187,6 +188,15 @@ const preset = computed<Preset>(() => {
       label: t("rom.share-qr"),
       activeIcon: null,
       onClick: actions.shareQR,
+      active: false,
+    };
+  }
+  if (props.action === "flashpoint") {
+    return {
+      icon: "mdi-rocket-launch-outline",
+      label: t("rom.open-in-flashpoint"),
+      activeIcon: null,
+      onClick: actions.openInFlashpoint,
       active: false,
     };
   }

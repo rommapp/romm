@@ -188,6 +188,13 @@ export function useGameActions(
     return rom ? isNintendoDSRom(rom) : false;
   });
 
+  // The stored `flashpoint_id` is the game's UUID, which the `flashpoint://`
+  // protocol handler resolves to launch the title locally.
+  const canOpenInFlashpoint = computed(() => {
+    const rom = getRom();
+    return Boolean(rom?.flashpoint_id);
+  });
+
   function play() {
     const rom = getRom();
     if (!rom) return;
@@ -272,6 +279,20 @@ export function useGameActions(
     const rom = getRom();
     if (!rom) return;
     emitter?.emit("showQRCodeDialog", rom);
+  }
+
+  // Hands the game's Flashpoint UUID to the OS `flashpoint://` protocol
+  // handler so the locally installed Flashpoint launcher starts it.
+  // We click a synthesized anchor rather than window.open so no blank
+  // tab is left behind when the handler takes over.
+  function openInFlashpoint() {
+    const rom = getRom();
+    if (!rom?.flashpoint_id) return;
+    const a = document.createElement("a");
+    a.href = `flashpoint://${rom.flashpoint_id}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
   // Copies the API download URL (origin + /api/roms/.../content/...) so
@@ -365,6 +386,7 @@ export function useGameActions(
     isFavorited,
     canManageCollections,
     canShareQR,
+    canOpenInFlashpoint,
     canPlay,
     canPlayStream,
     canRemoveFromContinuePlaying,
@@ -379,6 +401,7 @@ export function useGameActions(
     favorite,
     share,
     shareQR,
+    openInFlashpoint,
     copyDownloadLink,
     manageCollections,
     refreshMetadata,
