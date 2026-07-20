@@ -371,8 +371,6 @@ const routes = [
               bare: true,
             },
             components: {
-              // v2-only view; v1 has no scan-settings screen so it
-              // redirects home if a v1 user deep-links here.
               default: () => import("@/views/Home.vue"),
               v2: v2For(ROUTES.SCAN_SETTINGS),
             },

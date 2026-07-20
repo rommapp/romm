@@ -14,8 +14,9 @@ import {
   RSpinner,
 } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { onBeforeRouteLeave } from "vue-router";
 import type { MetadataMediaType, ScanSettingsPayload } from "@/__generated__";
 import configApi from "@/services/api/config";
 import storeAuth from "@/stores/auth";
@@ -24,9 +25,11 @@ import ScanPriorityList from "@/v2/components/Settings/ScanPriorityList.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import SettingsSubsection from "@/v2/components/Settings/SettingsSubsection.vue";
 import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
+import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const { t } = useI18n();
+const confirm = useConfirm();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const authStore = storeAuth();
@@ -288,6 +291,35 @@ async function onSave() {
 function setMedia(value: unknown) {
   form.media = (value as string[]) ?? [];
 }
+
+// ── Unsaved-changes guard ───────────────────────────────────────────
+// Block navigating away with pending edits until the user saves,
+// discards, or explicitly confirms leaving. Two layers: an in-app route
+// guard for SPA navigation, and `beforeunload` for tab close / reload /
+// external links.
+const hasPendingEdits = () => dirty.value && canEdit.value;
+
+onBeforeRouteLeave(async () => {
+  if (!hasPendingEdits()) return true;
+  return confirm({
+    title: t("settings.scan-leave-title"),
+    body: t("settings.scan-leave-body"),
+    confirmText: t("settings.scan-leave-confirm"),
+    tone: "warning",
+  });
+});
+
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (!hasPendingEdits()) return;
+  e.preventDefault();
+  // Legacy browsers require returnValue to be set to trigger the prompt.
+  e.returnValue = "";
+}
+
+onMounted(() => window.addEventListener("beforeunload", onBeforeUnload));
+onBeforeUnmount(() =>
+  window.removeEventListener("beforeunload", onBeforeUnload),
+);
 </script>
 
 <template>
