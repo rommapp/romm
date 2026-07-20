@@ -2682,6 +2682,53 @@ class TestSlotScopedDedupeMatrix:
         assert second.json()["slot"] == "slot2"
         assert second.json()["content_hash"] == first.json()["content_hash"]
 
+    def test_slotless_upload_over_named_slot_file_refreshes_that_row(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        _isolated_assets_dir,
+    ):
+        """A slot-less upload that lands on a named slot's file (same emulator
+        and filename) must not leave that row reporting a stale hash.
+
+        File identity is path+name, independent of slot, so writing new bytes
+        there overwrites the named slot's file. The colliding row is refreshed
+        in place rather than shadowed by a divergent null-slot duplicate.
+        """
+        slotted = self._upload(
+            client, access_token, rom, _build_fixture_a_zip(), slot="slot1"
+        )
+        assert slotted.status_code == status.HTTP_200_OK
+        shared_name = slotted.json()["file_name"]
+
+        # Slot-less upload (slot param omitted) reusing the slot's on-disk
+        # filename, but with new bytes.
+        slotless = client.post(
+            f"/api/saves?rom_id={rom.id}&emulator=test_emulator",
+            files={
+                "saveFile": (
+                    shared_name,
+                    BytesIO(_build_fixture_b_zip()),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert slotless.status_code == status.HTTP_200_OK
+        assert slotless.json()["id"] == slotted.json()["id"]
+        assert slotless.json()["content_hash"] == FIXTURE_B_HASH
+
+        # No divergent second row was created for the same file.
+        listing = client.get(
+            f"/api/saves?rom_id={rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert listing.status_code == status.HTTP_200_OK
+        rows = [s for s in listing.json() if s["file_name"] == shared_name]
+        assert len(rows) == 1
+        assert rows[0]["content_hash"] == FIXTURE_B_HASH
+
     def test_different_bytes_same_slot_creates_distinct_records(
         self,
         client,

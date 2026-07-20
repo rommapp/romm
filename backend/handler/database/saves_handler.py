@@ -51,6 +51,26 @@ class DBSavesHandler(DBBaseHandler):
         return session.scalars(query.limit(1)).first()
 
     @begin_session
+    def get_save_by_path(
+        self,
+        user_id: int,
+        rom_id: int,
+        file_path: str,
+        file_name: str,
+        session: Session = None,  # type: ignore
+    ) -> Save | None:
+        # A save's on-disk identity is (file_path, file_name), independent of
+        # slot. Used to find whichever row owns the bytes an upload is about to
+        # overwrite.
+        return session.scalars(
+            select(Save)
+            .filter_by(
+                rom_id=rom_id, user_id=user_id, file_path=file_path, file_name=file_name
+            )
+            .limit(1)
+        ).first()
+
+    @begin_session
     def get_save_by_content_hash(
         self,
         user_id: int,

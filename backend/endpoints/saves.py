@@ -194,6 +194,13 @@ async def add_save(
     if slot:
         actual_filename = _apply_datetime_tag(sanitized_save_filename)
 
+    saves_path = fs_asset_handler.build_saves_file_path(
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
+    )
+
     db_save = db_save_handler.get_save_by_filename(
         user_id=request.user.id, rom_id=rom.id, file_name=actual_filename, slot=slot
     )
@@ -231,13 +238,6 @@ async def add_save(
         f"Uploading save {hl(actual_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
-    saves_path = fs_asset_handler.build_saves_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom.id,
-        emulator=emulator,
-    )
-
     await fs_asset_handler.write_file(
         file=saveFile, path=saves_path, filename=actual_filename
     )
@@ -266,6 +266,21 @@ async def add_save(
                 existing_by_hash, _syncs_for_save(existing_by_hash.id, device), device
             )
 
+    if db_save is None:
+        # The write above landed on saves_path/actual_filename, whose bytes can
+        # already belong to a save in another slot (file identity is path+name,
+        # independent of slot). If that row's recorded hash no longer matches
+        # what we just wrote, refresh it instead of inserting a duplicate, so it
+        # does not keep reporting metadata that mismatches the bytes on disk.
+        colliding_save = db_save_handler.get_save_by_path(
+            user_id=request.user.id,
+            rom_id=rom.id,
+            file_path=scanned_save.file_path,
+            file_name=actual_filename,
+        )
+        if colliding_save and colliding_save.content_hash != scanned_save.content_hash:
+            db_save = colliding_save
+
     if db_save:
         # Track where the bytes actually landed: the file is written under a
         # path derived from this request's emulator, which may differ from the
@@ -282,13 +297,21 @@ async def add_save(
             update_data["slot"] = slot
         db_save = db_save_handler.update_save(db_save.id, update_data)
 
-        # The row moved to a new path, so the previously stored bytes are now
-        # orphaned. Remove them to avoid leaving stale save files on disk.
+        # The row moved to a new path, so the previously stored bytes may now
+        # be orphaned. Slot is not part of the on-disk location, so another
+        # row can still point at the old path; only unlink it if none do.
         if stale_full_path != db_save.full_path:
-            try:
-                await fs_asset_handler.remove_file(stale_full_path)
-            except FileNotFoundError:
-                pass
+            still_referenced = any(
+                other.id != db_save.id and other.full_path == stale_full_path
+                for other in db_save_handler.get_saves(
+                    user_id=request.user.id, rom_id=rom.id
+                )
+            )
+            if not still_referenced:
+                try:
+                    await fs_asset_handler.remove_file(stale_full_path)
+                except FileNotFoundError:
+                    pass
     else:
         scanned_save.rom_id = rom.id
         scanned_save.user_id = request.user.id
