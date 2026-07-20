@@ -1,6 +1,6 @@
 import enum
 from collections.abc import Mapping
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 
 @enum.unique
@@ -60,9 +60,14 @@ class SGDBGrid(TypedDict):
     id: int
     score: int
     style: SGDBStyle
+    width: NotRequired[int]
+    height: NotRequired[int]
+    nsfw: NotRequired[bool]
+    humor: NotRequired[bool]
+    epilepsy: NotRequired[bool]
     url: str
     thumb: str
-    tags: list[str]
+    tags: NotRequired[list[str]]
     author: SGDBGridAuthor
 
 
