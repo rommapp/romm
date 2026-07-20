@@ -14,6 +14,7 @@ from config.config_manager import ConfigManager
 from handler.auth import auth_handler
 from handler.auth.base_handler import ALGORITHM, oct_key
 from handler.database import (
+    db_memory_card_handler,
     db_permission_handler,
     db_platform_handler,
     db_rom_handler,
@@ -22,7 +23,7 @@ from handler.database import (
     db_state_handler,
     db_user_handler,
 )
-from models.assets import Save, Screenshot, State
+from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.client_token import ClientToken
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
@@ -95,6 +96,8 @@ def clear_database():
         s.query(SyncSession).delete(synchronize_session="evaluate")
         s.query(DeviceSaveSync).delete(synchronize_session="evaluate")
         s.query(Device).delete(synchronize_session="evaluate")
+        s.query(MemoryCardVersion).delete(synchronize_session="evaluate")
+        s.query(MemoryCard).delete(synchronize_session="evaluate")
         s.query(Save).delete(synchronize_session="evaluate")
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")
@@ -263,6 +266,36 @@ def screenshot(rom: Rom, platform: Platform, admin_user: User):
         file_size_bytes=3.0,
     )
     return db_screenshot_handler.add_screenshot(screenshot)
+
+
+@pytest.fixture
+def memory_card(admin_user: User, platform: Platform):
+    """A private PCSX2 memory card owned by the admin user, no versions yet."""
+    card = MemoryCard(
+        user_id=admin_user.id,
+        emulator="pcsx2",
+        platform_id=platform.id,
+        name="test_card",
+        slot=1,
+        is_public=False,
+    )
+    return db_memory_card_handler.add_card(card)
+
+
+@pytest.fixture
+def memory_card_version(memory_card: MemoryCard, platform: Platform):
+    """A single snapshot attached to the `memory_card` fixture."""
+    version = MemoryCardVersion(
+        memory_card_id=memory_card.id,
+        file_name="test_card.zip",
+        file_name_no_tags="test_card",
+        file_name_no_ext="test_card",
+        file_extension="zip",
+        file_path=f"{platform.slug}/memory_cards/pcsx2",
+        file_size_bytes=4.0,
+        content_hash="0123456789abcdef0123456789abcdef",
+    )
+    return db_memory_card_handler.add_version(version)
 
 
 @pytest.fixture

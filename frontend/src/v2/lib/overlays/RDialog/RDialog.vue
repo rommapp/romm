@@ -141,11 +141,15 @@ watch(
       lockBodyScroll();
       pushEscapable(stackEntry);
       // Defer to the next tick so the panel is mounted before we
-      // try to move focus into it.
+      // try to move focus into it. An explicit [autofocus] wins over
+      // DOM order; a combined selector list would resolve in document
+      // order and always land on the header close button.
       nextTick(() => {
-        const focusTarget = panelRef.value?.querySelector<HTMLElement>(
-          "[autofocus], button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
-        );
+        const focusTarget =
+          panelRef.value?.querySelector<HTMLElement>("[autofocus]") ??
+          panelRef.value?.querySelector<HTMLElement>(
+            "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
+          );
         focusTarget?.focus();
       });
     } else {

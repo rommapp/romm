@@ -139,6 +139,13 @@ class StreamingContainer(TypedDict):
     host: str
     broker_host: str
     label: str
+    library_path: NotRequired[str]
+    # Namespace for stored states/cards; defaults to label (or platform)
+    # lowercased when omitted.
+    emulator: NotRequired[str]
+    # Opt in to whole memory-card sync (broker /memory-card). When true, the
+    # legacy per-file /save-file in-game-save path is skipped for this container.
+    memory_card_sync: NotRequired[bool]
 
 
 class Config:

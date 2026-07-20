@@ -70,11 +70,19 @@ const emptyText = computed(() =>
     >
       <!-- State: screenshot or placeholder. -->
       <template v-if="asset && type === 'state'">
-        <div
-          v-if="screenshotUrl"
-          class="r-asset-preview__stage-img"
-          :style="{ backgroundImage: toCssUrl(screenshotUrl) }"
-        />
+        <div v-if="screenshotUrl" class="r-asset-preview__stage-shot">
+          <!-- Blurred cover copy fills the letterbox left by the
+               contained frame, so the whole screenshot stays visible
+               without dead bars on a stage wider than the frame. -->
+          <div
+            class="r-asset-preview__stage-backdrop"
+            :style="{ backgroundImage: toCssUrl(screenshotUrl) }"
+          />
+          <div
+            class="r-asset-preview__stage-img"
+            :style="{ backgroundImage: toCssUrl(screenshotUrl) }"
+          />
+        </div>
         <div v-else class="r-asset-preview__stage-fill">
           <RIcon icon="mdi-image-off-outline" size="64" />
           <p>{{ t("play.no-screenshot-available") }}</p>
@@ -221,10 +229,29 @@ const emptyText = computed(() =>
   box-shadow: none;
 }
 
-.r-asset-preview__stage-img {
+.r-asset-preview__stage-shot {
+  position: absolute;
+  inset: 0;
+}
+
+/* Blurred, dimmed cover copy behind the framed screenshot, turning the
+   letterbox area into an intentional backdrop instead of empty bars. */
+.r-asset-preview__stage-backdrop {
   position: absolute;
   inset: 0;
   background-size: cover;
+  background-position: center;
+  filter: blur(18px) brightness(0.55) saturate(1.1);
+  /* Overscan so the blur doesn't reveal soft edges at the frame border. */
+  transform: scale(1.15);
+}
+
+/* The actual frame: contained so nothing is cropped top or bottom. */
+.r-asset-preview__stage-img {
+  position: absolute;
+  inset: 0;
+  background-size: contain;
+  background-repeat: no-repeat;
   background-position: center;
 }
 

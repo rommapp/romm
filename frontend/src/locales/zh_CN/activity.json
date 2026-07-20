@@ -10,5 +10,12 @@
   "now-playing": "正在游玩",
   "playing-on": "正在 {device} 上游玩",
   "playing-since": "自 {time} 起游玩",
-  "total-sessions": "总会话数"
+  "release-failed": "无法释放会话",
+  "release-session": "释放",
+  "release-session-body": "这将立即停止 {game} 并断开 {user} 的连接。未保存的进度将丢失。",
+  "release-session-title": "释放串流会话？",
+  "session-released": "会话已释放",
+  "streaming-sessions": "串流会话",
+  "total-sessions": "总会话数",
+  "unknown-user": "未知用户"
 }

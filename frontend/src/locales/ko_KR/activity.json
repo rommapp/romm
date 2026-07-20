@@ -10,5 +10,12 @@
   "now-playing": "플레이 중",
   "playing-on": "{device}에서 플레이 중",
   "playing-since": "{time}부터 플레이 중",
-  "total-sessions": "전체 세션"
+  "release-failed": "세션을 해제할 수 없습니다",
+  "release-session": "해제",
+  "release-session-body": "{game}이(가) 즉시 중지되고 {user}의 연결이 끊어집니다. 저장되지 않은 진행 상황은 사라집니다.",
+  "release-session-title": "스트리밍 세션을 해제하시겠습니까?",
+  "session-released": "세션이 해제되었습니다",
+  "streaming-sessions": "스트리밍 세션",
+  "total-sessions": "전체 세션",
+  "unknown-user": "알 수 없는 사용자"
 }

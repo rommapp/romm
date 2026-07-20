@@ -10,5 +10,12 @@
   "now-playing": "Se joacă acum",
   "playing-on": "Joacă pe {device}",
   "playing-since": "Joacă din {time}",
-  "total-sessions": "Total sesiuni"
+  "release-failed": "Sesiunea nu a putut fi eliberată",
+  "release-session": "Eliberează",
+  "release-session-body": "Aceasta va opri imediat {game} și va deconecta {user}. Progresul nesalvat va fi pierdut.",
+  "release-session-title": "Eliberezi sesiunea de streaming?",
+  "session-released": "Sesiune eliberată",
+  "streaming-sessions": "Sesiuni de streaming",
+  "total-sessions": "Total sesiuni",
+  "unknown-user": "Utilizator necunoscut"
 }

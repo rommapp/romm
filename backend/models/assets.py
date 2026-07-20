@@ -16,6 +16,7 @@ from models.base import (
 
 if TYPE_CHECKING:
     from models.device_save_sync import DeviceSaveSync
+    from models.platform import Platform
     from models.rom import Rom
     from models.user import User
 
@@ -140,4 +141,73 @@ class State(RomAsset):
             user_id=self.user_id,
             file_name=self.file_name,  # Match state filename against screenshot filename stem
             file_name_no_ext=self.file_name_no_ext,
+        )
+
+
+class MemoryCard(BaseModel):
+    """A per-user, per-emulator memory card that follows the user across
+    streaming sessions. Unlike Save/State it is not tied to a single ROM: for
+    formats like the PCSX2 folder card one card holds every game's saves. The
+    card is an identity (name, owner); its actual data lives in `versions`,
+    a snapshot history mirroring how EmulatorJS keeps multiple Save rows.
+    """
+
+    __tablename__ = "memory_cards"
+    __table_args__ = {"extend_existing": True}
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    # `emulator` is the hard scoping key: a card is looked up by (user, emulator)
+    # at session claim, so one Dolphin card serves both GameCube and Wii roms.
+    emulator: Mapped[str] = mapped_column(String(length=50))
+    # `platform_id` is a loose, nullable hint (which platform the card was
+    # created under) for display/filtering only. It never scopes the lookup, so
+    # a card stays visible across every platform its emulator drives.
+    platform_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platforms.id", ondelete="SET NULL"),
+        default=None,
+    )
+    name: Mapped[str] = mapped_column(String(length=255))
+    # Only slot 1 is used today; kept so a future multi-slot layout needs no
+    # schema change.
+    slot: Mapped[int] = mapped_column(default=1)
+    # `is_public` mirrors Save/State, letting another user browse this card and
+    # hydrate a snapshot of it. Sharing is one-way: the recipient's writes go
+    # to their own new card, never back to this one.
+    is_public: Mapped[bool] = mapped_column(default=False)
+
+    user: Mapped[User] = relationship(lazy="joined", back_populates="memory_cards")
+    # One-directional: the loose platform hint, for display only.
+    platform: Mapped[Platform | None] = relationship(lazy="joined")
+    versions: Mapped[list[MemoryCardVersion]] = relationship(
+        back_populates="memory_card",
+        cascade="all, delete-orphan",
+        lazy="raise",
+        order_by="MemoryCardVersion.created_at.desc()",
+    )
+
+
+class MemoryCardVersion(BaseAsset):
+    """A single snapshot of a `MemoryCard`'s data (the whole card image, e.g.
+    the zipped PCSX2 folder card). Multiple versions per card form its history.
+    """
+
+    __tablename__ = "memory_card_versions"
+    __table_args__ = {"extend_existing": True}
+
+    memory_card_id: Mapped[int] = mapped_column(
+        ForeignKey("memory_cards.id", ondelete="CASCADE")
+    )
+    content_hash: Mapped[str | None] = mapped_column(String(length=32))
+
+    memory_card: Mapped[MemoryCard] = relationship(
+        lazy="joined", back_populates="versions"
+    )
+
+    @cached_property
+    def download_path(self) -> str:
+        # Served under the memory-cards router rather than the default
+        # `/api/{tablename}/...`, keeping every card route in one namespace.
+        return (
+            f"/api/memory-cards/versions/{self.id}/content?timestamp={self.updated_at}"
         )

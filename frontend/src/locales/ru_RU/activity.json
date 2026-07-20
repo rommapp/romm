@@ -10,5 +10,12 @@
   "now-playing": "Сейчас играют",
   "playing-on": "Играет на {device}",
   "playing-since": "Играет с {time}",
-  "total-sessions": "Всего сессий"
+  "release-failed": "Не удалось освободить сессию",
+  "release-session": "Освободить",
+  "release-session-body": "Это немедленно остановит {game} и отключит {user}. Несохранённый прогресс будет потерян.",
+  "release-session-title": "Освободить стриминговую сессию?",
+  "session-released": "Сессия освобождена",
+  "streaming-sessions": "Стриминговые сессии",
+  "total-sessions": "Всего сессий",
+  "unknown-user": "Неизвестный пользователь"
 }

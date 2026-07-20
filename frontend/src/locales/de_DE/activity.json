@@ -10,5 +10,12 @@
   "now-playing": "Wird gespielt",
   "playing-on": "Spielt auf {device}",
   "playing-since": "Spielt seit {time}",
-  "total-sessions": "Sitzungen gesamt"
+  "release-failed": "Sitzung konnte nicht freigegeben werden",
+  "release-session": "Freigeben",
+  "release-session-body": "Dadurch wird {game} sofort beendet und {user} getrennt. Nicht gespeicherter Fortschritt geht verloren.",
+  "release-session-title": "Streaming-Sitzung freigeben?",
+  "session-released": "Sitzung freigegeben",
+  "streaming-sessions": "Streaming-Sitzungen",
+  "total-sessions": "Sitzungen gesamt",
+  "unknown-user": "Unbekannter Benutzer"
 }

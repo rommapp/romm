@@ -10,5 +10,12 @@
   "now-playing": "Právě hraje",
   "playing-on": "Hraje na {device}",
   "playing-since": "Hraje od {time}",
-  "total-sessions": "Celkem relací"
+  "release-failed": "Relaci se nepodařilo uvolnit",
+  "release-session": "Uvolnit",
+  "release-session-body": "Tímto se okamžitě zastaví {game} a odpojí se {user}. Neuložený postup bude ztracen.",
+  "release-session-title": "Uvolnit streamovací relaci?",
+  "session-released": "Relace uvolněna",
+  "streaming-sessions": "Streamovací relace",
+  "total-sessions": "Celkem relací",
+  "unknown-user": "Neznámý uživatel"
 }

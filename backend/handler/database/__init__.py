@@ -3,6 +3,7 @@ from .collections_handler import DBCollectionsHandler
 from .device_save_sync_handler import DBDeviceSaveSyncHandler
 from .devices_handler import DBDevicesHandler
 from .firmware_handler import DBFirmwareHandler
+from .memory_cards_handler import DBMemoryCardsHandler
 from .permissions_handler import DBPermissionsHandler
 from .platforms_handler import DBPlatformsHandler
 from .play_sessions_handler import DBPlaySessionsHandler
@@ -19,6 +20,7 @@ db_collection_handler = DBCollectionsHandler()
 db_device_handler = DBDevicesHandler()
 db_device_save_sync_handler = DBDeviceSaveSyncHandler()
 db_firmware_handler = DBFirmwareHandler()
+db_memory_card_handler = DBMemoryCardsHandler()
 db_permission_handler = DBPermissionsHandler()
 db_platform_handler = DBPlatformsHandler()
 db_play_session_handler = DBPlaySessionsHandler()

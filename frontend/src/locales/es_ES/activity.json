@@ -10,5 +10,12 @@
   "now-playing": "Jugando ahora",
   "playing-on": "Jugando en {device}",
   "playing-since": "Jugando desde {time}",
-  "total-sessions": "Sesiones totales"
+  "release-failed": "No se pudo liberar la sesión",
+  "release-session": "Liberar",
+  "release-session-body": "Esto detendrá {game} inmediatamente y desconectará a {user}. El progreso no guardado se perderá.",
+  "release-session-title": "¿Liberar la sesión de streaming?",
+  "session-released": "Sesión liberada",
+  "streaming-sessions": "Sesiones de streaming",
+  "total-sessions": "Sesiones totales",
+  "unknown-user": "Usuario desconocido"
 }
