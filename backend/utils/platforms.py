@@ -20,12 +20,7 @@ from models.platform import Platform
 
 
 def _build_unmatched_platform(slug: str, fs_slug: str, now: datetime) -> PlatformSchema:
-    """Build a PlatformSchema for a platform that has no database row yet.
-
-    Metadata is resolved from the local provider catalogs only (no network
-    calls). The entry carries id -1 and rom_count 0, matching the shape used
-    for unmatched supported platforms.
-    """
+    """Build a PlatformSchema for a platform that has no database row yet."""
     igdb_platform = meta_igdb_handler.get_platform(slug)
     moby_platform = meta_moby_handler.get_platform(slug)
     ss_platform = meta_ss_handler.get_platform(slug)
@@ -124,14 +119,7 @@ def get_supported_platforms() -> list[PlatformSchema]:
 
 
 async def get_filesystem_platforms() -> list[PlatformSchema]:
-    """Get platform folders that exist on disk but have no database row yet.
-
-    A folder created for a platform (optionally bound in Library Management)
-    has no database row until its first scan imports a ROM, so it is invisible
-    to the scan platform picker. Surfacing these folders lets a first scan
-    target a brand-new platform. Slugs are resolved through the platform
-    binding/version config; metadata is resolved locally (no network calls).
-    """
+    """Get platform folders that exist on disk but have no database row yet."""
     cnfg = cm.get_config()
     fs_slugs = await fs_platform_handler.get_platforms()
     existing_fs_slugs = {p.fs_slug for p in db_platform_handler.get_platforms()}
@@ -139,6 +127,7 @@ async def get_filesystem_platforms() -> list[PlatformSchema]:
     now = datetime.now(timezone.utc)
     filesystem_platforms = []
 
+    # Build a platform for each folder on disk
     for fs_slug in fs_slugs:
         if fs_slug in existing_fs_slugs:
             continue

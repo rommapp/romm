@@ -709,8 +709,7 @@ async def scan_platforms(
         metadata_sources (list[str]): List of metadata sources to be used
         scan_type (ScanType): Type of scan to be performed.
         roms_ids (list[int], optional): List of selected roms to be scanned.
-        platform_fs_slugs (list[str], optional): Filesystem slugs of folders to
-            scan that have no database row yet (never-scanned platforms).
+        platform_fs_slugs (list[str], optional): Folders to scan with no database row.
     """
     if not roms_ids:
         roms_ids = []
@@ -744,12 +743,7 @@ async def scan_platforms(
     db_platforms = db_platform_handler.get_platforms()
     db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
 
-    # Selected platforms arrive as database ids (existing platforms) and/or
-    # filesystem slugs (a folder can be an existing platform or one on disk
-    # without a database row yet). Both resolve to a folder slug the scanner
-    # walks. Known database platforms are always accepted; a bare slug is only
-    # accepted when it maps to a folder on disk. When nothing is selected,
-    # every filesystem platform is scanned.
+    # Selected platforms arrive as database ids and/or filesystem slugs.
     selected_slugs = [p.fs_slug for p in db_platforms if p.id in platform_ids]
     for fs_slug in platform_fs_slugs:
         if fs_slug in selected_slugs:
@@ -757,7 +751,8 @@ async def scan_platforms(
         if fs_slug in db_platforms_by_slug or fs_slug in fs_platforms:
             selected_slugs.append(fs_slug)
 
-    platform_list = sorted(selected_slugs or fs_platforms)
+    has_selection = bool(platform_ids or platform_fs_slugs)
+    platform_list = sorted(selected_slugs if has_selection else fs_platforms)
 
     # A "new platforms" scan skips platforms that already exist in the database,
     # so they must be excluded from the totals to keep the tracker accurate. This

@@ -100,12 +100,7 @@ def get_supported_platforms_endpoint(request: Request) -> list[PlatformSchema]:
 
 @protected_route(router.get, "/filesystem", [Scope.PLATFORMS_READ])
 async def get_filesystem_platforms_endpoint(request: Request) -> list[PlatformSchema]:
-    """Retrieve platform folders on disk that have no database row yet.
-
-    These folders (created for a platform but not scanned yet) are invisible
-    to the scan picker because they have no ROMs imported, so they carry no
-    database row. Returning them lets the UI offer a first scan for them.
-    """
+    """Retrieve platform folders on disk that have no database row yet."""
 
     return await get_filesystem_platforms()
 
