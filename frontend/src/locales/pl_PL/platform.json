@@ -12,6 +12,7 @@
   "danger-zone": "Strefa zagrożenia",
   "delete-platform": "Usuń platformę",
   "delete-platform-hint": "Usuwa platformę i wpisy ROM-ów z bazy danych. Pliki na dysku NIE zostaną usunięte.",
+  "description": "Opis",
   "download-platform": "Pobierz platforme",
   "edit-platform": "Edytuj platformę",
   "export": "Eksportuj",

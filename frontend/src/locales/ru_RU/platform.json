@@ -12,6 +12,7 @@
   "danger-zone": "Опасная зона",
   "delete-platform": "Удалить платформу",
   "delete-platform-hint": "Удаляет платформу и её записи о ROM из базы. Файлы на диске НЕ удаляются.",
+  "description": "Описание",
   "download-platform": "Скачать платформу",
   "edit-platform": "Редактировать платформу",
   "export": "Экспорт",

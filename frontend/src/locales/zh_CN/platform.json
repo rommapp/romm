@@ -12,6 +12,7 @@
   "danger-zone": "危险区域",
   "delete-platform": "删除平台",
   "delete-platform-hint": "移除该平台及其 ROM 数据库条目。磁盘上的文件不会被删除。",
+  "description": "描述",
   "download-platform": "下载平台",
   "edit-platform": "编辑平台",
   "export": "导出",

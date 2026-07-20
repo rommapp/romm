@@ -12,6 +12,7 @@
   "danger-zone": "Zonă periculoasă",
   "delete-platform": "Șterge platforma",
   "delete-platform-hint": "Elimină platforma și intrările ROM din baza de date. Fișierele de pe disc NU sunt șterse.",
+  "description": "Descriere",
   "download-platform": "Descarcă platforma",
   "edit-platform": "Editează platforma",
   "export": "Exportare",
