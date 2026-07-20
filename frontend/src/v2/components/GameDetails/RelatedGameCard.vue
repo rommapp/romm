@@ -128,7 +128,6 @@ const syntheticRom = computed<SimpleRom>(() => ({
   path_cover_large: null,
   url_cover: props.game.cover_url ?? null,
   has_manual: false,
-  has_manual_files: false,
   has_soundtrack: false,
   path_manual: null,
   url_manual: null,

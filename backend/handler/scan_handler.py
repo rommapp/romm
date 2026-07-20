@@ -148,7 +148,8 @@ def get_priority_ordered_metadata_sources(
 
     Args:
         metadata_sources: List of available metadata sources
-        priority_type: Type of priority to use ("metadata" or "artwork")
+        priority_type: Priority list to use: "metadata", "artwork", or an artwork
+            field name (e.g. "url_cover") that can carry a per-field override.
 
     Returns:
         List of metadata sources ordered by priority
@@ -158,7 +159,11 @@ def get_priority_ordered_metadata_sources(
     if priority_type == "metadata":
         priority_order = cnfg.SCAN_METADATA_PRIORITY
     else:
-        priority_order = cnfg.SCAN_ARTWORK_PRIORITY
+        # Per-field artwork overrides win, otherwise fall back to the shared
+        # artwork priority list.
+        priority_order = cnfg.SCAN_ARTWORK_PRIORITY_OVERRIDES.get(
+            priority_type, cnfg.SCAN_ARTWORK_PRIORITY
+        )
 
     # Filter priority order to only include sources that are available
     ordered_sources = [
@@ -198,6 +203,11 @@ def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
     if cover_path:
         db_rom_handler.upsert_track_meta(
             rom_file.id, rom.id, {"cover_path": cover_path}
+        )
+    else:
+        log.error(f"[audio_tags] cover persist failed for {abs_audio_path}")
+        db_rom_handler.upsert_track_meta(
+            rom_file.id, rom.id, {"has_embedded_cover": False}
         )
 
 
@@ -857,7 +867,47 @@ async def scan_rom(
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
-    # Run metadata fetches concurrently
+    # Run metadata fetches concurrently. One provider raising must not discard the
+    # others' results for this ROM, so each failure falls back to an empty match.
+    provider_fetches = (
+        (
+            fetch_igdb_rom(playmatch_hash_match, hasheous_hash_match),
+            IGDBRom(igdb_id=None),
+        ),
+        (fetch_moby_rom(playmatch_hash_match), MobyGamesRom(moby_id=None)),
+        (fetch_ss_rom(playmatch_hash_match), SSRom(ss_id=None)),
+        (fetch_ra_rom(hasheous_hash_match), RAGameRom(ra_id=None)),
+        (
+            fetch_launchbox_rom(platform.slug, playmatch_hash_match),
+            LaunchboxRom(launchbox_id=None),
+        ),
+        (
+            fetch_hasheous_rom(hasheous_hash_match),
+            HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None),
+        ),
+        (fetch_flashpoint_rom(), FlashpointRom(flashpoint_id=None)),
+        (fetch_hltb_rom(), HLTBRom(hltb_id=None)),
+        (fetch_gamelist_rom(), GamelistRom(gamelist_id=None)),
+        (fetch_libretro_rom(), LibretroRom(libretro_id=None)),
+    )
+    fetch_results = await asyncio.gather(
+        *(coro for coro, _ in provider_fetches), return_exceptions=True
+    )
+
+    resolved: list[Any] = []
+    for (_, fallback), result in zip(provider_fetches, fetch_results, strict=True):
+        if isinstance(result, BaseException):
+            if not isinstance(result, Exception):
+                raise result
+            provider = fallback.__class__.__name__
+            log.error(
+                f"Error fetching {hl(provider)} metadata for {hl(rom_attrs['fs_name'])}: {result}",
+                extra=LOGGER_MODULE_NAME,
+            )
+            resolved.append(fallback)
+        else:
+            resolved.append(result)
+
     (
         igdb_handler_rom,
         moby_handler_rom,
@@ -869,18 +919,7 @@ async def scan_rom(
         hltb_handler_rom,
         gamelist_handler_rom,
         libretro_handler_rom,
-    ) = await asyncio.gather(
-        fetch_igdb_rom(playmatch_hash_match, hasheous_hash_match),
-        fetch_moby_rom(playmatch_hash_match),
-        fetch_ss_rom(playmatch_hash_match),
-        fetch_ra_rom(hasheous_hash_match),
-        fetch_launchbox_rom(platform.slug, playmatch_hash_match),
-        fetch_hasheous_rom(hasheous_hash_match),
-        fetch_flashpoint_rom(),
-        fetch_hltb_rom(),
-        fetch_gamelist_rom(),
-        fetch_libretro_rom(),
-    )
+    ) = resolved
 
     metadata_handlers: dict[MetadataSource, dict] = {
         MetadataSource.IGDB: {
@@ -986,16 +1025,16 @@ async def scan_rom(
             if field_value:
                 rom_attrs[key] = field_value
 
-    # Artwork sources are prioritized separately
-    priority_ordered_artwork = get_priority_ordered_metadata_sources(
-        available_sources, "artwork"
-    )
-    # Reverse priority order to apply highest priority last
-    for source_name in reversed(priority_ordered_artwork):
-        handler_data = metadata_handlers[source_name]["handler"]
-        for field in ["url_cover", "url_screenshots", "url_manual"]:
+    # Artwork sources are prioritized separately, and each field can carry its
+    # own override on top of the shared artwork priority.
+    for field in ["url_cover", "url_screenshots", "url_manual"]:
+        priority_ordered_artwork = get_priority_ordered_metadata_sources(
+            available_sources, field
+        )
+        # Reverse priority order to apply highest priority last
+        for source_name in reversed(priority_ordered_artwork):
             # Only update fields that have valid values
-            field_value = handler_data.get(field)
+            field_value = metadata_handlers[source_name]["handler"].get(field)
             if field_value:
                 rom_attrs[field] = field_value
 
@@ -1003,14 +1042,22 @@ async def scan_rom(
     if not newly_added and (
         scan_type == ScanType.UNMATCHED or scan_type == ScanType.UPDATE
     ):
-        # A ROM's name defaults to its raw filename (extension included) when first
+        # A ROM's name defaults to a filename-derived placeholder when first
         # created. Treat that placeholder as "no name" so a freshly matched provider
-        # name replaces it, instead of keeping the filename (with its extension) as
-        # the title.
-        existing_name = rom.name if rom.name != rom.fs_name else None
+        # name replaces it (while preserving user-edited names).
+        fs_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
+            rom_attrs["fs_name"]
+        )
+        # Both the existing name and the seeded rom_attrs name can hold the
+        # placeholder. Discard either when it's a placeholder so the parsed
+        # filename fallback can win.
+        placeholders = (None, "", rom.fs_name, fs_name_no_tags)
+        existing_name = None if rom.name in placeholders else rom.name
+        matched_name = rom_attrs.get("name")
+        matched_name = None if matched_name in placeholders else matched_name
         rom_attrs.update(
             {
-                "name": existing_name or rom_attrs.get("name") or rom.name or None,
+                "name": existing_name or matched_name or fs_name_no_tags or None,
                 "summary": rom.summary or rom_attrs.get("summary") or None,
                 # Don't overwrite existing manually uploaded cover image
                 "url_cover": (
@@ -1094,7 +1141,7 @@ async def scan_rom(
         rom_attrs["sgdb_id"] = sgdb_hander_rom["sgdb_id"]
 
         # Apply SGDB's cover only when it outranks every other source that
-        # already produced one under SCAN_ARTWORK_PRIORITY, and never over a
+        # already produced one under the cover priority, and never over a
         # manually uploaded cover preserved by the UNMATCHED/UPDATE block above.
         sgdb_cover = sgdb_hander_rom.get("url_cover")
         manual_cover_preserved = (
@@ -1109,7 +1156,7 @@ async def scan_rom(
                 if fields["handler"].get("url_cover")
             ]
             ranked = get_priority_ordered_metadata_sources(
-                cover_sources + [MetadataSource.SGDB], "artwork"
+                cover_sources + [MetadataSource.SGDB], "url_cover"
             )
             if ranked[0] == MetadataSource.SGDB:
                 rom_attrs["url_cover"] = sgdb_cover

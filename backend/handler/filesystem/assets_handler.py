@@ -4,7 +4,6 @@ import threading
 import zipfile
 from mimetypes import guess_type
 from pathlib import Path
-from typing import Final
 
 import magic
 from fastapi import HTTPException, UploadFile, status
@@ -13,17 +12,9 @@ from fastapi.responses import FileResponse
 from config import ASSETS_BASE_PATH
 from logger.logger import log
 from models.user import User
+from utils.media_types import IMAGE_EXT_BY_MIME_TYPE
 
 from .base_handler import FSHandler
-
-# Image MIME types we trust to (a) accept as avatar uploads and (b) serve
-# inline from the raw asset endpoint
-SAFE_IMAGE_MIME_TYPES: Final[dict[str, str]] = {
-    "image/png": "png",
-    "image/jpeg": "jpg",
-    "image/webp": "webp",
-    "image/gif": "gif",
-}
 
 # libmagic loads its database on construction (~few MB read from disk), so we
 # share a single Magic instance across requests. The underlying magic_t handle
@@ -38,7 +29,7 @@ def validate_image_upload(upload: UploadFile, *, label: str = "Image") -> str:
 
     Sniffs the leading bytes with libmagic and returns the trusted extension
     matching the detected MIME type. Raises HTTPException(400) if the file
-    is not a recognized PNG/JPEG/WebP/GIF, or if MIME sniffing fails.
+    is not a recognized image, or if MIME sniffing fails.
     Leaves the file cursor at 0.
     """
     upload.file.seek(0)
@@ -55,7 +46,7 @@ def validate_image_upload(upload: UploadFile, *, label: str = "Image") -> str:
             detail=f"Could not determine {label.lower()} file type",
         ) from exc
 
-    safe_extension = SAFE_IMAGE_MIME_TYPES.get(detected_mime)
+    safe_extension = IMAGE_EXT_BY_MIME_TYPE.get(detected_mime)
     if not safe_extension:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -76,7 +67,7 @@ def build_asset_file_response(
     avatar) can't execute as stored XSS."""
     download_name = filename or resolved_path.name
     guessed_type, _ = guess_type(download_name)
-    if guessed_type in SAFE_IMAGE_MIME_TYPES:
+    if guessed_type in IMAGE_EXT_BY_MIME_TYPE:
         return FileResponse(
             path=str(resolved_path),
             filename=download_name,

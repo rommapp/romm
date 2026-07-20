@@ -19,11 +19,13 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
+import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
 import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
+import { useClipboard } from "@/v2/composables/useClipboard";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 
@@ -46,12 +48,25 @@ export function useGameActions(
   const { morphTransition } = useViewTransition();
   const emitter = inject<Emitter<Events>>("emitter");
   const snackbar = useSnackbar();
+  const clipboard = useClipboard();
   const romsStore = storeRoms();
   const auth = storeAuth();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
-  const { canPlay, canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
+  const { canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
+  const streamingStore = useStreamingStore();
+
+  // Streaming is the preferred way to play where a container is
+  // configured for the platform — the native emulator runs in a
+  // separate container and RomM streams it back. Wins over in-browser
+  // EJS/Ruffle when both are available.
+  const canPlayStream = computed(() =>
+    Boolean(streamingStore.containerForPlatform(getRom()?.platform_slug)),
+  );
+  const canPlay = computed(
+    () => canPlayStream.value || canPlayEJS.value || canPlayRuffle.value,
+  );
 
   const isFavorited = computed(() => {
     const rom = getRom();
@@ -180,7 +195,8 @@ export function useGameActions(
     // player view itself — see EmulatorJS's onPlay — so navigation is
     // immediate here.
     let path: string | null = null;
-    if (canPlayEJS.value) path = `/rom/${rom.id}/ejs`;
+    if (canPlayStream.value) path = `/rom/${rom.id}/stream`;
+    else if (canPlayEJS.value) path = `/rom/${rom.id}/ejs`;
     else if (canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
     if (!path) return;
     const target = path;
@@ -238,18 +254,18 @@ export function useGameActions(
     const nav = navigator as Navigator & {
       share?: (data: typeof shareData) => Promise<void>;
     };
-    try {
-      if (typeof nav.share === "function") {
+    if (typeof nav.share === "function") {
+      try {
         await nav.share(shareData);
-        return;
+      } catch {
+        // user cancelled the native share sheet — nothing to do
       }
-      await navigator.clipboard.writeText(url);
-      snackbar.success(t("rom.snackbar-link-copied"), {
-        icon: "mdi-link-variant",
-      });
-    } catch {
-      // user cancelled or clipboard denied — nothing to do
+      return;
     }
+    await clipboard.copy(url, {
+      successMessage: t("rom.snackbar-link-copied"),
+      successIcon: "mdi-link-variant",
+    });
   }
 
   function shareQR() {
@@ -350,6 +366,7 @@ export function useGameActions(
     canManageCollections,
     canShareQR,
     canPlay,
+    canPlayStream,
     canRemoveFromContinuePlaying,
     currentStatusKey,
     setStatus,

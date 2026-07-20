@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -9,6 +9,7 @@ from adapters.services.rahasher import (
     RAHASHER_VALID_HASH_REGEX,
     RAHasherError,
     RAHasherService,
+    _first_m3u_entry,
     _pick_ra_file,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
@@ -483,6 +484,63 @@ class TestPickRAFile:
         assert _pick_ra_file(tmp_path) == cue
 
 
+class TestFirstM3uEntry:
+    """Unit tests for resolving an .m3u playlist to its first disc file,
+    mirroring RAHasher's own playlist handling (it hashes the first entry)."""
+
+    def test_returns_first_entry_relative_to_playlist_folder(self, tmp_path):
+        disc1 = tmp_path / "game (Disc 1).rvz"
+        disc1.write_bytes(b"x" * 100)
+        (tmp_path / "game (Disc 2).rvz").write_bytes(b"x" * 100)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text("game (Disc 1).rvz\ngame (Disc 2).rvz\n")
+
+        assert _first_m3u_entry(m3u) == disc1
+
+    def test_skips_comments_and_blank_lines(self, tmp_path):
+        disc = tmp_path / "disc.cue"
+        disc.write_bytes(b"x" * 10)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text("#EXTM3U\n\n# a comment\ndisc.cue\n")
+
+        assert _first_m3u_entry(m3u) == disc
+
+    def test_handles_utf8_bom_and_crlf(self, tmp_path):
+        disc = tmp_path / "disc.rvz"
+        disc.write_bytes(b"x" * 10)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_bytes(b"\xef\xbb\xbfdisc.rvz\r\n")
+
+        assert _first_m3u_entry(m3u) == disc
+
+    def test_resolves_absolute_entry_as_is(self, tmp_path):
+        disc = tmp_path / "elsewhere" / "disc.rvz"
+        disc.parent.mkdir()
+        disc.write_bytes(b"x" * 10)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text(f"{disc}\n")
+
+        assert _first_m3u_entry(m3u) == disc
+
+    def test_returns_none_when_first_entry_missing(self, tmp_path):
+        """Only the first entry counts (RAHasher hashes the first disc);
+        a dangling first entry means the playlist can't be resolved."""
+        (tmp_path / "game (Disc 2).rvz").write_bytes(b"x" * 10)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text("game (Disc 1).rvz\ngame (Disc 2).rvz\n")
+
+        assert _first_m3u_entry(m3u) is None
+
+    def test_returns_none_for_unreadable_playlist(self, tmp_path):
+        assert _first_m3u_entry(tmp_path / "missing.m3u") is None
+
+    def test_returns_none_for_empty_playlist(self, tmp_path):
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text("#EXTM3U\n\n")
+
+        assert _first_m3u_entry(m3u) is None
+
+
 class TestRAHasherWildcardFolderResolution:
     """Folder-based disc ROMs (.cue + .bin) must resolve the "/*" glob to a real
     descriptor file before spawning RAHasher — it is launched without a shell,
@@ -720,6 +778,39 @@ class TestRAHasherRvzNativeHashing:
         mock_subprocess.assert_not_called()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "ups,slug,native_fn",
+        [
+            (UPS.NGC, "ngc", "calculate_gamecube_ra_hash"),
+            (UPS.WII, "wii", "calculate_wii_ra_hash"),
+        ],
+    )
+    async def test_folder_glob_without_descriptor_hashes_largest_rvz_natively(
+        self, service: RAHasherService, tmp_path, ups, slug, native_fn
+    ):
+        """A disc folder with no .cue/.gdi/.m3u falls back to the largest
+        file; when that is an .rvz it must reach the native hasher."""
+        platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[ups]
+        (tmp_path / "game (Disc 1).rvz").write_bytes(b"x" * 200)
+        disc2 = tmp_path / "game (Disc 2).rvz"
+        disc2.write_bytes(b"x" * 300)
+
+        with (
+            patch(
+                f"adapters.services.rahasher.{native_fn}",
+                return_value="a1b2c3d4e5f6789012345678901234ab",
+            ) as mock_native,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": platform_id, "slug": slug}, f"{tmp_path}/*"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_native.assert_called_once_with(str(disc2))
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_falls_back_to_rahasher_when_native_fails(
         self, service: RAHasherService
     ):
@@ -807,6 +898,513 @@ class TestRAHasherRvzNativeHashing:
         mock_gc_native.assert_not_called()
         mock_wii_native.assert_not_called()
         mock_subprocess.assert_called_once()
+
+
+class TestRAHasherM3uNativeResolution:
+    """Folder-based multi-disc ROMs resolve to their .m3u playlist, but RAHasher
+    can only follow a playlist to formats it can read. Playlists pointing at
+    natively-hashed containers (RVZ/WIA, PSP compressed ISOs) must resolve to
+    the first disc so the native hashers see it (issue #3797)."""
+
+    @pytest.fixture
+    def service(self):
+        return RAHasherService()
+
+    def _make_ngc_folder(self, tmp_path):
+        """The exact layout from issue #3797: two .rvz discs plus an .m3u."""
+        disc1 = tmp_path / "Tales of Symphonia (Usa) (Disc 1).rvz"
+        disc1.write_bytes(b"x" * 200)
+        (tmp_path / "Tales of Symphonia (Usa) (Disc 2).rvz").write_bytes(b"x" * 300)
+        m3u = tmp_path / "Tales of Symphonia (Usa).m3u"
+        m3u.write_text(
+            "Tales of Symphonia (Usa) (Disc 1).rvz\n"
+            "Tales of Symphonia (Usa) (Disc 2).rvz\n"
+        )
+        return disc1
+
+    @pytest.mark.asyncio
+    async def test_ngc_folder_with_m3u_hashes_first_disc_natively(
+        self, service: RAHasherService, tmp_path
+    ):
+        """The folder glob resolves to the .m3u, which must then resolve to
+        disc 1 and short-circuit into the native GameCube hasher."""
+        ngc_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NGC]
+        disc1 = self._make_ngc_folder(tmp_path)
+
+        with (
+            patch(
+                "adapters.services.rahasher.calculate_gamecube_ra_hash",
+                return_value="a1b2c3d4e5f6789012345678901234ab",
+            ) as mock_native,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": ngc_id, "slug": "ngc"}, f"{tmp_path}/*"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_native.assert_called_once_with(str(disc1))
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_wii_folder_with_m3u_hashes_first_disc_natively(
+        self, service: RAHasherService, tmp_path
+    ):
+        wii_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.WII]
+        disc1 = tmp_path / "game (Disc 1).wia"
+        disc1.write_bytes(b"x" * 200)
+        (tmp_path / "game (Disc 2).wia").write_bytes(b"x" * 300)
+        (tmp_path / "game.m3u").write_text("game (Disc 1).wia\ngame (Disc 2).wia\n")
+
+        with (
+            patch(
+                "adapters.services.rahasher.calculate_wii_ra_hash",
+                return_value="a1b2c3d4e5f6789012345678901234ab",
+            ) as mock_native,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": wii_id, "slug": "wii"}, f"{tmp_path}/*"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_native.assert_called_once_with(str(disc1))
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_direct_m3u_file_resolves_to_native_disc(
+        self, service: RAHasherService, tmp_path
+    ):
+        """A standalone .m3u scanned as a single-file ROM must resolve the
+        same way as the folder-glob path."""
+        ngc_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NGC]
+        disc1 = self._make_ngc_folder(tmp_path)
+
+        with (
+            patch(
+                "adapters.services.rahasher.calculate_gamecube_ra_hash",
+                return_value="a1b2c3d4e5f6789012345678901234ab",
+            ) as mock_native,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": ngc_id, "slug": "ngc"},
+                str(tmp_path / "Tales of Symphonia (Usa).m3u"),
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_native.assert_called_once_with(str(disc1))
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_psp_m3u_resolves_to_native_container(
+        self, service: RAHasherService, tmp_path
+    ):
+        psp_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSP]
+        disc1 = tmp_path / "game (Disc 1).cso"
+        disc1.write_bytes(b"x" * 200)
+        (tmp_path / "game (Disc 2).cso").write_bytes(b"x" * 300)
+        (tmp_path / "game.m3u").write_text("game (Disc 1).cso\ngame (Disc 2).cso\n")
+
+        with (
+            patch(
+                "adapters.services.rahasher.calculate_psp_ra_hash",
+                return_value="a1b2c3d4e5f6789012345678901234ab",
+            ) as mock_native,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": psp_id, "slug": "psp"}, f"{tmp_path}/*"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_native.assert_called_once_with(str(disc1))
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_m3u_of_cue_discs_still_goes_to_rahasher(
+        self, service: RAHasherService, tmp_path
+    ):
+        """Playlists of formats RAHasher reads (bin/cue) keep their current
+        behavior: the .m3u itself is handed to RAHasher."""
+        psx_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSX]
+        (tmp_path / "game (Disc 1).bin").write_bytes(b"x" * 5000)
+        (tmp_path / "game (Disc 1).cue").write_bytes(b"x" * 50)
+        (tmp_path / "game (Disc 2).bin").write_bytes(b"x" * 5000)
+        (tmp_path / "game (Disc 2).cue").write_bytes(b"x" * 50)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text("game (Disc 1).cue\ngame (Disc 2).cue\n")
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with patch(
+            "asyncio.create_subprocess_exec", return_value=mock_proc
+        ) as mock_subprocess:
+            result = await service.calculate_hash(
+                {"ra_id": psx_id, "slug": "psx"}, str(m3u)
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        call_args = mock_subprocess.call_args[0]
+        assert str(m3u) in call_args
+
+    @pytest.mark.asyncio
+    async def test_rvz_m3u_on_other_platform_keeps_playlist(
+        self, service: RAHasherService, tmp_path
+    ):
+        """An .rvz playlist on a non-GameCube/Wii platform must not trigger
+        native resolution; behavior is unchanged."""
+        psx_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSX]
+        (tmp_path / "game.rvz").write_bytes(b"x" * 200)
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text("game.rvz\n")
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 1
+        mock_proc.stdout.read.return_value = b""
+        mock_proc.stderr.read.return_value = b"Could not open track"
+
+        with (
+            patch(
+                "adapters.services.rahasher.calculate_gamecube_ra_hash"
+            ) as mock_gc_native,
+            patch(
+                "adapters.services.rahasher.calculate_wii_ra_hash"
+            ) as mock_wii_native,
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": psx_id, "slug": "psx"}, str(m3u)
+            )
+
+        assert result == ""
+        mock_gc_native.assert_not_called()
+        mock_wii_native.assert_not_called()
+        call_args = mock_subprocess.call_args[0]
+        assert str(m3u) in call_args
+
+    @pytest.mark.asyncio
+    async def test_dangling_m3u_falls_through_to_rahasher(
+        self, service: RAHasherService, tmp_path
+    ):
+        """A playlist whose first entry is missing on disk keeps the .m3u
+        path and falls through to RAHasher without crashing."""
+        ngc_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NGC]
+        m3u = tmp_path / "game.m3u"
+        m3u.write_text("game (Disc 1).rvz\n")
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 1
+        mock_proc.stdout.read.return_value = b""
+        mock_proc.stderr.read.return_value = b"Could not open file"
+
+        with (
+            patch(
+                "adapters.services.rahasher.calculate_gamecube_ra_hash"
+            ) as mock_native,
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": ngc_id, "slug": "ngc"}, f"{tmp_path}/*"
+            )
+
+        assert result == ""
+        mock_native.assert_not_called()
+        call_args = mock_subprocess.call_args[0]
+        assert str(m3u) in call_args
+
+    @pytest.mark.asyncio
+    async def test_native_failure_falls_back_to_rahasher_with_disc(
+        self, service: RAHasherService, tmp_path
+    ):
+        """If the native hasher can't parse the resolved disc, RAHasher is
+        still attempted with the disc file (no worse than before)."""
+        ngc_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NGC]
+        disc1 = self._make_ngc_folder(tmp_path)
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 1
+        mock_proc.stdout.read.return_value = b""
+        mock_proc.stderr.read.return_value = b"Not a Gamecube disc"
+
+        with (
+            patch(
+                "adapters.services.rahasher.calculate_gamecube_ra_hash",
+                return_value="",
+            ) as mock_native,
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": ngc_id, "slug": "ngc"}, f"{tmp_path}/*"
+            )
+
+        assert result == ""
+        mock_native.assert_called_once_with(str(disc1))
+        call_args = mock_subprocess.call_args[0]
+        assert str(disc1) in call_args
+
+
+class TestRAHasherArchiveExtraction:
+    """Non-zip archives on buffer-hash platforms must be extracted to a temp
+    file before hashing. RAHasher only decompresses .zip itself; any other
+    container is hashed as raw archive bytes, silently producing a hash that
+    matches nothing on RetroAchievements (GitHub issue #3808)."""
+
+    @pytest.fixture
+    def service(self):
+        return RAHasherService()
+
+    @staticmethod
+    def _fake_extractor(inner_name: str):
+        """Build an extractor mock that writes `inner_name` into the given
+        destination directory, like the real helper does."""
+
+        def _extract(archive_path, dest_dir):
+            extracted = dest_dir / inner_name
+            extracted.write_bytes(b"rom-bytes")
+            return extracted
+
+        return MagicMock(side_effect=_extract)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "ext", [".7z", ".rar", ".gz", ".bz2", ".xz", ".tar", ".tgz"]
+    )
+    async def test_non_zip_archive_extracted_before_hashing(
+        self, service: RAHasherService, ext
+    ):
+        """RAHasher must receive the extracted ROM file, never the archive."""
+        gba_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GBA]
+        extractor = self._fake_extractor("game.gba")
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member",
+                extractor,
+            ),
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": gba_id, "slug": "gba"}, f"/roms/gba/game{ext}"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        extractor.assert_called_once()
+        call_args = mock_subprocess.call_args[0]
+        assert any(str(a).endswith("game.gba") for a in call_args)
+        assert not any(str(a).endswith(ext) for a in call_args)
+
+    @pytest.mark.asyncio
+    async def test_zip_archive_still_handed_to_rahasher_directly(
+        self, service: RAHasherService
+    ):
+        """RAHasher decompresses .zip natively; no extraction round-trip."""
+        gba_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GBA]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member"
+            ) as extractor,
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": gba_id, "slug": "gba"}, "/roms/gba/game.zip"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        extractor.assert_not_called()
+        call_args = mock_subprocess.call_args[0]
+        assert "/roms/gba/game.zip" in call_args
+
+    @pytest.mark.asyncio
+    async def test_extraction_failure_returns_empty_hash_without_rahasher(
+        self, service: RAHasherService
+    ):
+        """When extraction fails (unsupported codec, corrupt archive), no
+        hash is produced at all; the archive must never reach RAHasher,
+        which would silently hash the raw container bytes."""
+        gba_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GBA]
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member",
+                return_value=None,
+            ) as extractor,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": gba_id, "slug": "gba"}, "/roms/gba/game.rar"
+            )
+
+        assert result == ""
+        extractor.assert_called_once()
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_arcade_archives_bypass_extraction(self, service: RAHasherService):
+        """Arcade RA hashes are computed from the file's basename, not its
+        contents, so any container format already hashes correctly and
+        extraction (which renames the file) would break it."""
+        arcade_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.ARCADE]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member"
+            ) as extractor,
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": arcade_id, "slug": "arcade"}, "/roms/arcade/sf2.7z"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        extractor.assert_not_called()
+        call_args = mock_subprocess.call_args[0]
+        assert "/roms/arcade/sf2.7z" in call_args
+
+    @pytest.mark.asyncio
+    async def test_disc_platform_archives_still_skipped_without_extraction(
+        self, service: RAHasherService
+    ):
+        """Disc platforms keep the existing skip; no extraction is attempted
+        (a multi-gigabyte disc image round-trip is out of scope)."""
+        psx_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSX]
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member"
+            ) as extractor,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": psx_id, "slug": "psx"}, "/roms/psx/game.7z"
+            )
+
+        assert result == ""
+        extractor.assert_not_called()
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_folder_of_non_zip_archives_extracts_largest(
+        self, service: RAHasherService, tmp_path
+    ):
+        """Folder-based ROM holding non-zip archives: the largest archive is
+        picked (existing behavior) and must then go through extraction."""
+        gba_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GBA]
+        (tmp_path / "small.7z").write_bytes(b"s" * 100)
+        large = tmp_path / "large.7z"
+        large.write_bytes(b"l" * 500)
+        extractor = self._fake_extractor("game.gba")
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member",
+                extractor,
+            ),
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": gba_id, "slug": "gba"}, f"{tmp_path}/*"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        assert extractor.call_args[0][0] == large
+        call_args = mock_subprocess.call_args[0]
+        assert any(str(a).endswith("game.gba") for a in call_args)
+
+    @pytest.mark.asyncio
+    async def test_extracted_rvz_short_circuits_native_hasher(
+        self, service: RAHasherService
+    ):
+        """GameCube is buffer-hash capable, so its archives are extracted;
+        when the archive holds an .rvz the native hasher must see it."""
+        ngc_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NGC]
+        extractor = self._fake_extractor("game.rvz")
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member",
+                extractor,
+            ),
+            patch(
+                "adapters.services.rahasher.calculate_gamecube_ra_hash",
+                return_value="a1b2c3d4e5f6789012345678901234ab",
+            ) as mock_native,
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": ngc_id, "slug": "ngc"}, "/roms/ngc/game.7z"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        assert mock_native.call_args[0][0].endswith("game.rvz")
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_temp_extraction_dir_removed_after_hashing(
+        self, service: RAHasherService
+    ):
+        """The temp directory holding the extracted ROM must not outlive the
+        hash calculation."""
+        gba_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GBA]
+        extractor = self._fake_extractor("game.gba")
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member",
+                extractor,
+            ),
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": gba_id, "slug": "gba"}, "/roms/gba/game.7z"
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        dest_dir = extractor.call_args[0][1]
+        assert not dest_dir.exists()
 
 
 class TestRAHasherError:

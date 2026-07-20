@@ -6,13 +6,15 @@
   <h3 style="font-size: 25px;">
     A beautiful, powerful, self-hosted ROM manager and player.
   </h3>
+</div>
 
-[![discord-badge-img]][discord-badge]
-[![docs-badge-img]][docs]
-[![license-badge-img]][license-badge]
-[![release-badge-img]][release-badge]
-[![docker-pulls-badge-img]][docker-pulls-badge]
-
+<div align="center">
+  <div dir="auto">
+    <a href="https://trendshift.io/repositories/14133?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14133" target="_blank" rel="noopener noreferrer"><img src=".github/resources/trendshift-badge.svg" alt="Trendshift" width="250" height="58"/></a>
+    <a href="https://news.ycombinator.com/item?id=44247964" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hackernews-badge.svg" width="250px" alt="hackernews badge"></a>
+    <br />
+    <a href="https://selfh.st/survey/2025-results/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/selfhst-badge.svg" width="250px" alt="selfh.st badge"></a>
+    <a href="https://discord.gg/invite/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/discord-badge.svg" alt="Discord" width="250" height="58"/></a>
   </div>
 </div>
 
@@ -35,7 +37,7 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 
 ## Preview
 
-|                                       🖥 Desktop                                       |                                                           📱 Mobile                                                            |
+|                                       🖥 Desktop                                        |                                                           📱 Mobile                                                            |
 | :------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------: |
 | <img src=".github/resources/screenshots/preview-desktop.webp" alt="desktop preview" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/preview-mobile.webp" alt="mobile preview" /> |
 
@@ -47,28 +49,32 @@ To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] i
 
 To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md).
 
+## Official apps
+
+Apps and integrations built and maintained by the RomM team.
+
+- [Argosy][argosy-launcher] by [@tmgast](https://github.com/tmgast): Native Android client for installing and launching games.
+- [Grout][grout] by [@BrandonKowalski](https://github.com/BrandonKowalski): Download and manage games from your RomM instance directly on your Linux based retro handheld. Supports: Allium, Batocera, Knulli, MinUI, muOS, NextUI, Onion, ROCKNIX, Spruce, TrimUI
+- [Playnite plugin][playnite-app] by [@gantoine](https://github.com/gantoine): Library plugin for Playnite
+
 ## Community
 
 Here are a few projects maintained by members of our community. Please note that the RomM team does not regularly review their source code.
 
 ### Mobile
 
-- 🔷 [Argosy][argosy-launcher]: Native client for installing and launching games by [@tmgast](https://github.com/tmgast)
 - [romm-ios-app][romm-ios-app]: Native iOS app by [@ilyas-hallak](https://github.com/ilyas-hallak)
-- [romm-mobile][romm-mobile]: Android (and soon iOS) app by [@mattsays](https://github.com/mattsays)
 
 ### Desktop
 
-- 🔷 [Playnite plugin][playnite-app]: Library plugin for Playnite by [@gantoine](https://github.com/gantoine)
-- [RommBrowser][romm-browser]: Electron client by [@smurflabs](https://github.com/smurflabs)
 - [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by [@Covin90](https://github.com/Covin90)
 - [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
 - [romm-client][romm-client]: Desktop client by [@chaun14](https://github.com/chaun14)
+- [Freegosy][freegosy]: All-in-one game manager (download, launch, sync saves, and manage emulators) by [@abduznik](https://github.com/abduznik)
 
 ### Handhelds
 
-- 🔷 [Grout][grout]: Download client for muOS and NextUI by [@BrandonKowalski](https://github.com/BrandonKowalski)
-- [DeckRommSync][deck-romm-sync]: SteamOS downloader and syncer by [@PeriBluGaming](https://github.com/PeriBluGaming)
+- [DeckyRommSync][decky-romm-sync]: SteamOS downloader and syncer by [@danielcopper](https://github.com/danielcopper)
 - [SwitchRomM][switch-romm]: Homebrew NRO for Switch by [@Shalasere](https://github.com/Shalasere)
 
 ### Other
@@ -76,8 +82,6 @@ Here are a few projects maintained by members of our community. Please note that
 - [romm-comm][romm-comm-discord-bot]: Discord bot by [@idio-sync](https://github.com/idio-sync)
 - [GGRequestz][ggrequestz]: Game discovery and request tool by [@XTREEMMAK](https://github.com/XTREEMMAK)
 - [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by [@amn-96](https://github.com/amn-96)
-
-[🔷] Official first-party app
 
 Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
 
@@ -106,38 +110,14 @@ Here are a few projects that we think you might like:
 - [LanCommander](https://lancommander.app/): Digital game platform for PC games
 - [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
 
-<div align="center">
-  <br />
-  <div dir="auto">
-    <a href="https://news.ycombinator.com/item?id=44247964" target="_blank"><img src=".github/resources/hackernews-badge.svg" width="250px" alt="hackernews badge"></a>
-    &nbsp;
-    <a href="https://selfh.st/survey/2025-results/" target="_blank"><img src=".github/resources/selfhst-badge.svg" width="250px" alt="selfh.st badge"></a>
-    &nbsp;
-    <span><img src=".github/resources/aikido-badge.png" alt="Aikido Security Audit Report" height="58" /></span>
-  </div>
-</div>
-
 <!-- docs links -->
 
-[docs]: https://docs.romm.app/latest/
 [docs-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
 [docs-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
 [docs-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
 [docs-rufflers]: https://docs.romm.app/latest/Platforms-and-Players/RuffleRS-Player/
 [docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/Scanning-Issues/
 [docs-tag-support]: https://docs.romm.app/latest/Getting-Started/Folder-Structure/#tag-support
-
-<!-- Badges -->
-
-[license-badge-img]: https://img.shields.io/github/license/rommapp/romm?style=for-the-badge&color=a32d2a
-[license-badge]: LICENSE
-[release-badge-img]: https://img.shields.io/github/v/release/rommapp/romm?style=for-the-badge
-[release-badge]: https://github.com/rommapp/romm/releases/latest
-[discord-badge-img]: https://img.shields.io/badge/discord-7289da?style=for-the-badge
-[discord-badge]: https://discord.gg/P5HtHnhUDH
-[docs-badge-img]: https://img.shields.io/badge/docs-736e9b?style=for-the-badge
-[docker-pulls-badge-img]: https://img.shields.io/docker/pulls/rommapp/romm?style=for-the-badge&label=pulls
-[docker-pulls-badge]: https://hub.docker.com/r/rommapp/romm
 
 <!-- Links -->
 
@@ -154,16 +134,15 @@ Here are a few projects that we think you might like:
 [steamgriddb-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
 [retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
-[deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
+[decky-romm-sync]: https://github.com/danielcopper/decky-romm-sync
 [switch-romm]: https://github.com/Shalasere/SwitchRomM
-[romm-browser]: https://github.com/smurflabs/RommBrowser/
 [playnite-app]: https://github.com/rommapp/playnite-plugin
 [ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
 [syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
-[romm-mobile]: https://github.com/mattsays/romm-mobile
 [romm-client]: https://github.com/chaun14/romm-client
 [romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
 [rommate]: https://github.com/brenoprata10/rommate
+[freegosy]: https://github.com/abduznik/freegosy
 [grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
 [argosy-launcher]: https://github.com/rommapp/argosy-launcher

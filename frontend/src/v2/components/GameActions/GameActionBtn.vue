@@ -43,6 +43,8 @@ import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { romStatusMap } from "@/utils";
 import GameActionsList from "@/v2/components/GameActions/GameActionsList.vue";
+import GameMetricsSections from "@/v2/components/GameActions/GameMetricsSections.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import {
   GAME_ACTIONS_KEY,
   useGameActions,
@@ -94,6 +96,12 @@ interface Props {
    * (ribbon), `vertical` stacks them (GameCard top-left badge).
    */
   orientation?: "horizontal" | "vertical";
+  /**
+   * Status-only: on phones, append the three per-user metric editors
+   * (completion / rating / difficulty) as sections in the status sheet,
+   * so they don't need their own ribbon row. No-op on desktop.
+   */
+  withMetrics?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -101,7 +109,10 @@ const props = withDefaults(defineProps<Props>(), {
   variant: "glass",
   withLabel: false,
   orientation: "horizontal",
+  withMetrics: false,
 });
+
+const { smAndDown } = useBreakpoint();
 
 const romRef = toRef(props, "rom");
 // Reuse the host's shared instance when one is provided (GameCard provides a
@@ -449,6 +460,13 @@ function onClick(e: MouseEvent) {
       >
         {{ t("rom.clear-all") }}
       </RMenuItem>
+    </template>
+
+    <!-- Phones only: the per-user metrics (completion / rating /
+         difficulty) live here as sections instead of a ribbon row. -->
+    <template v-if="smAndDown && withMetrics && rom.rom_user">
+      <RDivider />
+      <GameMetricsSections :rom="rom" />
     </template>
   </RMenu>
 

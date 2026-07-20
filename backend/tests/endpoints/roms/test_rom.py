@@ -4,7 +4,9 @@ from unittest.mock import AsyncMock, patch
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from config.config_manager import MetadataMediaType
 from handler.database import db_collection_handler, db_rom_handler
+from handler.database.base_handler import sync_session
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
@@ -15,6 +17,7 @@ from handler.metadata.moby_handler import MobyGamesHandler, MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
 from models.collection import Collection
+from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile, compute_name_sort_key
 from models.user import User
@@ -39,6 +42,32 @@ def test_get_rom(client: TestClient, access_token: str, rom: Rom):
 
     body = response.json()
     assert body["id"] == rom.id
+
+
+def test_get_rom_simple(client: TestClient, access_token: str, rom: Rom):
+    response = client.get(
+        f"/api/roms/{rom.id}/simple",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["id"] == rom.id
+    # SimpleRomSchema stays lightweight: none of the detail-only arrays are
+    # present, so the endpoint must not eager-load them.
+    assert "user_saves" not in body
+    assert "user_states" not in body
+    assert "user_screenshots" not in body
+    assert "user_collections" not in body
+    assert "all_user_notes" not in body
+
+
+def test_get_rom_simple_missing_returns_404(client: TestClient, access_token: str):
+    response = client.get(
+        "/api/roms/999999/simple",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_download_multi_file_rom_content(
@@ -143,6 +172,31 @@ def test_get_all_roms(
     assert items[0]["id"] == rom.id
     assert items[0]["files"] == []
     assert items[0]["sibling_roms"] == []
+
+
+def test_get_roms_without_rom_id_index(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+):
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={
+            "platform_id": platform.id,
+            "limit": 15,
+            "with_rom_id_index": False,
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+
+    # The page and total stay correct, but the full id index is not built.
+    assert body["total"] == 1
+    assert body["rom_id_index"] == []
+
+    items = body["items"]
+    assert len(items) == 1
+    assert items[0]["id"] == rom.id
 
 
 def test_get_roms_filter_by_metadata_providers(
@@ -317,6 +371,50 @@ def test_get_rom_content_missing_rom_returns_404(client: TestClient, access_toke
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
+def _hide_rom_for_user(rom_id: int, user_id: int) -> None:
+    with sync_session.begin() as s:
+        s.add(HiddenEntity(entity=PermEntity.ROMS, entity_id=rom_id, user_id=user_id))
+
+
+def test_get_romfile_content_visible_rom(
+    client: TestClient, viewer_access_token: str, rom: Rom, rom_file
+):
+    # Baseline: a rom the viewer can see is downloadable by direct RomFile.id.
+    response = client.get(
+        f"/api/roms/{rom_file.id}/files/content/whatever.bin",
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert "X-Accel-Redirect" in response.headers
+
+
+def test_get_romfile_content_hidden_rom_returns_404(
+    client: TestClient, viewer_access_token: str, viewer_user, rom: Rom, rom_file
+):
+    # A file belonging to a hidden rom must 404 even by direct RomFile.id,
+    # matching the ROM-level content endpoint (visibility-bypass regression).
+    _hide_rom_for_user(rom.id, viewer_user.id)
+    response = client.get(
+        f"/api/roms/{rom_file.id}/files/content/whatever.bin",
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_get_romfile_hidden_rom_returns_404(
+    client: TestClient, viewer_access_token: str, viewer_user, rom: Rom, rom_file
+):
+    # The file metadata endpoint must not leak files of a hidden rom either.
+    _hide_rom_for_user(rom.id, viewer_user.id)
+    response = client.get(
+        f"/api/roms/{rom_file.id}/files",
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom(
@@ -472,6 +570,23 @@ def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
     assert body["successful_items"] == 1
 
 
+def test_delete_roms_reports_failed_ids(
+    client: TestClient, access_token: str, rom: Rom
+):
+    missing_id = rom.id + 999999
+    response = client.post(
+        "/api/roms/delete",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [rom.id, missing_id], "delete_from_fs": []},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["successful_items"] == 1
+    # The failed id stays reported so the client can keep it selected for retry.
+    assert body["failed_ids"] == [missing_id]
+
+
 @patch(
     "endpoints.roms.fs_rom_handler.remove_directory",
     new_callable=AsyncMock,
@@ -509,7 +624,7 @@ def test_delete_roms_from_fs_flat(
 
     body = response.json()
     assert body["successful_items"] == 1
-    assert body["failed_items"] == 0
+    assert body["failed_ids"] == []
     mock_remove_file.assert_called_once()
     mock_remove_directory.assert_not_called()
 
@@ -553,7 +668,7 @@ def test_delete_roms_from_fs_flat_cleans_empty_parent(
 
     body = response.json()
     assert body["successful_items"] == 1
-    assert body["failed_items"] == 0
+    assert body["failed_ids"] == []
     mock_remove_file.assert_called_once()
     # remove_directory should be called to clean up the empty parent dir
     mock_remove_directory.assert_called_once()
@@ -605,7 +720,7 @@ def test_delete_roms_from_fs_nested(
 
     body = response.json()
     assert body["successful_items"] == 1
-    assert body["failed_items"] == 0
+    assert body["failed_ids"] == []
     mock_remove_directory.assert_called_once()
 
 
@@ -630,7 +745,7 @@ def test_delete_roms_from_fs_missing_file_still_deletes_db_entry(
 
     body = response.json()
     assert body["successful_items"] == 1
-    assert body["failed_items"] == 0
+    assert body["failed_ids"] == []
     assert body["errors"] == []
     assert db_rom_handler.get_rom(rom.id) is None
 
@@ -892,6 +1007,62 @@ class TestUpdateMetadataIDs:
         body = response.json()
         assert body["launchbox_id"] == MOCK_LAUNCHBOX_ID
         assert get_rom_by_id_mock.called
+
+    @patch.object(FSResourcesHandler, "store_media_file", new_callable=AsyncMock)
+    @patch(
+        "handler.metadata.launchbox_handler.media.get_preferred_media_types",
+        return_value=[MetadataMediaType.VIDEO],
+    )
+    @patch(
+        "endpoints.roms.get_preferred_media_types",
+        return_value=[MetadataMediaType.VIDEO],
+    )
+    @patch.object(
+        LaunchboxHandler,
+        "get_rom_by_id",
+        return_value=LaunchboxRom(
+            launchbox_id=MOCK_LAUNCHBOX_ID,
+            launchbox_metadata={  # type: ignore[typeddict-item]
+                "video_url": "launchbox-file://Videos/NES/Mario.mp4",
+            },
+        ),
+    )
+    def test_update_rom_launchbox_id_imports_local_video(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        _get_preferred_endpoint_mock: AsyncMock,
+        _get_preferred_media_mock: AsyncMock,
+        store_media_file_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A LaunchBox match with a local video resolves a path and copies the file."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"launchbox_id": str(MOCK_LAUNCHBOX_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["launchbox_id"] == MOCK_LAUNCHBOX_ID
+        # get_rom_by_id must receive fs_name/platform_slug so local media resolves
+        assert get_rom_by_id_mock.call_args.kwargs.get("fs_name") == rom.fs_name
+        assert (
+            get_rom_by_id_mock.call_args.kwargs.get("platform_slug")
+            == rom.platform_slug
+        )
+        # populate_rom_specific_paths must have set video_path
+        video_path = body["launchbox_metadata"].get("video_path", "")
+        assert video_path.endswith("/video.mp4")
+        # and the video file must have been copied into the resource store
+        store_media_file_mock.assert_awaited_once()
+        await_args = store_media_file_mock.await_args
+        assert await_args is not None
+        called_url, called_path = await_args.args
+        assert called_url == "launchbox-file://Videos/NES/Mario.mp4"
+        assert called_path == video_path
 
     @patch.object(
         LaunchboxHandler,

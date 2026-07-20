@@ -5,6 +5,7 @@ from typing import Final, NotRequired, TypedDict
 from urllib.parse import urlparse
 
 import pydash
+from fastapi import HTTPException, status
 from unidecode import unidecode as uc
 
 from adapters.services.screenscraper import ScreenScraperService
@@ -138,6 +139,12 @@ ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {
     UPS.SEGACD: ["cue", "chd", "bin"],
     UPS.NGC: ["rvz", "iso", "gcz"],
 }
+
+
+def _is_daily_quota_error(exc: HTTPException) -> bool:
+    """ScreenScraper only raises 429 when its daily quota is exhausted (the
+    service trips a breaker so the rest of the scan short-circuits)."""
+    return exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS
 
 
 def _is_notgame(game: SSGame) -> bool:
@@ -729,15 +736,22 @@ class SSHandler(MetadataHandler):
             )
             return SSRom(ss_id=None), False
 
-        res = await self.ss_service.get_game_info(
-            system_id=platform_ss_id,
-            md5=md5_hash,
-            sha1=sha1_hash,
-            crc=crc_hash,
-            rom_size_bytes=fs_size_bytes,
-            rom_name=rom_name,
-            rom_type=_get_rom_type(first_file),
-        )
+        try:
+            res = await self.ss_service.get_game_info(
+                system_id=platform_ss_id,
+                md5=md5_hash,
+                sha1=sha1_hash,
+                crc=crc_hash,
+                rom_size_bytes=fs_size_bytes,
+                rom_name=rom_name,
+                rom_type=_get_rom_type(first_file),
+            )
+        except HTTPException as exc:
+            # Daily quota exhausted: skip ScreenScraper for this ROM so the scan
+            # falls back to the other providers.
+            if not _is_daily_quota_error(exc):
+                raise
+            return SSRom(ss_id=None), False
         if not res:
             return SSRom(ss_id=None), False
 
@@ -786,7 +800,7 @@ class SSHandler(MetadataHandler):
             fallback_rom = SSRom(ss_id=None, name=search_term)
 
         # Support for sony serial filename format (PS, PS3, PS3)
-        match = SONY_SERIAL_REGEX.search(file_name, re.IGNORECASE)
+        match = SONY_SERIAL_REGEX.search(file_name)
         if platform_ss_id == PS1_SS_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
             fallback_rom = SSRom(ss_id=None, name=search_term)
@@ -846,17 +860,23 @@ class SSHandler(MetadataHandler):
         normalized_search_term = self.normalize_search_term(
             search_term, remove_punctuation=False
         )
-        res = await self._search_rom(
-            self.SEARCH_TERM_NORMALIZER.sub(" - ", normalized_search_term),
-            platform_ss_id,
-        )
-
-        # SS API doesn't handle some special characters well
-        if not res and " : " in search_term:
-            terms = re.split(self.SEARCH_TERM_SPLIT_PATTERN, search_term)
+        try:
             res = await self._search_rom(
-                terms[-1], platform_ss_id, split_game_name=True
+                self.SEARCH_TERM_NORMALIZER.sub(" - ", normalized_search_term),
+                platform_ss_id,
             )
+
+            # SS API doesn't handle some special characters well
+            if not res and " : " in search_term:
+                terms = re.split(self.SEARCH_TERM_SPLIT_PATTERN, search_term)
+                res = await self._search_rom(
+                    terms[-1], platform_ss_id, split_game_name=True
+                )
+        except HTTPException as exc:
+            # Daily quota exhausted: fall back to the name-only match (if any).
+            if not _is_daily_quota_error(exc):
+                raise
+            return fallback_rom
 
         if not res or not res.get("id"):
             return fallback_rom
@@ -867,7 +887,13 @@ class SSHandler(MetadataHandler):
         if not self.is_enabled():
             return SSRom(ss_id=None)
 
-        res = await self.ss_service.get_game_info(game_id=ss_id)
+        try:
+            res = await self.ss_service.get_game_info(game_id=ss_id)
+        except HTTPException as exc:
+            # Daily quota exhausted: return an empty match rather than failing.
+            if not _is_daily_quota_error(exc):
+                raise
+            return SSRom(ss_id=None)
         if not res:
             return SSRom(ss_id=None)
 

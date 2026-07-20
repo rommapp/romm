@@ -65,6 +65,8 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 **Never commit secrets.** Never commit secrets (API keys, passwords, tokens, etc.) to the repo. Use environment variables or secret management tools instead.
 **Don't explain a change.** Avoid comments that explain why a change was made to the code. Focus instead on the current behaviour of the code and how it works.
 **Python tools live in `backend/tools/`.** Standalone dev/test utilities and scripts (not part of the app runtime) go in `backend/tools/`, not scattered across `backend/`.
+**Link PRs to issues.** In the PR description, use `Fixes #XXXX` for issue/bug fixes and `Closes #XXXX` for feature implementations.
+**Use the PR template.** Base every PR description on `.github/PULL_REQUEST_TEMPLATE.md`.
 
 ---
 
@@ -94,6 +96,7 @@ npm run generate                    # regenerate types from backend OpenAPI (bac
 npm run build:tokens                # regenerate v2 tokens.css (auto on predev/prebuild)
 npm run storybook                   # component library on :6006
 python3 src/locales/check_i18n_locales.py   # i18n parity check
+python3 src/locales/check_i18n_sorted.py    # locale keys sorted (--fix to sort)
 ```
 
 **Lint (both stacks):** `trunk fmt && trunk check`.

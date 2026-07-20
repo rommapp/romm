@@ -122,6 +122,10 @@ declare global {
       save: ArrayBuffer;
     }) => void;
     EJS_onLoadSave: () => void;
+    // Socket.IO global, bundled by EmulatorJS and used by its netplay code.
+    io?: ((url: string, opts?: Record<string, unknown>) => unknown) & {
+      __rommNetplayPatched?: boolean;
+    };
   }
 }
 
@@ -178,7 +182,8 @@ const {
   EJS_NETPLAY_ICE_SERVERS,
   EJS_NETPLAY_ENABLED,
 } = configStore.config;
-window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.host : "";
+// Full origin (with scheme)
+window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.origin : "";
 window.EJS_netplayICEServers = EJS_NETPLAY_ENABLED
   ? EJS_NETPLAY_ICE_SERVERS
   : [];
@@ -199,11 +204,14 @@ onMounted(() => {
   }
 
   if (props.core) {
+    // Remember the core per-game, and per-platform as the fallback default
+    localStorage.setItem(`player:${romRef.value.id}:core`, props.core);
     localStorage.setItem(
       `player:${romRef.value.platform_slug}:core`,
       props.core,
     );
   } else {
+    localStorage.removeItem(`player:${romRef.value.id}:core`);
     localStorage.removeItem(`player:${romRef.value.platform_slug}:core`);
   }
 
@@ -379,6 +387,36 @@ window.EJS_onSaveState = async function ({
 window.EJS_onGameStart = async () => {
   sessionStartTime.value = new Date();
 
+  // Install netplay overrides synchronously, before any await below, so they
+  // are in place before room polling or a Create/Join action can start.
+  const netplay = window.EJS_emulator?.netplay;
+  if (netplay) {
+    netplay.getOpenRooms = async () => {
+      try {
+        const response = await fetch(
+          `/api/netplay/list?game_id=${window.EJS_gameID}`,
+        );
+        if (!response.ok) return {};
+        return await response.json();
+      } catch (error) {
+        console.error("Error fetching netplay rooms:", error);
+        return {};
+      }
+    };
+  }
+
+  // Wrap the bundled global `io` so netplay uses mounted socket path.
+  if (window.io && !window.io.__rommNetplayPatched) {
+    const originalIo = window.io;
+    const patchedIo = ((url: string, opts?: Record<string, unknown>) =>
+      originalIo(url, {
+        ...opts,
+        path: "/netplay/socket.io",
+      })) as NonNullable<Window["io"]>;
+    patchedIo.__rommNetplayPatched = true;
+    window.io = patchedIo;
+  }
+
   void (async () => {
     const ready = await waitForGameManager();
     if (!ready) {
@@ -460,28 +498,6 @@ window.EJS_onGameStart = async () => {
     romsStore.update(romRef.value);
     immediateExit();
   });
-
-  // The netplay implementation is finnicky, these overrides make it work
-  const { defineNetplayFunctions } = window.EJS_emulator;
-  window.EJS_emulator.defineNetplayFunctions = () => {
-    defineNetplayFunctions.bind(window.EJS_emulator)();
-
-    window.EJS_emulator.netplay.url = {
-      path: "/netplay/socket.io",
-    };
-
-    window.EJS_emulator.netplayGetOpenRooms = async () => {
-      try {
-        const response = await fetch(
-          `/api/netplay/list?game_id=${window.EJS_gameID}`,
-        );
-        return await response.json();
-      } catch (error) {
-        console.error("Error fetching open rooms:", error);
-        return {};
-      }
-    };
-  };
 };
 
 function immediateExit() {

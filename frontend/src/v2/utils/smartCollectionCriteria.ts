@@ -32,6 +32,7 @@ export interface SmartFilterCriteria {
   duplicate?: boolean;
   playable?: boolean;
   has_ra?: boolean;
+  has_soundtrack?: boolean;
   missing?: boolean;
   verified?: boolean;
   genres?: string[];
@@ -68,6 +69,7 @@ export interface GalleryFilterSnapshot {
   filterDuplicates: boolean | null;
   filterPlayables: boolean | null;
   filterRA: boolean | null;
+  filterSoundtrack: boolean | null;
   filterMissing: boolean | null;
   filterVerified: boolean | null;
   selectedPlatforms: Platform[];
@@ -145,6 +147,7 @@ export function buildSmartFilterCriteria(
   if (snap.filterDuplicates) out.duplicate = true;
   if (snap.filterPlayables) out.playable = true;
   if (snap.filterRA) out.has_ra = true;
+  if (snap.filterSoundtrack) out.has_soundtrack = true;
   if (snap.filterMissing) out.missing = true;
   if (snap.filterVerified) out.verified = true;
 
@@ -291,7 +294,7 @@ const FIELDS: FieldSpec[] = [
     storage: "duplicate",
     icon: "mdi-content-duplicate",
     labelKey: "platform.show-duplicates",
-    defaultLabel: "Show duplicates",
+    defaultLabel: "Show versions",
     kind: "bool",
   },
   {
@@ -306,6 +309,13 @@ const FIELDS: FieldSpec[] = [
     icon: "mdi-trophy-outline",
     labelKey: "platform.show-ra",
     defaultLabel: "Show RetroAchievements",
+    kind: "bool",
+  },
+  {
+    storage: "has_soundtrack",
+    icon: "mdi-music-note",
+    labelKey: "platform.has-soundtrack",
+    defaultLabel: "Has soundtrack",
     kind: "bool",
   },
   {

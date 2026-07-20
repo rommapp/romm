@@ -86,8 +86,9 @@ const { t } = useI18n();
 const collectionsStore = storeCollections();
 const { toWebp } = useWebpSupport();
 
-// Scraped videos surface on the overview (the rest of the art lives in the
-// Media tab's Artwork subtab). Same resolver, filtered to videos.
+// Videos surface on the overview (the rest of the art lives in the Media tab's
+// Artwork subtab). Same resolver, filtered to videos: scraped clips plus any
+// video files in the game folder.
 const videos = computed(() =>
   resolveRomArtwork(props.rom).filter((a) => a.isVideo),
 );
@@ -132,7 +133,7 @@ const dataProviders = computed(() =>
   PROVIDERS.map((p) => {
     const id = providerId(props.rom, p);
     if (id === null) return null;
-    return { name: p.name, href: p.url ? p.url(id) : null };
+    return { name: p.name, href: p.url ? p.url(id, props.rom) : null };
   }).filter((e): e is { name: string; href: string | null } => e !== null),
 );
 
@@ -337,19 +338,9 @@ const coverSource = computed(() => {
           >
         </template>
       </i18n-t>
-      <i18n-t
-        v-if="coverSource && rom.url_cover"
-        keypath="rom.cover-art-provided-by"
-        tag="div"
-      >
+      <i18n-t v-if="coverSource" keypath="rom.cover-art-provided-by" tag="div">
         <template #source>
-          <a
-            class="overview-tab__attribution-link"
-            :href="rom.url_cover"
-            target="_blank"
-            rel="noopener"
-            >{{ coverSource }}</a
-          >
+          <span>{{ coverSource }}</span>
         </template>
       </i18n-t>
     </div>

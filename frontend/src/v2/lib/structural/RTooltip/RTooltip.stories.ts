@@ -98,7 +98,7 @@ export const ParentAttach: Story = {
     components: { RTooltip, RBtn },
     template: `
       <div style="padding:48px;display:flex;justify-content:center">
-        <RBtn icon="mdi-delete" variant="translucent">
+        <RBtn icon="mdi-delete" variant="translucent" aria-label="Delete this item">
           <RTooltip activator="parent" text="Delete this item" location="top" />
         </RBtn>
       </div>
@@ -116,22 +116,22 @@ export const PlacementCardinals: Story = {
       <div style="padding:80px;display:flex;gap:24px;flex-wrap:wrap;justify-content:center">
         <RTooltip text="Tooltip on top" location="top">
           <template #activator="{ props }">
-            <RBtn v-bind="props" icon="mdi-arrow-up" />
+            <RBtn v-bind="props" icon="mdi-arrow-up" aria-label="Tooltip on top" />
           </template>
         </RTooltip>
         <RTooltip text="Tooltip on end" location="end">
           <template #activator="{ props }">
-            <RBtn v-bind="props" icon="mdi-arrow-right" />
+            <RBtn v-bind="props" icon="mdi-arrow-right" aria-label="Tooltip on end" />
           </template>
         </RTooltip>
         <RTooltip text="Tooltip on bottom" location="bottom">
           <template #activator="{ props }">
-            <RBtn v-bind="props" icon="mdi-arrow-down" />
+            <RBtn v-bind="props" icon="mdi-arrow-down" aria-label="Tooltip on bottom" />
           </template>
         </RTooltip>
         <RTooltip text="Tooltip on start" location="start">
           <template #activator="{ props }">
-            <RBtn v-bind="props" icon="mdi-arrow-left" />
+            <RBtn v-bind="props" icon="mdi-arrow-left" aria-label="Tooltip on start" />
           </template>
         </RTooltip>
       </div>
@@ -222,7 +222,7 @@ export const CustomContent: Story = {
       <div style="padding:80px;display:flex;justify-content:center">
         <RTooltip location="top">
           <template #activator="{ props }">
-            <RBtn v-bind="props" icon="mdi-keyboard">Shortcuts</RBtn>
+            <RBtn v-bind="props" icon="mdi-keyboard" aria-label="Shortcuts">Shortcuts</RBtn>
           </template>
           <div style="display:flex;flex-direction:column;gap:4px">
             <div style="display:flex;align-items:center;gap:8px">
@@ -353,22 +353,22 @@ export const IconBarRealWorld: Story = {
         <div style="display:flex;gap:4px;padding:6px;background:var(--r-color-bg-elevated);border:1px solid var(--r-color-border);border-radius:10px">
           <RTooltip text="Filters" location="bottom">
             <template #activator="{ props }">
-              <RBtn v-bind="props" icon="mdi-filter" variant="text" />
+              <RBtn v-bind="props" icon="mdi-filter" variant="text" aria-label="Filters" />
             </template>
           </RTooltip>
           <RTooltip text="Sort" location="bottom">
             <template #activator="{ props }">
-              <RBtn v-bind="props" icon="mdi-sort-variant" variant="text" />
+              <RBtn v-bind="props" icon="mdi-sort-variant" variant="text" aria-label="Sort" />
             </template>
           </RTooltip>
           <RTooltip text="Search" location="bottom">
             <template #activator="{ props }">
-              <RBtn v-bind="props" icon="mdi-magnify" variant="text" />
+              <RBtn v-bind="props" icon="mdi-magnify" variant="text" aria-label="Search" />
             </template>
           </RTooltip>
           <RTooltip text="More actions" location="bottom">
             <template #activator="{ props }">
-              <RBtn v-bind="props" icon="mdi-dots-vertical" variant="text" />
+              <RBtn v-bind="props" icon="mdi-dots-vertical" variant="text" aria-label="More actions" />
             </template>
           </RTooltip>
         </div>

@@ -32,6 +32,7 @@ export const ROUTES = {
   ROM: "rom",
   EMULATORJS: "emulatorjs",
   RUFFLE: "ruffle",
+  STREAM: "stream",
   SCAN: "scan",
   UPLOAD: "upload",
   ACTIVITY: "activity",
@@ -266,6 +267,14 @@ const routes = [
         components: {
           default: () => import("@/views/Player/AprilFools.vue"),
           v2: v2For(ROUTES.APRIL_FOOLS),
+        },
+      },
+      {
+        path: "rom/:rom/stream",
+        name: ROUTES.STREAM,
+        components: {
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.STREAM),
         },
       },
       // Settings group — every settings route shares the same v2

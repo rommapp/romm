@@ -1,35 +1,29 @@
 <script setup lang="ts">
-// Combined Manual + Soundtrack + Screenshots tab for GameDetails.
+// Combined Manual + Screenshots + Artwork + Soundtrack tab for GameDetails.
+// This shell owns the subtab navigation (mirrored to `?subtab=`) and the
+// soundtrack panel; each other subtab is its own self-contained component
+// (ManualSubtab, ScreenshotsSubtab, ArtworkSubtab).
 //
-// Behaviour:
-//   * Subtabs always rendered; empty states drive the upload CTAs
-//   * Each panel doubles as a drag-and-drop target (same affordance as the
-//     Upload / Patcher views): drop files anywhere over the active panel to
-//     upload them
-//   * Hidden file inputs back the explicit upload buttons — manual upload
-//     routes through `showManualUploadTargetDialog` (dialog mounted in
-//     AppLayout); soundtrack upload goes through `romApi.uploadSoundtracks`
-//   * Re-download primary manual + delete manual both handled here
-//   * The screenshots subtab is its own component (ScreenshotsSubtab):
-//     ROM / Mine / Community sections with per-user public/private
+// Soundtrack behaviour:
+//   * Subtab always rendered; the empty state drives the upload CTA
+//   * The panel doubles as a drag-and-drop target (same affordance as the
+//     Upload / Patcher views): drop files anywhere over it to upload
+//   * Upload goes through `romApi.uploadSoundtracks`
 //
-// The PDF viewer + soundtrack player are reused from v1 for now.
-import { RBtn, RDropzone, RIcon, RSelect } from "@v2/lib";
+// The soundtrack player is reused from v1 for now.
+import { RBtn, RDropzone, RIcon } from "@v2/lib";
 import axios from "axios";
-import type { Emitter } from "mitt";
-import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
+import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import romApi from "@/services/api/rom";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
-import type { Events } from "@/types/emitter";
-import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
-const PdfViewer = defineAsyncComponent(
-  () => import("@/v2/components/GameDetails/PdfViewer.vue"),
+const ManualSubtab = defineAsyncComponent(
+  () => import("@/v2/components/GameDetails/ManualSubtab.vue"),
 );
 const SoundtrackPanel = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/SoundtrackPanel.vue"),
@@ -51,7 +45,6 @@ function errorMessage(err: unknown): string {
 }
 
 const props = defineProps<{ rom: DetailedRom }>();
-const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
@@ -109,75 +102,10 @@ watch(
   },
 );
 
-// ---------- Manual entries ----------
-type ManualEntry = {
-  id: string;
-  label: string;
-  url: string;
-  isPrimary: boolean;
-};
-
-const manualEntries = computed<ManualEntry[]>(() => {
-  const entries: ManualEntry[] = [];
-  const cacheBust = encodeURIComponent(props.rom.updated_at);
-  if (props.rom.has_manual && props.rom.path_manual) {
-    entries.push({
-      id: "primary",
-      label: t("rom.scraped-manual"),
-      url: `${FRONTEND_RESOURCES_PATH}/${props.rom.path_manual}?v=${cacheBust}`,
-      isPrimary: true,
-    });
-  }
-  for (const file of props.rom.files ?? []) {
-    if (file.category === "manual") {
-      entries.push({
-        id: `file-${file.id}`,
-        label: file.file_name.replace(/\.[^.]+$/, ""),
-        url: `/api/roms/${file.id}/files/content/${encodeURIComponent(
-          file.file_name,
-        )}?v=${cacheBust}`,
-        isPrimary: false,
-      });
-    }
-  }
-  return entries;
-});
-
-const selectedManualId = ref<string>("");
-let previousManualIds = new Set<string>();
-
-watch(
-  manualEntries,
-  (entries) => {
-    const currentIds = new Set(entries.map((e) => e.id));
-    if (entries.length === 0) {
-      selectedManualId.value = "";
-    } else {
-      // If a new entry appears after a prior snapshot, select it so the user
-      // lands on the manual they just uploaded.
-      const added = entries.filter((e) => !previousManualIds.has(e.id));
-      if (added.length > 0 && previousManualIds.size > 0) {
-        selectedManualId.value = added[added.length - 1].id;
-      } else if (!entries.some((e) => e.id === selectedManualId.value)) {
-        selectedManualId.value = entries[0].id;
-      }
-    }
-    previousManualIds = currentIds;
-  },
-  { immediate: true },
-);
-
-const selectedManual = computed(() =>
-  manualEntries.value.find((e) => e.id === selectedManualId.value),
-);
-const manualItems = computed(() =>
-  manualEntries.value.map((e) => ({ title: e.label, value: e.id })),
-);
-
 // ---------- Single-file -> folder conversion ----------
-// Soundtracks/manuals/screenshots live inside the ROM folder, so uploading one
-// to a single-file ROM promotes it to a folder ROM in place (the backend does
-// this automatically on upload). Warn first since it is not reversible.
+// Soundtracks live inside the ROM folder, so uploading one to a single-file
+// ROM promotes it to a folder ROM in place (the backend does this
+// automatically on upload). Warn first since it is not reversible.
 async function confirmFolderConversionIfNeeded(): Promise<boolean> {
   if (!props.rom.has_simple_single_file) return true;
   return confirm({
@@ -217,12 +145,10 @@ const subtabDefs = computed<SubtabDef[]>(() => [
 ]);
 
 // ---------- Upload / refresh plumbing ----------
-// The manual / soundtrack panels each use an RDropzone (CTA when empty,
-// overlay over the viewer / player when filled). The section header's
-// "upload" button opens the filled dropzone's picker via these refs.
-const manualDz = ref<InstanceType<typeof RDropzone> | null>(null);
+// The soundtrack panel uses an RDropzone (CTA when empty, overlay over the
+// player when filled). The section header's "upload" button opens the filled
+// dropzone's picker via this ref.
 const soundtrackDz = ref<InstanceType<typeof RDropzone> | null>(null);
-const redownloadingManual = ref(false);
 
 async function refreshRom() {
   try {
@@ -235,15 +161,6 @@ async function refreshRom() {
 }
 
 // ---------- File handlers (shared by file input + drag-and-drop) ----------
-// Manual upload routes through the target-selection dialog (mounted in
-// AppLayout): the user picks which platform/folder the manual belongs to,
-// so we hand off rather than uploading inline.
-async function handleManualFiles(files: File[]) {
-  if (files.length === 0) return;
-  if (!(await confirmFolderConversionIfNeeded())) return;
-  emitter?.emit("showManualUploadTargetDialog", { rom: props.rom, files });
-}
-
 async function handleSoundtrackFiles(files: File[]) {
   if (files.length === 0) return;
   if (!(await confirmFolderConversionIfNeeded())) return;
@@ -276,39 +193,6 @@ async function handleSoundtrackFiles(files: File[]) {
       timeout: 5000,
     });
   }
-}
-
-async function redownloadManual() {
-  if (redownloadingManual.value) return;
-  redownloadingManual.value = true;
-  try {
-    await romApi.redownloadManual({ romId: props.rom.id });
-    await refreshRom();
-    snackbar.success(t("rom.manual-redownloaded"), {
-      icon: "mdi-check-bold",
-    });
-  } catch (error: unknown) {
-    snackbar.error(
-      t("rom.manual-redownload-failed", { error: errorMessage(error) }),
-      {
-        icon: "mdi-close-circle",
-      },
-    );
-  } finally {
-    redownloadingManual.value = false;
-  }
-}
-
-function requestDeleteManual() {
-  const entry = selectedManual.value;
-  if (!entry) return;
-  emitter?.emit("showDeleteManualDialog", {
-    rom: props.rom,
-    isPrimary: entry.isPrimary,
-    fileId: entry.isPrimary
-      ? undefined
-      : Number(entry.id.replace(/^file-/, "")),
-  });
 }
 
 async function deleteSoundtrack(fileId: number) {
@@ -372,92 +256,16 @@ async function deleteSoundtrack(fileId: number) {
     </aside>
 
     <div class="r-v2-media__content">
-      <!-- All three subtab sections stay mounted (v-show, not v-if).
-           PdfViewer, SoundtrackPanel and ScreenshotsTab are heavy
-           defineAsyncComponent loads — un/remounting them on every
-           subtab switch causes a visible main-thread freeze (the PDF
-           parser is the worst offender). With v-show the cost is paid
-           once on Media tab entry and switching is a CSS toggle. -->
-      <!-- Manual subtab -->
+      <!-- All subtab sections stay mounted (v-show, not v-if). The manual,
+           soundtrack and screenshots panels are heavy defineAsyncComponent
+           loads — un/remounting them on every subtab switch causes a visible
+           main-thread freeze (the PDF parser is the worst offender). With
+           v-show the cost is paid once on Media tab entry and switching is a
+           CSS toggle. -->
+      <!-- Manual subtab — its own component (PDF / Markdown viewer with an
+           entry selector; scrolls independently). -->
       <section v-show="subTab === 'manual'" class="r-v2-media__panel">
-        <!-- The subtab label in the sidebar already names the section,
-             so the header skips a redundant title and just hosts the
-             entry selector (when multiple) + the Upload button. Delete
-             and Redownload live inside the PDF viewer's toolbar — they
-             act on the currently displayed entry, so colocating them
-             with Download reads as one action cluster. -->
-        <header
-          v-if="manualEntries.length > 0"
-          class="r-v2-media__section-head"
-        >
-          <RSelect
-            v-if="manualEntries.length > 1"
-            v-model="selectedManualId"
-            :items="manualItems"
-            density="compact"
-            variant="outlined"
-            hide-details
-            class="r-v2-media__manual-select"
-          />
-          <div class="r-v2-media__section-actions">
-            <RBtn
-              variant="outlined"
-              size="small"
-              prepend-icon="mdi-cloud-upload-outline"
-              @click="manualDz?.open()"
-            >
-              {{ t("common.upload") }}
-            </RBtn>
-          </div>
-        </header>
-
-        <RDropzone
-          v-if="manualEntries.length === 0"
-          :title="t('rom.manual-empty')"
-          :hint="t('common.dropzone-hint')"
-          :active-title="t('common.dropzone-drag-over')"
-          :input-label="t('rom.upload-manual')"
-          accept="application/pdf"
-          multiple
-          @files="handleManualFiles"
-        >
-          <template v-if="rom.url_manual" #actions>
-            <RBtn
-              variant="outlined"
-              prepend-icon="mdi-cloud-download-outline"
-              :loading="redownloadingManual"
-              :disabled="redownloadingManual"
-              @click.stop="redownloadManual"
-            >
-              {{ t("rom.redownload") }}
-            </RBtn>
-          </template>
-        </RDropzone>
-
-        <RDropzone
-          v-else
-          ref="manualDz"
-          overlay
-          class="r-v2-media__fill"
-          :release-label="t('common.dropzone-drag-over')"
-          :input-label="t('rom.upload-manual')"
-          accept="application/pdf"
-          multiple
-          @files="handleManualFiles"
-        >
-          <div class="r-v2-media__viewer">
-            <PdfViewer
-              v-if="selectedManual"
-              :key="`${selectedManual.id}-${rom.updated_at}`"
-              :pdf-url="selectedManual.url"
-              deletable
-              :redownloadable="!!rom.url_manual"
-              :redownloading="redownloadingManual"
-              @delete="requestDeleteManual"
-              @redownload="redownloadManual"
-            />
-          </div>
-        </RDropzone>
+        <ManualSubtab :rom="rom" />
       </section>
 
       <!-- Screenshots subtab — its own component (ROM / Mine / Community
@@ -474,19 +282,6 @@ async function deleteSoundtrack(fileId: number) {
 
       <!-- Soundtrack subtab -->
       <section v-show="subTab === 'soundtrack'" class="r-v2-media__panel">
-        <header v-if="rom.has_soundtrack" class="r-v2-media__section-head">
-          <div class="r-v2-media__section-actions">
-            <RBtn
-              variant="outlined"
-              size="small"
-              prepend-icon="mdi-cloud-upload-outline"
-              @click="soundtrackDz?.open()"
-            >
-              {{ t("common.upload") }}
-            </RBtn>
-          </div>
-        </header>
-
         <RDropzone
           v-if="!rom.has_soundtrack"
           :title="t('rom.soundtrack-empty')"
@@ -516,6 +311,20 @@ async function deleteSoundtrack(fileId: number) {
             @delete-track="deleteSoundtrack"
           />
         </RDropzone>
+
+        <div v-if="rom.has_soundtrack">
+          <div class="r-v2-media__section-actions">
+            <RBtn
+              block
+              variant="outlined"
+              size="small"
+              prepend-icon="mdi-cloud-upload-outline"
+              @click="soundtrackDz?.open()"
+            >
+              {{ t("common.upload") }}
+            </RBtn>
+          </div>
+        </div>
       </section>
     </div>
   </div>
@@ -596,8 +405,8 @@ async function deleteSoundtrack(fileId: number) {
 }
 
 /* Panels — each subtab section fills the content height so its
-   children (PDF viewer / soundtrack / screenshots) can stretch
-   to 100% without forcing an outer scrollbar. */
+   children (manual / soundtrack / screenshots) can stretch to 100%
+   without forcing an outer scrollbar. */
 .r-v2-media__panel {
   display: flex;
   flex-direction: column;
@@ -606,16 +415,9 @@ async function deleteSoundtrack(fileId: number) {
   min-height: 0;
 }
 
-/* Section header — toolbar row. The sidebar's subtab label already
+/* Section footer. The sidebar's subtab label already
    names the section, so the header skips the title and hosts the
-   contextual controls only: the manual entry selector on the left
-   (when relevant) and the action cluster pushed to the right. */
-.r-v2-media__section-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
+   contextual controls only: the action cluster pushed to the right. */
 .r-v2-media__section-actions {
   margin-left: auto;
   display: flex;
@@ -625,16 +427,8 @@ async function deleteSoundtrack(fileId: number) {
   justify-content: flex-end;
 }
 
-/* Manual entry selector — capped width so it doesn't stretch to
-   fill the row when the action cluster is light. */
-.r-v2-media__manual-select {
-  max-width: 360px;
-  min-width: 200px;
-  flex-shrink: 1;
-}
-
-/* Overlay-mode RDropzone wrapping the PDF viewer must fill the panel
-   height so the inner viewer can stretch to 100%. */
+/* Overlay-mode RDropzone wrapping the soundtrack player must fill the
+   panel height so the inner player can stretch to 100%. */
 .r-v2-media__fill {
   flex: 1;
   min-height: 0;
@@ -648,17 +442,6 @@ html[data-bp~="xs"] .r-v2-media {
 }
 html[data-bp~="xs"] .r-v2-media__sidebar {
   width: auto;
-}
-
-/* Manual viewer — fills the available panel height so the inner PDF
-   uses 100% and only its own scroll triggers (no outer panel scroll). */
-.r-v2-media__viewer {
-  flex: 1;
-  min-height: 0;
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-md);
-  overflow: hidden;
-  background: var(--r-color-bg-elevated);
 }
 
 /* Soundtrack — the v1 player has its own internal styling; wrap in an

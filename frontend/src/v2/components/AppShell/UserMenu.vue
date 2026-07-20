@@ -101,8 +101,7 @@ async function onLogout() {
     snackbar.success("Logged out", { icon: "mdi-check-bold" });
     await router.push({ name: ROUTES.LOGIN });
     const pinia = getActivePinia() as
-      | { _s?: Map<string, { reset?: () => void } & StateTree> }
-      | undefined;
+      { _s?: Map<string, { reset?: () => void } & StateTree> } | undefined;
     pinia?._s?.forEach((store) => {
       store.reset?.();
     });

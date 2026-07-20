@@ -160,6 +160,7 @@ const {
   filterRA,
   filterSaves,
   filterStates,
+  filterSoundtrack,
   selectedPlatforms,
   selectedGenres,
   selectedFranchises,
@@ -172,6 +173,17 @@ const {
   selectedMetadataProviders,
   selectedTags,
   selectedStatuses,
+  genresLogic,
+  franchisesLogic,
+  collectionsLogic,
+  companiesLogic,
+  ageRatingsLogic,
+  regionsLogic,
+  languagesLogic,
+  playerCountsLogic,
+  metadataProvidersLogic,
+  tagsLogic,
+  statusesLogic,
 } = storeToRefs(galleryFilterStore);
 
 // Drawer open state — bound to FilterDrawer via v-model.
@@ -192,6 +204,7 @@ const filterActiveCount = computed(() => {
   if (filterRA.value !== null) n += 1;
   if (filterSaves.value !== null) n += 1;
   if (filterStates.value !== null) n += 1;
+  if (filterSoundtrack.value !== null) n += 1;
   if (selectedPlatforms.value.length > 0) n += 1;
   for (const arr of [
     selectedGenres,
@@ -227,6 +240,7 @@ watch(
     filterRA,
     filterSaves,
     filterStates,
+    filterSoundtrack,
     selectedPlatforms,
     selectedGenres,
     selectedFranchises,
@@ -239,6 +253,17 @@ watch(
     selectedMetadataProviders,
     selectedTags,
     selectedStatuses,
+    genresLogic,
+    franchisesLogic,
+    collectionsLogic,
+    companiesLogic,
+    ageRatingsLogic,
+    regionsLogic,
+    languagesLogic,
+    playerCountsLogic,
+    metadataProvidersLogic,
+    tagsLogic,
+    statusesLogic,
   ],
   () => {
     galleryRoms.invalidateWindows();
@@ -551,25 +576,20 @@ const currentLetter = computed<string>(() => {
   return "";
 });
 
-// Per-card viewport-driven fetch. The shell tracks which positions
-// are currently visible (from the rows in `viewportRange`) and keeps
-// `byPosition` in sync via per-card `getRom(id)` calls — pure by-id
-// DB lookups on the backend, much faster than the paginated
-// `getRoms(limit/offset)` pipeline. Each fetch is independent, so
-// covers stream in as their individual responses land.
+// Viewport-driven windowed fetch. The shell collects which positions are
+// currently visible (from the rows in `viewportRange`, for both grid and
+// list layouts) and hands them to the store's `syncVisibleWindows`, which
+// aligns each to its shared 72-item window, dedupes, starts the windows
+// covering the viewport, and cancels any that scrolled out of view.
+// Batching visible cards into a handful of paginated `getRoms` requests
+// (instead of one request per card) is what keeps a fast scroll — or two
+// users scrolling at once — from flooding the single-worker backend.
 //
-// No idle-time prefetch: when the user stops scrolling, no new
-// requests are fired. Cards already in the viewport that are still
-// missing keep loading; everything off-screen waits until the user
-// scrolls there.
-//
-// Cancellation: positions that leave the viewport while their fetch
-// is in flight are aborted via `cancelFetchAt`. A small debounce on
-// viewport changes prevents fire-and-cancel storms during smooth
-// scrolling — only when the viewport settles for `FETCH_DEBOUNCE_MS`
-// do we sync.
+// A small debounce on viewport changes prevents fire-and-cancel storms
+// during smooth scrolling — only when the viewport settles for
+// `FETCH_DEBOUNCE_MS` do we sync. Both layouts share this one path, so the
+// list is debounced too (list rows no longer self-fetch on mount).
 const FETCH_DEBOUNCE_MS = 80;
-const visiblePositions = new Set<number>();
 let fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingRange: { first: number; last: number } | null = null;
 
@@ -582,34 +602,20 @@ function collectVisiblePositions(range: {
   const items = virtualItems.value;
   for (let i = range.first; i <= range.last; i++) {
     const it = items[i];
-    if (!it || it.kind !== "row") continue;
-    for (let p = it.startPosition; p < it.endPosition; p++) out.add(p);
+    if (!it) continue;
+    // Grid rows fan out into a contiguous run of card positions; list rows
+    // carry a single position each.
+    if (it.kind === "row") {
+      for (let p = it.startPosition; p < it.endPosition; p++) out.add(p);
+    } else if (it.kind === "list-row") {
+      out.add(it.position);
+    }
   }
   return out;
 }
 
 function syncFetches(range: { first: number; last: number }) {
-  const next = collectVisiblePositions(range);
-
-  // Cancel positions that left the viewport before their fetch
-  // resolved. The store's per-position controller handles the network
-  // abort; idempotent if nothing was in flight.
-  for (const p of visiblePositions) {
-    if (!next.has(p) && !galleryRoms.byPosition.has(p)) {
-      galleryRoms.cancelFetchAt(p);
-    }
-  }
-
-  // Fire per-card fetches for positions that just entered. The store
-  // dedupes against in-flight + already-loaded internally.
-  for (const p of next) {
-    if (!galleryRoms.byPosition.has(p)) {
-      void galleryRoms.fetchRomAt(p);
-    }
-  }
-
-  visiblePositions.clear();
-  for (const p of next) visiblePositions.add(p);
+  galleryRoms.syncVisibleWindows(collectVisiblePositions(range));
 }
 
 function scheduleFetchSync(range: { first: number; last: number }) {
@@ -625,11 +631,10 @@ function scheduleFetchSync(range: { first: number; last: number }) {
 }
 
 // When the virtualItems list itself changes (gallery context switch,
-// search invalidate), drop the visible-position bookkeeping. The
-// store's `invalidateWindows` / `resetGallery` already aborts every
-// in-flight request, so we just clear local state.
+// search invalidate), drop the pending debounced sync. The store's
+// `invalidateWindows` / `resetGallery` already aborts every in-flight
+// request, so we just clear local state.
 watch(virtualItems, () => {
-  visiblePositions.clear();
   if (fetchDebounceTimer) {
     clearTimeout(fetchDebounceTimer);
     fetchDebounceTimer = null;
@@ -663,9 +668,9 @@ function scrollToLetter(letter: string) {
     toolbarHeight.value + (layout.value === "list" ? LIST_HEADER_HEIGHT : 0);
   scrollerRef.value?.scrollToIndex(idx, { smooth: true, stickyOffset });
   // The viewport-driven fetch sync handles the destination — once the
-  // smooth scroll settles, `update:viewportRange` fires and the cards
-  // at the landing zone start loading via `syncFetches` (grid) or via
-  // each `GameListRow`'s onMounted (list). No manual prefetch needed.
+  // smooth scroll settles, `update:viewportRange` fires and the windows at
+  // the landing zone start loading via `syncFetches` (both layouts). No
+  // manual prefetch needed.
 }
 
 // ── Search filter (debounced) ───────────────────────────────────────
@@ -792,13 +797,10 @@ onBeforeUnmount(() => {
   gallerySelection.clear();
   if (searchDebounce) clearTimeout(searchDebounce);
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
-  // Cancel any per-position fetches still in flight for our last
-  // visible set — `invalidateWindows` / `resetGallery` already aborts
-  // window-level fetches; this covers per-card cleanup on unmount.
-  for (const p of visiblePositions) {
-    if (!galleryRoms.byPosition.has(p)) galleryRoms.cancelFetchAt(p);
-  }
-  visiblePositions.clear();
+  // When leaving the gallery entirely, stop any in-flight window fetches so
+  // navigating away mid-scroll doesn't keep the network / backend busy.
+  // Keeps the hydrated cache so returning to the same gallery is instant.
+  galleryRoms.abortInFlight();
   inflowResizeObserver?.disconnect();
   inflowResizeObserver = null;
   // Drop the debug stats so the overlay doesn't show stale gallery numbers
@@ -878,6 +880,7 @@ defineExpose({
       :overscan="virtualOverscan"
       :min-content-width="layout === 'list' ? listMinWidth : undefined"
       class="r-v2-shell__scroller r-v2-scroll-hidden"
+      :tabindex="-1"
       @update:viewport-range="onViewportRangeChange"
     >
       <!-- HEADER (Section 1) + INFLOW TOOLBAR (Section 2 — first

@@ -652,7 +652,9 @@ class TestCalculateGamecubeRaHash:
             RvzBuilder(bytes(disc), disc_type=1, compression=compression).build()
         )
 
-        assert calculate_gamecube_ra_hash(str(path)) == reference_gamecube_hash(disc)
+        assert calculate_gamecube_ra_hash(str(path)) == reference_gamecube_hash(
+            bytes(disc)
+        )
 
     def test_wia_container_matches_reference_hash(self, tmp_path):
         """WIA (chunk >= 2 MiB, 8-byte group entries) hashes like its RVZ twin."""
@@ -668,7 +670,9 @@ class TestCalculateGamecubeRaHash:
             ).build()
         )
 
-        assert calculate_gamecube_ra_hash(str(path)) == reference_gamecube_hash(disc)
+        assert calculate_gamecube_ra_hash(str(path)) == reference_gamecube_hash(
+            bytes(disc)
+        )
 
     def test_groups_stored_raw_despite_compressed_codec(self, tmp_path):
         """RVZ groups without the MSB flag are stored raw even in a zstd file."""
@@ -683,7 +687,9 @@ class TestCalculateGamecubeRaHash:
             ).build()
         )
 
-        assert calculate_gamecube_ra_hash(str(path)) == reference_gamecube_hash(disc)
+        assert calculate_gamecube_ra_hash(str(path)) == reference_gamecube_hash(
+            bytes(disc)
+        )
 
     def test_zero_groups_decode_as_zeroes(self, tmp_path):
         """An all-zero chunk is stored with data_size 0 and must read as zeroes."""
@@ -693,7 +699,9 @@ class TestCalculateGamecubeRaHash:
         path = tmp_path / "game.rvz"
         path.write_bytes(RvzBuilder(bytes(disc), disc_type=1).build())
 
-        assert calculate_gamecube_ra_hash(str(path)) == reference_gamecube_hash(disc)
+        assert calculate_gamecube_ra_hash(str(path)) == reference_gamecube_hash(
+            bytes(disc)
+        )
 
     def test_rvz_packed_junk_regenerates_original_bytes(self, tmp_path):
         """A junk-packed run must regenerate the PRNG bytes the disc held."""
@@ -717,7 +725,9 @@ class TestCalculateGamecubeRaHash:
             ).build()
         )
 
-        assert calculate_gamecube_ra_hash(str(path)) == reference_gamecube_hash(disc)
+        assert calculate_gamecube_ra_hash(str(path)) == reference_gamecube_hash(
+            bytes(disc)
+        )
 
     def test_returns_empty_for_non_gamecube_disc(self, tmp_path):
         """A Wii disc in the GameCube hasher fails the magic check."""

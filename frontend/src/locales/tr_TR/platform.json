@@ -29,6 +29,9 @@
   "franchise": "Franchise",
   "generation": "Nesil",
   "genre": "Tür",
+  "has-saves": "Kayıtları var",
+  "has-soundtrack": "Film müziği var",
+  "has-states": "Durum kayıtları var",
   "in-library": "Kütüphanede",
   "language": "Dil",
   "local-source": "Yerel",
@@ -67,6 +70,7 @@
   "show-matched-only": "Yalnızca eşleşen ROM'ları göster",
   "show-missing": "Eksik olanları göster",
   "show-missing-only": "Yalnızca eksik ROM'ları göster",
+  "show-no-soundtrack-only": "Yalnızca film müziği olmayan ROM'ları göster",
   "show-not-duplicates-only": "Yalnızca kopya olmayan ROM'ları göster",
   "show-not-favorites-only": "Yalnızca favori olmayan ROM'ları göster",
   "show-not-missing-only": "Yalnızca eksik olmayan ROM'ları göster",
@@ -80,6 +84,7 @@
   "show-ra": "RetroAchievements göster",
   "show-ra-only": "Yalnızca RetroAchievements olan ROM'ları göster",
   "show-saves-only": "Yalnızca kayıtları olan ROM'ları göster",
+  "show-soundtrack-only": "Yalnızca film müziği olan ROM'ları göster",
   "show-states-only": "Yalnızca durum kayıtları olan ROM'ları göster",
   "show-unmatched": "Eşleşmeyenleri göster",
   "show-unmatched-only": "Yalnızca eşleşmeyen ROM'ları göster",
@@ -91,7 +96,5 @@
   "tags": "Etiketler",
   "updated": "Platform güncellendi",
   "upload-firmware": "Firmware yükle",
-  "upload-roms": "ROM yükle",
-  "has-saves": "Kayıtları var",
-  "has-states": "Durum kayıtları var"
+  "upload-roms": "ROM yükle"
 }

@@ -530,6 +530,53 @@ def test_bulk_mark_present(platform: Platform):
         assert updated.missing_from_fs is True
 
 
+def test_bulk_mark_present_skips_already_present(platform: Platform):
+    """bulk_mark_present leaves updated_at untouched for already-present ROMs.
+
+    Regression: an unchanged (already present) ROM must not be re-stamped on
+    each scan, so `updated_after`-based incremental consumers stay usable.
+    """
+    present = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="rom_present",
+            slug="rom-present",
+            fs_name="rom_present.zip",
+            fs_name_no_tags="rom_present",
+            fs_name_no_ext="rom_present",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            missing_from_fs=False,
+        )
+    )
+    missing = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="rom_missing",
+            slug="rom-missing",
+            fs_name="rom_missing.zip",
+            fs_name_no_tags="rom_missing",
+            fs_name_no_ext="rom_missing",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            missing_from_fs=True,
+        )
+    )
+
+    present_updated_at = db_rom_handler.get_rom(present.id).updated_at
+
+    db_rom_handler.bulk_mark_present(platform.id, [present.id, missing.id])
+
+    # Already-present ROM is not re-stamped.
+    present_after = db_rom_handler.get_rom(present.id)
+    assert present_after.missing_from_fs is False
+    assert present_after.updated_at == present_updated_at
+
+    # Actually-missing ROM is flipped to present.
+    missing_after = db_rom_handler.get_rom(missing.id)
+    assert missing_after.missing_from_fs is False
+
+
 def test_bulk_mark_present_empty_list(platform: Platform):
     """bulk_mark_present with an empty list is a no-op."""
     rom = db_rom_handler.add_rom(

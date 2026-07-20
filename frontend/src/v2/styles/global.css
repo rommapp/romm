@@ -145,6 +145,9 @@ html[data-input="pad"] .r-v2 * {
 .r-v2-bg__layer {
   position: absolute;
   inset: 0;
+  /* Fallback art when no cover is set (settings, admin, etc.). Kept in CSS
+     rather than inline so Firefox can swap it for the static variant below. */
+  background-image: url("/assets/auth_background.svg");
   background-size: cover;
   background-position: center 20%;
   background-repeat: no-repeat;
@@ -152,6 +155,17 @@ html[data-input="pad"] .r-v2 * {
   transform: scale(1.08);
   transition: opacity 0.7s ease;
   will-change: opacity;
+}
+
+/* Firefox: the animated fallback SVG is re-rasterized every frame under the
+   28px blur (and re-sampled by every backdrop-filter surface), pegging the
+   WebRender backend. Use the static variant in Gecko only (the empty
+   `url-prefix()` hack matches all Firefox pages and stays enabled by
+   default). Cover art is raster, so it's unaffected. */
+@-moz-document url-prefix() {
+  .r-v2-bg__layer {
+    background-image: url("/assets/auth_background_static.svg");
+  }
 }
 
 .r-v2-bg__layer--a {
@@ -168,6 +182,39 @@ html[data-input="pad"] .r-v2 * {
    soft frosted backdrop rather than a busy field. */
 .r-v2-light .r-v2-bg__layer {
   filter: blur(28px) brightness(1.12) saturate(0.7);
+}
+
+/* Reduced-motion mode (Settings, per device; defaults to the OS
+   `prefers-reduced-motion`): the backdrop art is authored to be read only
+   through the 28px blur — unblurred it shows hard seams and a bright diagonal
+   wedge. And a full-viewport blur(28px) is one of the heaviest things we ask
+   of the GPU (see the Firefox note above). So drop the whole fixed art +
+   overlay stack and let the solid page background (`.r-v2` bg) show through:
+   cheaper, and no weird seam. */
+html.r-v2-reduced-motion .r-v2-bg,
+html.r-v2-reduced-motion .r-v2-bg__overlay {
+  display: none;
+}
+
+/* The OS `prefers-reduced-motion` query is honored per-component (each R*
+   primitive / overlay carries its own tuned fallback), but a CSS class cannot
+   trigger those media blocks, and this toggle must also work when the user
+   forces it while the OS setting is off. So neutralize animation / transition
+   here globally: it kills continuously-running keyframes (CRT flicker, disc
+   spins, skeleton shimmer, spinners, scan pulses) that tax weak GPUs, and
+   collapses one-shot transitions. Near-zero (not zero) durations so JS still
+   gets its `transitionend` / `animationend` and Vue `<transition>` teardown
+   fires. `!important` intentionally overrides inline JS-set transitions (e.g.
+   RExpandTransition). JS-driven motion (the cover CD-spin, view-transition
+   morphs) is gated separately in its composables. */
+html.r-v2-reduced-motion *,
+html.r-v2-reduced-motion *::before,
+html.r-v2-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
 }
 
 .r-v2-bg__overlay {

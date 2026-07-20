@@ -79,7 +79,13 @@ export const Indeterminate: Story = {
   args: { label: "Some items selected", indeterminate: true },
 };
 
-export const NoLabel: Story = { args: {} };
+export const NoLabel: Story = {
+  render: () => ({
+    components: { RCheckbox },
+    setup: () => ({ value: ref(false) }),
+    template: `<RCheckbox v-model="value" aria-label="Accept" />`,
+  }),
+};
 
 // ── Multi-state ─────────────────────────────────────────────────────
 

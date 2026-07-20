@@ -19,7 +19,8 @@
 // fight the eased slide).
 //
 // All motion is gated by the user's `disableAnimations` setting (via
-// `motionEnabled`) AND the OS `prefers-reduced-motion`.
+// `motionEnabled`) AND reduced-motion mode (OS `prefers-reduced-motion` plus
+// the user's low-power override, via `useReducedMotion`).
 import {
   computed,
   onBeforeUnmount,
@@ -28,6 +29,7 @@ import {
   type ComputedRef,
   type Ref,
 } from "vue";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
 export interface SpinConfig {
   /** Top rotational speed, deg/sec. */
@@ -78,15 +80,6 @@ export function stepSpin(
   return { angle, velocity };
 }
 
-/** True when the OS asks for reduced motion. */
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
-
 export interface UseCoverAnimationOptions {
   /** The cover <img> element (the thing that spins / slides). */
   el: Ref<HTMLElement | null>;
@@ -121,8 +114,10 @@ export interface UseCoverAnimation {
 export function useCoverAnimation(
   opts: UseCoverAnimationOptions,
 ): UseCoverAnimation {
+  // Reactive, so the spin/video stops the instant either input flips.
+  const { enabled: reducedMotion } = useReducedMotion();
   const motionOk = computed(
-    () => opts.motionEnabled.value && !prefersReducedMotion(),
+    () => opts.motionEnabled.value && !reducedMotion.value,
   );
 
   // The slide (`margin-top`) is eased in CSS (`.game-cover__img`) so it

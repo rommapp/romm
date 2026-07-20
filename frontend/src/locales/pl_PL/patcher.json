@@ -16,7 +16,6 @@
   "error-upload-failed": "Nie można przesłać ROM: {error}",
   "missing-from-fs": "Missing from filesystem",
   "no-files": "This ROM has no files.",
-  "no-patch-files": "No supported patch files found on this ROM.",
   "output-filename": "Nazwa pliku wyjściowego (opcjonalnie)",
   "patch-file": "Plik łatki",
   "powered-by": "Napędzane przez patcherjs",

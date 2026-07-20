@@ -301,6 +301,12 @@ watch(
   /* Shrink-wrap the card's natural width and never shrink below it (a fixed
      -height card shrunk on the cross axis would crop its cover). */
   flex: 0 0 auto;
+  /* Lay the card out as a flex item (not a block child). GameCard derives its
+     width from a fixed height via the cover's `aspect-ratio`; as a block child
+     of a shrink-to-fit cell that width resolution is circular, and WebKit
+     (Safari) collapses it to a thin sliver. Flex intrinsic sizing resolves it
+     correctly, the same path the gallery row already relies on. */
+  display: flex;
   /* …but never wider than the grid: a wide cover (landscape provider art, or
      a card wider than a narrow phone) draws its width from the cover aspect
      and is otherwise unbounded, so it would spill past the right edge. Cap it

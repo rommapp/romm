@@ -32,12 +32,7 @@ import {
 } from "@/utils/covers";
 
 type FocusZone =
-  | "play"
-  | "description"
-  | "details"
-  | "shots"
-  | "lightbox"
-  | "states";
+  "play" | "description" | "details" | "shots" | "lightbox" | "states";
 
 type PlayerState = "loading" | "unsupported" | "error" | "ready";
 

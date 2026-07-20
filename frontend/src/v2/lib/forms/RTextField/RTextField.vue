@@ -58,6 +58,12 @@ interface Props {
   /** Tooltip text shown on hover/focus over the append-inner
    *  adornment. The canonical use is the password-reveal eye icon. */
   appendInnerTooltip?: string;
+  /** Accessible name for the interactive prepend-inner adornment button.
+   *  Falls back to `prependInnerTooltip`. */
+  prependInnerLabel?: string;
+  /** Accessible name for the interactive append-inner adornment button.
+   *  Falls back to `appendInnerTooltip`. */
+  appendInnerLabel?: string;
   autocomplete?: string;
   name?: string;
   rules?: Rule[];
@@ -111,6 +117,8 @@ const props = withDefaults(defineProps<Props>(), {
   appendInnerIcon: undefined,
   prependInnerTooltip: undefined,
   appendInnerTooltip: undefined,
+  prependInnerLabel: undefined,
+  appendInnerLabel: undefined,
   autocomplete: undefined,
   name: undefined,
   rules: () => [],
@@ -357,6 +365,14 @@ function hasListener(name: string): boolean {
 const prependInteractive = computed(() => hasListener("click:prepend-inner"));
 const appendInteractive = computed(() => hasListener("click:append-inner"));
 
+// Interactive adornments are real buttons; name them (label, else tooltip).
+const prependAdornmentLabel = computed(
+  () => props.prependInnerLabel ?? props.prependInnerTooltip,
+);
+const appendAdornmentLabel = computed(
+  () => props.appendInnerLabel ?? props.appendInnerTooltip,
+);
+
 function onPrependInnerClick(evt: MouseEvent) {
   // Always emit — emit() is a no-op when nothing's subscribed. The
   // listener-detection above only governs the visual treatment
@@ -424,6 +440,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         :class="{ 'r-text-field__adornment--interactive': prependInteractive }"
         :type="prependInteractive ? 'button' : undefined"
         :tabindex="prependInteractive ? 0 : undefined"
+        :aria-label="prependInteractive ? prependAdornmentLabel : undefined"
         @mousedown.prevent
         @click="onPrependInnerClick"
       >
@@ -504,6 +521,11 @@ function onAppendInnerClick(evt: MouseEvent) {
         "
         :tabindex="
           appendInteractive && !showLoading && !showClear ? 0 : undefined
+        "
+        :aria-label="
+          appendInteractive && !showLoading && !showClear
+            ? appendAdornmentLabel
+            : undefined
         "
         @mousedown.prevent
         @click="onAppendInnerClick"

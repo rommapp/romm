@@ -1,16 +1,27 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi import HTTPException, status
 
 from handler.database import db_platform_handler, db_rom_handler
+from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_hasheous_handler,
+    meta_moby_handler,
     meta_playmatch_handler,
     meta_ra_handler,
+    meta_sgdb_handler,
+    meta_ss_handler,
 )
 from handler.metadata.hasheous_handler import HasheousRom
 from handler.metadata.ra_handler import RAGameRom
-from handler.scan_handler import MetadataSource, ScanType, scan_platform, scan_rom
+from handler.metadata.ss_handler import SSRom
+from handler.scan_handler import (
+    MetadataSource,
+    ScanType,
+    scan_platform,
+    scan_rom,
+)
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from utils.context import initialize_context
@@ -438,6 +449,64 @@ async def test_scan_rom_unmatched_preserves_custom_name(
     assert result.name == "My Custom Title"
 
 
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_unmatched_no_match_uses_parsed_name(
+    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+):
+    """UNMATCHED scan that still finds no provider match must heal a raw-filename
+    placeholder into the parsed name (tags and extension stripped), so the title
+    is clean and a follow-up search uses the parsed name."""
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    mock_lookup.return_value = no_match
+    mock_get_igdb.return_value = no_match
+    mock_get_ra.return_value = no_match
+
+    platform = Platform(
+        id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, hasheous_id=64
+    )
+    platform = db_platform_handler.add_platform(platform)
+
+    # Legacy ROM created before the fix: name holds the raw filename.
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Snow Brothers (USA).zip",
+        fs_name_no_tags="Snow Brothers",
+        fs_name_no_ext="Snow Brothers (USA)",
+        fs_extension="zip",
+        fs_path="n64/Snow Brothers (USA)",
+        name="Snow Brothers (USA).zip",
+        fs_size_bytes=1024,
+        tags=[],
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.UNMATCHED,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Snow Brothers (USA).zip",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.HASHEOUS],
+            newly_added=False,
+        )
+
+    assert result.hasheous_id is None
+    # The raw filename placeholder must be replaced by the parsed name.
+    assert result.name == "Snow Brothers"
+
+
 def _top_level_rom_file(**kwargs) -> RomFile:
     """Build a RomFile whose `is_top_level` cached_property is pre-seeded to
     True, so it passes lookup_rom's filtering without a persisted rom."""
@@ -503,3 +572,151 @@ async def test_lookup_rom_skips_request_when_no_hashes(mock_is_enabled, mock_req
 
     assert result["hasheous_id"] is None
     mock_request.assert_not_called()
+
+
+def _ss_quota_platform() -> Platform:
+    platform = Platform(
+        id=1,
+        slug="snes",
+        fs_slug="snes",
+        name="Super Nintendo",
+        ss_id=4,
+        moby_id=15,
+    )
+    return db_platform_handler.add_platform(platform)
+
+
+def _ss_quota_fs_rom(fs_name: str) -> FSRom:
+    return {
+        "fs_name": fs_name,
+        "flat": True,
+        "nested": False,
+        "files": [],
+        "crc_hash": "",
+        "md5_hash": "",
+        "sha1_hash": "",
+        "ra_hash": "",
+    }
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_moby_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_provider_error_does_not_discard_others(
+    mock_ss_lookup, mock_moby_get_rom, mock_playmatch_enabled
+):
+    """An unexpected error from one provider must not wipe the others' results."""
+    mock_moby_get_rom.side_effect = ValueError("boom")
+    mock_ss_lookup.return_value = (SSRom(ss_id=321, name="Match"), False)
+
+    platform = _ss_quota_platform()
+    rom = db_rom_handler.add_rom(
+        Rom(platform_id=platform.id, fs_name="game.sfc", fs_path="snes", tags=[])
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("game.sfc"),
+            metadata_sources=[MetadataSource.SS, MetadataSource.MOBY],
+            newly_added=True,
+        )
+
+    # MobyGames blew up, but ScreenScraper's match survived.
+    assert result.ss_id == 321
+    assert result.moby_id is None
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_sgdb_handler, "is_enabled", return_value=True)
+@patch.object(meta_sgdb_handler.sgdb_service, "search_games", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_sgdb_error_does_not_abort_scan(
+    mock_ss_lookup, mock_sgdb_search, mock_sgdb_enabled, mock_playmatch_enabled
+):
+    """SteamGridDB runs after the other providers; a failure there (issue #2236)
+    must resolve to an empty match in the handler instead of aborting the scan
+    or discarding the metadata already gathered."""
+    mock_ss_lookup.return_value = (SSRom(ss_id=321, name="Match"), False)
+    mock_sgdb_search.side_effect = ValueError("boom")
+
+    platform = _ss_quota_platform()
+    rom = db_rom_handler.add_rom(
+        Rom(platform_id=platform.id, fs_name="game.sfc", fs_path="snes", tags=[])
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("game.sfc"),
+            metadata_sources=[MetadataSource.SS, MetadataSource.SGDB],
+            newly_added=True,
+        )
+
+    # SteamGridDB was attempted and blew up, but the ROM kept ScreenScraper's match.
+    mock_sgdb_search.assert_awaited_once()
+    assert type(result) is Rom
+    assert result.ss_id == 321
+    assert result.sgdb_id is None
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_hasheous_handler, "is_enabled", return_value=True)
+@patch.object(meta_hasheous_handler, "_request", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_hash_match_error_does_not_abort_scan(
+    mock_ss_lookup,
+    mock_hasheous_request,
+    mock_hasheous_enabled,
+    mock_playmatch_enabled,
+):
+    """A failure in the concurrent hash-match step (e.g. Hasheous unreachable,
+    issue #2236) must resolve to an empty match in the handler instead of
+    aborting the scan for the ROM."""
+    mock_hasheous_request.side_effect = HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Can't connect to Hasheous, check your internet connection",
+    )
+    mock_ss_lookup.return_value = (SSRom(ss_id=321, name="Match"), False)
+
+    platform = db_platform_handler.add_platform(
+        Platform(
+            id=1,
+            slug="snes",
+            fs_slug="snes",
+            name="Super Nintendo",
+            ss_id=4,
+            hasheous_id=7,
+        )
+    )
+    rom = db_rom_handler.add_rom(
+        Rom(platform_id=platform.id, fs_name="game.sfc", fs_path="snes", tags=[])
+    )
+    fs_rom = _ss_quota_fs_rom("game.sfc")
+    fs_rom["files"] = [
+        _top_level_rom_file(
+            file_name="game.sfc",
+            file_size_bytes=1024,
+            md5_hash="somemd5hash",
+        )
+    ]
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=fs_rom,
+            metadata_sources=[MetadataSource.HASHEOUS, MetadataSource.SS],
+            newly_added=True,
+        )
+
+    # The Hasheous hash lookup raised, but ScreenScraper still identified the ROM.
+    mock_hasheous_request.assert_awaited_once()
+    assert type(result) is Rom
+    assert result.ss_id == 321
+    assert result.hasheous_id is None

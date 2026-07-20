@@ -42,6 +42,10 @@ def get_config(request: Request) -> ConfigResponse:
     return ConfigResponse(
         CONFIG_FILE_MOUNTED=cfg.CONFIG_FILE_MOUNTED,
         CONFIG_FILE_WRITABLE=cfg.CONFIG_FILE_WRITABLE,
+        # Raw parser error may leak the config file path, so only send when authenticated
+        CONFIG_FILE_PARSE_ERROR=(
+            cfg.CONFIG_FILE_PARSE_ERROR if request.user.is_authenticated else None
+        ),
         EXCLUDED_PLATFORMS=cfg.EXCLUDED_PLATFORMS,
         EXCLUDED_SINGLE_EXT=cfg.EXCLUDED_SINGLE_EXT,
         EXCLUDED_SINGLE_FILES=cfg.EXCLUDED_SINGLE_FILES,
@@ -67,6 +71,7 @@ def get_config(request: Request) -> ConfigResponse:
         EJS_SETTINGS=cfg.EJS_SETTINGS,
         SCAN_METADATA_PRIORITY=cfg.SCAN_METADATA_PRIORITY,
         SCAN_ARTWORK_PRIORITY=cfg.SCAN_ARTWORK_PRIORITY,
+        SCAN_ARTWORK_PRIORITY_OVERRIDES=cfg.SCAN_ARTWORK_PRIORITY_OVERRIDES,
         SCAN_REGION_PRIORITY=cfg.SCAN_REGION_PRIORITY,
         SCAN_LANGUAGE_PRIORITY=cfg.SCAN_LANGUAGE_PRIORITY,
         SCAN_MEDIA=cfg.SCAN_MEDIA,

@@ -318,9 +318,6 @@ function coveragePercent(matched: number, total: number): string {
 .r-v2-plat-stats__row:first-child {
   padding-top: 0;
 }
-.r-v2-plat-stats__row:last-child .r-v2-plat-stats__bar {
-  display: none;
-}
 
 .r-v2-plat-stats__icon {
   flex-shrink: 0;

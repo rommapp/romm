@@ -102,6 +102,15 @@
 #       - hasheous # Hasheous
 #       - flashpoint # Flashpoint Project
 #       - hltb # HowLongToBeat
+#     # Optional per-field overrides, each falls back to "artwork" when omitted
+#     cover: # Cover art only
+#       - igdb
+#       - ss
+#     screenshot: # Screenshots only
+#       - ss
+#       - igdb
+#     manual: # Game manuals only
+#       - launchbox
 #     region: # Used by IGDB and ScreenScraper for regional variants
 #       - us
 #       - wor
@@ -176,3 +185,25 @@
 #       1: # Player 2
 #       2: # Player 3
 #       3: # Player 4
+
+# streaming:
+#   enabled: true
+#   containers:
+#     - platform: ps2
+#       # Browser-facing Selkies web UI, MUST be served over https
+#       # (use a reverse proxy or the built in self signed cert for linuxserver)
+#       # can also be a FQDN eg. https://your.example.com
+#       host: https://192.168.1.51:3001
+#
+#       # server-to-broker URL does NOT need to be served over https
+#       # If pcsx2 emulator is on a different host, use its LAN IP.
+#       # If on the same Docker network, use the container name: http://pcsx2:8000
+#       broker_host: http://192.168.1.51:8000
+#       # what shows up on the play button
+#       label: PCSX2
+#
+#     # Add more emulator containers here as needed:
+#     # - platform: psx
+#     #   host: http://192.168.1.51:3002
+#     #   broker_host: http://192.168.1.51:8001
+#     #   label: DuckStation

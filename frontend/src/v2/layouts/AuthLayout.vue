@@ -76,6 +76,15 @@ onMounted(installInputModality);
   z-index: 0;
 }
 
+/* Firefox: WebRender re-rasterizes the animated SVG every frame, pegging the
+   GPU. Swap to the static variant in Gecko only (the empty `url-prefix()`
+   hack matches all Firefox pages and stays enabled by default). */
+@-moz-document url-prefix() {
+  .r-v2-auth__bg {
+    background-image: url("/assets/auth_background_static.svg");
+  }
+}
+
 .r-v2-auth__stage {
   position: relative;
   z-index: 1;

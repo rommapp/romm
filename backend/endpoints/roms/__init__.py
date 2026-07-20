@@ -67,6 +67,7 @@ from handler.metadata import (
     meta_ss_handler,
     meta_upc_handler,
 )
+from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from handler.rom_conversion import promote_single_file_to_folder
 from handler.scan_handler import (
@@ -86,10 +87,19 @@ from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
+from utils.m3u import generate_m3u_content
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
 from utils.screenshots import continue_playing_screenshot
 from utils.validation import ValidationError
+from utils.zip_cache import (
+    BULK_CACHE_MAX_ROMS,
+    ZipFileEntry,
+    get_bulk_namespace,
+    get_cache_key,
+    get_cached_zip,
+    resolve_cached_zip,
+)
 
 from .files import router as files_router
 from .manual import router as manual_router
@@ -315,6 +325,14 @@ def get_roms(
     ] = True,
     with_filter_values: Annotated[
         bool, Query(description="Whether to return filter values.")
+    ] = True,
+    with_rom_id_index: Annotated[
+        bool,
+        Query(
+            description=(
+                "Whether to return the full ordered rom id index that backs virtual scroll."
+            )
+        ),
     ] = True,
     search_term: Annotated[
         str | None,
@@ -738,14 +756,18 @@ def get_roms(
         filter_values = RomFiltersDict(**query_filters)
 
     # The full ordered id list backs virtual scroll, so it's computed over the
-    # whole result set on every request. Memoise the unscoped library scan (same
-    # key scheme as the other sidecars); scoped/searched sets stay live.
-    rom_id_index_cache_key = build_unscoped_sidecar_cache_key(
-        request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
-    )
-    rom_id_index = db_rom_handler.get_rom_id_index(
-        query=query, cache_key=rom_id_index_cache_key
-    )
+    # whole result set. Callers that only need a page (e.g. the home rails) opt
+    # out with with_rom_id_index=false and avoid the full-library scan.
+    rom_id_index: list[int] = []
+    if with_rom_id_index:
+        # Memoise the unscoped library scan (same key scheme as the other
+        # sidecars); scoped/searched sets stay live.
+        rom_id_index_cache_key = build_unscoped_sidecar_cache_key(
+            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
+        )
+        rom_id_index = db_rom_handler.get_rom_id_index(
+            query=query, cache_key=rom_id_index_cache_key
+        )
 
     # Hydrate the requested page and its additional data
     with sync_session.begin() as session:
@@ -788,14 +810,22 @@ def get_roms(
             ]
 
         params = resolve_params()
-        total = len(rom_id_index)
-        page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
-        if page_ids:
-            page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
-            rows_by_id = {rom.id: rom for rom in page_rows}
-            page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
+        if with_rom_id_index:
+            total = len(rom_id_index)
+            page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
+            if page_ids:
+                page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
+                rows_by_id = {rom.id: rom for rom in page_rows}
+                page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
+            else:
+                page_items = []
         else:
-            page_items = []
+            # Let the database serve the page from the sort index instead of
+            # walking the whole primary key to build a full id list.
+            page_items = list(
+                session.scalars(query.offset(params.offset).limit(params.limit)).all()
+            )
+            total = db_rom_handler.get_rom_count(query=query, session=session)
 
         return CustomLimitOffsetPage.create(
             _transform(page_items),
@@ -928,26 +958,49 @@ async def download_roms(
         f"User {hl(current_username, color=BLUE)} is downloading {len(rom_objects)} ROMs as zip"
     )
 
-    content_lines = []
+    all_entries = []
     for rom in rom_objects:
         rom_files = sorted(rom.files, key=lambda x: x.file_name)
         for file in rom_files:
-            content_lines.append(
-                ZipContentLine(
-                    crc32=None,  # The CRC hash stored for compressed files is for the uncompressed content
-                    size_bytes=file.file_size_bytes,
-                    encoded_location=quote(f"/library/{file.full_path}"),
-                    filename=file.full_path,
+            all_entries.append(
+                ZipFileEntry(
+                    download_name=file.full_path,
+                    full_path=file.full_path,
+                    file_size_bytes=file.file_size_bytes,
+                    updated_at_epoch=file.updated_at.timestamp(),
                 )
             )
 
     if filename:
         file_name = sanitize_filename(filename)
     else:
-        base64_content = b64encode(
-            ("\n".join([str(line) for line in content_lines])).encode()
+        content_summary = "\n".join(
+            f"{e.download_name}:{e.file_size_bytes}" for e in all_entries
+        ).encode()
+        file_name = f"{len(rom_objects)} ROMs ({crc32_to_hex(binascii.crc32(content_summary))}).zip"
+
+    range_header = request.headers.get("range")
+    if range_header and len(rom_objects) <= BULK_CACHE_MAX_ROMS:
+        redirect_path = await resolve_cached_zip(
+            get_bulk_namespace([r.id for r in rom_objects]),
+            all_entries,
+            log_label=f"bulk download ({len(rom_objects)} ROMs)",
         )
-        file_name = f"{len(rom_objects)} ROMs ({crc32_to_hex(binascii.crc32(base64_content))}).zip"
+        if redirect_path:
+            return FileRedirectResponse(
+                download_path=redirect_path,
+                filename=file_name,
+            )
+
+    content_lines = [
+        ZipContentLine(
+            crc32=None,
+            size_bytes=e.file_size_bytes,
+            encoded_location=quote(f"/library/{e.full_path}"),
+            filename=e.download_name,
+        )
+        for e in all_entries
+    ]
 
     return ZipResponse(
         content_lines=content_lines,
@@ -1092,7 +1145,7 @@ def get_rom_simple(
     fetched on user-driven detail interactions (game details page, quick-
     note dialog open, achievements panel)."""
 
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_simple(id)
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)
@@ -1188,6 +1241,21 @@ async def head_rom_content(
     if len(files) == 1:
         return FileRedirectResponse(
             download_path=Path(f"/library/{files[0].full_path}"),
+        )
+
+    hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
+    entries = [ZipFileEntry.from_rom_file(f, hidden_folder) for f in files]
+    namespace = str(rom.id)
+    cache_key = get_cache_key(namespace, entries, hidden_folder)
+    zip_path = get_cached_zip(namespace, cache_key)
+    if zip_path:
+        return Response(
+            headers={
+                "Content-Type": "application/zip",
+                "Content-Length": str(zip_path.stat().st_size),
+                "Accept-Ranges": "bytes",
+                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
+            },
         )
 
     return Response(
@@ -1336,6 +1404,25 @@ async def get_rom_content(
             download_path=Path(f"/library/{files[0].full_path}"),
         )
 
+    # Multi-file path: serve cached ZIP for Range requests (resumable),
+    # fall through to mod_zip streaming for non-Range requests.
+    range_header = request.headers.get("range")
+    if range_header:
+        has_m3u = rom.has_m3u_file()
+        redirect_path = await resolve_cached_zip(
+            str(rom.id),
+            [ZipFileEntry.from_rom_file(f, hidden_folder) for f in files],
+            hidden_folder=hidden_folder,
+            m3u_content=None if has_m3u else generate_m3u_content(files, hidden_folder),
+            m3u_filename=None if has_m3u else f"{file_name}.m3u",
+            log_label=f"ROM {rom.id}",
+        )
+        if redirect_path:
+            return FileRedirectResponse(
+                download_path=redirect_path,
+                filename=f"{file_name}.zip",
+            )
+
     content_lines = [
         ZipContentLine(
             crc32=None,  # The CRC hash stored for compressed files is for the uncompressed content
@@ -1347,9 +1434,7 @@ async def get_rom_content(
     ]
 
     if not rom.has_m3u_file():
-        m3u_encoded_content = "\n".join(
-            [f.file_name_for_download(hidden_folder) for f in m3u_files]
-        ).encode()
+        m3u_encoded_content = generate_m3u_content(files, hidden_folder)
         m3u_base64_content = b64encode(m3u_encoded_content).decode()
         m3u_line = ZipContentLine(
             crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),
@@ -1665,9 +1750,14 @@ async def update_rom(
         and int(cleaned_data["launchbox_id"]) != rom.launchbox_id
     ):
         launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
-            cleaned_data["launchbox_id"]
+            cleaned_data["launchbox_id"],
+            fs_name=rom.fs_name,
+            platform_slug=rom.platform_slug,
         )
         if launchbox_rom.get("launchbox_id"):
+            metadata = launchbox_rom.get("launchbox_metadata")
+            if metadata:
+                populate_rom_specific_paths(metadata, rom)
             cleaned_data.update(launchbox_rom)
     elif rom.launchbox_id and not cleaned_data["launchbox_id"]:
         cleaned_data.update({"launchbox_id": None, "launchbox_metadata": {}})
@@ -1856,6 +1946,36 @@ async def update_rom(
                     media_path,
                 )
 
+    # Handle local media files from LaunchBox when the ID has changed
+    if (
+        cleaned_data["launchbox_id"]
+        and int(cleaned_data["launchbox_id"]) != rom.launchbox_id
+    ):
+        preferred_media_types = get_preferred_media_types()
+
+        for media_type in preferred_media_types:
+            # Remove old media files if the launchbox_id is changing
+            if rom.launchbox_metadata and rom.launchbox_metadata.get(
+                f"{media_type.value}_path"
+            ):
+                await fs_resource_handler.remove_media_resources_path(
+                    rom.platform_id,
+                    rom.id,
+                    media_type,
+                )
+
+            media_path = cleaned_data.get("launchbox_metadata", {}).get(
+                f"{media_type.value}_path"
+            )
+            media_url = cleaned_data.get("launchbox_metadata", {}).get(
+                f"{media_type.value}_url"
+            )
+            if media_path and media_url:
+                await fs_resource_handler.store_media_file(
+                    media_url,
+                    media_path,
+                )
+
     log.debug(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"
     )
@@ -1971,7 +2091,7 @@ async def delete_roms(
     assert_can(perms, PermEntity.ROMS, PermAction.DELETE)
 
     successful_items = 0
-    failed_items = 0
+    failed_ids = []
     errors = []
 
     for id in roms:
@@ -1979,7 +2099,7 @@ async def delete_roms(
 
         # Hidden roms are masked as not-found rather than reported deletable.
         if not rom or not perms.can_see_rom(rom.id, rom.platform_id):
-            failed_items += 1
+            failed_ids.append(id)
             errors.append(f"ROM with ID {id} not found")
             continue
 
@@ -2027,7 +2147,7 @@ async def delete_roms(
 
             successful_items += 1
         except Exception as e:
-            failed_items += 1
+            failed_ids.append(id)
             errors.append(f"Failed to delete ROM {id}: {str(e)}")
 
     if successful_items:
@@ -2035,7 +2155,7 @@ async def delete_roms(
 
     return {
         "successful_items": successful_items,
-        "failed_items": failed_items,
+        "failed_ids": failed_ids,
         "errors": errors,
     }
 
