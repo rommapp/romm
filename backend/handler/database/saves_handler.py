@@ -41,8 +41,13 @@ class DBSavesHandler(DBBaseHandler):
         query = select(Save).filter_by(
             rom_id=rom_id, user_id=user_id, file_name=file_name
         )
+        # `slot=None` scopes to the null-slot save, not "any slot", so a
+        # slot-less upload can never match (and overwrite) a save living in a
+        # named slot.
         if slot is not None:
             query = query.filter(Save.slot == slot)
+        else:
+            query = query.filter(Save.slot.is_(None))
         return session.scalars(query.limit(1)).first()
 
     @begin_session

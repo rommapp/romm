@@ -267,13 +267,28 @@ async def add_save(
             )
 
     if db_save:
+        # Track where the bytes actually landed: the file is written under a
+        # path derived from this request's emulator, which may differ from the
+        # existing row's location. Persisting file_path/emulator keeps the row's
+        # hash and its on-disk content from drifting apart.
+        stale_full_path = db_save.full_path
         update_data: dict = {
             "file_size_bytes": scanned_save.file_size_bytes,
             "content_hash": scanned_save.content_hash,
+            "file_path": scanned_save.file_path,
+            "emulator": emulator,
         }
         if slot is not None:
             update_data["slot"] = slot
         db_save = db_save_handler.update_save(db_save.id, update_data)
+
+        # The row moved to a new path, so the previously stored bytes are now
+        # orphaned. Remove them to avoid leaving stale save files on disk.
+        if stale_full_path != db_save.full_path:
+            try:
+                await fs_asset_handler.remove_file(stale_full_path)
+            except FileNotFoundError:
+                pass
     else:
         scanned_save.rom_id = rom.id
         scanned_save.user_id = request.user.id
