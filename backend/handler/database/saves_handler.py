@@ -43,7 +43,26 @@ class DBSavesHandler(DBBaseHandler):
         )
         if slot is not None:
             query = query.filter(Save.slot == slot)
+        else:
+            query = query.filter(Save.slot.is_(None))
         return session.scalars(query.limit(1)).first()
+
+    @begin_session
+    def get_save_by_path(
+        self,
+        user_id: int,
+        rom_id: int,
+        file_path: str,
+        file_name: str,
+        session: Session = None,  # type: ignore
+    ) -> Save | None:
+        return session.scalars(
+            select(Save)
+            .filter_by(
+                rom_id=rom_id, user_id=user_id, file_path=file_path, file_name=file_name
+            )
+            .limit(1)
+        ).first()
 
     @begin_session
     def get_save_by_content_hash(

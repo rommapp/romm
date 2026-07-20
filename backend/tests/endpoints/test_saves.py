@@ -8,7 +8,11 @@ from fastapi import status
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.auth.constants import Scope
-from handler.database import db_device_handler, db_device_save_sync_handler
+from handler.database import (
+    db_device_handler,
+    db_device_save_sync_handler,
+    db_save_handler,
+)
 from models.assets import Save
 from models.device import Device
 from models.platform import Platform
@@ -380,6 +384,80 @@ class TestSaveUploadWithSync:
         data = response.json()
         assert data["device_syncs"] == []
         assert data["origin_device_id"] is None
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_reupload_updates_file_path_and_emulator(
+        self,
+        mock_scan,
+        _mock_write,
+        mock_remove,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+    ):
+        """Re-uploading the same filename under a different emulator must move
+        the row's file_path/emulator to where the new bytes landed, so the
+        stored hash never disagrees with the served content."""
+        existing = db_save_handler.add_save(
+            Save(
+                file_name="test.sav",
+                file_name_no_tags="test",
+                file_name_no_ext="test",
+                file_extension="sav",
+                file_path=f"{platform.slug}/saves/old_emu",
+                file_size_bytes=100,
+                content_hash="0" * 32,
+                emulator="old_emu",
+                rom_id=rom.id,
+                user_id=admin_user.id,
+            )
+        )
+
+        new_path = f"{platform.slug}/saves/new_emu"
+        mock_scan.return_value = Save(
+            file_name="test.sav",
+            file_name_no_tags="test",
+            file_name_no_ext="test",
+            file_extension="sav",
+            file_path=new_path,
+            file_size_bytes=200,
+            content_hash="f" * 32,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+        )
+
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&emulator=new_emu",
+            files={
+                "saveFile": (
+                    "test.sav",
+                    BytesIO(b"new save data"),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        updated = db_save_handler.get_save(user_id=admin_user.id, id=existing.id)
+        assert updated is not None
+        assert updated.file_path == new_path
+        assert updated.emulator == "new_emu"
+        assert updated.content_hash == "f" * 32
+        assert updated.file_size_bytes == 200
+        # full_path now points at the freshly written bytes, not the stale ones.
+        assert updated.full_path == f"{new_path}/test.sav"
+        # The orphaned bytes at the old location are cleaned up.
+        mock_remove.assert_awaited_once_with(f"{platform.slug}/saves/old_emu/test.sav")
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -812,32 +890,39 @@ class TestSaveConflictDetection:
         rom: Rom,
         platform: Platform,
         admin_user: User,
-        save: Save,
+        archival_save: Save,
         device: Device,
         device_b: Device,
     ):
         """Scenario 6: Device A uploads, Device B uploads without downloading first.
 
         Device B has an old sync from before Device A's upload, so conflict.
+        Slot-less uploads negotiate against the null-slot (archival) row.
         """
         from datetime import datetime, timedelta, timezone
 
         old_sync_time = datetime.now(timezone.utc) - timedelta(hours=2)
         db_device_save_sync_handler.upsert_sync(
-            device_id=device_b.id, save_id=save.id, synced_at=old_sync_time
+            device_id=device_b.id, save_id=archival_save.id, synced_at=old_sync_time
         )
 
         db_device_save_sync_handler.upsert_sync(
-            device_id=device.id, save_id=save.id, synced_at=save.updated_at
+            device_id=device.id,
+            save_id=archival_save.id,
+            synced_at=archival_save.updated_at,
         )
 
-        mock_scan.return_value = save
+        mock_scan.return_value = archival_save
 
         file_content = BytesIO(b"stale save from device b")
         response = client.post(
             f"/api/saves?rom_id={rom.id}&device_id={device_b.id}",
             files={
-                "saveFile": (save.file_name, file_content, "application/octet-stream")
+                "saveFile": (
+                    archival_save.file_name,
+                    file_content,
+                    "application/octet-stream",
+                )
             },
             headers={"Authorization": f"Bearer {access_token}"},
         )
@@ -859,7 +944,7 @@ class TestSaveConflictDetection:
         rom: Rom,
         platform: Platform,
         admin_user: User,
-        save: Save,
+        archival_save: Save,
         device: Device,
     ):
         """Scenario 7: Web UI uploads (no device_id), device with old sync uploads.
@@ -871,16 +956,20 @@ class TestSaveConflictDetection:
 
         old_sync_time = datetime.now(timezone.utc) - timedelta(hours=1)
         db_device_save_sync_handler.upsert_sync(
-            device_id=device.id, save_id=save.id, synced_at=old_sync_time
+            device_id=device.id, save_id=archival_save.id, synced_at=old_sync_time
         )
 
-        mock_scan.return_value = save
+        mock_scan.return_value = archival_save
 
         file_content = BytesIO(b"stale save from device after web update")
         response = client.post(
             f"/api/saves?rom_id={rom.id}&device_id={device.id}",
             files={
-                "saveFile": (save.file_name, file_content, "application/octet-stream")
+                "saveFile": (
+                    archival_save.file_name,
+                    file_content,
+                    "application/octet-stream",
+                )
             },
             headers={"Authorization": f"Bearer {access_token}"},
         )
@@ -939,7 +1028,7 @@ class TestSaveConflictDetection:
         rom: Rom,
         platform: Platform,
         admin_user: User,
-        save: Save,
+        archival_save: Save,
         device: Device,
     ):
         """Verify conflict response contains all necessary details for client handling."""
@@ -947,16 +1036,20 @@ class TestSaveConflictDetection:
 
         old_sync_time = datetime.now(timezone.utc) - timedelta(hours=1)
         db_device_save_sync_handler.upsert_sync(
-            device_id=device.id, save_id=save.id, synced_at=old_sync_time
+            device_id=device.id, save_id=archival_save.id, synced_at=old_sync_time
         )
 
-        mock_scan.return_value = save
+        mock_scan.return_value = archival_save
 
         file_content = BytesIO(b"conflicting save")
         response = client.post(
             f"/api/saves?rom_id={rom.id}&device_id={device.id}",
             files={
-                "saveFile": (save.file_name, file_content, "application/octet-stream")
+                "saveFile": (
+                    archival_save.file_name,
+                    file_content,
+                    "application/octet-stream",
+                )
             },
             headers={"Authorization": f"Bearer {access_token}"},
         )
@@ -2588,6 +2681,53 @@ class TestSlotScopedDedupeMatrix:
         assert second.json()["id"] != first.json()["id"]
         assert second.json()["slot"] == "slot2"
         assert second.json()["content_hash"] == first.json()["content_hash"]
+
+    def test_slotless_upload_over_named_slot_file_refreshes_that_row(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        _isolated_assets_dir,
+    ):
+        """A slot-less upload that lands on a named slot's file (same emulator
+        and filename) must not leave that row reporting a stale hash.
+
+        File identity is path+name, independent of slot, so writing new bytes
+        there overwrites the named slot's file. The colliding row is refreshed
+        in place rather than shadowed by a divergent null-slot duplicate.
+        """
+        slotted = self._upload(
+            client, access_token, rom, _build_fixture_a_zip(), slot="slot1"
+        )
+        assert slotted.status_code == status.HTTP_200_OK
+        shared_name = slotted.json()["file_name"]
+
+        # Slot-less upload (slot param omitted) reusing the slot's on-disk
+        # filename, but with new bytes.
+        slotless = client.post(
+            f"/api/saves?rom_id={rom.id}&emulator=test_emulator",
+            files={
+                "saveFile": (
+                    shared_name,
+                    BytesIO(_build_fixture_b_zip()),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert slotless.status_code == status.HTTP_200_OK
+        assert slotless.json()["id"] == slotted.json()["id"]
+        assert slotless.json()["content_hash"] == FIXTURE_B_HASH
+
+        # No divergent second row was created for the same file.
+        listing = client.get(
+            f"/api/saves?rom_id={rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert listing.status_code == status.HTTP_200_OK
+        rows = [s for s in listing.json() if s["file_name"] == shared_name]
+        assert len(rows) == 1
+        assert rows[0]["content_hash"] == FIXTURE_B_HASH
 
     def test_different_bytes_same_slot_creates_distinct_records(
         self,
