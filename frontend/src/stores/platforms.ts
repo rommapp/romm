@@ -8,9 +8,6 @@ export type Platform = PlatformSchema;
 export default defineStore("platforms", {
   state: () => ({
     allPlatforms: [] as Platform[],
-    // Folders on disk that have no database row yet (never-scanned
-    // platforms). Fetched on demand by the scan view so a first scan can
-    // target them. They carry id -1 and rom_count 0.
     filesystemPlatforms: [] as Platform[],
     filterText: "" as string,
     fetchingPlatforms: false as boolean,
@@ -31,12 +28,9 @@ export default defineStore("platforms", {
             p.display_name.toLowerCase().includes(filterText.toLowerCase()),
         )
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
-    // Everything a scan can target: existing database platforms (including
-    // those with zero ROMs) plus unscanned folders on disk. Keyed by fs_slug
-    // downstream, so the two sets never overlap (a folder with a database row
-    // is excluded from filesystemPlatforms server-side).
+    // Existing database platforms + unscanned folders on disk
     scannablePlatforms: ({ allPlatforms: all, filesystemPlatforms: fs }) =>
-      [...all, ...fs].sort((a, b) =>
+      uniqBy([...all, ...fs], "fs_slug").sort((a, b) =>
         a.display_name.localeCompare(b.display_name),
       ),
   },

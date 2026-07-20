@@ -80,9 +80,8 @@ interface Props {
   modelValue?: number | string | number[] | string[] | null;
   items: Platform[];
   /** Which Platform field the v-model binds to. Default `id`.
-   *  `slug` is used by FolderMapping (the table works in slug space);
-   *  `fs_slug` is used by Scan, whose list mixes database platforms and
-   *  never-scanned folders (which share no stable numeric id). */
+   *  `slug` is used by FolderMapping (the table works in slug space)
+   *  `fs_slug` is used by Scan (mixes database platforms and folders) */
   itemKey?: PlatformKey;
   multiple?: boolean;
   searchable?: boolean;
@@ -105,12 +104,9 @@ interface Props {
   prependInnerIcon?: string;
   /** Scan-style rich row — category icon, family, missing-fs, rom-count. */
   showMeta?: boolean;
-  /** Tag entries with no database row yet (id < 0) as never-scanned
-   *  folders. Opt-in so only the Scan picker, whose list includes
-   *  filesystem folders, shows the marker. Requires `showMeta`. */
+  /** Never-scanned folders. */
   markUnscanned?: boolean;
-  /** Label for the never-scanned marker (i18n comes from the caller since
-   *  primitives/shared composites take text via props). */
+  /** Label for the never-scanned marker */
   unscannedLabel?: string;
   /** Icon size inside list rows. Defaults to 28 (Scan uses 32, dialogs 22-24). */
   iconSize?: number;

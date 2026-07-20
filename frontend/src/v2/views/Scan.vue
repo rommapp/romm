@@ -75,13 +75,9 @@ const { scannablePlatforms } = storeToRefs(platformsStore);
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const heartbeat = storeHeartbeat();
-// Selection is keyed by fs_slug: the scan list mixes database platforms
-// (including zero-ROM ones) and never-scanned folders that share no stable
-// numeric id, and the backend scans folder slugs regardless.
 const platformsToScan = ref<string[]>([]);
 
-// Never-scanned folders have no database row, so they are fetched on demand
-// rather than living in the globally-loaded platform list.
+// Never-scanned folders are fetched on demand.
 onMounted(() => {
   platformsStore.fetchFilesystemPlatforms();
 });
