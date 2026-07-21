@@ -6,6 +6,7 @@ import socketio
 from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
     ScanStats,
+    _identify_rom,
     reject_unauthorized_scan,
     scan_handler,
     scan_platforms,
@@ -13,9 +14,15 @@ from endpoints.sockets.scan import (
     stop_scan_handler,
 )
 from handler.auth.constants import Scope
-from handler.filesystem.roms_handler import FSRomsHandler
+from handler.filesystem.roms_handler import (
+    FSRom,
+    FSRomsHandler,
+    ParsedRomFiles,
+    ParsedTags,
+)
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import ScanType
+from models.platform import Platform
 from models.rom import Rom
 
 
@@ -426,6 +433,125 @@ class TestScanAuthorization:
         await stop_scan_handler("sid")
 
         get_jobs.assert_not_called()
+
+
+class TestIdentifyRomReassociation:
+    """`_identify_rom` reassociates a renamed/moved file with its missing entry.
+
+    A HASHES scan is used so the flow returns right after the file-rebuild step,
+    keeping the metadata/resource path out of scope for these wiring tests.
+    """
+
+    @pytest.fixture
+    def patched(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        fs = scan_module.fs_rom_handler
+        mocker.patch.object(
+            fs,
+            "parse_tags",
+            return_value=ParsedTags(
+                version="", revision="", regions=[], languages=[], other_tags=[]
+            ),
+        )
+        mocker.patch.object(fs, "get_roms_fs_structure", return_value="test/roms")
+        mocker.patch.object(fs, "get_file_name_with_no_tags", return_value="New Name")
+        mocker.patch.object(
+            fs,
+            "get_rom_files",
+            AsyncMock(
+                return_value=ParsedRomFiles(
+                    rom_files=[],
+                    crc_hash="crc",
+                    md5_hash="md5",
+                    sha1_hash="sha1",
+                    ra_hash="",
+                )
+            ),
+        )
+
+        config = MagicMock()
+        config.SKIP_HASH_CALCULATION = False
+        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+        mocker.patch.object(
+            scan_module,
+            "scan_rom",
+            AsyncMock(return_value=MagicMock(is_identified=False)),
+        )
+
+        db = mocker.patch.object(scan_module, "db_rom_handler")
+        db.add_rom.return_value = MagicMock(is_identified=False, id=99)
+        return db
+
+    def _platform(self):
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        return platform
+
+    async def _run(self, db):
+        fs_rom: FSRom = {
+            "fs_name": "New Name.zip",
+            "flat": True,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        await _identify_rom(
+            platform=self._platform(),
+            fs_rom=fs_rom,
+            rom=None,
+            scan_type=ScanType.HASHES,
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
+
+    async def test_reassociates_with_missing_entry(self, patched):
+        db = patched
+        missing = MagicMock(id=42, name="Old Game", fs_name="old.zip")
+        db.get_matching_missing_rom.return_value = missing
+        db.update_rom.return_value = missing
+
+        await self._run(db)
+
+        db.get_matching_missing_rom.assert_called_once_with(
+            platform_id=1,
+            crc_hash="crc",
+            md5_hash="md5",
+            sha1_hash="sha1",
+            ra_hash="",
+        )
+        db.update_rom.assert_called_once()
+        rom_id, data = db.update_rom.call_args.args
+        assert rom_id == 42
+        assert data["missing_from_fs"] is False
+        assert data["fs_name"] == "New Name.zip"
+        # No brand-new row is inserted; add_rom only persists the scan result.
+        assert db.add_rom.call_count == 1
+
+    async def test_creates_new_entry_when_no_match(self, patched):
+        db = patched
+        db.get_matching_missing_rom.return_value = None
+
+        await self._run(db)
+
+        db.get_matching_missing_rom.assert_called_once()
+        # No reassociation update happens on the create path.
+        db.update_rom.assert_not_called()
+        # A new row is inserted, then the scan result is persisted (two calls).
+        assert db.add_rom.call_count == 2
+        created = db.add_rom.call_args_list[0].args[0]
+        assert isinstance(created, Rom)
+        assert created.fs_name == "New Name.zip"
 
 
 class TestGetPico8CoverUrl:
