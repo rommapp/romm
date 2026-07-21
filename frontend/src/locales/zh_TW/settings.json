@@ -410,6 +410,8 @@
   "show-regions-desc": "在遊戲庫中顯示地區標示",
   "show-siblings": "顯示版本",
   "show-siblings-desc": "啟用\"Rom 版本合併\"選項後，會在遊戲庫中顯示合併同版本 Rom 的數量",
+  "show-smart-collections": "顯示智能收藏庫",
+  "show-smart-collections-desc": "在首頁上顯示智能收藏庫部分",
   "show-stats": "顯示統計訊息",
   "show-stats-desc": "在首頁上顯示統計摘要",
   "show-status": "顯示狀態",

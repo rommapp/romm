@@ -410,6 +410,8 @@
   "show-regions-desc": "Zeige die Regionen des ROMs als Flaggen in der Galerie",
   "show-siblings": "Zeige Versionen",
   "show-siblings-desc": "Die Anzahl der verschiedenen Versionen einen ROMs wird in der Galerie angezeigt, wenn die \"ROMs gruppieren\" Option aktiviert ist",
+  "show-smart-collections": "Zeige intelligente Sammlungen",
+  "show-smart-collections-desc": "Intelligente Sammlungen werden auf der Startseite dargestellt",
   "show-stats": "Zeige Statistiken",
   "show-stats-desc": "Zeige Statistiken auf der Startseite an",
   "show-status": "Zeige Status",

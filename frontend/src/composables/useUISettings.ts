@@ -24,6 +24,18 @@ export const UI_SETTINGS_KEYS = {
   showContinuePlaying: { key: "settings.showContinuePlaying", default: true },
   showPlatforms: { key: "settings.showPlatforms", default: true },
   showCollections: { key: "settings.showCollections", default: true },
+  showSmartCollections: {
+    key: "settings.showSmartCollections",
+    default: false,
+  },
+  showVirtualCollections: {
+    key: "settings.showVirtualCollections",
+    default: false,
+  },
+  virtualCollectionType: {
+    key: "settings.virtualCollectionType",
+    default: "collection",
+  },
 
   // Home widget bar (v2 only). `showHomeWidgets` is the master toggle
   // for the row; per-widget toggles let users disable individual cards
@@ -76,16 +88,6 @@ export const UI_SETTINGS_KEYS = {
   confirmProtectedLaunch: {
     key: "settings.confirmProtectedLaunch",
     default: true,
-  },
-
-  // Virtual collections
-  showVirtualCollections: {
-    key: "settings.showVirtualCollections",
-    default: true,
-  },
-  virtualCollectionType: {
-    key: "settings.virtualCollectionType",
-    default: "collection",
   },
 } as const;
 

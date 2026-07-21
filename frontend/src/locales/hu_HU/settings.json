@@ -410,6 +410,8 @@
   "show-regions-desc": "Régiózászlók megjelenítése a galériában",
   "show-siblings": "Verziók megjelenítése",
   "show-siblings-desc": "A verziók számának megjelenítése a galériában (ROM-ok csoportosítása esetén)",
+  "show-smart-collections": "Intelligens gyűjtemények megjelenítése",
+  "show-smart-collections-desc": "Intelligens gyűjtemények szakasz megjelenítése a kezdőlapon",
   "show-stats": "Statisztikák megjelenítése",
   "show-stats-desc": "Statisztikai összegzés megjelenítése a kezdőlapon",
   "show-status": "Állapot megjelenítése",

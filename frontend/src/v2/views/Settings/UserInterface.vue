@@ -6,8 +6,9 @@
 //   2. Theme             (3-button compact picker)
 //   3. Home              (toggle grid)
 //   4. Gallery           (toggle grid + boxart RSelect prefix-label)
-//   5. Virtual collections (single toggle + RSelect prefix-label)
-//   6. UI version        (v2-only, beta — kept last)
+//   5. Gameplay          (launch-confirmation toggle)
+//   6. Virtual collections (single toggle + RSelect prefix-label)
+//   7. UI version        (v2-only, beta — kept last)
 //
 // The v1 "Platforms drawer" section was removed (no equivalent in v2).
 // `useUISettings` still exposes `platformsGroupBy` for v1 — we just
@@ -40,6 +41,9 @@ const {
   showContinuePlaying,
   showPlatforms,
   showCollections,
+  showSmartCollections,
+  showVirtualCollections,
+  virtualCollectionType,
   // Home widgets (v2 only)
   showHomeWidgets,
   widgetRandomPick,
@@ -56,9 +60,6 @@ const {
   boxartStyle,
   // Gameplay
   confirmProtectedLaunch,
-  // Virtual collections
-  showVirtualCollections,
-  virtualCollectionType,
 } = useUISettings();
 
 type Theme = "dark" | "light" | "auto";
@@ -229,6 +230,16 @@ function onVirtualCollectionTypeChange(value: unknown) {
             :title="t('settings.show-collections')"
             :description="t('settings.show-collections-desc')"
           />
+          <SettingsToggleRow
+            v-model="showSmartCollections"
+            :title="t('settings.show-smart-collections')"
+            :description="t('settings.show-smart-collections-desc')"
+          />
+          <SettingsToggleRow
+            v-model="showVirtualCollections"
+            :title="t('settings.show-virtual-collections')"
+            :description="t('settings.show-virtual-collections-desc')"
+          />
         </div>
       </SettingsSubsection>
 
@@ -352,14 +363,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
       :title="t('common.virtual-collections')"
       icon="mdi-bookmark-box-multiple"
     >
-      <div class="r-v2-ui__toggle-grid r-v2-ui__toggle-grid--single">
-        <SettingsToggleRow
-          v-model="showVirtualCollections"
-          :title="t('settings.show-virtual-collections')"
-          :description="t('settings.show-virtual-collections-desc')"
-        />
-      </div>
-      <div class="r-v2-ui__field r-v2-ui__field--bordered">
+      <div class="r-v2-ui__field">
         <RSelect
           :model-value="virtualCollectionType"
           :items="virtualCollectionTypeItems"

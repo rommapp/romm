@@ -1210,6 +1210,11 @@ async def head_rom_content(
         if len(files) == 1:
             file = files[0]
             rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
+            if not await Path(rom_path).is_file():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"File {file.file_name} not found on disk for ROM {id}",
+                )
             return FileResponse(
                 path=rom_path,
                 filename=file.file_name,
@@ -1319,6 +1324,11 @@ async def get_rom_content(
         if len(files) == 1:
             file = files[0]
             rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
+            if not await Path(rom_path).is_file():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"File {file.file_name} not found on disk for ROM {id}",
+                )
             return FileResponse(
                 path=rom_path,
                 filename=file.file_name,

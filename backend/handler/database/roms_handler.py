@@ -2221,6 +2221,43 @@ class DBRomsHandler(DBBaseHandler):
         # Return the first ROM matching any of the provided hash values
         return session.scalar(query.outerjoin(Rom.files).filter(or_(*filters)).limit(1))
 
+    @begin_session
+    def get_matching_missing_rom(
+        self,
+        platform_id: int,
+        crc_hash: str | None = None,
+        md5_hash: str | None = None,
+        sha1_hash: str | None = None,
+        session: Session = None,  # type: ignore
+    ) -> Rom | None:
+        """Find a ROM marked missing on a platform whose hashes match the file.
+
+        Used during scanning to reassociate a renamed or moved file with its
+        existing entry (preserving collections, notes, and assets) instead of
+        creating a duplicate. Requires the CRC, MD5, and SHA1 hashes to all
+        match. Any missing hash yields no match, so non-hashable platforms and
+        pre-hash entries safely fall back to creating a new entry.
+        """
+        if not (crc_hash and md5_hash and sha1_hash):
+            return None
+
+        matches = session.scalars(
+            select(Rom)
+            .where(
+                and_(
+                    Rom.platform_id == platform_id,
+                    Rom.missing_from_fs.is_(True),
+                    Rom.crc_hash == crc_hash,
+                    Rom.md5_hash == md5_hash,
+                    Rom.sha1_hash == sha1_hash,
+                )
+            )
+            .limit(2)
+        ).all()
+
+        # Return None when more than one match to avoid ambiguity.
+        return matches[0] if len(matches) == 1 else None
+
     def _collect_filter_values(
         self,
         session: Session,
