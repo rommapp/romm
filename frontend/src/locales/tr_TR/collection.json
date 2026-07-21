@@ -30,6 +30,8 @@
   "private-desc": "Özel (Sadece ben görürüm)",
   "public": "Herkese açık",
   "public-desc": "Herkese açık (Herkes görebilir)",
+  "random-rom": "Rastgele ROM",
+  "random-rom-error": "Rastgele ROM seçilemedi",
   "removing-collection-1": "Koleksiyonu sil",
   "removing-collection-2": "RomM tarafından. Onaylıyor musun?",
   "removing-smart-collection-1": "Akıllı koleksiyonu sil",

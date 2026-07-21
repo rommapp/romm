@@ -13,9 +13,10 @@
 //      plain scroll wrapper. The head scrolls together with the
 //      tab content.
 //
-// The action ribbon only carries the whole-collection download —
-// edit and delete moved inline into the Settings tab (editable form
-// + danger zone), matching the Platform layout.
+// The action ribbon carries Random (jump to a random ROM in the
+// collection) and the whole-collection download — edit and delete
+// moved inline into the Settings tab (editable form + danger zone),
+// matching the Platform layout.
 import { RBtn, RChip, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
 import { useI18n } from "vue-i18n";
@@ -46,10 +47,13 @@ defineProps<{
   tab: string;
   tabs: RTabNavItem[];
   canDownload: boolean;
+  /** Spinner on the random-game button while the parent resolves the ROM. */
+  randomLoading?: boolean;
 }>();
 
 defineEmits<{
   (e: "update:tab", v: string): void;
+  (e: "random"): void;
   (e: "download"): void;
 }>();
 </script>
@@ -81,8 +85,23 @@ defineEmits<{
       <Stat :value="collection.rom_count" :label="t('common.games')" />
     </template>
 
-    <template v-if="canDownload" #actions>
+    <!-- Random is open to anyone who can view the collection — it's a
+         navigation shortcut, not an admin action — so it sits left of
+         the gated download button. Disabled on an empty collection. -->
+    <template #actions>
       <RBtn
+        variant="outlined"
+        surface
+        icon="mdi-shuffle-variant"
+        rounded="circle"
+        :loading="randomLoading"
+        :disabled="collection.rom_count === 0"
+        :aria-label="t('collection.random-rom')"
+        :tooltip="t('collection.random-rom')"
+        @click="$emit('random')"
+      />
+      <RBtn
+        v-if="canDownload"
         variant="outlined"
         surface
         icon="mdi-download"

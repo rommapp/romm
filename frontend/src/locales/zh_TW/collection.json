@@ -30,6 +30,8 @@
   "private-desc": "私有（僅建立者可見）",
   "public": "公開",
   "public-desc": "公開（所有用戶可見）",
+  "random-rom": "隨機 ROM",
+  "random-rom-error": "無法選擇隨機 ROM",
   "removing-collection-1": "將會移除收藏庫 \"",
   "removing-collection-2": "\"，您確定嗎？",
   "removing-smart-collection-1": "將會移除智能收藏庫 \"",

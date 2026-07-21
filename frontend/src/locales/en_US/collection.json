@@ -30,6 +30,8 @@
   "private-desc": "Private (only visible to me)",
   "public": "Public",
   "public-desc": "Public (visible to everyone)",
+  "random-rom": "Random ROM",
+  "random-rom-error": "Couldn't pick a random ROM",
   "removing-collection-1": "Removing collection",
   "removing-collection-2": "from RomM. Do you confirm?",
   "removing-smart-collection-1": "Removing smart collection",

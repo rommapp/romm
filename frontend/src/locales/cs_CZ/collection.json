@@ -30,6 +30,8 @@
   "private-desc": "Soukromá (viditelná pouze pro mě)",
   "public": "Veřejná",
   "public-desc": "Veřejná (viditelná pro každého)",
+  "random-rom": "Náhodné ROM",
+  "random-rom-error": "Nepodařilo se vybrat náhodné ROM",
   "removing-collection-1": "Odebírání kolekce",
   "removing-collection-2": "z RomM. Potvrzujete?",
   "removing-smart-collection-1": "Odebírání chytré kolekce",

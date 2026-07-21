@@ -30,6 +30,8 @@
   "private-desc": "Частна (видима само за мен)",
   "public": "Публична",
   "public-desc": "Публична (видима за всички)",
+  "random-rom": "Случаен ROM",
+  "random-rom-error": "Неуспешно избиране на случаен ROM",
   "removing-collection-1": "Премахване на колекция",
   "removing-collection-2": "от RomM. Потвърди?",
   "removing-smart-collection-1": "Премахване на умна колекция",
