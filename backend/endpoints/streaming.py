@@ -1760,6 +1760,7 @@ async def _teardown_abandoned_session(
 _STATE_SLOT_PATTERNS = {
     "pcsx2": re.compile(r"\.(\d{1,2})\.p2s$"),
     "dolphin": re.compile(r"\.s(\d{2})$"),
+    "xemu": re.compile(r"\.x(\d{2})$"),
 }
 
 
@@ -1788,8 +1789,7 @@ def _stamped_state_filename(emulator: str, filename: str, when: datetime) -> str
     An emulator with no known slot convention keeps the original name, since
     there is nowhere unambiguous to put the stamp. That emulator gets no
     history: each capture lands on the same name and updates its row in place,
-    the pre-history behavior. xemu is the current case, its states are QMP
-    snapshot tags rather than slot files.
+    the pre-history behavior. No streaming emulator is in that position now.
     """
     pattern = _STATE_SLOT_PATTERNS.get(emulator)
     if pattern is None:

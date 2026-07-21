@@ -1524,7 +1524,19 @@ def test_slot_from_state_filename():
     assert streaming._slot_from_state_filename("pcsx2", "Game.p2s") is None
     assert streaming._slot_from_state_filename("dolphin", "GALE01.gci") is None
     assert streaming._slot_from_state_filename("pcsx2", "Game.0.p2s") is None
+    assert streaming._slot_from_state_filename("xemu", "MechAssault (USA).x03") == 3
+    assert streaming._slot_from_state_filename("xemu", "MechAssault (USA).x10") == 10
+    assert (
+        streaming._slot_from_state_filename("xemu", "MechAssault (USA).qcow2") is None
+    )
     assert streaming._slot_from_state_filename("retroarch", "Game.state") is None
+
+
+def test_stamped_state_filename_round_trips_for_xemu():
+    when = datetime(2026, 7, 21, 4, 56, 45, 123456, tzinfo=timezone.utc)
+    stamped = streaming._stamped_state_filename("xemu", "MechAssault.x03", when)
+    assert re.fullmatch(r"MechAssault\.\d{8}-\d{12}\.x03", stamped)
+    assert streaming._container_state_filename(stamped) == "MechAssault.x03"
 
 
 def _resume_claim(client, token, rom, state_id, push_ok=True):
