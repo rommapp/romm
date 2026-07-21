@@ -54,6 +54,8 @@ const {
   disableAnimations,
   enableExperimentalCache,
   boxartStyle,
+  // Gameplay
+  confirmProtectedLaunch,
   // Virtual collections
   showVirtualCollections,
   virtualCollectionType,
@@ -328,6 +330,20 @@ function onVirtualCollectionTypeChange(value: unknown) {
             {{ t("settings.boxart-style") }}
           </template>
         </RSelect>
+      </div>
+    </SettingsSection>
+
+    <!-- Gameplay -->
+    <SettingsSection
+      :title="t('settings.gameplay')"
+      icon="mdi-play-circle-outline"
+    >
+      <div class="r-v2-ui__toggle-grid r-v2-ui__toggle-grid--single">
+        <SettingsToggleRow
+          v-model="confirmProtectedLaunch"
+          :title="t('settings.confirm-protected-launch')"
+          :description="t('settings.confirm-protected-launch-desc')"
+        />
       </div>
     </SettingsSection>
 

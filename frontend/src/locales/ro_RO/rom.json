@@ -59,6 +59,8 @@
   "completion": "Finalizare",
   "completionist": "Completist",
   "confirm-delete-note": "Sunteți sigur că vreți să ștergeți notația \"{title}\"?",
+  "confirm-launch-protected-body": "Ai marcat „{name}“ ca {status}. Vrei să îl joci oricum?",
+  "confirm-launch-protected-title": "Pornești acest joc?",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Copiază linkul de descărcare",

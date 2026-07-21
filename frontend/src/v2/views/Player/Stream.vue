@@ -22,6 +22,7 @@ import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import streamingApi from "@/services/api/streaming";
+import storeAuth from "@/stores/auth";
 import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
@@ -29,6 +30,7 @@ import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import { applyLaunchStatus } from "@/v2/utils/romStatus";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
 type ErrorType =
@@ -44,6 +46,7 @@ const setBgArt = useBackgroundArt();
 const romsStore = storeRoms();
 const galleryRoms = storeGalleryRoms();
 const playingStore = storePlaying();
+const auth = storeAuth();
 
 const rom = ref<DetailedRom | null>(null);
 const playerState = ref<PlayerState>("idle");
@@ -283,6 +286,17 @@ async function handlePlay(): Promise<void> {
     const session = await streamingStore.claimSession(rom.value.id);
     containerHost.value = session.host;
     playerState.value = "playing";
+
+    // Mark the game "now playing" and refresh last_played on launch (protected
+    // statuses are left untouched by applyLaunchStatus).
+    if (rom.value.rom_user && auth.scopes.includes("roms.user.write")) {
+      applyLaunchStatus(rom.value.rom_user);
+      romApi.updateUserRomProps({
+        romId: rom.value.id,
+        data: rom.value.rom_user,
+        updateLastPlayed: true,
+      });
+    }
 
     // Wait for the DOM to update and the iframe to exist.
     attachTimeouts.forEach((id) => clearTimeout(id));

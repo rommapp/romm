@@ -16,6 +16,7 @@ import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
 import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import type { RuffleSourceAPI } from "@/types/ruffle";
@@ -25,6 +26,7 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { colorCanvas } from "@/v2/tokens";
+import { applyLaunchStatus } from "@/v2/utils/romStatus";
 
 const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
 const DEFAULT_BACKGROUND_COLOR = colorCanvas.bgDeep;
@@ -34,6 +36,7 @@ const route = useRoute();
 const router = useRouter();
 const { fullscreenOnPlay } = useFullscreenPref();
 const playingStore = storePlaying();
+const auth = storeAuth();
 
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
@@ -118,6 +121,17 @@ function onPlay() {
   // Flash games are keyboard-driven; flag the session so global hotkeys
   // and pad-to-UI translation stay muted while the game owns input.
   playingStore.setPlaying(true);
+
+  // Mark the game "now playing" and refresh last_played on launch (protected
+  // statuses are left untouched by applyLaunchStatus).
+  if (rom.value?.rom_user && auth.scopes.includes("roms.user.write")) {
+    applyLaunchStatus(rom.value.rom_user);
+    romApi.updateUserRomProps({
+      romId: rom.value.id,
+      data: rom.value.rom_user,
+      updateLastPlayed: true,
+    });
+  }
 
   nextTick(() => {
     if (!rom.value) return;

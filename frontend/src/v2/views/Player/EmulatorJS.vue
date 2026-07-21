@@ -50,6 +50,7 @@ import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import { applyLaunchStatus } from "@/v2/utils/romStatus";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
@@ -225,7 +226,10 @@ async function onPlay() {
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = installIOSFullscreenShim();
 
-  if (rom.value && auth.scopes.includes("roms.user.write")) {
+  if (rom.value?.rom_user && auth.scopes.includes("roms.user.write")) {
+    // Launching marks the game "now playing" and rewinds an empty/finished
+    // status to "incomplete"; protected statuses are left untouched.
+    applyLaunchStatus(rom.value.rom_user);
     romApi.updateUserRomProps({
       romId: rom.value.id,
       data: rom.value.rom_user,

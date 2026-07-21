@@ -59,6 +59,8 @@
   "completion": "Befejezve",
   "completionist": "Completionista",
   "confirm-delete-note": "Biztos hogy törölni akarod ezt a jegyzetet \"{title}\"?",
+  "confirm-launch-protected-body": "A(z) „{name}“ játékot {status} állapotúnak jelölted. Mindenképp játszani szeretnél vele?",
+  "confirm-launch-protected-title": "Elindítod ezt a játékot?",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Letöltési link másolása",

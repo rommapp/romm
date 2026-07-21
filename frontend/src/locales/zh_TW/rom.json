@@ -59,6 +59,8 @@
   "completion": "完成度",
   "completionist": "完美主義者",
   "confirm-delete-note": "確定要刪除筆記\"{title}\"嗎？",
+  "confirm-launch-protected-body": "您已將「{name}」標記為{status}。仍要玩嗎？",
+  "confirm-launch-protected-title": "啟動這個遊戲嗎？",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "複製下載連結",

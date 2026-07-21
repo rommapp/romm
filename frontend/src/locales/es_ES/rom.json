@@ -59,6 +59,8 @@
   "completion": "Completado",
   "completionist": "Completista",
   "confirm-delete-note": "¿Estás seguro de que quieres eliminar la nota \"{title}\"?",
+  "confirm-launch-protected-body": "Marcaste «{name}» como {status}. ¿Quieres jugarlo de todos modos?",
+  "confirm-launch-protected-title": "¿Iniciar este juego?",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Copiar enlace de descarga",

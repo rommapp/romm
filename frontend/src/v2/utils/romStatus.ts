@@ -4,8 +4,20 @@
 // surfaces present the same options, in the same order, with the same
 // icons. v2-only: v1 still reads `romStatusMap`'s emoji from
 // `@/utils`, so that map stays untouched.
-import type { RomUserStatus } from "@/__generated__";
+import type { RomUserSchema, RomUserStatus } from "@/__generated__";
 import type { PlayingStatus } from "@/utils";
+
+// Advance a ROM's per-user status for a launch. Mutates in place so the
+// caller can persist the same object it already sends to the props endpoint.
+// The game becomes "now playing"; an empty or "finished" status rewinds to
+// "incomplete" (they're playing again). Statuses the user set on purpose
+// (completed 100% / retired / never playing) are left untouched.
+export function applyLaunchStatus(romUser: RomUserSchema): void {
+  romUser.now_playing = true;
+  if (romUser.status === null || romUser.status === "finished") {
+    romUser.status = "incomplete";
+  }
+}
 
 // Icon map covering both the enum statuses and the orthogonal boolean
 // flags (now_playing / backlogged / hidden) so a single menu can present

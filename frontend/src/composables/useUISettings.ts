@@ -69,6 +69,15 @@ export const UI_SETTINGS_KEYS = {
   },
   boxartStyle: { key: "settings.boxartStyle", default: "cover_path" },
 
+  // Gameplay
+  // Ask for confirmation before launching a game the user deliberately
+  // shelved (Retired / Never Playing) so an accidental Play doesn't
+  // silently reactivate it.
+  confirmProtectedLaunch: {
+    key: "settings.confirmProtectedLaunch",
+    default: true,
+  },
+
   // Virtual collections
   showVirtualCollections: {
     key: "settings.showVirtualCollections",
