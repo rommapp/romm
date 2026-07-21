@@ -407,6 +407,8 @@
   "show-regions-desc": "Mostra le bandiere delle regioni nella galleria",
   "show-siblings": "Mostra versioni",
   "show-siblings-desc": "Mostra il numero di versioni nella galleria quando l'opzione \"Raggruppa rom\" è attivata",
+  "show-smart-collections": "Mostra collezioni intelligenti",
+  "show-smart-collections-desc": "Mostra la sezione delle collezioni intelligenti nella home",
   "show-stats": "Mostra statistiche",
   "show-stats-desc": "Mostra il riepilogo delle statistiche nella home",
   "show-status": "Mostra stato",

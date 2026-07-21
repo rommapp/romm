@@ -407,6 +407,8 @@
   "show-regions-desc": "Afficher les drapeaux des régions dans la galerie",
   "show-siblings": "Afficher les versions",
   "show-siblings-desc": "Afficher le nombre de versions dans la galerie lorsque l'option \"Grouper les ROMs\" est activée",
+  "show-smart-collections": "Afficher les collections intelligentes",
+  "show-smart-collections-desc": "Afficher la section des collections intelligentes sur la page d'accueil",
   "show-stats": "Afficher les statistiques",
   "show-stats-desc": "Afficher le résumé des statistiques sur la page d'accueil",
   "show-status": "Afficher le statut",

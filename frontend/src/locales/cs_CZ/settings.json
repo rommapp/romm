@@ -407,6 +407,8 @@
   "show-regions-desc": "Zobrazit vlajky regionů v galerii",
   "show-siblings": "Zobrazit verze",
   "show-siblings-desc": "Zobrazit počet verzí v galerii, pokud je zapnuto „Seskupit ROMy“",
+  "show-smart-collections": "Zobrazit chytré kolekce",
+  "show-smart-collections-desc": "Zobrazit sekci chytrých kolekcí na hlavní stránce",
   "show-stats": "Zobrazit statistiky",
   "show-stats-desc": "Zobrazit souhrn statistik na hlavní stránce",
   "show-status": "Zobrazit status",
