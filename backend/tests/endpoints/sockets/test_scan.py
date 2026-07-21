@@ -553,6 +553,88 @@ class TestIdentifyRomReassociation:
         assert created.fs_name == "New Name.zip"
 
 
+class TestIdentifyPlatformMarksMissingBeforeScan:
+    """`_identify_platform` must flag missing entries before identifying files.
+
+    Reassociation matches a renamed/moved file against entries already flagged
+    `missing_from_fs`. That flag is only accurate if it is synced before the
+    identify loop runs, so a single rename+scan can reassociate instead of
+    creating a duplicate.
+    """
+
+    async def test_mark_missing_runs_before_identify(self, mocker):
+        calls: list[str] = []
+
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        platform.missing_from_fs = False
+        db_platform = mocker.patch.object(scan_module, "db_platform_handler")
+        db_platform.get_platform_by_fs_slug.return_value = platform
+        db_platform.add_platform.return_value = platform
+
+        mocker.patch.object(
+            scan_module, "scan_platform", AsyncMock(return_value=platform)
+        )
+        # The scanning_platform emit serializes the platform; stub it out.
+        mocker.patch.object(
+            scan_module.PlatformSchema,
+            "model_validate",
+            return_value=Mock(model_dump=Mock(return_value={})),
+        )
+        mocker.patch.object(
+            scan_module.fs_firmware_handler,
+            "get_firmware",
+            AsyncMock(return_value=[]),
+        )
+        fs_rom: FSRom = {
+            "fs_name": "New Name.zip",
+            "flat": True,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        mocker.patch.object(
+            scan_module.fs_rom_handler, "get_roms", AsyncMock(return_value=[fs_rom])
+        )
+
+        def record_mark_missing(*args, **kwargs):
+            calls.append("mark_missing")
+            return []
+
+        db_rom = mocker.patch.object(scan_module, "db_rom_handler")
+        db_rom.get_roms_by_fs_name.return_value = {}
+        db_rom.mark_missing_roms.side_effect = record_mark_missing
+        db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
+        db_firmware.mark_missing_firmware.return_value = []
+
+        async def fake_identify(**kwargs):
+            calls.append("identify")
+
+        mocker.patch.object(scan_module, "_identify_rom", side_effect=fake_identify)
+
+        await scan_module._identify_platform(
+            platform_slug="test",
+            scan_type=ScanType.QUICK,
+            fs_platforms=["test"],
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
+
+        assert "mark_missing" in calls and "identify" in calls
+        assert calls.index("mark_missing") < calls.index("identify")
+
+
 class TestGetPico8CoverUrl:
     """Tests for the PICO-8 cover art URL helper on FSRomsHandler."""
 

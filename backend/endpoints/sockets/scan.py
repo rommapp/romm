@@ -666,6 +666,12 @@ async def _identify_platform(
     else:
         log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
 
+    # Flag entries whose file is gone before identifying files, so a renamed or
+    # moved ROM (a new file with no fs_name match) can be reassociated by hash
+    # with its now-missing entry instead of spawning a duplicate. The end-of-scan
+    # call below re-syncs and logs, unmarking any entry that got reassociated.
+    db_rom_handler.mark_missing_roms(platform.id, [rom["fs_name"] for rom in fs_roms])
+
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
 
