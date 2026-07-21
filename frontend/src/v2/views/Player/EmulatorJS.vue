@@ -225,9 +225,6 @@ async function onPlay() {
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = installIOSFullscreenShim();
 
-  // last_played / now_playing / status are updated server-side when the
-  // embedded <Player> ingests the play session on exit, so no launch-time
-  // write is made here.
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullscreenOnPlay.value;
   fullScreen.value = fullscreenOnPlay.value;
