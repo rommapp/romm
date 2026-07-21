@@ -67,6 +67,8 @@ const panelRef = ref<HTMLElement | null>(null);
 // Element that had focus before the dialog opened — focus returns here
 // when the dialog closes so keyboard users don't lose their place.
 let previouslyFocused: HTMLElement | null = null;
+// Guards this instance so lock/unlock are idempotent
+let holdsLock = false;
 
 // Stack depth at the moment this dialog opened (number of OTHER dialogs
 // already open). Drives a per-instance z-index bump so a dialog opened
@@ -103,9 +105,11 @@ const stackEntry: EscapableEntry = {
   },
 };
 
-// ── Body scroll lock — reference-counted so nested dialogs unlock
-// correctly when the outer one is still open. ─────────────────────
+// Body scroll lock, reference-counted so nested dialogs unlock
+// correctly when the outer one is still open.
 function lockBodyScroll() {
+  if (holdsLock) return;
+  holdsLock = true;
   const cur = Number(document.body.dataset.rDialogOpenCount ?? "0") + 1;
   document.body.dataset.rDialogOpenCount = String(cur);
   if (cur === 1) {
@@ -117,6 +121,8 @@ function lockBodyScroll() {
   }
 }
 function unlockBodyScroll() {
+  if (!holdsLock) return;
+  holdsLock = false;
   const cur = Math.max(
     0,
     Number(document.body.dataset.rDialogOpenCount ?? "0") - 1,
@@ -166,9 +172,14 @@ watch(
 );
 
 // Safety net — if the component unmounts while still open (parent
-// teardown, route change), drop our stack entry so the global listener
-// never tries to close a destroyed instance.
-onBeforeUnmount(() => popEscapable(stackEntry));
+// teardown, route change, or a consumer nulling its `v-if` entity in the
+// same tick as `show`), drop our stack entry so the global listener never
+// tries to close a destroyed instance, and release the body scroll lock
+// the watcher's close branch never got to run.
+onBeforeUnmount(() => {
+  popEscapable(stackEntry);
+  unlockBodyScroll();
+});
 
 // ── Width / height resolution ───────────────────────────────────
 function asLength(v: number | string): string | undefined {

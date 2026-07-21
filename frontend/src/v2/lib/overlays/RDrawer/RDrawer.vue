@@ -66,6 +66,8 @@ const panelRef = ref<HTMLElement | null>(null);
 // Element that had focus before the drawer opened — focus returns here
 // when the drawer closes so keyboard users don't lose their place.
 let previouslyFocused: HTMLElement | null = null;
+// Guards this instance so lock/unlock are idempotent
+let holdsLock = false;
 
 function closeDrawer() {
   emit("update:modelValue", false);
@@ -77,9 +79,11 @@ function onScrimClick() {
   closeDrawer();
 }
 
-// ── Body scroll lock — same reference-count pattern RDialog uses so
-// stacking (a Dialog open over a Drawer) unlocks in the right order. ──
+// Body scroll lock, same reference-count pattern RDialog uses so
+// stacking (a Dialog open over a Drawer) unlocks in the right order.
 function lockBodyScroll() {
+  if (holdsLock) return;
+  holdsLock = true;
   const cur = Number(document.body.dataset.rOverlayOpenCount ?? "0") + 1;
   document.body.dataset.rOverlayOpenCount = String(cur);
   if (cur === 1) {
@@ -92,6 +96,8 @@ function lockBodyScroll() {
   }
 }
 function unlockBodyScroll() {
+  if (!holdsLock) return;
+  holdsLock = false;
   const cur = Math.max(
     0,
     Number(document.body.dataset.rOverlayOpenCount ?? "0") - 1,
@@ -140,8 +146,12 @@ watch(
 );
 
 // Safety net — drop the stack entry if we tear down while open (route
-// change with the drawer still visible).
-onBeforeUnmount(() => popEscapable(escEntry));
+// change with the drawer still visible) and release the body scroll lock
+// the watcher's close branch never got to run.
+onBeforeUnmount(() => {
+  popEscapable(escEntry);
+  unlockBodyScroll();
+});
 
 // ── Width resolution ────────────────────────────────────────────
 function asLength(v: number | string): string {
