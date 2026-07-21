@@ -13,8 +13,6 @@ class SGDBResource(TypedDict):
     thumb: str
     url: str
     type: str
-    # Rich metadata surfaced so the frontend can offer client-side filters
-    # (resolution, style, uploader, content flags) and vote sorting.
     width: int
     height: int
     style: str
@@ -97,9 +95,7 @@ class SGDBBaseHandler(MetadataHandler):
             log.debug(f"Could not find '{search_term}' on SteamGridDB")
             return []
 
-        # Fetch every content variant so the picker can toggle NSFW / humor /
-        # epilepsy covers client-side. Each cover carries its own flags, so the
-        # frontend hides them by default and reveals them on demand.
+        # Fetch every content variant so the picker can toggle cover filters.
         tasks = [
             self._get_game_covers(
                 game_id=game["id"],

@@ -33,6 +33,7 @@ import {
   getMatchSources,
   type MatchedSource,
 } from "@/v2/components/MatchRom/types";
+import { useCoverFilters } from "@/v2/composables/useCoverFilters";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RSelect from "@/v2/lib/forms/RSelect/RSelect.vue";
 import RSwitch from "@/v2/lib/forms/RSwitch/RSwitch.vue";
@@ -50,12 +51,9 @@ const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 
-type CoverType = "all" | "static" | "animated";
-
 const show = ref(false);
 const searching = ref(false);
 const searchText = ref("");
-const coverType = ref<CoverType>("all");
 const covers = ref<SearchCoverSchema[]>([]);
 // Source rom for the in-flight search — drives the optional
 // `/search/roms` companion call. Reset on close so a follow-up open
@@ -64,157 +62,43 @@ const covers = ref<SearchCoverSchema[]>([]);
 const sourceRom = ref<SimpleRom | null>(null);
 const providerCovers = ref<MatchedSource[]>([]);
 
-// Client-side filters over the fetched result set. They never re-hit the
-// API — the backend returns every content variant (NSFW / humor /
-// epilepsy) with its per-cover metadata, so flipping a filter just
-// narrows the already-loaded list. Option lists below are built from the
-// raw results, so filtering never removes an option the user might want.
-type SortMode = "relevance" | "votes";
-const sourceFilter = ref("all"); // "all" | "sgdb" | provider name
-const resolutionFilter = ref("all");
-const styleFilter = ref("all");
-const uploaderFilter = ref("all");
-const uploaderSearch = ref("");
-const showNsfw = ref(false);
-const showHumor = ref(true);
-const showEpilepsy = ref(true);
-const sortMode = ref<SortMode>("relevance");
+// Client-side filtering + sorting over the two fetched lists. The
+// backend returns every content variant (NSFW / humor / epilepsy) with
+// its per-cover metadata in one call, so the controls just narrow the
+// already-loaded results — no re-fetch.
+const {
+  coverType,
+  resolutionFilter,
+  styleFilter,
+  uploaderFilter,
+  uploaderSearch,
+  showNsfw,
+  showHumor,
+  showEpilepsy,
+  sortMode,
+  resetFilters,
+  coverTypeItems,
+  resolutionItems,
+  resolutionValues,
+  styleItems,
+  styleValues,
+  uploaderItems,
+  uploaderValues,
+  filteredCovers,
+  visibleProviderCovers,
+  hasSgdbCovers,
+  showProviderCovers,
+  hasRawResults,
+  hasResults,
+} = useCoverFilters(covers, providerCovers);
 
-function resetFilters() {
-  coverType.value = "all";
-  sourceFilter.value = "all";
-  resolutionFilter.value = "all";
-  styleFilter.value = "all";
-  uploaderFilter.value = "all";
-  uploaderSearch.value = "";
-  showNsfw.value = false;
-  showHumor.value = true;
-  showEpilepsy.value = true;
-  sortMode.value = "relevance";
-}
-
-// SGDB serves styles as raw slugs; map the known set to readable labels
-// and fall back to the slug for anything new SGDB adds later.
-const STYLE_LABEL_KEYS: Record<string, string> = {
-  alternate: "rom.cover-style-alternate",
-  blurred: "rom.cover-style-blurred",
-  white_logo: "rom.cover-style-white-logo",
-  material: "rom.cover-style-material",
-  no_logo: "rom.cover-style-no-logo",
-};
-function styleLabel(style: string): string {
-  const key = STYLE_LABEL_KEYS[style];
-  return key ? t(key) : style;
-}
-
-const coverTypeItems = computed(() => [
-  { title: t("rom.cover-type-all"), value: "all" },
-  { title: t("rom.cover-type-static"), value: "static" },
-  { title: t("rom.cover-type-animated"), value: "animated" },
-]);
-
-const sortItems = computed(() => [
-  { title: t("rom.cover-sort-relevance"), value: "relevance" },
-  { title: t("rom.cover-sort-votes"), value: "votes" },
-]);
-
-// Every SGDB resource across all matched games, used to build the
-// dynamic option lists (resolution / style / uploader) from what the
-// search actually returned.
-const allResources = computed(() => covers.value.flatMap((g) => g.resources));
-
-const resolutionValues = computed(() => {
-  const set = new Set<string>();
-  for (const r of allResources.value) {
-    if (r.width > 0 && r.height > 0) set.add(`${r.width}x${r.height}`);
-  }
-  // Largest area first — the highest-res covers are what users usually want.
-  return [...set].sort((a, b) => {
-    const [aw, ah] = a.split("x").map(Number);
-    const [bw, bh] = b.split("x").map(Number);
-    return bw * bh - aw * ah || bw - aw;
-  });
-});
-const resolutionItems = computed(() => [
-  { title: t("rom.cover-filter-resolution-all"), value: "all" },
-  ...resolutionValues.value.map((v) => ({
-    title: v.replace("x", "×"),
-    value: v,
-  })),
-]);
-
-const styleValues = computed(() => {
-  const set = new Set<string>();
-  for (const r of allResources.value) if (r.style) set.add(r.style);
-  return [...set].sort();
-});
-const styleItems = computed(() => [
-  { title: t("rom.cover-filter-style-all"), value: "all" },
-  ...styleValues.value.map((v) => ({ title: styleLabel(v), value: v })),
-]);
-
-const uploaderValues = computed(() => {
-  const set = new Set<string>();
-  for (const r of allResources.value) if (r.author) set.add(r.author);
-  return [...set].sort((a, b) => a.localeCompare(b));
-});
-const uploaderItems = computed(() => [
-  { title: t("rom.cover-filter-uploader-all"), value: "all" },
-  ...uploaderValues.value.map((v) => ({ title: v, value: v })),
-]);
-
-// Source select only makes sense once provider covers are in play (the
-// dialog was opened from a rom). Options: All, SteamGridDB, then one per
-// provider that returned a cover.
-const sourceItems = computed(() => {
-  const items = [{ title: t("rom.cover-filter-source-all"), value: "all" }];
-  if (allResources.value.length > 0) {
-    items.push({ title: "SteamGridDB", value: "sgdb" });
-  }
-  for (const s of providerCovers.value)
-    items.push({ title: s.name, value: s.name });
-  return items;
-});
-
-// Does a single SGDB resource pass all active filters?
-function matchesFilters(r: SGDBResource): boolean {
-  if (coverType.value !== "all" && r.type !== coverType.value) return false;
-  if (
-    resolutionFilter.value !== "all" &&
-    `${r.width}x${r.height}` !== resolutionFilter.value
-  )
-    return false;
-  if (styleFilter.value !== "all" && r.style !== styleFilter.value)
-    return false;
-  if (uploaderFilter.value !== "all" && r.author !== uploaderFilter.value)
-    return false;
-  // Content flags are opt-in: a flagged cover shows only when its toggle is on.
-  if (r.nsfw && !showNsfw.value) return false;
-  if (r.humor && !showHumor.value) return false;
-  if (r.epilepsy && !showEpilepsy.value) return false;
-  return true;
-}
-
-// SGDB results render unless the source filter isolates a single provider.
-const showSgdb = computed(
-  () => sourceFilter.value === "all" || sourceFilter.value === "sgdb",
-);
-
-// Filter (and optionally re-sort by votes) the fetched SGDB list without
-// re-hitting the API. SGDB sometimes returns a game entry with an empty
-// `resources` array — or one emptied by the active filters — so we drop
-// those so the accordion doesn't render an empty section.
-const filteredCovers = computed<SearchCoverSchema[]>(() => {
-  if (!showSgdb.value) return [];
-  return covers.value
-    .map((game) => {
-      const resources = game.resources.filter(matchesFilters);
-      if (sortMode.value === "votes") {
-        resources.sort((a, b) => b.score - a.score);
-      }
-      return { ...game, resources };
-    })
-    .filter((g) => g.resources.length > 0);
+// `sortMode` is a two-value enum; expose it to the toggle as a boolean —
+// on sorts by votes, off falls back to relevance.
+const sortByVotes = computed({
+  get: () => sortMode.value === "votes",
+  set: (v) => {
+    sortMode.value = v ? "votes" : "relevance";
+  },
 });
 
 // SGDB animated covers ship their `thumb` as a `.webm` clip — an `<img>`
@@ -227,30 +111,6 @@ function isAnimated(resource: SGDBResource): boolean {
   );
 }
 
-const hasSgdbCovers = computed(() => allResources.value.length > 0);
-const hasProviderCovers = computed(() => providerCovers.value.length > 0);
-// Provider covers (IGDB / Moby / SS / …) are static artwork only — they
-// don't carry an animated variant, so hide them when filtering to
-// "animated". The source filter can also isolate a single provider.
-const visibleProviderCovers = computed<MatchedSource[]>(() => {
-  if (coverType.value === "animated") return [];
-  if (sourceFilter.value === "sgdb") return [];
-  if (sourceFilter.value === "all") return providerCovers.value;
-  return providerCovers.value.filter((s) => s.name === sourceFilter.value);
-});
-
-const hasSgdbResults = computed(() => filteredCovers.value.length > 0);
-const showProviderCovers = computed(
-  () => visibleProviderCovers.value.length > 0,
-);
-// Raw results present (pre-filter) — drives whether the filter bar shows,
-// so filtering everything out never hides the controls needed to undo it.
-const hasRawResults = computed(
-  () => hasSgdbCovers.value || hasProviderCovers.value,
-);
-const hasResults = computed(
-  () => hasSgdbResults.value || showProviderCovers.value,
-);
 // A search ran and the server returned nothing at all.
 const showNoServerResults = computed(
   () => !searching.value && searchText.value.length > 0 && !hasRawResults.value,
@@ -303,7 +163,6 @@ async function doSearch() {
   searching.value = true;
   covers.value = [];
   providerCovers.value = [];
-  resetFilters();
   const term = searchText.value.trim();
   const source = sourceRom.value;
   try {
@@ -436,9 +295,7 @@ function closeDialog() {
         </RBtn>
       </div>
 
-      <!-- Filter bar — client-side only, built from the fetched results.
-           Gated on `hasRawResults` (not the filtered list) so filtering
-           everything out never hides the controls needed to undo it. -->
+      <!-- Filter bar -->
       <div v-if="hasRawResults" class="r-v2-sgdb__filters">
         <RSelect
           v-model="coverType"
@@ -448,16 +305,7 @@ function closeDialog() {
           class="r-v2-sgdb__filter"
           :aria-label="t('rom.cover-type-all')"
         />
-        <RSelect
-          v-if="hasProviderCovers"
-          v-model="sourceFilter"
-          :items="sourceItems"
-          density="comfortable"
-          hide-details
-          class="r-v2-sgdb__filter"
-          :aria-label="t('rom.cover-filter-source-all')"
-        />
-        <template v-if="hasSgdbCovers && showSgdb">
+        <template v-if="hasSgdbCovers">
           <RSelect
             v-if="resolutionValues.length > 1"
             v-model="resolutionFilter"
@@ -488,15 +336,18 @@ function closeDialog() {
             class="r-v2-sgdb__filter"
             :aria-label="t('rom.cover-filter-uploader-all')"
           />
-          <RSelect
-            v-model="sortMode"
-            :items="sortItems"
-            density="comfortable"
-            hide-details
-            class="r-v2-sgdb__filter"
-            :aria-label="t('rom.cover-sort-relevance')"
-          />
-          <div class="r-v2-sgdb__toggles">
+        </template>
+      </div>
+
+      <template v-if="hasSgdbCovers">
+        <div class="r-v2-sgdb__toggles">
+          <div class="r-v2-sgdb__sort">
+            <span class="r-v2-sgdb__sort-label">
+              {{ t("rom.cover-sort-relevance") }}
+            </span>
+            <RSwitch v-model="sortByVotes" :label="t('rom.cover-sort-votes')" />
+          </div>
+          <div class="r-v2-sgdb__content-toggles">
             <RSwitch v-model="showNsfw" :label="t('rom.cover-content-nsfw')" />
             <RSwitch
               v-model="showHumor"
@@ -507,8 +358,8 @@ function closeDialog() {
               :label="t('rom.cover-content-epilepsy')"
             />
           </div>
-        </template>
-      </div>
+        </div>
+      </template>
 
       <div class="r-v2-sgdb__body">
         <div v-if="searching" class="r-v2-sgdb__loading">
@@ -523,8 +374,7 @@ function closeDialog() {
                glance whose artwork they're picking. -->
           <RCollapsible
             v-if="showProviderCovers"
-            :title="t('rom.providers-covers')"
-            default-open
+            :title="t('rom.metadata-providers')"
           >
             <div class="r-v2-sgdb__grid">
               <button
@@ -630,7 +480,6 @@ function closeDialog() {
    content toggles group flows to the end. */
 .r-v2-sgdb__filters {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
   margin-bottom: 14px;
@@ -640,6 +489,25 @@ function closeDialog() {
   min-width: 130px;
 }
 .r-v2-sgdb__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+/* Sort control floats left; its "off" option label sits to the left of
+   the switch so the toggle reads Relevance ↔ Most votes. */
+.r-v2-sgdb__sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.r-v2-sgdb__sort-label {
+  font-size: 13px;
+  font-weight: var(--r-font-weight-medium);
+  color: var(--r-color-fg);
+}
+/* Content toggles group flows to the end of the row. */
+.r-v2-sgdb__content-toggles {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
