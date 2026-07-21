@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 import zipfile
 from datetime import datetime, timezone
+from email.message import Message
 from typing import Annotated, Any, TypedDict
 from urllib.parse import quote, urlparse, urlunparse
 
@@ -457,6 +458,13 @@ def _broker_secret(container: dict[str, Any]) -> str:
     return STREAMING_BROKER_SECRET or container.get("broker_secret", "")
 
 
+def _broker_headers(container: dict[str, Any]) -> dict[str, str]:
+    """Auth headers for a broker call, empty when no secret is configured.
+    Returns a fresh dict so callers can add their own headers to it."""
+    secret = _broker_secret(container)
+    return {"X-Broker-Secret": secret} if secret else {}
+
+
 def _broker_request(
     container: dict[str, Any],
     path: str,
@@ -472,8 +480,7 @@ def _broker_request(
     error; callers decide whether to surface or swallow it.
     """
     url = _broker_url(container, path)
-    secret = _broker_secret(container)
-    headers = {"X-Broker-Secret": secret} if secret else {}
+    headers = _broker_headers(container)
     data = None
     if body is not None:
         data = json.dumps(body).encode()
@@ -506,6 +513,89 @@ def _broker_request_safe(
     except Exception as exc:
         log.warning("broker %s failed, %s", label, exc)
         return None
+
+
+def _broker_get_binary(
+    container: dict[str, Any],
+    path: str,
+    *,
+    max_bytes: int,
+    timeout: float,
+) -> tuple[Message, bytes]:
+    """
+    GET a binary body from the broker, returning (response headers, content).
+    Headers come back because some routes carry metadata there. Raises the
+    underlying urllib/OS error, or ValueError for an empty or oversized body.
+    """
+    req = urllib.request.Request(
+        _broker_url(container, path),
+        method="GET",
+        headers=_broker_headers(container),
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+        headers = resp.headers
+        content = resp.read(max_bytes + 1)
+    if not content:
+        raise ValueError("broker returned an empty body")
+    if len(content) > max_bytes:
+        raise ValueError("broker response exceeds size limit")
+    return headers, content
+
+
+def _broker_get_binary_safe(
+    container: dict[str, Any],
+    path: str,
+    label: str,
+    *,
+    max_bytes: int,
+    timeout: float,
+) -> tuple[Message, bytes] | None:
+    """
+    Best-effort variant of _broker_get_binary: returns None instead of raising.
+    A 404 is a normal answer on these routes (no state in the slot, no new
+    saves, no captured frame), so it is not logged.
+    """
+    try:
+        return _broker_get_binary(container, path, max_bytes=max_bytes, timeout=timeout)
+    except urllib.error.HTTPError as exc:
+        if exc.code != 404:
+            log.warning("broker %s failed, HTTP %d", label, exc.code)
+        return None
+    except Exception as exc:
+        log.warning("broker %s failed, %s", label, exc)
+        return None
+
+
+def _broker_put_binary(
+    container: dict[str, Any],
+    path: str,
+    content: bytes,
+    label: str,
+    *,
+    content_type: str,
+    timeout: float,
+) -> bool:
+    """
+    PUT a binary body to the broker, reporting whether it acked with ok.
+    Best-effort, logs but never raises.
+    """
+    req = urllib.request.Request(
+        _broker_url(container, path),
+        data=content,
+        method="PUT",
+        headers={
+            "Content-Type": content_type,
+            "Content-Length": str(len(content)),
+            **_broker_headers(container),
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+            body = json.loads(resp.read())
+        return bool(body.get("status") == "ok")
+    except Exception as exc:
+        log.warning("broker %s failed, %s", label, exc)
+        return False
 
 
 def _call_broker(
@@ -700,58 +790,33 @@ def _fetch_state_file(container: dict[str, Any], slot: int) -> tuple[str, bytes]
     The broker blocks while a save is in flight, so a generous timeout stands
     in for save-completion polling. 404 means no state exists for the slot.
     """
-    url = _broker_url(container, f"/state-file?slot={slot}")
-    secret = _broker_secret(container)
-    req = urllib.request.Request(
-        url,
-        method="GET",
-        headers={**({"X-Broker-Secret": secret} if secret else {})},
+    result = _broker_get_binary_safe(
+        container,
+        f"/state-file?slot={slot}",
+        "state-file GET",
+        max_bytes=_STATE_FILE_MAX_BYTES,
+        timeout=_BROKER_TRANSFER_TIMEOUT,
     )
-    try:
-        with urllib.request.urlopen(  # nosec B310
-            req, timeout=_BROKER_TRANSFER_TIMEOUT
-        ) as resp:
-            filename = resp.headers.get("X-State-Filename", "")
-            content = resp.read(_STATE_FILE_MAX_BYTES + 1)
-            if not filename or not content:
-                log.warning("broker state-file response missing data")
-                return None
-            if len(content) > _STATE_FILE_MAX_BYTES:
-                log.warning("broker state file exceeds size limit")
-                return None
-            return filename, content
-    except urllib.error.HTTPError as exc:
-        if exc.code != 404:
-            log.warning("broker state-file GET failed, HTTP %d", exc.code)
+    if result is None:
         return None
-    except Exception as exc:
-        log.warning("broker state-file GET failed, %s", exc)
+    headers, content = result
+    filename = headers.get("X-State-Filename", "")
+    if not filename:
+        log.warning("broker state-file response missing a filename")
         return None
+    return filename, content
 
 
 def _push_state_file(container: dict[str, Any], filename: str, content: bytes) -> bool:
     """PUT /state-file to the broker. Best-effort, logs but never raises."""
-    url = _broker_url(container, f"/state-file?filename={quote(filename, safe='')}")
-    secret = _broker_secret(container)
-    req = urllib.request.Request(
-        url,
-        data=content,
-        method="PUT",
-        headers={
-            "Content-Type": "application/octet-stream",
-            "Content-Length": str(len(content)),
-            **({"X-Broker-Secret": secret} if secret else {}),
-        },
+    return _broker_put_binary(
+        container,
+        f"/state-file?filename={quote(filename, safe='')}",
+        content,
+        "state-file PUT",
+        content_type="application/octet-stream",
+        timeout=_BROKER_TRANSFER_TIMEOUT,
     )
-    try:
-        with urllib.request.urlopen(  # nosec B310
-            req, timeout=_BROKER_TRANSFER_TIMEOUT
-        ) as resp:
-            body = json.loads(resp.read())
-            return body.get("status") == "ok"
-    except Exception as exc:
-        log.warning("broker state-file PUT failed, %s", exc)
-        return False
 
 
 # PCSX2 embeds a PNG of the moment of save inside every .p2s savestate zip
@@ -787,28 +852,14 @@ def _fetch_state_screenshot(container: dict[str, Any], slot: int) -> bytes | Non
     """GET /state-screenshot from the broker, for emulators whose state files
     carry no frame of their own. A 404 is the normal "this broker does not
     capture frames" answer, so it is not logged."""
-    url = _broker_url(container, f"/state-screenshot?slot={slot}")
-    secret = _broker_secret(container)
-    req = urllib.request.Request(
-        url,
-        method="GET",
-        headers={**({"X-Broker-Secret": secret} if secret else {})},
+    result = _broker_get_binary_safe(
+        container,
+        f"/state-screenshot?slot={slot}",
+        "state-screenshot GET",
+        max_bytes=_STATE_SCREENSHOT_MAX_BYTES,
+        timeout=_BROKER_TRANSFER_TIMEOUT,
     )
-    try:
-        with urllib.request.urlopen(  # nosec B310
-            req, timeout=_BROKER_TRANSFER_TIMEOUT
-        ) as resp:
-            content = resp.read(_STATE_SCREENSHOT_MAX_BYTES + 1)
-    except urllib.error.HTTPError as exc:
-        if exc.code != 404:
-            log.warning("broker state-screenshot GET failed, HTTP %d", exc.code)
-        return None
-    except Exception as exc:
-        log.warning("broker state-screenshot GET failed, %s", exc)
-        return None
-    if not content or len(content) > _STATE_SCREENSHOT_MAX_BYTES:
-        return None
-    return content
+    return result[1] if result else None
 
 
 async def _store_state_screenshot(
@@ -1100,56 +1151,26 @@ def _fetch_save_archive(container: dict[str, Any]) -> bytes | None:
     404 means nothing changed since the game launched (the normal "no new
     saves" case); any other failure is logged and treated the same way.
     """
-    url = _broker_url(container, "/save-file")
-    secret = _broker_secret(container)
-    req = urllib.request.Request(
-        url,
-        method="GET",
-        headers={**({"X-Broker-Secret": secret} if secret else {})},
+    result = _broker_get_binary_safe(
+        container,
+        "/save-file",
+        "save-file GET",
+        max_bytes=_SAVE_FILE_MAX_BYTES,
+        timeout=_BROKER_TRANSFER_TIMEOUT,
     )
-    try:
-        with urllib.request.urlopen(  # nosec B310
-            req, timeout=_BROKER_TRANSFER_TIMEOUT
-        ) as resp:
-            content = resp.read(_SAVE_FILE_MAX_BYTES + 1)
-            if not content:
-                return None
-            if len(content) > _SAVE_FILE_MAX_BYTES:
-                log.warning("broker save archive exceeds size limit")
-                return None
-            return content
-    except urllib.error.HTTPError as exc:
-        if exc.code != 404:
-            log.warning("broker save-file GET failed, HTTP %d", exc.code)
-        return None
-    except Exception as exc:
-        log.warning("broker save-file GET failed, %s", exc)
-        return None
+    return result[1] if result else None
 
 
 def _push_save_archive(container: dict[str, Any], content: bytes) -> bool:
     """PUT /save-file to the broker. Best-effort, logs but never raises."""
-    url = _broker_url(container, "/save-file")
-    secret = _broker_secret(container)
-    req = urllib.request.Request(
-        url,
-        data=content,
-        method="PUT",
-        headers={
-            "Content-Type": "application/zip",
-            "Content-Length": str(len(content)),
-            **({"X-Broker-Secret": secret} if secret else {}),
-        },
+    return _broker_put_binary(
+        container,
+        "/save-file",
+        content,
+        "save-file PUT",
+        content_type="application/zip",
+        timeout=_BROKER_TRANSFER_TIMEOUT,
     )
-    try:
-        with urllib.request.urlopen(  # nosec B310
-            req, timeout=_BROKER_TRANSFER_TIMEOUT
-        ) as resp:
-            body = json.loads(resp.read())
-            return body.get("status") == "ok"
-    except Exception as exc:
-        log.warning("broker save-file PUT failed, %s", exc)
-        return False
 
 
 async def _store_save_asset(
@@ -1324,21 +1345,14 @@ def _fetch_memory_card(
       missing / unmarked 404, 409 File card, oversize, empty 200, or a transport
       error). The caller must NOT wipe, since the card was never captured.
     """
-    url = _broker_url(container, "/memory-card")
-    secret = _broker_secret(container)
-    req = urllib.request.Request(
-        url,
-        method="GET",
-        headers={**({"X-Broker-Secret": secret} if secret else {})},
-    )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
-            content = resp.read(_MEMORY_CARD_MAX_BYTES + 1)
-            if not content:
-                raise _MemoryCardUnavailable("broker returned an empty card body")
-            if len(content) > _MEMORY_CARD_MAX_BYTES:
-                raise _MemoryCardUnavailable("broker memory card exceeds size limit")
-            return content
+        _, content = _broker_get_binary(
+            container,
+            "/memory-card",
+            max_bytes=_MEMORY_CARD_MAX_BYTES,
+            timeout=timeout,
+        )
+        return content
     except urllib.error.HTTPError as exc:
         if exc.code == 404 and exc.headers.get("X-Memory-Card") == "absent":
             # Broker confirms the slot is genuinely empty (first run, or already
@@ -1351,8 +1365,6 @@ def _fetch_memory_card(
         raise _MemoryCardUnavailable(
             f"broker memory-card GET failed, HTTP {exc.code}"
         ) from exc
-    except _MemoryCardUnavailable:
-        raise
     except Exception as exc:
         raise _MemoryCardUnavailable(f"broker memory-card GET failed, {exc}") from exc
 
@@ -1362,25 +1374,14 @@ def _push_memory_card(
 ) -> bool:
     """PUT /memory-card to the broker (wipe-then-replace). Best-effort, logs
     but never raises. The caller decides whether a failure aborts the claim."""
-    url = _broker_url(container, "/memory-card")
-    secret = _broker_secret(container)
-    req = urllib.request.Request(
-        url,
-        data=content,
-        method="PUT",
-        headers={
-            "Content-Type": "application/zip",
-            "Content-Length": str(len(content)),
-            **({"X-Broker-Secret": secret} if secret else {}),
-        },
+    return _broker_put_binary(
+        container,
+        "/memory-card",
+        content,
+        "memory-card PUT",
+        content_type="application/zip",
+        timeout=timeout,
     )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
-            body = json.loads(resp.read())
-            return body.get("status") == "ok"
-    except Exception as exc:
-        log.warning("broker memory-card PUT failed, %s", exc)
-        return False
 
 
 def _resolve_memory_card(
