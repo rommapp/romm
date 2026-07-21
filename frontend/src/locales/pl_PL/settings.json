@@ -407,6 +407,8 @@
   "show-regions-desc": "Pokaż flagi regionów w galerii",
   "show-siblings": "Pokaż wersje",
   "show-siblings-desc": "Pokaż liczbę wersji w galerii, gdy włączona jest opcja „Grupuj ROM-y”",
+  "show-smart-collections": "Pokaż inteligentne kolekcje",
+  "show-smart-collections-desc": "Pokaż sekcję inteligentnych kolekcji na stronie głównej",
   "show-stats": "Pokaż statystyki",
   "show-stats-desc": "Pokaż podsumowanie statystyk na stronie głównej",
   "show-status": "Pokaż status",

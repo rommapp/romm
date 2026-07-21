@@ -407,6 +407,8 @@
   "show-regions-desc": "갤러리에서 지역을 보여줍니다",
   "show-siblings": "버전 보이기",
   "show-siblings-desc": "\"롬 묶음\" 옵션이 활성화되었을 때 버전의 개수를 갤러리에서 보여줍니다",
+  "show-smart-collections": "스마트 모음집 보이기",
+  "show-smart-collections-desc": "홈페이지에 스마트 모음집 페이지를 보여줍니다",
   "show-stats": "통계 보이기",
   "show-stats-desc": "홈페이지에 통계 요약을 보여줍니다",
   "show-status": "상태 보이기",

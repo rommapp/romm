@@ -24,6 +24,10 @@ export const UI_SETTINGS_KEYS = {
   showContinuePlaying: { key: "settings.showContinuePlaying", default: true },
   showPlatforms: { key: "settings.showPlatforms", default: true },
   showCollections: { key: "settings.showCollections", default: true },
+  showSmartCollections: {
+    key: "settings.showSmartCollections",
+    default: true,
+  },
 
   // Home widget bar (v2 only). `showHomeWidgets` is the master toggle
   // for the row; per-widget toggles let users disable individual cards
