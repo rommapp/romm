@@ -333,6 +333,22 @@ def test_get_rom_content_single_file(
     assert "X-Accel-Redirect" in response.headers
 
 
+def test_get_rom_content_single_file_missing_on_disk_returns_404(
+    client: TestClient, access_token: str, rom: Rom, rom_file, mocker
+):
+    # In DEV_MODE the endpoint serves the file directly. If the file is gone
+    # from disk (e.g. a renamed/moved ROM whose old entry is now missing), it
+    # must return a clean 404 instead of raising a RuntimeError from
+    # FileResponse when starlette fails to stat the path.
+    mocker.patch("endpoints.roms.DEV_MODE", True)
+    response = client.get(
+        f"/api/roms/{rom.id}/content/test_rom.zip",
+        headers={"Authorization": f"Bearer {access_token}"},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_get_rom_content_valid_file_id(
     client: TestClient, access_token: str, rom: Rom, rom_file
 ):
