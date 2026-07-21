@@ -12,6 +12,7 @@
   "danger-zone": "危険",
   "delete-platform": "プラットフォームの削除",
   "delete-platform-hint": "プラットフォームとそのROMデータベースエントリを削除します。ディスク上のファイルは削除されません。",
+  "description": "説明",
   "download-platform": "プラットフォームをダウンロード",
   "edit-platform": "プラットフォームを編集",
   "export": "エクスポート",

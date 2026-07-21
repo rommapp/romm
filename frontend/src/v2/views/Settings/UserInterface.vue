@@ -40,6 +40,9 @@ const {
   showContinuePlaying,
   showPlatforms,
   showCollections,
+  showSmartCollections,
+  showVirtualCollections,
+  virtualCollectionType,
   // Home widgets (v2 only)
   showHomeWidgets,
   widgetRandomPick,
@@ -54,9 +57,6 @@ const {
   disableAnimations,
   enableExperimentalCache,
   boxartStyle,
-  // Virtual collections
-  showVirtualCollections,
-  virtualCollectionType,
 } = useUISettings();
 
 type Theme = "dark" | "light" | "auto";
@@ -227,6 +227,16 @@ function onVirtualCollectionTypeChange(value: unknown) {
             :title="t('settings.show-collections')"
             :description="t('settings.show-collections-desc')"
           />
+          <SettingsToggleRow
+            v-model="showSmartCollections"
+            :title="t('settings.show-smart-collections')"
+            :description="t('settings.show-smart-collections-desc')"
+          />
+          <SettingsToggleRow
+            v-model="showVirtualCollections"
+            :title="t('settings.show-virtual-collections')"
+            :description="t('settings.show-virtual-collections-desc')"
+          />
         </div>
       </SettingsSubsection>
 
@@ -336,14 +346,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
       :title="t('common.virtual-collections')"
       icon="mdi-bookmark-box-multiple"
     >
-      <div class="r-v2-ui__toggle-grid r-v2-ui__toggle-grid--single">
-        <SettingsToggleRow
-          v-model="showVirtualCollections"
-          :title="t('settings.show-virtual-collections')"
-          :description="t('settings.show-virtual-collections-desc')"
-        />
-      </div>
-      <div class="r-v2-ui__field r-v2-ui__field--bordered">
+      <div class="r-v2-ui__field">
         <RSelect
           :model-value="virtualCollectionType"
           :items="virtualCollectionTypeItems"

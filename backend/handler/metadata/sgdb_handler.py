@@ -1,5 +1,5 @@
 import asyncio
-from typing import Final, NotRequired, TypedDict
+from typing import Final, Literal, NotRequired, TypedDict
 
 from adapters.services.steamgriddb import SteamGridDBService
 from adapters.services.steamgriddb_types import SGDBDimension, SGDBGame, SGDBType
@@ -13,6 +13,14 @@ class SGDBResource(TypedDict):
     thumb: str
     url: str
     type: str
+    width: int
+    height: int
+    style: str
+    author: str
+    score: int
+    nsfw: bool
+    humor: bool
+    epilepsy: bool
 
 
 class SGDBResult(TypedDict):
@@ -87,8 +95,15 @@ class SGDBBaseHandler(MetadataHandler):
             log.debug(f"Could not find '{search_term}' on SteamGridDB")
             return []
 
+        # Fetch every content variant so the picker can toggle cover filters.
         tasks = [
-            self._get_game_covers(game_id=game["id"], game_name=game["name"])
+            self._get_game_covers(
+                game_id=game["id"],
+                game_name=game["name"],
+                is_nsfw="any",
+                is_humor="any",
+                is_epilepsy="any",
+            )
             for game in games
         ]
         results = await asyncio.gather(*tasks)
@@ -170,9 +185,9 @@ class SGDBBaseHandler(MetadataHandler):
             SGDBDimension.SQUARE_1024,
         ),
         types: tuple[SGDBType, ...] = (SGDBType.STATIC, SGDBType.ANIMATED),
-        is_nsfw: bool | None = None,
-        is_humor: bool | None = None,
-        is_epilepsy: bool | None = None,
+        is_nsfw: bool | Literal["any"] | None = None,
+        is_humor: bool | Literal["any"] | None = None,
+        is_epilepsy: bool | Literal["any"] | None = None,
     ) -> SGDBResult:
         game_covers = [
             cover
@@ -195,6 +210,14 @@ class SGDBBaseHandler(MetadataHandler):
                     thumb=cover["thumb"],
                     url=cover["url"],
                     type="animated" if cover["thumb"].endswith(".webm") else "static",
+                    width=cover.get("width") or 0,
+                    height=cover.get("height") or 0,
+                    style=cover.get("style") or "",
+                    author=(cover.get("author") or {}).get("name") or "",
+                    score=cover.get("score") or 0,
+                    nsfw=bool(cover.get("nsfw")),
+                    humor=bool(cover.get("humor")),
+                    epilepsy=bool(cover.get("epilepsy")),
                 )
                 for cover in game_covers
             ],

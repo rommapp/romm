@@ -160,6 +160,7 @@ export type { SaveAndExitRequest } from './models/SaveAndExitRequest';
 export type { SaveSchema } from './models/SaveSchema';
 export type { SaveStateRequest } from './models/SaveStateRequest';
 export type { SaveSummarySchema } from './models/SaveSummarySchema';
+export type { ScanSettingsPayload } from './models/ScanSettingsPayload';
 export type { ScanStats } from './models/ScanStats';
 export type { ScanTaskMeta } from './models/ScanTaskMeta';
 export type { ScanTaskStatusResponse } from './models/ScanTaskStatusResponse';

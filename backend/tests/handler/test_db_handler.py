@@ -798,6 +798,152 @@ def test_mark_missing_roms_does_not_affect_other_platforms(platform: Platform):
     assert updated_other.missing_from_fs is False
 
 
+def _add_missing_rom(platform: Platform, name: str, **hashes) -> Rom:
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=name,
+            slug=name,
+            fs_name=f"{name}.zip",
+            fs_name_no_tags=name,
+            fs_name_no_ext=name,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            missing_from_fs=True,
+            **hashes,
+        )
+    )
+
+
+def test_get_matching_missing_rom_all_hashes_match(platform: Platform):
+    """A missing ROM is matched when CRC, MD5, and SHA1 all match."""
+    missing = _add_missing_rom(
+        platform, "renamed", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+    )
+    assert match is not None
+    assert match.id == missing.id
+
+
+def test_get_matching_missing_rom_partial_hash_does_not_match(platform: Platform):
+    """A shared CRC32 must not match when MD5/SHA1 differ (collision guard)."""
+    _add_missing_rom(
+        platform, "other", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="different",
+        sha1_hash="different",
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_ambiguous_match_returns_none(platform: Platform):
+    """When several missing entries share the same hashes, none is chosen.
+
+    Reassociation must not move user data onto an arbitrary row, so an
+    ambiguous set falls back to creating a new entry.
+    """
+    _add_missing_rom(
+        platform, "dup_a", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+    _add_missing_rom(
+        platform, "dup_b", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_requires_all_three_hashes(platform: Platform):
+    """A match needs all three hashes; omitting one yields no match."""
+    _add_missing_rom(
+        platform, "renamed", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id, crc_hash="aabbccdd", md5_hash="md5val"
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_ignores_present_roms(platform: Platform):
+    """Only ROMs marked missing are eligible for reassociation."""
+    db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="present_game",
+            slug="present-game",
+            fs_name="present.zip",
+            fs_name_no_tags="present",
+            fs_name_no_ext="present",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            crc_hash="aabbccdd",
+            md5_hash="md5val",
+            sha1_hash="sha1val",
+            missing_from_fs=False,
+        )
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_scoped_to_platform(platform: Platform):
+    """A missing ROM on another platform must not be matched."""
+    other_platform = db_platform_handler.add_platform(
+        Platform(
+            name="other_platform",
+            slug="other_platform_slug",
+            fs_slug="other_platform_slug",
+        )
+    )
+    _add_missing_rom(
+        other_platform,
+        "elsewhere",
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+    )
+    assert match is None
+
+
+def test_get_matching_missing_rom_ignores_empty_hashes(platform: Platform):
+    """Empty hashes must not match, so non-hashable platforms never reassociate."""
+    _add_missing_rom(platform, "no_hash", crc_hash="", md5_hash="", sha1_hash="")
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id, crc_hash="", md5_hash="", sha1_hash=""
+    )
+    assert match is None
+
+
 def test_users(admin_user):
     db_user_handler.add_user(
         User(
@@ -923,9 +1069,9 @@ def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: Use
     assert rom is not None
     assert len(rom.screenshots) == 2
 
-    new_screenshot = db_screenshot_handler.get_screenshot_by_id(
-        id=rom.screenshots[0].id
-    )
+    # Fetch the original screenshot by its known id; rom.screenshots has no
+    # guaranteed order, so indexing into it is nondeterministic across backends.
+    new_screenshot = db_screenshot_handler.get_screenshot_by_id(id=screenshot.id)
     assert new_screenshot is not None
     assert new_screenshot.file_name == "test_screenshot.png"
 

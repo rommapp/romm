@@ -136,6 +136,10 @@ function onTabChange(next: string) {
   tab.value = next as TabId;
 }
 
+const platformDescription = computed(
+  () => currentPlatform.value?.description ?? "",
+);
+
 const tags = computed<string[]>(() => {
   const p = currentPlatform.value;
   if (!p) return [];
@@ -460,6 +464,7 @@ async function onDelete() {
         :tab="tab"
         :tabs="tabs"
         :tags="tags"
+        :description="platformDescription"
         :stats="platformStats"
         :providers="providerChips"
         :can-edit="canEditPlatform"
@@ -488,6 +493,7 @@ async function onDelete() {
         :tab="tab"
         :tabs="tabs"
         :tags="tags"
+        :description="platformDescription"
         :stats="platformStats"
         :providers="providerChips"
         :can-edit="canEditPlatform"

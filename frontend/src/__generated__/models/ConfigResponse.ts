@@ -35,7 +35,9 @@ export type ConfigResponse = {
     SCAN_REGION_PRIORITY: Array<string>;
     SCAN_LANGUAGE_PRIORITY: Array<string>;
     SCAN_MEDIA: Array<string>;
+    GAMELIST_AUTO_EXPORT_ON_SCAN: boolean;
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType;
     GAMELIST_MEDIA_IMAGE: MetadataMediaType;
+    PEGASUS_AUTO_EXPORT_ON_SCAN: boolean;
 };
 

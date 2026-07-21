@@ -96,6 +96,28 @@ ARTWORK_PRIORITY_KEYS = {
     "manual": "url_manual",
 }
 
+# Valid MetadataMediaType values for the gamelist <thumbnail> and <image>
+# tags. Kept as module constants so the config loader and the scan-settings
+# endpoint validate against the same sets.
+VALID_GAMELIST_THUMBNAIL_TYPES = frozenset(
+    {
+        MetadataMediaType.BOX2D,
+        MetadataMediaType.BOX3D,
+        MetadataMediaType.MIXIMAGE,
+        MetadataMediaType.MIXIMAGE_V2,
+        MetadataMediaType.PHYSICAL,
+    }
+)
+VALID_GAMELIST_IMAGE_TYPES = frozenset(
+    {
+        MetadataMediaType.TITLE_SCREEN,
+        MetadataMediaType.MIXIMAGE,
+        MetadataMediaType.MIXIMAGE_V2,
+        MetadataMediaType.BOX2D,
+        MetadataMediaType.SCREENSHOT,
+    }
+)
+
 # Valid provider slugs for scan.priority.* lists. Mirrors
 # handler.scan_handler.MetadataSource, which can't be imported here without a
 # circular import; test_config_loader guards against drift.
@@ -758,13 +780,7 @@ class ConfigManager:
                 m for m in self.config.SCAN_MEDIA if m in MetadataMediaType
             ]
 
-        valid_thumbnail_options = {
-            MetadataMediaType.BOX2D,
-            MetadataMediaType.BOX3D,
-            MetadataMediaType.MIXIMAGE,
-            MetadataMediaType.MIXIMAGE_V2,
-            MetadataMediaType.PHYSICAL,
-        }
+        valid_thumbnail_options = VALID_GAMELIST_THUMBNAIL_TYPES
         if not isinstance(self.config.GAMELIST_MEDIA_THUMBNAIL, str):
             log.critical(
                 "Invalid config.yml: scan.gamelist.media.thumbnail must be a string"
@@ -778,13 +794,7 @@ class ConfigManager:
             )
             self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType.BOX2D
 
-        valid_image_options = {
-            MetadataMediaType.TITLE_SCREEN,
-            MetadataMediaType.MIXIMAGE,
-            MetadataMediaType.MIXIMAGE_V2,
-            MetadataMediaType.BOX2D,
-            MetadataMediaType.SCREENSHOT,
-        }
+        valid_image_options = VALID_GAMELIST_IMAGE_TYPES
 
         if not isinstance(self.config.GAMELIST_MEDIA_IMAGE, str):
             log.critical(
@@ -891,6 +901,15 @@ class ConfigManager:
             },
         }
 
+        # The streaming section isn't editable at runtime, but it must survive
+        # a rewrite triggered by any other setter. Only emit it when non-default
+        # so we don't add empty keys to configs that never used streaming.
+        if self.config.STREAMING_ENABLED or self.config.STREAMING_CONTAINERS:
+            self._raw_config["streaming"] = {
+                "enabled": self.config.STREAMING_ENABLED,
+                "containers": self.config.STREAMING_CONTAINERS,
+            }
+
         try:
             # Ensure the config directory exists
             os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
@@ -964,6 +983,44 @@ class ConfigManager:
             pass
 
         self.config.__setattr__(exclusion_type, config_item)
+        self._update_config_file()
+
+    def update_scan_settings(
+        self,
+        *,
+        metadata_priority: list[str],
+        artwork_priority: list[str],
+        artwork_overrides: dict[str, list[str] | None],
+        region_priority: list[str],
+        language_priority: list[str],
+        media: list[str],
+        gamelist_export: bool,
+        gamelist_thumbnail: str,
+        gamelist_image: str,
+        pegasus_export: bool,
+    ) -> None:
+        """Replace the whole scan.* section and persist it to config.yml.
+
+        `artwork_overrides` is keyed by the user-facing config key
+        (cover/screenshot/manual); a None value clears that override.
+        """
+        self.config.SCAN_METADATA_PRIORITY = metadata_priority
+        self.config.SCAN_ARTWORK_PRIORITY = artwork_priority
+
+        overrides: dict[str, list[str]] = {}
+        for key, field in ARTWORK_PRIORITY_KEYS.items():
+            value = artwork_overrides.get(key)
+            if value is not None:
+                overrides[field] = value
+        self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES = overrides
+
+        self.config.SCAN_REGION_PRIORITY = region_priority
+        self.config.SCAN_LANGUAGE_PRIORITY = language_priority
+        self.config.SCAN_MEDIA = media
+        self.config.GAMELIST_AUTO_EXPORT_ON_SCAN = gamelist_export
+        self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType(gamelist_thumbnail)
+        self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType(gamelist_image)
+        self.config.PEGASUS_AUTO_EXPORT_ON_SCAN = pegasus_export
         self._update_config_file()
 
 

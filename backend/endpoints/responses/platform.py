@@ -17,6 +17,7 @@ class PlatformSchema(BaseModel):
     hltb_slug: str | None
     libretro_slug: str | None
     custom_name: str | None = None
+    description: str | None = None
     igdb_id: int | None = None
     sgdb_id: int | None = None
     moby_id: int | None = None

@@ -12,6 +12,7 @@
   "danger-zone": "위험 구역",
   "delete-platform": "플랫폼 지우기",
   "delete-platform-hint": "플랫폼과 해당 ROM 데이터베이스 항목을 제거합니다. 디스크의 파일은 삭제되지 않습니다.",
+  "description": "설명",
   "download-platform": "플랫폼 다운로드",
   "edit-platform": "플랫폼 편집",
   "export": "내보내기",
