@@ -43,19 +43,17 @@ export function usePlaySession(): {
     const durationMs = endTime.getTime() - sessionStart.getTime();
     if (durationMs < MIN_SESSION_MS) return;
 
-    playSessionApi
-      .ingestPlaySessions({
-        deviceId: auth.user?.current_device_id ?? null,
-        sessions: [
-          {
-            rom_id: sessionRomId,
-            start_time: sessionStart.toISOString(),
-            end_time: endTime.toISOString(),
-            duration_ms: durationMs,
-          },
-        ],
-      })
-      .catch((err) => console.error("Failed to submit play session:", err));
+    playSessionApi.ingestPlaySessionsKeepalive({
+      deviceId: auth.user?.current_device_id ?? null,
+      sessions: [
+        {
+          rom_id: sessionRomId,
+          start_time: sessionStart.toISOString(),
+          end_time: endTime.toISOString(),
+          duration_ms: durationMs,
+        },
+      ],
+    });
   }
 
   return { start, flush };

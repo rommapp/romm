@@ -4,7 +4,7 @@ import type { SimpleRom } from "@/stores/roms";
 import { usePlaySession } from "./index";
 
 vi.mock("@/services/api/play-session", () => ({
-  default: { ingestPlaySessions: vi.fn() },
+  default: { ingestPlaySessionsKeepalive: vi.fn() },
 }));
 
 // Controllable auth stand-in: tests tweak scopes / user between cases.
@@ -18,7 +18,7 @@ vi.mock("@/stores/auth", () => ({
   default: () => authState,
 }));
 
-const ingest = vi.mocked(playSessionApi.ingestPlaySessions);
+const ingest = vi.mocked(playSessionApi.ingestPlaySessionsKeepalive);
 
 function makeRom(id = 7): SimpleRom {
   return { id } as unknown as SimpleRom;
@@ -26,7 +26,6 @@ function makeRom(id = 7): SimpleRom {
 
 beforeEach(() => {
   ingest.mockReset();
-  ingest.mockResolvedValue({} as never);
   authState.scopes = ["roms.user.write"];
   authState.user = { current_device_id: "device-1" };
   vi.useFakeTimers();
