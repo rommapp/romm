@@ -27,6 +27,7 @@ import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
@@ -44,6 +45,7 @@ const setBgArt = useBackgroundArt();
 const romsStore = storeRoms();
 const galleryRoms = storeGalleryRoms();
 const playingStore = storePlaying();
+const playSession = usePlaySession();
 
 const rom = ref<DetailedRom | null>(null);
 const playerState = ref<PlayerState>("idle");
@@ -185,6 +187,9 @@ onBeforeUnmount(() => {
   iframeLoadCleanup = null;
   contentWindowCleanup?.();
   contentWindowCleanup = null;
+  // Every exit path (Stop, Save & Exit, back nav) unmounts the view, so this
+  // is the single choke point for recording the session.
+  playSession.flush();
   // Hand controller input back to the UI regardless of how we leave.
   playingStore.setPlaying(false);
   if (playerState.value === "exited") {
@@ -321,6 +326,13 @@ async function handlePlay(): Promise<void> {
       errorType.value = "server";
       errorMessage.value = error.message ?? t("play.stream-error-generic");
     }
+  }
+
+  // Start timing the session once the claim succeeds and playback is live.
+  // The session is ingested on unmount, which updates last_played /
+  // now_playing / status server-side.
+  if (rom.value && playerState.value === "playing") {
+    playSession.start(rom.value);
   }
 }
 

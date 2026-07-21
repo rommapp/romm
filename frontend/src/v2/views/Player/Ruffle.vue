@@ -23,6 +23,7 @@ import { getDownloadPath } from "@/utils";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
+import { usePlaySession } from "@/v2/composables/usePlaySession";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { colorCanvas } from "@/v2/tokens";
 
@@ -34,6 +35,7 @@ const route = useRoute();
 const router = useRouter();
 const { fullscreenOnPlay } = useFullscreenPref();
 const playingStore = storePlaying();
+const playSession = usePlaySession();
 
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
@@ -142,6 +144,11 @@ function onPlay() {
     player.style.width = "100%";
     player.style.height = "100%";
 
+    // Start timing the session only once playback is actually under way, so a
+    // failed player creation / load records nothing. The session is ingested
+    // on unmount, which is what updates last_played / now_playing / status.
+    playSession.start(rom.value);
+
     if (player.fullscreenEnabled && fullscreenOnPlay.value) {
       player.enterFullscreen();
     }
@@ -196,6 +203,9 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  // Every exit path (Quit, back links, route change) unmounts the view, so
+  // this is the single choke point for recording the session.
+  playSession.flush();
   // Hand the keyboard and gamepad back to the UI on any exit path.
   playingStore.setPlaying(false);
 });

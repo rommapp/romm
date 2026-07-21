@@ -59,6 +59,8 @@
   "completion": "Завършеност",
   "completionist": "Перфекционист",
   "confirm-delete-note": "Сигурен ли си, че искаш да изтриеш бележката \"{title}\"?",
+  "confirm-launch-protected-body": "Отбелязахте „{name}“ като {status}. Искате ли все пак да я играете?",
+  "confirm-launch-protected-title": "Стартиране на тази игра?",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Копирай линк за сваляне",

@@ -6,6 +6,7 @@ from pydash import compact
 from handler.database import db_device_handler, db_play_session_handler, db_rom_handler
 from logger.logger import log
 from models.play_session import PlaySession
+from models.rom import RomUserStatus
 from utils.datetime import to_utc
 
 
@@ -37,7 +38,7 @@ def _resolve_device(device_id: str | None, user_id: int) -> str | None:
     return device_id if device is not None else None
 
 
-def _update_rom_user_last_played(
+def _apply_play_to_rom_user(
     rom_user_updates: dict[int, datetime], user_id: int
 ) -> None:
     for rom_id, latest_end_time in rom_user_updates.items():
@@ -46,10 +47,18 @@ def _update_rom_user_last_played(
             rom_user = db_rom_handler.add_rom_user(rom_id=rom_id, user_id=user_id)
 
         current = to_utc(rom_user.last_played) if rom_user.last_played else None
-        if current is None or latest_end_time > current:
-            db_rom_handler.update_rom_user(
-                rom_user.id, {"last_played": latest_end_time}
-            )
+        # Only the newest play advances state. A backfilled or device-synced
+        # older session must not resurrect "now playing" or rewind the status.
+        if current is not None and latest_end_time <= current:
+            continue
+
+        updates: dict = {"last_played": latest_end_time, "now_playing": True}
+        # Playing again counts as active: rewind an empty or "finished" status
+        # to "incomplete", but leave statuses the user set on purpose
+        # (completed_100 / retired / never_playing) untouched.
+        if rom_user.status in (None, RomUserStatus.FINISHED):
+            updates["status"] = RomUserStatus.INCOMPLETE
+        db_rom_handler.update_rom_user(rom_user.id, updates)
 
 
 def ingest_play_sessions(
@@ -138,7 +147,7 @@ def ingest_play_sessions(
                 rom_user_updates[resolved_rom_id] = ps.end_time
 
     # Phase 4: Side effects
-    _update_rom_user_last_played(rom_user_updates, user_id)
+    _apply_play_to_rom_user(rom_user_updates, user_id)
 
     if resolved_device_id is not None:
         db_device_handler.update_last_seen(

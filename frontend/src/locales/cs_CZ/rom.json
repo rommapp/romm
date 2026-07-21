@@ -59,6 +59,8 @@
   "completion": "Dokončení",
   "completionist": "Kompletista",
   "confirm-delete-note": "Opravdu chcete smazat poznámku \"{title}\"?",
+  "confirm-launch-protected-body": "Označili jste „{name}“ jako {status}. Přesto ji chcete hrát?",
+  "confirm-launch-protected-title": "Spustit tuto hru?",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "Kopírovat odkaz ke stažení",

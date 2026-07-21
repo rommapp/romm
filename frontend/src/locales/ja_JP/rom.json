@@ -59,6 +59,8 @@
   "completion": "完了度",
   "completionist": "コンプリート",
   "confirm-delete-note": "ノート\"{title}\"を削除してもよろしいですか？",
+  "confirm-launch-protected-body": "「{name}」を{status}に設定しています。それでもプレイしますか？",
+  "confirm-launch-protected-title": "このゲームを起動しますか？",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "ダウンロードリンクをコピー",

@@ -59,6 +59,8 @@
   "completion": "Tamamlama",
   "completionist": "Yüzde yüz tamamlayıcı",
   "confirm-delete-note": "\"{title}\" notunu silmek istediğinizden emin misiniz?",
+  "confirm-launch-protected-body": "\"{name}\" oyununu {status} olarak işaretlediniz. Yine de oynamak istiyor musunuz?",
+  "confirm-launch-protected-title": "Bu oyun başlatılsın mı?",
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "copy-download-link-title": "İndirme bağlantısını kopyala",

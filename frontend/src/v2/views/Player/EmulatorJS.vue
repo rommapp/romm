@@ -48,6 +48,7 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { usePlaySession } from "@/v2/composables/usePlaySession";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
@@ -68,6 +69,7 @@ const configStore = storeConfig();
 const { playing, fullScreen } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
 const { modality } = useInputModality();
+const playSession = usePlaySession();
 
 // Ref the Play CTA so we can imperatively focus it on enter (and again
 // when the user comes back from a running session). RBtn forwards to
@@ -224,14 +226,6 @@ async function onPlay() {
 
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = installIOSFullscreenShim();
-
-  if (rom.value && auth.scopes.includes("roms.user.write")) {
-    romApi.updateUserRomProps({
-      romId: rom.value.id,
-      data: rom.value.rom_user,
-      updateLastPlayed: true,
-    });
-  }
 
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullscreenOnPlay.value;
@@ -445,10 +439,12 @@ onMounted(async () => {
 // to Play on exit so a Start-Play loop stays on the pad.
 watch(gameRunning, (running, prev) => {
   if (running && !prev) {
+    if (rom.value) playSession.start(rom.value);
     emitActivityStart();
     startActivityHeartbeat();
   }
   if (prev && !running) {
+    playSession.flush();
     stopActivityHeartbeat();
     emitActivityStop();
     nextTick(focusPlayButton);
@@ -465,7 +461,9 @@ function onGamepadButton(e: CustomEvent<{ name?: string }>) {
 
 onBeforeUnmount(() => {
   // Leaving the player (back nav / route change) ends the session even if
-  // the user never exited the game to the config screen first.
+  // the user never exited the game to the config screen first. flush() is
+  // idempotent, so an exit that already flushed via the watch is a no-op.
+  playSession.flush();
   stopActivityHeartbeat();
   emitActivityStop();
   // Hand the keyboard and gamepad back to the UI; the flag otherwise

@@ -6,8 +6,9 @@
 //   2. Theme             (3-button compact picker)
 //   3. Home              (toggle grid)
 //   4. Gallery           (toggle grid + boxart RSelect prefix-label)
-//   5. Virtual collections (single toggle + RSelect prefix-label)
-//   6. UI version        (v2-only, beta — kept last)
+//   5. Gameplay          (launch-confirmation toggle)
+//   6. Virtual collections (single toggle + RSelect prefix-label)
+//   7. UI version        (v2-only, beta — kept last)
 //
 // The v1 "Platforms drawer" section was removed (no equivalent in v2).
 // `useUISettings` still exposes `platformsGroupBy` for v1 — we just
@@ -57,6 +58,8 @@ const {
   disableAnimations,
   enableExperimentalCache,
   boxartStyle,
+  // Gameplay
+  confirmProtectedLaunch,
 } = useUISettings();
 
 type Theme = "dark" | "light" | "auto";
@@ -338,6 +341,20 @@ function onVirtualCollectionTypeChange(value: unknown) {
             {{ t("settings.boxart-style") }}
           </template>
         </RSelect>
+      </div>
+    </SettingsSection>
+
+    <!-- Gameplay -->
+    <SettingsSection
+      :title="t('settings.gameplay')"
+      icon="mdi-play-circle-outline"
+    >
+      <div class="r-v2-ui__toggle-grid r-v2-ui__toggle-grid--single">
+        <SettingsToggleRow
+          v-model="confirmProtectedLaunch"
+          :title="t('settings.confirm-protected-launch')"
+          :description="t('settings.confirm-protected-launch-desc')"
+        />
       </div>
     </SettingsSection>
 
