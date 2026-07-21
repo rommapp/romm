@@ -263,9 +263,7 @@ function onDownload() {
 }
 
 // ── Random ROM ──────────────────────────────────────────────────
-// Pick one game from this collection and jump to its details. Mirrors
-// the Platform.vue flow: a cheap count-only fetch gives `total`, then a
-// single-item fetch at a random offset resolves the ROM. The scope is
+// Pick one game from this collection and jump to its details. The scope is
 // keyed off the collection kind so regular / virtual / smart all route
 // to the correct `getRoms` filter param (the same split the download
 // flow uses).
@@ -286,6 +284,8 @@ async function onRandomGame() {
   const c = currentCollection.value;
   if (!c || randomLoading.value) return;
   randomLoading.value = true;
+  const scopeId = c.id;
+  const stale = () => currentCollection.value?.id !== scopeId;
   try {
     const scope = randomScope();
     const { data: head } = await romApi.getRoms({
@@ -293,6 +293,7 @@ async function onRandomGame() {
       limit: 1,
       offset: 0,
     });
+    if (stale()) return;
     if (!head.total) {
       snackbar.info(t("collection.empty"));
       return;
@@ -303,6 +304,7 @@ async function onRandomGame() {
       limit: 1,
       offset: randomOffset,
     });
+    if (stale()) return;
     const pick = data.items[0];
     if (!pick) {
       snackbar.info(t("collection.empty"));
@@ -310,7 +312,7 @@ async function onRandomGame() {
     }
     router.push({ name: ROUTES.ROM, params: { rom: pick.id } });
   } catch {
-    snackbar.error(t("collection.random-rom-error"));
+    snackbar.error(t("platform.random-rom-error"));
   } finally {
     randomLoading.value = false;
   }

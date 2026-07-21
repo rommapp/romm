@@ -30,8 +30,6 @@
   "private-desc": "Privado (visível apenas para mim)",
   "public": "Público",
   "public-desc": "Público (visível para todos)",
-  "random-rom": "ROM aleatório",
-  "random-rom-error": "Não foi possível escolher uma ROM aleatória",
   "removing-collection-1": "Removendo coleção",
   "removing-collection-2": "do RomM. Você confirma?",
   "removing-smart-collection-1": "Removendo coleção inteligente",

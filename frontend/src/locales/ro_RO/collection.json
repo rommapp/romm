@@ -30,8 +30,6 @@
   "private-desc": "Privat (vizibil doar pentru mine)",
   "public": "Public",
   "public-desc": "Public (vizibil pentru toți)",
-  "random-rom": "ROM aleatoriu",
-  "random-rom-error": "Nu s-a putut alege un ROM aleatoriu",
   "removing-collection-1": "Confirmă eliminarea",
   "removing-collection-2": "colecției din RomM?",
   "removing-smart-collection-1": "Confirmă eliminarea colecției inteligente",

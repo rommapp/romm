@@ -30,8 +30,6 @@
   "private-desc": "非公開(自分だけ表示)",
   "public": "公開",
   "public-desc": "公開(全員表示可)",
-  "random-rom": "ランダムROM",
-  "random-rom-error": "ランダムなROMを選択できませんでした",
   "removing-collection-1": "RomMからコレクションを削除します",
   "removing-collection-2": "よろしいですか？",
   "removing-smart-collection-1": "RomMからスマートコレクションを削除します",

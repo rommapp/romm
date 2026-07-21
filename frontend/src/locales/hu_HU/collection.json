@@ -30,8 +30,6 @@
   "private-desc": "Privát (csak én láthatom)",
   "public": "Publikus",
   "public-desc": "Publikus (mindenki láthatja)",
-  "random-rom": "Véletlenszerű ROM",
-  "random-rom-error": "Nem sikerült véletlenszerű ROM-ot választani",
   "removing-collection-1": "Gyűjtemény eltávolítása",
   "removing-collection-2": "a RomM-ból. Biztos?",
   "removing-smart-collection-1": "Intelligens Gyűjtemény eltávolítása",

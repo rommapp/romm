@@ -30,8 +30,6 @@
   "private-desc": "Приватный (виден только мне)",
   "public": "Публичный",
   "public-desc": "Публичный (виден всем)",
-  "random-rom": "Случайный ROM",
-  "random-rom-error": "Не удалось выбрать случайный ROM",
   "removing-collection-1": "Удаление коллекции",
   "removing-collection-2": "из RomM. Вы подтверждаете?",
   "removing-smart-collection-1": "Удаление умной коллекции",
