@@ -528,7 +528,6 @@ class TestIdentifyRomReassociation:
             crc_hash="crc",
             md5_hash="md5",
             sha1_hash="sha1",
-            ra_hash="",
         )
         db.update_rom.assert_called_once()
         rom_id, data = db.update_rom.call_args.args

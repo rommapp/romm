@@ -15,7 +15,7 @@ from handler.database import (
 )
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
-from models.rom import Rom, RomFile, compute_name_sort_key
+from models.rom import Rom, compute_name_sort_key
 from models.user import Role, User
 
 
@@ -798,60 +798,64 @@ def test_mark_missing_roms_does_not_affect_other_platforms(platform: Platform):
     assert updated_other.missing_from_fs is False
 
 
-def test_get_matching_missing_rom_by_rom_hash(platform: Platform):
-    """A missing ROM is matched by its own hash for reassociation."""
-    missing = db_rom_handler.add_rom(
+def _add_missing_rom(platform: Platform, name: str, **hashes) -> Rom:
+    return db_rom_handler.add_rom(
         Rom(
             platform_id=platform.id,
-            name="renamed_game",
-            slug="renamed-game",
-            fs_name="old_name.zip",
-            fs_name_no_tags="old_name",
-            fs_name_no_ext="old_name",
+            name=name,
+            slug=name,
+            fs_name=f"{name}.zip",
+            fs_name_no_tags=name,
+            fs_name_no_ext=name,
             fs_extension="zip",
             fs_path=f"{platform.slug}/roms",
-            crc_hash="aabbccdd",
             missing_from_fs=True,
+            **hashes,
         )
     )
 
+
+def test_get_matching_missing_rom_all_hashes_match(platform: Platform):
+    """A missing ROM is matched when CRC, MD5, and SHA1 all match."""
+    missing = _add_missing_rom(
+        platform, "renamed", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+
     match = db_rom_handler.get_matching_missing_rom(
-        platform_id=platform.id, crc_hash="aabbccdd"
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
     )
     assert match is not None
     assert match.id == missing.id
 
 
-def test_get_matching_missing_rom_by_file_hash(platform: Platform):
-    """A missing ROM is matched by one of its RomFile hashes."""
-    missing = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="folder_game",
-            slug="folder-game",
-            fs_name="folder_game",
-            fs_name_no_tags="folder_game",
-            fs_name_no_ext="folder_game",
-            fs_extension="",
-            fs_path=f"{platform.slug}/roms",
-            missing_from_fs=True,
-        )
-    )
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=missing.id,
-            file_name="disc1.bin",
-            file_path=f"{missing.fs_path}/{missing.fs_name}",
-            file_size_bytes=1,
-            sha1_hash="ff00ff00",
-        )
+def test_get_matching_missing_rom_partial_hash_does_not_match(platform: Platform):
+    """A shared CRC32 must not match when MD5/SHA1 differ (collision guard)."""
+    _add_missing_rom(
+        platform, "other", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
     )
 
     match = db_rom_handler.get_matching_missing_rom(
-        platform_id=platform.id, sha1_hash="ff00ff00"
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="different",
+        sha1_hash="different",
     )
-    assert match is not None
-    assert match.id == missing.id
+    assert match is None
+
+
+def test_get_matching_missing_rom_requires_all_three_hashes(platform: Platform):
+    """A match needs all three hashes; omitting one yields no match."""
+    _add_missing_rom(
+        platform, "renamed", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id, crc_hash="aabbccdd", md5_hash="md5val"
+    )
+    assert match is None
 
 
 def test_get_matching_missing_rom_ignores_present_roms(platform: Platform):
@@ -866,13 +870,18 @@ def test_get_matching_missing_rom_ignores_present_roms(platform: Platform):
             fs_name_no_ext="present",
             fs_extension="zip",
             fs_path=f"{platform.slug}/roms",
-            md5_hash="deadbeef",
+            crc_hash="aabbccdd",
+            md5_hash="md5val",
+            sha1_hash="sha1val",
             missing_from_fs=False,
         )
     )
 
     match = db_rom_handler.get_matching_missing_rom(
-        platform_id=platform.id, md5_hash="deadbeef"
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
     )
     assert match is None
 
@@ -886,46 +895,29 @@ def test_get_matching_missing_rom_scoped_to_platform(platform: Platform):
             fs_slug="other_platform_slug",
         )
     )
-    db_rom_handler.add_rom(
-        Rom(
-            platform_id=other_platform.id,
-            name="elsewhere",
-            slug="elsewhere",
-            fs_name="elsewhere.zip",
-            fs_name_no_tags="elsewhere",
-            fs_name_no_ext="elsewhere",
-            fs_extension="zip",
-            fs_path=f"{other_platform.slug}/roms",
-            sha1_hash="1234abcd",
-            missing_from_fs=True,
-        )
+    _add_missing_rom(
+        other_platform,
+        "elsewhere",
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
     )
 
     match = db_rom_handler.get_matching_missing_rom(
-        platform_id=platform.id, sha1_hash="1234abcd"
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
     )
     assert match is None
 
 
 def test_get_matching_missing_rom_ignores_empty_hashes(platform: Platform):
     """Empty hashes must not match, so non-hashable platforms never reassociate."""
-    db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="no_hash",
-            slug="no-hash",
-            fs_name="no_hash.zip",
-            fs_name_no_tags="no_hash",
-            fs_name_no_ext="no_hash",
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            crc_hash="",
-            missing_from_fs=True,
-        )
-    )
+    _add_missing_rom(platform, "no_hash", crc_hash="", md5_hash="", sha1_hash="")
 
     match = db_rom_handler.get_matching_missing_rom(
-        platform_id=platform.id, crc_hash="", md5_hash="", sha1_hash="", ra_hash=""
+        platform_id=platform.id, crc_hash="", md5_hash="", sha1_hash=""
     )
     assert match is None
 

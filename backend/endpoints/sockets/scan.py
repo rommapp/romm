@@ -318,7 +318,6 @@ async def _identify_rom(
             crc_hash=parsed_rom_files.crc_hash,
             md5_hash=parsed_rom_files.md5_hash,
             sha1_hash=parsed_rom_files.sha1_hash,
-            ra_hash=parsed_rom_files.ra_hash,
         )
         if missing_match is not None:
             # Move the existing entry onto the new file, clearing its missing

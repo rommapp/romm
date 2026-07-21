@@ -2228,42 +2228,29 @@ class DBRomsHandler(DBBaseHandler):
         crc_hash: str | None = None,
         md5_hash: str | None = None,
         sha1_hash: str | None = None,
-        ra_hash: str | None = None,
         session: Session = None,  # type: ignore
     ) -> Rom | None:
-        """Find a ROM marked missing on a platform whose hash matches the given values.
+        """Find a ROM marked missing on a platform whose hashes match the file.
 
         Used during scanning to reassociate a renamed or moved file with its
         existing entry (preserving collections, notes, and assets) instead of
-        creating a duplicate. Empty hashes are ignored, so non-hashable
-        platforms never match.
+        creating a duplicate. Requires the CRC, MD5, and SHA1 hashes to all
+        match, so a lone CRC32 collision can't move an unrelated entry onto the
+        file. Any missing hash yields no match, so non-hashable platforms and
+        pre-hash entries safely fall back to creating a new entry.
         """
-        filters = [
-            column == value
-            for value, column in [
-                (crc_hash, Rom.crc_hash),
-                (md5_hash, Rom.md5_hash),
-                (sha1_hash, Rom.sha1_hash),
-                (ra_hash, Rom.ra_hash),
-                (crc_hash, RomFile.crc_hash),
-                (md5_hash, RomFile.md5_hash),
-                (sha1_hash, RomFile.sha1_hash),
-                (ra_hash, RomFile.ra_hash),
-            ]
-            if value
-        ]
-
-        if not filters:
+        if not (crc_hash and md5_hash and sha1_hash):
             return None
 
         return session.scalar(
             select(Rom)
-            .outerjoin(Rom.files)
             .where(
                 and_(
                     Rom.platform_id == platform_id,
                     Rom.missing_from_fs.is_(True),
-                    or_(*filters),
+                    Rom.crc_hash == crc_hash,
+                    Rom.md5_hash == md5_hash,
+                    Rom.sha1_hash == sha1_hash,
                 )
             )
             .limit(1)
