@@ -2235,13 +2235,8 @@ class DBRomsHandler(DBBaseHandler):
         Used during scanning to reassociate a renamed or moved file with its
         existing entry (preserving collections, notes, and assets) instead of
         creating a duplicate. Requires the CRC, MD5, and SHA1 hashes to all
-        match, so a lone CRC32 collision can't move an unrelated entry onto the
-        file. Any missing hash yields no match, so non-hashable platforms and
+        match. Any missing hash yields no match, so non-hashable platforms and
         pre-hash entries safely fall back to creating a new entry.
-
-        Returns None when more than one missing entry matches: an ambiguous set
-        (e.g. duplicate content stored twice) has no correct target, so we
-        create a new entry rather than move user data onto an arbitrary row.
         """
         if not (crc_hash and md5_hash and sha1_hash):
             return None
@@ -2260,6 +2255,7 @@ class DBRomsHandler(DBBaseHandler):
             .limit(2)
         ).all()
 
+        # Return None when more than one match to avoid ambiguity.
         return matches[0] if len(matches) == 1 else None
 
     def _collect_filter_values(

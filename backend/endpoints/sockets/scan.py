@@ -287,20 +287,23 @@ async def _identify_rom(
         "url_screenshots": [],
     }
 
+    calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
+
     newly_added: bool = rom is None
     reassociated: bool = False
     files_built: bool = False
 
     if rom is None:
-        # No entry matches this filename. Before treating it as brand new, hash
+        # No entry matches this filename. Before treating it as new, hash
         # the files and check whether they belong to an existing entry that went
         # missing (a renamed or moved ROM), so its collections, notes, and
         # uploaded assets carry over instead of being orphaned on a duplicate.
-        calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
-        candidate = Rom(**rom_attrs)
-        candidate.platform = platform
         parsed_rom_files = await fs_rom_handler.get_rom_files(
-            candidate, calculate_hashes=calculate_hashes
+            Rom(
+                **rom_attrs,
+                platform=platform,
+            ),
+            calculate_hashes=calculate_hashes,
         )
         fs_rom.update(
             {
@@ -320,8 +323,7 @@ async def _identify_rom(
             sha1_hash=parsed_rom_files.sha1_hash,
         )
         if missing_match is not None:
-            # Move the existing entry onto the new file, clearing its missing
-            # state. User data (collections, notes, assets) stays linked by id.
+            # Move the existing entry onto the new file, clearing its missing state.
             rom = db_rom_handler.update_rom(
                 missing_match.id,
                 {
@@ -361,7 +363,6 @@ async def _identify_rom(
     )
     if should_update_files and not files_built:
         # Get hash calculation setting from config
-        calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
         if calculate_hashes:
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
 
