@@ -62,6 +62,7 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 **English first.** Outside of language files, all code, comments, identifiers, `.md` files, and commit/PR messages are in English.
 **No em-dashes.** Never use em-dashes (—) when writing comments or text. Use commas, parentheses, or separate sentences instead.
 **Keep comments short.** Comments should be concise, and focus on the "why" rather than the "what" (the code itself is the "what"). Avoid long paragraphs; break them into multiple lines or sentences.
+**Don't restate the code.** The code is self-documenting, so skip comments that narrate what a reader can already see (which button sits where, that something is disabled when empty, obvious ordering). Comment only non-obvious "why" that the code can't convey on its own.
 **Never commit secrets.** Never commit secrets (API keys, passwords, tokens, etc.) to the repo. Use environment variables or secret management tools instead.
 **Don't explain a change.** Avoid comments that explain why a change was made to the code. Focus instead on the current behaviour of the code and how it works.
 **Python tools live in `backend/tools/`.** Standalone dev/test utilities and scripts (not part of the app runtime) go in `backend/tools/`, not scattered across `backend/`.
