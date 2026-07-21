@@ -122,17 +122,6 @@ function onPlay() {
   // and pad-to-UI translation stay muted while the game owns input.
   playingStore.setPlaying(true);
 
-  // Mark the game "now playing" and refresh last_played on launch (protected
-  // statuses are left untouched by applyLaunchStatus).
-  if (rom.value?.rom_user && auth.scopes.includes("roms.user.write")) {
-    applyLaunchStatus(rom.value.rom_user);
-    romApi.updateUserRomProps({
-      romId: rom.value.id,
-      data: rom.value.rom_user,
-      updateLastPlayed: true,
-    });
-  }
-
   nextTick(() => {
     if (!rom.value) return;
 
@@ -155,6 +144,17 @@ function onPlay() {
     });
     player.style.width = "100%";
     player.style.height = "100%";
+
+    // Record the launch only once playback is actually under way, so a
+    // failed player creation / load doesn't leave the game marked playing.
+    if (rom.value.rom_user && auth.scopes.includes("roms.user.write")) {
+      applyLaunchStatus(rom.value.rom_user);
+      romApi.updateUserRomProps({
+        romId: rom.value.id,
+        data: rom.value.rom_user,
+        updateLastPlayed: true,
+      });
+    }
 
     if (player.fullscreenEnabled && fullscreenOnPlay.value) {
       player.enterFullscreen();
