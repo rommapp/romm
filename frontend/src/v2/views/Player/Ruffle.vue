@@ -26,7 +26,7 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { colorCanvas } from "@/v2/tokens";
-import { applyLaunchStatus } from "@/v2/utils/romStatus";
+import { recordLaunch } from "@/v2/utils/romStatus";
 
 const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
 const DEFAULT_BACKGROUND_COLOR = colorCanvas.bgDeep;
@@ -147,13 +147,8 @@ function onPlay() {
 
     // Record the launch only once playback is actually under way, so a
     // failed player creation / load doesn't leave the game marked playing.
-    if (rom.value.rom_user && auth.scopes.includes("roms.user.write")) {
-      applyLaunchStatus(rom.value.rom_user);
-      romApi.updateUserRomProps({
-        romId: rom.value.id,
-        data: rom.value.rom_user,
-        updateLastPlayed: true,
-      });
+    if (auth.scopes.includes("roms.user.write")) {
+      recordLaunch(rom.value);
     }
 
     if (player.fullscreenEnabled && fullscreenOnPlay.value) {

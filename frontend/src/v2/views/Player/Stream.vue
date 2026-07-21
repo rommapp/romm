@@ -30,7 +30,7 @@ import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
-import { applyLaunchStatus } from "@/v2/utils/romStatus";
+import { recordLaunch } from "@/v2/utils/romStatus";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
 type ErrorType =
@@ -287,15 +287,10 @@ async function handlePlay(): Promise<void> {
     containerHost.value = session.host;
     playerState.value = "playing";
 
-    // Mark the game "now playing" and refresh last_played on launch (protected
-    // statuses are left untouched by applyLaunchStatus).
-    if (rom.value.rom_user && auth.scopes.includes("roms.user.write")) {
-      applyLaunchStatus(rom.value.rom_user);
-      romApi.updateUserRomProps({
-        romId: rom.value.id,
-        data: rom.value.rom_user,
-        updateLastPlayed: true,
-      });
+    // Mark the game "now playing" and refresh last_played on launch; protected
+    // statuses are left untouched and a failed write reverts locally.
+    if (auth.scopes.includes("roms.user.write")) {
+      recordLaunch(rom.value);
     }
 
     // Wait for the DOM to update and the iframe to exist.

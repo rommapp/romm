@@ -5,6 +5,8 @@
 // icons. v2-only: v1 still reads `romStatusMap`'s emoji from
 // `@/utils`, so that map stays untouched.
 import type { RomUserSchema, RomUserStatus } from "@/__generated__";
+import romApi from "@/services/api/rom";
+import type { SimpleRom } from "@/stores/roms";
 import type { PlayingStatus } from "@/utils";
 
 // Advance a ROM's per-user status for a launch. Mutates in place so the
@@ -17,6 +19,27 @@ export function applyLaunchStatus(romUser: RomUserSchema): void {
   if (romUser.status === null || romUser.status === "finished") {
     romUser.status = "incomplete";
   }
+}
+
+// Persist a launch: optimistically apply the launch status and bump
+// last_played, reverting the local mutation if the write fails so client
+// state never drifts from the server. Fire-and-forget by design (the caller
+// is entering gameplay), but the rejection is handled rather than left to
+// surface as an unhandled promise.
+export function recordLaunch(rom: SimpleRom): void {
+  const romUser = rom.rom_user;
+  const before = { now_playing: romUser.now_playing, status: romUser.status };
+  applyLaunchStatus(romUser);
+  romApi
+    .updateUserRomProps({
+      romId: rom.id,
+      data: romUser,
+      updateLastPlayed: true,
+    })
+    .catch((err) => {
+      Object.assign(romUser, before);
+      console.error("Failed to record play status:", err);
+    });
 }
 
 // Icon map covering both the enum statuses and the orthogonal boolean

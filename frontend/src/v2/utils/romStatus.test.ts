@@ -1,8 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RomUserSchema } from "@/__generated__";
-import { applyLaunchStatus } from "./romStatus";
+import romApi from "@/services/api/rom";
+import type { SimpleRom } from "@/stores/roms";
+import { applyLaunchStatus, recordLaunch } from "./romStatus";
 
-// Minimal RomUserSchema factory — only the fields applyLaunchStatus reads
+vi.mock("@/services/api/rom", () => ({
+  default: { updateUserRomProps: vi.fn() },
+}));
+
+const updateUserRomProps = vi.mocked(romApi.updateUserRomProps);
+
+// Minimal RomUserSchema factory — only the fields the launch helpers read
 // matter, the rest are filled with representative defaults.
 function makeRomUser(overrides: Partial<RomUserSchema> = {}): RomUserSchema {
   return {
@@ -60,4 +68,44 @@ describe("applyLaunchStatus", () => {
       expect(ru.status).toBe(status);
     },
   );
+});
+
+function makeRom(romUser: RomUserSchema): SimpleRom {
+  return { id: 1, rom_user: romUser } as unknown as SimpleRom;
+}
+
+describe("recordLaunch", () => {
+  beforeEach(() => {
+    updateUserRomProps.mockReset();
+  });
+
+  it("applies the launch status and persists it with last_played", () => {
+    updateUserRomProps.mockResolvedValue({} as never);
+    const ru = makeRomUser({ status: null });
+    recordLaunch(makeRom(ru));
+
+    expect(ru.now_playing).toBe(true);
+    expect(ru.status).toBe("incomplete");
+    expect(updateUserRomProps).toHaveBeenCalledWith({
+      romId: 1,
+      data: ru,
+      updateLastPlayed: true,
+    });
+  });
+
+  it("reverts the local mutation when the write fails", async () => {
+    updateUserRomProps.mockRejectedValue(new Error("boom"));
+    const ru = makeRomUser({ status: "finished", now_playing: false });
+    recordLaunch(makeRom(ru));
+
+    // Optimistic update is visible synchronously...
+    expect(ru.now_playing).toBe(true);
+    expect(ru.status).toBe("incomplete");
+
+    // ...then reverted once the rejected write settles.
+    await vi.waitFor(() => {
+      expect(ru.now_playing).toBe(false);
+      expect(ru.status).toBe("finished");
+    });
+  });
 });
