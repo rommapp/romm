@@ -1069,9 +1069,9 @@ def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: Use
     assert rom is not None
     assert len(rom.screenshots) == 2
 
-    new_screenshot = db_screenshot_handler.get_screenshot_by_id(
-        id=rom.screenshots[0].id
-    )
+    # Fetch the original screenshot by its known id; rom.screenshots has no
+    # guaranteed order, so indexing into it is nondeterministic across backends.
+    new_screenshot = db_screenshot_handler.get_screenshot_by_id(id=screenshot.id)
     assert new_screenshot is not None
     assert new_screenshot.file_name == "test_screenshot.png"
 
