@@ -10,7 +10,8 @@ import urllib.request
 import zipfile
 from datetime import datetime, timezone
 from email.message import Message
-from typing import Annotated, Any, TypedDict
+from pathlib import PurePosixPath
+from typing import Annotated, Any, Literal, TypedDict
 from urllib.parse import quote, urlparse, urlunparse
 
 from fastapi import Body, HTTPException, Query, Request
@@ -28,6 +29,7 @@ from decorators.auth import protected_route
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
+    db_container_adoption_handler,
     db_memory_card_handler,
     db_rom_handler,
     db_save_handler,
@@ -323,6 +325,10 @@ class ClaimSessionRequest(BaseModel):
     # the user's most-recently-used card for the emulator, or a fresh one on
     # first play. Must be one the claiming user owns.
     memory_card_id: Annotated[int, Field(ge=1)] | None = None
+    # Answer to the one-time import prompt on a container whose pre-existing
+    # card has never been adopted. "adopt" keeps it, "discard" wipes it, and
+    # "discard" doubles as the override for a card that could not be read.
+    card_import: Literal["adopt", "discard"] | None = None
 
 
 class SaveAndExitRequest(BaseModel):
@@ -1333,6 +1339,13 @@ class _MemoryCardUnavailable(Exception):
     EMPTY slot: unavailable means we must NOT wipe, since we never captured it."""
 
 
+# Its messages carry the broker host and port, so the client gets this fixed
+# string and the real cause stays in the server log.
+_CARD_UNREADABLE_REASON = "The streaming container did not return its memory card"
+
+_CARD_IMPORT_FAILED_DETAIL = "Could not import the memory card"
+
+
 def _fetch_memory_card(
     container: dict[str, Any], timeout: float = _CARD_HYDRATE_TIMEOUT
 ) -> bytes | None:
@@ -1382,6 +1395,41 @@ def _push_memory_card(
         content_type="application/zip",
         timeout=timeout,
     )
+
+
+class MemoryCardSummary(TypedDict):
+    file_count: int
+    total_bytes: int
+    game_codes: list[str]
+
+
+def _summarize_memory_card(content: bytes) -> MemoryCardSummary:
+    """Describe a fetched card for the import dialog. GameCube names its saves
+    `<makercode>-<gamecode>-<comment>.gci`, so the gamecode is a filename field,
+    not something that needs the card format parsed.
+
+    Never raises: a card we cannot parse still has to be offered to the user.
+    """
+    codes: set[str] = set()
+    file_count = 0
+    total = 0
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            for info in zf.infolist():
+                if info.is_dir():
+                    continue
+                file_count += 1
+                total += info.file_size
+                parts = PurePosixPath(info.filename).name.split("-")
+                if len(parts) >= 3 and info.filename.lower().endswith(".gci"):
+                    codes.add(parts[1])
+    except Exception:
+        return {"file_count": 0, "total_bytes": len(content), "game_codes": []}
+    return {
+        "file_count": file_count,
+        "total_bytes": total,
+        "game_codes": sorted(codes),
+    }
 
 
 def _resolve_memory_card(
@@ -1848,6 +1896,7 @@ async def claim_session(
     the client only supplies a ROM id, never a path.
     Returns 404 if the ROM doesn't exist or no container serves its platform.
     Returns 409 if the container is already occupied.
+    Returns 428 if the container's pre-existing memory card needs a decision.
     Returns 502/503 if the broker rejects the launch or is unreachable.
     """
     rom = db_rom_handler.get_rom(req.rom_id)
@@ -1961,6 +2010,61 @@ async def claim_session(
             },
         )
 
+    # A container that still holds someone's pre-existing card must not be
+    # wiped on a hunch. Probe once, then record the answer so this never
+    # interrupts a claim again. Probed only by the claim winner, so a user who
+    # loses the race gets the 409 rather than a prompt describing the card of
+    # the player currently on the container. Every exit from here that is not a
+    # started session releases the claim, so an abandoned dialog leaves no trace.
+    adoption_content: bytes | None = None
+    adoption_undecided = False
+    if (
+        _memory_card_sync_enabled(container)
+        and db_container_adoption_handler.get_adoption(_container_key(container))
+        is None
+    ):
+        adoption_undecided = True
+        try:
+            adoption_content = await asyncio.to_thread(_fetch_memory_card, container)
+        except _MemoryCardUnavailable as exc:
+            # Unreadable is not empty, so the wipe needs the user's consent.
+            # Only "discard" may override it: a card that was never captured
+            # cannot be adopted, and pretending otherwise destroys it.
+            log.warning("could not read the container memory card, %s", exc)
+            if req.card_import != "discard":
+                await async_cache.delete(_session_redis_key(session_key))
+                if req.card_import is None:
+                    raise HTTPException(
+                        status_code=428,
+                        detail={
+                            "code": "memory_card_import_required",
+                            "outcome": "unreadable",
+                            "reason": _CARD_UNREADABLE_REASON,
+                        },
+                    ) from exc
+                raise HTTPException(
+                    status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL
+                ) from exc
+            adoption_content = None
+        if adoption_content is None and req.card_import == "adopt":
+            # The slot is empty now, so the import the user asked for cannot
+            # happen. Abort without recording so the prompt fires again.
+            log.warning("adopt requested but the container slot is empty")
+            await async_cache.delete(_session_redis_key(session_key))
+            raise HTTPException(status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL)
+        if adoption_content is not None and req.card_import is None:
+            await async_cache.delete(_session_redis_key(session_key))
+            raise HTTPException(
+                status_code=428,
+                detail={
+                    "code": "memory_card_import_required",
+                    "outcome": "found",
+                    "summary": _summarize_memory_card(adoption_content),
+                },
+            )
+        if req.card_import == "discard":
+            adoption_content = None
+
     # The player is back in a session, so any note about their previous one
     # being force-released has served its purpose.
     await _clear_termination(session_key, request.user.id)
@@ -1979,6 +2083,53 @@ async def claim_session(
             _session_redis_key(session_key),
             json.dumps(session),
             ex=SESSION_TTL_SECONDS,
+        )
+
+    # Establish version 1 from the container's own card before hydrate runs, so
+    # the hydrate that follows pushes the adopted card back rather than a blank.
+    # An absent or discarded card is recorded too, so the prompt fires once and
+    # a card that shows up later is treated as the container's, not the user's.
+    if _memory_card_sync_enabled(container) and adoption_undecided:
+        adopted = (
+            req.card_import == "adopt"
+            and adoption_content is not None
+            and memory_card is not None
+        )
+        if adopted:
+            stored = False
+            try:
+                stored = await _store_memory_card_version(
+                    request.user,
+                    memory_card,  # type: ignore[arg-type]
+                    _emulator_for_container(container),
+                    adoption_content,  # type: ignore[arg-type]
+                )
+            except Exception as exc:
+                # Hydrate would wipe the container next, so a failed import must
+                # abort rather than destroy the card it was asked to keep.
+                log.exception("could not adopt the container memory card")
+                await async_cache.delete(_session_redis_key(session_key))
+                if created_blank_card_id is not None:
+                    db_memory_card_handler.delete_card(created_blank_card_id)
+                raise HTTPException(
+                    status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL
+                ) from exc
+            if not stored:
+                # Content-hash dedup matched an older version of this card, so
+                # no version was created and hydrate would push whichever
+                # version is latest over the container card. Abort instead.
+                log.error(
+                    "adopted memory card matched an existing version of card %d",
+                    memory_card.id,  # type: ignore[union-attr]
+                )
+                await async_cache.delete(_session_redis_key(session_key))
+                if created_blank_card_id is not None:
+                    db_memory_card_handler.delete_card(created_blank_card_id)
+                raise HTTPException(status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL)
+        db_container_adoption_handler.add_adoption(
+            container_key=_container_key(container),
+            outcome="adopt" if adopted else "discard",
+            user_id=request.user.id,
         )
 
     # Push the resume state before launch so its file is in place when the

@@ -4,6 +4,7 @@ import streamingApi from "@/services/api/streaming";
 import type {
   ActiveSession,
   AdminStreamingSession,
+  MemoryCardImport,
   SessionStatus,
   StreamingConfig,
   StreamingContainer,
@@ -12,6 +13,8 @@ import type {
 export type {
   ActiveSession,
   AdminStreamingSession,
+  MemoryCardImport,
+  MemoryCardImportDetail,
   PlatformCapabilities,
   SessionStatus,
   SessionTermination,
@@ -111,17 +114,21 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Throws the raw axios error on failure:
    *   409 session in use - response detail has who/what is playing
    *   404 - ROM or platform container not configured
+   *   428 - the container's pre-existing memory card needs a decision;
+   *         retry with cardImport set to the user's answer
    *   503 - broker/unreachable
    */
   async function claimSession(
     romId: number,
     stateId?: number,
     memoryCardId?: number,
+    cardImport?: MemoryCardImport,
   ): Promise<ActiveSession> {
     const { data } = await streamingApi.claimSession(
       romId,
       stateId,
       memoryCardId,
+      cardImport,
     );
     activeSession.value = data;
     return data;

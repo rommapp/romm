@@ -28,7 +28,11 @@ import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import type { UserStateSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
-import streamingApi from "@/services/api/streaming";
+import streamingApi, {
+  isMemoryCardImportDetail,
+  type MemoryCardImport,
+  type MemoryCardImportDetail,
+} from "@/services/api/streaming";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storePlaying from "@/stores/playing";
@@ -39,6 +43,7 @@ import {
   useStreamingStore,
 } from "@/stores/streaming";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
+import MemoryCardImportDialog from "@/v2/components/Player/MemoryCardImportDialog.vue";
 import MemoryCardPicker from "@/v2/components/Player/MemoryCardPicker.vue";
 import AssetStrip, {
   type AssetLayout,
@@ -80,6 +85,11 @@ const isSavingState = ref(false);
 const isLoadingState = ref(false);
 const volume = ref(100);
 const isMuted = ref(false);
+// Set from a 428 on claim: the container holds a memory card nobody has
+// decided about yet. The claim is not held open, the answer is replayed on a
+// fresh one.
+const cardImportDetail = ref<MemoryCardImportDetail | null>(null);
+const showCardImport = ref(false);
 
 const gameRunning = computed(() => playerState.value === "playing");
 
@@ -535,7 +545,9 @@ function hintForStatus(status?: number): string {
   return t("play.error-hint-server");
 }
 
-async function onPlay(): Promise<void> {
+// `cardImport` is only set when this run is the retry after the memory card
+// import prompt; the backend rejects the claim again without it.
+async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
   if (!rom.value) return;
   if (!container.value) {
     playerState.value = "error";
@@ -584,6 +596,7 @@ async function onPlay(): Promise<void> {
       container.value?.supports_memory_cards
         ? (selectedMemoryCardId.value ?? undefined)
         : undefined,
+      cardImport,
     );
     if (session.resume === false) {
       snackbar.warning(t("play.resume-failed"));
@@ -618,14 +631,23 @@ async function onPlay(): Promise<void> {
       }
     }
   } catch (err: unknown) {
-    playerState.value = "error";
-
     // The store propagates the raw axios error; the status and the
     // backend's detail payload live on its response.
     const status = isAxiosError(err) ? err.response?.status : undefined;
     const detail: unknown = isAxiosError(err)
       ? err.response?.data?.detail
       : undefined;
+
+    // Nothing was claimed and nothing is broken, the launch is just waiting
+    // on the user's answer, so this is a prompt rather than an error state.
+    if (status === 428 && isMemoryCardImportDetail(detail)) {
+      playerState.value = "idle";
+      cardImportDetail.value = detail;
+      showCardImport.value = true;
+      return;
+    }
+
+    playerState.value = "error";
 
     if (status === 409) {
       errorType.value = "occupied";
@@ -659,6 +681,18 @@ async function onPlay(): Promise<void> {
       errorHint.value = hintForStatus(status);
     }
   }
+}
+
+function onCardImportAnswer(answer: MemoryCardImport): void {
+  cardImportDetail.value = null;
+  void onPlay(answer);
+}
+
+// Cancelling leaves the container untouched and unclaimed, so there is
+// nothing to release; just go back where the user came from.
+function onCardImportCancel(): void {
+  cardImportDetail.value = null;
+  backToRom();
 }
 
 async function performStop(): Promise<void> {
@@ -1027,7 +1061,7 @@ onBeforeUnmount(() => {
           class="r-v2-stream__play"
           :loading="!rom || playerState === 'loading'"
           :disabled="!rom || playerState === 'loading'"
-          @click="onPlay"
+          @click="onPlay()"
         >
           {{
             errorType === "occupied"
@@ -1298,6 +1332,16 @@ onBeforeUnmount(() => {
         />
       </div>
     </div>
+
+    <!-- One-time prompt for the card the container was already holding.
+         Answering it retries the claim; cancelling goes back. -->
+    <MemoryCardImportDialog
+      v-model="showCardImport"
+      :detail="cardImportDetail"
+      @adopt="onCardImportAnswer('adopt')"
+      @discard="onCardImportAnswer('discard')"
+      @cancel="onCardImportCancel"
+    />
 
     <!-- Exit dialog: the single confirmed way out of an active session.
          Opened by the route-leave guard (B, browser back, any link) and

@@ -18,6 +18,7 @@ from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import streaming
 from handler.auth import oauth_handler
 from handler.database import (
+    db_container_adoption_handler,
     db_memory_card_handler,
     db_platform_handler,
     db_play_session_handler,
@@ -1704,10 +1705,12 @@ def _mc_container_for(rom: Rom, broker_host="http://192.168.1.10:8000"):
     }
 
 
-def _mc_claim(client, token, rom_id, memory_card_id=None):
-    body = {"rom_id": rom_id}
+def _mc_claim(client, token, rom_id, memory_card_id=None, card_import=None):
+    body: dict = {"rom_id": rom_id}
     if memory_card_id is not None:
         body["memory_card_id"] = memory_card_id
+    if card_import is not None:
+        body["card_import"] = card_import
     return client.post("/api/streaming/sessions", json=body, headers=_auth(token))
 
 
@@ -2042,6 +2045,7 @@ def test_claim_hydrates_memory_card_before_launch(client, access_token, rom: Rom
     with _streaming(_mc_container_for(rom)):
         with (
             patch("endpoints.streaming._call_broker", side_effect=_note_launch),
+            patch("endpoints.streaming._fetch_memory_card", return_value=None),
             patch(
                 "endpoints.streaming._hydrate_memory_card_to_broker",
                 new=AsyncMock(side_effect=_note_card),
@@ -2068,6 +2072,7 @@ def test_claim_aborts_when_card_hydration_fails(
     with _streaming(_mc_container_for(rom)):
         with (
             patch("endpoints.streaming._call_broker") as launch,
+            patch("endpoints.streaming._fetch_memory_card", return_value=None),
             patch(
                 "endpoints.streaming._hydrate_memory_card_to_broker",
                 new=AsyncMock(return_value=False),
@@ -2092,6 +2097,7 @@ def test_save_and_exit_evacuates_card(client, access_token, rom: Rom):
     with _streaming(_mc_container_for(rom)):
         with (
             patch("endpoints.streaming._call_broker"),
+            patch("endpoints.streaming._fetch_memory_card", return_value=None),
             patch(
                 "endpoints.streaming._hydrate_memory_card_to_broker",
                 new=AsyncMock(return_value=True),
@@ -2125,6 +2131,7 @@ def test_release_evacuates_card(client, access_token, rom: Rom):
     with _streaming(_mc_container_for(rom)):
         with (
             patch("endpoints.streaming._call_broker"),
+            patch("endpoints.streaming._fetch_memory_card", return_value=None),
             patch(
                 "endpoints.streaming._hydrate_memory_card_to_broker",
                 new=AsyncMock(return_value=True),
@@ -2162,6 +2169,7 @@ def test_save_and_exit_wait_false_forces_blocking_on_card_sync(
     with _streaming(_mc_container_for(rom)):
         with (
             patch("endpoints.streaming._call_broker"),
+            patch("endpoints.streaming._fetch_memory_card", return_value=None),
             patch(
                 "endpoints.streaming._hydrate_memory_card_to_broker",
                 new=AsyncMock(return_value=True),
@@ -2198,6 +2206,7 @@ def test_lost_claim_race_does_not_create_blank_card(
     with _streaming(_mc_container_for(rom)):
         with (
             patch("endpoints.streaming._call_broker"),
+            patch("endpoints.streaming._fetch_memory_card", return_value=None),
             patch(
                 "endpoints.streaming._hydrate_memory_card_to_broker",
                 new=AsyncMock(return_value=True),
@@ -2209,6 +2218,398 @@ def test_lost_claim_race_does_not_create_blank_card(
             r = _mc_claim(client, viewer_access_token, rom.id)
     assert r.status_code == 409
     assert db_memory_card_handler.get_cards(viewer_user.id, "pcsx2") == []
+
+
+# ── First-claim card adoption ─────────────────────────────────────────────────
+
+
+def _gci_card_bytes() -> bytes:
+    """A container card holding one GameCube save."""
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("01-GXCE-CustomRobo-BattleRevolution.gci", b"x" * 100)
+    return buf.getvalue()
+
+
+@contextmanager
+def _adoption_storage(card_bytes: bytes):
+    """Run the real store-then-hydrate round trip against stubbed disk I/O, so
+    the assertion is on what actually gets pushed back to the container."""
+
+    async def _scan(file_name, user, emulator, card_id):
+        return _card_version(card_id, file_name, "adopted-hash")
+
+    with (
+        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
+        patch(
+            "endpoints.streaming.fs_asset_handler.read_file",
+            new=AsyncMock(return_value=card_bytes),
+        ),
+        patch(
+            "endpoints.streaming.scan_memory_card_version",
+            new=AsyncMock(side_effect=_scan),
+        ),
+    ):
+        yield
+
+
+def test_first_claim_with_existing_card_asks_before_wiping(
+    client, access_token, rom: Rom
+):
+    """An unadopted container card must never be wiped without an answer."""
+    with (
+        _streaming(_mc_container_for(rom)),
+        patch("endpoints.streaming._fetch_memory_card", return_value=_gci_card_bytes()),
+        patch("endpoints.streaming._push_memory_card") as push,
+        patch("endpoints.streaming._call_broker") as launch,
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, access_token, rom.id)
+    assert r.status_code == 428
+    detail = r.json()["detail"]
+    assert detail["code"] == "memory_card_import_required"
+    assert detail["outcome"] == "found"
+    assert detail["summary"]["game_codes"] == ["GXCE"]
+    push.assert_not_called()
+    launch.assert_not_called()
+    # The prompt is not a session: an abandoned dialog must leave no claim.
+    assert (
+        asyncio.run(
+            streaming._get_session(streaming._container_key(_mc_container_for(rom)))
+        )
+        is None
+    )
+
+
+def test_unreadable_card_blocks_the_claim(client, access_token, rom: Rom):
+    """A transport hiccup must not be read as an empty card."""
+    with (
+        _streaming(_mc_container_for(rom)),
+        patch(
+            "endpoints.streaming._fetch_memory_card",
+            side_effect=streaming._MemoryCardUnavailable("broker exploded"),
+        ),
+        patch("endpoints.streaming._push_memory_card") as push,
+        patch("endpoints.streaming._call_broker"),
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, access_token, rom.id)
+    assert r.status_code == 428
+    detail = r.json()["detail"]
+    assert detail["outcome"] == "unreadable"
+    # The broker host and port must not leak to the client.
+    assert "broker exploded" not in detail["reason"]
+    assert detail["reason"] == streaming._CARD_UNREADABLE_REASON
+    push.assert_not_called()
+    assert (
+        asyncio.run(
+            streaming._get_session(streaming._container_key(_mc_container_for(rom)))
+        )
+        is None
+    )
+
+
+def test_absent_card_claims_without_prompting(client, access_token, rom: Rom):
+    """A genuinely empty slot is not a decision, so do not interrupt the user."""
+    container = _mc_container_for(rom)
+    with (
+        _streaming(container),
+        patch("endpoints.streaming._fetch_memory_card", return_value=None),
+        patch("endpoints.streaming._push_memory_card", return_value=True),
+        patch("endpoints.streaming._call_broker"),
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, access_token, rom.id)
+    assert r.status_code == 200
+    # The absent answer is recorded too, so the probe never runs again here.
+    adoption = db_container_adoption_handler.get_adoption(
+        streaming._container_key(container)
+    )
+    assert adoption is not None and adoption.outcome == "discard"
+
+
+def test_decided_container_does_not_probe_again(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """After the one-time decision the claim path costs no broker round trip."""
+    container = _mc_container_for(rom)
+    db_container_adoption_handler.add_adoption(
+        container_key=streaming._container_key(container),
+        outcome="discard",
+        user_id=admin_user.id,
+    )
+    with (
+        _streaming(container),
+        patch("endpoints.streaming._fetch_memory_card") as fetch,
+        patch("endpoints.streaming._push_memory_card", return_value=True),
+        patch("endpoints.streaming._call_broker"),
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, access_token, rom.id)
+    assert r.status_code == 200
+    fetch.assert_not_called()
+
+
+def test_sync_disabled_container_does_not_probe(client, access_token, rom: Rom):
+    """Containers without whole-card sync are untouched by any of this."""
+    with (
+        _streaming(_container_for(rom)),
+        patch("endpoints.streaming._fetch_memory_card") as fetch,
+        patch("endpoints.streaming._call_broker"),
+        patch("endpoints.streaming._hydrate_saves_to_broker", new=AsyncMock()),
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, access_token, rom.id)
+    assert r.status_code == 200
+    fetch.assert_not_called()
+
+
+def test_adopt_stores_the_container_card_as_version_one(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """Adopting must establish a version before hydrate, or the wipe still wins."""
+    card_bytes = _gci_card_bytes()
+    container = _mc_container_for(rom)
+    with (
+        _streaming(container),
+        _adoption_storage(card_bytes),
+        patch("endpoints.streaming._fetch_memory_card", return_value=card_bytes),
+        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
+        patch("endpoints.streaming._call_broker"),
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, access_token, rom.id, card_import="adopt")
+    assert r.status_code == 200
+    # The card pushed back down is the adopted one, not a blank.
+    assert push.call_args[0][1] == card_bytes
+    assert push.call_args[0][1] != streaming._EMPTY_MEMORY_CARD
+    adoption = db_container_adoption_handler.get_adoption(
+        streaming._container_key(container)
+    )
+    assert adoption is not None and adoption.outcome == "adopt"
+    cards = db_memory_card_handler.get_cards(admin_user.id, "pcsx2")
+    assert len(cards) == 1
+    assert db_memory_card_handler.get_latest_version(cards[0].id) is not None
+
+
+def test_discard_wipes_and_records_the_decision(client, access_token, rom: Rom):
+    """Choosing fresh must be remembered, or the prompt returns every claim."""
+    container = _mc_container_for(rom)
+    with (
+        _streaming(container),
+        patch("endpoints.streaming._fetch_memory_card", return_value=_gci_card_bytes()),
+        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
+        patch("endpoints.streaming._call_broker"),
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, access_token, rom.id, card_import="discard")
+    assert r.status_code == 200
+    assert push.call_args[0][1] == streaming._EMPTY_MEMORY_CARD
+    adoption = db_container_adoption_handler.get_adoption(
+        streaming._container_key(container)
+    )
+    assert adoption is not None and adoption.outcome == "discard"
+
+
+def test_unreadable_card_with_override_starts_fresh(client, access_token, rom: Rom):
+    """The escape hatch: the user accepted the wipe, so proceed to a blank."""
+    container = _mc_container_for(rom)
+    with (
+        _streaming(container),
+        patch(
+            "endpoints.streaming._fetch_memory_card",
+            side_effect=streaming._MemoryCardUnavailable("broker exploded"),
+        ),
+        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
+        patch("endpoints.streaming._call_broker"),
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, access_token, rom.id, card_import="discard")
+    assert r.status_code == 200
+    assert push.call_args[0][1] == streaming._EMPTY_MEMORY_CARD
+    adoption = db_container_adoption_handler.get_adoption(
+        streaming._container_key(container)
+    )
+    assert adoption is not None and adoption.outcome == "discard"
+
+
+def test_failed_adopt_aborts_the_claim_without_wiping(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """If the import cannot be stored, hydrate must never get to wipe the card."""
+    container = _mc_container_for(rom)
+    with (
+        _streaming(container),
+        patch("endpoints.streaming._fetch_memory_card", return_value=_gci_card_bytes()),
+        patch(
+            "endpoints.streaming._store_memory_card_version",
+            new=AsyncMock(side_effect=OSError("disk full")),
+        ),
+        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
+        patch("endpoints.streaming._call_broker") as launch,
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, access_token, rom.id, card_import="adopt")
+    assert r.status_code == 502
+    push.assert_not_called()
+    launch.assert_not_called()
+    # Nothing is recorded, so the next claim asks again instead of wiping.
+    assert (
+        db_container_adoption_handler.get_adoption(streaming._container_key(container))
+        is None
+    )
+    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        asyncio.run(streaming._get_session(streaming._container_key(container))) is None
+    )
+
+
+def test_adopt_with_unreadable_card_aborts_without_recording(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """ "Keep this card" on a card that cannot be read must never wipe it: only
+    an explicit discard may override an unreadable card."""
+    container = _mc_container_for(rom)
+    with (
+        _streaming(container),
+        patch(
+            "endpoints.streaming._fetch_memory_card",
+            side_effect=streaming._MemoryCardUnavailable("broker exploded"),
+        ),
+        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
+        patch("endpoints.streaming._call_broker") as launch,
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, access_token, rom.id, card_import="adopt")
+    assert r.status_code == 502
+    push.assert_not_called()
+    launch.assert_not_called()
+    # No decision recorded, so the next claim asks again instead of wiping.
+    assert (
+        db_container_adoption_handler.get_adoption(streaming._container_key(container))
+        is None
+    )
+    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        asyncio.run(streaming._get_session(streaming._container_key(container))) is None
+    )
+
+
+def test_adopt_with_absent_card_aborts_without_recording(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """The card vanished between the prompt and the answer, so the import the
+    user asked for cannot happen. Say so instead of starting on a blank."""
+    container = _mc_container_for(rom)
+    with (
+        _streaming(container),
+        patch("endpoints.streaming._fetch_memory_card", return_value=None),
+        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
+        patch("endpoints.streaming._call_broker") as launch,
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, access_token, rom.id, card_import="adopt")
+    assert r.status_code == 502
+    push.assert_not_called()
+    launch.assert_not_called()
+    assert (
+        db_container_adoption_handler.get_adoption(streaming._container_key(container))
+        is None
+    )
+    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        asyncio.run(streaming._get_session(streaming._container_key(container))) is None
+    )
+
+
+def test_adopt_deduplicated_against_older_version_aborts(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """Version dedup can swallow the adopt, and hydrate would then push a
+    different version's bytes over the container card. Abort instead."""
+    card_bytes = _gci_card_bytes()
+    container = _mc_container_for(rom)
+    card = _make_card(admin_user)
+    db_memory_card_handler.add_version(
+        _card_version(
+            card.id, "older.card.zip", streaming._content_hash_of_bytes(card_bytes)
+        )
+    )
+    with (
+        _streaming(container),
+        _adoption_storage(card_bytes),
+        patch("endpoints.streaming._fetch_memory_card", return_value=card_bytes),
+        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
+        patch("endpoints.streaming._call_broker") as launch,
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, access_token, rom.id, card_import="adopt")
+    assert r.status_code == 502
+    push.assert_not_called()
+    launch.assert_not_called()
+    assert (
+        db_container_adoption_handler.get_adoption(streaming._container_key(container))
+        is None
+    )
+    assert (
+        asyncio.run(streaming._get_session(streaming._container_key(container))) is None
+    )
+
+
+def test_occupied_undecided_container_returns_409_not_428(
+    client, viewer_access_token, admin_user: User, rom: Rom
+):
+    """The probe belongs to the claim winner: a second player must not be shown
+    a prompt describing the card of whoever is playing right now."""
+    container = _mc_container_for(rom)
+    key = streaming._session_redis_key(streaming._container_key(container))
+    asyncio.run(
+        async_cache.set(
+            key,
+            json.dumps(
+                {
+                    "rom_id": rom.id,
+                    "rom_name": rom.name,
+                    "platform": rom.platform_slug,
+                    "claimed_at": datetime.now(timezone.utc).isoformat(),
+                    "last_seen": datetime.now(timezone.utc).isoformat(),
+                    "user_id": admin_user.id,
+                    "memory_card_id": None,
+                }
+            ),
+        )
+    )
+    with (
+        _streaming(container),
+        patch(
+            "endpoints.streaming._fetch_memory_card", return_value=_gci_card_bytes()
+        ) as fetch,
+        patch("endpoints.streaming._push_memory_card") as push,
+        patch("endpoints.streaming._call_broker") as launch,
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, viewer_access_token, rom.id)
+    assert r.status_code == 409
+    fetch.assert_not_called()
+    push.assert_not_called()
+    launch.assert_not_called()
+
+
+def test_concurrent_adopts_record_one_decision(admin_user: User, rom: Rom):
+    """The unique constraint decides, so the loser must not 500."""
+    key = streaming._container_key(_mc_container_for(rom))
+    first = db_container_adoption_handler.add_adoption(
+        container_key=key, outcome="adopt", user_id=admin_user.id
+    )
+    second = db_container_adoption_handler.add_adoption(
+        container_key=key, outcome="discard", user_id=admin_user.id
+    )
+    assert first is not None
+    assert second is None
+    assert db_container_adoption_handler.get_adoption(key).outcome == "adopt"
 
 
 # ── Playtime ──────────────────────────────────────────────────────────────────
@@ -2252,3 +2653,26 @@ def test_record_play_session_ignores_malformed_session(admin_user: User, rom: Ro
         )
     )
     assert db_play_session_handler.get_total_play_time(admin_user.id, rom.id) == 0
+
+
+def test_summarize_memory_card_reports_files_and_game_codes():
+    """The dialog names games, so the summary lifts gamecodes from .gci names."""
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("01-GXCE-CustomRobo-BattleRevolution.gci", b"x" * 100)
+        zf.writestr("01-GALE-SuperSmashBros.gci", b"y" * 50)
+    summary = streaming._summarize_memory_card(buf.getvalue())
+    assert summary["file_count"] == 2
+    assert summary["total_bytes"] == 150
+    assert summary["game_codes"] == ["GALE", "GXCE"]
+
+
+def test_summarize_memory_card_handles_unparsable_content():
+    """A non-zip card must degrade to a byte count, never raise into the claim."""
+    summary = streaming._summarize_memory_card(b"not a zip")
+    assert summary["file_count"] == 0
+    assert summary["total_bytes"] == 9
+    assert summary["game_codes"] == []

@@ -25,6 +25,7 @@ from handler.database import (
 )
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.client_token import ClientToken
+from models.container_adoption import StreamingContainerAdoption
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from models.platform import Platform
@@ -98,6 +99,7 @@ def clear_database():
         s.query(Device).delete(synchronize_session="evaluate")
         s.query(MemoryCardVersion).delete(synchronize_session="evaluate")
         s.query(MemoryCard).delete(synchronize_session="evaluate")
+        s.query(StreamingContainerAdoption).delete(synchronize_session="evaluate")
         s.query(Save).delete(synchronize_session="evaluate")
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")

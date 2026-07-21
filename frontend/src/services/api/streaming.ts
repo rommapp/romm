@@ -67,6 +67,36 @@ export interface SessionStatus {
   termination?: SessionTermination | null;
 }
 
+/** Body of the 428 a claim returns when the container still holds a memory
+ *  card nobody has decided about. Hand-written: FastAPI serves it as a bare
+ *  `detail` dict, so it never reaches the OpenAPI schema. */
+export interface MemoryCardImportDetail {
+  code: "memory_card_import_required";
+  outcome: "found" | "unreadable";
+  /** Why the card could not be read. Present on "unreadable" only. */
+  reason?: string;
+  /** What the card holds. Present on "found" only. */
+  summary?: {
+    file_count: number;
+    total_bytes: number;
+    game_codes: string[];
+  };
+}
+
+/** The answer to that prompt, replayed on the retried claim. "discard" erases
+ *  the card currently on the container. */
+export type MemoryCardImport = "adopt" | "discard";
+
+export function isMemoryCardImportDetail(
+  value: unknown,
+): value is MemoryCardImportDetail {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { code?: unknown }).code === "memory_card_import_required"
+  );
+}
+
 // ── Requests ──────────────────────────────────────────────────────────────────
 
 async function fetchConfig() {
@@ -79,11 +109,13 @@ async function claimSession(
   romId: number,
   stateId?: number,
   memoryCardId?: number,
+  cardImport?: MemoryCardImport,
 ) {
   return api.post<ActiveSession>("/streaming/sessions", {
     rom_id: romId,
     ...(stateId !== undefined ? { state_id: stateId } : {}),
     ...(memoryCardId !== undefined ? { memory_card_id: memoryCardId } : {}),
+    ...(cardImport !== undefined ? { card_import: cardImport } : {}),
   });
 }
 
