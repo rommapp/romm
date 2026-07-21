@@ -50,7 +50,6 @@ import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
-import { recordLaunch } from "@/v2/utils/romStatus";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
@@ -226,12 +225,9 @@ async function onPlay() {
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = installIOSFullscreenShim();
 
-  if (rom.value && auth.scopes.includes("roms.user.write")) {
-    // Marks the game "now playing" and bumps last_played on launch; protected
-    // statuses are left untouched and a failed write reverts locally.
-    recordLaunch(rom.value);
-  }
-
+  // last_played / now_playing / status are updated server-side when the
+  // embedded <Player> ingests the play session on exit, so no launch-time
+  // write is made here.
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullscreenOnPlay.value;
   fullScreen.value = fullscreenOnPlay.value;

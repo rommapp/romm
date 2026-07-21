@@ -16,7 +16,6 @@ import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
-import storeAuth from "@/stores/auth";
 import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import type { RuffleSourceAPI } from "@/types/ruffle";
@@ -24,9 +23,9 @@ import { getDownloadPath } from "@/utils";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
+import { usePlaySession } from "@/v2/composables/usePlaySession";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { colorCanvas } from "@/v2/tokens";
-import { recordLaunch } from "@/v2/utils/romStatus";
 
 const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
 const DEFAULT_BACKGROUND_COLOR = colorCanvas.bgDeep;
@@ -36,7 +35,7 @@ const route = useRoute();
 const router = useRouter();
 const { fullscreenOnPlay } = useFullscreenPref();
 const playingStore = storePlaying();
-const auth = storeAuth();
+const playSession = usePlaySession();
 
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
@@ -145,11 +144,10 @@ function onPlay() {
     player.style.width = "100%";
     player.style.height = "100%";
 
-    // Record the launch only once playback is actually under way, so a
-    // failed player creation / load doesn't leave the game marked playing.
-    if (auth.scopes.includes("roms.user.write")) {
-      recordLaunch(rom.value);
-    }
+    // Start timing the session only once playback is actually under way, so a
+    // failed player creation / load records nothing. The session is ingested
+    // on unmount, which is what updates last_played / now_playing / status.
+    playSession.start(rom.value);
 
     if (player.fullscreenEnabled && fullscreenOnPlay.value) {
       player.enterFullscreen();
@@ -205,6 +203,9 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  // Every exit path (Quit, back links, route change) unmounts the view, so
+  // this is the single choke point for recording the session.
+  playSession.flush();
   // Hand the keyboard and gamepad back to the UI on any exit path.
   playingStore.setPlaying(false);
 });
