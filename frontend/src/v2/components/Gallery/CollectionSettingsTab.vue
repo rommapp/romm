@@ -122,9 +122,12 @@ const dirty = computed(() => {
 // Snapshot on mount AND whenever the underlying collection identity
 // changes (route swap, socket-driven backend update). Keeps the form
 // in sync with the canonical record without trampling in-flight edits
-// while a save is running.
-function snapshot() {
-  const c = props.collection;
+// while a save is running. Accepts an explicit source so `save()` can
+// re-sync from the update response — `props.collection` only receives
+// the fresh value asynchronously (store swap + parent reassign), so it
+// still holds the pre-save object at the moment `save()` snapshots.
+function snapshot(source: Collection | SmartCollection = props.collection) {
+  const c = source;
   form.value = {
     name: c.name,
     description: c.description ?? "",
@@ -240,6 +243,7 @@ async function save() {
   if (!dirty.value || saving.value || !canEdit.value) return;
   saving.value = true;
   try {
+    let saved: Collection | SmartCollection;
     if (props.kind === "smart") {
       const payload: SmartCollection = {
         ...(props.collection as SmartCollection),
@@ -254,6 +258,7 @@ async function save() {
       if (galleryRoms.currentSmartCollection?.id === data.id) {
         galleryRoms.setCurrentSmartCollection(data);
       }
+      saved = data;
       emit("saved", data);
     } else {
       const payload: UpdatedCollection = {
@@ -272,12 +277,16 @@ async function save() {
       if (galleryRoms.currentCollection?.id === data.id) {
         galleryRoms.setCurrentCollection(data);
       }
+      saved = data;
       emit("saved", data);
     }
     snackbar.success(t("collection.updated", "Collection updated"), {
       icon: "mdi-check-bold",
     });
-    snapshot();
+    // Re-sync from the response, not the prop — the prop hasn't been
+    // updated yet (see `snapshot` note), so snapshotting it would revert
+    // the form to the pre-save values and keep `dirty` true.
+    snapshot(saved);
   } catch (err) {
     const e = err as {
       response?: { data?: { msg?: string; detail?: string } };
