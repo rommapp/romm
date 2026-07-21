@@ -205,6 +205,10 @@
 #       # hydrated onto the container at claim and evacuated back on exit, instead
 #       # of syncing individual in-game save files. Requires a broker that serves
 #       # the /memory-card endpoint.
+#       #
+#       # Only ps2 and ngc have a memory card. On any other platform the flag is
+#       # ignored with a warning, because whole-card sync replaces the per-file
+#       # save sync that wii, wiiu and xbox actually need.
 #       memory_card_sync: true
 #
 #     # Add more emulator containers here as needed:

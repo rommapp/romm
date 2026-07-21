@@ -175,6 +175,7 @@ def test_get_config_ships_platform_capabilities(client, access_token):
         "max_slots": 9,
         "has_autosave": True,
         "autosave_slot": 10,
+        "has_memory_card": True,
     }
 
 
@@ -189,6 +190,54 @@ def test_get_config_reports_memory_card_support(client, access_token, rom: Rom):
     supported = {c["platform"]: c["supports_memory_cards"] for c in containers}
     assert supported[rom.platform_slug] is False
     assert supported["ps2"] is True
+
+
+def test_memory_card_sync_ignored_on_a_platform_without_a_card(client, access_token):
+    """Wii saves live in NAND and sync per file. Honouring memory_card_sync
+    there would disable /save-file and silently strand every NAND save."""
+    container = {
+        "platform": "wii",
+        "host": "http://192.168.1.10:3000",
+        "memory_card_sync": True,
+    }
+    with _streaming(container):
+        response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    assert response.json()["containers"][0]["supports_memory_cards"] is False
+
+
+def test_memory_card_sync_on_a_cardless_platform_warns_the_operator(caplog):
+    """The misconfiguration is silent otherwise, so the claim path logs it.
+    /config is polled continuously and deliberately stays quiet."""
+    container = {
+        "platform": "wii",
+        "host": "http://192.168.1.10:3000",
+        "memory_card_sync": True,
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(container):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                found = streaming._container_for_platform("wii")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert found is container
+    assert "has no memory card" in caplog.text
+
+
+def test_memory_card_sync_honoured_on_a_platform_with_a_card(client, access_token):
+    """The guard rejects only the unsupported platforms, ngc keeps whole-card
+    sync because Dolphin serves a Slot-A card."""
+    container = {
+        "platform": "ngc",
+        "host": "http://192.168.1.10:3000",
+        "memory_card_sync": True,
+    }
+    with _streaming(container):
+        response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    assert response.json()["containers"][0]["supports_memory_cards"] is True
 
 
 # ── Claiming ──────────────────────────────────────────────────────────────────

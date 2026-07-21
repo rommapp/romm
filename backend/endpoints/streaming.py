@@ -267,30 +267,70 @@ class PlatformCapabilities(TypedDict):
     max_slots: int  # manual save slots, selectable as 1..max_slots
     has_autosave: bool  # whether a dedicated autosave slot can be loaded
     autosave_slot: int  # that slot's index, 0 if none
+    has_memory_card: bool  # whether the broker serves a whole-card /memory-card
 
 
 # Keyed by platform slug (lowercase). A platform absent here gets no save-state
 # UI until its broker's slot semantics are known.
 _PLATFORM_CAPABILITIES: dict[str, PlatformCapabilities] = {
-    # Dolphin (ngc, wii, wiiu): slots 1-7 manual, slot 8 autosave.
-    "ngc": {"max_slots": 7, "has_autosave": True, "autosave_slot": 8},
-    "wii": {"max_slots": 7, "has_autosave": True, "autosave_slot": 8},
-    "wiiu": {"max_slots": 7, "has_autosave": True, "autosave_slot": 8},
-    # PCSX2 (ps2) and xemu (xbox): slots 1-9 manual, slot 10 autosave.
-    "ps2": {"max_slots": 9, "has_autosave": True, "autosave_slot": 10},
-    "xbox": {"max_slots": 9, "has_autosave": True, "autosave_slot": 10},
+    # Dolphin (ngc, wii, wiiu): slots 1-7 manual, slot 8 autosave. Only the
+    # GameCube side has a memory card; Wii and Wii U saves live in NAND and
+    # round-trip through /save-file instead.
+    "ngc": {
+        "max_slots": 7,
+        "has_autosave": True,
+        "autosave_slot": 8,
+        "has_memory_card": True,
+    },
+    "wii": {
+        "max_slots": 7,
+        "has_autosave": True,
+        "autosave_slot": 8,
+        "has_memory_card": False,
+    },
+    "wiiu": {
+        "max_slots": 7,
+        "has_autosave": True,
+        "autosave_slot": 8,
+        "has_memory_card": False,
+    },
+    # PCSX2 (ps2) and xemu (xbox): slots 1-9 manual, slot 10 autosave. xemu
+    # keeps saves on an emulated HDD and serves no /memory-card.
+    "ps2": {
+        "max_slots": 9,
+        "has_autosave": True,
+        "autosave_slot": 10,
+        "has_memory_card": True,
+    },
+    "xbox": {
+        "max_slots": 9,
+        "has_autosave": True,
+        "autosave_slot": 10,
+        "has_memory_card": False,
+    },
 }
 
 _NO_CAPABILITIES: PlatformCapabilities = {
     "max_slots": 0,
     "has_autosave": False,
     "autosave_slot": 0,
+    "has_memory_card": False,
 }
 
 
 def platform_capabilities(platform: str) -> PlatformCapabilities:
     """Save-state capabilities for a platform slug, or a no-slots default."""
     return _PLATFORM_CAPABILITIES.get(platform.lower(), _NO_CAPABILITIES)
+
+
+def _known_to_lack_memory_card(platform: str) -> bool:
+    """True only for a platform listed above as having no memory card.
+
+    An unlisted platform is unknown, not cardless. The operator opted in and
+    their broker may well serve /memory-card, so the flag is honoured there.
+    """
+    capabilities = _PLATFORM_CAPABILITIES.get(platform.lower())
+    return capabilities is not None and not capabilities["has_memory_card"]
 
 
 # Coarse request-body bound, derived from the table so the slot range lives in
@@ -384,6 +424,13 @@ def _container_for_platform(platform: str) -> dict[str, Any] | None:
                 entry,
             )
             continue
+        if entry.get("memory_card_sync", False) and _known_to_lack_memory_card(lower):
+            log.warning(
+                "container for platform '%s' sets memory_card_sync but that "
+                "platform has no memory card, ignoring the flag and syncing "
+                "individual save files instead",
+                platform,
+            )
         return entry
     return None
 
@@ -1330,7 +1377,17 @@ _EMPTY_MEMORY_CARD = _empty_zip_bytes()
 
 
 def _memory_card_sync_enabled(container: dict[str, Any]) -> bool:
-    return bool(container.get("memory_card_sync", False))
+    """Whether whole-card sync is both requested and possible for a container.
+
+    Honouring `memory_card_sync` on a platform with no memory card would be
+    silent data loss: whole-card sync REPLACES /save-file, so the per-file
+    saves that platform actually uses (Wii NAND, xemu HDD) would stop syncing
+    while RomM shuttled an empty card around. The flag is ignored instead, and
+    _container_for_platform warns the operator once per lookup.
+    """
+    if not container.get("memory_card_sync", False):
+        return False
+    return not _known_to_lack_memory_card(container.get("platform", ""))
 
 
 class _MemoryCardUnavailable(Exception):
