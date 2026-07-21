@@ -341,8 +341,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
       </div>
     </SettingsSection>
 
-    <!-- Virtual collections — only the type selector lives here; the
-         visibility toggle sits with the other Home sections above. -->
+    <!-- Virtual collections -->
     <SettingsSection
       :title="t('common.virtual-collections')"
       icon="mdi-bookmark-box-multiple"

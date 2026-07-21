@@ -26,7 +26,15 @@ export const UI_SETTINGS_KEYS = {
   showCollections: { key: "settings.showCollections", default: true },
   showSmartCollections: {
     key: "settings.showSmartCollections",
-    default: true,
+    default: false,
+  },
+  showVirtualCollections: {
+    key: "settings.showVirtualCollections",
+    default: false,
+  },
+  virtualCollectionType: {
+    key: "settings.virtualCollectionType",
+    default: "collection",
   },
 
   // Home widget bar (v2 only). `showHomeWidgets` is the master toggle
@@ -72,16 +80,6 @@ export const UI_SETTINGS_KEYS = {
     default: false,
   },
   boxartStyle: { key: "settings.boxartStyle", default: "cover_path" },
-
-  // Virtual collections
-  showVirtualCollections: {
-    key: "settings.showVirtualCollections",
-    default: true,
-  },
-  virtualCollectionType: {
-    key: "settings.virtualCollectionType",
-    default: "collection",
-  },
 } as const;
 
 export type UISettingsKey = keyof typeof UI_SETTINGS_KEYS;

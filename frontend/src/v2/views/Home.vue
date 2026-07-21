@@ -101,8 +101,8 @@ const isEmpty = computed(
     continuePlayingRoms.value.length === 0 &&
     filledPlatforms.value.length === 0 &&
     allCollections.value.length === 0 &&
-    smartCollections.value.length === 0 &&
-    virtualCollections.value.length === 0,
+    (!showSmartCollections.value || smartCollections.value.length === 0) &&
+    (!showVirtualCollections.value || virtualCollections.value.length === 0),
 );
 
 // Filesystem snapshot for the empty state — shows the user what RomM
