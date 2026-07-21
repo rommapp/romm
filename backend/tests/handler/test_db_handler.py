@@ -846,6 +846,28 @@ def test_get_matching_missing_rom_partial_hash_does_not_match(platform: Platform
     assert match is None
 
 
+def test_get_matching_missing_rom_ambiguous_match_returns_none(platform: Platform):
+    """When several missing entries share the same hashes, none is chosen.
+
+    Reassociation must not move user data onto an arbitrary row, so an
+    ambiguous set falls back to creating a new entry.
+    """
+    _add_missing_rom(
+        platform, "dup_a", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+    _add_missing_rom(
+        platform, "dup_b", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+    )
+    assert match is None
+
+
 def test_get_matching_missing_rom_requires_all_three_hashes(platform: Platform):
     """A match needs all three hashes; omitting one yields no match."""
     _add_missing_rom(

@@ -2238,11 +2238,15 @@ class DBRomsHandler(DBBaseHandler):
         match, so a lone CRC32 collision can't move an unrelated entry onto the
         file. Any missing hash yields no match, so non-hashable platforms and
         pre-hash entries safely fall back to creating a new entry.
+
+        Returns None when more than one missing entry matches: an ambiguous set
+        (e.g. duplicate content stored twice) has no correct target, so we
+        create a new entry rather than move user data onto an arbitrary row.
         """
         if not (crc_hash and md5_hash and sha1_hash):
             return None
 
-        return session.scalar(
+        matches = session.scalars(
             select(Rom)
             .where(
                 and_(
@@ -2253,8 +2257,10 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.sha1_hash == sha1_hash,
                 )
             )
-            .limit(1)
-        )
+            .limit(2)
+        ).all()
+
+        return matches[0] if len(matches) == 1 else None
 
     def _collect_filter_values(
         self,
