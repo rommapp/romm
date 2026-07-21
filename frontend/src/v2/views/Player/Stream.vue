@@ -287,12 +287,6 @@ async function handlePlay(): Promise<void> {
     containerHost.value = session.host;
     playerState.value = "playing";
 
-    // Mark the game "now playing" and refresh last_played on launch; protected
-    // statuses are left untouched and a failed write reverts locally.
-    if (auth.scopes.includes("roms.user.write")) {
-      recordLaunch(rom.value);
-    }
-
     // Wait for the DOM to update and the iframe to exist.
     attachTimeouts.forEach((id) => clearTimeout(id));
     attachTimeouts = [];
@@ -330,6 +324,16 @@ async function handlePlay(): Promise<void> {
       errorType.value = "server";
       errorMessage.value = error.message ?? t("play.stream-error-generic");
     }
+  }
+
+  // Record the launch outside the claim transaction: this is an incidental
+  // status write, so it must never abort a successfully claimed session.
+  if (
+    rom.value &&
+    playerState.value === "playing" &&
+    auth.scopes.includes("roms.user.write")
+  ) {
+    recordLaunch(rom.value);
   }
 }
 
