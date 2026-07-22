@@ -111,13 +111,30 @@ def _maria_first_release_date() -> str:
             f"AND {val} REGEXP '^[0-9]+$' THEN {cast}"
         )
     gl = "JSON_UNQUOTE(JSON_EXTRACT(gamelist_metadata, '$.first_release_date'))"
-    # TIMESTAMPDIFF from the UTC epoch is pure calendar arithmetic, so (unlike
-    # UNIX_TIMESTAMP) the stored value does not depend on the session time zone.
+    # MariaDB rejects STR_TO_DATE in a GENERATED ALWAYS AS clause (it reads
+    # lc_time_names), so the fixed-width "YYYYMMDDThhmmss" string is reshaped
+    # into a canonical datetime literal instead. TIMESTAMPDIFF from the UTC
+    # epoch is pure calendar arithmetic, so (unlike UNIX_TIMESTAMP) the stored
+    # value does not depend on the session time zone.
+    parts = [
+        f"SUBSTRING({gl}, 1, 4)",
+        "'-'",
+        f"SUBSTRING({gl}, 5, 2)",
+        "'-'",
+        f"SUBSTRING({gl}, 7, 2)",
+        "' '",
+        f"SUBSTRING({gl}, 10, 2)",
+        "':'",
+        f"SUBSTRING({gl}, 12, 2)",
+        "':'",
+        f"SUBSTRING({gl}, 14, 2)",
+    ]
+    gl_datetime = "CONCAT(" + ", ".join(parts) + ")"
     branches.append(
         f"WHEN JSON_CONTAINS_PATH(gamelist_metadata, 'one', '$.first_release_date') "
         f"AND {gl} NOT IN ('null', 'None', '0', '0.0') "
         f"AND {gl} REGEXP '^[0-9]{{8}}T[0-9]{{6}}$' "
-        f"THEN TIMESTAMPDIFF(SECOND, '1970-01-01 00:00:00', STR_TO_DATE({gl}, '%Y%m%dT%H%i%S')) * 1000"
+        f"THEN TIMESTAMPDIFF(SECOND, '1970-01-01 00:00:00', {gl_datetime}) * 1000"
     )
     return "CASE\n    " + "\n    ".join(branches) + "\n    ELSE NULL END"
 
