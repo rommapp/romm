@@ -9,8 +9,8 @@
 //   g c → collections index
 //
 // Two-key sequences (Gmail-style) have a 1.2s idle timeout. Everything is
-// guarded against input fields, contenteditable, and anything that owns the
-// keyboard (a running emulator), so hotkeys never fire mid-session.
+// guarded against input fields, contenteditable, and a running game
+// (the playing store flag), so hotkeys never fire mid-session.
 import { onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -28,22 +28,6 @@ function isEditable(el: EventTarget | null): boolean {
     return true;
   }
   return el.isContentEditable;
-}
-
-// Emulator canvases (EmulatorJS/DOSBox, Ruffle) take keystrokes off
-// window/document rather than through a focused form control, so a DOS
-// prompt typing "mount A / -t floppy" looks exactly like a plain "/" on
-// <body>. The playing store flag is the primary signal, but it depends on
-// each player view keeping it current; these DOM signals hold even when it
-// goes stale.
-const KEYBOARD_OWNER_SELECTOR = "#game, #r-v2-ruffle-stage, canvas, video";
-
-function ownsKeyboard(target: EventTarget | null): boolean {
-  if (document.fullscreenElement) return true;
-  return [target, document.activeElement].some(
-    (node) =>
-      node instanceof Element && !!node.closest(KEYBOARD_OWNER_SELECTOR),
-  );
 }
 
 export function useGlobalHotkeys() {
@@ -65,7 +49,6 @@ export function useGlobalHotkeys() {
       // "h" are common game keys; without this gate a two-key sequence
       // (or "/") would navigate away and kill the session.
       if (playingStore.playing) return;
-      if (ownsKeyboard(e.target)) return;
 
       const now = performance.now();
       if (pendingPrefix && now - pendingAt > PREFIX_IDLE_MS) {

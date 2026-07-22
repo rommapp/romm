@@ -69,33 +69,18 @@ describe("useGlobalHotkeys", () => {
     host.unmount();
   });
 
-  it("ignores '/' typed into an emulator canvas (DOSBox mount commands)", async () => {
+  // The DOSBox case: keys land on <body>, not on a form control, because the
+  // emulator canvas reads them off window. Only the playing flag tells them
+  // apart from a plain "/" pressed in the gallery.
+  it("ignores '/' pressed on the body while a game is running", async () => {
     const host = await install();
+    playingStore.playing = true;
     const stage = document.createElement("div");
     stage.id = "game";
-    const canvas = document.createElement("canvas");
-    stage.appendChild(canvas);
     document.body.appendChild(stage);
-
-    press("/", canvas);
-    expect(push).not.toHaveBeenCalled();
-    host.unmount();
-  });
-
-  it("ignores keys while an element is fullscreen", async () => {
-    const host = await install();
-    Object.defineProperty(document, "fullscreenElement", {
-      configurable: true,
-      value: document.createElement("div"),
-    });
 
     press("/");
     expect(push).not.toHaveBeenCalled();
-
-    Object.defineProperty(document, "fullscreenElement", {
-      configurable: true,
-      value: null,
-    });
     host.unmount();
   });
 
