@@ -3,6 +3,7 @@
 import bz2
 import fnmatch
 import os
+import re
 import subprocess
 import tarfile
 import tempfile
@@ -21,6 +22,19 @@ from logger.logger import log
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
 
 SEVEN_ZIP_PATH = "/usr/bin/7zz"
+# The bundled 7zz is built without the RAR codec (it is under the restrictive
+# unRAR license), so RAR archives are read through libarchive's bsdtar instead.
+BSDTAR_PATH = "/usr/bin/bsdtar"
+
+RAR_FILE_EXTENSIONS: Final = (".rar",)
+
+# libarchive escapes the backslash and every byte outside printable ASCII as a
+# 3-digit octal sequence in the mtree listings we parse RAR members from.
+_MTREE_OCTAL_ESCAPE: Final = re.compile(rb"\\([0-7]{3})")
+
+# bsdtar treats member arguments as glob patterns, where a backslash escapes
+# the character that follows it.
+_BSDTAR_GLOB_METACHARACTERS: Final = frozenset("\\*?[]")
 
 # Known compressed file MIME types
 COMPRESSED_MIME_TYPES: Final = frozenset(
@@ -296,64 +310,31 @@ def _stream_7z_chunks(
         yield chunk
 
 
-def read_7z_archive_files(
-    file_path: Path,
+def _is_member_excluded(
+    member: str,
     excluded_names: list[str],
     excluded_exts: list[str],
+) -> bool:
+    base_name = Path(member).name
+    lower = base_name.lower()
+    if any(lower.endswith("." + ext) for ext in excluded_exts):
+        return True
+    return any(
+        base_name == exc or fnmatch.fnmatch(base_name, exc) for exc in excluded_names
+    )
+
+
+def _stream_archive_members(
+    file_path: Path,
+    entries: list[tuple[str, int]],
 ) -> Iterator[tuple[str, int, Iterator[bytes]]]:
-    """Yield eligible files from a 7z archive in ASCII path order.
+    """Stream each listed member of an archive, one subprocess at a time.
 
-    Each yielded `(internal_name, file_size_bytes, chunks)` streams its
-    member's bytes lazily; chunks must be fully consumed before advancing
-    to the next entry, since the underlying subprocess is reaped at that point.
+    Members are yielded in ASCII path order under a single time budget shared
+    by the whole archive.
     """
-    try:
-        result = subprocess.run(
-            [SEVEN_ZIP_PATH, "l", "-slt", "-ba", str(file_path)],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=SEVEN_ZIP_TIMEOUT,
-            shell=False,  # trunk-ignore(bandit/B603)
-        )
-    except (
-        subprocess.TimeoutExpired,
-        subprocess.CalledProcessError,
-        FileNotFoundError,
-    ) as e:
-        log.error(f"Error listing 7z archive {file_path}: {e}")
-        return
+    entries = sorted(entries, key=lambda e: e[0])
 
-    entries: list[tuple[str, int]] = []
-    current_file: str | None = None
-    current_size = 0
-
-    for line in result.stdout.split("\n"):
-        line = line.lstrip()
-        if line.startswith("Path = "):
-            current_file = line.split(" = ", 1)[1]
-        elif line.startswith("Size = "):
-            try:
-                current_size = int(line.split(" = ")[1].strip())
-            except ValueError:
-                current_size = 0
-        elif line.startswith("Attributes = "):
-            attrs = line.split(" = ")[1].strip()
-            if current_file and not attrs.startswith("D"):
-                base_name = Path(current_file).name
-                lower = base_name.lower()
-                if not any(lower.endswith("." + ext) for ext in excluded_exts):
-                    if not any(
-                        base_name == exc or fnmatch.fnmatch(base_name, exc)
-                        for exc in excluded_names
-                    ):
-                        entries.append((current_file, current_size))
-            current_file = None
-            current_size = 0
-
-    entries.sort(key=lambda e: e[0])
-
-    # Single time budget for reading every member of this archive.
     deadline = time.monotonic() + SEVEN_ZIP_TIMEOUT
     timed_out = False
 
@@ -370,7 +351,7 @@ def read_7z_archive_files(
             break
         try:
             with subprocess.Popen(
-                [SEVEN_ZIP_PATH, "e", str(file_path), name, "-so", "-y", "-spd"],
+                _archive_member_command(file_path, name),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 shell=False,  # trunk-ignore(bandit/B603)
@@ -382,7 +363,8 @@ def read_7z_archive_files(
             # expected then and is covered by the single log below.
             if not timed_out and process.returncode != 0:
                 log.error(
-                    f"7z extraction of {name} failed with code {process.returncode}"
+                    f"Extraction of {name} from {file_path} failed "
+                    f"with code {process.returncode}"
                 )
                 return
         except (OSError, ValueError) as e:
@@ -390,7 +372,26 @@ def read_7z_archive_files(
             continue
 
     if timed_out:
-        log.error(f"7z extraction timed out reading members of {file_path}")
+        log.error(f"Extraction timed out reading members of {file_path}")
+
+
+def read_7z_archive_files(
+    file_path: Path,
+    excluded_names: list[str],
+    excluded_exts: list[str],
+) -> Iterator[tuple[str, int, Iterator[bytes]]]:
+    """Yield eligible files from a 7z archive in ASCII path order.
+
+    Each yielded `(internal_name, file_size_bytes, chunks)` streams its
+    member's bytes lazily; chunks must be fully consumed before advancing
+    to the next entry, since the underlying subprocess is reaped at that point.
+    """
+    entries = [
+        (name, size)
+        for name, size in _list_archive_file_members(file_path)
+        if not _is_member_excluded(name, excluded_names, excluded_exts)
+    ]
+    yield from _stream_archive_members(file_path, entries)
 
 
 def read_rar_archive_files(
@@ -398,13 +399,104 @@ def read_rar_archive_files(
     excluded_names: list[str],
     excluded_exts: list[str],
 ) -> Iterator[tuple[str, int, Iterator[bytes]]]:
-    """Yield eligible files from a RAR archive, sorted by internal path (ASCII).
+    """Yield eligible files from a RAR archive in ASCII path order.
 
-    Delegates to the 7zz binary. Listing RAR members always works, but
-    streaming their contents requires a 7zz build with the RAR codec; the
-    bundled Alpine build lacks it, so content reads fail and log an error.
+    Same contract as `read_7z_archive_files`, but listing and extraction go
+    through bsdtar since the bundled 7zz has no RAR codec.
     """
-    return read_7z_archive_files(file_path, excluded_names, excluded_exts)
+    entries = [
+        (name, size)
+        for name, size in _list_rar_file_members(file_path)
+        if not _is_member_excluded(name, excluded_names, excluded_exts)
+    ]
+    yield from _stream_archive_members(file_path, entries)
+
+
+def _is_rar_archive(file_path: Path) -> bool:
+    return str(file_path).lower().endswith(RAR_FILE_EXTENSIONS)
+
+
+def _bsdtar_member_pattern(member: str) -> str:
+    """Escape a member name so bsdtar matches it literally.
+
+    Without this, a stored name containing `*` or `?` is a glob that can
+    select (and concatenate) other members of the same archive.
+    """
+    return "".join(
+        f"\\{char}" if char in _BSDTAR_GLOB_METACHARACTERS else char for char in member
+    )
+
+
+def _unescape_mtree_path(raw: bytes) -> str:
+    unescaped = _MTREE_OCTAL_ESCAPE.sub(lambda m: bytes([int(m.group(1), 8)]), raw)
+    # surrogateescape round-trips names that aren't valid UTF-8, so they still
+    # encode back to the original bytes when passed to bsdtar.
+    return unescaped.decode("utf-8", errors="surrogateescape")
+
+
+def _list_rar_file_members(file_path: Path) -> list[tuple[str, int]]:
+    """List `(member_path, size)` for every file member of a RAR archive.
+
+    Rewriting the archive as an mtree listing on stdout is libarchive's only
+    machine-readable listing; `bsdtar -tv` output is ls-style and ambiguous
+    for names containing spaces. Only headers are read, so listing stays cheap
+    regardless of archive size.
+    """
+    try:
+        result = subprocess.run(
+            [
+                BSDTAR_PATH,
+                "-cf",
+                "-",
+                "--format=mtree",
+                "--options=!all,type,size",
+                f"@{file_path}",
+            ],
+            capture_output=True,
+            check=True,
+            timeout=SEVEN_ZIP_TIMEOUT,
+            shell=False,  # trunk-ignore(bandit/B603): bsdtar path is hardcoded, args are validated
+        )
+    except (
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+    ) as e:
+        log.error(f"Error listing RAR archive {file_path}: {e}")
+        return []
+
+    entries: list[tuple[str, int]] = []
+    for line in result.stdout.splitlines():
+        # "#" starts a comment, "/" an mtree directive; neither is an entry.
+        if not line or line.startswith((b"#", b"/")):
+            continue
+        raw_path, _, keywords = line.partition(b" ")
+        fields = dict(
+            field.split(b"=", 1) for field in keywords.split() if b"=" in field
+        )
+        if fields.get(b"type") != b"file":
+            continue
+        try:
+            size = int(fields.get(b"size", b"0"))
+        except ValueError:
+            size = 0
+        # mtree paths are archive-root relative ("./game.gba"), stored member
+        # names are not.
+        name = _unescape_mtree_path(raw_path).removeprefix("./")
+        if name:
+            entries.append((name, size))
+
+    return entries
+
+
+def _archive_member_command(file_path: Path, member: str) -> list[str]:
+    """Build the command streaming a single archive member to stdout."""
+    if _is_rar_archive(file_path):
+        return [BSDTAR_PATH, "-xOf", str(file_path), _bsdtar_member_pattern(member)]
+
+    # "-spd" disables wildcard matching so a member name containing "*" or "?"
+    # can't select (and concatenate) other members.
+    return [SEVEN_ZIP_PATH, "e", str(file_path), member, "-so", "-y", "-spd"]
 
 
 def _list_archive_file_members(file_path: Path) -> list[tuple[str, int]]:
@@ -414,6 +506,9 @@ def _list_archive_file_members(file_path: Path) -> list[tuple[str, int]]:
     entry is committed when the next `Path =` starts or the listing ends,
     and only dropped when its attributes mark it as a directory.
     """
+    if _is_rar_archive(file_path):
+        return _list_rar_file_members(file_path)
+
     try:
         result = subprocess.run(
             [SEVEN_ZIP_PATH, "l", "-slt", "-ba", str(file_path)],
@@ -464,24 +559,22 @@ def _extract_member_to_dir(
 ) -> Path | None:
     """Stream one archive member into `dest_dir`, named after its basename.
 
-    Returns None (leaving no partial file) when extraction fails, exceeds
-    the deadline, or the 7zz build lacks the codec (it then streams nothing
-    and exits non-zero, e.g. for RAR).
+    Returns None (leaving no partial file) when extraction fails or exceeds
+    the deadline.
     """
     dest_path = dest_dir / Path(member).name
     try:
         # stderr goes to an unlinked temp file rather than a pipe: a pipe can
-        # fill and block 7zz while this thread waits on stdout, stalling past
-        # the deadline. "-spd" disables wildcard matching so a member name
-        # containing "*" or "?" can't select (and concatenate) other members.
+        # fill and block the extractor while this thread waits on stdout,
+        # stalling past the deadline.
         with tempfile.TemporaryFile() as stderr_file:
             with (
                 open(dest_path, "wb") as dest_file,
                 subprocess.Popen(
-                    [SEVEN_ZIP_PATH, "e", str(file_path), member, "-so", "-y", "-spd"],
+                    _archive_member_command(file_path, member),
                     stdout=subprocess.PIPE,
                     stderr=stderr_file,
-                    shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
+                    shell=False,  # trunk-ignore(bandit/B603): binary paths are hardcoded, args are validated
                 ) as process,
             ):
                 assert process.stdout is not None
@@ -494,9 +587,8 @@ def _extract_member_to_dir(
                     dest_file.write(chunk)
 
             if process.returncode != 0:
-                # Surface the 7zz reason (e.g. "Unsupported Method" from a
-                # build without the RAR codec) so scan logs explain the
-                # missing hash.
+                # Surface the extractor's own reason (e.g. "Unsupported
+                # Method") so scan logs explain the missing hash.
                 stderr_file.seek(0)
                 detail = stderr_file.read().decode(errors="replace").strip()
                 log.error(

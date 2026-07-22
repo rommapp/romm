@@ -165,8 +165,11 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
 FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}@sha256:${NGINX_SHA256} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
+# libarchive-tools provides bsdtar, which reads RAR/RAR5 archives; Alpine's
+# 7zip is built without the RAR codec, so 7zz can neither list nor extract them
 RUN apk add --no-cache \
     bash \
+    libarchive-tools \
     libmagic \
     mariadb-connector-c \
     libpq \
