@@ -31,7 +31,10 @@ def _make_track(
     duration: float,
     cover_path: str | None = None,
     path_cover_l: str | None = None,
+    md5_hash: str | None = "derive",
 ) -> Rom:
+    if md5_hash == "derive":
+        md5_hash = f"md5-{title.lower().replace(' ', '-')}"
     rom = db_rom_handler.add_rom(
         Rom(
             platform_id=platform.id,
@@ -52,6 +55,7 @@ def _make_track(
             file_name=f"{title}.mp3",
             file_path=f"{rom.fs_path}/{name}/soundtrack",
             file_size_bytes=2048,
+            md5_hash=md5_hash,
             category=RomFileCategory.SOUNDTRACK,
             track_meta=TrackMeta(
                 rom_id=rom.id,
@@ -186,6 +190,14 @@ def test_tracks_year_and_duration(client: TestClient, access_token: str, music_l
     assert all(i["duration_seconds"] >= 60 for i in body["items"])
 
 
+def test_tracks_rom_id_filter(client: TestClient, access_token: str, music_library):
+    rid = music_library["sonic"].id
+    body = client.get(
+        f"/api/music/tracks?rom_id={rid}", headers=_auth(access_token)
+    ).json()
+    assert body["total"] == 1 and body["items"][0]["rom_id"] == rid
+
+
 def test_tracks_platform_filter(client: TestClient, access_token: str, music_library):
     pid = music_library["platform_b"].id
     body = client.get(
@@ -260,6 +272,164 @@ def test_facet_excludes_hidden_platform(music_library):
     )
     assert total == 2
     assert "Kondo" not in {r.value for r in rows}
+
+
+# ---------- favorites ----------
+
+
+def _track_id(client: TestClient, token: str, title: str) -> int:
+    body = client.get("/api/music/tracks", headers=_auth(token)).json()
+    return next(i["rom_file_id"] for i in body["items"] if i["title"] == title)
+
+
+def test_favorites_add_list_remove(
+    client: TestClient, access_token: str, music_library
+):
+    rf_id = _track_id(client, access_token, "Green Hill")
+
+    r = client.post(
+        "/api/music/favorites",
+        json={"rom_file_ids": [rf_id]},
+        headers=_auth(access_token),
+    )
+    assert r.status_code == status.HTTP_200_OK and r.json()["added"] == 1
+
+    # idempotent re-add
+    r = client.post(
+        "/api/music/favorites",
+        json={"rom_file_ids": [rf_id]},
+        headers=_auth(access_token),
+    )
+    assert r.json()["added"] == 0
+
+    favs = client.get("/api/music/favorites", headers=_auth(access_token)).json()
+    assert favs["total"] == 1
+    assert favs["items"][0]["title"] == "Green Hill"
+    assert favs["items"][0]["is_favorite"] is True
+
+    # flag shows up on the flat track list too
+    tracks = client.get("/api/music/tracks", headers=_auth(access_token)).json()
+    flags = {i["title"]: i["is_favorite"] for i in tracks["items"]}
+    assert flags == {"Green Hill": True, "Jingle": False, "Overworld": False}
+
+    r = client.request(
+        "DELETE",
+        "/api/music/favorites",
+        json={"rom_file_ids": [rf_id]},
+        headers=_auth(access_token),
+    )
+    assert r.status_code == status.HTTP_200_OK and r.json()["removed"] == 1
+    assert (
+        client.get("/api/music/favorites", headers=_auth(access_token)).json()["total"]
+        == 0
+    )
+
+
+def test_favorites_are_per_user(
+    client: TestClient,
+    access_token: str,
+    editor_access_token: str,
+    music_library,
+):
+    rf_id = _track_id(client, access_token, "Green Hill")
+    client.post(
+        "/api/music/favorites",
+        json={"rom_file_ids": [rf_id]},
+        headers=_auth(access_token),
+    )
+
+    other = client.get("/api/music/favorites", headers=_auth(editor_access_token))
+    assert other.json()["total"] == 0
+    tracks = client.get("/api/music/tracks", headers=_auth(editor_access_token)).json()
+    assert all(i["is_favorite"] is False for i in tracks["items"])
+
+
+def test_favorites_survive_rom_file_id_churn(
+    client: TestClient, access_token: str, music_library
+):
+    """Rescans purge and re-insert rom_files; favorites key on (rom_id, md5)."""
+    rf_id = _track_id(client, access_token, "Green Hill")
+    client.post(
+        "/api/music/favorites",
+        json={"rom_file_ids": [rf_id]},
+        headers=_auth(access_token),
+    )
+
+    rom = music_library["sonic"]
+    purged = db_rom_handler.purge_rom_files(rom.id)
+    old = next(f for f in purged if f.file_name == "Green Hill.mp3")
+    new_file = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name=old.file_name,
+            file_path=old.file_path,
+            file_size_bytes=old.file_size_bytes,
+            md5_hash=old.md5_hash,
+            category=RomFileCategory.SOUNDTRACK,
+            track_meta=TrackMeta(rom_id=rom.id, title="Green Hill"),
+        )
+    )
+    assert new_file.id != rf_id
+
+    favs = client.get("/api/music/favorites", headers=_auth(access_token)).json()
+    assert favs["total"] == 1
+    assert favs["items"][0]["rom_file_id"] == new_file.id
+
+
+def test_favorites_reject_unhashed_track(
+    client: TestClient, access_token: str, admin_user: User, music_library
+):
+    unhashed = _make_track(
+        admin_user.id,
+        music_library["platform_a"],
+        name="NoHash",
+        title="Silent",
+        artist="Nobody",
+        album="None",
+        genre="Game",
+        year=2000,
+        duration=10.0,
+        md5_hash=None,
+    )
+    rf_id = _track_id(client, access_token, "Silent")
+    r = client.post(
+        "/api/music/favorites",
+        json={"rom_file_ids": [rf_id]},
+        headers=_auth(access_token),
+    )
+    assert r.status_code == status.HTTP_400_BAD_REQUEST
+    assert "hash" in r.json()["detail"]
+    assert unhashed.id is not None
+
+
+def test_favorites_reject_non_track_and_unknown_ids(
+    client: TestClient, access_token: str, music_library
+):
+    non_track = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=music_library["sonic"].id,
+            file_name="manual.pdf",
+            file_path="genesis/roms/Sonic/manual",
+            file_size_bytes=1,
+            md5_hash="md5-manual",
+            category=RomFileCategory.MANUAL,
+        )
+    )
+    r = client.post(
+        "/api/music/favorites",
+        json={"rom_file_ids": [non_track.id]},
+        headers=_auth(access_token),
+    )
+    assert r.status_code == status.HTTP_400_BAD_REQUEST
+    assert "not music tracks" in r.json()["detail"]
+
+    r = client.post(
+        "/api/music/favorites",
+        json={"rom_file_ids": [999_999]},
+        headers=_auth(access_token),
+    )
+    assert r.status_code == status.HTTP_400_BAD_REQUEST
+    assert "not found" in r.json()["detail"]
 
 
 # ---------- has_soundtrack roms filter ----------

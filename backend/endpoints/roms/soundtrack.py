@@ -157,6 +157,7 @@ async def add_rom_soundtracks(
         ) from exc
 
     stat = os.stat(file_location)
+    file_hash = await fs_rom_handler.calculate_file_hashes(file_location)
     audio_meta = extract_audio_meta(str(file_location))
     cols = track_meta_columns(audio_meta) if audio_meta else None
     existing = db_rom_handler.get_rom_file_by_path(
@@ -173,6 +174,9 @@ async def add_rom_soundtracks(
                 "last_modified": stat.st_mtime,
                 "category": RomFileCategory.SOUNDTRACK,
                 "missing_from_fs": False,
+                "crc_hash": file_hash["crc_hash"],
+                "md5_hash": file_hash["md5_hash"],
+                "sha1_hash": file_hash["sha1_hash"],
             },
         )
         if cols:
@@ -188,6 +192,9 @@ async def add_rom_soundtracks(
                 file_size_bytes=stat.st_size,
                 last_modified=stat.st_mtime,
                 category=RomFileCategory.SOUNDTRACK,
+                crc_hash=file_hash["crc_hash"],
+                md5_hash=file_hash["md5_hash"],
+                sha1_hash=file_hash["sha1_hash"],
                 track_meta=(TrackMeta(rom_id=rom.id, **cols) if cols else None),
             )
         )

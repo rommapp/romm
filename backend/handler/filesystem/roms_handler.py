@@ -321,6 +321,7 @@ class FSRomsHandler(FSHandler):
     ) -> ParsedRomFiles:
         from adapters.services.rahasher import RAHasherService
         from handler.metadata import meta_ra_handler
+        from utils.audio_tags import is_allowed_audio_file
 
         rel_roms_path = self.get_roms_fs_structure(
             rom.platform.fs_slug
@@ -394,9 +395,18 @@ class FSRomsHandler(FSHandler):
                 # Check if this is a top-level file (not in a subdirectory)
                 is_top_level = f_path.samefile(Path(abs_fs_path, rom.fs_name))
 
-                if hashable_platform:
+                # Soundtrack audio files are always hashed individually:
+                # playlists/favorites reference tracks by content hash, and the
+                # file-size concerns behind NON_HASHABLE_PLATFORMS and disabled
+                # hashing don't apply to audio tracks.
+                is_audio_track = is_allowed_audio_file(file_name) and category_matches(
+                    RomFileCategory.SOUNDTRACK.value,
+                    [p.lower() for p in f_path.relative_to(self.base_path).parts],
+                )
+
+                if hashable_platform or is_audio_track:
                     try:
-                        if is_top_level:
+                        if hashable_platform and is_top_level:
                             # Include this file in the main ROM hash calculation
                             crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
                                 await asyncio.to_thread(
@@ -605,6 +615,17 @@ class FSRomsHandler(FSHandler):
             ),
             ra_hash=rom_ra_h,
         )
+
+    async def calculate_file_hashes(self, file_path: Path) -> FileHash:
+        """Hash a single file, off-thread; used by upload endpoints."""
+        crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
+            self._calculate_rom_hashes,
+            file_path,
+            0,
+            hashlib.md5(usedforsecurity=False),
+            hashlib.sha1(usedforsecurity=False),
+        )
+        return _make_file_hash(crc_c, md5_h, sha1_h)
 
     def _calculate_rom_hashes(
         self,

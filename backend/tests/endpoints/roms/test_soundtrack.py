@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -76,6 +77,8 @@ def test_upload_soundtrack_success(
     assert soundtracks[0].file_name == "track1.mp3"
     assert soundtracks[0].file_path == f"{game_folder_rom.full_path}/soundtrack"
     assert soundtracks[0].file_size_bytes == len(MP3_BYTES)
+    assert soundtracks[0].md5_hash == hashlib.md5(MP3_BYTES).hexdigest()
+    assert soundtracks[0].sha1_hash == hashlib.sha1(MP3_BYTES).hexdigest()
 
 
 def test_upload_soundtrack_upserts_on_reupload(
@@ -97,6 +100,7 @@ def test_upload_soundtrack_upserts_on_reupload(
         f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
     ]
     assert len(soundtracks) == 1
+    assert soundtracks[0].md5_hash == hashlib.md5(MP3_BYTES).hexdigest()
 
 
 # Single-file auto-convert on upload is covered in test_convert_to_folder.py.
