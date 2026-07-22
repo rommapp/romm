@@ -13,8 +13,10 @@ from strsimpy.jaro_winkler import JaroWinkler
 from handler.redis_handler import async_cache
 from logger.logger import log
 from tasks.scheduled.update_switch_titledb import (
+    SWITCH_NAME_TO_ID_KEY,
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
+    normalize_switch_name,
 )
 
 jarowinkler = JaroWinkler()
@@ -25,6 +27,18 @@ METADATA_FIXTURES_DIR: Final = Path(__file__).parent / "fixtures"
 # These are loaded in cache in update_switch_titledb_task
 SWITCH_TITLEDB_REGEX: Final = re.compile(r"(70[0-9]{12})")
 SWITCH_PRODUCT_ID_REGEX: Final = re.compile(r"(0100[0-9A-F]{12})")
+
+
+async def switch_name_to_product_id(name: str) -> str | None:
+    """Resolve a game name to a unique base-game Switch title ID, or None.
+
+    Backed by the reverse index built in update_switch_titledb_task; returns
+    None when the index is absent or the name is unknown/ambiguous.
+    """
+    key = normalize_switch_name(name)
+    if not key or not (await async_cache.exists(SWITCH_NAME_TO_ID_KEY)):
+        return None
+    return await async_cache.hget(SWITCH_NAME_TO_ID_KEY, key)
 
 
 # No regex needed for MAME

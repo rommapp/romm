@@ -4,12 +4,60 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from tasks.scheduled.update_switch_titledb import (
+    SWITCH_NAME_TO_ID_KEY,
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
     UpdateSwitchTitleDBTask,
+    normalize_switch_name,
     update_switch_titledb_task,
 )
 from tasks.tasks import RemoteFilePullTask
+
+
+def test_normalize_switch_name():
+    assert normalize_switch_name("Super Mario Odyssey") == "super mario odyssey"
+    # Punctuation and casing collapse so file names and TitleDB names align.
+    assert normalize_switch_name(
+        "The Legend of Zelda: Breath of the Wild"
+    ) == normalize_switch_name("the legend of zelda breath of the wild")
+    assert normalize_switch_name("   ") == ""
+
+
+class TestSwitchNameToIdIndex:
+    @pytest.fixture
+    def data(self):
+        return {
+            # Base game -> indexed.
+            "0100000000010000": {"id": "0100000000010000", "name": "Base Game"},
+            # Update (0x800 set) -> skipped.
+            "0100000000010800": {"id": "0100000000010800", "name": "Base Game"},
+            # DLC (0x1000 set) -> skipped.
+            "0100000000011000": {"id": "0100000000011000", "name": "DLC Pack"},
+            # Two base titles sharing a name -> ambiguous, dropped from index.
+            "0100000000020000": {"id": "0100000000020000", "name": "Ambiguous"},
+            "0100000000030000": {"id": "0100000000030000", "name": "Ambiguous"},
+        }
+
+    @patch.object(RemoteFilePullTask, "run")
+    @patch("tasks.scheduled.update_switch_titledb.async_cache.pipeline")
+    async def test_builds_unique_base_index(
+        self, mock_pipeline, mock_super_run, data
+    ):
+        mock_super_run.return_value = json.dumps(data).encode("utf-8")
+
+        mock_pipe = AsyncMock()
+        mock_pipe.__aenter__ = AsyncMock(return_value=mock_pipe)
+        mock_pipe.__aexit__ = AsyncMock(return_value=None)
+        mock_pipeline.return_value = mock_pipe
+
+        await UpdateSwitchTitleDBTask().run(force=True)
+
+        name_index: dict[str, str] = {}
+        for call in mock_pipe.hset.call_args_list:
+            if call[0][0] == SWITCH_NAME_TO_ID_KEY:
+                name_index.update(call[1]["mapping"])
+
+        assert name_index == {"base game": "0100000000010000"}
 
 
 class TestUpdateSwitchTitleDBTask:

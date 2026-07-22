@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
@@ -12,7 +13,14 @@ from rq.job import Job
 from sqlalchemy.exc import IntegrityError
 
 from adapters.services.screenscraper import reset_daily_quota as reset_ss_daily_quota
-from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
+from config import (
+    DEV_MODE,
+    ENABLE_SWITCH_TITLE_ID_RENAME,
+    REDIS_URL,
+    SCAN_TIMEOUT,
+    SCAN_WORKERS,
+    TASK_RESULT_TTL,
+)
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from endpoints.responses import TaskType
@@ -23,6 +31,7 @@ from exceptions.fs_exceptions import (
     FOLDER_STRUCT_MSG,
     FirmwareNotFoundException,
     FolderStructureNotMatchException,
+    RomAlreadyExistsException,
     RomsNotFoundException,
 )
 from exceptions.socket_exceptions import ScanStoppedException
@@ -36,6 +45,12 @@ from handler.filesystem import (
 )
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_gamelist_handler, meta_hltb_handler
+from handler.metadata.base_handler import (
+    SWITCH_PRODUCT_ID_REGEX,
+    SWITCH_TITLEDB_REGEX,
+    UniversalPlatformSlug as UPS,
+    switch_name_to_product_id,
+)
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
 from handler.scan_handler import (
@@ -60,6 +75,9 @@ from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
 
 STOP_SCAN_FLAG: Final = "scan:stop"
+
+SWITCH_PLATFORM_SLUGS: Final = frozenset((UPS.SWITCH, UPS.SWITCH_2))
+SWITCH_SERVED_EXTENSIONS: Final = frozenset((".nsp", ".xci", ".nsz", ".xcz", ".nro"))
 
 
 def _clone_track_meta(src: TrackMeta | None, rom_id: int) -> TrackMeta | None:
@@ -246,6 +264,68 @@ def _should_get_rom_files(
     )
 
 
+async def _maybe_add_switch_title_id(
+    platform: Platform, fs_rom: FSRom, rom: Rom | None
+) -> None:
+    """Rename a flat Switch ROM lacking a title ID to embed one from the TitleDB.
+
+    Opt-in via ENABLE_SWITCH_TITLE_ID_RENAME. Only base games whose name maps to
+    a single title ID are renamed, so tools that parse title IDs out of the file
+    name (e.g. CyberFoil) can index them.
+    """
+    if (
+        not ENABLE_SWITCH_TITLE_ID_RENAME
+        or not fs_rom["flat"]
+        or platform.slug not in SWITCH_PLATFORM_SLUGS
+    ):
+        return
+
+    fs_name = fs_rom["fs_name"]
+    stem, ext = os.path.splitext(fs_name)
+    if ext.lower() not in SWITCH_SERVED_EXTENSIONS:
+        return
+
+    # Skip files that already carry a title ID.
+    if SWITCH_PRODUCT_ID_REGEX.search(fs_name) or SWITCH_TITLEDB_REGEX.search(fs_name):
+        return
+
+    clean_name = fs_rom_handler.get_file_name_with_no_tags(fs_name)
+    title_id = await switch_name_to_product_id(clean_name)
+    if not title_id:
+        return
+
+    new_fs_name = f"{stem} [{title_id}][v0]{ext}"
+    roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
+    try:
+        await fs_rom_handler.rename_fs_rom(fs_name, new_fs_name, roms_path)
+    except RomAlreadyExistsException:
+        log.warning(
+            f"Skipping Switch title ID rename for {hl(fs_name)}: "
+            f"{hl(new_fs_name)} already exists"
+        )
+        return
+
+    fs_rom["fs_name"] = new_fs_name
+    log.info(
+        f"Renamed {hl(fs_name)} to {hl(new_fs_name, color=BLUE)} (Switch title ID)"
+    )
+
+    # Move an already-tracked entry and its files onto the new name, mirroring
+    # the manual rename endpoint, so nothing is orphaned under the old name.
+    if rom is not None:
+        db_rom_handler.update_rom(rom.id, {"fs_name": new_fs_name})
+        for file in rom.files:
+            new_file_name = file.file_name.replace(fs_name, new_fs_name)
+            new_file_path = file.file_path.replace(fs_name, new_fs_name)
+            db_rom_handler.update_rom_file(
+                file.id,
+                {"file_name": new_file_name, "file_path": new_file_path},
+            )
+            file.file_name = new_file_name
+            file.file_path = new_file_path
+        rom.fs_name = new_fs_name
+
+
 # There's an order of operations here that is important:
 # 1. Read the list of roms from the filesystem
 # 2. Check if ROM should be scanned based on the scan type
@@ -267,6 +347,8 @@ async def _identify_rom(
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return
+
+    await _maybe_add_switch_title_id(platform, fs_rom, rom)
 
     # Update properties that don't require metadata
     parsed_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])

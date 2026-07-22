@@ -1,4 +1,5 @@
 import json
+import re
 from itertools import batched
 from typing import Any, Final
 
@@ -15,6 +16,34 @@ from . import UpdateStats
 
 SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
 SWITCH_PRODUCT_ID_KEY: Final = "romm:switch_product_id"
+# Maps a normalized game name to a unique base-game title ID, for injecting the
+# ID into a Switch file name that lacks one. Built in the same update task.
+SWITCH_NAME_TO_ID_KEY: Final = "romm:switch_name_to_id"
+
+_NON_ALNUM_PATTERN: Final = re.compile(r"[^a-z0-9]+")
+
+
+def normalize_switch_name(name: str) -> str:
+    """Normalize a game name for name-based title ID lookups."""
+    return _NON_ALNUM_PATTERN.sub(" ", name.lower()).strip()
+
+
+def _base_title_id(entry: dict) -> str | None:
+    """Return the entry's title ID if it is a base game, else None.
+
+    Nintendo title IDs are 16 hex digits. Base games clear the low 13 bits;
+    updates set 0x800 and DLC sets the 0x1000 bit. See
+    https://switchbrew.org/wiki/Title_list.
+    """
+    title_id = entry.get("id")
+    if not title_id:
+        return None
+    try:
+        if int(title_id, 16) & 0x1FFF == 0:
+            return title_id
+    except ValueError:
+        return None
+    return None
 
 
 class UpdateSwitchTitleDBTask(RemoteFilePullTask):
@@ -61,6 +90,30 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
                 }
                 if product_map:
                     await pipe.hset(SWITCH_PRODUCT_ID_KEY, mapping=product_map)
+
+            # Reverse index: normalized base-game name -> title ID. Only keep
+            # names that resolve to a single base title so ambiguous names are
+            # never auto-renamed to the wrong game.
+            name_to_id: dict[str, str] = {}
+            ambiguous: set[str] = set()
+            for entry in relevant_data.values():
+                base_id = _base_title_id(entry)
+                if not base_id or not entry.get("name"):
+                    continue
+                key = normalize_switch_name(entry["name"])
+                if not key:
+                    continue
+                existing = name_to_id.get(key)
+                if existing is None:
+                    name_to_id[key] = base_id
+                elif existing != base_id:
+                    ambiguous.add(key)
+            for key in ambiguous:
+                name_to_id.pop(key, None)
+
+            for name_batch in batched(name_to_id.items(), 2000, strict=False):
+                await pipe.hset(SWITCH_NAME_TO_ID_KEY, mapping=dict(name_batch))
+
             await pipe.execute()
 
         # Final progress update

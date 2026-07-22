@@ -213,6 +213,9 @@ SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final[str] = _get_env(
     "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+ENABLE_SWITCH_TITLE_ID_RENAME: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SWITCH_TITLE_ID_RENAME")
+)
 ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA")
 )

@@ -7,12 +7,14 @@ from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
     ScanStats,
     _identify_rom,
+    _maybe_add_switch_title_id,
     reject_unauthorized_scan,
     scan_handler,
     scan_platforms,
     should_scan_rom,
     stop_scan_handler,
 )
+from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.filesystem.roms_handler import (
     FSRom,
@@ -696,3 +698,139 @@ class TestGetPico8CoverUrl:
         assert url is not None
         assert fs_path in url
         assert fs_name in url
+
+
+class TestMaybeAddSwitchTitleId:
+    """`_maybe_add_switch_title_id` embeds a title ID into a Switch file name."""
+
+    TITLE_ID = "0100000000010000"
+
+    def _switch_platform(self, slug=UPS.SWITCH):
+        platform = Platform(name="Switch", slug=slug, fs_slug="switch")
+        platform.id = 1
+        return platform
+
+    def _fs_rom(self, fs_name="Super Mario Odyssey.nsp", flat=True) -> FSRom:
+        return {
+            "fs_name": fs_name,
+            "flat": flat,
+            "nested": not flat,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+
+    def _enable(self, mocker, enabled=True, title_id=TITLE_ID):
+        mocker.patch.object(
+            scan_module, "ENABLE_SWITCH_TITLE_ID_RENAME", enabled
+        )
+        lookup = mocker.patch.object(
+            scan_module,
+            "switch_name_to_product_id",
+            AsyncMock(return_value=title_id),
+        )
+        rename = mocker.patch.object(
+            scan_module.fs_rom_handler, "rename_fs_rom", AsyncMock()
+        )
+        return lookup, rename
+
+    async def test_renames_flat_switch_file(self, mocker):
+        lookup, rename = self._enable(mocker)
+        fs_rom = self._fs_rom()
+
+        await _maybe_add_switch_title_id(self._switch_platform(), fs_rom, None)
+
+        expected = f"Super Mario Odyssey [{self.TITLE_ID}][v0].nsp"
+        assert fs_rom["fs_name"] == expected
+        rename.assert_awaited_once()
+        old, new, _path = rename.await_args.args
+        assert old == "Super Mario Odyssey.nsp"
+        assert new == expected
+        lookup.assert_awaited_once_with("Super Mario Odyssey")
+
+    async def test_skips_when_flag_disabled(self, mocker):
+        _lookup, rename = self._enable(mocker, enabled=False)
+        fs_rom = self._fs_rom()
+
+        await _maybe_add_switch_title_id(self._switch_platform(), fs_rom, None)
+
+        assert fs_rom["fs_name"] == "Super Mario Odyssey.nsp"
+        rename.assert_not_awaited()
+
+    async def test_skips_when_title_id_already_present(self, mocker):
+        lookup, rename = self._enable(mocker)
+        fs_rom = self._fs_rom(f"Super Mario Odyssey [{self.TITLE_ID}][v0].nsp")
+
+        await _maybe_add_switch_title_id(self._switch_platform(), fs_rom, None)
+
+        lookup.assert_not_awaited()
+        rename.assert_not_awaited()
+
+    async def test_skips_non_switch_platform(self, mocker):
+        _lookup, rename = self._enable(mocker)
+        fs_rom = self._fs_rom()
+
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        await _maybe_add_switch_title_id(platform, fs_rom, None)
+
+        rename.assert_not_awaited()
+
+    async def test_skips_non_served_extension(self, mocker):
+        _lookup, rename = self._enable(mocker)
+        fs_rom = self._fs_rom("Super Mario Odyssey.zip")
+
+        await _maybe_add_switch_title_id(self._switch_platform(), fs_rom, None)
+
+        rename.assert_not_awaited()
+
+    async def test_skips_nested_rom(self, mocker):
+        _lookup, rename = self._enable(mocker)
+        fs_rom = self._fs_rom(flat=False)
+
+        await _maybe_add_switch_title_id(self._switch_platform(), fs_rom, None)
+
+        rename.assert_not_awaited()
+
+    async def test_skips_when_name_unresolved(self, mocker):
+        _lookup, rename = self._enable(mocker, title_id=None)
+        fs_rom = self._fs_rom()
+
+        await _maybe_add_switch_title_id(self._switch_platform(), fs_rom, None)
+
+        assert fs_rom["fs_name"] == "Super Mario Odyssey.nsp"
+        rename.assert_not_awaited()
+
+    async def test_leaves_name_when_target_exists(self, mocker):
+        _lookup, rename = self._enable(mocker)
+        rename.side_effect = RomAlreadyExistsException("dup")
+        db = mocker.patch.object(scan_module, "db_rom_handler")
+        fs_rom = self._fs_rom()
+
+        await _maybe_add_switch_title_id(self._switch_platform(), fs_rom, None)
+
+        assert fs_rom["fs_name"] == "Super Mario Odyssey.nsp"
+        db.update_rom.assert_not_called()
+
+    async def test_moves_existing_db_entry(self, mocker):
+        self._enable(mocker)
+        db = mocker.patch.object(scan_module, "db_rom_handler")
+        fs_rom = self._fs_rom()
+
+        rom_file = MagicMock(
+            file_name="Super Mario Odyssey.nsp",
+            file_path="switch/roms/Super Mario Odyssey.nsp",
+        )
+        rom = MagicMock(id=7, files=[rom_file])
+
+        await _maybe_add_switch_title_id(self._switch_platform(), fs_rom, rom)
+
+        expected = f"Super Mario Odyssey [{self.TITLE_ID}][v0].nsp"
+        db.update_rom.assert_called_once_with(7, {"fs_name": expected})
+        db.update_rom_file.assert_called_once()
+        _file_id, data = db.update_rom_file.call_args.args
+        assert data["file_name"] == expected
+        assert rom.fs_name == expected
+        assert rom_file.file_name == expected
