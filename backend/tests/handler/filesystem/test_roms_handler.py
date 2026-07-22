@@ -17,6 +17,7 @@ from handler.filesystem.base_handler import (
 from handler.filesystem.roms_handler import (
     FileHash,
     FSRomsHandler,
+    switch_title_id_category,
 )
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
@@ -406,6 +407,56 @@ class TestFSRomsHandler:
             # Clean up
             if test_file.exists():
                 test_file.unlink()
+
+    @pytest.mark.parametrize(
+        ("file_name", "expected"),
+        [
+            # Breath of the Wild base / update / DLC from issue #2526
+            ("Zelda BOTW [01007EF00011E000][v0].nsp", RomFileCategory.GAME),
+            ("Zelda BOTW [01007EF00011E800][v196608].nsp", RomFileCategory.UPDATE),
+            ("Zelda BOTW DLC1 [01007EF00011F001][v0].nsp", RomFileCategory.DLC),
+            ("Zelda BOTW DLC2 [01007EF00011F002][v0].nsp", RomFileCategory.DLC),
+            # No title ID in the name -> no classification
+            ("Some Homebrew.nro", None),
+        ],
+    )
+    def test_switch_title_id_category(self, file_name, expected):
+        assert switch_title_id_category(file_name) == expected
+
+    def test_build_rom_file_switch_title_id_category(self, handler: FSRomsHandler):
+        """Switch files sharing a game folder are categorized by title ID."""
+        switch = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        rom = Rom(
+            id=10,
+            fs_name="Zelda BOTW",
+            fs_path="switch/roms",
+            fs_extension="",
+            platform=switch,
+            full_path="switch/roms/Zelda BOTW",
+        )
+        rom_path = Path("switch/roms/Zelda BOTW")
+        file_hash = FileHash(
+            {"crc_hash": "", "md5_hash": "", "sha1_hash": "", "chd_sha1_hash": ""}
+        )
+
+        os.makedirs(handler.base_path / rom_path, exist_ok=True)
+        cases = {
+            "Zelda BOTW [01007EF00011E800][v196608].nsp": RomFileCategory.UPDATE,
+            "Zelda BOTW DLC1 [01007EF00011F001][v0].nsp": RomFileCategory.DLC,
+        }
+        created = []
+        try:
+            for file_name, expected in cases.items():
+                test_file = handler.base_path / rom_path / file_name
+                test_file.write_text("content")
+                created.append(test_file)
+
+                rom_file = handler._build_rom_file(rom, rom_path, file_name, file_hash)
+                assert rom_file.category == expected
+        finally:
+            for test_file in created:
+                if test_file.exists():
+                    test_file.unlink()
 
     @pytest.mark.asyncio
     async def test_get_roms(self, handler: FSRomsHandler, platform, config):

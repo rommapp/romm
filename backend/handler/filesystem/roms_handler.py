@@ -21,7 +21,10 @@ from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomsNotFoundException,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from handler.metadata.base_handler import (
+    SWITCH_PRODUCT_ID_REGEX,
+    UniversalPlatformSlug as UPS,
+)
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
 from utils.archives import (
@@ -106,6 +109,30 @@ class FileHash(TypedDict):
 
 def category_matches(category: str, path_parts: list[str]):
     return category in path_parts or f"{category}s" in path_parts
+
+
+# Platforms whose files carry a Nintendo title ID we can categorize by.
+SWITCH_PLATFORMS = frozenset((UPS.SWITCH, UPS.SWITCH_2))
+
+
+def switch_title_id_category(file_name: str) -> RomFileCategory | None:
+    """Classify a Switch file as base game, update, or DLC from its title ID.
+
+    Nintendo title IDs are 16 hex digits. Relative to the base application,
+    updates set the low 12 bits to 0x800 and DLC increments the 4th-to-last
+    nibble (making it odd); base games leave the low 12 bits cleared with an
+    even 4th-to-last nibble. See https://switchbrew.org/wiki/Title_list.
+    """
+    match = SWITCH_PRODUCT_ID_REGEX.search(file_name)
+    if not match:
+        return None
+
+    title_id = int(match.group(1), 16)
+    if (title_id >> 12) & 1:
+        return RomFileCategory.DLC
+    if title_id & 0xFFF == 0x800:
+        return RomFileCategory.UPDATE
+    return RomFileCategory.GAME
 
 
 DEFAULT_CRC_C = 0
@@ -278,6 +305,12 @@ class FSRomsHandler(FSHandler):
             ),
             None,
         )
+
+        # Fall back to the Switch title ID in the file name when the directory
+        # layout doesn't categorize it, so base/update/DLC files sharing a game
+        # folder are still tagged individually.
+        if matching_category is None and rom.platform_slug in SWITCH_PLATFORMS:
+            matching_category = switch_title_id_category(file_name)
 
         track_meta = None
         if matching_category == RomFileCategory.SOUNDTRACK:
