@@ -123,7 +123,7 @@ def switch_title_id_category(file_name: str) -> RomFileCategory | None:
     nibble (making it odd); base games leave the low 12 bits cleared with an
     even 4th-to-last nibble. See https://switchbrew.org/wiki/Title_list.
     """
-    match = SWITCH_PRODUCT_ID_REGEX.search(file_name)
+    match = SWITCH_PRODUCT_ID_REGEX.search(file_name.upper())
     if not match:
         return None
 
