@@ -20,7 +20,7 @@ Don't skip the direct pass even when delegating — it tells you where the risk 
 
 - Release: previous tag `..` new tag. Confirm the true predecessor with `git tag` + tag dates, don't assume.
 - PR/branch: `git merge-base master HEAD` `..` `HEAD` (diff against the merge base, not raw `master..HEAD`).
-- A remote PR you don't have locally: `gh pr diff <n>` or fetch the ref first.
+- A remote PR you don't have locally: fetch the ref first (`git fetch origin pull/<n>/head` or `gh pr checkout <n>`), then set `$RANGE` as above so every sweep runs against it. `gh pr diff <n>` alone only prints the diff and leaves `$RANGE` unset, so the `git diff $RANGE` sweeps would fall back to the working tree, so don't rely on it.
 
 ```bash
 RANGE=5.0.0..5.1.0-alpha.1            # or "$(git merge-base master HEAD)..HEAD"
@@ -90,9 +90,9 @@ Every author should be a plausible contributor. author≠committer with committe
 
 ---
 
-## 3. Fan out deep review (large diffs)
+## 3. Fan out deep review
 
-When the diff is big (hundreds of files) or touches sensitive surfaces, spawn **parallel subagents**, one per surface, in a single message. Each reads the **actual files**, not just the diff, and returns findings ranked by severity + an explicit `clean / needs-attention / malicious` verdict. Give each the exact `$RANGE` and a scoped file glob.
+Do this for any non-trivial diff. The direct pass alone only catches what its patterns match, so a regression that fits no grep still needs eyes on the actual files. Scale the effort to the diff: a big (hundreds of files) or sensitive-surface change wants one subagent per surface; a small non-trivial diff still gets a file-level read (yourself or a single agent) beyond the sweeps. Spawn **parallel subagents**, one per surface, in a single message. Each reads the **actual files**, not just the diff, and returns findings ranked by severity + an explicit `clean / needs-attention / malicious` verdict. Give each the exact `$RANGE` and a scoped file glob.
 
 Typical split:
 
