@@ -109,18 +109,47 @@ class CollectionRom(BaseModel):
     )
 
 
+class VirtualCollectionRom(BaseModel):
+    """Membership of a rom in a virtual collection, one row per (rom, tag).
+
+    Maintained entirely by database triggers on ``roms``, which unnest the
+    ``generated_*`` metadata columns. Reading it is a plain indexed lookup, so
+    neither the collection list nor a single collection has to re-derive
+    anything from raw provider metadata.
+    """
+
+    __tablename__ = "virtual_collection_roms"
+
+    type: Mapped[str] = mapped_column(String(length=50), primary_key=True)
+    name: Mapped[str] = mapped_column(String(length=400), primary_key=True)
+    rom_id: Mapped[int] = mapped_column(
+        ForeignKey("roms.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    # Denormalized so the collection list never has to touch the roms table.
+    path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
+    path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
+
+
 class VirtualCollection(BaseModel):
     __tablename__ = "virtual_collections"
+
+    # path_covers_* below are plain attributes, not columns of the view.
+    __allow_unmapped__ = True
 
     name: Mapped[str] = mapped_column(String(length=400), primary_key=True)
     type: Mapped[str] = mapped_column(String(length=50), primary_key=True)
     description: Mapped[str | None] = mapped_column(Text)
-    path_covers_s: Mapped[list[str]] = mapped_column(CustomJSON(), default=[])
-    path_covers_l: Mapped[list[str]] = mapped_column(CustomJSON(), default=[])
 
     rom_ids: Mapped[set[int]] = mapped_column(
         CustomJSON(), default=[], doc="Rom IDs that belong to this collection"
     )
+
+    # Resolved by the collections handler, capped at MAX_VIRTUAL_COLLECTION_COVERS.
+    # Aggregating every member's cover in the view costs megabytes per request on
+    # a large library, and the UI only ever renders a handful.
+    path_covers_s: list[str] = []
+    path_covers_l: list[str] = []
 
     @property
     def id(self) -> str:

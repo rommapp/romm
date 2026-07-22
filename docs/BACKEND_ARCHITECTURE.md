@@ -492,7 +492,7 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
                ├──────────────────┤
                │ smart_collections│  (filter-based, dynamic)
                ├──────────────────┤
-               │virtual_collections│  (DB view, read-only)
+               │virtual_collections│  (DB view over virtual_collection_roms)
                └──────────────────┘
 ```
 
@@ -684,6 +684,16 @@ Linked to ROMs via `collections_roms` join table (M:M).
 | `rom_count`       | Integer | Cached count            |
 
 **View:** `virtual_collections` (database view, read-only, excluded from migrations).
+
+It aggregates `virtual_collection_roms`, a real table holding one row per
+(`type`, `name`, `rom_id`) plus that rom's cover paths. Membership is derived
+from the `generated_*` columns on `roms` and maintained by triggers on that
+table (`virtual_collection_roms_ai`/`_au` on MariaDB/MySQL,
+`virtual_collection_roms_aiu` calling `romm_sync_virtual_collection_roms()` on
+PostgreSQL); rom deletions are handled by the foreign key's cascade. Reads are
+therefore indexed lookups instead of a full re-derivation of every rom's
+metadata. Covers are not aggregated in the view: the collections handler
+resolves at most `MAX_VIRTUAL_COLLECTION_COVERS` per collection.
 
 ---
 
