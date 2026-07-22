@@ -383,6 +383,12 @@ window.EJS_onSaveState = async function ({
 };
 
 window.EJS_onGameStart = async () => {
+  // The emulator now owns the keyboard: every key, "/" included, belongs to
+  // the game (a DOS prompt typing "mount A / -t floppy" must not reach the
+  // global hotkeys). Callers flag this at launch too, but taking it from the
+  // emulator's own start hook keeps the flag true for any entry point.
+  playing.value = true;
+
   // Install netplay overrides synchronously, before any await below, so they
   // are in place before room polling or a Create/Join action can start.
   const netplay = window.EJS_emulator?.netplay;
