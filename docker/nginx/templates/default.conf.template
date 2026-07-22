@@ -28,6 +28,17 @@ map $request_uri $coop_header {
     ~^/console/rom/[0-9]+/play "same-origin";
 }
 
+# Library resources under /assets/romm/resources/ are a mix. Covers (?ts=) and
+# manuals (?v=) are versioned by a known cache-busting query, so they can be
+# frozen; screenshots and RA badges reuse stable filenames (0.jpg, ...) and are
+# overwritten on re-scrape, so they must revalidate. Freeze only when a
+# recognized version param (ts or v) is present, not on any arbitrary query
+# (e.g. ?download=1 must not pin a screenshot for a year).
+map $args $resources_cache_control {
+    default         "public, max-age=3600, must-revalidate";
+    "~(^|&)(ts|v)=" "public, max-age=31536000, immutable";
+}
+
 server {
     root /var/www/html;
     listen ${ROMM_PORT};
@@ -44,6 +55,11 @@ server {
     location / {
         try_files $uri $uri/ /index.html;
         proxy_redirect off;
+        # index.html, the service worker and the root favicons/manifest all keep
+        # stable names, so revalidate them (cheap 304s) instead of caching long.
+        # This is what lets a new deploy's fingerprinted bundles get picked up at
+        # once; a max-age here could serve a stale index.html for its duration.
+        add_header Cache-Control "no-cache";
         add_header Access-Control-Allow-Origin *;
         add_header Access-Control-Allow-Methods *;
         add_header Access-Control-Allow-Headers *;
@@ -51,8 +67,28 @@ server {
         add_header Cross-Origin-Opener-Policy $coop_header;
     }
 
-    # Static files
+    # Content-hashed frontend bundles (e.g. index-C-Cea5tF.js): the name only
+    # ever maps to one payload, so freeze them. This regex matches fingerprinted
+    # files directly under /assets, never the stable-named runtimes in subfolders.
+    location ~* "^/assets/[^/]+-[A-Za-z0-9_-]{8,}\.(js|mjs|css|map|woff2?|ttf|otf|eot|svg|png|jpe?g|gif|webp|avif|ico|json|wasm)$" {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri $uri/ =404;
+    }
+
+    # Library resources (covers, manuals, screenshots, RA badges). Freeze only
+    # the ones carrying a cache-busting query; revalidate the query-less ones
+    # (see the $resources_cache_control map above).
+    location /assets/romm/resources/ {
+        add_header Cache-Control $resources_cache_control;
+        try_files $uri $uri/ =404;
+    }
+
+    # Everything else under /assets keeps a stable URL across image upgrades
+    # (bundled EmulatorJS/Ruffle runtimes, scraper/platform icons, fonts, logos).
+    # Cache it, but revalidate so an upgrade is picked up promptly instead of
+    # serving a stale (and possibly skewed) runtime for a year.
     location /assets {
+        add_header Cache-Control "public, max-age=3600, must-revalidate";
         try_files $uri $uri/ =404;
     }
 
