@@ -48,10 +48,16 @@ _MIRRORED_COLUMNS = [
 _TARGET_COLUMNS = ", ".join(target for target, _ in _MIRRORED_COLUMNS)
 _SOURCE_COLUMNS = ", ".join(source for _, source in _MIRRORED_COLUMNS)
 
-_BACKFILL_SQL = (
+# Runs after the triggers are installed, so a ROM written concurrently with the
+# migration cannot fall between the two steps. Rows a trigger already wrote are
+# left alone: they were built from the write itself, so they are never staler
+# than this statement's snapshot.
+_BACKFILL_SELECT = (
     f"INSERT INTO roms_facets (rom_id, {_TARGET_COLUMNS})\n"  # nosec B608
     f"SELECT id, {_SOURCE_COLUMNS} FROM roms"
 )
+_MYSQL_BACKFILL_SQL = f"{_BACKFILL_SELECT}\nON DUPLICATE KEY UPDATE rom_id = rom_id"
+_POSTGRES_BACKFILL_SQL = f"{_BACKFILL_SELECT}\nON CONFLICT (rom_id) DO NOTHING"
 
 _MYSQL_UPSERT_BODY = (
     f"INSERT INTO roms_facets (rom_id, {_TARGET_COLUMNS})\n"  # nosec B608
@@ -121,17 +127,17 @@ def upgrade() -> None:
     )
     op.create_index("idx_roms_facets_platform_id", "roms_facets", ["platform_id"])
 
-    op.execute(_BACKFILL_SQL)
-
     if is_postgresql(op.get_bind()):
         op.execute(_POSTGRES_SYNC_FN)
         op.execute(_POSTGRES_TRIGGER)
+        op.execute(_POSTGRES_BACKFILL_SQL)
     else:
         for name, timing in _MYSQL_TRIGGERS.items():
             op.execute(
                 f"CREATE TRIGGER {name} {timing} ON roms\n"
                 f"FOR EACH ROW\n{_MYSQL_UPSERT_BODY}"
             )
+        op.execute(_MYSQL_BACKFILL_SQL)
 
 
 def downgrade() -> None:
