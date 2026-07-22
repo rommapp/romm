@@ -754,6 +754,7 @@ class UniversalPlatformSlug(enum.StrEnum):
     WIIU = "wiiu"
     WIN = "win"
     WIN3X = "win3x"
+    WIN9X = "win9x"
     WINDOWS_APPS = "windows-apps"
     WINDOWS_MIXED_REALITY = "windows-mixed-reality"
     WINDOWS_MOBILE = "windows-mobile"
