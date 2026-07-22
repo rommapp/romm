@@ -117,6 +117,8 @@ system:
     wii: "wii" # Wii
     wiiu: "wiiu" # Wii U
     pc: "win" # PC (Microsoft Windows)
+    windows3x: "win3x" # Windows 3.x
+    windows9x: "win9x" # Windows 9x
     wonderswan: "wonderswan" # WonderSwan
     wonderswancolor: "wonderswan-color" # WonderSwan Color
     x1: "x1" # Sharp X1
