@@ -39,15 +39,16 @@ v2 has a detailed constitution, split across focused skills (below). **Read the 
 
 These live in `.claude/skills/` and carry the detailed rules. Invoke the one that matches what you're doing:
 
-| Skill                    | When                                                                                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `frontend-v2-components` | Building/editing any v2 component - tiers (lib/shared/feature), file & SFC conventions, barrels, anti-patterns.                      |
-| `frontend-v2-theming`    | Colors, tokens, light/dark themes, visual language - and the **zero-hex-literal** policy.                                            |
-| `frontend-v2-input`      | Interactive components, focus/spatial navigation, gamepad/keyboard, breakpoints & responsive layout.                                 |
-| `frontend-v2-patterns`   | Feature behavior - errors/snackbars, loading, sockets, state persistence, pagination, forms, permissions, destructive confirmations. |
-| `frontend-i18n`          | Any user-visible string or change under `frontend/src/locales/**`.                                                                   |
-| `backend-development`    | Endpoints, handlers, models, schemas, metadata adapters, tasks, migrations under `backend/`.                                         |
-| `pre-pr-verification`    | Before committing / opening a PR / declaring done - the checks that keep CI green.                                                   |
+| Skill                    | When                                                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `frontend-v2-components` | Building/editing any v2 component - tiers (lib/shared/feature), file & SFC conventions, barrels, anti-patterns.                                  |
+| `frontend-v2-theming`    | Colors, tokens, light/dark themes, visual language - and the **zero-hex-literal** policy.                                                        |
+| `frontend-v2-input`      | Interactive components, focus/spatial navigation, gamepad/keyboard, breakpoints & responsive layout.                                             |
+| `frontend-v2-patterns`   | Feature behavior - errors/snackbars, loading, sockets, state persistence, pagination, forms, permissions, destructive confirmations.             |
+| `frontend-i18n`          | Any user-visible string or change under `frontend/src/locales/**`.                                                                               |
+| `backend-development`    | Endpoints, handlers, models, schemas, metadata adapters, tasks, migrations under `backend/`.                                                     |
+| `pre-pr-verification`    | Before committing / opening a PR / declaring done - the checks that keep CI green.                                                               |
+| `security-audit`         | Vetting a diff (release tag range or PR) for anything malicious or a security regression - supply chain, egress, auth/injection, CI, provenance. |
 
 ---
 
