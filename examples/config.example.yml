@@ -131,6 +131,7 @@
 #     - physical  # Disc, cartridge, etc.
 #     # Added to the screenshots carousel
 #     - screenshot  # Screenshot (enabled by default)
+#     # Shown in the artwork gallery
 #     - title_screen  # Title screen
 #     - fanart  # User uploaded artwork
 #     # Bezel displayed around the emulatorjs window
