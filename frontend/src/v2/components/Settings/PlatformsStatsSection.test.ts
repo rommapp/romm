@@ -164,7 +164,7 @@ describe("PlatformsStatsSection", () => {
   // Re-sorting is a pure reorder of the same set. With a non-unique key, Vue
   // cannot match old rows to new ones and leaves stale DOM behind, so the row
   // count grows past the library size with every click. Each sort must simply
-  // reorder the same four rows.
+  // reorder the same six rows.
   it("keeps one row per platform when re-sorting a library with shared slugs", async () => {
     const wrapper = mountSection(duplicateSlugLibrary());
 
