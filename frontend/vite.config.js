@@ -1,5 +1,6 @@
 import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
+import browserslist from "browserslist";
 import { URL, fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
@@ -55,6 +56,43 @@ const VUETIFY_COMPONENTS = [
   "vuetify/components/VWindow",
 ];
 
+// Maps browserslist browser ids to the esbuild-style ids that Vite's
+// `build.cssTarget` understands. Engines not listed here (and_chr, samsung,
+// kaios, ...) share a rendering engine with one of these or track "latest",
+// so skipping them does not change the emitted prefixes.
+const BROWSERSLIST_TO_ESBUILD = {
+  chrome: "chrome",
+  edge: "edge",
+  firefox: "firefox",
+  ios_saf: "ios",
+  opera: "opera",
+  safari: "safari",
+};
+
+// Translate the shared `.browserslistrc` baseline into Vite's CSS target
+// format. Vite 8 minifies CSS with Lightning CSS, which auto-prefixes and
+// down-levels from the standard property based on browser targets, but on the
+// minify path it only reads `build.cssTarget` (esbuild-style ids), never
+// `css.lightningcss.targets`. Deriving it here keeps `.browserslistrc` the
+// single source of truth. Without targets Lightning CSS drops the generated
+// `-webkit-backdrop-filter`, breaking every glass/blur surface in Safari.
+function cssTargetsFromBrowserslist() {
+  const lowest = {};
+  for (const entry of browserslist()) {
+    const [id, range] = entry.split(" ");
+    const name = BROWSERSLIST_TO_ESBUILD[id];
+    if (!name) continue;
+    const version = range.split("-")[0]; // "16.4-16.5" -> "16.4"
+    const asNumber = Number.parseFloat(version);
+    if (lowest[name] === undefined || asNumber < lowest[name].asNumber) {
+      lowest[name] = { asNumber, version };
+    }
+  }
+  return Object.entries(lowest).map(
+    ([name, { version }]) => `${name}${version}`,
+  );
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load ENV variables from the parent directory and the current directory.
@@ -74,21 +112,11 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       target: "esnext",
-      // Vite 8 minifies CSS with Lightning CSS, which auto-prefixes from the
-      // standard property based on these browser targets. Without them it
-      // emits no vendor prefixes, so `-webkit-backdrop-filter` never reaches
-      // Safari and every glass/blur surface breaks there. Only `cssTarget`
-      // drives the minifier (`css.lightningcss.targets` is ignored on the
-      // minify path), so it is the single source of truth for CSS support.
-      // Never hand-write a `-webkit-` twin next to a standard property:
-      // Lightning CSS collapses the pair to whichever is declared last.
-      cssTarget: [
-        "chrome111",
-        "edge111",
-        "firefox128",
-        "safari16.4",
-        "ios16.4",
-      ],
+      // Browser targets for CSS (prefixing + down-leveling) come from the
+      // shared `.browserslistrc`. Never hand-write a `-webkit-` twin next to a
+      // standard property: Lightning CSS collapses the pair to whichever is
+      // declared last, so let it generate the prefixes from these targets.
+      cssTarget: cssTargetsFromBrowserslist(),
     },
     plugins: [
       tailwindcss(),
