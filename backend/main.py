@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager, suppress
 import alembic.config
 import sentry_sdk
 import uvicorn
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
@@ -19,6 +19,7 @@ import endpoints.sockets.netplay  # noqa
 import endpoints.sockets.scan  # noqa
 import endpoints.sockets.sync  # noqa
 from config import (
+    CORS_ALLOWED_ORIGINS,
     DEV_HOST,
     DEV_PORT,
     DISABLE_CSRF_PROTECTION,
@@ -26,7 +27,9 @@ from config import (
     OIDC_ENABLED,
     ROMM_AUTH_SECRET_KEY,
     SENTRY_DSN,
+    SYNC_ONLY_MODE,
 )
+from decorators.sync_only import sync_only_route_disabled
 from endpoints.activity import router as activity_router
 from endpoints.auth import router as auth_router
 from endpoints.client_tokens import router as client_tokens_router
@@ -111,7 +114,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -168,20 +171,24 @@ app.include_router(saves_router, prefix="/api")
 app.include_router(states_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
-app.include_router(feeds_router, prefix="/api")
+# ROM-file-centric routers are hidden in sync-only mode. The dependency reads
+# the flag per request so the routes 404 without changing the app's shape.
+_fs_gated = [Depends(sync_only_route_disabled)]
+app.include_router(feeds_router, prefix="/api", dependencies=_fs_gated)
 app.include_router(configs_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")
 app.include_router(logs_router, prefix="/api")
 app.include_router(screenshots_router, prefix="/api")
-app.include_router(firmware_router, prefix="/api")
+app.include_router(firmware_router, prefix="/api", dependencies=_fs_gated)
 app.include_router(collections_router, prefix="/api")
-app.include_router(export_router, prefix="/api")
-app.include_router(netplay_router, prefix="/api")
+app.include_router(export_router, prefix="/api", dependencies=_fs_gated)
+app.include_router(netplay_router, prefix="/api", dependencies=_fs_gated)
 app.include_router(permissions_router, prefix="/api")
 app.include_router(streaming_router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
-app.mount("/netplay", netplay_socket_handler.socket_app)
+if not SYNC_ONLY_MODE:
+    app.mount("/netplay", netplay_socket_handler.socket_app)
 
 add_pagination(app)
 

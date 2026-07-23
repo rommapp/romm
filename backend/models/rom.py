@@ -410,6 +410,10 @@ class Rom(BaseModel):
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
+    # Created via /roms/resolve without a backing file; anchors saves/states
+    # for sync clients. Never marked missing or cleaned up by scans.
+    is_virtual: Mapped[bool] = mapped_column(default=False, nullable=False)
+
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
     )

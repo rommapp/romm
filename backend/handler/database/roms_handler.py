@@ -1683,9 +1683,14 @@ class DBRomsHandler(DBBaseHandler):
         changes, so a re-scan of an unchanged platform issues no updates.
         """
         keep_set = set(fs_roms_to_keep)
+        # Virtual roms have no backing file by design and must never be
+        # flipped to missing by a filesystem scan.
         rows = session.execute(
             select(Rom.id, Rom.fs_name, Rom.missing_from_fs).where(
-                Rom.platform_id == platform_id
+                and_(
+                    Rom.platform_id == platform_id,
+                    Rom.is_virtual.is_(False),
+                )
             )
         ).all()
 
@@ -2475,13 +2480,15 @@ class DBRomsHandler(DBBaseHandler):
         sha1_hash: str | None = None,
         ra_hash: str | None = None,
         *,
+        platform_id: int | None = None,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Rom | None:
         """
         Get a ROM by calculated hash value.
 
-        Returns the first ROM that matches any of the provided hash values.
+        Returns the first ROM that matches any of the provided hash values,
+        optionally scoped to a platform.
         """
         # Build filters for non-nil IDs
         filters = [
@@ -2503,7 +2510,10 @@ class DBRomsHandler(DBBaseHandler):
             return None
 
         # Return the first ROM matching any of the provided hash values
-        return session.scalar(query.outerjoin(Rom.files).filter(or_(*filters)).limit(1))
+        hash_query = query.outerjoin(Rom.files).filter(or_(*filters))
+        if platform_id is not None:
+            hash_query = hash_query.filter(Rom.platform_id == platform_id)
+        return session.scalar(hash_query.limit(1))
 
     @begin_session
     def get_matching_missing_rom(

@@ -259,6 +259,19 @@ SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
 DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_JS"))
 DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))
 
+# DEPLOYMENT
+# Fileless save-sync server: no ROM files, no scans; roms are created as
+# virtual rows via /api/roms/resolve and only exist to anchor saves/states.
+SYNC_ONLY_MODE: Final[bool] = safe_str_to_bool(_get_env("SYNC_ONLY_MODE"))
+# Comma-separated list of allowed CORS origins. The wildcard default keeps
+# same-origin deployments working; cross-origin UIs using cookie auth need
+# explicit origins, since browsers refuse credentials for a literal "*".
+CORS_ALLOWED_ORIGINS: Final[list[str]] = [
+    origin.strip()
+    for origin in _get_env("CORS_ALLOWED_ORIGINS", "*").split(",")
+    if origin.strip()
+]
+
 # FRONTEND
 KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))
 DISABLE_LOGS_VIEWER: Final[bool] = safe_str_to_bool(_get_env("DISABLE_LOGS_VIEWER"))

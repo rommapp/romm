@@ -22,6 +22,7 @@ from config import (
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+    SYNC_ONLY_MODE,
     YOUTUBE_BASE_URL,
 )
 from config.config_manager import config_manager as cm
@@ -83,6 +84,7 @@ async def heartbeat() -> HeartbeatResponse:
             "VERSION": get_version(),
             "SHOW_SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0
             and not DISABLE_SETUP_WIZARD,
+            "SYNC_ONLY_MODE": SYNC_ONLY_MODE,
         },
         "METADATA_SOURCES": {
             "ANY_SOURCE_ENABLED": (
@@ -114,8 +116,10 @@ async def heartbeat() -> HeartbeatResponse:
             "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
         },
         "EMULATION": {
-            "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS,
-            "DISABLE_RUFFLE_RS": DISABLE_RUFFLE_RS,
+            # In-browser emulation needs ROM files, which never exist in
+            # sync-only mode.
+            "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS or SYNC_ONLY_MODE,
+            "DISABLE_RUFFLE_RS": DISABLE_RUFFLE_RS or SYNC_ONLY_MODE,
         },
         "FRONTEND": {
             "DISABLE_USERPASS_LOGIN": DISABLE_USERPASS_LOGIN,

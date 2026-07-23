@@ -91,6 +91,7 @@ export type DetailedRomSchema = {
     created_at: string;
     updated_at: string;
     missing_from_fs: boolean;
+    is_virtual: boolean;
     has_notes: boolean;
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;

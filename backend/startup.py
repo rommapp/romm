@@ -14,6 +14,7 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     ENABLE_SYNC_PUSH_PULL,
     SENTRY_DSN,
+    SYNC_ONLY_MODE,
     TASK_TIMEOUT,
 )
 from handler.database import db_save_handler
@@ -144,25 +145,30 @@ async def main() -> None:
         cleanup_zip_cache_task.init()
         cleanup_upload_tmp_task.init()
 
-        if ENABLE_SCHEDULED_RESCAN:
-            log.info("Starting scheduled rescan")
-            scan_library_task.init()
-        if ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:
-            log.info("Starting scheduled update switch titledb")
-            update_switch_titledb_task.init()
-        if ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA:
-            log.info("Starting scheduled update launchbox metadata")
-            update_launchbox_metadata_task.init()
-        if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
-            log.info("Starting scheduled convert images to webp")
-            convert_images_to_webp_task.init()
-            _enqueue_convert_images_to_webp()
+        # Filesystem-driven tasks are pointless without a library on disk.
+        if SYNC_ONLY_MODE:
+            log.info("Sync-only mode: skipping filesystem-driven scheduled tasks")
+        else:
+            if ENABLE_SCHEDULED_RESCAN:
+                log.info("Starting scheduled rescan")
+                scan_library_task.init()
+            if ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:
+                log.info("Starting scheduled update switch titledb")
+                update_switch_titledb_task.init()
+            if ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA:
+                log.info("Starting scheduled update launchbox metadata")
+                update_launchbox_metadata_task.init()
+            if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+                log.info("Starting scheduled convert images to webp")
+                convert_images_to_webp_task.init()
+                _enqueue_convert_images_to_webp()
+            if ENABLE_SYNC_PUSH_PULL:
+                log.info("Starting scheduled push-pull sync")
+                sync_push_pull_task.init()
+
         if ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC:
             log.info("Starting scheduled RetroAchievements progress sync")
             sync_retroachievements_progress_task.init()
-        if ENABLE_SYNC_PUSH_PULL:
-            log.info("Starting scheduled push-pull sync")
-            sync_push_pull_task.init()
 
         _enqueue_recompute_save_hashes_if_needed()
 

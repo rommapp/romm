@@ -149,6 +149,7 @@ export type { RomLaunchboxMetadata } from './models/RomLaunchboxMetadata';
 export type { RomMetadataSchema } from './models/RomMetadataSchema';
 export type { RomMobyMetadata } from './models/RomMobyMetadata';
 export type { RomRAMetadata } from './models/RomRAMetadata';
+export type { RomResolveRequest } from './models/RomResolveRequest';
 export type { RomSSMetadata } from './models/RomSSMetadata';
 export type { RomUserData } from './models/RomUserData';
 export type { RomUserSchema } from './models/RomUserSchema';
