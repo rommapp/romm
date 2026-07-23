@@ -49,66 +49,64 @@ def _timestamps() -> list[sa.Column]:
 
 def upgrade() -> None:
     conn = op.get_bind()
-    existing_tables = inspect(conn).get_table_names()
 
-    if "music_playlists" not in existing_tables:
-        op.create_table(
-            "music_playlists",
-            sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-            sa.Column("name", sa.String(length=400), nullable=False),
-            sa.Column("description", sa.Text(), nullable=True),
-            sa.Column(
-                "is_public",
-                sa.Boolean(),
-                nullable=False,
-                server_default=sa.text("false"),
-            ),
-            sa.Column("user_id", sa.Integer(), nullable=False),
-            *_timestamps(),
-            sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-            sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "user_id", "name", name="unique_music_playlist_user_name"
-            ),
+    op.create_table(
+        "music_playlists",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("name", sa.String(length=400), nullable=False),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column(
+            "is_public",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.text("false"),
+        ),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        *_timestamps(),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("user_id", "name", name="unique_music_playlist_user_name"),
+        if_not_exists=True,
+    )
+
+    op.create_table(
+        "music_playlist_tracks",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("playlist_id", sa.Integer(), nullable=False),
+        sa.Column("rom_file_id", sa.Integer(), nullable=False),
+        sa.Column("position", sa.Integer(), nullable=False),
+        *_timestamps(),
+        sa.ForeignKeyConstraint(
+            ["playlist_id"], ["music_playlists.id"], ondelete="CASCADE"
+        ),
+        sa.ForeignKeyConstraint(["rom_file_id"], ["rom_files.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "playlist_id", "rom_file_id", name="unique_music_playlist_track"
+        ),
+        if_not_exists=True,
+    )
+
+    # MySQL has no CREATE INDEX IF NOT EXISTS, so check the catalog instead.
+    index_name = "idx_music_playlist_tracks_playlist_position"
+    existing_indexes = {
+        index["name"] for index in inspect(conn).get_indexes("music_playlist_tracks")
+    }
+    if index_name not in existing_indexes:
+        op.create_index(
+            index_name, "music_playlist_tracks", ["playlist_id", "position"]
         )
 
-    if "music_playlist_tracks" not in existing_tables:
-        op.create_table(
-            "music_playlist_tracks",
-            sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-            sa.Column("playlist_id", sa.Integer(), nullable=False),
-            sa.Column("rom_file_id", sa.Integer(), nullable=False),
-            sa.Column("position", sa.Integer(), nullable=False),
-            *_timestamps(),
-            sa.ForeignKeyConstraint(
-                ["playlist_id"], ["music_playlists.id"], ondelete="CASCADE"
-            ),
-            sa.ForeignKeyConstraint(
-                ["rom_file_id"], ["rom_files.id"], ondelete="CASCADE"
-            ),
-            sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "playlist_id", "rom_file_id", name="unique_music_playlist_track"
-            ),
-        )
-        with op.batch_alter_table("music_playlist_tracks", schema=None) as batch_op:
-            batch_op.create_index(
-                "idx_music_playlist_tracks_playlist_position",
-                ["playlist_id", "position"],
-            )
-
-    if "music_favorite_tracks" not in existing_tables:
-        op.create_table(
-            "music_favorite_tracks",
-            sa.Column("user_id", sa.Integer(), nullable=False),
-            sa.Column("rom_file_id", sa.Integer(), nullable=False),
-            *_timestamps(),
-            sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-            sa.ForeignKeyConstraint(
-                ["rom_file_id"], ["rom_files.id"], ondelete="CASCADE"
-            ),
-            sa.PrimaryKeyConstraint("user_id", "rom_file_id"),
-        )
+    op.create_table(
+        "music_favorite_tracks",
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("rom_file_id", sa.Integer(), nullable=False),
+        *_timestamps(),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["rom_file_id"], ["rom_files.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("user_id", "rom_file_id"),
+        if_not_exists=True,
+    )
 
     _mirror_collections_grants(conn)
 
