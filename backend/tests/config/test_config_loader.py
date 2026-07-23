@@ -164,6 +164,18 @@ def test_forward_compat_unknown_values_are_tolerated():
     assert loader.config.SCAN_REGION_MODE == "prefer_rom_tags"
 
 
+def test_non_string_region_mode_falls_back_to_default(tmp_path):
+    """A list/mapping region_mode is unhashable and must not crash the
+    membership check against the valid-modes set."""
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "scan:\n  priority:\n    region_mode:\n      - prefer_config\n"
+    )
+    loader = ConfigManager(str(config_file))
+
+    assert loader.config.SCAN_REGION_MODE == "prefer_rom_tags"
+
+
 def test_malformed_yaml_falls_back_to_defaults():
     """A YAML parse error should log critically and leave the app on
     defaults, not crash."""

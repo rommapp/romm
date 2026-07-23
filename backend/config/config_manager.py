@@ -762,7 +762,10 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.priority.region must be a list")
             sys.exit(3)
 
-        if self.config.SCAN_REGION_MODE not in VALID_SCAN_REGION_MODES:
+        if (
+            not isinstance(self.config.SCAN_REGION_MODE, str)
+            or self.config.SCAN_REGION_MODE not in VALID_SCAN_REGION_MODES
+        ):
             log.warning(
                 f"Unknown scan.priority.region_mode value "
                 f"{self.config.SCAN_REGION_MODE!r}; falling back to "

@@ -126,7 +126,7 @@ class TestGetPreferredRegions:
         rom.regions = ["Europe"]
         config = _make_config(region_priority=["fr", "eu"], region_mode="prefer_config")
         with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
-            regions = get_preferred_regions(rom)
+            regions = get_preferred_regions(rom, for_media=True)
 
         assert regions.index("fr") < regions.index("eu")
 
@@ -137,10 +137,21 @@ class TestGetPreferredRegions:
         rom.regions = ["Japan"]
         config = _make_config(region_priority=["fr"], region_mode="prefer_config")
         with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
-            regions = get_preferred_regions(rom)
+            regions = get_preferred_regions(rom, for_media=True)
 
         assert regions.index("fr") < regions.index("jp")
         assert regions.index("jp") < regions.index("us")
+
+    def test_prefer_config_mode_only_applies_to_media(self):
+        """region_mode only affects media selection; name/date ordering keeps
+        the rom's own tags first."""
+        rom = MagicMock()
+        rom.regions = ["Europe"]
+        config = _make_config(region_priority=["fr", "eu"], region_mode="prefer_config")
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            regions = get_preferred_regions(rom)
+
+        assert regions.index("eu") < regions.index("fr")
 
     def test_default_mode_rom_tags_still_win(self):
         """Default prefer_rom_tags mode keeps the current behavior."""
