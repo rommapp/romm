@@ -646,7 +646,10 @@ class DBRomsHandler(DBBaseHandler):
         predicate = Rom.missing_from_fs.isnot(False)
         if not value:
             predicate = not_(predicate)
-        return query.filter(predicate)
+            return query.filter(predicate)
+        # Physical games are never "missing"; exclude them so a stray flag can
+        # never make one eligible for the missing-roms cleanup that hard-deletes.
+        return query.filter(and_(predicate, Rom.is_physical.is_(False)))
 
     def _filter_by_verified(self, query: Query, value: bool) -> Query:
         keys_to_check = [
@@ -1588,9 +1591,13 @@ class DBRomsHandler(DBBaseHandler):
         changes, so a re-scan of an unchanged platform issues no updates.
         """
         keep_set = set(fs_roms_to_keep)
+        # Physical games have no file on disk, so they must never be flagged missing.
         rows = session.execute(
             select(Rom.id, Rom.fs_name, Rom.missing_from_fs).where(
-                Rom.platform_id == platform_id
+                and_(
+                    Rom.platform_id == platform_id,
+                    Rom.is_physical.is_(False),
+                )
             )
         ).all()
 
@@ -1617,6 +1624,7 @@ class DBRomsHandler(DBBaseHandler):
                     and_(
                         Rom.platform_id == platform_id,
                         Rom.missing_from_fs.is_(True),
+                        Rom.is_physical.is_(False),
                     )
                 )
                 .order_by(Rom.fs_name.asc())
