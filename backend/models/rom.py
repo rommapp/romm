@@ -264,6 +264,20 @@ class RomFacets(BaseModel):
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
 
+    # Provider match ids, mirrored so the Server Stats coverage breakdown counts
+    # them here instead of scanning `roms`. A populated column means a match.
+    igdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ss_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    moby_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    launchbox_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ra_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    hasheous_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    flashpoint_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
+
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=func.now()
     )
@@ -687,6 +701,22 @@ METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute] = {
     "hltb": Rom.hltb_id,
     "gamelist": Rom.gamelist_id,
     "libretro": Rom.libretro_id,
+}
+
+# Same slugs mapped to the `roms_facets` mirror columns. The stats coverage
+# breakdown counts these off the narrow mirror instead of scanning `roms`.
+METADATA_SOURCE_FACET_COLUMNS: dict[str, InstrumentedAttribute] = {
+    "igdb": RomFacets.igdb_id,
+    "ss": RomFacets.ss_id,
+    "moby": RomFacets.moby_id,
+    "launchbox": RomFacets.launchbox_id,
+    "ra": RomFacets.ra_id,
+    "hasheous": RomFacets.hasheous_id,
+    "tgdb": RomFacets.tgdb_id,
+    "flashpoint": RomFacets.flashpoint_id,
+    "hltb": RomFacets.hltb_id,
+    "gamelist": RomFacets.gamelist_id,
+    "libretro": RomFacets.libretro_id,
 }
 
 
