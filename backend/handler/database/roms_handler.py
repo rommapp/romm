@@ -46,6 +46,7 @@ from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_COLUMNS,
     Rom,
+    RomFacets,
     RomFile,
     RomFileCategory,
     RomMetadata,
@@ -125,6 +126,23 @@ FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
 
 # 3 is the default minimum size in InnoDB
 FULLTEXT_MIN_TOKEN_SIZE = 3
+
+# Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
+# whose rows carry the raw metadata blobs. Column order matches the unpacking
+# in `_collect_filter_values`.
+_FILTER_VALUES_SELECT = select(
+    RomFacets.genres,
+    RomFacets.franchises,
+    RomFacets.collections,
+    RomFacets.companies,
+    RomFacets.game_modes,
+    RomFacets.age_ratings,
+    RomFacets.player_count,
+    RomFacets.regions,
+    RomFacets.languages,
+    RomFacets.tags,
+    RomFacets.platform_id,
+)
 
 # Cached ROM filter values (genres/franchises/etc.) so it doesn't get
 # recomputed on every call to /api/roms
@@ -2347,24 +2365,7 @@ class DBRomsHandler(DBBaseHandler):
 
         ids_subq = query.order_by(None).with_only_columns(Rom.id).scalar_subquery()  # type: ignore
 
-        statement = (
-            select(
-                RomMetadata.genres,
-                RomMetadata.franchises,
-                RomMetadata.collections,
-                RomMetadata.companies,
-                RomMetadata.game_modes,
-                RomMetadata.age_ratings,
-                RomMetadata.player_count,
-                Rom.regions,
-                Rom.languages,
-                Rom.tags,
-                Rom.platform_id,
-            )
-            .select_from(Rom)
-            .join(RomMetadata, Rom.id == RomMetadata.rom_id)
-            .where(Rom.id.in_(ids_subq))
-        )
+        statement = _FILTER_VALUES_SELECT.where(RomFacets.rom_id.in_(ids_subq))
 
         result = self._collect_filter_values(session, statement)
         if redis_key is not None and version is not None:
@@ -2379,18 +2380,4 @@ class DBRomsHandler(DBBaseHandler):
         """
         Returns all filter values across all ROM metadata
         """
-        statement = select(
-            RomMetadata.genres,
-            RomMetadata.franchises,
-            RomMetadata.collections,
-            RomMetadata.companies,
-            RomMetadata.game_modes,
-            RomMetadata.age_ratings,
-            RomMetadata.player_count,
-            Rom.regions,
-            Rom.languages,
-            Rom.tags,
-            Rom.platform_id,
-        )
-
-        return self._collect_filter_values(session, statement)
+        return self._collect_filter_values(session, _FILTER_VALUES_SELECT)
