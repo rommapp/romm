@@ -28,15 +28,21 @@ onBeforeMount(async () => {
   stats.value = { ...stats.value, ...summary };
 
   // The per-platform breakdown runs the heavier queries; fetch it separately
-  // and merge it in when it arrives.
-  const { data: full } = await api.get("/stats", {
-    params: { include_platform_stats: true },
-  });
-  stats.value = {
-    ...stats.value,
-    METADATA_COVERAGE: full.METADATA_COVERAGE,
-    REGION_BREAKDOWN: full.REGION_BREAKDOWN,
-  };
+  // and merge it in when it arrives. A failure here leaves the summary cards
+  // and platform rows usable, so degrade to partial data instead of rejecting
+  // the hook with an uncaught error.
+  try {
+    const { data: full } = await api.get("/stats", {
+      params: { include_platform_stats: true },
+    });
+    stats.value = {
+      ...stats.value,
+      METADATA_COVERAGE: full.METADATA_COVERAGE,
+      REGION_BREAKDOWN: full.REGION_BREAKDOWN,
+    };
+  } catch (error) {
+    console.error("Failed to load Server Stats breakdown:", error);
+  }
 });
 </script>
 
