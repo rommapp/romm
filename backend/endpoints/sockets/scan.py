@@ -55,6 +55,7 @@ from models.platform import Platform
 from models.rom import Rom
 from tasks.tasks import update_job_meta
 from utils import emoji
+from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
@@ -431,8 +432,10 @@ async def _identify_rom(
         # Reconcile against the existing rows instead of replacing them, so file
         # ids survive a rescan and anything keyed on them (track metadata,
         # persisted soundtrack covers) stays valid.
-        saved_rom_files = db_rom_handler.sync_rom_files(_added_rom.id, fs_rom["files"])
-        for saved in saved_rom_files:
+        synced = db_rom_handler.sync_rom_files(_added_rom.id, fs_rom["files"])
+        for cover_path in synced.orphaned_cover_paths:
+            remove_persisted_cover(cover_path)
+        for saved in synced.files:
             persist_soundtrack_cover(saved, _added_rom)
 
     # Short circuit if the scan type is hashes

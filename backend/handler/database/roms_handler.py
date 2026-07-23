@@ -3,7 +3,7 @@ import json
 import re
 from collections.abc import Iterable, Sequence
 from datetime import datetime
-from typing import Any
+from typing import Any, NamedTuple
 
 from redis.exceptions import WatchError
 from sqlalchemy import (
@@ -177,6 +177,11 @@ TRACK_META_SCANNED_COLUMNS = (
     "has_embedded_cover",
     "cover_path",
 )
+
+
+class SyncedRomFiles(NamedTuple):
+    files: list[RomFile]
+    orphaned_cover_paths: list[str]
 
 
 def _rom_file_content_key(rom_file: RomFile) -> tuple[str, str, str] | None:
@@ -1747,10 +1752,12 @@ class DBRomsHandler(DBBaseHandler):
         row: RomFile,
         scanned_meta: TrackMeta | None,
         rom_id: int,
-    ) -> None:
+    ) -> str | None:
+        """Returns the cover path this update orphaned, if any."""
         if scanned_meta is None:
+            orphaned = row.track_meta.cover_path if row.track_meta else None
             row.track_meta = None
-            return
+            return orphaned
 
         meta = row.track_meta
         if meta is None:
@@ -1768,12 +1775,15 @@ class DBRomsHandler(DBBaseHandler):
             if getattr(meta, column) != value:
                 setattr(meta, column, value)
 
+        return None
+
     def _apply_scanned_rom_file(
         self,
         row: RomFile,
         scanned: RomFile,
         rom_id: int,
-    ) -> None:
+    ) -> str | None:
+        """Returns the cover path this update orphaned, if any."""
         for column in ROM_FILE_SCANNED_COLUMNS:
             value = getattr(scanned, column)
             if getattr(row, column) != value:
@@ -1782,7 +1792,7 @@ class DBRomsHandler(DBBaseHandler):
         if row.missing_from_fs:
             row.missing_from_fs = False
 
-        self._apply_scanned_track_meta(row, scanned.track_meta, rom_id)
+        return self._apply_scanned_track_meta(row, scanned.track_meta, rom_id)
 
     @begin_session
     def sync_rom_files(
@@ -1790,7 +1800,7 @@ class DBRomsHandler(DBBaseHandler):
         rom_id: int,
         scanned_files: Sequence[RomFile],
         session: Session = None,  # type: ignore
-    ) -> list[RomFile]:
+    ) -> SyncedRomFiles:
         """Reconcile a ROM's file rows against a fresh scan, preserving row ids.
 
         Rows are matched by path first, then by content hash, so a file renamed
@@ -1799,7 +1809,8 @@ class DBRomsHandler(DBBaseHandler):
         are deleted, and only columns that actually changed are written, so
         re-scanning an unchanged ROM issues no updates.
 
-        Returns the persisted rows, in scan order.
+        Returns the persisted rows in scan order, plus the soundtrack covers
+        left behind by dropped track metadata for the caller to unlink.
         """
         existing = (
             session.scalars(
@@ -1848,14 +1859,24 @@ class DBRomsHandler(DBBaseHandler):
                 pairs[index] = (scanned, row)
 
         saved: list[RomFile] = []
+        orphaned_cover_paths: list[str] = []
         for scanned, row in pairs:
             if row is None:
                 row = RomFile(rom_id=rom_id)
                 session.add(row)
-            self._apply_scanned_rom_file(row, scanned, rom_id)
+            orphaned = self._apply_scanned_rom_file(row, scanned, rom_id)
+            if orphaned:
+                orphaned_cover_paths.append(orphaned)
             saved.append(row)
 
         if unmatched:
+            # Deleting a row cascades its track metadata, so its cover would
+            # otherwise be left on disk with nothing pointing at it.
+            orphaned_cover_paths.extend(
+                row.track_meta.cover_path
+                for row in unmatched.values()
+                if row.track_meta and row.track_meta.cover_path
+            )
             session.execute(
                 delete(RomFile)
                 .where(RomFile.id.in_(list(unmatched)))
@@ -1863,7 +1884,7 @@ class DBRomsHandler(DBBaseHandler):
             )
 
         session.flush()
-        return saved
+        return SyncedRomFiles(files=saved, orphaned_cover_paths=orphaned_cover_paths)
 
     @begin_session
     def get_rom_file_by_id(
