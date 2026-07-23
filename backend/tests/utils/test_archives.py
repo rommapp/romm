@@ -396,7 +396,13 @@ class TestRarArchives:
 
     def test_extraction_command_is_chosen_by_extension(self):
         rar_command = archives._archive_member_command(Path("/fake/GAME.RAR"), "a.gba")
-        assert rar_command == [archives.BSDTAR_PATH, "-xOf", "/fake/GAME.RAR", "a.gba"]
+        assert rar_command == [
+            archives.BSDTAR_PATH,
+            "-xOf",
+            "/fake/GAME.RAR",
+            "--",
+            "a.gba",
+        ]
 
         seven_zip_command = archives._archive_member_command(
             Path("/fake/game.7z"), "a.gba"
@@ -462,5 +468,6 @@ class TestRarArchives:
             archives.BSDTAR_PATH,
             "-xOf",
             "/fake/game.rar",
+            "--",
             "game.gba",
         ]

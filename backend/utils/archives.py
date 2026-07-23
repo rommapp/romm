@@ -21,9 +21,9 @@ from config import SEVEN_ZIP_TIMEOUT
 from logger.logger import log
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
 
+# 7zip archives are read through 7zz.
 SEVEN_ZIP_PATH = "/usr/bin/7zz"
-# The bundled 7zz is built without the RAR codec (it is under the restrictive
-# unRAR license), so RAR archives are read through libarchive's bsdtar instead.
+# RAR archives are read through bsdtar.
 BSDTAR_PATH = "/usr/bin/bsdtar"
 
 RAR_FILE_EXTENSIONS: Final = (".rar",)
@@ -499,7 +499,13 @@ def _list_rar_file_members(file_path: Path) -> list[tuple[str, int]]:
 def _archive_member_command(file_path: Path, member: str) -> list[str]:
     """Build the command streaming a single archive member to stdout."""
     if _is_rar_archive(file_path):
-        return [BSDTAR_PATH, "-xOf", str(file_path), _bsdtar_member_pattern(member)]
+        return [
+            BSDTAR_PATH,
+            "-xOf",
+            str(file_path),
+            "--",
+            _bsdtar_member_pattern(member),
+        ]
 
     # "-spd" disables wildcard matching so a member name containing "*" or "?"
     # can't select (and concatenate) other members.
