@@ -237,7 +237,6 @@ defineExpose({ open, isOver: isOverDropZone });
   border-radius: var(--r-radius-md);
   background: color-mix(in srgb, var(--r-color-bg) 78%, transparent);
   backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   pointer-events: none;
 }
 .r-dropzone__overlay-label {

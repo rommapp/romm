@@ -220,7 +220,6 @@ function onClick(e: MouseEvent) {
   background: var(--r-color-brand-primary);
   color: var(--r-color-overlay-fg);
   backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   box-shadow: 0 1px 4px color-mix(in srgb, black 45%, transparent);
 }
 </style>

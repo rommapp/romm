@@ -311,7 +311,6 @@ async function deny() {
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
   padding: 32px;
   box-shadow:
     0 22px 60px color-mix(in srgb, black 55%, transparent),

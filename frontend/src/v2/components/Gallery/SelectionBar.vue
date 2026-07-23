@@ -512,7 +512,6 @@ html[data-bp~="sm-and-down"] .selection-bar--visible {
     0 12px 32px color-mix(in srgb, black 32%, transparent),
     0 0 0 1px color-mix(in srgb, white 4%, transparent) inset;
   backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
 .selection-bar__count {
