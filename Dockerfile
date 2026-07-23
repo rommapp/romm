@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libmagic-dev \
     7zip \
+    libarchive-tools \
     tzdata \
     libbz2-dev \
     libssl-dev \

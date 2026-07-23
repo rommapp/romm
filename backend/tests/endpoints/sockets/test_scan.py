@@ -14,6 +14,7 @@ from endpoints.sockets.scan import (
     stop_scan_handler,
 )
 from handler.auth.constants import Scope
+from handler.database.roms_handler import ROM_FILE_SCANNED_COLUMNS, SyncedRomFiles
 from handler.filesystem.roms_handler import (
     FSRom,
     FSRomsHandler,
@@ -537,6 +538,30 @@ class TestIdentifyRomReassociation:
         # No brand-new row is inserted; add_rom only persists the scan result.
         assert db.add_rom.call_count == 1
 
+    async def test_files_are_reconciled_in_place(self, patched):
+        db = patched
+        db.get_matching_missing_rom.return_value = None
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=[]
+        )
+
+        await self._run(db)
+
+        # Rows are reconciled against the scan, so file ids survive the rescan.
+        db.sync_rom_files.assert_called_once_with(99, [])
+
+    async def test_orphaned_soundtrack_covers_are_unlinked(self, patched, mocker):
+        db = patched
+        db.get_matching_missing_rom.return_value = None
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=["covers/track01.png"]
+        )
+        remove = mocker.patch.object(scan_module, "remove_persisted_cover")
+
+        await self._run(db)
+
+        remove.assert_called_once_with("covers/track01.png")
+
     async def test_creates_new_entry_when_no_match(self, patched):
         db = patched
         db.get_matching_missing_rom.return_value = None
@@ -645,14 +670,26 @@ class TestIdentifyRomTitleIdEmbedRename:
         assert fs_rom["fs_name"] == self.NEW_NAME
 
 
+def test_scanned_columns_include_sigil_fields():
+    """title_id/save_id/title_version must ride along on `sync_rom_files`.
+
+    These columns are persisted only if listed in `ROM_FILE_SCANNED_COLUMNS`.
+    Dropping them silently nulls every extracted id/version on a rescan, which
+    already bit us once for `title_version`.
+    """
+    for column in ("title_id", "save_id", "title_version"):
+        assert column in ROM_FILE_SCANNED_COLUMNS
+
+
 class TestIdentifyRomPersistsFileTitleVersion:
-    """`_identify_rom` must persist per-file `title_version` on the rebuilt files.
+    """`_identify_rom` must feed per-file `title_version` into `sync_rom_files`.
 
     A Switch update file carries a `title_version` extracted during scan. The
-    purge-and-recreate list in `_identify_rom` rebuilds each `RomFile` from
-    `fs_rom["files"]`; if it omits `title_version`, the version is silently
-    dropped to NULL on persist. A HASHES scan reaches the file-rebuild step and
-    returns right after it.
+    reconciliation in `_identify_rom` hands `fs_rom["files"]` to
+    `sync_rom_files`, which copies `ROM_FILE_SCANNED_COLUMNS` onto each row; if
+    the scanned file loses `title_version` before that call, the version is
+    silently dropped to NULL on persist. A HASHES scan reaches the file-sync
+    step and returns right after it.
     """
 
     UPDATE_TITLE_ID = "0100F4700B2E0800"
@@ -715,7 +752,9 @@ class TestIdentifyRomPersistsFileTitleVersion:
         db = mocker.patch.object(scan_module, "db_rom_handler")
         db.add_rom.return_value = MagicMock(is_identified=False, id=99)
         db.get_matching_missing_rom.return_value = None
-        db.add_rom_file.side_effect = lambda rom_file: rom_file
+        db.sync_rom_files.side_effect = lambda rom_id, files: SyncedRomFiles(
+            files=list(files), orphaned_cover_paths=[]
+        )
         return db
 
     def _platform(self):
@@ -748,9 +787,11 @@ class TestIdentifyRomPersistsFileTitleVersion:
             scan_stats=AsyncMock(),
         )
 
-        db.purge_rom_files.assert_called_once_with(99)
-        db.add_rom_file.assert_called_once()
-        persisted = db.add_rom_file.call_args.args[0]
+        db.sync_rom_files.assert_called_once()
+        rom_id, synced_files = db.sync_rom_files.call_args.args
+        assert rom_id == 99
+        assert len(synced_files) == 1
+        persisted = synced_files[0]
         assert isinstance(persisted, RomFile)
         assert persisted.title_id == self.UPDATE_TITLE_ID
         assert persisted.title_version == self.UPDATE_TITLE_VERSION
@@ -836,6 +877,113 @@ class TestIdentifyPlatformMarksMissingBeforeScan:
 
         assert "mark_missing" in calls and "identify" in calls
         assert calls.index("mark_missing") < calls.index("identify")
+
+
+class TestIdentifyPlatformEmitsRestoredRoms:
+    """A quick platform scan tells the client about ROMs that came back.
+
+    Existing entries are skipped by `should_scan_rom`, so nothing else in the
+    loop emits for them and an open gallery would keep showing a stale
+    "missing" badge until a refetch.
+    """
+
+    @pytest.fixture
+    def patched(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        platform.missing_from_fs = False
+        db_platform = mocker.patch.object(scan_module, "db_platform_handler")
+        db_platform.get_platform_by_fs_slug.return_value = platform
+        db_platform.add_platform.return_value = platform
+
+        mocker.patch.object(
+            scan_module, "scan_platform", AsyncMock(return_value=platform)
+        )
+        mocker.patch.object(
+            scan_module.PlatformSchema,
+            "model_validate",
+            return_value=Mock(model_dump=Mock(return_value={})),
+        )
+        mocker.patch.object(
+            scan_module.fs_firmware_handler,
+            "get_firmware",
+            AsyncMock(return_value=[]),
+        )
+
+        fs_rom: FSRom = {
+            "fs_name": "Game.zip",
+            "flat": True,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        mocker.patch.object(
+            scan_module.fs_rom_handler, "get_roms", AsyncMock(return_value=[fs_rom])
+        )
+
+        rom = Rom(fs_name="Game.zip", platform_id=platform.id)
+        rom.id = 42
+
+        db_rom = mocker.patch.object(scan_module, "db_rom_handler")
+        db_rom.get_roms_by_fs_name.return_value = {"Game.zip": rom}
+        db_rom.mark_missing_roms.return_value = []
+        db_rom.get_rom.return_value = rom
+
+        db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
+        db_firmware.mark_missing_firmware.return_value = []
+
+        mocker.patch.object(
+            scan_module.SimpleRomSchema,
+            "from_orm_with_factory",
+            return_value=Mock(model_dump=Mock(return_value={"id": rom.id})),
+        )
+
+        return db_rom
+
+    async def _run(self, socket_manager):
+        await scan_module._identify_platform(
+            platform_slug="test",
+            scan_type=ScanType.QUICK,
+            fs_platforms=["test"],
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=socket_manager,
+            scan_stats=AsyncMock(),
+        )
+
+    async def test_emits_for_rom_that_is_no_longer_missing(self, patched):
+        patched.get_missing_rom_ids.return_value = {42}
+        socket_manager = AsyncMock()
+
+        await self._run(socket_manager)
+
+        patched.bulk_mark_present.assert_called_once_with(1, [42])
+        patched.get_rom.assert_called_once_with(42)
+        assert any(
+            call.args[0] == "scan:scanning_rom"
+            for call in socket_manager.emit.call_args_list
+        )
+
+    async def test_no_emit_for_rom_that_was_already_present(self, patched):
+        patched.get_missing_rom_ids.return_value = set()
+        socket_manager = AsyncMock()
+
+        await self._run(socket_manager)
+
+        patched.get_rom.assert_not_called()
+        assert not any(
+            call.args[0] == "scan:scanning_rom"
+            for call in socket_manager.emit.call_args_list
+        )
 
 
 class TestGetPico8CoverUrl:

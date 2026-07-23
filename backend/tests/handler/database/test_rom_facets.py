@@ -40,6 +40,22 @@ class TestRomFacets:
         assert facets.regions == ["USA"]
         assert facets.tags == ["Proto"]
 
+    def test_provider_ids_mirror_the_rom(self, rom: Rom):
+        # Backs the Server Stats metadata-coverage breakdown, which counts these
+        # off the mirror instead of scanning `roms`.
+        db_rom_handler.update_rom(
+            rom.id,
+            {"igdb_id": 1234, "moby_id": 56, "flashpoint_id": "fp-1"},
+        )
+
+        facets = _facets(rom.id)
+        assert facets is not None
+        assert facets.igdb_id == 1234
+        assert facets.moby_id == 56
+        assert facets.flashpoint_id == "fp-1"
+        # Sources the ROM didn't match stay null.
+        assert facets.ss_id is None
+
     def test_delete_cascades(self, rom: Rom):
         rom_id = rom.id
         db_rom_handler.delete_rom(rom_id)

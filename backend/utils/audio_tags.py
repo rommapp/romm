@@ -350,20 +350,27 @@ def persist_embedded_cover(
     return rel_path
 
 
-def remove_persisted_cover(cover_path: str | None) -> None:
+def remove_persisted_cover(cover_path: str | None) -> bool:
     """Delete a persisted soundtrack cover (relative path under
-    RESOURCES_BASE_PATH). Silently ignores missing files."""
+    RESOURCES_BASE_PATH). Silently ignores missing files.
+
+    Returns whether the file is gone, so a caller that is about to drop the
+    only reference to it can keep that reference and retry later instead.
+    """
     if not cover_path:
-        return
+        return True
     from config import RESOURCES_BASE_PATH
 
     abs_path = os.path.join(RESOURCES_BASE_PATH, cover_path)
     try:
         os.unlink(abs_path)
     except FileNotFoundError:
-        return
+        return True
     except OSError as exc:
         log.warning(f"[audio_tags] cover delete failed for {abs_path}: {exc}")
+        return False
+
+    return True
 
 
 def extract_embedded_cover(full_path: str) -> tuple[bytes, str] | None:

@@ -31,6 +31,7 @@ from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, SaveUsage, TrackMeta
 from utils.archives import (
+    ArchiveReadError,
     detect_mime_type,
     extract_chd_hash,
     is_chd_file,
@@ -643,39 +644,47 @@ class FSRomsHandler(FSHandler):
 
             def _hash_archive_entries(
                 crc: int, md5_h: Any, sha1_h: Any
-            ) -> tuple[list[dict[str, Any]], int]:
+            ) -> tuple[list[dict[str, Any]], int, Any, Any]:
+                # Accumulate into copies so an archive we can't read in full
+                # leaves the caller's hashers untouched for the raw fallback.
+                original_crc, md5_h, sha1_h = crc, md5_h.copy(), sha1_h.copy()
                 members: list[dict[str, Any]] = []
-                for name, size, chunks in ARCHIVE_READERS[rom_ext](
-                    rom_dir,
-                    DEFAULT_EXCLUDED_FILES,
-                    DEFAULT_EXCLUDED_EXTENSIONS,
-                ):
-                    member_crc = 0
-                    member_md5 = hashlib.md5(usedforsecurity=False)
-                    member_sha1 = hashlib.sha1(usedforsecurity=False)
-                    for chunk in chunks:
-                        crc = binascii.crc32(chunk, crc)
-                        md5_h.update(chunk)
-                        sha1_h.update(chunk)
-                        member_crc = binascii.crc32(chunk, member_crc)
-                        member_md5.update(chunk)
-                        member_sha1.update(chunk)
-                    members.append(
-                        {
-                            "name": name,
-                            "size": size,
-                            "crc_hash": crc32_to_hex(member_crc),
-                            "md5_hash": member_md5.hexdigest(),
-                            "sha1_hash": member_sha1.hexdigest(),
-                        }
-                    )
-                return members, crc
+                try:
+                    for name, size, chunks in ARCHIVE_READERS[rom_ext](
+                        rom_dir,
+                        DEFAULT_EXCLUDED_FILES,
+                        DEFAULT_EXCLUDED_EXTENSIONS,
+                    ):
+                        member_crc = 0
+                        member_md5 = hashlib.md5(usedforsecurity=False)
+                        member_sha1 = hashlib.sha1(usedforsecurity=False)
+                        for chunk in chunks:
+                            crc = binascii.crc32(chunk, crc)
+                            md5_h.update(chunk)
+                            sha1_h.update(chunk)
+                            member_crc = binascii.crc32(chunk, member_crc)
+                            member_md5.update(chunk)
+                            member_sha1.update(chunk)
+                        members.append(
+                            {
+                                "name": name,
+                                "size": size,
+                                "crc_hash": crc32_to_hex(member_crc),
+                                "md5_hash": member_md5.hexdigest(),
+                                "sha1_hash": member_sha1.hexdigest(),
+                            }
+                        )
+                except ArchiveReadError as e:
+                    log.error(f"Incomplete read of archive {rom_dir}: {e}")
+                    return [], original_crc, None, None
+                return members, crc, md5_h, sha1_h
 
-            members, rom_crc_c = await asyncio.to_thread(
+            members, rom_crc_c, archive_md5_h, archive_sha1_h = await asyncio.to_thread(
                 _hash_archive_entries, rom_crc_c, rom_md5_h, rom_sha1_h
             )
 
             if members:
+                rom_md5_h, rom_sha1_h = archive_md5_h, archive_sha1_h
                 if calculate_hashes:
                     ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
                     if ra_platform and ra_platform["ra_id"]:
@@ -694,7 +703,7 @@ class FSRomsHandler(FSHandler):
                     )
                 )
             else:
-                # Empty, malformed, or all-excluded archive: hash the archive
+                # Empty, malformed, unreadable, or all-excluded archive: hash the archive
                 # file's raw bytes. We avoid `_calculate_rom_hashes` here because
                 # it would decompress based on extension and end up hashing the
                 # largest internal member, not the archive itself — and would

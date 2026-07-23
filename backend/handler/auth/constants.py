@@ -26,6 +26,8 @@ class Scope(enum.StrEnum):
     FIRMWARE_WRITE = "firmware.write"
     COLLECTIONS_READ = "collections.read"
     COLLECTIONS_WRITE = "collections.write"
+    PLAYLISTS_READ = "playlists.read"
+    PLAYLISTS_WRITE = "playlists.write"
     USERS_READ = "users.read"
     USERS_WRITE = "users.write"
     TASKS_RUN = "tasks.run"
@@ -41,6 +43,7 @@ READ_SCOPES_MAP: Final = {
     Scope.FIRMWARE_READ: "View firmware",
     Scope.ROMS_USER_READ: "View user-rom properties",
     Scope.COLLECTIONS_READ: "View collections",
+    Scope.PLAYLISTS_READ: "View music playlists",
 }
 
 WRITE_SCOPES_MAP: Final = {
@@ -49,6 +52,7 @@ WRITE_SCOPES_MAP: Final = {
     Scope.DEVICES_WRITE: "Modify devices",
     Scope.ROMS_USER_WRITE: "Modify user-rom properties",
     Scope.COLLECTIONS_WRITE: "Modify collections",
+    Scope.PLAYLISTS_WRITE: "Modify music playlists",
 }
 
 EDIT_SCOPES_MAP: Final = {

@@ -572,21 +572,13 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
         if MetadataMediaType.MANUAL in preferred_media_types
         else None
     )
+    # Title screen and fanart are stored in their own dedicated media folders
+    # via their *_path entries, so they must not also land in screenshots/.
     url_screenshots = pydash.compact(
         [
             (
                 ss_metadata["screenshot_url"]
                 if MetadataMediaType.SCREENSHOT in preferred_media_types
-                else None
-            ),
-            (
-                ss_metadata["title_screen_url"]
-                if MetadataMediaType.TITLE_SCREEN in preferred_media_types
-                else None
-            ),
-            (
-                ss_metadata["fanart_url"]
-                if MetadataMediaType.FANART in preferred_media_types
                 else None
             ),
         ]

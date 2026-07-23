@@ -17,6 +17,7 @@ from handler.metadata.ss_handler import (
     _get_rom_type,
     _is_notgame,
     add_ss_auth_to_url,
+    build_ss_game,
     extract_media_from_ss_game,
     extract_metadata_from_ss_rom,
     get_preferred_regions,
@@ -453,6 +454,62 @@ class TestExtractMetadataFromSsRom:
             metadata = extract_metadata_from_ss_rom(rom, game)
 
         assert metadata["first_release_date"] == 593568000
+
+
+class TestBuildSSGame:
+    def _make_rom(self) -> MagicMock:
+        rom = MagicMock()
+        rom.platform_id = 1
+        rom.id = 100
+        rom.regions = None
+        return rom
+
+    def _make_media(self, media_type: str) -> dict:
+        return {
+            "type": media_type,
+            "parent": "jeu",
+            "region": "us",
+            "url": f"https://screenscraper.example.com/{media_type}(us)",
+            "crc": "aabbccdd",
+            "md5": "deadbeef",
+            "sha1": "cafebabe",
+            "size": "12345",
+            "format": "png",
+        }
+
+    def test_title_screen_and_fanart_not_duplicated_into_screenshots(self):
+        """Media stored in dedicated folders must not also land in
+        url_screenshots (issue #3911)."""
+        config = _make_config(
+            region_priority=["us"],
+            scan_media=["screenshot", "title_screen", "fanart"],
+        )
+        rom = self._make_rom()
+        game = cast(
+            SSGame,
+            {
+                "id": "42",
+                "medias": [
+                    self._make_media("ss"),
+                    self._make_media("sstitle"),
+                    self._make_media("fanart"),
+                ],
+            },
+        )
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                return_value="roms/1/100/media",
+            ),
+        ):
+            result = build_ss_game(rom, game)
+
+        assert result["url_screenshots"] == ["https://screenscraper.example.com/ss(us)"]
+        # Dedicated media folders are still populated.
+        assert result["ss_metadata"]["title_screen_path"]
+        assert result["ss_metadata"]["fanart_path"]
 
 
 class TestIsNotgame:
