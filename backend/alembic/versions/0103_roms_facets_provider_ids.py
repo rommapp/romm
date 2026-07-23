@@ -12,8 +12,8 @@ so the breakdown aggregates a few MB of data indexed by ``platform_id`` instead.
 The mirror stays trigger-maintained, so the triggers are recreated with the
 wider column set.
 
-Revision ID: 0102_roms_facets_provider_ids
-Revises: 0101_virtual_collection_roms
+Revision ID: 0103_roms_facets_provider_ids
+Revises: 0102_music_playlists
 Create Date: 2026-07-23 00:00:00.000000
 
 """
@@ -24,8 +24,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0102_roms_facets_provider_ids"
-down_revision = "0101_virtual_collection_roms"
+revision = "0103_roms_facets_provider_ids"
+down_revision = "0102_music_playlists"
 branch_labels = None
 depends_on = None
 
