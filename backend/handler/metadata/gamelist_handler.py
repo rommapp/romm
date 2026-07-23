@@ -438,18 +438,15 @@ class GamelistHandler(MetadataHandler):
                 if manual_url and MetadataMediaType.MANUAL in preferred_media_types:
                     rom_data["url_manual"] = manual_url
 
-                # Build list of screenshot URLs
+                # Build list of screenshot URLs. The title screen is stored in
+                # its own media folder via title_screen_path, so it must not
+                # also land in screenshots/.
                 url_screenshots = []
                 if (
                     rom_metadata["screenshot_url"]
                     and MetadataMediaType.SCREENSHOT in preferred_media_types
                 ):
                     url_screenshots.append(rom_metadata["screenshot_url"])
-                if (
-                    rom_metadata["title_screen_url"]
-                    and MetadataMediaType.TITLE_SCREEN in preferred_media_types
-                ):
-                    url_screenshots.append(rom_metadata["title_screen_url"])
                 rom_data["url_screenshots"] = url_screenshots
 
                 # Store by filename for matching
