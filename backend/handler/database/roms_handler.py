@@ -1760,8 +1760,9 @@ class DBRomsHandler(DBBaseHandler):
         meta.rom_id = rom_id
         for column in TRACK_META_SCANNED_COLUMNS:
             value = getattr(scanned_meta, column)
-            # The scanner only flags that a cover exists; the path is written
-            # later by `persist_soundtrack_cover`, so don't clear it here.
+            # The scanner only flags whether a cover exists; the path is owned by
+            # `persist_soundtrack_cover`, which writes it after the row exists and
+            # clears it (with its file) once the cover is gone.
             if column == "cover_path" and value is None:
                 continue
             if getattr(meta, column) != value:
