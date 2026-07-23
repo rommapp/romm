@@ -3,7 +3,16 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import delete, insert, literal, or_, select, update
+from sqlalchemy import (
+    Select,
+    delete,
+    insert,
+    literal,
+    or_,
+    select,
+    union_all,
+    update,
+)
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     Query,
@@ -20,10 +29,16 @@ from models.collection import (
     CollectionRom,
     SmartCollection,
     VirtualCollection,
+    VirtualCollectionRom,
 )
 from models.rom import Rom
 
 from .base_handler import DBBaseHandler
+
+MAX_VIRTUAL_COLLECTION_COVERS = 5
+
+# Collections per UNION ALL statement, to keep any single statement small.
+COVERS_BATCH_SIZE = 100
 
 
 def with_roms(func):
@@ -229,6 +244,62 @@ class DBCollectionsHandler(DBBaseHandler):
         )
 
     # Virtual collections
+    def _attach_covers(
+        self,
+        session: Session,
+        collections: Sequence[VirtualCollection],
+    ) -> None:
+        """Fill in each collection's covers from its membership rows.
+
+        The view deliberately doesn't aggregate covers: on a large library that
+        is megabytes of cover paths per request, while callers render a handful.
+
+        Each collection gets its own primary-key lookup capped at
+        MAX_VIRTUAL_COLLECTION_COVERS rows, batched into UNION ALL statements,
+        so the cost follows the number of collections rather than the size of
+        the library.
+        """
+        if not collections:
+            return
+
+        def covers_select(collection: VirtualCollection) -> Select:
+            return (
+                select(
+                    VirtualCollectionRom.type,
+                    VirtualCollectionRom.name,
+                    VirtualCollectionRom.path_cover_s,
+                    VirtualCollectionRom.path_cover_l,
+                )
+                .where(
+                    VirtualCollectionRom.type == collection.type,
+                    VirtualCollectionRom.name == collection.name,
+                    or_(
+                        VirtualCollectionRom.path_cover_s != "",
+                        VirtualCollectionRom.path_cover_l != "",
+                    ),
+                )
+                .order_by(VirtualCollectionRom.rom_id)
+                .limit(MAX_VIRTUAL_COLLECTION_COVERS)
+            )
+
+        covers: dict[tuple[str, str], tuple[list[str], list[str]]] = {}
+        for start in range(0, len(collections), COVERS_BATCH_SIZE):
+            batch = collections[start : start + COVERS_BATCH_SIZE]
+            selects = [covers_select(collection) for collection in batch]
+            statement = selects[0] if len(selects) == 1 else union_all(*selects)
+
+            for row in session.execute(statement).all():
+                small, large = covers.setdefault((row.type, row.name), ([], []))
+                if row.path_cover_s:
+                    small.append(row.path_cover_s)
+                if row.path_cover_l:
+                    large.append(row.path_cover_l)
+
+        for collection in collections:
+            small, large = covers.get((collection.type, collection.name), ([], []))
+            collection.path_covers_s = small
+            collection.path_covers_l = large
+
     @begin_session
     def get_virtual_collection(
         self,
@@ -236,9 +307,13 @@ class DBCollectionsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> VirtualCollection | None:
         name, type = VirtualCollection.from_id(id)
-        return session.scalar(
+        collection = session.scalar(
             select(VirtualCollection).filter_by(name=name, type=type).limit(1)
         )
+        if collection:
+            self._attach_covers(session, [collection])
+
+        return collection
 
     @begin_session
     def get_virtual_collections(
@@ -256,9 +331,21 @@ class DBCollectionsHandler(DBBaseHandler):
         )
 
         if only_fields:
+            # Identifier-only callers never render covers.
             query = query.options(load_only(*only_fields))
+            return session.scalars(query).unique().all()
 
-        return session.scalars(query).unique().all()
+        collections = session.scalars(query).unique().all()
+        self._attach_covers(session, collections)
+
+        return collections
+
+    def get_virtual_collection_rom_ids(self, id: str) -> Select:
+        """Select the rom ids of a virtual collection, as an indexed subquery."""
+        name, type = VirtualCollection.from_id(id)
+        return select(VirtualCollectionRom.rom_id).where(
+            VirtualCollectionRom.type == type, VirtualCollectionRom.name == name
+        )
 
     # Smart collections
     @begin_session

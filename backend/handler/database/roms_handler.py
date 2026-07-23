@@ -468,13 +468,13 @@ class DBRomsHandler(DBBaseHandler):
     ):
         from . import db_collection_handler
 
-        v_collection = db_collection_handler.get_virtual_collection(
-            virtual_collection_id
+        return query.filter(
+            Rom.id.in_(
+                db_collection_handler.get_virtual_collection_rom_ids(
+                    virtual_collection_id
+                )
+            )
         )
-
-        if v_collection:
-            return query.filter(Rom.id.in_(v_collection.rom_ids))
-        return query
 
     def _filter_by_smart_collection_id(
         self, query: Query, session: Session, smart_collection_id: int, user_id: int
