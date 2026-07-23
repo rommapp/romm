@@ -10,11 +10,6 @@ from models.base import BaseModel
 if TYPE_CHECKING:
     from models.user import User
 
-# Playlist and favorite entries reference tracks by (rom_id, md5_hash) instead of
-# rom_file_id: rescans purge and re-insert rom_files rows, so file ids churn while
-# rom ids and file content hashes are stable.
-TRACK_HASH_MAX_LENGTH = 100
-
 
 class MusicPlaylist(BaseModel):
     __tablename__ = "music_playlists"
@@ -45,7 +40,7 @@ class MusicPlaylistTrack(BaseModel):
 
     __table_args__ = (
         UniqueConstraint(
-            "playlist_id", "rom_id", "md5_hash", name="unique_music_playlist_track"
+            "playlist_id", "rom_file_id", name="unique_music_playlist_track"
         ),
         Index("idx_music_playlist_tracks_playlist_position", "playlist_id", "position"),
     )
@@ -54,8 +49,9 @@ class MusicPlaylistTrack(BaseModel):
     playlist_id: Mapped[int] = mapped_column(
         ForeignKey("music_playlists.id", ondelete="CASCADE")
     )
-    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
-    md5_hash: Mapped[str] = mapped_column(String(length=TRACK_HASH_MAX_LENGTH))
+    rom_file_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_files.id", ondelete="CASCADE")
+    )
     position: Mapped[int] = mapped_column(Integer())
 
 
@@ -65,9 +61,6 @@ class MusicFavoriteTrack(BaseModel):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
-    rom_id: Mapped[int] = mapped_column(
-        ForeignKey("roms.id", ondelete="CASCADE"), primary_key=True
-    )
-    md5_hash: Mapped[str] = mapped_column(
-        String(length=TRACK_HASH_MAX_LENGTH), primary_key=True
+    rom_file_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_files.id", ondelete="CASCADE"), primary_key=True
     )

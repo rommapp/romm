@@ -14,7 +14,6 @@ export type MusicTrackSchema = {
     disc?: (number | null);
     duration_seconds?: (number | null);
     has_embedded_cover?: boolean;
-    md5_hash?: (string | null);
     is_favorite?: boolean;
     game_name?: (string | null);
     platform_id: number;

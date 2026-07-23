@@ -4,10 +4,6 @@ Revision ID: 0102_music_playlists
 Revises: 0101_virtual_collection_roms
 Create Date: 2026-07-22 00:00:00.000000
 
-Tracks are referenced by (rom_id, md5_hash) rather than rom_file_id: rescans
-purge and re-insert rom_files rows, so file ids churn while rom ids and file
-content hashes are stable.
-
 Every group's collections grants are mirrored onto the new playlists entity so
 existing groups keep working without admin intervention. Per-user overrides are
 intentionally not mirrored; admins can add playlist overrides where needed.
@@ -81,17 +77,18 @@ def upgrade() -> None:
             "music_playlist_tracks",
             sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
             sa.Column("playlist_id", sa.Integer(), nullable=False),
-            sa.Column("rom_id", sa.Integer(), nullable=False),
-            sa.Column("md5_hash", sa.String(length=100), nullable=False),
+            sa.Column("rom_file_id", sa.Integer(), nullable=False),
             sa.Column("position", sa.Integer(), nullable=False),
             *_timestamps(),
             sa.ForeignKeyConstraint(
                 ["playlist_id"], ["music_playlists.id"], ondelete="CASCADE"
             ),
-            sa.ForeignKeyConstraint(["rom_id"], ["roms.id"], ondelete="CASCADE"),
+            sa.ForeignKeyConstraint(
+                ["rom_file_id"], ["rom_files.id"], ondelete="CASCADE"
+            ),
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint(
-                "playlist_id", "rom_id", "md5_hash", name="unique_music_playlist_track"
+                "playlist_id", "rom_file_id", name="unique_music_playlist_track"
             ),
         )
         with op.batch_alter_table("music_playlist_tracks", schema=None) as batch_op:
@@ -104,12 +101,13 @@ def upgrade() -> None:
         op.create_table(
             "music_favorite_tracks",
             sa.Column("user_id", sa.Integer(), nullable=False),
-            sa.Column("rom_id", sa.Integer(), nullable=False),
-            sa.Column("md5_hash", sa.String(length=100), nullable=False),
+            sa.Column("rom_file_id", sa.Integer(), nullable=False),
             *_timestamps(),
             sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-            sa.ForeignKeyConstraint(["rom_id"], ["roms.id"], ondelete="CASCADE"),
-            sa.PrimaryKeyConstraint("user_id", "rom_id", "md5_hash"),
+            sa.ForeignKeyConstraint(
+                ["rom_file_id"], ["rom_files.id"], ondelete="CASCADE"
+            ),
+            sa.PrimaryKeyConstraint("user_id", "rom_file_id"),
         )
 
     _mirror_collections_grants(conn)

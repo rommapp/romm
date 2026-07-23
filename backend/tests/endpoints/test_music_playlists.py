@@ -266,60 +266,48 @@ def test_playlist_remove_tracks(
 # ---------- durability ----------
 
 
-def test_playlist_survives_rom_file_id_churn(
+def test_playlist_survives_a_rescan(
     client: TestClient, access_token: str, playlist_id: int, music_library  # noqa: F811
 ):
-    _add_tracks(client, access_token, playlist_id, ["Green Hill", "Jingle"])
+    """Rescans reconcile rom_files in place, so entries keep resolving."""
+    ids = _add_tracks(client, access_token, playlist_id, ["Green Hill", "Jingle"])
 
     rom = music_library["sonic"]
-    purged = db_rom_handler.purge_rom_files(rom.id)
-    old = next(f for f in purged if f.file_name == "Green Hill.mp3")
-    new_file = db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name=old.file_name,
-            file_path=old.file_path,
-            file_size_bytes=old.file_size_bytes,
-            md5_hash=old.md5_hash,
-            category=RomFileCategory.SOUNDTRACK,
-            track_meta=TrackMeta(rom_id=rom.id, title="Green Hill"),
-        )
+    existing = db_rom_handler.rom_files_for_rom_id(rom.id)
+    synced = db_rom_handler.sync_rom_files(
+        rom.id,
+        [
+            RomFile(
+                file_name=f.file_name,
+                file_path=f.file_path,
+                file_size_bytes=f.file_size_bytes,
+                category=RomFileCategory.SOUNDTRACK,
+                track_meta=TrackMeta(title="Green Hill"),
+            )
+            for f in existing
+        ],
     )
+    assert [f.id for f in synced.files] == [f.id for f in existing]
 
     body = client.get(
         f"/api/music/playlists/{playlist_id}/tracks", headers=_auth(access_token)
     ).json()
     assert [i["title"] for i in body["items"]] == ["Green Hill", "Jingle"]
-    assert body["items"][0]["rom_file_id"] == new_file.id
+    assert body["items"][0]["rom_file_id"] == ids[0]
 
 
-def test_playlist_dangling_entry_omitted_but_counted(
-    client: TestClient, access_token: str, playlist_id: int, music_library  # noqa: F811
+def test_playlist_entry_dropped_when_file_leaves_library(
+    client: TestClient, access_token: str, playlist_id: int  # noqa: F811
 ):
-    _add_tracks(client, access_token, playlist_id, ["Green Hill", "Jingle"])
-
-    # File comes back with different content: the old entry dangles.
-    rom = music_library["sonic"]
-    db_rom_handler.purge_rom_files(rom.id)
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="Green Hill.mp3",
-            file_path=f"{rom.fs_path}/Sonic/soundtrack",
-            file_size_bytes=4096,
-            md5_hash="md5-different-content",
-            category=RomFileCategory.SOUNDTRACK,
-            track_meta=TrackMeta(rom_id=rom.id, title="Green Hill"),
-        )
-    )
+    ids = _add_tracks(client, access_token, playlist_id, ["Green Hill", "Jingle"])
+    db_rom_handler.delete_rom_file(ids[0])
 
     tracks = client.get(
         f"/api/music/playlists/{playlist_id}/tracks", headers=_auth(access_token)
     ).json()
     assert [i["title"] for i in tracks["items"]] == ["Jingle"]
-    # stored count still includes the dangling entry
     listing = client.get("/api/music/playlists", headers=_auth(access_token)).json()
-    assert listing[0]["track_count"] == 2
+    assert listing[0]["track_count"] == 1
 
 
 def test_playlist_tracks_respect_viewer_hidden_platforms(
@@ -362,26 +350,32 @@ def test_playlist_rows_carry_is_favorite(
 # ---------- duplicate content in one rom ----------
 
 
-def test_duplicate_content_resolves_to_single_row(
+def test_identical_copies_are_separate_entries(
     client: TestClient, access_token: str, playlist_id: int, music_library  # noqa: F811
 ):
-    _add_tracks(client, access_token, playlist_id, ["Green Hill"])
+    """Two files with the same content are two tracks, each addressable."""
+    ids = _add_tracks(client, access_token, playlist_id, ["Green Hill"])
     rom = music_library["sonic"]
-    db_rom_handler.add_rom_file(
+    copy = db_rom_handler.add_rom_file(
         RomFile(
             rom_id=rom.id,
             file_name="Green Hill (copy).mp3",
             file_path=f"{rom.fs_path}/Sonic/soundtrack",
             file_size_bytes=2048,
-            md5_hash="md5-green-hill",
             category=RomFileCategory.SOUNDTRACK,
             track_meta=TrackMeta(rom_id=rom.id, title="Green Hill"),
         )
     )
+    client.post(
+        f"/api/music/playlists/{playlist_id}/tracks",
+        json={"rom_file_ids": [copy.id]},
+        headers=_auth(access_token),
+    )
     body = client.get(
         f"/api/music/playlists/{playlist_id}/tracks", headers=_auth(access_token)
     ).json()
-    assert body["total"] == 1
+    assert body["total"] == 2
+    assert [i["rom_file_id"] for i in body["items"]] == [ids[0], copy.id]
 
 
 # ---------- scopes ----------

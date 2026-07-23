@@ -30,7 +30,6 @@ from sqlalchemy.orm import (
     Query,
     QueryableAttribute,
     Session,
-    aliased,
     joinedload,
     load_only,
     noload,
@@ -2129,21 +2128,6 @@ class DBRomsHandler(DBBaseHandler):
             min_duration=min_duration,
             max_duration=max_duration,
         )
-        if only_favorites or playlist_id is not None:
-            # md5-keyed entries can match several identical files in one rom;
-            # pin each entry to the lowest matching file id.
-            rf2 = aliased(RomFile)
-            tm2 = aliased(TrackMeta)
-            where.append(
-                RomFile.id
-                == select(func.min(rf2.id))
-                .join(tm2, tm2.rom_file_id == rf2.id)
-                .where(
-                    rf2.rom_id == RomFile.rom_id,
-                    rf2.md5_hash == RomFile.md5_hash,
-                )
-                .scalar_subquery()
-            )
         is_favorite_col = (
             MusicFavoriteTrack.user_id.is_not(None)
             if is_favorite_user_id is not None
@@ -2164,7 +2148,6 @@ class DBRomsHandler(DBBaseHandler):
                 TrackMeta.has_embedded_cover,
                 TrackMeta.cover_path,
                 RomFile.file_name.label("file_name"),
-                RomFile.md5_hash.label("md5_hash"),
                 is_favorite_col.label("is_favorite"),
                 Rom.name.label("game_name"),
                 Rom.path_cover_l.label("path_cover_l"),
@@ -2180,8 +2163,7 @@ class DBRomsHandler(DBBaseHandler):
         if is_favorite_user_id is not None:
             favorite_on = and_(
                 MusicFavoriteTrack.user_id == is_favorite_user_id,
-                MusicFavoriteTrack.rom_id == TrackMeta.rom_id,
-                MusicFavoriteTrack.md5_hash == RomFile.md5_hash,
+                MusicFavoriteTrack.rom_file_id == TrackMeta.rom_file_id,
             )
             base = (
                 base.join(MusicFavoriteTrack, favorite_on)
@@ -2193,8 +2175,7 @@ class DBRomsHandler(DBBaseHandler):
                 MusicPlaylistTrack,
                 and_(
                     MusicPlaylistTrack.playlist_id == playlist_id,
-                    MusicPlaylistTrack.rom_id == TrackMeta.rom_id,
-                    MusicPlaylistTrack.md5_hash == RomFile.md5_hash,
+                    MusicPlaylistTrack.rom_file_id == TrackMeta.rom_file_id,
                 ),
             )
         base = base.where(*where)

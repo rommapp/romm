@@ -11,7 +11,6 @@ from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
 from handler.database import db_music_playlist_handler, db_rom_handler
-from handler.database.music_playlists_handler import TrackRef
 from utils.router import APIRouter
 
 router = APIRouter(prefix="/music", tags=["music"])
@@ -30,14 +29,11 @@ class MusicTrackIdsPayload(BaseModel):
     rom_file_ids: list[int]
 
 
-def resolve_track_refs(
-    rom_file_ids: list[int], perms: ResolvedPermissions
-) -> list[TrackRef]:
-    """Resolve rom_file ids into durable (rom_id, md5_hash) track references.
+def resolve_track_ids(rom_file_ids: list[int], perms: ResolvedPermissions) -> list[int]:
+    """Validate rom_file ids as music tracks the requester may see.
 
-    Raises 400 when any id does not point to a visible music track with a
-    content hash; hidden and missing files get the same message so existence
-    is not leaked."""
+    Raises 400 when any id does not point to a visible music track; hidden and
+    missing files get the same message so existence is not leaked."""
     files = {
         f.id: f
         for f in db_rom_handler.get_rom_files_by_ids(list(dict.fromkeys(rom_file_ids)))
@@ -59,21 +55,7 @@ def resolve_track_refs(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Files are not music tracks: {sorted(set(not_tracks))}",
         )
-    unhashed = [fid for fid in rom_file_ids if not files[fid].md5_hash]
-    if unhashed:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Tracks have no content hash yet (run a hash scan): "
-                f"{sorted(set(unhashed))}"
-            ),
-        )
-    refs: list[TrackRef] = []
-    for fid in rom_file_ids:
-        md5 = files[fid].md5_hash
-        if md5:
-            refs.append((files[fid].rom_id, md5))
-    return list(dict.fromkeys(refs))
+    return list(dict.fromkeys(rom_file_ids))
 
 
 @protected_route(router.get, "/tracks", [Scope.ROMS_READ])
@@ -185,8 +167,8 @@ def get_music_favorites(
 def add_music_favorites(request: Request, payload: MusicTrackIdsPayload) -> dict:
     """Mark tracks as favorites; already-favorited tracks are ignored."""
     perms = get_permissions(request)
-    refs = resolve_track_refs(payload.rom_file_ids, perms)
-    added = db_music_playlist_handler.add_favorite_tracks(request.user.id, refs)
+    rom_file_ids = resolve_track_ids(payload.rom_file_ids, perms)
+    added = db_music_playlist_handler.add_favorite_tracks(request.user.id, rom_file_ids)
     return {"added": added}
 
 
@@ -194,8 +176,10 @@ def add_music_favorites(request: Request, payload: MusicTrackIdsPayload) -> dict
 def remove_music_favorites(request: Request, payload: MusicTrackIdsPayload) -> dict:
     """Unmark tracks as favorites."""
     perms = get_permissions(request)
-    refs = resolve_track_refs(payload.rom_file_ids, perms)
-    removed = db_music_playlist_handler.remove_favorite_tracks(request.user.id, refs)
+    rom_file_ids = resolve_track_ids(payload.rom_file_ids, perms)
+    removed = db_music_playlist_handler.remove_favorite_tracks(
+        request.user.id, rom_file_ids
+    )
     return {"removed": removed}
 
 

@@ -11,7 +11,7 @@ from decorators.auth import protected_route
 from endpoints.music import (
     MusicPage,
     MusicTrackIdsPayload,
-    resolve_track_refs,
+    resolve_track_ids,
 )
 from endpoints.responses.music import MusicPlaylistSchema, MusicTrackSchema
 from exceptions.endpoint_exceptions import (
@@ -154,10 +154,10 @@ def get_playlist_tracks(
     ] = "position",
     order_dir: Annotated[str, Query(description="asc or desc.")] = "asc",
 ) -> MusicPage[MusicTrackSchema]:
-    """Resolvable tracks of a playlist, in playlist order by default.
+    """Tracks of a playlist, in playlist order by default.
 
-    Entries whose file is gone (or hidden from the viewer) are omitted, so the
-    page total can be lower than the playlist's stored track_count."""
+    Entries hidden from the viewer are omitted, so the page total can be lower
+    than the playlist's stored track_count."""
     playlist = _get_visible_playlist(request, id)
     perms = get_permissions(request)
     params = resolve_params()
@@ -185,8 +185,8 @@ def add_playlist_tracks(
     """Append tracks to the playlist; tracks already present are ignored."""
     playlist = _get_owned_playlist(request, id)
     perms = get_permissions(request)
-    refs = resolve_track_refs(payload.rom_file_ids, perms)
-    added = db_music_playlist_handler.add_tracks_to_playlist(playlist.id, refs)
+    rom_file_ids = resolve_track_ids(payload.rom_file_ids, perms)
+    added = db_music_playlist_handler.add_tracks_to_playlist(playlist.id, rom_file_ids)
     return {"added": added}
 
 
@@ -198,8 +198,10 @@ def remove_playlist_tracks(
 ) -> dict:
     playlist = _get_owned_playlist(request, id)
     perms = get_permissions(request)
-    refs = resolve_track_refs(payload.rom_file_ids, perms)
-    removed = db_music_playlist_handler.remove_tracks_from_playlist(playlist.id, refs)
+    rom_file_ids = resolve_track_ids(payload.rom_file_ids, perms)
+    removed = db_music_playlist_handler.remove_tracks_from_playlist(
+        playlist.id, rom_file_ids
+    )
     return {"removed": removed}
 
 
@@ -211,18 +213,18 @@ def set_playlist_track_order(
 ) -> Response:
     """Reorder the playlist to match the given rom_file_ids.
 
-    Entries not covered by the payload (including dangling ones) keep their
-    relative order after the listed tracks."""
+    Entries not covered by the payload keep their relative order after the
+    listed tracks."""
     playlist = _get_owned_playlist(request, id)
     perms = get_permissions(request)
-    refs = resolve_track_refs(payload.rom_file_ids, perms)
+    rom_file_ids = resolve_track_ids(payload.rom_file_ids, perms)
     entries = db_music_playlist_handler.get_playlist_entries(playlist.id)
-    entry_by_ref = {(e.rom_id, e.md5_hash): e.id for e in entries}
-    if any(ref not in entry_by_ref for ref in refs):
+    entry_by_rom_file_id = {e.rom_file_id: e.id for e in entries}
+    if any(fid not in entry_by_rom_file_id for fid in rom_file_ids):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Payload contains tracks that are not in the playlist",
         )
-    ordered_entry_ids = [entry_by_ref[ref] for ref in refs]
+    ordered_entry_ids = [entry_by_rom_file_id[fid] for fid in rom_file_ids]
     db_music_playlist_handler.set_playlist_track_order(playlist.id, ordered_entry_ids)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

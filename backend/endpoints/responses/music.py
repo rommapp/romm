@@ -24,7 +24,6 @@ class MusicTrackSchema(BaseModel):
     disc: int | None = None
     duration_seconds: float | None = None
     has_embedded_cover: bool = False
-    md5_hash: str | None = None
     is_favorite: bool = False
     game_name: str | None = None
     platform_id: int
@@ -53,7 +52,6 @@ class MusicTrackSchema(BaseModel):
             disc=row.disc,
             duration_seconds=row.duration_seconds,
             has_embedded_cover=row.has_embedded_cover,
-            md5_hash=row.md5_hash or None,
             is_favorite=bool(row.is_favorite),
             game_name=row.game_name,
             platform_id=row.platform_id,
