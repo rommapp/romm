@@ -24,8 +24,8 @@ Notes:
 - Names are truncated to the column width instead of relying on the JSON_TABLE
   column type, which would abort the rom write under strict mode.
 
-Revision ID: 0100_virtual_collection_roms
-Revises: 0099_platform_description
+Revision ID: 0101_virtual_collection_roms
+Revises: 0100_roms_facets_table
 Create Date: 2026-07-22 00:00:00.000000
 
 """
@@ -36,8 +36,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0100_virtual_collection_roms"
-down_revision = "0099_platform_description"
+revision = "0101_virtual_collection_roms"
+down_revision = "0100_roms_facets_table"
 branch_labels = None
 depends_on = None
 
