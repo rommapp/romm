@@ -100,6 +100,20 @@ source .venv/bin/activate
 uv sync --all-extras --dev
 ```
 
+#### - Build and install sigil (optional)
+
+```sh
+# This is only required for title ID extraction; the feature no-ops without it
+# Users on macOS can skip this step, like RAHasher
+# Requires cmake, and RomM's Python 3.13 venv (created above) must be active
+git clone --recurse-submodules https://github.com/rommforge/argosy-sigil.git ../argosy-sigil
+cd ../argosy-sigil/bindings/python
+uv pip install cffi setuptools
+make build
+uv pip install -e .
+cd -
+```
+
 #### - Spin up the database and other services
 
 ```sh

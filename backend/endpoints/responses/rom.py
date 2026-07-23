@@ -26,7 +26,14 @@ from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
 from models.collection import Collection
-from models.rom import Rom, RomArchiveMember, RomFile, RomFileCategory, RomUserStatus
+from models.rom import (
+    Rom,
+    RomArchiveMember,
+    RomFile,
+    RomFileCategory,
+    RomUserStatus,
+    SaveUsage,
+)
 
 from .base import BaseModel, UTCDatetime
 
@@ -191,6 +198,9 @@ class RomFileSchema(BaseModel):
     sha1_hash: str | None
     ra_hash: str | None
     chd_sha1_hash: str | None
+    title_id: str | None
+    save_id: str | None
+    title_version: int | None
     archive_members: list[RomArchiveMember] | None
     category: RomFileCategory | None
     track_meta: TrackMetaSchema | None = None
@@ -331,6 +341,9 @@ class RomSchema(BaseModel):
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
+    title_id: str | None
+    save_id: str | None
+    save_usage: SaveUsage | None
 
     has_simple_single_file: bool
     has_nested_single_file: bool
