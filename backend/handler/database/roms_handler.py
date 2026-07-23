@@ -1545,6 +1545,24 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def get_missing_rom_ids(
+        self,
+        platform_id: int,
+        session: Session = None,  # type: ignore
+    ) -> set[int]:
+        """Return the ids of a platform's ROMs currently flagged missing."""
+        return set(
+            session.scalars(
+                select(Rom.id).where(
+                    and_(
+                        Rom.platform_id == platform_id,
+                        Rom.missing_from_fs.is_(True),
+                    )
+                )
+            ).all()
+        )
+
+    @begin_session
     def bulk_mark_present(
         self,
         platform_id: int,
