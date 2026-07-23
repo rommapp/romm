@@ -31,7 +31,9 @@ class TestPersistSoundtrackCoverRemoval:
     now-orphaned resource."""
 
     def test_lost_cover_is_removed_and_cleared(self, mocker):
-        remove = mocker.patch.object(scan_handler, "remove_persisted_cover")
+        remove = mocker.patch.object(
+            scan_handler, "remove_persisted_cover", Mock(return_value=True)
+        )
         db = mocker.patch.object(scan_handler, "db_rom_handler")
 
         persist_soundtrack_cover(
@@ -40,6 +42,19 @@ class TestPersistSoundtrackCoverRemoval:
 
         remove.assert_called_once_with("covers/track01.png")
         db.upsert_track_meta.assert_called_once_with(21, 7, {"cover_path": None})
+
+    def test_failed_unlink_keeps_the_path_for_a_retry(self, mocker):
+        mocker.patch.object(
+            scan_handler, "remove_persisted_cover", Mock(return_value=False)
+        )
+        db = mocker.patch.object(scan_handler, "db_rom_handler")
+
+        persist_soundtrack_cover(
+            _soundtrack_file(has_cover=False, cover_path="covers/track01.png"), _rom()
+        )
+
+        # Clearing the path here would strand the file with nothing pointing at it.
+        db.upsert_track_meta.assert_not_called()
 
     def test_no_cover_and_no_path_is_a_noop(self, mocker):
         remove = mocker.patch.object(scan_handler, "remove_persisted_cover")

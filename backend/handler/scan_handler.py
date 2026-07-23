@@ -150,9 +150,10 @@ def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
         return
 
     if not track_meta.has_embedded_cover:
-        # The cover was stripped from the file since the last scan.
-        if track_meta.cover_path:
-            remove_persisted_cover(track_meta.cover_path)
+        # The cover was stripped from the file since the last scan. Keep the
+        # path when the unlink fails, so the next scan retries it rather than
+        # stranding the file with nothing pointing at it.
+        if track_meta.cover_path and remove_persisted_cover(track_meta.cover_path):
             db_rom_handler.upsert_track_meta(rom_file.id, rom.id, {"cover_path": None})
         return
 
