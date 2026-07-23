@@ -510,6 +510,7 @@ async def _identify_rom(
                 chd_sha1_hash=file.chd_sha1_hash,
                 title_id=file.title_id,
                 save_id=file.save_id,
+                title_version=file.title_version,
             )
             for file in fs_rom["files"]
         ]

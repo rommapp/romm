@@ -23,7 +23,7 @@ from handler.filesystem.roms_handler import (
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import ScanType
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile, RomFileCategory
 
 
 def test_scan_stats():
@@ -643,6 +643,117 @@ class TestIdentifyRomTitleIdEmbedRename:
         created = db.add_rom.call_args_list[0].args[0]
         assert created.fs_name == self.NEW_NAME
         assert fs_rom["fs_name"] == self.NEW_NAME
+
+
+class TestIdentifyRomPersistsFileTitleVersion:
+    """`_identify_rom` must persist per-file `title_version` on the rebuilt files.
+
+    A Switch update file carries a `title_version` extracted during scan. The
+    purge-and-recreate list in `_identify_rom` rebuilds each `RomFile` from
+    `fs_rom["files"]`; if it omits `title_version`, the version is silently
+    dropped to NULL on persist. A HASHES scan reaches the file-rebuild step and
+    returns right after it.
+    """
+
+    UPDATE_TITLE_ID = "0100F4700B2E0800"
+    UPDATE_TITLE_VERSION = 655360
+
+    @pytest.fixture
+    def patched(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        fs = scan_module.fs_rom_handler
+        mocker.patch.object(
+            fs,
+            "parse_tags",
+            return_value=ParsedTags(
+                version="", revision="", regions=[], languages=[], other_tags=[]
+            ),
+        )
+        mocker.patch.object(fs, "get_roms_fs_structure", return_value="switch/roms")
+        mocker.patch.object(fs, "get_file_name_with_no_tags", return_value="Game")
+
+        update_file = RomFile(
+            file_name="Game [UPD][v655360].nsp",
+            file_path="switch/roms",
+            file_size_bytes=1024,
+            category=RomFileCategory.UPDATE,
+            title_id=self.UPDATE_TITLE_ID,
+            title_version=self.UPDATE_TITLE_VERSION,
+        )
+        mocker.patch.object(
+            fs,
+            "get_rom_files",
+            AsyncMock(
+                return_value=ParsedRomFiles(
+                    rom_files=[update_file],
+                    crc_hash="crc",
+                    md5_hash="md5",
+                    sha1_hash="sha1",
+                    ra_hash="",
+                    title_id=self.UPDATE_TITLE_ID,
+                )
+            ),
+        )
+
+        config = MagicMock()
+        config.SKIP_HASH_CALCULATION = False
+        config.SKIP_TITLE_ID_EXTRACTION = False
+        config.EMBED_SWITCH_TITLE_IDS = False
+        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+        mocker.patch.object(
+            scan_module,
+            "scan_rom",
+            AsyncMock(return_value=MagicMock(is_identified=False)),
+        )
+        # The persist loop calls this per saved file; keep it inert.
+        mocker.patch.object(scan_module, "persist_soundtrack_cover")
+
+        db = mocker.patch.object(scan_module, "db_rom_handler")
+        db.add_rom.return_value = MagicMock(is_identified=False, id=99)
+        db.get_matching_missing_rom.return_value = None
+        db.add_rom_file.side_effect = lambda rom_file: rom_file
+        return db
+
+    def _platform(self):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        platform.id = 1
+        return platform
+
+    async def test_rebuilt_file_keeps_title_version(self, patched):
+        db = patched
+        fs_rom: FSRom = {
+            "fs_name": "Game.nsp",
+            "flat": True,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        await _identify_rom(
+            platform=self._platform(),
+            fs_rom=fs_rom,
+            rom=None,
+            scan_type=ScanType.HASHES,
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
+
+        db.purge_rom_files.assert_called_once_with(99)
+        db.add_rom_file.assert_called_once()
+        persisted = db.add_rom_file.call_args.args[0]
+        assert isinstance(persisted, RomFile)
+        assert persisted.title_id == self.UPDATE_TITLE_ID
+        assert persisted.title_version == self.UPDATE_TITLE_VERSION
 
 
 class TestIdentifyPlatformMarksMissingBeforeScan:
