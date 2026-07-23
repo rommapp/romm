@@ -1475,6 +1475,29 @@ class DBRomsHandler(DBBaseHandler):
         return {rom.fs_name: rom for rom in roms}
 
     @begin_session
+    def get_roms_by_fs_name_no_ext(
+        self,
+        fs_name_no_ext: str,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Rom]:
+        """ROMs across every platform whose file name minus extension matches.
+
+        Cloud-sync clients name save files after the ROM file and send nothing
+        else, so this is the only handle available to resolve one back to a ROM.
+        Ordered by id so an ambiguous name resolves the same way on every sync.
+        """
+        return (
+            session.scalars(
+                select(Rom)
+                .options(selectinload(Rom.platform))
+                .where(Rom.fs_name_no_ext == fs_name_no_ext)
+                .order_by(Rom.id)
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
     def update_rom(
         self,
         id: int,

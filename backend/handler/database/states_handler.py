@@ -43,6 +43,23 @@ class DBStatesHandler(DBBaseHandler):
         )
 
     @begin_session
+    def get_state_by_path(
+        self,
+        user_id: int,
+        rom_id: int,
+        file_path: str,
+        file_name: str,
+        session: Session = None,  # type: ignore
+    ) -> State | None:
+        return session.scalar(
+            select(State)
+            .filter_by(
+                rom_id=rom_id, user_id=user_id, file_path=file_path, file_name=file_name
+            )
+            .limit(1)
+        )
+
+    @begin_session
     def get_states(
         self,
         user_id: int,
