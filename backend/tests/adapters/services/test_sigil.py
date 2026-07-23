@@ -26,6 +26,8 @@ def make_result(
     title_id: str = "0100ABCD12340000",
     save_id: str = "0100ABCD12340000",
     usage: str = "folder-exact",
+    switch_content_type: str | None = None,
+    title_version: int | None = None,
 ) -> types.SimpleNamespace:
     return types.SimpleNamespace(
         title_id=title_id,
@@ -35,6 +37,8 @@ def make_result(
         source="binary",
         usage=usage,
         experimental=False,
+        switch_content_type=switch_content_type,
+        title_version=title_version,
     )
 
 
@@ -85,6 +89,53 @@ class TestSigilService:
             save_id="0100ABCD12340000",
             usage="folder-exact",
         )
+
+    @pytest.mark.asyncio
+    async def test_maps_switch_content_type_and_version(
+        self, service: SigilService, monkeypatch
+    ):
+        extract = Mock(
+            return_value=make_result(
+                switch_content_type="patch",
+                title_version=196608,
+            )
+        )
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.SWITCH, "/roms/switch/game.nsp")
+
+        assert result is not None
+        assert result.content_type == "patch"
+        assert result.version == 196608
+
+    @pytest.mark.asyncio
+    async def test_version_zero_is_preserved(self, service: SigilService, monkeypatch):
+        extract = Mock(
+            return_value=make_result(
+                switch_content_type="application",
+                title_version=0,
+            )
+        )
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.SWITCH, "/roms/switch/game.xci")
+
+        assert result is not None
+        assert result.content_type == "application"
+        assert result.version == 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("raw", ["unknown", "", None])
+    async def test_absent_content_type_maps_to_none(
+        self, service: SigilService, monkeypatch, raw: str | None
+    ):
+        extract = Mock(return_value=make_result(switch_content_type=raw))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.SWITCH, "/roms/switch/game.nsp")
+
+        assert result is not None
+        assert result.content_type is None
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("code", ["NOT_FOUND", "UNSUPPORTED_FORMAT", "NEEDS_KEY"])

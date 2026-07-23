@@ -23,6 +23,7 @@ export type RomFileSchema = {
     chd_sha1_hash: (string | null);
     title_id: (string | null);
     save_id: (string | null);
+    title_version: (number | null);
     archive_members: (Array<RomArchiveMember> | null);
     category: (RomFileCategory | null);
     track_meta?: (TrackMetaSchema | null);

@@ -1305,7 +1305,7 @@ class TestSigilTitleIdExtraction:
         )
 
     @pytest.mark.asyncio
-    async def test_multi_part_extraction_prefers_base_game(
+    async def test_multi_part_extraction_covers_nested_files(
         self, tmp_path: Path, config: Config
     ):
         platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
@@ -1314,7 +1314,11 @@ class TestSigilTitleIdExtraction:
             tmp_path,
             platform,
             "Zelda",
-            ["Zelda [base].nsp", "Zelda [update].nsp", "extras/nested.nsp"],
+            [
+                "Zelda [base].nsp",
+                "updates/Zelda [update].nsp",
+                "dlc/Zelda [dlc].nsp",
+            ],
         )
 
         async def fake_extract(
@@ -1325,11 +1329,23 @@ class TestSigilTitleIdExtraction:
                     title_id="0100ABCD12340800",
                     save_id="0100ABCD12340800",
                     usage="folder-exact",
+                    content_type="patch",
+                    version=196608,
+                )
+            if "dlc" in file_path:
+                return SigilExtractionResult(
+                    title_id="0100ABCD12341001",
+                    save_id="0100ABCD12341001",
+                    usage="folder-exact",
+                    content_type="addon",
+                    version=0,
                 )
             return SigilExtractionResult(
                 title_id="0100ABCD12340000",
                 save_id="0100ABCD12340000",
                 usage="folder-exact",
+                content_type="application",
+                version=0,
             )
 
         mock_extract = AsyncMock(side_effect=fake_extract)
@@ -1340,15 +1356,89 @@ class TestSigilTitleIdExtraction:
                 parsed = await handler.get_rom_files(rom)
 
         by_name = {rf.file_name: rf for rf in parsed.rom_files}
-        assert by_name["Zelda [base].nsp"].title_id == "0100ABCD12340000"
-        assert by_name["Zelda [update].nsp"].title_id == "0100ABCD12340800"
-        # Nested files are not extracted
-        assert by_name["nested.nsp"].title_id is None
-        assert mock_extract.await_count == 2
 
+        base = by_name["Zelda [base].nsp"]
+        assert base.title_id == "0100ABCD12340000"
+        assert base.title_version == 0
+        assert base.category == RomFileCategory.GAME
+
+        update = by_name["Zelda [update].nsp"]
+        assert update.title_id == "0100ABCD12340800"
+        assert update.title_version == 196608
+        assert update.category == RomFileCategory.UPDATE
+
+        dlc = by_name["Zelda [dlc].nsp"]
+        assert dlc.title_id == "0100ABCD12341001"
+        assert dlc.title_version == 0
+        assert dlc.category == RomFileCategory.DLC
+
+        # All three files, including the nested update/DLC, are extracted.
+        assert mock_extract.await_count == 3
+
+        # The base game is still selected for the rom-level values.
         assert parsed.title_id == "0100ABCD12340000"
         assert parsed.save_id == "0100ABCD12340000"
         assert parsed.save_usage == SaveUsage.FOLDER_EXACT
+
+    @pytest.mark.asyncio
+    async def test_content_type_overrides_folder_category(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        # Folder name "dlc" would otherwise derive category DLC, but the binary
+        # content type says this is the base application.
+        rom = self._make_multi_part_rom(
+            tmp_path, platform, "Zelda", ["dlc/Zelda [base].nsp"]
+        )
+
+        mock_extract = AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id="0100ABCD12340000",
+                save_id="0100ABCD12340000",
+                usage="folder-exact",
+                content_type="application",
+                version=0,
+            )
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, mock_extract):
+                parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].category == RomFileCategory.GAME
+
+    @pytest.mark.asyncio
+    async def test_folder_category_preserved_when_content_type_absent(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_multi_part_rom(
+            tmp_path, platform, "Zelda", ["dlc/Zelda [addon].nsp"]
+        )
+
+        # CNMT miss: title id is present but content type is None.
+        mock_extract = AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id="0100ABCD12341001",
+                save_id="0100ABCD12341001",
+                usage="folder-exact",
+                content_type=None,
+                version=None,
+            )
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, mock_extract):
+                parsed = await handler.get_rom_files(rom)
+
+        rom_file = parsed.rom_files[0]
+        # Folder-derived category survives, and title_version stays None.
+        assert rom_file.category == RomFileCategory.DLC
+        assert rom_file.title_version is None
 
     @pytest.mark.asyncio
     async def test_switch_base_derivation_from_update_only_folder(

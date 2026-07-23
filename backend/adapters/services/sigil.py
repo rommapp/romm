@@ -42,6 +42,8 @@ class SigilExtractionResult:
     title_id: str
     save_id: str
     usage: str
+    content_type: str | None = None
+    version: int | None = None
 
 
 class SigilService:
@@ -81,8 +83,17 @@ class SigilService:
                 log.error(f"Sigil extraction failed for {file_path}: {exc}")
             return None
 
+        raw_content_type = getattr(result, "switch_content_type", None)
+        content_type = (
+            raw_content_type if raw_content_type not in (None, "", "unknown") else None
+        )
+
         return SigilExtractionResult(
             title_id=result.title_id,
             save_id=result.save_id,
             usage=result.usage,
+            content_type=content_type,
+            # Version 0 is a valid base-game version, so keep the int as-is;
+            # a missing field (non-Switch, older binding) maps to None.
+            version=getattr(result, "title_version", None),
         )

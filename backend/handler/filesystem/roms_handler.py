@@ -175,6 +175,15 @@ class ParsedRomFiles:
     save_usage: SaveUsage | None = None
 
 
+# Maps sigil's Switch CNMT content type to the RomFile category. Authoritative
+# over folder-derived categories when the binary parse succeeds.
+SWITCH_CONTENT_TYPE_CATEGORIES: dict[str, RomFileCategory] = {
+    "application": RomFileCategory.GAME,
+    "patch": RomFileCategory.UPDATE,
+    "addon": RomFileCategory.DLC,
+}
+
+
 def _parse_save_usage(usage: str) -> SaveUsage | None:
     try:
         return SaveUsage(usage)
@@ -419,6 +428,13 @@ class FSRomsHandler(FSHandler):
                 return
             rom_file.title_id = extraction.title_id
             rom_file.save_id = extraction.save_id
+            rom_file.title_version = extraction.version
+            # For Switch, the binary CNMT content type is authoritative over the
+            # folder-derived category. Leave the folder category when absent.
+            if extraction.content_type is not None:
+                category = SWITCH_CONTENT_TYPE_CATEGORIES.get(extraction.content_type)
+                if category is not None:
+                    rom_file.category = category
             sigil_extractions.append(extraction)
 
         cnfg = cm.get_config()
@@ -533,7 +549,9 @@ class FSRomsHandler(FSHandler):
                     file_name=file_name,
                     file_hash=file_hash,
                 )
-                if sigil_platform and is_top_level:
+                # Extract from every file (base, updates, DLC in subfolders), not
+                # just the top-level one: sigil returns None for unparseable files.
+                if sigil_platform:
                     await _extract_title_id(rom_file, Path(f_path, file_name))
                 rom_files.append(rom_file)
         elif hashable_platform and rom_ext in ARCHIVE_READERS:

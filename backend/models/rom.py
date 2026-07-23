@@ -131,6 +131,8 @@ class RomFile(BaseModel):
     chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
     title_id: Mapped[str | None] = mapped_column(String(100))
     save_id: Mapped[str | None] = mapped_column(String(100))
+    # BigInteger: Switch title versions are u32 and can exceed signed int32.
+    title_version: Mapped[int | None] = mapped_column(BigInteger, default=None)
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
     )
