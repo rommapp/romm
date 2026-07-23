@@ -161,6 +161,48 @@ describe("PlatformsStatsSection", () => {
     ]);
   });
 
+  it("lists only platforms that contain games, hiding empty leftovers", () => {
+    const wrapper = mountSection([
+      platform({ id: 1, slug: "snes", name: "Super Nintendo", rom_count: 5 }),
+      // Ghost platform: emptied long ago, still in the DB with 0 games.
+      platform({
+        id: 2,
+        slug: "xbox360-hacks",
+        name: "Xbox360 Hacks",
+        display_name: "Xbox360 Hacks",
+        rom_count: 0,
+      }),
+      platform({
+        id: 3,
+        slug: "genesis",
+        name: "Genesis",
+        display_name: "Genesis",
+        rom_count: 3,
+      }),
+    ]);
+
+    const names = renderedNames(wrapper);
+    expect(names).toEqual(["Genesis", "Super Nintendo"]);
+    expect(names).not.toContain("Xbox360 Hacks");
+    expect(wrapper.findAll(".r-v2-plat-stats__row")).toHaveLength(2);
+  });
+
+  it("renders no rows when every platform is empty", () => {
+    const wrapper = mountSection([
+      platform({ id: 1, rom_count: 0 }),
+      platform({
+        id: 2,
+        slug: "genesis",
+        name: "Genesis",
+        display_name: "Genesis",
+        rom_count: 0,
+      }),
+    ]);
+
+    expect(wrapper.findAll(".r-v2-plat-stats__row")).toHaveLength(0);
+    expect(wrapper.find(".r-v2-plat-stats__empty").exists()).toBe(true);
+  });
+
   // Re-sorting is a pure reorder of the same set. With a non-unique key, Vue
   // cannot match old rows to new ones and leaves stale DOM behind, so the row
   // count grows past the library size with every click. Each sort must simply
