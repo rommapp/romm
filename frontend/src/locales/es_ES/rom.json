@@ -451,6 +451,7 @@
   "verification": "Verificación",
   "verified-rom": "ROM verificada",
   "verified-rom-hint": "Hash verificado contra una base de datos de ROM",
+  "version": "Version",
   "versions-count": "{n} versiones",
   "volume-mute": "Silenciar",
   "volume-unmute": "Quitar silencio",

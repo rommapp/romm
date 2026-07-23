@@ -451,6 +451,7 @@
   "verification": "Ellenőrzés",
   "verified-rom": "Ellenőrzött ROM",
   "verified-rom-hint": "Hash verified against ROM database",
+  "version": "Version",
   "versions-count": "{n} verzió",
   "volume-mute": "Némítás",
   "volume-unmute": "Némítás feloldása",

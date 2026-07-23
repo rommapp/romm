@@ -451,6 +451,7 @@
   "verification": "検証",
   "verified-rom": "確認済みROM",
   "verified-rom-hint": "Hash verified against ROM database",
+  "version": "Version",
   "versions-count": "{n}件のバージョン",
   "volume-mute": "ミュート",
   "volume-unmute": "ミュート解除",

@@ -451,6 +451,7 @@
   "verification": "검증",
   "verified-rom": "검증된 ROM",
   "verified-rom-hint": "Hash verified against ROM database",
+  "version": "Version",
   "versions-count": "{n}개 버전",
   "volume-mute": "음소거",
   "volume-unmute": "음소거 해제",
