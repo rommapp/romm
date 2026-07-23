@@ -4,7 +4,8 @@
 // architecture so the user has the same mental model in both places:
 //
 //   • Account  — Profile, User interface
-//   • Library  — Library management, Metadata sources, Client API tokens
+//   • Library  — Library management, Scan settings, Metadata sources,
+//                Client API tokens
 //   • System   — Administration, Server stats
 //   • Tools    — Controller debug
 //   • Actions  — Scan, Upload (librarian actions, not settings)
@@ -72,6 +73,9 @@ const canSeeProfile = computed(
 const canScan = computed(() => scopes.value.includes("platforms.write"));
 const canUpload = computed(() => scopes.value.includes("roms.write"));
 const canSeeLibraryMgmt = computed(() =>
+  scopes.value.includes("platforms.write"),
+);
+const canSeeScanSettings = computed(() =>
   scopes.value.includes("platforms.write"),
 );
 const canSeeApiTokens = computed(() => scopes.value.includes("me.write"));
@@ -204,6 +208,13 @@ async function onLogout() {
         :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
         icon="mdi-table-cog"
         :label="t('common.library-management')"
+        @click="open = false"
+      />
+      <RMenuItem
+        v-if="canSeeScanSettings"
+        :to="{ name: ROUTES.SCAN_SETTINGS }"
+        icon="mdi-magnify-scan"
+        :label="t('settings.scan-settings')"
         @click="open = false"
       />
       <RMenuItem
