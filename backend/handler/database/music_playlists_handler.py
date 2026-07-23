@@ -131,15 +131,19 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
         entries: Sequence[TrackRef],
         session: Session = None,  # type: ignore
     ) -> int:
+        candidates = list(dict.fromkeys(entries))
+        if not candidates:
+            return 0
         existing = {
             (rom_id, md5)
             for rom_id, md5 in session.execute(
                 select(MusicPlaylistTrack.rom_id, MusicPlaylistTrack.md5_hash).where(
-                    MusicPlaylistTrack.playlist_id == playlist_id
+                    MusicPlaylistTrack.playlist_id == playlist_id,
+                    MusicPlaylistTrack.rom_id.in_({r for r, _ in candidates}),
                 )
             )
         }
-        new_entries = [e for e in dict.fromkeys(entries) if e not in existing]
+        new_entries = [e for e in candidates if e not in existing]
         if not new_entries:
             return 0
 
@@ -151,25 +155,24 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
             )
             or 0
         ) + 1
-        try:
-            with session.begin_nested():
-                session.execute(
-                    insert(MusicPlaylistTrack),
-                    [
-                        {
-                            "playlist_id": playlist_id,
-                            "rom_id": rom_id,
-                            "md5_hash": md5,
-                            "position": next_position + i,
-                        }
-                        for i, (rom_id, md5) in enumerate(new_entries)
-                    ],
-                )
-        except IntegrityError:
-            # Concurrent request inserted the same rows; data is consistent
-            return 0
-        self._touch(playlist_id, session)
-        return len(new_entries)
+        added = 0
+        for rom_id, md5 in new_entries:
+            try:
+                with session.begin_nested():
+                    session.execute(
+                        insert(MusicPlaylistTrack).values(
+                            playlist_id=playlist_id,
+                            rom_id=rom_id,
+                            md5_hash=md5,
+                            position=next_position + added,
+                        )
+                    )
+            except IntegrityError:
+                continue
+            added += 1
+        if added:
+            self._touch(playlist_id, session)
+        return added
 
     @begin_session
     def remove_tracks_from_playlist(
@@ -226,30 +229,34 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
         entries: Sequence[TrackRef],
         session: Session = None,  # type: ignore
     ) -> int:
+        candidates = list(dict.fromkeys(entries))
+        if not candidates:
+            return 0
         existing = {
             (rom_id, md5)
             for rom_id, md5 in session.execute(
                 select(MusicFavoriteTrack.rom_id, MusicFavoriteTrack.md5_hash).where(
-                    MusicFavoriteTrack.user_id == user_id
+                    MusicFavoriteTrack.user_id == user_id,
+                    MusicFavoriteTrack.rom_id.in_({r for r, _ in candidates}),
                 )
             )
         }
-        new_entries = [e for e in dict.fromkeys(entries) if e not in existing]
+        new_entries = [e for e in candidates if e not in existing]
         if not new_entries:
             return 0
-        try:
-            with session.begin_nested():
-                session.execute(
-                    insert(MusicFavoriteTrack),
-                    [
-                        {"user_id": user_id, "rom_id": rom_id, "md5_hash": md5}
-                        for rom_id, md5 in new_entries
-                    ],
-                )
-        except IntegrityError:
-            # Concurrent request inserted the same rows; data is consistent
-            return 0
-        return len(new_entries)
+        added = 0
+        for rom_id, md5 in new_entries:
+            try:
+                with session.begin_nested():
+                    session.execute(
+                        insert(MusicFavoriteTrack).values(
+                            user_id=user_id, rom_id=rom_id, md5_hash=md5
+                        )
+                    )
+            except IntegrityError:
+                continue
+            added += 1
+        return added
 
     @begin_session
     def remove_favorite_tracks(
