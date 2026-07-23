@@ -441,7 +441,6 @@ function closeDialog() {
   gap: 12px;
   background: color-mix(in srgb, var(--r-color-bg) 65%, transparent);
   backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   color: var(--r-color-fg);
   z-index: 1;
 }

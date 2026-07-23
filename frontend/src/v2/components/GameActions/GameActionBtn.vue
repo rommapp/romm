@@ -523,7 +523,6 @@ function onClick(e: MouseEvent) {
   font-family: inherit;
   font-weight: var(--r-font-weight-semibold);
   backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out),
@@ -610,7 +609,6 @@ function onClick(e: MouseEvent) {
   border-color: var(--r-color-border-strong);
   color: var(--r-color-fg-secondary);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 .r-v2-game-btn--surface:hover {
   background: var(--r-color-surface-hover);
@@ -626,7 +624,6 @@ function onClick(e: MouseEvent) {
   border-color: transparent;
   color: var(--r-color-fg-muted);
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 .r-v2-game-btn--bare:hover {
   background: var(--r-color-surface-hover);

@@ -306,7 +306,6 @@ const panelStyle = computed(() => {
   border: 1px solid var(--r-color-panel-border);
   border-radius: var(--r-radius-card);
   backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
   box-shadow:
     0 20px 60px color-mix(in srgb, black 70%, transparent),
     0 4px 20px color-mix(in srgb, black 40%, transparent);

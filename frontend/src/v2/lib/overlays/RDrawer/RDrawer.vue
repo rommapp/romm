@@ -248,7 +248,6 @@ const transitionName = computed(() =>
   inset: 0;
   background: color-mix(in srgb, var(--r-color-bg) 70%, transparent);
   backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   pointer-events: auto;
 }
 
@@ -264,7 +263,6 @@ const transitionName = computed(() =>
     0 24px 60px color-mix(in srgb, black 60%, transparent),
     0 4px 20px color-mix(in srgb, black 30%, transparent);
   backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
   color: var(--r-color-fg);
   font-family: var(--r-font-family-sans);
   pointer-events: auto;

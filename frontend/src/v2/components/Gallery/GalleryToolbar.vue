@@ -399,7 +399,6 @@ const { smAndUp } = useBreakpoint();
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-pill);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 
 /* Controls cluster — gets pushed right by its own margin. */

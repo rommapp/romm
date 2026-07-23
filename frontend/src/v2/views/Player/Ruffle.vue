@@ -339,7 +339,6 @@ onMounted(async () => {
   border: 1px solid var(--r-color-border) !important;
   border-radius: var(--r-radius-lg) !important;
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   display: flex !important;
   flex-direction: column;
   overflow: hidden;

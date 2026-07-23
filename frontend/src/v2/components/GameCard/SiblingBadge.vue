@@ -161,7 +161,6 @@ function stopCard(e: Event) {
   line-height: 1;
   cursor: pointer;
   backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
     border-color var(--r-motion-fast) var(--r-motion-ease-out),

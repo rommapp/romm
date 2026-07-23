@@ -263,7 +263,6 @@ html.r-v2-reduced-motion *::after {
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border-strong);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 
 .r-v2-scroll-hidden {

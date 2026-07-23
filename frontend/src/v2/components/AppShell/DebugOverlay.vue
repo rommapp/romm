@@ -211,7 +211,6 @@ onMounted(() => {
   background: var(--r-color-panel);
   border: 1px solid var(--r-color-panel-border);
   backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   font-family: var(--r-font-family-mono);
   font-size: var(--r-font-size-xs);
   line-height: 1.35;

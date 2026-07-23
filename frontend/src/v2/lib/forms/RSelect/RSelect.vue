@@ -102,12 +102,7 @@ interface Props {
   searchPlaceholder?: string;
   /** Where to place the menu relative to the activator. */
   menuLocation?:
-    | "bottom"
-    | "top"
-    | "bottom start"
-    | "bottom end"
-    | "top start"
-    | "top end";
+    "bottom" | "top" | "bottom start" | "bottom end" | "top start" | "top end";
   /** Px gap between activator and menu. */
   menuOffset?: number;
   /** Hard cap on visible chips (defaults to ∞). Overflow is otherwise
@@ -1616,7 +1611,6 @@ html[data-input="pad"] .r-select__field:focus {
     0 12px 32px color-mix(in srgb, black 38%, transparent),
     0 2px 4px color-mix(in srgb, black 22%, transparent);
   backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
   color: var(--r-color-fg);
   font-family: var(--r-font-family-sans);
 }
@@ -1628,7 +1622,6 @@ html[data-input="pad"] .r-select__field:focus {
   padding: 6px;
   background: var(--r-color-panel);
   backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
   border-bottom: 1px solid var(--r-color-border);
 }
 
