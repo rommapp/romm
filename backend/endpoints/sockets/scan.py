@@ -297,6 +297,7 @@ async def _identify_rom(
 
     calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
     extract_title_ids = not cm.get_config().SKIP_TITLE_ID_EXTRACTION
+    embed_title_ids = cm.get_config().EMBED_SWITCH_TITLE_IDS
 
     # Switch title id extraction needs the console's prod.keys to decrypt
     # XCI/NSP headers; resolve it from the scanned firmware when present.
@@ -325,6 +326,7 @@ async def _identify_rom(
             calculate_hashes=calculate_hashes,
             extract_title_ids=extract_title_ids,
             prod_keys_path=prod_keys_path,
+            embed_title_ids=embed_title_ids,
         )
         fs_rom.update(
             {
@@ -338,6 +340,11 @@ async def _identify_rom(
                 "save_usage": parsed_rom_files.save_usage,
             }
         )
+        # A single-file rom renamed on disk to embed its title id must carry the
+        # new name into both the new-entry insert and any hash reassociation.
+        if parsed_rom_files.renamed_rom_fs_name:
+            rom_attrs["fs_name"] = parsed_rom_files.renamed_rom_fs_name
+            fs_rom["fs_name"] = parsed_rom_files.renamed_rom_fs_name
         files_built = True
 
         missing_match = db_rom_handler.get_matching_missing_rom(
@@ -395,6 +402,7 @@ async def _identify_rom(
             calculate_hashes=calculate_hashes,
             extract_title_ids=extract_title_ids,
             prod_keys_path=prod_keys_path,
+            embed_title_ids=embed_title_ids,
         )
         fs_rom.update(
             {
@@ -408,6 +416,11 @@ async def _identify_rom(
                 "save_usage": parsed_rom_files.save_usage,
             }
         )
+        # scan_rom persists Rom.fs_name from fs_rom["fs_name"]; keep the rom
+        # object in sync so its in-memory identity matches the renamed file.
+        if parsed_rom_files.renamed_rom_fs_name:
+            fs_rom["fs_name"] = parsed_rom_files.renamed_rom_fs_name
+            rom.fs_name = parsed_rom_files.renamed_rom_fs_name
 
     # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
     # stale files (e.g. a cover from the wrong region) can't be reused. The

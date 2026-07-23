@@ -553,6 +553,98 @@ class TestIdentifyRomReassociation:
         assert created.fs_name == "New Name.zip"
 
 
+class TestIdentifyRomTitleIdEmbedRename:
+    """`_identify_rom` reconciles Rom.fs_name when a single-file Switch rom is
+    renamed on disk to embed its title id."""
+
+    NEW_NAME = "Game [0100ABCD12340000][v0].nsp"
+
+    @pytest.fixture
+    def patched(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        fs = scan_module.fs_rom_handler
+        mocker.patch.object(
+            fs,
+            "parse_tags",
+            return_value=ParsedTags(
+                version="", revision="", regions=[], languages=[], other_tags=[]
+            ),
+        )
+        mocker.patch.object(fs, "get_roms_fs_structure", return_value="switch/roms")
+        mocker.patch.object(fs, "get_file_name_with_no_tags", return_value="Game")
+        mocker.patch.object(
+            fs,
+            "get_rom_files",
+            AsyncMock(
+                return_value=ParsedRomFiles(
+                    rom_files=[],
+                    crc_hash="crc",
+                    md5_hash="md5",
+                    sha1_hash="sha1",
+                    ra_hash="",
+                    title_id="0100ABCD12340000",
+                    renamed_rom_fs_name=self.NEW_NAME,
+                )
+            ),
+        )
+
+        config = MagicMock()
+        config.SKIP_HASH_CALCULATION = False
+        config.SKIP_TITLE_ID_EXTRACTION = False
+        config.EMBED_SWITCH_TITLE_IDS = True
+        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+        mocker.patch.object(
+            scan_module,
+            "scan_rom",
+            AsyncMock(return_value=MagicMock(is_identified=False)),
+        )
+
+        db = mocker.patch.object(scan_module, "db_rom_handler")
+        db.add_rom.return_value = MagicMock(is_identified=False, id=99)
+        db.get_matching_missing_rom.return_value = None
+        return db
+
+    def _platform(self):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        platform.id = 1
+        return platform
+
+    async def test_new_entry_carries_embedded_name(self, patched):
+        db = patched
+        fs_rom: FSRom = {
+            "fs_name": "Game.nsp",
+            "flat": True,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        await _identify_rom(
+            platform=self._platform(),
+            fs_rom=fs_rom,
+            rom=None,
+            scan_type=ScanType.HASHES,
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
+
+        # The initial insert carries the renamed on-disk name, and the shared
+        # fs_rom dict is updated so scan_rom persists the same name.
+        created = db.add_rom.call_args_list[0].args[0]
+        assert created.fs_name == self.NEW_NAME
+        assert fs_rom["fs_name"] == self.NEW_NAME
+
+
 class TestIdentifyPlatformMarksMissingBeforeScan:
     """`_identify_platform` must flag missing entries before identifying files.
 

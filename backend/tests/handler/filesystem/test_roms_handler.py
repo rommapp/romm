@@ -18,6 +18,7 @@ from handler.filesystem.base_handler import (
 from handler.filesystem.roms_handler import (
     FileHash,
     FSRomsHandler,
+    _embed_switch_title_id_in_name,
 )
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, SaveUsage
@@ -1622,6 +1623,310 @@ class TestSigilTitleIdExtraction:
 
         mock_extract.assert_not_awaited()
         assert parsed.title_id is None
+
+
+class TestEmbedSwitchTitleIdInName:
+    """The pure rename helper that embeds a Switch title id into a filename."""
+
+    def test_embeds_id_and_version(self, tmp_path: Path):
+        src = tmp_path / "Moonlighter.xci"
+        src.write_bytes(b"rom")
+
+        new_path = _embed_switch_title_id_in_name(src, "0100f4700b2e0000", 3)
+
+        assert new_path is not None
+        assert new_path.name == "Moonlighter [0100F4700B2E0000][v3].xci"
+        assert new_path.exists()
+        assert not src.exists()
+
+    def test_version_none_defaults_to_zero(self, tmp_path: Path):
+        src = tmp_path / "Game.nsp"
+        src.write_bytes(b"rom")
+
+        new_path = _embed_switch_title_id_in_name(src, "0100ABCD12340000", None)
+
+        assert new_path is not None
+        assert new_path.name == "Game [0100ABCD12340000][v0].nsp"
+
+    def test_preserves_existing_tags(self, tmp_path: Path):
+        src = tmp_path / "Game (USA) (Rev 1).xci"
+        src.write_bytes(b"rom")
+
+        new_path = _embed_switch_title_id_in_name(src, "0100ABCD12340000", 0)
+
+        assert new_path is not None
+        assert new_path.name == "Game (USA) (Rev 1) [0100ABCD12340000][v0].xci"
+
+    def test_idempotent_when_bracket_already_present(self, tmp_path: Path):
+        src = tmp_path / "Game [0100ABCD12340000][v0].nsp"
+        src.write_bytes(b"rom")
+
+        assert _embed_switch_title_id_in_name(src, "0100ABCD12340000", 0) is None
+        assert src.exists()
+
+    def test_invalid_title_id_skips(self, tmp_path: Path):
+        src = tmp_path / "Game.nsp"
+        src.write_bytes(b"rom")
+
+        assert _embed_switch_title_id_in_name(src, "NOT-A-TITLE-ID", 0) is None
+        assert src.exists()
+
+    def test_collision_skips_and_leaves_original(self, tmp_path: Path):
+        src = tmp_path / "Game.nsp"
+        src.write_bytes(b"original")
+        target = tmp_path / "Game [0100ABCD12340000][v0].nsp"
+        target.write_bytes(b"existing")
+
+        assert _embed_switch_title_id_in_name(src, "0100ABCD12340000", 0) is None
+        assert src.read_bytes() == b"original"
+        assert target.read_bytes() == b"existing"
+
+
+class TestSwitchTitleIdEmbedding:
+    """Config-gated on-disk renaming of Switch files during get_rom_files."""
+
+    SIGIL_PATCH_TARGET = "adapters.services.sigil.SigilService.extract_title_id"
+
+    @pytest.fixture
+    def config(self):
+        cnfg = Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=[],
+            EXCLUDED_MULTI_PARTS_EXT=[],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            ROMS_FOLDER_NAME="roms",
+            FIRMWARE_FOLDER_NAME="bios",
+        )
+        cnfg.has_structure_path_b = True
+        return cnfg
+
+    def _make_handler(self, tmp_path: Path) -> FSRomsHandler:
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    def _make_single_file_rom(
+        self, tmp_path: Path, platform: Platform, fs_name: str
+    ) -> Rom:
+        roms_path = tmp_path / platform.fs_slug / "roms"
+        roms_path.mkdir(parents=True, exist_ok=True)
+        (roms_path / fs_name).write_bytes(b"rom-bytes")
+        return Rom(
+            id=1,
+            fs_name=fs_name,
+            fs_path=f"{platform.fs_slug}/roms",
+            platform=platform,
+        )
+
+    def _make_multi_part_rom(
+        self, tmp_path: Path, platform: Platform, fs_name: str, file_names: list[str]
+    ) -> Rom:
+        rom_dir = tmp_path / platform.fs_slug / "roms" / fs_name
+        rom_dir.mkdir(parents=True, exist_ok=True)
+        for file_name in file_names:
+            file_path = rom_dir / file_name
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_bytes(b"rom-bytes")
+        return Rom(
+            id=1,
+            fs_name=fs_name,
+            fs_extension="",
+            fs_path=f"{platform.fs_slug}/roms",
+            platform=platform,
+        )
+
+    @pytest.mark.asyncio
+    async def test_flag_off_leaves_file_unchanged(self, tmp_path: Path, config: Config):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_single_file_rom(tmp_path, platform, "Game.nsp")
+
+        extraction = SigilExtractionResult(
+            title_id="0100ABCD12340000",
+            save_id="0100ABCD12340000",
+            usage="folder-exact",
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
+                parsed = await handler.get_rom_files(rom, embed_title_ids=False)
+
+        assert parsed.rom_files[0].file_name == "Game.nsp"
+        assert parsed.renamed_rom_fs_name is None
+        assert (tmp_path / "switch/roms/Game.nsp").exists()
+
+    @pytest.mark.asyncio
+    async def test_single_file_renamed_and_reconciled(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_single_file_rom(tmp_path, platform, "Moonlighter.xci")
+
+        extraction = SigilExtractionResult(
+            title_id="0100F4700B2E0000",
+            save_id="0100F4700B2E0000",
+            usage="folder-exact",
+            version=0,
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
+                parsed = await handler.get_rom_files(rom, embed_title_ids=True)
+
+        new_name = "Moonlighter [0100F4700B2E0000][v0].xci"
+        assert parsed.rom_files[0].file_name == new_name
+        assert parsed.rom_files[0].file_path == "switch/roms"
+        assert parsed.renamed_rom_fs_name == new_name
+        assert (tmp_path / "switch/roms" / new_name).exists()
+        assert not (tmp_path / "switch/roms/Moonlighter.xci").exists()
+
+    @pytest.mark.asyncio
+    async def test_already_embedded_file_skipped(self, tmp_path: Path, config: Config):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        fs_name = "Game [0100ABCD12340000][v0].nsp"
+        rom = self._make_single_file_rom(tmp_path, platform, fs_name)
+
+        extraction = SigilExtractionResult(
+            title_id="0100ABCD12340000",
+            save_id="0100ABCD12340000",
+            usage="folder-exact",
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
+                parsed = await handler.get_rom_files(rom, embed_title_ids=True)
+
+        assert parsed.rom_files[0].file_name == fs_name
+        assert parsed.renamed_rom_fs_name is None
+        assert (tmp_path / "switch/roms" / fs_name).exists()
+
+    @pytest.mark.asyncio
+    async def test_non_switch_platform_never_renamed(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="PlayStation Portable", slug="psp", fs_slug="psp")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_single_file_rom(tmp_path, platform, "Game.iso")
+
+        extraction = SigilExtractionResult(
+            title_id="0100ABCD12340000",
+            save_id="0100ABCD12340000",
+            usage="folder-exact",
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
+                parsed = await handler.get_rom_files(rom, embed_title_ids=True)
+
+        assert parsed.rom_files[0].file_name == "Game.iso"
+        assert parsed.renamed_rom_fs_name is None
+        assert (tmp_path / "psp/roms/Game.iso").exists()
+
+    @pytest.mark.asyncio
+    async def test_collision_target_exists_skips(self, tmp_path: Path, config: Config):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_single_file_rom(tmp_path, platform, "Game.nsp")
+        target = tmp_path / "switch/roms/Game [0100ABCD12340000][v0].nsp"
+        target.write_bytes(b"existing")
+
+        extraction = SigilExtractionResult(
+            title_id="0100ABCD12340000",
+            save_id="0100ABCD12340000",
+            usage="folder-exact",
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
+                parsed = await handler.get_rom_files(rom, embed_title_ids=True)
+
+        assert parsed.rom_files[0].file_name == "Game.nsp"
+        assert parsed.renamed_rom_fs_name is None
+        assert (tmp_path / "switch/roms/Game.nsp").read_bytes() == b"rom-bytes"
+        assert target.read_bytes() == b"existing"
+
+    @pytest.mark.asyncio
+    async def test_no_title_id_not_renamed(self, tmp_path: Path, config: Config):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_single_file_rom(tmp_path, platform, "Game.nsp")
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, AsyncMock(return_value=None)):
+                parsed = await handler.get_rom_files(rom, embed_title_ids=True)
+
+        assert parsed.rom_files[0].file_name == "Game.nsp"
+        assert parsed.renamed_rom_fs_name is None
+        assert (tmp_path / "switch/roms/Game.nsp").exists()
+
+    @pytest.mark.asyncio
+    async def test_multi_part_nested_files_renamed(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_multi_part_rom(
+            tmp_path,
+            platform,
+            "Zelda",
+            ["Zelda base.nsp", "updates/Zelda update.nsp", "dlc/Zelda dlc.nsp"],
+        )
+
+        async def fake_extract(
+            platform_slug: str, file_path: str, prod_keys_path: str | None = None
+        ) -> SigilExtractionResult:
+            if "update" in file_path:
+                return SigilExtractionResult(
+                    title_id="0100ABCD12340800",
+                    save_id="0100ABCD12340800",
+                    usage="folder-exact",
+                    content_type="patch",
+                    version=196608,
+                )
+            if "dlc" in file_path:
+                return SigilExtractionResult(
+                    title_id="0100ABCD12341001",
+                    save_id="0100ABCD12341001",
+                    usage="folder-exact",
+                    content_type="addon",
+                    version=0,
+                )
+            return SigilExtractionResult(
+                title_id="0100ABCD12340000",
+                save_id="0100ABCD12340000",
+                usage="folder-exact",
+                content_type="application",
+                version=0,
+            )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, AsyncMock(side_effect=fake_extract)):
+                parsed = await handler.get_rom_files(rom, embed_title_ids=True)
+
+        names = {rf.file_name for rf in parsed.rom_files}
+        assert "Zelda base [0100ABCD12340000][v0].nsp" in names
+        assert "Zelda update [0100ABCD12340800][v196608].nsp" in names
+        assert "Zelda dlc [0100ABCD12341001][v0].nsp" in names
+        # A multi-part rom's folder name is not changed by inner-file renames.
+        assert parsed.renamed_rom_fs_name is None
+        rom_dir = tmp_path / "switch/roms/Zelda"
+        assert (rom_dir / "Zelda base [0100ABCD12340000][v0].nsp").exists()
+        assert (
+            rom_dir / "updates/Zelda update [0100ABCD12340800][v196608].nsp"
+        ).exists()
 
 
 class TestExtractCHDHash:
