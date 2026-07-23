@@ -22,17 +22,21 @@ from exceptions.endpoint_exceptions import (
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.database import db_music_playlist_handler, db_rom_handler
-from models.music import MusicPlaylist
+from models.music import (
+    PLAYLIST_DESCRIPTION_MAX_LENGTH,
+    PLAYLIST_NAME_MAX_LENGTH,
+    MusicPlaylist,
+)
 from utils.router import APIRouter
 
 router = APIRouter(prefix="/music/playlists", tags=["music"])
 
-PLAYLIST_NAME_MAX_LENGTH = 400
-
 
 class MusicPlaylistCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=PLAYLIST_NAME_MAX_LENGTH)
-    description: str | None = None
+    description: str | None = Field(
+        default=None, max_length=PLAYLIST_DESCRIPTION_MAX_LENGTH
+    )
     is_public: bool = False
 
 
@@ -40,7 +44,9 @@ class MusicPlaylistUpdateRequest(BaseModel):
     name: str | None = Field(
         default=None, min_length=1, max_length=PLAYLIST_NAME_MAX_LENGTH
     )
-    description: str | None = None
+    description: str | None = Field(
+        default=None, max_length=PLAYLIST_DESCRIPTION_MAX_LENGTH
+    )
     is_public: bool | None = None
 
 

@@ -11,6 +11,11 @@ if TYPE_CHECKING:
     from models.user import User
 
 
+# Bounds for the user-authored fields
+PLAYLIST_NAME_MAX_LENGTH = 400
+PLAYLIST_DESCRIPTION_MAX_LENGTH = 65535  # TEXT
+
+
 class MusicPlaylist(BaseModel):
     __tablename__ = "music_playlists"
 
@@ -20,7 +25,7 @@ class MusicPlaylist(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    name: Mapped[str] = mapped_column(String(length=400))
+    name: Mapped[str] = mapped_column(String(length=PLAYLIST_NAME_MAX_LENGTH))
     description: Mapped[str | None] = mapped_column(Text)
     is_public: Mapped[bool] = mapped_column(default=False)
 
