@@ -190,6 +190,51 @@ window.EJS_disableAutoUnload = EJS_DISABLE_AUTO_UNLOAD;
 window.EJS_disableBatchBootup = EJS_DISABLE_BATCH_BOOTUP;
 if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
 
+// EmulatorJS' preGetSetting short-circuits to the saved-settings object once
+// ANY setting or control was changed, returning undefined for every key the
+// user never touched and silently dropping the config.yaml defaults passed
+// via EJS_defaultOptions. Patch the instance so unsaved keys still fall back
+// to the defaults, and recompute the values the constructor captured before
+// the patch could take effect.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function installDefaultOptionsFallback(emulator: any) {
+  if (emulator.__rommSettingsPatched) return;
+  emulator.__rommSettingsPatched = true;
+
+  const originalPreGetSetting = emulator.preGetSetting.bind(emulator);
+  emulator.preGetSetting = (setting: string) => {
+    const value = originalPreGetSetting(setting);
+    if (value !== undefined && value !== null) return value;
+    const defaults = emulator.config?.defaultOptions ?? {};
+    return defaults[setting] !== undefined ? defaults[setting] : null;
+  };
+
+  emulator.rewindEnabled =
+    emulator.preGetSetting("rewindEnabled") === "enabled";
+  if (![0, 1, 2, 3].includes(emulator.config?.videoRotation)) {
+    emulator.videoRotation = emulator.preGetSetting("videoRotation") || 0;
+  }
+  const webgl2Setting = emulator.preGetSetting("webgl2Enabled");
+  if (webgl2Setting === "disabled" || !emulator.supportsWebgl2) {
+    emulator.webgl2Enabled = false;
+  } else if (webgl2Setting === "enabled") {
+    emulator.webgl2Enabled = true;
+  } else {
+    emulator.webgl2Enabled = null;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let ejsEmulatorInstance: any;
+Object.defineProperty(window, "EJS_emulator", {
+  configurable: true,
+  get: () => ejsEmulatorInstance,
+  set: (value) => {
+    ejsEmulatorInstance = value;
+    if (value) installDefaultOptionsFallback(value);
+  },
+});
+
 onMounted(() => {
   window.scrollTo(0, 0);
   if (props.bios) {
