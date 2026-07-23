@@ -632,6 +632,10 @@ async def _identify_platform(
     else:
         log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
 
+    # Snapshot the missing entries before the sync below clears the flag for any
+    # whose file is back, so the skip path can still tell the client about them.
+    previously_missing_rom_ids = db_rom_handler.get_missing_rom_ids(platform.id)
+
     # Flag entries whose file is gone before identifying files, so a renamed or
     # moved ROM (a new file with no fs_name match) can be reassociated by hash
     # with its now-missing entry instead of spawning a duplicate. The end-of-scan
@@ -665,6 +669,7 @@ async def _identify_platform(
 
         # Separate skipped ROMs from those that need scanning
         skipped_rom_ids: list[int] = []
+        restored_roms: list[Rom] = []
         roms_to_scan: list[tuple[FSRom, Rom | None]] = []
 
         for fs_rom in fs_roms_batch:
@@ -678,6 +683,8 @@ async def _identify_platform(
                 roms_to_scan.append((fs_rom, rom))
             elif rom:
                 skipped_rom_ids.append(rom.id)
+                if rom.id in previously_missing_rom_ids:
+                    restored_roms.append(rom)
 
         # Bulk update all skipped ROMs in one query instead of per-ROM updates
         if skipped_rom_ids:
@@ -685,6 +692,32 @@ async def _identify_platform(
             await scan_stats.increment(
                 socket_manager=socket_manager,
                 scanned_roms=len(skipped_rom_ids),
+            )
+
+        # Skipped ROMs emit nothing, so a ROM whose file came back would keep its
+        # stale "missing" badge in an open gallery until a refetch. Reload with
+        # details since the scan-loop lookup only eager-loads the platform.
+        for restored_rom in restored_roms:
+            log.info(
+                f"{hl(restored_rom.fs_name)} is back in the filesystem, "
+                f"no longer {hl('missing', color=LIGHTYELLOW)}"
+            )
+            hydrated_rom = db_rom_handler.get_rom(restored_rom.id)
+            if hydrated_rom is None:
+                continue
+
+            await socket_manager.emit(
+                "scan:scanning_rom",
+                SimpleRomSchema.from_orm_with_factory(hydrated_rom).model_dump(
+                    exclude={
+                        "created_at",
+                        "updated_at",
+                        "rom_user",
+                        "last_modified",
+                        "files",
+                        "sibling_roms",
+                    }
+                ),
             )
 
         # Process only ROMs that actually need scanning

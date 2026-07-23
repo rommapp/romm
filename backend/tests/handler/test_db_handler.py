@@ -459,6 +459,31 @@ def test_custom_name_sort_key_overrides_name_sort_order(platform: Platform):
     assert [r.name for r in roms] == ["Display Z", "Display M", "Display A"]
 
 
+def test_get_missing_rom_ids(platform: Platform):
+    """get_missing_rom_ids returns only the platform's flagged ROMs."""
+    roms = []
+    for i in range(4):
+        rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name=f"missing_rom_{i}",
+                slug=f"missing-rom-{i}",
+                fs_name=f"missing_rom_{i}.zip",
+                fs_name_no_tags=f"missing_rom_{i}",
+                fs_name_no_ext=f"missing_rom_{i}",
+                fs_extension="zip",
+                fs_path=f"{platform.slug}/roms",
+                missing_from_fs=i < 2,
+            )
+        )
+        roms.append(rom)
+
+    assert db_rom_handler.get_missing_rom_ids(platform.id) == {
+        roms[0].id,
+        roms[1].id,
+    }
+
+
 def test_bulk_mark_present(platform: Platform):
     """bulk_mark_present sets missing_from_fs=False for the given ROM IDs."""
     roms = []
