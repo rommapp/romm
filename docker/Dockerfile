@@ -3,6 +3,7 @@
 #   - backend-build: Build backend environment
 #   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
 #   - rahasher-build: Build RAHasher
+#   - sigil-build: Build sigil Python bindings (title ID extraction)
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
@@ -102,6 +103,32 @@ RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://git
         ./src/libchdr/deps/zlib-1.3.1/gzread.c \
         ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
     make HAVE_CHD=1 -f ./Makefile.RAHasher
+
+
+# SIGIL TITLE ID EXTRACTION LIBRARY
+# Built from python-alias (not plain alpine) so the cffi extension matches the
+# CPython ABI of the venv produced in backend-build.
+FROM python-alias AS sigil-build
+RUN apk add --no-cache \
+    cmake \
+    g++ \
+    git \
+    make \
+    musl-dev
+
+ARG SIGIL_VERSION=44863fe614fd1c47e00c4bc28271e7a0d0e83a59
+
+RUN git clone --recurse-submodules https://github.com/rommforge/argosy-sigil.git && \
+    cd ./argosy-sigil && \
+    git checkout "${SIGIL_VERSION}" && \
+    git submodule update --init --recursive && \
+    cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF && \
+    cmake --build ./build-python --target sigil && \
+    pip install --no-cache-dir cffi setuptools && \
+    cd ./bindings/python && \
+    python build_sigil.py && \
+    mkdir /sigil-pkg && \
+    cp ./sigil/*.py ./sigil/_sigil.*.so /sigil-pkg/
 
 
 # FETCH EMULATORJS AND RUFFLE
@@ -221,6 +248,11 @@ FROM scratch AS slim-image
 COPY --from=production-stage / /
 
 COPY --from=backend-build /src/.venv /src/.venv
+
+# Optional sigil bindings for title ID extraction; the backend feature
+# no-ops when the package is absent.
+ARG PYTHON_VERSION
+COPY --from=sigil-build /sigil-pkg /src/.venv/lib/python${PYTHON_VERSION}/site-packages/sigil
 
 ENV PATH="/src/.venv/bin:${PATH}"
 

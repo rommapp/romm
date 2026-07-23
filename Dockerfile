@@ -10,6 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     make \
+    cmake \
     gcc \
     g++ \
     libmariadb3 \
@@ -75,6 +76,24 @@ COPY pyproject.toml uv.lock* .python-version /app/
 RUN uv sync --all-extras
 
 ENV PATH="/app/.venv/bin:${PATH}"
+
+# Build and install sigil (optional, for title ID extraction)
+# Placed after `uv sync` because the extension is compiled with the venv's
+# Python so the ABI matches.
+ARG SIGIL_VERSION=44863fe614fd1c47e00c4bc28271e7a0d0e83a59
+RUN git clone --recurse-submodules https://github.com/rommforge/argosy-sigil.git /tmp/argosy-sigil
+WORKDIR /tmp/argosy-sigil
+RUN git checkout "${SIGIL_VERSION}" \
+    && git submodule update --init --recursive \
+    && cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF \
+    && cmake --build ./build-python --target sigil
+WORKDIR /tmp/argosy-sigil/bindings/python
+RUN uv pip install --python /app/.venv/bin/python cffi setuptools \
+    && /app/.venv/bin/python build_sigil.py \
+    && mkdir -p /app/.venv/lib/python3.13/site-packages/sigil \
+    && cp ./sigil/*.py ./sigil/_sigil.*.so /app/.venv/lib/python3.13/site-packages/sigil/
+WORKDIR /app
+RUN rm -rf /tmp/argosy-sigil
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
