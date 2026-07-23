@@ -104,6 +104,14 @@ const BUTTON_MAP: Record<number, Binding | undefined> = {
   15: { key: "ArrowRight", code: "ArrowRight" },
 };
 
+// Guards the polling loop against phantom gamepads.
+// Firefox keeps disconnected entries in the getGamepads() array,
+// and their stale analog values drift across the press threshold,
+// firing index-based actions with no user input. #3851.
+function isUsablePad(pad: Gamepad | null): pad is Gamepad {
+  return pad !== null && pad.connected;
+}
+
 function dispatchKey(binding: Binding) {
   const target =
     (document.activeElement as HTMLElement | null) ?? document.body;
@@ -229,7 +237,7 @@ export function useGamepad() {
     // or first button press takes over.
     function detectPadPresence() {
       const list = navigator.getGamepads?.() ?? [];
-      const hasPad = Array.from(list).some((p) => p !== null);
+      const hasPad = Array.from(list).some((p) => isUsablePad(p));
       if (hasPad && !everSawPad) {
         everSawPad = true;
         setModality("pad");
@@ -257,7 +265,8 @@ export function useGamepad() {
       const actionsDisabled = ACTIONS_DISABLED_PATHS.has(route.path);
 
       for (const pad of pads) {
-        if (!pad) continue;
+        // Skip disconnected phantom gamepads.
+        if (!isUsablePad(pad)) continue;
         const key = `${pad.index}:${pad.id}`;
         const st = (states[key] ||= {
           buttons: {},

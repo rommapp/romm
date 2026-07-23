@@ -416,6 +416,7 @@ onBeforeUnmount(() => {
           v-model="selectedExpiry"
           :items="expiryOptions"
           :label="t('settings.client-token-select-expiry')"
+          prefix-label="stacked"
           variant="outlined"
           density="comfortable"
           hide-details

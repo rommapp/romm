@@ -19,6 +19,7 @@
   "firmware-found": "Firmware nalezen: {n} soubor | Firmware nalezen: {n} soubory",
   "firmware-scanned-n": "Firmware: {n} naskenováno",
   "firmware-scanned-with-details": "Firmware: naskenováno {n_scanned_firmware}, z toho {n_new_firmware} nových",
+  "folder-not-scanned": "Neskenováno",
   "hash-calculation-disabled": "Výpočet hash je zakázán",
   "hash-matchers": "Párovače hashů",
   "hashes": "Přepočítat hashe",

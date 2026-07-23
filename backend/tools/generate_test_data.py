@@ -60,6 +60,7 @@ from models.play_session import PlaySession  # noqa: E402
 # NOTE: `roms_metadata` and `sibling_roms` are DB VIEWS, not tables: the
 # aggregated metadata and sibling links are derived from each rom's provider
 # columns, so we populate those columns instead of inserting into the views.
+# `roms_facets` is a real table, but triggers on `roms` fill it in.
 from models.rom import (  # noqa: E402
     Rom,
     RomFile,

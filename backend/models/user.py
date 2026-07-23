@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from models.client_token import ClientToken
     from models.collection import Collection, SmartCollection
     from models.device import Device
+    from models.music import MusicPlaylist
     from models.play_session import PlaySession
     from models.rom import RomNote, RomUser
 
@@ -100,6 +101,9 @@ class User(BaseModel, SimpleUser):
         lazy="raise", back_populates="user"
     )
     smart_collections: Mapped[list["SmartCollection"]] = relationship(
+        lazy="raise", back_populates="user"
+    )
+    music_playlists: Mapped[list["MusicPlaylist"]] = relationship(
         lazy="raise", back_populates="user"
     )
     devices: Mapped[list["Device"]] = relationship(

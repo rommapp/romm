@@ -89,12 +89,27 @@ function clearRetry(offset: number) {
   retryCounts.delete(offset);
 }
 
+// Ceiling on concurrently in-flight window fetches. Windowing already
+// collapses the old per-card request storm ~72x, but two or more users
+// fast-scrolling a large library can still line up several windows at once
+// against a backend that defaults to a single worker. This bounds how many
+// hit the server simultaneously per client; windows over the ceiling wait in
+// `queuedWindows` (FIFO) and drain as slots free up. Cleared by
+// `abortAllInFlight` on any gallery-context switch.
+const MAX_CONCURRENT_WINDOWS = 4;
+const queuedWindows: number[] = [];
+
+function clearQueue() {
+  queuedWindows.length = 0;
+}
+
 function abortAllInFlight() {
   for (const ctrl of inFlightControllers.values()) ctrl.abort();
   inFlightControllers.clear();
   for (const timer of retryTimers.values()) clearTimeout(timer);
   retryTimers.clear();
   retryCounts.clear();
+  clearQueue();
 }
 
 // Abort a single in-flight window fetch. The rejected request is caught
@@ -329,6 +344,7 @@ export default defineStore("v2GalleryRoms", {
         filterRA: galleryFilter.filterRA,
         filterSaves: galleryFilter.filterSaves,
         filterStates: galleryFilter.filterStates,
+        filterSoundtrack: galleryFilter.filterSoundtrack,
         filterMissing: galleryFilter.filterMissing,
         filterVerified: galleryFilter.filterVerified,
         selectedGenres: galleryFilter.selectedGenres,
@@ -449,6 +465,17 @@ export default defineStore("v2GalleryRoms", {
       if (this.loadedWindows.has(offset)) return;
       if (this.pendingWindows.has(offset)) return;
 
+      // Concurrency cap: if every slot is busy, park this window and let a
+      // settling fetch drain it (see `MAX_CONCURRENT_WINDOWS`). Offset 0 is
+      // the initial window and is never queued (nothing is in flight yet).
+      if (offset !== 0 && this.pendingWindows.size >= MAX_CONCURRENT_WINDOWS) {
+        if (!queuedWindows.includes(offset)) queuedWindows.push(offset);
+        return;
+      }
+      // Starting now — drop any queue entry so the drain loop won't re-run it.
+      const queuedAt = queuedWindows.indexOf(offset);
+      if (queuedAt !== -1) queuedWindows.splice(queuedAt, 1);
+
       this.pendingWindows.add(offset);
       this.failedWindows.delete(offset);
       if (offset === 0 && !this.metadataLoaded) this.initialFetching = true;
@@ -460,21 +487,41 @@ export default defineStore("v2GalleryRoms", {
       const controller = new AbortController();
       inFlightControllers.set(ctrlKey, controller);
 
+      // Skip the char-index / filter-value / id-index aggregations when the
+      // bootstrap already loaded them. Capture the decision now: it also gates
+      // whether this response is allowed to re-apply that metadata below. The
+      // backend returns an EMPTY (but truthy) `char_index: {}` / `filter_values`
+      // object when these are skipped, so re-applying it would wipe the
+      // populated values and blank the AlphaStrip / filter drawer. The id
+      // index is a full-library scan we already paid for in the bootstrap, so
+      // window fetches opt out of recomputing it.
+      const withAggregations = !this.metadataLoaded;
+
       try {
         const response = await romApi.getRoms({
           ...params,
-          // Skip char index / filter-value aggregations when initial data is loaded
-          ...(this.metadataLoaded
-            ? { withCharIndex: false, withFilterValues: false }
-            : {}),
+          ...(withAggregations
+            ? {}
+            : {
+                withCharIndex: false,
+                withFilterValues: false,
+                withRomIdIndex: false,
+              }),
           signal: controller.signal,
         });
-        // Re-check that this window is still relevant — invalidateWindows
-        // / resetGallery may have run while we were waiting.
-        if (!this.pendingWindows.has(offset)) return;
+        // Re-check identity: invalidateWindows / resetGallery / a context
+        // switch may have run while we were waiting, and a fresh fetch may
+        // already own this offset. Compare the controller rather than
+        // `pendingWindows` membership (which a replacement fetch re-adds)
+        // so we never apply stale data over the new context.
+        if (inFlightControllers.get(ctrlKey) !== controller) return;
 
         const data = response.data;
-        if (offset === 0) {
+        // Only apply the full metadata when this window actually fetched the
+        // aggregations (the very first window before the bootstrap resolved).
+        // Otherwise char_index / filter_values come back empty and would
+        // clobber what the bootstrap populated, so just refresh `total`.
+        if (offset === 0 && withAggregations) {
           this._applyMetadata(data, galleryFilter, platformsStore);
         } else if (data.total !== null && data.total !== undefined) {
           this.total = data.total;
@@ -495,9 +542,18 @@ export default defineStore("v2GalleryRoms", {
         // main thread long enough that AlphaStrip clicks queued during
         // the flush miss their frame. `applyItemsBatched` pauses every
         // row (8 items) so input dispatches between paints.
-        await applyItemsBatched(this.byPosition, data.items, offset, () =>
-          this.pendingWindows.has(offset),
+        await applyItemsBatched(
+          this.byPosition,
+          data.items,
+          offset,
+          () => inFlightControllers.get(ctrlKey) === controller,
         );
+
+        // A context switch during the frame-yielded apply may have
+        // superseded us partway through. Marking the window loaded now would
+        // leave it partially applied yet skipped by later syncs — permanent
+        // skeletons for the fresh context. Bail unless we're still current.
+        if (inFlightControllers.get(ctrlKey) !== controller) return;
 
         this.loadedWindows.add(offset);
         // Recovered — drop any retry bookkeeping for this window.
@@ -507,6 +563,9 @@ export default defineStore("v2GalleryRoms", {
         // clean so the window is eligible to refetch under the new
         // gallery context without the UI flagging it as broken.
         if (axios.isCancel(err)) return;
+        // A late error for a window a newer fetch already owns isn't ours to
+        // record or retry against the current context.
+        if (inFlightControllers.get(ctrlKey) !== controller) return;
         this.failedWindows.add(offset);
         // Surface in console; UI keeps the skeletons in place until the
         // retry below (or a viewport / gallery-state change) refetches.
@@ -527,9 +586,30 @@ export default defineStore("v2GalleryRoms", {
           retryTimers.set(offset, timer);
         }
       } finally {
-        inFlightControllers.delete(ctrlKey);
-        this.pendingWindows.delete(offset);
-        if (offset === 0) this.initialFetching = false;
+        if (inFlightControllers.get(ctrlKey) === controller) {
+          inFlightControllers.delete(ctrlKey);
+          this.pendingWindows.delete(offset);
+          if (offset === 0) this.initialFetching = false;
+          // A slot freed up — start the next queued window, if any.
+          this._drainWindowQueue();
+        }
+      }
+    },
+
+    /** Start queued windows as in-flight slots free up. Called from a
+     * window fetch's `finally`; the cap in `fetchWindowAt` guards the
+     * ceiling, so this just feeds it the next parked offset. */
+    _drainWindowQueue() {
+      while (
+        queuedWindows.length > 0 &&
+        this.pendingWindows.size < MAX_CONCURRENT_WINDOWS
+      ) {
+        const next = queuedWindows.shift();
+        if (next === undefined) break;
+        if (this.loadedWindows.has(next) || this.pendingWindows.has(next)) {
+          continue;
+        }
+        void this.fetchWindowAt(next);
       }
     },
 
@@ -556,6 +636,10 @@ export default defineStore("v2GalleryRoms", {
       }
       for (const offset of [...retryTimers.keys()]) {
         if (!wanted.has(offset)) clearRetry(offset);
+      }
+      // Drop parked windows that scrolled out of view before getting a slot.
+      for (let i = queuedWindows.length - 1; i >= 0; i--) {
+        if (!wanted.has(queuedWindows[i])) queuedWindows.splice(i, 1);
       }
       for (const offset of wanted) {
         void this.fetchWindowAt(offset);

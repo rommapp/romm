@@ -11,7 +11,6 @@ import type {
   NetplayICEServer,
 } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
-import playSessionApi from "@/services/api/play-session";
 import { saveApi as api } from "@/services/api/save";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
@@ -55,7 +54,6 @@ const props = defineProps<{
 }>();
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
-const sessionStartTime = ref<Date | null>(null);
 const deviceIDRef = ref(authStore.user?.current_device_id ?? undefined);
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -122,6 +120,10 @@ declare global {
       save: ArrayBuffer;
     }) => void;
     EJS_onLoadSave: () => void;
+    // Socket.IO global, bundled by EmulatorJS and used by its netplay code.
+    io?: ((url: string, opts?: Record<string, unknown>) => unknown) & {
+      __rommNetplayPatched?: boolean;
+    };
   }
 }
 
@@ -178,7 +180,8 @@ const {
   EJS_NETPLAY_ICE_SERVERS,
   EJS_NETPLAY_ENABLED,
 } = configStore.config;
-window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.host : "";
+// Full origin (with scheme)
+window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.origin : "";
 window.EJS_netplayICEServers = EJS_NETPLAY_ENABLED
   ? EJS_NETPLAY_ICE_SERVERS
   : [];
@@ -380,7 +383,46 @@ window.EJS_onSaveState = async function ({
 };
 
 window.EJS_onGameStart = async () => {
-  sessionStartTime.value = new Date();
+  // The emulator now owns the keyboard: every key, "/" included, belongs to
+  // the game (a DOS prompt typing "mount A / -t floppy" must not reach the
+  // global hotkeys). Callers flag this at launch too, but taking it from the
+  // emulator's own start hook keeps the flag true for any entry point.
+  playing.value = true;
+
+  // Install netplay overrides synchronously, before any await below, so they
+  // are in place before room polling or a Create/Join action can start.
+  const netplay = window.EJS_emulator?.netplay;
+  if (netplay) {
+    // EmulatorJS only prompts for a player name when netplay.name is unset,
+    // so presetting it adopts the RomM account username automatically.
+    if (!netplay.name && authStore.user?.username) {
+      netplay.name = authStore.user.username;
+    }
+    netplay.getOpenRooms = async () => {
+      try {
+        const response = await fetch(
+          `/api/netplay/list?game_id=${window.EJS_gameID}`,
+        );
+        if (!response.ok) return {};
+        return await response.json();
+      } catch (error) {
+        console.error("Error fetching netplay rooms:", error);
+        return {};
+      }
+    };
+  }
+
+  // Wrap the bundled global `io` so netplay uses mounted socket path.
+  if (window.io && !window.io.__rommNetplayPatched) {
+    const originalIo = window.io;
+    const patchedIo = ((url: string, opts?: Record<string, unknown>) =>
+      originalIo(url, {
+        ...opts,
+        path: "/netplay/socket.io",
+      })) as NonNullable<Window["io"]>;
+    patchedIo.__rommNetplayPatched = true;
+    window.io = patchedIo;
+  }
 
   void (async () => {
     const ready = await waitForGameManager();
@@ -463,62 +505,15 @@ window.EJS_onGameStart = async () => {
     romsStore.update(romRef.value);
     immediateExit();
   });
-
-  // The netplay implementation is finnicky, these overrides make it work
-  const { defineNetplayFunctions } = window.EJS_emulator;
-  window.EJS_emulator.defineNetplayFunctions = () => {
-    defineNetplayFunctions.bind(window.EJS_emulator)();
-
-    window.EJS_emulator.netplay.url = {
-      path: "/netplay/socket.io",
-    };
-
-    window.EJS_emulator.netplayGetOpenRooms = async () => {
-      try {
-        const response = await fetch(
-          `/api/netplay/list?game_id=${window.EJS_gameID}`,
-        );
-        return await response.json();
-      } catch (error) {
-        console.error("Error fetching open rooms:", error);
-        return {};
-      }
-    };
-  };
 };
 
 function immediateExit() {
-  if (!sessionStartTime.value) {
-    return router
-      .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
-      .catch((error) => {
-        console.error("Error navigating to console rom", error);
-      });
-  }
-
-  const endTime = new Date();
-  const durationMs = endTime.getTime() - sessionStartTime.value.getTime();
-
-  playSessionApi
-    .ingestPlaySessions({
-      deviceId: deviceIDRef.value,
-      sessions: [
-        {
-          rom_id: romRef.value.id,
-          start_time: sessionStartTime.value.toISOString(),
-          end_time: endTime.toISOString(),
-          duration_ms: durationMs,
-        },
-      ],
-    })
-    .catch((err) => console.error("Failed to submit play session:", err))
-    .finally(() => {
-      sessionStartTime.value = null;
-      router
-        .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
-        .catch((error) => {
-          console.error("Error navigating to console rom", error);
-        });
+  // Play-session recording is owned by the v2 player shell (usePlaySession);
+  // this only returns to the game details view.
+  router
+    .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
+    .catch((error) => {
+      console.error("Error navigating to console rom", error);
     });
 }
 

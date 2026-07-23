@@ -333,6 +333,22 @@ def test_get_rom_content_single_file(
     assert "X-Accel-Redirect" in response.headers
 
 
+def test_get_rom_content_single_file_missing_on_disk_returns_404(
+    client: TestClient, access_token: str, rom: Rom, rom_file, mocker
+):
+    # In DEV_MODE the endpoint serves the file directly. If the file is gone
+    # from disk (e.g. a renamed/moved ROM whose old entry is now missing), it
+    # must return a clean 404 instead of raising a RuntimeError from
+    # FileResponse when starlette fails to stat the path.
+    mocker.patch("endpoints.roms.DEV_MODE", True)
+    response = client.get(
+        f"/api/roms/{rom.id}/content/test_rom.zip",
+        headers={"Authorization": f"Bearer {access_token}"},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_get_rom_content_valid_file_id(
     client: TestClient, access_token: str, rom: Rom, rom_file
 ):
@@ -570,6 +586,23 @@ def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
     assert body["successful_items"] == 1
 
 
+def test_delete_roms_reports_failed_ids(
+    client: TestClient, access_token: str, rom: Rom
+):
+    missing_id = rom.id + 999999
+    response = client.post(
+        "/api/roms/delete",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [rom.id, missing_id], "delete_from_fs": []},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["successful_items"] == 1
+    # The failed id stays reported so the client can keep it selected for retry.
+    assert body["failed_ids"] == [missing_id]
+
+
 @patch(
     "endpoints.roms.fs_rom_handler.remove_directory",
     new_callable=AsyncMock,
@@ -607,7 +640,7 @@ def test_delete_roms_from_fs_flat(
 
     body = response.json()
     assert body["successful_items"] == 1
-    assert body["failed_items"] == 0
+    assert body["failed_ids"] == []
     mock_remove_file.assert_called_once()
     mock_remove_directory.assert_not_called()
 
@@ -651,7 +684,7 @@ def test_delete_roms_from_fs_flat_cleans_empty_parent(
 
     body = response.json()
     assert body["successful_items"] == 1
-    assert body["failed_items"] == 0
+    assert body["failed_ids"] == []
     mock_remove_file.assert_called_once()
     # remove_directory should be called to clean up the empty parent dir
     mock_remove_directory.assert_called_once()
@@ -703,7 +736,7 @@ def test_delete_roms_from_fs_nested(
 
     body = response.json()
     assert body["successful_items"] == 1
-    assert body["failed_items"] == 0
+    assert body["failed_ids"] == []
     mock_remove_directory.assert_called_once()
 
 
@@ -728,7 +761,7 @@ def test_delete_roms_from_fs_missing_file_still_deletes_db_entry(
 
     body = response.json()
     assert body["successful_items"] == 1
-    assert body["failed_items"] == 0
+    assert body["failed_ids"] == []
     assert body["errors"] == []
     assert db_rom_handler.get_rom(rom.id) is None
 

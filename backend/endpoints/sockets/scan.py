@@ -52,33 +52,15 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile, TrackMeta
+from models.rom import Rom
 from tasks.tasks import update_job_meta
 from utils import emoji
+from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
 
 STOP_SCAN_FLAG: Final = "scan:stop"
-
-
-def _clone_track_meta(src: TrackMeta | None, rom_id: int) -> TrackMeta | None:
-    """Build a fresh TrackMeta from a scanned (transient) one for a new RomFile."""
-    if src is None:
-        return None
-    return TrackMeta(
-        rom_id=rom_id,
-        title=src.title,
-        artist=src.artist,
-        album=src.album,
-        genre=src.genre,
-        year=src.year,
-        track=src.track,
-        disc=src.disc,
-        duration_seconds=src.duration_seconds,
-        has_embedded_cover=src.has_embedded_cover,
-        cover_path=src.cover_path,
-    )
 
 
 @dataclass
@@ -272,43 +254,97 @@ async def _identify_rom(
     parsed_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
-    # Create the entry early so we have the ID
-    newly_added: bool = rom is None
-    if not rom:
-        try:
-            rom = db_rom_handler.add_rom(
-                Rom(
-                    fs_name=fs_rom["fs_name"],
-                    fs_path=roms_path,
-                    regions=parsed_tags.regions,
-                    revision=parsed_tags.revision,
-                    version=parsed_tags.version,
-                    languages=parsed_tags.languages,
-                    tags=parsed_tags.other_tags,
-                    platform_id=platform.id,
-                    name=fs_rom_handler.get_file_name_with_no_tags(fs_rom["fs_name"]),
-                    url_cover="",
-                    url_manual="",
-                    url_screenshots=[],
-                )
-            )
-        except IntegrityError:
-            # A concurrent scan already created this ROM, so skip it here.
-            log.debug(
-                f"Skipping {hl(fs_rom['fs_name'])}: already created by a concurrent scan"
-            )
-            return
+    rom_attrs = {
+        "fs_name": fs_rom["fs_name"],
+        "fs_path": roms_path,
+        "regions": parsed_tags.regions,
+        "revision": parsed_tags.revision,
+        "version": parsed_tags.version,
+        "languages": parsed_tags.languages,
+        "tags": parsed_tags.other_tags,
+        "platform_id": platform.id,
+        "name": fs_rom_handler.get_file_name_with_no_tags(fs_rom["fs_name"]),
+        "url_cover": "",
+        "url_manual": "",
+        "url_screenshots": [],
+    }
 
-    # Build rom files object before scanning
-    should_update_files = _should_get_rom_files(
+    calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
+
+    newly_added: bool = rom is None
+    reassociated: bool = False
+    files_built: bool = False
+
+    if rom is None:
+        # No entry matches this filename. Before treating it as new, hash
+        # the files and check whether they belong to an existing entry that went
+        # missing (a renamed or moved ROM), so its collections, notes, and
+        # uploaded assets carry over instead of being orphaned on a duplicate.
+        parsed_rom_files = await fs_rom_handler.get_rom_files(
+            Rom(
+                **rom_attrs,
+                platform=platform,
+            ),
+            calculate_hashes=calculate_hashes,
+        )
+        fs_rom.update(
+            {
+                "files": parsed_rom_files.rom_files,
+                "crc_hash": parsed_rom_files.crc_hash,
+                "md5_hash": parsed_rom_files.md5_hash,
+                "sha1_hash": parsed_rom_files.sha1_hash,
+                "ra_hash": parsed_rom_files.ra_hash,
+            }
+        )
+        files_built = True
+
+        missing_match = db_rom_handler.get_matching_missing_rom(
+            platform_id=platform.id,
+            crc_hash=parsed_rom_files.crc_hash,
+            md5_hash=parsed_rom_files.md5_hash,
+            sha1_hash=parsed_rom_files.sha1_hash,
+        )
+        if missing_match is not None:
+            # Move the existing entry onto the new file, clearing its missing state.
+            rom = db_rom_handler.update_rom(
+                missing_match.id,
+                {
+                    "fs_name": fs_rom["fs_name"],
+                    "fs_path": roms_path,
+                    "regions": parsed_tags.regions,
+                    "revision": parsed_tags.revision,
+                    "version": parsed_tags.version,
+                    "languages": parsed_tags.languages,
+                    "tags": parsed_tags.other_tags,
+                    "missing_from_fs": False,
+                },
+            )
+            reassociated = True
+            newly_added = False
+            log.info(
+                f"Reassociated {hl(fs_rom['fs_name'])} with existing entry "
+                f"{hl(rom.name or rom.fs_name, color=BLUE)} by file hash"
+            )
+        else:
+            try:
+                rom = db_rom_handler.add_rom(Rom(**rom_attrs))
+            except IntegrityError:
+                # A concurrent scan already created this ROM, so skip it here.
+                log.debug(
+                    f"Skipping {hl(fs_rom['fs_name'])}: already created by a concurrent scan"
+                )
+                return
+
+    # Build rom files object before scanning. A reassociated ROM always rebuilds
+    # its files so the stale paths from the old filename are replaced.
+    should_update_files = reassociated or _should_get_rom_files(
         scan_type=scan_type,
         rom=rom,
         newly_added=newly_added,
         roms_ids=roms_ids,
     )
-    if should_update_files:
+    if should_update_files and not files_built:
         # Get hash calculation setting from config
-        calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
         if calculate_hashes:
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
 
@@ -393,29 +429,13 @@ async def _identify_rom(
         )
 
     if should_update_files:
-        # Delete the existing rom files in the DB
-        db_rom_handler.purge_rom_files(_added_rom.id)
-
-        # Create each file entry for the rom
-        new_rom_files = [
-            RomFile(
-                rom_id=_added_rom.id,
-                file_name=file.file_name,
-                file_path=file.file_path,
-                file_size_bytes=file.file_size_bytes,
-                last_modified=file.last_modified,
-                category=file.category,
-                track_meta=_clone_track_meta(file.track_meta, _added_rom.id),
-                crc_hash=file.crc_hash,
-                md5_hash=file.md5_hash,
-                sha1_hash=file.sha1_hash,
-                ra_hash=file.ra_hash,
-                chd_sha1_hash=file.chd_sha1_hash,
-            )
-            for file in fs_rom["files"]
-        ]
-        for new_rom_file in new_rom_files:
-            saved = db_rom_handler.add_rom_file(new_rom_file)
+        # Reconcile against the existing rows instead of replacing them, so file
+        # ids survive a rescan and anything keyed on them (track metadata,
+        # persisted soundtrack covers) stays valid.
+        synced = db_rom_handler.sync_rom_files(_added_rom.id, fs_rom["files"])
+        for cover_path in synced.orphaned_cover_paths:
+            remove_persisted_cover(cover_path)
+        for saved in synced.files:
             persist_soundtrack_cover(saved, _added_rom)
 
     # Short circuit if the scan type is hashes
@@ -612,6 +632,16 @@ async def _identify_platform(
     else:
         log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
 
+    # Snapshot the missing entries before the sync below clears the flag for any
+    # whose file is back, so the skip path can still tell the client about them.
+    previously_missing_rom_ids = db_rom_handler.get_missing_rom_ids(platform.id)
+
+    # Flag entries whose file is gone before identifying files, so a renamed or
+    # moved ROM (a new file with no fs_name match) can be reassociated by hash
+    # with its now-missing entry instead of spawning a duplicate. The end-of-scan
+    # call below re-syncs and logs, unmarking any entry that got reassociated.
+    db_rom_handler.mark_missing_roms(platform.id, [rom["fs_name"] for rom in fs_roms])
+
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
 
@@ -639,6 +669,7 @@ async def _identify_platform(
 
         # Separate skipped ROMs from those that need scanning
         skipped_rom_ids: list[int] = []
+        restored_roms: list[Rom] = []
         roms_to_scan: list[tuple[FSRom, Rom | None]] = []
 
         for fs_rom in fs_roms_batch:
@@ -652,6 +683,8 @@ async def _identify_platform(
                 roms_to_scan.append((fs_rom, rom))
             elif rom:
                 skipped_rom_ids.append(rom.id)
+                if rom.id in previously_missing_rom_ids:
+                    restored_roms.append(rom)
 
         # Bulk update all skipped ROMs in one query instead of per-ROM updates
         if skipped_rom_ids:
@@ -659,6 +692,32 @@ async def _identify_platform(
             await scan_stats.increment(
                 socket_manager=socket_manager,
                 scanned_roms=len(skipped_rom_ids),
+            )
+
+        # Skipped ROMs emit nothing, so a ROM whose file came back would keep its
+        # stale "missing" badge in an open gallery until a refetch. Reload with
+        # details since the scan-loop lookup only eager-loads the platform.
+        for restored_rom in restored_roms:
+            log.info(
+                f"{hl(restored_rom.fs_name)} is back in the filesystem, "
+                f"no longer {hl('missing', color=LIGHTYELLOW)}"
+            )
+            hydrated_rom = db_rom_handler.get_rom(restored_rom.id)
+            if hydrated_rom is None:
+                continue
+
+            await socket_manager.emit(
+                "scan:scanning_rom",
+                SimpleRomSchema.from_orm_with_factory(hydrated_rom).model_dump(
+                    exclude={
+                        "created_at",
+                        "updated_at",
+                        "rom_user",
+                        "last_modified",
+                        "files",
+                        "sibling_roms",
+                    }
+                ),
             )
 
         # Process only ROMs that actually need scanning
@@ -700,6 +759,7 @@ async def scan_platforms(
     roms_ids: list[int] | None = None,
     launchbox_remote_enabled: bool = True,
     playmatch_enabled: bool = True,
+    platform_fs_slugs: list[str] | None = None,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -708,9 +768,13 @@ async def scan_platforms(
         metadata_sources (list[str]): List of metadata sources to be used
         scan_type (ScanType): Type of scan to be performed.
         roms_ids (list[int], optional): List of selected roms to be scanned.
+        platform_fs_slugs (list[str], optional): Folders to scan with no database row.
     """
     if not roms_ids:
         roms_ids = []
+
+    if not platform_fs_slugs:
+        platform_fs_slugs = []
 
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
@@ -738,10 +802,16 @@ async def scan_platforms(
     db_platforms = db_platform_handler.get_platforms()
     db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
 
-    platform_list = [
-        p.fs_slug for p in db_platforms if p.id in platform_ids
-    ] or fs_platforms
-    platform_list = sorted(platform_list)
+    # Selected platforms arrive as database ids and/or filesystem slugs.
+    selected_slugs = [p.fs_slug for p in db_platforms if p.id in platform_ids]
+    for fs_slug in platform_fs_slugs:
+        if fs_slug in selected_slugs:
+            continue
+        if fs_slug in db_platforms_by_slug or fs_slug in fs_platforms:
+            selected_slugs.append(fs_slug)
+
+    has_selection = bool(platform_ids or platform_fs_slugs)
+    platform_list = sorted(selected_slugs if has_selection else fs_platforms)
 
     # A "new platforms" scan skips platforms that already exist in the database,
     # so they must be excluded from the totals to keep the tracker accurate. This
@@ -904,6 +974,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
     platform_ids = options.get("platforms", [])
+    platform_fs_slugs = options.get("platform_fs_slugs", [])
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
@@ -918,6 +989,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
             playmatch_enabled=playmatch_enabled,
+            platform_fs_slugs=platform_fs_slugs,
         )
 
     return high_prio_queue.enqueue(
@@ -928,6 +1000,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         roms_ids=roms_ids,
         launchbox_remote_enabled=launchbox_remote_enabled,
         playmatch_enabled=playmatch_enabled,
+        platform_fs_slugs=platform_fs_slugs,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={

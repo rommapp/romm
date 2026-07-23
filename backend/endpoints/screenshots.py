@@ -9,6 +9,7 @@ from decorators.auth import protected_route
 from endpoints.responses.assets import ScreenshotSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import build_asset_file_response
@@ -136,6 +137,10 @@ def download_screenshot(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Screenshot not found",
         )
+
+    # Sharing must not override the hidden-ROM/platform policy: a screenshot on a
+    # ROM hidden from the caller stays 404-masked, just like the ROM itself.
+    assert_rom_visible(request, screenshot.rom, not_found_detail="Screenshot not found")
 
     try:
         file_path = fs_asset_handler.validate_path(screenshot.full_path)

@@ -55,6 +55,7 @@ const currentKind = ref<CollectionKind>("regular");
 const currentCollection = ref<AnyCollection | null>(null);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
 const deleting = ref(false);
+const randomLoading = ref(false);
 const canDownload = useCan("rom.download");
 
 // Virtual collections are computed (no editable fields) — only
@@ -261,6 +262,62 @@ function onDownload() {
   snackbar.info(t("gallery.selection-download-many", { n: c.rom_count }));
 }
 
+// ── Random ROM ──────────────────────────────────────────────────
+// Pick one game from this collection and jump to its details. The scope is
+// keyed off the collection kind so regular / virtual / smart all route
+// to the correct `getRoms` filter param (the same split the download
+// flow uses).
+function randomScope(): {
+  collectionId?: number;
+  virtualCollectionId?: string;
+  smartCollectionId?: number;
+} {
+  const c = currentCollection.value;
+  if (!c) return {};
+  if (currentKind.value === "virtual")
+    return { virtualCollectionId: String(c.id) };
+  if (currentKind.value === "smart") return { smartCollectionId: Number(c.id) };
+  return { collectionId: Number(c.id) };
+}
+
+async function onRandomGame() {
+  const c = currentCollection.value;
+  if (!c || randomLoading.value) return;
+  randomLoading.value = true;
+  const scopeId = c.id;
+  const stale = () => currentCollection.value?.id !== scopeId;
+  try {
+    const scope = randomScope();
+    const { data: head } = await romApi.getRoms({
+      ...scope,
+      limit: 1,
+      offset: 0,
+    });
+    if (stale()) return;
+    if (!head.total) {
+      snackbar.info(t("collection.empty"));
+      return;
+    }
+    const randomOffset = Math.floor(Math.random() * head.total);
+    const { data } = await romApi.getRoms({
+      ...scope,
+      limit: 1,
+      offset: randomOffset,
+    });
+    if (stale()) return;
+    const pick = data.items[0];
+    if (!pick) {
+      snackbar.info(t("collection.empty"));
+      return;
+    }
+    router.push({ name: ROUTES.ROM, params: { rom: pick.id } });
+  } catch {
+    snackbar.error(t("platform.random-rom-error"));
+  } finally {
+    randomLoading.value = false;
+  }
+}
+
 // ── Delete ──────────────────────────────────────────────────────
 // Mirrors the Platform.vue admin flow: confirm dialog with
 // `requireTyped` on the collection name, then API call → store remove
@@ -336,7 +393,9 @@ async function onDelete() {
         :tab="tab"
         :tabs="tabs"
         :can-download="canDownload"
+        :random-loading="randomLoading"
         @update:tab="onTabChange"
+        @random="onRandomGame"
         @download="onDownload"
       />
     </template>
@@ -356,7 +415,9 @@ async function onDelete() {
         :tab="tab"
         :tabs="tabs"
         :can-download="canDownload"
+        :random-loading="randomLoading"
         @update:tab="onTabChange"
+        @random="onRandomGame"
         @download="onDownload"
       />
       <RDivider class="r-v2-coll-tabs__divider" />

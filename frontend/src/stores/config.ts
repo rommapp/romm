@@ -37,11 +37,14 @@ const defaultConfig = {
   EJS_CONTROLS: {},
   SCAN_METADATA_PRIORITY: [],
   SCAN_ARTWORK_PRIORITY: [],
+  SCAN_ARTWORK_PRIORITY_OVERRIDES: {},
   SCAN_REGION_PRIORITY: [],
   SCAN_LANGUAGE_PRIORITY: [],
   SCAN_MEDIA: [],
+  GAMELIST_AUTO_EXPORT_ON_SCAN: false,
   GAMELIST_MEDIA_THUMBNAIL: "box2d",
   GAMELIST_MEDIA_IMAGE: "screenshot",
+  PEGASUS_AUTO_EXPORT_ON_SCAN: false,
 } as ConfigResponse;
 
 export default defineStore("config", {
@@ -50,13 +53,16 @@ export default defineStore("config", {
   }),
 
   actions: {
-    async fetchConfig(): Promise<ConfigResponse> {
+    async fetchConfig({
+      rethrow = false,
+    }: { rethrow?: boolean } = {}): Promise<ConfigResponse> {
       try {
         const response = await api.get("/config");
         this.config = response.data;
         return this.config;
       } catch (error) {
         console.error("Error fetching config: ", error);
+        if (rethrow) throw error;
         return this.config;
       }
     },

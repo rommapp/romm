@@ -24,6 +24,7 @@ import {
   popEscapable,
   pushEscapable,
 } from "../RDialog/escapeStack.js";
+import { createBodyScrollLock } from "../bodyScrollLock";
 
 defineOptions({ inheritAttrs: false });
 
@@ -67,6 +68,11 @@ const panelRef = ref<HTMLElement | null>(null);
 // when the drawer closes so keyboard users don't lose their place.
 let previouslyFocused: HTMLElement | null = null;
 
+// Shared, reference-counted body scroll lock (see bodyScrollLock.ts) so
+// stacking (a Dialog open over a Drawer) unlocks in the right order.
+const { lock: lockBodyScroll, unlock: unlockBodyScroll } =
+  createBodyScrollLock();
+
 function closeDrawer() {
   emit("update:modelValue", false);
   emit("close");
@@ -75,33 +81,6 @@ function closeDrawer() {
 function onScrimClick() {
   if (props.persistent) return;
   closeDrawer();
-}
-
-// ── Body scroll lock — same reference-count pattern RDialog uses so
-// stacking (a Dialog open over a Drawer) unlocks in the right order. ──
-function lockBodyScroll() {
-  const cur = Number(document.body.dataset.rOverlayOpenCount ?? "0") + 1;
-  document.body.dataset.rOverlayOpenCount = String(cur);
-  if (cur === 1) {
-    // Remember whatever overflow was already in effect — a host view may
-    // lock the body for its whole lifetime (e.g. the gallery shell, whose
-    // only scrollbar is the virtualizer's). Restoring this on unlock
-    // instead of forcing "" keeps that lock intact after the drawer closes.
-    document.body.dataset.rOverlayPrevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-  }
-}
-function unlockBodyScroll() {
-  const cur = Math.max(
-    0,
-    Number(document.body.dataset.rOverlayOpenCount ?? "0") - 1,
-  );
-  document.body.dataset.rOverlayOpenCount = String(cur);
-  if (cur === 0) {
-    document.body.style.overflow =
-      document.body.dataset.rOverlayPrevOverflow ?? "";
-    delete document.body.dataset.rOverlayPrevOverflow;
-  }
 }
 
 // Shared escape-stack entry — register on open so a single global
@@ -140,8 +119,12 @@ watch(
 );
 
 // Safety net — drop the stack entry if we tear down while open (route
-// change with the drawer still visible).
-onBeforeUnmount(() => popEscapable(escEntry));
+// change with the drawer still visible) and release the body scroll lock
+// the watcher's close branch never got to run.
+onBeforeUnmount(() => {
+  popEscapable(escEntry);
+  unlockBodyScroll();
+});
 
 // ── Width resolution ────────────────────────────────────────────
 function asLength(v: number | string): string {

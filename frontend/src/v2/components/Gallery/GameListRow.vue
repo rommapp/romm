@@ -2,13 +2,6 @@
 // GameListRow — single row of the list-mode gallery.
 //
 // Owns:
-//   * Per-row lazy fetch: onMount fires `fetchWindowAt(position)` and
-//     the store aligns the position to its 72-item window, deduping
-//     against pending + loaded windows, so rows sharing a window share
-//     one request. Mirror of the grid flow, with the same "row mount =
-//     entered viewport" contract via the shell's RVirtualScroller
-//     overscan window.
-//
 //   * Skeleton ↔ real swap — when `getRomAt(position)` returns null the
 //     row paints skeleton placeholders in every column; once the fetch
 //     resolves it flips to the real cells. Same row height in both
@@ -26,7 +19,7 @@ import {
   RSkeletonBlock,
   RTooltip,
 } from "@v2/lib";
-import { computed, onMounted } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import storePlatforms from "@/stores/platforms";
@@ -56,13 +49,13 @@ defineOptions({ inheritAttrs: false });
 const PILLS_VISIBLE = 4;
 
 interface Props {
-  /** Absolute position in the active gallery (0-indexed). Drives the
-   * row's per-row fetch + serves as the lookup key into the store's
-   * `byPosition` map. Pass either this or `rom`, not both. */
+  /** Absolute position in the active gallery (0-indexed). Serves as the
+   * lookup key into the store's `byPosition` map; the shell drives the
+   * windowed fetch that fills it. Pass either this or `rom`, not both. */
   position?: number;
   /** Static ROM data — used by non-gallery surfaces (Settings → Missing
    * games) that already own the rom list. When provided, the row skips
-   * the galleryRoms position lookup and the per-row lazy fetch. */
+   * the galleryRoms position lookup. */
   rom?: SimpleRom | null;
   /** Cover variant — when the browser supports webp the thumb URL is
    * rewritten to .webp before the request. Wired from the shell so the
@@ -260,15 +253,6 @@ function onRowPointerEnd() {
   if (isStatic.value) return;
   selectionInput.handlePointerEnd();
 }
-
-onMounted(() => {
-  // Static mode (rom passed as prop) skips the gallery's per-row fetch
-  // entirely — the consumer already owns the rom data.
-  if (isStatic.value || props.position === undefined) return;
-  // Entered the overscan window, so kick the window fetch. Store aligns
-  // to the window grid and dedupes against pending + loaded windows.
-  void galleryRoms.fetchWindowAt(props.position);
-});
 </script>
 
 <template>

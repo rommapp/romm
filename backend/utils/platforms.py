@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
 
+from config.config_manager import config_manager as cm
 from endpoints.responses.platform import PlatformSchema
 from handler.database import db_platform_handler
+from handler.filesystem import fs_platform_handler
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_hasheous_handler,
@@ -15,6 +17,69 @@ from handler.metadata import (
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.platform import Platform
+
+
+def _build_unmatched_platform(slug: str, fs_slug: str, now: datetime) -> PlatformSchema:
+    """Build a PlatformSchema for a platform that has no database row yet."""
+    igdb_platform = meta_igdb_handler.get_platform(slug)
+    moby_platform = meta_moby_handler.get_platform(slug)
+    ss_platform = meta_ss_handler.get_platform(slug)
+    ra_platform = meta_ra_handler.get_platform(slug)
+    launchbox_platform = meta_launchbox_handler.get_platform(slug)
+    hasheous_platform = meta_hasheous_handler.get_platform(slug)
+    tgdb_platform = meta_tgdb_handler.get_platform(slug)
+    flashpoint_platform = meta_flashpoint_handler.get_platform(slug)
+    hltb_platform = meta_hltb_handler.get_platform(slug)
+
+    platform_attrs = {
+        "id": -1,
+        "name": slug.replace("-", " ").title(),
+        "fs_slug": fs_slug,
+        "slug": slug,
+        "roms": [],
+        "rom_count": 0,
+        "created_at": now,
+        "updated_at": now,
+        "fs_size_bytes": 0,
+        "missing_from_fs": False,
+    }
+
+    platform_attrs.update(
+        {
+            **hltb_platform,
+            **flashpoint_platform,
+            **hasheous_platform,
+            **tgdb_platform,
+            **launchbox_platform,
+            **ra_platform,
+            **moby_platform,
+            **ss_platform,
+            **igdb_platform,
+            "igdb_id": igdb_platform.get("igdb_id")
+            or hasheous_platform.get("igdb_id")
+            or None,
+            "ra_id": ra_platform.get("ra_id") or hasheous_platform.get("ra_id") or None,
+            "tgdb_id": moby_platform.get("tgdb_id")
+            or hasheous_platform.get("tgdb_id")
+            or tgdb_platform.get("tgdb_id")
+            or None,
+            "name": igdb_platform.get("name")
+            or ss_platform.get("name")
+            or moby_platform.get("name")
+            or ra_platform.get("name")
+            or launchbox_platform.get("name")
+            or hasheous_platform.get("name")
+            or tgdb_platform.get("name")
+            or flashpoint_platform.get("name")
+            or hltb_platform.get("name")
+            or slug.replace("-", " ").title(),
+            "url_logo": igdb_platform.get("url_logo")
+            or tgdb_platform.get("url_logo")
+            or "",
+        }
+    )
+
+    return PlatformSchema.model_validate(Platform(**platform_attrs))
 
 
 def get_supported_platforms() -> list[PlatformSchema]:
@@ -48,67 +113,30 @@ def get_supported_platforms() -> list[PlatformSchema]:
             supported_platforms.append(PlatformSchema.model_validate(db_platform))
             continue
 
-        igdb_platform = meta_igdb_handler.get_platform(slug)
-        moby_platform = meta_moby_handler.get_platform(slug)
-        ss_platform = meta_ss_handler.get_platform(slug)
-        ra_platform = meta_ra_handler.get_platform(slug)
-        launchbox_platform = meta_launchbox_handler.get_platform(slug)
-        hasheous_platform = meta_hasheous_handler.get_platform(slug)
-        tgdb_platform = meta_tgdb_handler.get_platform(slug)
-        flashpoint_platform = meta_flashpoint_handler.get_platform(slug)
-        hltb_platform = meta_hltb_handler.get_platform(slug)
-
-        platform_attrs = {
-            "id": -1,
-            "name": slug.replace("-", " ").title(),
-            "fs_slug": slug,
-            "slug": slug,
-            "roms": [],
-            "rom_count": 0,
-            "created_at": now,
-            "updated_at": now,
-            "fs_size_bytes": 0,
-            "missing_from_fs": False,
-        }
-
-        platform_attrs.update(
-            {
-                **hltb_platform,
-                **flashpoint_platform,
-                **hasheous_platform,
-                **tgdb_platform,
-                **launchbox_platform,
-                **ra_platform,
-                **moby_platform,
-                **ss_platform,
-                **igdb_platform,
-                "igdb_id": igdb_platform.get("igdb_id")
-                or hasheous_platform.get("igdb_id")
-                or None,
-                "ra_id": ra_platform.get("ra_id")
-                or hasheous_platform.get("ra_id")
-                or None,
-                "tgdb_id": moby_platform.get("tgdb_id")
-                or hasheous_platform.get("tgdb_id")
-                or tgdb_platform.get("tgdb_id")
-                or None,
-                "name": igdb_platform.get("name")
-                or ss_platform.get("name")
-                or moby_platform.get("name")
-                or ra_platform.get("name")
-                or launchbox_platform.get("name")
-                or hasheous_platform.get("name")
-                or tgdb_platform.get("name")
-                or flashpoint_platform.get("name")
-                or hltb_platform.get("name")
-                or slug.replace("-", " ").title(),
-                "url_logo": igdb_platform.get("url_logo")
-                or tgdb_platform.get("url_logo")
-                or "",
-            }
-        )
-
-        platform = Platform(**platform_attrs)
-        supported_platforms.append(PlatformSchema.model_validate(platform))
+        supported_platforms.append(_build_unmatched_platform(slug, slug, now))
 
     return supported_platforms
+
+
+async def get_filesystem_platforms() -> list[PlatformSchema]:
+    """Get platform folders that exist on disk but have no database row yet."""
+    cnfg = cm.get_config()
+    fs_slugs = await fs_platform_handler.get_platforms()
+    existing_fs_slugs = {p.fs_slug for p in db_platform_handler.get_platforms()}
+
+    now = datetime.now(timezone.utc)
+    filesystem_platforms = []
+
+    # Build a platform for each folder on disk
+    for fs_slug in fs_slugs:
+        if fs_slug in existing_fs_slugs:
+            continue
+
+        slug = (
+            cnfg.PLATFORMS_BINDING.get(fs_slug)
+            or cnfg.PLATFORMS_VERSIONS.get(fs_slug)
+            or fs_slug
+        )
+        filesystem_platforms.append(_build_unmatched_platform(slug, fs_slug, now))
+
+    return filesystem_platforms

@@ -12,6 +12,7 @@ from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummar
 from endpoints.responses.device import DeviceSyncSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
@@ -194,6 +195,13 @@ async def add_save(
     if slot:
         actual_filename = _apply_datetime_tag(sanitized_save_filename)
 
+    saves_path = fs_asset_handler.build_saves_file_path(
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
+    )
+
     db_save = db_save_handler.get_save_by_filename(
         user_id=request.user.id, rom_id=rom.id, file_name=actual_filename, slot=slot
     )
@@ -231,13 +239,6 @@ async def add_save(
         f"Uploading save {hl(actual_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
-    saves_path = fs_asset_handler.build_saves_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom.id,
-        emulator=emulator,
-    )
-
     await fs_asset_handler.write_file(
         file=saveFile, path=saves_path, filename=actual_filename
     )
@@ -266,14 +267,43 @@ async def add_save(
                 existing_by_hash, _syncs_for_save(existing_by_hash.id, device), device
             )
 
+    if db_save is None:
+        # Refresh hash if the file already exists to avoid mismatched metadata.
+        colliding_save = db_save_handler.get_save_by_path(
+            user_id=request.user.id,
+            rom_id=rom.id,
+            file_path=scanned_save.file_path,
+            file_name=actual_filename,
+        )
+        if colliding_save and colliding_save.content_hash != scanned_save.content_hash:
+            db_save = colliding_save
+
     if db_save:
+        # Track file path and emulator to prevent hash-content drift.
+        stale_full_path = db_save.full_path
         update_data: dict = {
             "file_size_bytes": scanned_save.file_size_bytes,
             "content_hash": scanned_save.content_hash,
+            "file_path": scanned_save.file_path,
+            "emulator": emulator,
         }
         if slot is not None:
             update_data["slot"] = slot
         db_save = db_save_handler.update_save(db_save.id, update_data)
+
+        # Delete orphaned bytes only if no other row references the old path.
+        if stale_full_path != db_save.full_path:
+            still_referenced = any(
+                other.id != db_save.id and other.full_path == stale_full_path
+                for other in db_save_handler.get_saves(
+                    user_id=request.user.id, rom_id=rom.id
+                )
+            )
+            if not still_referenced:
+                try:
+                    await fs_asset_handler.remove_file(stale_full_path)
+                except FileNotFoundError:
+                    pass
     else:
         scanned_save.rom_id = rom.id
         scanned_save.user_id = request.user.id
@@ -453,6 +483,13 @@ def download_save(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Save with ID {id} not found",
         )
+
+    # Sharing must not override the hidden-ROM/platform policy: a save on a ROM
+    # hidden from the caller stays 404-masked, just like the ROM itself.
+    assert_rom_visible(
+        request, save.rom, not_found_detail=f"Save with ID {id} not found"
+    )
+
     is_owner = save.user_id == request.user.id
 
     try:

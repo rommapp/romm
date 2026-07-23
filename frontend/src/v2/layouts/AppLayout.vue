@@ -20,6 +20,7 @@ import {
 import { useRouter } from "vue-router";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
+import { useStreamingStore } from "@/stores/streaming";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import BottomNav from "@/v2/components/AppShell/BottomNav.vue";
@@ -66,6 +67,7 @@ watch(
 
 const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
+const streamingStore = useStreamingStore();
 
 // Developer debug overlay — opt-in via Settings → Developer (per-device).
 // Lazily loaded so its chunk (and the vueuse perf hooks it pulls in) is only
@@ -144,6 +146,9 @@ onMounted(() => {
   } else {
     prefetchPlatformIcons(platformsStore.allPlatforms.map((p) => p.slug));
   }
+
+  // Streaming config is fetched once on app load
+  void streamingStore.fetchConfig();
 });
 
 onBeforeUnmount(() => {

@@ -19,6 +19,7 @@
   "firmware-found": "Odnaleziono firmware: {n} plik | Odnaleziono firmware: {n} pliki",
   "firmware-scanned-n": "Firmware: zeskanowano {n}",
   "firmware-scanned-with-details": "Firmware: zeskanowano {n_scanned_firmware}, w tym {n_new_firmware} nowych",
+  "folder-not-scanned": "Nie zeskanowano",
   "hash-calculation-disabled": "Obliczanie skrótów jest wyłączone",
   "hash-matchers": "Dopasowywacze hashy",
   "hashes": "Przelicz sumy kontrolne",

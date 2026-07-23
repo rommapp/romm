@@ -4,7 +4,9 @@ from unittest import mock
 from fastapi import status
 
 from handler.database import db_screenshot_handler
+from handler.database.base_handler import sync_session
 from models.assets import Screenshot
+from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -12,6 +14,11 @@ from models.user import User
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
+    with sync_session.begin() as s:
+        s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
 
 
 # ---------- POST /api/screenshots ----------
@@ -294,6 +301,49 @@ def test_other_user_downloads_public_screenshot(
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.content == b"SHARED_SHOT"
+
+
+def test_hidden_rom_masks_public_screenshot_download(
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    admin_user: User,
+    rom: Rom,
+    platform: Platform,
+):
+    # A public screenshot on a ROM hidden from the caller must stay 404-masked;
+    # sharing cannot override the hidden-resource boundary.
+    screenshot = _add_screenshot(
+        rom, platform, admin_user.id, "shot", is_gallery=True, is_public=True
+    )
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+
+    response = client.get(
+        f"/api/screenshots/{screenshot.id}/content",
+        headers=_auth(viewer_access_token),
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_hidden_platform_masks_public_screenshot_download(
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    admin_user: User,
+    rom: Rom,
+    platform: Platform,
+):
+    # Hiding the parent platform cascades to its screenshots as well.
+    screenshot = _add_screenshot(
+        rom, platform, admin_user.id, "shot", is_gallery=True, is_public=True
+    )
+    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+
+    response = client.get(
+        f"/api/screenshots/{screenshot.id}/content",
+        headers=_auth(viewer_access_token),
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_download_screenshot_not_found(client, access_token: str):

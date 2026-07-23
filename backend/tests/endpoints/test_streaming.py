@@ -1,0 +1,506 @@
+import asyncio
+import logging
+from contextlib import contextmanager
+from datetime import timedelta
+from unittest.mock import MagicMock, patch
+
+import httpx
+import pytest
+from fastapi.testclient import TestClient
+from main import app
+
+from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from handler.auth import oauth_handler
+from handler.database import db_platform_handler, db_rom_handler
+from handler.database.base_handler import sync_session
+from handler.redis_handler import async_cache
+from models.permission import HiddenEntity, PermEntity
+from models.platform import Platform
+from models.rom import Rom
+from models.user import User
+
+
+def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
+    with sync_session.begin() as s:
+        s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
+
+
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
+
+
+@pytest.fixture(autouse=True)
+def clear_streaming_sessions():
+    """Streaming sessions live in Redis (fakeredis under pytest) - start clean."""
+    asyncio.run(async_cache.flushall())
+    yield
+
+
+def _access_token(user: User):
+    return oauth_handler.create_access_token(
+        data={
+            "sub": user.username,
+            "iss": "romm:oauth",
+            "scopes": " ".join(user.oauth_scopes),
+        },
+        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
+    )
+
+
+@pytest.fixture
+def access_token(admin_user: User):
+    return _access_token(admin_user)
+
+
+@pytest.fixture
+def viewer_access_token(viewer_user: User):
+    return _access_token(viewer_user)
+
+
+def _mock_cm(enabled=True, containers=None):
+    """Return a mock config_manager that yields the given streaming config."""
+    cfg = MagicMock()
+    cfg.STREAMING_ENABLED = enabled
+    cfg.STREAMING_CONTAINERS = containers or []
+    return cfg
+
+
+@contextmanager
+def _streaming(*containers, enabled=True):
+    """Patch the streaming config to serve exactly the given containers."""
+    with patch(
+        "endpoints.streaming.cm.get_config",
+        return_value=_mock_cm(enabled=enabled, containers=list(containers)),
+    ):
+        yield
+
+
+def _container_for(rom: Rom, broker_host="http://192.168.1.10:8000"):
+    return {
+        "platform": rom.platform_slug,
+        "host": "http://192.168.1.10:3000",
+        "broker_host": broker_host,
+    }
+
+
+def _rom_on(slug: str) -> Rom:
+    """Create a platform with the given slug and a ROM on it."""
+    platform = db_platform_handler.add_platform(
+        Platform(name=slug, slug=slug, fs_slug=slug)
+    )
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=f"{slug}-rom",
+            slug=f"{slug}-rom",
+            fs_name=f"{slug}.zip",
+            fs_name_no_tags=slug,
+            fs_name_no_ext=slug,
+            fs_extension="zip",
+            fs_path=f"{slug}/roms",
+        )
+    )
+
+
+def _auth(token):
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _claim(client, token, rom_id):
+    return client.post(
+        "/api/streaming/sessions", json={"rom_id": rom_id}, headers=_auth(token)
+    )
+
+
+def _claim_ok(client, token, rom_id):
+    """Claim with the broker launch stubbed - the common happy-path setup."""
+    with patch("endpoints.streaming._call_broker"):
+        return _claim(client, token, rom_id)
+
+
+# ── /config ───────────────────────────────────────────────────────────────────
+
+
+def test_get_config_requires_auth(client):
+    assert client.get("/api/streaming/config").status_code == 403
+
+
+def test_get_config_warns_on_missing_platform(client, access_token, caplog):
+    # The "romm" logger has propagate=False, so caplog's handler must be
+    # added directly to it rather than relying on root-logger propagation.
+    bad_container = {"host": "http://192.168.1.10:3000"}  # no "platform"
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(bad_container):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                response = client.get(
+                    "/api/streaming/config", headers=_auth(access_token)
+                )
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert response.status_code == 200
+    assert response.json()["containers"] == []
+    assert "missing platform/host" in caplog.text
+
+
+def test_get_config_ships_platform_capabilities(client, access_token):
+    """The slot capabilities the frontend selector reads come from /config, so
+    they are not a second hardcoded copy."""
+    container = {"platform": "ps2", "host": "http://192.168.1.10:3000"}
+    with _streaming(container):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert r.status_code == 200
+    assert r.json()["containers"][0]["capabilities"] == {
+        "max_slots": 9,
+        "has_autosave": True,
+        "autosave_slot": 10,
+    }
+
+
+# ── Claiming ──────────────────────────────────────────────────────────────────
+
+
+def test_claim_derives_rom_path_server_side(client, access_token, rom: Rom):
+    """The broker must receive a path built from the DB row, not client input."""
+    with _streaming(_container_for(rom)):
+        with patch("endpoints.streaming._call_broker") as call_broker:
+            r = _claim(client, access_token, rom.id)
+    assert r.status_code == 200
+    assert r.json()["rom_name"] == rom.name
+    _, rom_path, _ = call_broker.call_args[0]
+    assert rom_path == f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+
+
+def test_claim_unknown_rom_returns_404(client, access_token):
+    with _streaming():
+        r = _claim(client, access_token, 999999)
+    assert r.status_code == 404
+
+
+def test_claim_hidden_rom_is_404_masked(
+    client, viewer_access_token, viewer_user: User, rom: Rom
+):
+    """A user with roms.read cannot claim a session for a ROM hidden from them;
+    the launch must be 404-masked before any broker call."""
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    with _streaming(_container_for(rom)):
+        # If the visibility check were missing this would 200 and launch.
+        with patch("endpoints.streaming._call_broker") as call_broker:
+            r = _claim(client, viewer_access_token, rom.id)
+    assert r.status_code == 404
+    call_broker.assert_not_called()
+
+
+def test_claim_rom_on_hidden_platform_is_404_masked(
+    client, viewer_access_token, viewer_user: User, rom: Rom, platform: Platform
+):
+    """Hiding the parent platform cascades: its ROMs cannot be streamed either."""
+    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+    with _streaming(_container_for(rom)):
+        with patch("endpoints.streaming._call_broker") as call_broker:
+            r = _claim(client, viewer_access_token, rom.id)
+    assert r.status_code == 404
+    call_broker.assert_not_called()
+
+
+def test_claim_skips_container_with_schemeless_host(client, access_token, rom: Rom):
+    """A container whose host has no scheme would produce a broken broker URL
+    and a colliding session key; it must be skipped (404), not a 500 KeyError."""
+    bad = {"platform": rom.platform_slug, "host": "192.168.1.10:3000"}
+    with _streaming(bad):
+        r = _claim(client, access_token, rom.id)
+    assert r.status_code == 404
+
+
+def test_claim_skips_container_missing_host(client, access_token, rom: Rom):
+    """An entry with platform set but host missing must not KeyError into a 500."""
+    bad = {"platform": rom.platform_slug, "broker_host": "http://192.168.1.10:8000"}
+    with _streaming(bad):
+        r = _claim(client, access_token, rom.id)
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_claim_sets_session_ttl(access_token, rom: Rom):
+    """A claimed session must carry a TTL so an abandoned one eventually frees
+    the container instead of wedging it forever."""
+    from endpoints.streaming import SESSION_TTL_SECONDS, _session_redis_key
+
+    with _streaming(_container_for(rom)):
+        with patch("endpoints.streaming._call_broker"):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            ) as ac:
+                r = await ac.post(
+                    "/api/streaming/sessions",
+                    json={"rom_id": rom.id},
+                    headers=_auth(access_token),
+                )
+    assert r.status_code == 200
+    ttl = await async_cache.ttl(_session_redis_key(_container_for(rom)["broker_host"]))
+    assert ttl > 0
+    assert ttl <= SESSION_TTL_SECONDS
+
+
+def test_second_claim_on_same_container_rejected(client, access_token, rom: Rom):
+    """The container is single-tenant: a second claim must 409 with the holder."""
+    with _streaming(_container_for(rom)):
+        with patch("endpoints.streaming._call_broker"):
+            r1 = _claim(client, access_token, rom.id)
+            r2 = _claim(client, access_token, rom.id)
+    assert r1.status_code == 200
+    assert r2.status_code == 409
+    assert r2.json()["detail"]["rom_name"] == rom.name
+
+
+def test_claim_session_same_container_two_platforms_rejected(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """Dolphin serves ngc and wii from one broker - second claim must be 409."""
+    platform2 = db_platform_handler.add_platform(
+        Platform(name="p2", slug="p2_slug", fs_slug="p2_slug")
+    )
+    rom2 = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform2.id,
+            name="rom2",
+            slug="rom2",
+            fs_name="rom2.zip",
+            fs_name_no_tags="rom2",
+            fs_name_no_ext="rom2",
+            fs_extension="zip",
+            fs_path=f"{platform2.slug}/roms",
+        )
+    )
+    shared_broker = "http://192.168.1.10:8000"
+    with _streaming(
+        _container_for(rom, broker_host=shared_broker),
+        _container_for(rom2, broker_host=shared_broker),
+    ):
+        with patch("endpoints.streaming._call_broker"):
+            r1 = _claim(client, access_token, rom.id)
+            r2 = _claim(client, access_token, rom2.id)
+    assert r1.status_code == 200
+    assert r2.status_code == 409
+
+
+def test_failed_broker_launch_frees_the_claim(client, access_token, rom: Rom):
+    """If the broker rejects the launch, the container must not stay claimed."""
+    from fastapi import HTTPException
+
+    with _streaming(_container_for(rom)):
+        with patch(
+            "endpoints.streaming._call_broker",
+            side_effect=HTTPException(status_code=503, detail="unreachable"),
+        ):
+            r1 = _claim(client, access_token, rom.id)
+        r2 = _claim_ok(client, access_token, rom.id)
+    assert r1.status_code == 503
+    assert r2.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_concurrent_claim_only_one_succeeds(access_token, rom: Rom):
+    """Two concurrent claims on one container: exactly one 200 and one 409."""
+    with _streaming(_container_for(rom)):
+        with patch("endpoints.streaming._call_broker"):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            ) as ac:
+                r1, r2 = await asyncio.gather(
+                    ac.post(
+                        "/api/streaming/sessions",
+                        json={"rom_id": rom.id},
+                        headers=_auth(access_token),
+                    ),
+                    ac.post(
+                        "/api/streaming/sessions",
+                        json={"rom_id": rom.id},
+                        headers=_auth(access_token),
+                    ),
+                )
+    assert sorted([r1.status_code, r2.status_code]) == [200, 409]
+
+
+# ── Release / ownership ───────────────────────────────────────────────────────
+
+
+def test_release_uses_container_key_not_platform(client, access_token, rom: Rom):
+    """release_session must find the session by broker_host, not platform string."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._stop_broker"):
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    assert r.json()["status"] == "released"
+
+
+def test_release_by_other_user_is_forbidden(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """A session claimed by one user cannot be released by another non-admin."""
+    with _streaming(_container_for(rom)):
+        # viewer claims the session; admin could override, a viewer cannot
+        r_claim = _claim_ok(client, access_token, rom.id)
+        r = client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            headers=_auth(viewer_access_token),
+        )
+    assert r_claim.status_code == 200
+    assert r.status_code == 403
+
+
+def test_save_state_by_other_user_is_forbidden(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        r = client.post(
+            f"/api/streaming/sessions/{rom.platform_slug}/save-state",
+            json={"slot": 1},
+            headers=_auth(viewer_access_token),
+        )
+    assert r.status_code == 403
+
+
+def test_save_state_rejects_slot_above_platform_max(client, access_token):
+    """Dolphin exposes 7 manual slots; slot 8 clears the coarse union bound
+    (<=9) but must be rejected against the platform's real ceiling."""
+    rom = _rom_on("ngc")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        r = client.post(
+            "/api/streaming/sessions/ngc/save-state",
+            json={"slot": 8},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 422
+
+
+def test_load_state_allows_platform_autosave_slot(client, access_token):
+    """Dolphin's slot 8 is not manually savable but is loadable as the autosave."""
+    rom = _rom_on("wii")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._load_state_broker", return_value=True):
+            r = client.post(
+                "/api/streaming/sessions/wii/load-state",
+                json={"slot": 8},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    assert r.json()["loaded"] is True
+
+
+def test_load_state_rejects_slot_between_max_and_autosave(client, access_token):
+    """Dolphin: slot 9 is neither a manual slot (1-7) nor the autosave (8)."""
+    rom = _rom_on("wiiu")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        r = client.post(
+            "/api/streaming/sessions/wiiu/load-state",
+            json={"slot": 9},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 422
+
+
+def test_save_and_exit_releases_session(client, access_token, rom: Rom):
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._save_and_exit_broker", return_value=True):
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 10, "wait": True},
+                headers=_auth(access_token),
+            )
+        # Container must be claimable again after save-and-exit.
+        r2 = _claim_ok(client, access_token, rom.id)
+    assert r.status_code == 200
+    assert r.json()["saved"] is True
+    assert r2.status_code == 200
+
+
+def test_save_and_exit_failure_still_releases_session(client, access_token, rom: Rom):
+    """A failed save is reported as saved=False, but the session is still
+    released - the container must not stay claimed by a dead session."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._save_and_exit_broker", return_value=False):
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 10, "wait": True},
+                headers=_auth(access_token),
+            )
+        r2 = _claim_ok(client, access_token, rom.id)
+    assert r.status_code == 200
+    assert r.json()["saved"] is False
+    assert r2.status_code == 200
+
+
+def test_save_and_exit_wait_false_drains_instead_of_freeing(
+    client, access_token, rom: Rom
+):
+    """wait=false means the broker is still killing in the background; the
+    session key must briefly block a re-claim (drain) rather than be deleted
+    immediately, so a new launch can't land on a not-yet-dead emulator."""
+    from endpoints.streaming import SESSION_DRAIN_SECONDS, _session_redis_key
+
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._save_and_exit_broker", return_value=True):
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 0, "wait": False},
+                headers=_auth(access_token),
+            )
+        # The drain key briefly holds the container.
+        r2 = _claim_ok(client, access_token, rom.id)
+    assert r.status_code == 200
+    # Re-claim during the drain window is rejected (409), not accepted (200).
+    assert r2.status_code == 409
+    # Drain TTL is bounded to the short window, not the full session TTL.
+    ttl = asyncio.run(
+        async_cache.ttl(_session_redis_key(_container_for(rom)["broker_host"]))
+    )
+    assert 0 < ttl <= SESSION_DRAIN_SECONDS
+
+
+def test_force_release_all_stops_brokers(client, access_token, rom: Rom):
+    """Force-release must tell each broker to stop, not just clear Redis."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._stop_broker") as stop_broker:
+            r = client.delete("/api/streaming/sessions", headers=_auth(access_token))
+    assert r.status_code == 200
+    assert stop_broker.call_count == 1
+
+
+# ── Auth guards ───────────────────────────────────────────────────────────────
+
+
+def test_claim_session_requires_auth(client):
+    assert client.post("/api/streaming/sessions", json={"rom_id": 1}).status_code == 403
+
+
+def test_release_session_requires_auth(client):
+    assert client.delete("/api/streaming/sessions/ps2").status_code == 403
+
+
+def test_force_release_all_requires_auth(client):
+    assert client.delete("/api/streaming/sessions").status_code == 403
+
+
+def test_list_sessions_requires_auth(client):
+    assert client.get("/api/streaming/sessions").status_code == 403
+
+
+def test_list_sessions_requires_admin(client, viewer_access_token):
+    r = client.get("/api/streaming/sessions", headers=_auth(viewer_access_token))
+    assert r.status_code == 403

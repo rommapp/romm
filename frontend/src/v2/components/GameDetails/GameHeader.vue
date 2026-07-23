@@ -60,12 +60,18 @@ const actions = useGameActions(() => props.rom);
       <span v-if="verified" class="r-v2-det-header__sep"> · </span>
       <!-- Icon-only verified indicator. The check decagram is a strong
            enough signal on its own; the "Verified" word was just noise
-           in a row that's already mostly text. RTooltip preserves the
-           label for keyboard / hover discovery. -->
-      <span v-if="verified" class="r-v2-det-header__verified">
+           in a row that's already mostly text. The tooltip spells out
+           what "verified" means (a database hash match) so the badge
+           isn't cryptic; the short label is the accessible name. -->
+      <span
+        v-if="verified"
+        class="r-v2-det-header__verified"
+        :aria-label="t('rom.verified-rom')"
+        tabindex="0"
+      >
         <RIcon icon="mdi-check-decagram" :size="18" color="success" />
         <RTooltip
-          :text="t('rom.verified-rom')"
+          :text="t('rom.verified-rom-hint')"
           location="top"
           activator="parent"
         />

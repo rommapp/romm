@@ -2,6 +2,12 @@
 # by using `envsubst` to replace the environment variables in the template with
 # their actual values.
 
+# Gunicorn upstream. Defined here (not in nginx.conf) so the port stays in sync
+# with the ${DEV_PORT} gunicorn binds to.
+upstream wsgi_server {
+    server 127.0.0.1:${DEV_PORT};
+}
+
 # Helper to get scheme regardless if we are behind a proxy or not
 map $http_x_forwarded_proto $forwardscheme {
     default $scheme;
@@ -22,6 +28,17 @@ map $request_uri $coop_header {
     ~^/console/rom/[0-9]+/play "same-origin";
 }
 
+# Library resources under /assets/romm/resources/ are a mix. Covers (?ts=) and
+# manuals (?v=) are versioned by a known cache-busting query, so they can be
+# frozen; screenshots and RA badges reuse stable filenames (0.jpg, ...) and are
+# overwritten on re-scrape, so they must revalidate. Freeze only when a
+# recognized version param (ts or v) is present, not on any arbitrary query
+# (e.g. ?download=1 must not pin a screenshot for a year).
+map $args $resources_cache_control {
+    default         "public, max-age=3600, must-revalidate";
+    "~(^|&)(ts|v)=" "public, max-age=31536000, immutable";
+}
+
 server {
     root /var/www/html;
     listen ${ROMM_PORT};
@@ -38,6 +55,7 @@ server {
     location / {
         try_files $uri $uri/ /index.html;
         proxy_redirect off;
+        add_header Cache-Control "no-cache";
         add_header Access-Control-Allow-Origin *;
         add_header Access-Control-Allow-Methods *;
         add_header Access-Control-Allow-Headers *;
@@ -45,8 +63,21 @@ server {
         add_header Cross-Origin-Opener-Policy $coop_header;
     }
 
-    # Static files
+    # Freeze content-hashed frontend bundles (fingerprinted files under /assets)
+    location ~* "^/assets/[^/]+-[A-Za-z0-9_-]{8,}\.(js|mjs|css|map|woff2?|ttf|otf|eot|svg|png|jpe?g|gif|webp|avif|ico|json|wasm)$" {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri $uri/ =404;
+    }
+
+    # Freeze library resources carrying cache-busting query
+    location /assets/romm/resources/ {
+        add_header Cache-Control $resources_cache_control;
+        try_files $uri $uri/ =404;
+    }
+
+    # Everything else under /assets keeps a stable URL across image upgrades
     location /assets {
+        add_header Cache-Control "public, max-age=3600, must-revalidate";
         try_files $uri $uri/ =404;
     }
 
@@ -73,6 +104,12 @@ server {
     location /library/ {
         internal;
         alias "${ROMM_BASE_PATH}/library/";
+    }
+
+    # Internally redirect cached zip file requests (Range-resumable downloads)
+    location /cache/ {
+        internal;
+        alias "${ROMM_BASE_PATH}/cache/";
     }
 
     # Internal decoding endpoint, used to decode base64 encoded data

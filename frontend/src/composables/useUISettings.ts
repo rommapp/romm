@@ -15,8 +15,7 @@ export const UI_SETTINGS_KEYS = {
 
   // NOTE: uiVersion is intentionally NOT tracked here. It's owned by the
   // singleton in composables/useUiVersion.ts so a write propagates reactively
-  // to the RomM.vue gate without a reload. When v2 graduates we can move it
-  // into this map and pick up backend sync.
+  // to the RomM.vue gate without a reload.
 
   // Home section
   showStats: { key: "settings.showStats", default: true },
@@ -24,6 +23,18 @@ export const UI_SETTINGS_KEYS = {
   showContinuePlaying: { key: "settings.showContinuePlaying", default: true },
   showPlatforms: { key: "settings.showPlatforms", default: true },
   showCollections: { key: "settings.showCollections", default: true },
+  showSmartCollections: {
+    key: "settings.showSmartCollections",
+    default: false,
+  },
+  showVirtualCollections: {
+    key: "settings.showVirtualCollections",
+    default: false,
+  },
+  virtualCollectionType: {
+    key: "settings.virtualCollectionType",
+    default: "collection",
+  },
 
   // Home widget bar (v2 only). `showHomeWidgets` is the master toggle
   // for the row; per-widget toggles let users disable individual cards
@@ -69,14 +80,10 @@ export const UI_SETTINGS_KEYS = {
   },
   boxartStyle: { key: "settings.boxartStyle", default: "cover_path" },
 
-  // Virtual collections
-  showVirtualCollections: {
-    key: "settings.showVirtualCollections",
+  // Gameplay
+  confirmProtectedLaunch: {
+    key: "settings.confirmProtectedLaunch",
     default: true,
-  },
-  virtualCollectionType: {
-    key: "settings.virtualCollectionType",
-    default: "collection",
   },
 } as const;
 

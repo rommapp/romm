@@ -22,12 +22,7 @@ function ensureCtx() {
 }
 
 export type SfxType =
-  | "move"
-  | "confirm"
-  | "back"
-  | "error"
-  | "delete"
-  | "favorite";
+  "move" | "confirm" | "back" | "error" | "delete" | "favorite";
 
 interface ClickOpts {
   toneHz?: number; // fundamental pitch component

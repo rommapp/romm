@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+from typing import Any
+from urllib.parse import quote
+
 from pydantic import BaseModel, ConfigDict
+
+from config import FRONTEND_RESOURCES_PATH
+
+from .base import UTCDatetime
 
 
 class MusicTrackSchema(BaseModel):
@@ -17,6 +24,7 @@ class MusicTrackSchema(BaseModel):
     disc: int | None = None
     duration_seconds: float | None = None
     has_embedded_cover: bool = False
+    is_favorite: bool = False
     game_name: str | None = None
     platform_id: int
     platform_slug: str
@@ -24,9 +32,53 @@ class MusicTrackSchema(BaseModel):
     stream_url: str
     cover_url: str | None = None
 
+    @staticmethod
+    def cover_url_for(cover_path: str | None, rom_cover_path: str | None) -> str | None:
+        """The track's artwork, in priority order: its own embedded cover, then
+        the game's cover art. None lets the frontend fall back."""
+        resource = cover_path or rom_cover_path
+        return f"{FRONTEND_RESOURCES_PATH}/{resource}" if resource else None
+
+    @classmethod
+    def from_row(cls, row: Any) -> MusicTrackSchema:
+        return cls(
+            rom_file_id=row.rom_file_id,
+            rom_id=row.rom_id,
+            title=row.title,
+            artist=row.artist,
+            album=row.album,
+            genre=row.genre,
+            year=row.year,
+            track=row.track,
+            disc=row.disc,
+            duration_seconds=row.duration_seconds,
+            has_embedded_cover=row.has_embedded_cover,
+            is_favorite=bool(row.is_favorite),
+            game_name=row.game_name,
+            platform_id=row.platform_id,
+            platform_slug=row.platform_slug,
+            platform_name=row.platform_name,
+            stream_url=f"/api/roms/{row.rom_file_id}/files/content/{quote(row.file_name)}",
+            cover_url=cls.cover_url_for(row.cover_path, row.path_cover_l),
+        )
+
 
 class FacetValueSchema(BaseModel):
     """A distinct value of a track field plus how many tracks carry it."""
 
     value: str | int
     count: int
+
+
+class MusicPlaylistSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    description: str | None = None
+    is_public: bool = False
+    user_id: int
+    owner_username: str
+    track_count: int = 0
+    created_at: UTCDatetime
+    updated_at: UTCDatetime

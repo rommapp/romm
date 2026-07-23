@@ -39,10 +39,16 @@ scan:
     artwork:
       - "igdb" # IGDB
       - "ss" # Screenscraper
+    cover:
+      - "ss"
+      - "tgdb"
+    screenshot:
+      - "igdb"
     region:
       - jp
       - eu
       - wor
+    region_mode: prefer_config
     language:
       - jp
       - es

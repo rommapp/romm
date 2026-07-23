@@ -117,7 +117,7 @@ onMounted(async () => {
   <WidgetCard
     :title="t('home.widget-library-stats')"
     :loading="loading"
-    :width="mode === 'extended' ? '420px' : '220px'"
+    :width="mode === 'extended' ? 'max-content' : '220px'"
   >
     <div
       class="r-v2-widget-lib__stats"
@@ -146,11 +146,14 @@ onMounted(async () => {
 /* Extended mode — same card height as compact, but the card itself
    grows wider and the rows lay out in a 3-column grid so all 7 stats
    (3 base + 4 extended) fit in 3 rows inside the shared rail height.
-   Column gap is generous so the right-aligned values from one column
-   don't crowd the left-aligned labels of the next. */
+   Columns size to their content (`auto`, paired with the card's
+   `max-content` width) so labels never get clipped by large values;
+   the rail scrolls horizontally if the numbers get very wide. Column
+   gap is generous so the right-aligned values from one column don't
+   crowd the left-aligned labels of the next. */
 .r-v2-widget-lib__stats--multi-col {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, auto);
   column-gap: 20px;
   row-gap: 6px;
 }
@@ -169,10 +172,11 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 5px;
+  /* Grow to fill the (content-sized) column so the value stays pinned
+     to the column's right edge across every row. */
+  flex: 1;
   min-width: 0;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .r-v2-widget-lib__val {

@@ -1,5 +1,6 @@
 import type {
   Body_add_platform_api_platforms_post as AddPlatformInput,
+  Body_update_platform_api_platforms__id__put as UpdatePlatformInput,
   PlatformSchema,
 } from "@/__generated__";
 import api from "@/services/api";
@@ -25,10 +26,22 @@ async function getSupportedPlatforms() {
   return api.get<Platform[]>("/platforms/supported");
 }
 
-async function updatePlatform({ platform }: { platform: Platform }) {
-  return api.put<Platform>(`/platforms/${platform.id}`, {
+async function getFilesystemPlatforms() {
+  return api.get<Platform[]>("/platforms/filesystem");
+}
+
+async function updatePlatform({
+  platform,
+  description,
+}: {
+  platform: Platform;
+  description?: string;
+}) {
+  const payload: UpdatePlatformInput = {
     custom_name: platform.custom_name,
-  });
+    ...(description !== undefined ? { description } : {}),
+  };
+  return api.put<Platform>(`/platforms/${platform.id}`, payload);
 }
 
 async function deletePlatform({ platform }: { platform: Platform }) {
@@ -40,6 +53,7 @@ export default {
   getPlatforms,
   getPlatform,
   getSupportedPlatforms,
+  getFilesystemPlatforms,
   updatePlatform,
   deletePlatform,
 };

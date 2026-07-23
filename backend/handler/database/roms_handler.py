@@ -3,7 +3,7 @@ import json
 import re
 from collections.abc import Iterable, Sequence
 from datetime import datetime
-from typing import Any
+from typing import Any, NamedTuple
 
 from redis.exceptions import WatchError
 from sqlalchemy import (
@@ -16,6 +16,9 @@ from sqlalchemy import (
     delete,
     false,
     func,
+)
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import (
     literal,
     not_,
     or_,
@@ -42,10 +45,12 @@ from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.redis_handler import sync_cache
 from models.assets import Save, Screenshot, State
 from models.base import compute_file_name_parts
+from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_COLUMNS,
     Rom,
+    RomFacets,
     RomFile,
     RomFileCategory,
     RomMetadata,
@@ -126,11 +131,101 @@ FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
 # 3 is the default minimum size in InnoDB
 FULLTEXT_MIN_TOKEN_SIZE = 3
 
+# Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
+# whose rows carry the raw metadata blobs. Column order matches the unpacking
+# in `_collect_filter_values`.
+_FILTER_VALUES_SELECT = select(
+    RomFacets.genres,
+    RomFacets.franchises,
+    RomFacets.collections,
+    RomFacets.companies,
+    RomFacets.game_modes,
+    RomFacets.age_ratings,
+    RomFacets.player_count,
+    RomFacets.regions,
+    RomFacets.languages,
+    RomFacets.tags,
+    RomFacets.platform_id,
+)
+
 # Cached ROM filter values (genres/franchises/etc.) so it doesn't get
 # recomputed on every call to /api/roms
 ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
 ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
 ROM_FILTERS_CACHE_SCHEMA_VERSION = get_version().replace(".", "_")
+
+# Columns copied from a scanned (transient) RomFile onto its database row.
+ROM_FILE_SCANNED_COLUMNS = (
+    "file_name",
+    "file_path",
+    "file_size_bytes",
+    "last_modified",
+    "crc_hash",
+    "md5_hash",
+    "sha1_hash",
+    "ra_hash",
+    "chd_sha1_hash",
+    "archive_members",
+    "category",
+)
+
+TRACK_META_SCANNED_COLUMNS = (
+    "title",
+    "artist",
+    "album",
+    "genre",
+    "year",
+    "track",
+    "disc",
+    "duration_seconds",
+    "has_embedded_cover",
+    "cover_path",
+)
+
+
+@functools.cache
+def _nullable_columns(model: type) -> frozenset[str]:
+    return frozenset(c.key for c in sa_inspect(model).columns if c.nullable)
+
+
+def _copy_scanned_columns(
+    source: RomFile | TrackMeta,
+    target: RomFile | TrackMeta,
+    columns: Sequence[str],
+    model: type,
+    keep_when_unset: frozenset[str] = frozenset(),
+) -> None:
+    """Copy scanned values onto a row, writing only the columns that changed.
+
+    A column left unset on the scanned row reads as None, and the model default
+    only applies on insert, so writing it through would break the NOT NULL
+    columns on the update path. `keep_when_unset` extends that protection to
+    nullable columns the scanner doesn't own.
+    """
+    for column in columns:
+        value = getattr(source, column)
+        if value is None and (
+            column in keep_when_unset or column not in _nullable_columns(model)
+        ):
+            continue
+        if getattr(target, column) != value:
+            setattr(target, column, value)
+
+
+class SyncedRomFiles(NamedTuple):
+    files: list[RomFile]
+    orphaned_cover_paths: list[str]
+
+
+def _rom_file_content_key(rom_file: RomFile) -> tuple[str, str, str] | None:
+    """Identity of a file by content, or None when it can't be identified.
+
+    All three hashes are required, mirroring `get_matching_missing_rom`: a
+    partial match is not strong enough to move a row onto a different file.
+    """
+    if not (rom_file.crc_hash and rom_file.md5_hash and rom_file.sha1_hash):
+        return None
+    return (rom_file.crc_hash, rom_file.md5_hash, rom_file.sha1_hash)
 
 
 def _cache_value_to_str(value: Any) -> str | None:
@@ -450,13 +545,13 @@ class DBRomsHandler(DBBaseHandler):
     ):
         from . import db_collection_handler
 
-        v_collection = db_collection_handler.get_virtual_collection(
-            virtual_collection_id
+        return query.filter(
+            Rom.id.in_(
+                db_collection_handler.get_virtual_collection_rom_ids(
+                    virtual_collection_id
+                )
+            )
         )
-
-        if v_collection:
-            return query.filter(Rom.id.in_(v_collection.rom_ids))
-        return query
 
     def _filter_by_smart_collection_id(
         self, query: Query, session: Session, smart_collection_id: int, user_id: int
@@ -1527,13 +1622,36 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def get_missing_rom_ids(
+        self,
+        platform_id: int,
+        session: Session = None,  # type: ignore
+    ) -> set[int]:
+        """Return the ids of a platform's ROMs currently flagged missing."""
+        return set(
+            session.scalars(
+                select(Rom.id).where(
+                    and_(
+                        Rom.platform_id == platform_id,
+                        Rom.missing_from_fs.is_(True),
+                    )
+                )
+            ).all()
+        )
+
+    @begin_session
     def bulk_mark_present(
         self,
         platform_id: int,
         rom_ids: list[int],
         session: Session = None,  # type: ignore
     ) -> None:
-        """Bulk set missing_from_fs=False for a list of ROM IDs."""
+        """Bulk set missing_from_fs=False for a list of ROM IDs.
+
+        Only rows that actually flip are written, so a re-scan of an
+        unchanged platform issues no updates and leaves `updated_at`
+        untouched, keeping it a usable incremental signal.
+        """
         if not rom_ids:
             return
 
@@ -1545,6 +1663,7 @@ class DBRomsHandler(DBBaseHandler):
                     and_(
                         Rom.platform_id == platform_id,
                         Rom.id.in_(chunk),
+                        Rom.missing_from_fs.is_(True),
                     )
                 )
                 .values(missing_from_fs=False)
@@ -1679,6 +1798,136 @@ class DBRomsHandler(DBBaseHandler):
         session.flush()
         return merged
 
+    def _apply_scanned_rom_file(
+        self,
+        row: RomFile,
+        scanned: RomFile,
+        rom_id: int,
+    ) -> str | None:
+        """Copy a scanned file onto its row, with its track metadata.
+
+        Returns the cover path this update orphaned, if any.
+        """
+        _copy_scanned_columns(scanned, row, ROM_FILE_SCANNED_COLUMNS, RomFile)
+
+        if row.missing_from_fs:
+            row.missing_from_fs = False
+
+        scanned_meta = scanned.track_meta
+        if scanned_meta is None:
+            orphaned = row.track_meta.cover_path if row.track_meta else None
+            row.track_meta = None
+            return orphaned
+
+        meta = row.track_meta
+        if meta is None:
+            meta = TrackMeta(rom_id=rom_id)
+            row.track_meta = meta
+
+        meta.rom_id = rom_id
+        # The scanner only flags whether a cover exists
+        _copy_scanned_columns(
+            scanned_meta,
+            meta,
+            TRACK_META_SCANNED_COLUMNS,
+            TrackMeta,
+            keep_when_unset=frozenset({"cover_path"}),
+        )
+
+        return None
+
+    @begin_session
+    def sync_rom_files(
+        self,
+        rom_id: int,
+        scanned_files: Sequence[RomFile],
+        session: Session = None,  # type: ignore
+    ) -> SyncedRomFiles:
+        """Reconcile a ROM's file rows against a fresh scan, preserving row ids.
+
+        Rows are matched by path first, then by content hash, so a file renamed
+        or moved inside the ROM keeps its id, its `created_at` and its track
+        metadata instead of being deleted and re-inserted. Rows left unmatched
+        are deleted, and only columns that actually changed are written, so
+        re-scanning an unchanged ROM issues no updates.
+
+        Returns the persisted rows in scan order, plus the soundtrack covers
+        left behind by dropped track metadata for the caller to unlink.
+        """
+        existing = (
+            session.scalars(
+                select(RomFile)
+                .options(selectinload(RomFile.track_meta))
+                .filter_by(rom_id=rom_id)
+            )
+            .unique()
+            .all()
+        )
+
+        unmatched = {row.id: row for row in existing}
+        by_path = {(row.file_path, row.file_name): row for row in existing}
+
+        pairs: list[tuple[RomFile, RomFile | None]] = []
+        unpaired_indexes: list[int] = []
+
+        for scanned in scanned_files:
+            row = by_path.get((scanned.file_path, scanned.file_name))
+            if row is not None and row.id in unmatched:
+                del unmatched[row.id]
+                pairs.append((scanned, row))
+            else:
+                unpaired_indexes.append(len(pairs))
+                pairs.append((scanned, None))
+
+        if unpaired_indexes and unmatched:
+            # Identical copies map to the same content key, so keep only keys
+            # that identify a single row rather than pairing them arbitrarily.
+            by_content: dict[tuple[str, str, str], RomFile | None] = {}
+            for row in unmatched.values():
+                key = _rom_file_content_key(row)
+                if key is not None:
+                    by_content[key] = None if key in by_content else row
+
+            for index in unpaired_indexes:
+                scanned, _ = pairs[index]
+                key = _rom_file_content_key(scanned)
+                if key is None:
+                    continue
+                row = by_content.get(key)
+                if row is None:
+                    continue
+                del unmatched[row.id]
+                by_content[key] = None
+                pairs[index] = (scanned, row)
+
+        saved: list[RomFile] = []
+        orphaned_cover_paths: list[str] = []
+        for scanned, row in pairs:
+            if row is None:
+                row = RomFile(rom_id=rom_id)
+                session.add(row)
+            orphaned = self._apply_scanned_rom_file(row, scanned, rom_id)
+            if orphaned:
+                orphaned_cover_paths.append(orphaned)
+            saved.append(row)
+
+        if unmatched:
+            # Deleting a row cascades its track metadata, so its cover would
+            # otherwise be left on disk with nothing pointing at it.
+            orphaned_cover_paths.extend(
+                row.track_meta.cover_path
+                for row in unmatched.values()
+                if row.track_meta and row.track_meta.cover_path
+            )
+            session.execute(
+                delete(RomFile)
+                .where(RomFile.id.in_(list(unmatched)))
+                .execution_options(synchronize_session="evaluate")
+            )
+
+        session.flush()
+        return SyncedRomFiles(files=saved, orphaned_cover_paths=orphaned_cover_paths)
+
     @begin_session
     def get_rom_file_by_id(
         self,
@@ -1690,6 +1939,27 @@ class DBRomsHandler(DBBaseHandler):
             .options(selectinload(RomFile.track_meta))
             .filter_by(id=id)
             .limit(1)
+        )
+
+    @begin_session
+    def get_rom_files_by_ids(
+        self,
+        ids: Sequence[int],
+        session: Session = None,  # type: ignore
+    ) -> Sequence[RomFile]:
+        if not ids:
+            return []
+        return (
+            session.scalars(
+                select(RomFile)
+                .options(
+                    selectinload(RomFile.track_meta),
+                    joinedload(RomFile.rom).load_only(Rom.platform_id),
+                )
+                .where(RomFile.id.in_(ids))
+            )
+            .unique()
+            .all()
         )
 
     @begin_session
@@ -1799,6 +2069,7 @@ class DBRomsHandler(DBBaseHandler):
         album: str | None = None,
         genre: str | None = None,
         platform_ids: Sequence[int] | None = None,
+        rom_id: int | None = None,
         year: int | None = None,
         min_duration: float | None = None,
         max_duration: float | None = None,
@@ -1809,6 +2080,8 @@ class DBRomsHandler(DBBaseHandler):
             clauses.append(Rom.platform_id.not_in(hidden_platform_ids))
         if hidden_rom_ids:
             clauses.append(Rom.id.not_in(hidden_rom_ids))
+        if rom_id is not None:
+            clauses.append(Rom.id == rom_id)
         if search:
             like = f"%{escape_like(search.lower())}%"
             clauses.append(
@@ -1845,6 +2118,7 @@ class DBRomsHandler(DBBaseHandler):
         album: str | None = None,
         genre: str | None = None,
         platform_ids: Sequence[int] | None = None,
+        rom_id: int | None = None,
         year: int | None = None,
         min_duration: float | None = None,
         max_duration: float | None = None,
@@ -1852,8 +2126,13 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         limit: int = 50,
         offset: int = 0,
+        is_favorite_user_id: int | None = None,
+        only_favorites: bool = False,
+        playlist_id: int | None = None,
         session: Session = None,  # type: ignore
     ) -> tuple[Sequence[Any], int]:
+        if only_favorites and is_favorite_user_id is None:
+            return [], 0
         where = self._music_where(
             hidden_platform_ids=hidden_platform_ids,
             hidden_rom_ids=hidden_rom_ids,
@@ -1862,9 +2141,15 @@ class DBRomsHandler(DBBaseHandler):
             album=album,
             genre=genre,
             platform_ids=platform_ids,
+            rom_id=rom_id,
             year=year,
             min_duration=min_duration,
             max_duration=max_duration,
+        )
+        is_favorite_col = (
+            MusicFavoriteTrack.user_id.is_not(None)
+            if is_favorite_user_id is not None
+            else false()
         )
         base = (
             select(
@@ -1881,6 +2166,7 @@ class DBRomsHandler(DBBaseHandler):
                 TrackMeta.has_embedded_cover,
                 TrackMeta.cover_path,
                 RomFile.file_name.label("file_name"),
+                is_favorite_col.label("is_favorite"),
                 Rom.name.label("game_name"),
                 Rom.path_cover_l.label("path_cover_l"),
                 Platform.id.label("platform_id"),
@@ -1891,8 +2177,26 @@ class DBRomsHandler(DBBaseHandler):
             .join(RomFile, TrackMeta.rom_file_id == RomFile.id)
             .join(Rom, TrackMeta.rom_id == Rom.id)
             .join(Platform, Rom.platform_id == Platform.id)
-            .where(*where)
         )
+        if is_favorite_user_id is not None:
+            favorite_on = and_(
+                MusicFavoriteTrack.user_id == is_favorite_user_id,
+                MusicFavoriteTrack.rom_file_id == TrackMeta.rom_file_id,
+            )
+            base = (
+                base.join(MusicFavoriteTrack, favorite_on)
+                if only_favorites
+                else base.outerjoin(MusicFavoriteTrack, favorite_on)
+            )
+        if playlist_id is not None:
+            base = base.join(
+                MusicPlaylistTrack,
+                and_(
+                    MusicPlaylistTrack.playlist_id == playlist_id,
+                    MusicPlaylistTrack.rom_file_id == TrackMeta.rom_file_id,
+                ),
+            )
+        base = base.where(*where)
         total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
         order_map = {
             "title": TrackMeta.title,
@@ -1903,6 +2207,8 @@ class DBRomsHandler(DBBaseHandler):
             "platform": Platform.name,
             "added": RomFile.created_at,
         }
+        if playlist_id is not None:
+            order_map["position"] = MusicPlaylistTrack.position
         col = order_map.get(order_by, TrackMeta.title)
         direction = col.desc() if order_dir == "desc" else col.asc()
         rows = session.execute(
@@ -1981,22 +2287,6 @@ class DBRomsHandler(DBBaseHandler):
             base.order_by(primary, col.asc()).limit(limit).offset(offset)
         ).all()
         return rows, total
-
-    @begin_session
-    def purge_rom_files(
-        self,
-        rom_id: int,
-        session: Session = None,  # type: ignore
-    ) -> Sequence[RomFile]:
-        purged_rom_files = (
-            session.scalars(select(RomFile).filter_by(rom_id=rom_id)).unique().all()
-        )
-        session.execute(
-            delete(RomFile)
-            .where(RomFile.rom_id == rom_id)
-            .execution_options(synchronize_session="evaluate")
-        )
-        return purged_rom_files
 
     @begin_session
     def delete_rom_file(
@@ -2215,6 +2505,43 @@ class DBRomsHandler(DBBaseHandler):
         # Return the first ROM matching any of the provided hash values
         return session.scalar(query.outerjoin(Rom.files).filter(or_(*filters)).limit(1))
 
+    @begin_session
+    def get_matching_missing_rom(
+        self,
+        platform_id: int,
+        crc_hash: str | None = None,
+        md5_hash: str | None = None,
+        sha1_hash: str | None = None,
+        session: Session = None,  # type: ignore
+    ) -> Rom | None:
+        """Find a ROM marked missing on a platform whose hashes match the file.
+
+        Used during scanning to reassociate a renamed or moved file with its
+        existing entry (preserving collections, notes, and assets) instead of
+        creating a duplicate. Requires the CRC, MD5, and SHA1 hashes to all
+        match. Any missing hash yields no match, so non-hashable platforms and
+        pre-hash entries safely fall back to creating a new entry.
+        """
+        if not (crc_hash and md5_hash and sha1_hash):
+            return None
+
+        matches = session.scalars(
+            select(Rom)
+            .where(
+                and_(
+                    Rom.platform_id == platform_id,
+                    Rom.missing_from_fs.is_(True),
+                    Rom.crc_hash == crc_hash,
+                    Rom.md5_hash == md5_hash,
+                    Rom.sha1_hash == sha1_hash,
+                )
+            )
+            .limit(2)
+        ).all()
+
+        # Return None when more than one match to avoid ambiguity.
+        return matches[0] if len(matches) == 1 else None
+
     def _collect_filter_values(
         self,
         session: Session,
@@ -2304,24 +2631,7 @@ class DBRomsHandler(DBBaseHandler):
 
         ids_subq = query.order_by(None).with_only_columns(Rom.id).scalar_subquery()  # type: ignore
 
-        statement = (
-            select(
-                RomMetadata.genres,
-                RomMetadata.franchises,
-                RomMetadata.collections,
-                RomMetadata.companies,
-                RomMetadata.game_modes,
-                RomMetadata.age_ratings,
-                RomMetadata.player_count,
-                Rom.regions,
-                Rom.languages,
-                Rom.tags,
-                Rom.platform_id,
-            )
-            .select_from(Rom)
-            .join(RomMetadata, Rom.id == RomMetadata.rom_id)
-            .where(Rom.id.in_(ids_subq))
-        )
+        statement = _FILTER_VALUES_SELECT.where(RomFacets.rom_id.in_(ids_subq))
 
         result = self._collect_filter_values(session, statement)
         if redis_key is not None and version is not None:
@@ -2336,18 +2646,4 @@ class DBRomsHandler(DBBaseHandler):
         """
         Returns all filter values across all ROM metadata
         """
-        statement = select(
-            RomMetadata.genres,
-            RomMetadata.franchises,
-            RomMetadata.collections,
-            RomMetadata.companies,
-            RomMetadata.game_modes,
-            RomMetadata.age_ratings,
-            RomMetadata.player_count,
-            Rom.regions,
-            Rom.languages,
-            Rom.tags,
-            Rom.platform_id,
-        )
-
-        return self._collect_filter_values(session, statement)
+        return self._collect_filter_values(session, _FILTER_VALUES_SELECT)

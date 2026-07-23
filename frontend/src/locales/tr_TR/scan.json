@@ -19,6 +19,7 @@
   "firmware-found": "Firmware bulundu: {n} dosya | Firmware bulundu: {n} dosya",
   "firmware-scanned-n": "Firmware: {n} tarandı",
   "firmware-scanned-with-details": "Firmware: {n_scanned_firmware} tarandı, {n_new_firmware} yeni",
+  "folder-not-scanned": "Taranmadı",
   "hash-calculation-disabled": "Hash hesaplama devre dışı",
   "hash-matchers": "Hash eşleştiriciler",
   "hashes": "Hash değerlerini yeniden hesapla",

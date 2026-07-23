@@ -22,8 +22,12 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.permission import PermAction, PermEntity
-from models.platform import Platform
-from utils.platforms import get_supported_platforms
+from models.platform import (
+    CUSTOM_NAME_MAX_LENGTH,
+    DESCRIPTION_MAX_LENGTH,
+    Platform,
+)
+from utils.platforms import get_filesystem_platforms, get_supported_platforms
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -98,6 +102,13 @@ def get_supported_platforms_endpoint(request: Request) -> list[PlatformSchema]:
     return get_supported_platforms()
 
 
+@protected_route(router.get, "/filesystem", [Scope.PLATFORMS_READ])
+async def get_filesystem_platforms_endpoint(request: Request) -> list[PlatformSchema]:
+    """Retrieve platform folders on disk that have no database row yet."""
+
+    return await get_filesystem_platforms()
+
+
 @protected_route(
     router.get,
     "/{id}",
@@ -127,7 +138,20 @@ async def update_platform(
     request: Request,
     id: Annotated[int, PathVar(description="Platform id.", ge=1)],
     custom_name: Annotated[
-        str | None, Body(embed=True, description="Custom platform name.")
+        str | None,
+        Body(
+            embed=True,
+            max_length=CUSTOM_NAME_MAX_LENGTH,
+            description="Custom platform name.",
+        ),
+    ] = None,
+    description: Annotated[
+        str | None,
+        Body(
+            embed=True,
+            max_length=DESCRIPTION_MAX_LENGTH,
+            description="Custom platform description.",
+        ),
     ] = None,
 ) -> PlatformSchema:
     """Update a platform."""
@@ -139,6 +163,8 @@ async def update_platform(
 
     if custom_name is not None:
         platform_db.custom_name = custom_name
+    if description is not None:
+        platform_db.description = description
     platform_db = db_platform_handler.add_platform(platform_db)
 
     return PlatformSchema.model_validate(platform_db)

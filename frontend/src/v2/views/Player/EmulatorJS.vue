@@ -48,6 +48,7 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { usePlaySession } from "@/v2/composables/usePlaySession";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
@@ -68,6 +69,7 @@ const configStore = storeConfig();
 const { playing, fullScreen } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
 const { modality } = useInputModality();
+const playSession = usePlaySession();
 
 // Ref the Play CTA so we can imperatively focus it on enter (and again
 // when the user comes back from a running session). RBtn forwards to
@@ -225,14 +227,6 @@ async function onPlay() {
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = installIOSFullscreenShim();
 
-  if (rom.value && auth.scopes.includes("roms.user.write")) {
-    romApi.updateUserRomProps({
-      romId: rom.value.id,
-      data: rom.value.rom_user,
-      updateLastPlayed: true,
-    });
-  }
-
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullscreenOnPlay.value;
   fullScreen.value = fullscreenOnPlay.value;
@@ -302,10 +296,6 @@ async function onPlay() {
 
 function selectSave(save: SaveSchema) {
   selectedSave.value = save;
-  if (selectedState.value) {
-    selectedState.value = null;
-    localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
-  }
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:save_id`,
     save.id.toString(),
@@ -320,10 +310,6 @@ function unselectSave() {
 
 function selectState(state: StateSchema) {
   selectedState.value = state;
-  if (selectedSave.value) {
-    selectedSave.value = null;
-    localStorage.removeItem(`player:${rom.value?.platform_slug}:save_id`);
-  }
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:state_id`,
     state.id.toString(),
@@ -380,24 +366,27 @@ onMounted(async () => {
     });
   }
 
-  // Default tab + selection (mutually exclusive).
+  // Default selection — save and state are independent, so both can be
+  // armed at once. The bound save is the write-back target for "Save &
+  // Quit" (PUT in place), so we only auto-bind it when the choice is
+  // unambiguous: never silently pick a slot when a state is armed and
+  // there are multiple saves, since loading the state injects a different
+  // SRAM timeline that would overwrite an arbitrary save the user never
+  // picked. In that case the user must select the save slot explicitly.
   const initiallyCompatibleStates = rom.value.user_states.filter(
     (s) => !s.emulator || s.emulator === supportedCores.value[0],
   );
+  const hasCompatibleState = initiallyCompatibleStates.length > 0;
 
-  if (initiallyCompatibleStates.length > 0) {
-    isSavesTabSelected.value = false;
+  if (hasCompatibleState) {
     selectedState.value = initiallyCompatibleStates[0];
-    selectedSave.value = null;
-  } else if (rom.value.user_saves.length > 0) {
-    isSavesTabSelected.value = true;
-    selectedSave.value = rom.value.user_saves[0];
-    selectedState.value = null;
-  } else {
-    isSavesTabSelected.value = true;
-    selectedSave.value = null;
-    selectedState.value = null;
   }
+  const safeToBindSave =
+    rom.value.user_saves.length === 1 || !hasCompatibleState;
+  if (rom.value.user_saves.length > 0 && safeToBindSave) {
+    selectedSave.value = rom.value.user_saves[0];
+  }
+  isSavesTabSelected.value = !hasCompatibleState;
 
   const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
   if (storedDisc) {
@@ -450,10 +439,12 @@ onMounted(async () => {
 // to Play on exit so a Start-Play loop stays on the pad.
 watch(gameRunning, (running, prev) => {
   if (running && !prev) {
+    if (rom.value) playSession.start(rom.value);
     emitActivityStart();
     startActivityHeartbeat();
   }
   if (prev && !running) {
+    playSession.flush();
     stopActivityHeartbeat();
     emitActivityStop();
     nextTick(focusPlayButton);
@@ -470,9 +461,14 @@ function onGamepadButton(e: CustomEvent<{ name?: string }>) {
 
 onBeforeUnmount(() => {
   // Leaving the player (back nav / route change) ends the session even if
-  // the user never exited the game to the config screen first.
+  // the user never exited the game to the config screen first. flush() is
+  // idempotent, so an exit that already flushed via the watch is a no-op.
+  playSession.flush();
   stopActivityHeartbeat();
   emitActivityStop();
+  // Hand the keyboard and gamepad back to the UI; the flag otherwise
+  // stays true and pad/hotkey navigation is dead until a reload.
+  playing.value = false;
   window.EJS_emulator?.callEvent("exit");
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = null;

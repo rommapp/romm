@@ -10,8 +10,9 @@ from models.assets import Save, Screenshot, State  # noqa
 from models.base import BaseModel
 from models.collection import VirtualCollection
 from models.firmware import Firmware  # noqa
+from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack  # noqa
 from models.platform import Platform  # noqa
-from models.rom import Rom, RomMetadata, SiblingRom  # noqa
+from models.rom import Rom, RomFacets, RomMetadata, SiblingRom  # noqa
 from models.user import User  # noqa
 
 # this is the Alembic Config object, which provides
@@ -48,6 +49,12 @@ def include_object(object, name, type_, reflected, compare_to):
         "idx_roms_name_trgm",
         "idx_roms_fs_name_trgm",
     ):
+        return False
+
+    # generated_* are STORED generated columns backing views.
+    # They are maintained in raw SQL (dialect-specific expressions) rather
+    # than the ORM model, so hide them from autogenerate to avoid false drops.
+    if type_ == "column" and name.startswith("generated_"):
         return False
 
     return True

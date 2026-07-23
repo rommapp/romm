@@ -17,6 +17,7 @@
 // REmptyState / RProgressCircular / RSpinner as needed.
 import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import { createBodyScrollLock, overlayCount } from "../bodyScrollLock";
 import {
   type EscapableEntry,
   popEscapable,
@@ -68,7 +69,11 @@ const panelRef = ref<HTMLElement | null>(null);
 // when the dialog closes so keyboard users don't lose their place.
 let previouslyFocused: HTMLElement | null = null;
 
-// Stack depth at the moment this dialog opened (number of OTHER dialogs
+// Shared, reference-counted body scroll lock (see bodyScrollLock.ts).
+const { lock: lockBodyScroll, unlock: unlockBodyScroll } =
+  createBodyScrollLock();
+
+// Stack depth at the moment this dialog opened (number of overlays
 // already open). Drives a per-instance z-index bump so a dialog opened
 // from inside another dialog always paints above its parent surface,
 // regardless of Teleport mount order. Reset to 0 on close.
@@ -103,41 +108,15 @@ const stackEntry: EscapableEntry = {
   },
 };
 
-// ── Body scroll lock — reference-counted so nested dialogs unlock
-// correctly when the outer one is still open. ─────────────────────
-function lockBodyScroll() {
-  const cur = Number(document.body.dataset.rDialogOpenCount ?? "0") + 1;
-  document.body.dataset.rDialogOpenCount = String(cur);
-  if (cur === 1) {
-    // Remember whatever overflow was already in effect (e.g. a gallery
-    // view that locks the body for its whole lifetime) so we restore it
-    // on unlock instead of clobbering it to "".
-    document.body.dataset.rDialogPrevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-  }
-}
-function unlockBodyScroll() {
-  const cur = Math.max(
-    0,
-    Number(document.body.dataset.rDialogOpenCount ?? "0") - 1,
-  );
-  document.body.dataset.rDialogOpenCount = String(cur);
-  if (cur === 0) {
-    document.body.style.overflow =
-      document.body.dataset.rDialogPrevOverflow ?? "";
-    delete document.body.dataset.rDialogPrevOverflow;
-  }
-}
-
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
       previouslyFocused = document.activeElement as HTMLElement | null;
-      // Snapshot the open-dialog count BEFORE incrementing it via
+      // Snapshot the open-overlay count BEFORE incrementing it via
       // lockBodyScroll(), so the first dialog reads depth 0 and any
       // subsequent dialog sees the previous ones and stacks on top.
-      stackDepth.value = Number(document.body.dataset.rDialogOpenCount ?? "0");
+      stackDepth.value = overlayCount();
       lockBodyScroll();
       pushEscapable(stackEntry);
       // Defer to the next tick so the panel is mounted before we
@@ -166,9 +145,14 @@ watch(
 );
 
 // Safety net — if the component unmounts while still open (parent
-// teardown, route change), drop our stack entry so the global listener
-// never tries to close a destroyed instance.
-onBeforeUnmount(() => popEscapable(stackEntry));
+// teardown, route change, or a consumer nulling its `v-if` entity in the
+// same tick as `show`), drop our stack entry so the global listener never
+// tries to close a destroyed instance, and release the body scroll lock
+// the watcher's close branch never got to run.
+onBeforeUnmount(() => {
+  popEscapable(stackEntry);
+  unlockBodyScroll();
+});
 
 // ── Width / height resolution ───────────────────────────────────
 function asLength(v: number | string): string | undefined {

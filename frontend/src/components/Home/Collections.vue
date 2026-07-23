@@ -10,9 +10,7 @@ const props = defineProps<{
   collections: CollectionType[];
   title: string;
   setting:
-    | "gridCollections"
-    | "gridVirtualCollections"
-    | "gridSmartCollections";
+    "gridCollections" | "gridVirtualCollections" | "gridSmartCollections";
 }>();
 
 const gridCollections = useLocalStorage(`settings.${props.setting}`, false);

@@ -6,6 +6,7 @@ import socketio
 from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
     ScanStats,
+    _identify_rom,
     reject_unauthorized_scan,
     scan_handler,
     scan_platforms,
@@ -13,9 +14,16 @@ from endpoints.sockets.scan import (
     stop_scan_handler,
 )
 from handler.auth.constants import Scope
-from handler.filesystem.roms_handler import FSRomsHandler
+from handler.database.roms_handler import SyncedRomFiles
+from handler.filesystem.roms_handler import (
+    FSRom,
+    FSRomsHandler,
+    ParsedRomFiles,
+    ParsedTags,
+)
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import ScanType
+from models.platform import Platform
 from models.rom import Rom
 
 
@@ -158,6 +166,19 @@ class TestScanTotals:
 
         assert result.total_platforms == 3
         assert result.total_roms == 300
+
+    async def test_scan_selected_filesystem_slug(self, patched, mocker):
+        """A never-scanned folder can be targeted by its filesystem slug."""
+        result = await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[],
+            scan_type=ScanType.QUICK,
+            platform_fs_slugs=["new1"],
+        )
+
+        # Only the selected folder is scanned, not every filesystem platform.
+        assert result.total_platforms == 1
+        assert result.total_roms == 100
 
 
 class TestShouldScanRom:
@@ -413,6 +434,337 @@ class TestScanAuthorization:
         await stop_scan_handler("sid")
 
         get_jobs.assert_not_called()
+
+
+class TestIdentifyRomReassociation:
+    """`_identify_rom` reassociates a renamed/moved file with its missing entry.
+
+    A HASHES scan is used so the flow returns right after the file-rebuild step,
+    keeping the metadata/resource path out of scope for these wiring tests.
+    """
+
+    @pytest.fixture
+    def patched(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        fs = scan_module.fs_rom_handler
+        mocker.patch.object(
+            fs,
+            "parse_tags",
+            return_value=ParsedTags(
+                version="", revision="", regions=[], languages=[], other_tags=[]
+            ),
+        )
+        mocker.patch.object(fs, "get_roms_fs_structure", return_value="test/roms")
+        mocker.patch.object(fs, "get_file_name_with_no_tags", return_value="New Name")
+        mocker.patch.object(
+            fs,
+            "get_rom_files",
+            AsyncMock(
+                return_value=ParsedRomFiles(
+                    rom_files=[],
+                    crc_hash="crc",
+                    md5_hash="md5",
+                    sha1_hash="sha1",
+                    ra_hash="",
+                )
+            ),
+        )
+
+        config = MagicMock()
+        config.SKIP_HASH_CALCULATION = False
+        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+        mocker.patch.object(
+            scan_module,
+            "scan_rom",
+            AsyncMock(return_value=MagicMock(is_identified=False)),
+        )
+
+        db = mocker.patch.object(scan_module, "db_rom_handler")
+        db.add_rom.return_value = MagicMock(is_identified=False, id=99)
+        return db
+
+    def _platform(self):
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        return platform
+
+    async def _run(self, db):
+        fs_rom: FSRom = {
+            "fs_name": "New Name.zip",
+            "flat": True,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        await _identify_rom(
+            platform=self._platform(),
+            fs_rom=fs_rom,
+            rom=None,
+            scan_type=ScanType.HASHES,
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
+
+    async def test_reassociates_with_missing_entry(self, patched):
+        db = patched
+        missing = MagicMock(id=42, name="Old Game", fs_name="old.zip")
+        db.get_matching_missing_rom.return_value = missing
+        db.update_rom.return_value = missing
+
+        await self._run(db)
+
+        db.get_matching_missing_rom.assert_called_once_with(
+            platform_id=1,
+            crc_hash="crc",
+            md5_hash="md5",
+            sha1_hash="sha1",
+        )
+        db.update_rom.assert_called_once()
+        rom_id, data = db.update_rom.call_args.args
+        assert rom_id == 42
+        assert data["missing_from_fs"] is False
+        assert data["fs_name"] == "New Name.zip"
+        # No brand-new row is inserted; add_rom only persists the scan result.
+        assert db.add_rom.call_count == 1
+
+    async def test_files_are_reconciled_in_place(self, patched):
+        db = patched
+        db.get_matching_missing_rom.return_value = None
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=[]
+        )
+
+        await self._run(db)
+
+        # Rows are reconciled against the scan, so file ids survive the rescan.
+        db.sync_rom_files.assert_called_once_with(99, [])
+
+    async def test_orphaned_soundtrack_covers_are_unlinked(self, patched, mocker):
+        db = patched
+        db.get_matching_missing_rom.return_value = None
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=["covers/track01.png"]
+        )
+        remove = mocker.patch.object(scan_module, "remove_persisted_cover")
+
+        await self._run(db)
+
+        remove.assert_called_once_with("covers/track01.png")
+
+    async def test_creates_new_entry_when_no_match(self, patched):
+        db = patched
+        db.get_matching_missing_rom.return_value = None
+
+        await self._run(db)
+
+        db.get_matching_missing_rom.assert_called_once()
+        # No reassociation update happens on the create path.
+        db.update_rom.assert_not_called()
+        # A new row is inserted, then the scan result is persisted (two calls).
+        assert db.add_rom.call_count == 2
+        created = db.add_rom.call_args_list[0].args[0]
+        assert isinstance(created, Rom)
+        assert created.fs_name == "New Name.zip"
+
+
+class TestIdentifyPlatformMarksMissingBeforeScan:
+    """`_identify_platform` must flag missing entries before identifying files.
+
+    Reassociation matches a renamed/moved file against entries already flagged
+    `missing_from_fs`. That flag is only accurate if it is synced before the
+    identify loop runs, so a single rename+scan can reassociate instead of
+    creating a duplicate.
+    """
+
+    async def test_mark_missing_runs_before_identify(self, mocker):
+        calls: list[str] = []
+
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        platform.missing_from_fs = False
+        db_platform = mocker.patch.object(scan_module, "db_platform_handler")
+        db_platform.get_platform_by_fs_slug.return_value = platform
+        db_platform.add_platform.return_value = platform
+
+        mocker.patch.object(
+            scan_module, "scan_platform", AsyncMock(return_value=platform)
+        )
+        # The scanning_platform emit serializes the platform; stub it out.
+        mocker.patch.object(
+            scan_module.PlatformSchema,
+            "model_validate",
+            return_value=Mock(model_dump=Mock(return_value={})),
+        )
+        mocker.patch.object(
+            scan_module.fs_firmware_handler,
+            "get_firmware",
+            AsyncMock(return_value=[]),
+        )
+        fs_rom: FSRom = {
+            "fs_name": "New Name.zip",
+            "flat": True,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        mocker.patch.object(
+            scan_module.fs_rom_handler, "get_roms", AsyncMock(return_value=[fs_rom])
+        )
+
+        def record_mark_missing(*args, **kwargs):
+            calls.append("mark_missing")
+            return []
+
+        db_rom = mocker.patch.object(scan_module, "db_rom_handler")
+        db_rom.get_roms_by_fs_name.return_value = {}
+        db_rom.mark_missing_roms.side_effect = record_mark_missing
+        db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
+        db_firmware.mark_missing_firmware.return_value = []
+
+        async def fake_identify(**kwargs):
+            calls.append("identify")
+
+        mocker.patch.object(scan_module, "_identify_rom", side_effect=fake_identify)
+
+        await scan_module._identify_platform(
+            platform_slug="test",
+            scan_type=ScanType.QUICK,
+            fs_platforms=["test"],
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
+
+        assert "mark_missing" in calls and "identify" in calls
+        assert calls.index("mark_missing") < calls.index("identify")
+
+
+class TestIdentifyPlatformEmitsRestoredRoms:
+    """A quick platform scan tells the client about ROMs that came back.
+
+    Existing entries are skipped by `should_scan_rom`, so nothing else in the
+    loop emits for them and an open gallery would keep showing a stale
+    "missing" badge until a refetch.
+    """
+
+    @pytest.fixture
+    def patched(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        platform.missing_from_fs = False
+        db_platform = mocker.patch.object(scan_module, "db_platform_handler")
+        db_platform.get_platform_by_fs_slug.return_value = platform
+        db_platform.add_platform.return_value = platform
+
+        mocker.patch.object(
+            scan_module, "scan_platform", AsyncMock(return_value=platform)
+        )
+        mocker.patch.object(
+            scan_module.PlatformSchema,
+            "model_validate",
+            return_value=Mock(model_dump=Mock(return_value={})),
+        )
+        mocker.patch.object(
+            scan_module.fs_firmware_handler,
+            "get_firmware",
+            AsyncMock(return_value=[]),
+        )
+
+        fs_rom: FSRom = {
+            "fs_name": "Game.zip",
+            "flat": True,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        mocker.patch.object(
+            scan_module.fs_rom_handler, "get_roms", AsyncMock(return_value=[fs_rom])
+        )
+
+        rom = Rom(fs_name="Game.zip", platform_id=platform.id)
+        rom.id = 42
+
+        db_rom = mocker.patch.object(scan_module, "db_rom_handler")
+        db_rom.get_roms_by_fs_name.return_value = {"Game.zip": rom}
+        db_rom.mark_missing_roms.return_value = []
+        db_rom.get_rom.return_value = rom
+
+        db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
+        db_firmware.mark_missing_firmware.return_value = []
+
+        mocker.patch.object(
+            scan_module.SimpleRomSchema,
+            "from_orm_with_factory",
+            return_value=Mock(model_dump=Mock(return_value={"id": rom.id})),
+        )
+
+        return db_rom
+
+    async def _run(self, socket_manager):
+        await scan_module._identify_platform(
+            platform_slug="test",
+            scan_type=ScanType.QUICK,
+            fs_platforms=["test"],
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=socket_manager,
+            scan_stats=AsyncMock(),
+        )
+
+    async def test_emits_for_rom_that_is_no_longer_missing(self, patched):
+        patched.get_missing_rom_ids.return_value = {42}
+        socket_manager = AsyncMock()
+
+        await self._run(socket_manager)
+
+        patched.bulk_mark_present.assert_called_once_with(1, [42])
+        patched.get_rom.assert_called_once_with(42)
+        assert any(
+            call.args[0] == "scan:scanning_rom"
+            for call in socket_manager.emit.call_args_list
+        )
+
+    async def test_no_emit_for_rom_that_was_already_present(self, patched):
+        patched.get_missing_rom_ids.return_value = set()
+        socket_manager = AsyncMock()
+
+        await self._run(socket_manager)
+
+        patched.get_rom.assert_not_called()
+        assert not any(
+            call.args[0] == "scan:scanning_rom"
+            for call in socket_manager.emit.call_args_list
+        )
 
 
 class TestGetPico8CoverUrl:

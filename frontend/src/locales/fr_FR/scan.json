@@ -19,6 +19,7 @@
   "firmware-found": "Firmware trouvé : {n} fichier | Firmware trouvé : {n} fichiers",
   "firmware-scanned-n": "Firmware : {n} analysé",
   "firmware-scanned-with-details": "Firmware : {n_scanned_firmware} analysés, dont {n_new_firmware} nouveaux",
+  "folder-not-scanned": "Non scanné",
   "hash-calculation-disabled": "Le calcul de hachage est désactivé",
   "hash-matchers": "Comparateurs par hachage",
   "hashes": "Recalculer les hachages",

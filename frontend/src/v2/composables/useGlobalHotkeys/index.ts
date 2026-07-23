@@ -9,10 +9,12 @@
 //   g c → collections index
 //
 // Two-key sequences (Gmail-style) have a 1.2s idle timeout. Everything is
-// guarded against input fields and contenteditable.
+// guarded against input fields, contenteditable, and a running game
+// (the playing store flag), so hotkeys never fire mid-session.
 import { onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
+import storePlaying from "@/stores/playing";
 
 let installed = false;
 
@@ -35,6 +37,7 @@ export function useGlobalHotkeys() {
     installed = true;
 
     const router = useRouter();
+    const playingStore = storePlaying();
     let pendingPrefix: string | null = null;
     let pendingAt = 0;
     const PREFIX_IDLE_MS = 1200;
@@ -42,6 +45,10 @@ export function useGlobalHotkeys() {
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (isEditable(e.target)) return;
+      // While a game is running the emulator owns the keyboard. "g" and
+      // "h" are common game keys; without this gate a two-key sequence
+      // (or "/") would navigate away and kill the session.
+      if (playingStore.playing) return;
 
       const now = performance.now();
       if (pendingPrefix && now - pendingAt > PREFIX_IDLE_MS) {
