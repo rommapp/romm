@@ -83,6 +83,10 @@ def get_preferred_regions(rom: Rom | None = None) -> list[str]:
     user's preference wins among the regions the file is actually tagged as.
     Filename-tagged regions not present in the priority list keep their relative
     order and follow the prioritized ones.
+
+    With SCAN_REGION_MODE set to "prefer_config", the configured priority is
+    authoritative instead: config regions come first and the rom's own tags
+    become the fallback when the config regions have no media.
     """
     config = cm.get_config()
     priority = config.SCAN_REGION_PRIORITY
@@ -97,9 +101,14 @@ def get_preferred_regions(rom: Rom | None = None) -> list[str]:
             key=lambda code: priority.index(code) if code in priority else len(priority)
         )
 
-    return list(
-        dict.fromkeys(rom_codes + priority + ["us", "wor", "ss", "eu", "jp", "cus"])
-    ) + ["unk"]
+    if config.SCAN_REGION_MODE == "prefer_config":
+        ordered = priority + rom_codes
+    else:
+        ordered = rom_codes + priority
+
+    return list(dict.fromkeys(ordered + ["us", "wor", "ss", "eu", "jp", "cus"])) + [
+        "unk"
+    ]
 
 
 def get_preferred_languages() -> list[str]:

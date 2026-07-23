@@ -27,9 +27,11 @@ from handler.redis_handler import async_cache
 def _make_config(
     region_priority: list[str] | None = None,
     scan_media: list[str] | None = None,
+    region_mode: str = "prefer_rom_tags",
 ) -> Config:
     """Build a minimal Config object for testing."""
     return Config(
+        SCAN_REGION_MODE=region_mode,
         EXCLUDED_PLATFORMS=[],
         EXCLUDED_SINGLE_EXT=[],
         EXCLUDED_SINGLE_FILES=[],
@@ -116,6 +118,39 @@ class TestGetPreferredRegions:
             regions = get_preferred_regions(rom)
 
         assert regions.index("jp") < regions.index("br")
+
+    def test_prefer_config_mode_config_region_outranks_rom_tags(self):
+        """With region_mode=prefer_config, a configured region wins even when
+        the file is not tagged with it."""
+        rom = MagicMock()
+        rom.regions = ["Europe"]
+        config = _make_config(region_priority=["fr", "eu"], region_mode="prefer_config")
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            regions = get_preferred_regions(rom)
+
+        assert regions.index("fr") < regions.index("eu")
+
+    def test_prefer_config_mode_rom_tags_follow_config(self):
+        """With region_mode=prefer_config, the rom's own tags still follow the
+        configured regions as fallback."""
+        rom = MagicMock()
+        rom.regions = ["Japan"]
+        config = _make_config(region_priority=["fr"], region_mode="prefer_config")
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            regions = get_preferred_regions(rom)
+
+        assert regions.index("fr") < regions.index("jp")
+        assert regions.index("jp") < regions.index("us")
+
+    def test_default_mode_rom_tags_still_win(self):
+        """Default prefer_rom_tags mode keeps the current behavior."""
+        rom = MagicMock()
+        rom.regions = ["Europe"]
+        config = _make_config(region_priority=["fr", "eu"])
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            regions = get_preferred_regions(rom)
+
+        assert regions.index("eu") < regions.index("fr")
 
 
 class TestExtractMediaFromSsGame:
