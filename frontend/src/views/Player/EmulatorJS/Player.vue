@@ -172,6 +172,58 @@ window.EJS_gameName = romRef.value.fs_name_no_tags
 window.EJS_language = selectedLanguage.value.value.replace("_", "-");
 window.EJS_disableAutoLang = true;
 
+// Nightly EmulatorJS cores (loaded when netplay is enabled) play audio
+// through the rwebaudio driver, which connects buffers straight to
+// AudioContext.destination. The built-in volume slider only adjusts OpenAL
+// source gains (Module.AL), so it has no effect on those cores. Route every
+// AudioContext the emulator creates through a master gain node that the
+// patched setVolume in EJS_onGameStart drives.
+const emulatorMasterGains = new Set<GainNode>();
+
+function installMasterGainShim() {
+  const NativeAudioContext = window.AudioContext;
+  if (
+    !NativeAudioContext ||
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (NativeAudioContext as any).__rommMasterGainShim
+  ) {
+    return;
+  }
+  const nativeDestinationGetter = Object.getOwnPropertyDescriptor(
+    BaseAudioContext.prototype,
+    "destination",
+  )?.get;
+  if (!nativeDestinationGetter) return;
+  const nativeDestination: (this: BaseAudioContext) => AudioDestinationNode =
+    nativeDestinationGetter;
+
+  class MasterGainAudioContext extends NativeAudioContext {
+    __rommMasterGain: GainNode;
+
+    constructor(options?: AudioContextOptions) {
+      super(options);
+      const emulator = window.EJS_emulator;
+      const gain = this.createGain();
+      gain.connect(nativeDestination.call(this));
+      gain.gain.value = emulator
+        ? emulator.muted
+          ? 0
+          : (emulator.volume ?? 1)
+        : 1;
+      this.__rommMasterGain = gain;
+      emulatorMasterGains.add(gain);
+    }
+
+    get destination(): AudioDestinationNode {
+      return this.__rommMasterGain as unknown as AudioDestinationNode;
+    }
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (MasterGainAudioContext as any).__rommMasterGainShim = true;
+  window.AudioContext = MasterGainAudioContext;
+}
+installMasterGainShim();
+
 const {
   EJS_DEBUG,
   EJS_CACHE_LIMIT,
@@ -405,6 +457,36 @@ window.EJS_onGameStart = async () => {
         return {};
       }
     };
+  }
+
+  // Make the master gain nodes authoritative for volume. The stock setVolume
+  // only adjusts OpenAL source gains, which rwebaudio-driven (nightly) cores
+  // never read, so the slider is otherwise silent there.
+  const emulator = window.EJS_emulator;
+  if (emulator?.setVolume && !emulator.__rommVolumePatched) {
+    emulator.__rommVolumePatched = true;
+    const originalSetVolume = emulator.setVolume;
+    emulator.setVolume = (volume: number) => {
+      originalSetVolume(volume);
+      // Netplay clients hear the room owner's stream; leave their local
+      // gain alone (mirrors the stock skipLocalAudio behavior).
+      if (emulator.isNetplay && emulator.netplay && !emulator.netplay.owner) {
+        return;
+      }
+      emulatorMasterGains.forEach((gainNode) => {
+        gainNode.gain.value = volume;
+      });
+      // The stock implementation applied the volume to OpenAL source gains
+      // too; reset those so volume is applied exactly once via master gain.
+      const alContext = emulator.Module?.AL?.currentCtx;
+      if (alContext?.sources) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        alContext.sources.forEach((source: any) => {
+          source.gain.gain.value = 1;
+        });
+      }
+    };
+    emulator.setVolume(emulator.muted ? 0 : (emulator.volume ?? 0.5));
   }
 
   // Wrap the bundled global `io` so netplay uses mounted socket path.
