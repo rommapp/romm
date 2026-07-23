@@ -40,6 +40,27 @@ class TestRomFacets:
         assert facets.regions == ["USA"]
         assert facets.tags == ["Proto"]
 
+    def test_publishers_developers_mirror(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "ss_metadata": {
+                    "companies": ["Atari", "Artech Studios"],
+                    "publishers": ["Atari"],
+                    "developers": ["Artech Studios"],
+                }
+            },
+        )
+
+        facets = _facets(rom.id)
+        assert facets is not None
+        assert facets.publishers == ["Atari"]
+        assert facets.developers == ["Artech Studios"]
+
+        filters = db_rom_handler.get_rom_filters()
+        assert "Atari" in filters["publishers"]
+        assert "Artech Studios" in filters["developers"]
+
     def test_delete_cascades(self, rom: Rom):
         rom_id = rom.id
         db_rom_handler.delete_rom(rom_id)

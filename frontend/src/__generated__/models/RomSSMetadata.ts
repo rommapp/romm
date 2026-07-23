@@ -40,6 +40,8 @@ export type RomSSMetadata = {
     alternative_names?: Array<string>;
     age_ratings?: Array<SSAgeRating>;
     companies?: Array<string>;
+    publishers?: Array<string>;
+    developers?: Array<string>;
     franchises?: Array<string>;
     game_modes?: Array<string>;
     genres?: Array<string>;

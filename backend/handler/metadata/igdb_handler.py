@@ -126,6 +126,8 @@ class IGDBMetadata(TypedDict):
     alternative_names: list[str]
     collections: list[str]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     game_modes: list[str]
     age_ratings: list[IGDBAgeRating]
     platforms: list[IGDBMetadataPlatform]
@@ -252,6 +254,16 @@ def extract_metadata_from_igdb_rom(
             "game_modes": [g.get("name", "") for g in game_modes if g.get("name")],
             "companies": [
                 c["company"]["name"] for c in involved_companies if c.get("company")
+            ],
+            "publishers": [
+                c["company"]["name"]
+                for c in involved_companies
+                if c.get("company") and c.get("publisher")
+            ],
+            "developers": [
+                c["company"]["name"]
+                for c in involved_companies
+                if c.get("company") and c.get("developer")
             ],
             "platforms": [
                 IGDBMetadataPlatform(igdb_id=p["id"], name=p.get("name", ""))
@@ -1035,6 +1047,8 @@ GAMES_FIELDS = (
     "collections.name",
     "game_modes.name",
     "involved_companies.company.name",
+    "involved_companies.developer",
+    "involved_companies.publisher",
     "expansions.id",
     "expansions.slug",
     "expansions.name",

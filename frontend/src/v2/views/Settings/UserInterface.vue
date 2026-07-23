@@ -149,6 +149,8 @@ const virtualCollectionTypeItems = computed(() => [
   { title: t("settings.vc-genre"), value: "genre" },
   { title: t("settings.vc-mode"), value: "mode" },
   { title: t("settings.vc-company"), value: "company" },
+  { title: t("settings.vc-publisher"), value: "publisher" },
+  { title: t("settings.vc-developer"), value: "developer" },
   { title: t("settings.vc-all"), value: "all" },
 ]);
 

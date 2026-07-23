@@ -87,6 +87,16 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
             "companies": pydash.compact(
                 pydash.map_(rom.get("involved_companies", {}), "company.name")
             ),
+            "publishers": pydash.compact(
+                c.get("company", {}).get("name")
+                for c in rom.get("involved_companies", [])
+                if c.get("publisher")
+            ),
+            "developers": pydash.compact(
+                c.get("company", {}).get("name")
+                for c in rom.get("involved_companies", [])
+                if c.get("developer")
+            ),
             "platforms": [
                 IGDBMetadataPlatform(igdb_id=p.get("id", ""), name=p.get("name", ""))
                 for p in pydash.map_(rom.get("platforms", {}))

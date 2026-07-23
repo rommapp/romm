@@ -60,6 +60,8 @@ const EMPTY_METADATA: RomMetadataSchema = {
   franchises: [],
   collections: [],
   companies: [],
+  publishers: [],
+  developers: [],
   game_modes: [],
   age_ratings: [],
   player_count: "",

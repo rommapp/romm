@@ -221,12 +221,20 @@ class GamelistExporter:
         if "manual" in asset_refs:
             SubElement(game, "manual").text = asset_refs["manual"]
 
-        # Additional metadata
-        if rom.metadatum.companies and len(rom.metadatum.companies) > 0:
-            SubElement(game, "developer").text = rom.metadatum.companies[0]
-
-        if rom.metadatum.companies and len(rom.metadatum.companies) > 1:
-            SubElement(game, "publisher").text = rom.metadatum.companies[1]
+        # Additional metadata. Prefer the explicit fields; fall back to the old
+        # companies[0]=developer / companies[1]=publisher heuristic for ROMs
+        # scanned before the split populated publishers/developers.
+        companies = rom.metadatum.companies or []
+        developer = (rom.metadatum.developers or [None])[0] or (
+            companies[0] if len(companies) > 0 else None
+        )
+        publisher = (rom.metadatum.publishers or [None])[0] or (
+            companies[1] if len(companies) > 1 else None
+        )
+        if developer:
+            SubElement(game, "developer").text = developer
+        if publisher:
+            SubElement(game, "publisher").text = publisher
 
         if rom.metadatum.genres and len(rom.metadatum.genres) > 0:
             SubElement(game, "genre").text = rom.metadatum.genres[0]

@@ -20,6 +20,8 @@ export type RomGamelistMetadata = {
     first_release_date?: (string | null);
     sort_name?: (string | null);
     companies?: (Array<string> | null);
+    publishers?: (Array<string> | null);
+    developers?: (Array<string> | null);
     franchises?: (Array<string> | null);
     genres?: (Array<string> | null);
     player_count?: (string | null);

@@ -164,6 +164,8 @@ export interface GetRomsParams {
   selectedFranchises?: string[] | null;
   selectedCollections?: string[] | null;
   selectedCompanies?: string[] | null;
+  selectedPublishers?: string[] | null;
+  selectedDevelopers?: string[] | null;
   selectedAgeRatings?: string[] | null;
   selectedRegions?: string[] | null;
   selectedLanguages?: string[] | null;
@@ -176,6 +178,8 @@ export interface GetRomsParams {
   franchisesLogic?: string | null;
   collectionsLogic?: string | null;
   companiesLogic?: string | null;
+  publishersLogic?: string | null;
+  developersLogic?: string | null;
   ageRatingsLogic?: string | null;
   regionsLogic?: string | null;
   languagesLogic?: string | null;
@@ -216,6 +220,8 @@ async function getRoms({
   selectedFranchises = null,
   selectedCollections = null,
   selectedCompanies = null,
+  selectedPublishers = null,
+  selectedDevelopers = null,
   selectedAgeRatings = null,
   selectedRegions = null,
   selectedLanguages = null,
@@ -228,6 +234,8 @@ async function getRoms({
   franchisesLogic = null,
   collectionsLogic = null,
   companiesLogic = null,
+  publishersLogic = null,
+  developersLogic = null,
   ageRatingsLogic = null,
   regionsLogic = null,
   languagesLogic = null,
@@ -265,6 +273,14 @@ async function getRoms({
     companies:
       selectedCompanies && selectedCompanies.length > 0
         ? selectedCompanies
+        : undefined,
+    publishers:
+      selectedPublishers && selectedPublishers.length > 0
+        ? selectedPublishers
+        : undefined,
+    developers:
+      selectedDevelopers && selectedDevelopers.length > 0
+        ? selectedDevelopers
         : undefined,
     age_ratings:
       selectedAgeRatings && selectedAgeRatings.length > 0
@@ -307,6 +323,14 @@ async function getRoms({
     companies_logic:
       selectedCompanies && selectedCompanies.length > 0
         ? companiesLogic || "any"
+        : undefined,
+    publishers_logic:
+      selectedPublishers && selectedPublishers.length > 0
+        ? publishersLogic || "any"
+        : undefined,
+    developers_logic:
+      selectedDevelopers && selectedDevelopers.length > 0
+        ? developersLogic || "any"
         : undefined,
     age_ratings_logic:
       selectedAgeRatings && selectedAgeRatings.length > 0

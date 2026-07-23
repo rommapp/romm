@@ -122,6 +122,12 @@ const franchises = computed(
   () => currentRom.value?.metadatum?.franchises ?? [],
 );
 const companies = computed(() => currentRom.value?.metadatum?.companies ?? []);
+const publishers = computed(
+  () => currentRom.value?.metadatum?.publishers ?? [],
+);
+const developers = computed(
+  () => currentRom.value?.metadatum?.developers ?? [],
+);
 const collections = computed(
   () => currentRom.value?.metadatum?.collections ?? [],
 );
@@ -158,14 +164,21 @@ const lastPlayed = computed(() => {
   return new Date(ts).toLocaleString();
 });
 
-// "Companies" (not "Developer") — the API field is a merged list of
-// developers + publishers + other company roles produced by the backend
-// (see flashpoint/gamelist/launchbox handlers); calling it Developer
-// would be a lie. "Franchises" mirrors the singular→plural consistency
-// of the surrounding rows.
+// Prefer the explicit Developers / Publishers split; the merged "Companies"
+// list is only shown as a fallback for ROMs scanned before the split was
+// populated (InfoGrid drops empty sections). "Franchises" mirrors the
+// singular→plural consistency of the surrounding rows.
+const showMergedCompanies = computed(
+  () => publishers.value.length === 0 && developers.value.length === 0,
+);
 const overviewSections = computed<InfoGridSection[]>(() => [
   { label: t("rom.genres"), items: genres.value },
-  { label: t("rom.companies"), items: companies.value },
+  { label: t("rom.developers"), items: developers.value },
+  { label: t("rom.publishers"), items: publishers.value },
+  {
+    label: t("rom.companies"),
+    items: showMergedCompanies.value ? companies.value : [],
+  },
   { label: t("rom.franchises"), items: franchises.value },
   { label: t("rom.collections"), items: collections.value },
 ]);
