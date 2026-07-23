@@ -2,7 +2,7 @@ import os
 
 from anyio import Path as AnyioPath
 
-from config import LIBRARY_BASE_PATH
+from config import LIBRARY_BASE_PATH, SYNC_ONLY_MODE
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from logger.logger import log
@@ -78,6 +78,10 @@ class FSPlatformsHandler(FSHandler):
         Args:
             fs_slug: platform slug
         """
+        # Platforms are DB-only rows in sync-only mode; nothing to create on disk.
+        if SYNC_ONLY_MODE:
+            return
+
         platform_path = self.get_platform_fs_structure(fs_slug)
 
         try:

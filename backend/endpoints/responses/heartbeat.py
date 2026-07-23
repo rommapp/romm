@@ -4,6 +4,7 @@ from typing import TypedDict
 class SystemDict(TypedDict):
     VERSION: str
     SHOW_SETUP_WIZARD: bool
+    SYNC_ONLY_MODE: bool
 
 
 class MetadataSourcesDict(TypedDict):

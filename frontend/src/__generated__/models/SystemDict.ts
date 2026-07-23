@@ -5,5 +5,6 @@
 export type SystemDict = {
     VERSION: string;
     SHOW_SETUP_WIZARD: boolean;
+    SYNC_ONLY_MODE: boolean;
 };
 

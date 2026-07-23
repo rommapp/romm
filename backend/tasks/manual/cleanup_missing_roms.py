@@ -55,7 +55,13 @@ class CleanupMissingRomsTask(Task):
         if platform_id is not None:
             filter_kwargs["platform_ids"] = [platform_id]
 
-        missing_roms = db_rom_handler.get_roms_scalar(**filter_kwargs)
+        # Virtual roms have no backing file by design; they anchor saves for
+        # sync clients and must never be treated as cleanup candidates.
+        missing_roms = [
+            rom
+            for rom in db_rom_handler.get_roms_scalar(**filter_kwargs)
+            if not rom.is_virtual
+        ]
 
         stats.update(roms_found=len(missing_roms))
         log.info(

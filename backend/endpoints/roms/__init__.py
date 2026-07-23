@@ -37,6 +37,7 @@ from config import (
     LIBRARY_BASE_PATH,
 )
 from decorators.auth import protected_route
+from decorators.sync_only import sync_only_route_disabled
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.rom import (
     DetailedRomSchema,
@@ -95,6 +96,7 @@ from .files import router as files_router
 from .manual import router as manual_router
 from .notes import router as notes_router
 from .patch import router as patch_router
+from .resolve import router as resolve_router
 from .screenshot import router as screenshot_router
 from .soundtrack import router as soundtrack_router
 from .upload import router as upload_router
@@ -103,13 +105,17 @@ router = APIRouter(
     prefix="/roms",
     tags=["roms"],
 )
-router.include_router(upload_router)
-router.include_router(files_router)
-router.include_router(manual_router)
-router.include_router(soundtrack_router)
+# Sub-routers that read or write ROM files on disk are hidden in sync-only
+# mode; resolve, screenshots, and notes stay available.
+_fs_gated = [Depends(sync_only_route_disabled)]
+router.include_router(upload_router, dependencies=_fs_gated)
+router.include_router(files_router, dependencies=_fs_gated)
+router.include_router(manual_router, dependencies=_fs_gated)
+router.include_router(soundtrack_router, dependencies=_fs_gated)
 router.include_router(screenshot_router)
 router.include_router(notes_router)
-router.include_router(patch_router)
+router.include_router(patch_router, dependencies=_fs_gated)
+router.include_router(resolve_router)
 
 
 def safe_int_or_none(value: Any) -> int | None:
@@ -1186,6 +1192,7 @@ async def head_rom_content(
 ):
     """Retrieve head information for a rom file download."""
 
+    sync_only_route_disabled()
     rom = db_rom_handler.get_rom(id)
 
     if not rom:
@@ -1285,6 +1292,7 @@ async def get_rom_content(
     - A zipped file for multi-part roms, including a .m3u file if applicable.
     """
 
+    sync_only_route_disabled()
     current_username = (
         request.user.username if request.user.is_authenticated else "unknown"
     )

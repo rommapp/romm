@@ -149,6 +149,7 @@ const syntheticRom = computed<SimpleRom>(() => ({
   created_at: "",
   updated_at: "",
   missing_from_fs: false,
+  is_virtual: false,
   has_notes: false,
   files: [],
   sibling_roms: [],

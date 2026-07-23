@@ -16,6 +16,7 @@ const defaultHeartbeat: Heartbeat = {
   SYSTEM: {
     VERSION: "0.0.0",
     SHOW_SETUP_WIZARD: false,
+    SYNC_ONLY_MODE: false,
   },
   METADATA_SOURCES: {
     ANY_SOURCE_ENABLED: false,

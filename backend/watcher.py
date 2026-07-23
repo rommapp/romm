@@ -17,6 +17,7 @@ from config import (
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SCAN_TIMEOUT,
     SENTRY_DSN,
+    SYNC_ONLY_MODE,
     TASK_RESULT_TTL,
 )
 from config.config_manager import config_manager as cm
@@ -115,7 +116,7 @@ def get_pending_scan_jobs() -> list[Job]:
 
 
 def process_changes(changes: Sequence[Change]) -> None:
-    if not ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:
+    if not ENABLE_RESCAN_ON_FILESYSTEM_CHANGE or SYNC_ONLY_MODE:
         return
 
     # Filter for valid events, applying the same exclusion rules as the scanner:

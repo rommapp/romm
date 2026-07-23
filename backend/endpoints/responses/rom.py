@@ -339,6 +339,7 @@ class RomSchema(BaseModel):
     created_at: UTCDatetime
     updated_at: UTCDatetime
     missing_from_fs: bool
+    is_virtual: bool
     has_notes: bool
 
     rom_user: RomUserSchema
