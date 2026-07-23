@@ -37,10 +37,7 @@ const props = defineProps<Props>();
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();
-// Only platforms that still contain games, matching the Platforms page, the
-// Home screen, and this page's own summary counter. Empty leftovers (0-game
-// platforms kept in the DB) are hidden everywhere else, so exclude them here
-// too instead of leaking through the raw list.
+// Only platforms that contain games should be displayed
 const { filledPlatforms } = storeToRefs(platformsStore);
 const heartbeat = storeHeartbeat();
 
