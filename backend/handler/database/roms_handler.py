@@ -45,6 +45,7 @@ from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.redis_handler import sync_cache
 from models.assets import Save, Screenshot, State
 from models.base import compute_file_name_parts
+from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_COLUMNS,
@@ -1941,6 +1942,27 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def get_rom_files_by_ids(
+        self,
+        ids: Sequence[int],
+        session: Session = None,  # type: ignore
+    ) -> Sequence[RomFile]:
+        if not ids:
+            return []
+        return (
+            session.scalars(
+                select(RomFile)
+                .options(
+                    selectinload(RomFile.track_meta),
+                    joinedload(RomFile.rom).load_only(Rom.platform_id),
+                )
+                .where(RomFile.id.in_(ids))
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
     def get_rom_file_by_path(
         self,
         rom_id: int,
@@ -2047,6 +2069,7 @@ class DBRomsHandler(DBBaseHandler):
         album: str | None = None,
         genre: str | None = None,
         platform_ids: Sequence[int] | None = None,
+        rom_id: int | None = None,
         year: int | None = None,
         min_duration: float | None = None,
         max_duration: float | None = None,
@@ -2057,6 +2080,8 @@ class DBRomsHandler(DBBaseHandler):
             clauses.append(Rom.platform_id.not_in(hidden_platform_ids))
         if hidden_rom_ids:
             clauses.append(Rom.id.not_in(hidden_rom_ids))
+        if rom_id is not None:
+            clauses.append(Rom.id == rom_id)
         if search:
             like = f"%{escape_like(search.lower())}%"
             clauses.append(
@@ -2093,6 +2118,7 @@ class DBRomsHandler(DBBaseHandler):
         album: str | None = None,
         genre: str | None = None,
         platform_ids: Sequence[int] | None = None,
+        rom_id: int | None = None,
         year: int | None = None,
         min_duration: float | None = None,
         max_duration: float | None = None,
@@ -2100,8 +2126,13 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         limit: int = 50,
         offset: int = 0,
+        is_favorite_user_id: int | None = None,
+        only_favorites: bool = False,
+        playlist_id: int | None = None,
         session: Session = None,  # type: ignore
     ) -> tuple[Sequence[Any], int]:
+        if only_favorites and is_favorite_user_id is None:
+            return [], 0
         where = self._music_where(
             hidden_platform_ids=hidden_platform_ids,
             hidden_rom_ids=hidden_rom_ids,
@@ -2110,9 +2141,15 @@ class DBRomsHandler(DBBaseHandler):
             album=album,
             genre=genre,
             platform_ids=platform_ids,
+            rom_id=rom_id,
             year=year,
             min_duration=min_duration,
             max_duration=max_duration,
+        )
+        is_favorite_col = (
+            MusicFavoriteTrack.user_id.is_not(None)
+            if is_favorite_user_id is not None
+            else false()
         )
         base = (
             select(
@@ -2129,6 +2166,7 @@ class DBRomsHandler(DBBaseHandler):
                 TrackMeta.has_embedded_cover,
                 TrackMeta.cover_path,
                 RomFile.file_name.label("file_name"),
+                is_favorite_col.label("is_favorite"),
                 Rom.name.label("game_name"),
                 Rom.path_cover_l.label("path_cover_l"),
                 Platform.id.label("platform_id"),
@@ -2139,8 +2177,26 @@ class DBRomsHandler(DBBaseHandler):
             .join(RomFile, TrackMeta.rom_file_id == RomFile.id)
             .join(Rom, TrackMeta.rom_id == Rom.id)
             .join(Platform, Rom.platform_id == Platform.id)
-            .where(*where)
         )
+        if is_favorite_user_id is not None:
+            favorite_on = and_(
+                MusicFavoriteTrack.user_id == is_favorite_user_id,
+                MusicFavoriteTrack.rom_file_id == TrackMeta.rom_file_id,
+            )
+            base = (
+                base.join(MusicFavoriteTrack, favorite_on)
+                if only_favorites
+                else base.outerjoin(MusicFavoriteTrack, favorite_on)
+            )
+        if playlist_id is not None:
+            base = base.join(
+                MusicPlaylistTrack,
+                and_(
+                    MusicPlaylistTrack.playlist_id == playlist_id,
+                    MusicPlaylistTrack.rom_file_id == TrackMeta.rom_file_id,
+                ),
+            )
+        base = base.where(*where)
         total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
         order_map = {
             "title": TrackMeta.title,
@@ -2151,6 +2207,8 @@ class DBRomsHandler(DBBaseHandler):
             "platform": Platform.name,
             "added": RomFile.created_at,
         }
+        if playlist_id is not None:
+            order_map["position"] = MusicPlaylistTrack.position
         col = order_map.get(order_by, TrackMeta.title)
         direction = col.desc() if order_dir == "desc" else col.asc()
         rows = session.execute(

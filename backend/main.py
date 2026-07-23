@@ -40,6 +40,7 @@ from endpoints.firmware import router as firmware_router
 from endpoints.heartbeat import router as heartbeat_router
 from endpoints.logs import router as logs_router
 from endpoints.music import router as music_router
+from endpoints.music_playlists import router as music_playlists_router
 from endpoints.netplay import router as netplay_router
 from endpoints.permissions import router as permissions_router
 from endpoints.platform import router as platform_router
@@ -161,6 +162,7 @@ app.include_router(play_sessions_router, prefix="/api")
 app.include_router(platform_router, prefix="/api")
 app.include_router(rom_router, prefix="/api")
 app.include_router(music_router, prefix="/api")
+app.include_router(music_playlists_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
 app.include_router(saves_router, prefix="/api")
 app.include_router(states_router, prefix="/api")
