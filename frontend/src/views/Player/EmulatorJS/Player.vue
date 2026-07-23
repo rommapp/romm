@@ -393,6 +393,11 @@ window.EJS_onGameStart = async () => {
   // are in place before room polling or a Create/Join action can start.
   const netplay = window.EJS_emulator?.netplay;
   if (netplay) {
+    // EmulatorJS only prompts for a player name when netplay.name is unset,
+    // so presetting it adopts the RomM account username automatically.
+    if (!netplay.name && authStore.user?.username) {
+      netplay.name = authStore.user.username;
+    }
     netplay.getOpenRooms = async () => {
       try {
         const response = await fetch(
