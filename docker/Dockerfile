@@ -167,6 +167,7 @@ ARG WEBSERVER_FOLDER=/var/www/html
 
 RUN apk add --no-cache \
     bash \
+    libarchive-tools \
     libmagic \
     mariadb-connector-c \
     libpq \
