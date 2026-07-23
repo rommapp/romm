@@ -65,6 +65,10 @@ _MIME_DETECTOR = magic.Magic(mime=True)
 _MIME_DETECTOR_LOCK = threading.Lock()
 
 
+class ArchiveReadError(Exception):
+    """An archive's members could not be fully read."""
+
+
 def detect_mime_type(file_path: os.PathLike[str] | str) -> str:
     """Detect MIME type via libmagic; returns empty string on error."""
     try:
@@ -331,7 +335,8 @@ def _stream_archive_members(
     """Stream each listed member of an archive, one subprocess at a time.
 
     Members are yielded in ASCII path order under a single time budget shared
-    by the whole archive.
+    by the whole archive. Raises `ArchiveReadError` if any member fails or the
+    budget is spent, so callers never mistake a partial read for a complete one.
     """
     entries = sorted(entries, key=lambda e: e[0])
 
@@ -360,19 +365,19 @@ def _stream_archive_members(
                     continue
                 yield name, size, _stream_7z_chunks(process, deadline, _mark_timed_out)
             # A timeout terminates the subprocess, so a non-zero return code is
-            # expected then and is covered by the single log below.
+            # expected then and is covered by the single raise below.
             if not timed_out and process.returncode != 0:
-                log.error(
+                raise ArchiveReadError(
                     f"Extraction of {name} from {file_path} failed "
                     f"with code {process.returncode}"
                 )
-                return
         except (OSError, ValueError) as e:
-            log.error(f"Error extracting {name} from {file_path}: {e}")
-            continue
+            raise ArchiveReadError(
+                f"Error extracting {name} from {file_path}: {e}"
+            ) from e
 
     if timed_out:
-        log.error(f"Extraction timed out reading members of {file_path}")
+        raise ArchiveReadError(f"Extraction timed out reading members of {file_path}")
 
 
 def read_7z_archive_files(
@@ -385,6 +390,8 @@ def read_7z_archive_files(
     Each yielded `(internal_name, file_size_bytes, chunks)` streams its
     member's bytes lazily; chunks must be fully consumed before advancing
     to the next entry, since the underlying subprocess is reaped at that point.
+
+    Raises `ArchiveReadError` if any member cannot be read in full.
     """
     entries = [
         (name, size)

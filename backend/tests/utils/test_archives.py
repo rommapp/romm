@@ -2,6 +2,8 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from utils import archives
 
 
@@ -96,9 +98,9 @@ def test_stream_7z_chunks_timeout_terminates_and_signals_once():
     process.terminate.assert_called_once()
 
 
-def test_read_7z_archive_files_timeout_logs_once_without_spam(monkeypatch):
+def test_read_7z_archive_files_timeout_raises_without_spawning_per_member(monkeypatch):
     """Once the shared budget is spent, no subprocess is spawned per remaining
-    member and the timeout is logged a single time, not once per entry."""
+    member and the caller is told the archive was not read in full."""
     names = [f"file{i:02d}.bin" for i in range(20)]
     listing = MagicMock(stdout=_fake_7z_listing(names))
 
@@ -108,13 +110,29 @@ def test_read_7z_archive_files_timeout_logs_once_without_spam(monkeypatch):
     with (
         patch.object(archives.subprocess, "run", return_value=listing),
         patch.object(archives.subprocess, "Popen") as popen_patch,
-        patch.object(archives.log, "error") as log_error,
+        pytest.raises(archives.ArchiveReadError),
     ):
-        results = list(archives.read_7z_archive_files(Path("/fake.7z"), [], []))
+        list(archives.read_7z_archive_files(Path("/fake.7z"), [], []))
 
-    assert results == []
     popen_patch.assert_not_called()
-    assert log_error.call_count == 1
+
+
+def test_read_7z_archive_files_raises_when_a_member_fails_midway():
+    """A member that fails after earlier ones streamed must not leave the
+    caller with a usable-looking partial result."""
+    listing = MagicMock(stdout=_fake_7z_listing(["a.bin", "b.bin"]))
+
+    popen = _mock_popen_streaming([[b"aaa"], [b"bbb"]], [0, 2])
+
+    with (
+        patch.object(archives.subprocess, "run", return_value=listing),
+        patch.object(archives.subprocess, "Popen", popen),
+        pytest.raises(archives.ArchiveReadError),
+    ):
+        for _name, _size, chunks in archives.read_7z_archive_files(
+            Path("/fake.7z"), [], []
+        ):
+            list(chunks)
 
 
 class TestExtractLargestArchiveMember:
