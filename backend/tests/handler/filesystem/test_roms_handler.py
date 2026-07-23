@@ -2,13 +2,14 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 from tests._zipfile_shim import reload_zipfile
 
+from adapters.services.sigil import SigilExtractionResult
 from config.config_manager import LIBRARY_BASE_PATH, Config
 from handler.filesystem.base_handler import (
     LANGUAGES_BY_SHORTCODE,
@@ -19,7 +20,7 @@ from handler.filesystem.roms_handler import (
     FSRomsHandler,
 )
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory, SaveUsage
 from utils.archives import extract_chd_hash
 
 
@@ -1210,6 +1211,327 @@ class TestFSRomsHandler:
 
         mock_calculate.assert_called_once()
         assert parsed.ra_hash == ""
+
+
+class TestSigilTitleIdExtraction:
+    """Title id extraction via the sigil adapter during get_rom_files."""
+
+    SIGIL_PATCH_TARGET = "adapters.services.sigil.SigilService.extract_title_id"
+
+    @pytest.fixture
+    def config(self):
+        cnfg = Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=[],
+            EXCLUDED_MULTI_PARTS_EXT=[],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            ROMS_FOLDER_NAME="roms",
+            FIRMWARE_FOLDER_NAME="bios",
+        )
+        cnfg.has_structure_path_b = True
+        return cnfg
+
+    def _make_handler(self, tmp_path: Path) -> FSRomsHandler:
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    def _make_single_file_rom(
+        self, tmp_path: Path, platform: Platform, fs_name: str
+    ) -> Rom:
+        roms_path = tmp_path / platform.fs_slug / "roms"
+        roms_path.mkdir(parents=True, exist_ok=True)
+        (roms_path / fs_name).write_bytes(b"rom-bytes")
+        return Rom(
+            id=1,
+            fs_name=fs_name,
+            fs_path=f"{platform.fs_slug}/roms",
+            platform=platform,
+        )
+
+    def _make_multi_part_rom(
+        self, tmp_path: Path, platform: Platform, fs_name: str, file_names: list[str]
+    ) -> Rom:
+        rom_dir = tmp_path / platform.fs_slug / "roms" / fs_name
+        rom_dir.mkdir(parents=True, exist_ok=True)
+        for file_name in file_names:
+            file_path = rom_dir / file_name
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_bytes(b"rom-bytes")
+        return Rom(
+            id=1,
+            fs_name=fs_name,
+            fs_extension="",
+            fs_path=f"{platform.fs_slug}/roms",
+            platform=platform,
+        )
+
+    @pytest.mark.asyncio
+    async def test_single_file_extraction_attaches_values(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_single_file_rom(tmp_path, platform, "Game.nsp")
+
+        extraction = SigilExtractionResult(
+            title_id="0100ABCD12340000",
+            save_id="0100ABCD12340000",
+            usage="folder-exact",
+        )
+        mock_extract = AsyncMock(return_value=extraction)
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, mock_extract):
+                parsed = await handler.get_rom_files(
+                    rom, prod_keys_path="/bios/switch/prod.keys"
+                )
+
+        assert len(parsed.rom_files) == 1
+        assert parsed.rom_files[0].title_id == "0100ABCD12340000"
+        assert parsed.rom_files[0].save_id == "0100ABCD12340000"
+        assert parsed.title_id == "0100ABCD12340000"
+        assert parsed.save_id == "0100ABCD12340000"
+        assert parsed.save_usage == SaveUsage.FOLDER_EXACT
+        mock_extract.assert_awaited_once_with(
+            "switch",
+            str(tmp_path / "switch/roms/Game.nsp"),
+            "/bios/switch/prod.keys",
+        )
+
+    @pytest.mark.asyncio
+    async def test_multi_part_extraction_prefers_base_game(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_multi_part_rom(
+            tmp_path,
+            platform,
+            "Zelda",
+            ["Zelda [base].nsp", "Zelda [update].nsp", "extras/nested.nsp"],
+        )
+
+        async def fake_extract(
+            platform_slug: str, file_path: str, prod_keys_path: str | None = None
+        ) -> SigilExtractionResult:
+            if "update" in file_path:
+                return SigilExtractionResult(
+                    title_id="0100ABCD12340800",
+                    save_id="0100ABCD12340800",
+                    usage="folder-exact",
+                )
+            return SigilExtractionResult(
+                title_id="0100ABCD12340000",
+                save_id="0100ABCD12340000",
+                usage="folder-exact",
+            )
+
+        mock_extract = AsyncMock(side_effect=fake_extract)
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, mock_extract):
+                parsed = await handler.get_rom_files(rom)
+
+        by_name = {rf.file_name: rf for rf in parsed.rom_files}
+        assert by_name["Zelda [base].nsp"].title_id == "0100ABCD12340000"
+        assert by_name["Zelda [update].nsp"].title_id == "0100ABCD12340800"
+        # Nested files are not extracted
+        assert by_name["nested.nsp"].title_id is None
+        assert mock_extract.await_count == 2
+
+        assert parsed.title_id == "0100ABCD12340000"
+        assert parsed.save_id == "0100ABCD12340000"
+        assert parsed.save_usage == SaveUsage.FOLDER_EXACT
+
+    @pytest.mark.asyncio
+    async def test_switch_base_derivation_from_update_only_folder(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_multi_part_rom(
+            tmp_path, platform, "Zelda", ["Zelda [update].nsp"]
+        )
+
+        mock_extract = AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id="0100ABCD12340800",
+                save_id="0100ABCD12340800",
+                usage="folder-exact",
+            )
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, mock_extract):
+                parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].title_id == "0100ABCD12340800"
+        assert parsed.title_id == "0100ABCD12340000"
+        assert parsed.save_id == "0100ABCD12340000"
+        assert parsed.save_usage == SaveUsage.FOLDER_EXACT
+
+    @pytest.mark.asyncio
+    async def test_switch_base_derivation_from_dlc_odd_nibble(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_single_file_rom(tmp_path, platform, "Game [DLC].nsp")
+
+        mock_extract = AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id="0100ABCD12351064",
+                save_id="0100ABCD12351064",
+                usage="folder-exact",
+            )
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, mock_extract):
+                parsed = await handler.get_rom_files(rom)
+
+        assert parsed.title_id == "0100ABCD12350000"
+        assert parsed.save_id == "0100ABCD12350000"
+        assert parsed.save_usage == SaveUsage.FOLDER_EXACT
+
+    @pytest.mark.asyncio
+    async def test_non_switch_platform_uses_first_extraction(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="PlayStation Portable", slug="psp", fs_slug="psp")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_single_file_rom(tmp_path, platform, "Game.iso")
+
+        mock_extract = AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id="ULUS-10041",
+                save_id="ULUS10041",
+                usage="folder-prefix",
+            )
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with (
+                patch(self.SIGIL_PATCH_TARGET, mock_extract),
+                patch(
+                    "adapters.services.rahasher.RAHasherService.calculate_hash",
+                    new_callable=AsyncMock,
+                    return_value="",
+                ),
+            ):
+                parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].title_id == "ULUS-10041"
+        assert parsed.rom_files[0].save_id == "ULUS10041"
+        assert parsed.title_id == "ULUS-10041"
+        assert parsed.save_id == "ULUS10041"
+        assert parsed.save_usage == SaveUsage.FOLDER_PREFIX
+
+    @pytest.mark.asyncio
+    async def test_non_sigil_platform_skips_extraction(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="Nintendo 64", slug="n64", fs_slug="n64")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_single_file_rom(tmp_path, platform, "Game.z64")
+
+        mock_extract = AsyncMock()
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, mock_extract):
+                parsed = await handler.get_rom_files(rom, calculate_hashes=False)
+
+        mock_extract.assert_not_awaited()
+        assert parsed.rom_files[0].title_id is None
+        assert parsed.title_id is None
+        assert parsed.save_usage is None
+
+    @pytest.mark.asyncio
+    async def test_extraction_disabled_skips_extraction(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_single_file_rom(tmp_path, platform, "Game.nsp")
+
+        mock_extract = AsyncMock()
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, mock_extract):
+                parsed = await handler.get_rom_files(rom, extract_title_ids=False)
+
+        mock_extract.assert_not_awaited()
+        assert parsed.title_id is None
+
+    @pytest.mark.asyncio
+    async def test_archive_rom_skips_extraction(self, tmp_path: Path, config: Config):
+        import io
+        import zipfile
+
+        reload_zipfile()
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("game.bin", b"fake PSX disc content")
+
+        platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
+        handler = self._make_handler(tmp_path)
+        roms_path = tmp_path / "psx" / "roms"
+        roms_path.mkdir(parents=True)
+        (roms_path / "game.zip").write_bytes(buf.getvalue())
+        rom = Rom(
+            id=1,
+            fs_name="game.zip",
+            fs_path="psx/roms",
+            platform=platform,
+        )
+
+        mock_extract = AsyncMock()
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with (
+                patch(self.SIGIL_PATCH_TARGET, mock_extract),
+                patch(
+                    "adapters.services.rahasher.RAHasherService.calculate_hash",
+                    new_callable=AsyncMock,
+                    return_value="",
+                ),
+            ):
+                parsed = await handler.get_rom_files(rom)
+
+        mock_extract.assert_not_awaited()
+        assert parsed.rom_files[0].title_id is None
+        assert parsed.title_id is None
+
+    @pytest.mark.asyncio
+    async def test_non_hashable_archive_rom_skips_extraction(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_single_file_rom(tmp_path, platform, "game.zip")
+
+        mock_extract = AsyncMock()
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with patch(self.SIGIL_PATCH_TARGET, mock_extract):
+                parsed = await handler.get_rom_files(rom)
+
+        mock_extract.assert_not_awaited()
+        assert parsed.title_id is None
 
 
 class TestExtractCHDHash:

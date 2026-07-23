@@ -7,10 +7,15 @@ import re
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 from anyio import Path as AnyioPath
 
+from adapters.services.sigil import (
+    SIGIL_PLATFORM_SLUGS,
+    SigilExtractionResult,
+    SigilService,
+)
 from config import LIBRARY_BASE_PATH
 from config.config_manager import (
     DEFAULT_EXCLUDED_EXTENSIONS,
@@ -23,7 +28,7 @@ from exceptions.fs_exceptions import (
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
+from models.rom import Rom, RomFile, RomFileCategory, SaveUsage, TrackMeta
 from utils.archives import (
     detect_mime_type,
     extract_chd_hash,
@@ -95,6 +100,9 @@ class FSRom(TypedDict):
     md5_hash: str
     sha1_hash: str
     ra_hash: str
+    title_id: NotRequired[str | None]
+    save_id: NotRequired[str | None]
+    save_usage: NotRequired[SaveUsage | None]
 
 
 class FileHash(TypedDict):
@@ -162,6 +170,67 @@ class ParsedRomFiles:
     md5_hash: str
     sha1_hash: str
     ra_hash: str
+    title_id: str | None = None
+    save_id: str | None = None
+    save_usage: SaveUsage | None = None
+
+
+def _parse_save_usage(usage: str) -> SaveUsage | None:
+    try:
+        return SaveUsage(usage)
+    except ValueError:
+        return None
+
+
+def _is_switch_base_title_id(title_id: str) -> bool:
+    """Base-game Switch title ids have their low 12 bits cleared and an even
+    program-index nibble; update/DLC ids differ only in those positions."""
+    if len(title_id) < 4 or not title_id.endswith("000"):
+        return False
+    try:
+        return int(title_id[-4], 16) % 2 == 0
+    except ValueError:
+        return False
+
+
+def _derive_switch_base_title_id(title_id: str) -> str | None:
+    """Derive the base-game title id from an update/DLC id: clear the low 12
+    bits and decrement the program-index nibble when it is odd."""
+    if len(title_id) < 4:
+        return None
+    nibble_char = title_id[-4]
+    try:
+        nibble = int(nibble_char, 16)
+    except ValueError:
+        return None
+    if nibble % 2 == 1:
+        nibble -= 1
+    formatted = format(nibble, "x" if nibble_char.islower() else "X")
+    return f"{title_id[:-4]}{formatted}000"
+
+
+def _rom_level_title_values(
+    platform_slug: str,
+    extractions: list[SigilExtractionResult],
+) -> tuple[str | None, str | None, SaveUsage | None]:
+    if not extractions:
+        return None, None, None
+
+    if platform_slug in (UPS.SWITCH, UPS.SWITCH_2):
+        base = next(
+            (e for e in extractions if _is_switch_base_title_id(e.title_id)), None
+        )
+        if base is not None:
+            return base.title_id, base.save_id, _parse_save_usage(base.usage)
+
+        derived = _derive_switch_base_title_id(extractions[0].title_id)
+        if derived is None:
+            return None, None, None
+        # Switch saves are keyed by the base title id itself.
+        return derived, derived, SaveUsage.FOLDER_EXACT
+
+    first = extractions[0]
+    return first.title_id, first.save_id, _parse_save_usage(first.usage)
 
 
 class FSRomsHandler(FSHandler):
@@ -317,7 +386,11 @@ class FSRomsHandler(FSHandler):
         )
 
     async def get_rom_files(
-        self, rom: Rom, calculate_hashes: bool = True
+        self,
+        rom: Rom,
+        calculate_hashes: bool = True,
+        extract_title_ids: bool = True,
+        prod_keys_path: str | None = None,
     ) -> ParsedRomFiles:
         from adapters.services.rahasher import RAHasherService
         from handler.metadata import meta_ra_handler
@@ -332,6 +405,21 @@ class FSRomsHandler(FSHandler):
         hashable_platform = (
             rom.platform_slug not in NON_HASHABLE_PLATFORMS and calculate_hashes
         )
+
+        # Title id extraction is independent of hashing support: it covers
+        # non-hashable platforms like Switch.
+        sigil_platform = extract_title_ids and rom.platform_slug in SIGIL_PLATFORM_SLUGS
+        sigil_extractions: list[SigilExtractionResult] = []
+
+        async def _extract_title_id(rom_file: RomFile, abs_file_path: Path) -> None:
+            extraction = await SigilService().extract_title_id(
+                rom.platform_slug, str(abs_file_path), prod_keys_path
+            )
+            if extraction is None:
+                return
+            rom_file.title_id = extraction.title_id
+            rom_file.save_id = extraction.save_id
+            sigil_extractions.append(extraction)
 
         cnfg = cm.get_config()
         excluded_file_names = cnfg.EXCLUDED_MULTI_PARTS_FILES
@@ -439,14 +527,15 @@ class FSRomsHandler(FSHandler):
                         chd_sha1_hash="",
                     )
 
-                rom_files.append(
-                    self._build_rom_file(
-                        rom=rom,
-                        rom_path=f_path.relative_to(self.base_path),
-                        file_name=file_name,
-                        file_hash=file_hash,
-                    )
+                rom_file = self._build_rom_file(
+                    rom=rom,
+                    rom_path=f_path.relative_to(self.base_path),
+                    file_name=file_name,
+                    file_hash=file_hash,
                 )
+                if sigil_platform and is_top_level:
+                    await _extract_title_id(rom_file, Path(f_path, file_name))
+                rom_files.append(rom_file)
         elif hashable_platform and rom_ext in ARCHIVE_READERS:
             # Multi-file archive: compute a composite hash across all
             # internal entries (in ASCII path order) for hash-database
@@ -566,14 +655,15 @@ class FSRomsHandler(FSHandler):
                     extract_chd_hash(rom_dir) if is_chd_file(rom_dir) else ""
                 ),
             )
-            rom_files.append(
-                self._build_rom_file(
-                    rom=rom,
-                    rom_path=Path(rel_roms_path),
-                    file_name=rom.fs_name,
-                    file_hash=file_hash,
-                )
+            rom_file = self._build_rom_file(
+                rom=rom,
+                rom_path=Path(rel_roms_path),
+                file_name=rom.fs_name,
+                file_hash=file_hash,
             )
+            if sigil_platform:
+                await _extract_title_id(rom_file, rom_dir)
+            rom_files.append(rom_file)
         else:
             file_hash = FileHash(
                 crc_hash="",
@@ -581,14 +671,21 @@ class FSRomsHandler(FSHandler):
                 sha1_hash="",
                 chd_sha1_hash="",
             )
-            rom_files.append(
-                self._build_rom_file(
-                    rom=rom,
-                    rom_path=Path(rel_roms_path),
-                    file_name=rom.fs_name,
-                    file_hash=file_hash,
-                )
+            rom_file = self._build_rom_file(
+                rom=rom,
+                rom_path=Path(rel_roms_path),
+                file_name=rom.fs_name,
+                file_hash=file_hash,
             )
+            # Archives keep hashes only; sigil reads title ids from the ROM
+            # binary itself.
+            if sigil_platform and rom_ext not in ARCHIVE_READERS:
+                await _extract_title_id(rom_file, rom_dir)
+            rom_files.append(rom_file)
+
+        rom_title_id, rom_save_id, rom_save_usage = _rom_level_title_values(
+            rom.platform_slug, sigil_extractions
+        )
 
         return ParsedRomFiles(
             rom_files=rom_files,
@@ -604,6 +701,9 @@ class FSRomsHandler(FSHandler):
                 else ""
             ),
             ra_hash=rom_ra_h,
+            title_id=rom_title_id,
+            save_id=rom_save_id,
+            save_usage=rom_save_usage,
         )
 
     def _calculate_rom_hashes(

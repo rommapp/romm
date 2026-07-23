@@ -84,6 +84,13 @@ class RomFileCategory(enum.StrEnum):
     SCREENSHOT = "screenshot"
 
 
+class SaveUsage(enum.StrEnum):
+    FOLDER_EXACT = "folder-exact"
+    FOLDER_PREFIX = "folder-prefix"
+    FILE_EXACT = "file-exact"
+    FILE_PREFIX = "file-prefix"
+
+
 class SiblingRom(BaseModel):
     __tablename__ = "sibling_roms"
 
@@ -106,7 +113,10 @@ class RomArchiveMember(TypedDict):
 class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
-    __table_args__ = (Index("idx_rom_files_rom_id", "rom_id"),)
+    __table_args__ = (
+        Index("idx_rom_files_rom_id", "rom_id"),
+        Index("idx_rom_files_title_id", "title_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
@@ -119,6 +129,8 @@ class RomFile(BaseModel):
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
     ra_hash: Mapped[str | None] = mapped_column(String(100))
     chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    title_id: Mapped[str | None] = mapped_column(String(100))
+    save_id: Mapped[str | None] = mapped_column(String(100))
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
     )
@@ -321,6 +333,7 @@ class Rom(BaseModel):
         Index("idx_roms_hltb_id", "hltb_id"),
         Index("idx_roms_gamelist_id", "gamelist_id"),
         Index("idx_roms_libretro_id", "libretro_id"),
+        Index("idx_roms_title_id", "title_id"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
@@ -393,6 +406,9 @@ class Rom(BaseModel):
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
     sha1_hash: Mapped[str | None] = mapped_column(String(length=100))
     ra_hash: Mapped[str | None] = mapped_column(String(length=100))
+    title_id: Mapped[str | None] = mapped_column(String(length=100))
+    save_id: Mapped[str | None] = mapped_column(String(length=100))
+    save_usage: Mapped[SaveUsage | None] = mapped_column(Enum(SaveUsage), default=None)
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
