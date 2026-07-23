@@ -95,6 +95,7 @@ const audioDuration = computed(() =>
 
 const hasAnyHash = computed(
   () =>
+    Boolean(props.file.title_id) ||
     Boolean(props.file.sha1_hash) ||
     Boolean(props.file.chd_sha1_hash) ||
     Boolean(props.file.md5_hash) ||
@@ -166,6 +167,12 @@ const hasAnyHash = computed(
       </div>
 
       <div v-if="hasAnyHash" class="r-v2-file-row__hashes">
+        <HashChip
+          v-if="file.title_id"
+          :label="t('rom.title-id')"
+          :value="file.title_id"
+          compact
+        />
         <HashChip
           v-if="file.sha1_hash"
           label="SHA-1"

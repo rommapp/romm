@@ -16,6 +16,7 @@ import type { RomRAMetadata } from './RomRAMetadata';
 import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
 import type { SaveSchema } from './SaveSchema';
+import type { SaveUsage } from './SaveUsage';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 import type { SiblingRomSchema } from './SiblingRomSchema';
 import type { StateSchema } from './StateSchema';
@@ -84,6 +85,9 @@ export type DetailedRomSchema = {
     md5_hash: (string | null);
     sha1_hash: (string | null);
     ra_hash: (string | null);
+    title_id: (string | null);
+    save_id: (string | null);
+    save_usage: (SaveUsage | null);
     has_simple_single_file: boolean;
     has_nested_single_file: boolean;
     has_multiple_files: boolean;

@@ -20,6 +20,8 @@ function makeFile(overrides: Partial<RomFileSchema>): RomFileSchema {
     sha1_hash: null,
     ra_hash: null,
     chd_sha1_hash: null,
+    title_id: null,
+    save_id: null,
     archive_members: null,
     category: "game",
     ...overrides,
