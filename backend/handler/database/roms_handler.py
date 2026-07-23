@@ -187,6 +187,30 @@ def _nullable_columns(model: type) -> frozenset[str]:
     return frozenset(c.key for c in sa_inspect(model).columns if c.nullable)
 
 
+def _copy_scanned_columns(
+    source: RomFile | TrackMeta,
+    target: RomFile | TrackMeta,
+    columns: Sequence[str],
+    model: type,
+    keep_when_unset: frozenset[str] = frozenset(),
+) -> None:
+    """Copy scanned values onto a row, writing only the columns that changed.
+
+    A column left unset on the scanned row reads as None, and the model default
+    only applies on insert, so writing it through would break the NOT NULL
+    columns on the update path. `keep_when_unset` extends that protection to
+    nullable columns the scanner doesn't own.
+    """
+    for column in columns:
+        value = getattr(source, column)
+        if value is None and (
+            column in keep_when_unset or column not in _nullable_columns(model)
+        ):
+            continue
+        if getattr(target, column) != value:
+            setattr(target, column, value)
+
+
 class SyncedRomFiles(NamedTuple):
     files: list[RomFile]
     orphaned_cover_paths: list[str]
@@ -1755,13 +1779,22 @@ class DBRomsHandler(DBBaseHandler):
         session.flush()
         return merged
 
-    def _apply_scanned_track_meta(
+    def _apply_scanned_rom_file(
         self,
         row: RomFile,
-        scanned_meta: TrackMeta | None,
+        scanned: RomFile,
         rom_id: int,
     ) -> str | None:
-        """Returns the cover path this update orphaned, if any."""
+        """Copy a scanned file onto its row, with its track metadata.
+
+        Returns the cover path this update orphaned, if any.
+        """
+        _copy_scanned_columns(scanned, row, ROM_FILE_SCANNED_COLUMNS, RomFile)
+
+        if row.missing_from_fs:
+            row.missing_from_fs = False
+
+        scanned_meta = scanned.track_meta
         if scanned_meta is None:
             orphaned = row.track_meta.cover_path if row.track_meta else None
             row.track_meta = None
@@ -1773,41 +1806,16 @@ class DBRomsHandler(DBBaseHandler):
             row.track_meta = meta
 
         meta.rom_id = rom_id
-        for column in TRACK_META_SCANNED_COLUMNS:
-            value = getattr(scanned_meta, column)
-            # The scanner only flags whether a cover exists; the path is owned by
-            # `persist_soundtrack_cover`, which writes it after the row exists and
-            # clears it (with its file) once the cover is gone.
-            if column == "cover_path" and value is None:
-                continue
-            if value is None and column not in _nullable_columns(TrackMeta):
-                continue
-            if getattr(meta, column) != value:
-                setattr(meta, column, value)
+        # The scanner only flags whether a cover exists
+        _copy_scanned_columns(
+            scanned_meta,
+            meta,
+            TRACK_META_SCANNED_COLUMNS,
+            TrackMeta,
+            keep_when_unset=frozenset({"cover_path"}),
+        )
 
         return None
-
-    def _apply_scanned_rom_file(
-        self,
-        row: RomFile,
-        scanned: RomFile,
-        rom_id: int,
-    ) -> str | None:
-        """Returns the cover path this update orphaned, if any."""
-        for column in ROM_FILE_SCANNED_COLUMNS:
-            value = getattr(scanned, column)
-            # A column left unset on the scanned row reads as None, and the
-            # model default only applies on insert, so writing it through would
-            # break the NOT NULL columns on the update path.
-            if value is None and column not in _nullable_columns(RomFile):
-                continue
-            if getattr(row, column) != value:
-                setattr(row, column, value)
-
-        if row.missing_from_fs:
-            row.missing_from_fs = False
-
-        return self._apply_scanned_track_meta(row, scanned.track_meta, rom_id)
 
     @begin_session
     def sync_rom_files(
