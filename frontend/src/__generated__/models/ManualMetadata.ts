@@ -6,6 +6,8 @@ export type ManualMetadata = {
     genres?: (Array<string> | null);
     franchises?: (Array<string> | null);
     companies?: (Array<string> | null);
+    publishers?: (Array<string> | null);
+    developers?: (Array<string> | null);
     game_modes?: (Array<string> | null);
     age_ratings?: (Array<string> | null);
     first_release_date?: (number | null);

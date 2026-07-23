@@ -7,6 +7,8 @@ export type FilterType =
   | "franchises"
   | "collections"
   | "companies"
+  | "publishers"
+  | "developers"
   | "ageRatings"
   | "statuses"
   | "regions"
@@ -30,6 +32,8 @@ const buildDefaultFilterState = () => ({
   filterFranchises: [] as string[],
   filterCollections: [] as string[],
   filterCompanies: [] as string[],
+  filterPublishers: [] as string[],
+  filterDevelopers: [] as string[],
   filterAgeRatings: [] as string[],
   filterRegions: [] as string[],
   filterLanguages: [] as string[],
@@ -52,6 +56,8 @@ const buildDefaultFilterState = () => ({
   selectedFranchises: [] as string[],
   selectedCollections: [] as string[],
   selectedCompanies: [] as string[],
+  selectedPublishers: [] as string[],
+  selectedDevelopers: [] as string[],
   selectedAgeRatings: [] as string[],
   selectedRegions: [] as string[],
   selectedLanguages: [] as string[],
@@ -64,6 +70,8 @@ const buildDefaultFilterState = () => ({
   franchisesLogic: "any" as FilterLogicOperator,
   collectionsLogic: "any" as FilterLogicOperator,
   companiesLogic: "any" as FilterLogicOperator,
+  publishersLogic: "any" as FilterLogicOperator,
+  developersLogic: "any" as FilterLogicOperator,
   ageRatingsLogic: "any" as FilterLogicOperator,
   regionsLogic: "any" as FilterLogicOperator,
   languagesLogic: "any" as FilterLogicOperator,
@@ -94,6 +102,12 @@ export default defineStore("galleryFilter", {
     },
     setFilterCompanies(companies: string[]) {
       this.filterCompanies = companies;
+    },
+    setFilterPublishers(publishers: string[]) {
+      this.filterPublishers = publishers;
+    },
+    setFilterDevelopers(developers: string[]) {
+      this.filterDevelopers = developers;
     },
     setFilterAgeRatings(ageRatings: string[]) {
       this.filterAgeRatings = ageRatings;
@@ -143,6 +157,18 @@ export default defineStore("galleryFilter", {
     },
     setCompaniesLogic(logic: FilterLogicOperator) {
       this.companiesLogic = logic;
+    },
+    setSelectedFilterPublishers(publishers: string[]) {
+      this.selectedPublishers = publishers;
+    },
+    setPublishersLogic(logic: FilterLogicOperator) {
+      this.publishersLogic = logic;
+    },
+    setSelectedFilterDevelopers(developers: string[]) {
+      this.selectedDevelopers = developers;
+    },
+    setDevelopersLogic(logic: FilterLogicOperator) {
+      this.developersLogic = logic;
     },
     setSelectedFilterAgeRatings(ageRatings: string[]) {
       this.selectedAgeRatings = ageRatings;
@@ -432,6 +458,8 @@ export default defineStore("galleryFilter", {
         this.selectedFranchises.length > 0 ||
         this.selectedCollections.length > 0 ||
         this.selectedCompanies.length > 0 ||
+        this.selectedPublishers.length > 0 ||
+        this.selectedDevelopers.length > 0 ||
         this.selectedAgeRatings.length > 0 ||
         this.selectedRegions.length > 0 ||
         this.selectedLanguages.length > 0 ||
@@ -451,6 +479,8 @@ export default defineStore("galleryFilter", {
       this.selectedFranchises = [];
       this.selectedCollections = [];
       this.selectedCompanies = [];
+      this.selectedPublishers = [];
+      this.selectedDevelopers = [];
       this.selectedAgeRatings = [];
       this.selectedRegions = [];
       this.selectedLanguages = [];
@@ -473,6 +503,8 @@ export default defineStore("galleryFilter", {
       this.franchisesLogic = "any";
       this.collectionsLogic = "any";
       this.companiesLogic = "any";
+      this.publishersLogic = "any";
+      this.developersLogic = "any";
       this.ageRatingsLogic = "any";
       this.regionsLogic = "any";
       this.languagesLogic = "any";

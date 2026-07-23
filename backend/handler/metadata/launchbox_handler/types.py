@@ -53,6 +53,8 @@ class LaunchboxMetadata(TypedDict):
     esrb: NotRequired[str]
     genres: NotRequired[list[str]]
     companies: NotRequired[list[str]]
+    publishers: NotRequired[list[str]]
+    developers: NotRequired[list[str]]
     images: list[LaunchboxImage]
     video_url: NotRequired[str]
     video_path: NotRequired[str]

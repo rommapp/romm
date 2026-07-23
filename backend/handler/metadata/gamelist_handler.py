@@ -59,6 +59,8 @@ class GamelistMetadata(GamelistMetadataMedia):
     first_release_date: str | None
     sort_name: str | None
     companies: list[str] | None
+    publishers: list[str] | None
+    developers: list[str] | None
     franchises: list[str] | None
     genres: list[str] | None
     player_count: str | None
@@ -235,6 +237,8 @@ def extract_metadata_from_gamelist_rom(
                 )
             )
         ),
+        publishers=_split_comma_separated_values(publisher),
+        developers=_split_comma_separated_values(developer),
         franchises=_split_comma_separated_values(family),
         genres=_split_comma_separated_values(genre),
         player_count=players,

@@ -594,6 +594,8 @@ def build_launchbox_metadata(
             "esrb": esrb,
             "genres": genres,
             "companies": companies,
+            "publishers": dedupe_words([publisher]),
+            "developers": dedupe_words([developer]),
             "images": images,
         }
     )

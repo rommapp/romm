@@ -453,6 +453,8 @@ class DBCollectionsHandler(DBBaseHandler):
         franchises = convert_legacy_filter("franchises", "selected_franchise")
         collections = convert_legacy_filter("collections", "selected_collection")
         companies = convert_legacy_filter("companies", "selected_company")
+        publishers = convert_legacy_filter("publishers", "selected_publisher")
+        developers = convert_legacy_filter("developers", "selected_developer")
         age_ratings = convert_legacy_filter("age_ratings", "selected_age_rating")
         regions = convert_legacy_filter("regions", "selected_region")
         languages = convert_legacy_filter("languages", "selected_language")
@@ -481,6 +483,8 @@ class DBCollectionsHandler(DBBaseHandler):
             franchises=franchises,
             collections=collections,
             companies=companies,
+            publishers=publishers,
+            developers=developers,
             age_ratings=age_ratings,
             statuses=statuses,
             regions=regions,
@@ -492,6 +496,8 @@ class DBCollectionsHandler(DBBaseHandler):
             franchises_logic=criteria.get("franchises_logic", "any"),
             collections_logic=criteria.get("collections_logic", "any"),
             companies_logic=criteria.get("companies_logic", "any"),
+            publishers_logic=criteria.get("publishers_logic", "any"),
+            developers_logic=criteria.get("developers_logic", "any"),
             age_ratings_logic=criteria.get("age_ratings_logic", "any"),
             regions_logic=criteria.get("regions_logic", "any"),
             languages_logic=criteria.get("languages_logic", "any"),

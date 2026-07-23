@@ -101,6 +101,8 @@ ManualMetadata = TypedDict(
         "genres": list[str] | None,
         "franchises": list[str] | None,
         "companies": list[str] | None,
+        "publishers": list[str] | None,
+        "developers": list[str] | None,
         "game_modes": list[str] | None,
         "age_ratings": list[str] | None,
         "first_release_date": int | None,
@@ -219,6 +221,8 @@ class RomMetadataSchema(BaseModel):
     franchises: list[str]
     collections: list[str]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     game_modes: list[str]
     age_ratings: list[str]
     player_count: str
@@ -239,6 +243,14 @@ class RomMetadataSchema(BaseModel):
 
     @field_validator("companies")
     def sort_companies(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("publishers")
+    def sort_publishers(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("developers")
+    def sort_developers(cls, v: list[str]) -> list[str]:
         return sorted(v)
 
     @field_validator("game_modes")
@@ -646,6 +658,8 @@ class RomFiltersDict(TypedDict):
     franchises: list[str]
     collections: list[str]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     game_modes: list[str]
     age_ratings: list[str]
     player_counts: list[str]

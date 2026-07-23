@@ -32,6 +32,10 @@ function emptySnapshot(): GalleryFilterSnapshot {
     collectionsLogic: "any",
     selectedCompanies: [],
     companiesLogic: "any",
+    selectedPublishers: [],
+    publishersLogic: "any",
+    selectedDevelopers: [],
+    developersLogic: "any",
     selectedAgeRatings: [],
     ageRatingsLogic: "any",
     selectedRegions: [],
@@ -78,6 +82,47 @@ describe("buildSmartFilterCriteria — metadata providers", () => {
     expect(row).toBeDefined();
     expect(row?.values).toEqual(["igdb"]);
     expect(row?.logic).toBe("any");
+  });
+});
+
+describe("buildSmartFilterCriteria — publishers and developers", () => {
+  it("serializes publishers and developers with their logic operators", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      selectedPublishers: ["Atari"],
+      publishersLogic: "any",
+      selectedDevelopers: ["Artech Studios"],
+      developersLogic: "all",
+    });
+
+    expect(out.publishers).toEqual(["Atari"]);
+    expect(out.publishers_logic).toBe("any");
+    expect(out.developers).toEqual(["Artech Studios"]);
+    expect(out.developers_logic).toBe("all");
+  });
+
+  it("omits the keys entirely when neither is selected", () => {
+    const out = buildSmartFilterCriteria(emptySnapshot());
+
+    expect(out.publishers).toBeUndefined();
+    expect(out.developers).toBeUndefined();
+  });
+
+  it("surfaces publishers and developers in the human-readable summary", () => {
+    const rows = summarizeSmartFilterCriteria(
+      {
+        publishers: ["Atari"],
+        publishers_logic: "any",
+        developers: ["Artech Studios"],
+        developers_logic: "any",
+      },
+      tStub,
+    );
+
+    expect(rows.find((r) => r.key === "publishers")?.values).toEqual(["Atari"]);
+    expect(rows.find((r) => r.key === "developers")?.values).toEqual([
+      "Artech Studios",
+    ]);
   });
 });
 

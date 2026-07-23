@@ -53,6 +53,8 @@ class RAMetadata(TypedDict):
     first_release_date: int | None
     genres: list[str]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     achievements: list[RAGameRomAchievement]
 
 
@@ -103,6 +105,8 @@ def extract_metadata_from_rom_details(
         companies=pydash.compact(
             [rom_details.get("Publisher", None), rom_details.get("Developer", None)]
         ),
+        publishers=pydash.compact([rom_details.get("Publisher", None)]),
+        developers=pydash.compact([rom_details.get("Developer", None)]),
         achievements=[
             RAGameRomAchievement(
                 ra_id=achievement.get("ID", None),

@@ -44,6 +44,36 @@ class TestGeneratedMetadata:
         # Quoted-string epoch seconds -> ms. The old view truncated this to 0.
         assert meta.first_release_date == 1569369600000
 
+    def test_publishers_developers_derivation(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "ss_metadata": {
+                    "companies": ["Atari", "Artech Studios"],
+                    "publishers": ["Atari"],
+                    "developers": ["Artech Studios"],
+                },
+            },
+        )
+
+        meta = _reload(rom).metadatum
+        # Raw view order preserved here (the response schema sorts on serialize).
+        assert meta.companies == ["Atari", "Artech Studios"]
+        assert meta.publishers == ["Atari"]
+        assert meta.developers == ["Artech Studios"]
+
+    def test_publishers_developers_default_empty(self, rom: Rom):
+        # companies present but no split fields -> new fields stay empty.
+        db_rom_handler.update_rom(
+            rom.id,
+            {"ss_metadata": {"companies": ["Nintendo"]}},
+        )
+
+        meta = _reload(rom).metadatum
+        assert meta.companies == ["Nintendo"]
+        assert meta.publishers == []
+        assert meta.developers == []
+
     def test_rating_average_across_providers(self, rom: Rom):
         db_rom_handler.update_rom(
             rom.id,

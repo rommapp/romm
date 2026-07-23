@@ -128,6 +128,31 @@ def test_export_gamelist_xml_basic(platform_with_roms):
     assert players.text == "2"
 
 
+def test_export_gamelist_prefers_explicit_publisher_developer(platform_with_roms):
+    platform, roms = platform_with_roms
+    # The companies order would map developer=Nintendo / publisher=Nintendo EAD;
+    # the explicit split fields (deliberately reversed) must take precedence.
+    db_rom_handler.update_rom(
+        roms[0].id,
+        {
+            "igdb_metadata": {
+                "companies": ["Nintendo", "Nintendo EAD"],
+                "publishers": ["Nintendo"],
+                "developers": ["Nintendo EAD"],
+            }
+        },
+    )
+
+    xml_str = GamelistExporter(local_export=True).export_platform_to_xml(
+        platform.id, request=None
+    )
+    game = fromstring(xml_str).findall("game")[0]
+    developer = game.find("developer")
+    publisher = game.find("publisher")
+    assert developer is not None and developer.text == "Nintendo EAD"
+    assert publisher is not None and publisher.text == "Nintendo"
+
+
 def test_export_gamelist_xml_rating(platform_with_roms):
     platform, _ = platform_with_roms
     exporter = GamelistExporter(local_export=True)

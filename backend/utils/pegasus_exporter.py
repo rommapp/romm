@@ -238,12 +238,21 @@ class PegasusExporter:
         if rom.name and rom.fs_name_no_tags and rom.name != rom.fs_name_no_tags:
             lines.append(f"sort-by: {rom.fs_name_no_tags}")
 
-        # Developers and publishers
-        if rom.metadatum and rom.metadatum.companies:
-            if len(rom.metadatum.companies) > 0:
-                lines.append(f"developer: {rom.metadatum.companies[0]}")
-            if len(rom.metadatum.companies) > 1:
-                lines.append(f"publisher: {rom.metadatum.companies[1]}")
+        # Developers and publishers. Prefer the explicit fields; fall back to
+        # the old companies[0]=developer / companies[1]=publisher heuristic for
+        # ROMs scanned before the split populated publishers/developers.
+        if rom.metadatum:
+            companies = rom.metadatum.companies or []
+            developer = (rom.metadatum.developers or [None])[0] or (
+                companies[0] if len(companies) > 0 else None
+            )
+            publisher = (rom.metadatum.publishers or [None])[0] or (
+                companies[1] if len(companies) > 1 else None
+            )
+            if developer:
+                lines.append(f"developer: {developer}")
+            if publisher:
+                lines.append(f"publisher: {publisher}")
 
         # Genres
         if rom.metadatum and rom.metadatum.genres:

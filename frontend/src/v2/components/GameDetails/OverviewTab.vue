@@ -7,8 +7,9 @@
 //      characteristics, rendered as semantic badges rather than chips)
 //   4. RomM Collections — the user's personal collections this ROM
 //      lives in, rendered as bookmark-icon chip RouterLinks
-//   5. Info grid (Genres / Companies / Franchises / Collections —
-//      "Companies" is the API field for merged developer + publisher)
+//   5. Info grid (Genres / Developers / Publishers / Franchises /
+//      Collections — the merged "Companies" list is only shown as a
+//      fallback when the publisher/developer split is empty)
 //   6. Screenshots (also reachable via the Media tab's Screenshots subtab,
 //      which is where uploads will live)
 //   7. HLTB strip
