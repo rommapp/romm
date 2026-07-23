@@ -117,11 +117,12 @@
 #       - ss
 #       - eu
 #       - jp
+#     region_mode: prefer_rom_tags # Region tags win over priority list
 #     language: # Used by ScreenScraper for descriptions
 #       - en
 #       - fr
-#     # Media assets to download
-#     # Only used by Screenscraper and ES-DE gamelist.xml
+#   # Media assets to download
+#   # Only used by Screenscraper and ES-DE gamelist.xml
 #   media:
 #     # Used as alternative cover art
 #     - box2d  # Normal cover art (always enabled)
