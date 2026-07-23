@@ -3,7 +3,16 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import Select, delete, func, insert, literal, or_, select, update
+from sqlalchemy import (
+    Select,
+    delete,
+    insert,
+    literal,
+    or_,
+    select,
+    union_all,
+    update,
+)
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     Query,
@@ -27,6 +36,9 @@ from models.rom import Rom
 from .base_handler import DBBaseHandler
 
 MAX_VIRTUAL_COLLECTION_COVERS = 5
+
+# Collections per UNION ALL statement, to keep any single statement small.
+COVERS_BATCH_SIZE = 100
 
 
 def with_roms(func):
@@ -236,54 +248,52 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         session: Session,
         collections: Sequence[VirtualCollection],
-        type: str | None = None,
     ) -> None:
         """Fill in each collection's covers from its membership rows.
 
         The view deliberately doesn't aggregate covers: on a large library that
         is megabytes of cover paths per request, while callers render a handful.
+
+        Each collection gets its own primary-key lookup capped at
+        MAX_VIRTUAL_COLLECTION_COVERS rows, batched into UNION ALL statements,
+        so the cost follows the number of collections rather than the size of
+        the library.
         """
         if not collections:
             return
 
-        has_cover = or_(
-            VirtualCollectionRom.path_cover_s != "",
-            VirtualCollectionRom.path_cover_l != "",
-        )
-        ranked = select(
-            VirtualCollectionRom.type,
-            VirtualCollectionRom.name,
-            VirtualCollectionRom.path_cover_s,
-            VirtualCollectionRom.path_cover_l,
-            func.row_number()
-            .over(
-                partition_by=(VirtualCollectionRom.type, VirtualCollectionRom.name),
-                order_by=VirtualCollectionRom.rom_id,
+        def covers_select(collection: VirtualCollection) -> Select:
+            return (
+                select(
+                    VirtualCollectionRom.type,
+                    VirtualCollectionRom.name,
+                    VirtualCollectionRom.path_cover_s,
+                    VirtualCollectionRom.path_cover_l,
+                )
+                .where(
+                    VirtualCollectionRom.type == collection.type,
+                    VirtualCollectionRom.name == collection.name,
+                    or_(
+                        VirtualCollectionRom.path_cover_s != "",
+                        VirtualCollectionRom.path_cover_l != "",
+                    ),
+                )
+                .order_by(VirtualCollectionRom.rom_id)
+                .limit(MAX_VIRTUAL_COLLECTION_COVERS)
             )
-            .label("rank"),
-        ).where(has_cover)
-
-        if len(collections) == 1:
-            collection = collections[0]
-            ranked = ranked.where(
-                VirtualCollectionRom.type == collection.type,
-                VirtualCollectionRom.name == collection.name,
-            )
-        elif type is not None and type != "all":
-            ranked = ranked.where(VirtualCollectionRom.type == type)
-
-        subquery = ranked.subquery()
-        rows = session.execute(
-            select(subquery).where(subquery.c.rank <= MAX_VIRTUAL_COLLECTION_COVERS)
-        ).all()
 
         covers: dict[tuple[str, str], tuple[list[str], list[str]]] = {}
-        for row in rows:
-            small, large = covers.setdefault((row.type, row.name), ([], []))
-            if row.path_cover_s:
-                small.append(row.path_cover_s)
-            if row.path_cover_l:
-                large.append(row.path_cover_l)
+        for start in range(0, len(collections), COVERS_BATCH_SIZE):
+            batch = collections[start : start + COVERS_BATCH_SIZE]
+            selects = [covers_select(collection) for collection in batch]
+            statement = selects[0] if len(selects) == 1 else union_all(*selects)
+
+            for row in session.execute(statement).all():
+                small, large = covers.setdefault((row.type, row.name), ([], []))
+                if row.path_cover_s:
+                    small.append(row.path_cover_s)
+                if row.path_cover_l:
+                    large.append(row.path_cover_l)
 
         for collection in collections:
             small, large = covers.get((collection.type, collection.name), ([], []))
@@ -326,7 +336,7 @@ class DBCollectionsHandler(DBBaseHandler):
             return session.scalars(query).unique().all()
 
         collections = session.scalars(query).unique().all()
-        self._attach_covers(session, collections, type=type)
+        self._attach_covers(session, collections)
 
         return collections
 
