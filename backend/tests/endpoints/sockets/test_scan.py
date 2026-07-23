@@ -14,6 +14,7 @@ from endpoints.sockets.scan import (
     stop_scan_handler,
 )
 from handler.auth.constants import Scope
+from handler.database.roms_handler import SyncedRomFiles
 from handler.filesystem.roms_handler import (
     FSRom,
     FSRomsHandler,
@@ -536,6 +537,30 @@ class TestIdentifyRomReassociation:
         assert data["fs_name"] == "New Name.zip"
         # No brand-new row is inserted; add_rom only persists the scan result.
         assert db.add_rom.call_count == 1
+
+    async def test_files_are_reconciled_in_place(self, patched):
+        db = patched
+        db.get_matching_missing_rom.return_value = None
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=[]
+        )
+
+        await self._run(db)
+
+        # Rows are reconciled against the scan, so file ids survive the rescan.
+        db.sync_rom_files.assert_called_once_with(99, [])
+
+    async def test_orphaned_soundtrack_covers_are_unlinked(self, patched, mocker):
+        db = patched
+        db.get_matching_missing_rom.return_value = None
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=["covers/track01.png"]
+        )
+        remove = mocker.patch.object(scan_module, "remove_persisted_cover")
+
+        await self._run(db)
+
+        remove.assert_called_once_with("covers/track01.png")
 
     async def test_creates_new_entry_when_no_match(self, patched):
         db = patched
