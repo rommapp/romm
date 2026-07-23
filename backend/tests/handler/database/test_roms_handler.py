@@ -208,8 +208,41 @@ class TestSyncRomFiles:
         (second,) = _sync(rom, [_scanned_file(rom, "a.bin", size=200, sha1="new-sha1")])
 
         assert second.id == first.id
-        assert second.file_size_bytes == 200
-        assert second.sha1_hash == "new-sha1"
+        reloaded = db_rom_handler.get_rom_file_by_id(first.id)
+        assert reloaded is not None
+        assert reloaded.file_size_bytes == 200
+        assert reloaded.sha1_hash == "new-sha1"
+
+    def test_retagged_track_meta_is_updated_in_place(self, rom: Rom):
+        def scanned(title: str, year: int) -> RomFile:
+            return _scanned_file(
+                rom,
+                "track01.flac",
+                category=RomFileCategory.SOUNDTRACK,
+                track_meta=TrackMeta(rom_id=rom.id, title=title, year=year),
+            )
+
+        (first,) = _sync(rom, [scanned("Green Hill", 1991)])
+        _sync(rom, [scanned("Green Hill Zone", 1992)])
+
+        reloaded = db_rom_handler.get_rom_file_by_id(first.id)
+        assert reloaded is not None
+        assert reloaded.track_meta is not None
+        assert reloaded.track_meta.title == "Green Hill Zone"
+        assert reloaded.track_meta.year == 1992
+
+    def test_unset_columns_do_not_overwrite_not_null_values(self, rom: Rom):
+        """A scanned row leaves unset columns as None, and the model defaults
+        only apply on insert. The update path has to skip them rather than
+        write NULL into a NOT NULL column."""
+        scanned = _scanned_file(rom, "a.bin", size=200)
+        _sync(rom, [scanned])
+
+        unset = _scanned_file(rom, "a.bin")
+        unset.file_size_bytes = None  # type: ignore[assignment]
+        (updated,) = _sync(rom, [unset])
+
+        assert updated.file_size_bytes == 200
 
     def test_renamed_file_is_matched_by_content(self, rom: Rom):
         (first,) = _sync(rom, [_scanned_file(rom, "a.bin")])

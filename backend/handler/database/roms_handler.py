@@ -16,6 +16,9 @@ from sqlalchemy import (
     delete,
     false,
     func,
+)
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import (
     literal,
     not_,
     or_,
@@ -177,6 +180,11 @@ TRACK_META_SCANNED_COLUMNS = (
     "has_embedded_cover",
     "cover_path",
 )
+
+
+@functools.cache
+def _nullable_columns(model: type) -> frozenset[str]:
+    return frozenset(c.key for c in sa_inspect(model).columns if c.nullable)
 
 
 class SyncedRomFiles(NamedTuple):
@@ -1772,6 +1780,8 @@ class DBRomsHandler(DBBaseHandler):
             # clears it (with its file) once the cover is gone.
             if column == "cover_path" and value is None:
                 continue
+            if value is None and column not in _nullable_columns(TrackMeta):
+                continue
             if getattr(meta, column) != value:
                 setattr(meta, column, value)
 
@@ -1786,6 +1796,11 @@ class DBRomsHandler(DBBaseHandler):
         """Returns the cover path this update orphaned, if any."""
         for column in ROM_FILE_SCANNED_COLUMNS:
             value = getattr(scanned, column)
+            # A column left unset on the scanned row reads as None, and the
+            # model default only applies on insert, so writing it through would
+            # break the NOT NULL columns on the update path.
+            if value is None and column not in _nullable_columns(RomFile):
+                continue
             if getattr(row, column) != value:
                 setattr(row, column, value)
 
