@@ -537,6 +537,16 @@ class TestIdentifyRomReassociation:
         # No brand-new row is inserted; add_rom only persists the scan result.
         assert db.add_rom.call_count == 1
 
+    async def test_files_are_reconciled_in_place(self, patched):
+        db = patched
+        db.get_matching_missing_rom.return_value = None
+        db.sync_rom_files.return_value = []
+
+        await self._run(db)
+
+        # Rows are reconciled against the scan, so file ids survive the rescan.
+        db.sync_rom_files.assert_called_once_with(99, [])
+
     async def test_creates_new_entry_when_no_match(self, patched):
         db = patched
         db.get_matching_missing_rom.return_value = None

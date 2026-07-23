@@ -15,7 +15,7 @@ from handler.database import (
 )
 from models.assets import Save, State
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
 from models.user import User
 
 
@@ -160,3 +160,157 @@ class TestHasSavesStatesFilter:
     ):
         self._add_state(rom, editor_user.id, is_public=False)
         assert rom.id not in self._rom_ids(user_id=admin_user.id, has_states=True)
+
+
+def _scanned_file(
+    rom: Rom,
+    file_name: str,
+    *,
+    file_path: str | None = None,
+    size: int = 100,
+    crc: str | None = "crc",
+    md5: str | None = "md5",
+    sha1: str | None = "sha1",
+    category: RomFileCategory | None = None,
+    track_meta: TrackMeta | None = None,
+) -> RomFile:
+    """A transient RomFile as the filesystem scanner builds it."""
+    return RomFile(
+        rom_id=rom.id,
+        file_name=file_name,
+        file_path=file_path if file_path is not None else rom.fs_path,
+        file_size_bytes=size,
+        crc_hash=crc,
+        md5_hash=md5,
+        sha1_hash=sha1,
+        category=category,
+        track_meta=track_meta,
+    )
+
+
+class TestSyncRomFiles:
+    """A rescan reconciles the file rows in place, so ids survive it. Anything
+    keyed on a file id (track metadata, persisted soundtrack covers) stays
+    valid instead of being orphaned by a purge-and-reinsert."""
+
+    def test_unchanged_file_keeps_its_id(self, rom: Rom):
+        first = db_rom_handler.sync_rom_files(rom.id, [_scanned_file(rom, "a.bin")])
+        second = db_rom_handler.sync_rom_files(rom.id, [_scanned_file(rom, "a.bin")])
+
+        assert [f.id for f in second] == [f.id for f in first]
+
+    def test_changed_metadata_updates_in_place(self, rom: Rom):
+        (first,) = db_rom_handler.sync_rom_files(rom.id, [_scanned_file(rom, "a.bin")])
+        (second,) = db_rom_handler.sync_rom_files(
+            rom.id, [_scanned_file(rom, "a.bin", size=200, sha1="new-sha1")]
+        )
+
+        assert second.id == first.id
+        assert second.file_size_bytes == 200
+        assert second.sha1_hash == "new-sha1"
+
+    def test_renamed_file_is_matched_by_content(self, rom: Rom):
+        (first,) = db_rom_handler.sync_rom_files(rom.id, [_scanned_file(rom, "a.bin")])
+        (second,) = db_rom_handler.sync_rom_files(rom.id, [_scanned_file(rom, "b.bin")])
+
+        assert second.id == first.id
+        assert second.file_name == "b.bin"
+
+    def test_moved_file_is_matched_by_content(self, rom: Rom):
+        (first,) = db_rom_handler.sync_rom_files(rom.id, [_scanned_file(rom, "a.bin")])
+        (second,) = db_rom_handler.sync_rom_files(
+            rom.id, [_scanned_file(rom, "a.bin", file_path=f"{rom.fs_path}/disc1")]
+        )
+
+        assert second.id == first.id
+        assert second.file_path == f"{rom.fs_path}/disc1"
+
+    def test_partial_hashes_do_not_match_by_content(self, rom: Rom):
+        (first,) = db_rom_handler.sync_rom_files(
+            rom.id, [_scanned_file(rom, "a.bin", sha1=None)]
+        )
+        (second,) = db_rom_handler.sync_rom_files(
+            rom.id, [_scanned_file(rom, "b.bin", sha1=None)]
+        )
+
+        # Without all three hashes the rename can't be proven, so a new row wins.
+        assert second.id != first.id
+
+    def test_identical_copies_are_not_paired_arbitrarily(self, rom: Rom):
+        db_rom_handler.sync_rom_files(
+            rom.id, [_scanned_file(rom, "a.bin"), _scanned_file(rom, "b.bin")]
+        )
+        renamed = db_rom_handler.sync_rom_files(
+            rom.id, [_scanned_file(rom, "c.bin"), _scanned_file(rom, "d.bin")]
+        )
+
+        assert {f.file_name for f in renamed} == {"c.bin", "d.bin"}
+        assert len(db_rom_handler.rom_files_for_rom_id(rom.id)) == 2
+
+    def test_new_file_is_inserted_and_vanished_file_deleted(self, rom: Rom):
+        db_rom_handler.sync_rom_files(
+            rom.id,
+            [
+                _scanned_file(rom, "a.bin"),
+                _scanned_file(rom, "b.bin", crc="crc2", md5="md52", sha1="sha12"),
+            ],
+        )
+        db_rom_handler.sync_rom_files(
+            rom.id,
+            [
+                _scanned_file(rom, "a.bin"),
+                _scanned_file(rom, "c.bin", crc="crc3", md5="md53", sha1="sha13"),
+            ],
+        )
+
+        assert {f.file_name for f in db_rom_handler.rom_files_for_rom_id(rom.id)} == {
+            "a.bin",
+            "c.bin",
+        }
+
+    def test_track_meta_survives_a_rescan(self, rom: Rom):
+        def scanned() -> RomFile:
+            return _scanned_file(
+                rom,
+                "track01.flac",
+                file_path=f"{rom.fs_path}/soundtrack",
+                category=RomFileCategory.SOUNDTRACK,
+                track_meta=TrackMeta(
+                    rom_id=rom.id, title="Green Hill", has_embedded_cover=True
+                ),
+            )
+
+        (first,) = db_rom_handler.sync_rom_files(rom.id, [scanned()])
+        db_rom_handler.upsert_track_meta(
+            first.id, rom.id, {"cover_path": "covers/track01.png"}
+        )
+
+        (second,) = db_rom_handler.sync_rom_files(rom.id, [scanned()])
+
+        assert second.id == first.id
+        reloaded = db_rom_handler.get_rom_file_by_id(second.id)
+        assert reloaded is not None
+        assert reloaded.track_meta is not None
+        assert reloaded.track_meta.title == "Green Hill"
+        # The scanner never reports the cover path, so the persisted one stands.
+        assert reloaded.track_meta.cover_path == "covers/track01.png"
+
+    def test_track_meta_dropped_when_file_no_longer_has_tags(self, rom: Rom):
+        (first,) = db_rom_handler.sync_rom_files(
+            rom.id,
+            [
+                _scanned_file(
+                    rom,
+                    "track01.flac",
+                    category=RomFileCategory.SOUNDTRACK,
+                    track_meta=TrackMeta(rom_id=rom.id, title="Green Hill"),
+                )
+            ],
+        )
+        db_rom_handler.sync_rom_files(
+            rom.id, [_scanned_file(rom, "track01.flac", category=RomFileCategory.GAME)]
+        )
+
+        reloaded = db_rom_handler.get_rom_file_by_id(first.id)
+        assert reloaded is not None
+        assert reloaded.track_meta is None

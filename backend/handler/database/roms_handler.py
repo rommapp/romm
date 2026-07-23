@@ -150,6 +150,45 @@ ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
 ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
 ROM_FILTERS_CACHE_SCHEMA_VERSION = get_version().replace(".", "_")
 
+# Columns copied from a scanned (transient) RomFile onto its database row.
+ROM_FILE_SCANNED_COLUMNS = (
+    "file_name",
+    "file_path",
+    "file_size_bytes",
+    "last_modified",
+    "crc_hash",
+    "md5_hash",
+    "sha1_hash",
+    "ra_hash",
+    "chd_sha1_hash",
+    "archive_members",
+    "category",
+)
+
+TRACK_META_SCANNED_COLUMNS = (
+    "title",
+    "artist",
+    "album",
+    "genre",
+    "year",
+    "track",
+    "disc",
+    "duration_seconds",
+    "has_embedded_cover",
+    "cover_path",
+)
+
+
+def _rom_file_content_key(rom_file: RomFile) -> tuple[str, str, str] | None:
+    """Identity of a file by content, or None when it can't be identified.
+
+    All three hashes are required, mirroring `get_matching_missing_rom`: a
+    partial match is not strong enough to move a row onto a different file.
+    """
+    if not (rom_file.crc_hash and rom_file.md5_hash and rom_file.sha1_hash):
+        return None
+    return (rom_file.crc_hash, rom_file.md5_hash, rom_file.sha1_hash)
+
 
 def _cache_value_to_str(value: Any) -> str | None:
     if value is None:
@@ -1703,6 +1742,128 @@ class DBRomsHandler(DBBaseHandler):
         session.flush()
         return merged
 
+    def _apply_scanned_track_meta(
+        self,
+        row: RomFile,
+        scanned_meta: TrackMeta | None,
+        rom_id: int,
+    ) -> None:
+        if scanned_meta is None:
+            row.track_meta = None
+            return
+
+        meta = row.track_meta
+        if meta is None:
+            meta = TrackMeta(rom_id=rom_id)
+            row.track_meta = meta
+
+        meta.rom_id = rom_id
+        for column in TRACK_META_SCANNED_COLUMNS:
+            value = getattr(scanned_meta, column)
+            # The scanner only flags that a cover exists; the path is written
+            # later by `persist_soundtrack_cover`, so don't clear it here.
+            if column == "cover_path" and value is None:
+                continue
+            if getattr(meta, column) != value:
+                setattr(meta, column, value)
+
+    def _apply_scanned_rom_file(
+        self,
+        row: RomFile,
+        scanned: RomFile,
+        rom_id: int,
+    ) -> None:
+        for column in ROM_FILE_SCANNED_COLUMNS:
+            value = getattr(scanned, column)
+            if getattr(row, column) != value:
+                setattr(row, column, value)
+
+        if row.missing_from_fs:
+            row.missing_from_fs = False
+
+        self._apply_scanned_track_meta(row, scanned.track_meta, rom_id)
+
+    @begin_session
+    def sync_rom_files(
+        self,
+        rom_id: int,
+        scanned_files: Sequence[RomFile],
+        session: Session = None,  # type: ignore
+    ) -> list[RomFile]:
+        """Reconcile a ROM's file rows against a fresh scan, preserving row ids.
+
+        Rows are matched by path first, then by content hash, so a file renamed
+        or moved inside the ROM keeps its id, its `created_at` and its track
+        metadata instead of being deleted and re-inserted. Rows left unmatched
+        are deleted, and only columns that actually changed are written, so
+        re-scanning an unchanged ROM issues no updates.
+
+        Returns the persisted rows, in scan order.
+        """
+        existing = (
+            session.scalars(
+                select(RomFile)
+                .options(selectinload(RomFile.track_meta))
+                .filter_by(rom_id=rom_id)
+            )
+            .unique()
+            .all()
+        )
+
+        unmatched = {row.id: row for row in existing}
+        by_path = {(row.file_path, row.file_name): row for row in existing}
+
+        pairs: list[tuple[RomFile, RomFile | None]] = []
+        unpaired_indexes: list[int] = []
+
+        for scanned in scanned_files:
+            row = by_path.get((scanned.file_path, scanned.file_name))
+            if row is not None and row.id in unmatched:
+                del unmatched[row.id]
+                pairs.append((scanned, row))
+            else:
+                unpaired_indexes.append(len(pairs))
+                pairs.append((scanned, None))
+
+        if unpaired_indexes and unmatched:
+            # Identical copies map to the same content key, so keep only keys
+            # that identify a single row rather than pairing them arbitrarily.
+            by_content: dict[tuple[str, str, str], RomFile | None] = {}
+            for row in unmatched.values():
+                key = _rom_file_content_key(row)
+                if key is not None:
+                    by_content[key] = None if key in by_content else row
+
+            for index in unpaired_indexes:
+                scanned, _ = pairs[index]
+                key = _rom_file_content_key(scanned)
+                if key is None:
+                    continue
+                row = by_content.get(key)
+                if row is None:
+                    continue
+                del unmatched[row.id]
+                by_content[key] = None
+                pairs[index] = (scanned, row)
+
+        saved: list[RomFile] = []
+        for scanned, row in pairs:
+            if row is None:
+                row = RomFile(rom_id=rom_id)
+                session.add(row)
+            self._apply_scanned_rom_file(row, scanned, rom_id)
+            saved.append(row)
+
+        if unmatched:
+            session.execute(
+                delete(RomFile)
+                .where(RomFile.id.in_(list(unmatched)))
+                .execution_options(synchronize_session="evaluate")
+            )
+
+        session.flush()
+        return saved
+
     @begin_session
     def get_rom_file_by_id(
         self,
@@ -2005,22 +2166,6 @@ class DBRomsHandler(DBBaseHandler):
             base.order_by(primary, col.asc()).limit(limit).offset(offset)
         ).all()
         return rows, total
-
-    @begin_session
-    def purge_rom_files(
-        self,
-        rom_id: int,
-        session: Session = None,  # type: ignore
-    ) -> Sequence[RomFile]:
-        purged_rom_files = (
-            session.scalars(select(RomFile).filter_by(rom_id=rom_id)).unique().all()
-        )
-        session.execute(
-            delete(RomFile)
-            .where(RomFile.rom_id == rom_id)
-            .execution_options(synchronize_session="evaluate")
-        )
-        return purged_rom_files
 
     @begin_session
     def delete_rom_file(
