@@ -117,19 +117,12 @@
 #       - ss
 #       - eu
 #       - jp
-#     # How the region priority interacts with the rom's filename region tags
-#     # when picking ScreenScraper media:
-#     #   prefer_rom_tags (default): the file's own region tags win, the
-#     #     priority list only reorders them
-#     #   prefer_config: the priority list wins even for regions the file is
-#     #     not tagged with, falling back to the file's tags when the
-#     #     configured regions have no media
-#     region_mode: prefer_rom_tags
+#     region_mode: prefer_rom_tags # Region tags win over priority list
 #     language: # Used by ScreenScraper for descriptions
 #       - en
 #       - fr
-#     # Media assets to download
-#     # Only used by Screenscraper and ES-DE gamelist.xml
+#   # Media assets to download
+#   # Only used by Screenscraper and ES-DE gamelist.xml
 #   media:
 #     # Used as alternative cover art
 #     - box2d  # Normal cover art (always enabled)
