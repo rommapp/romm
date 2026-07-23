@@ -32,14 +32,15 @@ class MusicTrackSchema(BaseModel):
     stream_url: str
     cover_url: str | None = None
 
+    @staticmethod
+    def cover_url_for(cover_path: str | None, rom_cover_path: str | None) -> str | None:
+        """The track's artwork, in priority order: its own embedded cover, then
+        the game's cover art. None lets the frontend fall back."""
+        resource = cover_path or rom_cover_path
+        return f"{FRONTEND_RESOURCES_PATH}/{resource}" if resource else None
+
     @classmethod
     def from_row(cls, row: Any) -> MusicTrackSchema:
-        if row.cover_path:
-            cover_url = f"{FRONTEND_RESOURCES_PATH}/{row.cover_path}"
-        elif row.path_cover_l:
-            cover_url = f"{FRONTEND_RESOURCES_PATH}/{row.path_cover_l}"
-        else:
-            cover_url = None
         return cls(
             rom_file_id=row.rom_file_id,
             rom_id=row.rom_id,
@@ -58,7 +59,7 @@ class MusicTrackSchema(BaseModel):
             platform_slug=row.platform_slug,
             platform_name=row.platform_name,
             stream_url=f"/api/roms/{row.rom_file_id}/files/content/{quote(row.file_name)}",
-            cover_url=cover_url,
+            cover_url=cls.cover_url_for(row.cover_path, row.path_cover_l),
         )
 
 

@@ -2,6 +2,8 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from config import FRONTEND_RESOURCES_PATH
+from endpoints.responses.music import MusicTrackSchema
 from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
@@ -147,6 +149,15 @@ def test_tracks_cover_falls_back_to_game(
     r = client.get("/api/music/tracks?artist=koshiro", headers=_auth(access_token))
     item = r.json()["items"][0]
     assert item["cover_url"].endswith("/cover/big.png")
+
+
+def test_cover_url_for_priority():
+    base = FRONTEND_RESOURCES_PATH
+    assert (
+        MusicTrackSchema.cover_url_for("track.jpg", "game.png") == f"{base}/track.jpg"
+    )
+    assert MusicTrackSchema.cover_url_for(None, "game.png") == f"{base}/game.png"
+    assert MusicTrackSchema.cover_url_for(None, None) is None
 
 
 def test_tracks_artist_exact_case_insensitive(
