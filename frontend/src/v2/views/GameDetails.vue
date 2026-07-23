@@ -6,14 +6,15 @@
 // orchestrator — data + tab state live here, every visual piece is a
 // sub-component under components/GameDetails/.
 import { RTabNav, type RTabNavItem } from "@v2/lib";
+import axios from "axios";
 import { storeToRefs } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { toBrowserLocale } from "@/utils";
 import AchievementsTab from "@/v2/components/GameDetails/AchievementsTab.vue";
 import CoverColumn from "@/v2/components/GameDetails/CoverColumn.vue";
@@ -55,9 +56,46 @@ const panelEl = ref<HTMLElement | null>(null);
 // without needing to leave the ribbon focus.
 useRightStickScroll(panelEl);
 
+// "Similar games" is computed from the local library (shared metadata),
+// not IGDB's similar_games list, so every entry is a ROM the user owns
+// and can open directly. Keyed on the route's ROM id (not currentRom) so
+// it can fire in parallel with the getRom fetch rather than chaining
+// behind it.
+const similarGames = ref<SimpleRom[]>([]);
+let similarAbort: AbortController | null = null;
+let similarRomId: number | null = null;
+
+async function fetchSimilarGames(romId: number) {
+  // Same ROM already loaded/loading, don't clear and refetch (avoids a
+  // flash when re-entering the current ROM's own page).
+  if (similarRomId === romId) return;
+  similarAbort?.abort();
+  similarRomId = romId;
+  similarGames.value = [];
+  similarAbort = new AbortController();
+  try {
+    const { data } = await romApi.getSimilarRoms({
+      romId,
+      signal: similarAbort.signal,
+    });
+    // Guard against a stale response landing after a fast navigation.
+    if (similarRomId === romId) similarGames.value = data;
+  } catch (error) {
+    if (!axios.isCancel(error)) console.error(error);
+  }
+}
+
+onMounted(() => {
+  const romId = parseInt(route.params.rom as string);
+  if (!Number.isNaN(romId)) fetchSimilarGames(romId);
+});
+
 onBeforeRouteUpdate(async (to) => {
   const nextId = parseInt(to.params.rom as string);
   if (Number.isNaN(nextId)) return;
+  // Fire similar-games immediately so it runs concurrently with getRom
+  // below instead of waiting for currentRom to be set.
+  fetchSimilarGames(nextId);
   const sameRom = romsStore.currentRom?.id === nextId;
   if (!sameRom) {
     try {
@@ -198,12 +236,8 @@ const earnedAchievementIds = computed<ReadonlySet<string>>(() => {
 const achievementsEarned = computed(() => earnedAchievementIds.value.size);
 
 const igdb = computed(() => currentRom.value?.igdb_metadata ?? null);
-// IGDB ships up to ~10 similar games per title; rendering all of them
-// would dominate the overview and push HLTB/Achievements below the
-// fold. Cap to keep the section to ~2 rows of cards at typical widths.
-const SIMILAR_GAMES_MAX = 6;
-const similarGames = computed<IGDBRelatedGame[]>(() =>
-  (igdb.value?.similar_games ?? []).slice(0, SIMILAR_GAMES_MAX),
+const igdbSimilarGames = computed<IGDBRelatedGame[]>(
+  () => igdb.value?.similar_games ?? [],
 );
 const remakes = computed<IGDBRelatedGame[]>(() => igdb.value?.remakes ?? []);
 const remasters = computed<IGDBRelatedGame[]>(
@@ -279,6 +313,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :remakes="remakes"
             :remasters="remasters"
             :similar-games="similarGames"
+            :igdb-similar-games="igdbSimilarGames"
           />
           <FilesTab v-if="tab === 'files'" :rom="currentRom" />
           <PatcherTab v-if="tab === 'patcher'" :rom="currentRom" />

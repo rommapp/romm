@@ -54,6 +54,10 @@ from handler.auth.dependencies import (
 )
 from handler.database import db_rom_handler, db_save_handler
 from handler.database.base_handler import sync_session
+from handler.database.roms_handler import (
+    MAX_SIMILAR_ROMS_LIMIT,
+    SIMILAR_ROMS_LIMIT,
+)
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
 from handler.metadata import (
@@ -1143,6 +1147,60 @@ def get_rom_simple(
     assert_rom_visible(request, rom)
 
     return SimpleRomSchema.from_orm_with_request(rom, request)
+
+
+@protected_route(
+    router.get,
+    "/{id}/similar",
+    [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def get_similar_roms(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    limit: Annotated[
+        int,
+        Query(
+            description="Max number of similar ROMs to return.",
+            ge=1,
+            le=MAX_SIMILAR_ROMS_LIMIT,
+        ),
+    ] = SIMILAR_ROMS_LIMIT,
+) -> list[SimpleRomSchema]:
+    """Return library ROMs similar to the given ROM.
+
+    Similarity is computed from the normalized `RomMetadata` signals
+    (franchises, collections, genres, companies, age ratings), so only ROMs
+    already in the library are returned. ROMs hidden from the caller are
+    excluded."""
+
+    rom = db_rom_handler.get_rom_simple(id)
+
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
+
+    # The ranking is user-independent and cached; apply this caller's
+    # visibility filter here (using the cached platform ids) and hydrate only
+    # the roms that survive, up to the requested limit.
+    candidates = db_rom_handler.get_similar_rom_candidates(rom)
+    if not candidates:
+        return []
+
+    perms = get_permissions(request)
+    visible_ids = [
+        rom_id
+        for rom_id, platform_id in candidates
+        if platform_id not in perms.hidden_platform_ids
+        and rom_id not in perms.hidden_rom_ids
+    ][:limit]
+    if not visible_ids:
+        return []
+
+    roms_by_id = {r.id: r for r in db_rom_handler.get_roms_by_ids(visible_ids)}
+    ordered = [roms_by_id[i] for i in visible_ids if i in roms_by_id]
+    return [SimpleRomSchema.from_orm_with_request(r, request) for r in ordered]
 
 
 @protected_route(
