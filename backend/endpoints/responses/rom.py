@@ -495,11 +495,11 @@ class UserCollectionSchema(BaseModel):
         ]
 
     @classmethod
-    def smart_for_user(
-        cls, user_id: int, rom_id: int, smart_collections: Sequence[SmartCollection]
+    def from_smart_collections(
+        cls, smart_collections: Sequence[SmartCollection]
     ) -> list["UserCollectionSchema"]:
-        # Smart collections have no reverse join: membership is a cached list of
-        # rom ids, so keep the ones that include this rom (and are visible).
+        # Membership + visibility are already filtered at the SQL layer by
+        # get_smart_collections_for_rom, so this is a plain mapping (see #3934).
         return [
             UserCollectionSchema(
                 id=c.id,
@@ -507,7 +507,6 @@ class UserCollectionSchema(BaseModel):
                 is_smart=True,
             )
             for c in smart_collections
-            if rom_id in c.rom_ids and (c.user_id == user_id or c.is_public)
         ]
 
 
@@ -555,14 +554,15 @@ class DetailedRomSchema(RomSchema):
         ]
         from handler.database import db_collection_handler
 
-        # Standard collections come off the join relationship; smart collections
-        # are matched by their cached rom-id membership (see #3934).
+        # Standard collections come off the already-loaded join relationship;
+        # smart collections have no reverse join, so match them by their cached
+        # rom-id membership at the SQL layer (see #3934).
         db_rom.user_collections = [  # type: ignore[assignment]
             *UserCollectionSchema.for_user(user_id, db_rom.collections),
-            *UserCollectionSchema.smart_for_user(
-                user_id,
-                db_rom.id,
-                db_collection_handler.get_smart_collections(user_id=user_id),
+            *UserCollectionSchema.from_smart_collections(
+                db_collection_handler.get_smart_collections_for_rom(
+                    rom_id=db_rom.id, user_id=user_id
+                )
             ),
         ]
 
