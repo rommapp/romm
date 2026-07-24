@@ -225,23 +225,38 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
     if parsed.kind == "states" and cloud_sync_handler.is_state_screenshot_path(
         file_name
     ):
+        # `file_name` is the canonical `<slot>.png` name -- but the state it
+        # belongs to (found the same way `resolve_state_by_slot` would) may
+        # have its own, different real file name (e.g. a web-player upload).
+        # Writing under the canonical name while an existing screenshot's
+        # row still points at that other name would create a second,
+        # untracked file on disk instead of updating the real one.
+        owning_state = cloud_sync_handler.resolve_state_by_slot(
+            request.user, rom, parsed.emulator, file_name[: -len(".png")]
+        )
+        screenshot_file_name = (
+            f"{owning_state.file_name}.png" if owning_state else file_name
+        )
+
         screenshot_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user,
             platform_fs_slug=rom.platform.fs_slug,
             rom_id=rom.id,
         )
         await fs_asset_handler.write_file(
-            file=await request.body(), path=screenshot_path, filename=file_name
+            file=await request.body(),
+            path=screenshot_path,
+            filename=screenshot_file_name,
         )
 
         scanned_screenshot = await scan_screenshot(
-            file_name=file_name,
+            file_name=screenshot_file_name,
             user=request.user,
             platform_fs_slug=rom.platform.fs_slug,
             rom_id=rom.id,
         )
         existing_screenshot = db_screenshot_handler.get_screenshot(
-            rom_id=rom.id, user_id=request.user.id, file_name=file_name
+            rom_id=rom.id, user_id=request.user.id, file_name=screenshot_file_name
         )
         if existing_screenshot:
             db_screenshot_handler.update_screenshot(
@@ -259,11 +274,22 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
         request.user, rom, parsed.kind, parsed.emulator
     )
 
-    await fs_asset_handler.write_file(
-        file=await request.body(), path=asset_path, filename=file_name
-    )
-
+    # For states, `file_name` is the *canonical* slot name RetroArch always
+    # uses -- but `existing` (resolved by slot, not by exact path) may be a
+    # row whose own `file_name` is something else entirely (e.g. a
+    # web-player upload). Writing the new bytes under the canonical name
+    # while only patching that other row's `file_size_bytes` would leave the
+    # DB row pointing at stale, now-orphaned content on disk -- silently
+    # diverging RomM's own view of "the current state" from what's actually
+    # on disk, which resurfaces as a spurious sync conflict on every
+    # subsequent sync. Writing to the existing row's own real file name
+    # instead keeps disk and DB in agreement.
     existing = _get_asset(request.user, rom, parsed, file_name)
+    write_file_name = existing.file_name if existing else file_name
+
+    await fs_asset_handler.write_file(
+        file=await request.body(), path=asset_path, filename=write_file_name
+    )
 
     if parsed.kind == "saves":
         scanned_save = await scan_save(
@@ -288,7 +314,7 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
             db_save_handler.add_save(save=scanned_save)
     else:
         scanned_state = await scan_state(
-            file_name=file_name,
+            file_name=write_file_name,
             user=request.user,
             platform_fs_slug=rom.platform.fs_slug,
             rom_id=rom.id,
