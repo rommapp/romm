@@ -142,6 +142,15 @@ class FSAssetsHandler(FSHandler):
             user, "screenshots", platform_fs_slug, rom_id
         )
 
+    # /users/557365723a31/memory_cards/pcsx2/{card_id}
+    def build_memory_cards_file_path(self, user: User, emulator: str, card_id: int):
+        # Not scoped by rom/platform: a memory card is per (user, emulator) and
+        # holds every game's saves. Versions share the folder, distinguished by
+        # their timestamped file names.
+        return os.path.join(
+            self.user_folder_path(user), "memory_cards", emulator, str(card_id)
+        )
+
     async def _compute_file_hash(self, file_path: str) -> str:
         hash_obj = hashlib.md5(usedforsecurity=False)
         async with await self.stream_file(file_path=file_path) as f:

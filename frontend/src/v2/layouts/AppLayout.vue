@@ -147,7 +147,8 @@ onMounted(() => {
     prefetchPlatformIcons(platformsStore.allPlatforms.map((p) => p.slug));
   }
 
-  // Streaming config is fetched once on app load
+  // Hydrate the streaming config so `containerForPlatform` resolves and
+  // the Play CTA shows on streamable platforms. v1 ran this in `Main.vue`.
   void streamingStore.fetchConfig();
 });
 

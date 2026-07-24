@@ -39,6 +39,7 @@ from endpoints.feeds import router as feeds_router
 from endpoints.firmware import router as firmware_router
 from endpoints.heartbeat import router as heartbeat_router
 from endpoints.logs import router as logs_router
+from endpoints.memory_cards import router as memory_cards_router
 from endpoints.music import router as music_router
 from endpoints.music_playlists import router as music_playlists_router
 from endpoints.netplay import router as netplay_router
@@ -178,6 +179,7 @@ app.include_router(collections_router, prefix="/api")
 app.include_router(export_router, prefix="/api")
 app.include_router(netplay_router, prefix="/api")
 app.include_router(permissions_router, prefix="/api")
+app.include_router(memory_cards_router, prefix="/api")
 app.include_router(streaming_router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)

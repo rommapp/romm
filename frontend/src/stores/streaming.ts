@@ -3,13 +3,21 @@ import { ref, computed } from "vue";
 import streamingApi from "@/services/api/streaming";
 import type {
   ActiveSession,
+  AdminStreamingSession,
+  MemoryCardImport,
+  SessionStatus,
   StreamingConfig,
   StreamingContainer,
 } from "@/services/api/streaming";
 
 export type {
   ActiveSession,
+  AdminStreamingSession,
+  MemoryCardImport,
+  MemoryCardImportDetail,
   PlatformCapabilities,
+  SessionStatus,
+  SessionTermination,
   StreamingConfig,
   StreamingContainer,
 } from "@/services/api/streaming";
@@ -96,14 +104,32 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Claim a streaming session for a ROM. The backend derives the platform,
    * filesystem path, and display name from the ROM id - the client never
    * sends a path.
+   * Pass stateId to resume from a specific save state: the backend pushes
+   * its file to the broker and the emulator loads it once the game is up.
+   * The response's `resume` field reports whether that succeeded.
+   * Pass memoryCardId to hydrate a specific memory card (else the backend
+   * picks the user's newest card for the emulator, or auto-creates a blank
+   * one). The chosen card is wiped-then-replaced onto the container at claim.
    * Returns the session data (including the container host URL) on success.
-   * Throws an error with a `status` property on failure:
-   *   409 session in use - error has who/what is playing
+   * Throws the raw axios error on failure:
+   *   409 session in use - response detail has who/what is playing
    *   404 - ROM or platform container not configured
+   *   428 - the container's pre-existing memory card needs a decision;
+   *         retry with cardImport set to the user's answer
    *   503 - broker/unreachable
    */
-  async function claimSession(romId: number): Promise<ActiveSession> {
-    const { data } = await streamingApi.claimSession(romId);
+  async function claimSession(
+    romId: number,
+    stateId?: number,
+    memoryCardId?: number,
+    cardImport?: MemoryCardImport,
+  ): Promise<ActiveSession> {
+    const { data } = await streamingApi.claimSession(
+      romId,
+      stateId,
+      memoryCardId,
+      cardImport,
+    );
     activeSession.value = data;
     return data;
   }
@@ -131,21 +157,127 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Save game state then release the session.
    * wait=true (default): blocks until broker confirms save+kill - use for explicit button press.
    * wait=false: broker fires save+kill in background, returns immediately - use for navigation away.
-   * Drops the local session record only on a confirmed release so a failed
-   * call doesn't leave the user wedged behind their own still-held session.
+   * released: the request succeeded, so the backend dropped the claim
+   *   (it always releases on success, even when the save itself failed).
+   * saved: the broker confirmed the state save.
+   * released=false means the request failed and the claim may still be live -
+   *   callers should fall back to releaseSession.
    */
   async function saveAndExit(
     platform: string,
     slot = 0,
     wait = true,
-  ): Promise<boolean> {
-    if (!platform) return false;
+  ): Promise<{ released: boolean; saved: boolean }> {
+    if (!platform) return { released: false, saved: false };
     try {
       const { data } = await streamingApi.saveAndExit(platform, slot, wait);
       activeSession.value = null;
-      return data.saved ?? false;
+      return { released: true, saved: data.saved ?? false };
     } catch (err) {
       console.warn("[streaming] Could not save-and-exit:", err);
+      return { released: false, saved: false };
+    }
+  }
+
+  /**
+   * Refresh the session's liveness stamp so the backend does not treat it as
+   * abandoned, and report back whether the session still exists. Called
+   * periodically while playing.
+   *
+   * Returns null when the answer is unknown (network error): the caller must
+   * not tear the player down on a transient failure, only on a definite
+   * `ended`. Best-effort, never throws.
+   */
+  async function heartbeatSession(
+    platform: string,
+  ): Promise<SessionStatus | null> {
+    if (!platform) return null;
+    try {
+      const { data } = await streamingApi.heartbeatSession(platform);
+      return data;
+    } catch (err) {
+      console.warn("[streaming] Could not heartbeat session:", err);
+      return null;
+    }
+  }
+
+  /**
+   * Ask whether this platform's session is still ours, without refreshing it.
+   * Used on mount and on tab refocus, where a heartbeat would wrongly extend a
+   * claim we may no longer hold. Null means unknown, as above.
+   */
+  async function fetchSessionStatus(
+    platform: string,
+  ): Promise<SessionStatus | null> {
+    if (!platform) return null;
+    try {
+      const { data } = await streamingApi.sessionStatus(platform);
+      return data;
+    } catch (err) {
+      console.warn("[streaming] Could not fetch session status:", err);
+      return null;
+    }
+  }
+
+  /**
+   * saveAndExit for the pagehide path. Fire-and-forget via fetch keepalive:
+   * the broker save+kill runs server-side to completion even though the page
+   * is gone (wait=false; the backend forces a blocking save for card-sync
+   * containers anyway). Best-effort, never throws.
+   */
+  function saveAndExitKeepalive(platform: string, slot = 0): void {
+    if (!platform) return;
+    activeSession.value = null;
+    try {
+      streamingApi.saveAndExitKeepalive(platform, slot);
+    } catch (err) {
+      console.warn("[streaming] Could not save-and-exit (keepalive):", err);
+    }
+  }
+
+  /**
+   * releaseSession for the pagehide path. Fire-and-forget via fetch
+   * keepalive. Best-effort, never throws.
+   */
+  function releaseSessionKeepalive(platform: string): void {
+    if (!platform) return;
+    activeSession.value = null;
+    try {
+      streamingApi.releaseSessionKeepalive(platform);
+    } catch (err) {
+      console.warn("[streaming] Could not release session (keepalive):", err);
+    }
+  }
+
+  /**
+   * List all active streaming sessions across every container. Admin only.
+   * Best-effort, never throws, returns [] on failure.
+   */
+  async function adminListSessions(): Promise<AdminStreamingSession[]> {
+    try {
+      const { data } = await streamingApi.adminListSessions();
+      return data.sessions ?? [];
+    } catch (err) {
+      console.warn("[streaming] Could not list sessions:", err);
+      return [];
+    }
+  }
+
+  /**
+   * Force-release another user's session by platform. Admin only.
+   * Does not touch local activeSession state - the target session belongs
+   * to someone else. Returns whether the release succeeded.
+   */
+  async function adminReleaseSession(
+    platform: string,
+    reason?: string,
+  ): Promise<boolean> {
+    if (!platform) return false;
+    try {
+      await streamingApi.releaseSession(platform, reason);
+      return true;
+    } catch (err) {
+      console.warn("[streaming] Could not release session:", err);
       return false;
     }
   }
@@ -162,5 +294,11 @@ export const useStreamingStore = defineStore("streaming", () => {
     claimSession,
     releaseSession,
     saveAndExit,
+    heartbeatSession,
+    fetchSessionStatus,
+    saveAndExitKeepalive,
+    releaseSessionKeepalive,
+    adminListSessions,
+    adminReleaseSession,
   };
 });

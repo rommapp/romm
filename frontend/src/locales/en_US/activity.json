@@ -10,5 +10,14 @@
   "now-playing": "Now Playing",
   "playing-on": "Playing on {device}",
   "playing-since": "Playing since {time}",
-  "total-sessions": "Total sessions"
+  "release-failed": "Could not release the session",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
+  "release-session": "Release",
+  "release-session-body": "This will stop {game} immediately and disconnect {user}. Unsaved progress will be lost.",
+  "release-session-title": "Release streaming session?",
+  "session-released": "Session released",
+  "streaming-sessions": "Streaming sessions",
+  "total-sessions": "Total sessions",
+  "unknown-user": "Unknown user"
 }

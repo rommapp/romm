@@ -10,5 +10,14 @@
   "now-playing": "Şu An Oynanıyor",
   "playing-on": "{device} üzerinde oynuyor",
   "playing-since": "{time} dan beri oynanıyor",
-  "total-sessions": "Toplam oturum"
+  "release-failed": "Oturum serbest bırakılamadı",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
+  "release-session": "Serbest bırak",
+  "release-session-body": "Bu, {game} oyununu hemen durduracak ve {user} bağlantısını kesecek. Kaydedilmemiş ilerleme kaybolacak.",
+  "release-session-title": "Yayın oturumu serbest bırakılsın mı?",
+  "session-released": "Oturum serbest bırakıldı",
+  "streaming-sessions": "Yayın oturumları",
+  "total-sessions": "Toplam oturum",
+  "unknown-user": "Bilinmeyen kullanıcı"
 }

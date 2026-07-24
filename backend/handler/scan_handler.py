@@ -45,7 +45,7 @@ from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST, SSRom
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import Save, Screenshot, State
+from models.assets import MemoryCardVersion, Save, Screenshot, State
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
@@ -1181,6 +1181,19 @@ async def scan_state(
     )
     scanned_asset = await _scan_asset(file_name, states_path)
     return State(**scanned_asset)
+
+
+async def scan_memory_card_version(
+    file_name: str,
+    user: User,
+    emulator: str,
+    card_id: int,
+) -> MemoryCardVersion:
+    cards_path = fs_asset_handler.build_memory_cards_file_path(
+        user=user, emulator=emulator, card_id=card_id
+    )
+    scanned_asset = await _scan_asset(file_name, cards_path, should_hash=True)
+    return MemoryCardVersion(**scanned_asset, memory_card_id=card_id)
 
 
 async def scan_screenshot(
