@@ -19,14 +19,14 @@ from handler import cloud_sync_handler
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.cloud_sync_handler import MANIFEST_FILE_NAME, AssetKind, CloudSyncPath
-from handler.database import db_save_handler, db_state_handler
+from handler.database import db_save_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler, fs_cloud_sync_blob_handler
 from handler.filesystem.assets_handler import build_asset_file_response
-from handler.scan_handler import scan_save, scan_state
+from handler.scan_handler import scan_save, scan_screenshot, scan_state
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import Save, State
+from models.assets import Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import sanitize_filename
@@ -149,7 +149,16 @@ async def cloud_sync_get(request: Request, file_path: str) -> Response:
     if not rom:
         return _empty(status.HTTP_404_NOT_FOUND)
 
-    asset = _get_asset(request.user, rom, parsed, parsed.file_name)
+    asset: Save | State | Screenshot | None
+    if parsed.kind == "states" and cloud_sync_handler.is_state_screenshot_path(
+        parsed.file_name
+    ):
+        asset = cloud_sync_handler.resolve_state_screenshot_by_slot(
+            request.user, rom, parsed.emulator, parsed.file_name
+        )
+    else:
+        asset = _get_asset(request.user, rom, parsed, parsed.file_name)
+
     if not asset:
         return _empty(status.HTTP_404_NOT_FOUND)
 
@@ -208,11 +217,47 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
         log.warning(f"Cloud sync upload {hl(file_path)} matches no ROM in the library")
         return _empty(status.HTTP_409_CONFLICT)
 
+    log.info(f"Cloud sync upload {hl(file_name)} for {hl(str(rom.name), color=BLUE)}")
+
+    # RetroArch syncs a state's screenshot as `<state file name>.png` --
+    # store it as a Screenshot attached to the ROM, not a State (there's no
+    # state binary here, just an image).
+    if parsed.kind == "states" and cloud_sync_handler.is_state_screenshot_path(
+        file_name
+    ):
+        screenshot_path = fs_asset_handler.build_screenshots_file_path(
+            user=request.user,
+            platform_fs_slug=rom.platform.fs_slug,
+            rom_id=rom.id,
+        )
+        await fs_asset_handler.write_file(
+            file=await request.body(), path=screenshot_path, filename=file_name
+        )
+
+        scanned_screenshot = await scan_screenshot(
+            file_name=file_name,
+            user=request.user,
+            platform_fs_slug=rom.platform.fs_slug,
+            rom_id=rom.id,
+        )
+        existing_screenshot = db_screenshot_handler.get_screenshot(
+            rom_id=rom.id, user_id=request.user.id, file_name=file_name
+        )
+        if existing_screenshot:
+            db_screenshot_handler.update_screenshot(
+                existing_screenshot.id,
+                {"file_size_bytes": scanned_screenshot.file_size_bytes},
+            )
+            return _empty(status.HTTP_204_NO_CONTENT)
+
+        scanned_screenshot.rom_id = rom.id
+        scanned_screenshot.user_id = request.user.id
+        db_screenshot_handler.add_screenshot(screenshot=scanned_screenshot)
+        return _empty(status.HTTP_201_CREATED)
+
     asset_path = cloud_sync_handler.build_asset_file_path(
         request.user, rom, parsed.kind, parsed.emulator
     )
-
-    log.info(f"Cloud sync upload {hl(file_name)} for {hl(str(rom.name), color=BLUE)}")
 
     await fs_asset_handler.write_file(
         file=await request.body(), path=asset_path, filename=file_name
@@ -300,6 +345,24 @@ async def cloud_sync_delete(request: Request, file_path: str) -> Response:
     rom = _resolve_rom(request, parsed.kind, parsed.file_name)
     if not rom:
         return _empty(status.HTTP_404_NOT_FOUND)
+
+    if parsed.kind == "states" and cloud_sync_handler.is_state_screenshot_path(
+        parsed.file_name
+    ):
+        screenshot = cloud_sync_handler.resolve_state_screenshot_by_slot(
+            request.user, rom, parsed.emulator, parsed.file_name
+        )
+        if not screenshot:
+            return _empty(status.HTTP_404_NOT_FOUND)
+
+        log.info(f"Cloud sync delete {hl(screenshot.file_name)} [{rom.platform_slug}]")
+        db_screenshot_handler.delete_screenshot(screenshot.id)
+        try:
+            await fs_asset_handler.remove_file(file_path=screenshot.full_path)
+        except FileNotFoundError:
+            pass
+
+        return _empty(status.HTTP_204_NO_CONTENT)
 
     asset = _get_asset(request.user, rom, parsed, parsed.file_name)
     if not asset:

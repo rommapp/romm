@@ -5,9 +5,9 @@ from fastapi import status
 
 from handler import cloud_sync_handler
 from handler.cloud_sync_emulator_names import to_retroarch_dir_name, to_romm_emulator
-from handler.database import db_save_handler, db_state_handler
+from handler.database import db_save_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
-from models.assets import Save, State
+from models.assets import Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
 
@@ -66,6 +66,23 @@ def synced_state(admin_user: User, rom: Rom, states_path: str):
             file_path=states_path,
             file_size_bytes=4,
             emulator="snes9x",
+        )
+    )
+
+
+@pytest.fixture
+def synced_state_screenshot(admin_user: User, rom: Rom, synced_state: State):
+    """The screenshot RetroArch captures and syncs alongside a state, under
+    `<state file name>.png` -- attached to the ROM, not the state row
+    itself (there's no `screenshot_id` column on `State`; `state.screenshot`
+    finds it by matching file name stems)."""
+    return db_screenshot_handler.add_screenshot(
+        Screenshot(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name=f"{synced_state.file_name}.png",
+            file_path=synced_state.file_path,
+            file_size_bytes=8,
         )
     )
 
@@ -406,6 +423,119 @@ class TestCloudSyncManifest:
                 "hash": "d41d8cd98f00b204e9800998ecf8427e",
             }
         ]
+
+
+class TestCloudSyncStateScreenshots:
+    def test_game_name_strips_png_before_state_suffix(self):
+        """RetroArch syncs a state's screenshot as `<state file name>.png`
+        (e.g. `test_rom.state.png`) -- the ROM name must resolve the same
+        way it would for the state itself, not stop at the `.state` segment
+        (verified live: RetroArch's upload of this file 409'd because the
+        naive last-dot split reported the game name as `test_rom.state`)."""
+        assert (
+            cloud_sync_handler.game_name_from_file_name(
+                "states", "test_rom.state.png"
+            )
+            == "test_rom"
+        )
+        assert (
+            cloud_sync_handler.game_name_from_file_name(
+                "states", "test_rom.state3.png"
+            )
+            == "test_rom"
+        )
+        assert (
+            cloud_sync_handler.game_name_from_file_name(
+                "states", "test_rom.state.auto.png"
+            )
+            == "test_rom"
+        )
+
+    @mock.patch(
+        "handler.cloud_sync_handler.asset_md5",
+        new_callable=mock.AsyncMock,
+        return_value="d41d8cd98f00b204e9800998ecf8427e",
+    )
+    def test_manifest_includes_the_state_screenshot(
+        self,
+        _asset_md5: mock.AsyncMock,
+        client,
+        admin_user: User,
+        synced_state: State,
+        synced_state_screenshot: Screenshot,
+    ):
+        response = client.get("/api/cloud-sync/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == [
+            {
+                "path": "states/Snes9x/test_rom.state",
+                "hash": "d41d8cd98f00b204e9800998ecf8427e",
+            },
+            {
+                "path": "states/Snes9x/test_rom.state.png",
+                "hash": "d41d8cd98f00b204e9800998ecf8427e",
+            },
+        ]
+
+    @mock.patch(
+        "endpoints.cloud_sync.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.cloud_sync.scan_screenshot", new_callable=mock.AsyncMock)
+    def test_creates_screenshot_for_a_new_state(
+        self,
+        mock_scan_screenshot: mock.AsyncMock,
+        _mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        synced_state: State,
+    ):
+        mock_scan_screenshot.return_value = Screenshot(
+            file_name="test_rom.state.png",
+            file_path=synced_state.file_path,
+            file_size_bytes=8,
+        )
+
+        response = client.put(
+            "/api/cloud-sync/states/Snes9x/test_rom.state.png",
+            content=b"pngdata",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        screenshots = db_screenshot_handler.get_screenshot(
+            rom_id=rom.id, user_id=admin_user.id, file_name="test_rom.state.png"
+        )
+        assert screenshots is not None
+
+    @mock.patch(
+        "endpoints.cloud_sync.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.cloud_sync.scan_screenshot", new_callable=mock.AsyncMock)
+    def test_overwrites_existing_screenshot_for_a_state(
+        self,
+        mock_scan_screenshot: mock.AsyncMock,
+        _mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        synced_state: State,
+        synced_state_screenshot: Screenshot,
+    ):
+        mock_scan_screenshot.return_value = Screenshot(
+            file_name="test_rom.state.png",
+            file_path=synced_state.file_path,
+            file_size_bytes=16,
+        )
+
+        response = client.put(
+            "/api/cloud-sync/states/Snes9x/test_rom.state.png",
+            content=b"newpngdata",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
 
 
 class TestCloudSyncUpload:

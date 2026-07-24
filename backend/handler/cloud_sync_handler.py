@@ -21,7 +21,7 @@ from handler.cloud_sync_emulator_names import to_retroarch_dir_name, to_romm_emu
 from handler.database import db_rom_handler, db_save_handler, db_state_handler
 from handler.filesystem import fs_asset_handler, fs_cloud_sync_blob_handler
 from handler.redis_handler import async_cache
-from models.assets import Save, State
+from models.assets import Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
 
@@ -84,12 +84,21 @@ def parse_cloud_sync_path(path: str) -> CloudSyncPath | None:
     )
 
 
+def is_state_screenshot_path(file_name: str) -> bool:
+    """Whether a `states/...` file is the PNG screenshot RetroArch captures
+    and syncs alongside a state (`<state file name>.png`), rather than the
+    state itself."""
+    return file_name.lower().endswith(".png")
+
+
 def game_name_from_file_name(kind: AssetKind, file_name: str) -> str:
     """The ROM file name (minus extension) an asset file belongs to."""
     if kind == "states":
-        stripped = STATE_SUFFIX_PATTERN.sub("", file_name)
-        if stripped != file_name:
+        base = file_name[: -len(".png")] if is_state_screenshot_path(file_name) else file_name
+        stripped = STATE_SUFFIX_PATTERN.sub("", base)
+        if stripped != base:
             return stripped
+        return os.path.splitext(base)[0]
 
     return os.path.splitext(file_name)[0]
 
@@ -179,6 +188,22 @@ def resolve_state_by_slot(
     slot_suffix = state_slot_suffix(requested_file_name)
     states = db_state_handler.get_states(user_id=user.id, rom_id=rom.id)
     return latest_state_for_slot(states, rom.id, emulator, slot_suffix)
+
+
+def resolve_state_screenshot_by_slot(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> Screenshot | None:
+    """The screenshot a GET/DELETE for `<slot>.png` resolves to -- whatever
+    is attached to the same state ``resolve_state_by_slot`` would return for
+    that slot, since RetroArch always syncs a state's screenshot under
+    ``<state file name>.png``."""
+    if not is_state_screenshot_path(requested_file_name):
+        return None
+
+    state = resolve_state_by_slot(
+        user, rom, emulator, requested_file_name[: -len(".png")]
+    )
+    return state.screenshot if state else None
 
 
 def build_cloud_sync_path(kind: AssetKind, emulator: str | None, file_name: str) -> str:
@@ -287,7 +312,7 @@ def resolve_rom(game_name: str, can_see: Callable[[Rom], bool]) -> Rom | None:
     return None
 
 
-async def asset_md5(asset: Save | State) -> str | None:
+async def asset_md5(asset: Save | State | Screenshot) -> str | None:
     cache_key = (
         f"romm:cloud_sync:md5:{asset.full_path}"
         f":{asset.file_size_bytes}:{asset.updated_at.timestamp()}"
@@ -350,6 +375,19 @@ async def build_manifest(
                 "hash": digest,
             }
         )
+
+        screenshot = state.screenshot
+        if screenshot and not screenshot.missing_from_fs:
+            screenshot_digest = await asset_md5(screenshot)
+            if screenshot_digest:
+                entries.append(
+                    {
+                        "path": build_cloud_sync_path(
+                            "states", emulator, f"{file_name}.png"
+                        ),
+                        "hash": screenshot_digest,
+                    }
+                )
 
     entries += await build_blob_manifest_entries(user)
 
