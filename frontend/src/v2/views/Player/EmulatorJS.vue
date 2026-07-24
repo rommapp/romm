@@ -51,6 +51,7 @@ import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import { resolveStoredDisc } from "@/v2/utils/playerDisc";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
@@ -388,12 +389,14 @@ onMounted(async () => {
   }
   isSavesTabSelected.value = !hasCompatibleState;
 
+  // Validate the saved disc against the rom's current files: a rescan can
+  // leave a stale id behind that would 404 the download (issue #3938).
   const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
-  if (storedDisc) {
-    selectedDisc.value = parseInt(storedDisc);
-  } else {
-    selectedDisc.value = rom.value.files[0]?.id ?? null;
+  const { discId, stale } = resolveStoredDisc(storedDisc, rom.value.files);
+  if (stale) {
+    localStorage.removeItem(`player:${rom.value.id}:disc`);
   }
+  selectedDisc.value = discId;
 
   // Prefer the core saved for this game, then the platform default, validating
   // each candidate so a stale entry falls through instead of masking the next
