@@ -10,6 +10,8 @@ from a fixed-size buffer, and a large body has been observed to corrupt its
 heap.
 """
 
+import os
+
 from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import JSONResponse
 
@@ -18,7 +20,7 @@ from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.cloud_sync_handler import MANIFEST_FILE_NAME, AssetKind, CloudSyncPath
 from handler.database import db_save_handler, db_state_handler
-from handler.filesystem import fs_asset_handler
+from handler.filesystem import fs_asset_handler, fs_cloud_sync_blob_handler
 from handler.filesystem.assets_handler import build_asset_file_response
 from handler.scan_handler import scan_save, scan_state
 from logger.formatter import BLUE
@@ -121,6 +123,22 @@ async def cloud_sync_get(request: Request, file_path: str) -> Response:
         )
         return JSONResponse(content=manifest)
 
+    blob_path = cloud_sync_handler.parse_cloud_sync_blob_path(file_path)
+    if blob_path:
+        try:
+            resolved_path = fs_cloud_sync_blob_handler.validate_path(
+                cloud_sync_handler.user_blob_path(request.user, blob_path)
+            )
+        except ValueError:
+            return _empty(status.HTTP_404_NOT_FOUND)
+
+        if not resolved_path.is_file():
+            return _empty(status.HTTP_404_NOT_FOUND)
+
+        return build_asset_file_response(
+            resolved_path, filename=os.path.basename(blob_path)
+        )
+
     parsed = cloud_sync_handler.parse_cloud_sync_path(file_path)
     if not parsed:
         return _empty(status.HTTP_404_NOT_FOUND)
@@ -157,9 +175,23 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
         return _empty(status.HTTP_204_NO_CONTENT)
 
     # RetroArch also offers config/, thumbnails/ and system/ when those settings
-    # are on. RomM has nowhere to put opaque blobs, and answering OK would put
-    # them in the client's local manifest, so the next sync would read their
-    # absence from ours as a remote delete and wipe the local copies.
+    # are on. None of these belong to a ROM, so they're stored as opaque
+    # per-user blobs instead of going through the asset/ROM matching below.
+    blob_path = cloud_sync_handler.parse_cloud_sync_blob_path(file_path)
+    if blob_path:
+        disk_path = cloud_sync_handler.user_blob_path(request.user, blob_path)
+        existed = await fs_cloud_sync_blob_handler.file_exists(disk_path)
+
+        await fs_cloud_sync_blob_handler.write_file(
+            file=await request.body(),
+            path=os.path.dirname(disk_path),
+            filename=os.path.basename(disk_path),
+        )
+
+        return _empty(
+            status.HTTP_204_NO_CONTENT if existed else status.HTTP_201_CREATED
+        )
+
     parsed = cloud_sync_handler.parse_cloud_sync_path(file_path)
     if not parsed:
         return _empty(status.HTTP_409_CONFLICT)
@@ -247,6 +279,17 @@ async def cloud_sync_delete(request: Request, file_path: str) -> Response:
     denied = _authorize(request, Scope.ASSETS_WRITE)
     if denied:
         return denied
+
+    blob_path = cloud_sync_handler.parse_cloud_sync_blob_path(file_path)
+    if blob_path:
+        try:
+            await fs_cloud_sync_blob_handler.remove_file(
+                file_path=cloud_sync_handler.user_blob_path(request.user, blob_path)
+            )
+        except FileNotFoundError:
+            return _empty(status.HTTP_404_NOT_FOUND)
+
+        return _empty(status.HTTP_204_NO_CONTENT)
 
     parsed = cloud_sync_handler.parse_cloud_sync_path(file_path)
     if not parsed:
