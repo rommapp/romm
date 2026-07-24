@@ -36,6 +36,10 @@ ROMM_TMP_PATH: Final[str | None] = _get_env("ROMM_TMP_PATH")
 LIBRARY_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/library"
 RESOURCES_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/assets"
+# Opaque storage for RetroArch Cloud Sync categories RomM has no concept of
+# (config/, thumbnails/, system/) — unrelated to any ROM, so it lives outside
+# the asset tree but still under the same persistent volume.
+CLOUD_SYNC_BLOB_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cloud_sync_blobs"
 ZIP_CACHE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/zips"
 FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
 

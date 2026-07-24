@@ -17,8 +17,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
+from handler.cloud_sync_emulator_names import to_retroarch_dir_name, to_romm_emulator
 from handler.database import db_rom_handler, db_save_handler, db_state_handler
-from handler.filesystem import fs_asset_handler
+from handler.filesystem import fs_asset_handler, fs_cloud_sync_blob_handler
 from handler.redis_handler import async_cache
 from models.assets import Save, State
 from models.rom import Rom
@@ -29,6 +30,12 @@ AssetKind = Literal["saves", "states"]
 MANIFEST_FILE_NAME = "manifest.server"
 
 ASSET_ROOTS: dict[str, AssetKind] = {"saves": "saves", "states": "states"}
+
+# RetroArch's other three Cloud Sync categories (Settings -> Saving -> Cloud
+# Sync -> Sync Configuration/Thumbnails/System Files). Unlike saves/states,
+# none of these belong to a ROM, so they're kept as opaque per-user blobs
+# instead of going through the asset/ROM matching machinery below.
+BLOB_CATEGORIES = ("config", "thumbnails", "system")
 
 # `<game>.state`, `<game>.state3`, `<game>.state.auto` — the auto suffix makes
 # this a two-segment extension, which splitext alone gets wrong.
@@ -53,7 +60,11 @@ def parse_cloud_sync_path(path: str) -> CloudSyncPath | None:
     """Parse a client path, or None when it is not a supported asset path.
 
     Accepts ``<root>/<file>`` and ``<root>/<core>/<file>``; RetroArch produces
-    the latter when "sort saves into folders by core name" is on.
+    the latter when "sort saves into folders by core name" is on. The core
+    segment is RetroArch's own directory casing (e.g. "Snes9x"), normalized
+    here to RomM's `emulator` convention (e.g. "snes9x") -- storing it
+    unnormalized would make the save invisible to RomM's own web player,
+    which matches saves against the lowercase libretro core id.
     """
     segments = [segment for segment in path.strip("/").split("/") if segment]
     if not 2 <= len(segments) <= 3:
@@ -68,7 +79,7 @@ def parse_cloud_sync_path(path: str) -> CloudSyncPath | None:
 
     return CloudSyncPath(
         kind=kind,
-        emulator=segments[1] if len(segments) == 3 else None,
+        emulator=to_romm_emulator(segments[1]) if len(segments) == 3 else None,
         file_name=segments[-1],
     )
 
@@ -85,7 +96,7 @@ def game_name_from_file_name(kind: AssetKind, file_name: str) -> str:
 
 def build_cloud_sync_path(kind: AssetKind, emulator: str | None, file_name: str) -> str:
     if emulator:
-        return f"{kind}/{emulator}/{file_name}"
+        return f"{kind}/{to_retroarch_dir_name(emulator)}/{file_name}"
     return f"{kind}/{file_name}"
 
 
@@ -106,6 +117,74 @@ def build_asset_file_path(
         rom_id=rom.id,
         emulator=emulator,
     )
+
+
+def parse_cloud_sync_blob_path(path: str) -> str | None:
+    """A client path under one of the opaque blob categories, normalized to
+    a plain ``category/...`` posix string, or None if it isn't one.
+
+    Unlike asset paths these keep arbitrary nesting: RetroArch mirrors its
+    own on-device directory tree here (e.g. thumbnail packs are organized as
+    ``thumbnails/<system>/Named_Boxarts/<game>.png``), so there's no fixed
+    segment count to enforce.
+    """
+    segments = [segment for segment in path.strip("/").split("/") if segment]
+    if len(segments) < 2:
+        return None
+
+    if any(segment in (os.curdir, os.pardir) for segment in segments):
+        return None
+
+    if segments[0] not in BLOB_CATEGORIES:
+        return None
+
+    return "/".join(segments)
+
+
+def user_blob_path(user: User, blob_path: str) -> str:
+    """Where a parsed blob path lives on disk, namespaced by user so two
+    RetroArch installs syncing to the same RomM instance under different
+    accounts never see each other's config/thumbnails/system files."""
+    return f"{fs_asset_handler.user_folder_path(user)}/{blob_path}"
+
+
+async def blob_md5(user: User, blob_path: str) -> str | None:
+    try:
+        resolved = fs_cloud_sync_blob_handler.validate_path(
+            user_blob_path(user, blob_path)
+        )
+        stat = resolved.stat()
+    except (ValueError, OSError):
+        return None
+
+    cache_key = (
+        f"romm:cloud_sync:blob_md5:{user.id}:{blob_path}:{stat.st_size}:{stat.st_mtime}"
+    )
+    cached = await async_cache.get(cache_key)
+    if cached:
+        return cached.decode() if isinstance(cached, bytes) else str(cached)
+
+    digest = await fs_cloud_sync_blob_handler.compute_file_md5(
+        user_blob_path(user, blob_path)
+    )
+    if digest:
+        await async_cache.set(cache_key, digest, ex=_HASH_CACHE_TTL_SECONDS)
+
+    return digest
+
+
+async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+    for category in BLOB_CATEGORIES:
+        prefix = f"{fs_asset_handler.user_folder_path(user)}/{category}"
+        for relative in await fs_cloud_sync_blob_handler.list_blob_paths(prefix):
+            blob_path = f"{category}/{relative}"
+            digest = await blob_md5(user, blob_path)
+            if not digest:
+                continue
+            entries.append({"path": blob_path, "hash": digest})
+
+    return entries
 
 
 def resolve_rom(game_name: str, can_see: Callable[[Rom], bool]) -> Rom | None:
@@ -171,6 +250,8 @@ async def build_manifest(
                 "hash": digest,
             }
         )
+
+    entries += await build_blob_manifest_entries(user)
 
     entries.sort(key=lambda entry: entry["path"])
     return entries
