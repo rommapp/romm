@@ -929,6 +929,33 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 | PUT    | `/{id}`        | ASSETS_WRITE | Update state  |
 | POST   | `/delete`      | ASSETS_WRITE | Bulk delete   |
 
+### 6.9b RetroArch Cloud Sync (`/api/cloud-sync`)
+
+A minimal WebDAV surface for RetroArch's Cloud Sync driver, which diffs a JSON
+manifest of `{path, hash}` entries instead of listing collections (hence no
+PROPFIND). Point RetroArch's WebDAV URL at `https://<host>/api/cloud-sync/`
+(trailing slash required), enable save/state sync only, and authenticate with a
+RomM username and password over HTTP Basic.
+
+| Method      | Path                    | Scope        | Description                                     |
+| ----------- | ----------------------- | ------------ | ----------------------------------------------- |
+| OPTIONS     | `/{path}`               | ASSETS_READ  | Advertise DAV support                           |
+| GET         | `/manifest.server`      | ASSETS_READ  | Manifest of the caller's saves and states       |
+| GET         | `/{root}/[core/]{file}` | ASSETS_READ  | Download one save/state                         |
+| PUT         | `/{root}/[core/]{file}` | ASSETS_WRITE | Upload one save/state                           |
+| DELETE/MOVE | `/{root}/[core/]{file}` | ASSETS_WRITE | Delete one save/state                           |
+| MKCOL       | `/{path}`               | ASSETS_WRITE | Accepted no-op (layout is derived from the ROM) |
+
+`{root}` is `saves` or `states`. Files are matched to a ROM by file name alone
+(`Super Mario World.srm` → the ROM whose `fs_name_no_ext` is `Super Mario
+World`), so a name shared across platforms resolves ambiguously. The optional
+`core` segment maps to the asset's `emulator`, which namespaces storage exactly
+as it does for uploads through `/api/saves`. Slotted saves are excluded from the
+manifest: they are RomM's own versioned history and their datetime-tagged names
+are not loadable by any core. Unlike the rest of the API this router gates
+itself, so it can answer a 401 challenge rather than a 403, and it sends
+body-less error responses because RetroArch's client mishandles large ones.
+
 ### 6.10 Screenshots (`/api/screenshots`)
 
 | Method | Path           | Scope        | Description        |
