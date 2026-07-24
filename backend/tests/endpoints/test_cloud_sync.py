@@ -1012,9 +1012,9 @@ class TestCloudSyncWebdavBrowsing:
 
         assert response.status_code == 207
         body = response.text
-        assert "<D:href>/roms/</D:href>" in body
-        assert "<D:href>/saves/</D:href>" in body
-        assert "<D:href>/states/</D:href>" in body
+        assert "<D:href>/api/cloud-sync/roms/</D:href>" in body
+        assert "<D:href>/api/cloud-sync/saves/</D:href>" in body
+        assert "<D:href>/api/cloud-sync/states/</D:href>" in body
 
     def test_propfind_roms_lists_platforms_with_roms(
         self, client, admin_user: User, rom: Rom
@@ -1024,7 +1024,7 @@ class TestCloudSyncWebdavBrowsing:
         )
 
         assert response.status_code == 207
-        assert f"<D:href>/roms/{rom.platform.fs_slug}/</D:href>" in response.text
+        assert f"<D:href>/api/cloud-sync/roms/{rom.platform.fs_slug}/</D:href>" in response.text
 
     def test_propfind_platform_lists_rom_files(
         self, client, admin_user: User, rom: Rom
@@ -1036,7 +1036,7 @@ class TestCloudSyncWebdavBrowsing:
         )
 
         assert response.status_code == 207
-        assert f"<D:href>/roms/{rom.platform.fs_slug}/{rom.fs_name}</D:href>" in response.text
+        assert f"<D:href>/api/cloud-sync/roms/{rom.platform.fs_slug}/{rom.fs_name}</D:href>" in response.text
 
     def test_propfind_unknown_platform_is_not_found(self, client, admin_user: User):
         response = client.request(
@@ -1078,7 +1078,7 @@ class TestCloudSyncWebdavBrowsing:
         response = client.request("PROPFIND", "/api/cloud-sync/saves/", auth=ADMIN_AUTH)
 
         assert response.status_code == 207
-        assert "<D:href>/saves/Snes9x/</D:href>" in response.text
+        assert "<D:href>/api/cloud-sync/saves/Snes9x/</D:href>" in response.text
 
     @mock.patch(
         "handler.cloud_sync_handler.asset_md5",
@@ -1093,4 +1093,4 @@ class TestCloudSyncWebdavBrowsing:
         )
 
         assert response.status_code == 207
-        assert "<D:href>/saves/Snes9x/test_rom.srm</D:href>" in response.text
+        assert "<D:href>/api/cloud-sync/saves/Snes9x/test_rom.srm</D:href>" in response.text

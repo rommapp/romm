@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
+from urllib.parse import quote
 from xml.sax.saxutils import escape as xml_escape
 
 from handler.database import db_platform_handler, db_rom_handler
@@ -49,8 +50,24 @@ class RomFile:
     file_ids: list[int] = field(default_factory=list)
 
 
+# This module's PropfindEntry.href values are relative to the router's own
+# mount point (e.g. "roms/", "saves/Snes9x/"), matching the shim's
+# `romBrowser.ts`/`webdavXml.ts` -- but WebDAV clients expect every <D:href>
+# in a multistatus response to be an absolute path from the *server* root,
+# not relative to the collection being PROPFIND'd. Verified live: without
+# this prefix, a client (Cyberduck) couldn't match the "self" entry's href
+# back to the path it had just requested, and rendered it as an extra,
+# never-ending nested subfolder instead of recognizing it as the current
+# directory -- the same mismatch made every subfolder look like it
+# contained a copy of the whole tree again.
+WEBDAV_MOUNT_PREFIX = "/api/cloud-sync"
+
+
 def _href_escape(path: str) -> str:
-    return "/" + "/".join(segment for segment in path.split("/"))
+    full_path = f"{WEBDAV_MOUNT_PREFIX}/{path}" if path else f"{WEBDAV_MOUNT_PREFIX}/"
+    segments = full_path.strip("/").split("/")
+    escaped = "/" + "/".join(quote(segment, safe="") for segment in segments)
+    return escaped + "/" if full_path.endswith("/") else escaped
 
 
 def _response_xml(entry: PropfindEntry) -> str:
