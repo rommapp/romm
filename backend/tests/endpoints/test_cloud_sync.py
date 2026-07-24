@@ -291,7 +291,7 @@ class TestCloudSyncUpload:
 
     def test_rejects_unsupported_sync_root(self, client, admin_user: User, rom: Rom):
         response = client.put(
-            "/api/cloud-sync/config/retroarch.cfg",
+            "/api/cloud-sync/deleted/saves/test_rom.srm",
             content=b"data",
             auth=ADMIN_AUTH,
         )
@@ -374,3 +374,112 @@ class TestCloudSyncMkcol:
         )
 
         assert response.status_code == status.HTTP_201_CREATED
+
+
+class TestCloudSyncBlobPathParsing:
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        [
+            ("config/retroarch.cfg", "config/retroarch.cfg"),
+            (
+                "thumbnails/Nintendo - Game Boy/Named_Boxarts/Game.png",
+                "thumbnails/Nintendo - Game Boy/Named_Boxarts/Game.png",
+            ),
+            ("system/bios/scph5501.bin", "system/bios/scph5501.bin"),
+            ("/system/bios.bin", "system/bios.bin"),
+        ],
+    )
+    def test_parses_blob_paths(self, path, expected):
+        assert cloud_sync_handler.parse_cloud_sync_blob_path(path) == expected
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "config",
+            "saves/test_rom.srm",
+            "deleted/config/retroarch.cfg",
+            "config/../../etc/passwd",
+        ],
+    )
+    def test_rejects_non_blob_paths(self, path):
+        assert cloud_sync_handler.parse_cloud_sync_blob_path(path) is None
+
+
+class TestCloudSyncBlobs:
+    def test_creates_and_downloads_config_blob(self, client, admin_user: User):
+        put_response = client.put(
+            "/api/cloud-sync/config/retroarch.cfg",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+        assert put_response.status_code == status.HTTP_201_CREATED
+
+        get_response = client.get(
+            "/api/cloud-sync/config/retroarch.cfg", auth=ADMIN_AUTH
+        )
+        assert get_response.status_code == status.HTTP_200_OK
+        assert get_response.content == b"data"
+
+    def test_overwrites_existing_blob_in_place(self, client, admin_user: User):
+        client.put("/api/cloud-sync/system/bios.bin", content=b"data", auth=ADMIN_AUTH)
+
+        response = client.put(
+            "/api/cloud-sync/system/bios.bin", content=b"newdata", auth=ADMIN_AUTH
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+        get_response = client.get("/api/cloud-sync/system/bios.bin", auth=ADMIN_AUTH)
+        assert get_response.content == b"newdata"
+
+    def test_accepts_nested_thumbnail_paths(self, client, admin_user: User):
+        response = client.put(
+            "/api/cloud-sync/thumbnails/Nintendo - Game Boy/Named_Boxarts/Game.png",
+            content=b"pngdata",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_missing_blob_is_not_found(self, client, admin_user: User):
+        response = client.get("/api/cloud-sync/config/nope.cfg", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.content == b""
+
+    def test_delete_removes_the_blob(self, client, admin_user: User):
+        client.put(
+            "/api/cloud-sync/config/retroarch.cfg", content=b"data", auth=ADMIN_AUTH
+        )
+
+        response = client.request(
+            "DELETE", "/api/cloud-sync/config/retroarch.cfg", auth=ADMIN_AUTH
+        )
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+        get_response = client.get(
+            "/api/cloud-sync/config/retroarch.cfg", auth=ADMIN_AUTH
+        )
+        assert get_response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_of_unknown_blob_is_not_found(self, client, admin_user: User):
+        response = client.request(
+            "DELETE", "/api/cloud-sync/config/nope.cfg", auth=ADMIN_AUTH
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_manifest_includes_blobs_alongside_assets(self, client, admin_user: User):
+        client.put(
+            "/api/cloud-sync/config/retroarch.cfg", content=b"data", auth=ADMIN_AUTH
+        )
+
+        response = client.get("/api/cloud-sync/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == [
+            {
+                "path": "config/retroarch.cfg",
+                "hash": "8d777f385d3dfec8815d20f7496026dc",
+            }
+        ]
