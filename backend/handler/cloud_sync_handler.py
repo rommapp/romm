@@ -17,6 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
+from handler.cloud_sync_emulator_names import to_retroarch_dir_name, to_romm_emulator
 from handler.database import db_rom_handler, db_save_handler, db_state_handler
 from handler.filesystem import fs_asset_handler, fs_cloud_sync_blob_handler
 from handler.redis_handler import async_cache
@@ -59,7 +60,11 @@ def parse_cloud_sync_path(path: str) -> CloudSyncPath | None:
     """Parse a client path, or None when it is not a supported asset path.
 
     Accepts ``<root>/<file>`` and ``<root>/<core>/<file>``; RetroArch produces
-    the latter when "sort saves into folders by core name" is on.
+    the latter when "sort saves into folders by core name" is on. The core
+    segment is RetroArch's own directory casing (e.g. "Snes9x"), normalized
+    here to RomM's `emulator` convention (e.g. "snes9x") -- storing it
+    unnormalized would make the save invisible to RomM's own web player,
+    which matches saves against the lowercase libretro core id.
     """
     segments = [segment for segment in path.strip("/").split("/") if segment]
     if not 2 <= len(segments) <= 3:
@@ -74,7 +79,7 @@ def parse_cloud_sync_path(path: str) -> CloudSyncPath | None:
 
     return CloudSyncPath(
         kind=kind,
-        emulator=segments[1] if len(segments) == 3 else None,
+        emulator=to_romm_emulator(segments[1]) if len(segments) == 3 else None,
         file_name=segments[-1],
     )
 
@@ -91,7 +96,7 @@ def game_name_from_file_name(kind: AssetKind, file_name: str) -> str:
 
 def build_cloud_sync_path(kind: AssetKind, emulator: str | None, file_name: str) -> str:
     if emulator:
-        return f"{kind}/{emulator}/{file_name}"
+        return f"{kind}/{to_retroarch_dir_name(emulator)}/{file_name}"
     return f"{kind}/{file_name}"
 
 

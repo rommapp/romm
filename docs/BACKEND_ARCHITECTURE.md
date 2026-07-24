@@ -952,12 +952,18 @@ RomM username and password over HTTP Basic.
 `{root}` is `saves` or `states`. Files are matched to a ROM by file name alone
 (`Super Mario World.srm` → the ROM whose `fs_name_no_ext` is `Super Mario
 World`), so a name shared across platforms resolves ambiguously. The optional
-`core` segment maps to the asset's `emulator`, which namespaces storage exactly
-as it does for uploads through `/api/saves`. Slotted saves are excluded from the
-manifest: they are RomM's own versioned history and their datetime-tagged names
-are not loadable by any core. Unlike the rest of the API this router gates
-itself, so it can answer a 401 challenge rather than a 403, and it sends
-body-less error responses because RetroArch's client mishandles large ones.
+`core` segment is RetroArch's own directory casing (e.g. `Snes9x`), translated
+through `cloud_sync_emulator_names.to_romm_emulator`/`to_retroarch_dir_name` to
+and from the asset's `emulator` field, which namespaces storage exactly as it
+does for uploads through `/api/saves` — storing RetroArch's raw casing instead
+would make the save invisible to RomM's own web player, which matches saves
+against the lowercase libretro core id. Cores outside the small translation
+table round-trip unchanged rather than guessing at an unverified casing.
+Slotted saves are excluded from the manifest: they are RomM's own versioned
+history and their datetime-tagged names are not loadable by any core. Unlike
+the rest of the API this router gates itself, so it can answer a 401 challenge
+rather than a 403, and it sends body-less error responses because RetroArch's
+client mishandles large ones.
 
 RetroArch's other three Cloud Sync categories (Sync Configuration/Thumbnails/
 System Files) have no ROM to attach to, so they're stored as opaque per-user
