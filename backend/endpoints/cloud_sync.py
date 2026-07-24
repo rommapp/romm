@@ -11,11 +11,13 @@ heap.
 """
 
 import os
+import uuid
+from urllib.parse import quote
 
 from fastapi import APIRouter, Request, Response, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
-from handler import cloud_sync_handler, cloud_sync_psp
+from handler import cloud_sync_handler, cloud_sync_psp, webdav_browser
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.cloud_sync_handler import MANIFEST_FILE_NAME, AssetKind, CloudSyncPath
@@ -33,7 +35,7 @@ from utils.filesystem import sanitize_filename
 
 router = APIRouter(prefix="/cloud-sync", tags=["cloud-sync"])
 
-ALLOWED_METHODS = "OPTIONS, GET, HEAD, PUT, DELETE, MKCOL, MOVE"
+ALLOWED_METHODS = "OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, LOCK, UNLOCK"
 
 
 def _empty(status_code: int, headers: dict[str, str] | None = None) -> Response:
@@ -106,7 +108,237 @@ def cloud_sync_options(request: Request, file_path: str) -> Response:
 
     return _empty(
         status.HTTP_200_OK,
-        {"DAV": "1", "Allow": ALLOWED_METHODS, "MS-Author-Via": "DAV"},
+        # Class 2 (locking) is advertised alongside the fake LOCK/UNLOCK
+        # below -- some WebDAV clients (iOS Files among them, by report)
+        # refuse to treat a server as mountable at all without it, even for
+        # read-only browsing.
+        {"DAV": "1, 2", "Allow": ALLOWED_METHODS, "MS-Author-Via": "DAV"},
+    )
+
+
+@router.api_route("/{file_path:path}", methods=["LOCK"], include_in_schema=False)
+def cloud_sync_lock(request: Request, file_path: str) -> Response:
+    """Fake, always-succeeds locking. Nothing here is actually lockable --
+    RetroArch's own Cloud Sync client never sends LOCK, and this WebDAV
+    surface has no concept of concurrent writers to guard against -- but
+    some WebDAV clients (iOS Files among them, by report) won't complete
+    "Connect to Server" without a server that at least answers LOCK/UNLOCK,
+    so this exists purely for that compatibility handshake."""
+    denied = _authorize(request, Scope.ASSETS_READ)
+    if denied:
+        return denied
+
+    token = f"opaquelocktoken:{uuid.uuid4()}"
+    body = (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<D:prop xmlns:D="DAV:"><D:lockdiscovery><D:activelock>'
+        "<D:locktype><D:write/></D:locktype>"
+        "<D:lockscope><D:exclusive/></D:lockscope>"
+        "<D:depth>0</D:depth>"
+        "<D:timeout>Second-3600</D:timeout>"
+        f"<D:locktoken><D:href>{token}</D:href></D:locktoken>"
+        "</D:activelock></D:lockdiscovery></D:prop>"
+    )
+    return Response(
+        content=body,
+        media_type="text/xml; charset=utf-8",
+        headers={"Lock-Token": f"<{token}>"},
+    )
+
+
+@router.api_route("/{file_path:path}", methods=["UNLOCK"], include_in_schema=False)
+def cloud_sync_unlock(request: Request, file_path: str) -> Response:
+    denied = _authorize(request, Scope.ASSETS_READ)
+    if denied:
+        return denied
+
+    return _empty(status.HTTP_204_NO_CONTENT)
+
+
+@router.api_route("/{file_path:path}", methods=["PROPFIND"], include_in_schema=False)
+async def cloud_sync_propfind(request: Request, file_path: str) -> Response:
+    """Read-only directory browsing for `roms/` (RomM's own library) and
+    `saves/`/`states/` (the current cloud-sync manifest), so a real WebDAV
+    client (iOS Files' "Connect to Server", Cyberduck, ...) can mount this
+    same URL and browse it like a normal file share.
+
+    RetroArch's own Cloud Sync client never issues PROPFIND -- verified
+    against its source -- so none of this is on RetroArch's actual sync
+    path; it exists solely for read-only human browsing. Unlike the
+    retroarch-webdav-romm shim this mirrors, saves/states browsing here
+    only shows the manifest's *current* entries, not every historical
+    revision -- RomM's own web UI is the place to browse save history.
+    """
+    denied = _authorize(request, Scope.ASSETS_READ)
+    if denied:
+        return denied
+
+    depth = 0 if request.headers.get("depth") == "0" else 1
+    permissions = get_permissions(request)
+    parts = [p for p in file_path.strip("/").split("/") if p]
+
+    entries: list[webdav_browser.PropfindEntry] | None
+    if not parts:
+        entries = [_root_entry()]
+        if depth != 0:
+            entries += [
+                _roms_root_entry(),
+                _virtual_root_entry("saves"),
+                _virtual_root_entry("states"),
+            ]
+    elif parts == ["roms"]:
+        entries = [_roms_root_entry()]
+        if depth != 0:
+            platforms = webdav_browser.list_platforms(permissions.can_see_platform)
+            entries += [
+                webdav_browser.PropfindEntry(
+                    href=f"roms/{p.fs_slug}/", is_collection=True, display_name=p.name
+                )
+                for p in platforms
+            ]
+    elif len(parts) == 2 and parts[0] == "roms":
+        entries = _platform_listing(parts[1], depth, permissions)
+    elif len(parts) == 3 and parts[0] == "roms":
+        entries = _rom_file_entry(parts[1], parts[2], permissions)
+    elif parts[0] in ("saves", "states"):
+        entries = await _save_state_listing(parts, depth, request.user, permissions)
+    else:
+        entries = None
+
+    if entries is None:
+        return _empty(status.HTTP_404_NOT_FOUND)
+
+    body = webdav_browser.build_multistatus(entries)
+    return Response(
+        content=body,
+        status_code=207,
+        # iOS Files' WebDAV client is known to be picky about this --
+        # "text/xml" (the traditional WebDAV content type) is the safer bet
+        # over "application/xml", which some Apple WebDAV client versions
+        # have reportedly failed to parse.
+        media_type="text/xml; charset=utf-8",
+    )
+
+
+def _root_entry() -> "webdav_browser.PropfindEntry":
+    return webdav_browser.PropfindEntry(href="", is_collection=True, display_name="")
+
+
+def _roms_root_entry() -> "webdav_browser.PropfindEntry":
+    return webdav_browser.PropfindEntry(
+        href="roms/", is_collection=True, display_name="roms"
+    )
+
+
+def _virtual_root_entry(name: str) -> "webdav_browser.PropfindEntry":
+    return webdav_browser.PropfindEntry(
+        href=f"{name}/", is_collection=True, display_name=name
+    )
+
+
+def _platform_listing(
+    slug: str, depth: int, permissions
+) -> list["webdav_browser.PropfindEntry"] | None:
+    platforms = webdav_browser.list_platforms(permissions.can_see_platform)
+    platform = next((p for p in platforms if p.fs_slug == slug), None)
+    if not platform:
+        return None
+
+    self_entry = webdav_browser.PropfindEntry(
+        href=f"roms/{slug}/", is_collection=True, display_name=platform.name
+    )
+    if depth == 0:
+        return [self_entry]
+
+    files = (
+        webdav_browser.list_rom_files(
+            slug, lambda rom: permissions.can_see_rom(rom.id, rom.platform_id)
+        )
+        or []
+    )
+    return [self_entry] + [
+        webdav_browser.PropfindEntry(
+            href=f"roms/{slug}/{f.display_name}",
+            is_collection=False,
+            display_name=f.display_name,
+            content_length=f.size_bytes,
+            last_modified=f.updated_at,
+        )
+        for f in files
+    ]
+
+
+def _rom_file_entry(
+    slug: str, file_name: str, permissions
+) -> list["webdav_browser.PropfindEntry"] | None:
+    file = webdav_browser.find_rom_file(
+        slug, file_name, lambda rom: permissions.can_see_rom(rom.id, rom.platform_id)
+    )
+    if not file:
+        return None
+
+    return [
+        webdav_browser.PropfindEntry(
+            href=f"roms/{slug}/{file_name}",
+            is_collection=False,
+            display_name=file_name,
+            content_length=file.size_bytes,
+            last_modified=file.updated_at,
+        )
+    ]
+
+
+async def _save_state_listing(
+    parts: list[str], depth: int, user: User, permissions
+) -> list["webdav_browser.PropfindEntry"] | None:
+    manifest = await cloud_sync_handler.build_manifest(
+        user, lambda rom: permissions.can_see_rom(rom.id, rom.platform_id)
+    )
+    clean = "/".join(parts)
+
+    exact = next((e for e in manifest if e["path"] == clean), None) if len(parts) > 1 else None
+    if exact:
+        return [_manifest_file_entry(exact)]
+
+    prefix = f"{clean}/"
+    has_children = any(e["path"].startswith(prefix) for e in manifest)
+    if len(parts) > 1 and not has_children:
+        return None
+
+    self_entry = webdav_browser.PropfindEntry(
+        href=prefix, is_collection=True, display_name=parts[-1]
+    )
+    if depth == 0:
+        return [self_entry]
+
+    child_folders: set[str] = set()
+    child_files = []
+    for entry in manifest:
+        if not entry["path"].startswith(prefix):
+            continue
+        rest = entry["path"][len(prefix) :]
+        if "/" in rest:
+            child_folders.add(rest.split("/", 1)[0])
+        else:
+            child_files.append(entry)
+
+    return (
+        [self_entry]
+        + [
+            webdav_browser.PropfindEntry(
+                href=f"{prefix}{folder}/", is_collection=True, display_name=folder
+            )
+            for folder in sorted(child_folders)
+        ]
+        + [_manifest_file_entry(entry) for entry in child_files]
+    )
+
+
+def _manifest_file_entry(entry: dict[str, str]) -> "webdav_browser.PropfindEntry":
+    return webdav_browser.PropfindEntry(
+        href=entry["path"],
+        is_collection=False,
+        display_name=entry["path"].rsplit("/", 1)[-1],
     )
 
 
@@ -149,6 +381,28 @@ async def cloud_sync_get(request: Request, file_path: str) -> Response:
         if data is None:
             return _empty(status.HTTP_404_NOT_FOUND)
         return Response(content=data, media_type="application/octet-stream")
+
+    rom_parts = [p for p in file_path.strip("/").split("/") if p]
+    if len(rom_parts) == 3 and rom_parts[0] == "roms":
+        permissions = get_permissions(request)
+        file = webdav_browser.find_rom_file(
+            rom_parts[1],
+            rom_parts[2],
+            lambda rom: permissions.can_see_rom(rom.id, rom.platform_id),
+        )
+        if not file:
+            return _empty(status.HTTP_404_NOT_FOUND)
+
+        # RomM's own content endpoint already handles Range requests, the
+        # multi-file zip cache and (in production) nginx X-Accel-Redirect --
+        # duplicating that here would either miss the X-Accel-Redirect step
+        # (nothing would actually stream in production) or reimplement it
+        # badly. Basic Auth carries over on the redirect, so this stays a
+        # single unauthenticated-looking hop from the client's perspective.
+        return RedirectResponse(
+            url=f"/api/roms/{file.rom_id}/content/{quote(file.display_name)}",
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+        )
 
     parsed = cloud_sync_handler.parse_cloud_sync_path(file_path)
     if not parsed:

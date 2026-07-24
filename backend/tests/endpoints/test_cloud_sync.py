@@ -200,8 +200,9 @@ class TestCloudSyncAuth:
         response = client.options("/api/cloud-sync/", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.headers["dav"] == "1"
+        assert response.headers["dav"] == "1, 2"
         assert "MKCOL" in response.headers["allow"]
+        assert "PROPFIND" in response.headers["allow"]
 
     def test_get_without_credentials_challenges(self, client):
         response = client.get("/api/cloud-sync/manifest.server")
@@ -982,3 +983,114 @@ class TestCloudSyncBlobs:
                 "hash": "8d777f385d3dfec8815d20f7496026dc",
             }
         ]
+
+
+class TestCloudSyncWebdavBrowsing:
+    """PROPFIND/LOCK/UNLOCK + the `roms/` GET redirect -- read-only WebDAV
+    browsing layered onto the same surface, for real WebDAV clients (iOS
+    Files, Cyberduck, ...) rather than RetroArch itself (which never issues
+    PROPFIND)."""
+
+    def test_lock_succeeds(self, client, admin_user: User):
+        response = client.request("LOCK", "/api/cloud-sync/roms/", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.headers["lock-token"].startswith("<opaquelocktoken:")
+
+    def test_unlock_succeeds(self, client, admin_user: User):
+        response = client.request("UNLOCK", "/api/cloud-sync/roms/", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_propfind_without_credentials_challenges(self, client):
+        response = client.request("PROPFIND", "/api/cloud-sync/")
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_propfind_root_lists_virtual_roots(self, client, admin_user: User):
+        response = client.request("PROPFIND", "/api/cloud-sync/", auth=ADMIN_AUTH)
+
+        assert response.status_code == 207
+        body = response.text
+        assert "<D:href>/roms/</D:href>" in body
+        assert "<D:href>/saves/</D:href>" in body
+        assert "<D:href>/states/</D:href>" in body
+
+    def test_propfind_roms_lists_platforms_with_roms(
+        self, client, admin_user: User, rom: Rom
+    ):
+        response = client.request(
+            "PROPFIND", "/api/cloud-sync/roms/", auth=ADMIN_AUTH
+        )
+
+        assert response.status_code == 207
+        assert f"<D:href>/roms/{rom.platform.fs_slug}/</D:href>" in response.text
+
+    def test_propfind_platform_lists_rom_files(
+        self, client, admin_user: User, rom: Rom
+    ):
+        response = client.request(
+            "PROPFIND",
+            f"/api/cloud-sync/roms/{rom.platform.fs_slug}/",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == 207
+        assert f"<D:href>/roms/{rom.platform.fs_slug}/{rom.fs_name}</D:href>" in response.text
+
+    def test_propfind_unknown_platform_is_not_found(self, client, admin_user: User):
+        response = client.request(
+            "PROPFIND", "/api/cloud-sync/roms/nope/", auth=ADMIN_AUTH
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_get_rom_file_redirects_to_rest_content_endpoint(
+        self, client, admin_user: User, rom: Rom
+    ):
+        response = client.get(
+            f"/api/cloud-sync/roms/{rom.platform.fs_slug}/{rom.fs_name}",
+            auth=ADMIN_AUTH,
+            follow_redirects=False,
+        )
+
+        assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
+        assert response.headers["location"] == f"/api/roms/{rom.id}/content/{rom.fs_name}"
+
+    def test_get_unknown_rom_file_is_not_found(
+        self, client, admin_user: User, rom: Rom
+    ):
+        response = client.get(
+            f"/api/cloud-sync/roms/{rom.platform.fs_slug}/nope.zip",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    @mock.patch(
+        "handler.cloud_sync_handler.asset_md5",
+        new_callable=mock.AsyncMock,
+        return_value="d41d8cd98f00b204e9800998ecf8427e",
+    )
+    def test_propfind_saves_lists_the_emulator_subfolder(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, synced_save: Save
+    ):
+        response = client.request("PROPFIND", "/api/cloud-sync/saves/", auth=ADMIN_AUTH)
+
+        assert response.status_code == 207
+        assert "<D:href>/saves/Snes9x/</D:href>" in response.text
+
+    @mock.patch(
+        "handler.cloud_sync_handler.asset_md5",
+        new_callable=mock.AsyncMock,
+        return_value="d41d8cd98f00b204e9800998ecf8427e",
+    )
+    def test_propfind_saves_subfolder_lists_the_file(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, synced_save: Save
+    ):
+        response = client.request(
+            "PROPFIND", "/api/cloud-sync/saves/Snes9x/", auth=ADMIN_AUTH
+        )
+
+        assert response.status_code == 207
+        assert "<D:href>/saves/Snes9x/test_rom.srm</D:href>" in response.text
