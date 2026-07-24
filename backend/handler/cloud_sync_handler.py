@@ -13,15 +13,16 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Literal
 
+from handler import cloud_sync_psp
 from handler.cloud_sync_emulator_names import to_retroarch_dir_name, to_romm_emulator
 from handler.database import db_rom_handler, db_save_handler, db_state_handler
 from handler.filesystem import fs_asset_handler, fs_cloud_sync_blob_handler
 from handler.redis_handler import async_cache
-from models.assets import Save, State
+from models.assets import Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
 
@@ -84,14 +85,126 @@ def parse_cloud_sync_path(path: str) -> CloudSyncPath | None:
     )
 
 
+def is_state_screenshot_path(file_name: str) -> bool:
+    """Whether a `states/...` file is the PNG screenshot RetroArch captures
+    and syncs alongside a state (`<state file name>.png`), rather than the
+    state itself."""
+    return file_name.lower().endswith(".png")
+
+
 def game_name_from_file_name(kind: AssetKind, file_name: str) -> str:
     """The ROM file name (minus extension) an asset file belongs to."""
     if kind == "states":
-        stripped = STATE_SUFFIX_PATTERN.sub("", file_name)
-        if stripped != file_name:
+        base = file_name[: -len(".png")] if is_state_screenshot_path(file_name) else file_name
+        stripped = STATE_SUFFIX_PATTERN.sub("", base)
+        if stripped != base:
             return stripped
+        return os.path.splitext(base)[0]
 
     return os.path.splitext(file_name)[0]
+
+
+def state_slot_suffix(file_name: str) -> str:
+    """The RetroArch slot suffix (``state``, ``state1``, ..., ``state.auto``)
+    a state's file name ends in -- RomM has no ``slot`` column for states
+    (unlike saves), so this is the only way to group a rom's states into the
+    numbered load slots (0-999) RetroArch's own Load State menu offers.
+
+    A state uploaded through RomM's web player instead carries a display
+    label and timestamp (e.g. ``<rom> [2026-07-24 12-04-52-733].state``);
+    that still ends in a bare ``.state``, so it lands in slot 0 alongside
+    (and competing on recency with) any RetroArch-native slot-0 state --
+    mirroring the shim's `assetHistoryKey`/`splitAssetFileName`, which
+    resolved the identical ambiguity for the same reason: without this, a
+    web-uploaded state either has no reachable slot at all, or (naively
+    keyed by its raw file name) its own permanent one-off slot that grows
+    without bound.
+    """
+    match = STATE_SUFFIX_PATTERN.search(file_name)
+    if match:
+        return match.group(0)[1:].lower()
+    return os.path.splitext(file_name)[1][1:].lower()
+
+
+def latest_state_for_slot(
+    states: Iterable[State], rom_id: int, emulator: str | None, slot_suffix: str
+) -> State | None:
+    """The state RetroArch would see for a given (rom, emulator, slot) --
+    whichever matching row was updated most recently, regardless of whether
+    it came from a real RetroArch upload or RomM's own web player. Ties
+    (e.g. a bulk migration timestamp shared by several rows) break on `id`,
+    the same deterministic tiebreaker the shim's `sortByRecency` uses, so a
+    manifest build and a later GET/DELETE for the same slot always agree on
+    which row "the newest" actually is.
+    """
+    candidates = [
+        state
+        for state in states
+        if state.rom_id == rom_id
+        and state.emulator == emulator
+        and state_slot_suffix(state.file_name) == slot_suffix
+    ]
+    if not candidates:
+        return None
+
+    return max(candidates, key=lambda state: (state.updated_at, state.id))
+
+
+def group_states_by_slot(
+    states: Iterable[State],
+) -> dict[tuple[int, str | None, str], State]:
+    """Every (rom, emulator, slot) bucket collapsed to its newest state --
+    the same grouping `latest_state_for_slot` performs, computed once for
+    every state instead of once per slot so `build_manifest` doesn't rescan
+    the full state list for every rom it lists."""
+    latest: dict[tuple[int, str | None, str], State] = {}
+    for state in states:
+        key = (state.rom_id, state.emulator, state_slot_suffix(state.file_name))
+        current = latest.get(key)
+        if current is None or (state.updated_at, state.id) > (
+            current.updated_at,
+            current.id,
+        ):
+            latest[key] = state
+
+    return latest
+
+
+def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
+    """The file name RetroArch's own upload for this (rom, slot) would carry
+    -- what the manifest advertises, and what a GET/DELETE for this slot
+    must resolve back to the real underlying row via
+    ``resolve_state_by_slot``, regardless of that row's actual file name."""
+    return f"{rom.fs_name_no_ext}.{slot_suffix}"
+
+
+def resolve_state_by_slot(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> State | None:
+    """The state a GET/DELETE for `requested_file_name` resolves to -- the
+    same "newest row in this (rom, emulator, slot) bucket" `build_manifest`
+    already advertised, found by re-deriving the slot from the *requested*
+    canonical name rather than trusting any single row's own file name to
+    match it exactly (it usually won't, for a web-player-created state)."""
+    slot_suffix = state_slot_suffix(requested_file_name)
+    states = db_state_handler.get_states(user_id=user.id, rom_id=rom.id)
+    return latest_state_for_slot(states, rom.id, emulator, slot_suffix)
+
+
+def resolve_state_screenshot_by_slot(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> Screenshot | None:
+    """The screenshot a GET/DELETE for `<slot>.png` resolves to -- whatever
+    is attached to the same state ``resolve_state_by_slot`` would return for
+    that slot, since RetroArch always syncs a state's screenshot under
+    ``<state file name>.png``."""
+    if not is_state_screenshot_path(requested_file_name):
+        return None
+
+    state = resolve_state_by_slot(
+        user, rom, emulator, requested_file_name[: -len(".png")]
+    )
+    return state.screenshot if state else None
 
 
 def build_cloud_sync_path(kind: AssetKind, emulator: str | None, file_name: str) -> str:
@@ -200,7 +313,7 @@ def resolve_rom(game_name: str, can_see: Callable[[Rom], bool]) -> Rom | None:
     return None
 
 
-async def asset_md5(asset: Save | State) -> str | None:
+async def asset_md5(asset: Save | State | Screenshot) -> str | None:
     cache_key = (
         f"romm:cloud_sync:md5:{asset.full_path}"
         f":{asset.file_size_bytes}:{asset.updated_at.timestamp()}"
@@ -224,34 +337,66 @@ async def build_manifest(
 
     Slotted saves are RomM's own versioned history: every revision carries a
     datetime tag in its file name, so surfacing them would hand RetroArch a
-    growing pile of files no core would ever load.
+    growing pile of files no core would ever load. States have no such
+    `slot` column, so they're grouped into RetroArch's own numbered slots by
+    file-name suffix instead (`group_states_by_slot`) -- the newest state in
+    each (rom, emulator, slot) bucket is surfaced under the canonical name
+    RetroArch itself would use, regardless of who actually created it.
     """
-    assets: list[tuple[AssetKind, Save | State]] = [
-        ("saves", save)
-        for save in db_save_handler.get_saves(user_id=user.id)
-        if save.slot is None
-    ]
-    assets += [
-        ("states", state) for state in db_state_handler.get_states(user_id=user.id)
-    ]
-
     entries: list[dict[str, str]] = []
-    for kind, asset in assets:
-        if asset.missing_from_fs or not can_see(asset.rom):
+
+    for save in db_save_handler.get_saves(user_id=user.id):
+        if (
+            save.slot is not None
+            or save.missing_from_fs
+            or not can_see(save.rom)
+            or cloud_sync_psp.is_psp_bundle_file_name(save.file_name)
+        ):
             continue
 
-        digest = await asset_md5(asset)
+        digest = await asset_md5(save)
         if not digest:
             continue
 
         entries.append(
             {
-                "path": build_cloud_sync_path(kind, asset.emulator, asset.file_name),
+                "path": build_cloud_sync_path("saves", save.emulator, save.file_name),
                 "hash": digest,
             }
         )
 
+    states_by_slot = group_states_by_slot(db_state_handler.get_states(user_id=user.id))
+    for (_rom_id, emulator, slot_suffix), state in states_by_slot.items():
+        if state.missing_from_fs or not can_see(state.rom):
+            continue
+
+        digest = await asset_md5(state)
+        if not digest:
+            continue
+
+        file_name = canonical_state_file_name(state.rom, slot_suffix)
+        entries.append(
+            {
+                "path": build_cloud_sync_path("states", emulator, file_name),
+                "hash": digest,
+            }
+        )
+
+        screenshot = state.screenshot
+        if screenshot and not screenshot.missing_from_fs:
+            screenshot_digest = await asset_md5(screenshot)
+            if screenshot_digest:
+                entries.append(
+                    {
+                        "path": build_cloud_sync_path(
+                            "states", emulator, f"{file_name}.png"
+                        ),
+                        "hash": screenshot_digest,
+                    }
+                )
+
     entries += await build_blob_manifest_entries(user)
+    entries += await cloud_sync_psp.build_psp_manifest_entries(user, can_see)
 
     entries.sort(key=lambda entry: entry["path"])
     return entries
