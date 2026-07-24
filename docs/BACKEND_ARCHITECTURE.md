@@ -937,17 +937,17 @@ PROPFIND). Point RetroArch's WebDAV URL at `https://<host>/api/cloud-sync/`
 (trailing slash required), enable save/state sync only, and authenticate with a
 RomM username and password over HTTP Basic.
 
-| Method      | Path                        | Scope        | Description                                     |
-| ----------- | --------------------------- | ------------ | ------------------------------------------------ |
-| OPTIONS     | `/{path}`                   | ASSETS_READ  | Advertise DAV support                           |
-| GET         | `/manifest.server`          | ASSETS_READ  | Manifest of the caller's saves, states and blobs |
-| GET         | `/{root}/[core/]{file}`     | ASSETS_READ  | Download one save/state                         |
-| PUT         | `/{root}/[core/]{file}`     | ASSETS_WRITE | Upload one save/state                           |
-| DELETE/MOVE | `/{root}/[core/]{file}`     | ASSETS_WRITE | Delete one save/state                           |
-| GET         | `/{config,thumbnails,system}/{path}` | ASSETS_READ  | Download one opaque blob file            |
-| PUT         | `/{config,thumbnails,system}/{path}` | ASSETS_WRITE | Upload one opaque blob file              |
-| DELETE/MOVE | `/{config,thumbnails,system}/{path}` | ASSETS_WRITE | Delete one opaque blob file              |
-| MKCOL       | `/{path}`                   | ASSETS_WRITE | Accepted no-op (layout is derived from the ROM) |
+| Method      | Path                                 | Scope        | Description                                      |
+| ----------- | ------------------------------------ | ------------ | ------------------------------------------------ |
+| OPTIONS     | `/{path}`                            | ASSETS_READ  | Advertise DAV support                            |
+| GET         | `/manifest.server`                   | ASSETS_READ  | Manifest of the caller's saves, states and blobs |
+| GET         | `/{root}/[core/]{file}`              | ASSETS_READ  | Download one save/state                          |
+| PUT         | `/{root}/[core/]{file}`              | ASSETS_WRITE | Upload one save/state                            |
+| DELETE/MOVE | `/{root}/[core/]{file}`              | ASSETS_WRITE | Delete one save/state                            |
+| GET         | `/{config,thumbnails,system}/{path}` | ASSETS_READ  | Download one opaque blob file                    |
+| PUT         | `/{config,thumbnails,system}/{path}` | ASSETS_WRITE | Upload one opaque blob file                      |
+| DELETE/MOVE | `/{config,thumbnails,system}/{path}` | ASSETS_WRITE | Delete one opaque blob file                      |
+| MKCOL       | `/{path}`                            | ASSETS_WRITE | Accepted no-op (layout is derived from the ROM)  |
 
 `{root}` is `saves` or `states`. Files are matched to a ROM by file name alone
 (`Super Mario World.srm` → the ROM whose `fs_name_no_ext` is `Super Mario
