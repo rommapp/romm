@@ -17,6 +17,7 @@ from urllib.parse import quote, urlparse, urlunparse
 from fastapi import Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
 
 from config import (
     LIBRARY_BASE_PATH,
@@ -2492,47 +2493,89 @@ async def release_session(
 
     _assert_session_owner(session, request)
 
-    # Stop the emulator first so the card is quiescent before evacuation: a
-    # running game's exit flush could otherwise re-lay a card over the wipe, and
-    # reading a live card risks a torn snapshot. The claim still guards the
-    # container throughout, so no concurrent claim can interleave.
-    await asyncio.to_thread(_stop_broker, container)
+    # Teardown pulls the whole card off the broker and pushes a blank one back,
+    # several seconds of broker round-trips. The player who quit does not need
+    # the claim released to get their UI back, so it runs after the response is
+    # sent. The Redis claim stays held until teardown deletes it, so a re-launch
+    # or concurrent claim is still blocked throughout, preserving the
+    # evacuate-before-release invariant.
+    teardown = BackgroundTask(
+        _teardown_released_session,
+        container,
+        session,
+        session_key,
+        platform,
+        acting_user_id=request.user.id,
+        acting_username=request.user.username,
+        reason=reason,
+    )
+    log.info("session releasing, platform=%s", platform)
+    return JSONResponse(
+        {"status": "released", "platform": platform}, background=teardown
+    )
 
-    # Evacuate the whole card, then wipe the slot, both before releasing the
-    # claim so a concurrent claim cannot clobber the fresh card or inherit the
-    # old one. Wipe runs only when evacuation actually captured the card.
-    safe_to_wipe = await _evacuate_session_card(session, container)
-    if safe_to_wipe:
-        await _wipe_session_card(container)
 
-    # Leave a note when this is a force-release rather than a player closing
-    # their own game. A different user is the obvious case; a reason covers the
-    # rest, since only the admin panel sends one and an admin can be logged in
-    # as the same account that is playing in another tab.
-    if session.get("user_id") != request.user.id or reason is not None:
-        await _record_termination(
-            session, session_key, ended_by=request.user.username, reason=reason
-        )
-        log.info(
-            "session force-released, platform=%s by=%s user_id=%s reason=%s",
-            platform,
-            request.user.username,
-            session.get("user_id"),
-            reason or "-",
-        )
+async def _teardown_released_session(
+    container: dict[str, Any],
+    session: dict[str, Any],
+    session_key: str,
+    platform: str,
+    *,
+    acting_user_id: int,
+    acting_username: str,
+    reason: str | None,
+) -> None:
+    """Stop the emulator, evacuate the card, then release the claim.
 
-    await async_cache.delete(_session_redis_key(session_key))
-    await _record_play_session(session)
+    Ordering is load-bearing (see the inline notes). Runs detached from the
+    release request; every step is best-effort so a teardown hiccup cannot wedge
+    the claim, which the stale-session takeover reclaims if this never finishes.
+    """
+    try:
+        # Stop the emulator first so the card is quiescent before evacuation: a
+        # running game's exit flush could otherwise re-lay a card over the wipe,
+        # and reading a live card risks a torn snapshot. The claim still guards
+        # the container throughout, so no concurrent claim can interleave.
+        await asyncio.to_thread(_stop_broker, container)
 
-    # Legacy per-file save pull, only for containers not on whole-card sync. The
-    # broker keeps the files after the emulator dies, so a fire-and-forget pull
-    # still succeeds.
-    rom_id = session.get("rom_id")
-    if isinstance(rom_id, int) and not _memory_card_sync_enabled(container):
-        _spawn_sync_task(_pull_saves_to_library(session["user_id"], rom_id, container))
+        # Evacuate the whole card, then wipe the slot, both before releasing the
+        # claim so a concurrent claim cannot clobber the fresh card or inherit
+        # the old one. Wipe runs only when evacuation captured the card.
+        safe_to_wipe = await _evacuate_session_card(session, container)
+        if safe_to_wipe:
+            await _wipe_session_card(container)
 
-    log.info("session released, platform=%s", platform)
-    return JSONResponse({"status": "released", "platform": platform})
+        # Leave a note when this is a force-release rather than a player closing
+        # their own game. A different user is the obvious case; a reason covers
+        # the rest, since only the admin panel sends one and an admin can be
+        # logged in as the same account that is playing in another tab.
+        if session.get("user_id") != acting_user_id or reason is not None:
+            await _record_termination(
+                session, session_key, ended_by=acting_username, reason=reason
+            )
+            log.info(
+                "session force-released, platform=%s by=%s user_id=%s reason=%s",
+                platform,
+                acting_username,
+                session.get("user_id"),
+                reason or "-",
+            )
+
+        await async_cache.delete(_session_redis_key(session_key))
+        await _record_play_session(session)
+
+        # Legacy per-file save pull, only for containers not on whole-card sync.
+        # Fire and forget: it reads files the broker keeps after the emulator
+        # dies, so it does not gate the claim release above it.
+        rom_id = session.get("rom_id")
+        if isinstance(rom_id, int) and not _memory_card_sync_enabled(container):
+            _spawn_sync_task(
+                _pull_saves_to_library(session["user_id"], rom_id, container)
+            )
+
+        log.info("session released, platform=%s", platform)
+    except Exception:
+        log.exception("session teardown failed, platform=%s", platform)
 
 
 @protected_route(router.get, "/sessions", [Scope.ROMS_READ])
