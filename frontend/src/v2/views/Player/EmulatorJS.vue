@@ -51,7 +51,11 @@ import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
-import { resolveBezelHost, resolveBezelUrl } from "@/v2/utils/playerBezel";
+import {
+  resolveBezelHost,
+  resolveBezelUrl,
+  resolveStoredBezelVisible,
+} from "@/v2/utils/playerBezel";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
@@ -205,6 +209,17 @@ const coverRef = ref<InstanceType<typeof GameCover> | null>(null);
 const bezelUrl = computed(() =>
   resolveBezelUrl(rom.value?.ss_metadata?.bezel_path),
 );
+
+// Per-game bezel visibility. Bezels default on, but a bad / misaligned one can
+// obscure the game, so the user can hide it for this game (persisted). Seeded
+// from storage in onMounted; the watch writes only the non-default "hidden".
+const showBezel = ref(true);
+watch(showBezel, (visible) => {
+  if (!rom.value) return;
+  const key = `player:${rom.value.id}:bezel`;
+  if (visible) localStorage.removeItem(key);
+  else localStorage.setItem(key, "0");
+});
 
 // When EmulatorJS enters fullscreen it promotes its own `#game` container to
 // the top layer, so a bezel that is merely a sibling would disappear. Track
@@ -409,6 +424,10 @@ onMounted(async () => {
   } else {
     selectedDisc.value = rom.value.files[0]?.id ?? null;
   }
+
+  showBezel.value = resolveStoredBezelVisible(
+    localStorage.getItem(`player:${rom.value.id}:bezel`),
+  );
 
   // Prefer the core saved for this game, then the platform default, validating
   // each candidate so a stale entry falls through instead of masking the next
@@ -728,6 +747,13 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
             return-object
           />
           <RSwitch v-model="fullscreenOnPlay" :label="t('play.full-screen')" />
+          <!-- Only offered when this game actually has a bezel, so the user can
+               hide a bad / misaligned one that obscures the game (#3939). -->
+          <RSwitch
+            v-if="bezelUrl"
+            v-model="showBezel"
+            :label="t('play.show-bezel')"
+          />
         </div>
         <div class="r-v2-ejs__setup-foot">
           <RBtn
@@ -767,7 +793,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
            keeps framing the game; otherwise it renders here over the stage. -->
       <Teleport :to="bezelHost" :disabled="!bezelHost">
         <img
-          v-if="bezelUrl"
+          v-if="bezelUrl && showBezel"
           :src="bezelUrl"
           class="r-v2-ejs__bezel"
           alt=""

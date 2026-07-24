@@ -35,3 +35,10 @@ export function resolveBezelHost(
   }
   return null;
 }
+
+// Whether the per-game bezel toggle should start on. Bezels default to shown;
+// only an explicit "0" (the user hid a bad/misaligned bezel for this game)
+// turns it off. Any other value fails safe to shown (#3939).
+export function resolveStoredBezelVisible(stored: string | null): boolean {
+  return stored !== "0";
+}

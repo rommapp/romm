@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolveBezelHost, resolveBezelUrl } from "./playerBezel";
+import {
+  resolveBezelHost,
+  resolveBezelUrl,
+  resolveStoredBezelVisible,
+} from "./playerBezel";
 
 // Mirrors FRONTEND_RESOURCES_PATH; asserted literally like the box-faces test.
 const RES = "/assets/romm/resources";
@@ -43,5 +47,23 @@ describe("resolveBezelHost", () => {
     const other = document.createElement("div");
     other.id = "something-else";
     expect(resolveBezelHost(other)).toBeNull();
+  });
+});
+
+describe("resolveStoredBezelVisible", () => {
+  it("defaults to visible when nothing is stored", () => {
+    expect(resolveStoredBezelVisible(null)).toBe(true);
+  });
+
+  it("is hidden only when the user explicitly turned it off", () => {
+    expect(resolveStoredBezelVisible("0")).toBe(false);
+  });
+
+  it("is visible for the explicit-on marker", () => {
+    expect(resolveStoredBezelVisible("1")).toBe(true);
+  });
+
+  it("treats any other stored value as visible (fail safe: show)", () => {
+    expect(resolveStoredBezelVisible("anything")).toBe(true);
   });
 });
