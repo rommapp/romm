@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 from fastapi import status
 
-from handler import cloud_sync_handler
+from handler import cloud_sync_handler, cloud_sync_psp
 from handler.cloud_sync_emulator_names import to_retroarch_dir_name, to_romm_emulator
 from handler.database import db_save_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
@@ -741,6 +741,129 @@ class TestCloudSyncDelete:
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestCloudSyncPsp:
+    """End-to-end coverage of the PPSSPP save-folder bundling wired into the
+    GET/PUT/DELETE endpoints and the manifest -- unit coverage for the pure
+    parsing/matching logic lives in tests/handler/test_cloud_sync_psp.py.
+
+    Uses PSP_SERIAL_MAP to resolve the rom deterministically instead of a
+    real PARAM.SFO capture + fulltext title search, which would make this
+    test depend on the DB driver's fulltext support.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _serial_map(self, monkeypatch: pytest.MonkeyPatch, rom: Rom):
+        monkeypatch.setattr(
+            cloud_sync_psp, "PSP_SERIAL_MAP", {"TEST12345": rom.fs_name_no_ext}
+        )
+
+    def test_ignores_system_cache_files(self, client, admin_user: User):
+        response = client.put(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SYSTEM/CACHE/shader.bin",
+            content=b"cache data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_bundles_multiple_files_into_one_save(
+        self, client, admin_user: User, rom: Rom
+    ):
+        put_sfo = client.put(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            content=b"not real sfo bytes, resolved via PSP_SERIAL_MAP instead",
+            auth=ADMIN_AUTH,
+        )
+        assert put_sfo.status_code == status.HTTP_201_CREATED
+
+        put_data = client.put(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            content=b"the actual save data",
+            auth=ADMIN_AUTH,
+        )
+        assert put_data.status_code == status.HTTP_201_CREATED
+
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id)
+        assert len(saves) == 1
+        assert saves[0].file_name == "PSP-TEST12345DATA0.zip"
+
+        get_sfo = client.get(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            auth=ADMIN_AUTH,
+        )
+        assert get_sfo.status_code == status.HTTP_200_OK
+        assert get_sfo.content == b"not real sfo bytes, resolved via PSP_SERIAL_MAP instead"
+
+        get_data = client.get(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        assert get_data.status_code == status.HTTP_200_OK
+        assert get_data.content == b"the actual save data"
+
+    def test_manifest_lists_each_bundle_member_separately(
+        self, client, admin_user: User
+    ):
+        client.put(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            content=b"sfo",
+            auth=ADMIN_AUTH,
+        )
+        client.put(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        response = client.get("/api/cloud-sync/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        paths = {entry["path"] for entry in response.json()}
+        assert paths == {
+            "saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            "saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+        }
+
+    def test_unresolved_folder_is_buffered_and_conflicts(
+        self, client, admin_user: User, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(cloud_sync_psp, "PSP_SERIAL_MAP", {})
+
+        response = client.put(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            content=b"orphaned save data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+
+    def test_delete_removes_the_whole_bundle(self, client, admin_user: User, rom: Rom):
+        client.put(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            content=b"sfo",
+            auth=ADMIN_AUTH,
+        )
+        client.put(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        response = client.request(
+            "DELETE",
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id) == []
+
+        get_response = client.get(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            auth=ADMIN_AUTH,
+        )
+        assert get_response.status_code == status.HTTP_404_NOT_FOUND
 
 
 class TestCloudSyncMkcol:

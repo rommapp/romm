@@ -17,6 +17,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Literal
 
+from handler import cloud_sync_psp
 from handler.cloud_sync_emulator_names import to_retroarch_dir_name, to_romm_emulator
 from handler.database import db_rom_handler, db_save_handler, db_state_handler
 from handler.filesystem import fs_asset_handler, fs_cloud_sync_blob_handler
@@ -345,7 +346,12 @@ async def build_manifest(
     entries: list[dict[str, str]] = []
 
     for save in db_save_handler.get_saves(user_id=user.id):
-        if save.slot is not None or save.missing_from_fs or not can_see(save.rom):
+        if (
+            save.slot is not None
+            or save.missing_from_fs
+            or not can_see(save.rom)
+            or cloud_sync_psp.is_psp_bundle_file_name(save.file_name)
+        ):
             continue
 
         digest = await asset_md5(save)
@@ -390,6 +396,7 @@ async def build_manifest(
                 )
 
     entries += await build_blob_manifest_entries(user)
+    entries += await cloud_sync_psp.build_psp_manifest_entries(user, can_see)
 
     entries.sort(key=lambda entry: entry["path"])
     return entries

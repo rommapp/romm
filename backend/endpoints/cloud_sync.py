@@ -15,7 +15,7 @@ import os
 from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import JSONResponse
 
-from handler import cloud_sync_handler
+from handler import cloud_sync_handler, cloud_sync_psp
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.cloud_sync_handler import MANIFEST_FILE_NAME, AssetKind, CloudSyncPath
@@ -141,6 +141,15 @@ async def cloud_sync_get(request: Request, file_path: str) -> Response:
             resolved_path, filename=os.path.basename(blob_path)
         )
 
+    psp_path = cloud_sync_psp.resolve_psp_path(file_path)
+    if psp_path == "ignore":
+        return _empty(status.HTTP_404_NOT_FOUND)
+    if psp_path:
+        data = await cloud_sync_psp.get_psp_file(request.user, psp_path)
+        if data is None:
+            return _empty(status.HTTP_404_NOT_FOUND)
+        return Response(content=data, media_type="application/octet-stream")
+
     parsed = cloud_sync_handler.parse_cloud_sync_path(file_path)
     if not parsed:
         return _empty(status.HTTP_404_NOT_FOUND)
@@ -202,6 +211,23 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
         return _empty(
             status.HTTP_204_NO_CONTENT if existed else status.HTTP_201_CREATED
         )
+
+    psp_path = cloud_sync_psp.resolve_psp_path(file_path)
+    if psp_path == "ignore":
+        # PSP engine cache file (shader cache etc.), not save data.
+        return _empty(status.HTTP_204_NO_CONTENT)
+    if psp_path:
+        permissions = get_permissions(request)
+        try:
+            await cloud_sync_psp.put_psp_file(
+                request.user,
+                psp_path,
+                await request.body(),
+                lambda rom: permissions.can_see_rom(rom.id, rom.platform_id),
+            )
+        except cloud_sync_psp.PspFolderUnresolved:
+            return _empty(status.HTTP_409_CONFLICT)
+        return _empty(status.HTTP_201_CREATED)
 
     parsed = cloud_sync_handler.parse_cloud_sync_path(file_path)
     if not parsed:
@@ -362,6 +388,16 @@ async def cloud_sync_delete(request: Request, file_path: str) -> Response:
         except FileNotFoundError:
             return _empty(status.HTTP_404_NOT_FOUND)
 
+        return _empty(status.HTTP_204_NO_CONTENT)
+
+    psp_path = cloud_sync_psp.resolve_psp_path(file_path)
+    if psp_path:
+        # Best-effort, same as every other delete here: RetroArch deletes a
+        # PSP save folder file-by-file, so the first of the folder's several
+        # DELETEs removes the whole bundle and the rest find nothing left to
+        # remove.
+        if psp_path != "ignore":
+            await cloud_sync_psp.delete_psp_folder(request.user, psp_path.save_folder)
         return _empty(status.HTTP_204_NO_CONTENT)
 
     parsed = cloud_sync_handler.parse_cloud_sync_path(file_path)
