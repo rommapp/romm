@@ -75,7 +75,9 @@ def add_ss_auth_to_url(url: str | None) -> str:
     )
 
 
-def get_preferred_regions(rom: Rom | None = None) -> list[str]:
+def get_preferred_regions(
+    rom: Rom | None = None, *, for_media: bool = False
+) -> list[str]:
     """Get preferred regions, prepending the rom's own region tags when available.
 
     When a rom is tagged with multiple regions (e.g. "(Japan, USA)"), the rom's
@@ -83,6 +85,12 @@ def get_preferred_regions(rom: Rom | None = None) -> list[str]:
     user's preference wins among the regions the file is actually tagged as.
     Filename-tagged regions not present in the priority list keep their relative
     order and follow the prioritized ones.
+
+    With SCAN_REGION_MODE set to "prefer_config" and for_media=True, the
+    configured priority is authoritative instead: config regions come first and
+    the rom's own tags become the fallback when the config regions have no
+    media. The mode only applies to media selection; name and release-date
+    selection always keep the rom-tags-first ordering.
     """
     config = cm.get_config()
     priority = config.SCAN_REGION_PRIORITY
@@ -97,9 +105,14 @@ def get_preferred_regions(rom: Rom | None = None) -> list[str]:
             key=lambda code: priority.index(code) if code in priority else len(priority)
         )
 
-    return list(
-        dict.fromkeys(rom_codes + priority + ["us", "wor", "ss", "eu", "jp", "cus"])
-    ) + ["unk"]
+    if for_media and config.SCAN_REGION_MODE == "prefer_config":
+        ordered = priority + rom_codes
+    else:
+        ordered = rom_codes + priority
+
+    return list(dict.fromkeys(ordered + ["us", "wor", "ss", "eu", "jp", "cus"])) + [
+        "unk"
+    ]
 
 
 def get_preferred_languages() -> list[str]:
@@ -265,7 +278,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         video_normalized_path=None,
     )
 
-    for region in get_preferred_regions(rom):
+    for region in get_preferred_regions(rom, for_media=True):
         for media in game.get("medias", []):
             if media.get("region", "unk") != region or media.get("parent") != "jeu":
                 continue
@@ -572,21 +585,13 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
         if MetadataMediaType.MANUAL in preferred_media_types
         else None
     )
+    # Title screen and fanart are stored in their own dedicated media folders
+    # via their *_path entries, so they must not also land in screenshots/.
     url_screenshots = pydash.compact(
         [
             (
                 ss_metadata["screenshot_url"]
                 if MetadataMediaType.SCREENSHOT in preferred_media_types
-                else None
-            ),
-            (
-                ss_metadata["title_screen_url"]
-                if MetadataMediaType.TITLE_SCREEN in preferred_media_types
-                else None
-            ),
-            (
-                ss_metadata["fanart_url"]
-                if MetadataMediaType.FANART in preferred_media_types
                 else None
             ),
         ]
@@ -1112,6 +1117,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.WIIU: {"id": 18, "name": "Wii U"},
     UPS.WIN: {"id": 138, "name": "PC Windows"},
     UPS.WIN3X: {"id": 136, "name": "PC Win3.xx"},
+    UPS.WIN9X: {"id": 137, "name": "PC Win9X"},
     UPS.WASM_4: {"id": 262, "name": "WASM-4"},
     UPS.WONDERSWAN: {"id": 45, "name": "WonderSwan"},
     UPS.WONDERSWAN_COLOR: {"id": 46, "name": "WonderSwan Color"},

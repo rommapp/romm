@@ -15,6 +15,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
+import { useUISettings } from "@/composables/useUISettings";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
@@ -25,6 +26,7 @@ import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useClipboard } from "@/v2/composables/useClipboard";
+import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 
@@ -51,6 +53,8 @@ export function useGameActions(
   const { morphTransition } = useViewTransition();
   const emitter = inject<Emitter<Events>>("emitter");
   const snackbar = useSnackbar();
+  const confirm = useConfirm();
+  const { confirmProtectedLaunch } = useUISettings();
   const clipboard = useClipboard();
   const romsStore = storeRoms();
   const auth = storeAuth();
@@ -187,9 +191,34 @@ export function useGameActions(
     );
   });
 
-  function play() {
+  async function play() {
     const rom = getRom();
     if (!rom) return;
+
+    // Guard launching a game the user deliberately shelved. `retired` /
+    // `never_playing` encode an opt-in "don't play" intent, so confirm
+    // before booting one. Gated by a per-user preference (on by default).
+    const status = rom.rom_user?.status;
+    if (
+      confirmProtectedLaunch.value &&
+      (status === "retired" || status === "never_playing")
+    ) {
+      const ok = await confirm({
+        title: t("rom.confirm-launch-protected-title"),
+        body: t("rom.confirm-launch-protected-body", {
+          name: rom.name ?? rom.fs_name_no_ext ?? "",
+          status: t(
+            status === "retired"
+              ? "rom.status-retired"
+              : "rom.status-never-playing",
+          ),
+        }),
+        confirmText: t("play.play"),
+        tone: "warning",
+      });
+      if (!ok) return;
+    }
+
     // The launch "load" flourish (disc/cartridge insert) lives on the
     // player view itself — see EmulatorJS's onPlay — so navigation is
     // immediate here.

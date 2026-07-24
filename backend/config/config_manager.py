@@ -139,6 +139,11 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
     }
 )
 
+# Valid values for scan.priority.region_mode. "prefer_rom_tags" keeps the
+# rom's filename region tags authoritative for media selection;
+# "prefer_config" makes scan.priority.region win over the rom's own tags.
+VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
+
 
 class EjsControls(TypedDict):
     _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
@@ -199,6 +204,7 @@ class Config:
     SCAN_ARTWORK_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY_OVERRIDES: dict[str, list[str]]
     SCAN_REGION_PRIORITY: list[str]
+    SCAN_REGION_MODE: str
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
@@ -501,6 +507,11 @@ class ConfigManager:
                 "scan.priority.region",
                 ["us", "wor", "ss", "eu", "jp"],
             ),
+            SCAN_REGION_MODE=pydash.get(
+                self._raw_config,
+                "scan.priority.region_mode",
+                "prefer_rom_tags",
+            ),
             SCAN_LANGUAGE_PRIORITY=pydash.get(
                 self._raw_config,
                 "scan.priority.language",
@@ -758,6 +769,17 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.priority.region must be a list")
             sys.exit(3)
 
+        if (
+            not isinstance(self.config.SCAN_REGION_MODE, str)
+            or self.config.SCAN_REGION_MODE not in VALID_SCAN_REGION_MODES
+        ):
+            log.warning(
+                f"Unknown scan.priority.region_mode value "
+                f"{self.config.SCAN_REGION_MODE!r}; falling back to "
+                f"'prefer_rom_tags'. Valid options: {sorted(VALID_SCAN_REGION_MODES)}."
+            )
+            self.config.SCAN_REGION_MODE = "prefer_rom_tags"
+
         if not isinstance(self.config.SCAN_LANGUAGE_PRIORITY, list):
             log.critical("Invalid config.yml: scan.priority.language must be a list")
             sys.exit(3)
@@ -885,6 +907,7 @@ class ConfigManager:
                         if field in self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES
                     },
                     "region": self.config.SCAN_REGION_PRIORITY,
+                    "region_mode": self.config.SCAN_REGION_MODE,
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
                 "media": self.config.SCAN_MEDIA,

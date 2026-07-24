@@ -308,7 +308,6 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border-strong);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 
 .r-slider-btn-group__indicator {

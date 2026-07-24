@@ -372,7 +372,6 @@ watch(
   border: none;
   cursor: pointer;
   backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .match-grid__panel {

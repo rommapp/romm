@@ -1,7 +1,7 @@
 """Add memory_cards and memory_card_versions tables
 
-Revision ID: 0100_memory_cards
-Revises: 0099_platform_description
+Revision ID: 0104_memory_cards
+Revises: 0103_roms_facets_provider_ids
 Create Date: 2026-07-12 00:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0100_memory_cards"
-down_revision = "0099_platform_description"
+revision = "0104_memory_cards"
+down_revision = "0103_roms_facets_provider_ids"
 branch_labels = None
 depends_on = None
 

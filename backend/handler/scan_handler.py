@@ -51,7 +51,7 @@ from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
 from utils import emoji
-from utils.audio_tags import persist_embedded_cover
+from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
 
@@ -146,11 +146,15 @@ def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
     """Persist a scanned soundtrack file's embedded cover and record its path on
     the track_meta row. No-op for non-soundtrack files or ones without a cover."""
     track_meta = rom_file.track_meta
-    if not (
-        rom_file.category == RomFileCategory.SOUNDTRACK
-        and track_meta
-        and track_meta.has_embedded_cover
-    ):
+    if not (rom_file.category == RomFileCategory.SOUNDTRACK and track_meta):
+        return
+
+    if not track_meta.has_embedded_cover:
+        # The cover was stripped from the file since the last scan. Keep the
+        # path when the unlink fails, so the next scan retries it rather than
+        # stranding the file with nothing pointing at it.
+        if track_meta.cover_path and remove_persisted_cover(track_meta.cover_path):
+            db_rom_handler.upsert_track_meta(rom_file.id, rom.id, {"cover_path": None})
         return
 
     abs_audio_path = fs_rom_handler.validate_path(rom_file.full_path)

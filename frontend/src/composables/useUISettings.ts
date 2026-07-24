@@ -15,8 +15,7 @@ export const UI_SETTINGS_KEYS = {
 
   // NOTE: uiVersion is intentionally NOT tracked here. It's owned by the
   // singleton in composables/useUiVersion.ts so a write propagates reactively
-  // to the RomM.vue gate without a reload. When v2 graduates we can move it
-  // into this map and pick up backend sync.
+  // to the RomM.vue gate without a reload.
 
   // Home section
   showStats: { key: "settings.showStats", default: true },
@@ -80,6 +79,12 @@ export const UI_SETTINGS_KEYS = {
     default: false,
   },
   boxartStyle: { key: "settings.boxartStyle", default: "cover_path" },
+
+  // Gameplay
+  confirmProtectedLaunch: {
+    key: "settings.confirmProtectedLaunch",
+    default: true,
+  },
 } as const;
 
 export type UISettingsKey = keyof typeof UI_SETTINGS_KEYS;

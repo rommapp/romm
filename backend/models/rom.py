@@ -234,6 +234,58 @@ class RomMetadata(BaseModel):
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")
 
 
+class RomFacets(BaseModel):
+    """Narrow mirror of the per-ROM values that back the filter dropdowns.
+
+    The same values live on `roms` (as STORED generated columns, plus the
+    region/language/tag columns), but those rows also carry the raw provider
+    metadata blobs, so aggregating them reads the whole multi-gigabyte table.
+    This table holds a few MB of the same data and is kept in sync by triggers
+    on `roms`, so no write path has to remember to update it.
+    """
+
+    __tablename__ = "roms_facets"
+
+    __table_args__ = (Index("idx_roms_facets_platform_id", "platform_id"),)
+
+    rom_id: Mapped[int] = mapped_column(
+        ForeignKey("roms.id", ondelete="CASCADE"), primary_key=True
+    )
+    platform_id: Mapped[int] = mapped_column(Integer(), nullable=False)
+
+    genres: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")
+    regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+
+    # Provider match ids, mirrored so the Server Stats coverage breakdown counts
+    # them here instead of scanning `roms`. A populated column means a match.
+    igdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ss_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    moby_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    launchbox_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ra_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    hasheous_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    flashpoint_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )
+
+
 class Rom(BaseModel):
     __tablename__ = "roms"
 
@@ -649,6 +701,22 @@ METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute] = {
     "hltb": Rom.hltb_id,
     "gamelist": Rom.gamelist_id,
     "libretro": Rom.libretro_id,
+}
+
+# Same slugs mapped to the `roms_facets` mirror columns. The stats coverage
+# breakdown counts these off the narrow mirror instead of scanning `roms`.
+METADATA_SOURCE_FACET_COLUMNS: dict[str, InstrumentedAttribute] = {
+    "igdb": RomFacets.igdb_id,
+    "ss": RomFacets.ss_id,
+    "moby": RomFacets.moby_id,
+    "launchbox": RomFacets.launchbox_id,
+    "ra": RomFacets.ra_id,
+    "hasheous": RomFacets.hasheous_id,
+    "tgdb": RomFacets.tgdb_id,
+    "flashpoint": RomFacets.flashpoint_id,
+    "hltb": RomFacets.hltb_id,
+    "gamelist": RomFacets.gamelist_id,
+    "libretro": RomFacets.libretro_id,
 }
 
 

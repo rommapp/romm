@@ -111,13 +111,53 @@ def _maria_first_release_date() -> str:
             f"AND {val} REGEXP '^[0-9]+$' THEN {cast}"
         )
     gl = "JSON_UNQUOTE(JSON_EXTRACT(gamelist_metadata, '$.first_release_date'))"
-    # TIMESTAMPDIFF from the UTC epoch is pure calendar arithmetic, so (unlike
-    # UNIX_TIMESTAMP) the stored value does not depend on the session time zone.
+    # MariaDB rejects STR_TO_DATE in a GENERATED ALWAYS AS clause (it reads
+    # lc_time_names), so the fixed-width "YYYYMMDDThhmmss" string is reshaped
+    # into a canonical datetime literal instead. TIMESTAMPDIFF from the UTC
+    # epoch is pure calendar arithmetic, so (unlike UNIX_TIMESTAMP) the stored
+    # value does not depend on the session time zone.
+    parts = [
+        f"SUBSTRING({gl}, 1, 4)",
+        "'-'",
+        f"SUBSTRING({gl}, 5, 2)",
+        "'-'",
+        f"SUBSTRING({gl}, 7, 2)",
+        "' '",
+        f"SUBSTRING({gl}, 10, 2)",
+        "':'",
+        f"SUBSTRING({gl}, 12, 2)",
+        "':'",
+        f"SUBSTRING({gl}, 14, 2)",
+    ]
+    gl_datetime = "CONCAT(" + ", ".join(parts) + ")"
+
+    # The regex only proves the value is 8+6 digits, so it still admits
+    # calendar-invalid dates like "20201301T000000" or "20200230T000000".
+    # Feeding one of those to TIMESTAMPDIFF raises "Incorrect datetime value"
+    # under the default STRICT_TRANS_TABLES, which would abort the migration or
+    # a later INSERT; CAST(... AS DATETIME), which would yield NULL, is itself
+    # barred from a generated column. So the components are range-checked here
+    # instead, and CASE short-circuits before the conversion is attempted -
+    # invalid dates fall through to NULL, as STR_TO_DATE used to return.
+    year, month, day = (f"CAST(SUBSTRING({gl}, {p}, {n}) AS SIGNED)" for p, n in ((1, 4), (5, 2), (7, 2)))  # fmt: skip
+    hour, minute, second = (f"CAST(SUBSTRING({gl}, {p}, 2) AS SIGNED)" for p in (10, 12, 14))  # fmt: skip
+    leap = f"(({year} % 4 = 0 AND {year} % 100 != 0) OR {year} % 400 = 0)"
+    days_in_month = (
+        f"CASE {month} WHEN 2 THEN IF({leap}, 29, 28) "
+        f"WHEN 4 THEN 30 WHEN 6 THEN 30 WHEN 9 THEN 30 WHEN 11 THEN 30 "
+        f"ELSE 31 END"
+    )
+    calendar_valid = (
+        f"{year} >= 1 AND {month} BETWEEN 1 AND 12 "
+        f"AND {day} BETWEEN 1 AND ({days_in_month}) "
+        f"AND {hour} <= 23 AND {minute} <= 59 AND {second} <= 59"
+    )
     branches.append(
         f"WHEN JSON_CONTAINS_PATH(gamelist_metadata, 'one', '$.first_release_date') "
         f"AND {gl} NOT IN ('null', 'None', '0', '0.0') "
         f"AND {gl} REGEXP '^[0-9]{{8}}T[0-9]{{6}}$' "
-        f"THEN TIMESTAMPDIFF(SECOND, '1970-01-01 00:00:00', STR_TO_DATE({gl}, '%Y%m%dT%H%i%S')) * 1000"
+        f"AND {calendar_valid} "
+        f"THEN TIMESTAMPDIFF(SECOND, '1970-01-01 00:00:00', {gl_datetime}) * 1000"
     )
     return "CASE\n    " + "\n    ".join(branches) + "\n    ELSE NULL END"
 

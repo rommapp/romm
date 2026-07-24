@@ -117,13 +117,22 @@ class PlaymatchHandler(MetadataHandler):
         if not self.is_enabled():
             return False
 
+        # The /health endpoint returns a plain-text body ("Healthy"), not
+        # JSON, so any 2xx response is enough to consider the service up.
+        httpx_client = ctx_httpx_client.get()
         try:
-            response = await self._request(self.healthcheck_url, {})
+            await _rate_limiter.acquire()
+            res = await httpx_client.get(
+                self.healthcheck_url,
+                headers={"user-agent": f"RomM/{get_version()}"},
+                timeout=60,
+            )
+            res.raise_for_status()
         except Exception as e:
             log.error("Error checking Playmatch API: %s", e)
             return False
 
-        return bool(response)
+        return True
 
     async def _request(self, url: str, query: dict) -> dict:
         """

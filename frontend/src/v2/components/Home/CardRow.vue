@@ -254,7 +254,6 @@ onBeforeUnmount(() => {
   background: var(--r-color-overlay-scrim-strong) !important;
   color: var(--r-color-overlay-fg-secondary) !important;
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   opacity: 1;
 }
 .card-row__arrow.r-btn:hover {

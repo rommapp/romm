@@ -11,7 +11,6 @@ import type {
   NetplayICEServer,
 } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
-import playSessionApi from "@/services/api/play-session";
 import { saveApi as api } from "@/services/api/save";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
@@ -55,7 +54,6 @@ const props = defineProps<{
 }>();
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
-const sessionStartTime = ref<Date | null>(null);
 const deviceIDRef = ref(authStore.user?.current_device_id ?? undefined);
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -385,12 +383,51 @@ window.EJS_onSaveState = async function ({
 };
 
 window.EJS_onGameStart = async () => {
-  sessionStartTime.value = new Date();
+  // The emulator now owns the keyboard: every key, "/" included, belongs to
+  // the game (a DOS prompt typing "mount A / -t floppy" must not reach the
+  // global hotkeys). Callers flag this at launch too, but taking it from the
+  // emulator's own start hook keeps the flag true for any entry point.
+  playing.value = true;
+
+  // Patch the instance so unsaved keys still fall back to config defaults.
+  const originalPreGetSetting = window.EJS_emulator?.preGetSetting.bind(
+    window.EJS_emulator,
+  );
+  if (window.EJS_emulator) {
+    window.EJS_emulator.preGetSetting = (setting: string) => {
+      const value = originalPreGetSetting(setting);
+      if (value !== undefined && value !== null) return value;
+      const defaults = window.EJS_emulator.config?.defaultOptions ?? {};
+      return defaults[setting] !== undefined ? defaults[setting] : null;
+    };
+
+    window.EJS_emulator.rewindEnabled =
+      window.EJS_emulator.preGetSetting("rewindEnabled") === "enabled";
+
+    if (![0, 1, 2, 3].includes(window.EJS_emulator.config?.videoRotation)) {
+      window.EJS_emulator.videoRotation =
+        window.EJS_emulator.preGetSetting("videoRotation") || 0;
+    }
+
+    const webgl2Setting = window.EJS_emulator.preGetSetting("webgl2Enabled");
+    if (webgl2Setting === "disabled" || !window.EJS_emulator.supportsWebgl2) {
+      window.EJS_emulator.webgl2Enabled = false;
+    } else if (webgl2Setting === "enabled") {
+      window.EJS_emulator.webgl2Enabled = true;
+    } else {
+      window.EJS_emulator.webgl2Enabled = null;
+    }
+  }
 
   // Install netplay overrides synchronously, before any await below, so they
   // are in place before room polling or a Create/Join action can start.
   const netplay = window.EJS_emulator?.netplay;
   if (netplay) {
+    // EmulatorJS only prompts for a player name when netplay.name is unset,
+    // so presetting it adopts the RomM account username automatically.
+    if (!netplay.name && authStore.user?.username) {
+      netplay.name = authStore.user.username;
+    }
     netplay.getOpenRooms = async () => {
       try {
         const response = await fetch(
@@ -501,37 +538,12 @@ window.EJS_onGameStart = async () => {
 };
 
 function immediateExit() {
-  if (!sessionStartTime.value) {
-    return router
-      .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
-      .catch((error) => {
-        console.error("Error navigating to console rom", error);
-      });
-  }
-
-  const endTime = new Date();
-  const durationMs = endTime.getTime() - sessionStartTime.value.getTime();
-
-  playSessionApi
-    .ingestPlaySessions({
-      deviceId: deviceIDRef.value,
-      sessions: [
-        {
-          rom_id: romRef.value.id,
-          start_time: sessionStartTime.value.toISOString(),
-          end_time: endTime.toISOString(),
-          duration_ms: durationMs,
-        },
-      ],
-    })
-    .catch((err) => console.error("Failed to submit play session:", err))
-    .finally(() => {
-      sessionStartTime.value = null;
-      router
-        .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
-        .catch((error) => {
-          console.error("Error navigating to console rom", error);
-        });
+  // Play-session recording is owned by the v2 player shell (usePlaySession);
+  // this only returns to the game details view.
+  router
+    .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
+    .catch((error) => {
+      console.error("Error navigating to console rom", error);
     });
 }
 

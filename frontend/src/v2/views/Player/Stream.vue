@@ -53,6 +53,7 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -70,6 +71,7 @@ const streamingStore = useStreamingStore();
 const snackbar = useSnackbar();
 const { fullscreenOnPlay } = useFullscreenPref();
 const { modality } = useInputModality();
+const playSession = usePlaySession();
 
 const rom = ref<DetailedRom | null>(null);
 const playerState = ref<PlayerState>("idle");
@@ -681,6 +683,13 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       errorHint.value = hintForStatus(status);
     }
   }
+
+  // Start timing the session once the claim succeeds and playback is live.
+  // The session is ingested on unmount, which updates last_played /
+  // now_playing / status server-side.
+  if (rom.value && playerState.value === "playing") {
+    playSession.start(rom.value);
+  }
 }
 
 function onCardImportAnswer(answer: MemoryCardImport): void {
@@ -987,6 +996,9 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  // Every exit path (Stop, Save & Exit, back nav) unmounts the view, so this
+  // is the single choke point for recording the session.
+  playSession.flush();
   playingStore.setPlaying(false);
   document.removeEventListener("fullscreenchange", onFullscreenChange);
   document.removeEventListener("visibilitychange", onVisibilityChange);

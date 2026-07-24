@@ -80,6 +80,7 @@ def test_config_loader():
         "url_screenshots": ["igdb"],
     }
     assert loader.config.SCAN_REGION_PRIORITY == ["jp", "eu", "wor"]
+    assert loader.config.SCAN_REGION_MODE == "prefer_config"
     assert loader.config.SCAN_LANGUAGE_PRIORITY == ["jp", "es"]
     assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box3d"
     assert loader.config.GAMELIST_MEDIA_IMAGE == "title_screen"
@@ -125,6 +126,7 @@ def test_empty_config_loader():
     assert loader.config.EJS_SETTINGS == {}
     assert loader.config.EJS_CONTROLS == {}
     assert loader.config.SCAN_ARTWORK_PRIORITY_OVERRIDES == {}
+    assert loader.config.SCAN_REGION_MODE == "prefer_rom_tags"
     assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box2d"
     assert loader.config.GAMELIST_MEDIA_IMAGE == "screenshot"
 
@@ -158,6 +160,20 @@ def test_forward_compat_unknown_values_are_tolerated():
     # Unknown thumbnail/image values fall back to their defaults.
     assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box2d"
     assert loader.config.GAMELIST_MEDIA_IMAGE == "screenshot"
+    # Unknown region_mode values fall back to the default.
+    assert loader.config.SCAN_REGION_MODE == "prefer_rom_tags"
+
+
+def test_non_string_region_mode_falls_back_to_default(tmp_path):
+    """A list/mapping region_mode is unhashable and must not crash the
+    membership check against the valid-modes set."""
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "scan:\n  priority:\n    region_mode:\n      - prefer_config\n"
+    )
+    loader = ConfigManager(str(config_file))
+
+    assert loader.config.SCAN_REGION_MODE == "prefer_rom_tags"
 
 
 def test_malformed_yaml_falls_back_to_defaults():
@@ -267,7 +283,9 @@ def test_config_updates_serialize_gamelist_media_as_plain_strings(tmp_path):
 
 def test_update_scan_settings_round_trip(tmp_path):
     config_file = tmp_path / "config.yml"
-    config_file.write_text("scan:\n  media:\n    - box2d\n")
+    config_file.write_text(
+        "scan:\n  priority:\n    region_mode: prefer_config\n  media:\n    - box2d\n"
+    )
     loader = ConfigManager(str(config_file))
 
     loader.update_scan_settings(
@@ -292,6 +310,8 @@ def test_update_scan_settings_round_trip(tmp_path):
     # Only the "cover" override was provided; the others fall back to artwork.
     assert reloaded.config.SCAN_ARTWORK_PRIORITY_OVERRIDES == {"url_cover": ["ss"]}
     assert reloaded.config.SCAN_REGION_PRIORITY == ["jp", "us"]
+    # region_mode is not runtime-editable but must survive the rewrite.
+    assert reloaded.config.SCAN_REGION_MODE == "prefer_config"
     assert reloaded.config.SCAN_LANGUAGE_PRIORITY == ["ja", "en"]
     assert reloaded.config.SCAN_MEDIA == ["box2d", "screenshot", "manual"]
     assert reloaded.config.GAMELIST_AUTO_EXPORT_ON_SCAN is True

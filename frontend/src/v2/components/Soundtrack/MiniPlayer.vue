@@ -316,7 +316,6 @@ function openRom() {
     0 20px 60px color-mix(in srgb, black 70%, transparent),
     0 4px 20px color-mix(in srgb, black 40%, transparent);
   backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
   color: var(--r-color-fg);
 }
 

@@ -37,7 +37,8 @@ const props = defineProps<Props>();
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();
-const { allPlatforms } = storeToRefs(platformsStore);
+// Only platforms that contain games should be displayed
+const { filledPlatforms } = storeToRefs(platformsStore);
 const heartbeat = storeHeartbeat();
 
 type OrderBy = "name" | "size" | "count";
@@ -67,7 +68,7 @@ const orderItems = computed<SliderBtnGroupItem<OrderBy>[]>(() => [
 
 const sortedPlatforms = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
-  let list = [...allPlatforms.value];
+  let list = [...filledPlatforms.value];
   if (q) {
     list = list.filter(
       (p) =>
@@ -180,7 +181,7 @@ function coveragePercent(matched: number, total: number): string {
     <div class="r-v2-plat-stats">
       <div
         v-for="platform in sortedPlatforms"
-        :key="platform.slug"
+        :key="platform.id"
         class="r-v2-plat-stats__row"
       >
         <RPlatformIcon

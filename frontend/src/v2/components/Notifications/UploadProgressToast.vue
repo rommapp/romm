@@ -180,7 +180,6 @@ function clearFinished() {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   box-shadow:
     0 18px 36px color-mix(in srgb, black 50%, transparent),
     0 4px 10px color-mix(in srgb, black 30%, transparent);

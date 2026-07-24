@@ -328,7 +328,6 @@ onBeforeUnmount(() => {
   background: var(--r-color-surface);
   border-bottom: 1px solid var(--r-color-border);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 /* Outer cell — flex container holding the sort button (or static
