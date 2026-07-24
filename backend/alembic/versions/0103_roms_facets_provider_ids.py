@@ -20,6 +20,7 @@ Create Date: 2026-07-23 00:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
+from sqlalchemy import inspect
 
 from utils.database import is_postgresql
 
@@ -133,8 +134,15 @@ def _backfill_sql() -> str:
 
 
 def upgrade() -> None:
+    # Guarded so a re-run after a partial failure skips columns already added.
+    # MySQL/MariaDB auto-commit each DDL, so a mid-migration crash can leave a
+    # subset of the columns behind without advancing the alembic version.
+    existing = {
+        col["name"] for col in inspect(op.get_bind()).get_columns("roms_facets")
+    }
     for name, column_type in _PROVIDER_COLUMNS:
-        op.add_column("roms_facets", sa.Column(name, column_type, nullable=True))
+        if name not in existing:
+            op.add_column("roms_facets", sa.Column(name, column_type, nullable=True))
 
     op.execute(_backfill_sql())
     _recreate_triggers(_FULL_MIRRORED_COLUMNS)
