@@ -5,9 +5,15 @@ from fastapi import status
 
 from handler import cloud_sync_handler, cloud_sync_psp
 from handler.cloud_sync_emulator_names import to_retroarch_dir_name, to_romm_emulator
-from handler.database import db_save_handler, db_screenshot_handler, db_state_handler
+from handler.database import (
+    db_rom_handler,
+    db_save_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
 from handler.filesystem import fs_asset_handler
 from models.assets import Save, Screenshot, State
+from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 
@@ -665,6 +671,60 @@ class TestCloudSyncUpload:
         # retries, instead of recording a file the server never stored.
         assert response.status_code == status.HTTP_409_CONFLICT
         assert response.content == b""
+
+    @mock.patch(
+        "endpoints.cloud_sync.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.cloud_sync.scan_save", new_callable=mock.AsyncMock)
+    def test_matches_rom_with_plus_in_name(
+        self,
+        mock_scan_save: mock.AsyncMock,
+        _mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        platform: Platform,
+    ):
+        """"+" is not invalid on any real filesystem -- RomM itself stores
+        combo-cart ROMs with it in `fs_name` untouched, so stripping it
+        before resolving the ROM (as `sanitize_filename` used to) broke
+        matching for exactly those titles."""
+        combo_rom = Rom(
+            platform_id=platform.id,
+            name="Super Mario All-Stars + Super Mario World",
+            slug="combo-rom-slug",
+            fs_name="Super Mario All-Stars + Super Mario World (USA).sfc",
+            fs_name_no_tags="Super Mario All-Stars + Super Mario World",
+            fs_name_no_ext="Super Mario All-Stars + Super Mario World (USA)",
+            fs_extension="sfc",
+            fs_path=f"{platform.slug}/roms",
+        )
+        combo_rom = db_rom_handler.add_rom(combo_rom)
+        db_rom_handler.add_rom_user(rom_id=combo_rom.id, user_id=admin_user.id)
+
+        saves_path = fs_asset_handler.build_saves_file_path(
+            user=admin_user,
+            platform_fs_slug="test_platform_slug",
+            rom_id=combo_rom.id,
+            emulator="snes9x",
+        )
+        mock_scan_save.return_value = Save(
+            file_name="Super Mario All-Stars + Super Mario World (USA).srm",
+            file_path=saves_path,
+            file_size_bytes=4,
+            content_hash="8d777f385d3dfec8815d20f7496026dc",
+        )
+
+        response = client.put(
+            "/api/cloud-sync/saves/Snes9x/Super Mario All-Stars + Super Mario World (USA).srm",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_id=combo_rom.id)
+        assert len(saves) == 1
+        assert saves[0].file_name == "Super Mario All-Stars + Super Mario World (USA).srm"
 
     def test_rejects_unsupported_sync_root(self, client, admin_user: User, rom: Rom):
         response = client.put(
