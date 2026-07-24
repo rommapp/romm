@@ -75,11 +75,10 @@ def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom | Non
 def _get_asset(
     user: User, rom: Rom, parsed: CloudSyncPath, file_name: str
 ) -> Save | State | None:
-    file_path = cloud_sync_handler.build_asset_file_path(
-        user, rom, parsed.kind, parsed.emulator
-    )
-
     if parsed.kind == "saves":
+        file_path = cloud_sync_handler.build_asset_file_path(
+            user, rom, parsed.kind, parsed.emulator
+        )
         return db_save_handler.get_save_by_path(
             user_id=user.id,
             rom_id=rom.id,
@@ -87,11 +86,14 @@ def _get_asset(
             file_name=file_name,
         )
 
-    return db_state_handler.get_state_by_path(
-        user_id=user.id,
-        rom_id=rom.id,
-        file_path=file_path,
-        file_name=file_name,
+    # States have no `slot` column to key an exact-path lookup on, and the
+    # requested `file_name` is the canonical name `build_manifest` made up
+    # (`cloud_sync_handler.canonical_state_file_name`) -- it may not match
+    # any single row's actual `file_name` (e.g. a web-player-created state).
+    # Re-derive the same (rom, emulator, slot) bucket instead of trusting an
+    # exact match.
+    return cloud_sync_handler.resolve_state_by_slot(
+        user, rom, parsed.emulator, file_name
     )
 
 

@@ -43,6 +43,50 @@ def synced_save(admin_user: User, rom: Rom, saves_path: str):
     )
 
 
+@pytest.fixture
+def states_path(admin_user: User, rom: Rom):
+    return fs_asset_handler.build_states_file_path(
+        user=admin_user,
+        platform_fs_slug="test_platform_slug",
+        rom_id=rom.id,
+        emulator="snes9x",
+    )
+
+
+@pytest.fixture
+def synced_state(admin_user: User, rom: Rom, states_path: str):
+    """A state named the way RetroArch itself would name one -- `<rom>.state`
+    -- unlike the shared `state` fixture, whose file name is a test-only
+    placeholder unrelated to `rom.fs_name_no_ext`."""
+    return db_state_handler.add_state(
+        State(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="test_rom.state",
+            file_path=states_path,
+            file_size_bytes=4,
+            emulator="snes9x",
+        )
+    )
+
+
+@pytest.fixture
+def web_state(admin_user: User, rom: Rom, states_path: str):
+    """A state named the way RomM's own web player names one: a display
+    label plus a timestamp, with no relation to RetroArch's `<rom>.state[N]`
+    numbered-slot convention -- see `is_retroarch_loadable_state`."""
+    return db_state_handler.add_state(
+        State(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="test_rom [2026-07-24 12-04-52-733].state",
+            file_path=states_path,
+            file_size_bytes=4,
+            emulator="snes9x",
+        )
+    )
+
+
 class TestCloudSyncEmulatorNames:
     @pytest.mark.parametrize(
         ("retroarch_dir_name", "romm_emulator"),
@@ -153,6 +197,73 @@ class TestCloudSyncAuth:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
+class TestCloudSyncStateSlotResolution:
+    def test_resolves_canonical_name_to_the_web_created_row(
+        self, admin_user: User, rom: Rom, web_state: State
+    ):
+        """A GET/DELETE for the canonical slot name the manifest advertised
+        must resolve back to the real row even though its actual `file_name`
+        (a web-player timestamp label) never matches that canonical name."""
+        resolved = cloud_sync_handler.resolve_state_by_slot(
+            admin_user, rom, "snes9x", "test_rom.state"
+        )
+
+        assert resolved is not None
+        assert resolved.id == web_state.id
+
+    def test_resolves_to_the_newer_of_two_competing_states(
+        self, admin_user: User, rom: Rom, states_path: str
+    ):
+        older = db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_rom.state",
+                file_path=states_path,
+                file_size_bytes=4,
+                emulator="snes9x",
+            )
+        )
+        newer = db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_rom [2026-07-24 12-04-52-733].state",
+                file_path=states_path,
+                file_size_bytes=4,
+                emulator="snes9x",
+            )
+        )
+        assert newer.id > older.id
+
+        resolved = cloud_sync_handler.resolve_state_by_slot(
+            admin_user, rom, "snes9x", "test_rom.state"
+        )
+
+        assert resolved is not None
+        assert resolved.id == newer.id
+
+    def test_does_not_cross_slots(self, admin_user: User, rom: Rom, states_path: str):
+        """A slot-1 state must never resolve for a slot-0 request, even
+        though both belong to the same rom/emulator."""
+        db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_rom.state1",
+                file_path=states_path,
+                file_size_bytes=4,
+                emulator="snes9x",
+            )
+        )
+
+        resolved = cloud_sync_handler.resolve_state_by_slot(
+            admin_user, rom, "snes9x", "test_rom.state"
+        )
+
+        assert resolved is None
+
+
 class TestCloudSyncManifest:
     @mock.patch(
         "handler.cloud_sync_handler.asset_md5",
@@ -165,7 +276,7 @@ class TestCloudSyncManifest:
         client,
         admin_user: User,
         archival_save: Save,
-        state: State,
+        synced_state: State,
     ):
         response = client.get("/api/cloud-sync/manifest.server", auth=ADMIN_AUTH)
 
@@ -176,9 +287,84 @@ class TestCloudSyncManifest:
                 "hash": "d41d8cd98f00b204e9800998ecf8427e",
             },
             {
-                "path": "states/test_emulator/test_state.state",
+                "path": "states/Snes9x/test_rom.state",
                 "hash": "d41d8cd98f00b204e9800998ecf8427e",
             },
+        ]
+
+    @mock.patch(
+        "handler.cloud_sync_handler.asset_md5",
+        new_callable=mock.AsyncMock,
+        return_value="d41d8cd98f00b204e9800998ecf8427e",
+    )
+    def test_remaps_web_player_state_to_canonical_slot(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, web_state: State
+    ):
+        """A state uploaded through RomM's own web player carries a display
+        label and timestamp in its file name, not a RetroArch slot number --
+        RetroArch's Load State menu only ever offers numbered slots 0-999
+        (verified live: RetroArch fetched such a file during a real sync,
+        and it never appeared as a loadable slot because its raw file name
+        was surfaced as-is). It still belongs to slot 0 like any other
+        untagged state, so the manifest advertises it under RetroArch's own
+        canonical name for that slot instead of its raw file name."""
+        response = client.get("/api/cloud-sync/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == [
+            {
+                "path": "states/Snes9x/test_rom.state",
+                "hash": "d41d8cd98f00b204e9800998ecf8427e",
+            }
+        ]
+
+    @mock.patch(
+        "handler.cloud_sync_handler.asset_md5",
+        new_callable=mock.AsyncMock,
+        return_value="d41d8cd98f00b204e9800998ecf8427e",
+    )
+    def test_newest_state_in_a_slot_wins_regardless_of_origin(
+        self,
+        _asset_md5: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        states_path: str,
+    ):
+        """Two states competing for the same (rom, emulator, slot) bucket --
+        an older RetroArch-native one and a newer web-player one -- resolve
+        to whichever is actually newest, same as the shim's `sortByRecency`
+        picking "the" state for a slot regardless of who created it."""
+        older = db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_rom.state",
+                file_path=states_path,
+                file_size_bytes=4,
+                emulator="snes9x",
+            )
+        )
+        newer = db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_rom [2026-07-24 12-04-52-733].state",
+                file_path=states_path,
+                file_size_bytes=4,
+                emulator="snes9x",
+            )
+        )
+        assert newer.id > older.id
+
+        response = client.get("/api/cloud-sync/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == [
+            {
+                "path": "states/Snes9x/test_rom.state",
+                "hash": "d41d8cd98f00b204e9800998ecf8427e",
+            }
         ]
 
     @mock.patch(
