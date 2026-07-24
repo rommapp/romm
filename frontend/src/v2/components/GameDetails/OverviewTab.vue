@@ -77,11 +77,13 @@ const hasHltb = computed(() => {
   );
 });
 
-// Enrich the slim `{ id, name }` user_collections payload from the
-// ROM with the full Collection record (cover paths, rom_count) the
-// store already holds — so we can render real CollectionTile mosaics
-// instead of stripped chips. Falls back to a bare entry if the store
-// is empty (e.g. deep-link before the AppLayout fetch resolves).
+// Enrich the slim `{ id, name, is_smart }` user_collections payload from
+// the ROM with the full record (cover paths, rom_count) the store already
+// holds — so we can render real CollectionTile mosaics instead of stripped
+// chips. Smart collections (#3934) resolve from their own store slice and
+// route, and carry the "smart" kind so the tile shows its flash badge.
+// Falls back to a bare entry if the store is empty (e.g. deep-link before
+// the AppLayout fetch resolves).
 const { t } = useI18n();
 const collectionsStore = storeCollections();
 const { toWebp } = useWebpSupport();
@@ -95,21 +97,39 @@ const videos = computed(() =>
 
 type CollectionTileEntry = {
   id: number;
+  // Regular and smart collection ids come from separate tables and can
+  // collide, so the render key folds in the kind to stay unique.
+  key: string;
   name: string;
   rom_count: number;
   covers: string[];
   link: string;
+  kind: "regular" | "smart";
 };
 
 const userCollectionTiles = computed<CollectionTileEntry[]>(() =>
   props.userCollections.map((c) => {
+    if (c.is_smart) {
+      const full = collectionsStore.getSmartCollection(c.id);
+      return {
+        id: c.id,
+        key: `smart-${c.id}`,
+        name: full?.name ?? c.name,
+        rom_count: full?.rom_count ?? 0,
+        covers: full ? collectionCoverList(full, toWebp) : [],
+        link: `/collection/smart/${c.id}`,
+        kind: "smart",
+      };
+    }
     const full = collectionsStore.getCollection(c.id);
     return {
       id: c.id,
+      key: `regular-${c.id}`,
       name: full?.name ?? c.name,
       rom_count: full?.rom_count ?? 0,
       covers: full ? collectionCoverList(full, toWebp) : [],
       link: `/collection/${c.id}`,
+      kind: "regular",
     };
   }),
 );
@@ -214,12 +234,12 @@ const coverSource = computed(() => {
           <CollectionTile
             v-for="c in userCollectionTiles"
             :id="c.id"
-            :key="c.id"
+            :key="c.key"
             :to="c.link"
             :name="c.name"
             :rom-count="c.rom_count"
             :covers="c.covers"
-            kind="regular"
+            :kind="c.kind"
             variant="row"
           />
         </div>

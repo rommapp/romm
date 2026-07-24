@@ -16,7 +16,7 @@ from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesHandler, MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
-from models.collection import Collection
+from models.collection import Collection, SmartCollection
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile, compute_name_sort_key
@@ -68,6 +68,120 @@ def test_get_rom_simple_missing_returns_404(client: TestClient, access_token: st
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def _user_collections_by_name(body: dict) -> dict:
+    return {c["name"]: c for c in body["user_collections"]}
+
+
+def test_get_rom_lists_standard_and_smart_collections(
+    client: TestClient, access_token: str, admin_user: User, rom: Rom
+):
+    """The detail response lists both standard and smart collections the ROM
+    belongs to, tagging smart ones with `is_smart` (issue #3934)."""
+    standard = db_collection_handler.add_collection(
+        Collection(name="My Standard", description="", user_id=admin_user.id)
+    )
+    db_collection_handler.add_roms_to_collection(standard.id, [rom.id])
+
+    smart = db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="My Smart",
+            description="",
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            filter_criteria={},
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    collections = _user_collections_by_name(response.json())
+    assert set(collections) == {"My Standard", "My Smart"}
+    assert collections["My Standard"]["id"] == standard.id
+    assert collections["My Standard"]["is_smart"] is False
+    assert collections["My Smart"]["id"] == smart.id
+    assert collections["My Smart"]["is_smart"] is True
+
+
+def test_get_rom_omits_smart_collection_without_rom(
+    client: TestClient, access_token: str, admin_user: User, rom: Rom
+):
+    """A smart collection whose membership doesn't include the ROM is not listed."""
+    db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="Unrelated Smart",
+            description="",
+            user_id=admin_user.id,
+            rom_ids=[rom.id + 999],
+            filter_criteria={},
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    assert "Unrelated Smart" not in _user_collections_by_name(response.json())
+
+
+def test_get_rom_omits_other_users_private_smart_collection(
+    client: TestClient, access_token: str, viewer_user: User, rom: Rom
+):
+    """A private smart collection owned by another user is hidden even when it
+    contains the ROM."""
+    db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="Private Smart",
+            description="",
+            user_id=viewer_user.id,
+            is_public=False,
+            rom_ids=[rom.id],
+            filter_criteria={},
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    assert "Private Smart" not in _user_collections_by_name(response.json())
+
+
+def test_get_rom_lists_public_smart_collection_from_other_user(
+    client: TestClient, access_token: str, viewer_user: User, rom: Rom
+):
+    """A public smart collection owned by another user is listed when it contains
+    the ROM."""
+    smart = db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="Public Smart",
+            description="",
+            user_id=viewer_user.id,
+            is_public=True,
+            rom_ids=[rom.id],
+            filter_criteria={},
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    collections = _user_collections_by_name(response.json())
+    assert "Public Smart" in collections
+    assert collections["Public Smart"]["id"] == smart.id
+    assert collections["Public Smart"]["is_smart"] is True
 
 
 def test_download_multi_file_rom_content(
