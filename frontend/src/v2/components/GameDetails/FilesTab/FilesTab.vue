@@ -104,6 +104,10 @@ const CATEGORY_META = computed<
     label: t("rom.manual"),
     icon: "mdi-book-open-page-variant-outline",
   },
+  walkthrough: {
+    label: t("rom.walkthrough"),
+    icon: "mdi-map-legend",
+  },
   soundtrack: {
     label: t("rom.soundtrack"),
     icon: "mdi-music-note-outline",
@@ -150,6 +154,8 @@ const FOLDER_META = computed<Record<string, FolderMeta>>(() => {
     cheats: c.cheat,
     manual: c.manual,
     manuals: c.manual,
+    walkthrough: c.walkthrough,
+    walkthroughs: c.walkthrough,
     soundtrack: c.soundtrack,
     soundtracks: c.soundtrack,
     // Non-category folders that conventionally appear in ROM directories.

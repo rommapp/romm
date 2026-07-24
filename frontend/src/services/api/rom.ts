@@ -8,6 +8,7 @@ import type {
   ManualMetadata,
   RomUserData,
   RomUserSchema,
+  RomFileUserSchema,
   SearchRomSchema,
   SimpleRomSchema,
   SoundtrackTrackMetaSchema,
@@ -810,6 +811,88 @@ async function deleteRomFile({
   return api.delete(`/roms/${romId}/files/${fileId}`);
 }
 
+async function uploadWalkthroughFiles({
+  romId,
+  filesToUpload,
+}: {
+  romId: number;
+  filesToUpload: File[];
+}) {
+  const uploadStore = storeUpload();
+
+  const promises = filesToUpload.map((file) => {
+    const formData = new FormData();
+    formData.append(file.name, file);
+
+    uploadStore.start(file.name);
+    return new Promise((resolve, reject) => {
+      api
+        .post(`/roms/${romId}/walkthroughs/files`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            "X-Upload-Filename": file.name,
+          },
+          params: {},
+          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            uploadStore.update(file.name, progressEvent);
+          },
+        })
+        .then(resolve)
+        .catch((error) => {
+          uploadStore.fail(file.name, error.response?.data?.detail);
+          reject(error);
+        });
+    });
+  });
+
+  return Promise.allSettled(promises);
+}
+
+async function deleteWalkthroughFile({
+  romId,
+  fileId,
+}: {
+  romId: number;
+  fileId: number;
+}) {
+  return api.delete(`/roms/${romId}/walkthroughs/files/${fileId}`);
+}
+
+async function addGamefaqsWalkthrough({
+  romId,
+  url,
+}: {
+  romId: number;
+  url: string;
+}) {
+  return api.post(`/roms/${romId}/walkthroughs/gamefaqs`, { url });
+}
+
+async function getFileProgress({
+  romId,
+  fileId,
+}: {
+  romId: number;
+  fileId: number;
+}) {
+  return api.get<RomFileUserSchema>(`/roms/${romId}/files/${fileId}/progress`);
+}
+
+async function updateFileProgress({
+  romId,
+  fileId,
+  data,
+}: {
+  romId: number;
+  fileId: number;
+  data: { progress?: number; last_page?: number | null; finished?: boolean };
+}) {
+  return api.put<RomFileUserSchema>(
+    `/roms/${romId}/files/${fileId}/progress`,
+    data,
+  );
+}
+
 async function updateUserRomProps({
   romId,
   data,
@@ -933,6 +1016,11 @@ export default {
   uploadManualFiles,
   deleteManualFile,
   deleteRomFile,
+  uploadWalkthroughFiles,
+  deleteWalkthroughFile,
+  addGamefaqsWalkthrough,
+  getFileProgress,
+  updateFileProgress,
   uploadSoundtracks,
   removeSoundtrack,
   getSoundtrackMetadata,

@@ -73,6 +73,7 @@ class RomFileCategory(enum.StrEnum):
     DLC = "dlc"
     HACK = "hack"
     MANUAL = "manual"
+    WALKTHROUGH = "walkthrough"
     PATCH = "patch"
     UPDATE = "update"
     MOD = "mod"
@@ -82,6 +83,19 @@ class RomFileCategory(enum.StrEnum):
     CHEAT = "cheat"
     SOUNDTRACK = "soundtrack"
     SCREENSHOT = "screenshot"
+
+
+# Document-category files (manuals, walkthroughs) share one substrate: a
+# RomFile plus an optional RomFileDocMeta sidecar for provenance.
+DOCUMENT_CATEGORIES = frozenset({RomFileCategory.MANUAL, RomFileCategory.WALKTHROUGH})
+
+
+class DocSource(enum.StrEnum):
+    """Where a document (manual/walkthrough) came from."""
+
+    UPLOAD = "upload"  # User-uploaded file
+    GAMEFAQS = "gamefaqs"  # Fetched from a GameFAQs guide URL
+    SCRAPER = "scraper"  # Downloaded by a metadata provider
 
 
 class SiblingRom(BaseModel):
@@ -132,6 +146,16 @@ class RomFile(BaseModel):
         back_populates="rom_file",
         uselist=False,
         cascade="all, delete-orphan",
+    )
+    doc_meta: Mapped[RomFileDocMeta | None] = relationship(
+        back_populates="rom_file",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    user_states: Mapped[list[RomFileUser]] = relationship(
+        back_populates="rom_file",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
 
     @cached_property
@@ -212,6 +236,73 @@ class TrackMeta(BaseModel):
     cover_path: Mapped[str | None] = mapped_column(String(length=1024), default=None)
 
     rom_file: Mapped[RomFile] = relationship(back_populates="track_meta")
+
+
+# Max length for free-text document metadata (author / title).
+DOC_META_MAX_LENGTH = 512
+
+
+class RomFileDocMeta(BaseModel):
+    """Provenance sidecar for document-category files (manuals, walkthroughs).
+
+    Only doc-category RomFiles carry a row here, so these fields don't bloat
+    every rom_files row. Format is intentionally not stored: it is derived from
+    the file extension.
+    """
+
+    __tablename__ = "rom_file_doc_meta"
+
+    __table_args__ = (Index("idx_rom_file_doc_meta_rom_id", "rom_id"),)
+
+    rom_file_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_files.id", ondelete="CASCADE"), primary_key=True
+    )
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    source: Mapped[DocSource] = mapped_column(
+        Enum(DocSource), default=DocSource.UPLOAD, nullable=False
+    )
+    source_url: Mapped[str | None] = mapped_column(Text, default=None)
+    author: Mapped[str | None] = mapped_column(
+        String(length=DOC_META_MAX_LENGTH), default=None
+    )
+    title: Mapped[str | None] = mapped_column(
+        String(length=DOC_META_MAX_LENGTH), default=None
+    )
+
+    rom_file: Mapped[RomFile] = relationship(back_populates="doc_meta")
+
+
+class RomFileUser(BaseModel):
+    """Per-user reading state for a document-category file.
+
+    Keyed on (rom_file_id, user_id) so one mechanism covers both manuals and
+    walkthroughs. `progress` is a 0.0-1.0 scroll fraction; `last_page` tracks
+    the page for paginated (PDF) documents.
+    """
+
+    __tablename__ = "rom_file_user"
+
+    __table_args__ = (
+        UniqueConstraint("rom_file_id", "user_id", name="unique_rom_file_user"),
+        Index("idx_rom_file_user", "rom_file_id", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    rom_file_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_files.id", ondelete="CASCADE")
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+
+    progress: Mapped[float] = mapped_column(Float(), default=0.0, nullable=False)
+    last_page: Mapped[int | None] = mapped_column(Integer(), default=None)
+    finished: Mapped[bool] = mapped_column(default=False, nullable=False)
+    last_read_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+
+    rom_file: Mapped[RomFile] = relationship(
+        lazy="joined", back_populates="user_states"
+    )
+    user: Mapped[User] = relationship(lazy="joined")
 
 
 class RomMetadata(BaseModel):

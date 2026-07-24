@@ -446,7 +446,7 @@ class TestFSResourcesHandler:
         result = handler._get_manual_path(rom)
         assert result is None
 
-    @pytest.mark.parametrize("ext", [".pdf", ".md"])
+    @pytest.mark.parametrize("ext", [".pdf", ".md", ".txt"])
     def test_manual_exists_finds_extension(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path, ext: str
     ):
@@ -458,7 +458,7 @@ class TestFSResourcesHandler:
 
         assert handler.manual_exists(rom)
 
-    @pytest.mark.parametrize("ext", [".pdf", ".md"])
+    @pytest.mark.parametrize("ext", [".pdf", ".md", ".txt"])
     def test_get_manual_path_finds_extension(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path, ext: str
     ):
@@ -471,11 +471,11 @@ class TestFSResourcesHandler:
         result = handler._get_manual_path(rom)
         assert result == f"{rom.fs_resources_path}/manual/{rom.id}{ext}"
 
-    @pytest.mark.parametrize("ext", [".part", ".bak", ".tmp", ".txt"])
+    @pytest.mark.parametrize("ext", [".part", ".bak", ".tmp", ".exe"])
     def test_manual_exists_ignores_disallowed_extensions(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path, ext: str
     ):
-        """Files that aren't PDF or Markdown must not be treated as manuals."""
+        """Files that aren't an allowed manual document must not count as manuals."""
         handler.base_path = tmp_path
         manual_dir = tmp_path / rom.fs_resources_path / "manual"
         manual_dir.mkdir(parents=True)

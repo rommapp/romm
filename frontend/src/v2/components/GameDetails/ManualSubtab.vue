@@ -25,6 +25,9 @@ const PdfViewer = defineAsyncComponent(
 const MarkdownViewer = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/MarkdownViewer.vue"),
 );
+const TextViewer = defineAsyncComponent(
+  () => import("@/v2/components/GameDetails/TextViewer.vue"),
+);
 
 function errorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
@@ -48,11 +51,16 @@ type ManualEntry = {
   label: string;
   url: string;
   isPrimary: boolean;
-  // Manuals can be PDF or Markdown; the viewer is picked by extension.
-  kind: "pdf" | "md";
+  // Manuals can be PDF, Markdown, or plain text; the viewer is picked by
+  // extension.
+  kind: "pdf" | "md" | "text";
 };
 
-const isMarkdown = (name: string) => /\.md$/i.test(name);
+const kindFor = (name: string): ManualEntry["kind"] => {
+  if (/\.md$/i.test(name)) return "md";
+  if (/\.(txt|html?|htm)$/i.test(name)) return "text";
+  return "pdf";
+};
 
 const manualEntries = computed<ManualEntry[]>(() => {
   const entries: ManualEntry[] = [];
@@ -63,7 +71,7 @@ const manualEntries = computed<ManualEntry[]>(() => {
       label: t("rom.scraped-manual"),
       url: `${FRONTEND_RESOURCES_PATH}/${props.rom.path_manual}?v=${cacheBust}`,
       isPrimary: true,
-      kind: isMarkdown(props.rom.path_manual) ? "md" : "pdf",
+      kind: kindFor(props.rom.path_manual),
     });
   }
   for (const file of props.rom.files ?? []) {
@@ -75,7 +83,7 @@ const manualEntries = computed<ManualEntry[]>(() => {
           file.file_name,
         )}?v=${cacheBust}`,
         isPrimary: false,
-        kind: isMarkdown(file.file_name) ? "md" : "pdf",
+        kind: kindFor(file.file_name),
       });
     }
   }
@@ -207,7 +215,7 @@ function requestDeleteManual() {
       :hint="t('common.dropzone-hint')"
       :active-title="t('common.dropzone-drag-over')"
       :input-label="t('rom.upload-manual')"
-      accept="application/pdf,.md"
+      accept="application/pdf,.md,.txt"
       multiple
       @files="handleManualFiles"
     >
@@ -231,7 +239,7 @@ function requestDeleteManual() {
       class="r-v2-manual__fill"
       :release-label="t('common.dropzone-drag-over')"
       :input-label="t('rom.upload-manual')"
-      accept="application/pdf,.md"
+      accept="application/pdf,.md,.txt"
       multiple
       @files="handleManualFiles"
     >
@@ -245,6 +253,13 @@ function requestDeleteManual() {
           :redownloading="redownloadingManual"
           @delete="requestDeleteManual"
           @redownload="redownloadManual"
+        />
+        <TextViewer
+          v-else-if="selectedManual.kind === 'text'"
+          :key="`${selectedManual.id}-${rom.updated_at}-txt`"
+          :url="selectedManual.url"
+          deletable
+          @delete="requestDeleteManual"
         />
         <PdfViewer
           v-else

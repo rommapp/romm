@@ -53,6 +53,8 @@ from models.rom import (
     RomFacets,
     RomFile,
     RomFileCategory,
+    RomFileDocMeta,
+    RomFileUser,
     RomMetadata,
     RomNote,
     RomUser,
@@ -310,6 +312,7 @@ def with_details(func):
             selectinload(Rom.files).options(
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
                 selectinload(RomFile.track_meta),
+                selectinload(RomFile.doc_meta),
             ),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
@@ -357,6 +360,7 @@ def with_simple_details(func):
             selectinload(Rom.files).options(
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
                 selectinload(RomFile.track_meta),
+                selectinload(RomFile.doc_meta),
             ),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
@@ -1936,7 +1940,7 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
-            .options(selectinload(RomFile.track_meta))
+            .options(selectinload(RomFile.track_meta), selectinload(RomFile.doc_meta))
             .filter_by(id=id)
             .limit(1)
         )
@@ -1972,7 +1976,7 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
-            .options(selectinload(RomFile.track_meta))
+            .options(selectinload(RomFile.track_meta), selectinload(RomFile.doc_meta))
             .filter_by(rom_id=rom_id, file_path=file_path, file_name=file_name)
             .limit(1)
         )
@@ -1988,7 +1992,9 @@ class DBRomsHandler(DBBaseHandler):
         return (
             session.scalars(
                 select(RomFile)
-                .options(selectinload(RomFile.track_meta))
+                .options(
+                    selectinload(RomFile.track_meta), selectinload(RomFile.doc_meta)
+                )
                 .filter_by(rom_id=rom_id, category=category)
                 .order_by(RomFile.file_name.asc())
             )
@@ -2056,6 +2062,69 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> None:
         session.execute(delete(TrackMeta).where(TrackMeta.rom_file_id == rom_file_id))
+
+    # ------------------------------------------------------- document metadata
+
+    @begin_session
+    def upsert_doc_meta(
+        self,
+        rom_file_id: int,
+        rom_id: int,
+        values: dict,
+        session: Session = None,  # type: ignore
+    ) -> RomFileDocMeta:
+        """Create or update the provenance sidecar for a document file."""
+        existing = session.get(RomFileDocMeta, rom_file_id)
+        if existing:
+            for key, val in values.items():
+                setattr(existing, key, val)
+            session.flush()
+            return existing
+
+        doc = RomFileDocMeta(rom_file_id=rom_file_id, rom_id=rom_id, **values)
+        session.add(doc)
+        session.flush()
+        return doc
+
+    # ------------------------------------------------ document reading progress
+
+    @begin_session
+    def get_rom_file_user(
+        self,
+        rom_file_id: int,
+        user_id: int,
+        session: Session = None,  # type: ignore
+    ) -> RomFileUser | None:
+        return session.scalar(
+            select(RomFileUser)
+            .filter_by(rom_file_id=rom_file_id, user_id=user_id)
+            .limit(1)
+        )
+
+    @begin_session
+    def upsert_rom_file_user(
+        self,
+        rom_file_id: int,
+        user_id: int,
+        values: dict,
+        session: Session = None,  # type: ignore
+    ) -> RomFileUser:
+        """Create or update a user's reading progress for a document file."""
+        existing = session.scalar(
+            select(RomFileUser)
+            .filter_by(rom_file_id=rom_file_id, user_id=user_id)
+            .limit(1)
+        )
+        if existing:
+            for key, val in values.items():
+                setattr(existing, key, val)
+            session.flush()
+            return existing
+
+        state = RomFileUser(rom_file_id=rom_file_id, user_id=user_id, **values)
+        session.add(state)
+        session.flush()
+        return state
 
     # ----------------------------------------------------------------- music
 
