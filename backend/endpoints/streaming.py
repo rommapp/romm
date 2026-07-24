@@ -1481,7 +1481,9 @@ def _summarize_memory_card(content: bytes) -> MemoryCardSummary:
                 if len(parts) >= 3 and info.filename.lower().endswith(".gci"):
                     codes.add(parts[1])
     except Exception:
-        return {"file_count": 0, "total_bytes": len(content), "game_codes": []}
+        # Unparseable: nothing describable, so report nothing rather than a
+        # file-less card that still claims a size.
+        return {"file_count": 0, "total_bytes": 0, "game_codes": []}
     return {
         "file_count": file_count,
         "total_bytes": total,
@@ -2147,17 +2149,15 @@ async def claim_session(
     # An absent or discarded card is recorded too, so the prompt fires once and
     # a card that shows up later is treated as the container's, not the user's.
     if _memory_card_sync_enabled(container) and adoption_undecided:
-        adopted = (
-            req.card_import == "adopt"
-            and adoption_content is not None
-            and memory_card is not None
-        )
+        # Resolved above or freshly created as a blank, never None on this path.
+        assert memory_card is not None
+        adopted = req.card_import == "adopt" and adoption_content is not None
         if adopted:
             stored = False
             try:
                 stored = await _store_memory_card_version(
                     request.user,
-                    memory_card,  # type: ignore[arg-type]
+                    memory_card,
                     _emulator_for_container(container),
                     adoption_content,  # type: ignore[arg-type]
                 )
@@ -2177,7 +2177,7 @@ async def claim_session(
                 # version is latest over the container card. Abort instead.
                 log.error(
                     "adopted memory card matched an existing version of card %d",
-                    memory_card.id,  # type: ignore[union-attr]
+                    memory_card.id,
                 )
                 await async_cache.delete(_session_redis_key(session_key))
                 if created_blank_card_id is not None:

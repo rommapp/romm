@@ -1,9 +1,14 @@
 from datetime import datetime
+from typing import Literal
 
 from sqlalchemy import TIMESTAMP, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import BaseModel
+
+# The only two decisions: the container's pre-existing card was imported, or
+# it was wiped. The single source of truth for both the column and its writers.
+AdoptionOutcome = Literal["adopt", "discard"]
 
 
 class StreamingContainerAdoption(BaseModel):
@@ -20,8 +25,7 @@ class StreamingContainerAdoption(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     container_key: Mapped[str] = mapped_column(String(length=512), unique=True)
-    # "adopt" when the card was imported, "discard" when it was wiped.
-    outcome: Mapped[str] = mapped_column(String(length=16))
+    outcome: Mapped[AdoptionOutcome] = mapped_column(String(length=16))
     decided_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

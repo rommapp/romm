@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
-from models.container_adoption import StreamingContainerAdoption
+from models.container_adoption import AdoptionOutcome, StreamingContainerAdoption
 
 from .base_handler import DBBaseHandler
 
@@ -16,16 +16,14 @@ class DBContainerAdoptionsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> StreamingContainerAdoption | None:
         return session.scalar(
-            select(StreamingContainerAdoption)
-            .filter_by(container_key=container_key)
-            .limit(1)
+            select(StreamingContainerAdoption).filter_by(container_key=container_key)
         )
 
     @begin_session
     def add_adoption(
         self,
         container_key: str,
-        outcome: str,
+        outcome: AdoptionOutcome,
         user_id: int,
         session: Session = None,  # type: ignore
     ) -> StreamingContainerAdoption | None:
