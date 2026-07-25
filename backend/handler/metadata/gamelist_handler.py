@@ -47,6 +47,7 @@ class GamelistMetadataMedia(TypedDict):
     manual_url: str | None
     marquee_url: str | None
     miximage_url: str | None
+    miximage_v2_url: str | None
     physical_url: str | None
     screenshot_url: str | None
     thumbnail_url: str | None
@@ -65,6 +66,7 @@ class GamelistMetadata(GamelistMetadataMedia):
     md5_hash: str | None
     box3d_path: str | None
     miximage_path: str | None
+    miximage_v2_path: str | None
     physical_path: str | None
     marquee_path: str | None
     video_path: str | None
@@ -86,6 +88,7 @@ ESDE_MEDIA_MAP: Final = {
     "manual_url": "manuals",
     "marquee_url": "marquees",
     "miximage_url": "miximages",
+    "miximage_v2_url": "miximages_v2",
     "physical_url": "physicalmedia",
     "screenshot_url": "screenshots",
     "title_screen_url": "titlescreens",
@@ -102,6 +105,7 @@ XML_TAG_MAP: Final = {
     "manual_url": "manual",
     "marquee_url": "marquee",
     "miximage_url": "miximage",
+    "miximage_v2_url": "miximage_v2",
     "physical_url": "physicalmedia",
     "screenshot_url": "screenshot",
     "title_screen_url": "title_screen",
@@ -142,6 +146,7 @@ def extract_media_from_gamelist_rom(
         manual_url=None,
         marquee_url=None,
         miximage_url=None,
+        miximage_v2_url=None,
         physical_url=None,
         screenshot_url=None,
         title_screen_url=None,
@@ -241,6 +246,7 @@ def extract_metadata_from_gamelist_rom(
         md5_hash=md5,
         box3d_path=None,
         miximage_path=None,
+        miximage_v2_path=None,
         physical_path=None,
         marquee_path=None,
         video_path=None,
@@ -275,6 +281,12 @@ def populate_rom_specific_paths(
     ):
         updated_metadata["miximage_path"] = (
             f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE)}/miximage.png"
+        )
+    if MetadataMediaType.MIXIMAGE_V2 in preferred_media_types and rom_metadata.get(
+        "miximage_v2_url"
+    ):
+        updated_metadata["miximage_v2_path"] = (
+            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE_V2)}/miximage_v2.png"
         )
     if MetadataMediaType.PHYSICAL in preferred_media_types and rom_metadata.get(
         "physical_url"

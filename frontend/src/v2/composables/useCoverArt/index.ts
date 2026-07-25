@@ -103,11 +103,7 @@ export function altArtPath(
   style: BoxartStyle,
 ): string | null {
   if (style === "cover_path") return null;
-  // miximage_v2 is ScreenScraper-only; the gamelist schema has no such key.
-  if (style === "miximage_v2_path") {
-    return rom.ss_metadata?.miximage_v2_path ?? null;
-  }
-  const key = style satisfies Exclude<AltBoxartStyle, "miximage_v2_path">;
+  const key = style satisfies AltBoxartStyle;
   return rom.ss_metadata?.[key] ?? rom.gamelist_metadata?.[key] ?? null;
 }
 

@@ -75,9 +75,6 @@ export function useGameAnimation({
       boxartStyle.value === "cover_path"
     )
       return null;
-    // miximage_v2 is ScreenScraper-only; the gamelist schema has no such key.
-    if (boxartStyle.value === "miximage_v2_path")
-      return rom.ss_metadata?.miximage_v2_path;
     const ssMedia = rom.ss_metadata?.[boxartStyle.value];
     const gamelistMedia = rom.gamelist_metadata?.[boxartStyle.value];
     return ssMedia || gamelistMedia;
