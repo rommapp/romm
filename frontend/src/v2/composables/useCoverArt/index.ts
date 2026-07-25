@@ -9,8 +9,10 @@
 // consistent.
 //
 // The `boxartStyle` user preference (gallery-wide) picks WHICH artwork a
-// card shows and therefore its canonical aspect ratio — the four ratios
-// map to known artwork sources:
+// card shows and therefore its canonical aspect ratio. The details page
+// and the play pages can override it per-context ("inherit" falls back
+// to the gallery style) — see `useBoxartStyle`. The four ratios map to
+// known artwork sources:
 //   * cover_path    → 2/3   box art       (object-fit: cover)
 //   * box3d_path    → 3/4   3D box render (object-fit: contain)
 //   * physical_path → 1/1   disc/cartridge (contain; CD spins, cart drops)
@@ -41,6 +43,10 @@ import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 export type BoxartStyle =
   "cover_path" | "box3d_path" | "physical_path" | "miximage_path";
+
+/** The surface a cover renders on. Gallery is the default; details and
+ *  player surfaces can carry their own boxart-style override. */
+export type BoxartContext = "gallery" | "details" | "player";
 
 /** Styles that resolve to an alternative artwork on the rom's metadata
  *  (everything except the default box art). These literals are exactly
@@ -85,6 +91,39 @@ export function isBoxartStyle(value: unknown): value is BoxartStyle {
 
 export function coverRatio(style: BoxartStyle): number {
   return COVER_RATIOS[style];
+}
+
+/** Pure per-context style resolution: the surface's override when it is
+ *  a real style ("inherit" / unknown values fall through), else the
+ *  gallery-wide preference, else the default box art. */
+export function resolveBoxartStyle(
+  context: BoxartContext,
+  prefs: { gallery: unknown; details: unknown; player: unknown },
+): BoxartStyle {
+  const override =
+    context === "details"
+      ? prefs.details
+      : context === "player"
+        ? prefs.player
+        : null;
+  if (isBoxartStyle(override)) return override;
+  return isBoxartStyle(prefs.gallery) ? prefs.gallery : "cover_path";
+}
+
+/** Resolved boxart style for a surface: the per-context user override
+ *  when set, else the gallery-wide `boxartStyle` preference. */
+export function useBoxartStyle(
+  context: MaybeRefOrGetter<BoxartContext | undefined> = "gallery",
+): ComputedRef<BoxartStyle> {
+  const { boxartStyle, boxartStyleDetails, boxartStylePlayer } =
+    useUISettings();
+  return computed(() =>
+    resolveBoxartStyle(toValue(context) ?? "gallery", {
+      gallery: boxartStyle.value,
+      details: boxartStyleDetails.value,
+      player: boxartStylePlayer.value,
+    }),
+  );
 }
 
 /** Relative metadata path for an alt-art style, preferring ScreenScraper
@@ -189,6 +228,10 @@ export interface UseCoverArtOptions {
   /** Override the gallery-wide `boxartStyle` preference (stories,
    *  pickers that always show box art). */
   forceStyle?: MaybeRefOrGetter<BoxartStyle>;
+  /** The surface this cover renders on — resolves the per-context
+   *  boxart-style override (details / play pages). Defaults to the
+   *  gallery-wide preference. `forceStyle` still wins. */
+  context?: MaybeRefOrGetter<BoxartContext | undefined>;
   /** Explicit cover URL — see {@link ComputeOptions.coverSrc}. When set
    *  without an explicit `forceStyle`, the style resolves to `cover_path`
    *  so preview blobs / external provider URLs render as plain box art
@@ -220,7 +263,8 @@ export function useCoverArt(
   rom: MaybeRefOrGetter<CoverArtRom | null | undefined>,
   options: UseCoverArtOptions = {},
 ): UseCoverArt {
-  const { boxartStyle, disableAnimations } = useUISettings();
+  const { disableAnimations } = useUISettings();
+  const contextStyle = useBoxartStyle(options.context);
   const { supportsWebp } = useWebpSupport();
 
   const coverSrc = computed<string | undefined>(() => {
@@ -236,7 +280,7 @@ export function useCoverArt(
     // An explicit override URL is a plain cover (preview / provider art),
     // not an alt-art style — present it as box art.
     if (coverSrc.value != null) return "cover_path";
-    return isBoxartStyle(boxartStyle.value) ? boxartStyle.value : "cover_path";
+    return contextStyle.value;
   });
 
   const effectiveWebp = computed<boolean>(() => {

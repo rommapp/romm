@@ -5,6 +5,7 @@ import {
   computeCoverArt,
   coverRatio,
   isBoxartStyle,
+  resolveBoxartStyle,
 } from "./index";
 
 const RES = "/assets/romm/resources";
@@ -45,6 +46,38 @@ describe("coverRatio", () => {
     expect(coverRatio("box3d_path")).toBeCloseTo(3 / 4);
     expect(coverRatio("physical_path")).toBe(1);
     expect(coverRatio("miximage_path")).toBe(1);
+  });
+});
+
+describe("resolveBoxartStyle", () => {
+  const prefs = {
+    gallery: "miximage_path",
+    details: "box3d_path",
+    player: "physical_path",
+  };
+  it("uses the per-context override for details and player", () => {
+    expect(resolveBoxartStyle("details", prefs)).toBe("box3d_path");
+    expect(resolveBoxartStyle("player", prefs)).toBe("physical_path");
+  });
+  it("uses the gallery preference for the gallery context", () => {
+    expect(resolveBoxartStyle("gallery", prefs)).toBe("miximage_path");
+  });
+  it("falls back to the gallery preference when the override is inherit", () => {
+    expect(
+      resolveBoxartStyle("details", { ...prefs, details: "inherit" }),
+    ).toBe("miximage_path");
+    expect(resolveBoxartStyle("player", { ...prefs, player: undefined })).toBe(
+      "miximage_path",
+    );
+  });
+  it("falls back to cover_path when nothing valid is set", () => {
+    expect(
+      resolveBoxartStyle("player", {
+        gallery: "bogus",
+        details: null,
+        player: "inherit",
+      }),
+    ).toBe("cover_path");
   });
 });
 

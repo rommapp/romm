@@ -26,6 +26,7 @@ import { revealedCoverSrcs } from "@/v2/components/shared/coverReveal";
 import { useCoverAnimation } from "@/v2/composables/useCoverAnimation";
 import {
   useCoverArt,
+  type BoxartContext,
   type BoxartStyle,
   type CoverArtRom,
 } from "@/v2/composables/useCoverArt";
@@ -52,6 +53,9 @@ interface Props {
   coverSrc?: string | null;
   /** Force a specific boxart style (defaults to the gallery preference). */
   forceStyle?: BoxartStyle;
+  /** The surface this cover renders on — picks up the per-context
+   *  boxart-style override (details / play pages). */
+  styleContext?: BoxartContext;
   /** Webp override; falls back to `useWebpSupport`. */
   webp?: boolean;
   /** External hover/focus state → drives spin + hover video. The surface
@@ -79,6 +83,7 @@ const props = withDefaults(defineProps<Props>(), {
   identified: true,
   coverSrc: undefined,
   forceStyle: undefined,
+  styleContext: undefined,
   webp: undefined,
   active: false,
   hoverMotion: false,
@@ -97,6 +102,7 @@ const art = useCoverArt(() => props.rom, {
   forceStyle: props.forceStyle
     ? () => props.forceStyle as BoxartStyle
     : undefined,
+  context: () => props.styleContext,
   webp: () => props.webp,
 });
 

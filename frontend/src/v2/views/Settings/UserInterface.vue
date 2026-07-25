@@ -5,7 +5,8 @@
 //   1. Language          (RSelect — prefix-label)
 //   2. Theme             (3-button compact picker)
 //   3. Home              (toggle grid)
-//   4. Gallery           (toggle grid + boxart RSelect prefix-label)
+//   4. Gallery           (toggle grid + boxart RSelect prefix-label +
+//                         advanced per-page boxart overrides)
 //   5. Gameplay          (launch-confirmation toggle)
 //   6. Virtual collections (single toggle + RSelect prefix-label)
 //   7. UI version        (v2-only, beta — kept last)
@@ -13,7 +14,7 @@
 // The v1 "Platforms drawer" section was removed (no equivalent in v2).
 // `useUISettings` still exposes `platformsGroupBy` for v1 — we just
 // don't surface it here.
-import { RIcon, RSelect, RSliderBtnGroup, RChip } from "@v2/lib";
+import { RBtn, RIcon, RSelect, RSliderBtnGroup, RChip } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
@@ -58,6 +59,8 @@ const {
   disableAnimations,
   enableExperimentalCache,
   boxartStyle,
+  boxartStyleDetails,
+  boxartStylePlayer,
   // Gameplay
   confirmProtectedLaunch,
 } = useUISettings();
@@ -127,6 +130,20 @@ const boxartStyleItems = computed(() => [
   { title: t("settings.boxart-physical"), value: "physical_path" },
   { title: t("settings.boxart-miximage"), value: "miximage_path" },
 ]);
+
+// Per-page overrides add an "inherit" item so the gallery style stays
+// the single default until the user opts a page out of it (#3943).
+const boxartOverrideItems = computed(() => [
+  { title: t("settings.boxart-inherit"), value: "inherit" },
+  ...boxartStyleItems.value,
+]);
+
+// Open the disclosure when an override is already active so the
+// non-default state is visible at a glance.
+const showAdvancedBoxart = ref(
+  boxartStyleDetails.value !== "inherit" ||
+    boxartStylePlayer.value !== "inherit",
+);
 
 const libraryStatsModeItems = computed(() => [
   {
@@ -341,6 +358,45 @@ function onVirtualCollectionTypeChange(value: unknown) {
             {{ t("settings.boxart-style") }}
           </template>
         </RSelect>
+        <RBtn
+          variant="text"
+          size="small"
+          :prepend-icon="
+            showAdvancedBoxart ? 'mdi-chevron-down' : 'mdi-chevron-right'
+          "
+          :aria-expanded="showAdvancedBoxart"
+          class="r-v2-ui__advanced-toggle"
+          @click="showAdvancedBoxart = !showAdvancedBoxart"
+        >
+          {{ t("settings.boxart-advanced") }}
+        </RBtn>
+        <template v-if="showAdvancedBoxart">
+          <p class="r-v2-ui__desc">
+            {{ t("settings.boxart-advanced-desc") }}
+          </p>
+          <RSelect
+            v-model="boxartStyleDetails"
+            :items="boxartOverrideItems"
+            prefix-label="stacked"
+            hide-details
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-card-text-outline" size="14" />
+              {{ t("settings.boxart-style-details") }}
+            </template>
+          </RSelect>
+          <RSelect
+            v-model="boxartStylePlayer"
+            :items="boxartOverrideItems"
+            prefix-label="stacked"
+            hide-details
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-play-box-outline" size="14" />
+              {{ t("settings.boxart-style-player") }}
+            </template>
+          </RSelect>
+        </template>
       </div>
     </SettingsSection>
 
@@ -450,6 +506,10 @@ function onVirtualCollectionTypeChange(value: unknown) {
 }
 .r-v2-ui__field--bordered {
   border-top: 1px solid var(--r-color-border);
+}
+
+.r-v2-ui__advanced-toggle {
+  align-self: flex-start;
 }
 
 .r-v2-ui__desc {

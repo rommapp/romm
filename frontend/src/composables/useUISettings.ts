@@ -79,6 +79,16 @@ export const UI_SETTINGS_KEYS = {
     default: false,
   },
   boxartStyle: { key: "settings.boxartStyle", default: "cover_path" },
+  // Per-page boxart overrides. "inherit" falls back to `boxartStyle`,
+  // so the gallery-wide style stays the single default.
+  boxartStyleDetails: {
+    key: "settings.boxartStyleDetails",
+    default: "inherit",
+  },
+  boxartStylePlayer: {
+    key: "settings.boxartStylePlayer",
+    default: "inherit",
+  },
 
   // Gameplay
   confirmProtectedLaunch: {
