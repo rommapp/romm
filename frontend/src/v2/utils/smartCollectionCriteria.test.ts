@@ -20,6 +20,8 @@ function emptySnapshot(): GalleryFilterSnapshot {
     filterDuplicates: null,
     filterPlayables: null,
     filterRA: null,
+    filterSaves: null,
+    filterStates: null,
     filterSoundtrack: null,
     filterMissing: null,
     filterVerified: null,
@@ -129,5 +131,59 @@ describe("buildSmartFilterCriteria — soundtrack", () => {
     expect(rows).toContainEqual(
       expect.objectContaining({ key: "has_soundtrack" }),
     );
+  });
+});
+
+describe("buildSmartFilterCriteria — saves and states", () => {
+  it("serializes the saves and states filters", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      filterSaves: true,
+      filterStates: true,
+    });
+
+    expect(out.has_saves).toBe(true);
+    expect(out.has_states).toBe(true);
+  });
+
+  it("surfaces saves and states in the human-readable summary", () => {
+    const rows = summarizeSmartFilterCriteria(
+      { has_saves: true, has_states: true },
+      tStub,
+    );
+
+    expect(rows).toContainEqual(expect.objectContaining({ key: "has_saves" }));
+    expect(rows).toContainEqual(expect.objectContaining({ key: "has_states" }));
+  });
+});
+
+describe("buildSmartFilterCriteria — negative tri-state filters", () => {
+  it("serializes `false` states instead of dropping them", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      filterMatched: false,
+      filterSaves: false,
+    });
+
+    expect(out.matched).toBe(false);
+    expect(out.has_saves).toBe(false);
+  });
+
+  it("omits tri-state keys only when the filter is unset (null)", () => {
+    const out = buildSmartFilterCriteria(emptySnapshot());
+
+    expect(out.matched).toBeUndefined();
+    expect(out.favorite).toBeUndefined();
+    expect(out.has_saves).toBeUndefined();
+    expect(out.has_states).toBeUndefined();
+    expect(out.has_soundtrack).toBeUndefined();
+  });
+
+  it("renders `false` values with their negative label in the summary", () => {
+    const rows = summarizeSmartFilterCriteria({ matched: false }, tStub);
+
+    const row = rows.find((r) => r.key === "matched");
+    expect(row).toBeDefined();
+    expect(row?.label).toBe("Show unmatched");
   });
 });

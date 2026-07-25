@@ -192,6 +192,39 @@ def _sync(rom: Rom, scanned: list[RomFile]) -> list[RomFile]:
     return db_rom_handler.sync_rom_files(rom.id, scanned).files
 
 
+class TestHasSoundtrackFilter:
+    """Smart collections resolve their criteria through `get_roms_scalar`, so
+    it must forward has_soundtrack to filter_roms like the other flags."""
+
+    def _with_soundtrack(self, rom: Rom) -> None:
+        _sync(
+            rom,
+            [_scanned_file(rom, "track01.flac", category=RomFileCategory.SOUNDTRACK)],
+        )
+
+    def test_has_soundtrack_true_matches_only_roms_with_tracks(
+        self, rom: Rom, platform: Platform
+    ):
+        other = db_rom_handler.add_rom(_make_rom(platform, "No Music.gba"))
+        self._with_soundtrack(rom)
+
+        ids = {r.id for r in db_rom_handler.get_roms_scalar(has_soundtrack=True)}
+
+        assert rom.id in ids
+        assert other.id not in ids
+
+    def test_has_soundtrack_false_excludes_roms_with_tracks(
+        self, rom: Rom, platform: Platform
+    ):
+        other = db_rom_handler.add_rom(_make_rom(platform, "No Music.gba"))
+        self._with_soundtrack(rom)
+
+        ids = {r.id for r in db_rom_handler.get_roms_scalar(has_soundtrack=False)}
+
+        assert rom.id not in ids
+        assert other.id in ids
+
+
 class TestSyncRomFiles:
     """A rescan reconciles the file rows in place, so ids survive it. Anything
     keyed on a file id (track metadata, persisted soundtrack covers) stays
