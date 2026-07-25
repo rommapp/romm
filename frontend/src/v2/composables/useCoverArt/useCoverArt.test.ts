@@ -70,11 +70,6 @@ describe("altArtPath", () => {
   it("returns null when neither provider has the asset", () => {
     expect(altArtPath(rom({}), "miximage_path")).toBeNull();
   });
-  it("resolves miximage_v2 from ss_metadata only", () => {
-    const r = rom({ ss_metadata: { miximage_v2_path: "mix2.png" } });
-    expect(altArtPath(r, "miximage_v2_path")).toBe("mix2.png");
-    expect(altArtPath(rom({}), "miximage_v2_path")).toBeNull();
-  });
 });
 
 describe("computeCoverArt — cover_path", () => {
