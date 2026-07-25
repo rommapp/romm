@@ -25,6 +25,7 @@ import CoverPlaceholder from "@/v2/components/shared/CoverPlaceholder.vue";
 import { revealedCoverSrcs } from "@/v2/components/shared/coverReveal";
 import { useCoverAnimation } from "@/v2/composables/useCoverAnimation";
 import {
+  useBoxartStyle,
   useCoverArt,
   type BoxartContext,
   type BoxartStyle,
@@ -133,12 +134,21 @@ const activeSrc = computed(() =>
   showFallback.value ? art.fallbackUrl.value : art.coverUrl.value,
 );
 // Rom id to key the measured ratio under — but ONLY when this is the rom's
-// own cover. With a `coverSrc` override (the cover shows a screenshot /
-// marquee / preview blob instead) the measured ratio belongs to that image,
-// not the rom's cover, so it must not land on the shared rom-id key the
-// gallery flow-packer reads (it stays keyed by URL only). The morph still
+// own cover in the gallery's artwork style. With a `coverSrc` override (the
+// cover shows a screenshot / marquee / preview blob instead) the measured
+// ratio belongs to that image, not the rom's cover. And when this surface
+// resolves a different boxart style (per-context override or `forceStyle`),
+// its image has a different shape than the gallery's — seeding from the
+// rom-id entry would paint the wrong ratio until load, and storing to it
+// would corrupt the gallery packer's row heights and the back-nav morph
+// seed. In both cases the ratio stays keyed by URL only. The morph still
 // uses `props.morphId` directly — unaffected.
-const ratioRomId = computed(() => (props.coverSrc ? null : props.morphId));
+const galleryStyle = useBoxartStyle("gallery");
+const ratioRomId = computed(() =>
+  props.coverSrc || art.style.value !== galleryStyle.value
+    ? null
+    : props.morphId,
+);
 // Natural ratio (w / h) of the rendered image. Seeded from the shared
 // by-URL cache so a cover measured elsewhere (e.g. the gallery card the
 // user just clicked) renders at its true shape immediately — no stretch
