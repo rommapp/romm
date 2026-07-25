@@ -1360,6 +1360,7 @@ class DBRomsHandler(DBBaseHandler):
             has_ra=kwargs.get("has_ra", None),
             has_saves=kwargs.get("has_saves", None),
             has_states=kwargs.get("has_states", None),
+            has_soundtrack=kwargs.get("has_soundtrack", None),
             missing=kwargs.get("missing", None),
             verified=kwargs.get("verified", None),
             genres=kwargs.get("genres", None),

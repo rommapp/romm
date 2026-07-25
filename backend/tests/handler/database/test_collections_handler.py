@@ -179,6 +179,68 @@ def test_get_smart_collection_roms_passes_metadata_providers(admin_user: User, m
     assert get_roms_scalar.call_args.kwargs["metadata_providers_logic"] == "all"
 
 
+def test_get_smart_collection_roms_passes_asset_and_soundtrack_filters(
+    admin_user: User, mocker
+):
+    get_roms_scalar = mocker.patch("handler.database.db_rom_handler.get_roms_scalar")
+    smart_collection = SmartCollection(
+        name="Games with saves and music",
+        description="",
+        user_id=admin_user.id,
+        filter_criteria={
+            "has_saves": True,
+            "has_states": True,
+            "has_soundtrack": True,
+        },
+    )
+
+    db_collection_handler.get_smart_collection_roms(
+        smart_collection, user_id=admin_user.id
+    )
+
+    assert get_roms_scalar.call_args.kwargs["has_saves"] is True
+    assert get_roms_scalar.call_args.kwargs["has_states"] is True
+    assert get_roms_scalar.call_args.kwargs["has_soundtrack"] is True
+
+
+def test_get_smart_collection_roms_passes_negative_boolean_filters(
+    admin_user: User, mocker
+):
+    get_roms_scalar = mocker.patch("handler.database.db_rom_handler.get_roms_scalar")
+    smart_collection = SmartCollection(
+        name="Unmatched games",
+        description="",
+        user_id=admin_user.id,
+        filter_criteria={"matched": False},
+    )
+
+    db_collection_handler.get_smart_collection_roms(
+        smart_collection, user_id=admin_user.id
+    )
+
+    assert get_roms_scalar.call_args.kwargs["matched"] is False
+
+
+def test_get_smart_collection_roms_passes_player_counts(admin_user: User, mocker):
+    get_roms_scalar = mocker.patch("handler.database.db_rom_handler.get_roms_scalar")
+    smart_collection = SmartCollection(
+        name="Multiplayer games",
+        description="",
+        user_id=admin_user.id,
+        filter_criteria={
+            "player_counts": ["2", "4"],
+            "player_counts_logic": "any",
+        },
+    )
+
+    db_collection_handler.get_smart_collection_roms(
+        smart_collection, user_id=admin_user.id
+    )
+
+    assert get_roms_scalar.call_args.kwargs["player_counts"] == ["2", "4"]
+    assert get_roms_scalar.call_args.kwargs["player_counts_logic"] == "any"
+
+
 def test_get_smart_collection_roms_passes_tags(admin_user: User, mocker):
     get_roms_scalar = mocker.patch("handler.database.db_rom_handler.get_roms_scalar")
     smart_collection = SmartCollection(
