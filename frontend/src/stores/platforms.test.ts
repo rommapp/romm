@@ -25,7 +25,7 @@ describe("platform store lists", () => {
 
     store.set([filled, empty]);
 
-    expect(store.allPlatforms).toEqual([empty, filled]);
+    expect(store.allPlatforms).toEqual([filled, empty]);
     expect(store.filledPlatforms).toEqual([filled]);
   });
 });

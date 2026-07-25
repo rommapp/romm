@@ -1,3 +1,4 @@
+/* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,7 +13,7 @@ vi.mock("vue-i18n", () => ({
 vi.mock("@v2/lib", () => ({
   RDivider: defineComponent({ template: "<hr />" }),
   RLetterHeading: defineComponent({
-    props: ["label"],
+    props: { label: { type: String, default: "" } },
     template: "<h2>{{ label }}</h2>",
   }),
   RSkeletonBlock: defineComponent({ template: "<div />" }),
@@ -28,7 +29,10 @@ vi.mock("@/v2/components/Platforms/PlatformListHeader.vue", () => ({
 
 vi.mock("@/v2/components/Platforms/PlatformListRow.vue", () => ({
   default: defineComponent({
-    props: ["displayName", "romCount"],
+    props: {
+      displayName: { type: String, default: "" },
+      romCount: { type: Number, default: 0 },
+    },
     template:
       '<div class="platform-row">{{ displayName }} {{ romCount }}</div>',
   }),
@@ -36,7 +40,10 @@ vi.mock("@/v2/components/Platforms/PlatformListRow.vue", () => ({
 
 vi.mock("@/v2/components/Platforms/PlatformTile.vue", () => ({
   default: defineComponent({
-    props: ["displayName", "romCount"],
+    props: {
+      displayName: { type: String, default: "" },
+      romCount: { type: Number, default: 0 },
+    },
     template:
       '<div class="platform-tile">{{ displayName }} {{ romCount }}</div>',
   }),
@@ -44,7 +51,7 @@ vi.mock("@/v2/components/Platforms/PlatformTile.vue", () => ({
 
 vi.mock("@/v2/components/shared/EmptyState.vue", () => ({
   default: defineComponent({
-    props: ["message"],
+    props: { message: { type: String, default: "" } },
     template: '<div class="empty-state">{{ message }}</div>',
   }),
 }));
@@ -58,7 +65,10 @@ vi.mock("@/v2/components/shared/IndexShell.vue", () => ({
 
 vi.mock("@/v2/components/shared/PageHeader.vue", () => ({
   default: defineComponent({
-    props: ["title", "count"],
+    props: {
+      title: { type: String, default: "" },
+      count: { type: Number, default: 0 },
+    },
     template: "<header>{{ title }} {{ count }}</header>",
   }),
 }));
