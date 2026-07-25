@@ -30,6 +30,7 @@ import {
   loadEmulatorJSSave,
   loadEmulatorJSState,
   invalidateEmulatorJSRomCacheIfRenamed,
+  installEJSDefaultOptionsTrap,
   createQuickLoadButton,
   createSaveQuitButton,
   createExitEmulationButton,
@@ -156,7 +157,7 @@ window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
   exitEmulation: false,
 };
-const coreOptions = configStore.getEJSCoreOptions(props.core);
+const coreOptions = configStore.getEJSCoreOptions(window.EJS_core);
 window.EJS_defaultOptions = {
   // Force saving saves and states to the browser
   "save-state-location": "browser",
@@ -189,6 +190,8 @@ window.EJS_DEBUG_XX = EJS_DEBUG;
 window.EJS_disableAutoUnload = EJS_DISABLE_AUTO_UNLOAD;
 window.EJS_disableBatchBootup = EJS_DISABLE_BATCH_BOOTUP;
 if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
+
+installEJSDefaultOptionsTrap();
 
 onMounted(() => {
   window.scrollTo(0, 0);
@@ -388,36 +391,6 @@ window.EJS_onGameStart = async () => {
   // global hotkeys). Callers flag this at launch too, but taking it from the
   // emulator's own start hook keeps the flag true for any entry point.
   playing.value = true;
-
-  // Patch the instance so unsaved keys still fall back to config defaults.
-  const originalPreGetSetting = window.EJS_emulator?.preGetSetting.bind(
-    window.EJS_emulator,
-  );
-  if (window.EJS_emulator) {
-    window.EJS_emulator.preGetSetting = (setting: string) => {
-      const value = originalPreGetSetting(setting);
-      if (value !== undefined && value !== null) return value;
-      const defaults = window.EJS_emulator.config?.defaultOptions ?? {};
-      return defaults[setting] !== undefined ? defaults[setting] : null;
-    };
-
-    window.EJS_emulator.rewindEnabled =
-      window.EJS_emulator.preGetSetting("rewindEnabled") === "enabled";
-
-    if (![0, 1, 2, 3].includes(window.EJS_emulator.config?.videoRotation)) {
-      window.EJS_emulator.videoRotation =
-        window.EJS_emulator.preGetSetting("videoRotation") || 0;
-    }
-
-    const webgl2Setting = window.EJS_emulator.preGetSetting("webgl2Enabled");
-    if (webgl2Setting === "disabled" || !window.EJS_emulator.supportsWebgl2) {
-      window.EJS_emulator.webgl2Enabled = false;
-    } else if (webgl2Setting === "enabled") {
-      window.EJS_emulator.webgl2Enabled = true;
-    } else {
-      window.EJS_emulator.webgl2Enabled = null;
-    }
-  }
 
   // Install netplay overrides synchronously, before any await below, so they
   // are in place before room polling or a Create/Join action can start.

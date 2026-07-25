@@ -168,6 +168,87 @@ export function invalidateEmulatorJSRomCacheIfRenamed(rom: {
   localStorage.setItem(fsNameStorageKey, rom.fs_name);
 }
 
+// EmulatorJS drops the config.yaml defaults (EJS_defaultOptions) in two spots:
+// - preGetSetting short-circuits to the saved-settings localStorage object
+//   once ANY setting or control was changed, returning undefined for keys the
+//   user never touched (webgl2Enabled, vsync, shader, ...).
+// - getCoreSettings builds the RetroArch core options file, but returns ""
+//   when localStorage is enabled and holds no saved entry yet, so on a fresh
+//   launch core options (e.g. mupen64plus-FXAA) never reach the core.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function installDefaultOptionsFallback(emulator: any) {
+  if (emulator.__rommSettingsPatched) return;
+  emulator.__rommSettingsPatched = true;
+
+  const originalPreGetSetting = emulator.preGetSetting.bind(emulator);
+  emulator.preGetSetting = (setting: string) => {
+    const value = originalPreGetSetting(setting);
+    if (value !== undefined && value !== null) return value;
+    const defaults = emulator.config?.defaultOptions ?? {};
+    return defaults[setting] !== undefined ? defaults[setting] : null;
+  };
+
+  emulator.getCoreSettings = () => {
+    const defaults: Record<string, unknown> =
+      emulator.config?.defaultOptions ?? {};
+    let saved: Record<string, unknown> = {};
+    if (window.localStorage && !emulator.config?.disableLocalStorage) {
+      try {
+        const raw = localStorage.getItem(emulator.getLocalStorageKey());
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (parsed?.settings instanceof Object) saved = parsed.settings;
+      } catch (error) {
+        console.warn("Could not load previous settings", error);
+      }
+    }
+    const merged = { ...defaults, ...saved };
+    let output = "";
+    for (const key in merged) {
+      const value = merged[key];
+      // Match upstream formatting: numeric values unquoted, strings quoted.
+      const formatted = Number.isNaN(Number(value)) ? `"${value}"` : value;
+      output += `${key} = ${formatted}\n`;
+    }
+    return output;
+  };
+
+  // Recompute the values the constructor captured via the unpatched
+  // preGetSetting. They are consumed after this point: rewindEnabled when
+  // GameManager writes retroarch.cfg, webgl2Enabled when the core variant is
+  // picked during download, videoRotation on the first resize.
+  emulator.rewindEnabled =
+    emulator.preGetSetting("rewindEnabled") === "enabled";
+  if (![0, 1, 2, 3].includes(emulator.config?.videoRotation)) {
+    emulator.videoRotation = emulator.preGetSetting("videoRotation") || 0;
+  }
+  const webgl2Setting = emulator.preGetSetting("webgl2Enabled");
+  if (webgl2Setting === "disabled" || !emulator.supportsWebgl2) {
+    emulator.webgl2Enabled = false;
+  } else if (webgl2Setting === "enabled") {
+    emulator.webgl2Enabled = true;
+  } else {
+    emulator.webgl2Enabled = null;
+  }
+}
+
+// Trap the window.EJS_emulator assignment so the instance is patched right
+// after the constructor returns, before the async core download and boot
+// consume any of the patched values. Patching later (e.g. in EJS_onGameStart)
+// is too late: by then the GL context exists, retroarch.cfg and the core
+// options file are written, and saved settings were already applied.
+export function installEJSDefaultOptionsTrap() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let instance: any;
+  Object.defineProperty(window, "EJS_emulator", {
+    configurable: true,
+    get: () => instance,
+    set: (value) => {
+      instance = value;
+      if (value) installDefaultOptionsFallback(value);
+    },
+  });
+}
+
 const IOS_FULLSCREEN_NAV_SELECTOR =
   ".v-app-bar, .v-bottom-navigation, .v-navigation-drawer";
 const IOS_FULLSCREEN_STYLE = `
