@@ -28,7 +28,9 @@ import type {
 } from "@/__generated__";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
-import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
+import CollectionTile, {
+  type Kind,
+} from "@/v2/components/Collections/CollectionTile.vue";
 import AgeRatingBadges from "@/v2/components/GameDetails/AgeRatingBadges.vue";
 import HLTBStrip from "@/v2/components/GameDetails/HLTBStrip.vue";
 import type { InfoGridSection } from "@/v2/components/GameDetails/InfoGrid.vue";
@@ -77,11 +79,13 @@ const hasHltb = computed(() => {
   );
 });
 
-// Enrich the slim `{ id, name }` user_collections payload from the
-// ROM with the full Collection record (cover paths, rom_count) the
-// store already holds — so we can render real CollectionTile mosaics
-// instead of stripped chips. Falls back to a bare entry if the store
-// is empty (e.g. deep-link before the AppLayout fetch resolves).
+// Enrich the slim `{ id, name, is_smart }` user_collections payload from
+// the ROM with the full record (cover paths, rom_count) the store already
+// holds — so we can render real CollectionTile mosaics instead of stripped
+// chips. Smart collections (#3934) resolve from their own store slice and
+// route, and carry the "smart" kind so the tile shows its flash badge.
+// Falls back to a bare entry if the store is empty (e.g. deep-link before
+// the AppLayout fetch resolves).
 const { t } = useI18n();
 const collectionsStore = storeCollections();
 const { toWebp } = useWebpSupport();
@@ -95,21 +99,28 @@ const videos = computed(() =>
 
 type CollectionTileEntry = {
   id: number;
+  key: string;
   name: string;
   rom_count: number;
   covers: string[];
   link: string;
+  kind: Kind;
 };
 
 const userCollectionTiles = computed<CollectionTileEntry[]>(() =>
   props.userCollections.map((c) => {
-    const full = collectionsStore.getCollection(c.id);
+    const full = c.is_smart
+      ? collectionsStore.getSmartCollection(c.id)
+      : collectionsStore.getCollection(c.id);
+
     return {
       id: c.id,
+      key: c.is_smart ? `smart-${c.id}` : `regular-${c.id}`,
       name: full?.name ?? c.name,
       rom_count: full?.rom_count ?? 0,
       covers: full ? collectionCoverList(full, toWebp) : [],
-      link: `/collection/${c.id}`,
+      link: c.is_smart ? `/collection/smart/${c.id}` : `/collection/${c.id}`,
+      kind: c.is_smart ? "smart" : "regular",
     };
   }),
 );
@@ -214,12 +225,12 @@ const coverSource = computed(() => {
           <CollectionTile
             v-for="c in userCollectionTiles"
             :id="c.id"
-            :key="c.id"
+            :key="c.key"
             :to="c.link"
             :name="c.name"
             :rom-count="c.rom_count"
             :covers="c.covers"
-            kind="regular"
+            :kind="c.kind"
             variant="row"
           />
         </div>

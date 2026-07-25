@@ -25,7 +25,7 @@ from handler.metadata.launchbox_handler.types import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
-from models.collection import Collection
+from models.collection import Collection, SmartCollection
 from models.rom import Rom, RomArchiveMember, RomFile, RomFileCategory, RomUserStatus
 
 from .base import BaseModel, UTCDatetime
@@ -479,6 +479,7 @@ class SimpleRomSchema(RomSchema):
 class UserCollectionSchema(BaseModel):
     id: int
     name: str
+    is_smart: bool = False
 
     @classmethod
     def for_user(
@@ -491,6 +492,21 @@ class UserCollectionSchema(BaseModel):
             )
             for c in collections
             if c.user_id == user_id or c.is_public
+        ]
+
+    @classmethod
+    def from_smart_collections(
+        cls, smart_collections: Sequence[SmartCollection]
+    ) -> list["UserCollectionSchema"]:
+        # Membership + visibility are already filtered at the SQL layer by
+        # get_smart_collections_for_rom, so this is a plain mapping (see #3934).
+        return [
+            UserCollectionSchema(
+                id=c.id,
+                name=c.name,
+                is_smart=True,
+            )
+            for c in smart_collections
         ]
 
 
@@ -536,9 +552,19 @@ class DetailedRomSchema(RomSchema):
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        db_rom.user_collections = UserCollectionSchema.for_user(  # type: ignore[assignment]
-            user_id, db_rom.collections
-        )
+        from handler.database import db_collection_handler
+
+        # Standard collections come off the already-loaded join relationship;
+        # smart collections have no reverse join, so match them by their cached
+        # rom-id membership at the SQL layer (see #3934).
+        db_rom.user_collections = [  # type: ignore[assignment]
+            *UserCollectionSchema.for_user(user_id, db_rom.collections),
+            *UserCollectionSchema.from_smart_collections(
+                db_collection_handler.get_smart_collections_for_rom(
+                    rom_id=db_rom.id, user_id=user_id
+                )
+            ),
+        ]
 
         # Load notes separately using the database handler to avoid lazy loading issues
         from handler.database import db_rom_handler
