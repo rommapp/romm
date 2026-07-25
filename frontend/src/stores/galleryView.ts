@@ -34,6 +34,7 @@ export default defineStore("galleryView", {
       if (_boxartStyle === "box3d_path") return 3 / 4;
       if (_boxartStyle === "physical_path") return 1 / 1;
       if (_boxartStyle === "miximage_path") return 1 / 1;
+      if (_boxartStyle === "miximage_v2_path") return 1 / 1;
 
       return this.defaultAspectRatio;
     },

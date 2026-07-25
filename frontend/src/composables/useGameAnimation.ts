@@ -21,6 +21,10 @@ export const ANIMATION_CONFIG = {
   transformOrigin: (offset: number) => `center calc(50% + ${offset}px)`,
 };
 
+function isMiximageStyle(style: BoxartStyleOption) {
+  return style === "miximage_path" || style === "miximage_v2_path";
+}
+
 function getTranslateY(el: HTMLElement) {
   const transform = window.getComputedStyle(el).transform;
   if (!transform || transform === "none") return 0;
@@ -71,6 +75,9 @@ export function useGameAnimation({
       boxartStyle.value === "cover_path"
     )
       return null;
+    // miximage_v2 is ScreenScraper-only; the gamelist schema has no such key.
+    if (boxartStyle.value === "miximage_v2_path")
+      return rom.ss_metadata?.miximage_v2_path;
     const ssMedia = rom.ss_metadata?.[boxartStyle.value];
     const gamelistMedia = rom.gamelist_metadata?.[boxartStyle.value];
     return ssMedia || gamelistMedia;
@@ -194,15 +201,13 @@ export function useGameAnimation({
 
   const localVideoPath = computed(() => {
     if (!romsStore.isSimpleRom(rom)) return null;
-    // Only play video if boxart style is miximage
-    if (boxartStyle.value !== "miximage_path") return null;
+    // Only play video if boxart style is a mix image
+    if (!isMiximageStyle(boxartStyle.value)) return null;
     return rom.path_video ?? null;
   });
 
   const playVideoEnabled = computed(() => {
-    return (
-      boxartStyle.value === "miximage_path" && Boolean(localVideoPath.value)
-    );
+    return isMiximageStyle(boxartStyle.value) && Boolean(localVideoPath.value);
   });
 
   const playVideo = () => {
