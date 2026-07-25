@@ -223,6 +223,7 @@ onBeforeUnmount(() => {
           :title="title"
           :identified="heroRom?.is_identified ?? true"
           :morph-id="morphRomId"
+          style-context="player"
           morph-static
           hover-motion
         />

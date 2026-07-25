@@ -197,7 +197,7 @@ const setBgArt = useBackgroundArt();
 // the active style is alt-art, so the purple glow can be dropped for a
 // floating disc / cartridge / mix image. The launch flourish is triggered
 // imperatively on the GameCover via `coverRef` — see onPlay.
-const art = useCoverArt(() => heroRom.value);
+const art = useCoverArt(() => heroRom.value, { context: "player" });
 const heroIsAlt = computed(
   () =>
     art.style.value !== "cover_path" &&
@@ -605,6 +605,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
             :title="title"
             :identified="heroRom?.is_identified ?? true"
             :morph-id="morphRomId"
+            style-context="player"
             morph-static
             hover-motion
           />

@@ -459,6 +459,7 @@ const showLaunchScreen = computed(
           :title="title"
           :identified="heroRom?.is_identified ?? true"
           :morph-id="`stream-cover-${romId}`"
+          style-context="player"
           morph-static
           hover-motion
         />
