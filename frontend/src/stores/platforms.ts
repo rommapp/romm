@@ -20,6 +20,8 @@ export default defineStore("platforms", {
       all
         .filter((p) => p.rom_count > 0)
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
+    platformIndexPlatforms: ({ allPlatforms: all }) =>
+      [...all].sort((a, b) => a.display_name.localeCompare(b.display_name)),
     filteredPlatforms: ({ allPlatforms: all, filterText }) =>
       all
         .filter(
