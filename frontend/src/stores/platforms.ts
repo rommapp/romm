@@ -20,8 +20,6 @@ export default defineStore("platforms", {
       all
         .filter((p) => p.rom_count > 0)
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
-    platformIndexPlatforms: ({ allPlatforms: all }) =>
-      [...all].sort((a, b) => a.display_name.localeCompare(b.display_name)),
     filteredPlatforms: ({ allPlatforms: all, filterText }) =>
       all
         .filter(
@@ -40,7 +38,7 @@ export default defineStore("platforms", {
   actions: {
     _reorder() {
       this.allPlatforms = uniqBy(this.allPlatforms, "id").sort((a, b) => {
-        return a.name.localeCompare(b.name);
+        return a.display_name.localeCompare(b.display_name);
       });
     },
     fetchPlatforms(): Promise<Platform[]> {

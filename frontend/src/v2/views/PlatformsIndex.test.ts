@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { defineComponent, ref } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, ref } from "vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import PlatformsIndex from "./PlatformsIndex.vue";
 
@@ -30,7 +30,7 @@ vi.mock("@/v2/components/Platforms/PlatformListRow.vue", () => ({
   default: defineComponent({
     props: ["displayName", "romCount"],
     template:
-      "<div class=\"platform-row\">{{ displayName }} {{ romCount }}</div>",
+      '<div class="platform-row">{{ displayName }} {{ romCount }}</div>',
   }),
 }));
 
@@ -38,21 +38,21 @@ vi.mock("@/v2/components/Platforms/PlatformTile.vue", () => ({
   default: defineComponent({
     props: ["displayName", "romCount"],
     template:
-      "<div class=\"platform-tile\">{{ displayName }} {{ romCount }}</div>",
+      '<div class="platform-tile">{{ displayName }} {{ romCount }}</div>',
   }),
 }));
 
 vi.mock("@/v2/components/shared/EmptyState.vue", () => ({
   default: defineComponent({
     props: ["message"],
-    template: "<div class=\"empty-state\">{{ message }}</div>",
+    template: '<div class="empty-state">{{ message }}</div>',
   }),
 }));
 
 vi.mock("@/v2/components/shared/IndexShell.vue", () => ({
   default: defineComponent({
     template:
-      "<main><slot name=\"header\" /><slot name=\"toolbar\" /><slot name=\"listHeader\" /><slot /></main>",
+      '<main><slot name="header" /><slot name="toolbar" /><slot name="listHeader" /><slot /></main>',
   }),
 }));
 
@@ -88,11 +88,7 @@ vi.mock("@/v2/composables/useWrapGridNav", () => ({
   useWrapGridNav: vi.fn(),
 }));
 
-function platform(
-  id: number,
-  displayName: string,
-  romCount: number,
-): Platform {
+function platform(id: number, displayName: string, romCount: number): Platform {
   return {
     id,
     display_name: displayName,
@@ -110,10 +106,7 @@ describe("PlatformsIndex", () => {
 
   it("renders empty database platforms so they remain reachable", () => {
     const platforms = storePlatforms();
-    platforms.set([
-      platform(2, "Nintendo 64", 12),
-      platform(1, "Game Boy", 0),
-    ]);
+    platforms.set([platform(2, "Nintendo 64", 12), platform(1, "Game Boy", 0)]);
 
     const wrapper = mount(PlatformsIndex);
 

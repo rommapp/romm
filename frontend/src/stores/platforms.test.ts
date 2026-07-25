@@ -2,11 +2,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 
-function platform(
-  id: number,
-  displayName: string,
-  romCount: number,
-): Platform {
+function platform(id: number, displayName: string, romCount: number): Platform {
   return {
     id,
     display_name: displayName,
@@ -29,7 +25,7 @@ describe("platform store lists", () => {
 
     store.set([filled, empty]);
 
+    expect(store.allPlatforms).toEqual([empty, filled]);
     expect(store.filledPlatforms).toEqual([filled]);
-    expect(store.platformIndexPlatforms).toEqual([empty, filled]);
   });
 });
