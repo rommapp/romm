@@ -32,6 +32,7 @@ from models.collection import (
     VirtualCollectionRom,
 )
 from models.rom import Rom
+from utils.database import json_array_contains_value
 
 from .base_handler import DBBaseHandler
 
@@ -401,6 +402,41 @@ class DBCollectionsHandler(DBBaseHandler):
             query = query.options(load_only(*only_fields))
 
         return session.scalars(query).unique().all()
+
+    @begin_session
+    def get_smart_collections_for_rom(
+        self,
+        rom_id: int,
+        user_id: int,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[SmartCollection]:
+        # Membership is a cached JSON array of rom ids on the collection, so
+        # push containment + visibility into SQL rather than loading every
+        # collection's rom_ids blob into Python and scanning it (see #3934).
+        return (
+            session.scalars(
+                select(SmartCollection)
+                .where(
+                    json_array_contains_value(
+                        SmartCollection.rom_ids, rom_id, session=session
+                    ),
+                    or_(
+                        SmartCollection.user_id == user_id,
+                        SmartCollection.is_public,
+                    ),
+                )
+                .options(
+                    load_only(
+                        SmartCollection.id,
+                        SmartCollection.name,
+                        SmartCollection.is_public,
+                    )
+                )
+                .order_by(SmartCollection.name.asc())
+            )
+            .unique()
+            .all()
+        )
 
     @begin_session
     def update_smart_collection(

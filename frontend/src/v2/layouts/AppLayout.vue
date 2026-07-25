@@ -131,6 +131,12 @@ onMounted(() => {
   if (collectionsStore.allCollections.length === 0) {
     void collectionsStore.fetchCollections();
   }
+  // Smart collections too, so GameDetails can enrich a ROM's smart-collection
+  // tiles (cover mosaic + rom count) on direct navigation instead of falling
+  // back to a countless, coverless entry.
+  if (collectionsStore.smartCollections.length === 0) {
+    void collectionsStore.fetchSmartCollections();
+  }
   // Hydrate platforms for the same reason — views like MissingGames,
   // GameDetails, etc. read `platformsStore.get(id)` to resolve a
   // platform's display name and slug. Without this, direct loads of
