@@ -14,7 +14,7 @@
 // wiring — not worth rewriting). The v1 SelectSaveDialog / SelectStateDialog
 // + CacheDialog are mounted in GlobalDialogs so the emitter bridge works.
 import { RBtn, RCard, RIcon, RSelect, RSliderBtnGroup, RSwitch } from "@v2/lib";
-import { useEventListener } from "@vueuse/core";
+import { useEventListener, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import {
@@ -212,14 +212,16 @@ const bezelUrl = computed(() =>
 );
 
 // Per-game bezel visibility. Bezels default on, but a bad / misaligned one can
-// obscure the game, so the user can hide it for this game (persisted). Seeded
-// from storage in onMounted; the watch writes only the non-default "hidden".
-const showBezel = ref(true);
-watch(showBezel, (visible) => {
-  if (!rom.value) return;
-  const key = `player:${rom.value.id}:bezel`;
-  if (visible) localStorage.removeItem(key);
-  else localStorage.setItem(key, "0");
+// obscure the game, so the user can hide it for this game (persisted). Keyed by
+// the route param so it binds before `rom` resolves; stored as the compact "0"
+// hidden / "1" shown marker (anything else fails safe to shown), and defaults
+// are not written so merely opening a game leaves storage untouched.
+const showBezel = useLocalStorage(`player:${morphRomId.value}:bezel`, true, {
+  writeDefaults: false,
+  serializer: {
+    read: resolveStoredBezelVisible,
+    write: (visible) => (visible ? "1" : "0"),
+  },
 });
 
 // When EmulatorJS enters fullscreen it promotes its own `#game` container to
@@ -427,10 +429,6 @@ onMounted(async () => {
     localStorage.removeItem(`player:${rom.value.id}:disc`);
   }
   selectedDisc.value = discId;
-
-  showBezel.value = resolveStoredBezelVisible(
-    localStorage.getItem(`player:${rom.value.id}:bezel`),
-  );
 
   // Prefer the core saved for this game, then the platform default, validating
   // each candidate so a stale entry falls through instead of masking the next
