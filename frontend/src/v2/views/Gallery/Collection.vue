@@ -27,6 +27,7 @@ import storeCollections, {
   type SmartCollection,
   type VirtualCollection,
 } from "@/stores/collections";
+import type { Kind as CollectionKind } from "@/v2/components/Collections/CollectionTile.vue";
 import CollectionHead from "@/v2/components/Gallery/CollectionHead.vue";
 import CollectionSettingsTab from "@/v2/components/Gallery/CollectionSettingsTab.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
@@ -38,7 +39,6 @@ import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
-type CollectionKind = "regular" | "virtual" | "smart";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -60,7 +60,7 @@ const canDownload = useCan("rom.download");
 
 // Virtual collections are computed (no editable fields) — only
 // regular / smart get the Settings tab.
-const editableKind = computed<"regular" | "smart" | null>(() => {
+const editableKind = computed<CollectionKind | null>(() => {
   if (currentKind.value === "regular") return "regular";
   if (currentKind.value === "smart") return "smart";
   return null;

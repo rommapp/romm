@@ -28,7 +28,9 @@ import type {
 } from "@/__generated__";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
-import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
+import CollectionTile, {
+  type Kind,
+} from "@/v2/components/Collections/CollectionTile.vue";
 import AgeRatingBadges from "@/v2/components/GameDetails/AgeRatingBadges.vue";
 import HLTBStrip from "@/v2/components/GameDetails/HLTBStrip.vue";
 import type { InfoGridSection } from "@/v2/components/GameDetails/InfoGrid.vue";
@@ -97,39 +99,28 @@ const videos = computed(() =>
 
 type CollectionTileEntry = {
   id: number;
-  // Regular and smart collection ids come from separate tables and can
-  // collide, so the render key folds in the kind to stay unique.
   key: string;
   name: string;
   rom_count: number;
   covers: string[];
   link: string;
-  kind: "regular" | "smart";
+  kind: Kind;
 };
 
 const userCollectionTiles = computed<CollectionTileEntry[]>(() =>
   props.userCollections.map((c) => {
-    if (c.is_smart) {
-      const full = collectionsStore.getSmartCollection(c.id);
-      return {
-        id: c.id,
-        key: `smart-${c.id}`,
-        name: full?.name ?? c.name,
-        rom_count: full?.rom_count ?? 0,
-        covers: full ? collectionCoverList(full, toWebp) : [],
-        link: `/collection/smart/${c.id}`,
-        kind: "smart",
-      };
-    }
-    const full = collectionsStore.getCollection(c.id);
+    const full = c.is_smart
+      ? collectionsStore.getSmartCollection(c.id)
+      : collectionsStore.getCollection(c.id);
+
     return {
       id: c.id,
-      key: `regular-${c.id}`,
+      key: c.is_smart ? `smart-${c.id}` : `regular-${c.id}`,
       name: full?.name ?? c.name,
       rom_count: full?.rom_count ?? 0,
       covers: full ? collectionCoverList(full, toWebp) : [],
-      link: `/collection/${c.id}`,
-      kind: "regular",
+      link: c.is_smart ? `/collection/smart/${c.id}` : `/collection/${c.id}`,
+      kind: c.is_smart ? "smart" : "regular",
     };
   }),
 );
