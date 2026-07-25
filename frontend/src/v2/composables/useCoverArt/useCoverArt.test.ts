@@ -64,7 +64,7 @@ describe("resolveBoxartStyle", () => {
   it("uses the gallery preference for the gallery context", () => {
     expect(resolveBoxartStyle("gallery", prefs)).toBe("miximage_path");
   });
-  it("falls back to the gallery preference when the override is inherit", () => {
+  it("falls back to the gallery preference on legacy inherit / unset values", () => {
     expect(
       resolveBoxartStyle("details", { ...prefs, details: "inherit" }),
     ).toBe("miximage_path");

@@ -79,15 +79,16 @@ export const UI_SETTINGS_KEYS = {
     default: false,
   },
   boxartStyle: { key: "settings.boxartStyle", default: "cover_path" },
-  // Per-page boxart overrides. "inherit" falls back to `boxartStyle`,
-  // so the gallery-wide style stays the single default.
+  // Per-page boxart styles. Changing the gallery-wide style resets both
+  // (see Settings/UserInterface.vue), so they only diverge when the user
+  // explicitly re-picks one.
   boxartStyleDetails: {
     key: "settings.boxartStyleDetails",
-    default: "inherit",
+    default: "cover_path",
   },
   boxartStylePlayer: {
     key: "settings.boxartStylePlayer",
-    default: "inherit",
+    default: "cover_path",
   },
 
   // Gameplay

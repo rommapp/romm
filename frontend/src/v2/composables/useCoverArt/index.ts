@@ -10,9 +10,9 @@
 //
 // The `boxartStyle` user preference (gallery-wide) picks WHICH artwork a
 // card shows and therefore its canonical aspect ratio. The details page
-// and the play pages can override it per-context ("inherit" falls back
-// to the gallery style) — see `useBoxartStyle`. The four ratios map to
-// known artwork sources:
+// and the play pages carry their own per-context style (legacy/unknown
+// stored values fall back to the gallery style) — see `useBoxartStyle`.
+// The four ratios map to known artwork sources:
 //   * cover_path    → 2/3   box art       (object-fit: cover)
 //   * box3d_path    → 3/4   3D box render (object-fit: contain)
 //   * physical_path → 1/1   disc/cartridge (contain; CD spins, cart drops)
@@ -101,8 +101,8 @@ export function coverRatio(style: BoxartStyle): number {
   return COVER_RATIOS[style];
 }
 
-/** Pure per-context style resolution: the surface's override when it is
- *  a real style ("inherit" / unknown values fall through), else the
+/** Pure per-context style resolution: the surface's style when it is a
+ *  real one (legacy "inherit" / unknown values fall through), else the
  *  gallery-wide preference, else the default box art. */
 export function resolveBoxartStyle(
   context: BoxartContext,
@@ -118,8 +118,8 @@ export function resolveBoxartStyle(
   return isBoxartStyle(prefs.gallery) ? prefs.gallery : "cover_path";
 }
 
-/** Resolved boxart style for a surface: the per-context user override
- *  when set, else the gallery-wide `boxartStyle` preference. */
+/** Resolved boxart style for a surface: the per-context user style when
+ *  valid, else the gallery-wide `boxartStyle` preference. */
 export function useBoxartStyle(
   context: MaybeRefOrGetter<BoxartContext | undefined> = "gallery",
 ): ComputedRef<BoxartStyle> {

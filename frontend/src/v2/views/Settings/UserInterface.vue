@@ -26,6 +26,7 @@ import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import SettingsSubsection from "@/v2/components/Settings/SettingsSubsection.vue";
 import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
 import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
+import { isBoxartStyle } from "@/v2/composables/useCoverArt";
 import { useCrtMode } from "@/v2/composables/useCrtMode";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
@@ -132,19 +133,41 @@ const boxartStyleItems = computed(() => [
   { title: t("settings.boxart-miximage-v2"), value: "miximage_v2_path" },
 ]);
 
-// Per-page overrides add an "inherit" item so the gallery style stays
-// the single default until the user opts a page out of it (#3943).
-const boxartOverrideItems = computed(() => [
-  { title: t("settings.boxart-inherit"), value: "inherit" },
-  ...boxartStyleItems.value,
-]);
-
-// Open the disclosure when an override is already active so the
-// non-default state is visible at a glance.
-const showAdvancedBoxart = ref(
-  boxartStyleDetails.value !== "inherit" ||
-    boxartStylePlayer.value !== "inherit",
+// Per-page styles hold a concrete style; legacy stored values (the
+// removed "inherit" option) display as the gallery style, which is also
+// how `resolveBoxartStyle` resolves them.
+const boxartGallery = computed(() =>
+  isBoxartStyle(boxartStyle.value) ? boxartStyle.value : "cover_path",
 );
+const boxartDetailsModel = computed<string>({
+  get: () =>
+    isBoxartStyle(boxartStyleDetails.value)
+      ? boxartStyleDetails.value
+      : boxartGallery.value,
+  set: (value) => {
+    boxartStyleDetails.value = value;
+  },
+});
+const boxartPlayerModel = computed<string>({
+  get: () =>
+    isBoxartStyle(boxartStylePlayer.value)
+      ? boxartStylePlayer.value
+      : boxartGallery.value,
+  set: (value) => {
+    boxartStylePlayer.value = value;
+  },
+});
+
+// Changing the gallery-wide style resets the per-page styles to match,
+// so pages only diverge when the user explicitly re-picks one (#3943).
+function onBoxartStyleChange(value: unknown) {
+  if (!isBoxartStyle(value)) return;
+  boxartStyle.value = value;
+  boxartStyleDetails.value = value;
+  boxartStylePlayer.value = value;
+}
+
+const showAdvancedBoxart = ref(false);
 
 const libraryStatsModeItems = computed(() => [
   {
@@ -349,10 +372,11 @@ function onVirtualCollectionTypeChange(value: unknown) {
       </div>
       <div class="r-v2-ui__field r-v2-ui__field--bordered">
         <RSelect
-          v-model="boxartStyle"
+          :model-value="boxartGallery"
           :items="boxartStyleItems"
           prefix-label="stacked"
           hide-details
+          @update:model-value="onBoxartStyleChange"
         >
           <template #prefix-label>
             <RIcon icon="mdi-image-frame" size="14" />
@@ -376,8 +400,8 @@ function onVirtualCollectionTypeChange(value: unknown) {
             {{ t("settings.boxart-advanced-desc") }}
           </p>
           <RSelect
-            v-model="boxartStyleDetails"
-            :items="boxartOverrideItems"
+            v-model="boxartDetailsModel"
+            :items="boxartStyleItems"
             prefix-label="stacked"
             hide-details
           >
@@ -387,8 +411,8 @@ function onVirtualCollectionTypeChange(value: unknown) {
             </template>
           </RSelect>
           <RSelect
-            v-model="boxartStylePlayer"
-            :items="boxartOverrideItems"
+            v-model="boxartPlayerModel"
+            :items="boxartStyleItems"
             prefix-label="stacked"
             hide-details
           >
