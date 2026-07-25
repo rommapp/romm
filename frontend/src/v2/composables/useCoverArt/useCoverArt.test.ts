@@ -26,11 +26,12 @@ function rom(over: Partial<SimpleRom>): SimpleRom {
 }
 
 describe("isBoxartStyle", () => {
-  it("accepts the four known styles", () => {
+  it("accepts the five known styles", () => {
     expect(isBoxartStyle("cover_path")).toBe(true);
     expect(isBoxartStyle("box3d_path")).toBe(true);
     expect(isBoxartStyle("physical_path")).toBe(true);
     expect(isBoxartStyle("miximage_path")).toBe(true);
+    expect(isBoxartStyle("miximage_v2_path")).toBe(true);
   });
   it("rejects anything else", () => {
     expect(isBoxartStyle("nope")).toBe(false);
@@ -45,6 +46,7 @@ describe("coverRatio", () => {
     expect(coverRatio("box3d_path")).toBeCloseTo(3 / 4);
     expect(coverRatio("physical_path")).toBe(1);
     expect(coverRatio("miximage_path")).toBe(1);
+    expect(coverRatio("miximage_v2_path")).toBe(1);
   });
 });
 
@@ -67,6 +69,11 @@ describe("altArtPath", () => {
   });
   it("returns null when neither provider has the asset", () => {
     expect(altArtPath(rom({}), "miximage_path")).toBeNull();
+  });
+  it("resolves miximage_v2 from ss_metadata only", () => {
+    const r = rom({ ss_metadata: { miximage_v2_path: "mix2.png" } });
+    expect(altArtPath(r, "miximage_v2_path")).toBe("mix2.png");
+    expect(altArtPath(rom({}), "miximage_v2_path")).toBeNull();
   });
 });
 
@@ -213,6 +220,24 @@ describe("computeCoverArt — miximage_path video", () => {
       },
     );
     expect(d.videoUrl).toBeNull();
+  });
+});
+
+describe("computeCoverArt — miximage_v2_path", () => {
+  it("prefixes the ss alt path, uses contain + 1/1, and resolves the hover video", () => {
+    const r = rom({
+      ss_metadata: { miximage_v2_path: "ss/mix2.png" },
+      path_video: "videos/clip.mp4",
+    });
+    const d = computeCoverArt(r, "miximage_v2_path", {
+      resourcesPath: RES,
+      supportsWebp: false,
+    });
+    expect(d.coverUrl).toBe(`${RES}/ss/mix2.png`);
+    expect(d.objectFit).toBe("contain");
+    expect(d.ratio).toBe(1);
+    expect(d.isAltArt).toBe(true);
+    expect(d.videoUrl).toBe(`${RES}/videos/clip.mp4`);
   });
 });
 
