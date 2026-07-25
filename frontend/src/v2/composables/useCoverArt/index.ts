@@ -17,6 +17,7 @@
 //   * box3d_path    → 3/4   3D box render (object-fit: contain)
 //   * physical_path → 1/1   disc/cartridge (contain; CD spins, cart drops)
 //   * miximage_path → 1/1   mix image     (contain; hover video overlay)
+//   * miximage_v2_path → 1/1   mix image v2  (contain; hover video overlay)
 //
 // Alt-art paths come from `ss_metadata` (preferred) or `gamelist_metadata`
 // and are relative to `FRONTEND_RESOURCES_PATH`. The local cover chain
@@ -42,7 +43,11 @@ import {
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 export type BoxartStyle =
-  "cover_path" | "box3d_path" | "physical_path" | "miximage_path";
+  | "cover_path"
+  | "box3d_path"
+  | "physical_path"
+  | "miximage_path"
+  | "miximage_v2_path";
 
 /** The surface a cover renders on. Gallery is the default; details and
  *  player surfaces can carry their own boxart-style override. */
@@ -50,7 +55,8 @@ export type BoxartContext = "gallery" | "details" | "player";
 
 /** Styles that resolve to an alternative artwork on the rom's metadata
  *  (everything except the default box art). These literals are exactly
- *  the path keys shared by `RomSSMetadata` and `RomGamelistMetadata`. */
+ *  the path keys on `RomSSMetadata`; all but `miximage_v2_path` also
+ *  exist on `RomGamelistMetadata`. */
 export type AltBoxartStyle = Exclude<BoxartStyle, "cover_path">;
 
 /** The cover-relevant slice of a rom — both `SimpleRom` (gallery) and
@@ -76,6 +82,7 @@ export const COVER_RATIOS: Record<BoxartStyle, number> = {
   box3d_path: 3 / 4,
   physical_path: 1,
   miximage_path: 1,
+  miximage_v2_path: 1,
 };
 
 const RASTER_EXT = /\.(png|jpe?g)$/i;
@@ -85,7 +92,8 @@ export function isBoxartStyle(value: unknown): value is BoxartStyle {
     value === "cover_path" ||
     value === "box3d_path" ||
     value === "physical_path" ||
-    value === "miximage_path"
+    value === "miximage_path" ||
+    value === "miximage_v2_path"
   );
 }
 
@@ -207,7 +215,8 @@ export function computeCoverArt(
   const arcadeBased = physicalAlt && isArcadeSystem(rom.platform_slug);
 
   const videoUrl =
-    style === "miximage_path" && rom.path_video
+    (style === "miximage_path" || style === "miximage_v2_path") &&
+    rom.path_video
       ? `${opts.resourcesPath}/${rom.path_video}`
       : null;
 

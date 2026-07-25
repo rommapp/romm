@@ -11,6 +11,7 @@ export type RomGamelistMetadata = {
     manual_url?: (string | null);
     marquee_url?: (string | null);
     miximage_url?: (string | null);
+    miximage_v2_url?: (string | null);
     physical_url?: (string | null);
     screenshot_url?: (string | null);
     thumbnail_url?: (string | null);
@@ -26,6 +27,7 @@ export type RomGamelistMetadata = {
     md5_hash?: (string | null);
     box3d_path?: (string | null);
     miximage_path?: (string | null);
+    miximage_v2_path?: (string | null);
     physical_path?: (string | null);
     marquee_path?: (string | null);
     video_path?: (string | null);

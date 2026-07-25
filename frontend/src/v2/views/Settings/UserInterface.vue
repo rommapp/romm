@@ -129,6 +129,7 @@ const boxartStyleItems = computed(() => [
   { title: t("settings.boxart-box3d"), value: "box3d_path" },
   { title: t("settings.boxart-physical"), value: "physical_path" },
   { title: t("settings.boxart-miximage"), value: "miximage_path" },
+  { title: t("settings.boxart-miximage-v2"), value: "miximage_v2_path" },
 ]);
 
 // Per-page overrides add an "inherit" item so the gallery style stays
