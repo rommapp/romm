@@ -25,6 +25,8 @@ from config import (
     IS_PYTEST_RUN,
     OIDC_ENABLED,
     ROMM_AUTH_SECRET_KEY,
+    ROMM_CORS_ALLOWED_ORIGINS,
+    ROMM_SESSION_SECURE_COOKIE,
     SENTRY_DSN,
 )
 from endpoints.activity import router as activity_router
@@ -111,7 +113,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ROMM_CORS_ALLOWED_ORIGINS or ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -123,6 +125,7 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
         CSRFMiddleware,
         cookie_name="romm_csrftoken",
         secret=ROMM_AUTH_SECRET_KEY,
+        cookie_secure=ROMM_SESSION_SECURE_COOKIE,
         exempt_urls=[
             re.compile(r"^/api/token.*"),
             re.compile(r"^/api/client-tokens/exchange"),
@@ -145,7 +148,7 @@ app.add_middleware(
     RedisSessionMiddleware,
     session_cookie=SESSION_COOKIE_NAME,
     same_site="lax" if OIDC_ENABLED else "strict",
-    https_only=False,
+    https_only=ROMM_SESSION_SECURE_COOKIE,
 )
 
 # Sets context vars in request-response cycle

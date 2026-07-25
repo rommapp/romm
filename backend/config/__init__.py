@@ -153,6 +153,32 @@ DISABLE_DOWNLOAD_ENDPOINT_AUTH: Final[bool] = safe_str_to_bool(
 DISABLE_USERPASS_LOGIN: Final[bool] = safe_str_to_bool(
     _get_env("DISABLE_USERPASS_LOGIN")
 )
+
+# CORS — restrict allowed origins instead of reflecting every request origin.
+# Comma-separated list of origins, e.g. "https://romm.example.com,http://localhost:3000".
+# Leave empty to allow all origins (not recommended when allow_credentials is True).
+ROMM_CORS_ALLOWED_ORIGINS: Final[list[str]] = [
+    o.strip()
+    for o in (_get_env("ROMM_CORS_ALLOWED_ORIGINS", "")).split(",")
+    if o.strip()
+]
+
+# Cookie security — set to true when RomM is served behind a TLS-terminating
+# proxy so session and CSRF cookies carry the Secure flag.
+ROMM_SESSION_SECURE_COOKIE: Final[bool] = safe_str_to_bool(
+    _get_env("ROMM_SESSION_SECURE_COOKIE")
+)
+
+# Upload guard — reject save/state uploads larger than this value (bytes).
+# Default 512 MiB; set to 0 to disable.
+MAX_SAVE_UPLOAD_SIZE_BYTES: Final[int] = safe_int(
+    _get_env("MAX_SAVE_UPLOAD_SIZE_BYTES"), 512 * 1024 * 1024
+)
+
+# Autocleanup ceiling so a client cannot keep unlimited slot backups.
+MAX_AUTOCLEANUP_LIMIT: Final[int] = safe_int(
+    _get_env("MAX_AUTOCLEANUP_LIMIT"), 100
+)
 DISABLE_SETUP_WIZARD: Final[bool] = safe_str_to_bool(_get_env("DISABLE_SETUP_WIZARD"))
 INVITE_TOKEN_EXPIRY_SECONDS: Final[int] = safe_int(
     _get_env("INVITE_TOKEN_EXPIRY_SECONDS"), 10 * 60
