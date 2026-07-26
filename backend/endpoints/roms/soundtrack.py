@@ -52,6 +52,7 @@ async def get_rom_soundtrack_metadata(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     tracks = db_rom_handler.get_rom_files_by_category(
@@ -94,6 +95,7 @@ async def add_rom_soundtracks(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     if rom.has_simple_single_file:
@@ -231,6 +233,7 @@ async def delete_rom_soundtrack(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)

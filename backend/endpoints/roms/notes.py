@@ -37,6 +37,7 @@ async def get_rom_notes(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     if tags is None:
@@ -67,6 +68,7 @@ async def get_rom_note_identifiers(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     notes = db_rom_handler.get_rom_notes(
@@ -93,6 +95,7 @@ async def create_rom_note(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     note = db_rom_handler.create_rom_note(
@@ -127,6 +130,7 @@ async def update_rom_note(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     note = db_rom_handler.update_rom_note(
@@ -167,6 +171,7 @@ async def delete_rom_note(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     success = db_rom_handler.delete_rom_note(

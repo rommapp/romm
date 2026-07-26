@@ -57,6 +57,7 @@ async def add_rom_manuals(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     if not _is_allowed_manual_file(filename):
@@ -147,6 +148,7 @@ async def redownload_rom_manual(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     if not rom.url_manual:
@@ -202,6 +204,7 @@ async def add_rom_manual_file(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     if rom.has_simple_single_file:
@@ -310,6 +313,7 @@ async def delete_rom_manual_file(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
@@ -364,6 +368,7 @@ async def delete_rom_manuals(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     if not fs_resource_handler.manual_exists(rom):

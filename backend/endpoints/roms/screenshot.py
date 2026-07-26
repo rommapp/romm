@@ -55,6 +55,7 @@ async def add_rom_screenshots(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     if rom.has_simple_single_file:
@@ -165,6 +166,7 @@ async def delete_rom_screenshot(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
     assert_rom_visible(request, rom)
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
