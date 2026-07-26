@@ -1,0 +1,107 @@
+"""Seed (or reset) the fixture users the Playwright e2e suite logs in as.
+
+Idempotent: re-running resets the passwords and group assignment rather than
+erroring on the existing rows. Pass ``--remove`` to delete the fixtures again.
+
+    uv run python tools/seed_e2e_users.py
+    uv run python tools/seed_e2e_users.py --remove
+
+Two accounts, matching the two sides of every permission assertion:
+
+  * ``e2e_admin``  — role admin, so `useCan` short-circuits to true and every
+    gated affordance must be present.
+  * ``e2e_viewer`` — the seeded "Viewer (legacy)" group, i.e. library read plus
+    own collections/assets. Every ROM write affordance must be absent.
+
+Never point this at a real library: it writes users with a known password.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from handler.auth import auth_handler  # noqa: E402
+from handler.database import db_permission_handler, db_user_handler  # noqa: E402
+from models.user import Role, User  # noqa: E402
+
+VIEWER_GROUP_NAME = "Viewer (legacy)"
+
+ADMIN_USERNAME = "e2e_admin"
+VIEWER_USERNAME = "e2e_viewer"
+# Fixture-only credential for a throwaway dev instance, overridable so nothing
+# has to rely on the literal. The e2e suite reads the same env var
+# (see frontend/e2e/fixtures/auth.ts). Not a secret: it authenticates two
+# purpose-made users on a local database.
+PASSWORD = os.environ.get("E2E_PASSWORD", "e2e-Passw0rd!")  # nosec B105
+
+
+def _viewer_group_id() -> int:
+    for group in db_permission_handler.get_groups():
+        if group.name == VIEWER_GROUP_NAME:
+            return group.id
+    raise SystemExit(
+        f"No {VIEWER_GROUP_NAME!r} group found -- run `alembic upgrade head` first."
+    )
+
+
+def _upsert(username: str, role: Role, permission_group_id: int | None) -> None:
+    hashed = auth_handler.get_password_hash(PASSWORD)
+    existing = db_user_handler.get_user_by_username(username)
+    if existing:
+        db_user_handler.update_user(
+            existing.id,
+            {
+                "hashed_password": hashed,
+                "role": role,
+                "enabled": True,
+                "permission_group_id": permission_group_id,
+            },
+        )
+        print(f"reset  {username} (id={existing.id}, role={role})")
+        return
+
+    user = db_user_handler.add_user(
+        User(
+            username=username,
+            hashed_password=hashed,
+            email=f"{username}@example.invalid",
+            role=role,
+            enabled=True,
+            permission_group_id=permission_group_id,
+        )
+    )
+    print(f"create {username} (id={user.id}, role={role})")
+
+
+def _remove() -> None:
+    for username in (ADMIN_USERNAME, VIEWER_USERNAME):
+        user = db_user_handler.get_user_by_username(username)
+        if user:
+            db_user_handler.delete_user(user.id)
+            print(f"delete {username} (id={user.id})")
+        else:
+            print(f"absent {username}")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--remove", action="store_true", help="delete the fixture users instead"
+    )
+    args = parser.parse_args()
+
+    if args.remove:
+        _remove()
+        return 0
+
+    _upsert(ADMIN_USERNAME, Role.ADMIN, None)
+    _upsert(VIEWER_USERNAME, Role.USER, _viewer_group_id())
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

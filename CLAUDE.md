@@ -93,6 +93,7 @@ npm install                         # install (Node 24)
 npm run dev                         # dev server :3000
 npm run typecheck                   # vue-tsc
 npm run test                        # vitest (+ Storybook play() tests)
+npm run test:e2e                    # playwright (needs a running app + seeded e2e users)
 npm run build                       # production build
 npm run generate                    # regenerate types from backend OpenAPI (backend must be running)
 npm run build:tokens                # regenerate v2 tokens.css (auto on predev/prebuild)
