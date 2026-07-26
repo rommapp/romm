@@ -169,11 +169,7 @@ const lastActiveLabel = computed(() =>
     : null,
 );
 
-usePageTitle(() =>
-  userToEdit.value
-    ? `${userToEdit.value.username} | ${t("common.profile")}`
-    : null,
-);
+usePageTitle(() => t("common.profile"));
 
 onMounted(reset);
 
