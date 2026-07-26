@@ -110,6 +110,17 @@ Here are a few projects that we think you might like:
 - [LanCommander](https://lancommander.app/): Digital game platform for PC games
 - [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
 
+## Supported By
+
+These companies support RomM by providing their tools to the project for free:
+
+<div align="center">
+  <div dir="auto">
+    <a href="https://www.greptile.com/?utm_source=oss_badge&amp;utm_medium=readme&amp;utm_campaign=greptile_for_open_source" target="_blank" rel="noopener noreferrer"><img src=".github/resources/greptile-badge.svg" alt="Greptile" width="250" height="58"/></a>
+    <a href="https://www.aikido.dev/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/aikido-badge.svg" alt="Aikido" width="250" height="58"/></a>
+  </div>
+</div>
+
 <!-- docs links -->
 
 [docs-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
