@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-// Fixture accounts seeded by `backend/tools/seed_e2e_users.py`. `viewer` sits in
+// Fixture accounts seeded by `.github/scripts/seed_e2e_users.py`. `viewer` sits in
 // the "Viewer (legacy)" group: library read plus own collections/assets, and no
 // ROM write grant. `admin` is role=admin, so `useCan` short-circuits to true and
 // every gated affordance must be present -- which is what makes these specs a

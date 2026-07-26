@@ -3,8 +3,8 @@
 Idempotent: re-running resets the passwords and group assignment rather than
 erroring on the existing rows. Pass ``--remove`` to delete the fixtures again.
 
-    uv run python tools/seed_e2e_users.py
-    uv run python tools/seed_e2e_users.py --remove
+    uv run python .github/scripts/seed_e2e_users.py
+    uv run python .github/scripts/seed_e2e_users.py --remove
 
 Two accounts, matching the two sides of every permission assertion:
 
@@ -22,7 +22,11 @@ import argparse
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# The app package lives in backend/; add it to the path so these can import
+# `handler.*` / `models.*` the same way the backend does.
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
+)
 
 from handler.auth import auth_handler  # noqa: E402
 from handler.database import db_permission_handler, db_user_handler  # noqa: E402

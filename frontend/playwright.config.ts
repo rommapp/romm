@@ -3,10 +3,10 @@ import { defineConfig, devices } from "@playwright/test";
 // End-to-end suite. Unlike the Vitest specs (which live beside the code under
 // `src/**`), these drive a REAL running RomM instance: the app on
 // E2E_BASE_URL, a live backend, and the fixture users seeded by
-// `backend/tools/seed_e2e_users.py`. They are deliberately kept out of `src/`
+// `.github/scripts/seed_e2e_users.py`. They are deliberately kept out of `src/`
 // and `test/` so Vitest's globs never pick them up.
 //
-//   uv run python tools/seed_e2e_users.py   # once, from backend/
+//   uv run python .github/scripts/seed_e2e_users.py   # once, from the repo root
 //   npm run test:e2e
 export default defineConfig({
   testDir: "./e2e",

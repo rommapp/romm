@@ -5,7 +5,7 @@ the same `scan_platforms` the scan socket enqueues, but with an empty
 `metadata_sources` list so it never reaches out to IGDB/MobyGames/etc -- keeping
 it hermetic and fast enough for CI.
 
-    ROMM_BASE_PATH=/path/with/library uv run python tools/seed_e2e_library.py
+    ROMM_BASE_PATH=/path/with/library uv run python .github/scripts/seed_e2e_library.py
 
 Exits non-zero if the scan produced no ROMs, so CI fails on a missing or empty
 library fixture instead of later, as a confusing Playwright timeout.
@@ -17,7 +17,11 @@ import asyncio
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# The app package lives in backend/; add it to the path so these can import
+# `handler.*` / `models.*` the same way the backend does.
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
+)
 
 from endpoints.sockets.scan import scan_platforms  # noqa: E402
 from handler.scan_handler import ScanType  # noqa: E402

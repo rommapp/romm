@@ -16,10 +16,10 @@ run them in jsdom.
    `E2E_BASE_URL`), with a populated library — the specs pick the first ROM they
    find.
 
-2. Seed the two fixture users, from `backend/`:
+2. Seed the two fixture users, from the repo root:
 
    ```bash
-   uv run python tools/seed_e2e_users.py     # --remove to clean up afterwards
+   uv run python .github/scripts/seed_e2e_users.py   # --remove to clean up afterwards
    ```
 
 3. Run, from `frontend/`:
@@ -46,7 +46,7 @@ spec asserts it _stays_ writable for the viewer.
 ## In CI
 
 `.github/workflows/e2e.yml` runs the whole thing on `ubuntu-latest`: MariaDB +
-Valkey service containers, migrations, `tools/seed_e2e_library.py` (an offline
+Valkey service containers, migrations, `.github/scripts/seed_e2e_library.py` (an offline
 scan of `backend/romm_test/library`, no metadata providers), the fixture users,
 then the backend, then Playwright — whose `webServer` starts the Vite dev server.
 The report and `test-results/` are uploaded as an artifact when it fails.

@@ -6,6 +6,7 @@ on:
       - "frontend/**"
       - "backend/**"
       - ".github/workflows/e2e.yml"
+      - ".github/scripts/**"
       - pyproject.toml
       - uv.lock
   push:
@@ -15,6 +16,7 @@ on:
       - "frontend/**"
       - "backend/**"
       - ".github/workflows/e2e.yml"
+      - ".github/scripts/**"
       - pyproject.toml
       - uv.lock
 
@@ -105,13 +107,11 @@ jobs:
         working-directory: backend
 
       - name: Seed the library
-        run: uv run python tools/seed_e2e_library.py
-        working-directory: backend
+        run: uv run python .github/scripts/seed_e2e_library.py
 
       # Seed user and clear the setup wizard
       - name: Seed the e2e fixture users
-        run: uv run python tools/seed_e2e_users.py
-        working-directory: backend
+        run: uv run python .github/scripts/seed_e2e_users.py
 
       - name: Start the backend
         run: |
