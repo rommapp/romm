@@ -31,6 +31,7 @@ import { formatTimestamp, getRoleIcon } from "@/utils";
 import ChangePasswordDialog from "@/v2/components/Settings/ChangePasswordDialog.vue";
 import RetroAchievementsSection from "@/v2/components/Settings/RetroAchievementsSection.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
@@ -168,12 +169,9 @@ const lastActiveLabel = computed(() =>
     : null,
 );
 
-onMounted(() => {
-  reset();
-  if (userToEdit.value) {
-    document.title = `${userToEdit.value.username} | ${t("common.profile")}`;
-  }
-});
+usePageTitle(() => t("common.profile"));
+
+onMounted(reset);
 
 onUnmounted(() => {
   imagePreviewUrl.value = "";

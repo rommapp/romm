@@ -16,6 +16,7 @@ import { useRoute } from "vue-router";
 import deviceAuthApi, {
   type DeviceAuthPendingSchema,
 } from "@/services/api/device-auth";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 
 type ApiError = AxiosError<{ detail?: string }>;
 
@@ -24,6 +25,8 @@ type Status =
 
 const route = useRoute();
 const { t } = useI18n();
+
+usePageTitle(() => t("settings.device-auth-heading"));
 
 const userCode = computed(() => (route.query.user_code as string) || "");
 

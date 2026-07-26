@@ -48,6 +48,7 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -372,10 +373,6 @@ onMounted(async () => {
   });
   rom.value = romResponse.data;
 
-  if (rom.value) {
-    document.title = `${rom.value.name} | Play`;
-  }
-
   const firmwareResponse = await firmwareApi.getFirmware({
     platformId: romResponse.data.platform_id,
   });
@@ -528,6 +525,10 @@ function backToPlatform() {
 
 const title = computed(
   () => heroRom.value?.name || heroRom.value?.fs_name_no_ext || "",
+);
+
+usePageTitle(() =>
+  title.value ? t("play.page-title", { name: title.value }) : null,
 );
 
 const platformLabel = computed(

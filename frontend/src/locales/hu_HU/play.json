@@ -18,6 +18,7 @@
   "no-screenshot-available": "Nincs elérhető képernyőkép",
   "no-state-selected": "Nincs kiválasztott állás",
   "no-states-available": "Nincs elérhető állás",
+  "page-title": "{name} indítása",
   "play": "Indítás",
   "powered-by": "Üzemeltető:",
   "quit": "Kilépés",
