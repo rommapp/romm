@@ -55,11 +55,17 @@ export async function gotoOwnProfile(page: Page) {
   const res = await page.request.get("/api/users/me");
   expect(res.ok(), "could not resolve the current user").toBe(true);
   const me = await res.json();
-  await page.goto(`/user/${me.id}`);
+  await gotoHydrated(page, `/user/${me.id}`);
   return me;
 }
 
-/** Navigate to the first ROM of the first non-empty platform. */
+/** Navigate to the first ROM of the first non-empty platform.
+ *
+ *  Waits for the permission grants to land before returning. `useCan` reads a
+ *  store hydrated from `/permissions/me` AFTER the app mounts, so until that
+ *  response arrives even an admin has no grants and every gated control is
+ *  hidden. Asserting before then reads the pre-hydration menu -- which looks
+ *  exactly like a permissions bug and is not one. */
 export async function gotoFirstRom(page: Page) {
   const res = await page.request.get("/api/roms?limit=1&order_by=name");
   expect(res.ok(), "could not list ROMs -- is the dev library populated?").toBe(
@@ -68,8 +74,34 @@ export async function gotoFirstRom(page: Page) {
   const body = await res.json();
   const rom = body.items?.[0];
   expect(rom, "the dev library has no ROMs to test against").toBeTruthy();
-  await page.goto(`/rom/${rom.id}`);
+  await gotoHydrated(page, `/rom/${rom.id}`);
   return rom;
+}
+
+/** `page.goto` that also waits for the permissions store to hydrate. The
+ *  listener is armed BEFORE navigating, or the response can land first and the
+ *  wait hangs until it times out. */
+export async function gotoHydrated(page: Page, path: string) {
+  const hydrated = page
+    .waitForResponse(
+      (r) => r.url().includes("/api/permissions/me") && r.status() === 200,
+      // Short: hydration normally lands well under a second. A long timeout
+      // here is actively harmful -- when the request doesn't fire, the catch
+      // below still waits it out first, eating the test's own budget.
+      { timeout: 10_000 },
+    )
+    // A cached/absent refetch shouldn't fail the navigation; the assertions
+    // that follow are auto-waiting anyway.
+    .catch(() => null);
+  await page.goto(path);
+  await hydrated;
+  // The app bar's user name renders only once the auth store holds a user, so
+  // it doubles as an "app shell is ready" signal. Without it, assertions can
+  // run against a view still showing its loading skeleton -- which fails as a
+  // missing element and reads like the element was removed on purpose.
+  await expect(page.locator(".r-v2-user__name")).toBeVisible({
+    timeout: 30_000,
+  });
 }
 
 /** Open the ⋯ more-actions menu and return the teleported panel locator. */

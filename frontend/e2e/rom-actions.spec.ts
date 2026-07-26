@@ -68,11 +68,15 @@ test.describe("ROM more-actions menu", () => {
     await gotoFirstRom(page);
     const panel = await openMoreMenu(page);
 
-    const labels = await menuLabels(page);
+    // `expect.poll` rather than a one-shot `menuLabels()` read: the menu is
+    // reactive, so items appear as grants resolve. Snapshotting the array once
+    // can capture the pre-grant menu and report a permissions bug that isn't.
     for (const action of WRITE_ACTIONS) {
-      expect(labels, `"${action}" must still be offered to admins`).toContain(
-        action,
-      );
+      await expect
+        .poll(() => menuLabels(page), {
+          message: `"${action}" must still be offered to admins`,
+        })
+        .toContain(action);
     }
     // Primary | per-user | metadata | destructive => three dividers.
     await expect(panel.locator('[role="separator"]')).toHaveCount(3);

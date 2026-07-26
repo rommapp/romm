@@ -46,17 +46,30 @@ spec asserts it _stays_ writable for the viewer.
 ## In CI
 
 `.github/workflows/e2e.yml` runs the whole thing on `ubuntu-latest`: MariaDB +
-Valkey service containers, migrations, `.github/scripts/seed_e2e_library.py` (an offline
-scan of `backend/romm_test/library`, no metadata providers), the fixture users,
-then the backend, then Playwright — whose `webServer` starts the Vite dev server.
-The report and `test-results/` are uploaded as an artifact when it fails.
+Valkey service containers, migrations, `.github/scripts/seed_e2e_library.py` (an
+offline scan of `backend/romm_test/library`, no metadata providers), the fixture
+users, then the backend, then Playwright. The report and `test-results/` are
+uploaded as an artifact when it fails.
+
+**CI serves the built bundle, not the dev server.** Playwright's `webServer`
+runs `npm run build && npm run preview` when `CI` is set. `vite preview`
+inherits `server.proxy`, so `/api` and `/ws` still reach the backend. This is
+both faster (build ~5s, suite ~35s, versus ~3.7min on the dev server) and
+steadier — see the next section for what it removes.
+
+Locally it stays on the dev server so a code change is picked up without a
+rebuild, and `reuseExistingServer` attaches to the `npm run dev` you already
+have. The trade-off is that against a cold dev server the first test or two can
+time out while Vite compiles; they recover on the configured retry, so the run
+still passes. To get CI's behaviour locally — build once, then a fast, steady
+run — use `CI=1 npm run test:e2e` (it needs port 3000 free).
 
 `DEV_PORT` (5000) is both what `main.py` binds and what Vite's `/api` proxy
 targets by default, which is why neither side needs configuring.
 
-## The Vite reload gotcha
+## Two sources of flakiness, and how they're handled
 
-Most flakiness here traces to one thing. The dev server force-reloads the page
+**1. The Vite dev server reloads underneath you.** It force-reloads the page
 when it discovers a new dependency to pre-bundle:
 
 ```text
@@ -65,16 +78,23 @@ when it discovers a new dependency to pre-bundle:
 ```
 
 That wipes a half-filled form, so a login silently does nothing and the spec
-fails later on an unrelated-looking assertion. Two defences, both load-bearing:
-
-- `global-setup.ts` does a **passive** pass (navigate only, no interaction)
-  before anything else, so the reload happens while nothing depends on the page.
-  It then walks the routes under test to compile their lazy chunks.
-- `login()` retries the fill-and-submit, treating a reload as the infrastructure
-  event it is.
+fails later on an unrelated-looking assertion. CI avoids this entirely by
+serving a build. Locally, `login()` retries the fill-and-submit, treating a
+reload as the infrastructure event it is.
 
 Symptom to recognise: a couple of tests fail while the rest pass, they pass in
 isolation, and the set changes between runs. That's this, not the app.
+
+**2. Assertions racing async store hydration.** This one survives the switch to
+a static build, because it's about the app, not the server. `useCan` reads a
+store filled from `/permissions/me` _after_ mount, and views render a skeleton
+until the auth store has a user. Assert too early and an admin's menu looks
+exactly like a permissions bug.
+
+`gotoHydrated()` (used by `gotoFirstRom` / `gotoOwnProfile`) waits for the
+permissions response **and** for the app bar to render before returning. Prefer
+`expect.poll` over a one-shot `menuLabels()` read when asserting that something
+is present, so the menu can still fill in.
 
 ## Notes for whoever edits these
 
@@ -84,14 +104,12 @@ isolation, and the set changes between runs. That's this, not the app.
 - **Prefer auto-waiting assertions** (`expect(locator)`) over bare `count()`.
   `count()` resolves immediately and reads `0` before an async panel mounts,
   which silently turns a real check into a no-op.
-- **Keep the worker pool small.** All workers hit one dev server whose on-demand
-  Vite transforms are the bottleneck; too much parallelism turns passes into
-  timeouts. Tune with `E2E_WORKERS`.
-- **Don't duplicate the helpers.** `global-setup.ts` drives the same `login()` /
-  `gotoFirstRom()` as the specs on purpose; a private copy of those selectors
-  drifted from the real ones within a day of being written.
-- **Watch best-effort `.catch()` calls.** A swallowed failure still waits out the
-  full timeout first. Warm-up steps set a short one deliberately — inheriting the
-  120s default turned a 30-second setup into an eight-minute one.
-- `E2E_SKIP_WARMUP=1` skips the warm-up when debugging a single spec against an
-  already-warm server.
+- **Keep the worker pool small.** All workers share one backend, and locally one
+  dev server whose on-demand transforms are the bottleneck; too much parallelism
+  turns passes into timeouts. Tune with `E2E_WORKERS`.
+- **Watch best-effort `.catch()` calls.** A swallowed failure still waits out its
+  full timeout first, eating the budget of the test that follows. Keep those
+  timeouts short.
+- **The service worker is blocked** (`serviceWorkers: "block"`). The production
+  build precaches ~9MB, which every fresh context would re-install, and its
+  cache makes runs non-deterministic. Nothing here tests offline support.

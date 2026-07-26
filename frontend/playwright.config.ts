@@ -10,9 +10,6 @@ import { defineConfig, devices } from "@playwright/test";
 //   npm run test:e2e
 export default defineConfig({
   testDir: "./e2e",
-  // Compiles the app once before the suite so no single test pays Vite's cold
-  // start out of its own timeout.
-  globalSetup: "./e2e/global-setup.ts",
   // Permission gating is global state on the server (the fixture users' grants),
   // so the specs read it rather than mutate it and are safe to parallelise.
   fullyParallel: true,
@@ -31,24 +28,37 @@ export default defineConfig({
     screenshot: "only-on-failure",
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
+    // The production build ships a PWA service worker that precaches ~9MB on
+    // first load. Every test gets a fresh context, so that install would run
+    // over and over, competing with the app for the first navigation, and its
+    // cache makes runs non-deterministic. Nothing here tests offline support.
+    serviceWorkers: "block",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  // Start the Vite dev server unless we were pointed at an instance that is
-  // already up (E2E_BASE_URL). Locally `reuseExistingServer` attaches to the
-  // `npm run dev` you already have running instead of starting a second one.
+  // Serve the app unless we were pointed at an instance that is already up
+  // (E2E_BASE_URL).
   //
-  // The dev server is used rather than `vite preview` because the /api and /ws
-  // proxies are declared under Vite's `server` block, which preview ignores. It
-  // proxies to 127.0.0.1:DEV_PORT (default 5000) -- the same default the
-  // backend's `main.py` binds -- so neither side needs configuring.
+  // CI builds and serves the STATIC bundle. The dev server compiles on demand,
+  // and force-reloads the page whenever it discovers a new dependency to
+  // pre-bundle ("optimized dependencies changed. reloading") -- which wipes
+  // whatever a test was mid-way through. Serving a build removes that entire
+  // class of failure and is much faster: the build is ~5s and the suite drops
+  // from ~3.7min to ~35s. `vite preview` inherits `server.proxy`, so /api and
+  // /ws still reach the backend on DEV_PORT (5000) -- the same default
+  // `main.py` binds, so neither side needs configuring.
+  //
+  // Locally it stays on the dev server: `reuseExistingServer` attaches to the
+  // `npm run dev` you already have, so a code change is picked up without a
+  // rebuild. `login()` retries to absorb the reload described above.
   ...(process.env.E2E_BASE_URL
     ? {}
     : {
         webServer: {
-          command: "npm run dev",
+          command: process.env.CI
+            ? "npm run build && npm run preview -- --port 3000 --strictPort --host 127.0.0.1"
+            : "npm run dev",
           url: "http://127.0.0.1:3000",
           reuseExistingServer: !process.env.CI,
-          // Cold start pays for `build:tokens` plus Vite's dep optimisation.
           timeout: 180_000,
           stdout: "pipe" as const,
           stderr: "pipe" as const,
