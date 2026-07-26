@@ -68,8 +68,11 @@ const route = useRoute();
 const router = useRouter();
 const romsStore = storeRoms();
 
-const canDelete = useCan("rom.delete");
 const canUpload = useCan("rom.upload");
+const hasDeleteGrant = useCan("rom.delete");
+// `DELETE /roms/{id}/files/{file_id}` gates on ROMS_WRITE; a bare DELETE grant
+// projects to no scope, so both are required.
+const canDelete = computed(() => hasDeleteGrant.value && canUpload.value);
 
 function errorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {

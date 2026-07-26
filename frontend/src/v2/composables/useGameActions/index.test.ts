@@ -147,7 +147,7 @@ describe("useGameActions — write/destructive gates", () => {
     expect(actions.canRefresh.value).toBe(false);
   });
 
-  it("gates delete independently of the write grants", () => {
+  it("hides delete when only the write grants are held", () => {
     grantedActions.value = new Set<ActionKey>([
       "rom.edit",
       "rom.match",
@@ -156,5 +156,19 @@ describe("useGameActions — write/destructive gates", () => {
     const actions = useGameActions(() => makeRom());
     expect(actions.canEdit.value).toBe(true);
     expect(actions.canDelete.value).toBe(false);
+  });
+
+  // A bare DELETE grant projects to no scope, so `POST /roms/delete` (which
+  // gates on ROMS_WRITE) would 403 and the interceptor would log the user out.
+  it("hides delete when the delete grant is held without the write grant", () => {
+    grantedActions.value = new Set<ActionKey>(["rom.view", "rom.delete"]);
+    const actions = useGameActions(() => makeRom());
+    expect(actions.canDelete.value).toBe(false);
+  });
+
+  it("shows delete when both the delete and write grants are held", () => {
+    grantedActions.value = new Set<ActionKey>(["rom.delete", "rom.edit"]);
+    const actions = useGameActions(() => makeRom());
+    expect(actions.canDelete.value).toBe(true);
   });
 });

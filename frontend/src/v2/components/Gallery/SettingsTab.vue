@@ -39,7 +39,10 @@ const snackbar = useSnackbar();
 const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const canEdit = useCan("platform.edit");
-const canDelete = useCan("platform.delete");
+const hasDeleteGrant = useCan("platform.delete");
+// `DELETE /platforms/{id}` gates on PLATFORMS_WRITE; a bare DELETE grant
+// projects to no scope, so both are required.
+const canDelete = computed(() => hasDeleteGrant.value && canEdit.value);
 
 // ── Details edit form ──────────────────────────────────────────
 const formRef = ref<InstanceType<typeof RForm> | null>(null);
