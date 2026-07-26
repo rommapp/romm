@@ -83,14 +83,6 @@ Here are a few projects maintained by members of our community. Please note that
 - [GGRequestz][ggrequestz]: Game discovery and request tool by [@XTREEMMAK](https://github.com/XTREEMMAK)
 - [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by [@amn-96](https://github.com/amn-96)
 
-Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
-
-<div align="center">
-  <div dir="auto">
-    <a href="https://discord.gg/P5HtHnhUDH" target="_blank" rel="noopener noreferrer"><img src="https://invidget.switchblade.xyz/P5HtHnhUDH" alt="Discord invite"/></a>
-  </div>
-</div>
-
 ## Support the project
 
 Consider supporting the development of this project on Open Collective. All funds will be used to cover the costs of hosting, development, and maintenance of RomM.
