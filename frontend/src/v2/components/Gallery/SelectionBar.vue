@@ -80,8 +80,7 @@ const canRefresh = useCan("rom.refresh");
 const canDownload = useCan("rom.download");
 const hasDeleteGrant = useCan("rom.delete");
 const canEditRom = useCan("rom.edit");
-// Bulk delete hits `POST /roms/delete`, which gates on ROMS_WRITE; a bare
-// DELETE grant projects to no scope, so both are required.
+// Bulk delete hits `POST /roms/delete`, which gates on ROMS_WRITE
 const canDelete = computed(() => hasDeleteGrant.value && canEditRom.value);
 
 // `favorite` is the favourite collection — used to compute "are all

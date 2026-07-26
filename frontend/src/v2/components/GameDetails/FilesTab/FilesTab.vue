@@ -70,8 +70,7 @@ const romsStore = storeRoms();
 
 const canUpload = useCan("rom.upload");
 const hasDeleteGrant = useCan("rom.delete");
-// `DELETE /roms/{id}/files/{file_id}` gates on ROMS_WRITE; a bare DELETE grant
-// projects to no scope, so both are required.
+// `DELETE /roms/{id}/files/{file_id}` gates on ROMS_WRITE
 const canDelete = computed(() => hasDeleteGrant.value && canUpload.value);
 
 function errorMessage(err: unknown): string {

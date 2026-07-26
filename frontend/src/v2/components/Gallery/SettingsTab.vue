@@ -40,8 +40,7 @@ const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const canEdit = useCan("platform.edit");
 const hasDeleteGrant = useCan("platform.delete");
-// `DELETE /platforms/{id}` gates on PLATFORMS_WRITE; a bare DELETE grant
-// projects to no scope, so both are required.
+// `DELETE /platforms/{id}` gates on PLATFORMS_WRITE
 const canDelete = computed(() => hasDeleteGrant.value && canEdit.value);
 
 // ── Details edit form ──────────────────────────────────────────
