@@ -17,8 +17,7 @@ import asyncio
 import os
 import sys
 
-# The app package lives in backend/; add it to the path so these can import
-# `handler.*` / `models.*` the same way the backend does.
+# Add /backend to the path so these can import `handler.*` / `models.*`.
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
 )

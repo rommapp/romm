@@ -34,12 +34,9 @@ from models.user import Role, User  # noqa: E402
 
 VIEWER_GROUP_NAME = "Viewer (legacy)"
 
-ADMIN_USERNAME = "e2e_admin"
-VIEWER_USERNAME = "e2e_viewer"
-# Fixture-only credential for a throwaway dev instance, overridable so nothing
-# has to rely on the literal. The e2e suite reads the same env var
-# (see frontend/e2e/fixtures/auth.ts). Not a secret: it authenticates two
-# purpose-made users on a local database.
+E2E_ADMIN_USERNAME = "e2e_admin"
+E2E_VIEWER_USERNAME = "e2e_viewer"
+# Fixture-only credential for a throwaway dev instance
 PASSWORD = os.environ.get("E2E_PASSWORD", "e2e-Passw0rd!")  # nosec B105
 
 
@@ -48,7 +45,7 @@ def _viewer_group_id() -> int:
         if group.name == VIEWER_GROUP_NAME:
             return group.id
     raise SystemExit(
-        f"No {VIEWER_GROUP_NAME!r} group found -- run `alembic upgrade head` first."
+        f"No {VIEWER_GROUP_NAME!r} group found, run `alembic upgrade head` first."
     )
 
 
@@ -82,7 +79,7 @@ def _upsert(username: str, role: Role, permission_group_id: int | None) -> None:
 
 
 def _remove() -> None:
-    for username in (ADMIN_USERNAME, VIEWER_USERNAME):
+    for username in (E2E_ADMIN_USERNAME, E2E_VIEWER_USERNAME):
         user = db_user_handler.get_user_by_username(username)
         if user:
             db_user_handler.delete_user(user.id)
@@ -102,8 +99,8 @@ def main() -> int:
         _remove()
         return 0
 
-    _upsert(ADMIN_USERNAME, Role.ADMIN, None)
-    _upsert(VIEWER_USERNAME, Role.USER, _viewer_group_id())
+    _upsert(E2E_ADMIN_USERNAME, Role.ADMIN, None)
+    _upsert(E2E_VIEWER_USERNAME, Role.USER, _viewer_group_id())
     return 0
 
 
