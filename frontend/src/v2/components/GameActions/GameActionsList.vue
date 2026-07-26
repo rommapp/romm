@@ -4,6 +4,10 @@
 // actions. Consumed by every MoreMenu dropdown (on GameCard, in the
 // GameDetails header, …). Every action emits `close` after firing so the
 // parent menu can dismiss.
+//
+// The metadata and destructive groups are permission-gated, so their
+// leading dividers are conditional too — otherwise a read-only user gets
+// a menu ending in stray separators.
 import { RDivider, RMenuItem } from "@v2/lib";
 import { computed, toRef } from "vue";
 import { useI18n } from "vue-i18n";
@@ -24,6 +28,11 @@ const favLabel = computed(() =>
   actions.isFavorited.value
     ? t("rom.remove-from-favorites")
     : t("rom.add-to-favorites"),
+);
+
+const hasMetadataActions = computed(
+  () =>
+    actions.canMatch.value || actions.canRefresh.value || actions.canEdit.value,
 );
 
 function run(fn: () => void | Promise<void>) {
@@ -85,29 +94,33 @@ function run(fn: () => void | Promise<void>) {
     @click="run(actions.removeFromContinuePlaying)"
   />
 
-  <RDivider />
+  <RDivider v-if="hasMetadataActions" />
 
   <!-- Metadata actions -->
   <RMenuItem
+    v-if="actions.canMatch.value"
     :label="t('rom.match-rom')"
     icon="mdi-magnify"
     @click="run(actions.match)"
   />
   <RMenuItem
+    v-if="actions.canRefresh.value"
     :label="t('rom.refresh-metadata')"
     icon="mdi-refresh"
     @click="run(actions.refreshMetadata)"
   />
   <RMenuItem
+    v-if="actions.canEdit.value"
     :label="t('common.edit')"
     icon="mdi-pencil-outline"
     @click="run(actions.edit)"
   />
 
-  <RDivider />
+  <RDivider v-if="actions.canDelete.value" />
 
   <!-- Destructive -->
   <RMenuItem
+    v-if="actions.canDelete.value"
     :label="t('common.delete')"
     icon="mdi-trash-can-outline"
     variant="danger"

@@ -7,7 +7,7 @@
 // Like ArtworkSubtab, it owns its own scroll (flex column filling the Media
 // tab's content height) so the viewer keeps its internal scroll and switching
 // subtabs never forces an outer scrollbar.
-import { RBtn, RDropzone, RSelect } from "@v2/lib";
+import { RBtn, RDropzone, REmptyState, RSelect } from "@v2/lib";
 import axios from "axios";
 import type { Emitter } from "mitt";
 import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
@@ -16,6 +16,7 @@ import romApi from "@/services/api/rom";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -41,6 +42,10 @@ const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
 const { t } = useI18n();
+
+// Every manual endpoint (upload / redownload / delete) gates on the ROM write
+// grant, so a read-only user gets the viewer without any upload affordance.
+const canEdit = useCan("rom.edit");
 
 // ---------- Manual entries ----------
 type ManualEntry = {
@@ -201,8 +206,13 @@ function requestDeleteManual() {
       />
     </header>
 
+    <REmptyState
+      v-if="manualEntries.length === 0 && !canEdit"
+      :title="t('rom.manual-empty')"
+    />
+
     <RDropzone
-      v-if="manualEntries.length === 0"
+      v-else-if="manualEntries.length === 0"
       :title="t('rom.manual-empty')"
       :hint="t('common.dropzone-hint')"
       :active-title="t('common.dropzone-drag-over')"
@@ -228,6 +238,7 @@ function requestDeleteManual() {
       v-if="selectedManual"
       ref="manualDz"
       overlay
+      :disabled="!canEdit"
       class="r-v2-manual__fill"
       :release-label="t('common.dropzone-drag-over')"
       :input-label="t('rom.upload-manual')"
@@ -240,8 +251,8 @@ function requestDeleteManual() {
           v-if="selectedManual.kind === 'md'"
           :key="`${selectedManual.id}-${rom.updated_at}-md`"
           :url="selectedManual.url"
-          deletable
-          :redownloadable="!!rom.url_manual"
+          :deletable="canEdit"
+          :redownloadable="canEdit && !!rom.url_manual"
           :redownloading="redownloadingManual"
           @delete="requestDeleteManual"
           @redownload="redownloadManual"
@@ -250,8 +261,8 @@ function requestDeleteManual() {
           v-else
           :key="`${selectedManual.id}-${rom.updated_at}-pdf`"
           :pdf-url="selectedManual.url"
-          deletable
-          :redownloadable="!!rom.url_manual"
+          :deletable="canEdit"
+          :redownloadable="canEdit && !!rom.url_manual"
           :redownloading="redownloadingManual"
           @delete="requestDeleteManual"
           @redownload="redownloadManual"
@@ -259,7 +270,7 @@ function requestDeleteManual() {
       </div>
     </RDropzone>
 
-    <div v-if="manualEntries.length > 0">
+    <div v-if="manualEntries.length > 0 && canEdit">
       <RBtn
         block
         variant="outlined"

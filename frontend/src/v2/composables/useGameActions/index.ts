@@ -61,6 +61,13 @@ export function useGameActions(
   const auth = storeAuth();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
+  // Write/destructive gates, mirroring the backend grants. Surfaces that
+  // offer these actions hide them outright rather than letting the request
+  // 403 (which the axios interceptor turns into a logout).
+  const canEdit = useCan("rom.edit");
+  const canDelete = useCan("rom.delete");
+  const canMatch = useCan("rom.match");
+  const canRefresh = useCan("rom.refresh");
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
   const { canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
   const streamingStore = useStreamingStore();
@@ -421,6 +428,10 @@ export function useGameActions(
     canPlay,
     canPlayStream,
     canRemoveFromContinuePlaying,
+    canEdit,
+    canDelete,
+    canMatch,
+    canRefresh,
     currentStatusKey,
     setStatus,
     setStatusEnum,

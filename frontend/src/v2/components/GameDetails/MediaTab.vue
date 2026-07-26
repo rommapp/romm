@@ -11,7 +11,7 @@
 //   * Upload goes through `romApi.uploadSoundtracks`
 //
 // The soundtrack player is reused from v1 for now.
-import { RBtn, RDropzone, RIcon } from "@v2/lib";
+import { RBtn, RDropzone, REmptyState, RIcon } from "@v2/lib";
 import axios from "axios";
 import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -19,6 +19,7 @@ import { useRoute, useRouter } from "vue-router";
 import romApi from "@/services/api/rom";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
+import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -50,6 +51,10 @@ const confirm = useConfirm();
 const romsStore = storeRoms();
 const uploadStore = storeUpload();
 const { t } = useI18n();
+
+// Soundtrack upload / delete both gate on the ROM write grant, so read-only
+// users get the player without any upload or delete affordance.
+const canEdit = useCan("rom.edit");
 
 // ---------- Subtab state ----------
 // Mirrored to `?subtab=` so the SoundtrackMiniPlayer can detect when the full
@@ -282,8 +287,13 @@ async function deleteSoundtrack(fileId: number) {
 
       <!-- Soundtrack subtab -->
       <section v-show="subTab === 'soundtrack'" class="r-v2-media__panel">
+        <REmptyState
+          v-if="!rom.has_soundtrack && !canEdit"
+          :title="t('rom.soundtrack-empty')"
+        />
+
         <RDropzone
-          v-if="!rom.has_soundtrack"
+          v-else-if="!rom.has_soundtrack"
           :title="t('rom.soundtrack-empty')"
           :hint="t('common.dropzone-hint')"
           :active-title="t('common.dropzone-drag-over')"
@@ -297,6 +307,7 @@ async function deleteSoundtrack(fileId: number) {
           v-else
           ref="soundtrackDz"
           overlay
+          :disabled="!canEdit"
           class="r-v2-media__fill"
           :release-label="t('common.dropzone-drag-over')"
           :input-label="t('rom.upload-soundtrack')"
@@ -306,13 +317,14 @@ async function deleteSoundtrack(fileId: number) {
         >
           <SoundtrackPanel
             :rom="rom"
+            :deletable="canEdit"
             class="r-v2-media__soundtrack"
             @upload-tracks="soundtrackDz?.open()"
             @delete-track="deleteSoundtrack"
           />
         </RDropzone>
 
-        <div v-if="rom.has_soundtrack">
+        <div v-if="rom.has_soundtrack && canEdit">
           <div class="r-v2-media__section-actions">
             <RBtn
               block

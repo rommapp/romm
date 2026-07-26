@@ -23,6 +23,7 @@ import storeAuth from "@/stores/auth";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { ScreenshotItem } from "@/v2/components/GameDetails/ScreenshotsTab.vue";
+import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -60,6 +61,10 @@ const romsStore = storeRoms();
 const uploadStore = storeUpload();
 const authStore = storeAuth();
 const { user } = storeToRefs(authStore);
+
+// The shared ROM section writes to the ROM itself (roms.write); the "Mine"
+// section writes per-user assets and stays available to everyone.
+const canEditRom = useCan("rom.edit");
 
 // Uploading per-ROM screenshots to a single-file ROM promotes it to a folder
 // ROM in place (the backend converts on upload); warn before that happens.
@@ -250,8 +255,13 @@ async function toggleVisibility(id: number, isPublic: boolean) {
 
 <template>
   <div class="r-v2-shots">
-    <!-- ROM (shared) screenshots -->
-    <section class="r-v2-shots__section">
+    <!-- ROM (shared) screenshots — the whole section drops away for a
+         read-only user with nothing to show, since there is neither art to
+         look at nor an upload they're allowed to make. -->
+    <section
+      v-if="canEditRom || romScreenshots.length > 0"
+      class="r-v2-shots__section"
+    >
       <header class="r-v2-shots__head">
         <div class="r-v2-shots__head-text">
           <h3 class="r-v2-shots__title">
@@ -262,7 +272,7 @@ async function toggleVisibility(id: number, isPublic: boolean) {
           </p>
         </div>
         <RBtn
-          v-if="romScreenshots.length > 0"
+          v-if="romScreenshots.length > 0 && canEditRom"
           variant="outlined"
           size="small"
           prepend-icon="mdi-cloud-upload-outline"
@@ -286,6 +296,7 @@ async function toggleVisibility(id: number, isPublic: boolean) {
         v-else
         ref="romDz"
         overlay
+        :disabled="!canEditRom"
         :release-label="t('common.dropzone-drag-over')"
         :input-label="t('rom.upload-screenshots')"
         accept="image/*"
@@ -294,7 +305,7 @@ async function toggleVisibility(id: number, isPublic: boolean) {
       >
         <ScreenshotsTab
           :screenshots="romScreenshots"
-          deletable
+          :deletable="canEditRom"
           @delete="deleteRomScreenshot"
         />
       </RDropzone>
