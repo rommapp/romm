@@ -1256,6 +1256,58 @@ def test_extract_state_screenshot_not_a_zip_returns_none():
     assert streaming._extract_state_screenshot("pcsx2", b"not-a-zip") is None
 
 
+def test_state_transfer_limits_default_for_an_unlisted_emulator():
+    assert (
+        streaming._state_transfer_limits({"emulator": "pcsx2"})
+        == streaming._DEFAULT_STATE_TRANSFER
+    )
+
+
+def test_state_transfer_limits_are_larger_for_xemu():
+    """A xemu state is the whole Xbox hard disk, not a RAM snapshot."""
+    default = streaming._DEFAULT_STATE_TRANSFER
+    xemu = streaming._state_transfer_limits({"emulator": "xemu"})
+    assert xemu["max_bytes"] > default["max_bytes"]
+    # The ceiling is useless if the body cannot finish arriving inside it.
+    assert xemu["timeout"] > default["timeout"]
+
+
+def test_fetch_state_file_reads_and_waits_to_the_emulator_limits(rom: Rom):
+    resp = MagicMock()
+    inner = resp.__enter__.return_value
+    inner.read.return_value = b"state-bytes"
+    inner.headers = {"X-State-Filename": "game.xemu.state"}
+    container = dict(_container_for(rom), emulator="xemu")
+
+    with patch(
+        "endpoints.streaming.urllib.request.urlopen", return_value=resp
+    ) as urlopen:
+        assert streaming._fetch_state_file(container, 1) == (
+            "game.xemu.state",
+            b"state-bytes",
+        )
+
+    limits = streaming._STATE_TRANSFER_LIMITS["xemu"]
+    assert urlopen.call_args.kwargs["timeout"] == limits["timeout"]
+    inner.read.assert_called_once_with(limits["max_bytes"] + 1)
+
+
+def test_push_state_file_waits_to_the_emulator_limits(rom: Rom):
+    resp = MagicMock()
+    resp.__enter__.return_value.read.return_value = b'{"status": "ok"}'
+    container = dict(_container_for(rom), emulator="xemu")
+
+    with patch(
+        "endpoints.streaming.urllib.request.urlopen", return_value=resp
+    ) as urlopen:
+        assert streaming._push_state_file(container, "game.xemu.state", b"bytes")
+
+    assert (
+        urlopen.call_args.kwargs["timeout"]
+        == streaming._STATE_TRANSFER_LIMITS["xemu"]["timeout"]
+    )
+
+
 def test_fetch_state_screenshot_returns_png(rom: Rom):
     resp = MagicMock()
     resp.__enter__.return_value.read.return_value = _PNG

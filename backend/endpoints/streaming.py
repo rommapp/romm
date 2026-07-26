@@ -467,7 +467,8 @@ async def _resolve_owned_session(
 #   ACK        - the broker only acknowledges; the work runs async on its side
 #   LAUNCH     - process spawn + config patch + window setup
 #   LOAD_STATE - worst case 9 slot cycles x ~5s xdotool timeout
-#   TRANSFER   - state/save archive uploads and downloads (up to 256 MB)
+#   TRANSFER   - save archive and memory card transfers; state transfers use
+#     their own per-emulator deadline, see _STATE_TRANSFER_LIMITS
 #   CARD_HYDRATE / CARD_TEARDOWN - whole-card push at claim / pull at exit;
 #     hydration may wait on a slow first-run card format, teardown must not
 #     hold a closing session hostage for two minutes
@@ -802,9 +803,35 @@ def _stop_broker(container: dict[str, Any]) -> None:
 #                              hosts. Returns raw bytes + X-State-Filename.
 #   PUT /state-file?filename=NAME - write NAME into the emulator's state dir.
 
-# Maximum state file size accepted from a broker (PCSX2 states with a large
-# VRAM snapshot run tens of MB; 256 MB leaves generous headroom).
-_STATE_FILE_MAX_BYTES = 256 * 1024 * 1024
+# State transfer limits, keyed by emulator. Most savestates are a RAM plus VRAM
+# snapshot of tens of MB, but xemu's state is the whole Xbox hard disk image and
+# zips to hundreds of MB even after trimming. Size and deadline live together so
+# a state that clears one is not rejected by the other.
+
+
+class StateTransferLimits(TypedDict):
+    max_bytes: int  # largest state body exchanged with the broker
+    timeout: int  # seconds allowed for that body, in either direction
+
+
+_DEFAULT_STATE_TRANSFER: StateTransferLimits = {
+    "max_bytes": 256 * 1024 * 1024,
+    "timeout": _BROKER_TRANSFER_TIMEOUT,
+}
+
+# Keyed by emulator name as _emulator_for_container returns it (lowercase).
+_STATE_TRANSFER_LIMITS: dict[str, StateTransferLimits] = {
+    # The xemu broker caps its expanded hard disk image at 2 GiB, and transfers
+    # run around 18 MB/s, so a full-size archive needs minutes, not seconds.
+    "xemu": {"max_bytes": 2 * 1024 * 1024 * 1024, "timeout": 240},
+}
+
+
+def _state_transfer_limits(container: dict[str, Any]) -> StateTransferLimits:
+    return _STATE_TRANSFER_LIMITS.get(
+        _emulator_for_container(container), _DEFAULT_STATE_TRANSFER
+    )
+
 
 # Pull retries cover the window between the broker accepting a save and the
 # emulator finishing the write (PINE/xdotool waits run up to ~15s per broker).
@@ -844,12 +871,13 @@ def _fetch_state_file(container: dict[str, Any], slot: int) -> tuple[str, bytes]
     The broker blocks while a save is in flight, so a generous timeout stands
     in for save-completion polling. 404 means no state exists for the slot.
     """
+    limits = _state_transfer_limits(container)
     result = _broker_get_binary_safe(
         container,
         f"/state-file?slot={slot}",
         "state-file GET",
-        max_bytes=_STATE_FILE_MAX_BYTES,
-        timeout=_BROKER_TRANSFER_TIMEOUT,
+        max_bytes=limits["max_bytes"],
+        timeout=limits["timeout"],
     )
     if result is None:
         return None
@@ -869,7 +897,7 @@ def _push_state_file(container: dict[str, Any], filename: str, content: bytes) -
         content,
         "state-file PUT",
         content_type="application/octet-stream",
-        timeout=_BROKER_TRANSFER_TIMEOUT,
+        timeout=_state_transfer_limits(container)["timeout"],
     )
 
 
@@ -1195,7 +1223,8 @@ async def _hydrate_states_to_broker(
 # asset with a .zip extension so the whole card set travels as a unit.
 
 # A pulled save archive can be large (PCSX2 ships whole 8 MB memory cards, a
-# Wii NAND can hold many titles); 256 MB matches the state-file ceiling.
+# Wii NAND can hold many titles); 256 MB is generous for every emulator that
+# separates its saves from its states.
 _SAVE_FILE_MAX_BYTES = 256 * 1024 * 1024
 
 
