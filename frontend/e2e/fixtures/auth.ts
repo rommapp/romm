@@ -14,15 +14,48 @@ export const PASSWORD = process.env.E2E_PASSWORD ?? "e2e-Passw0rd!";
 
 export type Role = keyof typeof USERS;
 
-/** Log in through the real form and wait for the app shell to take over. */
-export async function login(page: Page, role: Role) {
-  await page.goto("/login");
-  await page.fill('input[name="username"]', USERS[role]);
-  await page.fill('input[name="password"]', PASSWORD);
-  await page.click('button[type="submit"]');
-  // The router replaces /login on success; a failed login leaves us here with a
-  // snackbar, so assert the navigation rather than a fixed timeout.
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 });
+/** Log in through the real form and wait for the app shell to take over.
+ *
+ *  Everything is scoped to `form.r-v2-login-form`. The reset-password form is
+ *  rendered alongside it (collapsed, not unmounted) and has its own submit
+ *  button and fields, so unscoped `button[type="submit"]` / `input[name=...]`
+ *  selectors match two elements and blow up on strict mode -- intermittently,
+ *  depending on whether that form has mounted yet. */
+export async function login(
+  page: Page,
+  role: Role,
+  {
+    timeout = 25_000,
+    attempts = 3,
+  }: { timeout?: number; attempts?: number } = {},
+) {
+  // Retried because the Vite dev server force-reloads the page when it
+  // discovers a new dependency to pre-bundle ("optimized dependencies changed.
+  // reloading"). That wipes the half-filled form and the submit never lands, so
+  // the login silently does nothing. It's an infrastructure event, not an app
+  // failure, and it mostly happens on the first navigations of a cold server.
+  // Bad credentials still fail, just after `attempts` tries.
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await page.goto("/login");
+      const form = page.locator("form.r-v2-login-form");
+      await form.locator('input[name="username"]').fill(USERS[role]);
+      await form.locator('input[name="password"]').fill(PASSWORD);
+      await form.locator('button[type="submit"]').click();
+      // Assert a marker that only exists once authenticated (the app bar's user
+      // name) rather than just "the URL is no longer /login" -- the latter goes
+      // true mid-transition and says nothing about the session.
+      await expect(page.locator(".r-v2-user__name")).toHaveText(USERS[role], {
+        timeout,
+      });
+      await expect(page).not.toHaveURL(/\/login/);
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 /** Navigate to the logged-in user's own profile page (route `/user/:user`). */
