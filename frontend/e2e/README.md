@@ -18,3 +18,9 @@ These drive a **real running RomM instance**, unlike the Vitest specs, which mou
    npm run test:e2e          # headless
    npm run test:e2e:ui       # interactive, for debugging a failure
    ```
+
+## Authentication
+
+`auth.setup.ts` runs first as its own project, logs each fixture user in once and saves the session to `playwright/.auth/` (gitignored). Specs pick an identity with `test.use({ storageState: STORAGE_STATE.viewer })` and start signed in, so the form is driven twice per run rather than once per test.
+
+`login.spec.ts` is the only spec that drives the form, using the default unauthenticated page. If auth breaks, diagnose there.

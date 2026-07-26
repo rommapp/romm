@@ -34,7 +34,23 @@ export default defineConfig({
     // cache makes runs non-deterministic. Nothing here tests offline support.
     serviceWorkers: "block",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    // Logs each fixture user in once and saves the session; every spec then
+    // starts authenticated via `test.use({ storageState })` instead of driving
+    // the login form again. login.spec.ts is the one place the form itself is
+    // exercised, and it opts out by using a fresh page.
+    {
+      name: "setup",
+      testMatch: /.*\.setup\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "chromium",
+      testIgnore: /.*\.setup\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
+    },
+  ],
   // Serve the app unless we were pointed at an instance that is already up
   // (E2E_BASE_URL).
   //

@@ -10,6 +10,13 @@ export const PASSWORD = process.env.E2E_PASSWORD ?? "e2e-Passw0rd!";
 
 export type Role = keyof typeof USERS;
 
+/** Where auth.setup.ts parks each role's authenticated session. Gitignored --
+ *  they hold live session cookies and are regenerated on every run. */
+export const STORAGE_STATE: Record<Role, string> = {
+  admin: "playwright/.auth/admin.json",
+  viewer: "playwright/.auth/viewer.json",
+};
+
 /** Log in through the real form and wait for the app shell to take over.
  *
  *  Everything is scoped to `form.r-v2-login-form`. The reset-password form is

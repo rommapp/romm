@@ -1,15 +1,18 @@
 import { expect, test } from "@playwright/test";
-import { gotoOwnProfile, login, seedUiState } from "./fixtures/auth";
+import { gotoOwnProfile, seedUiState, STORAGE_STATE } from "./fixtures/auth";
 
 // Regression cover for #3954: the profile page shipped an editable role picker,
 // but `update_user` ignores `role` on a self-edit. Saving reported success and
 // then silently reverted on reload -- for admins as much as for regular users.
 // The role is display-only now: the chip in the identity row.
-test.describe("Profile page role field", () => {
-  for (const role of ["viewer", "admin"] as const) {
-    test(`${role} gets no editable role control`, async ({ page }) => {
+//
+// Sessions come from auth.setup.ts; see login.spec.ts for the form itself.
+for (const role of ["viewer", "admin"] as const) {
+  test.describe(`Profile page role field (${role})`, () => {
+    test.use({ storageState: STORAGE_STATE[role] });
+
+    test("gets no editable role control", async ({ page }) => {
       await seedUiState(page, "dark");
-      await login(page, role);
       await gotoOwnProfile(page);
 
       // The editable rows that SHOULD be there, so a blank page can't pass.
@@ -21,11 +24,14 @@ test.describe("Profile page role field", () => {
       // And no select rendered anywhere on the page.
       await expect(page.locator(".r-select")).toHaveCount(0);
     });
-  }
+  });
+}
 
-  test("the role is still shown as a read-only chip", async ({ page }) => {
+test.describe("Profile page role chip", () => {
+  test.use({ storageState: STORAGE_STATE.viewer });
+
+  test("still shows the role read-only", async ({ page }) => {
     await seedUiState(page, "dark");
-    await login(page, "viewer");
     await gotoOwnProfile(page);
 
     // Identity row keeps the role visible -- removing the picker must not

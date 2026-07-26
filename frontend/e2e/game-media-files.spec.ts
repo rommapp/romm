@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { gotoFirstRom, login, seedUiState } from "./fixtures/auth";
+import { gotoFirstRom, seedUiState, STORAGE_STATE } from "./fixtures/auth";
 
 // The Media and Files tabs write to the ROM (manuals, soundtracks, shared
 // screenshots, ROM files) and every one of those endpoints gates on ROMS_WRITE.
@@ -13,6 +13,8 @@ import { gotoFirstRom, login, seedUiState } from "./fixtures/auth";
 // heavy async panels don't re-mount on each switch. Assertions must therefore
 // scope to the VISIBLE panel -- a document-wide locator would also match the
 // hidden panels and pass or fail for the wrong reason.
+//
+// Sessions come from auth.setup.ts; see login.spec.ts for the form itself.
 
 async function openTab(page: Page, tab: string) {
   await page.getByRole("tab", { name: tab }).click();
@@ -29,17 +31,20 @@ function visiblePanel(page: Page): Locator {
   return page.locator(".r-v2-media__panel:visible");
 }
 
-test.describe("Media tab write affordances", () => {
-  // Both panels whose upload path is ROM-scoped, so both must be inert.
-  for (const [subtab, emptyText] of [
-    ["Manual", "No manual yet"],
-    ["Soundtrack", "No soundtrack yet"],
-  ] as const) {
-    test(`${subtab}: a read-only user gets the empty state, not a dropzone`, async ({
+// Both panels whose upload path is ROM-scoped, so both must be inert.
+const ROM_SCOPED_SUBTABS = [
+  ["Manual", "No manual yet"],
+  ["Soundtrack", "No soundtrack yet"],
+] as const;
+
+test.describe("Media tab write affordances (read-only user)", () => {
+  test.use({ storageState: STORAGE_STATE.viewer });
+
+  for (const [subtab, emptyText] of ROM_SCOPED_SUBTABS) {
+    test(`${subtab}: gets the empty state, not a dropzone`, async ({
       page,
     }) => {
       await seedUiState(page, "dark");
-      await login(page, "viewer");
       await gotoFirstRom(page);
       await openTab(page, "Media");
       await openSubtab(page, subtab);
@@ -56,10 +61,33 @@ test.describe("Media tab write affordances", () => {
         panel.getByRole("button", { name: "Upload", exact: true }),
       ).toHaveCount(0);
     });
+  }
 
-    test(`${subtab}: an admin still gets the dropzone`, async ({ page }) => {
+  test("Screenshots: the shared ROM section is hidden but the per-user one stays writable", async ({
+    page,
+  }) => {
+    await seedUiState(page, "dark");
+    await gotoFirstRom(page);
+    await openTab(page, "Media");
+    await openSubtab(page, "Screenshots");
+
+    const panel = visiblePanel(page);
+    // Shared section writes to the ROM: gone for a read-only user with nothing
+    // to show.
+    await expect(panel.getByText("ROM screenshots")).toHaveCount(0);
+    // Per-user section writes user assets: must survive, dropzone included.
+    // Hiding this would be the regression in the opposite direction.
+    await expect(panel.getByText("My screenshots")).toBeVisible();
+    await expect(panel.locator(".r-dropzone__cta")).not.toHaveCount(0);
+  });
+});
+
+test.describe("Media tab write affordances (admin)", () => {
+  test.use({ storageState: STORAGE_STATE.admin });
+
+  for (const [subtab] of ROM_SCOPED_SUBTABS) {
+    test(`${subtab}: still gets the dropzone`, async ({ page }) => {
       await seedUiState(page, "dark");
-      await login(page, "admin");
       await gotoFirstRom(page);
       await openTab(page, "Media");
       await openSubtab(page, subtab);
@@ -75,30 +103,8 @@ test.describe("Media tab write affordances", () => {
     });
   }
 
-  test("Screenshots: the shared ROM section is hidden but the per-user one stays writable", async ({
-    page,
-  }) => {
+  test("Screenshots: sees the shared ROM section", async ({ page }) => {
     await seedUiState(page, "dark");
-    await login(page, "viewer");
-    await gotoFirstRom(page);
-    await openTab(page, "Media");
-    await openSubtab(page, "Screenshots");
-
-    const panel = visiblePanel(page);
-    // Shared section writes to the ROM: gone for a read-only user with nothing
-    // to show.
-    await expect(panel.getByText("ROM screenshots")).toHaveCount(0);
-    // Per-user section writes user assets: must survive, dropzone included.
-    // Hiding this would be the regression in the opposite direction.
-    await expect(panel.getByText("My screenshots")).toBeVisible();
-    await expect(panel.locator(".r-dropzone__cta")).not.toHaveCount(0);
-  });
-
-  test("Screenshots: an admin sees the shared ROM section", async ({
-    page,
-  }) => {
-    await seedUiState(page, "dark");
-    await login(page, "admin");
     await gotoFirstRom(page);
     await openTab(page, "Media");
     await openSubtab(page, "Screenshots");
@@ -108,25 +114,31 @@ test.describe("Media tab write affordances", () => {
 });
 
 test.describe("Files tab write affordances", () => {
-  test("a read-only user gets no upload button", async ({ page }) => {
-    await seedUiState(page, "dark");
-    await login(page, "viewer");
-    await gotoFirstRom(page);
-    await openTab(page, "Files");
+  test.describe("read-only user", () => {
+    test.use({ storageState: STORAGE_STATE.viewer });
 
-    await expect(
-      page.getByRole("button", { name: "Upload", exact: true }),
-    ).toHaveCount(0);
+    test("gets no upload button", async ({ page }) => {
+      await seedUiState(page, "dark");
+      await gotoFirstRom(page);
+      await openTab(page, "Files");
+
+      await expect(
+        page.getByRole("button", { name: "Upload", exact: true }),
+      ).toHaveCount(0);
+    });
   });
 
-  test("an admin gets the upload button", async ({ page }) => {
-    await seedUiState(page, "dark");
-    await login(page, "admin");
-    await gotoFirstRom(page);
-    await openTab(page, "Files");
+  test.describe("admin", () => {
+    test.use({ storageState: STORAGE_STATE.admin });
 
-    await expect(
-      page.getByRole("button", { name: "Upload", exact: true }),
-    ).toBeVisible();
+    test("gets the upload button", async ({ page }) => {
+      await seedUiState(page, "dark");
+      await gotoFirstRom(page);
+      await openTab(page, "Files");
+
+      await expect(
+        page.getByRole("button", { name: "Upload", exact: true }),
+      ).toBeVisible();
+    });
   });
 });
