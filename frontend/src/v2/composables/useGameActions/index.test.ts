@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ActionKey } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import { useGameActions } from "./index";
 
@@ -6,6 +7,8 @@ import { useGameActions } from "./index";
 const push = vi.fn();
 const confirmFn = vi.fn();
 const confirmProtectedLaunch = { value: true };
+// Granted action keys — `null` means "everything" (the default).
+const grantedActions: { value: Set<ActionKey> | null } = { value: null };
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -40,7 +43,11 @@ vi.mock("@/utils", () => ({
   isNintendoDSRom: () => false,
 }));
 vi.mock("@/v2/composables/useCan", () => ({
-  useCan: () => ({ value: true }),
+  useCan: (action: ActionKey) => ({
+    get value() {
+      return grantedActions.value?.has(action) ?? true;
+    },
+  }),
 }));
 // EJS is the only playable core in these tests, so play() routes to /ejs.
 vi.mock("@/v2/composables/useCanPlay", () => ({
@@ -78,6 +85,7 @@ beforeEach(() => {
   push.mockClear();
   confirmFn.mockClear();
   confirmProtectedLaunch.value = true;
+  grantedActions.value = null;
 });
 
 describe("useGameActions.play — launch confirmation", () => {
@@ -113,5 +121,54 @@ describe("useGameActions.play — launch confirmation", () => {
     await actions.play();
     expect(confirmFn).not.toHaveBeenCalled();
     expect(push).toHaveBeenCalledWith("/rom/1/ejs");
+  });
+});
+
+describe("useGameActions — write/destructive gates", () => {
+  it("exposes every write action when the grants allow it", () => {
+    const actions = useGameActions(() => makeRom());
+    expect(actions.canEdit.value).toBe(true);
+    expect(actions.canDelete.value).toBe(true);
+    expect(actions.canMatch.value).toBe(true);
+    expect(actions.canRefresh.value).toBe(true);
+  });
+
+  it("denies them for a read-only user", () => {
+    grantedActions.value = new Set<ActionKey>([
+      "rom.view",
+      "rom.play",
+      "rom.download",
+      "rom.favorite",
+    ]);
+    const actions = useGameActions(() => makeRom());
+    expect(actions.canEdit.value).toBe(false);
+    expect(actions.canDelete.value).toBe(false);
+    expect(actions.canMatch.value).toBe(false);
+    expect(actions.canRefresh.value).toBe(false);
+  });
+
+  it("hides delete when only the write grants are held", () => {
+    grantedActions.value = new Set<ActionKey>([
+      "rom.edit",
+      "rom.match",
+      "rom.refresh",
+    ]);
+    const actions = useGameActions(() => makeRom());
+    expect(actions.canEdit.value).toBe(true);
+    expect(actions.canDelete.value).toBe(false);
+  });
+
+  // A bare DELETE grant projects to no scope, so `POST /roms/delete` (which
+  // gates on ROMS_WRITE) would 403 and the interceptor would log the user out.
+  it("hides delete when the delete grant is held without the write grant", () => {
+    grantedActions.value = new Set<ActionKey>(["rom.view", "rom.delete"]);
+    const actions = useGameActions(() => makeRom());
+    expect(actions.canDelete.value).toBe(false);
+  });
+
+  it("shows delete when both the delete and write grants are held", () => {
+    grantedActions.value = new Set<ActionKey>(["rom.delete", "rom.edit"]);
+    const actions = useGameActions(() => makeRom());
+    expect(actions.canDelete.value).toBe(true);
   });
 });

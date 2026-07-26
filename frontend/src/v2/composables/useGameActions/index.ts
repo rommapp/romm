@@ -61,6 +61,18 @@ export function useGameActions(
   const auth = storeAuth();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
+  // Write/destructive gates, mirroring the backend grants. Surfaces that
+  // offer these actions hide them outright rather than letting the request
+  // 403 (which the axios interceptor turns into a logout).
+  const canEdit = useCan("rom.edit");
+  const canMatch = useCan("rom.match");
+  const canRefresh = useCan("rom.refresh");
+  const hasDeleteGrant = useCan("rom.delete");
+  // `POST /roms/delete` gates on ROMS_WRITE, and a bare DELETE grant projects
+  // to no scope at all, so the delete grant alone can't authorise the call.
+  // Require the write grant too (`rom.edit` is its proxy) or the menu offers a
+  // delete that 403s.
+  const canDelete = computed(() => hasDeleteGrant.value && canEdit.value);
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
   const { canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
   const streamingStore = useStreamingStore();
@@ -421,6 +433,10 @@ export function useGameActions(
     canPlay,
     canPlayStream,
     canRemoveFromContinuePlaying,
+    canEdit,
+    canDelete,
+    canMatch,
+    canRefresh,
     currentStatusKey,
     setStatus,
     setStatusEnum,

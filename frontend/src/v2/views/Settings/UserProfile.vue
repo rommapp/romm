@@ -10,14 +10,11 @@
 // While `userToEdit` is loading we render a thin skeleton so the
 // layout doesn't pop in. Apply is disabled until the form is dirty;
 // Discard restores the original snapshot.
-import {
-  RBtn,
-  RIcon,
-  RSelect,
-  RSkeletonBlock,
-  RTag,
-  RTextField,
-} from "@v2/lib";
+//
+// Role is display-only here (the chip in the identity row): nobody can
+// change their own role, so an editable picker would only ever silently
+// revert. Admins change other users' roles from Settings → Administration.
+import { RBtn, RIcon, RSkeletonBlock, RTag, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onMounted, onUnmounted, ref } from "vue";
@@ -39,10 +36,7 @@ const { t, locale } = useI18n();
 const auth = storeAuth();
 const { user } = storeToRefs(auth);
 const userToEdit = ref<UserItem | null>(null);
-const originalSnapshot = ref<Pick<
-  UserItem,
-  "username" | "email" | "role"
-> | null>(null);
+const originalSnapshot = ref<Pick<UserItem, "username" | "email"> | null>(null);
 const usersStore = storeUsers();
 const imagePreviewUrl = ref<string | undefined>("");
 const emitter = inject<Emitter<Events>>("emitter");
@@ -50,13 +44,6 @@ const snackbar = useSnackbar();
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const submitting = ref(false);
 const passwordDialogOpen = ref(false);
-
-const roleItems = computed(() =>
-  ["admin", "user"].map((role) => ({
-    title: t(`settings.role-${role}`),
-    value: role,
-  })),
-);
 
 type RoleTone = "brand" | "warning" | "info";
 const ROLE_TONE: Record<string, RoleTone> = {
@@ -86,7 +73,6 @@ const isDirty = computed(() => {
   return (
     userToEdit.value.username !== originalSnapshot.value.username ||
     (userToEdit.value.email ?? "") !== (originalSnapshot.value.email ?? "") ||
-    userToEdit.value.role !== originalSnapshot.value.role ||
     !!userToEdit.value.avatar
   );
 });
@@ -95,7 +81,6 @@ function snapshot(item: UserItem) {
   originalSnapshot.value = {
     username: item.username,
     email: item.email,
-    role: item.role,
   };
 }
 
@@ -279,32 +264,6 @@ onUnmounted(() => {
               {{ t("settings.email") }}
             </template>
           </RTextField>
-        </div>
-        <div class="r-v2-profile__field">
-          <RSelect
-            v-model="userToEdit.role"
-            :items="roleItems"
-            prefix-label="stacked"
-            required
-            hide-details
-          >
-            <template #prefix-label>
-              <RIcon icon="mdi-shield-account-outline" size="14" />
-              {{ t("settings.role") }}
-            </template>
-            <template #selection="{ item }">
-              <div class="r-v2-profile__role-line">
-                <RIcon :icon="getRoleIcon(item.value)" size="16" />
-                {{ item.title }}
-              </div>
-            </template>
-            <template #item="{ props: itemProps, item }">
-              <li v-bind="itemProps">
-                <RIcon :icon="getRoleIcon(item.value)" size="16" />
-                <span class="r-select__item-title">{{ item.title }}</span>
-              </li>
-            </template>
-          </RSelect>
         </div>
 
         <!-- Password — visually identical to the other prefix-label
@@ -514,12 +473,5 @@ onUnmounted(() => {
   gap: 8px;
   padding: 14px 16px;
   border-top: 1px solid var(--r-color-border);
-}
-
-.r-v2-profile__role-line {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  text-transform: capitalize;
 }
 </style>
