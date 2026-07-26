@@ -23,7 +23,7 @@ from models.permission import (
     PermissionGroup,
     PermissionGroupGrant,
 )
-from models.rom import RomFile, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory
 
 
 def _auth(user):
@@ -244,6 +244,41 @@ def test_hidden_rom_note_write_routes_are_404_masked(client, viewer_user, rom):
 
     delete = client.delete(f"/api/roms/{rom.id}/notes/1", headers=headers)
     assert delete.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_note_on_hidden_rom_not_reachable_via_visible_rom_path(
+    client, viewer_user, rom, platform
+):
+    # The path rom only authorizes itself: a note belonging to a hidden rom must
+    # not be reachable by pairing its id with a visible rom in the path.
+    hidden = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="hidden_rom",
+            slug="hidden_rom_slug",
+            fs_name="hidden_rom.zip",
+            fs_name_no_tags="hidden_rom",
+            fs_name_no_ext="hidden_rom",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
+    note = db_rom_handler.create_rom_note(
+        rom_id=hidden.id, user_id=viewer_user.id, title="secret"
+    )
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+    headers = _auth(viewer_user)
+
+    update = client.put(
+        f"/api/roms/{rom.id}/notes/{note['id']}", headers=headers, json={"title": "x"}
+    )
+    assert update.status_code == status.HTTP_404_NOT_FOUND
+
+    delete = client.delete(f"/api/roms/{rom.id}/notes/{note['id']}", headers=headers)
+    assert delete.status_code == status.HTTP_404_NOT_FOUND
+
+    surviving = db_rom_handler.get_rom_notes(rom_id=hidden.id, user_id=viewer_user.id)
+    assert [n.title for n in surviving] == ["secret"]
 
 
 def test_visible_rom_child_route_is_not_masked(client, viewer_user, rom):

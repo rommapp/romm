@@ -2377,12 +2377,17 @@ class DBRomsHandler(DBBaseHandler):
         self,
         note_id: int,
         user_id: int,
+        rom_id: int,
         session: Session = None,  # type: ignore
         **fields,
     ) -> dict | None:
         note = (
             session.query(RomNote)
-            .filter(RomNote.id == note_id, RomNote.user_id == user_id)
+            .filter(
+                RomNote.id == note_id,
+                RomNote.user_id == user_id,
+                RomNote.rom_id == rom_id,
+            )
             .first()
         )
 
@@ -2413,11 +2418,16 @@ class DBRomsHandler(DBBaseHandler):
         self,
         note_id: int,
         user_id: int,
+        rom_id: int,
         session: Session = None,  # type: ignore
     ) -> bool:
         result = session.execute(
             delete(RomNote).where(
-                and_(RomNote.id == note_id, RomNote.user_id == user_id)
+                and_(
+                    RomNote.id == note_id,
+                    RomNote.user_id == user_id,
+                    RomNote.rom_id == rom_id,
+                )
             )
         )
         return result.rowcount > 0

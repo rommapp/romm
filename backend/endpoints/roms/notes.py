@@ -132,6 +132,7 @@ async def update_rom_note(
     note = db_rom_handler.update_rom_note(
         note_id=note_id,
         user_id=request.user.id,
+        rom_id=rom.id,
         **{
             k: v
             for k, v in note_data.items()
@@ -168,7 +169,9 @@ async def delete_rom_note(
         raise RomNotFoundInDatabaseException(id)
     assert_rom_visible(request, rom)
 
-    success = db_rom_handler.delete_rom_note(note_id=note_id, user_id=request.user.id)
+    success = db_rom_handler.delete_rom_note(
+        note_id=note_id, user_id=request.user.id, rom_id=rom.id
+    )
 
     if not success:
         raise HTTPException(
