@@ -14,6 +14,7 @@ from endpoints.responses.rom import SoundtrackTrackMetaSchema, TrackMetaSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.rom_conversion import promote_single_file_to_folder
@@ -51,6 +52,8 @@ async def get_rom_soundtrack_metadata(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
 
     tracks = db_rom_handler.get_rom_files_by_category(
         rom_id=rom.id, category=RomFileCategory.SOUNDTRACK
@@ -92,6 +95,8 @@ async def add_rom_soundtracks(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
 
     if rom.has_simple_single_file:
         try:
@@ -228,6 +233,8 @@ async def delete_rom_soundtrack(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if (
