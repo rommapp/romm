@@ -85,17 +85,21 @@ Here are a few projects maintained by members of our community. Please note that
 
 Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
 
-[![discord-invite-img]][discord-invite]
+<div align="center">
+  <div dir="auto">
+    <a href="https://discord.gg/P5HtHnhUDH" target="_blank" rel="noopener noreferrer"><img src="https://invidget.switchblade.xyz/P5HtHnhUDH" alt="Discord invite"/></a>
+  </div>
+</div>
 
-## Technical Support
-
-If you have any issues with RomM, please [open an issue](https://github.com/rommapp/romm/issues/new) in this repository.
-
-## Financial Support
+## Support the project
 
 Consider supporting the development of this project on Open Collective. All funds will be used to cover the costs of hosting, development, and maintenance of RomM.
 
-[![oc-donate-img]][oc-donate]
+<div align="center">
+  <div dir="auto">
+    <a href="https://opencollective.com/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/opencollective-badge.svg" alt="Open Collective" width="250" height="58"/></a>
+  </div>
+</div>
 
 ## Our Friends
 
@@ -112,7 +116,7 @@ Here are a few projects that we think you might like:
 
 ## Supported By
 
-These companies support RomM by providing their tools to the project for free:
+These companies support us by providing their tools for free:
 
 <div align="center">
   <div dir="auto">
@@ -129,13 +133,6 @@ These companies support RomM by providing their tools to the project for free:
 [docs-rufflers]: https://docs.romm.app/latest/Platforms-and-Players/RuffleRS-Player/
 [docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/Scanning-Issues/
 [docs-tag-support]: https://docs.romm.app/latest/Getting-Started/Folder-Structure/#tag-support
-
-<!-- Links -->
-
-[discord-invite-img]: https://invidget.switchblade.xyz/P5HtHnhUDH
-[discord-invite]: https://discord.gg/P5HtHnhUDH
-[oc-donate-img]: https://opencollective.com/romm/donate/button.png?color=blue
-[oc-donate]: https://opencollective.com/romm
 
 <!-- External links -->
 
