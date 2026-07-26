@@ -4,8 +4,6 @@ from typing import Annotated
 from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
-from config import MAX_SAVE_UPLOAD_SIZE_BYTES
-
 from decorators.auth import protected_route
 from endpoints.responses.assets import StateSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
@@ -21,6 +19,7 @@ from logger.logger import log
 from models.assets import State
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
+from utils.uploads import check_asset_upload_size
 
 router = APIRouter(
     prefix="/states",
@@ -44,12 +43,8 @@ async def add_state(
     stateFile: UploadFile = STATE_FILE_UPLOAD,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPLOAD,
 ) -> StateSchema:
-    # Enforce server-side upload size limit to prevent denial of service.
-    if MAX_SAVE_UPLOAD_SIZE_BYTES and stateFile.size and stateFile.size > MAX_SAVE_UPLOAD_SIZE_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"State file exceeds maximum allowed size of {MAX_SAVE_UPLOAD_SIZE_BYTES} bytes",
-        )
+    check_asset_upload_size(stateFile, "State file")
+    check_asset_upload_size(screenshotFile, "Screenshot file")
 
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
@@ -261,12 +256,8 @@ async def update_state(
     stateFile: UploadFile | None = STATE_FILE_UPDATE,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPDATE,
 ) -> StateSchema:
-    # Enforce server-side upload size limit to prevent denial of service.
-    if stateFile and MAX_SAVE_UPLOAD_SIZE_BYTES and stateFile.size and stateFile.size > MAX_SAVE_UPLOAD_SIZE_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"State file exceeds maximum allowed size of {MAX_SAVE_UPLOAD_SIZE_BYTES} bytes",
-        )
+    check_asset_upload_size(stateFile, "State file")
+    check_asset_upload_size(screenshotFile, "Screenshot file")
 
     db_state = db_state_handler.get_state(user_id=request.user.id, id=id)
     if not db_state:

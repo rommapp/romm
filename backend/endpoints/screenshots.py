@@ -23,6 +23,7 @@ from utils.media_types import (
     is_allowed_image_file,
 )
 from utils.router import APIRouter
+from utils.uploads import check_asset_upload_size
 
 router = APIRouter(
     prefix="/screenshots",
@@ -44,6 +45,8 @@ async def add_screenshot(
     `is_gallery=True` so it surfaces in the gallery; `is_public=False` so it
     stays private until the owner shares it.
     """
+    check_asset_upload_size(screenshotFile, "Screenshot file")
+
     rom = db_rom_handler.get_rom(id=rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)

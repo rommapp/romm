@@ -23,6 +23,7 @@ from config import (
     DEV_PORT,
     DISABLE_CSRF_PROTECTION,
     IS_PYTEST_RUN,
+    MAX_ASSET_UPLOAD_SIZE_BYTES,
     OIDC_ENABLED,
     ROMM_AUTH_SECRET_KEY,
     ROMM_CORS_ALLOWED_ORIGINS,
@@ -61,6 +62,7 @@ from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
+from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.socket_handler import netplay_socket_handler, socket_handler
 from logger.formatter import LOGGING_CONFIG
 from utils import get_version
@@ -117,6 +119,17 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Bounds asset upload requests before their multipart body is spooled to disk
+app.add_middleware(
+    UploadSizeLimitMiddleware,
+    max_size=MAX_ASSET_UPLOAD_SIZE_BYTES,
+    paths=[
+        re.compile(r"^/api/saves"),
+        re.compile(r"^/api/states"),
+        re.compile(r"^/api/screenshots"),
+    ],
 )
 
 if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
