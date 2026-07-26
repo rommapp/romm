@@ -106,7 +106,6 @@ def sanitize_filename(filename: str) -> str:
     - ValueError: If the filename is empty or a reserved traversal name.
     """
     # Strip directory components first to neutralise path-traversal payloads
-    # (e.g. "../../etc/passwd" → "passwd").
     sanitized_filename = os.path.basename(filename)
 
     # Replace some invalid characters with hyphen

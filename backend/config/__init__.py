@@ -39,18 +39,6 @@ ASSETS_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/assets"
 ZIP_CACHE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/zips"
 FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
 
-# ASSETS
-# Reject save/state/screenshot upload requests larger than this, in bytes.
-# Set to 0 to disable the limit.
-MAX_ASSET_UPLOAD_SIZE_BYTES: Final[int] = safe_int(
-    _get_env("MAX_ASSET_UPLOAD_SIZE_BYTES"), 512 * 1024 * 1024  # 512 MiB
-)
-# Ceiling on the client-supplied autocleanup limit, so a single slot cannot
-# accumulate unbounded backups. Clamped to at least 1 to keep the newest save.
-MAX_AUTOCLEANUP_LIMIT: Final[int] = max(
-    1, safe_int(_get_env("MAX_AUTOCLEANUP_LIMIT"), 100)
-)
-
 # SEVEN ZIP
 SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)
 
@@ -166,16 +154,11 @@ DISABLE_USERPASS_LOGIN: Final[bool] = safe_str_to_bool(
     _get_env("DISABLE_USERPASS_LOGIN")
 )
 
-# Comma-separated list of origins, e.g. "https://romm.example.com,http://localhost:3000".
-# Leave empty to allow all origins (not recommended when allow_credentials is True).
 ROMM_CORS_ALLOWED_ORIGINS: Final[list[str]] = [
     o.strip()
-    for o in (_get_env("ROMM_CORS_ALLOWED_ORIGINS", "")).split(",")
+    for o in (_get_env("ROMM_CORS_ALLOWED_ORIGINS", "*")).split(",")
     if o.strip()
 ]
-
-# Set to true when RomM is served behind a TLS-terminating proxy, so session
-# and CSRF cookies carry the Secure flag.
 ROMM_SESSION_SECURE_COOKIE: Final[bool] = safe_str_to_bool(
     _get_env("ROMM_SESSION_SECURE_COOKIE")
 )
@@ -289,6 +272,14 @@ DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))
 # FRONTEND
 KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))
 DISABLE_LOGS_VIEWER: Final[bool] = safe_str_to_bool(_get_env("DISABLE_LOGS_VIEWER"))
+
+# ASSETS
+MAX_ASSET_UPLOAD_SIZE_BYTES: Final[int] = safe_int(
+    _get_env("MAX_ASSET_UPLOAD_SIZE_BYTES"), 512 * 1024 * 1024  # 512 MiB
+)
+MAX_AUTOCLEANUP_LIMIT: Final[int] = max(
+    1, safe_int(_get_env("MAX_AUTOCLEANUP_LIMIT"), 100)
+)
 
 # LOGGING
 LOGLEVEL: Final[str] = _get_env("LOGLEVEL", "INFO").upper()
