@@ -1,20 +1,13 @@
 name: Run E2E Tests
 
-# Playwright specs in frontend/e2e/ drive a real, assembled instance: backend +
-# database + Redis + the Vite dev server. They cover behaviour the Vitest specs
-# can't reach -- chiefly permission gating, where "is this control visible?"
-# depends on grants the backend resolves and `useCan` projects.
-#
-# Both stacks are in `paths` because either can break the gating: the frontend
-# owns the `v-if`, the backend owns the grants and the scope each endpoint
-# requires.
-
 on:
   pull_request:
     paths:
       - "frontend/**"
       - "backend/**"
       - ".github/workflows/e2e.yml"
+      - pyproject.toml
+      - uv.lock
   push:
     branches:
       - "master"
@@ -22,6 +15,8 @@ on:
       - "frontend/**"
       - "backend/**"
       - ".github/workflows/e2e.yml"
+      - pyproject.toml
+      - uv.lock
 
 permissions: read-all
 
@@ -47,8 +42,6 @@ jobs:
           --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=2s --health-retries=3
 
     env:
-      # Backend. DEV_PORT is also the port Vite's /api proxy targets by default,
-      # so the two line up without extra configuration.
       DEV_PORT: 5000
       DB_HOST: 127.0.0.1
       DB_NAME: romm_e2e
@@ -56,9 +49,9 @@ jobs:
       DB_PASSWD: passwd
       ROMM_DB_DRIVER: mariadb
       REDIS_HOST: 127.0.0.1
-      # Throwaway signing key for an ephemeral runner; nothing here outlives the job.
+      # Throwaway signing key for an ephemeral runner
       ROMM_AUTH_SECRET_KEY: "e2e0000000000000000000000000000000000000000000000000000000000000"
-      # Fixture-user password, shared by the seeder and the specs.
+      # Fixture-user password, shared by the seeder and the specs
       E2E_PASSWORD: e2e-Passw0rd!
 
     steps:
@@ -76,8 +69,7 @@ jobs:
       - name: Install python
         run: uv python install 3.13
 
-      # pyproject.toml lives at the repo root, so sync from there (matching
-      # pytest.yml). `uv run` from backend/ still resolves this environment.
+      # pyproject.toml lives at the repo root, so sync from there
       - name: Install backend dependencies
         run: uv sync
 
@@ -107,8 +99,7 @@ jobs:
           echo "DB_PORT=${{ job.services.mariadb.ports['3306'] }}" >> "$GITHUB_ENV"
           echo "REDIS_PORT=${{ job.services.valkey.ports['6379'] }}" >> "$GITHUB_ENV"
 
-      # Explicit, so a migration failure is its own red step rather than a
-      # confusing server-start failure (main.py also upgrades on boot).
+      # A migration failure is its own red step rather than a confusing server-start failure.
       - name: Apply migrations
         run: uv run alembic upgrade head
         working-directory: backend
@@ -117,8 +108,7 @@ jobs:
         run: uv run python tools/seed_e2e_library.py
         working-directory: backend
 
-      # Also clears the setup wizard, which would otherwise intercept every
-      # route on a userless instance.
+      # Seed user and clear the setup wizard
       - name: Seed the e2e fixture users
         run: uv run python tools/seed_e2e_users.py
         working-directory: backend
@@ -139,7 +129,7 @@ jobs:
           exit 1
         working-directory: backend
 
-      # Playwright's webServer starts the Vite dev server and waits for :3000.
+      # Starts the Vite dev server and waits for port 3000.
       - name: Run Playwright tests
         run: npm run test:e2e
         working-directory: frontend
