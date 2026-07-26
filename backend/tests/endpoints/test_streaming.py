@@ -2784,8 +2784,8 @@ def test_summarize_memory_card_reports_files_and_game_codes():
 
 
 def test_summarize_memory_card_handles_unparsable_content():
-    """A non-zip card must degrade to a byte count, never raise into the claim."""
+    """A card we cannot parse describes nothing, and never raises into the claim."""
     summary = streaming._summarize_memory_card(b"not a zip")
     assert summary["file_count"] == 0
-    assert summary["total_bytes"] == 9
+    assert summary["total_bytes"] == 0
     assert summary["game_codes"] == []
