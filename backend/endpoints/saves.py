@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
+from config import MAX_AUTOCLEANUP_LIMIT
 from decorators.auth import protected_route
 from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummarySchema
 from endpoints.responses.device import DeviceSyncSchema
@@ -32,6 +33,7 @@ from models.device_save_sync import DeviceSaveSync
 from utils.datetime import to_utc
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
+from utils.uploads import check_asset_upload_size
 
 
 def _build_save_schema(
@@ -169,6 +171,12 @@ async def add_save(
     screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPLOAD,
 ) -> SaveSchema:
     """Upload a save file for a ROM."""
+    check_asset_upload_size(saveFile, "Save file")
+    check_asset_upload_size(screenshotFile, "Screenshot file")
+
+    # Keep at least the save just uploaded, and cap what a client can retain
+    autocleanup_limit = max(1, min(autocleanup_limit, MAX_AUTOCLEANUP_LIMIT))
+
     device = _resolve_device(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
     )
@@ -555,6 +563,9 @@ async def update_save(
     screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPDATE,
 ) -> SaveSchema:
     """Update a save file."""
+
+    check_asset_upload_size(saveFile, "Save file")
+    check_asset_upload_size(screenshotFile, "Screenshot file")
 
     device = _resolve_device(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE

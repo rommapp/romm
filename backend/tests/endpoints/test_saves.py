@@ -20,6 +20,7 @@ from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+from utils import uploads
 
 
 def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
@@ -1668,6 +1669,58 @@ class TestAutocleanup:
         "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
     )
     @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    @pytest.mark.parametrize("requested_limit", [0, -1])
+    def test_autocleanup_limit_is_clamped_to_keep_one_save(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        slot_saves: list[Save],
+        requested_limit: int,
+    ):
+        mock_scan.return_value = Save(
+            file_name="new_autosave.sav",
+            file_name_no_tags="new_autosave",
+            file_name_no_ext="new_autosave",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            slot="autosave",
+        )
+
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&slot=autosave&autocleanup=true"
+            f"&autocleanup_limit={requested_limit}",
+            files={
+                "saveFile": (
+                    "new_autosave.sav",
+                    BytesIO(b"new save"),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        remaining = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_id=rom.id, slot="autosave"
+        )
+        assert len(remaining) == 1
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
     def test_autocleanup_disabled_by_default(
         self,
         mock_scan,
@@ -1746,6 +1799,43 @@ class TestAutocleanup:
 
         assert response.status_code == status.HTTP_200_OK
         mock_remove.assert_not_called()
+
+
+class TestUploadSizeLimit:
+    def test_rejects_oversized_save_file(self, client, access_token: str, rom: Rom):
+        with mock.patch.object(uploads, "MAX_ASSET_UPLOAD_SIZE_BYTES", 32):
+            response = client.post(
+                f"/api/saves?rom_id={rom.id}",
+                files={
+                    "saveFile": (
+                        "save.sav",
+                        BytesIO(b"x" * 64),
+                        "application/octet-stream",
+                    )
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
+
+    def test_rejects_oversized_screenshot_file(
+        self, client, access_token: str, rom: Rom
+    ):
+        with mock.patch.object(uploads, "MAX_ASSET_UPLOAD_SIZE_BYTES", 32):
+            response = client.post(
+                f"/api/saves?rom_id={rom.id}",
+                files={
+                    "saveFile": (
+                        "save.sav",
+                        BytesIO(b"small"),
+                        "application/octet-stream",
+                    ),
+                    "screenshotFile": ("shot.png", BytesIO(b"x" * 64), "image/png"),
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
 
 
 class TestSavesSummaryEndpoint:

@@ -19,6 +19,7 @@ from logger.logger import log
 from models.assets import State
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
+from utils.uploads import check_asset_upload_size
 
 router = APIRouter(
     prefix="/states",
@@ -42,6 +43,9 @@ async def add_state(
     stateFile: UploadFile = STATE_FILE_UPLOAD,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPLOAD,
 ) -> StateSchema:
+    check_asset_upload_size(stateFile, "State file")
+    check_asset_upload_size(screenshotFile, "Screenshot file")
+
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
@@ -252,6 +256,9 @@ async def update_state(
     stateFile: UploadFile | None = STATE_FILE_UPDATE,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPDATE,
 ) -> StateSchema:
+    check_asset_upload_size(stateFile, "State file")
+    check_asset_upload_size(screenshotFile, "Screenshot file")
+
     db_state = db_state_handler.get_state(user_id=request.user.id, id=id)
     if not db_state:
         error = f"State with ID {id} not found"
