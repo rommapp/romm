@@ -1,10 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-// Fixture accounts seeded by `.github/scripts/seed_e2e_users.py`. `viewer` sits in
-// the "Viewer (legacy)" group: library read plus own collections/assets, and no
-// ROM write grant. `admin` is role=admin, so `useCan` short-circuits to true and
-// every gated affordance must be present -- which is what makes these specs a
-// two-sided check rather than "the button is missing".
+// Fixture accounts seeded by `.github/scripts/seed_e2e_users.py`.
 export const USERS = {
   admin: process.env.E2E_ADMIN_USERNAME ?? "e2e_admin",
   viewer: process.env.E2E_VIEWER_USERNAME ?? "e2e_viewer",
@@ -19,8 +15,7 @@ export type Role = keyof typeof USERS;
  *  Everything is scoped to `form.r-v2-login-form`. The reset-password form is
  *  rendered alongside it (collapsed, not unmounted) and has its own submit
  *  button and fields, so unscoped `button[type="submit"]` / `input[name=...]`
- *  selectors match two elements and blow up on strict mode -- intermittently,
- *  depending on whether that form has mounted yet. */
+ *  selectors match two elements and blow up on strict mode. */
 export async function login(
   page: Page,
   role: Role,
@@ -31,10 +26,7 @@ export async function login(
 ) {
   // Retried because the Vite dev server force-reloads the page when it
   // discovers a new dependency to pre-bundle ("optimized dependencies changed.
-  // reloading"). That wipes the half-filled form and the submit never lands, so
-  // the login silently does nothing. It's an infrastructure event, not an app
-  // failure, and it mostly happens on the first navigations of a cold server.
-  // Bad credentials still fail, just after `attempts` tries.
+  // reloading").
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
@@ -93,9 +85,7 @@ export async function menuLabels(page: Page): Promise<string[]> {
   return page.locator('[role="menu"] .r-menu-item__label').allInnerTexts();
 }
 
-/** Force the v2 UI and a known theme before the app boots.
- *  vueuse's `useLocalStorage` uses the string serializer for string refs, so
- *  these are stored raw -- NOT JSON-quoted. */
+/** Force the v2 UI and a known theme before the app boots. */
 export async function seedUiState(page: Page, theme: "dark" | "light") {
   await page.addInitScript(
     ([t]) => {
