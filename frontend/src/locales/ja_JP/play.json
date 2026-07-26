@@ -18,6 +18,7 @@
   "no-screenshot-available": "スクリーンショットはありません",
   "no-state-selected": "ステートが選択されていません",
   "no-states-available": "利用可能なステートがありません",
+  "page-title": "{name} をプレイ",
   "play": "プレイ",
   "powered-by": "提供:",
   "quit": "終了",

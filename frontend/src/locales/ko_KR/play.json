@@ -18,6 +18,7 @@
   "no-screenshot-available": "사용 가능한 스크린샷이 없습니다",
   "no-state-selected": "선택된 상태 없음",
   "no-states-available": "사용 가능한 상태 없음",
+  "page-title": "{name} 실행",
   "play": "실행",
   "powered-by": "제공",
   "quit": "종료",

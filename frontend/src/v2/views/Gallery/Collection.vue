@@ -33,6 +33,7 @@ import CollectionSettingsTab from "@/v2/components/Gallery/CollectionSettingsTab
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -57,6 +58,8 @@ const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
 const deleting = ref(false);
 const randomLoading = ref(false);
 const canDownload = useCan("rom.download");
+
+usePageTitle(() => currentCollection.value?.name ?? null);
 
 // Virtual collections are computed (no editable fields) — only
 // regular / smart get the Settings tab.
@@ -221,7 +224,6 @@ async function loadForRoute(kind: CollectionKind, id: string) {
     galleryRoms.setCurrentSmartCollection(collection as SmartCollection);
   }
 
-  document.title = collection.name;
   await galleryRoms.fetchInitialMetadata();
   await nextTick();
   shellRef.value?.applyRestoredScroll();
