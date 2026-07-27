@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 from fastapi import HTTPException
 from fastapi import Path as PathVar
-from fastapi import Request
+from fastapi import Query, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.datastructures import URLPath
 
@@ -568,18 +568,47 @@ def format_release_date(timestamp: int | None) -> str | None:
     return datetime.fromtimestamp(timestamp / 1000).strftime("%m-%d-%Y")
 
 
+FPKGI_CATEGORY_LABELS: dict[RomFileCategory, str] = {
+    RomFileCategory.GAME: "Game",
+    RomFileCategory.DLC: "DLC",
+    RomFileCategory.UPDATE: "Update",
+    RomFileCategory.PATCH: "Patch",
+    RomFileCategory.DEMO: "Demo",
+}
+
+
+def fpkgi_item_name(rom: Rom, file: RomFile, *, is_single_file: bool) -> str:
+    """Name shown in FPKGi, disambiguated when a rom holds several packages."""
+    rom_name = rom.name or rom.fs_name
+    if is_single_file:
+        return rom_name
+
+    label = FPKGI_CATEGORY_LABELS.get(file.category) if file.category else None
+    return f"{rom_name} - {label or file.file_name_no_ext}"
+
+
 @protected_route(
     router.get,
     "/fpkgi/{platform_slug}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
-def fpkgi_feed(request: Request, platform_slug: str) -> Response:
+def fpkgi_feed(
+    request: Request,
+    platform_slug: str,
+    content_type: Annotated[
+        str | None,
+        Query(
+            description="Only list packages of this category (game, dlc, update, patch, demo)"
+        ),
+    ] = None,
+) -> Response:
     """
     https://github.com/ItsJokerZz/FPKGi
 
     Args:
         request (Request): Fastapi Request object
         platform_slug (str): Platform slug (ps4, ps5)
+        content_type (str | None): Optional rom file category filter
 
     Returns:
         Response: JSON file in FPKGi format
@@ -590,23 +619,42 @@ def fpkgi_feed(request: Request, platform_slug: str) -> Response:
             status_code=404, detail=f"Platform {platform_slug} not found"
         )
 
-    roms = _platform_roms(request, platform.id)
+    try:
+        category_filter = RomFileCategory(content_type) if content_type else None
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid content type: {content_type}"
+        ) from e
+
+    roms = _platform_roms(request, platform.id, include_files=True)
     response_data = {}
 
     for rom in roms:
-        download_url = generate_rom_download_url(request, rom)
-        response_data[download_url] = FPKGiFeedItemSchema(
-            name=rom.name or rom.fs_name,
-            size=rom.fs_size_bytes,
-            title_id=f"ROMM{str(rom.id)[-5:].zfill(5)}",
-            region=rom.regions[0] if rom.regions else None,
-            version=rom.revision or None,
-            release=format_release_date(rom.metadatum.first_release_date),
-            min_fw=None,
-            cover_url=str(
-                URLPath(rom.path_cover_large).make_absolute_url(request.base_url)
-            ),
-        ).model_dump()
+        # FPKGi installs one package per entry, so each .pkg is listed on its own
+        pkg_files = [f for f in rom.files if f.file_extension.lower() == "pkg"]
+        cover_url = (
+            str(URLPath(rom.path_cover_large).make_absolute_url(request.base_url))
+            if rom.path_cover_large
+            else None
+        )
+
+        for file in pkg_files:
+            # Files without a category folder are treated as the base game
+            category = file.category or RomFileCategory.GAME
+            if category_filter and category != category_filter:
+                continue
+
+            download_url = generate_romfile_download_url(request, file)
+            response_data[download_url] = FPKGiFeedItemSchema(
+                name=fpkgi_item_name(rom, file, is_single_file=len(pkg_files) == 1),
+                size=file.file_size_bytes,
+                title_id=f"ROMM{str(rom.id)[-5:].zfill(5)}",
+                region=rom.regions[0] if rom.regions else None,
+                version=rom.revision or None,
+                release=format_release_date(rom.metadatum.first_release_date),
+                min_fw=None,
+                cover_url=cover_url,
+            ).model_dump()
 
     return JSONResponse(
         content={"DATA": response_data},

@@ -965,20 +965,20 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 
 ### 6.13 Feeds (`/api/feeds`)
 
-| Method | Path                  | Description                   |
-| ------ | --------------------- | ----------------------------- |
-| GET    | `/webrcade`           | WebRcade feed format          |
-| GET    | `/tinfoil`            | Tinfoil custom index (Switch) |
-| GET    | `/pkgi/ps3/{type}`    | PKGi PS3 database             |
-| GET    | `/pkgi/psvita/{type}` | PKGi PS Vita database         |
-| GET    | `/pkgi/psp/{type}`    | PKGi PSP database             |
-| GET    | `/fpkgi/{platform}`   | FPKGi (PS4/PS5) format        |
-| GET    | `/kekatsu/{platform}` | Kekatsu DS format             |
-| GET    | `/pkgj/psp/games`     | PKGj PSP games                |
-| GET    | `/pkgj/psp/dlc`       | PKGj PSP DLC                  |
-| GET    | `/pkgj/psvita/games`  | PKGj PS Vita games            |
-| GET    | `/pkgj/psvita/dlc`    | PKGj PS Vita DLC              |
-| GET    | `/pkgj/psx/games`     | PKGj PSX games                |
+| Method | Path                  | Description                                                                         |
+| ------ | --------------------- | ----------------------------------------------------------------------------------- |
+| GET    | `/webrcade`           | WebRcade feed format                                                                |
+| GET    | `/tinfoil`            | Tinfoil custom index (Switch)                                                       |
+| GET    | `/pkgi/ps3/{type}`    | PKGi PS3 database                                                                   |
+| GET    | `/pkgi/psvita/{type}` | PKGi PS Vita database                                                               |
+| GET    | `/pkgi/psp/{type}`    | PKGi PSP database                                                                   |
+| GET    | `/fpkgi/{platform}`   | FPKGi (PS4/PS5) format, one entry per `.pkg` file; optional `?content_type=` filter |
+| GET    | `/kekatsu/{platform}` | Kekatsu DS format                                                                   |
+| GET    | `/pkgj/psp/games`     | PKGj PSP games                                                                      |
+| GET    | `/pkgj/psp/dlc`       | PKGj PSP DLC                                                                        |
+| GET    | `/pkgj/psvita/games`  | PKGj PS Vita games                                                                  |
+| GET    | `/pkgj/psvita/dlc`    | PKGj PS Vita DLC                                                                    |
+| GET    | `/pkgj/psx/games`     | PKGj PSX games                                                                      |
 
 ### 6.14 Configuration (`/api/config`)
 
