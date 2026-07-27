@@ -71,8 +71,12 @@ class CleanupOrphanedResourcesTask(PeriodicTask):
         return super().init()
 
     @initialize_context()
-    async def run(self) -> dict[str, int]:
-        """Clean up orphaned resources."""
+    async def run(self, force: bool = False) -> dict[str, int]:
+        """Clean up orphaned resources.
+
+        Args:
+            force: Clean up even when the database reports an empty library.
+        """
         log.info(f"Starting {self.title} task...")
 
         cleanup_stats = CleanupStats()
@@ -108,6 +112,18 @@ class CleanupOrphanedResourcesTask(PeriodicTask):
             async for entry in roms_resources_dir.iterdir()
             if entry.name.isdigit() and await entry.is_dir()
         }
+
+        # An empty library alongside artwork on disk is far more likely to be a
+        # database that is unavailable or mid-migration than one that was really
+        # emptied, and every platform directory would be removed in one pass.
+        if platform_dirs and not existing_platforms and not force:
+            cleanup_stats.update(platforms_in_fs=len(platform_dirs))
+            log.warning(
+                f"Database reports no platforms while {len(platform_dirs)} platform "
+                "resource directories exist on disk, skipping cleanup. Run the task "
+                "manually with `force` to clean them up anyway."
+            )
+            return cleanup_stats.to_dict()
 
         rom_dirs_by_platform: dict[int, set[int]] = {}
         for platform_dir in platform_dirs:

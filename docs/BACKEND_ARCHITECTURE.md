@@ -1403,7 +1403,11 @@ Triggered via `POST /api/tasks/run/{task_name}`:
 | `sync_folder_scan`     | Scan sync folder for new device saves         |
 
 `cleanup_orphaned_resources` is also runnable this way; it is listed under
-Scheduled Tasks because it additionally supports an opt-in cron schedule.
+Scheduled Tasks because it additionally supports an opt-in cron schedule. It
+skips the cleanup when the database reports no platforms at all while artwork
+is still on disk, since that usually means the database is unavailable rather
+than the library being empty. Pass `{"force": true}` as the request body to
+clean up a genuinely emptied library.
 
 ### Filesystem Watcher
 
