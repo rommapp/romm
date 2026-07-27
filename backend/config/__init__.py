@@ -237,6 +237,13 @@ SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON: Final[str] = _get_env(
     "SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES")
+)
+SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON: Final[str] = _get_env(
+    "SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON",
+    "0 5 * * *",  # At 5:00 AM every day, after the nightly scan and metadata tasks
+)
 ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC")
 )
