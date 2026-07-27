@@ -160,6 +160,18 @@ class FSResourcesHandler(FSHandler):
         await self.remove_file(relative_path)
         return True
 
+    async def _discard_partial_file(self, relative_path: str) -> None:
+        """Remove a partially written file left behind by a failed download.
+
+        A truncated image is worse than a missing one: it satisfies the
+        `*_exists` checks, so later scans skip it and never refetch it.
+        """
+        try:
+            if await self.file_exists(relative_path):
+                await self.remove_file(relative_path)
+        except OSError as exc:
+            log.error(f"Unable to remove partial file {relative_path}: {str(exc)}")
+
     async def _store_cover(
         self, entity: Rom | Collection, url_cover: str, size: CoverSize
     ) -> None:
@@ -196,6 +208,7 @@ class FSResourcesHandler(FSHandler):
                     )
             except Exception as exc:
                 log.error(f"Unable to copy cover file {url_cover}: {str(exc)}")
+                await self._discard_partial_file(f"{cover_file}/{size.value}.png")
                 return None
         else:
             # Handle HTTP URLs
@@ -242,6 +255,11 @@ class FSResourcesHandler(FSHandler):
                             )
             except httpx.TransportError as exc:
                 log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
+                await self._discard_partial_file(f"{cover_file}/{size.value}.png")
+                return None
+            except OSError as exc:
+                log.error(f"Unable to write cover for {url_cover}: {str(exc)}")
+                await self._discard_partial_file(f"{cover_file}/{size.value}.png")
                 return None
 
         if size == CoverSize.SMALL:
@@ -340,6 +358,13 @@ class FSResourcesHandler(FSHandler):
                 f"Unable to identify image for {entity.fs_resources_path}: {str(exc)}"
             )
             return None, None
+        except OSError as exc:
+            log.error(
+                f"Unable to write artwork for {entity.fs_resources_path}: {str(exc)}"
+            )
+            for path in (path_cover_l, path_cover_s):
+                await self._discard_partial_file(str(path.relative_to(self.base_path)))
+            return None, None
 
         return str(path_cover_l.relative_to(self.base_path)), str(
             path_cover_s.relative_to(self.base_path)
@@ -368,6 +393,7 @@ class FSResourcesHandler(FSHandler):
                 )
             except Exception as exc:
                 log.error(f"Unable to copy screenshot file {url_screenhot}: {str(exc)}")
+                await self._discard_partial_file(f"{screenshot_path}/{idx}.jpg")
                 return None
         else:
             # Handle HTTP URLs
@@ -403,6 +429,11 @@ class FSResourcesHandler(FSHandler):
                                     await f.write(chunk)
             except httpx.TransportError as exc:
                 log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
+                await self._discard_partial_file(f"{screenshot_path}/{idx}.jpg")
+                return None
+            except OSError as exc:
+                log.error(f"Unable to write screenshot for {url_screenhot}: {str(exc)}")
+                await self._discard_partial_file(f"{screenshot_path}/{idx}.jpg")
                 return None
 
     def screenshots_exist(self, rom: Rom) -> bool:
@@ -483,6 +514,7 @@ class FSResourcesHandler(FSHandler):
                 )
             except Exception as exc:
                 log.error(f"Unable to copy manual file {url_manual}: {str(exc)}")
+                await self._discard_partial_file(f"{manual_path}/{rom.id}.pdf")
                 return None
         else:
             # Handle HTTP URL
@@ -526,6 +558,11 @@ class FSResourcesHandler(FSHandler):
                                     await f.write(chunk)
             except httpx.TransportError as exc:
                 log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
+                await self._discard_partial_file(f"{manual_path}/{rom.id}.pdf")
+                return None
+            except OSError as exc:
+                log.error(f"Unable to write manual for {url_manual}: {str(exc)}")
+                await self._discard_partial_file(f"{manual_path}/{rom.id}.pdf")
                 return None
 
     def _get_manual_path(self, rom: Rom) -> str | None:
@@ -587,6 +624,10 @@ class FSResourcesHandler(FSHandler):
                             await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url}: {str(exc)}")
+            await self._discard_partial_file(path)
+        except OSError as exc:
+            log.error(f"Unable to write badge for {url}: {str(exc)}")
+            await self._discard_partial_file(path)
 
     def get_ra_resources_path(self, platform_id: int, rom_id: int) -> str:
         return os.path.join(
@@ -625,6 +666,7 @@ class FSResourcesHandler(FSHandler):
                         await self.copy_file(resolved, dest_path, allow_link=True)
                 except Exception as exc:
                     log.error(f"Unable to copy media file {url_media}: {str(exc)}")
+                    await self._discard_partial_file(dest_path)
                     return None
             else:
                 # Handle HTTP URLs
@@ -648,6 +690,11 @@ class FSResourcesHandler(FSHandler):
                                     await f.write(chunk)
                 except httpx.TransportError as exc:
                     log.error(f"Unable to fetch media file at {url_media}: {str(exc)}")
+                    await self._discard_partial_file(dest_path)
+                    return None
+                except OSError as exc:
+                    log.error(f"Unable to write media file for {url_media}: {str(exc)}")
+                    await self._discard_partial_file(dest_path)
                     return None
 
         # Drop ScreenScraper's green "missing art" placeholder so a box face
