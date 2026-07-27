@@ -1,6 +1,7 @@
+import errno
 import os
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
@@ -762,3 +763,183 @@ class TestChromaKeyDetection:
         await handler.store_media_file("http://example.com/x.png", rel)
 
         assert (tmp_path / rel).exists()
+
+
+class _FakeResponse:
+    """Minimal stand-in for an httpx streaming response."""
+
+    def __init__(self):
+        self.status_code = 200
+        self.headers = {"content-type": "image/png"}
+
+    async def aiter_raw(self):
+        yield b"partial"
+
+
+class _DroppedResponse:
+    """Streams one chunk, then drops the connection mid-transfer."""
+
+    def __init__(self):
+        self.status_code = 200
+        self.headers = {"content-type": "image/png"}
+
+    async def aiter_raw(self):
+        yield b"partial"
+        raise httpx.ReadError("connection reset")
+
+
+class _FakeStreamContext:
+    def __init__(self, response):
+        self._response = response
+
+    async def __aenter__(self):
+        return self._response
+
+    async def __aexit__(self, *_args):
+        return False
+
+
+class _FakeHttpxClient:
+    def __init__(self, response):
+        self._response = response
+
+    def stream(self, *_args, **_kwargs):
+        return _FakeStreamContext(self._response)
+
+
+class _EnospcWriter:
+    """Writes a truncated file, then fails the way a full disk does."""
+
+    def __init__(self, path: Path):
+        self._path = path
+
+    async def write(self, _data):
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._path.write_bytes(b"partial")
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+
+class _EnospcWriteContext:
+    def __init__(self, path: Path):
+        self._path = path
+
+    async def __aenter__(self):
+        return _EnospcWriter(self._path)
+
+    async def __aexit__(self, *_args):
+        return False
+
+
+class TestDiskFullHandling:
+    """Resource writes must not leave truncated files when the disk fills up."""
+
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler()
+
+    @pytest.fixture
+    def rom(self):
+        rom = Mock(spec=Rom)
+        rom.id = 1
+        rom.platform_id = 1
+        rom.fs_resources_path = "roms/1/1"
+        return rom
+
+    @pytest.mark.asyncio
+    async def test_discard_partial_file_removes_file(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/cover/big.png"
+        (tmp_path / rel).parent.mkdir(parents=True)
+        (tmp_path / rel).write_bytes(b"truncated")
+
+        await handler._discard_partial_file(rel)
+
+        assert not (tmp_path / rel).exists()
+
+    @pytest.mark.asyncio
+    async def test_discard_partial_file_missing_is_noop(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        await handler._discard_partial_file("roms/1/1/cover/big.png")
+
+    @pytest.mark.asyncio
+    async def test_discard_partial_file_survives_removal_failure(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # Cleanup runs inside an error path, so it must never mask the
+        # original failure with one of its own.
+        handler.base_path = tmp_path
+        rel = "roms/1/1/cover/big.png"
+        (tmp_path / rel).parent.mkdir(parents=True)
+        (tmp_path / rel).write_bytes(b"truncated")
+
+        with patch.object(handler, "remove_file", side_effect=OSError("read-only")):
+            await handler._discard_partial_file(rel)
+
+    @pytest.mark.asyncio
+    async def test_store_cover_discards_partial_download(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        target = tmp_path / "roms/1/1/cover/big.png"
+
+        with (
+            patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx,
+            patch.object(
+                handler,
+                "write_file_streamed",
+                new=AsyncMock(return_value=_EnospcWriteContext(target)),
+            ),
+        ):
+            mock_ctx.get.return_value = _FakeHttpxClient(_FakeResponse())
+
+            await handler._store_cover(
+                rom, "http://example.com/cover.png", CoverSize.BIG
+            )
+
+        assert not target.exists()
+
+    @pytest.mark.asyncio
+    async def test_store_cover_discards_partial_on_dropped_connection(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        # A stream that dies mid-transfer leaves the same truncated file a
+        # full disk does, and must be cleaned up the same way.
+        handler.base_path = tmp_path
+        target = tmp_path / "roms/1/1/cover/big.png"
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(_DroppedResponse())
+
+            await handler._store_cover(
+                rom, "http://example.com/cover.png", CoverSize.BIG
+            )
+
+        assert not target.exists()
+
+    @pytest.mark.asyncio
+    async def test_store_ra_badge_discards_partial_download(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # Badges are skipped when already present, so a truncated one would
+        # never be refetched.
+        handler.base_path = tmp_path
+        rel = "roms/1/1/ra/badge.png"
+        target = tmp_path / rel
+
+        with (
+            patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx,
+            patch.object(
+                handler,
+                "write_file_streamed",
+                new=AsyncMock(return_value=_EnospcWriteContext(target)),
+            ),
+        ):
+            mock_ctx.get.return_value = _FakeHttpxClient(_FakeResponse())
+
+            await handler.store_ra_badge("http://example.com/badge.png", rel)
+
+        assert not target.exists()
