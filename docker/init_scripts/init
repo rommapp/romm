@@ -332,9 +332,9 @@ if ! printenv | grep -q '^OTEL_'; then
 fi
 
 # Set ROMM_AUTH_SECRET_KEY if not already set
-if [[ -z ${ROMM_AUTH_SECRET_KEY} ]]; then
+if [[ -z ${ROMM_AUTH_SECRET_KEY-} ]]; then
 	ROMM_AUTH_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-	info_log "ROMM_AUTH_SECRET_KEY not set, generating random secret key"
+	warn_log "ROMM_AUTH_SECRET_KEY not set, generating a random secret key. It changes on every restart, invalidating API bearer tokens and pending invite/password-reset links. Set it explicitly to keep those valid, and always set it when running more than one replica."
 	export ROMM_AUTH_SECRET_KEY
 fi
 
