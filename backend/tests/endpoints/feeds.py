@@ -230,7 +230,7 @@ def test_fpkgi_feed(
     db_rom_handler.add_rom_file(
         RomFile(
             rom_id=rom.id,
-            file_name="Test PS4.pkg",
+            file_name="Test PS4 [CUSA12345].pkg",
             file_path=rom.fs_path,
             file_size_bytes=456,
             sha1_hash="beadfeed",
@@ -250,6 +250,7 @@ def test_fpkgi_feed(
     entry = next(iter(body["DATA"].values()))
     assert entry["name"] == "Test PS4"
     assert entry["size"] == 456
+    assert entry["title_id"] == "CUSA12345"
 
 
 def test_fpkgi_feed_multi_file_rom(
@@ -272,11 +273,12 @@ def test_fpkgi_feed_multi_file_rom(
             "regions": ["US"],
         },
     )
-    for file_name, category in (
-        ("Test PS4 base.pkg", None),
-        ("Test PS4 update.pkg", RomFileCategory.UPDATE),
-        ("Test PS4 dlc.pkg", RomFileCategory.DLC),
-        ("Test PS4 cover.png", None),
+    for file_name, category, missing_from_fs in (
+        ("Test PS4 base.pkg", None, False),
+        ("Test PS4 update.pkg", RomFileCategory.UPDATE, False),
+        ("Test PS4 dlc.pkg", RomFileCategory.DLC, False),
+        ("Test PS4 cover.png", None, False),
+        ("Test PS4 deleted.pkg", None, True),
     ):
         db_rom_handler.add_rom_file(
             RomFile(
@@ -285,6 +287,7 @@ def test_fpkgi_feed_multi_file_rom(
                 file_path=f"{rom.fs_path}/{rom.fs_name}",
                 file_size_bytes=123,
                 category=category,
+                missing_from_fs=missing_from_fs,
             )
         )
 
@@ -297,12 +300,15 @@ def test_fpkgi_feed_multi_file_rom(
     data = response.json()["DATA"]
     assert len(data) == 3
     assert all(url.endswith(".pkg") for url in data)
+    assert not any("deleted" in url for url in data)
     assert all(entry["size"] == 123 for entry in data.values())
     assert sorted(entry["name"] for entry in data.values()) == [
         "Test PS4 - DLC",
         "Test PS4 - Test PS4 base",
         "Test PS4 - Update",
     ]
+    # Packages of the same game stay grouped under one title id
+    assert len({entry["title_id"] for entry in data.values()}) == 1
 
     response = client.get(
         "/api/feeds/fpkgi/ps4?content_type=update",

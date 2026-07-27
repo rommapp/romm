@@ -1,5 +1,6 @@
 import csv
 import io
+import re
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated
@@ -577,6 +578,10 @@ FPKGI_CATEGORY_LABELS: dict[RomFileCategory, str] = {
 }
 
 
+# PS4/PS5 title ids as they appear in package file names, e.g. CUSA12345
+FPKGI_TITLE_ID_REGEX = re.compile(r"(?:CUSA|PPSA)\d{5}", re.IGNORECASE)
+
+
 def fpkgi_item_name(rom: Rom, file: RomFile, *, is_single_file: bool) -> str:
     """Name shown in FPKGi, disambiguated when a rom holds several packages."""
     rom_name = rom.name or rom.fs_name
@@ -585,6 +590,20 @@ def fpkgi_item_name(rom: Rom, file: RomFile, *, is_single_file: bool) -> str:
 
     label = FPKGI_CATEGORY_LABELS.get(file.category) if file.category else None
     return f"{rom_name} - {label or file.file_name_no_ext}"
+
+
+def fpkgi_title_id(rom: Rom, files: list[RomFile]) -> str:
+    """The game's real title id when a file name carries one, else a RomM one.
+
+    Resolved per rom so a base game and its updates/DLC stay grouped, the way
+    FPKGi searches and sorts content.
+    """
+    for name in (rom.fs_name, *(file.file_name for file in files)):
+        match = FPKGI_TITLE_ID_REGEX.search(name)
+        if match:
+            return match.group(0).upper()
+
+    return f"ROMM{str(rom.id)[-5:].zfill(5)}"
 
 
 @protected_route(
@@ -631,7 +650,12 @@ def fpkgi_feed(
 
     for rom in roms:
         # FPKGi installs one package per entry, so each .pkg is listed on its own
-        pkg_files = [f for f in rom.files if f.file_extension.lower() == "pkg"]
+        pkg_files = [
+            f
+            for f in rom.files
+            if f.file_extension.lower() == "pkg" and not f.missing_from_fs
+        ]
+        title_id = fpkgi_title_id(rom, pkg_files)
         cover_url = (
             str(URLPath(rom.path_cover_large).make_absolute_url(request.base_url))
             if rom.path_cover_large
@@ -648,7 +672,7 @@ def fpkgi_feed(
             response_data[download_url] = FPKGiFeedItemSchema(
                 name=fpkgi_item_name(rom, file, is_single_file=len(pkg_files) == 1),
                 size=file.file_size_bytes,
-                title_id=f"ROMM{str(rom.id)[-5:].zfill(5)}",
+                title_id=title_id,
                 region=rom.regions[0] if rom.regions else None,
                 version=rom.revision or None,
                 release=format_release_date(rom.metadatum.first_release_date),
