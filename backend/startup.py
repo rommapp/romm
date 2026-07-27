@@ -33,6 +33,7 @@ from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
 from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
+from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
 from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
@@ -143,6 +144,7 @@ async def main() -> None:
         cleanup_netplay_task.init()
         cleanup_zip_cache_task.init()
         cleanup_upload_tmp_task.init()
+        cleanup_orphaned_resources_task.init()
 
         if ENABLE_SCHEDULED_RESCAN:
             log.info("Starting scheduled rescan")

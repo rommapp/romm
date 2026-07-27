@@ -1390,17 +1390,20 @@ Configured via environment variables and managed by RQ Scheduler:
 | `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`       | `0 4 * * *`        | Refresh LaunchBox data |
 | `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`          | `0 4 * * *`        | Image optimization     |
 | `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC` | `0 4 * * *`        | Sync RA user progress  |
+| `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`      | `0 5 * * *`        | Remove unused artwork  |
 | `cleanup_netplay`                 | Always enabled                                     | Periodic           | Clean stale rooms      |
 
 ### Manual Tasks
 
 Triggered via `POST /api/tasks/run/{task_name}`:
 
-| Task                         | Description                                   |
-| ---------------------------- | --------------------------------------------- |
-| `cleanup_missing_roms`       | Remove DB entries for files no longer on disk |
-| `cleanup_orphaned_resources` | Remove unused artwork/resource files          |
-| `sync_folder_scan`           | Scan sync folder for new device saves         |
+| Task                   | Description                                   |
+| ---------------------- | --------------------------------------------- |
+| `cleanup_missing_roms` | Remove DB entries for files no longer on disk |
+| `sync_folder_scan`     | Scan sync folder for new device saves         |
+
+`cleanup_orphaned_resources` is also runnable this way; it is listed under
+Scheduled Tasks because it additionally supports an opt-in cron schedule.
 
 ### Filesystem Watcher
 

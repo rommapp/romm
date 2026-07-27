@@ -3,11 +3,16 @@ import shutil
 from dataclasses import dataclass
 
 from anyio import Path as AnyioPath
+from rq.job import Job
 
-from config import RESOURCES_BASE_PATH
+from config import (
+    ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
+    RESOURCES_BASE_PATH,
+    SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON,
+)
 from handler.database import db_platform_handler, db_rom_handler
 from logger.logger import log
-from tasks.tasks import Task, TaskType, update_job_meta
+from tasks.tasks import PeriodicTask, TaskType, update_job_meta
 from utils.context import initialize_context
 
 
@@ -40,7 +45,7 @@ class CleanupStats:
         }
 
 
-class CleanupOrphanedResourcesTask(Task):
+class CleanupOrphanedResourcesTask(PeriodicTask):
     def __init__(self):
         super().__init__(
             title="Cleanup orphaned resources",
@@ -48,8 +53,22 @@ class CleanupOrphanedResourcesTask(Task):
             task_type=TaskType.CLEANUP,
             enabled=True,
             manual_run=True,
-            cron_string=None,
+            cron_string=(
+                SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON
+                if ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES
+                else None
+            ),
+            func="tasks.scheduled.cleanup_orphaned_resources.cleanup_orphaned_resources_task.run",
         )
+
+    def init(self) -> Job | None:
+        # `enabled` stays True for manual runs, so the absence of a cron string
+        # is what drives unscheduling when the schedule is turned off.
+        if not self.cron_string:
+            self.unschedule()
+            return None
+
+        return super().init()
 
     @initialize_context()
     async def run(self) -> dict[str, int]:
