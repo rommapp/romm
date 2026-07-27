@@ -1,0 +1,32 @@
+[global]
+server role = standalone server
+security = user
+workgroup = {{SMB_WORKGROUP}}
+
+map to guest = Never
+restrict anonymous = 2
+usershare allow guests = no
+access based share enum = yes
+
+server min protocol = SMB3_00
+server max protocol = SMB3_11
+ntlm auth = ntlmv2-only
+server signing = mandatory
+server smb encrypt = required
+smb ports = 445
+disable netbios = yes
+
+load printers = no
+disable spoolss = yes
+printing = bsd
+printcap name = /dev/null
+
+private dir = /var/lib/samba/private
+state directory = /var/lib/samba
+cache directory = /var/cache/samba
+lock directory = /run/samba
+pid directory = /run/samba
+ncalrpc dir = /run/samba/ncalrpc
+log file = /var/log/samba/log.%m
+logging = file
+max log size = 1000

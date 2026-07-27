@@ -1,9 +1,9 @@
 import sys
 from pathlib import Path
 
-from alembic import context
 from sqlalchemy import create_engine
 
+from alembic import context
 from config.config_manager import ConfigManager
 from logger.logger import unify_logger
 from models.assets import Save, Screenshot, State  # noqa
@@ -13,6 +13,7 @@ from models.firmware import Firmware  # noqa
 from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack  # noqa
 from models.platform import Platform  # noqa
 from models.rom import Rom, RomFacets, RomMetadata, SiblingRom  # noqa
+from models.smb import SmbPlatformPermission, SmbUser  # noqa
 from models.user import User  # noqa
 
 # this is the Alembic Config object, which provides

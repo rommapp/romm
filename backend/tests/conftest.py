@@ -4,11 +4,6 @@ from datetime import datetime, timedelta, timezone
 
 import alembic.config
 import pytest
-from hypothesis import settings
-from joserfc import jwt
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-
 from config import ROMM_DB_DRIVER
 from config.config_manager import ConfigManager
 from handler.auth import auth_handler
@@ -22,6 +17,8 @@ from handler.database import (
     db_state_handler,
     db_user_handler,
 )
+from hypothesis import settings
+from joserfc import jwt
 from models.assets import Save, Screenshot, State
 from models.client_token import ClientToken
 from models.device import Device
@@ -29,8 +26,11 @@ from models.device_save_sync import DeviceSaveSync
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
+from models.smb import SmbPlatformPermission, SmbUser
 from models.sync_session import SyncSession
 from models.user import Role, User
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
@@ -100,6 +100,8 @@ def clear_database():
         s.query(Screenshot).delete(synchronize_session="evaluate")
         s.query(RomFile).delete(synchronize_session="evaluate")
         s.query(Rom).delete(synchronize_session="evaluate")
+        s.query(SmbPlatformPermission).delete(synchronize_session="evaluate")
+        s.query(SmbUser).delete(synchronize_session="evaluate")
         s.query(Platform).delete(synchronize_session="evaluate")
         s.query(User).delete(synchronize_session="evaluate")
 

@@ -11,7 +11,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
-from startup import main
 
 import endpoints.sockets.activity  # noqa
 import endpoints.sockets.logs  # noqa
@@ -52,6 +51,7 @@ from endpoints.roms import router as rom_router
 from endpoints.saves import router as saves_router
 from endpoints.screenshots import router as screenshots_router
 from endpoints.search import router as search_router
+from endpoints.smb import router as smb_router
 from endpoints.states import router as states_router
 from endpoints.stats import router as stats_router
 from endpoints.streaming import router as streaming_router
@@ -65,6 +65,7 @@ from handler.auth.middleware.redis_session_middleware import RedisSessionMiddlew
 from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.socket_handler import netplay_socket_handler, socket_handler
 from logger.formatter import LOGGING_CONFIG
+from startup import main
 from utils import get_version
 from utils.context import (
     ctx_aiohttp_session,
@@ -195,6 +196,7 @@ app.include_router(export_router, prefix="/api")
 app.include_router(netplay_router, prefix="/api")
 app.include_router(permissions_router, prefix="/api")
 app.include_router(streaming_router, prefix="/api")
+app.include_router(smb_router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
 app.mount("/netplay", netplay_socket_handler.socket_app)

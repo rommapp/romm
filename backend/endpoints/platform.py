@@ -1,14 +1,13 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import Body
-from fastapi import Path as PathVar
-from fastapi import Query, Request, status
-
+from adapters.services.smb_controller import SmbControllerError
+from config import ENABLE_SMB
 from decorators.auth import protected_route
-from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from fastapi import Body, HTTPException, Query, Request, status
+from fastapi import Path as PathVar
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
@@ -18,6 +17,7 @@ from handler.auth.dependencies import (
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
 from handler.scan_handler import scan_platform
+from handler.smb_access_handler import smb_access_handler
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -29,6 +29,8 @@ from models.platform import (
 )
 from utils.platforms import get_filesystem_platforms, get_supported_platforms
 from utils.router import APIRouter
+
+from endpoints.responses.platform import PlatformSchema
 
 router = APIRouter(
     prefix="/platforms",
@@ -192,4 +194,12 @@ async def delete_platform(
     log.info(
         f"Deleting {hl(platform.name, color=BLUE)} [{hl(platform.fs_slug)}] from database"
     )
+    if ENABLE_SMB:
+        try:
+            smb_access_handler.sync_config(excluded_platform_ids={id})
+        except SmbControllerError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(exc),
+            ) from exc
     db_platform_handler.delete_platform(id)

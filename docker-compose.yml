@@ -11,6 +11,11 @@ services:
       - REDIS_HOST=romm-valkey-dev
       - DB_HOST=${DB_HOST:-romm-db-dev}
       - ROMM_BASE_PATH=/app/romm
+      - ENABLE_SMB=${ENABLE_SMB:-true}
+      - SMB_CONTROLLER_SOCKET=/run/romm-smb/control.sock
+      - SMB_ADVERTISED_HOST=${ROMM_SMB_ADVERTISED_HOST:-}
+      - SMB_ADVERTISED_PORT=${ROMM_SMB_PORT:-1445}
+      - SMB_WORKGROUP=${ROMM_SMB_WORKGROUP:-WORKGROUP}
     ports:
       - "3000:3000" # Vite dev server (custom)
       - "5173:5173" # Vite dev server (default)
@@ -24,14 +29,48 @@ services:
       - /app/frontend/node_modules # Empty directory
       - /app/frontend/dist # Empty directory
       - ./romm_mock:/app/romm
+      - romm-smb-control:/run/romm-smb
       - ~/.vite-plugin-mkcert:/app/.vite-plugin-mkcert
     depends_on:
       - romm-db-dev
       - romm-valkey-dev
       - romm-postgres-dev
+      - romm-smb
     command: /bin/bash -c "cd /app && bash"
     stdin_open: true
     tty: true
+
+  romm-smb:
+    build:
+      context: .
+      dockerfile: docker/smb/Dockerfile
+    image: romm-smb:local
+    container_name: romm-smb
+    restart: unless-stopped
+    environment:
+      - ROMM_SMB_WORKGROUP=${ROMM_SMB_WORKGROUP:-WORKGROUP}
+    volumes:
+      - ./romm_mock/library:/library
+      - romm-smb-control:/run/romm-smb
+      - romm-smb-data:/var/lib/samba
+    networks:
+      - romm-smb
+    ports:
+      - ${ROMM_SMB_BIND_ADDRESS:-127.0.0.1}:${ROMM_SMB_PORT:-1445}:445/tcp
+    tmpfs:
+      - /run/samba:mode=0755
+      - /var/cache/samba:mode=0755
+      - /var/log/samba:mode=0755,size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - NET_BIND_SERVICE
+      - SETGID
+      - SETUID
 
   romm-db-dev:
     image: mariadb:11.3.2
@@ -120,3 +159,8 @@ volumes:
   postgres-db:
   authentik-media:
   authentik-templates:
+  romm-smb-control:
+  romm-smb-data:
+
+networks:
+  romm-smb:
