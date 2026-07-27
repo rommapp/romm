@@ -8,7 +8,7 @@
 //   4. Gallery           (toggle grid + boxart RSelect prefix-label +
 //                         advanced per-page boxart overrides)
 //   5. Gameplay          (launch-confirmation toggle)
-//   6. Virtual collections (single toggle + RSelect prefix-label)
+//   6. Virtual collections (RSelect prefix-label)
 //   7. UI version        (v2-only, beta — kept last)
 //
 // The v1 "Platforms drawer" section was removed (no equivalent in v2).
@@ -448,7 +448,6 @@ function onVirtualCollectionTypeChange(value: unknown) {
         <RSelect
           :model-value="virtualCollectionType"
           :items="virtualCollectionTypeItems"
-          :disabled="!showVirtualCollections"
           prefix-label="stacked"
           hide-details
           @update:model-value="onVirtualCollectionTypeChange"
