@@ -658,14 +658,14 @@ def _call_broker(
     rom_path: str,
     rom_name: str,
     load_slot: int | None = None,
-) -> None:
+) -> dict[str, Any]:
     """
     POST to the broker's /launch endpoint to tell the emulator container to
     load a ROM.
 
     With load_slot set the broker loads that save-state slot once the game
     is up (resume-from-state). Raises HTTPException if the broker is
-    unreachable or returns an error.
+    unreachable or returns an error. Returns the parsed launch response body.
     """
     url = _broker_url(container, "/launch")
     body: dict[str, Any] = {"rom_path": rom_path, "rom_name": rom_name}
@@ -676,6 +676,7 @@ def _call_broker(
             container, "/launch", body=body, timeout=_BROKER_LAUNCH_TIMEOUT
         )
         log.info("broker launched ROM, %s", resp)
+        return resp if isinstance(resp, dict) else {}
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode(errors="replace")
         log.error("broker HTTP error %d: %s", exc.code, error_body)
@@ -2270,7 +2271,7 @@ async def claim_session(
     try:
         # Tell the broker to load the ROM, raises HTTPException on failure.
         # Wrapped in asyncio.to_thread because urllib is synchronous.
-        await asyncio.to_thread(
+        launch_result = await asyncio.to_thread(
             _call_broker,
             container,
             rom_path,
@@ -2297,10 +2298,22 @@ async def claim_session(
         )
     )
 
+    # The broker mints a stream token bound to this session and returns it in
+    # the launch body. Append it so the iframe URL carries it, the broker swaps
+    # it for a cookie on first load. No token means the gate is not deployed on
+    # that container, so leave host untouched.
+    host = container.get("host", "")
+    stream_token = (
+        launch_result.get("stream_token", "") if isinstance(launch_result, dict) else ""
+    )
+    if stream_token:
+        sep = "&" if "?" in host else "?"
+        host = f"{host}{sep}stream_token={stream_token}"
+
     return JSONResponse(
         {
             "platform": platform,
-            "host": container.get("host", ""),
+            "host": host,
             "label": container.get("label", platform.upper()),
             "rom_name": rom_name,
             "claimed_at": now,

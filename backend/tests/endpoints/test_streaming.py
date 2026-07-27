@@ -266,6 +266,56 @@ def test_claim_honors_container_library_path(client, access_token, rom: Rom):
     assert rom_path == f"/mnt/games/{rom.full_path}"
 
 
+def test_claim_appends_stream_token_to_host(client, access_token, rom: Rom):
+    """The broker's stream token comes back in the launch body and rides the
+    host URL to the iframe, it does not get discarded with the rest of the
+    launch response."""
+    container = {**_container_for(rom), "host": "https://stream.example:3001"}
+    with _streaming(container):
+        with patch("endpoints.streaming._call_broker") as call_broker:
+            call_broker.return_value = {
+                "status": "launching",
+                "stream_token": "tok-abc",
+            }
+            r = _claim(client, access_token, rom.id)
+    assert r.status_code == 200
+    assert r.json()["host"] == "https://stream.example:3001?stream_token=tok-abc"
+
+
+def test_claim_appends_stream_token_with_ampersand_when_host_has_query(
+    client, access_token, rom: Rom
+):
+    container = {
+        **_container_for(rom),
+        "host": "https://stream.example:3001/?path=abc",
+    }
+    with _streaming(container):
+        with patch("endpoints.streaming._call_broker") as call_broker:
+            call_broker.return_value = {
+                "status": "launching",
+                "stream_token": "tok-abc",
+            }
+            r = _claim(client, access_token, rom.id)
+    assert r.status_code == 200
+    assert (
+        r.json()["host"] == "https://stream.example:3001/?path=abc&stream_token=tok-abc"
+    )
+
+
+def test_claim_leaves_host_unchanged_when_broker_returns_no_token(
+    client, access_token, rom: Rom
+):
+    """A bare MagicMock (the common stub in _claim_ok and older tests) must
+    not inject a token, its .get(...) is truthy but is not a real dict."""
+    container = {**_container_for(rom), "host": "https://stream.example:3001"}
+    with _streaming(container):
+        with patch("endpoints.streaming._call_broker") as call_broker:
+            call_broker.return_value = {"status": "launching"}
+            r = _claim(client, access_token, rom.id)
+    assert r.status_code == 200
+    assert r.json()["host"] == "https://stream.example:3001"
+
+
 def test_claim_unknown_rom_returns_404(client, access_token):
     with _streaming():
         r = _claim(client, access_token, 999999)
