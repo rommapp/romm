@@ -965,20 +965,20 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 
 ### 6.13 Feeds (`/api/feeds`)
 
-| Method | Path                  | Description                                                                         |
-| ------ | --------------------- | ----------------------------------------------------------------------------------- |
-| GET    | `/webrcade`           | WebRcade feed format                                                                |
-| GET    | `/tinfoil`            | Tinfoil custom index (Switch)                                                       |
-| GET    | `/pkgi/ps3/{type}`    | PKGi PS3 database                                                                   |
-| GET    | `/pkgi/psvita/{type}` | PKGi PS Vita database                                                               |
-| GET    | `/pkgi/psp/{type}`    | PKGi PSP database                                                                   |
-| GET    | `/fpkgi/{platform}`   | FPKGi (PS4/PS5) format, one entry per `.pkg` file; optional `?content_type=` filter |
-| GET    | `/kekatsu/{platform}` | Kekatsu DS format                                                                   |
-| GET    | `/pkgj/psp/games`     | PKGj PSP games                                                                      |
-| GET    | `/pkgj/psp/dlc`       | PKGj PSP DLC                                                                        |
-| GET    | `/pkgj/psvita/games`  | PKGj PS Vita games                                                                  |
-| GET    | `/pkgj/psvita/dlc`    | PKGj PS Vita DLC                                                                    |
-| GET    | `/pkgj/psx/games`     | PKGj PSX games                                                                      |
+| Method | Path                  | Description                   |
+| ------ | --------------------- | ----------------------------- |
+| GET    | `/webrcade`           | WebRcade feed format          |
+| GET    | `/tinfoil`            | Tinfoil custom index (Switch) |
+| GET    | `/pkgi/ps3/{type}`    | PKGi PS3 database             |
+| GET    | `/pkgi/psvita/{type}` | PKGi PS Vita database         |
+| GET    | `/pkgi/psp/{type}`    | PKGi PSP database             |
+| GET    | `/fpkgi/{platform}`   | FPKGi (PS4/PS5) format        |
+| GET    | `/kekatsu/{platform}` | Kekatsu DS format             |
+| GET    | `/pkgj/psp/games`     | PKGj PSP games                |
+| GET    | `/pkgj/psp/dlc`       | PKGj PSP DLC                  |
+| GET    | `/pkgj/psvita/games`  | PKGj PS Vita games            |
+| GET    | `/pkgj/psvita/dlc`    | PKGj PS Vita DLC              |
+| GET    | `/pkgj/psx/games`     | PKGj PSX games                |
 
 ### 6.14 Configuration (`/api/config`)
 
@@ -1541,17 +1541,17 @@ Falls back to `FakeRedis` in test mode.
 
 #### Authentication
 
-| Variable                             | Default   | Description                           |
-| ------------------------------------ | --------- | ------------------------------------- |
-| `ROMM_AUTH_SECRET_KEY`               |           | **Required.** JWT/session signing key |
-| `OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS`  | `1800`    | 30 minutes                            |
-| `OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS` | `604800`  | 7 days                                |
-| `SESSION_MAX_AGE_SECONDS`            | `1209600` | 14 days                               |
-| `DISABLE_CSRF_PROTECTION`            | `false`   | Disable CSRF                          |
-| `DISABLE_DOWNLOAD_ENDPOINT_AUTH`     | `false`   | Allow unauthenticated downloads       |
-| `DISABLE_USERPASS_LOGIN`             | `false`   | Disable password login                |
-| `DISABLE_LOGS_VIEWER`                | `false`   | Disable backend log viewer + endpoint |
-| `KIOSK_MODE`                         | `false`   | Read-only anonymous access            |
+| Variable                             | Default   | Description                               |
+| ------------------------------------ | --------- | ----------------------------------------- |
+| `ROMM_AUTH_SECRET_KEY`               |           | JWT/session signing key (random if unset) |
+| `OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS`  | `1800`    | 30 minutes                                |
+| `OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS` | `604800`  | 7 days                                    |
+| `SESSION_MAX_AGE_SECONDS`            | `1209600` | 14 days                                   |
+| `DISABLE_CSRF_PROTECTION`            | `false`   | Disable CSRF                              |
+| `DISABLE_DOWNLOAD_ENDPOINT_AUTH`     | `false`   | Allow unauthenticated downloads           |
+| `DISABLE_USERPASS_LOGIN`             | `false`   | Disable password login                    |
+| `DISABLE_LOGS_VIEWER`                | `false`   | Disable backend log viewer + endpoint     |
+| `KIOSK_MODE`                         | `false`   | Read-only anonymous access                |
 
 #### OIDC
 
