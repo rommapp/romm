@@ -86,6 +86,7 @@ SAMPLE_NES_XML = """\
 REMOTE_ENTRY = {
     "DatabaseID": "1234",
     "Name": "Super Mario Bros.",
+    "Platform": "Nintendo Entertainment System",
     "Overview": "Jump and run platformer by Nintendo.",
     "MaxPlayers": "2",
     "ReleaseDate": "1985-09-13T00:00:00",
@@ -518,6 +519,30 @@ class TestRemoteSourceGetRom:
             )
         assert result is not None
         assert result.get("Name", None) == "Super Mario Bros."
+
+    async def test_alternate_name_on_other_platform_is_rejected(
+        self, source: RemoteSource
+    ):
+        """The alternate name index is not keyed by platform, so a hit pointing
+        at a same-titled game on another system must not be returned."""
+        alt_entry = {"DatabaseID": "1234"}
+
+        async def side_effect(key, _field):
+            if key == LAUNCHBOX_METADATA_NAME_KEY:
+                return None
+            if key == LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY:
+                return json.dumps(alt_entry)
+            if key == LAUNCHBOX_METADATA_DATABASE_ID_KEY:
+                return json.dumps(REMOTE_ENTRY)
+            return None
+
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, side_effect=side_effect
+        ):
+            result = await source.get_rom(
+                "super mario bros.", "psx", assume_cache_present=True
+            )
+        assert result is None
 
     async def test_no_match_returns_none(self, source: RemoteSource):
         with patch.object(
@@ -1107,6 +1132,35 @@ class TestLaunchboxHandlerEnabled:
         with patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=False):
             with patch.object(LaunchboxHandler, "is_local_enabled", return_value=False):
                 assert LaunchboxHandler.is_enabled() is False
+
+
+class TestLaunchboxHandlerHeartbeat:
+    async def test_unhealthy_when_cloud_store_is_empty(self):
+        handler = LaunchboxHandler()
+        with (
+            patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=True),
+            patch.object(LaunchboxHandler, "is_local_enabled", return_value=False),
+            patch.object(async_cache, "exists", new_callable=AsyncMock, return_value=0),
+        ):
+            assert await handler.heartbeat() is False
+
+    async def test_healthy_when_cloud_store_is_populated(self):
+        handler = LaunchboxHandler()
+        with (
+            patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=True),
+            patch.object(LaunchboxHandler, "is_local_enabled", return_value=False),
+            patch.object(async_cache, "exists", new_callable=AsyncMock, return_value=1),
+        ):
+            assert await handler.heartbeat() is True
+
+    async def test_healthy_from_local_install_without_cloud_store(self):
+        handler = LaunchboxHandler()
+        with (
+            patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=False),
+            patch.object(LaunchboxHandler, "is_local_enabled", return_value=True),
+            patch.object(async_cache, "exists", new_callable=AsyncMock, return_value=0),
+        ):
+            assert await handler.heartbeat() is True
 
 
 class TestLaunchboxHandlerGetPlatform:

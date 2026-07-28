@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 import anyio
 import pytest
 
+from config import TASK_TIMEOUT
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_FILES_KEY,
@@ -15,6 +16,7 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_PLATFORMS_KEY,
 )
 from tasks.scheduled.update_launchbox_metadata import (
+    BatchedCacheWriter,
     UpdateLaunchboxMetadataTask,
     update_launchbox_metadata_task,
 )
@@ -319,3 +321,102 @@ class TestUpdateLaunchboxMetadataTaskIntegration:
             assert (
                 expected_key in redis_keys_used
             ), f"Expected key {expected_key} not found in Redis operations"
+
+
+class TestBatchedCacheWriter:
+    """The dump is far too large to buffer into a single pipeline."""
+
+    async def test_flushes_once_the_batch_is_full(self):
+        pipe = AsyncMock()
+        writer = BatchedCacheWriter(pipe, batch_size=3)
+
+        for i in range(3):
+            await writer.hset("key", f"field-{i}", {"i": i})
+
+        assert pipe.execute.call_count == 1
+
+    async def test_does_not_flush_a_partial_batch_early(self):
+        pipe = AsyncMock()
+        writer = BatchedCacheWriter(pipe, batch_size=3)
+
+        await writer.hset("key", "field", {"a": 1})
+
+        assert pipe.execute.call_count == 0
+
+    async def test_final_flush_writes_the_remainder(self):
+        pipe = AsyncMock()
+        writer = BatchedCacheWriter(pipe, batch_size=3)
+
+        await writer.hset("key", "field", {"a": 1})
+        await writer.flush()
+
+        assert pipe.execute.call_count == 1
+
+    async def test_flush_is_a_noop_with_nothing_queued(self):
+        pipe = AsyncMock()
+        writer = BatchedCacheWriter(pipe, batch_size=3)
+
+        await writer.flush()
+
+        assert pipe.execute.call_count == 0
+
+    async def test_values_are_json_encoded(self):
+        pipe = AsyncMock()
+        writer = BatchedCacheWriter(pipe, batch_size=10)
+
+        await writer.hset("key", "field", {"Name": "Super Mario Bros."})
+
+        pipe.hset.assert_called_once_with(
+            "key", mapping={"field": '{"Name": "Super Mario Bros."}'}
+        )
+
+    async def test_large_input_flushes_repeatedly(self, task, sample_zip_content):
+        """A real dump must not end up in one pipeline execute."""
+        mock_pipe = AsyncMock()
+
+        with (
+            patch.object(RemoteFilePullTask, "run", return_value=sample_zip_content),
+            patch(
+                "tasks.scheduled.update_launchbox_metadata.CACHE_WRITE_BATCH_SIZE", 1
+            ),
+            patch(
+                "tasks.scheduled.update_launchbox_metadata.async_cache.pipeline"
+            ) as mock_pipeline,
+        ):
+            mock_pipeline.return_value.__aenter__ = AsyncMock(return_value=mock_pipe)
+            mock_pipeline.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            await task.run(force=True)
+
+        # One execute per queued write rather than one for the whole file.
+        assert mock_pipe.execute.call_count == mock_pipe.hset.call_count
+
+
+class TestManualRunGate:
+    def test_runnable_when_only_the_provider_is_enabled(self, task):
+        """Enabling LaunchBox without the cron must still leave a way to fill
+        the store, otherwise the provider silently matches nothing."""
+        task.enabled = False
+        with patch(
+            "tasks.scheduled.update_launchbox_metadata.LAUNCHBOX_API_ENABLED", True
+        ):
+            assert task.can_run_manually is True
+
+    def test_runnable_when_scheduled(self, task):
+        task.enabled = True
+        with patch(
+            "tasks.scheduled.update_launchbox_metadata.LAUNCHBOX_API_ENABLED", False
+        ):
+            assert task.can_run_manually is True
+
+    def test_not_runnable_when_launchbox_is_off(self, task):
+        task.enabled = False
+        with patch(
+            "tasks.scheduled.update_launchbox_metadata.LAUNCHBOX_API_ENABLED", False
+        ):
+            assert task.can_run_manually is False
+
+    def test_timeout_is_generous(self, task):
+        """Downloading ~100MB and parsing ~500MB overruns the default timeout."""
+        assert task.timeout >= 30 * 60
+        assert task.timeout >= TASK_TIMEOUT

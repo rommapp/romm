@@ -70,8 +70,14 @@ class RemoteSource:
             metadata_database_index_entry = await async_cache.hget(
                 LAUNCHBOX_METADATA_DATABASE_ID_KEY, database_id
             )
-            if metadata_database_index_entry:
-                return json.loads(metadata_database_index_entry)
+            if not metadata_database_index_entry:
+                continue
+
+            # The alternate name index is not keyed by platform, so a hit can
+            # point at a same-titled game on a completely different system.
+            entry = json.loads(metadata_database_index_entry)
+            if entry.get("Platform") == platform_name:
+                return entry
 
         return None
 

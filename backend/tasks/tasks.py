@@ -54,6 +54,7 @@ class Task(ABC):
     manual_run: bool
     cron_string: str | None = None
     task_type: TaskType
+    timeout: int
 
     def __init__(
         self,
@@ -63,6 +64,7 @@ class Task(ABC):
         enabled: bool = False,
         manual_run: bool = False,
         cron_string: str | None = None,
+        timeout: int = TASK_TIMEOUT,
     ):
         self.title = title
         self.description = description or title
@@ -70,6 +72,12 @@ class Task(ABC):
         self.enabled = enabled
         self.manual_run = manual_run
         self.cron_string = cron_string
+        self.timeout = timeout
+
+    @property
+    def can_run_manually(self) -> bool:
+        """Whether an admin can trigger this task on demand."""
+        return self.manual_run and self.enabled
 
     @abstractmethod
     async def run(self, *args: Any, **kwargs: Any) -> Any: ...
@@ -122,7 +130,7 @@ class PeriodicTask(Task, ABC):
                 self.cron_string,
                 func=self.func,
                 repeat=None,
-                timeout=TASK_TIMEOUT,
+                timeout=self.timeout,
                 meta={
                     "task_name": self.title,
                     "task_type": self.task_type.value,

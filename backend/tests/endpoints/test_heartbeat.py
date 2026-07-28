@@ -4,6 +4,7 @@ import pytest
 from fastapi import status
 
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from utils import get_version
 
 
@@ -63,11 +64,19 @@ def test_heartbeat_with_malformed_authorization_header(
 
 
 def test_heartbeat_metadata(client):
+    """LaunchBox is only healthy once its metadata store has been populated."""
     response = client.get("/api/heartbeat/metadata/launchbox")
     assert response.status_code == status.HTTP_200_OK
+    assert response.json() is False
 
-    heartbeat = response.json()
-    assert heartbeat
+    with patch.object(
+        LaunchboxHandler, "is_remote_store_populated", new_callable=AsyncMock
+    ) as mock_populated:
+        mock_populated.return_value = True
+        response = client.get("/api/heartbeat/metadata/launchbox")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() is True
 
 
 def test_heartbeat_metadata_unknown_source(client):

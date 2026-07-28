@@ -165,7 +165,7 @@ function statusInfo(task: TaskStatusResponse) {
             </span>
           </div>
           <button
-            v-if="task.manual_run && task.enabled"
+            v-if="task.manual_run"
             type="button"
             class="r-v2-tasks__run-btn"
             :disabled="isTaskRunning(task.name)"
