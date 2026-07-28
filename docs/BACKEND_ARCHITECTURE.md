@@ -1537,14 +1537,15 @@ Falls back to `FakeRedis` in test mode.
 
 #### Redis
 
-| Variable         | Default     | Description           |
-| ---------------- | ----------- | --------------------- |
-| `REDIS_HOST`     | `127.0.0.1` | Redis host            |
-| `REDIS_PORT`     | `6379`      | Redis port            |
-| `REDIS_USERNAME` |             | Redis username (ACL)  |
-| `REDIS_PASSWORD` |             | Redis password        |
-| `REDIS_DB`       | `0`         | Redis database number |
-| `REDIS_SSL`      | `false`     | Enable SSL            |
+| Variable            | Default     | Description                                                                 |
+| ------------------- | ----------- | --------------------------------------------------------------------------- |
+| `REDIS_HOST`        | `127.0.0.1` | Redis host                                                                  |
+| `REDIS_PORT`        | `6379`      | Redis port                                                                  |
+| `REDIS_USERNAME`    |             | Redis username (ACL)                                                        |
+| `REDIS_PASSWORD`    |             | Redis password                                                              |
+| `REDIS_DB`          | `0`         | Redis database number                                                       |
+| `REDIS_SSL`         | `false`     | Enable SSL                                                                  |
+| `REDIS_SAVE_POLICY` | `3600 1`    | Internal Valkey snapshot policy, `"<seconds> <changes>"` pairs (empty: off) |
 
 #### Authentication
 
