@@ -828,3 +828,149 @@ class TestGetPico8CoverUrl:
         assert url is not None
         assert fs_path in url
         assert fs_name in url
+
+
+class TestScanConcurrency:
+    """A scan already in flight must block another from being enqueued."""
+
+    @pytest.fixture
+    def emit(self, mocker):
+        emit = AsyncMock()
+        mocker.patch.object(scan_module.socket_handler.socket_server, "emit", emit)
+        return emit
+
+    @pytest.fixture(autouse=True)
+    def authorized(self, mocker):
+        user = MagicMock()
+        user.oauth_scopes = [Scope.TASKS_RUN]
+        mocker.patch.object(
+            scan_module, "get_authenticated_user", AsyncMock(return_value=user)
+        )
+        mocker.patch.object(scan_module, "DEV_MODE", False)
+
+    @staticmethod
+    def _scan_job():
+        job = MagicMock()
+        job.func_name = "endpoints.sockets.scan.scan_platforms"
+        return job
+
+    @staticmethod
+    def _other_job():
+        job = MagicMock()
+        job.func_name = "tasks.scheduled.scan_library.scan_library_task.run"
+        return job
+
+    def _patch_jobs(self, mocker, *, running=None, queued=()):
+        worker = MagicMock()
+        worker.get_current_job.return_value = running
+        mocker.patch.object(scan_module.Worker, "all", return_value=[worker])
+        mocker.patch.object(
+            scan_module.high_prio_queue, "get_jobs", return_value=list(queued)
+        )
+
+    async def test_enqueues_when_nothing_running(self, mocker, emit):
+        self._patch_jobs(mocker)
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_called_once()
+
+    async def test_refuses_when_a_scan_is_running(self, mocker, emit):
+        self._patch_jobs(mocker, running=self._scan_job())
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_not_called()
+        emit.assert_awaited_once()
+        assert emit.await_args.args[0] == "scan:done_ko"
+
+    async def test_refuses_when_a_scan_is_queued(self, mocker, emit):
+        self._patch_jobs(mocker, queued=[self._scan_job()])
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_not_called()
+
+    async def test_ignores_unrelated_jobs(self, mocker, emit):
+        # Only scans block scans; a cleanup or metadata task must not.
+        self._patch_jobs(mocker, running=self._other_job(), queued=[self._other_job()])
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_called_once()
+
+
+class TestStopScan:
+    """Stopping must clear queued scans as well as the running one."""
+
+    @pytest.fixture
+    def emit(self, mocker):
+        emit = AsyncMock()
+        mocker.patch.object(scan_module.socket_handler.socket_server, "emit", emit)
+        return emit
+
+    @pytest.fixture(autouse=True)
+    def authorized(self, mocker):
+        user = MagicMock()
+        user.oauth_scopes = [Scope.TASKS_RUN]
+        mocker.patch.object(
+            scan_module, "get_authenticated_user", AsyncMock(return_value=user)
+        )
+
+    @pytest.fixture
+    def redis(self, mocker):
+        return mocker.patch.object(scan_module, "redis_client")
+
+    @staticmethod
+    def _scan_job():
+        job = MagicMock()
+        job.func_name = "endpoints.sockets.scan.scan_platforms"
+        return job
+
+    def _patch_jobs(self, mocker, *, running=None, queued=()):
+        worker = MagicMock()
+        worker.get_current_job.return_value = running
+        mocker.patch.object(scan_module.Worker, "all", return_value=[worker])
+        mocker.patch.object(
+            scan_module.high_prio_queue, "get_jobs", return_value=list(queued)
+        )
+
+    async def test_sets_stop_flag_for_running_scan(self, mocker, emit, redis):
+        running = self._scan_job()
+        self._patch_jobs(mocker, running=running)
+
+        await stop_scan_handler("sid")
+
+        running.cancel.assert_called_once()
+        redis.set.assert_called_once_with(scan_module.STOP_SCAN_FLAG, 1)
+
+    async def test_cancels_queued_scans(self, mocker, emit, redis):
+        queued = [self._scan_job(), self._scan_job()]
+        self._patch_jobs(mocker, running=self._scan_job(), queued=queued)
+
+        await stop_scan_handler("sid")
+
+        for job in queued:
+            job.cancel.assert_called_once()
+
+    async def test_cancels_queued_scans_with_none_running(self, mocker, emit, redis):
+        # Stopping a scan that has not been picked up yet must still drop it,
+        # and must not leave a stop flag behind for the next scan to trip on.
+        queued = [self._scan_job()]
+        self._patch_jobs(mocker, queued=queued)
+
+        await stop_scan_handler("sid")
+
+        queued[0].cancel.assert_called_once()
+        redis.set.assert_not_called()
+
+    async def test_no_scan_to_stop(self, mocker, emit, redis):
+        self._patch_jobs(mocker)
+
+        await stop_scan_handler("sid")
+
+        redis.set.assert_not_called()

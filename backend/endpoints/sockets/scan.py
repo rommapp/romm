@@ -63,6 +63,38 @@ from utils.pegasus_exporter import PegasusExporter
 STOP_SCAN_FLAG: Final = "scan:stop"
 
 
+def _scan_job_func_name() -> str:
+    """Fully qualified name RQ records for an enqueued scan.
+
+    Derived from the function itself so it cannot drift out of sync with the
+    name RQ stores when the job is enqueued.
+    """
+    return f"{scan_platforms.__module__}.{scan_platforms.__name__}"
+
+
+def _get_running_scan_job() -> Job | None:
+    """The scan currently executing on a worker, if any.
+
+    A started job is no longer in the queue, so it can only be found by asking
+    the workers what they are holding.
+    """
+    for worker in Worker.all(connection=redis_client):
+        job = worker.get_current_job()
+        if job is not None and get_job_func_name(job) == _scan_job_func_name():
+            return job
+
+    return None
+
+
+def _get_queued_scan_jobs() -> list[Job]:
+    """Scans waiting in the queue, not yet picked up by a worker."""
+    return [
+        job
+        for job in high_prio_queue.get_jobs()
+        if get_job_func_name(job) == _scan_job_func_name()
+    ]
+
+
 @dataclass
 class ScanStats:
     total_platforms: int = 0
@@ -770,6 +802,10 @@ async def scan_platforms(
         roms_ids (list[int], optional): List of selected roms to be scanned.
         platform_fs_slugs (list[str], optional): Folders to scan with no database row.
     """
+    # The flag is cleared by the scan that observes it, so one set against a
+    # scan that ended first would otherwise stop this one before it began.
+    redis_client.delete(STOP_SCAN_FLAG)
+
     if not roms_ids:
         roms_ids = []
 
@@ -971,6 +1007,17 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     if await reject_unauthorized_scan(sid):
         return
 
+    # Without this, every request enqueues another full scan behind the running
+    # one, and a client that lost the progress socket has no way to tell.
+    if not DEV_MODE and (_get_running_scan_job() or _get_queued_scan_jobs()):
+        log.info(f"{emoji.EMOJI_STOP_SIGN} Scan already in progress, ignoring request")
+        await socket_handler.socket_server.emit(
+            "scan:done_ko",
+            "A scan is already in progress",
+            to=sid,
+        )
+        return
+
     log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
     platform_ids = options.get("platforms", [])
@@ -1019,25 +1066,24 @@ async def stop_scan_handler(sid: str):
 
     log.info(f"{emoji.EMOJI_STOP_BUTTON} Stop scan requested...")
 
-    async def cancel_job(job: Job):
+    # Queued scans have not started, so cancelling them is enough. They have to
+    # go too: stopping only the running scan would hand the worker the next one.
+    queued_jobs = _get_queued_scan_jobs()
+    for job in queued_jobs:
         job.cancel()
+
+    # A running scan cannot be interrupted from here, it polls the stop flag
+    # between platforms and ROMs and unwinds itself.
+    running_job = _get_running_scan_job()
+    if running_job is not None:
+        running_job.cancel()
         redis_client.set(STOP_SCAN_FLAG, 1)
-        log.info(f"{emoji.EMOJI_STOP_BUTTON} Job found, stopping scan...")
 
-    existing_jobs = high_prio_queue.get_jobs()
-    for job in existing_jobs:
-        if get_job_func_name(job) == "scan_platform" and job.is_started:
-            return await cancel_job(job)
+    if running_job is None and not queued_jobs:
+        log.info(f"{emoji.EMOJI_STOP_BUTTON} No running scan to stop")
+        return
 
-    workers = Worker.all(connection=redis_client)
-    for worker in workers:
-        current_job = worker.get_current_job()
-        if (
-            current_job
-            and get_job_func_name(current_job)
-            == "endpoints.sockets.scan.scan_platforms"
-            and current_job.is_started
-        ):
-            return await cancel_job(current_job)
-
-    log.info(f"{emoji.EMOJI_STOP_BUTTON} No running scan to stop")
+    log.info(
+        f"{emoji.EMOJI_STOP_BUTTON} Stopping scan "
+        f"({int(running_job is not None)} running, {len(queued_jobs)} queued)"
+    )
