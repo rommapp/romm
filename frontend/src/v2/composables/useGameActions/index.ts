@@ -243,12 +243,19 @@ export function useGameActions(
       if (!ok) return;
     }
 
+    // EmulatorJS cores can require SharedArrayBuffer. Nginx only attaches the
+    // necessary COOP/COEP headers to the player document, so an SPA navigation
+    // cannot enable cross-origin isolation. Load the document directly instead.
+    if (!canPlayStream.value && canPlayEJS.value) {
+      window.location.assign(`/rom/${rom.id}/ejs`);
+      return;
+    }
+
     // The launch "load" flourish (disc/cartridge insert) lives on the
     // player view itself — see EmulatorJS's onPlay — so navigation is
     // immediate here.
     let path: string | null = null;
     if (canPlayStream.value) path = `/rom/${rom.id}/stream`;
-    else if (canPlayEJS.value) path = `/rom/${rom.id}/ejs`;
     else if (canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
     if (!path) return;
     const target = path;
