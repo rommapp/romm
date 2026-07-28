@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 import pytest
 import socketio
 
+from adapters.services.screenscraper import SSAccountLimits
 from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
     ScanStats,
@@ -22,7 +23,7 @@ from handler.filesystem.roms_handler import (
     ParsedTags,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
-from handler.scan_handler import ScanType
+from handler.scan_handler import MetadataSource, ScanType
 from models.platform import Platform
 from models.rom import Rom
 
@@ -179,6 +180,109 @@ class TestScanTotals:
         # Only the selected folder is scanned, not every filesystem platform.
         assert result.total_platforms == 1
         assert result.total_roms == 100
+
+
+class TestScreenScraperScanReporting:
+    """The scan has to say what ScreenScraper allowed it to do: how much of the
+    daily quota is left, and which ROMs it had to skip when refused."""
+
+    @pytest.fixture
+    def patched(self, mocker):
+        socket_manager = AsyncMock()
+        mocker.patch.object(
+            scan_module, "_get_socket_manager", return_value=socket_manager
+        )
+        mocker.patch.object(
+            scan_module.fs_platform_handler,
+            "get_platforms",
+            AsyncMock(return_value=["genesis"]),
+        )
+        mocker.patch.object(
+            scan_module.fs_rom_handler, "count_roms", AsyncMock(return_value=0)
+        )
+        mocker.patch.object(scan_module.meta_gamelist_handler, "clear_cache")
+        mocker.patch.object(
+            scan_module.db_platform_handler, "mark_missing_platforms", return_value=[]
+        )
+        mocker.patch.object(
+            scan_module.db_platform_handler, "get_platforms", return_value=[]
+        )
+        mocker.patch.object(
+            scan_module.db_rom_handler, "invalidate_filter_values_cache"
+        )
+        config = MagicMock()
+        config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
+        config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+        async def fake_identify(**kwargs):
+            return kwargs["scan_stats"]
+
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=fake_identify
+        )
+        return socket_manager
+
+    async def test_resets_screenscraper_state_for_each_scan(self, patched, mocker):
+        reset_scan_state = mocker.patch.object(scan_module, "reset_ss_scan_state")
+        reset_skips = mocker.patch.object(scan_module, "reset_ss_rate_limited_roms")
+
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[MetadataSource.SS],
+            scan_type=ScanType.QUICK,
+        )
+
+        reset_scan_state.assert_called_once()
+        reset_skips.assert_called_once()
+
+    async def test_reports_remaining_quota_and_skipped_roms(self, patched, mocker):
+        mock_log = mocker.patch.object(scan_module, "log")
+        mocker.patch.object(
+            scan_module,
+            "get_ss_account_limits",
+            return_value=SSAccountLimits(
+                max_requests_per_day=20000,
+                requests_today=1500,
+                max_ko_requests_per_day=2000,
+                ko_requests_today=300,
+            ),
+        )
+        mocker.patch.object(
+            scan_module,
+            "get_ss_rate_limited_rom_names",
+            return_value=["Sonic (USA).md", "Streets of Rage (USA).md"],
+        )
+
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[MetadataSource.SS],
+            scan_type=ScanType.QUICK,
+        )
+
+        info = " ".join(str(call) for call in mock_log.info.call_args_list)
+        warnings = " ".join(str(call) for call in mock_log.warning.call_args_list)
+        assert "18500" in info
+        assert "1700" in info
+        assert "Sonic (USA).md" in warnings
+        assert "Streets of Rage (USA).md" in warnings
+
+    async def test_stays_quiet_when_screenscraper_is_not_used(self, patched, mocker):
+        mock_log = mocker.patch.object(scan_module, "log")
+        mocker.patch.object(
+            scan_module,
+            "get_ss_account_limits",
+            return_value=SSAccountLimits(
+                max_requests_per_day=20000, requests_today=1500
+            ),
+        )
+
+        await scan_platforms(
+            platform_ids=[], metadata_sources=[], scan_type=ScanType.QUICK
+        )
+
+        info = " ".join(str(call) for call in mock_log.info.call_args_list)
+        assert "18500" not in info
 
 
 class TestShouldScanRom:

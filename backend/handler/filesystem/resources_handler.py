@@ -8,6 +8,7 @@ from anyio import Path as AnyioPath
 from fastapi import status
 from PIL import Image, ImageFile, UnidentifiedImageError
 
+from adapters.services.screenscraper import media_download_slot
 from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
 from config.config_manager import MetadataMediaType
 from logger.logger import log
@@ -214,9 +215,10 @@ class FSResourcesHandler(FSHandler):
             # Handle HTTP URLs
             httpx_client = ctx_httpx_client.get()
             try:
-                async with httpx_client.stream(
-                    "GET", url_cover, timeout=120
-                ) as response:
+                async with (
+                    media_download_slot(url_cover) as timeout,
+                    httpx_client.stream("GET", url_cover, timeout=timeout) as response,
+                ):
                     if response.status_code == status.HTTP_200_OK:
                         if not _check_content_type(response, ("image/",), "cover"):
                             return None
@@ -399,9 +401,12 @@ class FSResourcesHandler(FSHandler):
             # Handle HTTP URLs
             httpx_client = ctx_httpx_client.get()
             try:
-                async with httpx_client.stream(
-                    "GET", url_screenhot, timeout=120
-                ) as response:
+                async with (
+                    media_download_slot(url_screenhot) as timeout,
+                    httpx_client.stream(
+                        "GET", url_screenhot, timeout=timeout
+                    ) as response,
+                ):
                     if response.status_code == status.HTTP_200_OK:
                         if not _check_content_type(response, ("image/",), "screenshot"):
                             return None
@@ -520,9 +525,10 @@ class FSResourcesHandler(FSHandler):
             # Handle HTTP URL
             httpx_client = ctx_httpx_client.get()
             try:
-                async with httpx_client.stream(
-                    "GET", url_manual, timeout=120
-                ) as response:
+                async with (
+                    media_download_slot(url_manual) as timeout,
+                    httpx_client.stream("GET", url_manual, timeout=timeout) as response,
+                ):
                     if response.status_code == status.HTTP_200_OK:
                         if not _check_content_type(
                             response,
@@ -672,9 +678,12 @@ class FSResourcesHandler(FSHandler):
                 # Handle HTTP URLs
                 httpx_client = ctx_httpx_client.get()
                 try:
-                    async with httpx_client.stream(
-                        "GET", url_media, timeout=120
-                    ) as response:
+                    async with (
+                        media_download_slot(url_media) as timeout,
+                        httpx_client.stream(
+                            "GET", url_media, timeout=timeout
+                        ) as response,
+                    ):
                         if response.status_code == status.HTTP_200_OK:
                             if not _check_content_type(
                                 response,

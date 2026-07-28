@@ -2,13 +2,16 @@ import html
 import re
 from datetime import datetime, timezone
 from typing import Final, NotRequired, TypedDict
-from urllib.parse import urlparse
 
 import pydash
 from fastapi import HTTPException, status
 from unidecode import unidecode as uc
 
-from adapters.services.screenscraper import ScreenScraperService
+from adapters.services.screenscraper import (
+    ScreenScraperRateLimitError,
+    ScreenScraperService,
+    is_screenscraper_url,
+)
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from config.config_manager import MetadataMediaType
@@ -35,23 +38,28 @@ from .base_handler import (
 SENSITIVE_KEYS = {"ssid", "sspassword"}
 
 
-def _is_screenscraper_host(url: str) -> bool:
-    """True only if the URL's hostname is screenscraper.fr or a subdomain.
+# ROMs whose ScreenScraper lookup was refused for exceeding the per-minute rate.
+# They are saved without ScreenScraper metadata, so the scan reports them rather
+# than leaving the gap to be noticed as missing box art later.
+_rate_limited_rom_names: set[str] = set()
 
-    Substring matching would let an attacker-controlled host like
-    screenscraper.fr.evil.example receive the user's credentials.
-    """
-    try:
-        host = urlparse(url).hostname
-    except ValueError:
-        return False
 
-    if not host:
-        return False
+def note_rate_limited_rom(fs_name: str) -> None:
+    if fs_name in _rate_limited_rom_names:
+        return
 
-    return host.lower() == "screenscraper.fr" or host.lower().endswith(
-        ".screenscraper.fr"
+    log.warning(
+        f"ScreenScraper rate limit reached, skipping ScreenScraper metadata for {fs_name}"
     )
+    _rate_limited_rom_names.add(fs_name)
+
+
+def get_rate_limited_rom_names() -> list[str]:
+    return sorted(_rate_limited_rom_names)
+
+
+def reset_rate_limited_roms() -> None:
+    _rate_limited_rom_names.clear()
 
 
 def add_ss_auth_to_url(url: str | None) -> str:
@@ -60,7 +68,7 @@ def add_ss_auth_to_url(url: str | None) -> str:
     Only injects credentials for screenscraper.fr URLs; returns other URLs
     unchanged to avoid leaking credentials to third-party sources.
     """
-    if not url or not _is_screenscraper_host(url):
+    if not url or not is_screenscraper_url(url):
         return url or ""
 
     if not SCREENSCRAPER_USER or not SCREENSCRAPER_PASSWORD:
@@ -751,6 +759,9 @@ class SSHandler(MetadataHandler):
                 rom_name=rom_name,
                 rom_type=_get_rom_type(first_file),
             )
+        except ScreenScraperRateLimitError:
+            note_rate_limited_rom(rom.fs_name)
+            return SSRom(ss_id=None), False
         except HTTPException as exc:
             # Daily quota exhausted: skip ScreenScraper for this ROM so the scan
             # falls back to the other providers.
@@ -877,6 +888,9 @@ class SSHandler(MetadataHandler):
                 res = await self._search_rom(
                     terms[-1], platform_ss_id, split_game_name=True
                 )
+        except ScreenScraperRateLimitError:
+            note_rate_limited_rom(rom.fs_name)
+            return fallback_rom
         except HTTPException as exc:
             # Daily quota exhausted: fall back to the name-only match (if any).
             if not _is_daily_quota_error(exc):
@@ -894,6 +908,9 @@ class SSHandler(MetadataHandler):
 
         try:
             res = await self.ss_service.get_game_info(game_id=ss_id)
+        except ScreenScraperRateLimitError:
+            note_rate_limited_rom(rom.fs_name)
+            return SSRom(ss_id=None)
         except HTTPException as exc:
             # Daily quota exhausted: return an empty match rather than failing.
             if not _is_daily_quota_error(exc):

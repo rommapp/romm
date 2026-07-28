@@ -8,17 +8,51 @@ import pytest
 import yarl
 from fastapi import HTTPException, status
 
+import adapters.services.screenscraper as ss_module
 from adapters.services.screenscraper import (
     LOGIN_ERROR_CHECK,
+    SS_DEFAULT_MAX_THREADS,
+    SS_DEFAULT_MEDIA_TIMEOUT,
+    SS_MAX_MEDIA_TIMEOUT,
+    ScreenScraperRateLimitError,
     ScreenScraperService,
     _loads_lenient,
     auth_middleware,
+    get_account_limits,
     is_daily_quota_exhausted,
+    is_screenscraper_url,
+    media_download_slot,
+    media_download_timeout,
     reset_daily_quota,
+    reset_scan_state,
 )
+from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
 INVALID_GAME_ID = 999999
 INVALID_SYSTEM_ID = 999999
+
+# Fast enough that the module's pacing never adds real sleeps to a test.
+UNTHROTTLED_RATE = 10_000
+
+
+def _rendered(mock_call) -> str:
+    """Render a lazily-formatted log call into the message it would emit."""
+    template, *args = mock_call.args
+    return template % tuple(args) if args else str(template)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_module_state(monkeypatch):
+    """Pacing, thread allowance and account limits all live at module level, so
+    isolate them: without this, learned limits leak between tests and the real
+    per-minute pacing would sleep between requests."""
+    monkeypatch.setattr(ss_module, "_rate_limiter", RateLimiter(UNTHROTTLED_RATE))
+    monkeypatch.setattr(
+        ss_module, "_concurrency_limiter", ConcurrencyLimiter(SS_DEFAULT_MAX_THREADS)
+    )
+    reset_scan_state()
+    yield
+    reset_scan_state()
 
 
 class TestScreenScraperConstants:
@@ -288,14 +322,22 @@ class TestScreenScraperServiceUnit:
 
     @pytest.mark.asyncio
     async def test_request_rate_limit_with_retry(self, service):
-        """Test rate limit handling with retry."""
+        """A single rate-limit refusal backs off and the retry succeeds."""
         mock_session = AsyncMock()
-        rate_limit_error = aiohttp.ClientResponseError(
-            request_info=MagicMock(),
-            history=(),
-            status=http.HTTPStatus.TOO_MANY_REQUESTS,
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(return_value={"response": {"jeu": {"id": "1"}}})
+        mock_response.text = AsyncMock(
+            return_value='{"response": {"jeu": {"id": "1"}}}'
         )
-        mock_session.get.side_effect = rate_limit_error
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.side_effect = [
+            aiohttp.ClientResponseError(
+                request_info=MagicMock(),
+                history=(),
+                status=http.HTTPStatus.TOO_MANY_REQUESTS,
+            ),
+            mock_response,
+        ]
 
         mock_context = MagicMock()
         mock_context.get.return_value = mock_session
@@ -306,8 +348,77 @@ class TestScreenScraperServiceUnit:
                     "https://api.screenscraper.fr/api2/jeuInfos.php"
                 )
 
-        assert result == {}
-        mock_sleep.assert_called_once_with(2)
+        assert result == {"response": {"jeu": {"id": "1"}}}
+        assert any(call.args == (2,) for call in mock_sleep.call_args_list)
+
+    @pytest.mark.asyncio
+    async def test_repeated_rate_limit_raises_rate_limit_error(self, service):
+        """A refusal that survives the retry must surface, not be swallowed into
+        an empty response that saves the ROM with no ScreenScraper data."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=http.HTTPStatus.TOO_MANY_REQUESTS,
+        )
+
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with patch("asyncio.sleep"):
+                with pytest.raises(ScreenScraperRateLimitError) as exc_info:
+                    await service._request(
+                        "https://api.screenscraper.fr/api2/jeuInfos.php"
+                    )
+
+        assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert "rate limit" in exc_info.value.detail.lower()
+        assert mock_session.get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_repeated_rate_limit_does_not_trip_daily_quota_breaker(self, service):
+        """The per-minute limit clears on its own, so it must not short-circuit
+        the rest of the scan the way an exhausted daily quota does."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=http.HTTPStatus.TOO_MANY_REQUESTS,
+        )
+
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with patch("asyncio.sleep"):
+                with pytest.raises(ScreenScraperRateLimitError):
+                    await service._request(
+                        "https://api.screenscraper.fr/api2/jeuInfos.php"
+                    )
+
+        assert is_daily_quota_exhausted() is False
+
+    @pytest.mark.asyncio
+    async def test_request_paces_against_the_rate_limiter(self, service, monkeypatch):
+        """Every request reserves a per-minute slot, not just a thread slot."""
+        acquire_mock = AsyncMock()
+        monkeypatch.setattr(ss_module._rate_limiter, "acquire", acquire_mock)
+
+        mock_session = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(return_value={"response": {}})
+        mock_response.text = AsyncMock(return_value="{}")
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.return_value = mock_response
+
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        acquire_mock.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_request_unauthorized_returns_empty_dict(self, service):
@@ -1145,3 +1256,300 @@ class TestLoadsLenient:
         assert _loads_lenient('{"s": "line\\nbreak \\"quoted\\" \\u00e9"}') == {
             "s": 'line\nbreak "quoted" é'
         }
+
+
+def _ssuser_response(**fields: str) -> dict:
+    return {"response": {"ssuser": dict(fields)}}
+
+
+class TestAccountLimits:
+    """ScreenScraper reports the account's allowances on every response; they
+    drive pacing, the quota readout and the configuration advisories."""
+
+    def test_parses_every_reported_limit(self):
+        ss_module._update_account_limits(
+            _ssuser_response(
+                maxthreads="5",
+                maxrequestspermin="250",
+                maxrequestsperday="20000",
+                requeststoday="1500",
+                maxrequestskoperday="2000",
+                requestskotoday="300",
+                maxdownloadspeed="40000",
+            )
+        )
+
+        limits = get_account_limits()
+        assert limits is not None
+        assert limits.max_threads == 5
+        assert limits.max_requests_per_minute == 250
+        assert limits.max_requests_per_day == 20000
+        assert limits.requests_today == 1500
+        assert limits.max_ko_requests_per_day == 2000
+        assert limits.ko_requests_today == 300
+        assert limits.max_download_speed_kbps == 40000
+        assert limits.remaining_requests == 18500
+        assert limits.remaining_ko_requests == 1700
+
+    def test_remaining_is_unknown_without_both_counters(self):
+        ss_module._update_account_limits(_ssuser_response(requeststoday="1500"))
+
+        limits = get_account_limits()
+        assert limits is not None
+        assert limits.remaining_requests is None
+        assert limits.remaining_ko_requests is None
+
+    def test_remaining_never_goes_negative(self):
+        ss_module._update_account_limits(
+            _ssuser_response(maxrequestsperday="20000", requeststoday="20500")
+        )
+
+        limits = get_account_limits()
+        assert limits is not None
+        assert limits.remaining_requests == 0
+
+    def test_paces_requests_at_the_reported_per_minute_limit(self):
+        ss_module._update_account_limits(
+            _ssuser_response(maxthreads="5", maxrequestspermin="250")
+        )
+
+        assert ss_module._rate_limiter.requests_per_second == pytest.approx(250 / 60)
+
+    def test_derives_the_rate_from_threads_when_not_reported(self):
+        """ScreenScraper allows threads x 50 requests per minute."""
+        ss_module._update_account_limits(_ssuser_response(maxthreads="3"))
+
+        assert ss_module._rate_limiter.requests_per_second == pytest.approx(150 / 60)
+
+    def test_ignores_unparsable_limits(self):
+        ss_module._update_account_limits(
+            _ssuser_response(maxthreads="0", maxrequestspermin="not-a-number")
+        )
+
+        limits = get_account_limits()
+        assert limits is not None
+        assert limits.max_threads is None
+        assert limits.max_requests_per_minute is None
+        assert ss_module._concurrency_limiter.max_concurrency == SS_DEFAULT_MAX_THREADS
+        assert ss_module._rate_limiter.requests_per_second == pytest.approx(
+            UNTHROTTLED_RATE
+        )
+
+    def test_ignores_a_response_without_account_info(self):
+        ss_module._update_account_limits({"response": {"jeu": {"id": "1"}}})
+
+        assert get_account_limits() is None
+
+    def test_describes_both_daily_quotas(self):
+        ss_module._update_account_limits(
+            _ssuser_response(
+                maxrequestsperday="20000",
+                requeststoday="1500",
+                maxrequestskoperday="2000",
+                requestskotoday="300",
+            )
+        )
+
+        limits = get_account_limits()
+        assert limits is not None
+        description = limits.describe()
+        assert "18500" in description
+        assert "20000" in description
+        assert "1700" in description
+        assert "2000" in description
+
+    def test_scan_state_reset_drops_stale_quota_counters(self):
+        """Daily counters reset overnight, so a new scan must not report
+        yesterday's numbers before the first response arrives."""
+        ss_module._update_account_limits(
+            _ssuser_response(maxrequestsperday="20000", requeststoday="19999")
+        )
+        assert get_account_limits() is not None
+
+        reset_scan_state()
+
+        assert get_account_limits() is None
+
+
+class TestQuotaWarnings:
+    @pytest.fixture
+    def mock_log(self, monkeypatch):
+        mock_log = MagicMock()
+        monkeypatch.setattr(ss_module, "log", mock_log)
+        return mock_log
+
+    def test_warns_when_the_daily_quota_is_nearly_exhausted(self, mock_log):
+        ss_module._update_account_limits(
+            _ssuser_response(maxrequestsperday="20000", requeststoday="19500")
+        )
+
+        messages = [_rendered(call) for call in mock_log.warning.call_args_list]
+        assert any("500" in message for message in messages)
+
+    def test_warns_when_the_unrecognized_rom_quota_is_nearly_exhausted(self, mock_log):
+        ss_module._update_account_limits(
+            _ssuser_response(maxrequestskoperday="2000", requestskotoday="1950")
+        )
+
+        messages = [_rendered(call) for call in mock_log.warning.call_args_list]
+        assert any("unrecognized" in message.lower() for message in messages)
+
+    def test_does_not_warn_with_quota_to_spare(self, mock_log):
+        ss_module._update_account_limits(
+            _ssuser_response(
+                maxrequestsperday="20000",
+                requeststoday="1500",
+                maxrequestskoperday="2000",
+                requestskotoday="100",
+            )
+        )
+
+        assert mock_log.warning.call_count == 0
+
+    def test_warns_once_per_scan(self, mock_log):
+        payload = _ssuser_response(maxrequestsperday="20000", requeststoday="19500")
+
+        ss_module._update_account_limits(payload)
+        ss_module._update_account_limits(payload)
+        assert mock_log.warning.call_count == 1
+
+        reset_scan_state()
+        ss_module._update_account_limits(payload)
+        assert mock_log.warning.call_count == 2
+
+
+class TestWorkerAdvisory:
+    """SCAN_WORKERS bounds how many ScreenScraper requests can be in flight, so a
+    mismatch with the account's thread allowance is worth pointing out."""
+
+    @pytest.fixture
+    def mock_log(self, monkeypatch):
+        mock_log = MagicMock()
+        monkeypatch.setattr(ss_module, "log", mock_log)
+        return mock_log
+
+    def test_hints_when_scan_workers_wastes_the_allowance(self, mock_log, monkeypatch):
+        monkeypatch.setattr(ss_module, "SCAN_WORKERS", 1)
+
+        ss_module._update_account_limits(_ssuser_response(maxthreads="5"))
+
+        messages = [_rendered(call) for call in mock_log.info.call_args_list]
+        assert any("SCAN_WORKERS" in message and "5" in message for message in messages)
+
+    def test_notes_when_scan_workers_exceeds_the_allowance(self, mock_log, monkeypatch):
+        monkeypatch.setattr(ss_module, "SCAN_WORKERS", 8)
+
+        ss_module._update_account_limits(_ssuser_response(maxthreads="2"))
+
+        messages = [_rendered(call) for call in mock_log.info.call_args_list]
+        assert any("queue" in message for message in messages)
+
+    def test_silent_when_scan_workers_matches_the_allowance(
+        self, mock_log, monkeypatch
+    ):
+        monkeypatch.setattr(ss_module, "SCAN_WORKERS", 4)
+
+        ss_module._update_account_limits(_ssuser_response(maxthreads="4"))
+
+        messages = [_rendered(call) for call in mock_log.info.call_args_list]
+        assert not any("SCAN_WORKERS" in message for message in messages)
+
+    def test_advised_once_per_scan(self, mock_log, monkeypatch):
+        monkeypatch.setattr(ss_module, "SCAN_WORKERS", 1)
+        payload = _ssuser_response(maxthreads="5")
+
+        ss_module._update_account_limits(payload)
+        ss_module._update_account_limits(payload)
+        advisories = [
+            message
+            for message in (_rendered(call) for call in mock_log.info.call_args_list)
+            if "SCAN_WORKERS" in message
+        ]
+        assert len(advisories) == 1
+
+        reset_scan_state()
+        ss_module._update_account_limits(payload)
+        advisories = [
+            message
+            for message in (_rendered(call) for call in mock_log.info.call_args_list)
+            if "SCAN_WORKERS" in message
+        ]
+        assert len(advisories) == 2
+
+
+class TestMediaDownloads:
+    """Media downloads hit the same account allowances as API calls, so they
+    have to share the limiters instead of bypassing them."""
+
+    @pytest.mark.parametrize(
+        ("url", "expected"),
+        [
+            ("https://www.screenscraper.fr/image.php?gameid=1", True),
+            ("https://screenscraper.fr/media.php", True),
+            ("https://SCREENSCRAPER.FR/media.php", True),
+            ("https://screenscraper.fr.evil.example/media.php", False),
+            ("https://cdn.example.com/cover.png", False),
+            ("", False),
+            (None, False),
+        ],
+    )
+    def test_recognizes_screenscraper_urls(self, url, expected):
+        assert is_screenscraper_url(url) is expected
+
+    @pytest.mark.asyncio
+    async def test_holds_a_thread_slot_for_screenscraper_media(self):
+        async with media_download_slot(
+            "https://www.screenscraper.fr/image.php?gameid=1"
+        ) as timeout:
+            assert ss_module._concurrency_limiter.in_flight == 1
+            assert timeout == SS_DEFAULT_MEDIA_TIMEOUT
+
+        assert ss_module._concurrency_limiter.in_flight == 0
+
+    @pytest.mark.asyncio
+    async def test_releases_the_slot_when_the_download_fails(self):
+        with pytest.raises(RuntimeError):
+            async with media_download_slot("https://www.screenscraper.fr/image.php"):
+                raise RuntimeError("connection reset")
+
+        assert ss_module._concurrency_limiter.in_flight == 0
+
+    @pytest.mark.asyncio
+    async def test_paces_screenscraper_media_downloads(self, monkeypatch):
+        acquire_mock = AsyncMock()
+        monkeypatch.setattr(ss_module._rate_limiter, "acquire", acquire_mock)
+
+        async with media_download_slot("https://www.screenscraper.fr/image.php"):
+            pass
+
+        acquire_mock.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_leaves_other_hosts_alone(self, monkeypatch):
+        acquire_mock = AsyncMock()
+        monkeypatch.setattr(ss_module._rate_limiter, "acquire", acquire_mock)
+
+        async with media_download_slot("https://cdn.example.com/cover.png") as timeout:
+            assert ss_module._concurrency_limiter.in_flight == 0
+            assert timeout == SS_DEFAULT_MEDIA_TIMEOUT
+
+        acquire_mock.assert_not_awaited()
+
+    def test_timeout_defaults_without_a_reported_speed(self):
+        assert media_download_timeout() == SS_DEFAULT_MEDIA_TIMEOUT
+
+    def test_timeout_grows_for_a_throttled_account(self):
+        ss_module._update_account_limits(_ssuser_response(maxdownloadspeed="128"))
+
+        timeout = media_download_timeout()
+        assert SS_DEFAULT_MEDIA_TIMEOUT < timeout <= SS_MAX_MEDIA_TIMEOUT
+
+    def test_timeout_is_capped_for_the_slowest_accounts(self):
+        ss_module._update_account_limits(_ssuser_response(maxdownloadspeed="16"))
+
+        assert media_download_timeout() == SS_MAX_MEDIA_TIMEOUT
+
+    def test_timeout_stays_at_the_floor_for_fast_accounts(self):
+        ss_module._update_account_limits(_ssuser_response(maxdownloadspeed="40000"))
+
+        assert media_download_timeout() == SS_DEFAULT_MEDIA_TIMEOUT
