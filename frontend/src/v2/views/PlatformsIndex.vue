@@ -40,6 +40,7 @@ import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import { usePlatformPlayableChecker } from "@/v2/composables/usePlatformPlayable";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
+import { patchQuery } from "@/v2/utils/routeQuery";
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();
@@ -86,10 +87,7 @@ watch(contentFilter, (next) => {
   const current =
     typeof route.query.show === "string" ? route.query.show : undefined;
   if (desired === current) return;
-  const nextQuery = { ...route.query };
-  if (desired === undefined) delete nextQuery.show;
-  else nextQuery.show = desired;
-  router.replace({ query: nextQuery });
+  patchQuery(router, { show: desired });
 });
 
 const visiblePlatforms = computed<Platform[]>(() =>
