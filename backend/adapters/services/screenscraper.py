@@ -56,8 +56,8 @@ def _loads_lenient(text: str) -> dict:
 SS_DEFAULT_MAX_THREADS: Final[int] = 1
 _concurrency_limiter = ConcurrencyLimiter(SS_DEFAULT_MAX_THREADS)
 
-# On top of the thread cap, an account may only make `threads x 50` requests per
-# minute. Responses can be fast enough (name searches average well under a
+# On top of the thread cap, ScreenScraper's FAQ allows `threads x 50` requests
+# per minute. Responses can be fast enough (name searches average well under a
 # second) to blow through that budget without ever exceeding the thread cap, so
 # requests are paced as well as bounded.
 SS_REQUESTS_PER_MINUTE_PER_THREAD: Final[int] = 50
@@ -164,7 +164,7 @@ def _trip_daily_quota(reason: str) -> None:
     if not _daily_quota_exhausted:
         log.warning(
             "ScreenScraper %s; skipping ScreenScraper for the rest of this scan "
-            "(quota resets tomorrow)",
+            "(quotas reset at midnight French time)",
             reason,
         )
     _daily_quota_exhausted = True
@@ -225,13 +225,27 @@ def _apply_thread_allowance(max_threads: int | None) -> None:
 
 
 def _apply_request_rate(limits: SSAccountLimits) -> None:
-    """Pace requests against the account's per-minute budget."""
-    per_minute = limits.max_requests_per_minute
-    if per_minute is None and limits.max_threads is not None:
-        per_minute = limits.max_threads * SS_REQUESTS_PER_MINUTE_PER_THREAD
+    """Pace requests against the account's per-minute budget.
 
-    if per_minute is None:
+    ScreenScraper's FAQ defines the budget, and the reported ``maxrequestspermin``
+    field, as ``threads x 50``. The field does not follow it: on real accounts it
+    comes back as ``1024 x (threads + 1)``, some twenty times the documented
+    figure, and so carries nothing the thread count does not already give us.
+    Every neighbouring field does match its documented rule, so the odd one out
+    is treated as unreliable and the lower of the two wins.
+    """
+    documented = (
+        limits.max_threads * SS_REQUESTS_PER_MINUTE_PER_THREAD
+        if limits.max_threads is not None
+        else None
+    )
+    budgets = [
+        budget for budget in (limits.max_requests_per_minute, documented) if budget
+    ]
+    if not budgets:
         return
+
+    per_minute = min(budgets)
 
     per_second = per_minute / 60
     if isclose(per_second, _rate_limiter.requests_per_second):
@@ -288,7 +302,8 @@ def _warn_on_low_quota(limits: SSAccountLimits) -> None:
 
         if remaining <= allowance * SS_LOW_QUOTA_FRACTION:
             log.warning(
-                "ScreenScraper: only %d of %d daily %s left, the quota resets tomorrow",
+                "ScreenScraper: only %d of %d daily %s left, "
+                "the quota resets at midnight French time",
                 remaining,
                 allowance,
                 label,
@@ -351,9 +366,9 @@ def media_download_timeout() -> int:
     if not speed_kbps:
         return SS_DEFAULT_MEDIA_TIMEOUT
 
-    # Kilobits per second, so a free account's 128 gets minutes for a manual
-    # while a donor's 40000 stays at the floor. Reading the unit too generously
-    # only ever widens the timeout, which is the safe direction.
+    # Kb/s per thread per ScreenScraper's FAQ, and a download holds one thread,
+    # so a free account's 128 gets minutes for a large manual while a
+    # contributor's 40 Mb/s stays at the floor.
     seconds = SS_MEDIA_TIMEOUT_BUDGET_BYTES * 8 / (speed_kbps * 1000)
     return int(min(SS_MAX_MEDIA_TIMEOUT, max(SS_DEFAULT_MEDIA_TIMEOUT, seconds)))
 
@@ -435,7 +450,7 @@ class ScreenScraperService:
         if _daily_quota_exhausted:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="ScreenScraper daily quota exhausted. Try again tomorrow.",
+                detail="ScreenScraper daily quota exhausted. It resets at midnight French time.",
             )
 
         aiohttp_session = ctx_aiohttp_session.get()
@@ -488,13 +503,13 @@ class ScreenScraperService:
                 _trip_daily_quota("daily scrape quota exhausted")
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="ScreenScraper daily scrape quota exhausted. Try again tomorrow.",
+                    detail="ScreenScraper daily scrape quota exhausted. It resets at midnight French time.",
                 ) from err
             elif err.status == 431:
                 _trip_daily_quota("daily unrecognized-ROM quota exhausted")
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="ScreenScraper daily unrecognized-ROM quota exhausted. Try again tomorrow.",
+                    detail="ScreenScraper daily unrecognized-ROM quota exhausted. It resets at midnight French time.",
                 ) from err
             elif err.status == 423:
                 raise HTTPException(
@@ -559,13 +574,13 @@ class ScreenScraperService:
                     _trip_daily_quota("daily scrape quota exhausted")
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail="ScreenScraper daily scrape quota exhausted. Try again tomorrow.",
+                        detail="ScreenScraper daily scrape quota exhausted. It resets at midnight French time.",
                     ) from err
                 elif err.status == 431:
                     _trip_daily_quota("daily unrecognized-ROM quota exhausted")
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail="ScreenScraper daily unrecognized-ROM quota exhausted. Try again tomorrow.",
+                        detail="ScreenScraper daily unrecognized-ROM quota exhausted. It resets at midnight French time.",
                     ) from err
                 elif err.status == 423:
                     raise HTTPException(

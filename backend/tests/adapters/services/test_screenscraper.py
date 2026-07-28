@@ -1322,6 +1322,29 @@ class TestAccountLimits:
 
         assert ss_module._rate_limiter.requests_per_second == pytest.approx(150 / 60)
 
+    def test_clamps_a_reported_limit_above_the_documented_budget(self):
+        """Measured on real accounts, maxrequestspermin comes back as
+        1024 x (threads + 1): 10240 here against the documented 450. The
+        documented rule wins, so an inflated field cannot disable pacing."""
+        ss_module._update_account_limits(
+            _ssuser_response(maxthreads="9", maxrequestspermin="10240")
+        )
+
+        assert ss_module._rate_limiter.requests_per_second == pytest.approx(450 / 60)
+
+    def test_honours_a_reported_limit_below_the_documented_budget(self):
+        """A stricter account limit is still respected."""
+        ss_module._update_account_limits(
+            _ssuser_response(maxthreads="9", maxrequestspermin="100")
+        )
+
+        assert ss_module._rate_limiter.requests_per_second == pytest.approx(100 / 60)
+
+    def test_uses_the_reported_limit_when_threads_are_unknown(self):
+        ss_module._update_account_limits(_ssuser_response(maxrequestspermin="600"))
+
+        assert ss_module._rate_limiter.requests_per_second == pytest.approx(600 / 60)
+
     def test_ignores_unparsable_limits(self):
         ss_module._update_account_limits(
             _ssuser_response(maxthreads="0", maxrequestspermin="not-a-number")
