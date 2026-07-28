@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from itertools import batched
+from itertools import batched, chain
 from typing import Any, Final
 
 import pydash
 import socketio  # type: ignore
-from rq import Worker
-from rq.job import Job
+from rq import Worker, get_current_job
+from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError
 
 from adapters.services.screenscraper import reset_daily_quota as reset_ss_daily_quota
@@ -37,7 +37,12 @@ from handler.filesystem import (
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_gamelist_handler, meta_hltb_handler
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
-from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
+from handler.redis_handler import (
+    get_job_func_name,
+    high_prio_queue,
+    low_prio_queue,
+    redis_client,
+)
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
@@ -53,7 +58,7 @@ from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
-from tasks.tasks import update_job_meta
+from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, tasks_scheduler, update_job_meta
 from utils import emoji
 from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
@@ -63,13 +68,23 @@ from utils.pegasus_exporter import PegasusExporter
 STOP_SCAN_FLAG: Final = "scan:stop"
 
 
-def _scan_job_func_name() -> str:
-    """Fully qualified name RQ records for an enqueued scan.
+def _scan_platforms_func_name() -> str:
+    """Fully qualified name RQ records for a directly enqueued scan.
 
     Derived from the function itself so it cannot drift out of sync with the
     name RQ stores when the job is enqueued.
     """
     return f"{scan_platforms.__module__}.{scan_platforms.__name__}"
+
+
+def _scan_job_func_names() -> frozenset[str]:
+    """Every job function name that ends up running a scan.
+
+    Socket and watcher scans enqueue scan_platforms itself, while the scheduled
+    rescan enqueues its own task and calls scan_platforms in process. Both have
+    to be recognised or an in-flight scan goes unseen.
+    """
+    return frozenset((_scan_platforms_func_name(), SCAN_LIBRARY_TASK_FUNC))
 
 
 def _get_running_scan_job() -> Job | None:
@@ -78,21 +93,41 @@ def _get_running_scan_job() -> Job | None:
     A started job is no longer in the queue, so it can only be found by asking
     the workers what they are holding.
     """
+    func_names = _scan_job_func_names()
     for worker in Worker.all(connection=redis_client):
         job = worker.get_current_job()
-        if job is not None and get_job_func_name(job) == _scan_job_func_name():
+        if job is not None and get_job_func_name(job) in func_names:
             return job
 
     return None
 
 
 def _get_queued_scan_jobs() -> list[Job]:
-    """Scans waiting in the queue, not yet picked up by a worker."""
-    return [
-        job
-        for job in high_prio_queue.get_jobs()
-        if get_job_func_name(job) == _scan_job_func_name()
-    ]
+    """Scans waiting to run, not yet picked up by a worker.
+
+    Socket scans sit in the high priority queue, while watcher scans are delayed
+    through the scheduler before landing in the low priority queue.
+    """
+    func_names = _scan_job_func_names()
+    jobs: dict[str, Job] = {}
+
+    for job in chain(high_prio_queue.get_jobs(), low_prio_queue.get_jobs()):
+        if isinstance(job, Job) and get_job_func_name(job) in func_names:
+            jobs[job.id] = job
+
+    # The scheduler registry also holds the standing cron entry for the
+    # scheduled rescan, which is a schedule rather than a pending scan, so only
+    # delayed scan_platforms jobs count as queued here.
+    scan_platforms_func_name = _scan_platforms_func_name()
+    for job in tasks_scheduler.get_jobs():
+        if (
+            isinstance(job, Job)
+            and get_job_func_name(job) == scan_platforms_func_name
+            and job.get_status() in (JobStatus.SCHEDULED, JobStatus.QUEUED)
+        ):
+            jobs[job.id] = job
+
+    return list(jobs.values())
 
 
 @dataclass
@@ -803,8 +838,15 @@ async def scan_platforms(
         platform_fs_slugs (list[str], optional): Folders to scan with no database row.
     """
     # The flag is cleared by the scan that observes it, so one set against a
-    # scan that ended first would otherwise stop this one before it began.
-    redis_client.delete(STOP_SCAN_FLAG)
+    # scan that ended first would otherwise stop this one before it began. A
+    # scan still on a worker owns the flag though, and clearing it there would
+    # let a stopped scan carry on.
+    running_job = _get_running_scan_job()
+    current_job = get_current_job()
+    if running_job is None or (
+        current_job is not None and running_job.id == current_job.id
+    ):
+        redis_client.delete(STOP_SCAN_FLAG)
 
     if not roms_ids:
         roms_ids = []

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from itertools import chain
-from typing import Any
+from typing import Any, Final
 
 import httpx
 from rq import get_current_job
@@ -15,6 +15,10 @@ from logger.logger import log
 from utils.context import ctx_httpx_client
 
 tasks_scheduler = Scheduler(queue=low_prio_queue, connection=low_prio_queue.connection)
+
+# Lives here rather than in the task module so scan job discovery can recognise
+# the scheduled rescan without importing it, which would close an import cycle.
+SCAN_LIBRARY_TASK_FUNC: Final = "tasks.scheduled.scan_library.scan_library_task.run"
 
 
 def update_job_meta(metadata: dict[str, Any]) -> None:

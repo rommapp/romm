@@ -19,7 +19,7 @@ from handler.metadata import (
 )
 from handler.scan_handler import MetadataSource, ScanType
 from logger.logger import log
-from tasks.tasks import PeriodicTask, TaskType
+from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, PeriodicTask, TaskType
 
 
 class ScanLibraryTask(PeriodicTask):
@@ -31,7 +31,7 @@ class ScanLibraryTask(PeriodicTask):
             enabled=ENABLE_SCHEDULED_RESCAN,
             manual_run=False,
             cron_string=SCHEDULED_RESCAN_CRON,
-            func="tasks.scheduled.scan_library.scan_library_task.run",
+            func=SCAN_LIBRARY_TASK_FUNC,
         )
 
     async def run(self) -> dict[str, str]:
