@@ -77,6 +77,24 @@ describe("resolveRomArtwork — library media files", () => {
     expect(entries[0].label).toBe("keep");
   });
 
+  it("ignores media nested inside the game's own data", () => {
+    const rom = makeRom([
+      makeFile({
+        id: 1,
+        file_name: "Demo101_0.mp4",
+        file_path: "platform/roms/game/content/Movie",
+        full_path: "platform/roms/game/content/Movie/Demo101_0.mp4",
+        is_top_level: false,
+        category: null,
+      }),
+      makeFile({ id: 2, file_name: "trailer.mp4" }),
+    ]);
+    const entries = resolveRomArtwork(rom);
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0].label).toBe("trailer");
+  });
+
   it("orders image files before video files", () => {
     const rom = makeRom([
       makeFile({ id: 1, file_name: "clip.mp4" }),
