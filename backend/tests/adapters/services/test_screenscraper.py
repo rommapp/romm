@@ -23,6 +23,7 @@ from adapters.services.screenscraper import (
     is_screenscraper_url,
     media_download_slot,
     media_download_timeout,
+    prime_account_limits,
     reset_daily_quota,
     reset_scan_state,
 )
@@ -1369,6 +1370,89 @@ class TestAccountLimits:
         reset_scan_state()
 
         assert get_account_limits() is None
+
+
+class TestPrimingAccountLimits:
+    """The limits ride along on every response, but piggybacking on the first
+    scan request means the first ROMs are scraped at the default pacing.
+    ssuserInfos.php reports them up front and costs no quota."""
+
+    @pytest.fixture(autouse=True)
+    def _credentials(self, monkeypatch):
+        monkeypatch.setattr(ss_module, "SCREENSCRAPER_USER", "user1")
+        monkeypatch.setattr(ss_module, "SCREENSCRAPER_PASSWORD", "pw1")
+
+    def _mock_session(self, payload: dict) -> tuple[MagicMock, MagicMock]:
+        session = AsyncMock()
+        response = MagicMock()
+        response.json = AsyncMock(return_value=payload)
+        response.text = AsyncMock(return_value="{}")
+        response.raise_for_status.return_value = None
+        session.get.return_value = response
+
+        context = MagicMock()
+        context.get.return_value = session
+        return session, context
+
+    @pytest.mark.asyncio
+    async def test_get_user_info_hits_the_account_endpoint(self):
+        service = ScreenScraperService()
+        with patch.object(
+            service, "_request", return_value={"response": {}}
+        ) as mock_request:
+            await service.get_user_info()
+
+        assert mock_request.call_args[0][0].endswith("ssuserInfos.php")
+
+    @pytest.mark.asyncio
+    async def test_priming_applies_the_limits_before_any_rom_is_scraped(self):
+        session, context = self._mock_session(
+            _ssuser_response(
+                maxthreads="5",
+                maxrequestspermin="250",
+                maxrequestsperday="20000",
+                requeststoday="1500",
+            )
+        )
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            limits = await prime_account_limits()
+
+        assert limits is not None
+        assert limits.max_threads == 5
+        assert limits.remaining_requests == 18500
+        assert ss_module._concurrency_limiter.max_concurrency == 5
+        assert ss_module._rate_limiter.requests_per_second == pytest.approx(250 / 60)
+        session.get.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_priming_is_skipped_without_credentials(self, monkeypatch):
+        monkeypatch.setattr(ss_module, "SCREENSCRAPER_USER", "")
+        monkeypatch.setattr(ss_module, "SCREENSCRAPER_PASSWORD", "")
+        session, context = self._mock_session(_ssuser_response(maxthreads="5"))
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            assert await prime_account_limits() is None
+
+        session.get.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_priming_never_fails_the_scan(self, monkeypatch):
+        """A scan must still run when the account lookup is refused."""
+        mock_log = MagicMock()
+        monkeypatch.setattr(ss_module, "log", mock_log)
+
+        session = AsyncMock()
+        session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(), history=(), status=423
+        )
+        context = MagicMock()
+        context.get.return_value = session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            assert await prime_account_limits() is None
+
+        assert mock_log.warning.called
 
 
 class TestQuotaWarnings:

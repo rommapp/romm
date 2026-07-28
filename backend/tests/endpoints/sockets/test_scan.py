@@ -236,6 +236,32 @@ class TestScreenScraperScanReporting:
         reset_scan_state.assert_called_once()
         reset_skips.assert_called_once()
 
+    async def test_primes_the_account_limits_before_scanning(self, patched, mocker):
+        """Reading the limits up front means the first ROMs are already paced
+        correctly, instead of running at the default until the first response."""
+        prime = mocker.patch.object(
+            scan_module, "prime_ss_account_limits", new=AsyncMock(return_value=None)
+        )
+
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[MetadataSource.SS],
+            scan_type=ScanType.QUICK,
+        )
+
+        prime.assert_awaited_once()
+
+    async def test_does_not_prime_when_screenscraper_is_not_used(self, patched, mocker):
+        prime = mocker.patch.object(
+            scan_module, "prime_ss_account_limits", new=AsyncMock(return_value=None)
+        )
+
+        await scan_platforms(
+            platform_ids=[], metadata_sources=[], scan_type=ScanType.QUICK
+        )
+
+        prime.assert_not_awaited()
+
     async def test_reports_remaining_quota_and_skipped_roms(self, patched, mocker):
         mock_log = mocker.patch.object(scan_module, "log")
         mocker.patch.object(

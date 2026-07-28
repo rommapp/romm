@@ -375,6 +375,29 @@ async def media_download_slot(url: str) -> AsyncIterator[int]:
         yield media_download_timeout()
 
 
+async def prime_account_limits() -> SSAccountLimits | None:
+    """Read the account's allowances before a scan starts.
+
+    They ride along on every response, so waiting for the first scan request
+    means the first ROMs are scraped at the default one thread and 50 requests
+    per minute. ssuserInfos.php reports them up front for free: unlike the
+    scraping endpoints it does not consume the daily quota.
+
+    Best effort. A scan must still run when ScreenScraper cannot be reached.
+    """
+    if not (SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD):
+        return None
+
+    try:
+        await ScreenScraperService().get_user_info()
+    except HTTPException as exc:
+        log.warning("ScreenScraper: could not read the account limits (%s)", exc.detail)
+    except (TimeoutError, aiohttp.ClientError) as exc:
+        log.warning("ScreenScraper: could not read the account limits (%s)", exc)
+
+    return _account_limits
+
+
 async def auth_middleware(
     req: aiohttp.ClientRequest, handler: aiohttp.ClientHandlerType
 ) -> aiohttp.ClientResponse:
@@ -555,6 +578,14 @@ class ScreenScraperService:
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
+
+    async def get_user_info(self) -> dict:
+        """Retrieve the account's allowances and quota counters.
+
+        Reference: https://api.screenscraper.fr/webapi2.php#ssuserInfos
+        """
+        url = self.url.joinpath("ssuserInfos.php")
+        return await self._request(str(url))
 
     async def get_infra_info(self) -> dict:
         """Retrieve information about the infrastructure.

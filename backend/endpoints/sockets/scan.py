@@ -12,6 +12,9 @@ from rq.job import Job
 from sqlalchemy.exc import IntegrityError
 
 from adapters.services.screenscraper import get_account_limits as get_ss_account_limits
+from adapters.services.screenscraper import (
+    prime_account_limits as prime_ss_account_limits,
+)
 from adapters.services.screenscraper import reset_scan_state as reset_ss_scan_state
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
@@ -823,6 +826,13 @@ async def scan_platforms(
     # breaker or yesterday's quota counters.
     reset_ss_scan_state()
     reset_ss_rate_limited_roms()
+
+    # Read the account's allowances before the first ROM, so pacing and the
+    # thread cap are right from the first request rather than from the first
+    # response, and the quota is visible up front.
+    if MetadataSource.SS in metadata_sources:
+        await prime_ss_account_limits()
+        _log_ss_quota()
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()
