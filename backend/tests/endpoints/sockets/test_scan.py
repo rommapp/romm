@@ -236,6 +236,24 @@ class TestScreenScraperScanReporting:
         reset_scan_state.assert_called_once()
         reset_skips.assert_called_once()
 
+    async def test_leaves_screenscraper_state_alone_when_it_is_not_used(
+        self, patched, mocker
+    ):
+        """The state is process-global and DEV_MODE scans run in-process, so a
+        scan without ScreenScraper must not clear an overlapping scan's limits
+        and skipped ROMs."""
+        reset_scan_state = mocker.patch.object(scan_module, "reset_ss_scan_state")
+        reset_skips = mocker.patch.object(scan_module, "reset_ss_rate_limited_roms")
+
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[MetadataSource.IGDB],
+            scan_type=ScanType.QUICK,
+        )
+
+        reset_scan_state.assert_not_called()
+        reset_skips.assert_not_called()
+
     async def test_primes_the_account_limits_before_scanning(self, patched, mocker):
         """Reading the limits up front means the first ROMs are already paced
         correctly, instead of running at the default until the first response."""

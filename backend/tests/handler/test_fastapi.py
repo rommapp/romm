@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import HTTPException, status
 
+from adapters.services.screenscraper import ScreenScraperRateLimitError
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
@@ -15,7 +16,11 @@ from handler.metadata import (
 )
 from handler.metadata.hasheous_handler import HasheousRom
 from handler.metadata.ra_handler import RAGameRom
-from handler.metadata.ss_handler import SSRom
+from handler.metadata.ss_handler import (
+    SSRom,
+    get_rate_limited_rom_names,
+    reset_rate_limited_roms,
+)
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
@@ -720,3 +725,39 @@ async def test_scan_rom_hash_match_error_does_not_abort_scan(
     assert type(result) is Rom
     assert result.ss_id == 321
     assert result.hasheous_id is None
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_ss_rate_limit_skips_the_rom_without_further_lookups(
+    mock_ss_lookup, mock_ss_get_rom, mock_playmatch_enabled
+):
+    """The per-minute budget is already spent, so the name-search fallback would
+    only burn another retried request. Record the ROM and move on."""
+    reset_rate_limited_roms()
+    mock_ss_lookup.side_effect = ScreenScraperRateLimitError()
+
+    platform = db_platform_handler.add_platform(
+        Platform(id=1, slug="snes", fs_slug="snes", name="SNES", ss_id=4)
+    )
+    rom = db_rom_handler.add_rom(
+        Rom(platform_id=platform.id, fs_name="game.sfc", fs_path="snes", tags=[])
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("game.sfc"),
+            metadata_sources=[MetadataSource.SS],
+            newly_added=True,
+        )
+
+    mock_ss_lookup.assert_awaited_once()
+    mock_ss_get_rom.assert_not_awaited()
+    assert result.ss_id is None
+    assert get_rate_limited_rom_names() == ["game.sfc"]
+
+    reset_rate_limited_roms()

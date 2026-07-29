@@ -835,19 +835,21 @@ async def scan_platforms(
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
 
-    # Reset the ScreenScraper per-scan state (quota breaker, learned limits,
-    # skipped ROMs) so this scan re-evaluates it instead of inheriting a tripped
-    # breaker or yesterday's quota counters.
-    global _last_ss_quota_logged
-    _last_ss_quota_logged = None
-
-    reset_ss_scan_state()
-    reset_ss_rate_limited_roms()
-
-    # Read the account's allowances before the first ROM, so pacing and the
-    # thread cap are right from the first request rather than from the first
-    # response, and the quota is visible up front.
+    # This state is process-global, so a scan that never touches ScreenScraper
+    # must leave it alone: under DEV_MODE scans run in-process and can overlap,
+    # and clearing it would drop the other scan's learned limits and skips.
     if MetadataSource.SS in metadata_sources:
+        # Re-evaluate the quota breaker, learned limits and skipped ROMs rather
+        # than inheriting a tripped breaker or yesterday's counters.
+        global _last_ss_quota_logged
+        _last_ss_quota_logged = None
+
+        reset_ss_scan_state()
+        reset_ss_rate_limited_roms()
+
+        # Read the account's allowances before the first ROM, so pacing and the
+        # thread cap are right from the first request rather than from the first
+        # response, and the quota is visible up front.
         await prime_ss_account_limits()
         _log_ss_quota()
 

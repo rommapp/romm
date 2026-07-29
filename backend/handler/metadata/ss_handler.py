@@ -163,9 +163,15 @@ ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {
 
 
 def _is_daily_quota_error(exc: HTTPException) -> bool:
-    """ScreenScraper only raises 429 when its daily quota is exhausted (the
-    service trips a breaker so the rest of the scan short-circuits)."""
-    return exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+    """True for the 429 that means the daily quota is exhausted.
+
+    The service trips a breaker on that one so the rest of the scan
+    short-circuits. The per-minute rate limit shares the status code but clears
+    on its own, so it is deliberately excluded: callers handle it separately.
+    """
+    return exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS and not isinstance(
+        exc, ScreenScraperRateLimitError
+    )
 
 
 def _is_notgame(game: SSGame) -> bool:
@@ -759,9 +765,6 @@ class SSHandler(MetadataHandler):
                 rom_name=rom_name,
                 rom_type=_get_rom_type(first_file),
             )
-        except ScreenScraperRateLimitError:
-            note_rate_limited_rom(rom.fs_name)
-            return SSRom(ss_id=None), False
         except HTTPException as exc:
             # Daily quota exhausted: skip ScreenScraper for this ROM so the scan
             # falls back to the other providers.
@@ -888,9 +891,6 @@ class SSHandler(MetadataHandler):
                 res = await self._search_rom(
                     terms[-1], platform_ss_id, split_game_name=True
                 )
-        except ScreenScraperRateLimitError:
-            note_rate_limited_rom(rom.fs_name)
-            return fallback_rom
         except HTTPException as exc:
             # Daily quota exhausted: fall back to the name-only match (if any).
             if not _is_daily_quota_error(exc):
@@ -908,9 +908,6 @@ class SSHandler(MetadataHandler):
 
         try:
             res = await self.ss_service.get_game_info(game_id=ss_id)
-        except ScreenScraperRateLimitError:
-            note_rate_limited_rom(rom.fs_name)
-            return SSRom(ss_id=None)
         except HTTPException as exc:
             # Daily quota exhausted: return an empty match rather than failing.
             if not _is_daily_quota_error(exc):

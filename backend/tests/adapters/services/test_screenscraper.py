@@ -13,6 +13,7 @@ from adapters.services.screenscraper import (
     LOGIN_ERROR_CHECK,
     SS_DEFAULT_MAX_THREADS,
     SS_DEFAULT_MEDIA_TIMEOUT,
+    SS_DEFAULT_REQUESTS_PER_SECOND,
     SS_MAX_MEDIA_TIMEOUT,
     ScreenScraperRateLimitError,
     ScreenScraperService,
@@ -47,11 +48,13 @@ def _isolate_module_state(monkeypatch):
     """Pacing, thread allowance and account limits all live at module level, so
     isolate them: without this, learned limits leak between tests and the real
     per-minute pacing would sleep between requests."""
+    # Reset first: it re-paces the real limiters, which the swap then hides for
+    # the duration of the test, so the unthrottled rate survives to the asserts.
+    reset_scan_state()
     monkeypatch.setattr(ss_module, "_rate_limiter", RateLimiter(UNTHROTTLED_RATE))
     monkeypatch.setattr(
         ss_module, "_concurrency_limiter", ConcurrencyLimiter(SS_DEFAULT_MAX_THREADS)
     )
-    reset_scan_state()
     yield
     reset_scan_state()
 
@@ -1354,6 +1357,21 @@ class TestAccountLimits:
         assert "20000" in description
         assert "1700" in description
         assert "2000" in description
+
+    def test_scan_state_reset_returns_pacing_to_the_defaults(self):
+        """Priming re-reads the account moments later; until it does, the
+        conservative default is safe for whatever account is configured now."""
+        ss_module._update_account_limits(
+            _ssuser_response(maxthreads="5", maxrequestspermin="250")
+        )
+        assert ss_module._concurrency_limiter.max_concurrency == 5
+
+        reset_scan_state()
+
+        assert ss_module._concurrency_limiter.max_concurrency == SS_DEFAULT_MAX_THREADS
+        assert ss_module._rate_limiter.requests_per_second == pytest.approx(
+            SS_DEFAULT_REQUESTS_PER_SECOND
+        )
 
     def test_scan_state_reset_drops_stale_quota_counters(self):
         """Daily counters reset overnight, so a new scan must not report

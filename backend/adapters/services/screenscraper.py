@@ -61,9 +61,10 @@ _concurrency_limiter = ConcurrencyLimiter(SS_DEFAULT_MAX_THREADS)
 # second) to blow through that budget without ever exceeding the thread cap, so
 # requests are paced as well as bounded.
 SS_REQUESTS_PER_MINUTE_PER_THREAD: Final[int] = 50
-_rate_limiter = RateLimiter(
+SS_DEFAULT_REQUESTS_PER_SECOND: Final[float] = (
     SS_DEFAULT_MAX_THREADS * SS_REQUESTS_PER_MINUTE_PER_THREAD / 60
 )
+_rate_limiter = RateLimiter(SS_DEFAULT_REQUESTS_PER_SECOND)
 
 # How close to either daily allowance the account has to be before we warn.
 SS_LOW_QUOTA_FRACTION: Final[float] = 0.1
@@ -175,12 +176,19 @@ def reset_scan_state() -> None:
 
     The daily counters reset overnight, so stale limits are dropped rather than
     reported as this scan's; the one-shot advisories become due again.
+
+    Pacing goes back to the defaults with them. Priming re-reads the account
+    moments later, and should that fail, the conservative default is safe for
+    whatever account the credentials now name, whereas the previous scan's
+    allowance may be more than this one is entitled to.
     """
     global _account_limits, _logged_worker_advisory, _logged_low_quota_warning
     reset_daily_quota()
     _account_limits = None
     _logged_worker_advisory = False
     _logged_low_quota_warning = False
+    _concurrency_limiter.set_max_concurrency(SS_DEFAULT_MAX_THREADS)
+    _rate_limiter.set_requests_per_second(SS_DEFAULT_REQUESTS_PER_SECOND)
 
 
 def get_account_limits() -> SSAccountLimits | None:

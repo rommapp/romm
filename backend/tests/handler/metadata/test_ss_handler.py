@@ -16,6 +16,7 @@ from handler.metadata.ss_handler import (
     PS1_SS_ID,
     SSHandler,
     _get_rom_type,
+    _is_daily_quota_error,
     _is_notgame,
     add_ss_auth_to_url,
     build_ss_game,
@@ -23,6 +24,7 @@ from handler.metadata.ss_handler import (
     extract_metadata_from_ss_rom,
     get_preferred_regions,
     get_rate_limited_rom_names,
+    note_rate_limited_rom,
     reset_rate_limited_roms,
 )
 from handler.redis_handler import async_cache
@@ -1225,16 +1227,11 @@ class TestScreenScraperQuotaFallback:
         assert result["ss_id"] is None
 
 
-class TestScreenScraperRateLimitSkips:
-    """A per-minute refusal that survives the retry leaves the ROM without
-    ScreenScraper metadata, so it is recorded and reported by the scan instead
-    of being swallowed."""
-
-    @pytest.fixture(autouse=True)
-    def _reset_skips(self):
-        reset_rate_limited_roms()
-        yield
-        reset_rate_limited_roms()
+class TestScreenScraperRateLimitPropagation:
+    """A per-minute refusal that survives the retry must reach the scan, which
+    records the ROM as skipped once and stops asking ScreenScraper about it.
+    Swallowing it here would send the caller on to the next lookup, spending
+    another retried request against a budget that is already gone."""
 
     def _make_file(self) -> MagicMock:
         mock_file = MagicMock()
@@ -1249,7 +1246,7 @@ class TestScreenScraperRateLimitSkips:
         return mock_file
 
     @pytest.mark.asyncio
-    async def test_lookup_rom_records_the_skip(self):
+    async def test_lookup_rom_propagates(self):
         handler = SSHandler()
         rom = MagicMock(
             platform_slug="genesis", platform_id=1, id=1, fs_name="Sonic (USA).md"
@@ -1262,15 +1259,12 @@ class TestScreenScraperRateLimitSkips:
                 "get_game_info",
                 AsyncMock(side_effect=ScreenScraperRateLimitError()),
             ),
+            pytest.raises(ScreenScraperRateLimitError),
         ):
-            result, is_not_game = await handler.lookup_rom(rom, 1, [self._make_file()])
-
-        assert result["ss_id"] is None
-        assert is_not_game is False
-        assert get_rate_limited_rom_names() == ["Sonic (USA).md"]
+            await handler.lookup_rom(rom, 1, [self._make_file()])
 
     @pytest.mark.asyncio
-    async def test_get_rom_records_the_skip_and_keeps_the_name_fallback(self):
+    async def test_get_rom_propagates(self):
         handler = SSHandler()
         rom = MagicMock(
             platform_slug="genesis",
@@ -1287,14 +1281,12 @@ class TestScreenScraperRateLimitSkips:
                 "search_games",
                 AsyncMock(side_effect=ScreenScraperRateLimitError()),
             ),
+            pytest.raises(ScreenScraperRateLimitError),
         ):
-            result = await handler.get_rom(rom, "Sonic (USA).md", platform_ss_id=1)
-
-        assert result["ss_id"] is None
-        assert get_rate_limited_rom_names() == ["Sonic (USA).md"]
+            await handler.get_rom(rom, "Sonic (USA).md", platform_ss_id=1)
 
     @pytest.mark.asyncio
-    async def test_get_rom_by_id_records_the_skip(self):
+    async def test_get_rom_by_id_propagates(self):
         handler = SSHandler()
         rom = MagicMock(platform_slug="genesis", fs_name="Sonic (USA).md")
         with (
@@ -1305,42 +1297,49 @@ class TestScreenScraperRateLimitSkips:
                 "get_game_info",
                 AsyncMock(side_effect=ScreenScraperRateLimitError()),
             ),
+            pytest.raises(ScreenScraperRateLimitError),
         ):
-            result = await handler.get_rom_by_id(rom, 1234)
+            await handler.get_rom_by_id(rom, 1234)
 
-        assert result["ss_id"] is None
-        assert get_rate_limited_rom_names() == ["Sonic (USA).md"]
-
-    @pytest.mark.asyncio
-    async def test_a_rom_is_only_recorded_once(self):
-        """A ROM tries a hash lookup and then a name search; both being refused
-        is still a single skipped ROM."""
-        handler = SSHandler()
-        rom = MagicMock(
-            platform_slug="genesis",
-            platform_id=1,
-            id=1,
-            regions=[],
-            fs_name="Sonic (USA).md",
+    def test_rate_limit_is_not_treated_as_daily_quota_exhaustion(self):
+        """Both are 429s, but only the daily one trips the breaker that skips
+        ScreenScraper for the rest of the scan."""
+        assert _is_daily_quota_error(ScreenScraperRateLimitError()) is False
+        assert (
+            _is_daily_quota_error(
+                HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="ScreenScraper daily scrape quota exhausted.",
+                )
+            )
+            is True
         )
-        with (
-            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
-            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
-            patch.object(
-                handler.ss_service,
-                "get_game_info",
-                AsyncMock(side_effect=ScreenScraperRateLimitError()),
-            ),
-            patch.object(
-                handler.ss_service,
-                "search_games",
-                AsyncMock(side_effect=ScreenScraperRateLimitError()),
-            ),
-        ):
-            await handler.lookup_rom(rom, 1, [self._make_file()])
-            await handler.get_rom(rom, "Sonic (USA).md", platform_ss_id=1)
 
-        assert get_rate_limited_rom_names() == ["Sonic (USA).md"]
+
+class TestRateLimitedRomBookkeeping:
+    """The scan reports the ROMs it had to skip, so each is recorded once."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_skips(self):
+        reset_rate_limited_roms()
+        yield
+        reset_rate_limited_roms()
+
+    def test_records_each_rom_once(self):
+        note_rate_limited_rom("Sonic (USA).md")
+        note_rate_limited_rom("Sonic (USA).md")
+        note_rate_limited_rom("Streets of Rage (USA).md")
+
+        assert get_rate_limited_rom_names() == [
+            "Sonic (USA).md",
+            "Streets of Rage (USA).md",
+        ]
+
+    def test_reset_clears_the_record(self):
+        note_rate_limited_rom("Sonic (USA).md")
+        reset_rate_limited_roms()
+
+        assert get_rate_limited_rom_names() == []
 
 
 class TestSearchTermEncoding:
