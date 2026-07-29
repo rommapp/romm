@@ -79,6 +79,15 @@ export const UI_SETTINGS_KEYS = {
     default: false,
   },
   boxartStyle: { key: "settings.boxartStyle", default: "cover_path" },
+  // Per-page boxart styles
+  boxartStyleDetails: {
+    key: "settings.boxartStyleDetails",
+    default: "cover_path",
+  },
+  boxartStylePlayer: {
+    key: "settings.boxartStylePlayer",
+    default: "cover_path",
+  },
 
   // Gameplay
   confirmProtectedLaunch: {

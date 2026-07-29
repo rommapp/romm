@@ -410,7 +410,6 @@ function onBackdropClick(event: MouseEvent) {
      stays visible. CSS named "black" is allowed by the token policy. */
   background: color-mix(in srgb, black 92%, transparent);
   backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   display: grid;
   grid-template-rows: 1fr auto;
   /* `minmax(0, 1fr)` — WITHOUT an explicit column the single implicit track
@@ -642,7 +641,6 @@ function onBackdropClick(event: MouseEvent) {
   from {
     opacity: 0;
     backdrop-filter: blur(0px);
-    -webkit-backdrop-filter: blur(0px);
   }
   to {
     opacity: 1;

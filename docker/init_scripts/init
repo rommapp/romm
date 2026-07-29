@@ -9,6 +9,7 @@ LOGLEVEL="${LOGLEVEL:="INFO"}"
 
 # make it possible to disable the inotify watcher process
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="false"}"
+ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES="${ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES:="false"}"
 ENABLE_SCHEDULED_RESCAN="${ENABLE_SCHEDULED_RESCAN:="false"}"
 ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA="${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA:="false"}"
 ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB="${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:="false"}"
@@ -332,9 +333,9 @@ if ! printenv | grep -q '^OTEL_'; then
 fi
 
 # Set ROMM_AUTH_SECRET_KEY if not already set
-if [[ -z ${ROMM_AUTH_SECRET_KEY} ]]; then
+if [[ -z ${ROMM_AUTH_SECRET_KEY-} ]]; then
 	ROMM_AUTH_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-	info_log "ROMM_AUTH_SECRET_KEY not set, generating random secret key"
+	warn_log "ROMM_AUTH_SECRET_KEY not set, generating a random secret key!"
 	export ROMM_AUTH_SECRET_KEY
 fi
 
@@ -361,7 +362,7 @@ while ! ((exited)); do
 	watchdog_process_pid gunicorn
 
 	# only start the scheduler if enabled
-	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" || ${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA} == "true" ]]; then
+	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" || ${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA} == "true" || ${ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES} == "true" ]]; then
 		watchdog_process_pid rq_scheduler
 	fi
 

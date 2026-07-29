@@ -77,8 +77,11 @@ const collectionsStore = storeCollections();
 const romsStore = storeRoms();
 
 const canRefresh = useCan("rom.refresh");
-const canDelete = useCan("rom.delete");
 const canDownload = useCan("rom.download");
+const hasDeleteGrant = useCan("rom.delete");
+const canEditRom = useCan("rom.edit");
+// Bulk delete hits `POST /roms/delete`, which gates on ROMS_WRITE
+const canDelete = computed(() => hasDeleteGrant.value && canEditRom.value);
 
 // `favorite` is the favourite collection — used to compute "are all
 // selected ROMs in favorites?" so the button can toggle between
@@ -512,7 +515,6 @@ html[data-bp~="sm-and-down"] .selection-bar--visible {
     0 12px 32px color-mix(in srgb, black 32%, transparent),
     0 0 0 1px color-mix(in srgb, white 4%, transparent) inset;
   backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
 .selection-bar__count {

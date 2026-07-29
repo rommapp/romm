@@ -1,5 +1,6 @@
 from unittest import mock
 
+import pytest
 from fastapi import status
 
 from handler.database import db_screenshot_handler, db_state_handler
@@ -9,6 +10,7 @@ from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+from utils import uploads
 
 
 def _auth(token: str) -> dict[str, str]:
@@ -126,3 +128,27 @@ def test_sharing_state_syncs_thumbnail_visibility(
 
     refreshed = db_screenshot_handler.get_screenshot_by_id(thumb.id)
     assert refreshed is not None and refreshed.is_public is True
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        {"stateFile": ("game.state", b"x" * 64, "application/octet-stream")},
+        {
+            "stateFile": ("game.state", b"small", "application/octet-stream"),
+            "screenshotFile": ("shot.png", b"x" * 64, "image/png"),
+        },
+    ],
+    ids=["state-file", "screenshot-file"],
+)
+def test_add_state_rejects_oversized_uploads(
+    client, access_token: str, rom: Rom, files: dict
+):
+    with mock.patch.object(uploads, "MAX_ASSET_UPLOAD_SIZE_BYTES", 32):
+        response = client.post(
+            f"/api/states?rom_id={rom.id}",
+            files=files,
+            headers=_auth(access_token),
+        )
+
+    assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE

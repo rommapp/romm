@@ -669,7 +669,6 @@ const applyLabel = computed(() => {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -841,7 +840,6 @@ const applyLabel = computed(() => {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
 }
 
 .r-v2-patch__toggle-row {

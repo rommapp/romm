@@ -16,7 +16,7 @@ import {
 defineOptions({ inheritAttrs: false });
 
 type Variant = "row" | "grid";
-type Kind = "regular" | "virtual" | "smart";
+export type Kind = "regular" | "virtual" | "smart";
 
 interface Props {
   name: string;

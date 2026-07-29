@@ -153,6 +153,16 @@ DISABLE_DOWNLOAD_ENDPOINT_AUTH: Final[bool] = safe_str_to_bool(
 DISABLE_USERPASS_LOGIN: Final[bool] = safe_str_to_bool(
     _get_env("DISABLE_USERPASS_LOGIN")
 )
+
+ROMM_CORS_ALLOWED_ORIGINS: Final[list[str]] = [
+    o.strip()
+    for o in (_get_env("ROMM_CORS_ALLOWED_ORIGINS", "*")).split(",")
+    if o.strip()
+]
+ROMM_SESSION_SECURE_COOKIE: Final[bool] = safe_str_to_bool(
+    _get_env("ROMM_SESSION_SECURE_COOKIE")
+)
+
 DISABLE_SETUP_WIZARD: Final[bool] = safe_str_to_bool(_get_env("DISABLE_SETUP_WIZARD"))
 INVITE_TOKEN_EXPIRY_SECONDS: Final[int] = safe_int(
     _get_env("INVITE_TOKEN_EXPIRY_SECONDS"), 10 * 60
@@ -227,6 +237,13 @@ SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON: Final[str] = _get_env(
     "SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES")
+)
+SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON: Final[str] = _get_env(
+    "SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON",
+    "0 5 * * *",  # At 5:00 AM every day, after the nightly scan and metadata tasks
+)
 ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC")
 )
@@ -262,6 +279,14 @@ DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))
 # FRONTEND
 KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))
 DISABLE_LOGS_VIEWER: Final[bool] = safe_str_to_bool(_get_env("DISABLE_LOGS_VIEWER"))
+
+# ASSETS
+MAX_ASSET_UPLOAD_SIZE_BYTES: Final[int] = safe_int(
+    _get_env("MAX_ASSET_UPLOAD_SIZE_BYTES"), 512 * 1024 * 1024  # 512 MiB
+)
+MAX_AUTOCLEANUP_LIMIT: Final[int] = max(
+    1, safe_int(_get_env("MAX_AUTOCLEANUP_LIMIT"), 100)
+)
 
 # LOGGING
 LOGLEVEL: Final[str] = _get_env("LOGLEVEL", "INFO").upper()

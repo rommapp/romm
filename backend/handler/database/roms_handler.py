@@ -1363,6 +1363,7 @@ class DBRomsHandler(DBBaseHandler):
             has_ra=kwargs.get("has_ra", None),
             has_saves=kwargs.get("has_saves", None),
             has_states=kwargs.get("has_states", None),
+            has_soundtrack=kwargs.get("has_soundtrack", None),
             missing=kwargs.get("missing", None),
             verified=kwargs.get("verified", None),
             genres=kwargs.get("genres", None),
@@ -2379,12 +2380,17 @@ class DBRomsHandler(DBBaseHandler):
         self,
         note_id: int,
         user_id: int,
+        rom_id: int,
         session: Session = None,  # type: ignore
         **fields,
     ) -> dict | None:
         note = (
             session.query(RomNote)
-            .filter(RomNote.id == note_id, RomNote.user_id == user_id)
+            .filter(
+                RomNote.id == note_id,
+                RomNote.user_id == user_id,
+                RomNote.rom_id == rom_id,
+            )
             .first()
         )
 
@@ -2415,11 +2421,16 @@ class DBRomsHandler(DBBaseHandler):
         self,
         note_id: int,
         user_id: int,
+        rom_id: int,
         session: Session = None,  # type: ignore
     ) -> bool:
         result = session.execute(
             delete(RomNote).where(
-                and_(RomNote.id == note_id, RomNote.user_id == user_id)
+                and_(
+                    RomNote.id == note_id,
+                    RomNote.user_id == user_id,
+                    RomNote.rom_id == rom_id,
+                )
             )
         )
         return result.rowcount > 0

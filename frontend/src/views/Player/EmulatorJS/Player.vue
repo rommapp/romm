@@ -30,6 +30,7 @@ import {
   loadEmulatorJSSave,
   loadEmulatorJSState,
   invalidateEmulatorJSRomCacheIfRenamed,
+  installEJSDefaultOptionsTrap,
   createQuickLoadButton,
   createSaveQuitButton,
   createExitEmulationButton,
@@ -156,7 +157,7 @@ window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
   exitEmulation: false,
 };
-const coreOptions = configStore.getEJSCoreOptions(props.core);
+const coreOptions = configStore.getEJSCoreOptions(window.EJS_core);
 window.EJS_defaultOptions = {
   // Force saving saves and states to the browser
   "save-state-location": "browser",
@@ -189,6 +190,8 @@ window.EJS_DEBUG_XX = EJS_DEBUG;
 window.EJS_disableAutoUnload = EJS_DISABLE_AUTO_UNLOAD;
 window.EJS_disableBatchBootup = EJS_DISABLE_BATCH_BOOTUP;
 if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
+
+installEJSDefaultOptionsTrap();
 
 onMounted(() => {
   window.scrollTo(0, 0);
@@ -393,6 +396,11 @@ window.EJS_onGameStart = async () => {
   // are in place before room polling or a Create/Join action can start.
   const netplay = window.EJS_emulator?.netplay;
   if (netplay) {
+    // EmulatorJS only prompts for a player name when netplay.name is unset,
+    // so presetting it adopts the RomM account username automatically.
+    if (!netplay.name && authStore.user?.username) {
+      netplay.name = authStore.user.username;
+    }
     netplay.getOpenRooms = async () => {
       try {
         const response = await fetch(

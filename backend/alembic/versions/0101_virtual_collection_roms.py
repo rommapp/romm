@@ -32,6 +32,7 @@ Create Date: 2026-07-22 00:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
+from sqlalchemy import inspect
 
 from utils.database import is_postgresql
 
@@ -186,6 +187,9 @@ def upgrade() -> None:
     connection = op.get_bind()
     pg = is_postgresql(connection)
 
+    # Every step is guarded so a re-run after a partial failure recovers cleanly.
+    # MySQL/MariaDB auto-commit each DDL statement, so a crash mid-migration
+    # leaves objects behind without advancing the alembic version.
     collation = None if pg else "utf8mb4_general_ci"
     op.create_table(
         TABLE,
@@ -202,21 +206,39 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["rom_id"], ["roms.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("type", "name", "rom_id"),
+        if_not_exists=True,
     )
-    op.create_index(f"idx_{TABLE}_rom_id", TABLE, ["rom_id"])
 
-    op.execute(  # nosec B608
-        f"INSERT INTO {TABLE} ({_COLUMNS})\n"
-        + (_postgres_rows("r", True) if pg else _mysql_rows("r", True))
-    )
+    # MySQL has no CREATE INDEX IF NOT EXISTS, so check the catalog instead.
+    index_name = f"idx_{TABLE}_rom_id"
+    existing_indexes = {
+        index["name"] for index in inspect(connection).get_indexes(TABLE)
+    }
+    if index_name not in existing_indexes:
+        op.create_index(index_name, TABLE, ["rom_id"])
+
+    # The upsert semantics (INSERT IGNORE / ON CONFLICT DO NOTHING) keep the
+    # backfill idempotent so a re-run only fills the rows still missing.
+    if pg:
+        op.execute(  # nosec B608
+            f"INSERT INTO {TABLE} ({_COLUMNS})\n"
+            f"{_postgres_rows('r', True)}\nON CONFLICT DO NOTHING"
+        )
+    else:
+        op.execute(  # nosec B608
+            f"INSERT IGNORE INTO {TABLE} ({_COLUMNS})\n{_mysql_rows('r', True)}"
+        )
 
     if pg:
         op.execute(_postgres_trigger_function())
+        op.execute("DROP TRIGGER IF EXISTS virtual_collection_roms_aiu ON roms")
         op.execute(
             "CREATE TRIGGER virtual_collection_roms_aiu AFTER INSERT OR UPDATE ON roms\n"
             "FOR EACH ROW EXECUTE FUNCTION romm_sync_virtual_collection_roms()"
         )
     else:
+        op.execute("DROP TRIGGER IF EXISTS virtual_collection_roms_ai")
+        op.execute("DROP TRIGGER IF EXISTS virtual_collection_roms_au")
         for trigger in _mysql_triggers():
             op.execute(trigger)
 

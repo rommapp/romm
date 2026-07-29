@@ -41,7 +41,7 @@ import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();
-const { filledPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
+const { allPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
 
 const { groupBy, layout } = useGalleryMode();
 useGalleryViewModeUrl();
@@ -61,7 +61,7 @@ useWrapGridNav(gridRoot, { cellSelector: ".plat-tile" });
 const playableById = computed(() => {
   const fn = isPlayable.value;
   const map = new Map<number | string, boolean>();
-  for (const p of filledPlatforms.value) map.set(p.id, fn(p.slug));
+  for (const p of allPlatforms.value) map.set(p.id, fn(p.slug));
   return map;
 });
 
@@ -201,8 +201,8 @@ onMounted(() => {
 
 const filtered = computed<Platform[]>(() => {
   const term = searchTerm.value.trim().toLowerCase();
-  if (!term) return filledPlatforms.value;
-  return filledPlatforms.value.filter((p) =>
+  if (!term) return allPlatforms.value;
+  return allPlatforms.value.filter((p) =>
     p.display_name.toLowerCase().includes(term),
   );
 });
@@ -222,7 +222,7 @@ const sortedForList = computed<Platform[]>(() => {
   );
 });
 
-const totalCount = computed(() => filledPlatforms.value.length);
+const totalCount = computed(() => allPlatforms.value.length);
 const noResults = computed(
   () =>
     !fetchingPlatforms.value &&

@@ -27,6 +27,7 @@ import OverviewTab from "@/v2/components/GameDetails/OverviewTab.vue";
 import PatcherTab from "@/v2/components/GameDetails/PatcherTab.vue";
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { isRomVerified } from "@/v2/utils/romVerification";
@@ -97,6 +98,8 @@ const title = computed(() => {
   if (!r) return "";
   return r.name || r.fs_name_no_ext;
 });
+
+usePageTitle(() => title.value);
 
 const platformLabel = computed(() => {
   const r = currentRom.value;

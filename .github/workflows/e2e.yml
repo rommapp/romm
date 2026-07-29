@@ -1,0 +1,149 @@
+name: Run E2E Tests
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - "backend/**"
+      - ".github/workflows/e2e.yml"
+      - ".github/scripts/**"
+      - pyproject.toml
+      - uv.lock
+  push:
+    branches:
+      - "master"
+    paths:
+      - "frontend/**"
+      - "backend/**"
+      - ".github/workflows/e2e.yml"
+      - ".github/scripts/**"
+      - pyproject.toml
+      - uv.lock
+
+permissions: read-all
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        ports:
+          - 3306
+        env:
+          MYSQL_USER: romm_e2e
+          MYSQL_PASSWORD: passwd
+          MYSQL_DATABASE: romm_e2e
+          MYSQL_ROOT_PASSWORD: passwd
+        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+      valkey:
+        image: valkey/valkey:7.2
+        ports:
+          - 6379
+        options: >-
+          --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=2s --health-retries=3
+
+    env:
+      DEV_PORT: 5000
+      DB_HOST: 127.0.0.1
+      DB_NAME: romm_e2e
+      DB_USER: romm_e2e
+      DB_PASSWD: passwd
+      ROMM_DB_DRIVER: mariadb
+      REDIS_HOST: 127.0.0.1
+      # Throwaway signing key for an ephemeral runner
+      ROMM_AUTH_SECRET_KEY: "e2e0000000000000000000000000000000000000000000000000000000000000"
+      # Fixture-user password, shared by the seeder and the specs
+      E2E_PASSWORD: e2e-Passw0rd!
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Install mariadb connectors
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmariadb3 libmariadb-dev
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4 # v6.7.0
+
+      - name: Install python
+        run: uv python install 3.13
+
+      # pyproject.toml lives at the repo root, so sync from there
+      - name: Install backend dependencies
+        run: uv sync
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      # ROMM_BASE_PATH must be writable (the app creates config/, resources/ and
+      # assets/ under it), so copy the fixture library out of the repo rather
+      # than scanning it in place.
+      - name: Stage the library fixture
+        run: |
+          mkdir -p "$RUNNER_TEMP/romm/resources" "$RUNNER_TEMP/romm/assets"
+          cp -R backend/romm_test/library "$RUNNER_TEMP/romm/library"
+          echo "ROMM_BASE_PATH=$RUNNER_TEMP/romm" >> "$GITHUB_ENV"
+          echo "DB_PORT=${{ job.services.mariadb.ports['3306'] }}" >> "$GITHUB_ENV"
+          echo "REDIS_PORT=${{ job.services.valkey.ports['6379'] }}" >> "$GITHUB_ENV"
+
+      # A migration failure is its own red step rather than a confusing server-start failure.
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+        working-directory: backend
+
+      - name: Seed the library
+        run: uv run python .github/scripts/seed_e2e_library.py
+
+      # Seed user and clear the setup wizard
+      - name: Seed the e2e fixture users
+        run: uv run python .github/scripts/seed_e2e_users.py
+
+      - name: Start the backend
+        run: |
+          uv run main.py > "$RUNNER_TEMP/backend.log" 2>&1 &
+          echo "Waiting for the API to answer..."
+          for i in $(seq 1 60); do
+            if curl -sf "http://127.0.0.1:${DEV_PORT}/api/heartbeat" > /dev/null; then
+              echo "Backend up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend did not come up; last 100 log lines:"
+          tail -100 "$RUNNER_TEMP/backend.log"
+          exit 1
+        working-directory: backend
+
+      # Starts the Vite dev server and waits for port 3000.
+      - name: Run Playwright tests
+        run: npm run test:e2e
+        working-directory: frontend
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 7
+
+      - name: Dump backend log
+        if: failure()
+        run: tail -200 "$RUNNER_TEMP/backend.log" || true

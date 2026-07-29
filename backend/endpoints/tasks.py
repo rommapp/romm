@@ -35,11 +35,11 @@ from handler.redis_handler import (
     redis_client,
 )
 from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
-from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
 from tasks.manual.sync_folder_scan import sync_folder_scan_task
+from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
@@ -103,16 +103,16 @@ scheduled_tasks: list[ScheduledTask] = [
             "task": cleanup_zip_cache_task,
         }
     ),
-]
-
-manual_tasks: list[ManualTask] = [
-    ManualTask(
+    ScheduledTask(
         {
             "name": "cleanup_orphaned_resources",
             "type": TaskType.CLEANUP,
             "task": cleanup_orphaned_resources_task,
         }
     ),
+]
+
+manual_tasks: list[ManualTask] = [
     ManualTask(
         {
             "name": "cleanup_missing_roms",

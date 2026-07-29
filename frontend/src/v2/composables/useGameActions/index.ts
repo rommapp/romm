@@ -61,6 +61,18 @@ export function useGameActions(
   const auth = storeAuth();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
+  // Write/destructive gates, mirroring the backend grants. Surfaces that
+  // offer these actions hide them outright rather than letting the request
+  // 403 (which the axios interceptor turns into a logout).
+  const canEdit = useCan("rom.edit");
+  const canMatch = useCan("rom.match");
+  const canRefresh = useCan("rom.refresh");
+  const hasDeleteGrant = useCan("rom.delete");
+  // `POST /roms/delete` gates on ROMS_WRITE, and a bare DELETE grant projects
+  // to no scope at all, so the delete grant alone can't authorise the call.
+  // Require the write grant too (`rom.edit` is its proxy) or the menu offers a
+  // delete that 403s.
+  const canDelete = computed(() => hasDeleteGrant.value && canEdit.value);
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
   const { canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
   const streamingStore = useStreamingStore();
@@ -231,12 +243,19 @@ export function useGameActions(
       if (!ok) return;
     }
 
+    // EmulatorJS cores can require SharedArrayBuffer. Nginx only attaches the
+    // necessary COOP/COEP headers to the player document, so an SPA navigation
+    // cannot enable cross-origin isolation. Load the document directly instead.
+    if (!canPlayStream.value && canPlayEJS.value) {
+      window.location.assign(`/rom/${rom.id}/ejs`);
+      return;
+    }
+
     // The launch "load" flourish (disc/cartridge insert) lives on the
     // player view itself — see EmulatorJS's onPlay — so navigation is
     // immediate here.
     let path: string | null = null;
     if (canPlayStream.value) path = `/rom/${rom.id}/stream`;
-    else if (canPlayEJS.value) path = `/rom/${rom.id}/ejs`;
     else if (canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
     if (!path) return;
     const target = path;
@@ -421,6 +440,10 @@ export function useGameActions(
     canPlay,
     canPlayStream,
     canRemoveFromContinuePlaying,
+    canEdit,
+    canDelete,
+    canMatch,
+    canRefresh,
     currentStatusKey,
     setStatus,
     setStatusEnum,

@@ -107,7 +107,6 @@ const valueLabel = computed(() => {
   font-weight: var(--r-font-weight-semibold);
   font-size: 14px;
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out),

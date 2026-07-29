@@ -499,7 +499,6 @@ const bodyStyle = computed(() => {
     0 4px 14px color-mix(in srgb, black 45%, transparent),
     0 1px 2px color-mix(in srgb, black 40%, transparent);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   pointer-events: none;
 }
 

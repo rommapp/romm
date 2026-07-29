@@ -461,7 +461,7 @@ const routes = [
         // it redirects this URL home; v2 renders PlatformsIndex.vue.
         path: "platforms",
         name: ROUTES.PLATFORMS_INDEX,
-        meta: { title: "Platforms" },
+        meta: { title: i18n.global.t("common.platforms") },
         components: {
           default: () => import("@/views/Home.vue"),
           v2: v2For(ROUTES.PLATFORMS_INDEX),
@@ -470,7 +470,7 @@ const routes = [
       {
         path: "collections",
         name: ROUTES.COLLECTIONS_INDEX,
-        meta: { title: "Collections" },
+        meta: { title: i18n.global.t("common.collections") },
         components: {
           default: () => import("@/views/Home.vue"),
           v2: v2For(ROUTES.COLLECTIONS_INDEX),

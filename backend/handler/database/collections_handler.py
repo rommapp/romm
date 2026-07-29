@@ -32,6 +32,7 @@ from models.collection import (
     VirtualCollectionRom,
 )
 from models.rom import Rom
+from utils.database import json_array_contains_value
 
 from .base_handler import DBBaseHandler
 
@@ -403,6 +404,41 @@ class DBCollectionsHandler(DBBaseHandler):
         return session.scalars(query).unique().all()
 
     @begin_session
+    def get_smart_collections_for_rom(
+        self,
+        rom_id: int,
+        user_id: int,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[SmartCollection]:
+        # Membership is a cached JSON array of rom ids on the collection, so
+        # push containment + visibility into SQL rather than loading every
+        # collection's rom_ids blob into Python and scanning it (see #3934).
+        return (
+            session.scalars(
+                select(SmartCollection)
+                .where(
+                    json_array_contains_value(
+                        SmartCollection.rom_ids, rom_id, session=session
+                    ),
+                    or_(
+                        SmartCollection.user_id == user_id,
+                        SmartCollection.is_public,
+                    ),
+                )
+                .options(
+                    load_only(
+                        SmartCollection.id,
+                        SmartCollection.name,
+                        SmartCollection.is_public,
+                    )
+                )
+                .order_by(SmartCollection.name.asc())
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
     def update_smart_collection(
         self,
         id: int,
@@ -475,6 +511,9 @@ class DBCollectionsHandler(DBBaseHandler):
             duplicate=criteria.get("duplicate"),
             playable=criteria.get("playable"),
             has_ra=criteria.get("has_ra"),
+            has_saves=criteria.get("has_saves"),
+            has_states=criteria.get("has_states"),
+            has_soundtrack=criteria.get("has_soundtrack"),
             missing=criteria.get("missing"),
             verified=criteria.get("verified"),
             genres=genres,
@@ -485,6 +524,7 @@ class DBCollectionsHandler(DBBaseHandler):
             statuses=statuses,
             regions=regions,
             languages=languages,
+            player_counts=criteria.get("player_counts"),
             tags=tags,
             metadata_providers=criteria.get("metadata_providers"),
             # Logic operators for multi-value filters
@@ -495,6 +535,7 @@ class DBCollectionsHandler(DBBaseHandler):
             age_ratings_logic=criteria.get("age_ratings_logic", "any"),
             regions_logic=criteria.get("regions_logic", "any"),
             languages_logic=criteria.get("languages_logic", "any"),
+            player_counts_logic=criteria.get("player_counts_logic", "any"),
             statuses_logic=criteria.get("statuses_logic", "any"),
             metadata_providers_logic=criteria.get("metadata_providers_logic", "any"),
             tags_logic=criteria.get("tags_logic", "any"),

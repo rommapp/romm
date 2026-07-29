@@ -27,6 +27,7 @@ import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -107,6 +108,11 @@ watch(
 );
 
 const title = computed(() => heroRom.value?.name ?? "");
+
+usePageTitle(() =>
+  title.value ? t("play.page-title", { name: title.value }) : null,
+);
+
 const platformLabel = computed(
   () => container.value?.label ?? rom.value?.platform_slug?.toUpperCase() ?? "",
 );
@@ -459,6 +465,7 @@ const showLaunchScreen = computed(
           :title="title"
           :identified="heroRom?.is_identified ?? true"
           :morph-id="`stream-cover-${romId}`"
+          style-context="player"
           morph-static
           hover-motion
         />

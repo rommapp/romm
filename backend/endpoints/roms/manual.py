@@ -13,6 +13,7 @@ from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.resources_handler import ALLOWED_MANUAL_EXTENSIONS
@@ -56,6 +57,8 @@ async def add_rom_manuals(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
 
     if not _is_allowed_manual_file(filename):
         raise HTTPException(
@@ -146,6 +149,8 @@ async def redownload_rom_manual(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
+    assert_rom_visible(request, rom)
+
     if not rom.url_manual:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -199,6 +204,8 @@ async def add_rom_manual_file(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
 
     if rom.has_simple_single_file:
         try:
@@ -307,6 +314,8 @@ async def delete_rom_manual_file(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
+    assert_rom_visible(request, rom)
+
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if (
         not rom_file
@@ -359,6 +368,8 @@ async def delete_rom_manuals(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
 
     if not fs_resource_handler.manual_exists(rom):
         raise HTTPException(

@@ -83,19 +83,15 @@ Here are a few projects maintained by members of our community. Please note that
 - [GGRequestz][ggrequestz]: Game discovery and request tool by [@XTREEMMAK](https://github.com/XTREEMMAK)
 - [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by [@amn-96](https://github.com/amn-96)
 
-Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
-
-[![discord-invite-img]][discord-invite]
-
-## Technical Support
-
-If you have any issues with RomM, please [open an issue](https://github.com/rommapp/romm/issues/new) in this repository.
-
-## Financial Support
+## Support the project
 
 Consider supporting the development of this project on Open Collective. All funds will be used to cover the costs of hosting, development, and maintenance of RomM.
 
-[![oc-donate-img]][oc-donate]
+<div align="center">
+  <div dir="auto">
+    <a href="https://opencollective.com/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/opencollective-badge.svg" alt="Open Collective" width="250" height="58"/></a>
+  </div>
+</div>
 
 ## Our Friends
 
@@ -110,6 +106,17 @@ Here are a few projects that we think you might like:
 - [LanCommander](https://lancommander.app/): Digital game platform for PC games
 - [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
 
+## Supported By
+
+These companies support us by providing their tools for free:
+
+<div align="center">
+  <div dir="auto">
+    <a href="https://www.greptile.com/?utm_source=oss_badge&amp;utm_medium=readme&amp;utm_campaign=greptile_for_open_source" target="_blank" rel="noopener noreferrer"><img src=".github/resources/greptile-badge.svg" alt="Greptile" width="250" height="58"/></a>
+    <a href="https://www.aikido.dev/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/aikido-badge.svg" alt="Aikido" width="250" height="58"/></a>
+  </div>
+</div>
+
 <!-- docs links -->
 
 [docs-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
@@ -118,13 +125,6 @@ Here are a few projects that we think you might like:
 [docs-rufflers]: https://docs.romm.app/latest/Platforms-and-Players/RuffleRS-Player/
 [docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/Scanning-Issues/
 [docs-tag-support]: https://docs.romm.app/latest/Getting-Started/Folder-Structure/#tag-support
-
-<!-- Links -->
-
-[discord-invite-img]: https://invidget.switchblade.xyz/P5HtHnhUDH
-[discord-invite]: https://discord.gg/P5HtHnhUDH
-[oc-donate-img]: https://opencollective.com/romm/donate/button.png?color=blue
-[oc-donate]: https://opencollective.com/romm
 
 <!-- External links -->
 
