@@ -49,6 +49,9 @@ const fetchTaskStatus = async () => {
 let refreshInterval: number | null = null;
 
 onMounted(() => {
+  // /tasks needs the `tasks.run` scope, so a session established after app
+  // boot (any login without a reload) would leave the lists empty for good.
+  tasksStore.fetchTasks();
   fetchTaskStatus();
   refreshInterval = window.setInterval(() => {
     fetchTaskStatus().catch((error) => {

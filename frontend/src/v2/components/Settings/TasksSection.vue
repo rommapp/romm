@@ -8,6 +8,10 @@
 // Polls `tasksStore.fetchTaskStatus` every 5s while mounted so the
 // history feed updates in real time. Manual + scheduled tasks expose a
 // run button that posts to /tasks/{name}/run.
+//
+// The task list is fetched on mount rather than at app boot: /tasks needs
+// the `tasks.run` scope, so a session established after boot (any login
+// without a reload) would otherwise leave the lists empty for good.
 import { RBtn, RIcon, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted } from "vue";
@@ -90,6 +94,7 @@ async function fetchTaskStatus() {
 let refreshInterval: number | null = null;
 
 onMounted(() => {
+  void tasksStore.fetchTasks();
   void fetchTaskStatus();
   refreshInterval = window.setInterval(() => {
     void fetchTaskStatus();
