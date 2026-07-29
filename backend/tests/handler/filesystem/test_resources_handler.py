@@ -8,7 +8,10 @@ import pytest
 from PIL import Image
 
 import adapters.services.screenscraper as ss_module
-from adapters.services.screenscraper import SS_DEFAULT_MEDIA_TIMEOUT
+from adapters.services.screenscraper import (
+    SS_DEFAULT_MAX_THREADS,
+    SS_DEFAULT_MEDIA_TIMEOUT,
+)
 from config import RESOURCES_BASE_PATH
 from handler.filesystem.base_handler import CoverSize
 from handler.filesystem.resources_handler import (
@@ -19,6 +22,7 @@ from handler.filesystem.resources_handler import (
 )
 from models.collection import Collection
 from models.rom import Rom
+from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
 
 class TestContentTypeEssence:
@@ -968,6 +972,17 @@ class TestScreenScraperMediaThrottling:
     """ScreenScraper counts media downloads against the same per-account thread
     allowance as API calls, so they must share its limiter instead of bypassing
     it (which is what let a multi-worker scan overrun the account)."""
+
+    @pytest.fixture(autouse=True)
+    def _isolate_limiters(self, monkeypatch):
+        """Swap in fresh limiters so these tests neither sleep on the real
+        per-minute pacing nor leave reserved slots behind for later tests."""
+        monkeypatch.setattr(ss_module, "_rate_limiter", RateLimiter(1_000))
+        monkeypatch.setattr(
+            ss_module,
+            "_concurrency_limiter",
+            ConcurrencyLimiter(SS_DEFAULT_MAX_THREADS),
+        )
 
     @pytest.fixture
     def handler(self):

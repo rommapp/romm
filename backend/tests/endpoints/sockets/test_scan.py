@@ -262,6 +262,67 @@ class TestScreenScraperScanReporting:
 
         prime.assert_not_awaited()
 
+    async def test_does_not_repeat_an_unchanged_quota_line(self, patched, mocker):
+        """The last platform and the end-of-scan summary both report the quota,
+        which would otherwise print the same numbers twice in a row."""
+        mock_log = mocker.patch.object(scan_module, "log")
+        mocker.patch.object(
+            scan_module, "prime_ss_account_limits", new=AsyncMock(return_value=None)
+        )
+        mocker.patch.object(
+            scan_module,
+            "get_ss_account_limits",
+            return_value=SSAccountLimits(
+                max_requests_per_day=20000, requests_today=1500
+            ),
+        )
+        mocker.patch.object(
+            scan_module, "get_ss_rate_limited_rom_names", return_value=[]
+        )
+
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[MetadataSource.SS],
+            scan_type=ScanType.QUICK,
+        )
+
+        quota_lines = [
+            call
+            for call in mock_log.info.call_args_list
+            if "ScreenScraper quota" in str(call)
+        ]
+        assert len(quota_lines) == 1
+
+    async def test_reports_the_quota_again_once_it_changes(self, patched, mocker):
+        mock_log = mocker.patch.object(scan_module, "log")
+        mocker.patch.object(
+            scan_module, "prime_ss_account_limits", new=AsyncMock(return_value=None)
+        )
+        mocker.patch.object(
+            scan_module,
+            "get_ss_account_limits",
+            side_effect=[
+                SSAccountLimits(max_requests_per_day=20000, requests_today=1500),
+                SSAccountLimits(max_requests_per_day=20000, requests_today=1900),
+            ],
+        )
+        mocker.patch.object(
+            scan_module, "get_ss_rate_limited_rom_names", return_value=[]
+        )
+
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[MetadataSource.SS],
+            scan_type=ScanType.QUICK,
+        )
+
+        quota_lines = [
+            call
+            for call in mock_log.info.call_args_list
+            if "ScreenScraper quota" in str(call)
+        ]
+        assert len(quota_lines) == 2
+
     async def test_reports_remaining_quota_and_skipped_roms(self, patched, mocker):
         mock_log = mocker.patch.object(scan_module, "log")
         mocker.patch.object(

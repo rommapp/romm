@@ -132,15 +132,29 @@ def _get_socket_manager() -> socketio.AsyncRedisManager:
     return socketio.AsyncRedisManager(REDIS_URL, write_only=True)
 
 
+_last_ss_quota_logged: str | None = None
+
+
 def _log_ss_quota() -> None:
     """Report how much of the ScreenScraper daily quota is left.
 
     ScreenScraper sends the counters with every response, so a scan heading for
-    the wall is visible before it gets there.
+    the wall is visible before it gets there. Repeats are dropped: the last
+    platform and the end-of-scan summary would otherwise print the same numbers
+    twice in a row.
     """
+    global _last_ss_quota_logged
+
     limits = get_ss_account_limits()
-    if limits is not None:
-        log.info(limits.describe())
+    if limits is None:
+        return
+
+    description = limits.describe()
+    if description == _last_ss_quota_logged:
+        return
+
+    _last_ss_quota_logged = description
+    log.info(description)
 
 
 def _log_ss_scan_summary() -> None:
@@ -824,6 +838,9 @@ async def scan_platforms(
     # Reset the ScreenScraper per-scan state (quota breaker, learned limits,
     # skipped ROMs) so this scan re-evaluates it instead of inheriting a tripped
     # breaker or yesterday's quota counters.
+    global _last_ss_quota_logged
+    _last_ss_quota_logged = None
+
     reset_ss_scan_state()
     reset_ss_rate_limited_roms()
 

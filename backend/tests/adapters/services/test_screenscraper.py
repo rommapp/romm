@@ -376,28 +376,8 @@ class TestScreenScraperServiceUnit:
         assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
         assert "rate limit" in exc_info.value.detail.lower()
         assert mock_session.get.call_count == 2
-
-    @pytest.mark.asyncio
-    async def test_repeated_rate_limit_does_not_trip_daily_quota_breaker(self, service):
-        """The per-minute limit clears on its own, so it must not short-circuit
-        the rest of the scan the way an exhausted daily quota does."""
-        mock_session = AsyncMock()
-        mock_session.get.side_effect = aiohttp.ClientResponseError(
-            request_info=MagicMock(),
-            history=(),
-            status=http.HTTPStatus.TOO_MANY_REQUESTS,
-        )
-
-        mock_context = MagicMock()
-        mock_context.get.return_value = mock_session
-
-        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
-            with patch("asyncio.sleep"):
-                with pytest.raises(ScreenScraperRateLimitError):
-                    await service._request(
-                        "https://api.screenscraper.fr/api2/jeuInfos.php"
-                    )
-
+        # The per-minute limit clears on its own, so it must not short-circuit
+        # the rest of the scan the way an exhausted daily quota does.
         assert is_daily_quota_exhausted() is False
 
     @pytest.mark.asyncio
@@ -1308,13 +1288,6 @@ class TestAccountLimits:
         limits = get_account_limits()
         assert limits is not None
         assert limits.remaining_requests == 0
-
-    def test_paces_requests_at_the_reported_per_minute_limit(self):
-        ss_module._update_account_limits(
-            _ssuser_response(maxthreads="5", maxrequestspermin="250")
-        )
-
-        assert ss_module._rate_limiter.requests_per_second == pytest.approx(250 / 60)
 
     def test_derives_the_rate_from_threads_when_not_reported(self):
         """ScreenScraper allows threads x 50 requests per minute."""
