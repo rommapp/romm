@@ -257,7 +257,7 @@ const segmentFilters = computed<SegmentFilter[]>(() => [
       },
       {
         id: "all",
-        icon: "mdi-select-all",
+        icon: "mdi-asterisk",
         ariaLabel: t("platform.include-empty"),
         title: t("platform.include-empty"),
       },
