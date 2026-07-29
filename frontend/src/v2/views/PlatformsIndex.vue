@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PlatformsIndex — full grid of every platform, with the same toolbar
+// PlatformsIndex — grid of the library's platforms, with the same toolbar
 // (search / groupBy / layout) the ROM galleries use. Toolbar state lives
 // in `useGalleryMode` so toggling layout here also affects Platform /
 // Collection / Search ROM views — one consistent reading mode across
@@ -16,11 +16,13 @@
 // toolbar's mode is the user's intent, not a hard requirement.
 import { RDivider, RLetterHeading, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import GalleryToolbar, {
   type GroupByItem,
+  type SegmentFilter,
 } from "@/v2/components/Gallery/GalleryToolbar.vue";
 import PlatformListHeader from "@/v2/components/Platforms/PlatformListHeader.vue";
 import PlatformListRow from "@/v2/components/Platforms/PlatformListRow.vue";
@@ -38,6 +40,7 @@ import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import { usePlatformPlayableChecker } from "@/v2/composables/usePlatformPlayable";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
+import { patchQuery } from "@/v2/utils/routeQuery";
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();
@@ -47,6 +50,51 @@ const { groupBy, layout } = useGalleryMode();
 useGalleryViewModeUrl();
 const searchTerm = useTileSearchUrl();
 const { isPlayable } = usePlatformPlayableChecker();
+
+// Empty (0-game) platforms are leftovers: rows whose folder vanished from
+// disk, whose ROMs were all deleted, or that a config exclusion keeps out
+// of every scan. Showing them by default buries a real library under
+// hundreds of stubs, so they sit behind an explicit toolbar filter, which
+// is still enough to reach one and use its Settings > Delete platform
+// action.
+const CONTENT_VALUES = ["with-games", "all"] as const;
+type ContentFilter = (typeof CONTENT_VALUES)[number];
+
+// `?show=all`, URL-synced like the Collections index filters and omitted
+// at the default so a plain /platforms link stays clean.
+const route = useRoute();
+const router = useRouter();
+
+function readContentQuery(): ContentFilter {
+  const value = route.query.show;
+  return typeof value === "string" &&
+    (CONTENT_VALUES as readonly string[]).includes(value)
+    ? (value as ContentFilter)
+    : "with-games";
+}
+
+const contentFilter = ref<ContentFilter>(readContentQuery());
+
+watch(
+  () => route.query.show,
+  () => {
+    const next = readContentQuery();
+    if (next !== contentFilter.value) contentFilter.value = next;
+  },
+);
+watch(contentFilter, (next) => {
+  const desired = next === "with-games" ? undefined : next;
+  const current =
+    typeof route.query.show === "string" ? route.query.show : undefined;
+  if (desired === current) return;
+  patchQuery(router, { show: desired });
+});
+
+const visiblePlatforms = computed<Platform[]>(() =>
+  contentFilter.value === "all"
+    ? allPlatforms.value
+    : allPlatforms.value.filter((p) => p.rom_count > 0),
+);
 
 // Spatial 2D arrow / gamepad nav across the wrapping tiles grid. List-mode
 // rows are anchor-based and tab through natively; the spatial nav only
@@ -193,6 +241,36 @@ const platformGroupByItems: GroupByItem[] = [
   },
 ];
 
+// Single segmented cluster left of the view controls, mirrored into the
+// kebab menu on narrow viewports by GalleryToolbar.
+const segmentFilters = computed<SegmentFilter[]>(() => [
+  {
+    key: "show",
+    value: contentFilter.value,
+    ariaLabel: t("platform.filter-platforms"),
+    items: [
+      {
+        id: "with-games",
+        icon: "mdi-controller",
+        ariaLabel: t("platform.only-with-games"),
+        title: t("platform.only-with-games"),
+      },
+      {
+        id: "all",
+        icon: "mdi-asterisk",
+        ariaLabel: t("platform.include-empty"),
+        title: t("platform.include-empty"),
+      },
+    ],
+  },
+]);
+
+function onSegmentFilter({ key, value }: { key: string; value: string }) {
+  if (key === "show" && (CONTENT_VALUES as readonly string[]).includes(value)) {
+    contentFilter.value = value as ContentFilter;
+  }
+}
+
 onMounted(() => {
   if (platformsStore.allPlatforms.length === 0) {
     platformsStore.fetchPlatforms();
@@ -201,8 +279,8 @@ onMounted(() => {
 
 const filtered = computed<Platform[]>(() => {
   const term = searchTerm.value.trim().toLowerCase();
-  if (!term) return allPlatforms.value;
-  return allPlatforms.value.filter((p) =>
+  if (!term) return visiblePlatforms.value;
+  return visiblePlatforms.value.filter((p) =>
     p.display_name.toLowerCase().includes(term),
   );
 });
@@ -222,12 +300,19 @@ const sortedForList = computed<Platform[]>(() => {
   );
 });
 
-const totalCount = computed(() => allPlatforms.value.length);
+const totalCount = computed(() => visiblePlatforms.value.length);
+// Nothing to show while platforms do exist: either the search matched
+// nothing, or every platform is empty and the filter is hiding them.
 const noResults = computed(
   () =>
     !fetchingPlatforms.value &&
-    totalCount.value > 0 &&
+    allPlatforms.value.length > 0 &&
     filtered.value.length === 0,
+);
+const noResultsMessage = computed(() =>
+  searchTerm.value.trim()
+    ? t("platform.no-platforms-search", { query: searchTerm.value })
+    : t("platform.no-platforms-with-games"),
 );
 
 // Generic bucket — every grouping computed produces the same shape so
@@ -392,12 +477,14 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         :sort-dir="gridSortDir"
         :search="searchTerm"
         :group-by-items="platformGroupByItems"
+        :segment-filters="segmentFilters"
         show-search
         :search-placeholder="t('platform.search-platform')"
         @update:group-by="groupBy = $event"
         @update:layout="layout = $event"
         @update:sort-dir="gridSortDir = $event"
         @update:search="searchTerm = $event"
+        @update:segment-filter="onSegmentFilter"
       />
     </template>
 
@@ -410,7 +497,10 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
     </template>
 
     <div ref="gridRoot">
-      <div v-if="fetchingPlatforms && !totalCount" class="r-v2-pidx__grid">
+      <div
+        v-if="fetchingPlatforms && !allPlatforms.length"
+        class="r-v2-pidx__grid"
+      >
         <RSkeletonBlock
           v-for="n in 16"
           :key="`sk-${n}`"
@@ -421,14 +511,11 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
       </div>
 
       <EmptyState
-        v-else-if="!totalCount"
+        v-else-if="!allPlatforms.length"
         :message="t('platform.no-platforms-empty')"
       />
 
-      <EmptyState
-        v-else-if="noResults"
-        :message="t('platform.no-platforms-search', { query: searchTerm })"
-      />
+      <EmptyState v-else-if="noResults" :message="noResultsMessage" />
 
       <!-- List mode — rows underneath the sticky column header (rendered
            by IndexShell via the `#listHeader` slot above). Rows surface

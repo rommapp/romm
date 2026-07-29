@@ -10,6 +10,18 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
+// Plain object rather than a reactive route: every test sets the query
+// before mounting, which is when the view reads it.
+const { routeState } = vi.hoisted(() => ({
+  routeState: { query: {} as Record<string, string> },
+}));
+
+vi.mock("vue-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue-router")>()),
+  useRoute: () => routeState,
+  useRouter: () => ({ replace: vi.fn() }),
+}));
+
 vi.mock("@v2/lib", () => ({
   RDivider: defineComponent({ template: "<hr />" }),
   RLetterHeading: defineComponent({
@@ -112,9 +124,22 @@ function platform(id: number, displayName: string, romCount: number): Platform {
 describe("PlatformsIndex", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    routeState.query = {};
   });
 
-  it("renders empty database platforms so they remain reachable", () => {
+  it("hides empty platforms by default", () => {
+    const platforms = storePlatforms();
+    platforms.set([platform(2, "Nintendo 64", 12), platform(1, "Game Boy", 0)]);
+
+    const wrapper = mount(PlatformsIndex);
+
+    expect(wrapper.text()).toContain("common.platforms 1");
+    expect(wrapper.text()).toContain("Nintendo 64 12");
+    expect(wrapper.text()).not.toContain("Game Boy 0");
+  });
+
+  it("renders empty database platforms when ?show=all, so they stay reachable", () => {
+    routeState.query = { show: "all" };
     const platforms = storePlatforms();
     platforms.set([platform(2, "Nintendo 64", 12), platform(1, "Game Boy", 0)]);
 
@@ -123,5 +148,14 @@ describe("PlatformsIndex", () => {
     expect(wrapper.text()).toContain("common.platforms 2");
     expect(wrapper.text()).toContain("Game Boy 0");
     expect(wrapper.text()).toContain("Nintendo 64 12");
+  });
+
+  it("points at the filter when every platform is empty", () => {
+    const platforms = storePlatforms();
+    platforms.set([platform(1, "Game Boy", 0)]);
+
+    const wrapper = mount(PlatformsIndex);
+
+    expect(wrapper.text()).toContain("platform.no-platforms-with-games");
   });
 });

@@ -39,6 +39,7 @@ import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
+import { patchQuery } from "@/v2/utils/routeQuery";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 type Kind = "regular" | "virtual" | "smart";
@@ -128,10 +129,7 @@ function writeEnumQuery(param: string, value: string, fallback: string) {
   const current = route.query[param];
   const currentStr = typeof current === "string" ? current : fallback;
   if ((desired ?? fallback) === currentStr) return;
-  const nextQuery = { ...route.query };
-  if (desired === undefined) delete nextQuery[param];
-  else nextQuery[param] = desired;
-  router.replace({ query: nextQuery });
+  patchQuery(router, { [param]: desired });
 }
 
 const kindFilter = ref<KindFilterValue>(
