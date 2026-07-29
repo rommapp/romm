@@ -76,8 +76,6 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
         "id": 58,
         "name": "Fairchild Channel F",
     },
-    # LaunchBox files Famicom and Super Famicom titles under their western
-    # platform names, so both slugs share the NES/SNES entries.
     UPS.FAMICOM: {"id": 27, "name": "Nintendo Entertainment System"},
     UPS.FDS: {"id": 157, "name": "Nintendo Famicom Disk System"},
     UPS.FM_7: {"id": 186, "name": "Fujitsu FM-7"},
