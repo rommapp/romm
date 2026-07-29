@@ -89,6 +89,7 @@ class SaveUsage(enum.StrEnum):
     FOLDER_PREFIX = "folder-prefix"
     FILE_EXACT = "file-exact"
     FILE_PREFIX = "file-prefix"
+    FOLDER_SPLIT = "folder-split"
 
 
 class SiblingRom(BaseModel):

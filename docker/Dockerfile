@@ -116,7 +116,7 @@ RUN apk add --no-cache \
     make \
     musl-dev
 
-ARG SIGIL_VERSION=45fcd54c1e6e18b63f83a70b8d86a4f93fb53340
+ARG SIGIL_VERSION=98f3c626eecac48aa99209414d88a15ebe9b70c4
 
 RUN git clone --recurse-submodules https://github.com/rommforge/argosy-sigil.git && \
     cd ./argosy-sigil && \

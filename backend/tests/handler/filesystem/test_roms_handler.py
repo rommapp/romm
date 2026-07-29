@@ -1529,6 +1529,39 @@ class TestSigilTitleIdExtraction:
         assert parsed.save_usage == SaveUsage.FOLDER_PREFIX
 
     @pytest.mark.asyncio
+    async def test_3ds_extraction_maps_folder_split_usage(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="Nintendo 3DS", slug="3ds", fs_slug="3ds")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_single_file_rom(tmp_path, platform, "Game.3ds")
+
+        mock_extract = AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id="0004000000033500",
+                # save_id carries the on-disk split, not the flat id.
+                save_id="00040000/00033500",
+                usage="folder-split",
+            )
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with (
+                patch(self.SIGIL_PATCH_TARGET, mock_extract),
+                patch(
+                    "adapters.services.rahasher.RAHasherService.calculate_hash",
+                    new_callable=AsyncMock,
+                    return_value="",
+                ),
+            ):
+                parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].save_id == "00040000/00033500"
+        assert parsed.save_id == "00040000/00033500"
+        assert parsed.save_usage == SaveUsage.FOLDER_SPLIT
+
+    @pytest.mark.asyncio
     async def test_non_sigil_platform_skips_extraction(
         self, tmp_path: Path, config: Config
     ):
