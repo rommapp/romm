@@ -458,6 +458,14 @@ def _stop_broker(container: dict[str, Any]) -> None:
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+#
+# Reads gate on ROMS_READ; anything that creates, controls or releases a session
+# gates on ROMS_USER_WRITE, matching the play-session routes. ROMS_USER_WRITE is
+# always-on for authenticated users, so this costs no real user anything, but it
+# is absent from READ_SCOPES -- which is all KIOSK_MODE hands an anonymous
+# visitor, and all a logged-in non-admin keeps under kiosk. Without it, kiosk
+# visitors (who all share user_id=-1, so session ownership cannot separate them)
+# could claim sessions and overwrite each other's save states.
 
 
 @protected_route(router.get, "/config", [Scope.ROMS_READ])
@@ -491,7 +499,7 @@ async def get_config(request: Request) -> JSONResponse:
     )
 
 
-@protected_route(router.post, "/sessions", [Scope.ROMS_READ])
+@protected_route(router.post, "/sessions", [Scope.ROMS_USER_WRITE])
 async def claim_session(
     request: Request, req: Annotated[ClaimSessionRequest, Body()]
 ) -> JSONResponse:
@@ -577,7 +585,9 @@ async def claim_session(
     )
 
 
-@protected_route(router.post, "/sessions/{platform}/save-and-exit", [Scope.ROMS_READ])
+@protected_route(
+    router.post, "/sessions/{platform}/save-and-exit", [Scope.ROMS_USER_WRITE]
+)
 async def save_and_exit_session(
     request: Request, platform: str, req: Annotated[SaveAndExitRequest, Body()]
 ) -> JSONResponse:
@@ -612,7 +622,7 @@ async def save_and_exit_session(
     return JSONResponse({"status": "ok", "saved": saved, "platform": platform})
 
 
-@protected_route(router.post, "/sessions/{platform}/volume", [Scope.ROMS_READ])
+@protected_route(router.post, "/sessions/{platform}/volume", [Scope.ROMS_USER_WRITE])
 async def set_volume(
     request: Request, platform: str, req: Annotated[VolumeRequest, Body()]
 ) -> JSONResponse:
@@ -627,7 +637,7 @@ async def set_volume(
     return JSONResponse({"status": "ok", "level": req.level, "platform": platform})
 
 
-@protected_route(router.post, "/sessions/{platform}/mute", [Scope.ROMS_READ])
+@protected_route(router.post, "/sessions/{platform}/mute", [Scope.ROMS_USER_WRITE])
 async def set_mute(
     request: Request, platform: str, req: Annotated[MuteRequest, Body()]
 ) -> JSONResponse:
@@ -642,7 +652,9 @@ async def set_mute(
     return JSONResponse({"status": "ok", "mute": confirmed, "platform": platform})
 
 
-@protected_route(router.post, "/sessions/{platform}/save-state", [Scope.ROMS_READ])
+@protected_route(
+    router.post, "/sessions/{platform}/save-state", [Scope.ROMS_USER_WRITE]
+)
 async def save_state(
     request: Request, platform: str, req: Annotated[SaveStateRequest, Body()]
 ) -> JSONResponse:
@@ -658,7 +670,9 @@ async def save_state(
     return JSONResponse({"status": "saving", "slot": req.slot, "platform": platform})
 
 
-@protected_route(router.post, "/sessions/{platform}/load-state", [Scope.ROMS_READ])
+@protected_route(
+    router.post, "/sessions/{platform}/load-state", [Scope.ROMS_USER_WRITE]
+)
 async def load_state(
     request: Request, platform: str, req: Annotated[LoadStateRequest, Body()]
 ) -> JSONResponse:
@@ -676,7 +690,7 @@ async def load_state(
     )
 
 
-@protected_route(router.delete, "/sessions/{platform}", [Scope.ROMS_READ])
+@protected_route(router.delete, "/sessions/{platform}", [Scope.ROMS_USER_WRITE])
 async def release_session(request: Request, platform: str) -> JSONResponse:
     """Release a session and tell the broker to stop the emulator."""
     container = _container_for_platform(platform)
@@ -724,7 +738,7 @@ async def list_sessions(request: Request) -> JSONResponse:
     return JSONResponse(sessions)
 
 
-@protected_route(router.delete, "/sessions", [Scope.ROMS_READ])
+@protected_route(router.delete, "/sessions", [Scope.ROMS_USER_WRITE])
 async def force_release_all(request: Request) -> JSONResponse:
     """Force-release all active sessions."""
     if request.user.role != Role.ADMIN:
