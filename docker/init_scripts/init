@@ -21,7 +21,7 @@ REDIS_HOST="${REDIS_HOST:=""}"
 # snapshot policy of the internal valkey, as "<seconds> <changes>" pairs. Saving
 # hourly keeps a graceful shutdown lossless while a hard crash can only lose an
 # hour of sessions and cached metadata. Set to an empty value to never snapshot.
-REDIS_SAVE_POLICY="${REDIS_SAVE_POLICY:="3600 1"}"
+REDIS_SAVE_POLICY="${REDIS_SAVE_POLICY="3600 1"}"
 
 # logger colors
 RED='\033[0;31m'
