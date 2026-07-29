@@ -1516,13 +1516,14 @@ Falls back to `FakeRedis` in test mode.
 
 #### Core
 
-| Variable         | Default          | Description          |
-| ---------------- | ---------------- | -------------------- |
-| `ROMM_BASE_PATH` | `/romm`          | Base data directory  |
-| `ROMM_BASE_URL`  | `http://0.0.0.0` | Application base URL |
-| `ROMM_PORT`      | `8080`           | Server port          |
-| `DEV_MODE`       | `false`          | Development mode     |
-| `LOGLEVEL`       | `INFO`           | Log level            |
+| Variable         | Default          | Description                        |
+| ---------------- | ---------------- | ---------------------------------- |
+| `ROMM_BASE_PATH` | `/romm`          | Base data directory                |
+| `ROMM_BASE_URL`  | `http://0.0.0.0` | Application base URL               |
+| `ROMM_PORT`      | `8080`           | Server port                        |
+| `DEV_MODE`       | `false`          | Development mode                   |
+| `LOGLEVEL`       | `INFO`           | Log level                          |
+| `STOP_TIMEOUT`   | `10`             | Seconds before SIGKILL on shutdown |
 
 #### Database
 

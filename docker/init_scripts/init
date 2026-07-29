@@ -23,6 +23,9 @@ REDIS_HOST="${REDIS_HOST:=""}"
 # hour of sessions and cached metadata. Set to an empty value to never snapshot.
 REDIS_SAVE_POLICY="${REDIS_SAVE_POLICY="3600 1"}"
 
+# how long to wait for a signalled process to exit before escalating to SIGKILL
+STOP_TIMEOUT="${STOP_TIMEOUT:="10"}"
+
 # logger colors
 RED='\033[0;31m'
 LIGHTMAGENTA='\033[0;95m'
@@ -305,6 +308,20 @@ watchdog_process_pid() {
 	fi
 }
 
+# Wait for PID $1 to disappear, polling every 100ms for at most $2 polls.
+# Returns non-zero if it is still alive when the budget runs out.
+wait_for_pid_exit() {
+	local pid=$1 max_polls=$2 polls=0
+	while [[ -e "/proc/${pid}" ]]; do
+		if ((polls >= max_polls)); then
+			return 1
+		fi
+		sleep 0.1
+		polls=$((polls + 1))
+	done
+	return 0
+}
+
 stop_process_pid() {
 	PROCESS=$1
 	if [[ -f "/tmp/${PROCESS}.pid" ]]; then
@@ -312,8 +329,18 @@ stop_process_pid() {
 		if [[ -d "/proc/${PID}" ]]; then
 			info_log "Stopping ${PROCESS}"
 			kill "${PID}" || true
-			# wait for process exit
-			while [[ -e "/proc/${PID}" ]]; do sleep 0.1; done
+
+			# A process that will not exit must never strand PID 1. Valkey aborts
+			# its own shutdown when the snapshot it writes on exit fails, so on a
+			# read-only /redis-data an unbounded wait here leaves the container up
+			# and serving nothing, which no restart policy can detect.
+			if ! wait_for_pid_exit "${PID}" $((STOP_TIMEOUT * 10)); then
+				warn_log "${PROCESS} did not exit within ${STOP_TIMEOUT}s, sending SIGKILL"
+				kill -9 "${PID}" || true
+				if ! wait_for_pid_exit "${PID}" $((STOP_TIMEOUT * 10)); then
+					warn_log "${PROCESS} survived SIGKILL, continuing shutdown without it"
+				fi
+			fi
 		fi
 	fi
 }

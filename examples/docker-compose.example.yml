@@ -27,6 +27,18 @@ services:
       - /path/to/config:/romm/config # (Optional) Path where config.yml is stored
     ports:
       - 80:8080
+    healthcheck:
+      # $$ defers expansion to the container, so a custom ROMM_PORT still works
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:$${ROMM_PORT:-8080}/api/heartbeat",
+        ]
+      start_period: 60s
+      start_interval: 10s
+      interval: 30s
+      timeout: 5s
+      retries: 3
     depends_on:
       romm-db:
         condition: service_healthy
