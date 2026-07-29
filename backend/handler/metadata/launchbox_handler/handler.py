@@ -14,6 +14,7 @@ from .platforms import get_platform
 from .remote_source import RemoteSource
 from .types import (
     DASH_COLON_REGEX,
+    LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
     LAUNCHBOX_PLATFORMS_DIR,
     LAUNCHBOX_TAG_REGEX,
@@ -43,14 +44,27 @@ class LaunchboxHandler(MetadataHandler):
     async def is_remote_store_populated() -> bool:
         return bool(await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY))
 
+    @staticmethod
+    async def is_remote_store_importing() -> bool:
+        return bool(await async_cache.exists(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY))
+
     async def heartbeat(self) -> bool:
         if self.is_local_enabled():
             return True
 
+        if not self.is_cloud_enabled():
+            return False
+
+        # A first import commits in batches, so the store starts answering for a
+        # handful of names long before it holds the whole dump. Until that run
+        # finishes, most lookups still miss.
+        if await self.is_remote_store_importing():
+            return False
+
         # Cloud lookups read from a cache the metadata update task fills. Until
         # it has run, every lookup returns nothing, so reporting healthy here
         # would be a lie.
-        return self.is_cloud_enabled() and await self.is_remote_store_populated()
+        return await self.is_remote_store_populated()
 
     def get_platform(self, slug: str) -> LaunchboxPlatform:
         return get_platform(slug)

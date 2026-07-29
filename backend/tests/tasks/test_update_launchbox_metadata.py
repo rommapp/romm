@@ -12,9 +12,11 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
+    LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
     LAUNCHBOX_PLATFORMS_KEY,
 )
+from handler.redis_handler import async_cache
 from tasks.scheduled.update_launchbox_metadata import (
     BatchedCacheWriter,
     UpdateLaunchboxMetadataTask,
@@ -390,6 +392,64 @@ class TestBatchedCacheWriter:
 
         # One execute per queued write rather than one for the whole file.
         assert mock_pipe.execute.call_count == mock_pipe.hset.call_count
+
+
+class TestInitialImportFlag:
+    """The store is written in batches, so a half-filled one must not read as
+    ready to the provider heartbeat."""
+
+    @patch.object(RemoteFilePullTask, "run")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    async def test_first_import_flags_and_clears_on_completion(
+        self, mock_pipeline, mock_super_run, task, sample_zip_content
+    ):
+        mock_super_run.return_value = sample_zip_content
+        mock_pipeline.return_value.__aenter__ = AsyncMock(return_value=AsyncMock())
+        mock_pipeline.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch.object(async_cache, "exists", AsyncMock(return_value=0)),
+            patch.object(async_cache, "set", AsyncMock()) as mock_set,
+            patch.object(async_cache, "delete", AsyncMock()) as mock_delete,
+        ):
+            await task.run(force=True)
+
+        mock_set.assert_awaited_once_with(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY, "1")
+        mock_delete.assert_awaited_once_with(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY)
+
+    @patch.object(RemoteFilePullTask, "run")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
+    async def test_refresh_of_a_filled_store_is_not_flagged(
+        self, mock_pipeline, mock_super_run, task, sample_zip_content
+    ):
+        """An existing store keeps answering while it is refreshed in place."""
+        mock_super_run.return_value = sample_zip_content
+        mock_pipeline.return_value.__aenter__ = AsyncMock(return_value=AsyncMock())
+        mock_pipeline.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch.object(async_cache, "exists", AsyncMock(return_value=1)),
+            patch.object(async_cache, "set", AsyncMock()) as mock_set,
+            patch.object(async_cache, "delete", AsyncMock()),
+        ):
+            await task.run(force=True)
+
+        mock_set.assert_not_awaited()
+
+    @patch.object(RemoteFilePullTask, "run")
+    async def test_flag_survives_a_failed_run(
+        self, mock_super_run, task, corrupt_zip_content
+    ):
+        mock_super_run.return_value = corrupt_zip_content
+
+        with (
+            patch.object(async_cache, "exists", AsyncMock(return_value=0)),
+            patch.object(async_cache, "set", AsyncMock()),
+            patch.object(async_cache, "delete", AsyncMock()) as mock_delete,
+        ):
+            await task.run(force=True)
+
+        mock_delete.assert_not_awaited()
 
 
 class TestManualRunGate:

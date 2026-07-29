@@ -36,6 +36,7 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
+    LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
     LaunchboxImage,
     LaunchboxMetadata,
@@ -1135,12 +1136,19 @@ class TestLaunchboxHandlerEnabled:
 
 
 class TestLaunchboxHandlerHeartbeat:
+    @staticmethod
+    def _cache_exists(*present: str) -> AsyncMock:
+        async def exists(key: str) -> int:
+            return 1 if key in present else 0
+
+        return AsyncMock(side_effect=exists)
+
     async def test_unhealthy_when_cloud_store_is_empty(self):
         handler = LaunchboxHandler()
         with (
             patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=True),
             patch.object(LaunchboxHandler, "is_local_enabled", return_value=False),
-            patch.object(async_cache, "exists", new_callable=AsyncMock, return_value=0),
+            patch.object(async_cache, "exists", self._cache_exists()),
         ):
             assert await handler.heartbeat() is False
 
@@ -1149,16 +1157,34 @@ class TestLaunchboxHandlerHeartbeat:
         with (
             patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=True),
             patch.object(LaunchboxHandler, "is_local_enabled", return_value=False),
-            patch.object(async_cache, "exists", new_callable=AsyncMock, return_value=1),
+            patch.object(
+                async_cache, "exists", self._cache_exists(LAUNCHBOX_METADATA_NAME_KEY)
+            ),
         ):
             assert await handler.heartbeat() is True
+
+    async def test_unhealthy_while_the_first_import_is_still_running(self):
+        """The store answers only for the batches committed so far."""
+        handler = LaunchboxHandler()
+        with (
+            patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=True),
+            patch.object(LaunchboxHandler, "is_local_enabled", return_value=False),
+            patch.object(
+                async_cache,
+                "exists",
+                self._cache_exists(
+                    LAUNCHBOX_METADATA_NAME_KEY, LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY
+                ),
+            ),
+        ):
+            assert await handler.heartbeat() is False
 
     async def test_healthy_from_local_install_without_cloud_store(self):
         handler = LaunchboxHandler()
         with (
             patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=False),
             patch.object(LaunchboxHandler, "is_local_enabled", return_value=True),
-            patch.object(async_cache, "exists", new_callable=AsyncMock, return_value=0),
+            patch.object(async_cache, "exists", self._cache_exists()),
         ):
             assert await handler.heartbeat() is True
 

@@ -20,6 +20,7 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
+    LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
     LAUNCHBOX_PLATFORMS_KEY,
 )
@@ -125,6 +126,12 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
         if content is None:
             log.warning("No content received from launchbox metadata update")
             return update_stats.to_dict()
+
+        # A refresh keeps serving the previous dump, but a first import only
+        # holds the batches committed so far, so flag it to keep the provider
+        # from reporting healthy off a fraction of the entries.
+        if not await meta_launchbox_handler.is_remote_store_populated():
+            await async_cache.set(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY, "1")
 
         try:
             zip_file_bytes = BytesIO(content)
@@ -281,6 +288,9 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
         except (zipfile.BadZipFile, RuntimeError, OSError):
             log.error("Bad zip file in launchbox metadata update")
             return update_stats.to_dict()
+
+        # Also clears a flag left behind by an earlier run that died partway.
+        await async_cache.delete(LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY)
 
         log.info("Scheduled launchbox metadata update completed!")
 

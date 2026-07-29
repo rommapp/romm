@@ -16,6 +16,12 @@ LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY: Final[str] = (
 LAUNCHBOX_METADATA_IMAGE_KEY: Final[str] = "romm:launchbox_metadata_image"
 LAUNCHBOX_MAME_KEY: Final[str] = "romm:launchbox_mame"
 LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
+# Set while the store is being filled for the first time, and cleared once a run
+# completes. The dump is written in batches, so a partial store answers for only
+# a fraction of the entries.
+LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY: Final[str] = (
+    "romm:launchbox_metadata_initial_import"
+)
 
 LAUNCHBOX_LOCAL_DIR: Final[Path] = Path(ROMM_BASE_PATH) / "launchbox"
 LAUNCHBOX_PLATFORMS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Data" / "Platforms"
