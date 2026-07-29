@@ -1,3 +1,4 @@
+import os
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -126,3 +127,55 @@ class TestCleanupOrphanedResourcesRun:
 
         assert stats["platforms_in_fs"] == 0
         assert stats["removed_fs_platforms"] == 0
+
+
+class TestScanResourceDirs:
+    """The resource tree walk backing the cleanup task."""
+
+    @staticmethod
+    def _make_tree(root, layout: dict[int, list[int]]) -> None:
+        for platform_id, rom_ids in layout.items():
+            for rom_id in rom_ids:
+                (root / str(platform_id) / str(rom_id)).mkdir(parents=True)
+
+    def test_maps_platforms_to_rom_dirs(self, tmp_path):
+        self._make_tree(tmp_path, {1: [10, 11], 2: [20]})
+
+        assert mod._scan_resource_dirs(str(tmp_path)) == {1: {10, 11}, 2: {20}}
+
+    def test_ignores_non_numeric_names(self, tmp_path):
+        self._make_tree(tmp_path, {1: [10]})
+        (tmp_path / "not-a-platform").mkdir()
+        (tmp_path / "1" / "not-a-rom").mkdir()
+
+        assert mod._scan_resource_dirs(str(tmp_path)) == {1: {10}}
+
+    def test_ignores_files(self, tmp_path):
+        self._make_tree(tmp_path, {1: [10]})
+        (tmp_path / "2").write_text("stray file named like a platform")
+        (tmp_path / "1" / "20").write_text("stray file named like a rom")
+
+        assert mod._scan_resource_dirs(str(tmp_path)) == {1: {10}}
+
+    def test_empty_tree(self, tmp_path):
+        assert mod._scan_resource_dirs(str(tmp_path)) == {}
+
+    def test_platform_with_no_rom_dirs(self, tmp_path):
+        (tmp_path / "1").mkdir()
+
+        assert mod._scan_resource_dirs(str(tmp_path)) == {1: set()}
+
+    def test_unreadable_directory_yields_empty_set(self, tmp_path):
+        # A directory that disappears or denies access must not abort the walk,
+        # otherwise one bad platform would strand every other platform's orphans.
+        self._make_tree(tmp_path, {1: [10]})
+
+        real_scandir = os.scandir
+
+        def flaky_scandir(path):
+            if path.endswith(os.sep + "1"):
+                raise PermissionError(13, "Permission denied")
+            return real_scandir(path)
+
+        with patch.object(mod.os, "scandir", side_effect=flaky_scandir):
+            assert mod._scan_resource_dirs(str(tmp_path)) == {1: set()}

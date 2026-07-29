@@ -6,9 +6,9 @@
 //   1. Scraped resources — ScreenScraper is the richest and wins; gamelist
 //      fills in for the few types it also scrapes (mirrors v1's MediaCarousel
 //      fallbacks).
-//   2. Library media files — images/videos that live in the game folder on
-//      disk (rom.files), so a trailer or artwork dropped next to the ROM shows
-//      up here too.
+//   2. Library media files — images/videos sitting at the top level of the
+//      game folder on disk (rom.files), so a trailer or artwork dropped next
+//      to the ROM shows up here too.
 //
 // Covers, screenshots, the manual and the soundtrack are intentionally left
 // out: they each have their own surface elsewhere in the details view.
@@ -121,7 +121,15 @@ export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
     ];
 
   const libraryMedia = rom.files
-    .filter((file) => !file.category || !SURFACED_ELSEWHERE.has(file.category))
+    // Only top-level files count as media assets. Anything nested lives inside
+    // the game's own data (a Wii U dump ships cutscenes as content/Movie/*.mp4)
+    // and would otherwise flood the page with video elements. Nested media that
+    // is genuinely an asset has its own surface via its category.
+    .filter(
+      (file) =>
+        file.is_top_level &&
+        (!file.category || !SURFACED_ELSEWHERE.has(file.category)),
+    )
     .map((file) => {
       const ext = file.file_name.split(".").pop()?.toLowerCase() ?? "";
       const isVideo = LIBRARY_VIDEO_EXTENSIONS.has(ext);

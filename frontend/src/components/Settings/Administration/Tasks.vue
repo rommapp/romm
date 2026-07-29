@@ -49,6 +49,7 @@ const fetchTaskStatus = async () => {
 let refreshInterval: number | null = null;
 
 onMounted(() => {
+  tasksStore.fetchTasks();
   fetchTaskStatus();
   refreshInterval = window.setInterval(() => {
     fetchTaskStatus().catch((error) => {

@@ -1,12 +1,25 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import type { ActionKey } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import { useGameActions } from "./index";
 
 // Controllable stubs shared with the mocked modules below.
 const push = vi.fn();
+const locationAssign = vi.fn();
 const confirmFn = vi.fn();
 const confirmProtectedLaunch = { value: true };
+const canPlayEJS = { value: true };
+const canPlayRuffle = { value: false };
+const streamContainer = { value: null as object | null };
+let originalLocation: Location;
 // Granted action keys — `null` means "everything" (the default).
 const grantedActions: { value: Set<ActionKey> | null } = { value: null };
 
@@ -35,7 +48,9 @@ vi.mock("@/stores/roms", () => ({
   default: () => ({ update: vi.fn(), removeFromContinuePlaying: vi.fn() }),
 }));
 vi.mock("@/stores/streaming", () => ({
-  useStreamingStore: () => ({ containerForPlatform: () => null }),
+  useStreamingStore: () => ({
+    containerForPlatform: () => streamContainer.value,
+  }),
 }));
 vi.mock("@/utils", () => ({
   getDownloadLink: vi.fn(),
@@ -49,12 +64,8 @@ vi.mock("@/v2/composables/useCan", () => ({
     },
   }),
 }));
-// EJS is the only playable core in these tests, so play() routes to /ejs.
 vi.mock("@/v2/composables/useCanPlay", () => ({
-  useCanPlay: () => ({
-    canPlayEJS: { value: true },
-    canPlayRuffle: { value: false },
-  }),
+  useCanPlay: () => ({ canPlayEJS, canPlayRuffle }),
 }));
 vi.mock("@/v2/composables/useClipboard", () => ({
   useClipboard: () => ({ copy: vi.fn() }),
@@ -81,10 +92,29 @@ function makeRom(status: SimpleRom["rom_user"]["status"] = null): SimpleRom {
   } as unknown as SimpleRom;
 }
 
+beforeAll(() => {
+  originalLocation = window.location;
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: { ...originalLocation, assign: locationAssign },
+  });
+});
+
+afterAll(() => {
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: originalLocation,
+  });
+});
+
 beforeEach(() => {
   push.mockClear();
+  locationAssign.mockClear();
   confirmFn.mockClear();
   confirmProtectedLaunch.value = true;
+  canPlayEJS.value = true;
+  canPlayRuffle.value = false;
+  streamContainer.value = null;
   grantedActions.value = null;
 });
 
@@ -93,7 +123,8 @@ describe("useGameActions.play — launch confirmation", () => {
     const actions = useGameActions(() => makeRom(null));
     await actions.play();
     expect(confirmFn).not.toHaveBeenCalled();
-    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
+    expect(locationAssign).toHaveBeenCalledWith("/rom/1/ejs");
+    expect(push).not.toHaveBeenCalled();
   });
 
   it.each(["retired", "never_playing"] as const)(
@@ -103,6 +134,7 @@ describe("useGameActions.play — launch confirmation", () => {
       const actions = useGameActions(() => makeRom(status));
       await actions.play();
       expect(confirmFn).toHaveBeenCalledTimes(1);
+      expect(locationAssign).not.toHaveBeenCalled();
       expect(push).not.toHaveBeenCalled();
     },
   );
@@ -112,7 +144,8 @@ describe("useGameActions.play — launch confirmation", () => {
     const actions = useGameActions(() => makeRom("retired"));
     await actions.play();
     expect(confirmFn).toHaveBeenCalledTimes(1);
-    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
+    expect(locationAssign).toHaveBeenCalledWith("/rom/1/ejs");
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("skips the prompt when the preference is disabled", async () => {
@@ -120,7 +153,29 @@ describe("useGameActions.play — launch confirmation", () => {
     const actions = useGameActions(() => makeRom("never_playing"));
     await actions.play();
     expect(confirmFn).not.toHaveBeenCalled();
-    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
+    expect(locationAssign).toHaveBeenCalledWith("/rom/1/ejs");
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("prefers streaming over EmulatorJS", async () => {
+    streamContainer.value = {};
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play();
+
+    expect(push).toHaveBeenCalledWith("/rom/1/stream");
+    expect(locationAssign).not.toHaveBeenCalled();
+  });
+
+  it("keeps SPA navigation for Ruffle", async () => {
+    canPlayEJS.value = false;
+    canPlayRuffle.value = true;
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play();
+
+    expect(push).toHaveBeenCalledWith("/rom/1/ruffle");
+    expect(locationAssign).not.toHaveBeenCalled();
   });
 });
 

@@ -11,7 +11,6 @@ from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     TASK_RESULT_TTL,
-    TASK_TIMEOUT,
 )
 from decorators.auth import protected_route
 from endpoints.responses import (
@@ -145,7 +144,7 @@ def _build_task_info(name: str, task: Task) -> TaskInfo:
         title=task.title,
         description=task.description,
         enabled=task.enabled,
-        manual_run=task.manual_run,
+        manual_run=task.can_run_manually,
         cron_string=task.cron_string or "",
     )
 
@@ -385,7 +384,7 @@ async def run_single_task(
         )
 
     task_instance = all_tasks[task_name]
-    if not task_instance.enabled or not task_instance.manual_run:
+    if not task_instance.can_run_manually:
         raise HTTPException(
             status_code=400,
             detail=f"Task '{task_name}' cannot be run",
@@ -394,7 +393,7 @@ async def run_single_task(
     job = low_prio_queue.enqueue(
         task_instance.run,
         kwargs=task_kwargs or {},
-        job_timeout=TASK_TIMEOUT,
+        job_timeout=task_instance.timeout,
         result_ttl=TASK_RESULT_TTL,
         meta={
             "task_name": task_instance.title,

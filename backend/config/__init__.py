@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Final, overload
 
 import yarl
@@ -38,6 +39,13 @@ RESOURCES_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/assets"
 ZIP_CACHE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/zips"
 FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
+
+# ROM UPLOADS
+# Chunked upload parts are staged on disk, under RESOURCES_BASE_PATH by default.
+ROM_UPLOAD_TMP_BASE: Final[Path] = (
+    Path(ROMM_TMP_PATH) if ROMM_TMP_PATH else Path(RESOURCES_BASE_PATH)
+) / "tmp/uploads"
+ROM_UPLOAD_TTL: Final[int] = 86400  # 24 hours
 
 # SEVEN ZIP
 SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)

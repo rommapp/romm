@@ -26,6 +26,7 @@ import {
   type LayoutMode,
   useGalleryMode,
 } from "@/v2/composables/useGalleryMode";
+import { patchQuery } from "@/v2/utils/routeQuery";
 
 const VALID_GROUP_BY: readonly GroupByMode[] = [
   "letter",
@@ -72,10 +73,7 @@ export function useGalleryViewModeUrl() {
         ? (route.query[key] as string)
         : undefined;
     if (value === current) return;
-    const nextQuery = { ...route.query };
-    if (value === undefined) delete nextQuery[key];
-    else nextQuery[key] = value;
-    router.replace({ query: nextQuery });
+    patchQuery(router, { [key]: value });
   }
 
   // Drop the param when the value is the default — keeps URLs clean.

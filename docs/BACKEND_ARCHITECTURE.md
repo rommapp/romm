@@ -1537,28 +1537,29 @@ Falls back to `FakeRedis` in test mode.
 
 #### Redis
 
-| Variable         | Default     | Description           |
-| ---------------- | ----------- | --------------------- |
-| `REDIS_HOST`     | `127.0.0.1` | Redis host            |
-| `REDIS_PORT`     | `6379`      | Redis port            |
-| `REDIS_USERNAME` |             | Redis username (ACL)  |
-| `REDIS_PASSWORD` |             | Redis password        |
-| `REDIS_DB`       | `0`         | Redis database number |
-| `REDIS_SSL`      | `false`     | Enable SSL            |
+| Variable            | Default     | Description            |
+| ------------------- | ----------- | ---------------------- |
+| `REDIS_HOST`        | `127.0.0.1` | Redis host             |
+| `REDIS_PORT`        | `6379`      | Redis port             |
+| `REDIS_USERNAME`    |             | Redis username (ACL)   |
+| `REDIS_PASSWORD`    |             | Redis password         |
+| `REDIS_DB`          | `0`         | Redis database number  |
+| `REDIS_SSL`         | `false`     | Enable SSL             |
+| `REDIS_SAVE_POLICY` | `3600 1`    | Valkey snapshot policy |
 
 #### Authentication
 
-| Variable                             | Default   | Description                               |
-| ------------------------------------ | --------- | ----------------------------------------- |
-| `ROMM_AUTH_SECRET_KEY`               |           | JWT/session signing key (random if unset) |
-| `OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS`  | `1800`    | 30 minutes                                |
-| `OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS` | `604800`  | 7 days                                    |
-| `SESSION_MAX_AGE_SECONDS`            | `1209600` | 14 days                                   |
-| `DISABLE_CSRF_PROTECTION`            | `false`   | Disable CSRF                              |
-| `DISABLE_DOWNLOAD_ENDPOINT_AUTH`     | `false`   | Allow unauthenticated downloads           |
-| `DISABLE_USERPASS_LOGIN`             | `false`   | Disable password login                    |
-| `DISABLE_LOGS_VIEWER`                | `false`   | Disable backend log viewer + endpoint     |
-| `KIOSK_MODE`                         | `false`   | Read-only anonymous access                |
+| Variable                             | Default   | Description                           |
+| ------------------------------------ | --------- | ------------------------------------- |
+| `ROMM_AUTH_SECRET_KEY`               |           | Session signing key (random if unset) |
+| `OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS`  | `1800`    | 30 minutes                            |
+| `OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS` | `604800`  | 7 days                                |
+| `SESSION_MAX_AGE_SECONDS`            | `1209600` | 14 days                               |
+| `DISABLE_CSRF_PROTECTION`            | `false`   | Disable CSRF                          |
+| `DISABLE_DOWNLOAD_ENDPOINT_AUTH`     | `false`   | Allow unauthenticated downloads       |
+| `DISABLE_USERPASS_LOGIN`             | `false`   | Disable password login                |
+| `DISABLE_LOGS_VIEWER`                | `false`   | Disable backend log viewer + endpoint |
+| `KIOSK_MODE`                         | `false`   | Read-only anonymous access            |
 
 #### OIDC
 

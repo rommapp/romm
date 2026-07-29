@@ -16,7 +16,9 @@ def mock_task():
     task.task_type = TaskType.CLEANUP
     task.enabled = True
     task.manual_run = True
+    task.can_run_manually = True
     task.cron_string = "0 0 * * *"
+    task.timeout = 300
     task.run = Mock()
     return task
 
@@ -30,7 +32,9 @@ def mock_disabled_task():
     task.task_type = TaskType.CLEANUP
     task.enabled = False
     task.manual_run = True
+    task.can_run_manually = False
     task.cron_string = None
+    task.timeout = 300
     task.run = Mock()
     return task
 
@@ -44,7 +48,9 @@ def mock_non_manual_task():
     task.task_type = TaskType.CLEANUP
     task.enabled = True
     task.manual_run = False
+    task.can_run_manually = False
     task.cron_string = "0 0 * * *"
+    task.timeout = 300
     task.run = Mock()
     return task
 
@@ -87,6 +93,8 @@ class TestListTasks:
                     description="Manual task",
                     enabled=True,
                     manual_run=True,
+                    can_run_manually=True,
+                    timeout=300,
                     cron_string=None,
                 ),
             }
@@ -105,6 +113,8 @@ class TestListTasks:
                     description="Scheduled task",
                     enabled=True,
                     manual_run=False,
+                    can_run_manually=False,
+                    timeout=300,
                     cron_string="0 0 * * *",
                 ),
             }
@@ -218,6 +228,8 @@ class TestRunSingleTask:
                     description="Test Description",
                     enabled=True,
                     manual_run=True,
+                    can_run_manually=True,
+                    timeout=300,
                     run=Mock(),
                 ),
             }
@@ -269,6 +281,8 @@ class TestRunSingleTask:
                     description="Disabled Description",
                     enabled=False,
                     manual_run=True,
+                    can_run_manually=False,
+                    timeout=300,
                     run=Mock(),
                 ),
             }
@@ -300,6 +314,8 @@ class TestRunSingleTask:
                     description="Non-Manual Description",
                     enabled=True,
                     manual_run=False,
+                    can_run_manually=False,
+                    timeout=300,
                     run=Mock(),
                 ),
             }
@@ -510,6 +526,8 @@ class TestTaskInfoBuilding:
                         description="Test Description",
                         enabled=True,
                         manual_run=True,
+                        can_run_manually=True,
+                        timeout=300,
                         cron_string="0 0 * * *",
                     ),
                 }
@@ -555,6 +573,8 @@ class TestIntegration:
                         description="Workflow Description",
                         enabled=True,
                         manual_run=True,
+                        can_run_manually=True,
+                        timeout=300,
                         run=Mock(),
                     ),
                 }
