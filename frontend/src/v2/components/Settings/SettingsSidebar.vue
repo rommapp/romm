@@ -128,6 +128,12 @@ const groups = computed<Group[]>(() => {
           visible: scopes.value.includes("users.write"),
         },
         {
+          icon: "mdi-folder-network-outline",
+          label: t("settings.smb-access"),
+          to: { name: ROUTES.SMB_ACCESS },
+          visible: scopes.value.includes("users.write"),
+        },
+        {
           icon: "mdi-access-point",
           label: t("activity.active-sessions"),
           to: { name: ROUTES.ACTIVITY },

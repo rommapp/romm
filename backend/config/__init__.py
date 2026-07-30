@@ -4,7 +4,6 @@ from typing import Final, overload
 
 import yarl
 from dotenv import load_dotenv
-
 from utils.database import safe_int, safe_str_to_bool
 
 load_dotenv()
@@ -279,6 +278,20 @@ SYNC_SSH_KEYS_PATH: Final[str] = _get_env(
 SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
     "SYNC_SSH_KNOWN_HOSTS_PATH", f"{SYNC_BASE_PATH}/known_hosts"
 )
+
+# SMB
+ENABLE_SMB: Final[bool] = safe_str_to_bool(_get_env("ENABLE_SMB"))
+SMB_CONTROLLER_SOCKET: Final[str] = _get_env(
+    "SMB_CONTROLLER_SOCKET", "/run/romm-smb/control.sock"
+)
+SMB_CONTROLLER_TIMEOUT: Final[int] = max(
+    1, safe_int(_get_env("SMB_CONTROLLER_TIMEOUT"), 5)
+)
+SMB_ADVERTISED_HOST: Final[str | None] = _get_env("SMB_ADVERTISED_HOST")
+SMB_ADVERTISED_PORT: Final[int] = min(
+    65535, max(1, safe_int(_get_env("SMB_ADVERTISED_PORT"), 445))
+)
+SMB_WORKGROUP: Final[str] = _get_env("SMB_WORKGROUP", "WORKGROUP")
 
 # EMULATION
 DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_JS"))

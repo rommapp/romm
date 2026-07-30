@@ -37,6 +37,7 @@ __pycache__
 
 # secrets
 .env
+/.secrets/
 
 # database
 mariadb

@@ -52,6 +52,7 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   "metadata-sources": () => import("@/v2/views/Settings/MetadataSources.vue"),
   "client-api-tokens": () => import("@/v2/views/Settings/ClientApiTokens.vue"),
   administration: () => import("@/v2/views/Settings/Administration.vue"),
+  "smb-access": () => import("@/v2/views/Settings/SmbAccess.vue"),
   "server-stats": () => import("@/v2/views/Settings/ServerStats.vue"),
   logs: () => import("@/v2/views/Settings/Logs.vue"),
   // V2-only index pages (no v1 equivalent — the v1 UI uses its drawer)

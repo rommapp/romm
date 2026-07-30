@@ -246,6 +246,13 @@ async function onLogout() {
         @click="open = false"
       />
       <RMenuItem
+        v-if="canSeeAdmin"
+        :to="{ name: ROUTES.SMB_ACCESS }"
+        icon="mdi-folder-network-outline"
+        :label="t('settings.smb-access')"
+        @click="open = false"
+      />
+      <RMenuItem
         :to="{ name: ROUTES.ACTIVITY }"
         icon="mdi-access-point"
         :label="t('activity.active-sessions')"

@@ -43,6 +43,7 @@ export const ROUTES = {
   METADATA_SOURCES: "metadata-sources",
   CLIENT_API_TOKENS: "client-api-tokens",
   ADMINISTRATION: "administration",
+  SMB_ACCESS: "smb-access",
   SERVER_STATS: "server-stats",
   LOGS: "logs",
   PAIR: "pair",
@@ -412,6 +413,18 @@ const routes = [
             },
           },
           {
+            path: "smb-access",
+            name: ROUTES.SMB_ACCESS,
+            meta: {
+              title: i18n.global.t("settings.smb-access"),
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.SMB_ACCESS),
+            },
+          },
+          {
             path: "server-stats",
             name: ROUTES.SERVER_STATS,
             meta: {
@@ -572,6 +585,7 @@ const routePermissions: RoutePermissions[] = [
   { path: ROUTES.LIBRARY_MANAGEMENT, requiredScopes: ["platforms.write"] },
   { path: ROUTES.SCAN_SETTINGS, requiredScopes: ["platforms.write"] },
   { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
+  { path: ROUTES.SMB_ACCESS, requiredScopes: ["users.write"] },
   { path: ROUTES.LOGS, requiredScopes: ["logs.read"] },
 ];
 

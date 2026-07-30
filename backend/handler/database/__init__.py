@@ -10,6 +10,7 @@ from .play_sessions_handler import DBPlaySessionsHandler
 from .roms_handler import DBRomsHandler
 from .saves_handler import DBSavesHandler
 from .screenshots_handler import DBScreenshotsHandler
+from .smb_handler import DBSmbHandler
 from .states_handler import DBStatesHandler
 from .stats_handler import DBStatsHandler
 from .sync_sessions_handler import DBSyncSessionsHandler
@@ -27,6 +28,7 @@ db_play_session_handler = DBPlaySessionsHandler()
 db_rom_handler = DBRomsHandler()
 db_save_handler = DBSavesHandler()
 db_screenshot_handler = DBScreenshotsHandler()
+db_smb_handler = DBSmbHandler()
 db_state_handler = DBStatesHandler()
 db_stats_handler = DBStatsHandler()
 db_sync_session_handler = DBSyncSessionsHandler()

@@ -2,6 +2,11 @@ volumes:
   mysql_data:
   romm_resources:
   romm_redis_data:
+  romm_smb_control:
+  romm_smb_data:
+
+networks:
+  romm-smb:
 
 services:
   romm:
@@ -14,6 +19,11 @@ services:
       - DB_USER=romm-user # Should match MARIADB_USER in mariadb
       - DB_PASSWD= # Should match MARIADB_PASSWORD in mariadb
       - ROMM_AUTH_SECRET_KEY= # Generate a key with `openssl rand -hex 32`
+      - ENABLE_SMB=${ENABLE_SMB:-true}
+      - SMB_CONTROLLER_SOCKET=/run/romm-smb/control.sock
+      - SMB_ADVERTISED_HOST=${ROMM_SMB_ADVERTISED_HOST:-}
+      - SMB_ADVERTISED_PORT=${ROMM_SMB_PORT:-445}
+      - SMB_WORKGROUP=${ROMM_SMB_WORKGROUP:-WORKGROUP}
       - SCREENSCRAPER_USER= # These are the recommended metadata providers
       - SCREENSCRAPER_PASSWORD= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#screenscraper
       - RETROACHIEVEMENTS_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
@@ -22,7 +32,8 @@ services:
     volumes:
       - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
       - romm_redis_data:/redis-data # Cached data for background tasks
-      - /path/to/library:/romm/library # Your game library. Check https://docs.romm.app/latest/Getting-Started/Folder-Structure/ for more details.
+      - ${ROMM_LIBRARY_PATH:-/path/to/library}:/romm/library # Your game library. Check https://docs.romm.app/latest/Getting-Started/Folder-Structure/ for more details.
+      - romm_smb_control:/run/romm-smb
       - /path/to/assets:/romm/assets # Uploaded saves, states, etc.
       - /path/to/config:/romm/config # (Optional) Path where config.yml is stored
     ports:
@@ -31,6 +42,41 @@ services:
       romm-db:
         condition: service_healthy
         restart: true
+      romm-smb:
+        condition: service_started
+        restart: true
+
+  romm-smb:
+    build:
+      context: ..
+      dockerfile: docker/smb/Dockerfile
+    image: romm-smb:local
+    container_name: romm-smb
+    restart: unless-stopped
+    environment:
+      - ROMM_SMB_WORKGROUP=${ROMM_SMB_WORKGROUP:-WORKGROUP}
+    volumes:
+      - ${ROMM_LIBRARY_PATH:-/path/to/library}:/library
+      - romm_smb_control:/run/romm-smb
+      - romm_smb_data:/var/lib/samba
+    networks:
+      - romm-smb
+    ports:
+      - ${ROMM_SMB_BIND_ADDRESS:-127.0.0.1}:${ROMM_SMB_PORT:-445}:445/tcp
+    tmpfs:
+      - /run/samba:mode=0755
+      - /var/cache/samba:mode=0755
+      - /var/log/samba:mode=0755,size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - NET_BIND_SERVICE
+      - SETGID
+      - SETUID
 
   romm-db:
     image: mariadb:latest
