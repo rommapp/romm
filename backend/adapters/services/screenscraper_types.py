@@ -10,8 +10,6 @@ class SSUser(TypedDict):
     maxrequestspermin: NotRequired[str]
     maxrequestsperday: NotRequired[str]
     requeststoday: NotRequired[str]
-    # ROMs ScreenScraper does not recognize count against their own, smaller,
-    # daily allowance on top of the total one.
     maxrequestskoperday: NotRequired[str]
     requestskotoday: NotRequired[str]
     maxdownloadspeed: NotRequired[str]

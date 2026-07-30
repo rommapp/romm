@@ -175,7 +175,7 @@ def _trip_daily_quota(reason: str) -> None:
     if not _state.daily_quota_exhausted:
         log.warning(
             "ScreenScraper %s; skipping ScreenScraper for the rest of this scan "
-            "(quotas reset at midnight French time)",
+            "(quotas reset at midnight CET)",
             reason,
         )
     _state.daily_quota_exhausted = True
@@ -305,7 +305,7 @@ def _warn_on_low_quota(limits: SSAccountLimits) -> None:
         if remaining <= allowance * SS_LOW_QUOTA_FRACTION:
             log.warning(
                 "ScreenScraper: only %d of %d daily %s left, "
-                "the quota resets at midnight French time",
+                "the quota resets at midnight CET",
                 remaining,
                 allowance,
                 label,
@@ -450,7 +450,7 @@ class ScreenScraperService:
         if _state.daily_quota_exhausted:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="ScreenScraper daily quota exhausted. It resets at midnight French time.",
+                detail="ScreenScraper daily quota exhausted. It resets at midnight CET.",
             )
 
         aiohttp_session = ctx_aiohttp_session.get()
@@ -503,13 +503,13 @@ class ScreenScraperService:
                 _trip_daily_quota("daily scrape quota exhausted")
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="ScreenScraper daily scrape quota exhausted. It resets at midnight French time.",
+                    detail="ScreenScraper daily scrape quota exhausted. It resets at midnight CET.",
                 ) from err
             elif err.status == 431:
                 _trip_daily_quota("daily unrecognized-ROM quota exhausted")
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="ScreenScraper daily unrecognized-ROM quota exhausted. It resets at midnight French time.",
+                    detail="ScreenScraper daily unrecognized-ROM quota exhausted. It resets at midnight CET.",
                 ) from err
             elif err.status == 423:
                 raise HTTPException(
@@ -574,13 +574,13 @@ class ScreenScraperService:
                     _trip_daily_quota("daily scrape quota exhausted")
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail="ScreenScraper daily scrape quota exhausted. It resets at midnight French time.",
+                        detail="ScreenScraper daily scrape quota exhausted. It resets at midnight CET.",
                     ) from err
                 elif err.status == 431:
                     _trip_daily_quota("daily unrecognized-ROM quota exhausted")
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail="ScreenScraper daily unrecognized-ROM quota exhausted. It resets at midnight French time.",
+                        detail="ScreenScraper daily unrecognized-ROM quota exhausted. It resets at midnight CET.",
                     ) from err
                 elif err.status == 423:
                     raise HTTPException(
