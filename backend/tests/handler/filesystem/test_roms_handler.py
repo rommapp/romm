@@ -1,3 +1,4 @@
+import hashlib
 import os
 import shutil
 import tempfile
@@ -479,6 +480,54 @@ class TestFSRomsHandler:
                 assert isinstance(rom_file, RomFile)
                 assert rom_file.file_size_bytes > 0
                 assert rom_file.last_modified is not None
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_single_rom_hashes_match_its_only_file(
+        self, handler: FSRomsHandler, rom_single, config
+    ):
+        """A single-file ROM's hashes are its one file's hashes.
+
+        The ROM-level values reuse that file's hashers instead of streaming the
+        same bytes through a second set, so pin the identity that allows it.
+        """
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            m.setattr("os.path.exists", lambda x: False)
+
+            parsed_rom_files = await handler.get_rom_files(rom_single)
+
+        assert len(parsed_rom_files.rom_files) == 1
+        only_file = parsed_rom_files.rom_files[0]
+        assert parsed_rom_files.crc_hash == only_file.crc_hash
+        assert parsed_rom_files.md5_hash == only_file.md5_hash
+        assert parsed_rom_files.sha1_hash == only_file.sha1_hash
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_multi_rom_hash_spans_every_part(
+        self, handler: FSRomsHandler, rom_multi, config
+    ):
+        """A multi-file ROM hashes the concatenation of its top-level files.
+
+        That composite cannot be derived from the per-file digests, so the parts
+        are streamed through a second set of hashers. Pin that it still covers
+        every part rather than collapsing to a single file's hash.
+        """
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            m.setattr("os.path.exists", lambda x: False)
+
+            parsed_rom_files = await handler.get_rom_files(rom_multi)
+
+        rom_dir = Path(LIBRARY_BASE_PATH, "n64", "roms", rom_multi.fs_name)
+        expected_md5 = hashlib.md5(usedforsecurity=False)
+        for rom_file in parsed_rom_files.rom_files:
+            expected_md5.update((rom_dir / rom_file.file_name).read_bytes())
+
+        assert len(parsed_rom_files.rom_files) >= 2
+        assert parsed_rom_files.md5_hash == expected_md5.hexdigest()
+        assert parsed_rom_files.md5_hash not in {
+            rom_file.md5_hash for rom_file in parsed_rom_files.rom_files
+        }
 
     @pytest.mark.asyncio
     async def test_get_rom_files_multi_rom_multi_dot_exclusion(

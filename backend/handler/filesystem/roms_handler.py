@@ -414,9 +414,6 @@ class FSRomsHandler(FSHandler):
                             crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
                                 self._calculate_rom_hashes,
                                 Path(f_path, file_name),
-                                0,
-                                hashlib.md5(usedforsecurity=False),
-                                hashlib.sha1(usedforsecurity=False),
                             )
                     except zlib.error:
                         crc_c = 0
@@ -545,19 +542,18 @@ class FSRomsHandler(FSHandler):
                 )
         elif hashable_platform:
             try:
-                crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
-                    await asyncio.to_thread(
-                        self._calculate_rom_hashes,
-                        Path(abs_fs_path, rom.fs_name),
-                        rom_crc_c,
-                        rom_md5_h,
-                        rom_sha1_h,
-                    )
+                crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
+                    self._calculate_rom_hashes,
+                    Path(abs_fs_path, rom.fs_name),
                 )
             except zlib.error:
                 crc_c = 0
                 md5_h = hashlib.md5(usedforsecurity=False)
                 sha1_h = hashlib.sha1(usedforsecurity=False)
+
+            # A single-file ROM spans exactly one file, so its ROM-level hashes
+            # are that file's hashes.
+            rom_crc_c, rom_md5_h, rom_sha1_h = crc_c, md5_h, sha1_h
 
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
             if calculate_hashes:
@@ -619,10 +615,17 @@ class FSRomsHandler(FSHandler):
     def _calculate_rom_hashes(
         self,
         file_path: Path,
-        rom_crc_c: int,
-        rom_md5_h: Any,
-        rom_sha1_h: Any,
+        rom_crc_c: int = 0,
+        rom_md5_h: Any = None,
+        rom_sha1_h: Any = None,
     ) -> tuple[int, int, Any, Any, Any, Any]:
+        """Hash one file, optionally folding its bytes into ROM-level accumulators.
+
+        A ROM-level hash spans every top-level file of a multi-file ROM, so it
+        can only be built by feeding each file through a second set of hashers.
+        Callers that don't need one pass no accumulators, because a second pass
+        over a chunk costs as much as the first.
+        """
         extension = Path(file_path).suffix.lower()
         try:
             file_type = detect_mime_type(file_path)
@@ -630,18 +633,19 @@ class FSRomsHandler(FSHandler):
             crc_c = 0
             md5_h = hashlib.md5(usedforsecurity=False)
             sha1_h = hashlib.sha1(usedforsecurity=False)
+            accumulate = rom_md5_h is not None and rom_sha1_h is not None
 
             def update_hashes(chunk: bytes | bytearray):
+                nonlocal crc_c, rom_crc_c
+
                 md5_h.update(chunk)
-                rom_md5_h.update(chunk)
-
                 sha1_h.update(chunk)
-                rom_sha1_h.update(chunk)
-
-                nonlocal crc_c
                 crc_c = binascii.crc32(chunk, crc_c)
-                nonlocal rom_crc_c
-                rom_crc_c = binascii.crc32(chunk, rom_crc_c)
+
+                if accumulate:
+                    rom_md5_h.update(chunk)
+                    rom_sha1_h.update(chunk)
+                    rom_crc_c = binascii.crc32(chunk, rom_crc_c)
 
             if extension == ".zip" or file_type == "application/zip":
                 for chunk in read_zip_file(file_path):
