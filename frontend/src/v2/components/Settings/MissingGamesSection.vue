@@ -41,13 +41,22 @@ import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
-import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGalleryRoms, { type SidecarOptions } from "@/v2/stores/galleryRoms";
 
 interface PlatformItem {
   id: number;
   slug: string;
   name: string;
 }
+
+// This tab renders no filter drawer and no AlphaStrip, and sizes its
+// scroller off `total` alone, so all three whole-library aggregates are
+// scans whose results it would discard.
+const NO_SIDECARS: SidecarOptions = {
+  withCharIndex: false,
+  withFilterValues: false,
+  withRomIdIndex: false,
+};
 
 defineOptions({ inheritAttrs: false });
 
@@ -94,7 +103,7 @@ const selectedPlatformIds = computed<number[]>({
       .filter((p): p is Platform => !!p);
     galleryFilter.setSelectedFilterPlatforms(next);
     galleryRoms.invalidateWindows();
-    void galleryRoms.fetchInitialMetadata();
+    void galleryRoms.fetchInitialMetadata(NO_SIDECARS);
   },
 });
 
@@ -162,7 +171,7 @@ function onListSort({ key, dir }: { key: ListSortKey; dir: "asc" | "desc" }) {
   galleryRoms.setOrderBy(key);
   galleryRoms.setOrderDir(dir);
   galleryRoms.invalidateWindows();
-  void galleryRoms.fetchInitialMetadata();
+  void galleryRoms.fetchInitialMetadata(NO_SIDECARS);
 }
 
 // Viewport-driven windowed fetch. Unlike the real gallery this section
@@ -246,7 +255,7 @@ async function cleanupAll() {
     snackbar.success(t("settings.cleanup-queued"));
     setTimeout(() => {
       galleryRoms.invalidateWindows();
-      void galleryRoms.fetchInitialMetadata();
+      void galleryRoms.fetchInitialMetadata(NO_SIDECARS);
     }, 1500);
   } catch (err) {
     snackbar.error(t("settings.couldnt-queue-cleanup", { error: String(err) }));
@@ -263,7 +272,7 @@ onMounted(() => {
   galleryFilter.setSelectedFilterPlatforms([]);
   galleryRoms.setOrderBy("name");
   galleryRoms.setOrderDir("asc");
-  void galleryRoms.fetchInitialMetadata();
+  void galleryRoms.fetchInitialMetadata(NO_SIDECARS);
 });
 
 onBeforeUnmount(() => {
