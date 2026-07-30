@@ -1,0 +1,48 @@
+#!/command/with-contenv bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+shopt -s inherit_errexit
+
+ROMM_LOG_TAG="valkey"
+# shellcheck source=SCRIPTDIR/../../scripts/lib.sh
+source /etc/s6-overlay/scripts/lib.sh
+
+record_process_group
+
+if [[ -n ${REDIS_HOST:-} ]]; then
+	info_log "REDIS_HOST is set, not starting internal valkey-server"
+	disable_service
+fi
+
+info_log "Starting internal valkey"
+
+# Most of the keyspace is bulky, rebuildable metadata (Switch TitleDB,
+# LaunchBox), so every snapshot rewrites hundreds of MB of dump.rdb. Valkey's
+# stock policy does that every few minutes even on an idle instance, which
+# adds up to gigabytes of disk writes per hour.
+#
+# Snapshotting hourly keeps a graceful shutdown lossless while a hard crash can
+# only lose an hour of sessions and cached metadata. Set REDIS_SAVE_POLICY to an
+# empty value to never snapshot.
+REDIS_SAVE_POLICY="${REDIS_SAVE_POLICY="3600 1"}"
+
+declare -a save_flags=(--save "")
+if [[ -n ${REDIS_SAVE_POLICY} ]]; then
+	# shellcheck disable=SC2206 # each "<seconds> <changes>" token is its own argument
+	save_flags=(--save ${REDIS_SAVE_POLICY})
+fi
+
+# Valkey aborts its own shutdown when the exit snapshot cannot be written, for
+# example on a read-only /redis-data, and would otherwise sit there ignoring
+# SIGTERM until s6 escalates to SIGKILL and drops the snapshot entirely.
+declare -a args=(--dir /redis-data "${save_flags[@]}" --shutdown-on-sigterm force)
+if [[ -f /usr/local/etc/valkey/valkey.conf ]]; then
+	args=(/usr/local/etc/valkey/valkey.conf --shutdown-on-sigterm force)
+fi
+
+if [[ ${LOGLEVEL^^} == "DEBUG" ]]; then
+	exec valkey-server "${args[@]}"
+fi
+exec valkey-server "${args[@]}" >/dev/null 2>&1

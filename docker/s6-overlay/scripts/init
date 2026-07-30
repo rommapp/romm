@@ -1,0 +1,26 @@
+#!/command/with-contenv bash
+# Prepare the environment every other service inherits.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+shopt -s inherit_errexit
+
+ROMM_LOG_TAG="init"
+# shellcheck source=SCRIPTDIR/lib.sh
+source /etc/s6-overlay/scripts/lib.sh
+
+print_banner
+
+# Values written here are picked up by every later `with-contenv` service.
+S6_ENV="/run/s6/container_environment"
+
+if ! printenv | grep -q '^OTEL_'; then
+	info_log "No OpenTelemetry environment variables found, disabling OpenTelemetry SDK"
+	printf 'true' >"${S6_ENV}/OTEL_SDK_DISABLED"
+fi
+
+if [[ -z ${ROMM_AUTH_SECRET_KEY-} ]]; then
+	warn_log "ROMM_AUTH_SECRET_KEY not set, generating a random secret key!"
+	python3 -c "import secrets; print(secrets.token_hex(32), end='')" >"${S6_ENV}/ROMM_AUTH_SECRET_KEY"
+fi

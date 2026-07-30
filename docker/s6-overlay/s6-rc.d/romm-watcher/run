@@ -1,0 +1,29 @@
+#!/command/with-contenv bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+shopt -s inherit_errexit
+
+ROMM_LOG_TAG="watcher"
+# shellcheck source=SCRIPTDIR/../../scripts/lib.sh
+source /etc/s6-overlay/scripts/lib.sh
+
+record_process_group
+
+if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:-false} != "true" ]]; then
+	debug_log "Rescan on filesystem change is disabled, not starting the watcher"
+	disable_service
+fi
+
+info_log "Starting watcher"
+
+cd /backend || error_log "/backend directory doesn't seem to exist"
+
+declare -a wrap=()
+otel_prefix wrap watcher
+
+exec watchfiles \
+	--target-type command \
+	"${wrap[*]@Q} python3 watcher.py" \
+	/romm/library

@@ -1,0 +1,21 @@
+#!/command/with-contenv bash
+# ./finish for every supervised longrun.
+#
+# Children of a service that died hard (OOM kill, SIGKILL, segfault) are
+# reparented to PID 1 but keep the dead parent's process group, and they keep
+# holding its listening sockets. The replacement nginx or gunicorn then fails to
+# bind and s6 restarts it forever. Sweep the group before the service comes back.
+
+set -o nounset
+
+pgid_file="/run/romm/$(basename "${PWD}").pgid"
+[[ -f ${pgid_file} ]] || exit 0
+
+pgid=$(cat "${pgid_file}")
+rm -f "${pgid_file}"
+
+# Never widen this to 0 or 1: those signal every process we are allowed to signal.
+[[ ${pgid} =~ ^[0-9]+$ ]] && ((pgid > 1)) || exit 0
+
+kill -9 -- "-${pgid}" 2>/dev/null || true
+exit 0

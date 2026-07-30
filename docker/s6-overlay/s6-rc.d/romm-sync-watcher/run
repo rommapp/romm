@@ -1,0 +1,32 @@
+#!/command/with-contenv bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+shopt -s inherit_errexit
+
+ROMM_LOG_TAG="sync-watcher"
+# shellcheck source=SCRIPTDIR/../../scripts/lib.sh
+source /etc/s6-overlay/scripts/lib.sh
+
+record_process_group
+
+if [[ ${ENABLE_SYNC_FOLDER_WATCHER:-false} != "true" ]]; then
+	debug_log "Sync folder watcher is disabled, not starting it"
+	disable_service
+fi
+
+info_log "Starting sync folder watcher"
+
+sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
+mkdir -p "${sync_base_path}"
+
+cd /backend || error_log "/backend directory doesn't seem to exist"
+
+declare -a wrap=()
+otel_prefix wrap sync_watcher
+
+exec watchfiles \
+	--target-type command \
+	"${wrap[*]@Q} python3 sync_watcher.py" \
+	"${sync_base_path}"
