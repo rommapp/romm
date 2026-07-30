@@ -25,7 +25,7 @@ from handler.filesystem.roms_handler import (
     ParsedTags,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
-from handler.scan_handler import ScanType
+from handler.scan_handler import MetadataSource, ScanType
 from models.platform import Platform
 from models.rom import Rom
 
@@ -182,6 +182,102 @@ class TestScanTotals:
         # Only the selected folder is scanned, not every filesystem platform.
         assert result.total_platforms == 1
         assert result.total_roms == 100
+
+
+class TestScreenScraperScanReporting:
+    """The scan hands ScreenScraper's own bookkeeping to ss_handler, and only
+    when the scan actually uses ScreenScraper."""
+
+    @pytest.fixture
+    def patched(self, mocker):
+        socket_manager = AsyncMock()
+        mocker.patch.object(
+            scan_module, "_get_socket_manager", return_value=socket_manager
+        )
+        mocker.patch.object(
+            scan_module.fs_platform_handler,
+            "get_platforms",
+            AsyncMock(return_value=["genesis"]),
+        )
+        mocker.patch.object(
+            scan_module.fs_rom_handler, "count_roms", AsyncMock(return_value=0)
+        )
+        mocker.patch.object(scan_module.meta_gamelist_handler, "clear_cache")
+        mocker.patch.object(
+            scan_module.db_platform_handler, "mark_missing_platforms", return_value=[]
+        )
+        mocker.patch.object(
+            scan_module.db_platform_handler, "get_platforms", return_value=[]
+        )
+        mocker.patch.object(
+            scan_module.db_rom_handler, "invalidate_filter_values_cache"
+        )
+        config = MagicMock()
+        config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
+        config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+        async def fake_identify(**kwargs):
+            return kwargs["scan_stats"]
+
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=fake_identify
+        )
+        return socket_manager
+
+    async def test_begins_a_screenscraper_scan(self, patched, mocker):
+        begin = mocker.patch.object(
+            scan_module, "begin_ss_scan", new=AsyncMock(return_value=None)
+        )
+
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[MetadataSource.SS],
+            scan_type=ScanType.QUICK,
+        )
+
+        begin.assert_awaited_once()
+
+    async def test_leaves_screenscraper_state_alone_when_it_is_not_used(
+        self, patched, mocker
+    ):
+        """The state is process-global and DEV_MODE scans run in-process, so a
+        scan without ScreenScraper must not clear an overlapping scan's limits
+        and skipped ROMs."""
+        begin = mocker.patch.object(
+            scan_module, "begin_ss_scan", new=AsyncMock(return_value=None)
+        )
+
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[MetadataSource.IGDB],
+            scan_type=ScanType.QUICK,
+        )
+
+        begin.assert_not_awaited()
+
+    async def test_reports_the_screenscraper_summary_at_the_end(self, patched, mocker):
+        mocker.patch.object(
+            scan_module, "begin_ss_scan", new=AsyncMock(return_value=None)
+        )
+        summary = mocker.patch.object(scan_module, "log_ss_scan_summary")
+
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[MetadataSource.SS],
+            scan_type=ScanType.QUICK,
+        )
+
+        summary.assert_called_once()
+
+    async def test_stays_quiet_when_screenscraper_is_not_used(self, patched, mocker):
+        summary = mocker.patch.object(scan_module, "log_ss_scan_summary")
+
+        await scan_platforms(
+            platform_ids=[], metadata_sources=[], scan_type=ScanType.QUICK
+        )
+
+        summary.assert_not_called()
 
 
 class TestShouldScanRom:
@@ -981,7 +1077,9 @@ class TestStopFlagOwnership:
         mocker.patch.object(
             scan_module, "_get_socket_manager", return_value=AsyncMock()
         )
-        mocker.patch.object(scan_module, "reset_ss_daily_quota")
+        mocker.patch.object(
+            scan_module, "begin_ss_scan", new=AsyncMock(return_value=None)
+        )
         mocker.patch.object(
             scan_module.fs_platform_handler,
             "get_platforms",

@@ -8,6 +8,7 @@ from anyio import Path as AnyioPath
 from fastapi import status
 from PIL import Image, ImageFile, UnidentifiedImageError
 
+from adapters.services.screenscraper import media_download_slot
 from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
 from config.config_manager import MetadataMediaType
 from logger.logger import log
@@ -213,46 +214,53 @@ class FSResourcesHandler(FSHandler):
         else:
             # Handle HTTP URLs
             httpx_client = ctx_httpx_client.get()
+            downloaded = False
             try:
-                async with httpx_client.stream(
-                    "GET", url_cover, timeout=120
-                ) as response:
-                    if response.status_code == status.HTTP_200_OK:
-                        if not _check_content_type(response, ("image/",), "cover"):
-                            return None
+                async with media_download_slot(url_cover) as timeout:
+                    async with httpx_client.stream(
+                        "GET", url_cover, timeout=timeout
+                    ) as response:
+                        if response.status_code == status.HTTP_200_OK:
+                            if not _check_content_type(response, ("image/",), "cover"):
+                                return None
 
-                        # Check if content is gzipped from response headers
-                        is_gzipped = (
-                            response.headers.get("content-encoding", "").lower()
-                            == "gzip"
-                        )
-
-                        async with await self.write_file_streamed(
-                            path=cover_file, filename=f"{size.value}.png"
-                        ) as f:
-                            if is_gzipped:
-                                # Content is gzipped, decompress it
-                                content = await response.aread()
-                                try:
-                                    decompressed_content = gzip.decompress(content)
-                                    await f.write(decompressed_content)
-                                except gzip.BadGzipFile:
-                                    await f.write(content)
-                            else:
-                                # Content is not gzipped, stream directly
-                                async for chunk in response.aiter_raw():
-                                    await f.write(chunk)
-
-                        if await self._discard_if_chroma_key(
-                            f"{cover_file}/{size.value}.png"
-                        ):
-                            return None
-
-                        if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
-                            self.image_converter.convert_to_webp(
-                                self.validate_path(f"{cover_file}/{size.value}.png"),
-                                force=True,
+                            # Check if content is gzipped from response headers
+                            is_gzipped = (
+                                response.headers.get("content-encoding", "").lower()
+                                == "gzip"
                             )
+
+                            async with await self.write_file_streamed(
+                                path=cover_file, filename=f"{size.value}.png"
+                            ) as f:
+                                if is_gzipped:
+                                    # Content is gzipped, decompress it
+                                    content = await response.aread()
+                                    try:
+                                        decompressed_content = gzip.decompress(content)
+                                        await f.write(decompressed_content)
+                                    except gzip.BadGzipFile:
+                                        await f.write(content)
+                                else:
+                                    # Content is not gzipped, stream directly
+                                    async for chunk in response.aiter_raw():
+                                        await f.write(chunk)
+
+                            downloaded = True
+
+                # Inspecting and re-encoding the file is local work, so it runs
+                # once the provider's request slot has been handed back.
+                if downloaded:
+                    if await self._discard_if_chroma_key(
+                        f"{cover_file}/{size.value}.png"
+                    ):
+                        return None
+
+                    if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+                        self.image_converter.convert_to_webp(
+                            self.validate_path(f"{cover_file}/{size.value}.png"),
+                            force=True,
+                        )
             except httpx.TransportError as exc:
                 log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
                 await self._discard_partial_file(f"{cover_file}/{size.value}.png")
@@ -399,9 +407,12 @@ class FSResourcesHandler(FSHandler):
             # Handle HTTP URLs
             httpx_client = ctx_httpx_client.get()
             try:
-                async with httpx_client.stream(
-                    "GET", url_screenhot, timeout=120
-                ) as response:
+                async with (
+                    media_download_slot(url_screenhot) as timeout,
+                    httpx_client.stream(
+                        "GET", url_screenhot, timeout=timeout
+                    ) as response,
+                ):
                     if response.status_code == status.HTTP_200_OK:
                         if not _check_content_type(response, ("image/",), "screenshot"):
                             return None
@@ -520,9 +531,10 @@ class FSResourcesHandler(FSHandler):
             # Handle HTTP URL
             httpx_client = ctx_httpx_client.get()
             try:
-                async with httpx_client.stream(
-                    "GET", url_manual, timeout=120
-                ) as response:
+                async with (
+                    media_download_slot(url_manual) as timeout,
+                    httpx_client.stream("GET", url_manual, timeout=timeout) as response,
+                ):
                     if response.status_code == status.HTTP_200_OK:
                         if not _check_content_type(
                             response,
@@ -672,9 +684,12 @@ class FSResourcesHandler(FSHandler):
                 # Handle HTTP URLs
                 httpx_client = ctx_httpx_client.get()
                 try:
-                    async with httpx_client.stream(
-                        "GET", url_media, timeout=120
-                    ) as response:
+                    async with (
+                        media_download_slot(url_media) as timeout,
+                        httpx_client.stream(
+                            "GET", url_media, timeout=timeout
+                        ) as response,
+                    ):
                         if response.status_code == status.HTTP_200_OK:
                             if not _check_content_type(
                                 response,

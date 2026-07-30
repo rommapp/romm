@@ -8,19 +8,28 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from fastapi import HTTPException, status
 
+from adapters.services.screenscraper import (
+    ScreenScraperRateLimitError,
+    SSAccountLimits,
+)
 from adapters.services.screenscraper_types import SSGame
 from config.config_manager import Config, MetadataMediaType
+from handler.metadata import ss_handler
 from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.ss_handler import (
     PS1_SS_ID,
     SSHandler,
     _get_rom_type,
+    _is_daily_quota_error,
     _is_notgame,
     add_ss_auth_to_url,
     build_ss_game,
     extract_media_from_ss_game,
     extract_metadata_from_ss_rom,
     get_preferred_regions,
+    get_rate_limited_rom_names,
+    note_rate_limited_rom,
+    reset_rate_limited_roms,
 )
 from handler.redis_handler import async_cache
 
@@ -1220,6 +1229,234 @@ class TestScreenScraperQuotaFallback:
             result = await handler.get_rom(rom, "Sonic.bin", platform_ss_id=3)
         mock_search.assert_awaited()
         assert result["ss_id"] is None
+
+
+class TestScreenScraperRateLimitPropagation:
+    """A per-minute refusal that survives the retry must reach the scan, which
+    records the ROM as skipped once and stops asking ScreenScraper about it.
+    Swallowing it here would send the caller on to the next lookup, spending
+    another retried request against a budget that is already gone."""
+
+    def _make_file(self) -> MagicMock:
+        mock_file = MagicMock()
+        mock_file.file_size_bytes = 131072
+        mock_file.is_top_level = True
+        mock_file.file_extension = "md"
+        mock_file.md5_hash = "abc123"
+        mock_file.sha1_hash = "def456"
+        mock_file.crc_hash = "78901234"
+        mock_file.file_name = "Sonic (USA).md"
+        mock_file.archive_members = None
+        return mock_file
+
+    @pytest.mark.asyncio
+    async def test_lookup_rom_propagates(self):
+        handler = SSHandler()
+        rom = MagicMock(
+            platform_slug="genesis", platform_id=1, id=1, fs_name="Sonic (USA).md"
+        )
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(
+                handler.ss_service,
+                "get_game_info",
+                AsyncMock(side_effect=ScreenScraperRateLimitError()),
+            ),
+            pytest.raises(ScreenScraperRateLimitError),
+        ):
+            await handler.lookup_rom(rom, 1, [self._make_file()])
+
+    @pytest.mark.asyncio
+    async def test_get_rom_propagates(self):
+        handler = SSHandler()
+        rom = MagicMock(
+            platform_slug="genesis",
+            platform_id=1,
+            id=1,
+            regions=[],
+            fs_name="Sonic (USA).md",
+        )
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(
+                handler.ss_service,
+                "search_games",
+                AsyncMock(side_effect=ScreenScraperRateLimitError()),
+            ),
+            pytest.raises(ScreenScraperRateLimitError),
+        ):
+            await handler.get_rom(rom, "Sonic (USA).md", platform_ss_id=1)
+
+    @pytest.mark.asyncio
+    async def test_get_rom_by_id_propagates(self):
+        handler = SSHandler()
+        rom = MagicMock(platform_slug="genesis", fs_name="Sonic (USA).md")
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(
+                handler.ss_service,
+                "get_game_info",
+                AsyncMock(side_effect=ScreenScraperRateLimitError()),
+            ),
+            pytest.raises(ScreenScraperRateLimitError),
+        ):
+            await handler.get_rom_by_id(rom, 1234)
+
+    def test_rate_limit_is_not_treated_as_daily_quota_exhaustion(self):
+        """Both are 429s, but only the daily one trips the breaker that skips
+        ScreenScraper for the rest of the scan."""
+        assert _is_daily_quota_error(ScreenScraperRateLimitError()) is False
+        assert (
+            _is_daily_quota_error(
+                HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="ScreenScraper daily scrape quota exhausted.",
+                )
+            )
+            is True
+        )
+
+
+class TestRateLimitedRomBookkeeping:
+    """The scan reports the ROMs it had to skip, so each is recorded once."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_skips(self):
+        reset_rate_limited_roms()
+        yield
+        reset_rate_limited_roms()
+
+    def test_records_each_rom_once(self):
+        note_rate_limited_rom("Sonic (USA).md")
+        note_rate_limited_rom("Sonic (USA).md")
+        note_rate_limited_rom("Streets of Rage (USA).md")
+
+        assert get_rate_limited_rom_names() == [
+            "Sonic (USA).md",
+            "Streets of Rage (USA).md",
+        ]
+
+    def test_reset_clears_the_record(self):
+        note_rate_limited_rom("Sonic (USA).md")
+        reset_rate_limited_roms()
+
+        assert get_rate_limited_rom_names() == []
+
+
+class TestScanReporting:
+    """A scan has to say what ScreenScraper allowed it to do: how much of the
+    daily quota is left, and which ROMs it had to skip when refused."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_state(self):
+        ss_handler._scan_state.reset()
+        yield
+        ss_handler._scan_state.reset()
+
+    @pytest.fixture
+    def mock_log(self, mocker):
+        return mocker.patch.object(ss_handler, "log")
+
+    async def test_begin_scan_drops_the_previous_scan_state(self, mocker):
+        mocker.patch.object(
+            ss_handler, "prime_account_limits", new=AsyncMock(return_value=None)
+        )
+        reset_scan_state = mocker.patch.object(ss_handler, "reset_scan_state")
+        note_rate_limited_rom("Sonic (USA).md")
+
+        await ss_handler.begin_scan()
+
+        reset_scan_state.assert_called_once()
+        assert get_rate_limited_rom_names() == []
+
+    async def test_begin_scan_primes_the_account_limits(self, mocker):
+        """Reading the limits up front means the first ROMs are already paced
+        correctly, instead of running at the default until the first response."""
+        prime = mocker.patch.object(
+            ss_handler, "prime_account_limits", new=AsyncMock(return_value=None)
+        )
+        mocker.patch.object(ss_handler, "reset_scan_state")
+
+        await ss_handler.begin_scan()
+
+        prime.assert_awaited_once()
+
+    def test_does_not_repeat_an_unchanged_quota_line(self, mocker, mock_log):
+        mocker.patch.object(
+            ss_handler,
+            "get_account_limits",
+            return_value=SSAccountLimits(
+                max_requests_per_day=20000, requests_today=1500
+            ),
+        )
+
+        ss_handler.log_quota()
+        ss_handler.log_quota()
+
+        assert mock_log.info.call_count == 1
+
+    def test_reports_the_quota_again_once_it_changes(self, mocker, mock_log):
+        mocker.patch.object(
+            ss_handler,
+            "get_account_limits",
+            side_effect=[
+                SSAccountLimits(max_requests_per_day=20000, requests_today=1500),
+                SSAccountLimits(max_requests_per_day=20000, requests_today=1900),
+            ],
+        )
+
+        ss_handler.log_quota()
+        ss_handler.log_quota()
+
+        assert mock_log.info.call_count == 2
+
+    def test_stays_quiet_without_account_limits(self, mocker, mock_log):
+        mocker.patch.object(ss_handler, "get_account_limits", return_value=None)
+
+        ss_handler.log_quota()
+
+        mock_log.info.assert_not_called()
+
+    def test_summary_reports_remaining_quota_and_skipped_roms(self, mocker, mock_log):
+        mocker.patch.object(
+            ss_handler,
+            "get_account_limits",
+            return_value=SSAccountLimits(
+                max_requests_per_day=20000,
+                requests_today=1500,
+                max_ko_requests_per_day=2000,
+                ko_requests_today=300,
+            ),
+        )
+        note_rate_limited_rom("Sonic (USA).md")
+        note_rate_limited_rom("Streets of Rage (USA).md")
+
+        ss_handler.log_scan_summary()
+
+        info = " ".join(str(call) for call in mock_log.info.call_args_list)
+        warnings = " ".join(str(call) for call in mock_log.warning.call_args_list)
+        assert "18500" in info
+        assert "1700" in info
+        assert "Sonic (USA).md" in warnings
+        assert "Streets of Rage (USA).md" in warnings
+
+    def test_summary_skips_the_rom_list_when_nothing_was_skipped(
+        self, mocker, mock_log
+    ):
+        mocker.patch.object(
+            ss_handler,
+            "get_account_limits",
+            return_value=SSAccountLimits(
+                max_requests_per_day=20000, requests_today=1500
+            ),
+        )
+
+        ss_handler.log_scan_summary()
+
+        mock_log.warning.assert_not_called()
 
 
 class TestSearchTermEncoding:

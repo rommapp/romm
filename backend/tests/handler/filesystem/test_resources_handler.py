@@ -7,6 +7,11 @@ import httpx
 import pytest
 from PIL import Image
 
+import adapters.services.screenscraper as ss_module
+from adapters.services.screenscraper import (
+    SS_DEFAULT_MAX_THREADS,
+    SS_DEFAULT_MEDIA_TIMEOUT,
+)
 from config import RESOURCES_BASE_PATH
 from handler.filesystem.base_handler import CoverSize
 from handler.filesystem.resources_handler import (
@@ -17,6 +22,7 @@ from handler.filesystem.resources_handler import (
 )
 from models.collection import Collection
 from models.rom import Rom
+from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
 
 class TestContentTypeEssence:
@@ -943,3 +949,133 @@ class TestDiskFullHandling:
             await handler.store_ra_badge("http://example.com/badge.png", rel)
 
         assert not target.exists()
+
+
+class _SlotAwareClient:
+    """Records the limiter state and timeout seen at the moment of the request."""
+
+    def __init__(self, response):
+        self._response = response
+        self.calls: list[dict] = []
+
+    def stream(self, *_args, **kwargs):
+        self.calls.append(
+            {
+                "timeout": kwargs.get("timeout"),
+                "in_flight": ss_module._concurrency_limiter.in_flight,
+            }
+        )
+        return _FakeStreamContext(self._response)
+
+
+class TestScreenScraperMediaThrottling:
+    """ScreenScraper counts media downloads against the same per-account thread
+    allowance as API calls, so they must share its limiter instead of bypassing
+    it (which is what let a multi-worker scan overrun the account)."""
+
+    @pytest.fixture(autouse=True)
+    def _isolate_limiters(self, monkeypatch):
+        """Swap in fresh limiters so these tests neither sleep on the real
+        per-minute pacing nor leave reserved slots behind for later tests."""
+        monkeypatch.setattr(ss_module, "_rate_limiter", RateLimiter(1_000))
+        monkeypatch.setattr(
+            ss_module,
+            "_concurrency_limiter",
+            ConcurrencyLimiter(SS_DEFAULT_MAX_THREADS),
+        )
+
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler()
+
+    @pytest.fixture
+    def rom(self):
+        rom = Mock(spec=Rom)
+        rom.id = 1
+        rom.platform_id = 1
+        rom.fs_resources_path = "roms/1/1"
+        return rom
+
+    @pytest.mark.asyncio
+    async def test_media_file_download_holds_a_screenscraper_slot(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        client = _SlotAwareClient(_FakeResponse())
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = client
+            await handler.store_media_file(
+                "https://www.screenscraper.fr/image.php?gameid=1",
+                "roms/1/1/box2d/big.png",
+            )
+
+        assert client.calls == [
+            {"timeout": SS_DEFAULT_MEDIA_TIMEOUT, "in_flight": 1},
+        ]
+        assert ss_module._concurrency_limiter.in_flight == 0
+
+    @pytest.mark.asyncio
+    async def test_cover_download_holds_a_screenscraper_slot(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        client = _SlotAwareClient(_FakeResponse())
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = client
+            await handler._store_cover(
+                rom, "https://www.screenscraper.fr/image.php?gameid=1", CoverSize.BIG
+            )
+
+        assert client.calls[0]["in_flight"] == 1
+        assert ss_module._concurrency_limiter.in_flight == 0
+
+    @pytest.mark.asyncio
+    async def test_manual_download_holds_a_screenscraper_slot(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        response = _FakeResponse()
+        response.headers = {"content-type": "application/pdf"}
+        client = _SlotAwareClient(response)
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = client
+            await handler._store_manual(
+                rom, "https://www.screenscraper.fr/media.php?media=manual"
+            )
+
+        assert client.calls[0]["in_flight"] == 1
+
+    @pytest.mark.asyncio
+    async def test_screenshot_download_holds_a_screenscraper_slot(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        client = _SlotAwareClient(_FakeResponse())
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = client
+            await handler._store_screenshot(
+                rom, "https://www.screenscraper.fr/image.php?media=ss", 0
+            )
+
+        assert client.calls[0]["in_flight"] == 1
+
+    @pytest.mark.asyncio
+    async def test_other_providers_are_not_throttled(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        client = _SlotAwareClient(_FakeResponse())
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = client
+            await handler.store_media_file(
+                "https://cdn.example.com/cover.png", "roms/1/1/box2d/big.png"
+            )
+
+        assert client.calls == [
+            {"timeout": SS_DEFAULT_MEDIA_TIMEOUT, "in_flight": 0},
+        ]
