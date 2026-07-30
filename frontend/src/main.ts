@@ -6,7 +6,6 @@ import router from "@/plugins/router";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeTasks from "@/stores/tasks";
 import "@/styles/common.css";
 import "@/styles/fonts.css";
 import "@/styles/scrollbar.css";
@@ -16,14 +15,12 @@ async function initializeData() {
   const heartbeatStore = storeHeartbeat();
   const authStore = storeAuth();
   const configStore = storeConfig();
-  const tasksStore = storeTasks();
 
   // Load initial data (config + heartbeat + user)
   await Promise.all([
     heartbeatStore.fetchHeartbeat(),
     authStore.fetchCurrentUser(),
     configStore.fetchConfig(),
-    tasksStore.fetchTasks(),
   ]);
 }
 

@@ -302,6 +302,9 @@ const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
 
 // Fallback cover ratio (boxart style) — the per-card `--r-cover-ratio` seed
 // before GameCover measures the real image, plus the bootstrap skeletons.
+// The flow-packer takes it too (`fallbackRatio`): a card with no artwork
+// paints its placeholder at this ratio and never reports a measured one, so
+// packing it as box art would under-reserve its width and overflow the row.
 const { boxartStyle } = useUISettings();
 const coverAspectRatio = computed(() =>
   coverRatio(
@@ -378,6 +381,7 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     gap: CARD_GAP_PX,
     ratioAt,
     ratioVersion,
+    fallbackRatio: coverAspectRatio,
   });
 
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);

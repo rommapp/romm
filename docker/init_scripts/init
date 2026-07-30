@@ -18,6 +18,11 @@ ENABLE_SYNC_FOLDER_WATCHER="${ENABLE_SYNC_FOLDER_WATCHER:="false"}"
 # if REDIS_HOST is set, we assume that an external redis is used
 REDIS_HOST="${REDIS_HOST:=""}"
 
+# snapshot policy of the internal valkey, as "<seconds> <changes>" pairs. Saving
+# hourly keeps a graceful shutdown lossless while a hard crash can only lose an
+# hour of sessions and cached metadata. Set to an empty value to never snapshot.
+REDIS_SAVE_POLICY="${REDIS_SAVE_POLICY="3600 1"}"
+
 # logger colors
 RED='\033[0;31m'
 LIGHTMAGENTA='\033[0;95m'
@@ -164,6 +169,16 @@ start_bin_nginx() {
 start_bin_valkey-server() {
 	info_log "Starting internal valkey"
 
+	# Most of the keyspace is bulky, rebuildable metadata (Switch TitleDB,
+	# LaunchBox), so every snapshot rewrites hundreds of MB of dump.rdb. Valkey's
+	# stock policy does that every few minutes even on an idle instance, which
+	# adds up to gigabytes of disk writes per hour.
+	local -a save_flags=(--save "")
+	if [[ -n ${REDIS_SAVE_POLICY} ]]; then
+		# shellcheck disable=SC2206 # each "<seconds> <changes>" token is its own argument
+		save_flags=(--save ${REDIS_SAVE_POLICY})
+	fi
+
 	if [[ -f /usr/local/etc/valkey/valkey.conf ]]; then
 		if [[ ${LOGLEVEL} == "DEBUG" ]]; then
 			valkey-server /usr/local/etc/valkey/valkey.conf &
@@ -172,9 +187,9 @@ start_bin_valkey-server() {
 		fi
 	else
 		if [[ ${LOGLEVEL} == "DEBUG" ]]; then
-			valkey-server --dir /redis-data &
+			valkey-server --dir /redis-data "${save_flags[@]}" &
 		else
-			valkey-server --dir /redis-data >/dev/null 2>&1 &
+			valkey-server --dir /redis-data "${save_flags[@]}" >/dev/null 2>&1 &
 		fi
 	fi
 
