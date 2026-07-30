@@ -747,9 +747,6 @@ def get_roms(
             smart_collection_id=smart_collection_id,
             search_term=search_term,
         )
-        # Keyed on the scope alone: the row-level filters are absent from
-        # `filter_query`, so a filtered request answers with (and warms) the
-        # same whole-library entry an unfiltered one does.
         cache_key = build_unscoped_sidecar_cache_key(
             request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped_scope
         )
