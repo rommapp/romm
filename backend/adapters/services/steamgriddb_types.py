@@ -65,7 +65,6 @@ class SGDBGrid(TypedDict):
     nsfw: NotRequired[bool]
     humor: NotRequired[bool]
     epilepsy: NotRequired[bool]
-    # Locked grids serve a DMCA takedown placeholder instead of the artwork.
     lock: NotRequired[bool]
     url: str
     thumb: str
