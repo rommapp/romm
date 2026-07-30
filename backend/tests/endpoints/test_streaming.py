@@ -504,3 +504,34 @@ def test_list_sessions_requires_auth(client):
 def test_list_sessions_requires_admin(client, viewer_access_token):
     r = client.get("/api/streaming/sessions", headers=_auth(viewer_access_token))
     assert r.status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("post", "/api/streaming/sessions", {"rom_id": 1}),
+        ("post", "/api/streaming/sessions/ps2/save-and-exit", {}),
+        ("post", "/api/streaming/sessions/ps2/volume", {"level": 50}),
+        ("post", "/api/streaming/sessions/ps2/mute", {"mute": True}),
+        ("post", "/api/streaming/sessions/ps2/save-state", {"slot": 1}),
+        ("post", "/api/streaming/sessions/ps2/load-state", {"slot": 1}),
+        ("delete", "/api/streaming/sessions/ps2", None),
+        ("delete", "/api/streaming/sessions", None),
+    ],
+)
+def test_kiosk_mode_cannot_mutate_sessions(client, method, path, body):
+    """KIOSK_MODE hands anonymous visitors READ_SCOPES, which must not suffice.
+
+    Every kiosk visitor resolves to the same synthetic user (id=-1), so session
+    ownership cannot separate them -- without a write scope on these routes an
+    anonymous visitor could claim sessions and overwrite others' save states.
+    """
+    with patch("handler.auth.hybrid_auth.KIOSK_MODE", True):
+        kwargs = {"json": body} if body is not None else {}
+        assert getattr(client, method)(path, **kwargs).status_code == 403
+
+
+def test_kiosk_mode_can_still_read_config(client):
+    """The read side of streaming stays open to kiosk visitors."""
+    with patch("handler.auth.hybrid_auth.KIOSK_MODE", True), _streaming():
+        assert client.get("/api/streaming/config").status_code == 200

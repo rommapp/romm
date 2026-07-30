@@ -80,15 +80,15 @@ class CleanupOrphanedResourcesTask(PeriodicTask):
             title="Cleanup orphaned resources",
             description="Clean up orphaned resources in the ROMs directory",
             task_type=TaskType.CLEANUP,
-            enabled=True,
+            enabled=ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
             manual_run=True,
             cron_string=SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON,
             func="tasks.scheduled.cleanup_orphaned_resources.cleanup_orphaned_resources_task.run",
         )
 
     def init(self) -> Job | None:
-        # `enabled` stays True for manual runs, so the absence of a cron string
-        # is what drives unscheduling when the schedule is turned off.
+        # Without a cron string there is nothing to schedule, so drop any job
+        # left over from a previous configuration.
         if not self.cron_string:
             self.unschedule()
             return None
