@@ -130,6 +130,10 @@ def build_unscoped_sidecar_cache_key(
     rom id index). Returns None for scoped/searched sets, which are computed live.
     The computed values depend on user, ordering and grouping, so all are part
     of the key.
+
+    What counts as unscoped differs per sidecar, so the caller decides: the char
+    index and the id index narrow with every filter, while the filter-value list
+    is built from a query that only applies platform / collection / search.
     """
     if not is_unscoped:
         return None
@@ -662,13 +666,21 @@ def get_roms(
     # shared "all" key. Bool flags use `is not None` since False is an active
     # filter. Logic operators are omitted: they only matter when their list
     # filter is set, which is already covered.
-    is_unscoped = not (
+    #
+    # The filter-value list is gated separately: it is computed from
+    # `unfiltered_query` with only these scope parameters applied (see below),
+    # so the row-level filters never reach it and its result stays identical to
+    # the unfiltered one. Locking it out of the cache over a filter it does not
+    # apply made every Missing-tab visit recompute the whole library.
+    is_unscoped_scope = not (
         search_term
         or platform_ids
         or collection_id
         or virtual_collection_id
         or smart_collection_id
-        or genres
+    )
+    is_unscoped = is_unscoped_scope and not (
+        genres
         or franchises
         or collections
         or companies
@@ -736,7 +748,7 @@ def get_roms(
             search_term=search_term,
         )
         cache_key = build_unscoped_sidecar_cache_key(
-            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
+            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped_scope
         )
         query_filters = db_rom_handler.with_filter_values(
             query=filter_query,

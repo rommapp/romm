@@ -11,7 +11,6 @@ from rq import Worker, get_current_job
 from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError
 
-from adapters.services.screenscraper import reset_daily_quota as reset_ss_daily_quota
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
@@ -36,7 +35,11 @@ from handler.filesystem import (
 )
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_gamelist_handler, meta_hltb_handler
-from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
+from handler.metadata.ss_handler import add_ss_auth_to_url
+from handler.metadata.ss_handler import begin_scan as begin_ss_scan
+from handler.metadata.ss_handler import get_preferred_media_types
+from handler.metadata.ss_handler import log_quota as log_ss_quota
+from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
 from handler.redis_handler import (
     get_job_func_name,
     high_prio_queue,
@@ -815,6 +818,9 @@ async def _identify_platform(
         for f in missing_firmware:
             log.warning(f" - {f}")
 
+    if MetadataSource.SS in metadata_sources:
+        log_ss_quota()
+
     return scan_stats
 
 
@@ -857,9 +863,11 @@ async def scan_platforms(
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
 
-    # Reset the ScreenScraper daily-quota breaker so this scan re-evaluates the
-    # quota instead of inheriting a tripped state from a previous scan.
-    reset_ss_daily_quota()
+    # ScreenScraper's scan state is process-global, so a scan that never touches
+    # it must leave it alone: under DEV_MODE scans run in-process and can
+    # overlap, and resetting would drop the other scan's limits and skips.
+    if MetadataSource.SS in metadata_sources:
+        await begin_ss_scan()
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()
@@ -952,6 +960,9 @@ async def scan_platforms(
             log.warning(f"{hl('Missing')} platforms from filesystem:")
             for p in missed_platforms:
                 log.warning(f" - {p.slug} ({p.fs_slug})")
+
+        if MetadataSource.SS in metadata_sources:
+            log_ss_scan_summary()
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
 

@@ -24,6 +24,7 @@ from sqlalchemy import (
     or_,
     select,
     text,
+    true,
     update,
 )
 from sqlalchemy.orm import (
@@ -720,10 +721,10 @@ class DBRomsHandler(DBBaseHandler):
         return query.filter(predicate)
 
     def _filter_by_missing_from_fs(self, query: Query, value: bool) -> Query:
-        predicate = Rom.missing_from_fs.isnot(False)
-        if not value:
-            predicate = not_(predicate)
-        return query.filter(predicate)
+        # The column is NOT NULL, so equality matches the same rows as the
+        # `IS [NOT] FALSE` form. MariaDB only treats the equality as indexable
+        # though, and this filter backs the Missing tab's whole-library scan.
+        return query.filter(Rom.missing_from_fs == (true() if value else false()))
 
     def _filter_by_verified(self, query: Query, value: bool) -> Query:
         keys_to_check = [
