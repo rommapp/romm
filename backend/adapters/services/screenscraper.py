@@ -4,7 +4,7 @@ import json
 import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from math import isclose
 from typing import Final, cast
 from urllib.parse import urlparse
@@ -60,10 +60,6 @@ _concurrency_limiter = ConcurrencyLimiter(SS_DEFAULT_MAX_THREADS)
 # can be fast enough (name searches average well under a second) to blow through
 # it without ever exceeding the thread cap, so requests are paced as well as
 # bounded, at whatever the account reports.
-#
-# There is nothing to pace against until it does. The one-thread default is the
-# guard until then: a single in-flight request cannot outrun any budget
-# ScreenScraper hands out, and the account is read before the first ROM.
 SS_UNPACED_REQUESTS_PER_SECOND: Final[float] = 1_000.0
 _rate_limiter = RateLimiter(SS_UNPACED_REQUESTS_PER_SECOND)
 
@@ -132,44 +128,57 @@ class SSAccountLimits:
             )
 
         if not parts:
-            return "ScreenScraper: this account reports no quota information"
+            return "This account reports no quota information"
 
         return f"ScreenScraper quota: {', '.join(parts)}"
 
 
-_account_limits: SSAccountLimits | None = None
-_logged_worker_advisory = False
-_logged_low_quota_warning = False
+@dataclass
+class _ScanState:
+    """What ScreenScraper teaches us over the course of one scan.
 
-# ScreenScraper enforces a *daily* request quota (HTTP 430/431) separate from
-# the transient rate limit (HTTP 429). The daily quota only resets the next day,
-# so once it's hit there's nothing to wait for within a scan. Trip a breaker on
-# the first daily-quota error so the remaining requests short-circuit instead of
-# hammering a dead quota. reset_daily_quota() clears it at the start of a scan.
-_daily_quota_exhausted = False
+    Process-wide rather than per-service: every caller shares the one account,
+    and media downloads go through the limiters without a service at all.
+    """
+
+    account_limits: SSAccountLimits | None = None
+    logged_worker_advisory: bool = False
+    logged_low_quota_warning: bool = False
+
+    # ScreenScraper enforces a *daily* request quota (HTTP 430/431) separate from
+    # the transient rate limit (HTTP 429). The daily quota only resets the next
+    # day, so once it's hit there's nothing to wait for within a scan. Trip a
+    # breaker on the first daily-quota error so the remaining requests
+    # short-circuit instead of hammering a dead quota.
+    daily_quota_exhausted: bool = False
+
+    def reset(self) -> None:
+        for f in fields(self):
+            setattr(self, f.name, f.default)
+
+
+_state = _ScanState()
 
 
 def reset_daily_quota() -> None:
     """Clear the daily-quota breaker so the next scan re-evaluates the quota."""
-    global _daily_quota_exhausted
-    _daily_quota_exhausted = False
+    _state.daily_quota_exhausted = False
 
 
 def is_daily_quota_exhausted() -> bool:
     """Whether the ScreenScraper daily quota has been exhausted this scan."""
-    return _daily_quota_exhausted
+    return _state.daily_quota_exhausted
 
 
 def _trip_daily_quota(reason: str) -> None:
     """Trip the daily-quota breaker, logging a single clear notice the first time."""
-    global _daily_quota_exhausted
-    if not _daily_quota_exhausted:
+    if not _state.daily_quota_exhausted:
         log.warning(
             "ScreenScraper %s; skipping ScreenScraper for the rest of this scan "
             "(quotas reset at midnight French time)",
             reason,
         )
-    _daily_quota_exhausted = True
+    _state.daily_quota_exhausted = True
 
 
 def reset_scan_state() -> None:
@@ -183,18 +192,14 @@ def reset_scan_state() -> None:
     whatever account the credentials now name, whereas the previous scan's
     allowance may be more than this one is entitled to.
     """
-    global _account_limits, _logged_worker_advisory, _logged_low_quota_warning
-    reset_daily_quota()
-    _account_limits = None
-    _logged_worker_advisory = False
-    _logged_low_quota_warning = False
+    _state.reset()
     _concurrency_limiter.set_max_concurrency(SS_DEFAULT_MAX_THREADS)
     _rate_limiter.set_requests_per_second(SS_UNPACED_REQUESTS_PER_SECOND)
 
 
 def get_account_limits() -> SSAccountLimits | None:
     """The account allowances read from the most recent response, if any."""
-    return _account_limits
+    return _state.account_limits
 
 
 def _parse_int(value: object, *, minimum: int = 0) -> int | None:
@@ -260,11 +265,10 @@ def _log_worker_advisory(max_threads: int | None) -> None:
     SCAN_WORKERS bounds how many ROMs are scanned at once, and so bounds how many
     ScreenScraper requests can ever be in flight.
     """
-    global _logged_worker_advisory
-    if _logged_worker_advisory or max_threads is None:
+    if _state.logged_worker_advisory or max_threads is None:
         return
 
-    _logged_worker_advisory = True
+    _state.logged_worker_advisory = True
 
     if SCAN_WORKERS < max_threads:
         log.info(
@@ -284,8 +288,7 @@ def _log_worker_advisory(max_threads: int | None) -> None:
 
 def _warn_on_low_quota(limits: SSAccountLimits) -> None:
     """Warn before a daily allowance runs out, rather than after it is refused."""
-    global _logged_low_quota_warning
-    if _logged_low_quota_warning:
+    if _state.logged_low_quota_warning:
         return
 
     for remaining, allowance, label in (
@@ -307,7 +310,7 @@ def _warn_on_low_quota(limits: SSAccountLimits) -> None:
                 allowance,
                 label,
             )
-            _logged_low_quota_warning = True
+            _state.logged_low_quota_warning = True
             return
 
 
@@ -326,9 +329,7 @@ def _update_account_limits(response: dict) -> None:
         return
 
     limits = _read_account_limits(cast(SSUser, ssuser))
-
-    global _account_limits
-    _account_limits = limits
+    _state.account_limits = limits
 
     _apply_thread_allowance(limits.max_threads)
     _apply_request_rate(limits)
@@ -360,7 +361,7 @@ def is_screenscraper_url(url: str | None) -> bool:
 
 def media_download_timeout() -> int:
     """How long a media download may take at the account's advertised speed."""
-    limits = _account_limits
+    limits = _state.account_limits
     speed_kbps = limits.max_download_speed_kbps if limits else None
     if not speed_kbps:
         return SS_DEFAULT_MEDIA_TIMEOUT
@@ -409,7 +410,7 @@ async def prime_account_limits() -> SSAccountLimits | None:
     except (TimeoutError, aiohttp.ClientError) as exc:
         log.warning("ScreenScraper: could not read the account limits (%s)", exc)
 
-    return _account_limits
+    return _state.account_limits
 
 
 async def auth_middleware(
@@ -446,7 +447,7 @@ class ScreenScraperService:
         # still raise the quota error so callers (e.g. manual search) surface a
         # clear message. The scan loop catches this and falls back to the other
         # providers instead of hitting a dead quota for every remaining ROM.
-        if _daily_quota_exhausted:
+        if _state.daily_quota_exhausted:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="ScreenScraper daily quota exhausted. It resets at midnight French time.",
