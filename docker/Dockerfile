@@ -23,6 +23,10 @@ ARG NGINX_VERSION=1.29.5
 ARG NGINX_SHA256=1d13701a5f9f3fb01aaa88cef2344d65b6b5bf6b7d9fa4cf0dca557a8d7702ba
 ARG UV_VERSION=0.11.2
 ARG UV_SHA256=db7642df9c7e6214d4d7df81cfc3e8327768dd15565b1eb414bb83004f64d463
+ARG S6_OVERLAY_VERSION=3.2.3.2
+ARG S6_OVERLAY_NOARCH_SHA256=5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12
+ARG S6_OVERLAY_X86_64_SHA256=e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408
+ARG S6_OVERLAY_AARCH64_SHA256=b17f17a82e7a515c682a91edaf2ffdabb73f891981b6c1fd712115693a2f8b4c
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
@@ -197,8 +201,33 @@ RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
 COPY ./backend /backend
 
-# Setup init script and config files
-COPY ./docker/init_scripts/* /
+# s6-overlay supervises every process in the container: ordered startup with
+# readiness gates, restart of anything that dies, and a bounded SIGTERM/SIGKILL
+# shutdown so a process that refuses to exit cannot strand PID 1.
+ARG S6_OVERLAY_VERSION
+ARG S6_OVERLAY_NOARCH_SHA256
+ARG S6_OVERLAY_X86_64_SHA256
+ARG S6_OVERLAY_AARCH64_SHA256
+ARG TARGETARCH
+RUN apk add --no-cache --virtual .s6-build-deps xz && \
+    case "${TARGETARCH}" in \
+        amd64) s6_arch="x86_64"; s6_sha="${S6_OVERLAY_X86_64_SHA256}" ;; \
+        arm64) s6_arch="aarch64"; s6_sha="${S6_OVERLAY_AARCH64_SHA256}" ;; \
+        *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac && \
+    s6_url="https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}" && \
+    wget -qO /tmp/s6-noarch.tar.xz "${s6_url}/s6-overlay-noarch.tar.xz" && \
+    echo "${S6_OVERLAY_NOARCH_SHA256}  /tmp/s6-noarch.tar.xz" | sha256sum -c - && \
+    wget -qO /tmp/s6-arch.tar.xz "${s6_url}/s6-overlay-${s6_arch}.tar.xz" && \
+    echo "${s6_sha}  /tmp/s6-arch.tar.xz" | sha256sum -c - && \
+    tar -C / -Jxpf /tmp/s6-noarch.tar.xz && \
+    tar -C / -Jxpf /tmp/s6-arch.tar.xz && \
+    rm -f /tmp/s6-noarch.tar.xz /tmp/s6-arch.tar.xz && \
+    apk del .s6-build-deps
+
+# Setup entrypoint, service definitions and config files
+COPY ./docker/init_scripts/docker-entrypoint.sh /docker-entrypoint.sh
+COPY ./docker/s6-overlay/ /etc/s6-overlay/
 COPY ./docker/nginx/js/ /etc/nginx/js/
 COPY ./docker/nginx/templates/ /etc/nginx/templates/
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
@@ -236,6 +265,14 @@ ENV SCREENSCRAPER_DEV_PASSWORD=${SCREENSCRAPER_DEV_PASSWORD}
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/backend
+
+# Exit the container when a startup step fails, instead of leaving it up and
+# serving nothing, so the restart policy can retry.
+ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+# Upper bounds on shutdown: how long a service gets after SIGTERM before s6
+# stops waiting, and how long anything still alive gets before SIGKILL.
+ENV S6_SERVICES_GRACETIME=10000
+ENV S6_KILL_GRACETIME=5000
 
 # Declare only the parent `/romm`, not its subdirs, so Docker keeps them 
 # on one mount (`st_dev`) and cross-directory `os.link()` hardlinks don't fail.

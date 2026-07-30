@@ -1,0 +1,20 @@
+#!/command/with-contenv bash
+# Startup tasks that need both the database and the cache to be reachable.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+shopt -s inherit_errexit
+
+ROMM_LOG_TAG="startup"
+# shellcheck source=SCRIPTDIR/lib.sh
+source /etc/s6-overlay/scripts/lib.sh
+
+cd /backend || error_log "/backend directory doesn't seem to exist"
+
+declare -a wrap=()
+otel_prefix wrap startup
+
+if ! PYTHONPATH="/backend:${PYTHONPATH-}" "${wrap[@]}" python3 /backend/startup.py; then
+	error_log "Startup script failed, exiting"
+fi

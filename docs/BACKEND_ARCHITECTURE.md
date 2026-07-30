@@ -347,6 +347,35 @@ backend/
 
 ## 4. Application Lifecycle
 
+### Container Process Model
+
+The image runs several processes, supervised by [s6-overlay](https://github.com/just-containers/s6-overlay) as PID 1. Service definitions live in `docker/s6-overlay/`, and `s6-rc` starts them in dependency order:
+
+```text
+romm-init            oneshot   banner, OTEL detection, ROMM_AUTH_SECRET_KEY
+  └── romm-valkey        longrun   internal cache (skipped when REDIS_HOST is set)
+      └── romm-valkey-ready    oneshot   polls 127.0.0.1:6379
+          └── romm-migrations      oneshot   alembic upgrade head
+              └── romm-startup         oneshot   startup.py
+                  ├── romm-gunicorn        longrun   ASGI server
+                  │   └── romm-gunicorn-ready  oneshot   polls DEV_PORT
+                  │       └── romm-nginx           longrun   reverse proxy on ROMM_PORT
+                  ├── romm-rq-worker       longrun
+                  ├── romm-rq-scheduler    longrun   (only with a scheduled task enabled)
+                  ├── romm-watcher         longrun   (ENABLE_RESCAN_ON_FILESYSTEM_CHANGE)
+                  └── romm-sync-watcher    longrun   (ENABLE_SYNC_FOLDER_WATCHER)
+```
+
+Behaviour worth knowing:
+
+- **A failed startup step exits the container** (`S6_BEHAVIOUR_IF_STAGE2_FAILS=2`). An unreachable database at boot is normal when the daemon's restart policy starts containers before their dependencies, so migrations fail, the container exits non-zero, and the restart policy retries.
+- **A crashed service is restarted on its own**, without taking the rest of the container down. Its leftover children are swept first (`finish`), so a replacement can rebind the port a hard-killed parent's workers were still holding.
+- **Shutdown is bounded.** Each service gets `timeout-kill` (10s) before SIGKILL, escalated to the whole process group (`flag-timeout-killpg`). No process can hold PID 1 open indefinitely.
+
+Optional services have no conditional mechanism in `s6-rc`: they start, check their environment variable, and take themselves down with `s6-svc -O` when disabled.
+
+Running with a read-only root filesystem requires `/run` to be mounted **exec**, since s6 executes its generated stage scripts from there.
+
 ### Startup Sequence
 
 ```text
