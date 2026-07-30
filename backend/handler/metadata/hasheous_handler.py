@@ -231,19 +231,26 @@ class HasheousHandler(MetadataHandler):
             ra_id=platform["ra_id"],
         )
 
-    async def lookup_rom(self, platform_slug: str, files: list[RomFile]) -> HasheousRom:
+    async def lookup_rom(
+        self, platform_slug: str, files: list[RomFile]
+    ) -> tuple[HasheousRom, bool]:
         """Identify a ROM by its file hashes.
 
         Returns a HasheousRom with the matched IDs, or an empty match if the
         lookup fails. The lookup is best-effort and never raises to the caller,
         so an unreachable Hasheous can't abort a scan.
+
+        The second value tells the two empty matches apart: True means Hasheous
+        answered and knows nothing about these hashes, False means we never got
+        an answer (disabled, no hashes to send, or the request failed). Only the
+        former is safe to treat as "this ROM is not in any database".
         """
         fallback_rom = HasheousRom(
             hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None
         )
 
         if not self.is_enabled():
-            return fallback_rom
+            return fallback_rom, False
 
         filtered_files = [
             file
@@ -284,7 +291,7 @@ class HasheousHandler(MetadataHandler):
                 "No hashes provided for Hasheous lookup. "
                 "At least one of md5, sha1, or crc is required."
             )
-            return fallback_rom
+            return fallback_rom, False
 
         try:
             hasheous_game = await self._request(
@@ -297,10 +304,10 @@ class HasheousHandler(MetadataHandler):
             )
         except Exception as exc:
             log.error("Hasheous hash lookup failed, skipping: %s", exc)
-            return fallback_rom
+            return fallback_rom, False
 
         if not hasheous_game:
-            return fallback_rom
+            return fallback_rom, True
 
         metadata = hasheous_game.get("metadata", [])
         attributes = hasheous_game.get("attributes", [])
@@ -331,24 +338,27 @@ class HasheousHandler(MetadataHandler):
                 url_cover = f"https://hasheous.org{attr['link']}"
                 break
 
-        return HasheousRom(
-            hasheous_id=hasheous_game["id"],
-            name=hasheous_game.get("name", ""),
-            igdb_id=int(igdb_id) if igdb_id else None,
-            tgdb_id=int(tgdb_id) if tgdb_id else None,
-            ra_id=int(ra_id) if ra_id else None,
-            url_cover=url_cover,
-            hasheous_metadata=HasheousMetadata(
-                tosec_match="TOSEC" in signatures,
-                mame_arcade_match="MAMEArcade" in signatures,
-                mame_mess_match="MAMEMess" in signatures,
-                nointro_match="NoIntros" in signatures,
-                redump_match="Redump" in signatures,
-                whdload_match="WHDLoad" in signatures,
-                ra_match="RetroAchievements" in signatures,
-                fbneo_match="FBNeo" in signatures,
-                puredos_match="PureDOS" in signatures,
+        return (
+            HasheousRom(
+                hasheous_id=hasheous_game["id"],
+                name=hasheous_game.get("name", ""),
+                igdb_id=int(igdb_id) if igdb_id else None,
+                tgdb_id=int(tgdb_id) if tgdb_id else None,
+                ra_id=int(ra_id) if ra_id else None,
+                url_cover=url_cover,
+                hasheous_metadata=HasheousMetadata(
+                    tosec_match="TOSEC" in signatures,
+                    mame_arcade_match="MAMEArcade" in signatures,
+                    mame_mess_match="MAMEMess" in signatures,
+                    nointro_match="NoIntros" in signatures,
+                    redump_match="Redump" in signatures,
+                    whdload_match="WHDLoad" in signatures,
+                    ra_match="RetroAchievements" in signatures,
+                    fbneo_match="FBNeo" in signatures,
+                    puredos_match="PureDOS" in signatures,
+                ),
             ),
+            True,
         )
 
     async def get_igdb_game(self, hasheous_rom: HasheousRom) -> HasheousRom:

@@ -439,7 +439,7 @@ async def scan_rom(
             gamelist_id=None,
         )
 
-    async def fetch_hasheous_hash_match() -> HasheousRom:
+    async def fetch_hasheous_hash_match() -> tuple[HasheousRom, bool]:
         if (
             MetadataSource.HASHEOUS in metadata_sources
             and platform.hasheous_id
@@ -461,7 +461,10 @@ async def scan_rom(
                 platform.slug, get_match_files()
             )
 
-        return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+        return (
+            HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None),
+            False,
+        )
 
     _added_rom = db_rom_handler.add_rom(Rom(**rom_attrs))
     _added_rom.is_identifying = True
@@ -486,7 +489,7 @@ async def scan_rom(
     # Run hash fetches concurrently
     (
         playmatch_hash_match,
-        hasheous_hash_match,
+        (hasheous_hash_match, hasheous_lookup_conclusive),
     ) = await asyncio.gather(
         fetch_playmatch_hash_match(),
         fetch_hasheous_hash_match(),
@@ -1039,6 +1042,18 @@ async def scan_rom(
                 or [],
             }
         )
+
+    # A rehash that no longer matches must drop the previous Hasheous match, or
+    # the ROM keeps showing verification flags earned by hashes it no longer has.
+    # Only a conclusive lookup clears them, so an unreachable Hasheous can't
+    # silently de-verify a library.
+    if (
+        scan_type == ScanType.HASHES
+        and hasheous_lookup_conclusive
+        and not hasheous_hash_match.get("hasheous_id")
+    ):
+        rom_attrs["hasheous_id"] = None
+        rom_attrs["hasheous_metadata"] = {}
 
     # Use PICO-8 cartridge PNG as cover art if no cover is set.
     # PICO-8 .p8.png files are valid PNG images whose visual content is the

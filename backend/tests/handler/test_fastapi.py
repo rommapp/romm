@@ -131,7 +131,7 @@ async def test_scan_rom_complete_clears_unselected_metadata(
         ra_id=None,
         name="Mock Hasheous Game",
     )
-    mock_lookup.return_value = hasheous_result
+    mock_lookup.return_value = (hasheous_result, True)
     mock_get_igdb.return_value = hasheous_result
     mock_get_ra.return_value = hasheous_result
 
@@ -339,7 +339,7 @@ async def test_scan_rom_unmatched_replaces_placeholder_name(
         ra_id=None,
         name="Snow Bros.",
     )
-    mock_lookup.return_value = hasheous_result
+    mock_lookup.return_value = (hasheous_result, True)
     mock_get_igdb.return_value = hasheous_result
     mock_get_ra.return_value = hasheous_result
 
@@ -402,7 +402,7 @@ async def test_scan_rom_unmatched_preserves_custom_name(
         ra_id=None,
         name="Snow Bros.",
     )
-    mock_lookup.return_value = hasheous_result
+    mock_lookup.return_value = (hasheous_result, True)
     mock_get_igdb.return_value = hasheous_result
     mock_get_ra.return_value = hasheous_result
 
@@ -460,7 +460,7 @@ async def test_scan_rom_unmatched_no_match_uses_parsed_name(
     placeholder into the parsed name (tags and extension stripped), so the title
     is clean and a follow-up search uses the parsed name."""
     no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
-    mock_lookup.return_value = no_match
+    mock_lookup.return_value = (no_match, True)
     mock_get_igdb.return_value = no_match
     mock_get_ra.return_value = no_match
 
@@ -535,7 +535,7 @@ async def test_scan_rom_hashes_rematches_hasheous(
             puredos_match=False,
         ),
     )
-    mock_lookup.return_value = hasheous_result
+    mock_lookup.return_value = (hasheous_result, True)
     mock_get_igdb.return_value = hasheous_result
     mock_get_ra.return_value = hasheous_result
 
@@ -587,6 +587,127 @@ async def test_scan_rom_hashes_rematches_hasheous(
     assert result.name == "My Custom Title"
 
 
+def _stale_hasheous_rom(platform: Platform) -> Rom:
+    """A ROM carrying a Hasheous match (and its verification flags) earned by
+    hashes it is about to lose."""
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            fs_name="Snow Brothers (USA).7z",
+            fs_name_no_tags="Snow Brothers",
+            fs_name_no_ext="Snow Brothers (USA)",
+            fs_extension="7z",
+            fs_path="n64/Snow Brothers (USA)",
+            name="Snow Bros.",
+            hasheous_id=999,
+            hasheous_metadata={"nointro_match": True, "ra_match": True},
+            fs_size_bytes=1024,
+            tags=[],
+        )
+    )
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_hashes_clears_stale_hasheous_match(
+    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+):
+    """A HASHES rescan whose new hashes no longer match must drop the previous
+    Hasheous match, so the ROM stops reporting verification flags it earned with
+    hashes it no longer has."""
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    # Hasheous answered and knows nothing about the new hashes.
+    mock_lookup.return_value = (no_match, True)
+    mock_get_igdb.return_value = no_match
+    mock_get_ra.return_value = no_match
+
+    platform = db_platform_handler.add_platform(
+        Platform(
+            id=1,
+            slug="n64",
+            fs_slug="n64",
+            name="Nintendo 64",
+            igdb_id=4,
+            hasheous_id=64,
+        )
+    )
+    rom = _stale_hasheous_rom(platform)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.HASHES,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Snow Brothers (USA).7z",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "changedcrc",
+                "md5_hash": "changedmd5",
+                "sha1_hash": "changedsha1",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.HASHEOUS],
+            newly_added=False,
+        )
+
+    assert result.hasheous_id is None
+    assert result.hasheous_metadata == {}
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_hashes_keeps_match_when_hasheous_unreachable(
+    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+):
+    """An inconclusive lookup (Hasheous down, no hashes to send) must leave the
+    existing match alone, so an outage can't silently de-verify a library."""
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    # Same empty match, but we never got an answer.
+    mock_lookup.return_value = (no_match, False)
+    mock_get_igdb.return_value = no_match
+    mock_get_ra.return_value = no_match
+
+    platform = db_platform_handler.add_platform(
+        Platform(
+            id=1,
+            slug="n64",
+            fs_slug="n64",
+            name="Nintendo 64",
+            igdb_id=4,
+            hasheous_id=64,
+        )
+    )
+    rom = _stale_hasheous_rom(platform)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.HASHES,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Snow Brothers (USA).7z",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "changedcrc",
+                "md5_hash": "changedmd5",
+                "sha1_hash": "changedsha1",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.HASHEOUS],
+            newly_added=False,
+        )
+
+    assert result.hasheous_id == 999
+    assert result.hasheous_metadata == {"nointro_match": True, "ra_match": True}
+
+
 def _top_level_rom_file(**kwargs) -> RomFile:
     """Build a RomFile whose `is_top_level` cached_property is pre-seeded to
     True, so it passes lookup_rom's filtering without a persisted rom."""
@@ -631,9 +752,11 @@ async def test_lookup_rom_sends_all_top_level_file_hashes(
         _top_level_rom_file(file_name="nohash.bin", file_size_bytes=50),
     ]
 
-    result = await meta_hasheous_handler.lookup_rom("n64", files)
+    result, conclusive = await meta_hasheous_handler.lookup_rom("n64", files)
 
     assert result["hasheous_id"] is None
+    # Hasheous answered, it just knows nothing about these hashes.
+    assert conclusive is True
     mock_request.assert_called_once()
     sent_data = mock_request.call_args.kwargs["data"]
     assert sent_data == [
@@ -648,9 +771,11 @@ async def test_lookup_rom_skips_request_when_no_hashes(mock_is_enabled, mock_req
     """lookup_rom must not hit the API when no file has any usable hash."""
     files = [_top_level_rom_file(file_name="nohash.bin", file_size_bytes=50)]
 
-    result = await meta_hasheous_handler.lookup_rom("n64", files)
+    result, conclusive = await meta_hasheous_handler.lookup_rom("n64", files)
 
     assert result["hasheous_id"] is None
+    # Nothing was asked, so the empty match says nothing about the ROM.
+    assert conclusive is False
     mock_request.assert_not_called()
 
 
