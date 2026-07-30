@@ -79,6 +79,15 @@ class Task(ABC):
         """Whether an admin can trigger this task on demand."""
         return self.manual_run and self.enabled
 
+    @property
+    def is_scheduled(self) -> bool:
+        """Whether the task runs itself on a schedule.
+
+        Separate from `enabled` so a task can stay manually runnable while its
+        schedule is off. Subclasses override this to gate on their own setting.
+        """
+        return self.enabled and bool(self.cron_string)
+
     @abstractmethod
     async def run(self, *args: Any, **kwargs: Any) -> Any: ...
 
@@ -106,9 +115,9 @@ class PeriodicTask(Task, ABC):
         """
         job = self._get_existing_job()
 
-        if self.enabled and not job:
+        if self.is_scheduled and not job:
             return self.schedule()
-        elif job and not self.enabled:
+        elif job and not self.is_scheduled:
             self.unschedule()
             return None
         return None

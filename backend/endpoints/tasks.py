@@ -138,6 +138,10 @@ manual_tasks: list[ManualTask] = [
 
 def _build_task_info(name: str, task: Task) -> TaskInfo:
     """Builds a TaskInfo object from task details."""
+    # A task holding a cron expression it never runs on reads as scheduled in
+    # the UI, so only report the expression the task is actually scheduled with.
+    cron_string = task.cron_string if task.is_scheduled else None
+
     return TaskInfo(
         name=name,
         type=task.task_type,
@@ -145,7 +149,7 @@ def _build_task_info(name: str, task: Task) -> TaskInfo:
         description=task.description,
         enabled=task.enabled,
         manual_run=task.can_run_manually,
-        cron_string=task.cron_string or "",
+        cron_string=cron_string or "",
     )
 
 

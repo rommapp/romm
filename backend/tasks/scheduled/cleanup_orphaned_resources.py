@@ -4,7 +4,6 @@ import shutil
 from dataclasses import dataclass
 
 from anyio import Path as AnyioPath
-from rq.job import Job
 
 from config import (
     ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
@@ -86,14 +85,12 @@ class CleanupOrphanedResourcesTask(PeriodicTask):
             func="tasks.scheduled.cleanup_orphaned_resources.cleanup_orphaned_resources_task.run",
         )
 
-    def init(self) -> Job | None:
-        # `enabled` stays True for manual runs, so the absence of a cron string
-        # is what drives unscheduling when the schedule is turned off.
-        if not self.cron_string:
-            self.unschedule()
-            return None
-
-        return super().init()
+    @property
+    def is_scheduled(self) -> bool:
+        # `enabled` stays True so an admin can always run this by hand, and the
+        # cron string stays populated either way. This flag alone decides
+        # whether the task also runs on its own.
+        return ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES
 
     @initialize_context()
     async def run(self, force: bool = False) -> dict[str, int]:

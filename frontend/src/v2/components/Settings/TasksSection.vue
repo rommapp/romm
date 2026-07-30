@@ -37,7 +37,11 @@ const watcherTasksUI = computed(() =>
 const scheduledTasksUI = computed(() =>
   scheduledTasks.value.map((task) => ({
     ...task,
-    icon: task.enabled ? "mdi-clock-check-outline" : "mdi-clock-remove-outline",
+    // A task can be enabled for manual runs with its schedule turned off, so
+    // the clock reflects the schedule rather than the task being enabled.
+    icon: task.cron_string
+      ? "mdi-clock-check-outline"
+      : "mdi-clock-remove-outline",
     cron_string: convertCronExperssion(task.cron_string),
   })),
 );

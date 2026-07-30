@@ -165,6 +165,45 @@ class TestListTasks:
         assert watcher_task["cron_string"] == ""
 
     @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", False)
+    @patch("endpoints.tasks.manual_tasks", [])
+    @patch(
+        "endpoints.tasks.scheduled_tasks",
+        [
+            {
+                "name": "test_unscheduled",
+                "type": TaskType.CLEANUP,
+                "task": Mock(
+                    spec=Task,
+                    task_type=TaskType.CLEANUP,
+                    title="Unscheduled Task",
+                    description="Manually runnable, but not on a schedule",
+                    enabled=True,
+                    manual_run=True,
+                    can_run_manually=True,
+                    is_scheduled=False,
+                    timeout=300,
+                    cron_string="0 5 * * *",
+                ),
+            }
+        ],
+    )
+    def test_list_tasks_omits_cron_for_unscheduled_task(self, client, access_token):
+        """A task that carries a cron expression it never runs on reports none.
+
+        Reporting the expression anyway makes the Tasks page show a schedule
+        that will not fire.
+        """
+        response = client.get(
+            "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        task = response.json()["scheduled"][0]
+
+        assert task["cron_string"] == ""
+        assert task["manual_run"] is True
+
+    @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", False)
     @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 10)
     @patch("endpoints.tasks.manual_tasks", [])
     @patch("endpoints.tasks.scheduled_tasks", [])

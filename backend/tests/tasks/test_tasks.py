@@ -46,6 +46,22 @@ class TestPeriodicTask:
         assert task.enabled is True
         assert task.cron_string == "0 0 * * *"
 
+    def test_is_scheduled_requires_enabled_and_cron(self, task, disabled_task):
+        assert task.is_scheduled is True
+        assert disabled_task.is_scheduled is False
+
+    def test_is_scheduled_false_without_cron_string(self):
+        task = ConcretePeriodicTask(
+            func="test.function",
+            title="Test Task",
+            description="test task",
+            task_type=TaskType.GENERIC,
+            enabled=True,
+            cron_string=None,
+        )
+
+        assert task.is_scheduled is False
+
     @patch.object(tasks_scheduler, "get_jobs")
     def test_get_existing_job_found(self, mock_get_jobs, task):
         """Test finding an existing job"""
@@ -103,6 +119,29 @@ class TestPeriodicTask:
         mock_unschedule.return_value = None
 
         result = disabled_task.init()
+
+        mock_unschedule.assert_called_once()
+        mock_schedule.assert_not_called()
+        assert result is None
+
+    @patch.object(ConcretePeriodicTask, "_get_existing_job")
+    @patch.object(ConcretePeriodicTask, "schedule")
+    @patch.object(ConcretePeriodicTask, "unschedule")
+    def test_init_unschedules_enabled_task_without_cron(
+        self, mock_unschedule, mock_schedule, mock_get_existing_job
+    ):
+        """An enabled task with no cron expression must not keep a stale job."""
+        task = ConcretePeriodicTask(
+            func="test.function",
+            title="Test Task",
+            description="test task",
+            task_type=TaskType.GENERIC,
+            enabled=True,
+            cron_string=None,
+        )
+        mock_get_existing_job.return_value = MagicMock(spec=Job)
+
+        result = task.init()
 
         mock_unschedule.assert_called_once()
         mock_schedule.assert_not_called()

@@ -96,11 +96,24 @@ export function normalizeString(s: string) {
 /**
  * Convert a cron expression to a human-readable string.
  *
+ * Callers use this inside computed properties that templates read, and cronstrue
+ * throws on an empty or malformed expression. A throw there costs the whole
+ * surrounding component, so an undescribable schedule yields no description.
+ *
  * @param expression The cron expression to convert.
- * @returns The human-readable string.
+ * @returns The human-readable string, or an empty string if there is none.
  */
 export function convertCronExperssion(expression: string) {
-  let convertedExpression = cronstrue.toString(expression, { verbose: true });
+  if (!expression) return "";
+
+  let convertedExpression: string;
+  try {
+    convertedExpression = cronstrue.toString(expression, { verbose: true });
+  } catch (error) {
+    console.error(`Unable to describe cron expression "${expression}":`, error);
+    return "";
+  }
+
   convertedExpression =
     convertedExpression.charAt(0).toLocaleLowerCase() +
     convertedExpression.substr(1);

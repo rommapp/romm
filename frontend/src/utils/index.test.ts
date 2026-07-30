@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
-import { getDownloadPath } from "./index";
+import { convertCronExperssion, getDownloadPath } from "./index";
 
 function makeRom(overrides: Partial<SimpleRom>): SimpleRom {
   return {
@@ -55,5 +55,21 @@ describe("getDownloadPath", () => {
     expect(getDownloadPath({ rom, fileIDs: [999] })).toBe(
       "/api/roms/24/content/B.A.T.?file_ids=999",
     );
+  });
+});
+
+describe("convertCronExperssion", () => {
+  it("describes a cron expression in lower case", () => {
+    expect(convertCronExperssion("0 5 * * *")).toBe("at 05:00 AM, every day");
+  });
+
+  it("returns an empty string for an empty expression", () => {
+    // A task with no schedule must not break the Tasks page: cronstrue throws
+    // on "", and the throw happens inside a computed the template renders.
+    expect(convertCronExperssion("")).toBe("");
+  });
+
+  it("returns an empty string for an unparseable expression", () => {
+    expect(convertCronExperssion("not a cron expression")).toBe("");
   });
 });

@@ -1,8 +1,9 @@
 import os
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+from rq.job import Job
 
 import tasks.scheduled.cleanup_orphaned_resources as mod
 from tasks.scheduled.cleanup_orphaned_resources import CleanupOrphanedResourcesTask
@@ -25,28 +26,37 @@ class TestCleanupOrphanedResourcesTask:
         assert task.enabled is True
         assert task.manual_run is True
 
-    def test_no_cron_string_by_default(self, task):
-        assert task.cron_string is None
+    def test_cron_string_always_populated(self, task):
+        # Turning the schedule off is expressed through `is_scheduled`, not by
+        # dropping the expression.
+        assert task.cron_string == mod.SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON
+        assert task.cron_string
 
-    def test_cron_string_set_when_schedule_enabled(self):
+    def test_not_scheduled_by_default(self, task):
+        assert task.is_scheduled is False
+
+    def test_scheduled_when_flag_enabled(self, task):
         with patch.object(mod, "ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES", True):
-            with patch.object(
-                mod, "SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON", "0 5 * * *"
-            ):
-                assert CleanupOrphanedResourcesTask().cron_string == "0 5 * * *"
+            assert task.is_scheduled is True
 
-    def test_init_unschedules_when_no_cron(self, task):
-        with patch.object(task, "unschedule") as mock_unschedule:
-            assert task.init() is None
-            mock_unschedule.assert_called_once()
-
-    def test_init_schedules_when_cron_set(self, task):
-        task.cron_string = "0 5 * * *"
-
+    def test_init_does_not_schedule_when_flag_disabled(self, task):
         with patch.object(task, "_get_existing_job", return_value=None):
             with patch.object(task, "schedule") as mock_schedule:
-                task.init()
-                mock_schedule.assert_called_once()
+                assert task.init() is None
+                mock_schedule.assert_not_called()
+
+    def test_init_unschedules_when_flag_disabled(self, task):
+        with patch.object(task, "_get_existing_job", return_value=MagicMock(spec=Job)):
+            with patch.object(task, "unschedule") as mock_unschedule:
+                assert task.init() is None
+                mock_unschedule.assert_called_once()
+
+    def test_init_schedules_when_flag_enabled(self, task):
+        with patch.object(mod, "ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES", True):
+            with patch.object(task, "_get_existing_job", return_value=None):
+                with patch.object(task, "schedule") as mock_schedule:
+                    task.init()
+                    mock_schedule.assert_called_once()
 
 
 class TestCleanupOrphanedResourcesRun:
