@@ -56,15 +56,16 @@ def _loads_lenient(text: str) -> dict:
 SS_DEFAULT_MAX_THREADS: Final[int] = 1
 _concurrency_limiter = ConcurrencyLimiter(SS_DEFAULT_MAX_THREADS)
 
-# On top of the thread cap, ScreenScraper's FAQ allows `threads x 50` requests
-# per minute. Responses can be fast enough (name searches average well under a
-# second) to blow through that budget without ever exceeding the thread cap, so
-# requests are paced as well as bounded.
-SS_REQUESTS_PER_MINUTE_PER_THREAD: Final[int] = 50
-SS_DEFAULT_REQUESTS_PER_SECOND: Final[float] = (
-    SS_DEFAULT_MAX_THREADS * SS_REQUESTS_PER_MINUTE_PER_THREAD / 60
-)
-_rate_limiter = RateLimiter(SS_DEFAULT_REQUESTS_PER_SECOND)
+# On top of the thread cap, the account carries a per-minute budget. Responses
+# can be fast enough (name searches average well under a second) to blow through
+# it without ever exceeding the thread cap, so requests are paced as well as
+# bounded, at whatever the account reports.
+#
+# There is nothing to pace against until it does. The one-thread default is the
+# guard until then: a single in-flight request cannot outrun any budget
+# ScreenScraper hands out, and the account is read before the first ROM.
+SS_UNPACED_REQUESTS_PER_SECOND: Final[float] = 1_000.0
+_rate_limiter = RateLimiter(SS_UNPACED_REQUESTS_PER_SECOND)
 
 # How close to either daily allowance the account has to be before we warn.
 SS_LOW_QUOTA_FRACTION: Final[float] = 0.1
@@ -178,7 +179,7 @@ def reset_scan_state() -> None:
     reported as this scan's; the one-shot advisories become due again.
 
     Pacing goes back to the defaults with them. Priming re-reads the account
-    moments later, and should that fail, the conservative default is safe for
+    moments later, and should that fail, the one-thread default is safe for
     whatever account the credentials now name, whereas the previous scan's
     allowance may be more than this one is entitled to.
     """
@@ -188,7 +189,7 @@ def reset_scan_state() -> None:
     _logged_worker_advisory = False
     _logged_low_quota_warning = False
     _concurrency_limiter.set_max_concurrency(SS_DEFAULT_MAX_THREADS)
-    _rate_limiter.set_requests_per_second(SS_DEFAULT_REQUESTS_PER_SECOND)
+    _rate_limiter.set_requests_per_second(SS_UNPACED_REQUESTS_PER_SECOND)
 
 
 def get_account_limits() -> SSAccountLimits | None:
@@ -235,25 +236,15 @@ def _apply_thread_allowance(max_threads: int | None) -> None:
 def _apply_request_rate(limits: SSAccountLimits) -> None:
     """Pace requests against the account's per-minute budget.
 
-    ScreenScraper's FAQ defines the budget, and the reported ``maxrequestspermin``
-    field, as ``threads x 50``. The field does not follow it: on real accounts it
-    comes back as ``1024 x (threads + 1)``, some twenty times the documented
-    figure, and so carries nothing the thread count does not already give us.
-    Every neighbouring field does match its documented rule, so the odd one out
-    is treated as unreliable and the lower of the two wins.
+    ScreenScraper's FAQ still gives the budget as ``threads x 50``, but the API
+    was changed without the documentation following it, confirmed by
+    ScreenScraper. ``maxrequestspermin`` carries the real figure, which on
+    current accounts is ``1024 x (threads + 1)``, so the reported value is what
+    we pace against rather than the formula.
     """
-    documented = (
-        limits.max_threads * SS_REQUESTS_PER_MINUTE_PER_THREAD
-        if limits.max_threads is not None
-        else None
-    )
-    budgets = [
-        budget for budget in (limits.max_requests_per_minute, documented) if budget
-    ]
-    if not budgets:
+    per_minute = limits.max_requests_per_minute
+    if not per_minute:
         return
-
-    per_minute = min(budgets)
 
     per_second = per_minute / 60
     if isclose(per_second, _rate_limiter.requests_per_second):
@@ -402,9 +393,9 @@ async def prime_account_limits() -> SSAccountLimits | None:
     """Read the account's allowances before a scan starts.
 
     They ride along on every response, so waiting for the first scan request
-    means the first ROMs are scraped at the default one thread and 50 requests
-    per minute. ssuserInfos.php reports them up front for free: unlike the
-    scraping endpoints it does not consume the daily quota.
+    means the first ROMs are scraped one at a time on the default single thread.
+    ssuserInfos.php reports them up front for free: unlike the scraping
+    endpoints it does not consume the daily quota.
 
     Best effort. A scan must still run when ScreenScraper cannot be reached.
     """

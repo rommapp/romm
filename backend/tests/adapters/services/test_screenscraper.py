@@ -13,8 +13,8 @@ from adapters.services.screenscraper import (
     LOGIN_ERROR_CHECK,
     SS_DEFAULT_MAX_THREADS,
     SS_DEFAULT_MEDIA_TIMEOUT,
-    SS_DEFAULT_REQUESTS_PER_SECOND,
     SS_MAX_MEDIA_TIMEOUT,
+    SS_UNPACED_REQUESTS_PER_SECOND,
     ScreenScraperRateLimitError,
     ScreenScraperService,
     _loads_lenient,
@@ -1292,23 +1292,27 @@ class TestAccountLimits:
         assert limits is not None
         assert limits.remaining_requests == 0
 
-    def test_derives_the_rate_from_threads_when_not_reported(self):
-        """ScreenScraper allows threads x 50 requests per minute."""
+    def test_leaves_pacing_alone_when_no_budget_is_reported(self):
+        """The thread count says nothing about the budget: ScreenScraper's
+        `threads x 50` documentation is stale, so there is nothing to derive."""
         ss_module._update_account_limits(_ssuser_response(maxthreads="3"))
 
-        assert ss_module._rate_limiter.requests_per_second == pytest.approx(150 / 60)
+        assert ss_module._rate_limiter.requests_per_second == pytest.approx(
+            UNTHROTTLED_RATE
+        )
 
-    def test_clamps_a_reported_limit_above_the_documented_budget(self):
-        """Measured on real accounts, maxrequestspermin comes back as
-        1024 x (threads + 1): 10240 here against the documented 450. The
-        documented rule wins, so an inflated field cannot disable pacing."""
+    def test_uses_a_reported_limit_above_the_documented_budget(self):
+        """maxrequestspermin comes back as 1024 x (threads + 1), far above the
+        `threads x 50` the FAQ still documents. ScreenScraper confirmed the API
+        changed without the docs following, so the reported figure is the one to
+        pace against."""
         ss_module._update_account_limits(
             _ssuser_response(maxthreads="9", maxrequestspermin="10240")
         )
 
-        assert ss_module._rate_limiter.requests_per_second == pytest.approx(450 / 60)
+        assert ss_module._rate_limiter.requests_per_second == pytest.approx(10240 / 60)
 
-    def test_honours_a_reported_limit_below_the_documented_budget(self):
+    def test_honours_a_reported_limit_that_is_low(self):
         """A stricter account limit is still respected."""
         ss_module._update_account_limits(
             _ssuser_response(maxthreads="9", maxrequestspermin="100")
@@ -1359,8 +1363,8 @@ class TestAccountLimits:
         assert "2000" in description
 
     def test_scan_state_reset_returns_pacing_to_the_defaults(self):
-        """Priming re-reads the account moments later; until it does, the
-        conservative default is safe for whatever account is configured now."""
+        """Priming re-reads the account moments later; until it does, the single
+        thread is the guard for whatever account is configured now."""
         ss_module._update_account_limits(
             _ssuser_response(maxthreads="5", maxrequestspermin="250")
         )
@@ -1370,7 +1374,7 @@ class TestAccountLimits:
 
         assert ss_module._concurrency_limiter.max_concurrency == SS_DEFAULT_MAX_THREADS
         assert ss_module._rate_limiter.requests_per_second == pytest.approx(
-            SS_DEFAULT_REQUESTS_PER_SECOND
+            SS_UNPACED_REQUESTS_PER_SECOND
         )
 
     def test_scan_state_reset_drops_stale_quota_counters(self):
