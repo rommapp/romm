@@ -31,6 +31,7 @@ import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
 import { installBreakpointAttribute } from "@/v2/composables/useBreakpoint";
 import { installPermissionsHydration } from "@/v2/composables/useCan";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
+import { installGalleryProvenance } from "@/v2/composables/useGalleryProvenance";
 import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
@@ -117,6 +118,7 @@ const { install: installGlobalHotkeys } = useGlobalHotkeys();
 const router = useRouter();
 
 let removeBackMorph: (() => void) | null = null;
+let removeGalleryProvenance: (() => void) | null = null;
 
 onMounted(() => {
   installInputModality();
@@ -125,6 +127,9 @@ onMounted(() => {
   // Mirror morph: GameDetails cover → destination card on back/navbar/popstate.
   // Forward direction is handled at the source side in GameCard.
   removeBackMorph = installBackMorph(router);
+  // Tells GameDetails whether the user clicked through from a gallery, so the
+  // prev/next arrows don't step through a list the user has already left.
+  removeGalleryProvenance = installGalleryProvenance(router);
   // Hydrate collections (incl. favoriteCollection) so per-ROM favorite
   // state resolves on direct navigation to /rom/:id without going
   // through Home / Collections first. v1 did this in `Main.vue`.
@@ -160,6 +165,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   removeBackMorph?.();
   removeBackMorph = null;
+  removeGalleryProvenance?.();
+  removeGalleryProvenance = null;
   if (bgTimer !== null) {
     clearTimeout(bgTimer);
     bgTimer = null;
