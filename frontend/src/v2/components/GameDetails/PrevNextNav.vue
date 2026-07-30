@@ -4,14 +4,19 @@
 //
 // Order comes from the gallery store's `romIdIndex`, so it always matches
 // what the gallery the user came from is showing (search term, filters,
-// order-by, grouping). Renders nothing when the current ROM isn't part of
-// that list, i.e. a direct link, a related-game jump or a Home row, which
-// all land here with no surrounding list to step through.
+// order-by, grouping).
+//
+// Two conditions gate the arrows, and both are needed. The ROM has to be
+// in that list, and the user has to have arrived from the gallery that
+// built it (see useGalleryProvenance) — the store keeps its index alive
+// after the gallery is left, so membership alone would hand a stale list
+// to a ROM opened from Home, Activity or a scan result.
 import { RBtn } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
+import { useGalleryProvenance } from "@/v2/composables/useGalleryProvenance";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 defineOptions({ inheritAttrs: false });
@@ -24,8 +29,11 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const galleryRoms = storeGalleryRoms();
+const { enteredFromGallery } = useGalleryProvenance();
 
-const position = computed(() => galleryRoms.romIdIndex.indexOf(props.romId));
+const position = computed(() =>
+  enteredFromGallery.value ? galleryRoms.romIdIndex.indexOf(props.romId) : -1,
+);
 
 const visible = computed(
   () => position.value >= 0 && galleryRoms.romIdIndex.length > 1,
