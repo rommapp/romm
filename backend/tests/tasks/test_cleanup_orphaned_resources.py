@@ -25,8 +25,8 @@ class TestCleanupOrphanedResourcesTask:
         assert task.enabled is True
         assert task.manual_run is True
 
-    def test_no_cron_string_by_default(self, task):
-        assert task.cron_string is None
+    def test_cron_string_defaults_to_schedule(self, task):
+        assert task.cron_string == mod.SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON
 
     def test_cron_string_set_when_schedule_enabled(self):
         with patch.object(mod, "ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES", True):
@@ -36,6 +36,7 @@ class TestCleanupOrphanedResourcesTask:
                 assert CleanupOrphanedResourcesTask().cron_string == "0 5 * * *"
 
     def test_init_unschedules_when_no_cron(self, task):
+        task.cron_string = None
         with patch.object(task, "unschedule") as mock_unschedule:
             assert task.init() is None
             mock_unschedule.assert_called_once()

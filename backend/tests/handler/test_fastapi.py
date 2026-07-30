@@ -23,7 +23,7 @@ from handler.scan_handler import (
     scan_rom,
 )
 from models.platform import Platform
-from models.rom import Rom, RomFile
+from models.rom import Rom, RomFile, SaveUsage
 from utils.context import initialize_context
 
 
@@ -190,6 +190,115 @@ async def test_scan_rom_complete_clears_unselected_metadata(
     assert result.ra_metadata == {}
     # Hasheous is still selected and should remain populated.
     assert result.hasheous_id == 999
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+async def test_scan_rom_folds_extracted_title_id_values(mock_playmatch_enabled):
+    """Extracted title id values on the parsed files must land on the Rom."""
+    platform = Platform(id=1, slug="switch", fs_slug="switch", name="Nintendo Switch")
+    platform = db_platform_handler.add_platform(platform)
+
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Game.nsp",
+        fs_path="switch/roms",
+        name="Game",
+        fs_size_bytes=1024,
+        tags=[],
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Game.nsp",
+                "flat": True,
+                "nested": False,
+                "files": [
+                    RomFile(
+                        rom=rom,
+                        file_name="Game.nsp",
+                        file_path="switch/roms",
+                        file_size_bytes=1024,
+                        last_modified=1620000000,
+                        title_id="0100ABCD12340000",
+                        save_id="0100ABCD12340000",
+                    )
+                ],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+                "title_id": "0100ABCD12340000",
+                "save_id": "0100ABCD12340000",
+                "save_usage": SaveUsage.FOLDER_EXACT,
+            },
+            metadata_sources=[],
+            newly_added=False,
+        )
+
+    assert result.title_id == "0100ABCD12340000"
+    assert result.save_id == "0100ABCD12340000"
+    assert result.save_usage == SaveUsage.FOLDER_EXACT
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+async def test_scan_rom_preserves_title_id_when_extraction_yields_nothing(
+    mock_playmatch_enabled,
+):
+    """A rescan without extracted values must not wipe existing title ids."""
+    platform = Platform(id=1, slug="switch", fs_slug="switch", name="Nintendo Switch")
+    platform = db_platform_handler.add_platform(platform)
+
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Game.nsp",
+        fs_path="switch/roms",
+        name="Game",
+        fs_size_bytes=1024,
+        tags=[],
+        title_id="0100ABCD12340000",
+        save_id="0100ABCD12340000",
+        save_usage=SaveUsage.FOLDER_EXACT,
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Game.nsp",
+                "flat": True,
+                "nested": False,
+                "files": [
+                    RomFile(
+                        rom=rom,
+                        file_name="Game.nsp",
+                        file_path="switch/roms",
+                        file_size_bytes=1024,
+                        last_modified=1620000000,
+                    )
+                ],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+                "title_id": None,
+                "save_id": None,
+                "save_usage": None,
+            },
+            metadata_sources=[],
+            newly_added=False,
+        )
+
+    assert result.title_id == "0100ABCD12340000"
+    assert result.save_id == "0100ABCD12340000"
+    assert result.save_usage == SaveUsage.FOLDER_EXACT
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)

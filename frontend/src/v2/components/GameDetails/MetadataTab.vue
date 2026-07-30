@@ -32,6 +32,8 @@ const fileRows = computed<Row[]>(() => {
   return [
     { label: t("rom.filename"), value: r.fs_name },
     { label: t("common.size"), value: size },
+    { label: t("rom.title-id"), value: r.title_id ?? "—" },
+    { label: t("rom.save-id"), value: r.save_id ?? "—" },
   ];
 });
 

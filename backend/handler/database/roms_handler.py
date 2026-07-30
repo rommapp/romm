@@ -167,6 +167,9 @@ ROM_FILE_SCANNED_COLUMNS = (
     "chd_sha1_hash",
     "archive_members",
     "category",
+    "title_id",
+    "save_id",
+    "title_version",
 )
 
 TRACK_META_SCANNED_COLUMNS = (
