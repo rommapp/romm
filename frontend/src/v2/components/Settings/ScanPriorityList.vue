@@ -1,13 +1,17 @@
 <script setup lang="ts">
-// ScanPriorityList — orders a fixed set of metadata/artwork providers by
-// priority. The model is the ordered list of *enabled* provider slugs
-// (first = highest priority); providers absent from it are disabled and
-// shown in an "add" tray below.
+// ScanPriorityList — orders a list of scan entries by priority. The model
+// is the ordered list of *enabled* values (first = highest priority);
+// values absent from it are shown in an "add" tray below.
+//
+// Two modes. Fixed sets (metadata/artwork providers) only accept values
+// from `sources`. Open sets (`allow-custom`, used for region/language
+// codes, which providers define) also accept typed values, with `sources`
+// acting as suggestions.
 //
 // Reordering supports every input modality: pointer drag (HTML5 DnD) and
 // explicit move-up / move-down buttons (keyboard, gamepad, touch). Modelled
 // on Home/Widgets/WidgetReorderList but adds enable/disable.
-import { RBtn, RIcon } from "@v2/lib";
+import { RBtn, RIcon, RTextField } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
@@ -23,8 +27,12 @@ const props = withDefaults(
     modelValue: string[];
     sources: Source[];
     disabled?: boolean;
+    /** Accept typed values outside `sources`, which become suggestions. */
+    allowCustom?: boolean;
+    /** Placeholder for the free-text input shown with `allow-custom`. */
+    inputPlaceholder?: string;
   }>(),
-  { disabled: false },
+  { disabled: false, allowCustom: false, inputPlaceholder: undefined },
 );
 
 const emit = defineEmits<{
@@ -36,12 +44,17 @@ const { t } = useI18n();
 const labelFor = (value: string) =>
   props.sources.find((s) => s.value === value)?.label ?? value;
 
+// Codes are matched case-insensitively by the backend, which stores them
+// lowercased; normalize here so the list never shows near-duplicates.
+const normalize = (raw: string) => raw.trim().toLowerCase();
+
 // Enabled = model order; available = sources not in the model, in the
 // canonical `sources` order so the tray stays stable.
 const enabled = computed(() => props.modelValue);
-const available = computed(() =>
-  props.sources.filter((s) => !props.modelValue.includes(s.value)),
-);
+const available = computed(() => {
+  const taken = new Set(props.modelValue.map(normalize));
+  return props.sources.filter((s) => !taken.has(normalize(s.value)));
+});
 
 function emitNext(next: string[]) {
   emit("update:modelValue", next);
@@ -62,6 +75,27 @@ function remove(value: string) {
 function add(value: string) {
   if (enabled.value.includes(value)) return;
   emitNext([...enabled.value, value]);
+}
+
+// ── Free-text entry (allow-custom only) ─────────────────────────────
+const draft = ref("");
+
+function commitDraft() {
+  // Accept comma / whitespace separated input so a whole list can be
+  // pasted in one go.
+  const parts = draft.value
+    .split(/[\s,;]+/)
+    .map(normalize)
+    .filter(Boolean);
+  const taken = new Set(enabled.value.map(normalize));
+  const next = [...enabled.value];
+  for (const part of parts) {
+    if (taken.has(part)) continue;
+    taken.add(part);
+    next.push(part);
+  }
+  draft.value = "";
+  if (next.length !== enabled.value.length) emitNext(next);
 }
 
 // ── Drag reordering (pointer only; buttons cover other modalities) ──
@@ -162,7 +196,9 @@ function onDragEnd() {
             class="r-v2-spl__remove"
             :disabled="disabled"
             :aria-label="
-              t('settings.scan-priority-disable', { name: labelFor(value) })
+              allowCustom
+                ? t('settings.scan-priority-remove', { name: labelFor(value) })
+                : t('settings.scan-priority-disable', { name: labelFor(value) })
             "
             @click="remove(value)"
           />
@@ -170,12 +206,40 @@ function onDragEnd() {
       </li>
     </ul>
     <p v-else class="r-v2-spl__empty">
-      {{ t("settings.scan-priority-none-enabled") }}
+      {{
+        allowCustom
+          ? t("settings.scan-priority-none-added")
+          : t("settings.scan-priority-none-enabled")
+      }}
     </p>
+
+    <div v-if="allowCustom" class="r-v2-spl__entry">
+      <RTextField
+        v-model="draft"
+        density="compact"
+        :placeholder="inputPlaceholder"
+        :disabled="disabled"
+        hide-details
+        @keydown.enter.prevent="commitDraft"
+      />
+      <RBtn
+        variant="outlined"
+        size="small"
+        prepend-icon="mdi-plus"
+        :disabled="disabled || !draft.trim()"
+        @click="commitDraft"
+      >
+        {{ t("common.add") }}
+      </RBtn>
+    </div>
 
     <div v-if="available.length" class="r-v2-spl__tray">
       <span class="r-v2-spl__tray-label">
-        {{ t("settings.scan-priority-add") }}
+        {{
+          allowCustom
+            ? t("settings.scan-priority-suggestions")
+            : t("settings.scan-priority-add")
+        }}
       </span>
       <div class="r-v2-spl__tray-items">
         <button
@@ -283,6 +347,16 @@ function onDragEnd() {
   margin: 0;
   font-size: 12px;
   color: var(--r-color-fg-muted);
+}
+
+.r-v2-spl__entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.r-v2-spl__entry :deep(.r-text-field) {
+  flex: 1;
+  min-width: 0;
 }
 
 .r-v2-spl__tray {
