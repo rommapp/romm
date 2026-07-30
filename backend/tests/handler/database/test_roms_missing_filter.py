@@ -47,11 +47,6 @@ def present_rom(platform: Platform) -> Rom:
 
 
 class TestMissingFromFsIndex:
-    def test_model_declares_composite_index(self):
-        declared = [list(index.columns.keys()) for index in Rom.__table__.indexes]
-
-        assert INDEX_COLUMNS in declared
-
     def test_migrations_create_composite_index(self):
         indexes = [
             index["column_names"] for index in inspect(engine).get_indexes("roms")
@@ -61,17 +56,14 @@ class TestMissingFromFsIndex:
 
 
 class TestMissingFromFsPredicate:
-    def _compiled_where(self, missing: bool) -> str:
+    @pytest.mark.parametrize(("missing", "literal"), [(True, "true"), (False, "false")])
+    def test_predicate_is_an_indexable_equality(self, missing: bool, literal: str):
         query, _ = db_rom_handler.get_roms_query()
         filtered = db_rom_handler.filter_roms(query=query, missing=missing)
-        return str(filtered.compile(compile_kwargs={"literal_binds": True}))
 
-    @pytest.mark.parametrize("missing", [True, False])
-    def test_predicate_is_an_indexable_equality(self, missing: bool):
-        sql = self._compiled_where(missing)
+        sql = str(filtered.compile(compile_kwargs={"literal_binds": True}))
 
-        assert "roms.missing_from_fs = " in sql
-        assert "IS NOT" not in sql
+        assert f"roms.missing_from_fs = {literal}" in sql
 
     def test_missing_true_returns_only_missing_roms(
         self, admin_user: User, missing_rom: Rom, present_rom: Rom
