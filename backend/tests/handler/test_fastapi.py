@@ -13,7 +13,7 @@ from handler.metadata import (
     meta_sgdb_handler,
     meta_ss_handler,
 )
-from handler.metadata.hasheous_handler import HasheousRom
+from handler.metadata.hasheous_handler import HasheousMetadata, HasheousRom
 from handler.metadata.ra_handler import RAGameRom
 from handler.metadata.ss_handler import SSRom
 from handler.scan_handler import (
@@ -505,6 +505,86 @@ async def test_scan_rom_unmatched_no_match_uses_parsed_name(
     assert result.hasheous_id is None
     # The raw filename placeholder must be replaced by the parsed name.
     assert result.name == "Snow Brothers"
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_hashes_rematches_hasheous(
+    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+):
+    """A HASHES rescan must re-run the Hasheous hash lookup, so a ROM whose
+    hashes were wrong picks up its signature matches (the verified flags)
+    without needing a complete rescan."""
+    hasheous_result = HasheousRom(
+        hasheous_id=999,
+        igdb_id=None,
+        tgdb_id=None,
+        ra_id=None,
+        name="Snow Bros.",
+        hasheous_metadata=HasheousMetadata(
+            tosec_match=False,
+            mame_arcade_match=False,
+            mame_mess_match=False,
+            nointro_match=True,
+            redump_match=False,
+            whdload_match=False,
+            ra_match=True,
+            fbneo_match=False,
+            puredos_match=False,
+        ),
+    )
+    mock_lookup.return_value = hasheous_result
+    mock_get_igdb.return_value = hasheous_result
+    mock_get_ra.return_value = hasheous_result
+
+    platform = Platform(
+        id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, hasheous_id=64
+    )
+    platform = db_platform_handler.add_platform(platform)
+
+    # ROM that never matched Hasheous because its hashes were wrong.
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Snow Brothers (USA).7z",
+        fs_name_no_tags="Snow Brothers",
+        fs_name_no_ext="Snow Brothers (USA)",
+        fs_extension="7z",
+        fs_path="n64/Snow Brothers (USA)",
+        name="My Custom Title",
+        hasheous_id=None,
+        hasheous_metadata={},
+        fs_size_bytes=1024,
+        tags=[],
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.HASHES,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Snow Brothers (USA).7z",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "newcrc",
+                "md5_hash": "newmd5",
+                "sha1_hash": "newsha1",
+                "ra_hash": "newrahash",
+            },
+            metadata_sources=[MetadataSource.HASHEOUS],
+            newly_added=False,
+        )
+
+    mock_lookup.assert_called_once()
+    assert result.hasheous_id == 999
+    assert result.hasheous_metadata["nointro_match"] is True
+    assert result.hasheous_metadata["ra_match"] is True
+    # A rehash must not rewrite user-visible fields.
+    assert result.name == "My Custom Title"
 
 
 def _top_level_rom_file(**kwargs) -> RomFile:

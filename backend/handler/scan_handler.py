@@ -446,6 +446,9 @@ async def scan_rom(
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
+                # New hashes mean a new signature match, so re-run the lookup
+                # even for a ROM that never matched Hasheous before
+                or scan_type == ScanType.HASHES
                 or (scan_type == ScanType.UPDATE and rom.hasheous_id)
                 or (
                     scan_type == ScanType.UNMATCHED
@@ -803,6 +806,7 @@ async def scan_rom(
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
+                or scan_type == ScanType.HASHES
                 or (scan_type == ScanType.UPDATE and rom.hasheous_id)
                 or (
                     scan_type == ScanType.UNMATCHED
@@ -1000,9 +1004,11 @@ async def scan_rom(
             if field_value:
                 rom_attrs[field] = field_value
 
-    # Don't overwrite existing base fields on update and unmatched scans
-    if not newly_added and (
-        scan_type == ScanType.UNMATCHED or scan_type == ScanType.UPDATE
+    # Don't overwrite existing base fields on update, unmatched and hashes scans
+    if not newly_added and scan_type in (
+        ScanType.UNMATCHED,
+        ScanType.UPDATE,
+        ScanType.HASHES,
     ):
         # A ROM's name defaults to a filename-derived placeholder when first
         # created. Treat that placeholder as "no name" so a freshly matched provider
