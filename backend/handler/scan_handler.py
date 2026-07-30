@@ -446,8 +446,6 @@ async def scan_rom(
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
-                # New hashes mean a new signature match, so re-run the lookup
-                # even for a ROM that never matched Hasheous before
                 or scan_type == ScanType.HASHES
                 or (scan_type == ScanType.UPDATE and rom.hasheous_id)
                 or (
