@@ -5,7 +5,6 @@ import pytest
 import socketio
 from rq.job import Job, JobStatus
 
-from adapters.services.screenscraper import SSAccountLimits
 from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
     ScanStats,
@@ -186,8 +185,8 @@ class TestScanTotals:
 
 
 class TestScreenScraperScanReporting:
-    """The scan has to say what ScreenScraper allowed it to do: how much of the
-    daily quota is left, and which ROMs it had to skip when refused."""
+    """The scan hands ScreenScraper's own bookkeeping to ss_handler, and only
+    when the scan actually uses ScreenScraper."""
 
     @pytest.fixture
     def patched(self, mocker):
@@ -226,9 +225,10 @@ class TestScreenScraperScanReporting:
         )
         return socket_manager
 
-    async def test_resets_screenscraper_state_for_each_scan(self, patched, mocker):
-        reset_scan_state = mocker.patch.object(scan_module, "reset_ss_scan_state")
-        reset_skips = mocker.patch.object(scan_module, "reset_ss_rate_limited_roms")
+    async def test_begins_a_screenscraper_scan(self, patched, mocker):
+        begin = mocker.patch.object(
+            scan_module, "begin_ss_scan", new=AsyncMock(return_value=None)
+        )
 
         await scan_platforms(
             platform_ids=[],
@@ -236,8 +236,7 @@ class TestScreenScraperScanReporting:
             scan_type=ScanType.QUICK,
         )
 
-        reset_scan_state.assert_called_once()
-        reset_skips.assert_called_once()
+        begin.assert_awaited_once()
 
     async def test_leaves_screenscraper_state_alone_when_it_is_not_used(
         self, patched, mocker
@@ -245,8 +244,9 @@ class TestScreenScraperScanReporting:
         """The state is process-global and DEV_MODE scans run in-process, so a
         scan without ScreenScraper must not clear an overlapping scan's limits
         and skipped ROMs."""
-        reset_scan_state = mocker.patch.object(scan_module, "reset_ss_scan_state")
-        reset_skips = mocker.patch.object(scan_module, "reset_ss_rate_limited_roms")
+        begin = mocker.patch.object(
+            scan_module, "begin_ss_scan", new=AsyncMock(return_value=None)
+        )
 
         await scan_platforms(
             platform_ids=[],
@@ -254,15 +254,13 @@ class TestScreenScraperScanReporting:
             scan_type=ScanType.QUICK,
         )
 
-        reset_scan_state.assert_not_called()
-        reset_skips.assert_not_called()
+        begin.assert_not_awaited()
 
-    async def test_primes_the_account_limits_before_scanning(self, patched, mocker):
-        """Reading the limits up front means the first ROMs are already paced
-        correctly, instead of running at the default until the first response."""
-        prime = mocker.patch.object(
-            scan_module, "prime_ss_account_limits", new=AsyncMock(return_value=None)
+    async def test_reports_the_screenscraper_summary_at_the_end(self, patched, mocker):
+        mocker.patch.object(
+            scan_module, "begin_ss_scan", new=AsyncMock(return_value=None)
         )
+        summary = mocker.patch.object(scan_module, "log_ss_scan_summary")
 
         await scan_platforms(
             platform_ids=[],
@@ -270,127 +268,16 @@ class TestScreenScraperScanReporting:
             scan_type=ScanType.QUICK,
         )
 
-        prime.assert_awaited_once()
-
-    async def test_does_not_prime_when_screenscraper_is_not_used(self, patched, mocker):
-        prime = mocker.patch.object(
-            scan_module, "prime_ss_account_limits", new=AsyncMock(return_value=None)
-        )
-
-        await scan_platforms(
-            platform_ids=[], metadata_sources=[], scan_type=ScanType.QUICK
-        )
-
-        prime.assert_not_awaited()
-
-    async def test_does_not_repeat_an_unchanged_quota_line(self, patched, mocker):
-        """The last platform and the end-of-scan summary both report the quota,
-        which would otherwise print the same numbers twice in a row."""
-        mock_log = mocker.patch.object(scan_module, "log")
-        mocker.patch.object(
-            scan_module, "prime_ss_account_limits", new=AsyncMock(return_value=None)
-        )
-        mocker.patch.object(
-            scan_module,
-            "get_ss_account_limits",
-            return_value=SSAccountLimits(
-                max_requests_per_day=20000, requests_today=1500
-            ),
-        )
-        mocker.patch.object(
-            scan_module, "get_ss_rate_limited_rom_names", return_value=[]
-        )
-
-        await scan_platforms(
-            platform_ids=[],
-            metadata_sources=[MetadataSource.SS],
-            scan_type=ScanType.QUICK,
-        )
-
-        quota_lines = [
-            call
-            for call in mock_log.info.call_args_list
-            if "ScreenScraper quota" in str(call)
-        ]
-        assert len(quota_lines) == 1
-
-    async def test_reports_the_quota_again_once_it_changes(self, patched, mocker):
-        mock_log = mocker.patch.object(scan_module, "log")
-        mocker.patch.object(
-            scan_module, "prime_ss_account_limits", new=AsyncMock(return_value=None)
-        )
-        mocker.patch.object(
-            scan_module,
-            "get_ss_account_limits",
-            side_effect=[
-                SSAccountLimits(max_requests_per_day=20000, requests_today=1500),
-                SSAccountLimits(max_requests_per_day=20000, requests_today=1900),
-            ],
-        )
-        mocker.patch.object(
-            scan_module, "get_ss_rate_limited_rom_names", return_value=[]
-        )
-
-        await scan_platforms(
-            platform_ids=[],
-            metadata_sources=[MetadataSource.SS],
-            scan_type=ScanType.QUICK,
-        )
-
-        quota_lines = [
-            call
-            for call in mock_log.info.call_args_list
-            if "ScreenScraper quota" in str(call)
-        ]
-        assert len(quota_lines) == 2
-
-    async def test_reports_remaining_quota_and_skipped_roms(self, patched, mocker):
-        mock_log = mocker.patch.object(scan_module, "log")
-        mocker.patch.object(
-            scan_module,
-            "get_ss_account_limits",
-            return_value=SSAccountLimits(
-                max_requests_per_day=20000,
-                requests_today=1500,
-                max_ko_requests_per_day=2000,
-                ko_requests_today=300,
-            ),
-        )
-        mocker.patch.object(
-            scan_module,
-            "get_ss_rate_limited_rom_names",
-            return_value=["Sonic (USA).md", "Streets of Rage (USA).md"],
-        )
-
-        await scan_platforms(
-            platform_ids=[],
-            metadata_sources=[MetadataSource.SS],
-            scan_type=ScanType.QUICK,
-        )
-
-        info = " ".join(str(call) for call in mock_log.info.call_args_list)
-        warnings = " ".join(str(call) for call in mock_log.warning.call_args_list)
-        assert "18500" in info
-        assert "1700" in info
-        assert "Sonic (USA).md" in warnings
-        assert "Streets of Rage (USA).md" in warnings
+        summary.assert_called_once()
 
     async def test_stays_quiet_when_screenscraper_is_not_used(self, patched, mocker):
-        mock_log = mocker.patch.object(scan_module, "log")
-        mocker.patch.object(
-            scan_module,
-            "get_ss_account_limits",
-            return_value=SSAccountLimits(
-                max_requests_per_day=20000, requests_today=1500
-            ),
-        )
+        summary = mocker.patch.object(scan_module, "log_ss_scan_summary")
 
         await scan_platforms(
             platform_ids=[], metadata_sources=[], scan_type=ScanType.QUICK
         )
 
-        info = " ".join(str(call) for call in mock_log.info.call_args_list)
-        assert "18500" not in info
+        summary.assert_not_called()
 
 
 class TestShouldScanRom:
@@ -1190,7 +1077,9 @@ class TestStopFlagOwnership:
         mocker.patch.object(
             scan_module, "_get_socket_manager", return_value=AsyncMock()
         )
-        mocker.patch.object(scan_module, "reset_ss_scan_state")
+        mocker.patch.object(
+            scan_module, "begin_ss_scan", new=AsyncMock(return_value=None)
+        )
         mocker.patch.object(
             scan_module.fs_platform_handler,
             "get_platforms",

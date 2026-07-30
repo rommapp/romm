@@ -11,11 +11,6 @@ from rq import Worker, get_current_job
 from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError
 
-from adapters.services.screenscraper import get_account_limits as get_ss_account_limits
-from adapters.services.screenscraper import (
-    prime_account_limits as prime_ss_account_limits,
-)
-from adapters.services.screenscraper import reset_scan_state as reset_ss_scan_state
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
@@ -40,16 +35,11 @@ from handler.filesystem import (
 )
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_gamelist_handler, meta_hltb_handler
-from handler.metadata.ss_handler import (
-    add_ss_auth_to_url,
-    get_preferred_media_types,
-)
-from handler.metadata.ss_handler import (
-    get_rate_limited_rom_names as get_ss_rate_limited_rom_names,
-)
-from handler.metadata.ss_handler import (
-    reset_rate_limited_roms as reset_ss_rate_limited_roms,
-)
+from handler.metadata.ss_handler import add_ss_auth_to_url
+from handler.metadata.ss_handler import begin_scan as begin_ss_scan
+from handler.metadata.ss_handler import get_preferred_media_types
+from handler.metadata.ss_handler import log_quota as log_ss_quota
+from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
 from handler.redis_handler import (
     get_job_func_name,
     high_prio_queue,
@@ -197,46 +187,6 @@ class ScanStats:
 def _get_socket_manager() -> socketio.AsyncRedisManager:
     """Connect to external socketio server"""
     return socketio.AsyncRedisManager(REDIS_URL, write_only=True)
-
-
-_last_ss_quota_logged: str | None = None
-
-
-def _log_ss_quota() -> None:
-    """Report how much of the ScreenScraper daily quota is left.
-
-    ScreenScraper sends the counters with every response, so a scan heading for
-    the wall is visible before it gets there. Repeats are dropped: the last
-    platform and the end-of-scan summary would otherwise print the same numbers
-    twice in a row.
-    """
-    global _last_ss_quota_logged
-
-    limits = get_ss_account_limits()
-    if limits is None:
-        return
-
-    description = limits.describe()
-    if description == _last_ss_quota_logged:
-        return
-
-    _last_ss_quota_logged = description
-    log.info(description)
-
-
-def _log_ss_scan_summary() -> None:
-    _log_ss_quota()
-
-    skipped_roms = get_ss_rate_limited_rom_names()
-    if not skipped_roms:
-        return
-
-    log.warning(
-        f"{hl('Skipped')} ScreenScraper metadata for {hl(str(len(skipped_roms)))} "
-        f"roms after repeated rate limiting:"
-    )
-    for fs_name in skipped_roms:
-        log.warning(f" - {fs_name}")
 
 
 async def _identify_firmware(
@@ -869,7 +819,7 @@ async def _identify_platform(
             log.warning(f" - {f}")
 
     if MetadataSource.SS in metadata_sources:
-        _log_ss_quota()
+        log_ss_quota()
 
     return scan_stats
 
@@ -913,23 +863,11 @@ async def scan_platforms(
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
 
-    # This state is process-global, so a scan that never touches ScreenScraper
-    # must leave it alone: under DEV_MODE scans run in-process and can overlap,
-    # and clearing it would drop the other scan's learned limits and skips.
+    # ScreenScraper's scan state is process-global, so a scan that never touches
+    # it must leave it alone: under DEV_MODE scans run in-process and can
+    # overlap, and resetting would drop the other scan's limits and skips.
     if MetadataSource.SS in metadata_sources:
-        # Re-evaluate the quota breaker, learned limits and skipped ROMs rather
-        # than inheriting a tripped breaker or yesterday's counters.
-        global _last_ss_quota_logged
-        _last_ss_quota_logged = None
-
-        reset_ss_scan_state()
-        reset_ss_rate_limited_roms()
-
-        # Read the account's allowances before the first ROM, so pacing and the
-        # thread cap are right from the first request rather than from the first
-        # response, and the quota is visible up front.
-        await prime_ss_account_limits()
-        _log_ss_quota()
+        await begin_ss_scan()
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()
@@ -1024,7 +962,7 @@ async def scan_platforms(
                 log.warning(f" - {p.slug} ({p.fs_slug})")
 
         if MetadataSource.SS in metadata_sources:
-            _log_ss_scan_summary()
+            log_ss_scan_summary()
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
 
