@@ -196,10 +196,16 @@ def get_preferred_regions(
 def get_preferred_languages() -> list[str]:
     """Get preferred languages from config.
 
-    Returns language priority list with default fallbacks.
+    Falls back to English when the list is empty, so clearing the setting does
+    not blank out every description.
     """
     config = cm.get_config()
-    return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY + ["en", "fr"]))
+    return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY)) or ["en"]
+
+
+def get_taxonomy_languages() -> list[str]:
+    """Preferred languages, extended with ScreenScraper's taxonomy fallbacks."""
+    return list(dict.fromkeys(get_preferred_languages() + ["en", "fr"]))
 
 
 def get_preferred_media_types() -> list[MetadataMediaType]:
@@ -512,7 +518,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
 
 
 def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
-    preferred_languages = get_preferred_languages()
+    taxonomy_languages = get_taxonomy_languages()
 
     def _normalize_score(score: str) -> str:
         """Normalize the score to be between 0 and 10 because for some reason Screenscraper likes to rate over 20."""
@@ -564,7 +570,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
         ]
 
     def _get_franchises(game: SSGame) -> list[str]:
-        for lang in preferred_languages:
+        for lang in taxonomy_languages:
             franchises = [
                 franchise_name["text"]
                 for franchise in game.get("familles", [])
@@ -576,7 +582,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
         return []
 
     def _get_game_modes(game: SSGame) -> list[str]:
-        for lang in preferred_languages:
+        for lang in taxonomy_languages:
             modes = [
                 mode_name["text"]
                 for mode in game.get("modes", [])

@@ -26,8 +26,10 @@ from handler.metadata.ss_handler import (
     build_ss_game,
     extract_media_from_ss_game,
     extract_metadata_from_ss_rom,
+    get_preferred_languages,
     get_preferred_regions,
     get_rate_limited_rom_names,
+    get_taxonomy_languages,
     note_rate_limited_rom,
     reset_rate_limited_roms,
 )
@@ -38,6 +40,7 @@ def _make_config(
     region_priority: list[str] | None = None,
     scan_media: list[str] | None = None,
     region_mode: str = "prefer_rom_tags",
+    language_priority: list[str] | None = None,
 ) -> Config:
     """Build a minimal Config object for testing."""
     return Config(
@@ -53,7 +56,9 @@ def _make_config(
         ROMS_FOLDER_NAME="roms",
         FIRMWARE_FOLDER_NAME="bios",
         SCAN_REGION_PRIORITY=region_priority or [],
-        SCAN_LANGUAGE_PRIORITY=["en"],
+        SCAN_LANGUAGE_PRIORITY=(
+            language_priority if language_priority is not None else ["en"]
+        ),
         SCAN_MEDIA=(
             scan_media if scan_media is not None else ["box2d", "box3d", "screenshot"]
         ),
@@ -172,6 +177,40 @@ class TestGetPreferredRegions:
             regions = get_preferred_regions(rom)
 
         assert regions.index("eu") < regions.index("fr")
+
+
+class TestGetPreferredLanguages:
+    def test_returns_configured_order(self):
+        config = _make_config(language_priority=["de", "es"])
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            assert get_preferred_languages() == ["de", "es"]
+
+    def test_does_not_append_french(self):
+        """A configured language list is honored as-is, so descriptions are not
+        silently served in a language the user did not ask for."""
+        config = _make_config(language_priority=["de"])
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            assert get_preferred_languages() == ["de"]
+
+    def test_empty_falls_back_to_english(self):
+        config = _make_config(language_priority=[])
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            assert get_preferred_languages() == ["en"]
+
+    def test_drops_duplicates(self):
+        config = _make_config(language_priority=["de", "en", "de"])
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            assert get_preferred_languages() == ["de", "en"]
+
+    def test_taxonomy_languages_append_fallbacks(self):
+        config = _make_config(language_priority=["de"])
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            assert get_taxonomy_languages() == ["de", "en", "fr"]
+
+    def test_taxonomy_languages_keep_user_order(self):
+        config = _make_config(language_priority=["fr", "de"])
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            assert get_taxonomy_languages() == ["fr", "de", "en"]
 
 
 class TestExtractMediaFromSsGame:
@@ -510,6 +549,47 @@ class TestExtractMetadataFromSsRom:
 
         assert metadata["first_release_date"] == 593568000
 
+    def test_franchises_fall_back_to_french(self):
+        """ScreenScraper's taxonomy is often French-only, so those fields still
+        fall back even when the user asked for another language."""
+        config = _make_config(language_priority=["de"])
+        game = cast(
+            SSGame,
+            {
+                "familles": [{"noms": [{"langue": "fr", "text": "Mario"}]}],
+                "modes": [{"noms": [{"langue": "fr", "text": "Solo"}]}],
+                "medias": [],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            metadata = extract_metadata_from_ss_rom(self._make_rom(), game)
+
+        assert metadata["franchises"] == ["Mario"]
+        assert metadata["game_modes"] == ["Solo"]
+
+    def test_taxonomy_prefers_configured_language(self):
+        config = _make_config(language_priority=["de"])
+        game = cast(
+            SSGame,
+            {
+                "familles": [
+                    {
+                        "noms": [
+                            {"langue": "fr", "text": "Mario"},
+                            {"langue": "de", "text": "Mario DE"},
+                        ]
+                    }
+                ],
+                "medias": [],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            metadata = extract_metadata_from_ss_rom(self._make_rom(), game)
+
+        assert metadata["franchises"] == ["Mario DE"]
+
 
 class TestBuildSSGame:
     def _make_rom(self) -> MagicMock:
@@ -565,6 +645,43 @@ class TestBuildSSGame:
         # Dedicated media folders are still populated.
         assert result["ss_metadata"]["title_screen_path"]
         assert result["ss_metadata"]["fanart_path"]
+
+    def test_summary_does_not_fall_back_to_unrequested_language(self):
+        """An untranslated synopsis is left empty rather than served in French."""
+        config = _make_config(language_priority=["de"])
+        game = cast(
+            SSGame,
+            {
+                "id": "42",
+                "medias": [],
+                "synopsis": [{"langue": "fr", "text": "Un jeu."}],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            result = build_ss_game(self._make_rom(), game)
+
+        # Empty values are stripped from the returned dict.
+        assert "summary" not in result
+
+    def test_summary_uses_configured_language(self):
+        config = _make_config(language_priority=["de", "en"])
+        game = cast(
+            SSGame,
+            {
+                "id": "42",
+                "medias": [],
+                "synopsis": [
+                    {"langue": "en", "text": "A game."},
+                    {"langue": "de", "text": "Ein Spiel."},
+                ],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            result = build_ss_game(self._make_rom(), game)
+
+        assert result["summary"] == "Ein Spiel."
 
 
 class TestIsNotgame:

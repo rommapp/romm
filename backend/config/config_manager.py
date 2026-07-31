@@ -508,7 +508,7 @@ class ConfigManager:
             SCAN_LANGUAGE_PRIORITY=pydash.get(
                 self._raw_config,
                 "scan.priority.language",
-                ["en", "fr"],
+                ["en"],
             ),
             SCAN_MEDIA=pydash.get(
                 self._raw_config,
