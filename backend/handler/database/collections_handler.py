@@ -637,15 +637,21 @@ class DBCollectionsHandler(DBBaseHandler):
     def refresh_smart_collections_for_roms(
         self,
         rom_ids: Sequence[int],
+        membership_only: bool = False,
         session: Session = None,  # type: ignore
     ) -> int:
-        """Refresh the collections a handful of edited or deleted ROMs touch.
+        """Refresh the collections a handful of changed ROMs touch.
 
         Editing one ROM rarely moves any collection, and asking whether given
         ids match is an indexed lookup, so only the collections that actually
-        hold one of them pay for a recount. Membership is then recomputed whole,
-        since a ROM that stayed a member can still have changed the stored order
-        or the cover mosaic.
+        hold one of them pay for a recount.
+
+        `membership_only` is for changes that leave the ROM row alone, like a
+        save, a state, a status or collection membership: nothing about the ROM
+        can have moved except whether it matches, so a member that stayed one
+        needs no recount. That matters because autosaves land constantly. The
+        default suits a library change, where a ROM that stayed a member can
+        still have a new name, sort position or cover to reflect.
         """
         from handler.database import db_rom_handler
 
@@ -661,7 +667,9 @@ class DBCollectionsHandler(DBBaseHandler):
                 user_id=smart_collection.user_id,
                 session=session,
             )
-            if matching or candidates & set(smart_collection.rom_ids):
+            cached = candidates & set(smart_collection.rom_ids)
+            moved = matching != cached if membership_only else bool(matching or cached)
+            if moved:
                 self.refresh_smart_collection(smart_collection.id, session=session)
                 refreshed += 1
 

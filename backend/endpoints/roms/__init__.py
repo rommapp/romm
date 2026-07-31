@@ -119,14 +119,18 @@ def safe_int_or_none(value: Any) -> int | None:
     return safe_int(value)
 
 
-def refresh_affected_smart_collections(rom_ids: Sequence[int]) -> None:
-    """Follow a library change into the cached smart collection membership.
+def refresh_affected_smart_collections(
+    rom_ids: Sequence[int], membership_only: bool = False
+) -> None:
+    """Follow a change into the cached smart collection membership.
 
-    The ROM write has already been committed, so a stale count is the worst
-    this can cost, and reporting it back as a failed write would be a lie.
+    The write has already been committed, so a stale count is the worst this
+    can cost, and reporting it back as a failed write would be a lie.
     """
     try:
-        db_collection_handler.refresh_smart_collections_for_roms(rom_ids)
+        db_collection_handler.refresh_smart_collections_for_roms(
+            rom_ids, membership_only=membership_only
+        )
     except Exception as e:
         log.error(f"Couldn't refresh smart collections for {rom_ids}: {e}")
 
@@ -2114,5 +2118,8 @@ async def update_rom_user(
 
     if "hidden" in cleaned_data:
         db_rom_handler.invalidate_filter_values_cache()
+
+    if "status" in cleaned_data:
+        refresh_affected_smart_collections([id], membership_only=True)
 
     return RomUserSchema.model_validate(rom_user)

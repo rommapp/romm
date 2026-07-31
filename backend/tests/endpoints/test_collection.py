@@ -729,3 +729,54 @@ class TestSmartCollectionEndpoints:
         assert after.updated_at == before.updated_at
         assert list(after.rom_ids) == list(before.rom_ids)
         assert after.path_covers_small == before.path_covers_small
+
+    def test_adding_a_rom_to_a_collection_refreshes_scoped_membership(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        shelf = db_collection_handler.add_collection(
+            Collection(name="Shelf", description="", user_id=admin_user.id)
+        )
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="On the shelf",
+                description="",
+                user_id=admin_user.id,
+                filter_criteria={"collection_id": shelf.id},
+            )
+        )
+        db_collection_handler.refresh_smart_collection(smart_collection.id)
+
+        response = client.post(
+            f"/api/collections/{shelf.id}/roms",
+            json={"rom_ids": [rom.id]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert refreshed is not None
+        assert refreshed.rom_ids == [rom.id]
+
+    def test_setting_a_rom_status_refreshes_membership(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Finished games",
+                description="",
+                user_id=admin_user.id,
+                filter_criteria={"statuses": ["finished"]},
+            )
+        )
+        db_collection_handler.refresh_smart_collection(smart_collection.id)
+
+        response = client.put(
+            f"/api/roms/{rom.id}/props",
+            json={"status": "finished"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert refreshed is not None
+        assert refreshed.rom_ids == [rom.id]
