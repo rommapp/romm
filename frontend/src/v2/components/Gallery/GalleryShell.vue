@@ -99,6 +99,8 @@ interface Props {
   hasHeader: boolean;
   /** Toolbar's search-input placeholder. */
   searchPlaceholder: string;
+  /** Focus the toolbar's search field on mount. */
+  autofocusSearch?: boolean;
   /** Empty-state message shown when the gallery resolves with zero items. */
   emptyMessage: string;
   /** "Not found" mode — replaces all body items with a single empty row. */
@@ -121,6 +123,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  autofocusSearch: false,
   notFound: false,
   notFoundMessage: undefined,
   showPlatformBadge: true,
@@ -923,6 +926,7 @@ defineExpose({
             show-search
             :search="searchInput"
             :search-placeholder="searchPlaceholder"
+            :autofocus-search="autofocusSearch"
             show-filter
             :filter-active-count="filterActiveCount"
             @update:group-by="groupBy = $event"
