@@ -7,6 +7,8 @@ columns, the rating average, the gamelist date wrapper, and the quoted-string
 date that the old view silently truncated to ``0``.
 """
 
+import pytest
+
 from handler.database import db_rom_handler
 from models.rom import Rom
 
@@ -66,6 +68,37 @@ class TestGeneratedMetadata:
 
         meta = _reload(rom).metadatum
         assert meta.first_release_date == 1577836800000  # 2020-01-01T00:00:00Z
+
+    def test_gamelist_leap_day_is_accepted(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id,
+            {"gamelist_metadata": {"first_release_date": "20240229T000000"}},
+        )
+
+        meta = _reload(rom).metadatum
+        assert meta.first_release_date == 1709164800000  # 2024-02-29T00:00:00Z
+
+    @pytest.mark.parametrize(
+        "release_date",
+        [
+            "00000000T000000",  # what ES/ES-DE/Skyscraper write for "unknown"
+            "19700000T000000",
+            "20201301T000000",
+            "20200230T000000",
+        ],
+    )
+    def test_calendar_invalid_gamelist_date_yields_null(
+        self, rom: Rom, release_date: str
+    ):
+        # These pass the 8+6 digit regex but are not real dates. The write must
+        # succeed rather than raise out of the generated-column expression.
+        db_rom_handler.update_rom(
+            rom.id,
+            {"gamelist_metadata": {"first_release_date": release_date}},
+        )
+
+        meta = _reload(rom).metadatum
+        assert meta.first_release_date is None
 
     def test_empty_metadata_yields_defaults(self, rom: Rom):
         meta = _reload(rom).metadatum
