@@ -403,6 +403,10 @@ onMounted(async () => {
   // there are multiple saves, since loading the state injects a different
   // SRAM timeline that would overwrite an arbitrary save the user never
   // picked. In that case the user must select the save slot explicitly.
+  //
+  // Binding a save is not the same as resuming from it. The visible tab
+  // decides that (see `activeAssetTab`), so opening on States never means
+  // the bound save is the one that boots.
   const initiallyCompatibleStates = rom.value.user_states.filter(
     (s) => !s.emulator || s.emulator === supportedCores.value[0],
   );
@@ -539,6 +543,9 @@ const platformLabel = computed(
 );
 
 type AssetTab = "save" | "state";
+// Doubles as the resume source handed to <Player>. The tab owns both the
+// <AssetPreview> ("Resume from save/state") and what actually boots, so the
+// preview can never promise a save while an armed state loads over it (#4010).
 const activeAssetTab = computed<AssetTab>(() =>
   isSavesTabSelected.value ? "save" : "state",
 );
@@ -786,6 +793,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
         :rom="rom"
         :state="selectedState"
         :save="selectedSave"
+        :resume-from="activeAssetTab"
         :bios="selectedFirmware"
         :core="selectedCore"
         :disc="selectedDisc"

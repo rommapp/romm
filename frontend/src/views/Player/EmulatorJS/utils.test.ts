@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { installEJSDefaultOptionsTrap } from "./utils";
+import { installEJSDefaultOptionsTrap, resolveResumeSource } from "./utils";
 
 const STORAGE_KEY = "ejs-7-n64-Test Game-settings";
 
@@ -131,5 +131,54 @@ describe("installEJSDefaultOptionsTrap", () => {
     const patched = emulator.preGetSetting;
     window.EJS_emulator = emulator;
     expect(emulator.preGetSetting).toBe(patched);
+  });
+});
+
+describe("resolveResumeSource", () => {
+  it("honours an explicit save choice while a state is armed", () => {
+    expect(
+      resolveResumeSource({
+        resumeFrom: "save",
+        hasSave: true,
+        hasState: true,
+      }),
+    ).toBe("save");
+  });
+
+  it("honours an explicit state choice while a save is bound", () => {
+    expect(
+      resolveResumeSource({
+        resumeFrom: "state",
+        hasSave: true,
+        hasState: true,
+      }),
+    ).toBe("state");
+  });
+
+  it("boots fresh when the chosen side has nothing selected", () => {
+    expect(
+      resolveResumeSource({
+        resumeFrom: "save",
+        hasSave: false,
+        hasState: true,
+      }),
+    ).toBeNull();
+    expect(
+      resolveResumeSource({
+        resumeFrom: "state",
+        hasSave: true,
+        hasState: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("prefers the state when no choice is given", () => {
+    expect(resolveResumeSource({ hasSave: true, hasState: true })).toBe(
+      "state",
+    );
+    expect(resolveResumeSource({ hasSave: true, hasState: false })).toBe(
+      "save",
+    );
+    expect(resolveResumeSource({ hasSave: false, hasState: false })).toBeNull();
   });
 });
