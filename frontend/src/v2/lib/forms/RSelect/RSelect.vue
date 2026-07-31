@@ -34,13 +34,13 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
 import RDivider from "../../primitives/RDivider/RDivider.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
 import RTag from "../../primitives/RTag/RTag.vue";
 import { useRFormRegistration } from "../RForm/context";
 import RTextField from "../RTextField/RTextField.vue";
-import { shouldAutofocusSearch } from "./autofocus";
 
 defineOptions({ inheritAttrs: false });
 

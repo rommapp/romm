@@ -1,7 +1,7 @@
-// Whether RSelect's in-panel search field should autofocus when the dropdown
-// opens. Desktop users want type-to-filter immediately; touch-primary devices
-// must NOT autofocus, because focusing the input pops the on-screen keyboard
-// before the user has chosen to type.
+// Whether a search field should grab focus as soon as it appears (a dropdown
+// panel opening, the Search view mounting). Desktop users want type-to-filter
+// immediately; touch-primary devices must NOT autofocus, because focusing the
+// input pops the on-screen keyboard before the user has chosen to type.
 //
 // Input modality can't decide this: a tap emits an emulated `mousedown`, so the
 // modality reads "mouse" by the time the panel opens. A device-capability media
