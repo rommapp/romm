@@ -99,8 +99,7 @@ interface Props {
   hasHeader: boolean;
   /** Toolbar's search-input placeholder. */
   searchPlaceholder: string;
-  /** Focus the toolbar's search field on mount. For views whose whole
-   *  purpose is the query (Search), not for galleries you browse. */
+  /** Focus the toolbar's search field on mount. */
   autofocusSearch?: boolean;
   /** Empty-state message shown when the gallery resolves with zero items. */
   emptyMessage: string;
@@ -1034,9 +1033,7 @@ defineExpose({
          dock position) and toggled visible via `v-show` so the
          GalleryToolbar's children — RSliderBtnGroup, RTextField — run
          their initialisation animation ONCE on first render, not on
-         every stuck transition.
-         No `autofocus-search` here: this twin mounts hidden, so the
-         in-flow toolbar above is the one that can take focus. -->
+         every stuck transition. -->
     <div
       v-if="toolbarPosition === 'header'"
       v-show="isStuck"
