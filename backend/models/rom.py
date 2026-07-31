@@ -106,7 +106,15 @@ class RomArchiveMember(TypedDict):
 class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
-    __table_args__ = (Index("idx_rom_files_rom_id", "rom_id"),)
+    __table_args__ = (
+        Index("idx_rom_files_rom_id", "rom_id"),
+        # Searching the gallery by a hash digest
+        Index("idx_rom_files_crc_hash", "crc_hash"),
+        Index("idx_rom_files_md5_hash", "md5_hash"),
+        Index("idx_rom_files_sha1_hash", "sha1_hash"),
+        Index("idx_rom_files_ra_hash", "ra_hash"),
+        Index("idx_rom_files_chd_sha1_hash", "chd_sha1_hash"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
@@ -336,6 +344,11 @@ class Rom(BaseModel):
         Index("idx_roms_hltb_id", "hltb_id"),
         Index("idx_roms_gamelist_id", "gamelist_id"),
         Index("idx_roms_libretro_id", "libretro_id"),
+        # Searching the gallery by a hash digest
+        Index("idx_roms_crc_hash", "crc_hash"),
+        Index("idx_roms_md5_hash", "md5_hash"),
+        Index("idx_roms_sha1_hash", "sha1_hash"),
+        Index("idx_roms_ra_hash", "ra_hash"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
