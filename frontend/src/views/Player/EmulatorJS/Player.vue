@@ -34,8 +34,6 @@ import {
   createQuickLoadButton,
   createSaveQuitButton,
   createExitEmulationButton,
-  resolveResumeSource,
-  type ResumeSource,
 } from "./utils";
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
@@ -49,15 +47,11 @@ const router = useRouter();
 
 const props = defineProps<{
   rom: DetailedRom;
-  // The bound save slot: the write-back target "Save & Quit" PUTs into. It is
-  // only applied at boot when `resumeFrom` says so, so a save can stay bound
-  // while the session resumes from a state.
   save: SaveSchema | null;
   state: StateSchema | null;
   bios: FirmwareSchema | null;
   core: string | null;
   disc: number | null;
-  resumeFrom?: ResumeSource | null;
 }>();
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
@@ -438,18 +432,15 @@ window.EJS_onGameStart = async () => {
     if (!ready) {
       console.warn("Game manager not ready for save/state injection");
     } else {
-      const resumeSource = resolveResumeSource({
-        resumeFrom: props.resumeFrom,
-        hasSave: !!props.save,
-        hasState: !!props.state,
-      });
-      if (resumeSource === "save" && props.save) {
-        await loadSave(props.save);
-      } else if (resumeSource === "state" && props.state) {
+      // A state restores the whole machine, SRAM included, so a save applied
+      // alongside it would be discarded: the state wins when both are set.
+      if (props.state) {
         await new Promise((resolve) =>
           setTimeout(resolve, STATE_APPLY_SETTLE_MS),
         );
         await loadState(props.state);
+      } else if (props.save) {
+        await loadSave(props.save);
       }
     }
 

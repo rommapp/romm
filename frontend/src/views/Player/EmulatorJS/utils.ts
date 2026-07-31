@@ -154,29 +154,6 @@ export function loadEmulatorJSState(state: Uint8Array) {
   window.EJS_emulator.gameManager.loadState(state);
 }
 
-export type ResumeSource = "save" | "state";
-
-/**
- * Which asset the emulator applies at boot. A state restores the whole
- * machine (SRAM included), so applying both would silently discard the save.
- * Callers that keep a save bound as the write-back target while resuming from
- * a state pass `resumeFrom` to say which one they actually mean; without it,
- * a state wins (v1 keeps the two mutually exclusive, so only one is ever set).
- */
-export function resolveResumeSource({
-  resumeFrom,
-  hasSave,
-  hasState,
-}: {
-  resumeFrom?: ResumeSource | null;
-  hasSave: boolean;
-  hasState: boolean;
-}): ResumeSource | null {
-  const source = resumeFrom ?? (hasState ? "state" : "save");
-  if (source === "state") return hasState ? "state" : null;
-  return hasSave ? "save" : null;
-}
-
 export function invalidateEmulatorJSRomCacheIfRenamed(rom: {
   id: number;
   fs_name: string;
