@@ -88,27 +88,6 @@ def test_filter_roms_by_smart_collection_applies_criteria(
     assert {rom.id for rom in roms} == {rom.id for rom in matching}
 
 
-def test_filter_roms_by_smart_collection_leaves_the_collection_untouched(
-    platform: Platform, admin_user: User
-):
-    # Writing membership back while serving a page bumps `updated_at`, which is
-    # the `?ts=` cover cache-buster, so every visit re-downloads thumbnails.
-    _add_rom(platform, "Rally One", manual_metadata={"genres": ["Racing"]})
-    smart_collection = _add_smart_collection(admin_user, {"genres": ["Racing"]})
-    before = db_collection_handler.get_smart_collection(smart_collection.id)
-    assert before is not None
-    updated_at, rom_ids = before.updated_at, list(before.rom_ids)
-
-    db_rom_handler.get_roms_scalar(
-        smart_collection_id=smart_collection.id, user_id=admin_user.id
-    )
-
-    after = db_collection_handler.get_smart_collection(smart_collection.id)
-    assert after is not None
-    assert after.updated_at == updated_at
-    assert list(after.rom_ids) == rom_ids
-
-
 def test_filter_roms_by_smart_collection_narrows_with_the_gallery_filters(
     platform: Platform, admin_user: User
 ):
@@ -293,6 +272,42 @@ def test_refresh_smart_collections_covers_every_collection(
     refreshed_puzzle = db_collection_handler.get_smart_collection(puzzle.id)
     assert refreshed_racing is not None and refreshed_racing.rom_count == 1
     assert refreshed_puzzle is not None and refreshed_puzzle.rom_count == 2
+
+
+def test_refresh_for_roms_updates_the_collections_the_rom_moved_between(
+    platform: Platform, admin_user: User
+):
+    racing = _add_smart_collection(admin_user, {"genres": ["Racing"]}, name="Racing")
+    puzzle = _add_smart_collection(admin_user, {"genres": ["Puzzle"]}, name="Puzzle")
+    _add_rom(platform, "Rally One", manual_metadata={"genres": ["Racing"]})
+    mover = _add_rom(platform, "Puzzler", manual_metadata={"genres": ["Puzzle"]})
+    db_collection_handler.refresh_smart_collections()
+
+    db_rom_handler.update_rom(mover.id, {"manual_metadata": {"genres": ["Racing"]}})
+    refreshed = db_collection_handler.refresh_smart_collections_for_roms([mover.id])
+
+    assert refreshed == 2
+    racing_after = db_collection_handler.get_smart_collection(racing.id)
+    puzzle_after = db_collection_handler.get_smart_collection(puzzle.id)
+    assert racing_after is not None and racing_after.rom_count == 2
+    assert puzzle_after is not None and puzzle_after.rom_count == 0
+
+
+def test_refresh_for_roms_leaves_untouched_collections_alone(
+    platform: Platform, admin_user: User, mocker
+):
+    # Recounting every collection for one edited ROM would scan the library
+    # once per collection, which is the cost this issue is about.
+    _add_smart_collection(admin_user, {"genres": ["Racing"]}, name="Racing")
+    _add_rom(platform, "Rally One", manual_metadata={"genres": ["Racing"]})
+    db_collection_handler.refresh_smart_collections()
+    bystander = _add_rom(platform, "Puzzler", manual_metadata={"genres": ["Puzzle"]})
+
+    refresh = mocker.spy(db_collection_handler, "refresh_smart_collection")
+    moved = db_collection_handler.refresh_smart_collections_for_roms([bystander.id])
+
+    assert moved == 0
+    assert refresh.call_count == 0
 
 
 def test_cached_membership_belongs_to_the_owner(

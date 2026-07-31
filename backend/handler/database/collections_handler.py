@@ -632,3 +632,37 @@ class DBCollectionsHandler(DBBaseHandler):
             self.refresh_smart_collection(id, session=session)
 
         return len(ids)
+
+    @begin_session
+    def refresh_smart_collections_for_roms(
+        self,
+        rom_ids: Sequence[int],
+        session: Session = None,  # type: ignore
+    ) -> int:
+        """Refresh the collections a handful of edited or deleted ROMs touch.
+
+        Editing one ROM rarely moves any collection, and asking whether given
+        ids match is an indexed lookup, so only the collections that actually
+        hold one of them pay for a recount. Membership is then recomputed whole,
+        since a ROM that stayed a member can still have changed the stored order
+        or the cover mosaic.
+        """
+        from handler.database import db_rom_handler
+
+        if not rom_ids:
+            return 0
+
+        candidates = set(rom_ids)
+        refreshed = 0
+        for smart_collection in session.scalars(select(SmartCollection)).all():
+            matching = db_rom_handler.get_smart_collection_matches(
+                smart_collection=smart_collection,
+                rom_ids=candidates,
+                user_id=smart_collection.user_id,
+                session=session,
+            )
+            if matching or candidates & set(smart_collection.rom_ids):
+                self.refresh_smart_collection(smart_collection.id, session=session)
+                refreshed += 1
+
+        return refreshed

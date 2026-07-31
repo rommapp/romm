@@ -618,6 +618,32 @@ class DBRomsHandler(DBBaseHandler):
             **db_collection_handler.get_smart_collection_criteria(smart_collection),
         )
 
+    @begin_session
+    def get_smart_collection_matches(
+        self,
+        *,
+        smart_collection: SmartCollection,
+        rom_ids: Iterable[int],
+        user_id: int | None,
+        session: Session = None,  # type: ignore
+    ) -> set[int]:
+        """Which of `rom_ids` currently match the collection's criteria.
+
+        Restricting the criteria to a few ids keeps this an indexed lookup, so a
+        caller can ask whether one ROM moved without scanning the library.
+        """
+        query = self._join_rom_user(select(Rom.id), user_id).filter(Rom.id.in_(rom_ids))
+        return set(
+            session.scalars(
+                self.build_smart_collection_query(
+                    query=query,
+                    smart_collection=smart_collection,
+                    user_id=user_id,
+                    session=session,
+                )
+            )
+        )
+
     def _build_fulltext_boolean_query(self, term: str) -> str | None:
         words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
         if not words or any(len(word) < FULLTEXT_MIN_TOKEN_SIZE for word in words):

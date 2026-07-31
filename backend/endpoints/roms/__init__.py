@@ -119,6 +119,18 @@ def safe_int_or_none(value: Any) -> int | None:
     return safe_int(value)
 
 
+def refresh_affected_smart_collections(rom_ids: Sequence[int]) -> None:
+    """Follow a library change into the cached smart collection membership.
+
+    The ROM write has already been committed, so a stale count is the worst
+    this can cost, and reporting it back as a failed write would be a lie.
+    """
+    try:
+        db_collection_handler.refresh_smart_collections_for_roms(rom_ids)
+    except Exception as e:
+        log.error(f"Couldn't refresh smart collections for {rom_ids}: {e}")
+
+
 def build_unscoped_sidecar_cache_key(
     user_id: int,
     order_by: str,
@@ -1536,6 +1548,7 @@ async def update_rom(
             raise RomNotFoundInDatabaseException(id)
 
         db_rom_handler.invalidate_filter_values_cache()
+        refresh_affected_smart_collections([id])
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
     provided_fields = form_data.model_fields_set
@@ -1915,6 +1928,7 @@ async def update_rom(
         fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))
 
     db_rom_handler.invalidate_filter_values_cache()
+    refresh_affected_smart_collections([id])
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
@@ -1981,7 +1995,7 @@ async def delete_roms(
     perms = get_permissions(request)
     assert_can(perms, PermEntity.ROMS, PermAction.DELETE)
 
-    successful_items = 0
+    deleted_ids: list[int] = []
     failed_ids = []
     errors = []
 
@@ -2036,19 +2050,19 @@ async def delete_roms(
                     f"Couldn't find resources to delete for {hl(str(rom.name or 'ROM'), color=BLUE)}"
                 )
 
-            successful_items += 1
+            deleted_ids.append(id)
         except Exception as e:
             failed_ids.append(id)
             errors.append(f"Failed to delete ROM {id}: {str(e)}")
 
-    if successful_items:
+    if deleted_ids:
         db_rom_handler.invalidate_filter_values_cache()
         # Deleted ROMs would otherwise linger in the cached smart collection
         # membership until the next scan.
-        db_collection_handler.refresh_smart_collections()
+        refresh_affected_smart_collections(deleted_ids)
 
     return {
-        "successful_items": successful_items,
+        "successful_items": len(deleted_ids),
         "failed_ids": failed_ids,
         "errors": errors,
     }

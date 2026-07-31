@@ -700,6 +700,9 @@ class TestSmartCollectionEndpoints:
     def test_reading_a_smart_collection_does_not_touch_it(
         self, client, access_token: str, admin_user: User, rom: Rom
     ):
+        # Writing membership back while serving a page bumps `updated_at`, which
+        # is the `?ts=` cover cache-buster, so every visit re-downloaded
+        # thumbnails and every `updated_after` sync client saw a change.
         smart_collection = db_collection_handler.add_smart_collection(
             SmartCollection(
                 name="All roms",
@@ -724,3 +727,5 @@ class TestSmartCollectionEndpoints:
         after = db_collection_handler.get_smart_collection(smart_collection.id)
         assert after is not None
         assert after.updated_at == before.updated_at
+        assert list(after.rom_ids) == list(before.rom_ids)
+        assert after.path_covers_small == before.path_covers_small
