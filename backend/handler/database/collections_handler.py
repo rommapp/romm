@@ -13,6 +13,7 @@ from sqlalchemy import (
     union_all,
     update,
 )
+from sqlalchemy.engine import Row
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     Query,
@@ -23,8 +24,10 @@ from sqlalchemy.orm import (
     selectinload,
 )
 
+from config import FRONTEND_RESOURCES_PATH
 from decorators.database import begin_session
 from models.collection import (
+    SMART_COLLECTION_MAX_COVERS,
     Collection,
     CollectionRom,
     SmartCollection,
@@ -40,6 +43,10 @@ MAX_VIRTUAL_COLLECTION_COVERS = 5
 
 # Collections per UNION ALL statement, to keep any single statement small.
 COVERS_BATCH_SIZE = 100
+
+
+def _strip_cache_buster(urls: Sequence[str]) -> list[str]:
+    return [url.split("?", 1)[0] for url in urls]
 
 
 def with_roms(func):
@@ -466,80 +473,162 @@ class DBCollectionsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-    def get_smart_collection_roms(
-        self, smart_collection: SmartCollection, user_id: int | None = None
-    ) -> Sequence["Rom"]:
-        """Get ROMs that match the smart collection's filter criteria."""
-        from handler.database import db_rom_handler
+    def get_smart_collection_criteria(
+        self, smart_collection: SmartCollection
+    ) -> dict[str, Any]:
+        """Translate stored filter criteria into `filter_roms` keyword arguments.
 
-        # Extract filter criteria
+        `smart_collection_id` is dropped: the create dialog records the route it
+        was opened from, so a smart collection built while viewing another one
+        carries that id, and following it would nest (and could cycle).
+        """
         criteria = smart_collection.filter_criteria
 
-        # Convert legacy single-value criteria to arrays for backward compatibility
-        def convert_legacy_filter(new_key: str, old_key: str) -> list[str] | None:
-            """Convert legacy single-value filter to array format."""
-            if new_value := criteria.get(new_key):
-                return new_value if isinstance(new_value, list) else [new_value]
-            if old_value := criteria.get(old_key):
-                return old_value if isinstance(old_value, list) else [old_value]
-            return None
+        # Early versions stored single values under `selected_*` keys.
+        def as_list(new_key: str, old_key: str) -> list[str] | None:
+            value = criteria.get(new_key) or criteria.get(old_key)
+            if not value:
+                return None
+            return value if isinstance(value, list) else [value]
 
-        # Apply conversions
-        genres = convert_legacy_filter("genres", "selected_genre")
-        franchises = convert_legacy_filter("franchises", "selected_franchise")
-        collections = convert_legacy_filter("collections", "selected_collection")
-        companies = convert_legacy_filter("companies", "selected_company")
-        age_ratings = convert_legacy_filter("age_ratings", "selected_age_rating")
-        regions = convert_legacy_filter("regions", "selected_region")
-        languages = convert_legacy_filter("languages", "selected_language")
-        tags = convert_legacy_filter("tags", "selected_tag")
-        statuses = convert_legacy_filter("statuses", "selected_status")
-
-        # Use the existing filter_roms method with the stored criteria
         platform_ids = criteria.get("platform_ids")
-        if platform_ids is None:
-            if platform_id := criteria.get("platform_id"):
-                platform_ids = [platform_id]
+        if platform_ids is None and (platform_id := criteria.get("platform_id")):
+            platform_ids = [platform_id]
 
-        return db_rom_handler.get_roms_scalar(
-            platform_ids=platform_ids,
-            collection_id=criteria.get("collection_id"),
-            virtual_collection_id=criteria.get("virtual_collection_id"),
-            search_term=criteria.get("search_term"),
-            matched=criteria.get("matched"),
-            favorite=criteria.get("favorite"),
-            duplicate=criteria.get("duplicate"),
-            playable=criteria.get("playable"),
-            has_ra=criteria.get("has_ra"),
-            has_saves=criteria.get("has_saves"),
-            has_states=criteria.get("has_states"),
-            has_soundtrack=criteria.get("has_soundtrack"),
-            missing=criteria.get("missing"),
-            verified=criteria.get("verified"),
-            genres=genres,
-            franchises=franchises,
-            collections=collections,
-            companies=companies,
-            age_ratings=age_ratings,
-            statuses=statuses,
-            regions=regions,
-            languages=languages,
-            player_counts=criteria.get("player_counts"),
-            tags=tags,
-            metadata_providers=criteria.get("metadata_providers"),
-            # Logic operators for multi-value filters
-            genres_logic=criteria.get("genres_logic", "any"),
-            franchises_logic=criteria.get("franchises_logic", "any"),
-            collections_logic=criteria.get("collections_logic", "any"),
-            companies_logic=criteria.get("companies_logic", "any"),
-            age_ratings_logic=criteria.get("age_ratings_logic", "any"),
-            regions_logic=criteria.get("regions_logic", "any"),
-            languages_logic=criteria.get("languages_logic", "any"),
-            player_counts_logic=criteria.get("player_counts_logic", "any"),
-            statuses_logic=criteria.get("statuses_logic", "any"),
-            metadata_providers_logic=criteria.get("metadata_providers_logic", "any"),
-            tags_logic=criteria.get("tags_logic", "any"),
-            user_id=user_id,
+        return {
+            "platform_ids": platform_ids,
+            "collection_id": criteria.get("collection_id"),
+            "virtual_collection_id": criteria.get("virtual_collection_id"),
+            "search_term": criteria.get("search_term"),
+            "matched": criteria.get("matched"),
+            "favorite": criteria.get("favorite"),
+            "duplicate": criteria.get("duplicate"),
+            "playable": criteria.get("playable"),
+            "has_ra": criteria.get("has_ra"),
+            "has_saves": criteria.get("has_saves"),
+            "has_states": criteria.get("has_states"),
+            "has_soundtrack": criteria.get("has_soundtrack"),
+            "missing": criteria.get("missing"),
+            "verified": criteria.get("verified"),
+            "genres": as_list("genres", "selected_genre"),
+            "franchises": as_list("franchises", "selected_franchise"),
+            "collections": as_list("collections", "selected_collection"),
+            "companies": as_list("companies", "selected_company"),
+            "age_ratings": as_list("age_ratings", "selected_age_rating"),
+            "regions": as_list("regions", "selected_region"),
+            "languages": as_list("languages", "selected_language"),
+            "tags": as_list("tags", "selected_tag"),
+            "statuses": as_list("statuses", "selected_status"),
+            "player_counts": criteria.get("player_counts"),
+            "metadata_providers": criteria.get("metadata_providers"),
+            "genres_logic": criteria.get("genres_logic", "any"),
+            "franchises_logic": criteria.get("franchises_logic", "any"),
+            "collections_logic": criteria.get("collections_logic", "any"),
+            "companies_logic": criteria.get("companies_logic", "any"),
+            "age_ratings_logic": criteria.get("age_ratings_logic", "any"),
+            "regions_logic": criteria.get("regions_logic", "any"),
+            "languages_logic": criteria.get("languages_logic", "any"),
+            "player_counts_logic": criteria.get("player_counts_logic", "any"),
+            "statuses_logic": criteria.get("statuses_logic", "any"),
+            "metadata_providers_logic": criteria.get("metadata_providers_logic", "any"),
+            "tags_logic": criteria.get("tags_logic", "any"),
+        }
+
+    @begin_session
+    def get_smart_collection_members(
+        self,
+        smart_collection: SmartCollection,
+        user_id: int | None = None,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Row[tuple[int, str | None, str | None]]]:
+        """Every member's id and cover paths, in the collection's own order.
+
+        Only the columns the cached membership needs, so refreshing never
+        hydrates ROM metadata.
+        """
+        from handler.database import db_rom_handler
+
+        criteria = smart_collection.filter_criteria
+        query, _ = db_rom_handler.get_roms_query(
             order_by=criteria.get("order_by", "name"),
             order_dir=criteria.get("order_dir", "asc"),
+            search_term=criteria.get("search_term"),
+            user_id=user_id,
+            session=session,
         )
+        query = db_rom_handler.build_smart_collection_query(
+            query=query,
+            smart_collection=smart_collection,
+            user_id=user_id,
+            session=session,
+        ).with_only_columns(Rom.id, Rom.path_cover_s, Rom.path_cover_l)
+
+        return session.execute(query).all()
+
+    @begin_session
+    def refresh_smart_collection(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> SmartCollection | None:
+        """Recompute a smart collection's cached membership columns.
+
+        Those columns back the collections list and the ROM detail page, and are
+        maintained on write: when the collection changes, and when the library
+        does. They describe the owner's view, since the row is shared and
+        criteria like `favorite` or `has_saves` answer differently per user.
+        """
+        smart_collection = session.scalar(
+            select(SmartCollection).filter_by(id=id).limit(1)
+        )
+        if not smart_collection:
+            return None
+
+        members = self.get_smart_collection_members(
+            smart_collection, user_id=smart_collection.user_id, session=session
+        )
+        rom_ids = [member.id for member in members]
+        covers_small = [
+            f"{FRONTEND_RESOURCES_PATH}/{member.path_cover_s}"
+            for member in members
+            if member.path_cover_s
+        ][:SMART_COLLECTION_MAX_COVERS]
+        covers_large = [
+            f"{FRONTEND_RESOURCES_PATH}/{member.path_cover_l}"
+            for member in members
+            if member.path_cover_l
+        ][:SMART_COLLECTION_MAX_COVERS]
+
+        # Compare without the cache-buster: it is read from `updated_at` before
+        # the write bumps it, so a stored URL never carries the row's current
+        # timestamp and comparing whole URLs would rewrite on every refresh.
+        if (
+            smart_collection.rom_ids == rom_ids
+            and _strip_cache_buster(smart_collection.path_covers_small) == covers_small
+            and _strip_cache_buster(smart_collection.path_covers_large) == covers_large
+        ):
+            return smart_collection
+
+        timestamp = smart_collection.updated_at
+        return self.update_smart_collection(
+            id,
+            {
+                "rom_count": len(rom_ids),
+                "rom_ids": rom_ids,
+                "path_covers_small": [f"{c}?ts={timestamp}" for c in covers_small],
+                "path_covers_large": [f"{c}?ts={timestamp}" for c in covers_large],
+            },
+            session=session,
+        )
+
+    @begin_session
+    def refresh_smart_collections(
+        self,
+        session: Session = None,  # type: ignore
+    ) -> int:
+        """Refresh every smart collection, e.g. once the library has changed."""
+        ids = session.scalars(select(SmartCollection.id)).all()
+        for id in ids:
+            self.refresh_smart_collection(id, session=session)
+
+        return len(ids)

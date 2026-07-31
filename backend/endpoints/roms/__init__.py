@@ -52,7 +52,7 @@ from handler.auth.dependencies import (
     assert_rom_visible,
     get_permissions,
 )
-from handler.database import db_rom_handler, db_save_handler
+from handler.database import db_collection_handler, db_rom_handler, db_save_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
@@ -2043,6 +2043,9 @@ async def delete_roms(
 
     if successful_items:
         db_rom_handler.invalidate_filter_values_cache()
+        # Deleted ROMs would otherwise linger in the cached smart collection
+        # membership until the next scan.
+        db_collection_handler.refresh_smart_collections()
 
     return {
         "successful_items": successful_items,

@@ -228,34 +228,6 @@ class SmartCollection(BaseModel):
         lazy="joined", back_populates="smart_collections"
     )
 
-    def update_properties(self, user_id: int) -> "SmartCollection":
-        from handler.database import db_collection_handler
-
-        roms = db_collection_handler.get_smart_collection_roms(self, user_id)
-
-        roms_with_small_covers = [r for r in roms if r.path_cover_s][
-            :SMART_COLLECTION_MAX_COVERS
-        ]
-        roms_with_large_covers = [r for r in roms if r.path_cover_l][
-            :SMART_COLLECTION_MAX_COVERS
-        ]
-
-        return db_collection_handler.update_smart_collection(
-            self.id,
-            {
-                "rom_count": len(roms),
-                "rom_ids": [rom.id for rom in roms],
-                "path_covers_small": [
-                    f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_s}?ts={self.updated_at}"
-                    for r in roms_with_small_covers
-                ],
-                "path_covers_large": [
-                    f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_l}?ts={self.updated_at}"
-                    for r in roms_with_large_covers
-                ],
-            },
-        )
-
     @property
     def owner_username(self) -> str:
         return self.user.username
