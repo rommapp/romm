@@ -432,12 +432,15 @@ window.EJS_onGameStart = async () => {
     if (!ready) {
       console.warn("Game manager not ready for save/state injection");
     } else {
-      if (props.save) await loadSave(props.save);
+      // A state restores the whole machine, SRAM included, so a save applied
+      // alongside it would be discarded: the state wins when both are set.
       if (props.state) {
         await new Promise((resolve) =>
           setTimeout(resolve, STATE_APPLY_SETTLE_MS),
         );
         await loadState(props.state);
+      } else if (props.save) {
+        await loadSave(props.save);
       }
     }
 
