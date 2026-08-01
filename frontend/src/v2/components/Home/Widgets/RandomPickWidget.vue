@@ -15,11 +15,13 @@ import romApi from "@/services/api/rom";
 import type { SimpleRom } from "@/stores/roms";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 import WidgetCard from "./WidgetCard.vue";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
+const snackbar = useSnackbar();
 
 // The reroll button shows a real die face rather than the stacked
 // `dice-multiple` glyph, which reads as two windows at this size. Each
@@ -33,8 +35,19 @@ const DICE_FACES = [
   "mdi-dice-6-outline",
 ];
 
+// A pick needs a single row, so it opts out of the char index, filter
+// values and rom id index the endpoint returns by default: each of them
+// spans the whole library and dwarfs the row itself.
+const PICK_QUERY = {
+  limit: 1,
+  withCharIndex: false,
+  withFilterValues: false,
+  withRomIdIndex: false,
+} as const;
+
 const pick = ref<SimpleRom | null>(null);
 const loading = ref(false);
+const failed = ref(false);
 const diceFace = ref(DICE_FACES[Math.floor(Math.random() * DICE_FACES.length)]);
 const rerollBtn = ref<ComponentPublicInstance | null>(null);
 
@@ -53,33 +66,50 @@ const releaseYear = computed(() => {
 
 const region = computed(() => pick.value?.regions?.[0] ?? null);
 
+const placeholder = computed(() =>
+  failed.value
+    ? t("home.widget-random-pick-error")
+    : t("home.widget-random-pick-empty"),
+);
+
 function rollDiceFace() {
   const others = DICE_FACES.filter((face) => face !== diceFace.value);
   diceFace.value = others[Math.floor(Math.random() * others.length)];
 }
 
-async function reroll() {
+// One attempt at a pick. `null` means the library holds no roms;
+// `undefined` means the offset came back empty, which the backend's
+// cached id index makes possible when it drifts from the database
+// between the two calls (a scan, a deletion).
+async function pickOnce(): Promise<SimpleRom | null | undefined> {
+  const { data: head } = await romApi.getRoms({ ...PICK_QUERY, offset: 0 });
+  if (!head.total) return null;
+
+  const { data: result } = await romApi.getRoms({
+    ...PICK_QUERY,
+    offset: Math.floor(Math.random() * head.total),
+  });
+  return result.items.at(0);
+}
+
+async function reroll({ notify }: { notify: boolean }) {
   if (loading.value) return;
   rollDiceFace();
   // Disabling the button pulls focus to <body>; hand it back after.
   const hadFocus = document.activeElement === rerollEl();
   loading.value = true;
   try {
-    // First call: get the library total. limit=1/offset=0 is cheap and
-    // gives us the `total` we need to pick a random offset from.
-    const { data: head } = await romApi.getRoms({ limit: 1, offset: 0 });
-    if (!head.total || head.total === 0) {
-      pick.value = null;
-      return;
-    }
-    const randomOffset = Math.floor(Math.random() * head.total);
-    const { data: result } = await romApi.getRoms({
-      limit: 1,
-      offset: randomOffset,
-    });
-    pick.value = result.items[0] ?? null;
+    let rom = await pickOnce();
+    // Drift is worth one retry, since the second attempt re-reads the total.
+    if (rom === undefined) rom = await pickOnce();
+    if (rom === undefined) throw new Error("random pick came back empty");
+    pick.value = rom;
+    failed.value = false;
   } catch {
-    pick.value = null;
+    // Keep the previous pick: a failed request says nothing about whether
+    // the library holds games, so falling back to the empty copy would lie.
+    failed.value = true;
+    if (notify) snackbar.error(t("home.widget-random-pick-error"));
   } finally {
     loading.value = false;
     if (hadFocus) {
@@ -89,7 +119,13 @@ async function reroll() {
   }
 }
 
-onMounted(reroll);
+function onReroll() {
+  void reroll({ notify: true });
+}
+
+// The first pick is ours, not the user's: the card carries its own
+// failure copy, so it stays out of the snackbar stack.
+onMounted(() => reroll({ notify: false }));
 </script>
 
 <template>
@@ -104,7 +140,7 @@ onMounted(reroll);
         class="r-v2-widget-pick__reroll"
         :tooltip="t('home.widget-random-pick-reroll')"
         :aria-label="t('home.widget-random-pick-reroll')"
-        @click="reroll"
+        @click="onReroll"
       />
     </template>
     <router-link
@@ -141,7 +177,7 @@ onMounted(reroll);
       </div>
     </router-link>
     <div v-else class="r-v2-widget-pick__empty">
-      {{ t("home.widget-random-pick-empty") }}
+      {{ placeholder }}
     </div>
   </WidgetCard>
 </template>
