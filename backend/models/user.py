@@ -140,12 +140,7 @@ class User(BaseModel, SimpleUser):
 
     @property
     def is_kiosk_guest(self) -> bool:
-        """The shared anonymous visitor, not a real account.
-
-        Every kiosk visitor resolves to this one synthetic user, so nothing they
-        do can be attributed or scoped to them -- hence the read-only cap in the
-        permission resolver.
-        """
+        """The shared anonymous visitor, not a real account."""
         return self.id == KIOSK_USER_ID
 
     @property
