@@ -228,15 +228,17 @@ class PlaymatchHandler(MetadataHandler):
         if first_file is None:
             return fallback_rom
 
+        hashes = first_file.lookup_hashes
+
         try:
             response = await self._request(
                 self.identify_url,
                 {
                     "fileName": first_file.file_name,
                     "fileSize": first_file.file_size_bytes,
-                    "md5": first_file.md5_hash,
-                    "sha1": first_file.sha1_hash,
-                    "crc": first_file.crc_hash,
+                    "md5": hashes.md5,
+                    "sha1": hashes.sha1,
+                    "crc": hashes.crc,
                 },
             )
         except Exception as exc:
@@ -307,8 +309,8 @@ class PlaymatchHandler(MetadataHandler):
                 None,
             )
             if first_file is not None:
-                md5 = first_file.md5_hash
-                sha1 = first_file.sha1_hash
+                md5 = first_file.lookup_hashes.md5
+                sha1 = first_file.lookup_hashes.sha1
                 file_name = first_file.file_name
                 file_size: int | None = first_file.file_size_bytes
             else:
