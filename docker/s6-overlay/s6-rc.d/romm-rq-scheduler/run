@@ -11,14 +11,10 @@ source /etc/s6-overlay/scripts/lib.sh
 
 record_process_group
 
-if [[ ${ENABLE_SCHEDULED_RESCAN:-false} != "true" &&
-	${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:-false} != "true" &&
-	${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA:-false} != "true" &&
-	${ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES:-false} != "true" ]]; then
-	debug_log "No scheduled tasks are enabled, not starting the RQ scheduler"
-	disable_service
-fi
-
+# The scheduler always runs. startup.py registers the netplay, upload-tmp and
+# zip-cache cleanups unconditionally, and the watcher defers its rescans through
+# the scheduler, so gating it on the ENABLE_SCHEDULED_* flags left those jobs
+# queued with nothing to execute them.
 info_log "Starting RQ scheduler"
 
 export RQ_REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
