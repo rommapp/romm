@@ -845,11 +845,20 @@ def get_roms(
                 for item in items
             ]
 
+        def resolve_total() -> int | None:
+            if with_rom_id_index:
+                # The index already spans the result set, so the count is free.
+                return len(rom_id_index)
+            # Without the index the count is its own scan of the filtered set,
+            # so a caller scrolling a gallery it already sized opts out.
+            return (
+                db_rom_handler.get_rom_count(query=query, session=session)
+                if with_total
+                else None
+            )
+
         params = resolve_params()
-        total: int | None
         if with_rom_id_index:
-            # The index already spans the result set, so the count is free.
-            total = len(rom_id_index)
             page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
             if page_ids:
                 page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
@@ -863,18 +872,11 @@ def get_roms(
             page_items = list(
                 session.scalars(query.offset(params.offset).limit(params.limit)).all()
             )
-            # Without the index the count is its own scan of the filtered set,
-            # so a caller scrolling a gallery it already sized opts out.
-            total = (
-                db_rom_handler.get_rom_count(query=query, session=session)
-                if with_total
-                else None
-            )
 
         return CustomLimitOffsetPage.create(
             _transform(page_items),
             params,
-            total=total,
+            total=resolve_total(),
             char_index=char_index_dict,
             rom_id_index=list(rom_id_index),
             filter_values=filter_values,

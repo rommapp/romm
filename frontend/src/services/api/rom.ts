@@ -183,7 +183,6 @@ export interface GetRomsParams {
   playerCountsLogic?: string | null;
   metadataProvidersLogic?: string | null;
   tagsLogic?: string | null;
-  // Skip the char index / filter-value / id-index aggregations server-side
   withCharIndex?: boolean;
   withFilterValues?: boolean;
   withRomIdIndex?: boolean;
