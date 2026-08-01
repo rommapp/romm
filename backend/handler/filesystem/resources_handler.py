@@ -1,4 +1,5 @@
 import gzip
+import hashlib
 import os
 from io import BytesIO
 from pathlib import Path
@@ -111,6 +112,49 @@ class FSResourcesHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=RESOURCES_BASE_PATH)
         self.image_converter = ImageConverter()
+
+    async def file_md5(self, relative_path: str) -> str | None:
+        """md5 of a stored resource, or None when it can't be read."""
+        try:
+            full_path = self.validate_path(relative_path)
+        except ValueError:
+            return None
+
+        digest = hashlib.md5(usedforsecurity=False)
+        try:
+            async with await AnyioPath(full_path).open("rb") as f:
+                while chunk := await f.read(64 * 1024):
+                    digest.update(chunk)
+        except OSError:
+            return None
+
+        return digest.hexdigest()
+
+    async def file_matches_md5(
+        self, relative_path: str, expected_md5: str | None
+    ) -> bool:
+        """Whether a stored resource is byte-identical to the expected hash."""
+        if not expected_md5:
+            return False
+
+        return await self.file_md5(relative_path) == expected_md5.lower()
+
+    async def file_has_size(self, relative_path: str, expected_size: int) -> bool:
+        """Whether a stored resource is exactly the expected number of bytes.
+
+        Downloads stream straight to their final path, so one cut short by a
+        killed process leaves a short file that still satisfies the `*_exists`
+        checks. A stat() spots that without reading the file.
+        """
+        try:
+            full_path = self.validate_path(relative_path)
+        except ValueError:
+            return False
+
+        try:
+            return (await AnyioPath(full_path).stat()).st_size == expected_size
+        except OSError:
+            return False
 
     def get_platform_resources_path(self, platform_id: int) -> str:
         return os.path.join("roms", str(platform_id))
@@ -283,6 +327,15 @@ class FSResourcesHandler(FSHandler):
             except UnidentifiedImageError as exc:
                 log.error(f"Unable to identify image {cover_file}: {str(exc)}")
                 return None
+
+    def get_downloaded_cover_path(self, entity: Rom | Collection) -> str:
+        """Path of the cover exactly as downloaded, before any WebP conversion.
+
+        The converter writes a sibling `.webp` and leaves this file in place, so
+        it stays the only copy whose bytes can be compared against a provider's
+        reported hash.
+        """
+        return f"{entity.fs_resources_path}/cover/{CoverSize.BIG.value}.png"
 
     def _get_cover_path(self, entity: Rom | Collection, size: CoverSize) -> str | None:
         """Returns rom cover filesystem path adapted to frontend folder structure
@@ -661,11 +714,19 @@ class FSResourcesHandler(FSHandler):
     ) -> str:
         return os.path.join("roms", str(platform_id), str(rom_id), media_type.value)
 
-    async def store_media_file(self, url_media: str, dest_path: str) -> None:
+    async def store_media_file(
+        self, url_media: str, dest_path: str, expected_md5: str | None = None
+    ) -> None:
         directory, filename = os.path.split(dest_path)
 
-        if await self.file_exists(dest_path):
-            log.debug(f"Media file {dest_path} already exists, skipping download")
+        # Providers that publish a hash for the media let a stale local copy be
+        # detected without downloading it; the rest can only check for presence.
+        is_current = await self.file_exists(dest_path) and (
+            not expected_md5 or await self.file_matches_md5(dest_path, expected_md5)
+        )
+
+        if is_current:
+            log.debug(f"Media file {dest_path} is up to date, skipping download")
         else:
             # Ensure destination directory exists
             await self.make_directory(directory)

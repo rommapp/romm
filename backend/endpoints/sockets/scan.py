@@ -40,6 +40,7 @@ from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import get_preferred_media_types
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
+from handler.metadata.ss_handler import ss_resource_needs_refresh
 from handler.redis_handler import (
     get_job_func_name,
     high_prio_queue,
@@ -512,12 +513,37 @@ async def _identify_rom(
     if scan_type == ScanType.HASHES:
         return
 
+    # ScreenScraper serves every media from a fixed endpoint, so its URLs stay
+    # byte-identical when the artwork behind them is replaced. The md5 it reports
+    # per media entry is the only signal that a stored file went stale.
+    async def _ss_media_changed(
+        media_key: str, resolved_url: str | None, stored_path: str | None
+    ) -> bool:
+        if MetadataSource.SS not in metadata_sources:
+            return False
+
+        return await ss_resource_needs_refresh(
+            previous_metadata=rom.ss_metadata,
+            fresh_metadata=_added_rom.ss_metadata,
+            media_key=media_key,
+            resolved_url=resolved_url,
+            stored_path=stored_path,
+        )
+
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,
-        overwrite=_added_rom.url_cover != rom.url_cover,
+        overwrite=_added_rom.url_cover != rom.url_cover
+        or await _ss_media_changed(
+            "box2d",
+            _added_rom.url_cover,
+            fs_resource_handler.get_downloaded_cover_path(_added_rom),
+        ),
         url_cover=add_ss_auth_to_url(_added_rom.url_cover),
     )
 
+    # Manuals are left out of the hash check: an upload writes `path_manual` but
+    # leaves any scraped `url_manual` in place, so a refresh here would overwrite
+    # it with the provider's copy.
     path_manual = await fs_resource_handler.get_manual(
         rom=_added_rom,
         overwrite=_added_rom.url_manual != rom.url_manual,
@@ -528,9 +554,22 @@ async def _identify_rom(
         _added_rom.url_screenshots or [], rom.url_screenshots or []
     )
     url_screenshots = _added_rom.url_screenshots or []
+    # Screenshots are stored by their position in the URL list, so the one
+    # ScreenScraper supplied is at the index its URL sits at.
+    stored_screenshots = _added_rom.path_screenshots or []
+    ss_screenshot_url = (_added_rom.ss_metadata or {}).get("screenshot_url")
+    ss_screenshot_path = next(
+        (
+            path
+            for url, path in zip(url_screenshots, stored_screenshots, strict=False)
+            if url == ss_screenshot_url
+        ),
+        None,
+    )
     path_screenshots = await fs_resource_handler.get_rom_screenshots(
         rom=_added_rom,
-        overwrite=bool(screenshots_changed),
+        overwrite=bool(screenshots_changed)
+        or await _ss_media_changed("screenshot", ss_screenshot_url, ss_screenshot_path),
         url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
     )
 
@@ -560,6 +599,7 @@ async def _identify_rom(
                 await fs_resource_handler.store_media_file(
                     add_ss_auth_to_url(media_url),
                     media_path,
+                    expected_md5=_added_rom.ss_metadata.get(f"{media_type.value}_md5"),
                 )
 
     # Handle special media files from ES-DE gamelist.xml

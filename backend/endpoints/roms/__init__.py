@@ -1812,29 +1812,38 @@ async def update_rom(
             if badge_url and badge_path:
                 await fs_resource_handler.store_ra_badge(badge_url, badge_path)
 
-    # Handle special media files from Screenscraper when the ID has changed
-    if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
+    # Handle special media files from Screenscraper. A re-match to the same game
+    # still runs, to fill in media that never made it to disk.
+    if cleaned_data["ss_id"]:
+        ss_id_changed = int(cleaned_data["ss_id"]) != rom.ss_id
         preferred_media_types = get_preferred_media_types()
+        # Only a changed ID refetches the game, so only then is there a hash that
+        # describes something other than the copy already on disk. Checking a
+        # stored hash against the file it was recorded from can only ever report
+        # "current", at the cost of reading every media file.
+        fresh_metadata = cleaned_data.get("ss_metadata") if ss_id_changed else None
+        ss_metadata = fresh_metadata or rom.ss_metadata or {}
 
         for media_type in preferred_media_types:
-            # Remove old media files if the ss_id is changing
-            if rom.ss_metadata and rom.ss_metadata.get(f"{media_type.value}_path"):
+            # Media from the previous match is unrelated to the new game
+            if (
+                ss_id_changed
+                and rom.ss_metadata
+                and rom.ss_metadata.get(f"{media_type.value}_path")
+            ):
                 await fs_resource_handler.remove_media_resources_path(
                     rom.platform_id,
                     rom.id,
                     media_type,
                 )
 
-            media_path = cleaned_data.get("ss_metadata", {}).get(
-                f"{media_type.value}_path"
-            )
-            media_url = cleaned_data.get("ss_metadata", {}).get(
-                f"{media_type.value}_url"
-            )
+            media_path = ss_metadata.get(f"{media_type.value}_path")
+            media_url = ss_metadata.get(f"{media_type.value}_url")
             if media_path and media_url:
                 await fs_resource_handler.store_media_file(
                     add_ss_auth_to_url(media_url),
                     media_path,
+                    expected_md5=(fresh_metadata or {}).get(f"{media_type.value}_md5"),
                 )
 
     # Handle local media files from LaunchBox when the ID has changed

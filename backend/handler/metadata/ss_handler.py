@@ -2,7 +2,7 @@ import html
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
 import pydash
 from fastapi import HTTPException, status
@@ -305,6 +305,70 @@ class SSMetadataMedia(TypedDict):
     video_path: str | None
     video_normalized_path: str | None
 
+    # md5 ScreenScraper reports for each media entry, so a later scan can tell
+    # whether the online file still matches the local copy.
+    bezel_md5: str | None
+    box2d_md5: str | None
+    box2d_side_md5: str | None
+    box2d_back_md5: str | None
+    box3d_md5: str | None
+    fanart_md5: str | None
+    fullbox_md5: str | None
+    logo_md5: str | None
+    manual_md5: str | None
+    marquee_md5: str | None
+    miximage_md5: str | None
+    miximage_v2_md5: str | None
+    physical_md5: str | None
+    screenshot_md5: str | None
+    steamgrid_md5: str | None
+    title_screen_md5: str | None
+    video_md5: str | None
+    video_normalized_md5: str | None
+
+    # Byte size ScreenScraper reports for the same entry. A download cut short
+    # leaves a shorter file behind, which a stat() catches without reading it.
+    bezel_size: int | None
+    box2d_size: int | None
+    box2d_side_size: int | None
+    box2d_back_size: int | None
+    box3d_size: int | None
+    fanart_size: int | None
+    fullbox_size: int | None
+    logo_size: int | None
+    manual_size: int | None
+    marquee_size: int | None
+    miximage_size: int | None
+    miximage_v2_size: int | None
+    physical_size: int | None
+    screenshot_size: int | None
+    steamgrid_size: int | None
+    title_screen_size: int | None
+    video_size: int | None
+    video_normalized_size: int | None
+
+
+SS_MEDIA_KEYS: Final = (
+    "bezel",
+    "box2d",
+    "box2d_back",
+    "box2d_side",
+    "box3d",
+    "fanart",
+    "fullbox",
+    "logo",
+    "manual",
+    "marquee",
+    "miximage",
+    "miximage_v2",
+    "physical",
+    "screenshot",
+    "steamgrid",
+    "title_screen",
+    "video",
+    "video_normalized",
+)
+
 
 class SSMetadata(SSMetadataMedia):
     ss_score: str | None
@@ -366,7 +430,62 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         title_screen_path=None,
         video_path=None,
         video_normalized_path=None,
+        bezel_md5=None,
+        box2d_md5=None,
+        box2d_side_md5=None,
+        box2d_back_md5=None,
+        box3d_md5=None,
+        fanart_md5=None,
+        fullbox_md5=None,
+        logo_md5=None,
+        manual_md5=None,
+        marquee_md5=None,
+        miximage_md5=None,
+        miximage_v2_md5=None,
+        physical_md5=None,
+        screenshot_md5=None,
+        steamgrid_md5=None,
+        title_screen_md5=None,
+        video_md5=None,
+        video_normalized_md5=None,
+        bezel_size=None,
+        box2d_size=None,
+        box2d_side_size=None,
+        box2d_back_size=None,
+        box3d_size=None,
+        fanart_size=None,
+        fullbox_size=None,
+        logo_size=None,
+        manual_size=None,
+        marquee_size=None,
+        miximage_size=None,
+        miximage_v2_size=None,
+        physical_size=None,
+        screenshot_size=None,
+        steamgrid_size=None,
+        title_screen_size=None,
+        video_size=None,
+        video_normalized_size=None,
     )
+
+    # Keyed by the same stripped URL that lands in `*_url`, so the hash and size
+    # of the entry that actually won its slot can be looked up once the loop is
+    # done. ScreenScraper lists one entry per region, and only the selected one
+    # describes the bytes RomM ends up storing.
+    fingerprint_by_url: dict[str, tuple[str | None, int | None]] = {}
+    for media in game.get("medias", []):
+        url = media.get("url")
+        if not url:
+            continue
+        entry_md5 = media.get("md5")
+        try:
+            entry_size: int | None = int(media["size"])
+        except (KeyError, TypeError, ValueError):
+            entry_size = None
+        fingerprint_by_url[strip_sensitive_query_params(url, SENSITIVE_KEYS)] = (
+            entry_md5.lower() if entry_md5 else None,
+            entry_size,
+        )
 
     for region in get_preferred_regions(rom, for_media=True):
         for media in game.get("medias", []):
@@ -514,7 +633,78 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.VIDEO_NORMALIZED)}/video-normalized.mp4"
                     )
 
+    for key in SS_MEDIA_KEYS:
+        url = ss_media[f"{key}_url"]  # type: ignore[literal-required]
+        md5, size = fingerprint_by_url.get(url, (None, None)) if url else (None, None)
+        ss_media[f"{key}_md5"] = md5  # type: ignore[literal-required]
+        ss_media[f"{key}_size"] = size  # type: ignore[literal-required]
+
     return ss_media
+
+
+async def ss_media_is_stale(
+    stored_path: str | None,
+    recorded_md5: str | None,
+    fresh_md5: str | None,
+    fresh_size: int | None = None,
+) -> bool:
+    """True when ScreenScraper serves a different file than the one RomM holds.
+
+    ScreenScraper publishes an md5 per media entry so clients can check whether
+    the online media matches their local copy before downloading it. The hash
+    recorded by the previous scan answers that for free; falling back to hashing
+    the file on disk keeps libraries scanned before hashes were recorded from
+    redownloading media that is already current.
+
+    The recorded hash is only trustworthy about a file that finished
+    downloading. It is written before the download runs, so a scan killed
+    mid-stream leaves a short file described by a hash that still matches.
+    Comparing the reported size first catches that for the price of a stat().
+    """
+    if not fresh_md5:
+        return False
+
+    if (
+        stored_path
+        and fresh_size
+        and not await fs_resource_handler.file_has_size(stored_path, fresh_size)
+    ):
+        return True
+
+    if recorded_md5 and recorded_md5.lower() == fresh_md5.lower():
+        return False
+
+    if not stored_path:
+        return True
+
+    return not await fs_resource_handler.file_matches_md5(stored_path, fresh_md5)
+
+
+async def ss_resource_needs_refresh(
+    *,
+    previous_metadata: dict[str, Any] | None,
+    fresh_metadata: dict[str, Any] | None,
+    media_key: str,
+    resolved_url: str | None,
+    stored_path: str | None,
+) -> bool:
+    """Whether a resource sourced from ScreenScraper went stale.
+
+    Artwork priority can hand a field to another provider, whose URL says nothing
+    about ScreenScraper's hash, so the check only applies while ScreenScraper is
+    the source of the resolved URL.
+    """
+    fresh = fresh_metadata or {}
+    ss_url = fresh.get(f"{media_key}_url")
+    if not ss_url or not resolved_url or ss_url != resolved_url:
+        return False
+
+    return await ss_media_is_stale(
+        stored_path,
+        (previous_metadata or {}).get(f"{media_key}_md5"),
+        fresh.get(f"{media_key}_md5"),
+        fresh.get(f"{media_key}_size"),
+    )
 
 
 def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
