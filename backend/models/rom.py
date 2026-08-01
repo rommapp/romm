@@ -315,7 +315,11 @@ class Rom(BaseModel):
     __table_args__ = (
         # Enforce unique fs name per platform to avoid duplicates
         Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name", unique=True),
-        # Covers the sibling_roms view self-join
+        # Covers the sibling_roms view self-join and the group_by_meta_id dedup
+        # window. Both read only these columns, so the index has to carry every
+        # one of them: a single missing column (flashpoint_id or fs_name_no_ext,
+        # the window's partition tail and sort tiebreaker) drops the plan to a
+        # full scan of the wide roms row, JSON metadata blobs included.
         Index(
             "idx_roms_sibling_cover",
             "platform_id",
@@ -326,6 +330,8 @@ class Rom(BaseModel):
             "ra_id",
             "hasheous_id",
             "tgdb_id",
+            "flashpoint_id",
+            "fs_name_no_ext",
             "id",
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
