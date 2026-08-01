@@ -28,6 +28,7 @@ class HasheousMetadata(TypedDict):
     mame_mess_match: bool
     nointro_match: bool
     redump_match: bool
+    mame_redump_match: bool
     whdload_match: bool
     ra_match: bool
     fbneo_match: bool
@@ -346,16 +347,19 @@ class HasheousHandler(MetadataHandler):
                 tgdb_id=int(tgdb_id) if tgdb_id else None,
                 ra_id=int(ra_id) if ra_id else None,
                 url_cover=url_cover,
+                # Keys are Hasheous' SignatureSourceType names, spelled exactly
+                # as its API returns them.
                 hasheous_metadata=HasheousMetadata(
                     tosec_match="TOSEC" in signatures,
                     mame_arcade_match="MAMEArcade" in signatures,
                     mame_mess_match="MAMEMess" in signatures,
                     nointro_match="NoIntros" in signatures,
                     redump_match="Redump" in signatures,
+                    mame_redump_match="MAMERedump" in signatures,
                     whdload_match="WHDLoad" in signatures,
                     ra_match="RetroAchievements" in signatures,
                     fbneo_match="FBNeo" in signatures,
-                    puredos_match="PureDOS" in signatures,
+                    puredos_match="PureDOSDAT" in signatures,
                 ),
             ),
             True,

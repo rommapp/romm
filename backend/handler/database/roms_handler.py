@@ -849,6 +849,7 @@ class DBRomsHandler(DBBaseHandler):
             "mame_mess_match",
             "nointro_match",
             "redump_match",
+            "mame_redump_match",
             "whdload_match",
             "ra_match",
             "fbneo_match",
