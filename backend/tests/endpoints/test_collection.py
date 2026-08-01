@@ -780,3 +780,28 @@ class TestSmartCollectionEndpoints:
         refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
         assert refreshed is not None
         assert refreshed.rom_ids == [rom.id]
+
+    @pytest.mark.parametrize("field", ("now_playing", "backlogged", "hidden"))
+    def test_setting_a_rom_flag_refreshes_membership(
+        self, client, access_token: str, admin_user: User, rom: Rom, field: str
+    ):
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name=f"Flagged {field}",
+                description="",
+                user_id=admin_user.id,
+                filter_criteria={"statuses": [field]},
+            )
+        )
+        db_collection_handler.refresh_smart_collection(smart_collection.id)
+
+        response = client.put(
+            f"/api/roms/{rom.id}/props",
+            json={field: True},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert refreshed is not None
+        assert refreshed.rom_ids == [rom.id]

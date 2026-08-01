@@ -112,6 +112,10 @@ router.include_router(notes_router)
 router.include_router(patch_router)
 
 
+# RomUser fields the statuses filter branches on.
+STATUS_MEMBERSHIP_FIELDS = frozenset({"status", "now_playing", "backlogged", "hidden"})
+
+
 def safe_int_or_none(value: Any) -> int | None:
     if value is None or value == "":
         return None
@@ -2119,7 +2123,9 @@ async def update_rom_user(
     if "hidden" in cleaned_data:
         db_rom_handler.invalidate_filter_values_cache()
 
-    if "status" in cleaned_data:
+    # The statuses filter reads all four of these, and `hidden` also drops the
+    # ROM from every user-scoped query, so any of them can move membership.
+    if STATUS_MEMBERSHIP_FIELDS & cleaned_data.keys():
         refresh_affected_smart_collections([id], membership_only=True)
 
     return RomUserSchema.model_validate(rom_user)
