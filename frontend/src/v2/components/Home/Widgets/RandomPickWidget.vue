@@ -7,7 +7,8 @@
 // one to fetch the selected offset; same approach the v1 RandomBtn
 // uses. The pick is intentionally not cached so each mount re-shuffles.
 import { RBtn, RChip } from "@v2/lib";
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
+import type { ComponentPublicInstance } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
@@ -35,6 +36,11 @@ const DICE_FACES = [
 const pick = ref<SimpleRom | null>(null);
 const loading = ref(false);
 const diceFace = ref(DICE_FACES[Math.floor(Math.random() * DICE_FACES.length)]);
+const rerollBtn = ref<ComponentPublicInstance | null>(null);
+
+function rerollEl(): HTMLElement | null {
+  return (rerollBtn.value?.$el as HTMLElement | undefined) ?? null;
+}
 
 const title = computed(() => pick.value?.name || pick.value?.fs_name || "");
 
@@ -53,11 +59,10 @@ function rollDiceFace() {
 }
 
 async function reroll() {
-  // The face only turns for a roll that actually happens — flipping it
-  // on a click the in-flight guard discards would signal a new pick
-  // that never lands.
   if (loading.value) return;
   rollDiceFace();
+  // Disabling the button pulls focus to <body>; hand it back after.
+  const hadFocus = document.activeElement === rerollEl();
   loading.value = true;
   try {
     // First call: get the library total. limit=1/offset=0 is cheap and
@@ -77,6 +82,10 @@ async function reroll() {
     pick.value = null;
   } finally {
     loading.value = false;
+    if (hadFocus) {
+      await nextTick();
+      rerollEl()?.focus();
+    }
   }
 }
 
@@ -87,9 +96,11 @@ onMounted(reroll);
   <WidgetCard :title="t('home.widget-random-pick')" :loading="loading">
     <template #action>
       <RBtn
+        ref="rerollBtn"
         variant="text"
         size="small"
         :icon="diceFace"
+        :disabled="loading"
         class="r-v2-widget-pick__reroll"
         :tooltip="t('home.widget-random-pick-reroll')"
         :aria-label="t('home.widget-random-pick-reroll')"
