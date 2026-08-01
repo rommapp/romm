@@ -1971,7 +1971,7 @@ class TestSavesSummaryEndpoint:
     def test_get_saves_summary_requires_auth(self, client, rom: Rom):
         response = client.get(f"/api/saves/summary?rom_id={rom.id}")
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestSaveDownload:

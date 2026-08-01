@@ -214,7 +214,7 @@ describe("useGameActions — write/destructive gates", () => {
   });
 
   // A bare DELETE grant projects to no scope, so `POST /roms/delete` (which
-  // gates on ROMS_WRITE) would 403 and the interceptor would log the user out.
+  // gates on ROMS_WRITE) would 403, so the menu must not offer it.
   it("hides delete when the delete grant is held without the write grant", () => {
     grantedActions.value = new Set<ActionKey>(["rom.view", "rom.delete"]);
     const actions = useGameActions(() => makeRom());

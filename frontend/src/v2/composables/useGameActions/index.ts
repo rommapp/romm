@@ -63,7 +63,7 @@ export function useGameActions(
   const canEditCollection = useCan("collection.edit");
   // Write/destructive gates, mirroring the backend grants. Surfaces that
   // offer these actions hide them outright rather than letting the request
-  // 403 (which the axios interceptor turns into a logout).
+  // 403 and surface a permission error the user can't act on.
   const canEdit = useCan("rom.edit");
   const canMatch = useCan("rom.match");
   const canRefresh = useCan("rom.refresh");
