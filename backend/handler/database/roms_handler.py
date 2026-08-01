@@ -849,15 +849,22 @@ class DBRomsHandler(DBBaseHandler):
             "mame_mess_match",
             "nointro_match",
             "redump_match",
+            "mame_redump_match",
             "whdload_match",
             "ra_match",
             "fbneo_match",
             "puredos_match",
         ]
 
+        # A key absent from `hasheous_metadata` (rows stored before it existed, or
+        # rows with no Hasheous match at all) extracts as NULL, and NULL poisons
+        # both the OR and its negation, so the unverified side would drop those
+        # rows. The JSON path below folds a missing key into false on its own;
+        # `->>` does not, hence the coalesce.
         if ROMM_DB_DRIVER == "postgresql":
             conditions = " OR ".join(
-                f"(hasheous_metadata->>'{key}')::boolean" for key in keys_to_check
+                f"COALESCE((hasheous_metadata->>'{key}')::boolean, false)"
+                for key in keys_to_check
             )
             predicate = text(f"({conditions})")
             if not value:

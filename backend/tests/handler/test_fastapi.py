@@ -534,6 +534,7 @@ async def test_scan_rom_hashes_rematches_hasheous(
             mame_mess_match=False,
             nointro_match=True,
             redump_match=False,
+            mame_redump_match=False,
             whdload_match=False,
             ra_match=True,
             fbneo_match=False,
@@ -768,6 +769,59 @@ async def test_lookup_rom_sends_all_top_level_file_hashes(
         {"mD5": "md5one", "shA1": "sha1one", "crc": "crcone"},
         {"shA1": "chdsha1"},
     ]
+
+
+@patch.object(meta_hasheous_handler, "_request", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "is_enabled", return_value=True)
+async def test_lookup_rom_maps_every_hasheous_signature_source(
+    mock_is_enabled, mock_request
+):
+    """Each match flag reads a Hasheous SignatureSourceType name verbatim, so a
+    typo silently pins that flag to False."""
+    mock_request.return_value = {
+        "id": 1,
+        "signatures": {
+            "TOSEC": {},
+            "MAMEArcade": {},
+            "MAMEMess": {},
+            "NoIntros": {},
+            "Redump": {},
+            "MAMERedump": {},
+            "WHDLoad": {},
+            "RetroAchievements": {},
+            "FBNeo": {},
+            "PureDOSDAT": {},
+        },
+    }
+
+    files = [
+        _top_level_rom_file(file_name="game.n64", file_size_bytes=100, md5_hash="md5")
+    ]
+
+    result, _ = await meta_hasheous_handler.lookup_rom("n64", files)
+
+    assert all(result["hasheous_metadata"].values())
+
+
+@patch.object(meta_hasheous_handler, "_request", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "is_enabled", return_value=True)
+async def test_lookup_rom_marks_a_chd_matched_by_mameredump_as_verified(
+    mock_is_enabled, mock_request
+):
+    """Hasheous indexes CHD conversions under MAMERedump, not Redump, so a CHD
+    match sets no other flag and the ROM would otherwise never read as
+    verified."""
+    mock_request.return_value = {"id": 1, "signatures": {"MAMERedump": {}}}
+
+    files = [
+        _top_level_rom_file(
+            file_name="game.chd", file_size_bytes=100, chd_sha1_hash="discsha1"
+        )
+    ]
+
+    result, _ = await meta_hasheous_handler.lookup_rom("dc", files)
+
+    assert result["hasheous_metadata"]["mame_redump_match"] is True
 
 
 @patch.object(meta_hasheous_handler, "_request", new_callable=AsyncMock)
