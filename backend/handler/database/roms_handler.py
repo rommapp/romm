@@ -26,6 +26,7 @@ from sqlalchemy import (
     select,
     text,
     true,
+    union,
     update,
 )
 from sqlalchemy.orm import (
@@ -133,6 +134,27 @@ FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
 
 # 3 is the default minimum size in InnoDB
 FULLTEXT_MIN_TOKEN_SIZE = 3
+
+# A term reaches the hash columns only when it is hex of exactly a digest
+# length, so an ordinary name search builds no hash SQL at all. Hashes are
+# stored lowercase, which keeps the lookup an indexed equality.
+HEX_DIGEST_REGEX = re.compile(r"[0-9a-fA-F]+")
+
+# CRC32 (8), MD5 and RetroAchievements (32), SHA-1 (40).
+ROM_HASH_COLUMNS_BY_DIGEST_LENGTH: dict[int, tuple[QueryableAttribute, ...]] = {
+    8: (Rom.crc_hash,),
+    32: (Rom.md5_hash, Rom.ra_hash),
+    40: (Rom.sha1_hash,),
+}
+
+# Multi-file games (multi-disc, multi-track) keep their hashes per file, which
+# is the hash a user has in hand. `chd_sha1_hash` is the uncompressed disc's
+# digest, the one datfiles publish for a CHD.
+ROM_FILE_HASH_COLUMNS_BY_DIGEST_LENGTH: dict[int, tuple[QueryableAttribute, ...]] = {
+    8: (RomFile.crc_hash,),
+    32: (RomFile.md5_hash, RomFile.ra_hash),
+    40: (RomFile.sha1_hash, RomFile.chd_sha1_hash),
+}
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
 # whose rows carry the raw metadata blobs. Column order matches the unpacking
@@ -633,12 +655,8 @@ class DBRomsHandler(DBBaseHandler):
                 parts.append('"' + " ".join(words) + '"')
         return " ".join(parts) if parts else None
 
-    def _filter_by_search_term(self, query: Query, search_term: str):
-        terms = [term.strip() for term in search_term.split("|")]
-        terms = [term for term in terms if term]
-        if not terms:
-            return query
-
+    def _build_name_conditions(self, terms: Sequence[str]) -> list[Any]:
+        """Match the term against the ROM's name and filename."""
         if ROMM_DB_DRIVER in ("mariadb", "mysql"):
             match_clauses: list[Any] = []
             for idx, term in enumerate(terms):
@@ -656,7 +674,7 @@ class DBRomsHandler(DBBaseHandler):
                     ).bindparams(**{param: boolean_query})
                 )
             if match_clauses:
-                return query.filter(or_(*match_clauses))
+                return match_clauses
 
         # psql and full-text fallback
         term_conditions = []
@@ -667,7 +685,56 @@ class DBRomsHandler(DBBaseHandler):
             ]
             if word_conditions:
                 term_conditions.append(and_(*word_conditions))
-        return query.filter(or_(*term_conditions))
+        return term_conditions
+
+    def _build_hash_selects(self, terms: Iterable[str]) -> list[Select]:
+        """Id-yielding selects for terms shaped like a hash digest.
+
+        A ROM's own hashes and its files' are queried separately so each side
+        keeps its own index. Returns nothing when no term looks like a digest,
+        which is the case for every ordinary name search.
+        """
+        rom_predicates: list[ColumnElement[bool]] = []
+        file_predicates: list[ColumnElement[bool]] = []
+
+        for term in terms:
+            rom_columns = ROM_HASH_COLUMNS_BY_DIGEST_LENGTH.get(len(term))
+            if rom_columns is None or not HEX_DIGEST_REGEX.fullmatch(term):
+                continue
+            digest = term.lower()
+            rom_predicates.extend(column == digest for column in rom_columns)
+            file_predicates.extend(
+                column == digest
+                for column in ROM_FILE_HASH_COLUMNS_BY_DIGEST_LENGTH[len(term)]
+            )
+
+        if not rom_predicates:
+            return []
+
+        return [
+            select(Rom.id).where(or_(*rom_predicates)),
+            select(RomFile.rom_id.label("id")).where(or_(*file_predicates)),
+        ]
+
+    def _filter_by_search_term(self, query: Query, search_term: str):
+        terms = [term.strip() for term in search_term.split("|")]
+        terms = [term for term in terms if term]
+        if not terms:
+            return query
+
+        name_conditions = self._build_name_conditions(terms)
+        hash_selects = self._build_hash_selects(terms)
+        if not hash_selects:
+            return query.filter(or_(*name_conditions))
+
+        # OR-ing the hash columns onto the name conditions would cost the
+        # full-text index its only chance to drive the query, scanning `roms`
+        # end to end. Resolving each side through its own index and unioning
+        # the ids searches both without giving up either index.
+        matches = union(
+            select(Rom.id).where(or_(*name_conditions)), *hash_selects
+        ).subquery()
+        return query.filter(Rom.id.in_(select(matches.c.id)))
 
     def _filter_by_matched(self, query: Query, value: bool) -> Query:
         """Filter based on whether the rom is matched to a metadata provider.
