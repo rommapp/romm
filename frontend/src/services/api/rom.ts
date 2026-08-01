@@ -187,6 +187,8 @@ export interface GetRomsParams {
   withCharIndex?: boolean;
   withFilterValues?: boolean;
   withRomIdIndex?: boolean;
+  // Skip the result-set count server-side; `total` comes back null
+  withTotal?: boolean;
   // Cancel an in-flight request
   signal?: AbortSignal;
 }
@@ -238,6 +240,7 @@ async function getRoms({
   withCharIndex = undefined,
   withFilterValues = undefined,
   withRomIdIndex = undefined,
+  withTotal = undefined,
   signal = undefined,
 }: GetRomsParams) {
   const params = {
@@ -351,6 +354,7 @@ async function getRoms({
     ...(withRomIdIndex !== undefined
       ? { with_rom_id_index: withRomIdIndex }
       : {}),
+    ...(withTotal !== undefined ? { with_total: withTotal } : {}),
   };
 
   return api.get<GetRomsResponse>(`/roms`, {

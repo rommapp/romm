@@ -6,7 +6,7 @@ import type { RomFiltersDict } from './RomFiltersDict';
 import type { SimpleRomSchema } from './SimpleRomSchema';
 export type CustomLimitOffsetPage_SimpleRomSchema_ = {
     items: Array<SimpleRomSchema>;
-    total: number;
+    total: (number | null);
     limit: number;
     offset: number;
     char_index: Record<string, number>;

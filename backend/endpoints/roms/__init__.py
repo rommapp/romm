@@ -27,6 +27,7 @@ from fastapi import (
 from fastapi.responses import Response
 from fastapi_pagination import resolve_params
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
+from fastapi_pagination.types import GreaterEqualZero
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
@@ -324,6 +325,8 @@ class CustomLimitOffsetParams(LimitOffsetParams):
 
 
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
+    # Null when the caller opted out of the count with with_total=false.
+    total: GreaterEqualZero | None
     char_index: dict[str, int]
     rom_id_index: list[int]
     filter_values: RomFiltersDict
@@ -345,6 +348,17 @@ def get_roms(
         Query(
             description=(
                 "Whether to return the full ordered rom id index that backs virtual scroll."
+            )
+        ),
+    ] = True,
+    with_total: Annotated[
+        bool,
+        Query(
+            description=(
+                "Whether to count the full result set. Set to false when the caller"
+                " already knows the total, e.g. paging through a gallery it has"
+                " sized; total then comes back null, unless the rom id index is"
+                " being built and already carries it."
             )
         ),
     ] = True,
@@ -832,7 +846,9 @@ def get_roms(
             ]
 
         params = resolve_params()
+        total: int | None
         if with_rom_id_index:
+            # The index already spans the result set, so the count is free.
             total = len(rom_id_index)
             page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
             if page_ids:
@@ -847,7 +863,13 @@ def get_roms(
             page_items = list(
                 session.scalars(query.offset(params.offset).limit(params.limit)).all()
             )
-            total = db_rom_handler.get_rom_count(query=query, session=session)
+            # Without the index the count is its own scan of the filtered set,
+            # so a caller scrolling a gallery it already sized opts out.
+            total = (
+                db_rom_handler.get_rom_count(query=query, session=session)
+                if with_total
+                else None
+            )
 
         return CustomLimitOffsetPage.create(
             _transform(page_items),
