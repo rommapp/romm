@@ -1549,17 +1549,17 @@ Falls back to `FakeRedis` in test mode.
 
 #### Authentication
 
-| Variable                             | Default   | Description                           |
-| ------------------------------------ | --------- | ------------------------------------- |
-| `ROMM_AUTH_SECRET_KEY`               |           | Session signing key (random if unset) |
-| `OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS`  | `1800`    | 30 minutes                            |
-| `OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS` | `604800`  | 7 days                                |
-| `SESSION_MAX_AGE_SECONDS`            | `1209600` | 14 days                               |
-| `DISABLE_CSRF_PROTECTION`            | `false`   | Disable CSRF                          |
-| `DISABLE_DOWNLOAD_ENDPOINT_AUTH`     | `false`   | Allow unauthenticated downloads       |
-| `DISABLE_USERPASS_LOGIN`             | `false`   | Disable password login                |
-| `DISABLE_LOGS_VIEWER`                | `false`   | Disable backend log viewer + endpoint |
-| `KIOSK_MODE`                         | `false`   | Read-only anonymous access            |
+| Variable                             | Default   | Description                                                                    |
+| ------------------------------------ | --------- | ------------------------------------------------------------------------------ |
+| `ROMM_AUTH_SECRET_KEY`               |           | Session signing key (random if unset)                                          |
+| `OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS`  | `1800`    | 30 minutes                                                                     |
+| `OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS` | `604800`  | 7 days                                                                         |
+| `SESSION_MAX_AGE_SECONDS`            | `1209600` | 14 days                                                                        |
+| `DISABLE_CSRF_PROTECTION`            | `false`   | Disable CSRF                                                                   |
+| `DISABLE_DOWNLOAD_ENDPOINT_AUTH`     | `false`   | Allow unauthenticated downloads                                                |
+| `DISABLE_USERPASS_LOGIN`             | `false`   | Disable password login                                                         |
+| `DISABLE_LOGS_VIEWER`                | `false`   | Disable backend log viewer + endpoint                                          |
+| `KIOSK_MODE`                         | `false`   | Read-only anonymous access (logged-in accounts keep their granted permissions) |
 
 #### OIDC
 
