@@ -323,6 +323,16 @@ function requestDeleteManual() {
   flex-direction: column;
 }
 
+/* On mobile the details view scrolls as one document (GameDetails unwinds its
+   fixed-height chain), so no ancestor hands the viewer a height to fill. Pin
+   it to a slice of the viewport instead. */
+html[data-bp~="sm-and-down"] .r-v2-manual__fill {
+  flex: none;
+  height: 70vh;
+  height: 70dvh;
+  min-height: 20rem;
+}
+
 /* Viewer — fills the available panel height so the inner PDF / Markdown uses
    100% and only its own scroll triggers. */
 .r-v2-manual__viewer {

@@ -448,6 +448,13 @@ async function deleteSoundtrack(fileId: number) {
   flex-direction: column;
 }
 
+/* Mobile has no fixed-height chain to fill (GameDetails scrolls as one
+   document there), so a zero flex-basis would collapse the player. */
+html[data-bp~="sm-and-down"] .r-v2-media__fill {
+  flex: none;
+  height: auto;
+}
+
 html[data-bp~="xs"] .r-v2-media {
   flex-direction: column;
   gap: 14px;
