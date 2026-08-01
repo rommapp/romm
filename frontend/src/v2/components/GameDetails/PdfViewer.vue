@@ -11,7 +11,6 @@ import { RIcon, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import VuePdfApp from "vue3-pdf-app";
 import { useI18n } from "vue-i18n";
-import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 
 defineProps<{
@@ -31,7 +30,6 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const { xs } = useBreakpoint();
 const { isLight } = useThemeMode();
 const pdfTheme = computed<"light" | "dark">(() =>
   isLight.value ? "light" : "dark",
@@ -84,13 +82,13 @@ const ids = {
         </template>
       </RTooltip>
 
-      <RTooltip v-if="!xs" :text="t('common.previous-page')">
+      <RTooltip :text="t('common.previous-page')">
         <template #activator="{ props: activator }">
           <button
             :id="ids.previousPage"
             v-bind="activator"
             type="button"
-            class="r-v2-pdfv__btn"
+            class="r-v2-pdfv__btn r-v2-pdfv__btn--step"
           >
             <RIcon icon="mdi-chevron-left" size="18" />
           </button>
@@ -105,13 +103,13 @@ const ids = {
       />
       <span :id="ids.numPages" class="r-v2-pdfv__page-total" />
 
-      <RTooltip v-if="!xs" :text="t('common.next-page')">
+      <RTooltip :text="t('common.next-page')">
         <template #activator="{ props: activator }">
           <button
             :id="ids.nextPage"
             v-bind="activator"
             type="button"
-            class="r-v2-pdfv__btn"
+            class="r-v2-pdfv__btn r-v2-pdfv__btn--step"
           >
             <RIcon icon="mdi-chevron-right" size="18" />
           </button>
@@ -263,6 +261,13 @@ const ids = {
 .r-v2-pdfv__btn:hover {
   background: var(--r-color-surface-hover);
   color: var(--r-color-fg);
+}
+
+/* vue3-pdf-app wires its controls by `id` on mount and gives up on the whole
+   viewer when one is missing, so the page-step buttons are always rendered and
+   only hidden on the narrowest toolbar (first/last page still cover it). */
+html[data-bp~="xs"] .r-v2-pdfv__btn--step {
+  display: none;
 }
 /* Danger variant — Delete sits at the end of the toolbar, so it takes
    a danger-tinted foreground + hover so the destructive action reads
