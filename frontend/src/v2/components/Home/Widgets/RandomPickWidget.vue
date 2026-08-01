@@ -53,8 +53,11 @@ function rollDiceFace() {
 }
 
 async function reroll() {
-  rollDiceFace();
+  // The face only turns for a roll that actually happens — flipping it
+  // on a click the in-flight guard discards would signal a new pick
+  // that never lands.
   if (loading.value) return;
+  rollDiceFace();
   loading.value = true;
   try {
     // First call: get the library total. limit=1/offset=0 is cheap and
