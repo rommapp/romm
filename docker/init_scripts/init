@@ -376,10 +376,8 @@ run_startup
 while ! ((exited)); do
 	watchdog_process_pid gunicorn
 
-	# only start the scheduler if enabled
-	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" || ${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA} == "true" || ${ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES} == "true" ]]; then
-		watchdog_process_pid rq_scheduler
-	fi
+	# always run the scheduler
+	watchdog_process_pid rq_scheduler
 
 	watchdog_process_pid rq_worker
 
