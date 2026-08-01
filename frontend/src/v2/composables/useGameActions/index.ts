@@ -74,7 +74,7 @@ export function useGameActions(
   // delete that 403s.
   const canDelete = computed(() => hasDeleteGrant.value && canEdit.value);
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
-  const { canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
+  const { canPlayEJS, canPlayJsDos, canPlayRuffle } = useCanPlay(getRom);
   const streamingStore = useStreamingStore();
 
   // Streaming is the preferred way to play where a container is
@@ -85,7 +85,11 @@ export function useGameActions(
     Boolean(streamingStore.containerForPlatform(getRom()?.platform_slug)),
   );
   const canPlay = computed(
-    () => canPlayStream.value || canPlayEJS.value || canPlayRuffle.value,
+    () =>
+      canPlayStream.value ||
+      canPlayJsDos.value ||
+      canPlayEJS.value ||
+      canPlayRuffle.value,
   );
 
   const isFavorited = computed(() => {
@@ -243,9 +247,14 @@ export function useGameActions(
       if (!ok) return;
     }
 
-    // EmulatorJS cores can require SharedArrayBuffer. Nginx only attaches the
+    // EmulatorJS and js-dos need SharedArrayBuffer. Nginx only attaches the
     // necessary COOP/COEP headers to the player document, so an SPA navigation
     // cannot enable cross-origin isolation. Load the document directly instead.
+    // js-dos owns win3x/win9x, so it is checked ahead of EJS.
+    if (!canPlayStream.value && canPlayJsDos.value) {
+      window.location.assign(`/rom/${rom.id}/jsdos`);
+      return;
+    }
     if (!canPlayStream.value && canPlayEJS.value) {
       window.location.assign(`/rom/${rom.id}/ejs`);
       return;

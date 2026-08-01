@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { Config } from "@/stores/config";
+import type { Heartbeat } from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
-import { getDownloadPath } from "./index";
+import { getDownloadPath, isJsDosEmulationSupported } from "./index";
 
 function makeRom(overrides: Partial<SimpleRom>): SimpleRom {
   return {
@@ -55,5 +57,55 @@ describe("getDownloadPath", () => {
     expect(getDownloadPath({ rom, fileIDs: [999] })).toBe(
       "/api/roms/24/content/B.A.T.?file_ids=999",
     );
+  });
+});
+
+function makeHeartbeat(
+  emulation: Partial<Heartbeat["EMULATION"]> = {},
+): Heartbeat {
+  return {
+    EMULATION: {
+      DISABLE_EMULATOR_JS: false,
+      DISABLE_RUFFLE_RS: false,
+      DISABLE_JSDOS: false,
+      ...emulation,
+    },
+  } as Heartbeat;
+}
+
+function makeConfig(versions: Record<string, string> = {}): Config {
+  return { PLATFORMS_VERSIONS: versions } as Config;
+}
+
+describe("isJsDosEmulationSupported", () => {
+  it("supports win3x and win9x", () => {
+    expect(isJsDosEmulationSupported("win3x", makeHeartbeat())).toBe(true);
+    expect(isJsDosEmulationSupported("win9x", makeHeartbeat())).toBe(true);
+  });
+
+  it("is case-insensitive on the slug", () => {
+    expect(isJsDosEmulationSupported("WIN3X", makeHeartbeat())).toBe(true);
+  });
+
+  it("does not claim dos or other platforms", () => {
+    expect(isJsDosEmulationSupported("dos", makeHeartbeat())).toBe(false);
+    expect(isJsDosEmulationSupported("flash", makeHeartbeat())).toBe(false);
+    expect(isJsDosEmulationSupported("snes", makeHeartbeat())).toBe(false);
+  });
+
+  it("respects the DISABLE_JSDOS admin toggle", () => {
+    expect(
+      isJsDosEmulationSupported("win3x", makeHeartbeat({ DISABLE_JSDOS: true })),
+    ).toBe(false);
+  });
+
+  it("honours a PLATFORMS_VERSIONS remap onto win3x", () => {
+    expect(
+      isJsDosEmulationSupported(
+        "dos",
+        makeHeartbeat(),
+        makeConfig({ dos: "win3x" }),
+      ),
+    ).toBe(true);
   });
 });
