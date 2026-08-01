@@ -672,19 +672,23 @@ async def _identify_platform(
             fs_fw=fs_fw,
         )
 
+    # `new_firmware_count` is scoped to this scan: the client reports what the
+    # scan discovered, not the platform's total firmware library.
     await socket_manager.emit(
         "scan:scanning_platform",
-        PlatformSchema.model_validate(platform).model_dump(
-            include={
-                "id",
-                "name",
-                "display_name",
-                "slug",
-                "fs_slug",
-                "is_identified",
-                "firmware_count",
-            }
-        ),
+        {
+            **PlatformSchema.model_validate(platform).model_dump(
+                include={
+                    "id",
+                    "name",
+                    "display_name",
+                    "slug",
+                    "fs_slug",
+                    "is_identified",
+                }
+            ),
+            "new_firmware_count": new_firmware,
+        },
     )
 
     # This reduces the number of socket emissions

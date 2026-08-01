@@ -282,19 +282,18 @@ const effectiveMetadataSources = computed<MetadataOption[]>(() => {
   return [...general, ...specific];
 });
 
-// Auto-expand a platform's panel the moment it starts reporting roms
-// or firmware. We track by `id:hasContent` so the watch fires only on
-// the 0 → 1 transition, not per-ROM.
+// Auto-expand a platform's panel the moment it starts reporting roms. The
+// panel body only lists ROMs, so firmware alone leaves nothing to show. We
+// track by `id:hasRoms` so the watch fires only on the 0 → 1 transition,
+// not per-ROM.
 const platformsWithRomsKey = computed(() =>
   scanningPlatforms.value
-    .map((p) => `${p.id}:${p.roms.length > 0 || p.firmware_count > 0 ? 1 : 0}`)
+    .map((p) => `${p.id}:${p.roms.length > 0 ? 1 : 0}`)
     .join(","),
 );
 watch(platformsWithRomsKey, () => {
   openPlatforms.value = new Set(
-    scanningPlatforms.value
-      .filter((p) => p.roms.length > 0 || p.firmware_count > 0)
-      .map((p) => p.id),
+    scanningPlatforms.value.filter((p) => p.roms.length > 0).map((p) => p.id),
   );
 });
 
