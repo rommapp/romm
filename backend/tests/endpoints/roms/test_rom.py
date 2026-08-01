@@ -431,7 +431,7 @@ def test_get_all_roms_with_files(
 
 def test_get_rom_content_requires_auth(client: TestClient, rom: Rom, rom_file):
     response = client.get(f"/api/roms/{rom.id}/content/test_rom.zip")
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 def test_get_rom_content_single_file(

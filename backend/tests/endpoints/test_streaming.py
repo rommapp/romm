@@ -124,7 +124,7 @@ def _claim_ok(client, token, rom_id):
 
 
 def test_get_config_requires_auth(client):
-    assert client.get("/api/streaming/config").status_code == 403
+    assert client.get("/api/streaming/config").status_code == 401
 
 
 def test_get_config_warns_on_missing_platform(client, access_token, caplog):
@@ -486,19 +486,19 @@ def test_force_release_all_stops_brokers(client, access_token, rom: Rom):
 
 
 def test_claim_session_requires_auth(client):
-    assert client.post("/api/streaming/sessions", json={"rom_id": 1}).status_code == 403
+    assert client.post("/api/streaming/sessions", json={"rom_id": 1}).status_code == 401
 
 
 def test_release_session_requires_auth(client):
-    assert client.delete("/api/streaming/sessions/ps2").status_code == 403
+    assert client.delete("/api/streaming/sessions/ps2").status_code == 401
 
 
 def test_force_release_all_requires_auth(client):
-    assert client.delete("/api/streaming/sessions").status_code == 403
+    assert client.delete("/api/streaming/sessions").status_code == 401
 
 
 def test_list_sessions_requires_auth(client):
-    assert client.get("/api/streaming/sessions").status_code == 403
+    assert client.get("/api/streaming/sessions").status_code == 401
 
 
 def test_list_sessions_requires_admin(client, viewer_access_token):
