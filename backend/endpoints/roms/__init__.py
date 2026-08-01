@@ -629,8 +629,8 @@ def get_roms(
     query = db_rom_handler.filter_roms(
         query=unfiltered_query,
         user_id=request.user.id,
-        hidden_platform_ids=perms.hidden_platform_ids,
-        hidden_rom_ids=perms.hidden_rom_ids,
+        hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
+        hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
         platform_ids=platform_ids,
         collection_id=collection_id,
         virtual_collection_id=virtual_collection_id,

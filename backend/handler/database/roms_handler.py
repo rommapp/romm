@@ -574,8 +574,8 @@ class DBRomsHandler(DBBaseHandler):
         member_ids = self._join_rom_user(select(Rom.id), user_id)
         return query.filter(
             Rom.id.in_(
-                self.build_smart_collection_query(
-                    query=member_ids,
+                db_collection_handler.build_smart_collection_query(
+                    query=member_ids,  # type: ignore
                     smart_collection=smart_collection,
                     user_id=user_id,
                     session=session,
@@ -583,39 +583,12 @@ class DBRomsHandler(DBBaseHandler):
             )
         )
 
-    def _join_rom_user(self, query: Query, user_id: int | None) -> Query:
+    def _join_rom_user(self, query: Select, user_id: int | None) -> Select:
         if not user_id:
             return query
+
         return query.outerjoin(
             RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
-        )
-
-    def build_smart_collection_query(
-        self,
-        *,
-        query: Query,
-        smart_collection: SmartCollection,
-        user_id: int | None,
-        session: Session,
-    ) -> Query:
-        """Apply a smart collection's stored criteria to a ROM query.
-
-        The criteria are `filter_roms`'s own vocabulary, so membership composes
-        into SQL and the database can return just the page being viewed, rather
-        than the whole matching library being assembled in Python first (#4029).
-
-        Relationships are not eager-loaded, so the result is for filtering, not
-        for serializing ROMs. The caller owns the query's joins, including
-        `RomUser` for the per-user criteria (favorite, statuses, saves, states).
-        """
-        from . import db_collection_handler
-
-        return self.filter_roms(
-            query=query,
-            user_id=user_id,
-            include_related=False,
-            session=session,
-            **db_collection_handler.get_smart_collection_criteria(smart_collection),
         )
 
     @begin_session
@@ -632,11 +605,13 @@ class DBRomsHandler(DBBaseHandler):
         Restricting the criteria to a few ids keeps this an indexed lookup, so a
         caller can ask whether one ROM moved without scanning the library.
         """
+        from . import db_collection_handler
+
         query = self._join_rom_user(select(Rom.id), user_id).filter(Rom.id.in_(rom_ids))
         return set(
             session.scalars(
-                self.build_smart_collection_query(
-                    query=query,
+                db_collection_handler.build_smart_collection_query(
+                    query=query,  # type: ignore
                     smart_collection=smart_collection,
                     user_id=user_id,
                     session=session,
@@ -649,18 +624,6 @@ class DBRomsHandler(DBBaseHandler):
         if not words or any(len(word) < FULLTEXT_MIN_TOKEN_SIZE for word in words):
             return None
         return " ".join(f"+{word}*" for word in words)
-
-    def _fulltext_param_name(self, term: str, idx: int) -> str:
-        """Name the bind parameter after the term it carries.
-
-        A statement can hold more than one MATCH clause (a smart collection's
-        own search term composes with the gallery's), and `text()` parameters
-        aren't uniquified by SQLAlchemy, so a fixed name would let one term
-        overwrite the other. Deriving the name from the term keeps it stable
-        per term, so compiled statements still cache.
-        """
-        digest = hashlib.blake2s(term.encode(), digest_size=4).hexdigest()
-        return f"fulltext_search_{digest}_{idx}"
 
     def _build_fulltext_relevance(self, search_term: str) -> str | None:
         parts: list[str] = []
@@ -683,7 +646,9 @@ class DBRomsHandler(DBBaseHandler):
                 if boolean_query is None:
                     match_clauses = []
                     break
-                param = self._fulltext_param_name(term, idx)
+
+                digest = hashlib.blake2s(term.encode(), digest_size=4).hexdigest()
+                param = f"fulltext_search_{digest}_{idx}"
                 match_clauses.append(
                     text(
                         f"MATCH(roms.name, roms.fs_name) "
@@ -1198,7 +1163,7 @@ class DBRomsHandler(DBBaseHandler):
             # drop the carried-over ORDER BY the window doesn't use.
             base_subquery = (
                 query.order_by(None)
-                .with_only_columns(
+                .with_only_columns(  # type: ignore
                     Rom.id,
                     Rom.fs_name_no_ext,
                     Rom.platform_id,

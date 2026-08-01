@@ -285,9 +285,8 @@ def test_refresh_for_roms_updates_the_collections_the_rom_moved_between(
     db_collection_handler.refresh_smart_collections()
 
     db_rom_handler.update_rom(mover.id, {"manual_metadata": {"genres": ["Racing"]}})
-    refreshed = db_collection_handler.refresh_smart_collections_for_roms([mover.id])
+    db_collection_handler.refresh_smart_collections_for_roms([mover.id])
 
-    assert refreshed == 2
     racing_after = db_collection_handler.get_smart_collection(racing.id)
     puzzle_after = db_collection_handler.get_smart_collection(puzzle.id)
     assert racing_after is not None and racing_after.rom_count == 2
@@ -305,9 +304,8 @@ def test_refresh_for_roms_leaves_untouched_collections_alone(
     bystander = _add_rom(platform, "Puzzler", manual_metadata={"genres": ["Puzzle"]})
 
     refresh = mocker.spy(db_collection_handler, "refresh_smart_collection")
-    moved = db_collection_handler.refresh_smart_collections_for_roms([bystander.id])
+    db_collection_handler.refresh_smart_collections_for_roms([bystander.id])
 
-    assert moved == 0
     assert refresh.call_count == 0
 
 
@@ -357,11 +355,10 @@ def test_refresh_for_roms_membership_only_skips_a_member_that_stayed(
 
     _add_save(rom, admin_user, "second.sav")
     refresh = mocker.spy(db_collection_handler, "refresh_smart_collection")
-    moved = db_collection_handler.refresh_smart_collections_for_roms(
+    db_collection_handler.refresh_smart_collections_for_roms(
         [rom.id], membership_only=True
     )
 
-    assert moved == 0
     assert refresh.call_count == 0
 
 

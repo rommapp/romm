@@ -423,6 +423,6 @@ async def delete_states(
                 error = f"Screenshot file {hl(state.screenshot.file_name)} not found for state {hl(state.file_name)}[{hl(state.rom.platform_slug)}]"
                 log.error(error)
 
-    refresh_affected_smart_collections(sorted(affected_rom_ids), membership_only=True)
+    refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 
     return states

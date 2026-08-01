@@ -45,10 +45,6 @@ MAX_VIRTUAL_COLLECTION_COVERS = 5
 COVERS_BATCH_SIZE = 100
 
 
-def _strip_cache_buster(urls: Sequence[str]) -> list[str]:
-    return [url.split("?", 1)[0] for url in urls]
-
-
 def with_roms(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -534,6 +530,34 @@ class DBCollectionsHandler(DBBaseHandler):
             "tags_logic": criteria.get("tags_logic", "any"),
         }
 
+    def build_smart_collection_query(
+        self,
+        *,
+        query: Query,
+        smart_collection: SmartCollection,
+        user_id: int | None,
+        session: Session,
+    ) -> Query:
+        """Apply a smart collection's stored criteria to a ROM query.
+
+        The criteria are `filter_roms`'s own vocabulary, so membership composes
+        into SQL and the database can return just the page being viewed, rather
+        than the whole matching library being assembled in Python first (#4029).
+
+        Relationships are not eager-loaded, so the result is for filtering, not
+        for serializing ROMs. The caller owns the query's joins, including
+        `RomUser` for the per-user criteria (favorite, statuses, saves, states).
+        """
+        from handler.database import db_rom_handler
+
+        return db_rom_handler.filter_roms(
+            query=query,
+            user_id=user_id,
+            include_related=False,
+            session=session,
+            **self.get_smart_collection_criteria(smart_collection),
+        )
+
     @begin_session
     def get_smart_collection_members(
         self,
@@ -556,12 +580,14 @@ class DBCollectionsHandler(DBBaseHandler):
             user_id=user_id,
             session=session,
         )
-        query = db_rom_handler.build_smart_collection_query(
+        query = self.build_smart_collection_query(
             query=query,
             smart_collection=smart_collection,
             user_id=user_id,
             session=session,
-        ).with_only_columns(Rom.id, Rom.path_cover_s, Rom.path_cover_l)
+        ).with_only_columns(  # type: ignore
+            Rom.id, Rom.path_cover_s, Rom.path_cover_l
+        )
 
         return session.execute(query).all()
 
@@ -604,8 +630,10 @@ class DBCollectionsHandler(DBBaseHandler):
         # timestamp and comparing whole URLs would rewrite on every refresh.
         if (
             smart_collection.rom_ids == rom_ids
-            and _strip_cache_buster(smart_collection.path_covers_small) == covers_small
-            and _strip_cache_buster(smart_collection.path_covers_large) == covers_large
+            and [u.split("?", 1)[0] for u in smart_collection.path_covers_small]
+            == covers_small
+            and [u.split("?", 1)[0] for u in smart_collection.path_covers_large]
+            == covers_large
         ):
             return smart_collection
 
@@ -639,7 +667,7 @@ class DBCollectionsHandler(DBBaseHandler):
         rom_ids: Sequence[int],
         membership_only: bool = False,
         session: Session = None,  # type: ignore
-    ) -> int:
+    ):
         """Refresh the collections a handful of changed ROMs touch.
 
         Editing one ROM rarely moves any collection, and asking whether given
@@ -656,10 +684,9 @@ class DBCollectionsHandler(DBBaseHandler):
         from handler.database import db_rom_handler
 
         if not rom_ids:
-            return 0
+            return
 
         candidates = set(rom_ids)
-        refreshed = 0
         for smart_collection in session.scalars(select(SmartCollection)).all():
             matching = db_rom_handler.get_smart_collection_matches(
                 smart_collection=smart_collection,
@@ -671,6 +698,3 @@ class DBCollectionsHandler(DBBaseHandler):
             moved = matching != cached if membership_only else bool(matching or cached)
             if moved:
                 self.refresh_smart_collection(smart_collection.id, session=session)
-                refreshed += 1
-
-        return refreshed
