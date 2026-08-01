@@ -199,8 +199,8 @@ class TestSmartCollectionSearchTerm:
     def test_hash_criterion_resolves_members(self, aero: Rom, admin_user: User):
         collection = self._smart_collection(admin_user, AERO_MD5)
 
-        roms = db_collection_handler.get_smart_collection_roms(
-            collection, user_id=admin_user.id
+        roms = db_rom_handler.get_roms_scalar(
+            smart_collection_id=collection.id, user_id=admin_user.id
         )
 
         assert [rom.id for rom in roms] == [aero.id]
@@ -210,8 +210,8 @@ class TestSmartCollectionSearchTerm:
     ):
         collection = self._smart_collection(admin_user, DISC_ONE_MD5)
 
-        roms = db_collection_handler.get_smart_collection_roms(
-            collection, user_id=admin_user.id
+        roms = db_rom_handler.get_roms_scalar(
+            smart_collection_id=collection.id, user_id=admin_user.id
         )
 
         assert [rom.id for rom in roms] == [multi_disc.id]

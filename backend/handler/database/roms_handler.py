@@ -1,4 +1,5 @@
 import functools
+import hashlib
 import json
 import re
 from collections.abc import Iterable, Sequence
@@ -47,6 +48,7 @@ from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.redis_handler import sync_cache
 from models.assets import Save, Screenshot, State
 from models.base import compute_file_name_parts
+from models.collection import Collection, CollectionRom, SmartCollection
 from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
 from models.rom import (
@@ -552,16 +554,16 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Query:
         return query.filter(Rom.platform_id.in_(platform_ids))
 
-    def _filter_by_collection_id(
-        self, query: Query, session: Session, collection_id: int
-    ):
-        from . import db_collection_handler
-
-        collection = db_collection_handler.get_collection(collection_id)
-
-        if collection:
-            return query.filter(Rom.id.in_(collection.rom_ids))
-        return query
+    def _filter_by_collection_id(self, query: Query, collection_id: int):
+        # `collections_roms` is keyed on (collection_id, rom_id), so membership
+        # is an indexed subquery rather than a list of ids fetched into Python.
+        return query.filter(
+            Rom.id.in_(
+                select(CollectionRom.rom_id).where(
+                    CollectionRom.collection_id == collection_id
+                )
+            )
+        )
 
     def _filter_by_virtual_collection_id(
         self, query: Query, session: Session, virtual_collection_id: str
@@ -577,19 +579,67 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     def _filter_by_smart_collection_id(
-        self, query: Query, session: Session, smart_collection_id: int, user_id: int
+        self,
+        query: Query,
+        session: Session,
+        smart_collection_id: int,
+        user_id: int | None,
     ):
         from . import db_collection_handler
 
         smart_collection = db_collection_handler.get_smart_collection(
-            smart_collection_id
+            smart_collection_id, session=session
+        )
+        if not smart_collection:
+            return query.filter(false())
+
+        member_ids = self._join_rom_user(select(Rom.id), user_id)
+        return query.filter(
+            Rom.id.in_(
+                db_collection_handler.build_smart_collection_query(
+                    query=member_ids,  # type: ignore
+                    smart_collection=smart_collection,
+                    user_id=user_id,
+                    session=session,
+                )
+            )
         )
 
-        if smart_collection:
-            # Ensure the latest ROMs are loaded
-            smart_collection = smart_collection.update_properties(user_id)
-            return query.filter(Rom.id.in_(smart_collection.rom_ids))
-        return query
+    def _join_rom_user(self, query: Select, user_id: int | None) -> Select:
+        if not user_id:
+            return query
+
+        return query.outerjoin(
+            RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
+        )
+
+    @begin_session
+    def get_smart_collection_matches(
+        self,
+        *,
+        smart_collection: SmartCollection,
+        rom_ids: Iterable[int],
+        user_id: int | None,
+        session: Session = None,  # type: ignore
+    ) -> set[int]:
+        """Which of `rom_ids` currently match the collection's criteria.
+
+        Restricting the criteria to a few ids keeps this an indexed lookup, so a
+        caller can ask whether one ROM moved without scanning the library.
+        """
+        from . import db_collection_handler
+
+        query = self._join_rom_user(select(Rom.id), user_id).filter(Rom.id.in_(rom_ids))
+        return set(
+            session.scalars(
+                db_collection_handler.build_smart_collection_query(
+                    query=query,  # type: ignore
+                    smart_collection=smart_collection,
+                    user_id=user_id,
+                    session=session,
+                )
+            )
+        )
 
     def _build_fulltext_boolean_query(self, term: str) -> str | None:
         words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
@@ -614,7 +664,9 @@ class DBRomsHandler(DBBaseHandler):
                 if boolean_query is None:
                     match_clauses = []
                     break
-                param = f"fulltext_search_{idx}"
+
+                digest = hashlib.blake2s(term.encode(), digest_size=4).hexdigest()
+                param = f"fulltext_search_{digest}_{idx}"
                 match_clauses.append(
                     text(
                         f"MATCH(roms.name, roms.fs_name) "
@@ -711,20 +763,17 @@ class DBRomsHandler(DBBaseHandler):
         if not user_id:
             return query
 
-        from . import db_collection_handler
-
-        favorites_collection = db_collection_handler.get_favorite_collection(user_id)
-        if favorites_collection:
-            predicate = Rom.id.in_(favorites_collection.rom_ids)
-            if not value:
-                predicate = not_(predicate)
-            return query.filter(predicate)
-
-        # If no favorites collection exists, return the original query if non-favorites
-        # were requested, or an empty query if favorites were requested.
+        # An empty (or missing) favorites collection needs no special case: the
+        # subquery yields no rows, so IN matches nothing and NOT IN matches all.
+        favorites = (
+            select(CollectionRom.rom_id)
+            .join(Collection, Collection.id == CollectionRom.collection_id)
+            .where(Collection.is_favorite, Collection.user_id == user_id)
+        )
+        predicate = Rom.id.in_(favorites)
         if not value:
-            return query
-        return query.filter(false())
+            predicate = not_(predicate)
+        return query.filter(predicate)
 
     def _filter_by_duplicate(self, query: Query, value: bool) -> Query:
         """Filter based on whether the rom has duplicates."""
@@ -1056,26 +1105,30 @@ class DBRomsHandler(DBBaseHandler):
         updated_after: datetime | None = None,
         include_file_stats: bool = False,
         include_files: bool = False,
+        include_related: bool = True,
         hidden_platform_ids: Sequence[int] | None = None,
         hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
 
-        query = query.options(
-            # Ensure platform is loaded for main ROM objects
-            selectinload(Rom.platform),
-            # Display properties for the current user (last_played)
-            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
-            # Sort table by metadata (first_release_date)
-            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            # Show sibling rom badges on cards
-            selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform), noload(Rom.metadatum)
-            ),
-            # Notes indicator on cards
-            selectinload(Rom.notes),
-        )
+        # Callers that select bare columns (a membership subquery) pass
+        # include_related=False: loader options can't apply without an entity.
+        if include_related:
+            query = query.options(
+                # Ensure platform is loaded for main ROM objects
+                selectinload(Rom.platform),
+                # Display properties for the current user (last_played)
+                selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+                # Sort table by metadata (first_release_date)
+                selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
+                # Show sibling rom badges on cards
+                selectinload(Rom.sibling_roms).options(
+                    noload(Rom.platform), noload(Rom.metadatum)
+                ),
+                # Notes indicator on cards
+                selectinload(Rom.notes),
+            )
 
         # Only load files (and the RomFile.rom backref needed by `is_top_level` /
         # `file_name_for_download`) when the caller iterates them — e.g. the
@@ -1102,14 +1155,14 @@ class DBRomsHandler(DBBaseHandler):
             query = self._filter_by_platform_ids(query, platform_ids)
 
         if collection_id:
-            query = self._filter_by_collection_id(query, session, collection_id)
+            query = self._filter_by_collection_id(query, collection_id)
 
         if virtual_collection_id:
             query = self._filter_by_virtual_collection_id(
                 query, session, virtual_collection_id
             )
 
-        if smart_collection_id and user_id:
+        if smart_collection_id:
             query = self._filter_by_smart_collection_id(
                 query, session, smart_collection_id, user_id
             )
@@ -1177,7 +1230,7 @@ class DBRomsHandler(DBBaseHandler):
             # drop the carried-over ORDER BY the window doesn't use.
             base_subquery = (
                 query.order_by(None)
-                .with_only_columns(
+                .with_only_columns(  # type: ignore
                     Rom.id,
                     Rom.fs_name_no_ext,
                     Rom.platform_id,
@@ -1344,12 +1397,7 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int | None = None,
         session: Session = None,  # type: ignore
     ) -> tuple[Query[Rom], Any]:
-        query = select(Rom)
-
-        if user_id:
-            query = query.outerjoin(
-                RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
-            )
+        query = self._join_rom_user(select(Rom), user_id)
 
         if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomUser, order_by)

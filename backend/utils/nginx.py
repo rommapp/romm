@@ -1,5 +1,6 @@
 import dataclasses
 from collections.abc import Collection
+from pathlib import PurePath
 from typing import Any
 from urllib.parse import quote
 
@@ -58,14 +59,15 @@ class FileRedirectResponse(Response):
     def __init__(
         self,
         *,
-        download_path: Path,
+        download_path: Path | PurePath,
         filename: str | None = None,
         disposition: str = "attachment",
         **kwargs: Any,
     ):
         """
         Arguments:
-          - download_path: Path to the file to be served.
+          - download_path: Path to the file to be served. Only its name and string
+              form are read, so either flavour of Path works.
           - filename: Name of the file to be served. If not provided, the file name from the
               download_path is used.
           - disposition: "attachment" (default) forces a download; "inline" lets the

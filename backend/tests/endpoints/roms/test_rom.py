@@ -640,6 +640,40 @@ def test_update_rom_adds_region_tag_on_rename(
     assert body["regions"] == ["Europe"]
 
 
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_refreshes_smart_collection_membership(
+    rename_fs_rom_mock: AsyncMock,
+    get_rom_by_id_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom: Rom,
+):
+    # An edit changes what the saved filters match, so the cached counts have
+    # to follow it rather than wait for the next scan.
+    smart_collection = db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="European games",
+            description="",
+            user_id=admin_user.id,
+            filter_criteria={"regions": ["Europe"]},
+        )
+    )
+    db_collection_handler.refresh_smart_collection(smart_collection.id)
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"fs_name": "test_rom (Europe).zip"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+    assert refreshed is not None
+    assert refreshed.rom_ids == [rom.id]
+
+
 # Minimal valid PNG (1x1 transparent pixel)
 _PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n"
@@ -698,6 +732,28 @@ def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
 
     body = response.json()
     assert body["successful_items"] == 1
+
+
+def test_delete_roms_reports_results_when_the_refresh_fails(
+    client: TestClient, access_token: str, rom: Rom, mocker
+):
+    # The deletes are already committed by this point, so a failure updating
+    # cached smart collection membership must not cost the caller its report.
+    mocker.patch.object(
+        db_collection_handler,
+        "refresh_smart_collections_for_roms",
+        side_effect=RuntimeError("refresh exploded"),
+    )
+
+    response = client.post(
+        "/api/roms/delete",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [rom.id], "delete_from_fs": []},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["successful_items"] == 1
+    assert db_rom_handler.get_rom(rom.id) is None
 
 
 def test_delete_roms_reports_failed_ids(
