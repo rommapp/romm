@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from sqlalchemy import TIMESTAMP, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -39,6 +39,10 @@ class Role(enum.StrEnum):
 
 
 TEXT_FIELD_LENGTH = 255
+
+# Id of the synthetic, unauthenticated visitor KIOSK_MODE hands out. Negative so
+# it can never collide with an auto-increment row.
+KIOSK_USER_ID: Final = -1
 
 
 class User(BaseModel, SimpleUser):
@@ -123,7 +127,7 @@ class User(BaseModel, SimpleUser):
     def kiosk_mode_user(cls) -> User:
         now = datetime.now(timezone.utc)
         return cls(
-            id=-1,
+            id=KIOSK_USER_ID,
             username="kiosk",
             role=Role.USER,
             enabled=True,
@@ -133,6 +137,11 @@ class User(BaseModel, SimpleUser):
             created_at=now,
             updated_at=now,
         )
+
+    @property
+    def is_kiosk_guest(self) -> bool:
+        """The shared anonymous visitor, not a real account."""
+        return self.id == KIOSK_USER_ID
 
     @property
     def oauth_scopes(self) -> list[Scope]:

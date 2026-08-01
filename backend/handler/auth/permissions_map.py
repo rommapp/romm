@@ -74,8 +74,8 @@ _GRANT_SCOPES: dict[tuple[PermEntity, PermAction], frozenset[Scope]] = {
 }
 
 # --- Legacy group matrices ----------------------------------------------------
-# "Viewer (legacy)" == today's non-kiosk default user (WRITE_SCOPES): read the
-# library; create/modify/delete only OWN collections/assets/devices.
+# "Viewer (legacy)" == today's default user (WRITE_SCOPES): read the library;
+# create/modify/delete only OWN collections/assets/devices.
 LEGACY_VIEWER_GRANTS: tuple[Grant, ...] = (
     (PermEntity.ROMS, PermAction.READ, False),
     (PermEntity.PLATFORMS, PermAction.READ, False),

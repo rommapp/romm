@@ -463,9 +463,9 @@ def _stop_broker(container: dict[str, Any]) -> None:
 # gates on ROMS_USER_WRITE, matching the play-session routes. ROMS_USER_WRITE is
 # always-on for authenticated users, so this costs no real user anything, but it
 # is absent from READ_SCOPES -- which is all KIOSK_MODE hands an anonymous
-# visitor, and all a logged-in non-admin keeps under kiosk. Without it, kiosk
-# visitors (who all share user_id=-1, so session ownership cannot separate them)
-# could claim sessions and overwrite each other's save states.
+# visitor. Without it, kiosk visitors (who all share one synthetic user, so
+# session ownership cannot separate them) could claim sessions and overwrite
+# each other's save states.
 
 
 @protected_route(router.get, "/config", [Scope.ROMS_READ])
