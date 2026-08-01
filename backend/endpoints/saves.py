@@ -750,7 +750,7 @@ async def delete_saves(
                 error = f"Screenshot file {hl(save.screenshot.file_name)} not found for save {hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
                 log.error(error)
 
-    refresh_affected_smart_collections(sorted(affected_rom_ids), membership_only=True)
+    refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 
     return saves
 
