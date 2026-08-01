@@ -306,9 +306,7 @@ const initialLoading = ref(false);
 onMounted(async () => {
   initialLoading.value = true;
   loading.value = true;
-  // FS_PLATFORMS is snapshotted into the heartbeat at app init, so folders
-  // created since then would only appear after a full page reload. Refresh
-  // it in the background whenever the section mounts.
+  // Refresh FS_PLATFORMS from heartbeat when this page mounts
   heartbeat.fetchHeartbeat().catch(() => {});
   try {
     const { data } = await platformApi.getSupportedPlatforms();
