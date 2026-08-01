@@ -49,7 +49,7 @@ export function installScanLifecycle() {
       id,
       fs_slug,
       is_identified,
-      firmware_count,
+      new_firmware_count,
     }) => {
       scanningStore.setScanning(true);
       // De-dupe by display_name so a re-scan of the same platform
@@ -66,7 +66,7 @@ export function installScanLifecycle() {
         id,
         fs_slug,
         roms: [],
-        firmware_count,
+        new_firmware_count,
         is_identified,
       });
 
@@ -132,7 +132,7 @@ export function installScanLifecycle() {
           fs_slug: rom.platform_fs_slug,
           is_identified: true,
           roms: [],
-          firmware_count: 0,
+          new_firmware_count: 0,
         });
         scannedPlatform = scanningStore.scanningPlatforms.at(0)!;
       }

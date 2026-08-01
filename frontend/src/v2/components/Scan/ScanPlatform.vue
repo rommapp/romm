@@ -78,12 +78,12 @@ function getItemKey(item: unknown) {
     <template #header-append>
       <RTag tone="brand" size="x-small" :text="String(platform.roms.length)" />
       <RTag
-        v-if="platform.firmware_count > 0"
+        v-if="platform.new_firmware_count > 0"
         tone="warning"
         size="x-small"
         icon="mdi-memory"
-        :text="String(platform.firmware_count)"
-        :title="t('scan.firmware-found', platform.firmware_count)"
+        :text="String(platform.new_firmware_count)"
+        :title="t('scan.firmware-found', platform.new_firmware_count)"
       />
       <RTag
         v-if="!platform.is_identified"
@@ -97,10 +97,7 @@ function getItemKey(item: unknown) {
     <!-- Always virtualised — keeps the body surface flush with its
          content height regardless of how many rows have streamed in,
          and bounds the DOM size on big platforms. -->
-    <div
-      v-if="platform.roms.length === 0 && platform.firmware_count === 0"
-      class="r-v2-scan-platform__empty"
-    >
+    <div v-if="platform.roms.length === 0" class="r-v2-scan-platform__empty">
       {{ t("scan.no-new-roms") }}
     </div>
     <RVirtualScroller

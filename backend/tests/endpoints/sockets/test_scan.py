@@ -26,6 +26,7 @@ from handler.filesystem.roms_handler import (
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import MetadataSource, ScanType
+from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
 
@@ -864,6 +865,104 @@ class TestIdentifyPlatformEmitsRestoredRoms:
             call.args[0] == "scan:scanning_rom"
             for call in socket_manager.emit.call_args_list
         )
+
+
+class TestIdentifyPlatformFirmwareReporting:
+    """The platform emit reports firmware discovered by this scan only.
+
+    Reporting the platform's total firmware count made every re-scan look like
+    it had found new firmware.
+    """
+
+    @pytest.fixture
+    def patched(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        platform.missing_from_fs = False
+        db_platform = mocker.patch.object(scan_module, "db_platform_handler")
+        db_platform.get_platform_by_fs_slug.return_value = platform
+        db_platform.add_platform.return_value = platform
+
+        mocker.patch.object(
+            scan_module, "scan_platform", AsyncMock(return_value=platform)
+        )
+        mocker.patch.object(
+            scan_module.PlatformSchema,
+            "model_validate",
+            return_value=Mock(model_dump=Mock(return_value={"id": platform.id})),
+        )
+        mocker.patch.object(
+            scan_module.fs_firmware_handler,
+            "get_firmware",
+            AsyncMock(return_value=["known.bin", "brand-new.bin"]),
+        )
+        mocker.patch.object(
+            scan_module,
+            "scan_firmware",
+            AsyncMock(return_value=Firmware(file_name="known.bin", platform_id=1)),
+        )
+        mocker.patch.object(
+            scan_module.Firmware, "verify_file_hashes", return_value=True
+        )
+        mocker.patch.object(
+            scan_module.fs_rom_handler, "get_roms", AsyncMock(return_value=[])
+        )
+
+        db_rom = mocker.patch.object(scan_module, "db_rom_handler")
+        db_rom.get_roms_by_fs_name.return_value = {}
+        db_rom.mark_missing_roms.return_value = []
+        db_rom.get_missing_rom_ids.return_value = set()
+
+        db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
+        db_firmware.mark_missing_firmware.return_value = []
+        # Only "brand-new.bin" is missing from the database.
+        db_firmware.get_firmware_by_filename.side_effect = (
+            lambda platform_id, file_name: (
+                Firmware(file_name=file_name, platform_id=platform_id)
+                if file_name == "known.bin"
+                else None
+            )
+        )
+        return db_firmware
+
+    async def _emitted_platform_payload(self, socket_manager):
+        await scan_module._identify_platform(
+            platform_slug="test",
+            scan_type=ScanType.QUICK,
+            fs_platforms=["test"],
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=socket_manager,
+            scan_stats=AsyncMock(),
+        )
+        return next(
+            call.args[1]
+            for call in socket_manager.emit.call_args_list
+            if call.args[0] == "scan:scanning_platform"
+        )
+
+    async def test_counts_only_firmware_missing_from_the_database(self, patched):
+        payload = await self._emitted_platform_payload(AsyncMock())
+
+        assert payload["new_firmware_count"] == 1
+        assert "firmware_count" not in payload
+
+    async def test_reports_zero_when_all_firmware_is_already_known(self, patched):
+        patched.get_firmware_by_filename.side_effect = (
+            lambda platform_id, file_name: Firmware(
+                file_name=file_name, platform_id=platform_id
+            )
+        )
+
+        payload = await self._emitted_platform_payload(AsyncMock())
+
+        assert payload["new_firmware_count"] == 0
 
 
 class TestGetPico8CoverUrl:
