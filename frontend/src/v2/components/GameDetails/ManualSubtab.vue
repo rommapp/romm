@@ -328,6 +328,7 @@ function requestDeleteManual() {
    it to a slice of the viewport instead. */
 html[data-bp~="sm-and-down"] .r-v2-manual__fill {
   flex: none;
+  height: 70vh;
   height: 70dvh;
   min-height: 20rem;
 }
