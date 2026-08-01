@@ -17,6 +17,6 @@
   "widget-library-stats": "Статистика на библиотеката",
   "widget-random-pick": "Случаен избор",
   "widget-random-pick-empty": "Все още няма заредени игри",
-  "widget-random-pick-open": "Отвори",
+  "widget-random-pick-error": "Неуспешен избор на игра",
   "widget-random-pick-reroll": "Избери отново"
 }
