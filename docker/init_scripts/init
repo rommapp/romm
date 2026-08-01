@@ -376,10 +376,7 @@ run_startup
 while ! ((exited)); do
 	watchdog_process_pid gunicorn
 
-	# The scheduler always runs. startup.py registers the netplay, upload-tmp and
-	# zip-cache cleanups unconditionally, and the watcher defers its rescans
-	# through the scheduler, so gating it on the ENABLE_SCHEDULED_* flags left
-	# those jobs queued with nothing to execute them.
+	# always run the scheduler
 	watchdog_process_pid rq_scheduler
 
 	watchdog_process_pid rq_worker
