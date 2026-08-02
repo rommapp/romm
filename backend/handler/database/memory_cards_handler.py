@@ -39,8 +39,10 @@ class DBMemoryCardsHandler(DBBaseHandler):
         id: int,
         session: Session = None,  # type: ignore
     ) -> MemoryCard | None:
-        """Unscoped fetch. Used when hydrating a card shared by another user,
-        where the caller does not own it (visibility is enforced separately)."""
+        """Unscoped fetch, for reads that may cross ownership (a public card's
+        detail or version list) and for lookups by an id already resolved to
+        the session's own card. Visibility is enforced separately by the
+        caller; this never scopes by user on its own."""
         return session.get(MemoryCard, id)
 
     @begin_session
@@ -65,8 +67,9 @@ class DBMemoryCardsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> Sequence[MemoryCard]:
         """Cards for an emulator visible to the requesting user: their own plus
-        other users' public ones. Mirrors db_state_handler.get_rom_shared_states
-        but keyed by emulator rather than rom."""
+        other users' public ones. Browsing only, since another user's card is
+        never mounted onto a session (see _resolve_memory_card). Mirrors
+        db_state_handler.get_rom_shared_states but keyed by emulator."""
         query = (
             select(MemoryCard)
             .filter(MemoryCard.emulator == emulator)

@@ -2324,6 +2324,40 @@ def test_release_evacuates_card(client, access_token, rom: Rom):
     spawn.assert_not_called()
 
 
+def test_release_frees_the_claim_when_teardown_raises(client, access_token, rom: Rom):
+    """The API has already reported the release, so a step that blows up must
+    not leave the claim behind: the container would read occupied to everyone
+    else until stale takeover or the TTL expires."""
+    container = _mc_container_for(rom)
+    with _streaming(container):
+        with (
+            patch("endpoints.streaming._call_broker"),
+            patch("endpoints.streaming._fetch_memory_card", return_value=None),
+            patch(
+                "endpoints.streaming._hydrate_memory_card_to_broker",
+                new=AsyncMock(return_value=True),
+            ),
+            patch("endpoints.streaming._spawn_sync_task"),
+        ):
+            _mc_claim(client, access_token, rom.id)
+        with (
+            patch("endpoints.streaming._stop_broker"),
+            patch(
+                "endpoints.streaming._evacuate_session_card",
+                new=AsyncMock(side_effect=OSError("broker went away")),
+            ),
+            patch("endpoints.streaming._spawn_sync_task"),
+        ):
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    assert (
+        asyncio.run(streaming._get_session(streaming._container_key(container))) is None
+    )
+
+
 def test_save_and_exit_wait_false_forces_blocking_on_card_sync(
     client, access_token, rom: Rom
 ):
@@ -2630,6 +2664,83 @@ def test_failed_adopt_aborts_the_claim_without_wiping(
     )
 
 
+def test_adopt_retry_recovers_when_the_version_was_already_stored(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """A claim that stored the version but died before recording the decision
+    must not wedge. The retry reads the same container card, dedup refuses a
+    second copy, and that is the idempotent case: hydrate would push back the
+    very bytes already on the container, so record the decision and continue.
+    """
+    card_bytes = _gci_card_bytes()
+    container = _mc_container_for(rom)
+    card = _make_card(admin_user)
+    db_memory_card_handler.add_version(
+        _card_version(
+            card.id,
+            "My PS2 card [stored].card.zip",
+            streaming._content_hash_of_bytes(card_bytes),
+        )
+    )
+    with (
+        _streaming(container),
+        _adoption_storage(card_bytes),
+        patch("endpoints.streaming._fetch_memory_card", return_value=card_bytes),
+        patch("endpoints.streaming._push_memory_card", return_value=True),
+        patch("endpoints.streaming._call_broker"),
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(client, access_token, rom.id, card_import="adopt")
+    assert r.status_code == 200
+    adoption = db_container_adoption_handler.get_adoption(
+        streaming._container_key(container)
+    )
+    assert adoption is not None and adoption.outcome == "adopt"
+    # Dedup still holds: the retry adds no second copy of the same content.
+    assert len(db_memory_card_handler.get_versions(card.id)) == 1
+
+
+def test_adopt_aborts_when_dedup_matches_an_older_version(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """A match against a version that is NOT the latest still has to abort:
+    hydrate would push the newer version over the card asked to be kept."""
+    card_bytes = _gci_card_bytes()
+    container = _mc_container_for(rom)
+    card = _make_card(admin_user)
+    older = _card_version(
+        card.id,
+        "My PS2 card [old].card.zip",
+        streaming._content_hash_of_bytes(card_bytes),
+    )
+    older.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    newer = _card_version(card.id, "My PS2 card [newer].card.zip", "newer-hash")
+    newer.created_at = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    db_memory_card_handler.add_version(older)
+    db_memory_card_handler.add_version(newer)
+    with (
+        _streaming(container),
+        _adoption_storage(card_bytes),
+        patch("endpoints.streaming._fetch_memory_card", return_value=card_bytes),
+        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
+        patch("endpoints.streaming._call_broker") as launch,
+        patch("endpoints.streaming._spawn_sync_task"),
+    ):
+        r = _mc_claim(
+            client, access_token, rom.id, memory_card_id=card.id, card_import="adopt"
+        )
+    assert r.status_code == 502
+    push.assert_not_called()
+    launch.assert_not_called()
+    assert (
+        db_container_adoption_handler.get_adoption(streaming._container_key(container))
+        is None
+    )
+    assert (
+        asyncio.run(streaming._get_session(streaming._container_key(container))) is None
+    )
+
+
 def test_adopt_with_unreadable_card_aborts_without_recording(
     client, access_token, admin_user: User, rom: Rom
 ):
@@ -2683,40 +2794,6 @@ def test_adopt_with_absent_card_aborts_without_recording(
         is None
     )
     assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
-    assert (
-        asyncio.run(streaming._get_session(streaming._container_key(container))) is None
-    )
-
-
-def test_adopt_deduplicated_against_older_version_aborts(
-    client, access_token, admin_user: User, rom: Rom
-):
-    """Version dedup can swallow the adopt, and hydrate would then push a
-    different version's bytes over the container card. Abort instead."""
-    card_bytes = _gci_card_bytes()
-    container = _mc_container_for(rom)
-    card = _make_card(admin_user)
-    db_memory_card_handler.add_version(
-        _card_version(
-            card.id, "older.card.zip", streaming._content_hash_of_bytes(card_bytes)
-        )
-    )
-    with (
-        _streaming(container),
-        _adoption_storage(card_bytes),
-        patch("endpoints.streaming._fetch_memory_card", return_value=card_bytes),
-        patch("endpoints.streaming._push_memory_card", return_value=True) as push,
-        patch("endpoints.streaming._call_broker") as launch,
-        patch("endpoints.streaming._spawn_sync_task"),
-    ):
-        r = _mc_claim(client, access_token, rom.id, card_import="adopt")
-    assert r.status_code == 502
-    push.assert_not_called()
-    launch.assert_not_called()
-    assert (
-        db_container_adoption_handler.get_adoption(streaming._container_key(container))
-        is None
-    )
     assert (
         asyncio.run(streaming._get_session(streaming._container_key(container))) is None
     )

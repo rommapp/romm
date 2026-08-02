@@ -1527,9 +1527,11 @@ def _resolve_memory_card(
 ) -> MemoryCard | None:
     """Pick the card to mount for a claim.
 
-    An explicit id must be one the user owns for this emulator (shared/public
-    cards are view-only for now, resolved through Piece 5 UI, never live-mounted
-    onto another user's session). With no id, use the user's most-recently-used
+    An explicit id must be one the user owns for this emulator. Shared/public
+    cards are view-only: they are browsable and downloadable through the memory
+    card UI, but never live-mounted onto another user's session, since a mounted
+    card is written back as a new version on release and that version belongs to
+    the owner. With no id, use the user's most-recently-used
     card for the emulator, or None when the user has no card yet. Resolution
     never creates rows; the claim path creates a blank card only after the
     claim is won.
@@ -1680,6 +1682,25 @@ async def _store_memory_card_version(
         card.id, {"updated_at": datetime.now(timezone.utc)}
     )
     return stored
+
+
+def _adoption_already_stored(card_id: int, content: bytes | None) -> bool:
+    """Is the container's card already this card's latest version?
+
+    Dedup can refuse a version because a previous claim stored it and then died
+    before recording the adoption decision, leaving the prompt to fire again on
+    unchanged content. That retry is idempotent: hydrate would push back the
+    very bytes sitting on the container, so the adoption stands and only the
+    decision row is missing. A match against an older version means hydrate
+    would push something else over the card, which is the case that must abort.
+    """
+    if not content:
+        return False
+    content_hash = _content_hash_of_bytes(content)
+    if not content_hash:
+        return False
+    latest = db_memory_card_handler.get_latest_version(card_id)
+    return latest is not None and latest.content_hash == content_hash
 
 
 async def _evacuate_memory_card(
@@ -2210,7 +2231,9 @@ async def claim_session(
                 raise HTTPException(
                     status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL
                 ) from exc
-            if not stored:
+            if not stored and not _adoption_already_stored(
+                memory_card.id, adoption_content
+            ):
                 # Content-hash dedup matched an older version of this card, so
                 # no version was created and hydrate would push whichever
                 # version is latest over the container card. Abort instead.
@@ -2617,7 +2640,6 @@ async def _teardown_released_session(
                 reason or "-",
             )
 
-        await async_cache.delete(_session_redis_key(session_key))
         await _record_play_session(session)
 
         # Legacy per-file save pull, only for containers not on whole-card sync.
@@ -2632,6 +2654,13 @@ async def _teardown_released_session(
         log.info("session released, platform=%s", platform)
     except Exception:
         log.exception("session teardown failed, platform=%s", platform)
+    finally:
+        # The claim goes even when a step above raised. The API already told the
+        # caller the session was released, so a key left behind blocks every
+        # later claim until stale takeover or the TTL expires. A card left
+        # un-evacuated is recoverable, since the next claim prompts to adopt
+        # whatever is still on the container; a phantom claim is not.
+        await async_cache.delete(_session_redis_key(session_key))
 
 
 @protected_route(router.get, "/sessions", [Scope.ROMS_READ])

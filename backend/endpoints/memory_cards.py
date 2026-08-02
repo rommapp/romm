@@ -108,7 +108,8 @@ def get_shared_memory_cards(
     request: Request, emulator: str
 ) -> list[UserMemoryCardSchema]:
     """Cards for an emulator visible to the caller: their own plus other users'
-    public ones. Used by the claim picker so a user can hydrate a shared card."""
+    public ones. Browsing and download only: mounting a card at claim is
+    owner-scoped, so the picker lists the caller's own cards instead."""
     cards = db_memory_card_handler.get_shared_cards(
         emulator=emulator, user_id=request.user.id
     )
