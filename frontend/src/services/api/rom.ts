@@ -186,7 +186,6 @@ export interface GetRomsParams {
   withCharIndex?: boolean;
   withFilterValues?: boolean;
   withRomIdIndex?: boolean;
-  // Skip the result-set count server-side; `total` comes back null
   withTotal?: boolean;
   // Cancel an in-flight request
   signal?: AbortSignal;

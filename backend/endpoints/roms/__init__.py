@@ -325,7 +325,6 @@ class CustomLimitOffsetParams(LimitOffsetParams):
 
 
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
-    # Null when the caller opted out of the count with with_total=false.
     total: GreaterEqualZero | None
     char_index: dict[str, int]
     rom_id_index: list[int]
