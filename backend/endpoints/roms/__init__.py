@@ -951,6 +951,13 @@ def get_random_rom(
     if not rom:
         return None
 
+    # The fetch is by raw id, so it re-checks the row it actually loaded rather
+    # than trusting the filter that chose the id: a rom that moved to a hidden
+    # platform in between was picked under its old one. Reads no database, and
+    # null keeps a hidden rom indistinguishable from an empty scope.
+    if not perms.can_see_rom(rom.id, rom.platform_id):
+        return None
+
     return SimpleRomSchema.from_orm_with_request(rom, request)
 
 

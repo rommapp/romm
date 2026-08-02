@@ -215,6 +215,40 @@ def test_get_random_rom_skips_hidden_roms(
         assert response.json()["id"] == visible.id
 
 
+def test_get_random_rom_rechecks_visibility_after_fetching(
+    client: TestClient,
+    viewer_user: User,
+    viewer_access_token: str,
+    rom: Rom,
+    platform: Platform,
+) -> None:
+    """The pick is re-checked against the row that came back, not the filter.
+
+    The id is chosen by a filtered query but fetched by raw id, so a rom that
+    moved to a hidden platform in between would arrive hidden. Standing in for
+    that race by handing the endpoint a rom the filter would have excluded.
+    """
+    # A visible rom so the pick resolves an id, otherwise the empty scope
+    # returns null on its own and the fetch is never reached.
+    _add_rom(platform, "visible_rom")
+    with sync_session.begin() as session:
+        session.add(
+            HiddenEntity(
+                entity=PermEntity.ROMS, entity_id=rom.id, user_id=viewer_user.id
+            )
+        )
+
+    with patch.object(db_rom_handler, "get_rom_simple", return_value=rom):
+        response = client.get(
+            "/api/roms/random",
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    # Null, not 404: a hidden rom stays indistinguishable from an empty scope.
+    assert response.json() is None
+
+
 def test_get_random_rom_does_not_page_or_count(
     client: TestClient,
     access_token: str,
