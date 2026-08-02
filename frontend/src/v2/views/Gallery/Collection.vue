@@ -27,18 +27,19 @@ import storeCollections, {
   type SmartCollection,
   type VirtualCollection,
 } from "@/stores/collections";
+import type { Kind as CollectionKind } from "@/v2/components/Collections/CollectionTile.vue";
 import CollectionHead from "@/v2/components/Gallery/CollectionHead.vue";
 import CollectionSettingsTab from "@/v2/components/Gallery/CollectionSettingsTab.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
-type CollectionKind = "regular" | "virtual" | "smart";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -58,9 +59,11 @@ const deleting = ref(false);
 const randomLoading = ref(false);
 const canDownload = useCan("rom.download");
 
+usePageTitle(() => currentCollection.value?.name ?? null);
+
 // Virtual collections are computed (no editable fields) — only
 // regular / smart get the Settings tab.
-const editableKind = computed<"regular" | "smart" | null>(() => {
+const editableKind = computed<CollectionKind | null>(() => {
   if (currentKind.value === "regular") return "regular";
   if (currentKind.value === "smart") return "smart";
   return null;
@@ -221,7 +224,6 @@ async function loadForRoute(kind: CollectionKind, id: string) {
     galleryRoms.setCurrentSmartCollection(collection as SmartCollection);
   }
 
-  document.title = collection.name;
   await galleryRoms.fetchInitialMetadata();
   await nextTick();
   shellRef.value?.applyRestoredScroll();

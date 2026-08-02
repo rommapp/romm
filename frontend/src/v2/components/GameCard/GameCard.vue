@@ -43,6 +43,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
+import CardFlags from "@/v2/components/GameCard/CardFlags.vue";
 import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
 import CoverArtPip from "@/v2/components/shared/CoverArtPip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
@@ -505,6 +506,10 @@ function onStaticKeydown(e: KeyboardEvent) {
 
         <SiblingBadge :rom="rom" />
 
+        <!-- Region / language flags — bottom-left, gated by the
+             showRegions / showLanguages UI settings. -->
+        <CardFlags :rom="rom" />
+
         <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
         <div class="r-gc__overlay">
           <div class="r-gc__overlay-center">
@@ -783,6 +788,15 @@ html[data-input="mouse"] .r-gc:hover :deep(.cover-art-pip),
 html[data-input="touch"] .r-gc:hover :deep(.cover-art-pip),
 .r-gc:focus-visible :deep(.cover-art-pip),
 .r-gc--focused :deep(.cover-art-pip) {
+  opacity: 0;
+}
+
+/* Region / language flags fade out under the hover overlay so they never
+   collide with the bottom action row (same treatment as the cover PIP). */
+html[data-input="mouse"] .r-gc:hover :deep(.card-flags),
+html[data-input="touch"] .r-gc:hover :deep(.card-flags),
+.r-gc:focus-visible :deep(.card-flags),
+.r-gc--focused :deep(.card-flags) {
   opacity: 0;
 }
 html[data-input="mouse"] .r-gc:hover .r-gc__badge,

@@ -17,6 +17,6 @@
   "widget-library-stats": "Bibliotheksstatistik",
   "widget-random-pick": "Zufallsauswahl",
   "widget-random-pick-empty": "Noch keine Spiele geladen",
-  "widget-random-pick-open": "Öffnen",
+  "widget-random-pick-error": "Spiel konnte nicht ausgewählt werden",
   "widget-random-pick-reroll": "Neu würfeln"
 }

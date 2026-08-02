@@ -17,6 +17,6 @@
   "widget-library-stats": "Statystyki biblioteki",
   "widget-random-pick": "Losowy wybór",
   "widget-random-pick-empty": "Nie wczytano jeszcze żadnych gier",
-  "widget-random-pick-open": "Otwórz",
+  "widget-random-pick-error": "Nie udało się wylosować gry",
   "widget-random-pick-reroll": "Losuj ponownie"
 }

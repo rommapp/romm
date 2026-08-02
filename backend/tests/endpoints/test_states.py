@@ -1,5 +1,7 @@
+from contextlib import contextmanager
 from unittest import mock
 
+import pytest
 from fastapi import status
 
 from handler.database import db_screenshot_handler, db_state_handler
@@ -9,6 +11,7 @@ from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+from utils import uploads
 
 
 def _auth(token: str) -> dict[str, str]:
@@ -126,3 +129,78 @@ def test_sharing_state_syncs_thumbnail_visibility(
 
     refreshed = db_screenshot_handler.get_screenshot_by_id(thumb.id)
     assert refreshed is not None and refreshed.is_public is True
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        {"stateFile": ("game.state", b"x" * 64, "application/octet-stream")},
+        {
+            "stateFile": ("game.state", b"small", "application/octet-stream"),
+            "screenshotFile": ("shot.png", b"x" * 64, "image/png"),
+        },
+    ],
+    ids=["state-file", "screenshot-file"],
+)
+def test_add_state_rejects_oversized_uploads(
+    client, access_token: str, rom: Rom, files: dict
+):
+    with mock.patch.object(uploads, "MAX_ASSET_UPLOAD_SIZE_BYTES", 32):
+        response = client.post(
+            f"/api/states?rom_id={rom.id}",
+            files=files,
+            headers=_auth(access_token),
+        )
+
+    assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
+
+
+@contextmanager
+def _kiosk_mode():
+    """Both call sites of the setting, as a real KIOSK_MODE=true deploy sees it."""
+    with (
+        mock.patch("handler.auth.hybrid_auth.KIOSK_MODE", True),
+        mock.patch("handler.auth.permissions.KIOSK_MODE", True),
+    ):
+        yield
+
+
+@mock.patch("endpoints.states.scan_state")
+@mock.patch("endpoints.states.fs_asset_handler.write_file")
+def test_kiosk_mode_lets_logged_in_user_upload_state(
+    mock_write_file,
+    mock_scan_state,
+    client,
+    viewer_access_token: str,
+    rom: Rom,
+    platform: Platform,
+):
+    mock_scan_state.return_value = State(
+        file_name="game.state",
+        file_name_no_tags="game",
+        file_name_no_ext="game",
+        file_extension="state",
+        file_path=f"{platform.slug}/states",
+        file_size_bytes=6.0,
+    )
+
+    with _kiosk_mode():
+        response = client.post(
+            f"/api/states?rom_id={rom.id}",
+            files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
+            headers=_auth(viewer_access_token),
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert mock_write_file.await_count == 1
+    assert response.json()["file_name"] == "game.state"
+
+
+def test_kiosk_mode_anonymous_visitor_cannot_upload_state(client, rom: Rom):
+    with _kiosk_mode():
+        response = client.post(
+            f"/api/states?rom_id={rom.id}",
+            files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
+        )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN

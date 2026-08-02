@@ -36,7 +36,10 @@ import {
   getDownloadPath,
 } from "@/utils";
 import { buildFormInput } from "@/utils/formData";
-import { invalidateEmulatorJSRomCacheIfRenamed } from "@/views/Player/EmulatorJS/utils";
+import {
+  installEJSDefaultOptionsTrap,
+  invalidateEmulatorJSRomCacheIfRenamed,
+} from "@/views/Player/EmulatorJS/utils";
 
 const { t } = useI18n();
 const createPlayerStorage = (romId: number, platformSlug: string) => ({
@@ -685,6 +688,8 @@ async function boot() {
       }
     })();
   };
+
+  installEJSDefaultOptionsTrap();
 
   // Allow route transition animation to settle
   await new Promise((r) => setTimeout(r, 50));

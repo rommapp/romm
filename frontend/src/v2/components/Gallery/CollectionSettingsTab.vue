@@ -43,6 +43,7 @@ import storeCollections, {
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
+import type { Kind as CollectionKind } from "@/v2/components/Collections/CollectionTile.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -53,10 +54,8 @@ import {
 
 defineOptions({ inheritAttrs: false });
 
-type Kind = "regular" | "smart";
-
 const props = defineProps<{
-  kind: Kind;
+  kind: CollectionKind;
   collection: Collection | SmartCollection;
   deleting?: boolean;
 }>();

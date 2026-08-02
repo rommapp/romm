@@ -68,7 +68,10 @@ const route = useRoute();
 const router = useRouter();
 const romsStore = storeRoms();
 
-const canDelete = useCan("rom.delete");
+const canUpload = useCan("rom.upload");
+const hasDeleteGrant = useCan("rom.delete");
+// `DELETE /roms/{id}/files/{file_id}` gates on ROMS_WRITE
+const canDelete = computed(() => hasDeleteGrant.value && canUpload.value);
 
 function errorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
@@ -746,7 +749,10 @@ const currentUploadState = computed<SubtabUploadState>(() => {
            section, so the header skips a redundant title and just hosts
            the Upload button on the right. Download-all / Copy-link are
            covered by the selection toolbar below (select-all then act). -->
-      <header v-if="filteredFiles.length > 0" class="r-v2-files__section-head">
+      <header
+        v-if="filteredFiles.length > 0 && canUpload"
+        class="r-v2-files__section-head"
+      >
         <div class="r-v2-files__section-actions">
           <div class="r-v2-files__upload-slot">
             <RBtn

@@ -17,6 +17,6 @@
   "widget-library-stats": "Kütüphane istatistikleri",
   "widget-random-pick": "Rastgele seçim",
   "widget-random-pick-empty": "Henüz oyun yüklenmedi",
-  "widget-random-pick-open": "Aç",
+  "widget-random-pick-error": "Oyun seçilemedi",
   "widget-random-pick-reroll": "Yeniden çevir"
 }

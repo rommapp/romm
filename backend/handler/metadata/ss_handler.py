@@ -1,20 +1,28 @@
 import html
 import re
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Final, NotRequired, TypedDict
-from urllib.parse import urlparse
 
 import pydash
 from fastapi import HTTPException, status
 from unidecode import unidecode as uc
 
-from adapters.services.screenscraper import ScreenScraperService
+from adapters.services.screenscraper import (
+    ScreenScraperRateLimitError,
+    ScreenScraperService,
+    get_account_limits,
+    is_screenscraper_url,
+    prime_account_limits,
+    reset_scan_state,
+)
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.base_handler import region_name_to_provider_shortcode
+from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomFile
 
@@ -35,23 +43,93 @@ from .base_handler import (
 SENSITIVE_KEYS = {"ssid", "sspassword"}
 
 
-def _is_screenscraper_host(url: str) -> bool:
-    """True only if the URL's hostname is screenscraper.fr or a subdomain.
+@dataclass
+class _ScanState:
+    """The ScreenScraper bookkeeping that lives for the length of one scan."""
 
-    Substring matching would let an attacker-controlled host like
-    screenscraper.fr.evil.example receive the user's credentials.
-    """
-    try:
-        host = urlparse(url).hostname
-    except ValueError:
-        return False
+    # ROMs whose ScreenScraper lookup was refused for exceeding the per-minute
+    # rate. They are saved without ScreenScraper metadata, so the scan reports
+    # them rather than leaving the gap to be noticed as missing box art later.
+    rate_limited_rom_names: set[str] = field(default_factory=set)
 
-    if not host:
-        return False
+    # The quota line last logged, so an unchanged one is not repeated.
+    last_quota_logged: str | None = None
 
-    return host.lower() == "screenscraper.fr" or host.lower().endswith(
-        ".screenscraper.fr"
+    def reset(self) -> None:
+        self.rate_limited_rom_names.clear()
+        self.last_quota_logged = None
+
+
+_scan_state = _ScanState()
+
+
+def note_rate_limited_rom(fs_name: str) -> None:
+    if fs_name in _scan_state.rate_limited_rom_names:
+        return
+
+    log.warning(
+        f"ScreenScraper rate limit reached, skipping ScreenScraper metadata for {fs_name}"
     )
+    _scan_state.rate_limited_rom_names.add(fs_name)
+
+
+def get_rate_limited_rom_names() -> list[str]:
+    return sorted(_scan_state.rate_limited_rom_names)
+
+
+def reset_rate_limited_roms() -> None:
+    _scan_state.rate_limited_rom_names.clear()
+
+
+async def begin_scan() -> None:
+    """Ready ScreenScraper for a scan, and report what the account has left.
+
+    Last scan's learned limits, tripped quota breaker and skipped ROMs are
+    dropped rather than inherited. The allowances then get read up front, so
+    pacing and the thread cap are right from the first request instead of from
+    the first response.
+    """
+    _scan_state.reset()
+    reset_scan_state()
+
+    await prime_account_limits()
+    log_quota()
+
+
+def log_quota() -> None:
+    """Report how much of the ScreenScraper daily quota is left.
+
+    ScreenScraper sends the counters with every response, so a scan heading for
+    the wall is visible before it gets there. Repeats are dropped: the last
+    platform and the end-of-scan summary would otherwise print the same numbers
+    twice in a row.
+    """
+    limits = get_account_limits()
+    if limits is None:
+        return
+
+    description = limits.describe()
+    if description == _scan_state.last_quota_logged:
+        return
+
+    _scan_state.last_quota_logged = description
+    log.info(description)
+
+
+def log_scan_summary() -> None:
+    """Close out a scan with the quota left and the ROMs rate limiting cost us."""
+    log_quota()
+
+    skipped_roms = get_rate_limited_rom_names()
+    if not skipped_roms:
+        return
+
+    log.warning(
+        f"{hl('Skipped')} ScreenScraper metadata for {hl(str(len(skipped_roms)))} "
+        f"roms after repeated rate limiting:"
+    )
+    for fs_name in skipped_roms:
+        log.warning(f" - {fs_name}")
 
 
 def add_ss_auth_to_url(url: str | None) -> str:
@@ -60,7 +138,7 @@ def add_ss_auth_to_url(url: str | None) -> str:
     Only injects credentials for screenscraper.fr URLs; returns other URLs
     unchanged to avoid leaking credentials to third-party sources.
     """
-    if not url or not _is_screenscraper_host(url):
+    if not url or not is_screenscraper_url(url):
         return url or ""
 
     if not SCREENSCRAPER_USER or not SCREENSCRAPER_PASSWORD:
@@ -118,10 +196,16 @@ def get_preferred_regions(
 def get_preferred_languages() -> list[str]:
     """Get preferred languages from config.
 
-    Returns language priority list with default fallbacks.
+    Falls back to English when the list is empty, so clearing the setting does
+    not blank out every description.
     """
     config = cm.get_config()
-    return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY + ["en", "fr"]))
+    return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY)) or ["en"]
+
+
+def get_taxonomy_languages() -> list[str]:
+    """Preferred languages, extended with ScreenScraper's taxonomy fallbacks."""
+    return list(dict.fromkeys(get_preferred_languages() + ["en", "fr"]))
 
 
 def get_preferred_media_types() -> list[MetadataMediaType]:
@@ -155,9 +239,15 @@ ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {
 
 
 def _is_daily_quota_error(exc: HTTPException) -> bool:
-    """ScreenScraper only raises 429 when its daily quota is exhausted (the
-    service trips a breaker so the rest of the scan short-circuits)."""
-    return exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+    """True for the 429 that means the daily quota is exhausted.
+
+    The service trips a breaker on that one so the rest of the scan
+    short-circuits. The per-minute rate limit shares the status code but clears
+    on its own, so it is deliberately excluded: callers handle it separately.
+    """
+    return exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS and not isinstance(
+        exc, ScreenScraperRateLimitError
+    )
 
 
 def _is_notgame(game: SSGame) -> bool:
@@ -428,7 +518,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
 
 
 def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
-    preferred_languages = get_preferred_languages()
+    taxonomy_languages = get_taxonomy_languages()
 
     def _normalize_score(score: str) -> str:
         """Normalize the score to be between 0 and 10 because for some reason Screenscraper likes to rate over 20."""
@@ -480,7 +570,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
         ]
 
     def _get_franchises(game: SSGame) -> list[str]:
-        for lang in preferred_languages:
+        for lang in taxonomy_languages:
             franchises = [
                 franchise_name["text"]
                 for franchise in game.get("familles", [])
@@ -492,7 +582,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
         return []
 
     def _get_game_modes(game: SSGame) -> list[str]:
-        for lang in preferred_languages:
+        for lang in taxonomy_languages:
             modes = [
                 mode_name["text"]
                 for mode in game.get("modes", [])

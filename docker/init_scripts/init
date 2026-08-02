@@ -9,6 +9,7 @@ LOGLEVEL="${LOGLEVEL:="INFO"}"
 
 # make it possible to disable the inotify watcher process
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="false"}"
+ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES="${ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES:="false"}"
 ENABLE_SCHEDULED_RESCAN="${ENABLE_SCHEDULED_RESCAN:="false"}"
 ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA="${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA:="false"}"
 ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB="${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:="false"}"
@@ -16,6 +17,11 @@ ENABLE_SYNC_FOLDER_WATCHER="${ENABLE_SYNC_FOLDER_WATCHER:="false"}"
 
 # if REDIS_HOST is set, we assume that an external redis is used
 REDIS_HOST="${REDIS_HOST:=""}"
+
+# snapshot policy of the internal valkey, as "<seconds> <changes>" pairs. Saving
+# hourly keeps a graceful shutdown lossless while a hard crash can only lose an
+# hour of sessions and cached metadata. Set to an empty value to never snapshot.
+REDIS_SAVE_POLICY="${REDIS_SAVE_POLICY="3600 1"}"
 
 # logger colors
 RED='\033[0;31m'
@@ -163,6 +169,16 @@ start_bin_nginx() {
 start_bin_valkey-server() {
 	info_log "Starting internal valkey"
 
+	# Most of the keyspace is bulky, rebuildable metadata (Switch TitleDB,
+	# LaunchBox), so every snapshot rewrites hundreds of MB of dump.rdb. Valkey's
+	# stock policy does that every few minutes even on an idle instance, which
+	# adds up to gigabytes of disk writes per hour.
+	local -a save_flags=(--save "")
+	if [[ -n ${REDIS_SAVE_POLICY} ]]; then
+		# shellcheck disable=SC2206 # each "<seconds> <changes>" token is its own argument
+		save_flags=(--save ${REDIS_SAVE_POLICY})
+	fi
+
 	if [[ -f /usr/local/etc/valkey/valkey.conf ]]; then
 		if [[ ${LOGLEVEL} == "DEBUG" ]]; then
 			valkey-server /usr/local/etc/valkey/valkey.conf &
@@ -171,9 +187,9 @@ start_bin_valkey-server() {
 		fi
 	else
 		if [[ ${LOGLEVEL} == "DEBUG" ]]; then
-			valkey-server --dir /redis-data &
+			valkey-server --dir /redis-data "${save_flags[@]}" &
 		else
-			valkey-server --dir /redis-data >/dev/null 2>&1 &
+			valkey-server --dir /redis-data "${save_flags[@]}" >/dev/null 2>&1 &
 		fi
 	fi
 
@@ -332,9 +348,9 @@ if ! printenv | grep -q '^OTEL_'; then
 fi
 
 # Set ROMM_AUTH_SECRET_KEY if not already set
-if [[ -z ${ROMM_AUTH_SECRET_KEY} ]]; then
+if [[ -z ${ROMM_AUTH_SECRET_KEY-} ]]; then
 	ROMM_AUTH_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-	info_log "ROMM_AUTH_SECRET_KEY not set, generating random secret key"
+	warn_log "ROMM_AUTH_SECRET_KEY not set, generating a random secret key!"
 	export ROMM_AUTH_SECRET_KEY
 fi
 
@@ -360,10 +376,8 @@ run_startup
 while ! ((exited)); do
 	watchdog_process_pid gunicorn
 
-	# only start the scheduler if enabled
-	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" || ${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA} == "true" ]]; then
-		watchdog_process_pid rq_scheduler
-	fi
+	# always run the scheduler
+	watchdog_process_pid rq_scheduler
 
 	watchdog_process_pid rq_worker
 

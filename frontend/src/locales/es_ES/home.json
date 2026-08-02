@@ -17,6 +17,6 @@
   "widget-library-stats": "Estadísticas de la biblioteca",
   "widget-random-pick": "Selección aleatoria",
   "widget-random-pick-empty": "Aún no se han cargado juegos",
-  "widget-random-pick-open": "Abrir",
+  "widget-random-pick-error": "No se pudo elegir un juego",
   "widget-random-pick-reroll": "Volver a sortear"
 }

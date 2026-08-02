@@ -1,6 +1,7 @@
 import { flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import storeGalleryFilter from "@/stores/galleryFilter";
 // Import after the mock so the store binds to the mocked rom API.
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
@@ -124,6 +125,67 @@ describe("galleryRoms windowed fetch", () => {
 
     expect(peak).toBe(4);
     expect(getRoms).toHaveBeenCalledTimes(8);
+  });
+
+  // Surfaces that render none of the sidecars (the Settings "Missing" tab)
+  // opt out of them, so the backend skips three whole-library scans per
+  // request instead of computing two the caller throws away (issue #3992).
+  it("lets the bootstrap opt out of the sidecars its caller does not render", async () => {
+    getRoms.mockResolvedValue({
+      data: { total: 12, items: [], char_index: {}, rom_id_index: [] },
+    });
+    const store = storeGalleryRoms();
+
+    await store.fetchInitialMetadata({
+      withCharIndex: false,
+      withFilterValues: false,
+      withRomIdIndex: false,
+    });
+
+    const params = getRoms.mock.calls[0][0];
+    expect(params.withCharIndex).toBe(false);
+    expect(params.withFilterValues).toBe(false);
+    expect(params.withRomIdIndex).toBe(false);
+    // The total still lands: the backend falls back to a plain COUNT when
+    // the id index is skipped, and that is all the caller needs to size its
+    // virtual scroller.
+    expect(store.total).toBe(12);
+    expect(store.metadataLoaded).toBe(true);
+  });
+
+  it("requests every sidecar by default", async () => {
+    getRoms.mockResolvedValue({
+      data: { total: 1, items: [], char_index: {}, rom_id_index: [] },
+    });
+    const store = storeGalleryRoms();
+
+    await store.fetchInitialMetadata();
+
+    const params = getRoms.mock.calls[0][0];
+    expect(params.withCharIndex).toBeUndefined();
+    expect(params.withFilterValues).toBeUndefined();
+    expect(params.withRomIdIndex).toBeUndefined();
+  });
+
+  it("does not clobber the filter drawer when filter values are skipped", async () => {
+    const galleryFilter = storeGalleryFilter();
+    galleryFilter.setFilterGenres(["RPG", "Shooter"]);
+    // Skipped sidecars come back empty but truthy, which would blank the
+    // drawer if applied.
+    getRoms.mockResolvedValue({
+      data: {
+        total: 3,
+        items: [],
+        char_index: {},
+        rom_id_index: [],
+        filter_values: { genres: [], platforms: [] },
+      },
+    });
+    const store = storeGalleryRoms();
+
+    await store.fetchInitialMetadata({ withFilterValues: false });
+
+    expect(galleryFilter.filterGenres).toEqual(["RPG", "Shooter"]);
   });
 
   it("keeps the bootstrap char_index when the first window skips aggregations", async () => {

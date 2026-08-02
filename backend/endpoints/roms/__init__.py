@@ -52,7 +52,7 @@ from handler.auth.dependencies import (
     assert_rom_visible,
     get_permissions,
 )
-from handler.database import db_rom_handler, db_save_handler
+from handler.database import db_collection_handler, db_rom_handler, db_save_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
@@ -112,11 +112,31 @@ router.include_router(notes_router)
 router.include_router(patch_router)
 
 
+# RomUser fields the statuses filter branches on.
+STATUS_MEMBERSHIP_FIELDS = frozenset({"status", "now_playing", "backlogged", "hidden"})
+
+
 def safe_int_or_none(value: Any) -> int | None:
     if value is None or value == "":
         return None
 
     return safe_int(value)
+
+
+def refresh_affected_smart_collections(
+    rom_ids: Sequence[int], membership_only: bool = False
+) -> None:
+    """Follow a change into the cached smart collection membership.
+
+    The write has already been committed, so a stale count is the worst this
+    can cost, and reporting it back as a failed write would be a lie.
+    """
+    try:
+        db_collection_handler.refresh_smart_collections_for_roms(
+            rom_ids, membership_only=membership_only
+        )
+    except Exception as e:
+        log.error(f"Couldn't refresh smart collections for {rom_ids}: {e}")
 
 
 def build_unscoped_sidecar_cache_key(
@@ -130,6 +150,10 @@ def build_unscoped_sidecar_cache_key(
     rom id index). Returns None for scoped/searched sets, which are computed live.
     The computed values depend on user, ordering and grouping, so all are part
     of the key.
+
+    What counts as unscoped differs per sidecar, so the caller decides: the char
+    index and the id index narrow with every filter, while the filter-value list
+    is built from a query that only applies platform / collection / search.
     """
     if not is_unscoped:
         return None
@@ -609,8 +633,8 @@ def get_roms(
     query = db_rom_handler.filter_roms(
         query=unfiltered_query,
         user_id=request.user.id,
-        hidden_platform_ids=perms.hidden_platform_ids,
-        hidden_rom_ids=perms.hidden_rom_ids,
+        hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
+        hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
         platform_ids=platform_ids,
         collection_id=collection_id,
         virtual_collection_id=virtual_collection_id,
@@ -662,13 +686,21 @@ def get_roms(
     # shared "all" key. Bool flags use `is not None` since False is an active
     # filter. Logic operators are omitted: they only matter when their list
     # filter is set, which is already covered.
-    is_unscoped = not (
+    #
+    # The filter-value list is gated separately: it is computed from
+    # `unfiltered_query` with only these scope parameters applied (see below),
+    # so the row-level filters never reach it and its result stays identical to
+    # the unfiltered one. Locking it out of the cache over a filter it does not
+    # apply made every Missing-tab visit recompute the whole library.
+    is_unscoped_scope = not (
         search_term
         or platform_ids
         or collection_id
         or virtual_collection_id
         or smart_collection_id
-        or genres
+    )
+    is_unscoped = is_unscoped_scope and not (
+        genres
         or franchises
         or collections
         or companies
@@ -736,7 +768,7 @@ def get_roms(
             search_term=search_term,
         )
         cache_key = build_unscoped_sidecar_cache_key(
-            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped
+            request.user.id, order_by, order_dir, group_by_meta_id, is_unscoped_scope
         )
         query_filters = db_rom_handler.with_filter_values(
             query=filter_query,
@@ -1524,6 +1556,7 @@ async def update_rom(
             raise RomNotFoundInDatabaseException(id)
 
         db_rom_handler.invalidate_filter_values_cache()
+        refresh_affected_smart_collections([id])
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
     provided_fields = form_data.model_fields_set
@@ -1903,6 +1936,7 @@ async def update_rom(
         fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))
 
     db_rom_handler.invalidate_filter_values_cache()
+    refresh_affected_smart_collections([id])
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
@@ -1969,7 +2003,7 @@ async def delete_roms(
     perms = get_permissions(request)
     assert_can(perms, PermEntity.ROMS, PermAction.DELETE)
 
-    successful_items = 0
+    deleted_ids: list[int] = []
     failed_ids = []
     errors = []
 
@@ -2024,16 +2058,19 @@ async def delete_roms(
                     f"Couldn't find resources to delete for {hl(str(rom.name or 'ROM'), color=BLUE)}"
                 )
 
-            successful_items += 1
+            deleted_ids.append(id)
         except Exception as e:
             failed_ids.append(id)
             errors.append(f"Failed to delete ROM {id}: {str(e)}")
 
-    if successful_items:
+    if deleted_ids:
         db_rom_handler.invalidate_filter_values_cache()
+        # Deleted ROMs would otherwise linger in the cached smart collection
+        # membership until the next scan.
+        refresh_affected_smart_collections(deleted_ids)
 
     return {
-        "successful_items": successful_items,
+        "successful_items": len(deleted_ids),
         "failed_ids": failed_ids,
         "errors": errors,
     }
@@ -2085,5 +2122,10 @@ async def update_rom_user(
 
     if "hidden" in cleaned_data:
         db_rom_handler.invalidate_filter_values_cache()
+
+    # The statuses filter reads all four of these, and `hidden` also drops the
+    # ROM from every user-scoped query, so any of them can move membership.
+    if STATUS_MEMBERSHIP_FIELDS & cleaned_data.keys():
+        refresh_affected_smart_collections([id], membership_only=True)
 
     return RomUserSchema.model_validate(rom_user)

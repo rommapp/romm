@@ -10,6 +10,9 @@ class SSUser(TypedDict):
     maxrequestspermin: NotRequired[str]
     maxrequestsperday: NotRequired[str]
     requeststoday: NotRequired[str]
+    maxrequestskoperday: NotRequired[str]
+    requestskotoday: NotRequired[str]
+    maxdownloadspeed: NotRequired[str]
 
 
 class SSText(TypedDict):

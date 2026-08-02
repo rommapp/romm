@@ -33,7 +33,9 @@
     "test:ui": "vitest --ui",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
-    "storybook:test": "vitest run test/storybook.test.ts"
+    "storybook:test": "vitest run test/storybook.test.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@floating-ui/vue": "^1.1.11",
@@ -61,6 +63,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
     "@storybook/addon-a11y": "^10.2.19",
     "@storybook/addon-docs": "^10.2.19",
     "@storybook/addon-themes": "^10.2.19",

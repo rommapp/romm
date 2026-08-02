@@ -23,8 +23,11 @@ from config import (
     DEV_PORT,
     DISABLE_CSRF_PROTECTION,
     IS_PYTEST_RUN,
+    MAX_ASSET_UPLOAD_SIZE_BYTES,
     OIDC_ENABLED,
     ROMM_AUTH_SECRET_KEY,
+    ROMM_CORS_ALLOWED_ORIGINS,
+    ROMM_SESSION_SECURE_COOKIE,
     SENTRY_DSN,
 )
 from endpoints.activity import router as activity_router
@@ -60,6 +63,7 @@ from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
+from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.socket_handler import netplay_socket_handler, socket_handler
 from logger.formatter import LOGGING_CONFIG
 from utils import get_version
@@ -112,10 +116,21 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ROMM_CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Bounds asset upload requests before their multipart body is spooled to disk
+app.add_middleware(
+    UploadSizeLimitMiddleware,
+    max_size=MAX_ASSET_UPLOAD_SIZE_BYTES,
+    paths=[
+        re.compile(r"^/api/saves"),
+        re.compile(r"^/api/states"),
+        re.compile(r"^/api/screenshots"),
+    ],
 )
 
 if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
@@ -124,6 +139,7 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
         CSRFMiddleware,
         cookie_name="romm_csrftoken",
         secret=ROMM_AUTH_SECRET_KEY,
+        cookie_secure=ROMM_SESSION_SECURE_COOKIE,
         exempt_urls=[
             re.compile(r"^/api/token.*"),
             re.compile(r"^/api/client-tokens/exchange"),
@@ -146,7 +162,7 @@ app.add_middleware(
     RedisSessionMiddleware,
     session_cookie=SESSION_COOKIE_NAME,
     same_site="lax" if OIDC_ENABLED else "strict",
-    https_only=False,
+    https_only=ROMM_SESSION_SECURE_COOKIE,
 )
 
 # Sets context vars in request-response cycle

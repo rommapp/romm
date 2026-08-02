@@ -42,7 +42,11 @@ const VolumeControl = defineAsyncComponent(
   () => import("@/v2/components/Soundtrack/VolumeControl.vue"),
 );
 
-const props = defineProps<{ rom: DetailedRom }>();
+const props = defineProps<{
+  rom: DetailedRom;
+  /** Show the per-track delete button (host gates it on the ROM write grant). */
+  deletable?: boolean;
+}>();
 const emit = defineEmits<{
   (e: "upload-tracks"): void;
   (e: "delete-track", fileId: number): void;
@@ -543,6 +547,7 @@ function seekValueText(v: number): string {
             @click.stop="downloadTrack(track)"
           />
           <RBtn
+            v-if="deletable"
             icon="mdi-delete-outline"
             variant="text"
             size="small"

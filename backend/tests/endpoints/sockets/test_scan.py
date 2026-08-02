@@ -1,7 +1,9 @@
+from itertools import count
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 import socketio
+from rq.job import Job, JobStatus
 
 from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
@@ -13,6 +15,7 @@ from endpoints.sockets.scan import (
     should_scan_rom,
     stop_scan_handler,
 )
+from exceptions.fs_exceptions import FolderStructureNotMatchException
 from handler.auth.constants import Scope
 from handler.database.roms_handler import SyncedRomFiles
 from handler.filesystem.roms_handler import (
@@ -22,7 +25,8 @@ from handler.filesystem.roms_handler import (
     ParsedTags,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
-from handler.scan_handler import ScanType
+from handler.scan_handler import MetadataSource, ScanType
+from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
 
@@ -179,6 +183,102 @@ class TestScanTotals:
         # Only the selected folder is scanned, not every filesystem platform.
         assert result.total_platforms == 1
         assert result.total_roms == 100
+
+
+class TestScreenScraperScanReporting:
+    """The scan hands ScreenScraper's own bookkeeping to ss_handler, and only
+    when the scan actually uses ScreenScraper."""
+
+    @pytest.fixture
+    def patched(self, mocker):
+        socket_manager = AsyncMock()
+        mocker.patch.object(
+            scan_module, "_get_socket_manager", return_value=socket_manager
+        )
+        mocker.patch.object(
+            scan_module.fs_platform_handler,
+            "get_platforms",
+            AsyncMock(return_value=["genesis"]),
+        )
+        mocker.patch.object(
+            scan_module.fs_rom_handler, "count_roms", AsyncMock(return_value=0)
+        )
+        mocker.patch.object(scan_module.meta_gamelist_handler, "clear_cache")
+        mocker.patch.object(
+            scan_module.db_platform_handler, "mark_missing_platforms", return_value=[]
+        )
+        mocker.patch.object(
+            scan_module.db_platform_handler, "get_platforms", return_value=[]
+        )
+        mocker.patch.object(
+            scan_module.db_rom_handler, "invalidate_filter_values_cache"
+        )
+        config = MagicMock()
+        config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
+        config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+        async def fake_identify(**kwargs):
+            return kwargs["scan_stats"]
+
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=fake_identify
+        )
+        return socket_manager
+
+    async def test_begins_a_screenscraper_scan(self, patched, mocker):
+        begin = mocker.patch.object(
+            scan_module, "begin_ss_scan", new=AsyncMock(return_value=None)
+        )
+
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[MetadataSource.SS],
+            scan_type=ScanType.QUICK,
+        )
+
+        begin.assert_awaited_once()
+
+    async def test_leaves_screenscraper_state_alone_when_it_is_not_used(
+        self, patched, mocker
+    ):
+        """The state is process-global and DEV_MODE scans run in-process, so a
+        scan without ScreenScraper must not clear an overlapping scan's limits
+        and skipped ROMs."""
+        begin = mocker.patch.object(
+            scan_module, "begin_ss_scan", new=AsyncMock(return_value=None)
+        )
+
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[MetadataSource.IGDB],
+            scan_type=ScanType.QUICK,
+        )
+
+        begin.assert_not_awaited()
+
+    async def test_reports_the_screenscraper_summary_at_the_end(self, patched, mocker):
+        mocker.patch.object(
+            scan_module, "begin_ss_scan", new=AsyncMock(return_value=None)
+        )
+        summary = mocker.patch.object(scan_module, "log_ss_scan_summary")
+
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[MetadataSource.SS],
+            scan_type=ScanType.QUICK,
+        )
+
+        summary.assert_called_once()
+
+    async def test_stays_quiet_when_screenscraper_is_not_used(self, patched, mocker):
+        summary = mocker.patch.object(scan_module, "log_ss_scan_summary")
+
+        await scan_platforms(
+            platform_ids=[], metadata_sources=[], scan_type=ScanType.QUICK
+        )
+
+        summary.assert_not_called()
 
 
 class TestShouldScanRom:
@@ -767,6 +867,104 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         )
 
 
+class TestIdentifyPlatformFirmwareReporting:
+    """The platform emit reports firmware discovered by this scan only.
+
+    Reporting the platform's total firmware count made every re-scan look like
+    it had found new firmware.
+    """
+
+    @pytest.fixture
+    def patched(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        platform.missing_from_fs = False
+        db_platform = mocker.patch.object(scan_module, "db_platform_handler")
+        db_platform.get_platform_by_fs_slug.return_value = platform
+        db_platform.add_platform.return_value = platform
+
+        mocker.patch.object(
+            scan_module, "scan_platform", AsyncMock(return_value=platform)
+        )
+        mocker.patch.object(
+            scan_module.PlatformSchema,
+            "model_validate",
+            return_value=Mock(model_dump=Mock(return_value={"id": platform.id})),
+        )
+        mocker.patch.object(
+            scan_module.fs_firmware_handler,
+            "get_firmware",
+            AsyncMock(return_value=["known.bin", "brand-new.bin"]),
+        )
+        mocker.patch.object(
+            scan_module,
+            "scan_firmware",
+            AsyncMock(return_value=Firmware(file_name="known.bin", platform_id=1)),
+        )
+        mocker.patch.object(
+            scan_module.Firmware, "verify_file_hashes", return_value=True
+        )
+        mocker.patch.object(
+            scan_module.fs_rom_handler, "get_roms", AsyncMock(return_value=[])
+        )
+
+        db_rom = mocker.patch.object(scan_module, "db_rom_handler")
+        db_rom.get_roms_by_fs_name.return_value = {}
+        db_rom.mark_missing_roms.return_value = []
+        db_rom.get_missing_rom_ids.return_value = set()
+
+        db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
+        db_firmware.mark_missing_firmware.return_value = []
+        # Only "brand-new.bin" is missing from the database.
+        db_firmware.get_firmware_by_filename.side_effect = (
+            lambda platform_id, file_name: (
+                Firmware(file_name=file_name, platform_id=platform_id)
+                if file_name == "known.bin"
+                else None
+            )
+        )
+        return db_firmware
+
+    async def _emitted_platform_payload(self, socket_manager):
+        await scan_module._identify_platform(
+            platform_slug="test",
+            scan_type=ScanType.QUICK,
+            fs_platforms=["test"],
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=socket_manager,
+            scan_stats=AsyncMock(),
+        )
+        return next(
+            call.args[1]
+            for call in socket_manager.emit.call_args_list
+            if call.args[0] == "scan:scanning_platform"
+        )
+
+    async def test_counts_only_firmware_missing_from_the_database(self, patched):
+        payload = await self._emitted_platform_payload(AsyncMock())
+
+        assert payload["new_firmware_count"] == 1
+        assert "firmware_count" not in payload
+
+    async def test_reports_zero_when_all_firmware_is_already_known(self, patched):
+        patched.get_firmware_by_filename.side_effect = (
+            lambda platform_id, file_name: Firmware(
+                file_name=file_name, platform_id=platform_id
+            )
+        )
+
+        payload = await self._emitted_platform_payload(AsyncMock())
+
+        assert payload["new_firmware_count"] == 0
+
+
 class TestGetPico8CoverUrl:
     """Tests for the PICO-8 cover art URL helper on FSRomsHandler."""
 
@@ -828,3 +1026,278 @@ class TestGetPico8CoverUrl:
         assert url is not None
         assert fs_path in url
         assert fs_name in url
+
+
+SCAN_PLATFORMS_FUNC = "endpoints.sockets.scan.scan_platforms"
+CLEANUP_FUNC = "tasks.scheduled.cleanup_zip_cache.cleanup_zip_cache_task.run"
+
+_job_ids = count()
+
+
+def make_job(func_name: str, *, status=JobStatus.QUEUED):
+    """An RQ job stub that scan job discovery will accept."""
+    job = MagicMock(spec=Job)
+    job.id = f"job-{next(_job_ids)}"
+    job.func_name = func_name
+    job.get_status.return_value = status
+    return job
+
+
+def patch_scan_jobs(
+    mocker, *, running=None, high_queued=(), low_queued=(), scheduled=()
+):
+    """Point every place scan discovery looks at a fixed set of jobs."""
+    worker = MagicMock()
+    worker.get_current_job.return_value = running
+    mocker.patch.object(scan_module.Worker, "all", return_value=[worker])
+    mocker.patch.object(
+        scan_module.high_prio_queue, "get_jobs", return_value=list(high_queued)
+    )
+    mocker.patch.object(
+        scan_module.low_prio_queue, "get_jobs", return_value=list(low_queued)
+    )
+    mocker.patch.object(
+        scan_module.tasks_scheduler, "get_jobs", return_value=list(scheduled)
+    )
+
+
+class TestScanConcurrency:
+    """A scan already in flight must block another from being enqueued."""
+
+    @pytest.fixture
+    def emit(self, mocker):
+        emit = AsyncMock()
+        mocker.patch.object(scan_module.socket_handler.socket_server, "emit", emit)
+        return emit
+
+    @pytest.fixture(autouse=True)
+    def authorized(self, mocker):
+        user = MagicMock()
+        user.oauth_scopes = [Scope.TASKS_RUN]
+        mocker.patch.object(
+            scan_module, "get_authenticated_user", AsyncMock(return_value=user)
+        )
+        mocker.patch.object(scan_module, "DEV_MODE", False)
+
+    async def test_enqueues_when_nothing_running(self, mocker, emit):
+        patch_scan_jobs(mocker)
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_called_once()
+
+    async def test_refuses_when_a_scan_is_running(self, mocker, emit):
+        patch_scan_jobs(mocker, running=make_job(SCAN_PLATFORMS_FUNC))
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_not_called()
+        emit.assert_awaited_once()
+        assert emit.await_args.args[0] == "scan:done_ko"
+
+    async def test_refuses_when_a_scan_is_queued(self, mocker, emit):
+        patch_scan_jobs(mocker, high_queued=[make_job(SCAN_PLATFORMS_FUNC)])
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_not_called()
+
+    async def test_refuses_when_a_watcher_scan_is_queued(self, mocker, emit):
+        # Watcher scans land in the low priority queue, not the high one.
+        patch_scan_jobs(mocker, low_queued=[make_job(SCAN_PLATFORMS_FUNC)])
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_not_called()
+
+    async def test_refuses_when_a_watcher_scan_is_scheduled(self, mocker, emit):
+        # A watcher scan waits out its delay in the scheduler before it queues.
+        patch_scan_jobs(
+            mocker,
+            scheduled=[make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.SCHEDULED)],
+        )
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_not_called()
+
+    async def test_refuses_when_the_scheduled_rescan_is_running(self, mocker, emit):
+        # The scheduled rescan runs scan_platforms from inside its own task, so
+        # the worker reports the task's name rather than the scan's.
+        patch_scan_jobs(mocker, running=make_job(scan_module.SCAN_LIBRARY_TASK_FUNC))
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_not_called()
+
+    async def test_standing_rescan_cron_entry_does_not_block(self, mocker, emit):
+        # The cron entry sits in the scheduler for as long as the periodic task
+        # is enabled. It is a schedule, not a scan waiting to run.
+        patch_scan_jobs(
+            mocker,
+            scheduled=[
+                make_job(scan_module.SCAN_LIBRARY_TASK_FUNC, status=JobStatus.SCHEDULED)
+            ],
+        )
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_called_once()
+
+    async def test_ignores_unrelated_jobs(self, mocker, emit):
+        # Only scans block scans; a cleanup or metadata task must not.
+        patch_scan_jobs(
+            mocker,
+            running=make_job(CLEANUP_FUNC),
+            high_queued=[make_job(CLEANUP_FUNC)],
+            low_queued=[make_job(CLEANUP_FUNC)],
+            scheduled=[make_job(CLEANUP_FUNC, status=JobStatus.SCHEDULED)],
+        )
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_called_once()
+
+
+class TestStopFlagOwnership:
+    """A starting scan must not erase a stop request aimed at another scan."""
+
+    @pytest.fixture(autouse=True)
+    def bail_out_early(self, mocker):
+        """Return from scan_platforms right after the stop flag is handled."""
+        mocker.patch.object(
+            scan_module, "_get_socket_manager", return_value=AsyncMock()
+        )
+        mocker.patch.object(
+            scan_module, "begin_ss_scan", new=AsyncMock(return_value=None)
+        )
+        mocker.patch.object(
+            scan_module.fs_platform_handler,
+            "get_platforms",
+            AsyncMock(side_effect=FolderStructureNotMatchException()),
+        )
+
+    @pytest.fixture
+    def redis(self, mocker):
+        return mocker.patch.object(scan_module, "redis_client")
+
+    async def test_clears_a_stale_flag_when_no_scan_is_running(self, mocker, redis):
+        patch_scan_jobs(mocker)
+        mocker.patch.object(scan_module, "get_current_job", return_value=None)
+
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        redis.delete.assert_called_once_with(scan_module.STOP_SCAN_FLAG)
+
+    async def test_clears_the_flag_set_against_itself(self, mocker, redis):
+        own_job = make_job(SCAN_PLATFORMS_FUNC)
+        patch_scan_jobs(mocker, running=own_job)
+        mocker.patch.object(scan_module, "get_current_job", return_value=own_job)
+
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        redis.delete.assert_called_once_with(scan_module.STOP_SCAN_FLAG)
+
+    async def test_leaves_another_running_scans_flag_alone(self, mocker, redis):
+        # The other scan may not have polled the flag yet, and dropping it here
+        # would let a scan the user stopped carry on to completion.
+        patch_scan_jobs(mocker, running=make_job(SCAN_PLATFORMS_FUNC))
+        mocker.patch.object(
+            scan_module, "get_current_job", return_value=make_job(SCAN_PLATFORMS_FUNC)
+        )
+
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        redis.delete.assert_not_called()
+
+
+class TestStopScan:
+    """Stopping must clear queued scans as well as the running one."""
+
+    @pytest.fixture
+    def emit(self, mocker):
+        emit = AsyncMock()
+        mocker.patch.object(scan_module.socket_handler.socket_server, "emit", emit)
+        return emit
+
+    @pytest.fixture(autouse=True)
+    def authorized(self, mocker):
+        user = MagicMock()
+        user.oauth_scopes = [Scope.TASKS_RUN]
+        mocker.patch.object(
+            scan_module, "get_authenticated_user", AsyncMock(return_value=user)
+        )
+
+    @pytest.fixture
+    def redis(self, mocker):
+        return mocker.patch.object(scan_module, "redis_client")
+
+    async def test_sets_stop_flag_for_running_scan(self, mocker, emit, redis):
+        running = make_job(SCAN_PLATFORMS_FUNC)
+        patch_scan_jobs(mocker, running=running)
+
+        await stop_scan_handler("sid")
+
+        running.cancel.assert_called_once()
+        redis.set.assert_called_once_with(scan_module.STOP_SCAN_FLAG, 1)
+
+    async def test_sets_stop_flag_for_running_scheduled_rescan(
+        self, mocker, emit, redis
+    ):
+        # The flag is the only channel an in-flight scan polls, so missing the
+        # scheduled rescan here makes stopping it a silent no-op.
+        running = make_job(scan_module.SCAN_LIBRARY_TASK_FUNC)
+        patch_scan_jobs(mocker, running=running)
+
+        await stop_scan_handler("sid")
+
+        redis.set.assert_called_once_with(scan_module.STOP_SCAN_FLAG, 1)
+
+    async def test_cancels_queued_scans(self, mocker, emit, redis):
+        queued = [make_job(SCAN_PLATFORMS_FUNC), make_job(SCAN_PLATFORMS_FUNC)]
+        patch_scan_jobs(
+            mocker, running=make_job(SCAN_PLATFORMS_FUNC), high_queued=queued
+        )
+
+        await stop_scan_handler("sid")
+
+        for job in queued:
+            job.cancel.assert_called_once()
+
+    async def test_cancels_watcher_scans(self, mocker, emit, redis):
+        # Cancelling only the high priority queue would hand the worker the
+        # watcher's scan the moment the running one unwinds.
+        low_queued = make_job(SCAN_PLATFORMS_FUNC)
+        scheduled = make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.SCHEDULED)
+        patch_scan_jobs(mocker, low_queued=[low_queued], scheduled=[scheduled])
+
+        await stop_scan_handler("sid")
+
+        low_queued.cancel.assert_called_once()
+        scheduled.cancel.assert_called_once()
+
+    async def test_cancels_queued_scans_with_none_running(self, mocker, emit, redis):
+        # Stopping a scan that has not been picked up yet must still drop it,
+        # and must not leave a stop flag behind for the next scan to trip on.
+        queued = [make_job(SCAN_PLATFORMS_FUNC)]
+        patch_scan_jobs(mocker, high_queued=queued)
+
+        await stop_scan_handler("sid")
+
+        queued[0].cancel.assert_called_once()
+        redis.set.assert_not_called()
+
+    async def test_no_scan_to_stop(self, mocker, emit, redis):
+        patch_scan_jobs(mocker)
+
+        await stop_scan_handler("sid")
+
+        redis.set.assert_not_called()

@@ -5,6 +5,7 @@ import {
   computeCoverArt,
   coverRatio,
   isBoxartStyle,
+  resolveBoxartStyle,
 } from "./index";
 
 const RES = "/assets/romm/resources";
@@ -26,11 +27,12 @@ function rom(over: Partial<SimpleRom>): SimpleRom {
 }
 
 describe("isBoxartStyle", () => {
-  it("accepts the four known styles", () => {
+  it("accepts the five known styles", () => {
     expect(isBoxartStyle("cover_path")).toBe(true);
     expect(isBoxartStyle("box3d_path")).toBe(true);
     expect(isBoxartStyle("physical_path")).toBe(true);
     expect(isBoxartStyle("miximage_path")).toBe(true);
+    expect(isBoxartStyle("miximage_v2_path")).toBe(true);
   });
   it("rejects anything else", () => {
     expect(isBoxartStyle("nope")).toBe(false);
@@ -45,6 +47,39 @@ describe("coverRatio", () => {
     expect(coverRatio("box3d_path")).toBeCloseTo(3 / 4);
     expect(coverRatio("physical_path")).toBe(1);
     expect(coverRatio("miximage_path")).toBe(1);
+    expect(coverRatio("miximage_v2_path")).toBe(1);
+  });
+});
+
+describe("resolveBoxartStyle", () => {
+  const prefs = {
+    gallery: "miximage_path",
+    details: "box3d_path",
+    player: "physical_path",
+  };
+  it("uses the per-context override for details and player", () => {
+    expect(resolveBoxartStyle("details", prefs)).toBe("box3d_path");
+    expect(resolveBoxartStyle("player", prefs)).toBe("physical_path");
+  });
+  it("uses the gallery preference for the gallery context", () => {
+    expect(resolveBoxartStyle("gallery", prefs)).toBe("miximage_path");
+  });
+  it("falls back to the gallery preference on legacy inherit / unset values", () => {
+    expect(
+      resolveBoxartStyle("details", { ...prefs, details: "inherit" }),
+    ).toBe("miximage_path");
+    expect(resolveBoxartStyle("player", { ...prefs, player: undefined })).toBe(
+      "miximage_path",
+    );
+  });
+  it("falls back to cover_path when nothing valid is set", () => {
+    expect(
+      resolveBoxartStyle("player", {
+        gallery: "bogus",
+        details: null,
+        player: "inherit",
+      }),
+    ).toBe("cover_path");
   });
 });
 
@@ -213,6 +248,24 @@ describe("computeCoverArt — miximage_path video", () => {
       },
     );
     expect(d.videoUrl).toBeNull();
+  });
+});
+
+describe("computeCoverArt — miximage_v2_path", () => {
+  it("prefixes the ss alt path, uses contain + 1/1, and resolves the hover video", () => {
+    const r = rom({
+      ss_metadata: { miximage_v2_path: "ss/mix2.png" },
+      path_video: "videos/clip.mp4",
+    });
+    const d = computeCoverArt(r, "miximage_v2_path", {
+      resourcesPath: RES,
+      supportsWebp: false,
+    });
+    expect(d.coverUrl).toBe(`${RES}/ss/mix2.png`);
+    expect(d.objectFit).toBe("contain");
+    expect(d.ratio).toBe(1);
+    expect(d.isAltArt).toBe(true);
+    expect(d.videoUrl).toBe(`${RES}/videos/clip.mp4`);
   });
 });
 

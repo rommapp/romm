@@ -1,14 +1,48 @@
+import asyncio
 import os
 import shutil
 from dataclasses import dataclass
 
 from anyio import Path as AnyioPath
+from rq.job import Job
 
-from config import RESOURCES_BASE_PATH
+from config import (
+    ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
+    RESOURCES_BASE_PATH,
+    SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON,
+)
 from handler.database import db_platform_handler, db_rom_handler
 from logger.logger import log
-from tasks.tasks import Task, TaskType, update_job_meta
+from tasks.tasks import PeriodicTask, TaskType, update_job_meta
 from utils.context import initialize_context
+
+
+def _numeric_subdirs(path: str) -> set[int]:
+    """Numeric-named subdirectories of `path`, as ints."""
+    try:
+        with os.scandir(path) as entries:
+            return {
+                int(entry.name)
+                for entry in entries
+                if entry.name.isdigit() and entry.is_dir()
+            }
+    except OSError as exc:
+        log.error(f"Unable to list resource directory {path}: {str(exc)}")
+        return set()
+
+
+def _scan_resource_dirs(roms_resources_path: str) -> dict[int, set[int]]:
+    """Map each platform id on disk to the ROM ids that have a resource directory.
+
+    `os.scandir` reports the entry type from the directory read itself, so this
+    walks tens of thousands of entries without a stat call per entry.
+    """
+    return {
+        platform_id: _numeric_subdirs(
+            os.path.join(roms_resources_path, str(platform_id))
+        )
+        for platform_id in _numeric_subdirs(roms_resources_path)
+    }
 
 
 @dataclass
@@ -40,20 +74,34 @@ class CleanupStats:
         }
 
 
-class CleanupOrphanedResourcesTask(Task):
+class CleanupOrphanedResourcesTask(PeriodicTask):
     def __init__(self):
         super().__init__(
             title="Cleanup orphaned resources",
             description="Clean up orphaned resources in the ROMs directory",
             task_type=TaskType.CLEANUP,
-            enabled=True,
+            enabled=ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
             manual_run=True,
-            cron_string=None,
+            cron_string=SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON,
+            func="tasks.scheduled.cleanup_orphaned_resources.cleanup_orphaned_resources_task.run",
         )
 
+    def init(self) -> Job | None:
+        # Without a cron string there is nothing to schedule, so drop any job
+        # left over from a previous configuration.
+        if not self.cron_string:
+            self.unschedule()
+            return None
+
+        return super().init()
+
     @initialize_context()
-    async def run(self) -> dict[str, int]:
-        """Clean up orphaned resources."""
+    async def run(self, force: bool = False) -> dict[str, int]:
+        """Clean up orphaned resources.
+
+        Args:
+            force: Clean up even when the database reports an empty library.
+        """
         log.info(f"Starting {self.title} task...")
 
         cleanup_stats = CleanupStats()
@@ -84,21 +132,22 @@ class CleanupOrphanedResourcesTask(Task):
         )
 
         # Count total platforms and ROMs for progress tracking
-        platform_dirs: set[int] = {
-            int(entry.name)
-            async for entry in roms_resources_dir.iterdir()
-            if entry.name.isdigit() and await entry.is_dir()
-        }
+        rom_dirs_by_platform: dict[int, set[int]] = await asyncio.to_thread(
+            _scan_resource_dirs, roms_resources_path
+        )
+        platform_dirs = set(rom_dirs_by_platform)
 
-        rom_dirs_by_platform: dict[int, set[int]] = {}
-        for platform_dir in platform_dirs:
-            platform_path = os.path.join(roms_resources_path, str(platform_dir))
-            platform_dir_path = AnyioPath(platform_path)
-            rom_dirs_by_platform[platform_dir] = {
-                int(entry.name)
-                async for entry in platform_dir_path.iterdir()
-                if entry.name.isdigit() and await entry.is_dir()
-            }
+        # An empty library alongside artwork on disk is far more likely to be a
+        # database that is unavailable or mid-migration than one that was really
+        # emptied, and every platform directory would be removed in one pass.
+        if platform_dirs and not existing_platforms and not force:
+            cleanup_stats.update(platforms_in_fs=len(platform_dirs))
+            log.warning(
+                f"Database reports no platforms while {len(platform_dirs)} platform "
+                "resource directories exist on disk, skipping cleanup. Run the task "
+                "manually with `force` to clean them up anyway."
+            )
+            return cleanup_stats.to_dict()
 
         cleanup_stats.update(
             platforms_in_fs=len(platform_dirs),

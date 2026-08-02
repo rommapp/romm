@@ -1390,17 +1390,24 @@ Configured via environment variables and managed by RQ Scheduler:
 | `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`       | `0 4 * * *`        | Refresh LaunchBox data |
 | `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`          | `0 4 * * *`        | Image optimization     |
 | `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC` | `0 4 * * *`        | Sync RA user progress  |
+| `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`      | `0 5 * * *`        | Remove unused artwork  |
 | `cleanup_netplay`                 | Always enabled                                     | Periodic           | Clean stale rooms      |
 
 ### Manual Tasks
 
 Triggered via `POST /api/tasks/run/{task_name}`:
 
-| Task                         | Description                                   |
-| ---------------------------- | --------------------------------------------- |
-| `cleanup_missing_roms`       | Remove DB entries for files no longer on disk |
-| `cleanup_orphaned_resources` | Remove unused artwork/resource files          |
-| `sync_folder_scan`           | Scan sync folder for new device saves         |
+| Task                   | Description                                   |
+| ---------------------- | --------------------------------------------- |
+| `cleanup_missing_roms` | Remove DB entries for files no longer on disk |
+| `sync_folder_scan`     | Scan sync folder for new device saves         |
+
+`cleanup_orphaned_resources` is also runnable this way; it is listed under
+Scheduled Tasks because it additionally supports an opt-in cron schedule. It
+skips the cleanup when the database reports no platforms at all while artwork
+is still on disk, since that usually means the database is unavailable rather
+than the library being empty. Pass `{"force": true}` as the request body to
+clean up a genuinely emptied library.
 
 ### Filesystem Watcher
 
@@ -1530,20 +1537,21 @@ Falls back to `FakeRedis` in test mode.
 
 #### Redis
 
-| Variable         | Default     | Description           |
-| ---------------- | ----------- | --------------------- |
-| `REDIS_HOST`     | `127.0.0.1` | Redis host            |
-| `REDIS_PORT`     | `6379`      | Redis port            |
-| `REDIS_USERNAME` |             | Redis username (ACL)  |
-| `REDIS_PASSWORD` |             | Redis password        |
-| `REDIS_DB`       | `0`         | Redis database number |
-| `REDIS_SSL`      | `false`     | Enable SSL            |
+| Variable            | Default     | Description            |
+| ------------------- | ----------- | ---------------------- |
+| `REDIS_HOST`        | `127.0.0.1` | Redis host             |
+| `REDIS_PORT`        | `6379`      | Redis port             |
+| `REDIS_USERNAME`    |             | Redis username (ACL)   |
+| `REDIS_PASSWORD`    |             | Redis password         |
+| `REDIS_DB`          | `0`         | Redis database number  |
+| `REDIS_SSL`         | `false`     | Enable SSL             |
+| `REDIS_SAVE_POLICY` | `3600 1`    | Valkey snapshot policy |
 
 #### Authentication
 
 | Variable                             | Default   | Description                           |
 | ------------------------------------ | --------- | ------------------------------------- |
-| `ROMM_AUTH_SECRET_KEY`               |           | **Required.** JWT/session signing key |
+| `ROMM_AUTH_SECRET_KEY`               |           | Session signing key (random if unset) |
 | `OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS`  | `1800`    | 30 minutes                            |
 | `OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS` | `604800`  | 7 days                                |
 | `SESSION_MAX_AGE_SECONDS`            | `1209600` | 14 days                               |

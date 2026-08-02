@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from itertools import batched
+from itertools import batched, chain
 from typing import Any, Final
 
 import pydash
 import socketio  # type: ignore
-from rq import Worker
-from rq.job import Job
+from rq import Worker, get_current_job
+from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError
 
-from adapters.services.screenscraper import reset_daily_quota as reset_ss_daily_quota
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
@@ -27,7 +26,12 @@ from exceptions.fs_exceptions import (
 )
 from exceptions.socket_exceptions import ScanStoppedException
 from handler.auth.constants import Scope
-from handler.database import db_firmware_handler, db_platform_handler, db_rom_handler
+from handler.database import (
+    db_collection_handler,
+    db_firmware_handler,
+    db_platform_handler,
+    db_rom_handler,
+)
 from handler.filesystem import (
     fs_firmware_handler,
     fs_platform_handler,
@@ -36,8 +40,17 @@ from handler.filesystem import (
 )
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_gamelist_handler, meta_hltb_handler
-from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
-from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
+from handler.metadata.ss_handler import add_ss_auth_to_url
+from handler.metadata.ss_handler import begin_scan as begin_ss_scan
+from handler.metadata.ss_handler import get_preferred_media_types
+from handler.metadata.ss_handler import log_quota as log_ss_quota
+from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
+from handler.redis_handler import (
+    get_job_func_name,
+    high_prio_queue,
+    low_prio_queue,
+    redis_client,
+)
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
@@ -53,7 +66,7 @@ from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
-from tasks.tasks import update_job_meta
+from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, tasks_scheduler, update_job_meta
 from utils import emoji
 from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
@@ -61,6 +74,68 @@ from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
 
 STOP_SCAN_FLAG: Final = "scan:stop"
+
+
+def _scan_platforms_func_name() -> str:
+    """Fully qualified name RQ records for a directly enqueued scan.
+
+    Derived from the function itself so it cannot drift out of sync with the
+    name RQ stores when the job is enqueued.
+    """
+    return f"{scan_platforms.__module__}.{scan_platforms.__name__}"
+
+
+def _scan_job_func_names() -> frozenset[str]:
+    """Every job function name that ends up running a scan.
+
+    Socket and watcher scans enqueue scan_platforms itself, while the scheduled
+    rescan enqueues its own task and calls scan_platforms in process. Both have
+    to be recognised or an in-flight scan goes unseen.
+    """
+    return frozenset((_scan_platforms_func_name(), SCAN_LIBRARY_TASK_FUNC))
+
+
+def _get_running_scan_job() -> Job | None:
+    """The scan currently executing on a worker, if any.
+
+    A started job is no longer in the queue, so it can only be found by asking
+    the workers what they are holding.
+    """
+    func_names = _scan_job_func_names()
+    for worker in Worker.all(connection=redis_client):
+        job = worker.get_current_job()
+        if job is not None and get_job_func_name(job) in func_names:
+            return job
+
+    return None
+
+
+def _get_queued_scan_jobs() -> list[Job]:
+    """Scans waiting to run, not yet picked up by a worker.
+
+    Socket scans sit in the high priority queue, while watcher scans are delayed
+    through the scheduler before landing in the low priority queue.
+    """
+    func_names = _scan_job_func_names()
+    jobs: dict[str, Job] = {}
+
+    for job in chain(high_prio_queue.get_jobs(), low_prio_queue.get_jobs()):
+        if isinstance(job, Job) and get_job_func_name(job) in func_names:
+            jobs[job.id] = job
+
+    # The scheduler registry also holds the standing cron entry for the
+    # scheduled rescan, which is a schedule rather than a pending scan, so only
+    # delayed scan_platforms jobs count as queued here.
+    scan_platforms_func_name = _scan_platforms_func_name()
+    for job in tasks_scheduler.get_jobs():
+        if (
+            isinstance(job, Job)
+            and get_job_func_name(job) == scan_platforms_func_name
+            and job.get_status() in (JobStatus.SCHEDULED, JobStatus.QUEUED)
+        ):
+            jobs[job.id] = job
+
+    return list(jobs.values())
 
 
 @dataclass
@@ -597,19 +672,23 @@ async def _identify_platform(
             fs_fw=fs_fw,
         )
 
+    # `new_firmware_count` is scoped to this scan: the client reports what the
+    # scan discovered, not the platform's total firmware library.
     await socket_manager.emit(
         "scan:scanning_platform",
-        PlatformSchema.model_validate(platform).model_dump(
-            include={
-                "id",
-                "name",
-                "display_name",
-                "slug",
-                "fs_slug",
-                "is_identified",
-                "firmware_count",
-            }
-        ),
+        {
+            **PlatformSchema.model_validate(platform).model_dump(
+                include={
+                    "id",
+                    "name",
+                    "display_name",
+                    "slug",
+                    "fs_slug",
+                    "is_identified",
+                }
+            ),
+            "new_firmware_count": new_firmware,
+        },
     )
 
     # This reduces the number of socket emissions
@@ -748,6 +827,9 @@ async def _identify_platform(
         for f in missing_firmware:
             log.warning(f" - {f}")
 
+    if MetadataSource.SS in metadata_sources:
+        log_ss_quota()
+
     return scan_stats
 
 
@@ -770,6 +852,17 @@ async def scan_platforms(
         roms_ids (list[int], optional): List of selected roms to be scanned.
         platform_fs_slugs (list[str], optional): Folders to scan with no database row.
     """
+    # The flag is cleared by the scan that observes it, so one set against a
+    # scan that ended first would otherwise stop this one before it began. A
+    # scan still on a worker owns the flag though, and clearing it there would
+    # let a stopped scan carry on.
+    running_job = _get_running_scan_job()
+    current_job = get_current_job()
+    if running_job is None or (
+        current_job is not None and running_job.id == current_job.id
+    ):
+        redis_client.delete(STOP_SCAN_FLAG)
+
     if not roms_ids:
         roms_ids = []
 
@@ -779,9 +872,11 @@ async def scan_platforms(
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
 
-    # Reset the ScreenScraper daily-quota breaker so this scan re-evaluates the
-    # quota instead of inheriting a tripped state from a previous scan.
-    reset_ss_daily_quota()
+    # ScreenScraper's scan state is process-global, so a scan that never touches
+    # it must leave it alone: under DEV_MODE scans run in-process and can
+    # overlap, and resetting would drop the other scan's limits and skips.
+    if MetadataSource.SS in metadata_sources:
+        await begin_ss_scan()
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()
@@ -875,10 +970,21 @@ async def scan_platforms(
             for p in missed_platforms:
                 log.warning(f" - {p.slug} ({p.fs_slug})")
 
+        if MetadataSource.SS in metadata_sources:
+            log_ss_scan_summary()
+
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
 
         # The library changed; drop cached filter values.
         db_rom_handler.invalidate_filter_values_cache()
+
+        # Smart collection membership is derived from the library, and is no
+        # longer recomputed while serving a gallery page. The scan itself is
+        # done, so a failure here must not report it as one.
+        try:
+            db_collection_handler.refresh_smart_collections()
+        except Exception as e:
+            log.error(f"Couldn't refresh smart collections after the scan: {e}")
 
         # Export metadata files if enabled in config
         config = cm.get_config()
@@ -971,6 +1077,17 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     if await reject_unauthorized_scan(sid):
         return
 
+    # Without this, every request enqueues another full scan behind the running
+    # one, and a client that lost the progress socket has no way to tell.
+    if not DEV_MODE and (_get_running_scan_job() or _get_queued_scan_jobs()):
+        log.info(f"{emoji.EMOJI_STOP_SIGN} Scan already in progress, ignoring request")
+        await socket_handler.socket_server.emit(
+            "scan:done_ko",
+            "A scan is already in progress",
+            to=sid,
+        )
+        return
+
     log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
     platform_ids = options.get("platforms", [])
@@ -1019,25 +1136,24 @@ async def stop_scan_handler(sid: str):
 
     log.info(f"{emoji.EMOJI_STOP_BUTTON} Stop scan requested...")
 
-    async def cancel_job(job: Job):
+    # Queued scans have not started, so cancelling them is enough. They have to
+    # go too: stopping only the running scan would hand the worker the next one.
+    queued_jobs = _get_queued_scan_jobs()
+    for job in queued_jobs:
         job.cancel()
+
+    # A running scan cannot be interrupted from here, it polls the stop flag
+    # between platforms and ROMs and unwinds itself.
+    running_job = _get_running_scan_job()
+    if running_job is not None:
+        running_job.cancel()
         redis_client.set(STOP_SCAN_FLAG, 1)
-        log.info(f"{emoji.EMOJI_STOP_BUTTON} Job found, stopping scan...")
 
-    existing_jobs = high_prio_queue.get_jobs()
-    for job in existing_jobs:
-        if get_job_func_name(job) == "scan_platform" and job.is_started:
-            return await cancel_job(job)
+    if running_job is None and not queued_jobs:
+        log.info(f"{emoji.EMOJI_STOP_BUTTON} No running scan to stop")
+        return
 
-    workers = Worker.all(connection=redis_client)
-    for worker in workers:
-        current_job = worker.get_current_job()
-        if (
-            current_job
-            and get_job_func_name(current_job)
-            == "endpoints.sockets.scan.scan_platforms"
-            and current_job.is_started
-        ):
-            return await cancel_job(current_job)
-
-    log.info(f"{emoji.EMOJI_STOP_BUTTON} No running scan to stop")
+    log.info(
+        f"{emoji.EMOJI_STOP_BUTTON} Stopping scan "
+        f"({int(running_job is not None)} running, {len(queued_jobs)} queued)"
+    )

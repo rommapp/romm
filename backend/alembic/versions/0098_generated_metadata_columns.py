@@ -399,13 +399,24 @@ def _thin_view_sql(is_pg: bool) -> str:
 # make_timestamp is IMMUTABLE and the components are interpreted as UTC, so the
 # stored value is deterministic regardless of the writer's session time zone
 # (to_timestamp() is only STABLE and would freeze a session-local value).
+#
+# The caller's regex only proves the value is 8+6 digits, so calendar-invalid
+# dates still reach make_timestamp, which raises on them. EmulationStation,
+# ES-DE and Skyscraper all write "00000000T000000" for an unknown release date,
+# and one such row is enough to abort the whole ALTER TABLE (or any later
+# INSERT). plpgsql traps that and yields NULL, matching the range guard the
+# MariaDB branch applies before its own conversion.
 _GAMELIST_EPOCH_FN = """
 CREATE OR REPLACE FUNCTION romm_gamelist_epoch_ms(s text) RETURNS bigint
-    LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-    SELECT (extract(epoch FROM make_timestamp(
+    LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+BEGIN
+    RETURN (extract(epoch FROM make_timestamp(
         substr(s, 1, 4)::int, substr(s, 5, 2)::int, substr(s, 7, 2)::int,
         substr(s, 10, 2)::int, substr(s, 12, 2)::int, substr(s, 14, 2)::int
-    ) AT TIME ZONE 'UTC') * 1000)::bigint
+    ) AT TIME ZONE 'UTC') * 1000)::bigint;
+EXCEPTION WHEN others THEN
+    RETURN NULL;
+END
 $$
 """
 

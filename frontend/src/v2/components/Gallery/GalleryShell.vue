@@ -99,6 +99,8 @@ interface Props {
   hasHeader: boolean;
   /** Toolbar's search-input placeholder. */
   searchPlaceholder: string;
+  /** Focus the toolbar's search field on mount. */
+  autofocusSearch?: boolean;
   /** Empty-state message shown when the gallery resolves with zero items. */
   emptyMessage: string;
   /** "Not found" mode — replaces all body items with a single empty row. */
@@ -121,6 +123,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  autofocusSearch: false,
   notFound: false,
   notFoundMessage: undefined,
   showPlatformBadge: true,
@@ -302,6 +305,9 @@ const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
 
 // Fallback cover ratio (boxart style) — the per-card `--r-cover-ratio` seed
 // before GameCover measures the real image, plus the bootstrap skeletons.
+// The flow-packer takes it too (`fallbackRatio`): a card with no artwork
+// paints its placeholder at this ratio and never reports a measured one, so
+// packing it as box art would under-reserve its width and overflow the row.
 const { boxartStyle } = useUISettings();
 const coverAspectRatio = computed(() =>
   coverRatio(
@@ -378,6 +384,7 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     gap: CARD_GAP_PX,
     ratioAt,
     ratioVersion,
+    fallbackRatio: coverAspectRatio,
   });
 
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
@@ -919,6 +926,7 @@ defineExpose({
             show-search
             :search="searchInput"
             :search-placeholder="searchPlaceholder"
+            :autofocus-search="autofocusSearch"
             show-filter
             :filter-active-count="filterActiveCount"
             @update:group-by="groupBy = $event"

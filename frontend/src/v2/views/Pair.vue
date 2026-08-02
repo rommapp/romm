@@ -11,10 +11,13 @@ import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useClipboard } from "@/v2/composables/useClipboard";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 
 const { t } = useI18n();
 const route = useRoute();
 const clipboard = useClipboard();
+
+usePageTitle(() => t("settings.pair-device"));
 
 const code = computed(() => (route.query.code as string) || "");
 const callback = computed(() => (route.query.callback as string) || "");

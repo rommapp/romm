@@ -8,6 +8,7 @@ from anyio import Path as AnyioPath
 from fastapi import status
 from PIL import Image, ImageFile, UnidentifiedImageError
 
+from adapters.services.screenscraper import media_download_slot
 from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
 from config.config_manager import MetadataMediaType
 from logger.logger import log
@@ -160,6 +161,18 @@ class FSResourcesHandler(FSHandler):
         await self.remove_file(relative_path)
         return True
 
+    async def _discard_partial_file(self, relative_path: str) -> None:
+        """Remove a partially written file left behind by a failed download.
+
+        A truncated image is worse than a missing one: it satisfies the
+        `*_exists` checks, so later scans skip it and never refetch it.
+        """
+        try:
+            if await self.file_exists(relative_path):
+                await self.remove_file(relative_path)
+        except OSError as exc:
+            log.error(f"Unable to remove partial file {relative_path}: {str(exc)}")
+
     async def _store_cover(
         self, entity: Rom | Collection, url_cover: str, size: CoverSize
     ) -> None:
@@ -196,52 +209,65 @@ class FSResourcesHandler(FSHandler):
                     )
             except Exception as exc:
                 log.error(f"Unable to copy cover file {url_cover}: {str(exc)}")
+                await self._discard_partial_file(f"{cover_file}/{size.value}.png")
                 return None
         else:
             # Handle HTTP URLs
             httpx_client = ctx_httpx_client.get()
+            downloaded = False
             try:
-                async with httpx_client.stream(
-                    "GET", url_cover, timeout=120
-                ) as response:
-                    if response.status_code == status.HTTP_200_OK:
-                        if not _check_content_type(response, ("image/",), "cover"):
-                            return None
+                async with media_download_slot(url_cover) as timeout:
+                    async with httpx_client.stream(
+                        "GET", url_cover, timeout=timeout
+                    ) as response:
+                        if response.status_code == status.HTTP_200_OK:
+                            if not _check_content_type(response, ("image/",), "cover"):
+                                return None
 
-                        # Check if content is gzipped from response headers
-                        is_gzipped = (
-                            response.headers.get("content-encoding", "").lower()
-                            == "gzip"
-                        )
-
-                        async with await self.write_file_streamed(
-                            path=cover_file, filename=f"{size.value}.png"
-                        ) as f:
-                            if is_gzipped:
-                                # Content is gzipped, decompress it
-                                content = await response.aread()
-                                try:
-                                    decompressed_content = gzip.decompress(content)
-                                    await f.write(decompressed_content)
-                                except gzip.BadGzipFile:
-                                    await f.write(content)
-                            else:
-                                # Content is not gzipped, stream directly
-                                async for chunk in response.aiter_raw():
-                                    await f.write(chunk)
-
-                        if await self._discard_if_chroma_key(
-                            f"{cover_file}/{size.value}.png"
-                        ):
-                            return None
-
-                        if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
-                            self.image_converter.convert_to_webp(
-                                self.validate_path(f"{cover_file}/{size.value}.png"),
-                                force=True,
+                            # Check if content is gzipped from response headers
+                            is_gzipped = (
+                                response.headers.get("content-encoding", "").lower()
+                                == "gzip"
                             )
+
+                            async with await self.write_file_streamed(
+                                path=cover_file, filename=f"{size.value}.png"
+                            ) as f:
+                                if is_gzipped:
+                                    # Content is gzipped, decompress it
+                                    content = await response.aread()
+                                    try:
+                                        decompressed_content = gzip.decompress(content)
+                                        await f.write(decompressed_content)
+                                    except gzip.BadGzipFile:
+                                        await f.write(content)
+                                else:
+                                    # Content is not gzipped, stream directly
+                                    async for chunk in response.aiter_raw():
+                                        await f.write(chunk)
+
+                            downloaded = True
+
+                # Inspecting and re-encoding the file is local work, so it runs
+                # once the provider's request slot has been handed back.
+                if downloaded:
+                    if await self._discard_if_chroma_key(
+                        f"{cover_file}/{size.value}.png"
+                    ):
+                        return None
+
+                    if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+                        self.image_converter.convert_to_webp(
+                            self.validate_path(f"{cover_file}/{size.value}.png"),
+                            force=True,
+                        )
             except httpx.TransportError as exc:
                 log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
+                await self._discard_partial_file(f"{cover_file}/{size.value}.png")
+                return None
+            except OSError as exc:
+                log.error(f"Unable to write cover for {url_cover}: {str(exc)}")
+                await self._discard_partial_file(f"{cover_file}/{size.value}.png")
                 return None
 
         if size == CoverSize.SMALL:
@@ -340,6 +366,13 @@ class FSResourcesHandler(FSHandler):
                 f"Unable to identify image for {entity.fs_resources_path}: {str(exc)}"
             )
             return None, None
+        except OSError as exc:
+            log.error(
+                f"Unable to write artwork for {entity.fs_resources_path}: {str(exc)}"
+            )
+            for path in (path_cover_l, path_cover_s):
+                await self._discard_partial_file(str(path.relative_to(self.base_path)))
+            return None, None
 
         return str(path_cover_l.relative_to(self.base_path)), str(
             path_cover_s.relative_to(self.base_path)
@@ -368,14 +401,18 @@ class FSResourcesHandler(FSHandler):
                 )
             except Exception as exc:
                 log.error(f"Unable to copy screenshot file {url_screenhot}: {str(exc)}")
+                await self._discard_partial_file(f"{screenshot_path}/{idx}.jpg")
                 return None
         else:
             # Handle HTTP URLs
             httpx_client = ctx_httpx_client.get()
             try:
-                async with httpx_client.stream(
-                    "GET", url_screenhot, timeout=120
-                ) as response:
+                async with (
+                    media_download_slot(url_screenhot) as timeout,
+                    httpx_client.stream(
+                        "GET", url_screenhot, timeout=timeout
+                    ) as response,
+                ):
                     if response.status_code == status.HTTP_200_OK:
                         if not _check_content_type(response, ("image/",), "screenshot"):
                             return None
@@ -403,6 +440,11 @@ class FSResourcesHandler(FSHandler):
                                     await f.write(chunk)
             except httpx.TransportError as exc:
                 log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
+                await self._discard_partial_file(f"{screenshot_path}/{idx}.jpg")
+                return None
+            except OSError as exc:
+                log.error(f"Unable to write screenshot for {url_screenhot}: {str(exc)}")
+                await self._discard_partial_file(f"{screenshot_path}/{idx}.jpg")
                 return None
 
     def screenshots_exist(self, rom: Rom) -> bool:
@@ -483,14 +525,16 @@ class FSResourcesHandler(FSHandler):
                 )
             except Exception as exc:
                 log.error(f"Unable to copy manual file {url_manual}: {str(exc)}")
+                await self._discard_partial_file(f"{manual_path}/{rom.id}.pdf")
                 return None
         else:
             # Handle HTTP URL
             httpx_client = ctx_httpx_client.get()
             try:
-                async with httpx_client.stream(
-                    "GET", url_manual, timeout=120
-                ) as response:
+                async with (
+                    media_download_slot(url_manual) as timeout,
+                    httpx_client.stream("GET", url_manual, timeout=timeout) as response,
+                ):
                     if response.status_code == status.HTTP_200_OK:
                         if not _check_content_type(
                             response,
@@ -526,6 +570,11 @@ class FSResourcesHandler(FSHandler):
                                     await f.write(chunk)
             except httpx.TransportError as exc:
                 log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
+                await self._discard_partial_file(f"{manual_path}/{rom.id}.pdf")
+                return None
+            except OSError as exc:
+                log.error(f"Unable to write manual for {url_manual}: {str(exc)}")
+                await self._discard_partial_file(f"{manual_path}/{rom.id}.pdf")
                 return None
 
     def _get_manual_path(self, rom: Rom) -> str | None:
@@ -587,6 +636,10 @@ class FSResourcesHandler(FSHandler):
                             await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url}: {str(exc)}")
+            await self._discard_partial_file(path)
+        except OSError as exc:
+            log.error(f"Unable to write badge for {url}: {str(exc)}")
+            await self._discard_partial_file(path)
 
     def get_ra_resources_path(self, platform_id: int, rom_id: int) -> str:
         return os.path.join(
@@ -625,14 +678,18 @@ class FSResourcesHandler(FSHandler):
                         await self.copy_file(resolved, dest_path, allow_link=True)
                 except Exception as exc:
                     log.error(f"Unable to copy media file {url_media}: {str(exc)}")
+                    await self._discard_partial_file(dest_path)
                     return None
             else:
                 # Handle HTTP URLs
                 httpx_client = ctx_httpx_client.get()
                 try:
-                    async with httpx_client.stream(
-                        "GET", url_media, timeout=120
-                    ) as response:
+                    async with (
+                        media_download_slot(url_media) as timeout,
+                        httpx_client.stream(
+                            "GET", url_media, timeout=timeout
+                        ) as response,
+                    ):
                         if response.status_code == status.HTTP_200_OK:
                             if not _check_content_type(
                                 response,
@@ -648,6 +705,11 @@ class FSResourcesHandler(FSHandler):
                                     await f.write(chunk)
                 except httpx.TransportError as exc:
                     log.error(f"Unable to fetch media file at {url_media}: {str(exc)}")
+                    await self._discard_partial_file(dest_path)
+                    return None
+                except OSError as exc:
+                    log.error(f"Unable to write media file for {url_media}: {str(exc)}")
+                    await self._discard_partial_file(dest_path)
                     return None
 
         # Drop ScreenScraper's green "missing art" placeholder so a box face

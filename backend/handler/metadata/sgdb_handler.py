@@ -199,6 +199,8 @@ class SGDBBaseHandler(MetadataHandler):
                 is_humor=is_humor,
                 is_epilepsy=is_epilepsy,
             )
+            # Locked grids serve a DMCA takedown placeholder instead of the artwork.
+            if not cover.get("lock")
         ]
         if not game_covers:
             return SGDBResult(name=game_name, resources=[])

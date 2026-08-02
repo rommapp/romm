@@ -27,6 +27,7 @@ import OverviewTab from "@/v2/components/GameDetails/OverviewTab.vue";
 import PatcherTab from "@/v2/components/GameDetails/PatcherTab.vue";
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { isRomVerified } from "@/v2/utils/romVerification";
@@ -98,6 +99,8 @@ const title = computed(() => {
   return r.name || r.fs_name_no_ext;
 });
 
+usePageTitle(() => title.value);
+
 const platformLabel = computed(() => {
   const r = currentRom.value;
   if (!r) return "";
@@ -164,10 +167,14 @@ const lastPlayed = computed(() => {
 // would be a lie. "Franchises" mirrors the singular→plural consistency
 // of the surrounding rows.
 const overviewSections = computed<InfoGridSection[]>(() => [
-  { label: t("rom.genres"), items: genres.value },
-  { label: t("rom.companies"), items: companies.value },
-  { label: t("rom.franchises"), items: franchises.value },
-  { label: t("rom.collections"), items: collections.value },
+  { label: t("rom.genres"), items: genres.value, filter: "genres" },
+  { label: t("rom.companies"), items: companies.value, filter: "companies" },
+  { label: t("rom.franchises"), items: franchises.value, filter: "franchises" },
+  {
+    label: t("rom.collections"),
+    items: collections.value,
+    filter: "collections",
+  },
 ]);
 
 const playerCount = computed<string | null>(() => {

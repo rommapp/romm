@@ -77,8 +77,11 @@ const collectionsStore = storeCollections();
 const romsStore = storeRoms();
 
 const canRefresh = useCan("rom.refresh");
-const canDelete = useCan("rom.delete");
 const canDownload = useCan("rom.download");
+const hasDeleteGrant = useCan("rom.delete");
+const canEditRom = useCan("rom.edit");
+// Bulk delete hits `POST /roms/delete`, which gates on ROMS_WRITE
+const canDelete = computed(() => hasDeleteGrant.value && canEditRom.value);
 
 // `favorite` is the favourite collection — used to compute "are all
 // selected ROMs in favorites?" so the button can toggle between

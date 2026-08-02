@@ -23,6 +23,7 @@ import { getDownloadPath } from "@/utils";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { colorCanvas } from "@/v2/tokens";
@@ -108,6 +109,10 @@ const title = computed(
   () => heroRom.value?.name || heroRom.value?.fs_name_no_ext || "",
 );
 
+usePageTitle(() =>
+  title.value ? t("play.page-title", { name: title.value }) : null,
+);
+
 const platformLabel = computed(
   () =>
     heroRom.value?.platform_custom_name ||
@@ -185,7 +190,6 @@ onMounted(async () => {
   rom.value = romResponse.data;
 
   if (rom.value) {
-    document.title = `${rom.value.name} | Play`;
     const storedColor = localStorage.getItem(
       `player:ruffle:${rom.value.id}:backgroundColor`,
     );
@@ -223,6 +227,7 @@ onBeforeUnmount(() => {
           :title="title"
           :identified="heroRom?.is_identified ?? true"
           :morph-id="morphRomId"
+          style-context="player"
           morph-static
           hover-motion
         />

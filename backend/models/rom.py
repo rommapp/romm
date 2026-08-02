@@ -106,7 +106,15 @@ class RomArchiveMember(TypedDict):
 class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
-    __table_args__ = (Index("idx_rom_files_rom_id", "rom_id"),)
+    __table_args__ = (
+        Index("idx_rom_files_rom_id", "rom_id"),
+        # Searching the gallery by a hash digest
+        Index("idx_rom_files_crc_hash", "crc_hash"),
+        Index("idx_rom_files_md5_hash", "md5_hash"),
+        Index("idx_rom_files_sha1_hash", "sha1_hash"),
+        Index("idx_rom_files_ra_hash", "ra_hash"),
+        Index("idx_rom_files_chd_sha1_hash", "chd_sha1_hash"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
@@ -307,7 +315,11 @@ class Rom(BaseModel):
     __table_args__ = (
         # Enforce unique fs name per platform to avoid duplicates
         Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name", unique=True),
-        # Covers the sibling_roms view self-join
+        # Covers the sibling_roms view self-join and the group_by_meta_id dedup
+        # window. Both read only these columns, so the index has to carry every
+        # one of them: a single missing column (flashpoint_id or fs_name_no_ext,
+        # the window's partition tail and sort tiebreaker) drops the plan to a
+        # full scan of the wide roms row, JSON metadata blobs included.
         Index(
             "idx_roms_sibling_cover",
             "platform_id",
@@ -318,9 +330,12 @@ class Rom(BaseModel):
             "ra_id",
             "hasheous_id",
             "tgdb_id",
+            "flashpoint_id",
+            "fs_name_no_ext",
             "id",
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
+        Index("idx_roms_missing_from_fs", "missing_from_fs", "name_sort_key"),
         Index("idx_roms_name", "name"),
         Index("idx_roms_name_sort_key", "name_sort_key"),
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -335,6 +350,11 @@ class Rom(BaseModel):
         Index("idx_roms_hltb_id", "hltb_id"),
         Index("idx_roms_gamelist_id", "gamelist_id"),
         Index("idx_roms_libretro_id", "libretro_id"),
+        # Searching the gallery by a hash digest
+        Index("idx_roms_crc_hash", "crc_hash"),
+        Index("idx_roms_md5_hash", "md5_hash"),
+        Index("idx_roms_sha1_hash", "sha1_hash"),
+        Index("idx_roms_ra_hash", "ra_hash"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))

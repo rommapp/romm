@@ -53,6 +53,7 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
@@ -236,6 +237,10 @@ const streamSlot = computed(() => capabilities.value.autosaveSlot);
 
 const title = computed(
   () => heroRom.value?.name || heroRom.value?.fs_name_no_ext || "",
+);
+
+usePageTitle(() =>
+  title.value ? t("play.page-title", { name: title.value }) : null,
 );
 
 const platformLabel = computed(
@@ -1053,6 +1058,7 @@ onBeforeUnmount(() => {
             :title="title"
             :identified="heroRom?.is_identified ?? true"
             :morph-id="morphRomId"
+            style-context="player"
             morph-static
             hover-motion
           />

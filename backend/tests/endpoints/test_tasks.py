@@ -16,7 +16,9 @@ def mock_task():
     task.task_type = TaskType.CLEANUP
     task.enabled = True
     task.manual_run = True
+    task.can_run_manually = True
     task.cron_string = "0 0 * * *"
+    task.timeout = 300
     task.run = Mock()
     return task
 
@@ -30,7 +32,9 @@ def mock_disabled_task():
     task.task_type = TaskType.CLEANUP
     task.enabled = False
     task.manual_run = True
+    task.can_run_manually = False
     task.cron_string = None
+    task.timeout = 300
     task.run = Mock()
     return task
 
@@ -44,7 +48,9 @@ def mock_non_manual_task():
     task.task_type = TaskType.CLEANUP
     task.enabled = True
     task.manual_run = False
+    task.can_run_manually = False
     task.cron_string = "0 0 * * *"
+    task.timeout = 300
     task.run = Mock()
     return task
 
@@ -87,6 +93,8 @@ class TestListTasks:
                     description="Manual task",
                     enabled=True,
                     manual_run=True,
+                    can_run_manually=True,
+                    timeout=300,
                     cron_string=None,
                 ),
             }
@@ -105,6 +113,8 @@ class TestListTasks:
                     description="Scheduled task",
                     enabled=True,
                     manual_run=False,
+                    can_run_manually=False,
+                    timeout=300,
                     cron_string="0 0 * * *",
                 ),
             }
@@ -176,7 +186,7 @@ class TestListTasks:
     def test_list_tasks_unauthorized(self, client):
         """Test that unauthorized requests are rejected"""
         response = client.get("/api/tasks")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_list_tasks_insufficient_scope(self, client, admin_user):
         """Test that requests without proper scope are rejected"""
@@ -218,6 +228,8 @@ class TestRunSingleTask:
                     description="Test Description",
                     enabled=True,
                     manual_run=True,
+                    can_run_manually=True,
+                    timeout=300,
                     run=Mock(),
                 ),
             }
@@ -269,6 +281,8 @@ class TestRunSingleTask:
                     description="Disabled Description",
                     enabled=False,
                     manual_run=True,
+                    can_run_manually=False,
+                    timeout=300,
                     run=Mock(),
                 ),
             }
@@ -300,6 +314,8 @@ class TestRunSingleTask:
                     description="Non-Manual Description",
                     enabled=True,
                     manual_run=False,
+                    can_run_manually=False,
+                    timeout=300,
                     run=Mock(),
                 ),
             }
@@ -320,7 +336,7 @@ class TestRunSingleTask:
     def test_run_single_task_unauthorized(self, client):
         """Test running a task without authentication"""
         response = client.post("/api/tasks/run/test_task")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestGetTasksStatus:
@@ -476,7 +492,7 @@ class TestGetTaskById:
     def test_get_task_by_id_unauthorized(self, client):
         """Test retrieval of a task without authentication"""
         response = client.get("/api/tasks/test-job-id")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestTaskInfoBuilding:
@@ -510,6 +526,8 @@ class TestTaskInfoBuilding:
                         description="Test Description",
                         enabled=True,
                         manual_run=True,
+                        can_run_manually=True,
+                        timeout=300,
                         cron_string="0 0 * * *",
                     ),
                 }
@@ -555,6 +573,8 @@ class TestIntegration:
                         description="Workflow Description",
                         enabled=True,
                         manual_run=True,
+                        can_run_manually=True,
+                        timeout=300,
                         run=Mock(),
                     ),
                 }

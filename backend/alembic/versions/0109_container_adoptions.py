@@ -1,7 +1,7 @@
 """Add streaming_container_adoptions table
 
-Revision ID: 0105_container_adoptions
-Revises: 0104_memory_cards
+Revision ID: 0109_container_adoptions
+Revises: 0108_memory_cards
 Create Date: 2026-07-21 00:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0105_container_adoptions"
-down_revision = "0104_memory_cards"
+revision = "0109_container_adoptions"
+down_revision = "0108_memory_cards"
 branch_labels = None
 depends_on = None
 

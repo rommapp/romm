@@ -17,6 +17,6 @@
   "widget-library-stats": "ライブラリ統計",
   "widget-random-pick": "ランダムピック",
   "widget-random-pick-empty": "まだゲームが読み込まれていません",
-  "widget-random-pick-open": "開く",
+  "widget-random-pick-error": "ゲームを選べませんでした",
   "widget-random-pick-reroll": "引き直す"
 }

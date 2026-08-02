@@ -34,13 +34,13 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
 import RDivider from "../../primitives/RDivider/RDivider.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
 import RTag from "../../primitives/RTag/RTag.vue";
 import { useRFormRegistration } from "../RForm/context";
 import RTextField from "../RTextField/RTextField.vue";
-import { shouldAutofocusSearch } from "./autofocus";
 
 defineOptions({ inheritAttrs: false });
 
@@ -653,6 +653,9 @@ const isOpen = ref(false);
 const activatorRef = ref<HTMLElement | null>(null);
 const panelRef = ref<HTMLElement | null>(null);
 
+// Ceiling for the panel; the viewport remainder can shrink it further.
+const MAX_PANEL_HEIGHT = 360;
+
 const PLACEMENT_MAP: Record<string, Placement> = {
   top: "top",
   bottom: "bottom",
@@ -676,14 +679,15 @@ const { floatingStyles } = useFloating(activatorRef, panelRef, {
     flip({ padding: 8 }),
     shift({ padding: 8 }),
     sizeMiddleware({
-      apply({ rects, elements }) {
+      apply({ availableHeight, rects, elements }) {
         // Pin the menu's min-width to the activator so single-line
         // labels and short option lists don't render as a thin chip.
-        // Max height is bounded by the viewport remainder so long
-        // lists scroll inside the panel.
+        // `availableHeight` is the room left between the activator and
+        // the viewport edge on the placement `flip` settled on, so the
+        // panel always fits on screen and long lists scroll inside it.
         Object.assign(elements.floating.style, {
           minWidth: `${rects.reference.width}px`,
-          maxHeight: `min(360px, var(--available-height, 360px))`,
+          maxHeight: `${Math.min(MAX_PANEL_HEIGHT, availableHeight)}px`,
         });
       },
       padding: 8,
@@ -1035,8 +1039,10 @@ const hasPrependInner = computed(
           />
         </template>
         <!-- Single selection or multi-without-chips — defer to the
-             `#selection` slot for custom rendering. Default: title. -->
-        <template v-else>
+             `#selection` slot for custom rendering. Default: title.
+             Wrapped in one box so the comma separator doesn't inherit
+             `.r-select__value`'s flex gap and read as " , ". -->
+        <span v-else class="r-select__selection">
           <template v-for="(item, i) in selectedItems" :key="i">
             <slot
               name="selection"
@@ -1047,7 +1053,7 @@ const hasPrependInner = computed(
               <span class="r-select__title">{{ item.title }}</span>
             </slot>
           </template>
-        </template>
+        </span>
       </span>
 
       <span
@@ -1378,11 +1384,25 @@ const hasPrependInner = computed(
   gap: 6px;
   white-space: nowrap;
 }
+.r-select__selection {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+.r-select__sep {
+  flex: 0 0 auto;
+}
 .r-select__title,
 .r-select__placeholder {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* Flex items default to `min-width: auto` — without this the title
+   refuses to shrink and a long selection clips instead of ellipsizing. */
+.r-select__title {
+  min-width: 0;
 }
 .r-select__placeholder {
   color: var(--r-color-fg-faint);

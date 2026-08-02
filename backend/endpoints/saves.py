@@ -7,9 +7,11 @@ from typing import Annotated
 from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
+from config import MAX_AUTOCLEANUP_LIMIT
 from decorators.auth import protected_route
 from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummarySchema
 from endpoints.responses.device import DeviceSyncSchema
+from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
@@ -32,6 +34,7 @@ from models.device_save_sync import DeviceSaveSync
 from utils.datetime import to_utc
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
+from utils.uploads import check_asset_upload_size
 
 
 def _build_save_schema(
@@ -169,6 +172,12 @@ async def add_save(
     screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPLOAD,
 ) -> SaveSchema:
     """Upload a save file for a ROM."""
+    check_asset_upload_size(saveFile, "Save file")
+    check_asset_upload_size(screenshotFile, "Screenshot file")
+
+    # Keep at least the save just uploaded, and cap what a client can retain
+    autocleanup_limit = max(1, min(autocleanup_limit, MAX_AUTOCLEANUP_LIMIT))
+
     device = _resolve_device(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
     )
@@ -383,6 +392,8 @@ async def add_save(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
 
+    refresh_affected_smart_collections([rom.id], membership_only=True)
+
     return _build_save_schema(db_save, _syncs_for_save(db_save.id, device), device)
 
 
@@ -556,6 +567,9 @@ async def update_save(
 ) -> SaveSchema:
     """Update a save file."""
 
+    check_asset_upload_size(saveFile, "Save file")
+    check_asset_upload_size(screenshotFile, "Screenshot file")
+
     device = _resolve_device(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
     )
@@ -673,6 +687,9 @@ def update_save_visibility(
             save.screenshot.id, {"is_public": is_public}
         )
 
+    # Sharing a save exposes it to every other user's `has_saves` filter.
+    refresh_affected_smart_collections([save.rom_id], membership_only=True)
+
     return _build_save_schema(updated)
 
 
@@ -701,6 +718,8 @@ async def delete_saves(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
+    affected_rom_ids: set[int] = set()
+
     for save_id in saves:
         save = db_save_handler.get_save(user_id=request.user.id, id=save_id)
         if not save:
@@ -708,6 +727,7 @@ async def delete_saves(
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+        affected_rom_ids.add(save.rom_id)
         db_save_handler.delete_save(save_id)
 
         log.info(
@@ -729,6 +749,8 @@ async def delete_saves(
             except FileNotFoundError:
                 error = f"Screenshot file {hl(save.screenshot.file_name)} not found for save {hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
                 log.error(error)
+
+    refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 
     return saves
 

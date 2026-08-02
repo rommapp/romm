@@ -35,6 +35,7 @@ import SettingsTab from "@/v2/components/Gallery/SettingsTab.vue";
 import MemoryCardManager from "@/v2/components/Player/MemoryCardManager.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
@@ -50,6 +51,10 @@ const { currentPlatform, total } = storeToRefs(galleryRoms);
 
 const notFound = ref(false);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
+
+usePageTitle(() =>
+  notFound.value ? null : (currentPlatform.value?.display_name ?? null),
+);
 const deleting = ref(false);
 const scanOpen = ref(false);
 const randomLoading = ref(false);
@@ -299,7 +304,6 @@ async function loadForId(platformId: number) {
     galleryRoms.resetGallery();
     galleryRoms.setCurrentPlatform(cached);
   }
-  document.title = cached.display_name;
   // Bootstrap metadata only; grid (shell viewport-sync) and list
   // (GameListRow's onMounted) both hydrate rows per-position from here.
   await galleryRoms.fetchInitialMetadata();
