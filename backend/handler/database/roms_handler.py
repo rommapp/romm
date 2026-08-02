@@ -1643,6 +1643,19 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def has_any_rom(
+        self,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> bool:
+        """Whether the library holds at least one ROM.
+
+        An existence probe rather than a count, for callers that only
+        need to know whether the library has ever been scanned.
+        """
+        return session.scalar(select(Rom.id).limit(1)) is not None
+
+    @begin_session
     def get_roms_by_fs_name(
         self,
         platform_id: int,
