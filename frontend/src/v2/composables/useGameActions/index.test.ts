@@ -19,6 +19,12 @@ const confirmProtectedLaunch = { value: true };
 const canPlayEJS = { value: true };
 const canPlayRuffle = { value: false };
 const streamContainer = { value: null as object | null };
+// Mirrors the real composable, which reads it off the streaming store.
+const canPlayStream = {
+  get value() {
+    return streamContainer.value !== null;
+  },
+};
 let originalLocation: Location;
 // Granted action keys — `null` means "everything" (the default).
 const grantedActions: { value: Set<ActionKey> | null } = { value: null };
@@ -65,7 +71,7 @@ vi.mock("@/v2/composables/useCan", () => ({
   }),
 }));
 vi.mock("@/v2/composables/useCanPlay", () => ({
-  useCanPlay: () => ({ canPlayEJS, canPlayRuffle }),
+  useCanPlay: () => ({ canPlayEJS, canPlayRuffle, canPlayStream }),
 }));
 vi.mock("@/v2/composables/useClipboard", () => ({
   useClipboard: () => ({ copy: vi.fn() }),
