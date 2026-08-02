@@ -32,6 +32,7 @@ class DBFirmwareHandler(DBBaseHandler):
         self,
         *,
         platform_id: int | None = None,
+        missing: bool | None = None,
         only_fields: Sequence[QueryableAttribute] | None = None,
         hidden_platform_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
@@ -40,6 +41,9 @@ class DBFirmwareHandler(DBBaseHandler):
 
         if platform_id:
             query = query.filter_by(platform_id=platform_id)
+
+        if missing is not None:
+            query = query.filter(Firmware.missing_from_fs == missing)
 
         # Firmware inherits its platform's visibility: hide firmware whose
         # platform an admin has hidden from the caller.

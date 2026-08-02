@@ -14,6 +14,7 @@ from config.config_manager import ConfigManager
 from handler.auth import auth_handler
 from handler.auth.base_handler import ALGORITHM, oct_key
 from handler.database import (
+    db_firmware_handler,
     db_permission_handler,
     db_platform_handler,
     db_rom_handler,
@@ -26,6 +27,7 @@ from models.assets import Save, Screenshot, State
 from models.client_token import ClientToken
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
+from models.firmware import Firmware
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
@@ -100,6 +102,7 @@ def clear_database():
         s.query(Screenshot).delete(synchronize_session="evaluate")
         s.query(RomFile).delete(synchronize_session="evaluate")
         s.query(Rom).delete(synchronize_session="evaluate")
+        s.query(Firmware).delete(synchronize_session="evaluate")
         s.query(Platform).delete(synchronize_session="evaluate")
         s.query(User).delete(synchronize_session="evaluate")
 
@@ -122,6 +125,35 @@ def platform():
         name="test_platform", slug="test_platform_slug", fs_slug="test_platform_slug"
     )
     return db_platform_handler.add_platform(platform)
+
+
+def _build_firmware(platform: Platform, file_name: str, missing: bool) -> Firmware:
+    return Firmware(
+        platform_id=platform.id,
+        file_name=file_name,
+        file_path=f"{platform.fs_slug}/bios",
+        file_size_bytes=1024,
+        crc_hash="crc",
+        md5_hash="md5",
+        sha1_hash="sha1",
+        missing_from_fs=missing,
+    )
+
+
+@pytest.fixture
+def firmware(platform: Platform):
+    """Firmware whose file is still on disk."""
+    return db_firmware_handler.add_firmware(
+        _build_firmware(platform, "present.bin", missing=False)
+    )
+
+
+@pytest.fixture
+def missing_firmware(platform: Platform):
+    """Firmware flagged by a scan as gone from the filesystem."""
+    return db_firmware_handler.add_firmware(
+        _build_firmware(platform, "gone.bin", missing=True)
+    )
 
 
 @pytest.fixture

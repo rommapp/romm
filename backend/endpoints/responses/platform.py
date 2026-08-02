@@ -46,10 +46,12 @@ class PlatformSchema(BaseModel):
     def display_name(self) -> str:
         return self.custom_name or self.name
 
+    # Missing entries stay in `firmware` so they can be cleaned up, but they
+    # aren't usable BIOS, so they don't count.
     @computed_field  # type: ignore
     @property
     def firmware_count(self) -> int:
-        return len(self.firmware)
+        return len([f for f in self.firmware if not f.missing_from_fs])
 
     @field_validator("firmware")
     def sort_files(cls, v: list[FirmwareSchema]) -> list[FirmwareSchema]:
