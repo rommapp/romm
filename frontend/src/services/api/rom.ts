@@ -183,10 +183,10 @@ export interface GetRomsParams {
   playerCountsLogic?: string | null;
   metadataProvidersLogic?: string | null;
   tagsLogic?: string | null;
-  // Skip the char index / filter-value / id-index aggregations server-side
   withCharIndex?: boolean;
   withFilterValues?: boolean;
   withRomIdIndex?: boolean;
+  withTotal?: boolean;
   // Cancel an in-flight request
   signal?: AbortSignal;
 }
@@ -238,6 +238,7 @@ async function getRoms({
   withCharIndex = undefined,
   withFilterValues = undefined,
   withRomIdIndex = undefined,
+  withTotal = undefined,
   signal = undefined,
 }: GetRomsParams) {
   const params = {
@@ -351,6 +352,7 @@ async function getRoms({
     ...(withRomIdIndex !== undefined
       ? { with_rom_id_index: withRomIdIndex }
       : {}),
+    ...(withTotal !== undefined ? { with_total: withTotal } : {}),
   };
 
   return api.get<GetRomsResponse>(`/roms`, {

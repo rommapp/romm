@@ -27,6 +27,7 @@ from fastapi import (
 from fastapi.responses import Response
 from fastapi_pagination import resolve_params
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
+from fastapi_pagination.types import GreaterEqualZero
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
@@ -324,6 +325,7 @@ class CustomLimitOffsetParams(LimitOffsetParams):
 
 
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
+    total: GreaterEqualZero | None
     char_index: dict[str, int]
     rom_id_index: list[int]
     filter_values: RomFiltersDict
@@ -345,6 +347,17 @@ def get_roms(
         Query(
             description=(
                 "Whether to return the full ordered rom id index that backs virtual scroll."
+            )
+        ),
+    ] = True,
+    with_total: Annotated[
+        bool,
+        Query(
+            description=(
+                "Whether to count the full result set. Set to false when the caller"
+                " already knows the total, e.g. paging through a gallery it has"
+                " sized; total then comes back null, unless the rom id index is"
+                " being built and already carries it."
             )
         ),
     ] = True,
@@ -831,9 +844,20 @@ def get_roms(
                 for item in items
             ]
 
+        def resolve_total() -> int | None:
+            if with_rom_id_index:
+                # The index already spans the result set, so the count is free.
+                return len(rom_id_index)
+            # Without the index the count is its own scan of the filtered set,
+            # so a caller scrolling a gallery it already sized opts out.
+            return (
+                db_rom_handler.get_rom_count(query=query, session=session)
+                if with_total
+                else None
+            )
+
         params = resolve_params()
         if with_rom_id_index:
-            total = len(rom_id_index)
             page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
             if page_ids:
                 page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
@@ -847,12 +871,11 @@ def get_roms(
             page_items = list(
                 session.scalars(query.offset(params.offset).limit(params.limit)).all()
             )
-            total = db_rom_handler.get_rom_count(query=query, session=session)
 
         return CustomLimitOffsetPage.create(
             _transform(page_items),
             params,
-            total=total,
+            total=resolve_total(),
             char_index=char_index_dict,
             rom_id_index=list(rom_id_index),
             filter_values=filter_values,
