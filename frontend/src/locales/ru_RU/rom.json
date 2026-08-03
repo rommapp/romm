@@ -455,5 +455,7 @@
   "volume-mute": "Отключить звук",
   "volume-unmute": "Включить звук",
   "your-progress": "Your progress",
-  "youtube-video-id": "ID видео YouTube"
+  "youtube-video-id": "ID видео YouTube",
+  "downloads": "Downloads",
+  "last-downloaded": "Last downloaded"
 }

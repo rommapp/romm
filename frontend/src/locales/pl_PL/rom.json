@@ -455,5 +455,7 @@
   "volume-mute": "Wycisz",
   "volume-unmute": "Wyłącz wyciszenie",
   "your-progress": "Your progress",
-  "youtube-video-id": "ID filmu YouTube"
+  "youtube-video-id": "ID filmu YouTube",
+  "downloads": "Downloads",
+  "last-downloaded": "Last downloaded"
 }

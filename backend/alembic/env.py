@@ -9,6 +9,7 @@ from logger.logger import unify_logger
 from models.assets import Save, Screenshot, State  # noqa
 from models.base import BaseModel
 from models.collection import VirtualCollection
+from models.download_event import DownloadEvent  # noqa
 from models.firmware import Firmware  # noqa
 from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack  # noqa
 from models.platform import Platform  # noqa

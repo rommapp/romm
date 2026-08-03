@@ -455,5 +455,7 @@
   "volume-mute": "Disattiva audio",
   "volume-unmute": "Riattiva audio",
   "your-progress": "Your progress",
-  "youtube-video-id": "ID video YouTube"
+  "youtube-video-id": "ID video YouTube",
+  "downloads": "Download",
+  "last-downloaded": "Ultimo download"
 }

@@ -430,6 +430,15 @@ class Rom(BaseModel):
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
+    # Denormalized from download_events so gallery sorting and the "never
+    # downloaded" sweep don't need an aggregate join per rom.
+    download_count: Mapped[int] = mapped_column(
+        BigInteger(), default=0, nullable=False, server_default="0", index=True
+    )
+    last_downloaded_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), default=None
+    )
+
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
     )

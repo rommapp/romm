@@ -455,5 +455,7 @@
   "volume-mute": "静音",
   "volume-unmute": "取消静音",
   "your-progress": "Your progress",
-  "youtube-video-id": "YouTube 视频 ID"
+  "youtube-video-id": "YouTube 视频 ID",
+  "downloads": "Downloads",
+  "last-downloaded": "Last downloaded"
 }

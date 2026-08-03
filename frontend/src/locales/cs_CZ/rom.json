@@ -455,5 +455,7 @@
   "volume-mute": "Ztlumit",
   "volume-unmute": "Zrušit ztlumení",
   "your-progress": "Your progress",
-  "youtube-video-id": "ID YouTube videa"
+  "youtube-video-id": "ID YouTube videa",
+  "downloads": "Downloads",
+  "last-downloaded": "Last downloaded"
 }

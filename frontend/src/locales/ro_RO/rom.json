@@ -455,5 +455,7 @@
   "volume-mute": "Mut",
   "volume-unmute": "Activează sunetul",
   "your-progress": "Your progress",
-  "youtube-video-id": "ID video YouTube"
+  "youtube-video-id": "ID video YouTube",
+  "downloads": "Downloads",
+  "last-downloaded": "Last downloaded"
 }

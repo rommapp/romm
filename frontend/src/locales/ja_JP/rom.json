@@ -455,5 +455,7 @@
   "volume-mute": "ミュート",
   "volume-unmute": "ミュート解除",
   "your-progress": "Your progress",
-  "youtube-video-id": "YouTube動画ID"
+  "youtube-video-id": "YouTube動画ID",
+  "downloads": "Downloads",
+  "last-downloaded": "Last downloaded"
 }

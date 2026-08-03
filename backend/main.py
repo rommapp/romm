@@ -37,6 +37,7 @@ from endpoints.collections import router as collections_router
 from endpoints.configs import router as configs_router
 from endpoints.device import router as device_router
 from endpoints.device_auth import router as device_auth_router
+from endpoints.downloads import router as downloads_router
 from endpoints.export import router as export_router
 from endpoints.feeds import router as feeds_router
 from endpoints.firmware import router as firmware_router
@@ -187,6 +188,7 @@ app.include_router(tasks_router, prefix="/api")
 app.include_router(feeds_router, prefix="/api")
 app.include_router(configs_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")
+app.include_router(downloads_router, prefix="/api")
 app.include_router(logs_router, prefix="/api")
 app.include_router(screenshots_router, prefix="/api")
 app.include_router(firmware_router, prefix="/api")

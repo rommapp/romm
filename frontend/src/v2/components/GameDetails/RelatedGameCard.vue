@@ -150,6 +150,8 @@ const syntheticRom = computed<SimpleRom>(() => ({
   updated_at: "",
   missing_from_fs: false,
   has_notes: false,
+  download_count: 0,
+  last_downloaded_at: null,
   files: [],
   sibling_roms: [],
   rom_user: EMPTY_USER,

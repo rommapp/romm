@@ -455,5 +455,7 @@
   "volume-mute": "Silenciar",
   "volume-unmute": "Reativar som",
   "your-progress": "Your progress",
-  "youtube-video-id": "ID do vídeo do YouTube"
+  "youtube-video-id": "ID do vídeo do YouTube",
+  "downloads": "Downloads",
+  "last-downloaded": "Último download"
 }

@@ -455,5 +455,7 @@
   "volume-mute": "음소거",
   "volume-unmute": "음소거 해제",
   "your-progress": "Your progress",
-  "youtube-video-id": "YouTube 동영상 ID"
+  "youtube-video-id": "YouTube 동영상 ID",
+  "downloads": "Downloads",
+  "last-downloaded": "Last downloaded"
 }

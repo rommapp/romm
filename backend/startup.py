@@ -32,6 +32,7 @@ from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
 from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
+from tasks.scheduled.cleanup_download_events import cleanup_download_events_task
 from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
 from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
@@ -144,6 +145,7 @@ async def main() -> None:
         cleanup_netplay_task.init()
         cleanup_zip_cache_task.init()
         cleanup_upload_tmp_task.init()
+        cleanup_download_events_task.init()
         cleanup_orphaned_resources_task.init()
 
         if ENABLE_SCHEDULED_RESCAN:

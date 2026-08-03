@@ -72,10 +72,12 @@ from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.download_event import DownloadKind
 from models.permission import PermAction, PermEntity
 from models.rom import Rom, RomUserStatus, compute_name_sort_key
 from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
+from utils.downloads import record_rom_download
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.m3u import generate_m3u_content
@@ -1003,6 +1005,11 @@ async def download_roms(
         f"User {hl(current_username, color=BLUE)} is downloading {len(rom_objects)} ROMs as zip"
     )
 
+    # One event per rom, so a bulk zip credits each title instead of being
+    # invisible to the stats.
+    for rom in rom_objects:
+        record_rom_download(request, rom, rom.files, kind=DownloadKind.ROM)
+
     all_entries = []
     for rom in rom_objects:
         rom_files = sorted(rom.files, key=lambda x: x.file_name)
@@ -1368,6 +1375,8 @@ async def get_rom_content(
     log.info(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"
     )
+
+    record_rom_download(request, rom, files, kind=DownloadKind.ROM)
 
     # If .cue files are present, only list those in the M3U
     # (avoids invalid entries like raw .bin tracks)
