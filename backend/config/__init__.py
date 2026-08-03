@@ -133,6 +133,9 @@ FLASHPOINT_API_ENABLED: Final[bool] = safe_str_to_bool(
     _get_env("FLASHPOINT_API_ENABLED")
 )
 
+# RAWG
+RAWG_API_KEY: Final[str | None] = _get_env("RAWG_API_KEY")
+
 # HOWLONGTOBEAT
 HLTB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HLTB_API_ENABLED"))
 
