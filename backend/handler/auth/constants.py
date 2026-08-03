@@ -18,7 +18,8 @@ class AuthMethod(enum.StrEnum):
 
     SESSION = "session"
     BASIC = "basic"
-    CLIENT_TOKEN = "client_token"
+    # Names an auth mechanism, not a credential.
+    CLIENT_TOKEN = "client_token"  # nosec B105
     OAUTH = "oauth"
     KIOSK = "kiosk"
 

@@ -36,7 +36,8 @@ class DownloadSource(enum.StrEnum):
 
     WEBUI = "webui"
     BASIC_AUTH = "basic_auth"
-    CLIENT_TOKEN = "client_token"
+    # Names a download source, not a credential.
+    CLIENT_TOKEN = "client_token"  # nosec B105
     OAUTH = "oauth"
     ANONYMOUS = "anonymous"
 
