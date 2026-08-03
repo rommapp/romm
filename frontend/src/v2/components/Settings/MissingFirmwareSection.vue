@@ -19,7 +19,7 @@ import {
   RTag,
 } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { FirmwareSchema } from "@/__generated__";
 import firmwareApi from "@/services/api/firmware";
@@ -50,6 +50,7 @@ const loading = ref(true);
 const cleaningUp = ref(false);
 const selectedPlatformIds = ref<number[]>([]);
 const platformSearch = ref("");
+let refetchTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Only platforms that actually have something to clean up: the rest would
 // filter the list down to nothing.
@@ -127,7 +128,8 @@ async function cleanupAll() {
         : {};
     await taskApi.runTask("cleanup_missing_firmware", body);
     snackbar.success(t("settings.cleanup-firmware-queued"));
-    setTimeout(() => {
+    // Give the queued task a moment to land before reflecting the result.
+    refetchTimer = setTimeout(() => {
       void fetchMissingFirmware();
     }, 1500);
   } catch (err) {
@@ -139,6 +141,10 @@ async function cleanupAll() {
 
 onMounted(() => {
   void fetchMissingFirmware();
+});
+
+onBeforeUnmount(() => {
+  if (refetchTimer) clearTimeout(refetchTimer);
 });
 </script>
 

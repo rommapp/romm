@@ -14,12 +14,6 @@ interface FirmwareLike {
   missing_from_fs: boolean;
 }
 
-export function selectableFirmware<T extends FirmwareLike>(
-  options: readonly T[],
-): T[] {
-  return options.filter((f) => !f.missing_from_fs);
-}
-
 export function resolveInitialFirmware<T extends FirmwareLike>({
   options,
   storedBiosId,
@@ -33,7 +27,7 @@ export function resolveInitialFirmware<T extends FirmwareLike>({
   // string names a file.
   configBiosFile: string | boolean | undefined;
 }): T | null {
-  const usable = selectableFirmware(options);
+  const usable = options.filter((f) => !f.missing_from_fs);
 
   const fromStorage = storedBiosId
     ? usable.find((f) => f.id === parseInt(storedBiosId))

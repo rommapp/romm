@@ -1,22 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { resolveInitialFirmware, selectableFirmware } from "./playerFirmware";
+import { resolveInitialFirmware } from "./playerFirmware";
 
 // Only these three fields are read; minimal stubs stand in for FirmwareSchema.
 const fw = (id: number, file_name: string, missing_from_fs = false) => ({
   id,
   file_name,
   missing_from_fs,
-});
-
-describe("selectableFirmware", () => {
-  it("drops entries whose file is gone from disk", () => {
-    const options = [fw(1, "a.bin"), fw(2, "b.bin", true), fw(3, "c.bin")];
-    expect(selectableFirmware(options).map((f) => f.id)).toEqual([1, 3]);
-  });
-
-  it("returns nothing when every entry is missing", () => {
-    expect(selectableFirmware([fw(1, "a.bin", true)])).toEqual([]);
-  });
 });
 
 describe("resolveInitialFirmware", () => {
@@ -66,8 +55,7 @@ describe("resolveInitialFirmware", () => {
 
   it("ignores a stored id that now points at missing firmware", () => {
     const options = [fw(1, "gone.bin", true), fw(2, "present.bin")];
-    // Two usable entries would be ambiguous, so the fallback stays null rather
-    // than guessing; what matters is the missing one is not picked.
+    // The stored pick is discarded, leaving one usable entry to fall back on.
     expect(
       resolveInitialFirmware({
         options,
