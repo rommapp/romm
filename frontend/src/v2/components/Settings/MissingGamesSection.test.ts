@@ -6,7 +6,12 @@ import MissingGamesSection from "./MissingGamesSection.vue";
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
 
 vi.mock("@/services/api/rom", () => ({ default: { getRoms } }));
-vi.mock("@/services/api/task", () => ({ default: { runTask: vi.fn() } }));
+vi.mock("@/services/api/task", () => ({
+  default: {
+    runTask: vi.fn().mockResolvedValue({ data: { task_id: "job-1" } }),
+    getTaskById: vi.fn().mockResolvedValue({ data: { status: "finished" } }),
+  },
+}));
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),

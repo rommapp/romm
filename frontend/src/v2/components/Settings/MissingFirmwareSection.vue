@@ -19,7 +19,7 @@ import {
   RTag,
 } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { FirmwareSchema } from "@/__generated__";
 import firmwareApi from "@/services/api/firmware";
@@ -29,6 +29,7 @@ import { formatBytes } from "@/utils";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
 
 interface PlatformItem {
   id: number;
@@ -42,6 +43,7 @@ const { t } = useI18n();
 const platformsStore = storePlatforms();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
+const { awaitTask } = useTaskCompletion();
 
 const { allPlatforms } = storeToRefs(platformsStore);
 
@@ -50,7 +52,6 @@ const loading = ref(true);
 const cleaningUp = ref(false);
 const selectedPlatformIds = ref<number[]>([]);
 const platformSearch = ref("");
-let refetchTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Only platforms that actually have something to clean up: the rest would
 // filter the list down to nothing.
@@ -126,12 +127,11 @@ async function cleanupAll() {
       selectedPlatformIds.value.length === 1
         ? { platform_id: selectedPlatformIds.value[0] }
         : {};
-    await taskApi.runTask("cleanup_missing_firmware", body);
+    const { data } = await taskApi.runTask("cleanup_missing_firmware", body);
     snackbar.success(t("settings.cleanup-firmware-queued"));
-    // Give the queued task a moment to land before reflecting the result.
-    refetchTimer = setTimeout(() => {
-      void fetchMissingFirmware();
-    }, 1500);
+    // The run endpoint returns once the job is queued, so wait for the worker
+    // to finish before showing what's left.
+    if (await awaitTask(data.task_id)) await fetchMissingFirmware();
   } catch (err) {
     snackbar.error(t("settings.couldnt-queue-cleanup", { error: String(err) }));
   } finally {
@@ -141,10 +141,6 @@ async function cleanupAll() {
 
 onMounted(() => {
   void fetchMissingFirmware();
-});
-
-onBeforeUnmount(() => {
-  if (refetchTimer) clearTimeout(refetchTimer);
 });
 </script>
 

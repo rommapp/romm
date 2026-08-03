@@ -4,14 +4,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import storePlatforms from "@/stores/platforms";
 import MissingFirmwareSection from "./MissingFirmwareSection.vue";
 
-const { getFirmware, runTask, confirm } = vi.hoisted(() => ({
+const { getFirmware, runTask, getTaskById, confirm } = vi.hoisted(() => ({
   getFirmware: vi.fn(),
   runTask: vi.fn(),
+  getTaskById: vi.fn(),
   confirm: vi.fn(),
 }));
 
 vi.mock("@/services/api/firmware", () => ({ default: { getFirmware } }));
-vi.mock("@/services/api/task", () => ({ default: { runTask } }));
+vi.mock("@/services/api/task", () => ({ default: { runTask, getTaskById } }));
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -88,7 +89,9 @@ describe("MissingFirmwareSection", () => {
     setActivePinia(createPinia());
     seedPlatforms();
     runTask.mockReset();
-    runTask.mockResolvedValue({});
+    runTask.mockResolvedValue({ data: { task_id: "job-1" } });
+    getTaskById.mockReset();
+    getTaskById.mockResolvedValue({ data: { status: "finished" } });
     confirm.mockReset();
     confirm.mockResolvedValue(true);
     getFirmware.mockReset();
@@ -163,6 +166,35 @@ describe("MissingFirmwareSection", () => {
     await flushPromises();
 
     expect(runTask).toHaveBeenCalledWith("cleanup_missing_firmware", {});
+  });
+
+  it("waits for the cleanup task to finish before reloading the list", async () => {
+    const wrapper = mountSection();
+    await flushPromises();
+    getFirmware.mockClear();
+    getFirmware.mockResolvedValue({ data: [] });
+
+    wrapper.findComponent({ name: "RMenuItem" }).vm.$emit("click");
+    await flushPromises();
+
+    expect(getTaskById).toHaveBeenCalledWith("job-1");
+    expect(getFirmware).toHaveBeenCalledTimes(1);
+    expect(wrapper.find("[data-test='missing-firmware-empty']").exists()).toBe(
+      true,
+    );
+  });
+
+  it("leaves the list alone while the cleanup task is still running", async () => {
+    getTaskById.mockResolvedValue({ data: { status: "started" } });
+
+    const wrapper = mountSection();
+    await flushPromises();
+    getFirmware.mockClear();
+
+    wrapper.findComponent({ name: "RMenuItem" }).vm.$emit("click");
+    await flushPromises();
+
+    expect(getFirmware).not.toHaveBeenCalled();
   });
 
   it("does not queue anything when the confirmation is declined", async () => {
