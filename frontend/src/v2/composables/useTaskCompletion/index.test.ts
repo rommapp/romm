@@ -1,3 +1,4 @@
+import { AxiosError, type AxiosResponse } from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { effectScope } from "vue";
 import { useTaskCompletion } from "./index";
@@ -7,6 +8,11 @@ const { getTaskById } = vi.hoisted(() => ({ getTaskById: vi.fn() }));
 vi.mock("@/services/api/task", () => ({ default: { getTaskById } }));
 
 const status = (s: string) => ({ data: { status: s } });
+
+const httpError = (code: number) =>
+  new AxiosError("boom", undefined, undefined, undefined, {
+    status: code,
+  } as AxiosResponse);
 
 // The composable registers an onScopeDispose hook, so it needs an owning scope
 // the same way a component setup would give it one.
@@ -52,10 +58,35 @@ describe("useTaskCompletion", () => {
   // The job ran and its result has already aged out of Redis, so there is
   // nothing left to wait for.
   it("treats an unfetchable job as done", async () => {
-    getTaskById.mockRejectedValue(new Error("404"));
+    getTaskById.mockRejectedValue(httpError(404));
 
     const { awaitTask } = inScope();
     await expect(awaitTask("job-1")).resolves.toBe(true);
+  });
+
+  it("keeps polling through a transient failure", async () => {
+    getTaskById
+      .mockRejectedValueOnce(httpError(503))
+      .mockResolvedValueOnce(status("finished"));
+
+    const { awaitTask } = inScope();
+    const settled = awaitTask("job-1");
+
+    await vi.advanceTimersByTimeAsync(5000);
+
+    await expect(settled).resolves.toBe(true);
+    expect(getTaskById).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops retrying a persistently failing lookup at the deadline", async () => {
+    getTaskById.mockRejectedValue(httpError(503));
+
+    const { awaitTask } = inScope();
+    const settled = awaitTask("job-1");
+
+    await vi.advanceTimersByTimeAsync(6 * 60 * 1000);
+
+    await expect(settled).resolves.toBe(true);
   });
 
   it.each(["failed", "stopped", "canceled"])(

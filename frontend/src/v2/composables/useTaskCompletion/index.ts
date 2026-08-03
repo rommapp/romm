@@ -13,6 +13,7 @@
 //   const { awaitTask } = useTaskCompletion();
 //   const { data } = await taskApi.runTask("cleanup_missing_roms", body);
 //   if (await awaitTask(data.task_id)) await refresh();
+import axios from "axios";
 import { onScopeDispose } from "vue";
 import type { JobStatus } from "@/__generated__";
 import taskApi from "@/services/api/task";
@@ -83,9 +84,15 @@ export function useTaskCompletion(): UseTaskCompletion {
           const { data } = await taskApi.getTaskById(taskId);
           if (mine !== generation) return;
           if (TERMINAL_STATUSES.includes(data.status)) return finish(true);
-        } catch {
+        } catch (err) {
+          if (mine !== generation) return;
           // A job past its result TTL 404s, which means it ran and is gone.
-          return finish(true);
+          // Anything else (a timeout, a 5xx) says nothing about the job, so
+          // keep polling rather than refreshing over a cleanup still in
+          // progress. The deadline below still bounds the wait.
+          if (axios.isAxiosError(err) && err.response?.status === 404) {
+            return finish(true);
+          }
         }
 
         if (Date.now() >= deadline) return finish(true);
