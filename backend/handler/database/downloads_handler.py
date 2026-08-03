@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import Date, cast, delete, distinct, func, select, update
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from decorators.database import begin_session
 from endpoints.responses.downloads import (
@@ -176,14 +177,15 @@ class DBDownloadsHandler(DBBaseHandler):
         ).one()
 
         if since is not None:
-            windowed = session.execute(
+            windowed_row = session.execute(
                 select(
                     func.count(DownloadEvent.id),
                     func.coalesce(func.sum(DownloadEvent.size_bytes), 0),
                 ).where(DownloadEvent.downloaded_at >= since)
             ).one()
+            windowed_count, windowed_bytes = windowed_row[0], windowed_row[1]
         else:
-            windowed = (totals[0], totals[1])
+            windowed_count, windowed_bytes = totals[0], totals[1]
 
         roms_total = session.scalar(select(func.count()).select_from(Rom)) or 0
 
@@ -201,8 +203,8 @@ class DBDownloadsHandler(DBBaseHandler):
         return DownloadStatsSummary(
             total_downloads=int(totals[0] or 0),
             total_bytes=int(totals[1] or 0),
-            downloads_in_window=int(windowed[0] or 0),
-            bytes_in_window=int(windowed[1] or 0),
+            downloads_in_window=int(windowed_count or 0),
+            bytes_in_window=int(windowed_bytes or 0),
             unique_roms_downloaded=int(totals[2] or 0),
             unique_users=int(totals[3] or 0),
             roms_total=roms_total,
@@ -299,7 +301,7 @@ class DBDownloadsHandler(DBBaseHandler):
         since: datetime | None = None,
         session: Session = None,  # type: ignore
     ) -> list[PlatformDownloadStat]:
-        filters = [DownloadEvent.platform_id.is_not(None)]
+        filters: list[ColumnElement[bool]] = [DownloadEvent.platform_id.is_not(None)]
         if since is not None:
             filters.append(DownloadEvent.downloaded_at >= since)
 
