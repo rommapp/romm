@@ -253,6 +253,52 @@ class TestCSRFMiddleware:
         # user1_token should not validate for user_id=2
         assert not mw._csrf_tokens_match(user1_token, user1_token, user_id=2)
 
+    def test_stale_user_token_accepted_when_anonymous(self) -> None:
+        """A token left over from a dead session must still authorise an
+        anonymous request.
+
+        Regression test for the "had to log in twice" bug: the browser keeps a
+        CSRF cookie bound to user N, the server-side session is gone (restart /
+        expiry), so the login POST is anonymous. Rejecting it here failed the
+        first attempt and rotated the cookie, letting the retry through.
+        Double-submit still protects this case, since an attacker can't read
+        the cookie to forge the matching header.
+        """
+
+        async def noop_app(scope, receive, send):
+            pass
+
+        mw = CSRFMiddleware(app=noop_app, secret="test")
+        stale_token = mw._generate_csrf_token(user_id=7)
+
+        assert mw._csrf_tokens_match(stale_token, stale_token, user_id=None)
+
+    def test_anonymous_still_requires_cookie_and_header_to_match(self) -> None:
+        """Relaxing the user binding must not relax double-submit itself."""
+
+        async def noop_app(scope, receive, send):
+            pass
+
+        mw = CSRFMiddleware(app=noop_app, secret="test")
+        token_a = mw._generate_csrf_token(user_id=None)
+        token_b = mw._generate_csrf_token(user_id=None)
+
+        assert not mw._csrf_tokens_match(token_a, token_b, user_id=None)
+
+    def test_authenticated_user_binding_still_enforced(self) -> None:
+        """The security property: a signed-in caller can't use another user's
+        token, even though the anonymous case is now lenient."""
+
+        async def noop_app(scope, receive, send):
+            pass
+
+        mw = CSRFMiddleware(app=noop_app, secret="test")
+        other_user_token = mw._generate_csrf_token(user_id=1)
+        anonymous_token = mw._generate_csrf_token(user_id=None)
+
+        assert not mw._csrf_tokens_match(other_user_token, other_user_token, user_id=2)
+        assert not mw._csrf_tokens_match(anonymous_token, anonymous_token, user_id=2)
+
     def test_post_with_mismatched_but_valid_tokens_fails(self) -> None:
         """POST with a valid header token that doesn't match the cookie token should fail."""
         app = create_test_app()
