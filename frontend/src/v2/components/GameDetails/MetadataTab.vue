@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // MetadataTab — four sections, top to bottom:
 //   1. File info — name + size only.
-//   2. Hashes — CRC, MD5, SHA1, all mono. RTag with eyebrow label.
+//   2. Hashes — CRC, MD5, SHA-1, all mono. RTag with eyebrow label.
 //   3. Verification — RTag per database; tone="success" for match,
 //      neutral for miss. Same source of truth (Hasheous match flags) as
 //      the "Verified" badge in the header, via `VERIFICATION_DATABASES`.
@@ -49,7 +49,7 @@ const hashRows = computed<{ label: string; value: string | null }[]>(() => {
   const rows: { label: string; value: string | null }[] = [
     { label: "CRC", value: r.crc_hash },
     { label: "MD5", value: r.md5_hash },
-    { label: "SHA1", value: r.sha1_hash },
+    { label: "SHA-1", value: r.sha1_hash },
     { label: "RA", value: r.ra_hash },
   ];
   if (chdSha1) rows.splice(3, 0, { label: "CHD SHA-1", value: chdSha1 });
