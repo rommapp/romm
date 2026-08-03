@@ -12,6 +12,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     Enum,
+    FetchedValue,
     Float,
     ForeignKey,
     Index,
@@ -399,6 +400,24 @@ class Rom(BaseModel):
     )
     manual_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
+    )
+
+    # The sortable slice of the STORED generated columns migration 0098 derives
+    # from the blobs above; `roms_metadata` is a thin view over them. Mapped
+    # here so a sort reads the indexed `roms` column directly: going through the
+    # view puts the sort key on a joined table, which rules the index out and
+    # filesorts the whole library. The engine owns the values, so these are
+    # read-only (see `RomMetadata` for the names the API exposes them under).
+    generated_first_release_date: Mapped[int | None] = mapped_column(
+        BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+    generated_average_rating: Mapped[float | None] = mapped_column(
+        Float(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+    generated_player_count: Mapped[str | None] = mapped_column(
+        String(length=100),
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
