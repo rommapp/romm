@@ -9,11 +9,13 @@
 // Metadata-provider links live in the Metadata tab, not the header.
 // Genre/franchise belong in the Overview tab info grid.
 import { RIcon, RPlatformIcon, RTag, RTooltip } from "@v2/lib";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DetailedRom } from "@/stores/roms";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
 import MainSiblingToggle from "@/v2/components/GameDetails/MainSiblingToggle.vue";
 import PrevNextNav from "@/v2/components/GameDetails/PrevNextNav.vue";
+import { PROVIDERS } from "@/v2/components/GameDetails/providers";
 import VersionSwitcher from "@/v2/components/GameDetails/VersionSwitcher.vue";
 import { useGameActions } from "@/v2/composables/useGameActions";
 
@@ -33,6 +35,84 @@ const props = defineProps<{
 }>();
 
 const actions = useGameActions(() => props.rom);
+
+type RatingChip = {
+  key: "igdb_id" | "ss_id" | "moby_id" | "launchbox_id" | "hltb_id";
+  name: string;
+  logo: string;
+  value: string;
+};
+
+function formatRating(value: number, options?: { percent?: boolean }): string | null {
+  if (!Number.isFinite(value)) return null;
+  const rounded = value >= 10 ? value.toFixed(0) : value.toFixed(1);
+  const formatted = rounded.replace(/\.0$/, "");
+  return options?.percent ? `${formatted}%` : formatted;
+}
+
+function normalizeToTen(value: number): number {
+  if (!Number.isFinite(value)) return Number.NaN;
+  return value > 10 ? value / 10 : value;
+}
+
+function providerByKey(key: RatingChip["key"]) {
+  return PROVIDERS.find((p) => p.key === key) ?? null;
+}
+
+const ratingChips = computed<RatingChip[]>(() => {
+  const rom = props.rom;
+
+  const values: Array<{ key: RatingChip["key"]; value: string | null }> = [
+    {
+      key: "igdb_id",
+      value: formatRating(
+        normalizeToTen(parseFloat(rom.igdb_metadata?.total_rating ?? "")),
+      ),
+    },
+    {
+      key: "ss_id",
+      value: formatRating(parseFloat(rom.ss_metadata?.ss_score ?? "") * 10, {
+        percent: true,
+      }),
+    },
+    {
+      key: "moby_id",
+      value: formatRating(parseFloat(rom.moby_metadata?.moby_score ?? "") * 10, {
+        percent: true,
+      }),
+    },
+    {
+      key: "launchbox_id",
+      value: formatRating(
+        (rom.launchbox_metadata?.community_rating ?? Number.NaN) * 20,
+        { percent: true },
+      ),
+    },
+    {
+      key: "hltb_id",
+      value: formatRating(rom.hltb_metadata?.review_score ?? Number.NaN, {
+        percent: true,
+      }),
+    },
+  ];
+
+  const out: RatingChip[] = [];
+
+  for (const entry of values) {
+    if (!entry.value) continue;
+    const provider = providerByKey(entry.key);
+    if (!provider || !provider.logo) continue;
+
+    out.push({
+      key: entry.key,
+      name: provider.name,
+      logo: provider.logo,
+      value: entry.value,
+    });
+  }
+
+  return out;
+});
 </script>
 
 <template>
@@ -108,6 +188,22 @@ const actions = useGameActions(() => props.rom);
         />
         <RTag v-for="t in tags" :key="`t-${t}`" :text="t" size="small" />
       </span>
+
+      <span v-if="ratingChips.length" class="r-v2-det-header__ratings">
+        <span
+          v-for="chip in ratingChips"
+          :key="chip.key"
+          class="r-v2-det-header__rating-inline"
+          :aria-label="`${chip.name} rating ${chip.value}`"
+        >
+          <img
+            class="r-v2-det-header__rating-logo"
+            :src="chip.logo"
+            :alt="`${chip.name} logo`"
+          />
+          <span class="r-v2-det-header__rating-value">{{ chip.value }}</span>
+        </span>
+      </span>
     </div>
 
     <div v-if="rom.sibling_roms.length > 0" class="r-v2-det-header__versions">
@@ -181,6 +277,35 @@ const actions = useGameActions(() => props.rom);
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.r-v2-det-header__ratings {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-basis: 100%;
+}
+
+.r-v2-det-header__rating-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+}
+
+.r-v2-det-header__rating-logo {
+  inline-size: 20px;
+  block-size: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.r-v2-det-header__rating-value {
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+  font-weight: inherit;
+  font-size: inherit;
 }
 
 .r-v2-det-header__versions {
