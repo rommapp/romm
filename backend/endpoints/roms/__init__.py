@@ -898,6 +898,69 @@ def get_rom_identifiers(
     return [r.id for r in db_roms]
 
 
+@protected_route(router.get, "/random", [Scope.ROMS_READ])
+def get_random_rom(
+    request: Request,
+    platform_ids: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "Platform internal ids. Multiple values are allowed by repeating the"
+                " parameter, and the pick will match any of the values."
+            ),
+        ),
+    ] = None,
+    collection_id: Annotated[
+        int | None,
+        Query(description="Collection internal id.", ge=1),
+    ] = None,
+    virtual_collection_id: Annotated[
+        str | None,
+        Query(description="Virtual collection internal id."),
+    ] = None,
+    smart_collection_id: Annotated[
+        int | None,
+        Query(description="Smart collection internal id.", ge=1),
+    ] = None,
+) -> SimpleRomSchema | None:
+    """Retrieve one rom picked at random, or null when the scope holds none.
+
+    Sampled on the primary key instead of paged to, so the pick doesn't get
+    slower as the library grows.
+    """
+    perms = get_permissions(request)
+
+    base_query, _ = db_rom_handler.get_roms_query(user_id=request.user.id)
+    query = db_rom_handler.filter_roms(
+        query=base_query,
+        user_id=request.user.id,
+        hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
+        hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
+        platform_ids=platform_ids,
+        collection_id=collection_id,
+        virtual_collection_id=virtual_collection_id,
+        smart_collection_id=smart_collection_id,
+        include_related=False,
+    )
+
+    rom_id = db_rom_handler.get_random_rom_id(query=query)
+    if rom_id is None:
+        return None
+
+    rom = db_rom_handler.get_rom_simple(rom_id)
+    if not rom:
+        return None
+
+    # The fetch is by raw id, so it re-checks the row it actually loaded rather
+    # than trusting the filter that chose the id: a rom that moved to a hidden
+    # platform in between was picked under its old one. Reads no database, and
+    # null keeps a hidden rom indistinguishable from an empty scope.
+    if not perms.can_see_rom(rom.id, rom.platform_id):
+        return None
+
+    return SimpleRomSchema.from_orm_with_request(rom, request)
+
+
 @protected_route(
     router.get,
     "/download",

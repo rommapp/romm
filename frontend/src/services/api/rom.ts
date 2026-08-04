@@ -415,6 +415,28 @@ async function getRomSimple({
   return api.get<SimpleRom>(`/roms/${romId}/simple`, { signal });
 }
 
+async function getRandomRom({
+  platformIds = null,
+  collectionId = null,
+  virtualCollectionId = null,
+  smartCollectionId = null,
+}: {
+  platformIds?: number[] | null;
+  collectionId?: number | null;
+  virtualCollectionId?: string | null;
+  smartCollectionId?: number | null;
+} = {}) {
+  return api.get<SimpleRom | null>("/roms/random", {
+    params: {
+      platform_ids:
+        platformIds && platformIds.length > 0 ? platformIds : undefined,
+      collection_id: collectionId,
+      virtual_collection_id: virtualCollectionId,
+      smart_collection_id: smartCollectionId,
+    },
+  });
+}
+
 async function getRomByMetadataProvider({
   field,
   id,
@@ -924,6 +946,7 @@ export default {
   getRecentPlayedRoms,
   getRom,
   getRomSimple,
+  getRandomRom,
   getRomByMetadataProvider,
   downloadRom,
   bulkDownloadRoms,
