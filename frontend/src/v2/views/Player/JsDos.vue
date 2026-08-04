@@ -27,6 +27,7 @@ const playSession = usePlaySession();
 
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
+const quitting = ref(false);
 
 type DosProps = {
   stop: () => Promise<void>;
@@ -150,7 +151,12 @@ async function stopDos() {
   }
 }
 
-function onlyQuit() {
+async function onlyQuit() {
+  if (quitting.value) return;
+  quitting.value = true;
+  playSession.flush();
+  playingStore.setPlaying(false);
+  await stopDos();
   window.history.back();
 }
 function backToRom() {
@@ -253,6 +259,8 @@ onBeforeUnmount(async () => {
         class="r-v2-jsdos__quit"
         variant="translucent"
         prepend-icon="mdi-exit-to-app"
+        :loading="quitting"
+        :disabled="quitting"
         @click="onlyQuit"
       >
         {{ t("play.quit") }}
