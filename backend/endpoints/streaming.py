@@ -199,20 +199,25 @@ async def _clear_termination(session_key: str, user_id: int) -> None:
 async def _session_status(platform: str, request: Request) -> dict[str, Any]:
     """Whether the caller still holds this platform's session, and if not, why
     it ended. Read-only, so it is safe to poll."""
-    container = _container_for_platform(platform)
-    if container is None:
+    candidates = _containers_for_platform(platform)
+    if not candidates:
         raise HTTPException(
             status_code=404,
             detail=f"No streaming container configured for platform '{platform}'",
         )
-    session_key = _container_key(container)
-    session = await _get_session(session_key)
-    if session is not None and session.get("user_id") == request.user.id:
+    if await _find_session_for_user(candidates, request.user.id) is not None:
         return {"status": "active", "platform": platform}
+    # The tombstone is keyed per container, so with a pool the caller's notice
+    # can sit under any of them.
+    termination = None
+    for candidate in candidates:
+        termination = await _get_termination(_container_key(candidate), request.user.id)
+        if termination is not None:
+            break
     return {
         "status": "ended",
         "platform": platform,
-        "termination": await _get_termination(session_key, request.user.id),
+        "termination": termination,
     }
 
 
@@ -459,11 +464,28 @@ def _get_streaming_config() -> dict[str, Any]:
     }
 
 
-def _container_for_platform(platform: str) -> dict[str, Any] | None:
+def _interchangeable(first: dict[str, Any], other: dict[str, Any]) -> bool:
+    """Whether two containers serving a platform are a pool rather than two
+    different setups. The emulator names the state and card namespace, and
+    whole-card sync decides whether cards are synced at all, so a player landing
+    on either container has to find their saves in the same place."""
+    return _emulator_for_container(first) == _emulator_for_container(
+        other
+    ) and _memory_card_sync_enabled(first) == _memory_card_sync_enabled(other)
+
+
+def _containers_for_platform(platform: str) -> list[dict[str, Any]]:
+    """Every container serving a platform, in config order.
+
+    More than one entry is a pool and the claim takes the first free one.
+    Config order is deliberate: the head of the list stays warm (shader caches,
+    BIOS, memory cards) instead of players spreading across cold containers.
+    """
     cfg = _get_streaming_config()
     if not cfg.get("enabled", False):
-        return None
+        return []
     lower = platform.lower()
+    candidates: list[dict[str, Any]] = []
     for entry in cfg.get("containers", []):
         if not isinstance(entry, dict):
             continue
@@ -487,33 +509,131 @@ def _container_for_platform(platform: str) -> dict[str, Any] | None:
                 "individual save files instead",
                 platform,
             )
-        return entry
+        if candidates and not _interchangeable(candidates[0], entry):
+            log.warning(
+                "container for platform '%s' disagrees with the first one on "
+                "emulator or memory card sync, so it is not a pool member, "
+                "skipping: %s",
+                platform,
+                entry,
+            )
+            continue
+        candidates.append(entry)
+    return candidates
+
+
+def _containers_by_key() -> dict[str, list[dict[str, Any]]]:
+    """Configured containers grouped by key. A container serving several
+    platforms expands into one entry per platform, all sharing one key."""
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for entry in _get_streaming_config().get("containers", []):
+        if isinstance(entry, dict):
+            grouped.setdefault(_container_key(entry), []).append(entry)
+    return grouped
+
+
+def _container_for_session(
+    grouped: dict[str, list[dict[str, Any]]], container_key: str, platform: Any
+) -> dict[str, Any] | None:
+    """The config entry a session was claimed under. Entries sharing a key
+    differ in the platform-keyed fields (emulator, card sync), so picking an
+    arbitrary one would file the session's saves under another platform."""
+    entries = grouped.get(container_key)
+    if not entries:
+        return None
+    if isinstance(platform, str):
+        lower = platform.lower()
+        for entry in entries:
+            if entry.get("platform", "").lower() == lower:
+                return entry
+    return entries[0]
+
+
+async def _find_session_for_user(
+    candidates: list[dict[str, Any]], user_id: int
+) -> tuple[dict[str, Any], str, dict[str, Any]] | None:
+    """The candidate holding this user's session, as (container, key, session).
+
+    With a pool the platform no longer identifies the container, the session
+    does. A drain marker records no user, so it never matches.
+    """
+    for candidate in candidates:
+        session_key = _container_key(candidate)
+        session = await _get_session(session_key)
+        if session is not None and session.get("user_id") == user_id:
+            return candidate, session_key, session
     return None
+
+
+async def _resolve_named_container(
+    platform: str, container_key: str
+) -> tuple[dict[str, Any], str, dict[str, Any] | None]:
+    """One named container serving a platform, plus whatever session it holds.
+
+    Returns (container, session_key, session), the session being None when the
+    container is free or draining. Raises 404 when the key names no container
+    serving this platform.
+    """
+    for candidate in _containers_for_platform(platform):
+        session_key = _container_key(candidate)
+        if session_key != container_key:
+            continue
+        session = await _get_session(session_key)
+        if session is not None and session.get("draining"):
+            session = None
+        return candidate, session_key, session
+    raise HTTPException(
+        status_code=404,
+        detail=f"No streaming container '{container_key}' for platform '{platform}'",
+    )
 
 
 async def _resolve_owned_session(
     platform: str, request: Request
 ) -> tuple[dict[str, Any], str, dict[str, Any]]:
-    """Map platform → container, fetch its active session, verify ownership.
+    """Find the caller's session among the platform's containers.
 
     Returns (container, session_key, session). Raises 404 when the platform has
-    no configured container or no active session, 403 when the session belongs
-    to a different user.
+    no configured container or nothing is active, 403 when every active session
+    belongs to someone else, 409 when an admin's fallback is ambiguous.
     """
-    container = _container_for_platform(platform)
-    if container is None:
+    candidates = _containers_for_platform(platform)
+    if not candidates:
         raise HTTPException(
             status_code=404,
             detail=f"No streaming container configured for platform '{platform}'",
         )
-    session_key = _container_key(container)
-    session = await _get_session(session_key)
-    if session is None:
+
+    others: list[tuple[dict[str, Any], str, dict[str, Any]]] = []
+    for candidate in candidates:
+        session_key = _container_key(candidate)
+        session = await _get_session(session_key)
+        if session is None or session.get("draining"):
+            continue
+        if session.get("user_id") == request.user.id:
+            return candidate, session_key, session
+        others.append((candidate, session_key, session))
+
+    if not others:
         raise HTTPException(
             status_code=404, detail=f"No active session for platform '{platform}'"
         )
-    _assert_session_owner(session, request)
-    return container, session_key, session
+    # An admin may control a session they do not own, but the scan found none of
+    # theirs, so fall back to the platform's active session. A pool can hold
+    # several and the path does not say which, so the caller has to name one.
+    if request.user.role != Role.ADMIN:
+        raise HTTPException(
+            status_code=403, detail="Session is claimed by another user"
+        )
+    if len(others) > 1:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"{len(others)} sessions are active on platform '{platform}', "
+                "name a container instead"
+            ),
+        )
+    return others[0]
 
 
 # ── Broker communication ──────────────────────────────────────────────────────
@@ -1740,7 +1860,7 @@ def _memory_card_sync_enabled(container: dict[str, Any]) -> bool:
     silent data loss: whole-card sync REPLACES /save-file, so the per-file
     saves that platform actually uses (Wii NAND, xemu HDD) would stop syncing
     while RomM shuttled an empty card around. The flag is ignored instead, and
-    _container_for_platform warns the operator once per lookup.
+    _containers_for_platform warns the operator once per lookup.
     """
     if not container.get("memory_card_sync", False):
         return False
@@ -2302,8 +2422,8 @@ async def get_config(request: Request) -> JSONResponse:
     """Return streaming configuration to the frontend"""
     cfg = _get_streaming_config()
 
-    # Keyed by platform because only the first container serving one can ever
-    # be looked up; the rest are a pool, not a second choice for the frontend.
+    # Keyed by platform: a pool is a backend concern, the frontend picks a
+    # platform and the claim decides which container serves it.
     safe_containers: dict[str, dict[str, Any]] = {}
     for c in cfg.get("containers", []):
         if not c.get("platform") or not c.get("host"):
@@ -2346,7 +2466,7 @@ async def claim_session(
     The ROM's filesystem path is derived server-side from its database row -
     the client only supplies a ROM id, never a path.
     Returns 404 if the ROM doesn't exist or no container serves its platform.
-    Returns 409 if the container is already occupied.
+    Returns 409 if every container serving the platform is occupied.
     Returns 428 if the container's pre-existing memory card needs a decision.
     Returns 502/503 if the broker rejects the launch or is unreachable.
     """
@@ -2360,44 +2480,40 @@ async def claim_session(
     assert_rom_visible(request, rom, not_found_detail="ROM not found")
 
     platform = rom.platform_slug
-    container = _container_for_platform(platform)
-    if container is None:
+    candidates = _containers_for_platform(platform)
+    if not candidates:
         raise HTTPException(
             status_code=404,
             detail=f"No streaming container configured for platform '{platform}'",
         )
 
+    # Pool members are interchangeable on emulator and card sync (enforced by
+    # _containers_for_platform), so the pre-claim validation below holds for
+    # whichever one the walk ends up winning.
+    reference = candidates[0]
+
     # Validate the resume pick before claiming so a bad state_id cannot
-    # leave the container wedged behind a failed launch.
+    # leave a container wedged behind a failed launch.
     resume_state = None
     resume_slot: int | None = None
     if req.state_id is not None:
         resume_state, resume_slot = _resolve_resume_state(
-            request.user.id, rom, container, req.state_id
+            request.user.id, rom, reference, req.state_id
         )
 
     # Resolve the memory card to mount before claiming too, so a bad card id
     # fails cleanly (whole-card-sync containers only). May be None on first
     # play; the blank card is created only after the claim is won.
     memory_card = None
-    if _memory_card_sync_enabled(container):
+    if _memory_card_sync_enabled(reference):
         memory_card = _resolve_memory_card(
             request.user.id,
-            _emulator_for_container(container),
+            _emulator_for_container(reference),
             req.memory_card_id,
         )
 
-    # The emulator containers mount the RomM library at the same path the
-    # backend uses (LIBRARY_BASE_PATH, /romm/library by default), so the
-    # backend-side path is valid inside the broker container too. If a
-    # container mounts the library at a different path, `library_path` on
-    # its config entry overrides the prefix so the broker receives a path
-    # that is valid inside that container.
-    library_base = (container.get("library_path") or LIBRARY_BASE_PATH).rstrip("/")
-    rom_path = f"{library_base}/{rom.full_path}"
     rom_name = rom.name or rom.fs_name_no_ext
 
-    session_key = _container_key(container)
     now = datetime.now(timezone.utc).isoformat()
     session = {
         # Unique per claim, and safe to put in a filename. The webstation
@@ -2406,8 +2522,9 @@ async def claim_session(
         "broker_session_id": secrets.token_hex(8),
         "rom_id": rom.id,
         "rom_name": rom_name,
-        # Stored so admin views can release through the platform-keyed
-        # DELETE route without reverse-mapping the container key.
+        # Stored so admin views can release through the platform-keyed DELETE
+        # route without reverse-mapping the container key, and so a container
+        # serving several platforms resolves back to the right config entry.
         "platform": platform,
         "claimed_at": now,
         # Liveness stamp, refreshed by the heartbeat endpoint. A session that
@@ -2419,51 +2536,83 @@ async def claim_session(
         "memory_card_id": memory_card.id if memory_card is not None else None,
     }
 
-    # SET NX is atomic: exactly one concurrent claim wins the key. The TTL
-    # bounds how long an abandoned session (broker dead / backend crashed)
-    # can hold the container; control calls and heartbeats refresh it.
-    claimed = await async_cache.set(
-        _session_redis_key(session_key),
-        json.dumps(session),
-        nx=True,
-        ex=SESSION_TTL_SECONDS,
-    )
-    if not claimed:
-        # The key exists, but its owner may be long gone: a closed tab or a
-        # crashed browser never sends a release, and the TTL alone would hold
-        # the container for hours. A stale heartbeat means abandoned, so tear
-        # the old session down (evacuating its card and crediting its
-        # playtime) and retry once. A drain marker is never taken over: the
-        # broker is still killing the previous emulator, and the marker
-        # expires on its own within seconds.
-        existing = await _get_session(session_key)
-        if (
-            existing is not None
-            and not existing.get("draining")
-            and _session_is_stale(existing)
-        ):
+    async def _try_claim(candidate: dict[str, Any]) -> bool:
+        # SET NX is atomic: exactly one concurrent claim wins the key. The TTL
+        # bounds how long an abandoned session (broker dead / backend crashed)
+        # can hold the container; control calls and heartbeats refresh it.
+        return bool(
+            await async_cache.set(
+                _session_redis_key(_container_key(candidate)),
+                json.dumps(session),
+                nx=True,
+                ex=SESSION_TTL_SECONDS,
+            )
+        )
+
+    # Config order, first free wins.
+    container: dict[str, Any] | None = None
+    for candidate in candidates:
+        if await _try_claim(candidate):
+            container = candidate
+            break
+
+    if container is None:
+        # Every container is held, but a holder may be long gone: a closed tab
+        # or a crashed browser never sends a release, and the TTL alone would
+        # hold it for hours. A stale heartbeat means abandoned, so tear that
+        # session down (evacuating its card and crediting its playtime) and
+        # retry. Evicting anyone is deferred until here so a pool never
+        # displaces a stale session while another container sits idle. A drain
+        # marker is never taken over: the broker is still killing the previous
+        # emulator, and the marker expires on its own within seconds.
+        for candidate in candidates:
+            existing = await _get_session(_container_key(candidate))
+            if (
+                existing is None
+                or existing.get("draining")
+                or not _session_is_stale(existing)
+            ):
+                continue
             log.warning(
                 "taking over stale session, platform=%s user_id=%s",
                 platform,
                 existing.get("user_id"),
             )
-            await _teardown_abandoned_session(container, session_key, existing)
-            claimed = await async_cache.set(
-                _session_redis_key(session_key),
-                json.dumps(session),
-                nx=True,
-                ex=SESSION_TTL_SECONDS,
+            await _teardown_abandoned_session(
+                candidate, _container_key(candidate), existing
             )
-    if not claimed:
-        existing = await _get_session(session_key) or {}
+            if await _try_claim(candidate):
+                container = candidate
+                break
+
+    if container is None:
+        # Report the head of the pool as the holder: with one container that is
+        # the only holder, and with several the player just needs to know the
+        # platform is busy.
+        existing = await _get_session(_container_key(candidates[0])) or {}
         raise HTTPException(
             status_code=409,
             detail={
-                "message": "Session in use",
+                "message": (
+                    "Session in use"
+                    if len(candidates) == 1
+                    else f"All {len(candidates)} containers for this platform are in use"
+                ),
                 "rom_name": existing.get("rom_name"),
                 "claimed_at": existing.get("claimed_at"),
             },
         )
+
+    session_key = _container_key(container)
+
+    # The emulator containers mount the RomM library at the same path the
+    # backend uses (LIBRARY_BASE_PATH, /romm/library by default), so the
+    # backend-side path is valid inside the broker container too. If a
+    # container mounts the library at a different path, `library_path` on
+    # its config entry overrides the prefix so the broker receives a path
+    # that is valid inside that container.
+    library_base = (container.get("library_path") or LIBRARY_BASE_PATH).rstrip("/")
+    rom_path = f"{library_base}/{rom.full_path}"
 
     # A container that still holds someone's pre-existing card must not be
     # wiped on a hunch. Probe once, then record the answer so this never
@@ -2826,16 +2975,16 @@ async def heartbeat_session(request: Request, platform: str) -> JSONResponse:
     session, so a force-released player learns why on the poll they are already
     making rather than watching a dead stream.
     """
-    container = _container_for_platform(platform)
-    if container is None:
+    candidates = _containers_for_platform(platform)
+    if not candidates:
         raise HTTPException(
             status_code=404,
             detail=f"No streaming container configured for platform '{platform}'",
         )
-    session_key = _container_key(container)
-    session = await _get_session(session_key)
-    if session is None or session.get("user_id") != request.user.id:
+    found = await _find_session_for_user(candidates, request.user.id)
+    if found is None:
         return JSONResponse(await _session_status(platform, request))
+    _, session_key, session = found
 
     session["last_seen"] = datetime.now(timezone.utc).isoformat()
     # XX: only rewrite a key that still exists, so a heartbeat racing a
@@ -2946,23 +3095,33 @@ async def release_session(
     request: Request,
     platform: str,
     reason: str | None = Query(default=None, max_length=200),
+    container_key: str | None = Query(default=None, alias="container", max_length=300),
 ) -> JSONResponse:
     """Release a session and tell the broker to stop the emulator.
 
     `reason` is only meaningful when an admin ends someone else's session; it
-    is surfaced to the displaced player.
+    is surfaced to the displaced player. `container` names which container to
+    release, needed when a pool serves the platform and the admin is ending a
+    session they do not own; it is the key `GET /streaming/sessions` reports.
     """
-    container = _container_for_platform(platform)
-    if container is None:
-        # Streaming disabled or platform unconfigured, nothing to release.
-        return JSONResponse({"status": "not_found", "platform": platform})
-
-    session_key = _container_key(container)
-    session = await _get_session(session_key)
-    if session is None:
-        return JSONResponse({"status": "not_found", "platform": platform})
-
-    _assert_session_owner(session, request)
+    if container_key is not None:
+        container, session_key, session = await _resolve_named_container(
+            platform, container_key
+        )
+        if session is None:
+            return JSONResponse({"status": "not_found", "platform": platform})
+        _assert_session_owner(session, request)
+    else:
+        try:
+            container, session_key, session = await _resolve_owned_session(
+                platform, request
+            )
+        except HTTPException as exc:
+            # Nothing configured or nothing active: releasing is a no-op rather
+            # than an error, matching a repeated release from the same tab.
+            if exc.status_code != 404:
+                raise
+            return JSONResponse({"status": "not_found", "platform": platform})
 
     # Teardown pulls the whole card off the broker and pushes a blank one back,
     # several seconds of broker round-trips. The player who quit does not need
@@ -3070,11 +3229,7 @@ async def list_sessions(request: Request) -> JSONResponse:
     if request.user.role != Role.ADMIN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    containers_by_key = {
-        _container_key(c): c
-        for c in _get_streaming_config().get("containers", [])
-        if isinstance(c, dict)
-    }
+    grouped = _containers_by_key()
 
     sessions: list[dict[str, Any]] = []
     async for key in async_cache.scan_iter(match=f"{_SESSION_KEY_PREFIX}*"):
@@ -3088,7 +3243,9 @@ async def list_sessions(request: Request) -> JSONResponse:
         # scan_iter yields bytes unless the client decodes responses.
         key_str = key.decode() if isinstance(key, bytes) else key
         container_key = key_str.removeprefix(_SESSION_KEY_PREFIX)
-        container = containers_by_key.get(container_key, {})
+        container = (
+            _container_for_session(grouped, container_key, s.get("platform")) or {}
+        )
         user_id = s.get("user_id")
         user = db_user_handler.get_user(user_id) if user_id is not None else None
         sessions.append(
@@ -3119,17 +3276,15 @@ async def force_release_all(
 
     # Map container keys back to configs so each broker can be told to stop -
     # deleting only the Redis keys would leave the games running.
-    containers_by_key = {
-        _container_key(c): c
-        for c in _get_streaming_config().get("containers", [])
-        if isinstance(c, dict)
-    }
+    grouped = _containers_by_key()
 
     async def _teardown(key: str | bytes, container_key: str) -> None:
-        container = containers_by_key.get(container_key)
         # Read before the teardown so the displaced player can be identified
         # even when the container config has since been removed.
         session = await _get_session(container_key)
+        container = _container_for_session(
+            grouped, container_key, session.get("platform") if session else None
+        )
 
         # Stop the emulator, then evacuate and wipe the card, all while the claim
         # still guards the container and before deleting the key. Stopping first

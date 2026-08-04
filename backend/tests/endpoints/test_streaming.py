@@ -102,6 +102,12 @@ def _container_for(rom: Rom, broker_host="http://192.168.1.10:8000"):
     }
 
 
+def _first_container(platform: str):
+    """The container a claim for this platform would try first, or None."""
+    candidates = streaming._containers_for_platform(platform)
+    return candidates[0] if candidates else None
+
+
 def _rom_on(slug: str) -> Rom:
     """Create a platform with the given slug and a ROM on it."""
     platform = db_platform_handler.add_platform(
@@ -219,7 +225,7 @@ def test_memory_card_sync_on_a_cardless_platform_warns_the_operator(caplog):
     try:
         with _streaming(container):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                found = streaming._container_for_platform("wii")
+                found = _first_container("wii")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert found is container
@@ -256,8 +262,8 @@ def _nested(**overrides):
 def test_nested_platforms_resolve_to_the_same_container():
     """One entry serves every platform in its map, each with its own emulator."""
     with _streaming(_nested()):
-        ps2 = streaming._container_for_platform("ps2")
-        ngc = streaming._container_for_platform("ngc")
+        ps2 = _first_container("ps2")
+        ngc = _first_container("ngc")
     assert ps2 is not None and ngc is not None
     assert ps2["platform"] == "ps2"
     assert streaming._emulator_for_container(ps2) == "pcsx2"
@@ -268,8 +274,8 @@ def test_nested_platforms_share_one_session_key():
     """Sessions key on the broker host, so the expanded copies collapse back
     to the single session the container can actually serve."""
     with _streaming(_nested()):
-        ps2 = streaming._container_for_platform("ps2")
-        ngc = streaming._container_for_platform("ngc")
+        ps2 = _first_container("ps2")
+        ngc = _first_container("ngc")
     assert ps2 is not None and ngc is not None
     assert streaming._container_key(ps2) == streaming._container_key(ngc)
 
@@ -301,7 +307,7 @@ def test_nested_platforms_ship_one_config_row_each(client, access_token):
 
 def test_config_keeps_one_row_per_platform(client, access_token):
     """Two containers serving the same platform are a pool, not two choices.
-    Only the first can ever be looked up, so /config must not offer both."""
+    The claim picks which one serves, so /config must not offer both."""
     with _streaming(_nested(), _nested(host="http://192.168.1.11:3000")):
         r = client.get("/api/streaming/config", headers=_auth(access_token))
     assert r.status_code == 200
@@ -312,7 +318,7 @@ def test_config_keeps_one_row_per_platform(client, access_token):
 def test_flat_container_config_still_works(rom: Rom):
     """The per-emulator mods are still deployed on the flat shape."""
     with _streaming(_container_for(rom)):
-        found = streaming._container_for_platform(rom.platform_slug)
+        found = _first_container(rom.platform_slug)
     assert found is not None
     assert found["platform"] == rom.platform_slug
 
@@ -326,8 +332,8 @@ def test_nested_platforms_wins_over_a_flat_platform(caplog):
     try:
         with _streaming(container):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                xbox = streaming._container_for_platform("xbox")
-                ps2 = streaming._container_for_platform("ps2")
+                xbox = _first_container("xbox")
+                ps2 = _first_container("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert xbox is None
@@ -344,8 +350,8 @@ def test_nested_platform_without_an_emulator_is_skipped(caplog):
     try:
         with _streaming(container):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                assert streaming._container_for_platform("ngc") is None
-                assert streaming._container_for_platform("ps2") is not None
+                assert _first_container("ngc") is None
+                assert _first_container("ps2") is not None
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert "no emulator" in caplog.text
@@ -358,7 +364,7 @@ def test_platforms_that_is_not_a_map_skips_the_container(caplog):
     try:
         with _streaming(container):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                assert streaming._container_for_platform("ps2") is None
+                assert _first_container("ps2") is None
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert "must be a map" in caplog.text
@@ -587,18 +593,260 @@ async def test_concurrent_claim_only_one_succeeds(access_token, rom: Rom):
     assert sorted([r1.status_code, r2.status_code]) == [200, 409]
 
 
+# ── Container pool ────────────────────────────────────────────────────────────
+
+
+def _pool_member(rom: Rom, index: int) -> dict:
+    """One member of a pool serving the ROM's platform. Distinct hosts, so both
+    the session key and the claim response say which member served. No label,
+    since the emulator falls back to it and pool members must agree on that."""
+    return {
+        "platform": rom.platform_slug,
+        "host": f"http://192.168.1.1{index}:3000",
+        "broker_host": f"http://192.168.1.1{index}:8000",
+    }
+
+
+def _volume(client, token, platform: str, level: int = 42):
+    return client.post(
+        f"/api/streaming/sessions/{platform}/volume",
+        json={"level": level},
+        headers=_auth(token),
+    )
+
+
+def _session_raw(container: dict):
+    key = streaming._session_redis_key(streaming._container_key(container))
+    return asyncio.run(async_cache.get(key))
+
+
+def test_pool_claim_falls_through_to_a_free_container(client, access_token, rom: Rom):
+    """A second claim is not a 409 when another container serves the platform."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        r1 = _claim_ok(client, access_token, rom.id)
+        r2 = _claim_ok(client, access_token, rom.id)
+    assert [r1.status_code, r2.status_code] == [200, 200]
+    # Config order, so the head of the pool stays warm.
+    assert r1.json()["host"] == "http://192.168.1.10:3000"
+    assert r2.json()["host"] == "http://192.168.1.11:3000"
+
+
+def test_pool_409s_only_once_every_container_is_held(client, access_token, rom: Rom):
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, access_token, rom.id)
+        _claim_ok(client, access_token, rom.id)
+        r3 = _claim_ok(client, access_token, rom.id)
+    assert r3.status_code == 409
+    assert "2 containers" in r3.json()["detail"]["message"]
+
+
+def test_pool_never_evicts_a_stale_session_while_a_container_is_free(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Config order is a warm-cache preference, not a licence to displace a
+    player: an idle container has to be taken before a stale one is torn down."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, access_token, rom.id)
+        _age_session_on(_pool_member(rom, 0), streaming._SESSION_STALE_SECONDS + 60)
+        with patch("endpoints.streaming._stop_broker") as stop_broker:
+            r2 = _claim_ok(client, viewer_access_token, rom.id)
+    assert r2.status_code == 200
+    assert r2.json()["host"] == "http://192.168.1.11:3000"
+    stop_broker.assert_not_called()
+    assert _session_raw(_pool_member(rom, 0)) is not None
+
+
+def test_pool_takes_over_a_stale_session_once_every_container_is_held(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, access_token, rom.id)
+        _claim_ok(client, access_token, rom.id)
+        _age_session_on(_pool_member(rom, 1), streaming._SESSION_STALE_SECONDS + 60)
+        with patch("endpoints.streaming._stop_broker") as stop_broker:
+            r3 = _claim_ok(client, viewer_access_token, rom.id)
+    assert r3.status_code == 200
+    assert r3.json()["host"] == "http://192.168.1.11:3000"
+    stop_broker.assert_called_once()
+
+
+def test_control_routes_follow_the_session_not_the_platform(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The second player is on the second container, so their volume call has
+    to reach that broker rather than the first one the platform lists."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, access_token, rom.id)
+        _claim_ok(client, viewer_access_token, rom.id)
+        with patch("endpoints.streaming._volume_broker", return_value=True) as volume:
+            r = _volume(client, viewer_access_token, rom.platform_slug)
+    assert r.status_code == 200
+    assert volume.call_args[0][0]["host"] == "http://192.168.1.11:3000"
+
+
+def test_control_route_403s_when_every_session_belongs_to_someone_else(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The owner scan finding nothing must not read as "no session here"."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, access_token, rom.id)
+        r = _volume(client, viewer_access_token, rom.platform_slug)
+    assert r.status_code == 403
+
+
+def test_an_admin_controls_the_pools_one_active_session(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """An admin holds nothing on the platform, so the scan finds nothing of
+    theirs and falls back to the session that is actually running."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        with patch("endpoints.streaming._volume_broker", return_value=True) as volume:
+            r = _volume(client, access_token, rom.platform_slug)
+    assert r.status_code == 200
+    assert volume.call_args[0][0]["host"] == "http://192.168.1.10:3000"
+
+
+def test_an_admin_cannot_guess_which_of_two_sessions_to_control(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Two sessions and a path that names neither, so ask rather than pick."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        _claim_ok(client, viewer_access_token, rom.id)
+        r = _volume(client, access_token, rom.platform_slug)
+    assert r.status_code == 409
+
+
+def test_admin_release_names_the_container(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """`container` is the key GET /streaming/sessions reports, and it must
+    release that member and leave the rest of the pool playing."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        _claim_ok(client, viewer_access_token, rom.id)
+        with patch("endpoints.streaming._stop_broker"):
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                params={"container": streaming._container_key(_pool_member(rom, 1))},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    assert r.json()["status"] == "released"
+    assert _session_raw(_pool_member(rom, 1)) is None
+    assert _session_raw(_pool_member(rom, 0)) is not None
+
+
+def test_admin_release_rejects_a_container_that_serves_another_platform(
+    client, access_token, rom: Rom
+):
+    with _streaming(_pool_member(rom, 0)):
+        r = client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"container": "http://192.168.9.9:8000"},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 404
+
+
+def test_status_finds_the_termination_on_whichever_container_held_it(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The tombstone is keyed per container, so the poll has to look past the
+    first member of the pool to find the displaced player's notice."""
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, access_token, rom.id)
+        _claim_ok(client, viewer_access_token, rom.id)
+        with patch("endpoints.streaming._stop_broker"):
+            client.delete(
+                "/api/streaming/sessions",
+                params={"reason": "maintenance"},
+                headers=_auth(access_token),
+            )
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            headers=_auth(viewer_access_token),
+        )
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+    assert r.json()["termination"]["reason"] == "maintenance"
+
+
+def test_heartbeat_refreshes_the_session_on_the_container_that_holds_it(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, access_token, rom.id)
+        _claim_ok(client, viewer_access_token, rom.id)
+        _age_session_on(_pool_member(rom, 1), 120)
+        before = json.loads(_session_raw(_pool_member(rom, 1)))["last_seen"]
+        r = client.post(
+            f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
+            headers=_auth(viewer_access_token),
+        )
+        after = json.loads(_session_raw(_pool_member(rom, 1)))["last_seen"]
+    assert r.json()["status"] == "active"
+    assert after > before
+
+
+def test_a_container_that_disagrees_on_the_emulator_is_not_a_pool_member(caplog):
+    """Pool members file states and cards in one place, so an entry naming a
+    different emulator is a separate setup rather than a spare container."""
+    first = {
+        "platform": "ps2",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "emulator": "pcsx2",
+    }
+    second = {**first, "host": "http://192.168.1.11:3000"}
+    second["broker_host"] = "http://192.168.1.11:8000"
+    second["emulator"] = "play"
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(first, second):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                candidates = streaming._containers_for_platform("ps2")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert [c["emulator"] for c in candidates] == ["pcsx2"]
+    assert "not a pool" in caplog.text
+
+
+def test_the_session_platform_picks_the_config_entry_for_its_container():
+    """A container serving several platforms expands into one entry per
+    platform under one key, so the admin views must not read an arbitrary one:
+    the platform-keyed fields (emulator, card sync) differ between them."""
+    with _streaming(_nested()):
+        grouped = streaming._containers_by_key()
+        key = streaming._container_key(_first_container("ps2"))
+    assert len(grouped[key]) == 2
+    for platform in ("ps2", "ngc"):
+        entry = streaming._container_for_session(grouped, key, platform)
+        assert entry is not None
+        assert entry["platform"] == platform
+    # A session predating the platform field still resolves to a real entry.
+    assert streaming._container_for_session(grouped, key, None) is not None
+    assert streaming._container_for_session(grouped, "http://nope:8000", "ps2") is None
+
+
 # ── Staleness / heartbeat ─────────────────────────────────────────────────────
 
 
-def _age_session(rom: Rom, seconds: int) -> None:
-    """Rewrite the stored session's last_seen to `seconds` ago."""
-    key = streaming._session_redis_key(streaming._container_key(_container_for(rom)))
+def _age_session_on(container: dict, seconds: int) -> None:
+    """Rewrite one container's stored session last_seen to `seconds` ago."""
+    key = streaming._session_redis_key(streaming._container_key(container))
     raw = asyncio.run(async_cache.get(key))
     session = json.loads(raw)
     session["last_seen"] = (
         datetime.now(timezone.utc) - timedelta(seconds=seconds)
     ).isoformat()
     asyncio.run(async_cache.set(key, json.dumps(session)))
+
+
+def _age_session(rom: Rom, seconds: int) -> None:
+    _age_session_on(_container_for(rom), seconds)
 
 
 def test_session_is_stale_handles_bad_stamps():
