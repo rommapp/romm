@@ -426,9 +426,6 @@ async function getRandomRom({
   virtualCollectionId?: string | null;
   smartCollectionId?: number | null;
 } = {}) {
-  // `/roms/random` samples the primary key server-side, so one request
-  // resolves a pick regardless of library size. `null` means the scope
-  // holds no roms.
   return api.get<SimpleRom | null>("/roms/random", {
     params: {
       platform_ids:
