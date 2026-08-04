@@ -174,6 +174,11 @@ class StreamingContainer(TypedDict):
     # Opt in to whole memory-card sync (broker /memory-card). When true, the
     # legacy per-file /save-file in-game-save path is skipped for this container.
     memory_card_sync: NotRequired[bool]
+    # Broker dialect. Omitted (or "broker") is the per-emulator mod contract;
+    # "webstation" is the LSIO webstation container's activate/exit contract.
+    protocol: NotRequired[str]
+    # URL prefix the webstation broker is served under, matching its SUBFOLDER.
+    subfolder: NotRequired[str]
 
 
 class Config:

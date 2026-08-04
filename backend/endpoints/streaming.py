@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import secrets
 import urllib.error
 import urllib.request
 import zipfile
@@ -12,7 +13,7 @@ from datetime import datetime, timezone
 from email.message import Message
 from pathlib import PurePosixPath
 from typing import Annotated, Any, Literal, TypedDict
-from urllib.parse import quote, urlparse, urlunparse
+from urllib.parse import quote, urljoin, urlparse, urlunparse
 
 from fastapi import Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -621,7 +622,7 @@ def _broker_get_binary_safe(
         return None
 
 
-def _broker_put_binary(
+def _broker_put_binary_json(
     container: dict[str, Any],
     path: str,
     content: bytes,
@@ -629,10 +630,10 @@ def _broker_put_binary(
     *,
     content_type: str,
     timeout: float,
-) -> bool:
+) -> dict[str, Any] | None:
     """
-    PUT a binary body to the broker, reporting whether it acked with ok.
-    Best-effort, logs but never raises.
+    PUT a binary body to the broker and return its parsed JSON reply, or None
+    on failure. Best-effort, logs but never raises.
     """
     req = urllib.request.Request(
         _broker_url(container, path),
@@ -647,10 +648,26 @@ def _broker_put_binary(
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
             body = json.loads(resp.read())
-        return bool(body.get("status") == "ok")
+        return body if isinstance(body, dict) else {}
     except Exception as exc:
         log.warning("broker %s failed, %s", label, exc)
-        return False
+        return None
+
+
+def _broker_put_binary(
+    container: dict[str, Any],
+    path: str,
+    content: bytes,
+    label: str,
+    *,
+    content_type: str,
+    timeout: float,
+) -> bool:
+    """PUT a binary body to the broker, reporting whether it acked with ok."""
+    body = _broker_put_binary_json(
+        container, path, content, label, content_type=content_type, timeout=timeout
+    )
+    return bool(body and body.get("status") == "ok")
 
 
 def _call_broker(
@@ -716,6 +733,17 @@ def _save_and_exit_broker(
     # save + reset path can approach that too. Time out past the slowest
     # broker so a slow-but-successful save is not reported as saved=False.
     # Overridable for operators who raise SAVE_WAIT on a broker.
+    if _is_webstation(container):
+        # No background variant on this protocol: exit always runs the save,
+        # the teardown and the save dump together before it answers.
+        report = _webstation_exit(container, slot)
+        saved = bool(report and report.get("state_saved", False))
+        effective_slot = slot
+        if report is not None and isinstance(report.get("state_slot"), int):
+            effective_slot = report["state_slot"]
+        log.info("broker exit, saved=%s slot=%d", saved, effective_slot)
+        return saved, effective_slot
+
     body = _broker_request_safe(
         container,
         "/save-and-exit",
@@ -784,9 +812,195 @@ def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
 
 def _stop_broker(container: dict[str, Any]) -> None:
     """Tell the broker to stop emulator. Best-effort, don't raise on failure."""
+    if _is_webstation(container):
+        _webstation_exit(container, slot=0)
+        return
     _broker_request_safe(
         container, "/launch", "stop", method="DELETE", timeout=_BROKER_ACK_TIMEOUT
     )
+
+
+# ── Webstation broker protocol ────────────────────────────────────────────────
+#
+# One webstation container replaces the per-emulator mods, and its contract
+# differs enough to need translating. It hosts a single session behind a
+# subfolder; activate carries the user, the rom and the save data in one body;
+# and exit does the save state, the teardown and the save dump together.
+#
+# The awkward part is save transfer. Activate names the restore archive by
+# container path, but RomM holds bytes and runs on another host, so an archive
+# is uploaded first and the path it returns is what activate gets. On the way
+# out the broker pushes to a callback, which is unreachable in dev mode and
+# lost on a failed push, so RomM pulls from the export list instead and deletes
+# what it stored.
+#
+# Not yet available on this protocol: volume, mute, mid-session save/load
+# state, per-slot state files and their screenshots, and whole-card sync. State
+# data still round-trips, but only inside the save archive.
+
+
+def _is_webstation(container: dict[str, Any]) -> bool:
+    return str(container.get("protocol", "")).strip().lower() == "webstation"
+
+
+def _broker_session_id(session: dict[str, Any]) -> str | None:
+    """The id activate gave the broker, absent on sessions claimed before it."""
+    value = session.get("broker_session_id")
+    return str(value) if value else None
+
+
+def _webstation_path(container: dict[str, Any], path: str) -> str:
+    """Prefix a session route with the container's SUBFOLDER."""
+    subfolder = str(container.get("subfolder", "/streaming")).strip()
+    if not subfolder.startswith("/"):
+        subfolder = f"/{subfolder}"
+    return f"{subfolder.rstrip('/')}/api/session{path}"
+
+
+def _container_capabilities(container: dict[str, Any]) -> PlatformCapabilities:
+    """The save-state controls the frontend may offer for this container.
+
+    A webstation container serves no mid-session state routes, so shipping its
+    platform's slot table would advertise buttons that cannot work. Its autosave
+    still happens, just inside exit rather than on request.
+    """
+    if _is_webstation(container):
+        return _NO_CAPABILITIES
+    return platform_capabilities(str(container.get("platform", "")))
+
+
+def _webstation_activate(
+    container: dict[str, Any],
+    *,
+    session_id: str,
+    user: User,
+    rom_path: str,
+    rom_name: str,
+    rom_id: int,
+    platform: str,
+    archive_path: str | None,
+    resume_slot: int | None,
+) -> dict[str, Any]:
+    """POST /activate. Raises HTTPException the same way _call_broker does."""
+    body: dict[str, Any] = {
+        "session_id": session_id,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "display_name": user.username,
+        },
+        "emulator": _emulator_for_container(container),
+        "rom": {
+            "id": rom_id,
+            "name": rom_name,
+            "platform": platform,
+            "path": rom_path,
+        },
+    }
+    save: dict[str, Any] = {}
+    if archive_path:
+        save["archive"] = archive_path
+    if resume_slot is not None:
+        save["resume_slot"] = resume_slot
+    if save:
+        body["save"] = save
+
+    path = _webstation_path(container, "/activate")
+    try:
+        resp = _broker_request(
+            container, path, body=body, timeout=_BROKER_LAUNCH_TIMEOUT
+        )
+    except urllib.error.HTTPError as exc:
+        error_body = exc.read().decode(errors="replace")
+        log.error("broker HTTP error %d: %s", exc.code, error_body)
+        try:
+            detail = json.loads(error_body)
+        except Exception:
+            detail = error_body
+        raise HTTPException(
+            status_code=502, detail=f"Broker returned {exc.code}: {detail}"
+        ) from exc
+    except (urllib.error.URLError, OSError) as exc:
+        url = _broker_url(container, path)
+        log.error("broker unreachable at %s: %s", url, exc)
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Could not reach the webstation broker at {url}. "
+                "Check that the container is running and its broker port is "
+                "reachable from the RomM host."
+            ),
+        ) from exc
+
+    resp = resp if isinstance(resp, dict) else {}
+    log.info("broker activated session, %s", resp)
+    return resp
+
+
+def _webstation_exit(container: dict[str, Any], slot: int) -> dict[str, Any] | None:
+    """POST /exit. Best-effort, the caller is already tearing the session down.
+
+    Slot 0 means the caller has no opinion, so the broker's own default stands.
+    """
+    query = f"?slot={slot}" if slot else ""
+    body = _broker_request_safe(
+        container,
+        _webstation_path(container, f"/exit{query}"),
+        "exit",
+        timeout=STREAMING_SAVE_TIMEOUT,
+    )
+    return body if isinstance(body, dict) else None
+
+
+def _webstation_upload_archive(
+    container: dict[str, Any], name: str, content: bytes
+) -> str | None:
+    """PUT a save archive and return the container path activate wants."""
+    body = _broker_put_binary_json(
+        container,
+        _webstation_path(container, f"/imports/{quote(name)}"),
+        content,
+        "archive upload",
+        content_type="application/zip",
+        timeout=_BROKER_TRANSFER_TIMEOUT,
+    )
+    if not body or not body.get("path"):
+        return None
+    return str(body["path"])
+
+
+def _webstation_exports(container: dict[str, Any]) -> list[dict[str, Any]]:
+    """Save archives waiting on the container, newest first."""
+    body = _broker_request_safe(
+        container,
+        _webstation_path(container, "/exports"),
+        "export list",
+        method="GET",
+        timeout=_BROKER_ACK_TIMEOUT,
+    )
+    exports = body.get("exports") if isinstance(body, dict) else None
+    return exports if isinstance(exports, list) else []
+
+
+def _webstation_collect_export(container: dict[str, Any], name: str) -> bytes | None:
+    """Download one archive and drop the container's copy once it is in hand."""
+    result = _broker_get_binary_safe(
+        container,
+        _webstation_path(container, f"/exports/{quote(name)}"),
+        "export download",
+        max_bytes=_SAVE_FILE_MAX_BYTES,
+        timeout=_BROKER_TRANSFER_TIMEOUT,
+    )
+    if result is None:
+        return None
+    _broker_request_safe(
+        container,
+        _webstation_path(container, f"/exports/{quote(name)}"),
+        "export delete",
+        method="DELETE",
+        timeout=_BROKER_ACK_TIMEOUT,
+    )
+    return result[1]
 
 
 # ── Save-state sync ───────────────────────────────────────────────────────────
@@ -1125,6 +1339,10 @@ async def _pull_state_to_library(
     Best-effort by design, a sync failure must never surface to the player,
     the state still exists inside the container.
     """
+    if _is_webstation(container):
+        # No /state-file on this protocol: the state leaves with the save
+        # archive the exit dumps, which _pull_saves_to_library collects.
+        return False
     user = db_user_handler.get_user(user_id)
     rom = db_rom_handler.get_rom(rom_id)
     if user is None or rom is None:
@@ -1229,12 +1447,28 @@ async def _hydrate_states_to_broker(
 _SAVE_FILE_MAX_BYTES = 256 * 1024 * 1024
 
 
-def _fetch_save_archive(container: dict[str, Any]) -> bytes | None:
+def _fetch_save_archive(
+    container: dict[str, Any], broker_session_id: str | None = None
+) -> bytes | None:
     """GET /save-file from the broker. Returns the zip bytes or None.
 
     404 means nothing changed since the game launched (the normal "no new
     saves" case); any other failure is logged and treated the same way.
     """
+    if _is_webstation(container):
+        # Exit already built the delta archive and left it on the container,
+        # named after the session that produced it. Matching on that name is
+        # what keeps an archive a previous pull failed to collect from being
+        # filed under this session's player.
+        if not broker_session_id:
+            return None
+        prefix = f"{broker_session_id}-"
+        for export in _webstation_exports(container):
+            name = str(export.get("name", ""))
+            if name.startswith(prefix):
+                return _webstation_collect_export(container, name)
+        return None
+
     result = _broker_get_binary_safe(
         container,
         "/save-file",
@@ -1305,7 +1539,10 @@ async def _store_save_asset(
 
 
 async def _pull_saves_to_library(
-    user_id: int, rom_id: int, container: dict[str, Any]
+    user_id: int,
+    rom_id: int,
+    container: dict[str, Any],
+    broker_session_id: str | None = None,
 ) -> bool:
     """Background task: pull in-game saves from the broker and store them.
 
@@ -1321,7 +1558,9 @@ async def _pull_saves_to_library(
     for attempt in range(_STATE_PULL_ATTEMPTS):
         if attempt > 0:
             await asyncio.sleep(_STATE_PULL_RETRY_DELAY)
-        content = await asyncio.to_thread(_fetch_save_archive, container)
+        content = await asyncio.to_thread(
+            _fetch_save_archive, container, broker_session_id
+        )
         if content is None:
             continue
         try:
@@ -1339,19 +1578,12 @@ async def _pull_saves_to_library(
     return False
 
 
-async def _hydrate_saves_to_broker(
-    user_id: int, rom_id: int, container: dict[str, Any]
-) -> bool:
-    """Push the user's newest stored save archive down to the freshly claimed
-    container BEFORE the game launches. Games read saves at boot, so this must
-    happen synchronously ahead of the launch (unlike states, read lazily).
+async def _newest_save_archive(
+    user_id: int, rom_id: int, emulator: str
+) -> tuple[str, bytes] | None:
+    """The user's most recent stored save archive for this emulator, read off
+    disk. Returns (file name, content), or None when there is nothing to send.
     """
-    user = db_user_handler.get_user(user_id)
-    rom = db_rom_handler.get_rom(rom_id)
-    if user is None or rom is None:
-        return False
-    emulator = _emulator_for_container(container)
-
     newest = None
     for save in db_save_handler.get_saves(
         user_id=user_id, rom_id=rom_id, order_by="created_at", order_dir="desc"
@@ -1363,7 +1595,7 @@ async def _hydrate_saves_to_broker(
         newest = save
         break
     if newest is None:
-        return False
+        return None
 
     try:
         content = await fs_asset_handler.read_file(
@@ -1371,16 +1603,56 @@ async def _hydrate_saves_to_broker(
         )
     except FileNotFoundError:
         log.warning("stored save missing on disk, %s", newest.file_name)
+        return None
+    return newest.file_name, content
+
+
+async def _hydrate_saves_to_broker(
+    user_id: int, rom_id: int, container: dict[str, Any]
+) -> bool:
+    """Push the user's newest stored save archive down to the freshly claimed
+    container BEFORE the game launches. Games read saves at boot, so this must
+    happen synchronously ahead of the launch (unlike states, read lazily).
+    """
+    rom = db_rom_handler.get_rom(rom_id)
+    if db_user_handler.get_user(user_id) is None or rom is None:
         return False
+
+    newest = await _newest_save_archive(
+        user_id, rom_id, _emulator_for_container(container)
+    )
+    if newest is None:
+        return False
+    file_name, content = newest
 
     ok = await asyncio.to_thread(_push_save_archive, container, content)
     if ok:
-        log.info(
-            "hydrated saves to container, rom=%s file=%s",
-            rom.name,
-            newest.file_name,
-        )
+        log.info("hydrated saves to container, rom=%s file=%s", rom.name, file_name)
     return ok
+
+
+async def _hydrate_saves_to_webstation(
+    user_id: int, rom_id: int, container: dict[str, Any]
+) -> str | None:
+    """Upload the newest stored save archive and return the container path.
+
+    The webstation broker restores as part of activate rather than through a
+    push of its own, so hydration here only gets the bytes into place and
+    hands back the path activate names.
+    """
+    newest = await _newest_save_archive(
+        user_id, rom_id, _emulator_for_container(container)
+    )
+    if newest is None:
+        return None
+    file_name, content = newest
+
+    path = await asyncio.to_thread(
+        _webstation_upload_archive, container, f"rom-{rom_id}.zip", content
+    )
+    if path:
+        log.info("uploaded saves to container, file=%s path=%s", file_name, path)
+    return path
 
 
 # ── Whole memory-card sync (per-user card model) ──────────────────────────────
@@ -1417,6 +1689,10 @@ def _memory_card_sync_enabled(container: dict[str, Any]) -> bool:
     _container_for_platform warns the operator once per lookup.
     """
     if not container.get("memory_card_sync", False):
+        return False
+    if _is_webstation(container):
+        # That protocol serves no /memory-card; its cards ride along in the
+        # save archive instead.
         return False
     return not _known_to_lack_memory_card(container.get("platform", ""))
 
@@ -1986,7 +2262,7 @@ async def get_config(request: Request) -> JSONResponse:
                 "label": c.get("label") or platform.upper(),
                 # Ship slot capabilities so the frontend selector reads them
                 # instead of keeping its own hardcoded per-platform copy.
-                "capabilities": platform_capabilities(platform),
+                "capabilities": _container_capabilities(c),
                 # State namespace for this container, so the frontend can
                 # filter the resume picker the same way hydration filters.
                 "emulator": _emulator_for_container(c),
@@ -2068,6 +2344,10 @@ async def claim_session(
     session_key = _container_key(container)
     now = datetime.now(timezone.utc).isoformat()
     session = {
+        # Unique per claim, and safe to put in a filename. The webstation
+        # broker names its exit archive after it, so the pull can tell this
+        # session's saves from one an earlier pull failed to collect.
+        "broker_session_id": secrets.token_hex(8),
         "rom_id": rom.id,
         "rom_name": rom_name,
         # Stored so admin views can release through the platform-keyed
@@ -2254,8 +2534,10 @@ async def claim_session(
     # Push the resume state before launch so its file is in place when the
     # broker's deferred slot load fires. Best-effort: a failed push falls
     # back to a fresh launch, reported through `resume` in the response.
+    # The webstation protocol serves no state-file route, so its resume rides
+    # inside the save archive uploaded below instead.
     resume_pushed = False
-    if resume_state is not None:
+    if resume_state is not None and not _is_webstation(container):
         try:
             content = await fs_asset_handler.read_file(
                 f"{resume_state.file_path}/{resume_state.file_name}"
@@ -2273,6 +2555,7 @@ async def claim_session(
 
     # Prepare in-game saves before launch - games read them at boot, so unlike
     # states this cannot be deferred to a background task.
+    archive_path: str | None = None
     if memory_card is not None:
         # Whole-card sync: hydrate (or wipe to blank) is REQUIRED. If it fails
         # we cannot guarantee the container is isolated from the previous
@@ -2291,6 +2574,24 @@ async def claim_session(
             raise HTTPException(
                 status_code=502, detail="Could not prepare the memory card"
             )
+    elif _is_webstation(container):
+        # Restore runs inside activate on this protocol, so hydration only gets
+        # the bytes onto the container and names the path activate restores.
+        # Best-effort: a failed upload just means the container keeps its own.
+        try:
+            archive_path = await _hydrate_saves_to_webstation(
+                request.user.id, rom.id, container
+            )
+        except Exception:
+            log.exception("save hydration failed, continuing launch")
+        # Resume is all-or-nothing here. The exit archive carries the autosave
+        # slot's state file alongside the in-game saves, so restoring it and
+        # loading that slot IS the resume path, and there are no per-slot state
+        # assets for the player to pick from.
+        caps = platform_capabilities(platform)
+        if archive_path is not None and caps["has_autosave"]:
+            resume_slot = caps["autosave_slot"]
+            resume_pushed = True
     else:
         # Legacy per-file save sync (containers without memory_card_sync).
         # Best-effort: a failed hydration just means the container keeps its own.
@@ -2302,13 +2603,27 @@ async def claim_session(
     try:
         # Tell the broker to load the ROM, raises HTTPException on failure.
         # Wrapped in asyncio.to_thread because urllib is synchronous.
-        launch_result = await asyncio.to_thread(
-            _call_broker,
-            container,
-            rom_path,
-            rom_name,
-            resume_slot if resume_pushed else None,
-        )
+        if _is_webstation(container):
+            launch_result = await asyncio.to_thread(
+                _webstation_activate,
+                container,
+                session_id=str(session["broker_session_id"]),
+                user=request.user,
+                rom_path=rom_path,
+                rom_name=rom_name,
+                rom_id=rom.id,
+                platform=platform,
+                archive_path=archive_path,
+                resume_slot=resume_slot if resume_pushed else None,
+            )
+        else:
+            launch_result = await asyncio.to_thread(
+                _call_broker,
+                container,
+                rom_path,
+                rom_name,
+                resume_slot if resume_pushed else None,
+            )
     except Exception:
         # Launch failed, free the claim so the container isn't wedged.
         await async_cache.delete(_session_redis_key(session_key))
@@ -2319,27 +2634,41 @@ async def claim_session(
     log.info("session claimed, platform=%s rom=%s", platform, rom_name)
 
     # Hydrate the container with the user's newest stored state in the
-    # background, the stream should not wait on file transfers.
-    _spawn_sync_task(
-        _hydrate_states_to_broker(
-            request.user.id,
-            rom.id,
-            container,
-            resume_pushed=resume_pushed,
+    # background, the stream should not wait on file transfers. Webstation
+    # containers serve no state-file route, their states arrived in the archive.
+    if not _is_webstation(container):
+        _spawn_sync_task(
+            _hydrate_states_to_broker(
+                request.user.id,
+                rom.id,
+                container,
+                resume_pushed=resume_pushed,
+            )
         )
-    )
 
-    # The broker mints a stream token bound to this session and returns it in
-    # the launch body. Append it so the iframe URL carries it, the broker swaps
-    # it for a cookie on first load. No token means the gate is not deployed on
-    # that container, so leave host untouched.
     host = container.get("host", "")
-    stream_token = (
-        launch_result.get("stream_token", "") if isinstance(launch_result, dict) else ""
-    )
-    if stream_token:
-        sep = "&" if "?" in host else "?"
-        host = f"{host}{sep}stream_token={stream_token}"
+    if _is_webstation(container):
+        # Activate answers with the room URL carrying the claiming user's
+        # token, relative to the container root. An absolute path replaces
+        # whatever path the configured host carries.
+        room_url = (
+            str(launch_result.get("url", "")) if isinstance(launch_result, dict) else ""
+        )
+        if room_url:
+            host = urljoin(host, room_url)
+    else:
+        # The broker mints a stream token bound to this session and returns it
+        # in the launch body. Append it so the iframe URL carries it, the broker
+        # swaps it for a cookie on first load. No token means the gate is not
+        # deployed on that container, so leave host untouched.
+        stream_token = (
+            launch_result.get("stream_token", "")
+            if isinstance(launch_result, dict)
+            else ""
+        )
+        if stream_token:
+            sep = "&" if "?" in host else "?"
+            host = f"{host}{sep}stream_token={stream_token}"
 
     return JSONResponse(
         {
@@ -2416,7 +2745,14 @@ async def save_and_exit_session(
     # Legacy per-file in-game save pull, only for containers not on whole-card
     # sync (those were evacuated above, independent of any savestate).
     if isinstance(rom_id, int) and not card_sync:
-        _spawn_sync_task(_pull_saves_to_library(request.user.id, rom_id, container))
+        _spawn_sync_task(
+            _pull_saves_to_library(
+                request.user.id,
+                rom_id,
+                container,
+                _broker_session_id(session),
+            )
+        )
 
     log.info("save-and-exit, platform=%s saved=%s", platform, saved)
     return JSONResponse({"status": "ok", "saved": saved, "platform": platform})
@@ -2648,7 +2984,12 @@ async def _teardown_released_session(
         rom_id = session.get("rom_id")
         if isinstance(rom_id, int) and not _memory_card_sync_enabled(container):
             _spawn_sync_task(
-                _pull_saves_to_library(session["user_id"], rom_id, container)
+                _pull_saves_to_library(
+                    session["user_id"],
+                    rom_id,
+                    container,
+                    _broker_session_id(session),
+                )
             )
 
         log.info("session released, platform=%s", platform)
