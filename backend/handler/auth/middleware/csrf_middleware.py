@@ -176,14 +176,8 @@ class CSRFMiddleware:
             if decoded_doc_cookie["user_id"] != decoded_header_cookie["user_id"]:
                 return False
 
-            # Bind the token to the caller only when there *is* one. An
-            # anonymous request holding a token from a dead session (server
-            # restart, expired session, cleared Redis) would otherwise be
-            # rejected once, and since the rejection response rotates the
-            # cookie, the retry would succeed. That is the "had to log in
-            # twice" bug. Double-submit still protects the anonymous case: an
-            # attacker cannot read the cookie cross-origin, so it cannot forge
-            # the matching header.
+            # Bind the token to the caller only when there *is* one.
+            # An anonymous request holding a token from a dead session would otherwise be rejected.
             if user_id is None:
                 return True
 
