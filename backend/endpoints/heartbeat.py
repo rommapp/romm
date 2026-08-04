@@ -29,7 +29,7 @@ from decorators.auth import protected_route
 from endpoints.responses.heartbeat import HeartbeatResponse
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.constants import Scope
-from handler.database import db_user_handler
+from handler.database import db_stats_handler, db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.filesystem.base_handler import LibraryStructure
 from handler.metadata import (
@@ -213,6 +213,17 @@ async def get_setup_library_info(request: Request):
         )
 
     detected_structure = fs_platform_handler.detect_library_structure()
+
+    # The per-platform rom counts below are a first-run hint, so a fresh
+    # instance can show what RomM already sees on disk. Once the database
+    # holds ROMs that hint is dead weight, and building it walks every
+    # platform directory: tens of seconds on a large library.
+    if db_stats_handler.get_roms_count() > 0:
+        return {
+            "detected_structure": detected_structure,
+            "existing_platforms": [],
+            "supported_platforms": get_supported_platforms(),
+        }
 
     # Get existing platforms from filesystem
     try:
