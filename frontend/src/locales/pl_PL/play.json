@@ -13,6 +13,8 @@
   "deselect-save": "Odznacz zapis",
   "deselect-state": "Odznacz stan",
   "full-screen": "Pełny ekran",
+  "jsdos-browser-save-warning": "Zapisy js-dos są przechowywane tylko w tej przeglądarce i nie są synchronizowane z RomM.",
+  "jsdos-quit-without-saving": "Wyjść bez zapisywania ostatnich postępów?",
   "no-save-selected": "Nie wybrano zapisu",
   "no-saves-available": "Brak dostępnych zapisów",
   "no-screenshot-available": "Brak dostępnych zrzutów ekranu",
