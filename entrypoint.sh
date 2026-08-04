@@ -69,15 +69,18 @@ else
 fi
 
 # Set PYTHONPATH so RQ can find the tasks module.
+# The connection URL goes through RQ_REDIS_URL rather than --url, so the
+# embedded password stays out of the worker's world-readable command line.
 # Use a worker class that drops the noisy per-sweep "cleaning registries for
 # queue" log line. The maintenance interval keeps its default (~10 min) so
 # orphaned STARTED jobs and stale workers are still pruned promptly, which the
 # watcher's Worker.all() scan dedupe relies on.
-PYTHONPATH="/app/backend:${PYTHONPATH-}" rq worker \
+PYTHONPATH="/app/backend:${PYTHONPATH-}" \
+	RQ_REDIS_URL="${REDIS_URL}" \
+	rq worker \
 	--path /app/backend \
 	--worker-class handler.rq_worker.RomMWorker \
 	--pid /tmp/rq_worker.pid \
-	--url "${REDIS_URL}" \
 	--logging_level "${LOGLEVEL:-INFO}" \
 	high default low &
 
