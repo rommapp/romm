@@ -137,6 +137,17 @@ function deferRandomRom() {
   return (pick: SimpleRom | null) => settle({ data: pick });
 }
 
+/** Rejects the promise the next `getRandomRom` call returns, on demand. */
+function deferRandomRomFailure() {
+  let fail: (reason: Error) => void = () => {};
+  getRandomRom.mockReturnValueOnce(
+    new Promise((_resolve, reject) => {
+      fail = reject;
+    }),
+  );
+  return () => fail(new Error("boom"));
+}
+
 /** Moves the view to another platform the way the router would. */
 async function navigateTo(platformId: number) {
   routeState.params = { platform: String(platformId) };
@@ -227,6 +238,28 @@ describe("Platform view random rom", () => {
     await flushPromises();
 
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet when a pick fails after the view moved to another platform", async () => {
+    const failPick = deferRandomRomFailure();
+
+    const wrapper = await mountView();
+    await wrapper.get("button.random").trigger("click");
+
+    await navigateTo(2);
+
+    failPick();
+    await flushPromises();
+
+    expect(snackbarError).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+
+    // The button still works on the platform the user landed on.
+    getRandomRom.mockResolvedValue({ data: rom(7) });
+    await wrapper.get("button.random").trigger("click");
+    await flushPromises();
+
+    expect(push).toHaveBeenCalledWith({ name: "rom", params: { rom: 7 } });
   });
 
   // A same-platform reload swaps in a fresh `Platform` record, so the check

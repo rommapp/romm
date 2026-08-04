@@ -347,7 +347,7 @@ async function onRandomGame() {
     }
     router.push({ name: ROUTES.ROM, params: { rom: data.id } });
   } catch {
-    snackbar.error(t("platform.random-rom-error"));
+    if (!stale()) snackbar.error(t("platform.random-rom-error"));
   } finally {
     randomLoading.value = false;
   }
