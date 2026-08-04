@@ -831,6 +831,191 @@ def test_the_session_platform_picks_the_config_entry_for_its_container():
     assert streaming._container_for_session(grouped, "http://nope:8000", "ps2") is None
 
 
+# ── Desktop sessions ──────────────────────────────────────────────────────────
+
+
+def _webstation(**overrides):
+    """A container whose broker speaks the webstation protocol, the only one
+    that serves a desktop."""
+    return _nested(protocol="webstation", label="Webstation", **overrides)
+
+
+def _containers(client, token):
+    return client.get("/api/streaming/containers", headers=_auth(token))
+
+
+def _desktop(client, token, container_key: str, url="/streaming/room/abc"):
+    """Open a desktop with the broker activation stubbed."""
+    with patch(
+        "endpoints.streaming._webstation_activate", return_value={"url": url}
+    ) as activate:
+        response = client.post(
+            "/api/streaming/desktop",
+            json={"container": container_key},
+            headers=_auth(token),
+        )
+    return response, activate
+
+
+def _key_of(container: dict) -> str:
+    return streaming._container_key(container)
+
+
+def _claim_webstation_ok(client, token, rom_id):
+    """Claim a game on a webstation container, whose launch goes through
+    activate rather than the per-emulator mods' /launch."""
+    with patch(
+        "endpoints.streaming._webstation_activate", return_value={"url": "/room/x"}
+    ):
+        return _claim(client, token, rom_id)
+
+
+def test_containers_lists_one_row_per_container(client, access_token):
+    """A container serves many platforms but hosts one session, so the fleet
+    view counts containers, not the platform rows /config ships."""
+    second = _webstation(
+        host="http://192.168.1.11:3000", broker_host="http://192.168.1.11:8000"
+    )
+    with _streaming(_webstation(), second):
+        response = _containers(client, access_token)
+    assert response.status_code == 200
+    rows = response.json()["containers"]
+    assert len(rows) == 2
+    assert sorted(rows[0]["platforms"]) == ["ngc", "ps2"]
+    assert rows[0]["supports_desktop"] is True
+    assert rows[0]["session"] is None
+
+
+def test_containers_reports_a_container_that_can_never_be_claimed(client, access_token):
+    """A schemeless host derives no key, so the row says so rather than
+    sitting in the list looking idle."""
+    with _streaming(_nested(host="192.168.1.10:3000", broker_host="")):
+        response = _containers(client, access_token)
+    assert response.status_code == 200
+    assert response.json()["containers"][0]["configured"] is False
+
+
+def test_containers_shows_what_is_running(client, access_token):
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_nested()):
+        assert _claim_ok(client, access_token, ps2_rom.id).status_code == 200
+        response = _containers(client, access_token)
+    session = response.json()["containers"][0]["session"]
+    assert session["rom_name"] == ps2_rom.name
+    assert session["desktop"] is False
+    assert session["username"] == "test_admin"
+
+
+def test_containers_is_admin_only(client, viewer_access_token):
+    with _streaming(_webstation()):
+        assert _containers(client, viewer_access_token).status_code == 403
+
+
+def test_desktop_claims_the_named_container(client, access_token):
+    """The landing URL activate returns is resolved against the stream host,
+    the same way a game claim resolves its room URL."""
+    with _streaming(_webstation()):
+        key = _key_of(_first_container("ps2"))
+        response, activate = _desktop(client, access_token, key)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["container"] == key
+    assert body["host"] == "http://192.168.1.10:3000/streaming/room/abc"
+    assert activate.call_args.kwargs["emulator"] == "desktop"
+    # No ROM: the broker registers the desktop with requires_rom False, and
+    # sending one would make exit try to sync saves that do not exist.
+    assert "rom" not in activate.call_args.kwargs
+
+
+def test_desktop_and_a_game_block_each_other(client, access_token):
+    """Both claim the same key, which is the point: only one thing can drive
+    the container's display."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_webstation()):
+        key = _key_of(_first_container("ps2"))
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        assert _claim_webstation_ok(client, access_token, ps2_rom.id).status_code == 409
+
+    asyncio.run(async_cache.flushall())
+
+    with _streaming(_webstation()):
+        key = _key_of(_first_container("ps2"))
+        assert _claim_webstation_ok(client, access_token, ps2_rom.id).status_code == 200
+        assert _desktop(client, access_token, key)[0].status_code == 409
+
+
+def test_desktop_is_admin_only(client, viewer_access_token):
+    with _streaming(_webstation()):
+        key = _key_of(_first_container("ps2"))
+        response, _ = _desktop(client, viewer_access_token, key)
+    assert response.status_code == 403
+
+
+def test_desktop_404s_on_a_container_that_is_not_configured(client, access_token):
+    with _streaming(_webstation()):
+        response, _ = _desktop(client, access_token, "http://192.168.9.9:8000")
+    assert response.status_code == 404
+
+
+def test_desktop_rejects_a_container_without_a_webstation_broker(client, access_token):
+    """The per-emulator mods have no activate route to ask for a desktop."""
+    with _streaming(_nested()):
+        key = _key_of(_first_container("ps2"))
+        response, activate = _desktop(client, access_token, key)
+    assert response.status_code == 400
+    activate.assert_not_called()
+
+
+def test_desktop_frees_the_claim_when_activation_fails(client, access_token):
+    """A wedged claim would lock the container out until the TTL expires."""
+    with _streaming(_webstation()):
+        container = _first_container("ps2")
+        key = _key_of(container)
+        with patch(
+            "endpoints.streaming._webstation_activate",
+            side_effect=HTTPException(status_code=503, detail="down"),
+        ):
+            response = client.post(
+                "/api/streaming/desktop",
+                json={"container": key},
+                headers=_auth(access_token),
+            )
+        assert response.status_code == 503
+        assert _session_raw(container) is None
+
+
+def test_releasing_a_desktop_session_syncs_nothing_to_the_library(client, access_token):
+    """No ROM means no saves, no states and no playtime to credit, so teardown
+    must stop at stopping the emulator."""
+    with _streaming(_webstation()):
+        container = _first_container("ps2")
+        assert _desktop(client, access_token, _key_of(container))[0].status_code == 200
+        with (
+            patch("endpoints.streaming._stop_broker") as stop,
+            patch("endpoints.streaming._spawn_sync_task") as spawn,
+        ):
+            response = client.delete(
+                f"/api/streaming/sessions/{container['platform']}",
+                headers=_auth(access_token),
+            )
+    assert response.status_code == 200
+    stop.assert_called_once()
+    spawn.assert_not_called()
+    assert _session_raw(container) is None
+
+
+def test_the_admin_session_list_flags_a_desktop(client, access_token):
+    """rom_name is null on a desktop session, so the list has to say what it
+    is rather than leaving the row blank."""
+    with _streaming(_webstation()):
+        key = _key_of(_first_container("ps2"))
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        response = client.get("/api/streaming/sessions", headers=_auth(access_token))
+    session = response.json()["sessions"][0]
+    assert session["desktop"] is True
+    assert session["rom_name"] is None
+
+
 # ── Staleness / heartbeat ─────────────────────────────────────────────────────
 
 

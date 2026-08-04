@@ -403,6 +403,13 @@ class LoadStateRequest(BaseModel):
     slot: Annotated[int, Field(ge=1, le=_MAX_SLOT)] = 1
 
 
+class DesktopSessionRequest(BaseModel):
+    # The container to open, named by the key GET /streaming/containers
+    # reports. Named rather than pooled: an admin configuring a container
+    # needs that one, not whichever is free.
+    container: Annotated[str, Field(min_length=1, max_length=300)]
+
+
 def _expand_containers(entries: Any) -> list[dict[str, Any]]:
     """One entry per (container, platform).
 
@@ -1048,14 +1055,16 @@ def _webstation_activate(
     *,
     session_id: str,
     user: User,
-    rom_path: str,
-    rom_name: str,
-    rom_id: int,
-    platform: str,
-    archive_path: str | None,
-    resume_slot: int | None,
+    emulator: str,
+    rom: dict[str, Any] | None = None,
+    archive_path: str | None = None,
+    resume_slot: int | None = None,
 ) -> dict[str, Any]:
-    """POST /activate. Raises HTTPException the same way _call_broker does."""
+    """POST /activate. Raises HTTPException the same way _call_broker does.
+
+    `rom` is omitted for emulators the broker registers with requires_rom
+    False, the desktop being the one that matters here.
+    """
     body: dict[str, Any] = {
         "session_id": session_id,
         "user": {
@@ -1063,14 +1072,10 @@ def _webstation_activate(
             "username": user.username,
             "display_name": user.username,
         },
-        "emulator": _emulator_for_container(container),
-        "rom": {
-            "id": rom_id,
-            "name": rom_name,
-            "platform": platform,
-            "path": rom_path,
-        },
+        "emulator": emulator,
     }
+    if rom is not None:
+        body["rom"] = rom
     save: dict[str, Any] = {}
     if archive_path:
         save["archive"] = archive_path
@@ -2814,10 +2819,13 @@ async def claim_session(
                 container,
                 session_id=str(session["broker_session_id"]),
                 user=request.user,
-                rom_path=rom_path,
-                rom_name=rom_name,
-                rom_id=rom.id,
-                platform=platform,
+                emulator=_emulator_for_container(container),
+                rom={
+                    "id": rom.id,
+                    "name": rom_name,
+                    "platform": platform,
+                    "path": rom_path,
+                },
                 archive_path=archive_path,
                 resume_slot=resume_slot if resume_pushed else None,
             )
@@ -3219,6 +3227,162 @@ async def _teardown_released_session(
         await async_cache.delete(_session_redis_key(session_key))
 
 
+def _container_by_key(container_key: str) -> tuple[dict[str, Any], str]:
+    """A configured container named by its key, plus the platform to file its
+    sessions under.
+
+    The session routes are platform-keyed, so a container serving several gets
+    the first, which `_container_for_session` resolves back to this entry.
+    Raises 404 when the key names no container.
+    """
+    entries = _containers_by_key().get(container_key) if container_key else None
+    if not entries or not _get_streaming_config().get("enabled", False):
+        raise HTTPException(
+            status_code=404, detail=f"No streaming container '{container_key}'"
+        )
+    return entries[0], str(entries[0].get("platform", ""))
+
+
+@protected_route(router.get, "/containers", [Scope.ROMS_READ])
+async def list_containers(request: Request) -> JSONResponse:
+    """Admin view, one row per configured container with whatever it is running.
+
+    One row per container rather than per platform: a container serves many
+    platforms but hosts one session, so the platform rows the frontend gets
+    from `/streaming/config` are the wrong unit for operating the fleet.
+    """
+    if request.user.role != Role.ADMIN:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    cfg = _get_streaming_config()
+    containers: list[dict[str, Any]] = []
+    for container_key, entries in _containers_by_key().items():
+        first = entries[0]
+        session = await _get_session(container_key) if container_key else None
+        user_id = session.get("user_id") if session else None
+        user = db_user_handler.get_user(user_id) if isinstance(user_id, int) else None
+        containers.append(
+            {
+                "container": container_key,
+                "label": first.get("label"),
+                "host": first.get("host"),
+                "platforms": [e.get("platform") for e in entries if e.get("platform")],
+                # The desktop emulator lives on the webstation broker only; the
+                # per-emulator mods have no activate route to ask for it.
+                "supports_desktop": _is_webstation(first),
+                # A container whose host has no scheme has an empty key and can
+                # never be claimed, so surface it rather than listing it as idle.
+                "configured": bool(container_key),
+                "session": (
+                    {
+                        "platform": session.get("platform"),
+                        "rom_id": session.get("rom_id"),
+                        "rom_name": session.get("rom_name"),
+                        "desktop": bool(session.get("desktop")),
+                        "claimed_at": session.get("claimed_at"),
+                        "user_id": user_id,
+                        "username": user.username if user else None,
+                    }
+                    if session
+                    else None
+                ),
+            }
+        )
+    return JSONResponse(
+        {"enabled": cfg.get("enabled", False), "containers": containers}
+    )
+
+
+@protected_route(router.post, "/desktop", [Scope.ROMS_USER_WRITE])
+async def claim_desktop_session(
+    request: Request, req: Annotated[DesktopSessionRequest, Body()]
+) -> JSONResponse:
+    """Admin, open a container's desktop with no game running.
+
+    This is how an operator configures an emulator (BIOS, controllers, paths)
+    inside the container that will run it. The desktop claims the same key
+    under the same SET NX as a game, so it blocks players and a running game
+    blocks it: only one thing can drive the container's display.
+
+    Returns 404 for an unknown container, 409 when it is occupied, 502/503 when
+    the broker rejects the activation or is unreachable.
+    """
+    if request.user.role != Role.ADMIN:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    container, platform = _container_by_key(req.container)
+    if not _is_webstation(container):
+        raise HTTPException(
+            status_code=400,
+            detail="This container's broker does not serve a desktop session",
+        )
+
+    session_key = _container_key(container)
+    now = datetime.now(timezone.utc).isoformat()
+    session = {
+        "user_id": request.user.id,
+        "broker_session_id": secrets.token_hex(8),
+        # No ROM and no card. Teardown reads both and skips the save pull, the
+        # card evacuation and the playtime credit when they are absent, which
+        # is what a desktop session wants: nothing of it belongs in a library.
+        "rom_id": None,
+        "rom_name": None,
+        "memory_card_id": None,
+        "desktop": True,
+        "platform": platform,
+        "claimed_at": now,
+        "last_seen": now,
+    }
+    # No stale takeover here, unlike a player's claim: the admin named this
+    # container, so displacing whoever holds it should be their explicit call
+    # through release, not a side effect of asking for the desktop.
+    claimed = await async_cache.set(
+        _session_redis_key(session_key),
+        json.dumps(session),
+        nx=True,
+        ex=SESSION_TTL_SECONDS,
+    )
+    if not claimed:
+        existing = await _get_session(session_key) or {}
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Container in use",
+                "rom_name": existing.get("rom_name"),
+                "claimed_at": existing.get("claimed_at"),
+            },
+        )
+
+    try:
+        launch_result = await asyncio.to_thread(
+            _webstation_activate,
+            container,
+            session_id=str(session["broker_session_id"]),
+            user=request.user,
+            emulator="desktop",
+        )
+    except Exception:
+        # Activation failed, free the claim so the container isn't wedged.
+        await async_cache.delete(_session_redis_key(session_key))
+        raise
+
+    host = container.get("host", "")
+    room_url = str(launch_result.get("url", "")) if launch_result else ""
+    if room_url:
+        host = urljoin(host, room_url)
+
+    log.info("desktop session claimed, container=%s", session_key)
+    return JSONResponse(
+        {
+            "container": session_key,
+            "platform": platform,
+            "host": host,
+            "label": container.get("label", platform.upper()),
+            "claimed_at": now,
+        }
+    )
+
+
 @protected_route(router.get, "/sessions", [Scope.ROMS_READ])
 async def list_sessions(request: Request) -> JSONResponse:
     """Admin view, active sessions across all configured containers.
@@ -3255,6 +3419,7 @@ async def list_sessions(request: Request) -> JSONResponse:
                 "platform": s.get("platform"),
                 "rom_id": s.get("rom_id"),
                 "rom_name": s.get("rom_name"),
+                "desktop": bool(s.get("desktop")),
                 "claimed_at": s.get("claimed_at"),
                 "user_id": user_id,
                 "username": user.username if user else None,

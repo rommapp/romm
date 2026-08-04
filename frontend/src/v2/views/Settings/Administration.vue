@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // Administration — v2-native page chrome for the admin-only sections.
 // Uses the shared `RTabNav` primitive (same one Library Management
-// uses) to expose Users / Groups / Tasks as sibling tabs, keeping
-// the `?tab=` query param so deep links survive a reload.
+// uses) to expose Users / Groups / Tasks / Streaming as sibling tabs,
+// keeping the `?tab=` query param so deep links survive a reload.
 //
 // Tabs are gated by scope: `users.write` for the groups tab,
 // `tasks.run` for the Tasks tab. Users tab is always visible to anyone
@@ -18,6 +18,7 @@ import EditUserDialog from "@/v2/components/Settings/EditUserDialog.vue";
 import GroupFormDialog from "@/v2/components/Settings/GroupFormDialog.vue";
 import InviteLinkDialog from "@/v2/components/Settings/InviteLinkDialog.vue";
 import PermissionGroupsSection from "@/v2/components/Settings/PermissionGroupsSection.vue";
+import StreamingSection from "@/v2/components/Settings/StreamingSection.vue";
 import TasksSection from "@/v2/components/Settings/TasksSection.vue";
 import UsersSection from "@/v2/components/Settings/UsersSection.vue";
 
@@ -26,8 +27,8 @@ const route = useRoute();
 const router = useRouter();
 const auth = storeAuth();
 
-type Tab = "users" | "groups" | "tasks";
-const validTabs: Tab[] = ["users", "groups", "tasks"];
+type Tab = "users" | "groups" | "tasks" | "streaming";
+const validTabs: Tab[] = ["users", "groups", "tasks", "streaming"];
 
 const tab = ref<Tab>(
   (validTabs as string[]).includes(route.query.tab as string)
@@ -78,6 +79,11 @@ const tabs = computed<RTabNavItem[]>(() => {
       icon: "mdi-pulse",
     });
   }
+  items.push({
+    id: "streaming",
+    label: t("settings.streaming"),
+    icon: "mdi-monitor-dashboard",
+  });
   return items;
 });
 
@@ -97,6 +103,7 @@ const tabModel = computed<string>({
     <UsersSection v-if="tab === 'users'" />
     <PermissionGroupsSection v-else-if="tab === 'groups'" />
     <TasksSection v-else-if="tab === 'tasks'" />
+    <StreamingSection v-else-if="tab === 'streaming'" />
 
     <CreateUserDialog />
     <EditUserDialog />

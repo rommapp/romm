@@ -45,6 +45,7 @@ import {
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import MemoryCardImportDialog from "@/v2/components/Player/MemoryCardImportDialog.vue";
 import MemoryCardPicker from "@/v2/components/Player/MemoryCardPicker.vue";
+import StreamStage from "@/v2/components/Player/StreamStage.vue";
 import AssetStrip, {
   type AssetLayout,
 } from "@/v2/components/shared/AssetStrip.vue";
@@ -81,8 +82,6 @@ const errorMessage = ref<string>("");
 const errorHint = ref<string>("");
 const occupiedBy = ref<{ rom_name: string; claimed_at: string } | null>(null);
 const containerHost = ref<string>("");
-const isFullscreen = ref(false);
-const isUIVisible = ref(true);
 const isSavingAndExiting = ref(false);
 const isSavingState = ref(false);
 const isLoadingState = ref(false);
@@ -333,7 +332,7 @@ async function handleSessionStatus(
   // fullscreened stage; and tearing the stage down first would unmount the
   // fullscreen element out from under the in-flight exit request, leaving the
   // browser fullscreen over a dead stream.
-  await leaveFullscreen();
+  await stage.value?.leaveFullscreen();
 
   // "exited" both stops the route guard prompting and suppresses the unmount
   // release path, since the claim is already gone server-side.
@@ -460,82 +459,13 @@ function toggleMute(): void {
       .catch((err) => console.warn("[streaming] Could not set mute:", err));
 }
 
-// ── Auto-hiding control bar ────────────────────────────────────────
-let uiTimeout: ReturnType<typeof setTimeout> | null = null;
-const stageRef = ref<HTMLElement | null>(null);
-const streamFrame = ref<HTMLIFrameElement | null>(null);
+// ── Stage ──────────────────────────────────────────────────────────
+// The iframe, the auto-hiding bar and the focus handling all live in
+// StreamStage; this view only supplies the bar's buttons.
+const stage = ref<InstanceType<typeof StreamStage> | null>(null);
 
-let attachTimeouts: ReturnType<typeof setTimeout>[] = [];
-let iframeLoadCleanup: (() => void) | null = null;
-let contentWindowCleanup: (() => void) | null = null;
-
-function showUI(): void {
-  isUIVisible.value = true;
-  if (uiTimeout) clearTimeout(uiTimeout);
-  uiTimeout = setTimeout(() => {
-    isUIVisible.value = false;
-    focusStream();
-  }, 2500);
-}
-
-// Browsers only deliver gamepad input to the focused frame, so the Selkies
-// iframe must hold focus for the emulator to see the controller. Called on
-// game start, iframe load, and whenever the control bar hides (returning
-// focus taken by a toolbar click).
 function focusStream(): void {
-  if (!gameRunning.value) return;
-  streamFrame.value?.focus();
-}
-
-function handleMouseMove(): void {
-  showUI();
-}
-
-// Attach pointer listeners inside the iframe when same-origin, so the
-// control bar reappears while the pointer is over the stream. Cross-
-// origin containers fall back to the bottom hover sensor.
-function attachIframeListeners(): void {
-  const frame = streamFrame.value;
-  if (!frame) return;
-
-  iframeLoadCleanup?.();
-  iframeLoadCleanup = null;
-
-  const tryAttach = (): void => {
-    focusStream();
-    if (contentWindowCleanup) return;
-    try {
-      if (frame.contentWindow) {
-        frame.contentWindow.addEventListener("mousemove", handleMouseMove);
-        frame.contentWindow.addEventListener("mousedown", handleMouseMove);
-        frame.contentWindow.addEventListener("touchstart", handleMouseMove);
-        contentWindowCleanup = () => {
-          try {
-            frame.contentWindow?.removeEventListener(
-              "mousemove",
-              handleMouseMove,
-            );
-            frame.contentWindow?.removeEventListener(
-              "mousedown",
-              handleMouseMove,
-            );
-            frame.contentWindow?.removeEventListener(
-              "touchstart",
-              handleMouseMove,
-            );
-          } catch {
-            // Cross-origin: listeners were never added, nothing to remove.
-          }
-        };
-      }
-    } catch {
-      // Cross-origin container, can't access contentWindow.
-    }
-  };
-
-  frame.addEventListener("load", tryAttach);
-  iframeLoadCleanup = () => frame.removeEventListener("load", tryAttach);
-  tryAttach();
+  stage.value?.focusStream();
 }
 
 // ── Session lifecycle ──────────────────────────────────────────────
@@ -621,21 +551,10 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
     }
     containerHost.value = session.host;
     playerState.value = "playing";
-    showUI();
-
-    attachTimeouts.forEach((id) => clearTimeout(id));
-    attachTimeouts = [];
-    attachTimeouts.push(setTimeout(attachIframeListeners, 100));
-    // Some frames are slow to initialize their window; try again later.
-    attachTimeouts.push(setTimeout(attachIframeListeners, 500));
 
     if (fullscreenOnPlay.value) {
       await nextTick();
-      try {
-        await stageRef.value?.requestFullscreen();
-      } catch {
-        // Fullscreen denied (permissions policy / gesture requirement).
-      }
+      await stage.value?.enterFullscreen();
     }
   } catch (err: unknown) {
     // The store propagates the raw axios error; the status and the
@@ -785,37 +704,6 @@ const stateActionBusy = computed(
   () => isSavingState.value || isLoadingState.value || isSavingAndExiting.value,
 );
 
-// ── Fullscreen ─────────────────────────────────────────────────────
-async function toggleFullscreen(): Promise<void> {
-  if (!stageRef.value) return;
-  try {
-    if (!document.fullscreenElement) {
-      await stageRef.value.requestFullscreen();
-    } else {
-      await document.exitFullscreen();
-    }
-  } catch {
-    // Fullscreen denied (permissions policy / gesture requirement).
-  }
-}
-
-function onFullscreenChange(): void {
-  isFullscreen.value = !!document.fullscreenElement;
-}
-
-// Drop out of fullscreen before showing anything teleported to <body>: a
-// fullscreened element paints over the whole page, dialogs included.
-async function leaveFullscreen(): Promise<void> {
-  if (!document.fullscreenElement) return;
-  try {
-    await document.exitFullscreen();
-  } catch (error) {
-    // Worst case the dialog opens behind fullscreen, so this is not fatal, but
-    // it is invisible from the UI and worth surfacing to anyone debugging it.
-    console.warn("Failed to exit fullscreen", error);
-  }
-}
-
 // ── Navigation ─────────────────────────────────────────────────────
 function backToRom() {
   router.push({ name: ROUTES.ROM, params: { rom: rom.value?.id } });
@@ -840,7 +728,7 @@ let pendingLeave: (() => void) | null = null;
 
 async function openExitDialog(): Promise<void> {
   if (exitDialogOpen.value) return;
-  await leaveFullscreen();
+  await stage.value?.leaveFullscreen();
   exitDialogOpen.value = true;
 }
 
@@ -972,7 +860,6 @@ function onPageHide(): void {
 }
 
 onMounted(async () => {
-  document.addEventListener("fullscreenchange", onFullscreenChange);
   document.addEventListener("visibilitychange", onVisibilityChange);
   window.addEventListener("pagehide", onPageHide);
 
@@ -1005,21 +892,13 @@ onBeforeUnmount(() => {
   // is the single choke point for recording the session.
   playSession.flush();
   playingStore.setPlaying(false);
-  document.removeEventListener("fullscreenchange", onFullscreenChange);
   document.removeEventListener("visibilitychange", onVisibilityChange);
   window.removeEventListener("pagehide", onPageHide);
-  if (uiTimeout) clearTimeout(uiTimeout);
   if (volumeDebounce) clearTimeout(volumeDebounce);
-  attachTimeouts.forEach((id) => clearTimeout(id));
-  attachTimeouts = [];
   if (chordRaf) {
     cancelAnimationFrame(chordRaf);
     chordRaf = 0;
   }
-  iframeLoadCleanup?.();
-  iframeLoadCleanup = null;
-  contentWindowCleanup?.();
-  contentWindowCleanup = null;
   stopActivityHeartbeat();
   stopSessionPoll();
   emitActivityStop();
@@ -1248,34 +1127,14 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Running state -->
-    <div
+    <StreamStage
       v-else
-      ref="stageRef"
-      class="r-v2-stream__stage"
-      :class="{ 'r-v2-stream__stage--hide-cursor': !isUIVisible }"
-      role="presentation"
-      @mousemove="handleMouseMove"
+      ref="stage"
+      :src="containerHost"
+      :frame-title="t('play.stream-frame-title')"
+      :active="gameRunning"
     >
-      <iframe
-        v-if="containerHost"
-        ref="streamFrame"
-        :src="containerHost"
-        class="r-v2-stream__frame"
-        allow="gamepad *; fullscreen *; autoplay *"
-        allowfullscreen
-        referrerpolicy="no-referrer"
-        :title="t('play.stream-frame-title')"
-      />
-
-      <!-- Hover sensor for cross-origin fallback: bottom only so the top
-           of the stream is not blocked by an invisible trigger zone. -->
-      <div class="r-v2-stream__sensor" @mousemove="handleMouseMove" />
-
-      <!-- Auto-hiding control bar -->
-      <div
-        class="r-v2-stream__bar"
-        :class="{ 'r-v2-stream__bar--visible': isUIVisible }"
-      >
+      <template #bar="{ isFullscreen, toggleFullscreen }">
         <span class="r-v2-stream__bar-title">{{ rom?.name }}</span>
         <span class="r-v2-stream__bar-platform">{{ emulatorLabel }}</span>
 
@@ -1348,8 +1207,8 @@ onBeforeUnmount(() => {
           :disabled="isSavingAndExiting"
           @click="handleStop"
         />
-      </div>
-    </div>
+      </template>
+    </StreamStage>
 
     <!-- One-time prompt for the card the container was already holding.
          Answering it retries the claim; cancelling goes back. -->
@@ -1690,66 +1549,8 @@ onBeforeUnmount(() => {
 }
 
 /* ── Running stage ───────────────────────────────────────── */
-.r-v2-stream__stage {
-  position: fixed;
-  inset: var(--r-nav-h) 0 0 0;
-  background: var(--r-color-canvas-bg);
-  z-index: 1;
-}
-.r-v2-stream__stage:fullscreen {
-  inset: 0;
-}
-.r-v2-stream__stage--hide-cursor {
-  cursor: none;
-}
-
-.r-v2-stream__frame {
-  width: 100%;
-  height: 100%;
-  border: none;
-  background: var(--r-color-canvas-bg-deep);
-  display: block;
-}
-
-.r-v2-stream__sensor {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  height: 80px;
-  z-index: 5;
-  background: transparent;
-}
-
-/* Control bar: glass strip pinned to the bottom of the stage.
-   Visibility toggles via opacity so the stream never reflows. */
-.r-v2-stream__bar {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  min-height: 52px;
-  background: color-mix(in srgb, var(--r-color-bg) 72%, transparent);
-  border-top: 1px solid var(--r-color-border);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  z-index: 10;
-  visibility: hidden;
-  opacity: 0;
-  transition:
-    opacity 0.3s ease,
-    visibility 0.3s ease;
-  will-change: opacity;
-}
-.r-v2-stream__bar--visible {
-  visibility: visible;
-  opacity: 1;
-}
-
+/* The stage itself lives in StreamStage; these style the bar's contents,
+   which are slotted in from here and so carry this scope. */
 .r-v2-stream__bar-title {
   overflow: hidden;
   text-overflow: ellipsis;

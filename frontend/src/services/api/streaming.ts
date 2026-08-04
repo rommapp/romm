@@ -45,9 +45,35 @@ export interface AdminStreamingSession {
   platform: string | null;
   rom_id: number | null;
   rom_name: string | null;
+  // A desktop session runs no game, so rom_name is null and the row has to
+  // say what it is rather than showing an empty cell.
+  desktop: boolean;
   claimed_at: string | null;
   user_id: number | null;
   username: string | null;
+}
+
+// Row of the admin-only GET /streaming/containers list, one per container
+// rather than per platform: a container serves many platforms but hosts one
+// session, so the fleet view counts containers.
+export interface AdminStreamingContainer {
+  container: string; // the key release and desktop calls name
+  label: string | null;
+  host: string | null;
+  platforms: string[];
+  supports_desktop: boolean;
+  // False when the configured host carries no scheme, so no broker URL can be
+  // derived and the container can never be claimed.
+  configured: boolean;
+  session: Omit<AdminStreamingSession, "container" | "label"> | null;
+}
+
+export interface DesktopSession {
+  container: string;
+  platform: string;
+  host: string;
+  label: string;
+  claimed_at: string;
 }
 
 /** Why a session the caller used to hold is gone. Present only when an admin
@@ -119,11 +145,20 @@ async function claimSession(
   });
 }
 
-async function releaseSession(platform: string, reason?: string) {
+async function releaseSession(
+  platform: string,
+  reason?: string,
+  container?: string,
+) {
   return api.delete(`/streaming/sessions/${platform}`, {
-    // Sent whenever the caller supplied one, empty string included: the
-    // backend treats the param's presence as "this is an admin force-release".
-    ...(reason !== undefined ? { params: { reason } } : {}),
+    params: {
+      // Sent whenever the caller supplied one, empty string included: the
+      // backend treats the param's presence as "this is an admin force-release".
+      ...(reason !== undefined ? { reason } : {}),
+      // Names which container to release, needed when a pool serves the
+      // platform and the admin is ending a session they do not own.
+      ...(container !== undefined ? { container } : {}),
+    },
   });
 }
 
@@ -165,6 +200,17 @@ async function loadState(platform: string, slot = 1) {
 
 async function adminListSessions() {
   return api.get<{ sessions: AdminStreamingSession[] }>("/streaming/sessions");
+}
+
+async function adminListContainers() {
+  return api.get<{ enabled: boolean; containers: AdminStreamingContainer[] }>(
+    "/streaming/containers",
+    { headers: { "Cache-Control": "no-cache" } },
+  );
+}
+
+async function claimDesktop(container: string) {
+  return api.post<DesktopSession>("/streaming/desktop", { container });
 }
 
 // ── Unload-path requests ──────────────────────────────────────────────────────
@@ -211,6 +257,8 @@ export default {
   saveState,
   loadState,
   adminListSessions,
+  adminListContainers,
+  claimDesktop,
   saveAndExitKeepalive,
   releaseSessionKeepalive,
 };
