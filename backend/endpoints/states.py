@@ -105,9 +105,31 @@ async def add_state(
         user_id=request.user.id, rom_id=rom.id, file_name=sanitized_state_filename
     )
     if db_state:
+        # Track file path and emulator to keep the row pointing at the bytes
+        # this request wrote, which land under the requested emulator's folder.
+        stale_full_path = db_state.full_path
         db_state = db_state_handler.update_state(
-            db_state.id, {"file_size_bytes": scanned_state.file_size_bytes}
+            db_state.id,
+            {
+                "file_size_bytes": scanned_state.file_size_bytes,
+                "file_path": scanned_state.file_path,
+                "emulator": emulator,
+            },
         )
+
+        # Delete orphaned bytes only if no other row references the old path.
+        if stale_full_path != db_state.full_path:
+            still_referenced = any(
+                other.id != db_state.id and other.full_path == stale_full_path
+                for other in db_state_handler.get_states(
+                    user_id=request.user.id, rom_id=rom.id
+                )
+            )
+            if not still_referenced:
+                try:
+                    await fs_asset_handler.remove_file(stale_full_path)
+                except FileNotFoundError:
+                    pass
     else:
         scanned_state.rom_id = rom.id
         scanned_state.user_id = request.user.id
