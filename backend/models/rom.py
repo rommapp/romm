@@ -402,12 +402,7 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
 
-    # The sortable slice of the STORED generated columns migration 0098 derives
-    # from the blobs above; `roms_metadata` is a thin view over them. Mapped
-    # here so a sort reads the indexed `roms` column directly: going through the
-    # view puts the sort key on a joined table, which rules the index out and
-    # filesorts the whole library. The engine owns the values, so these are
-    # read-only (see `RomMetadata` for the names the API exposes them under).
+    # Read-only slice of the stored generated columns from the `roms_metadata` view
     generated_first_release_date: Mapped[int | None] = mapped_column(
         BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
     )

@@ -156,11 +156,7 @@ ROM_FILE_HASH_COLUMNS_BY_DIGEST_LENGTH: dict[int, tuple[QueryableAttribute, ...]
     40: (RomFile.sha1_hash, RomFile.chd_sha1_hash),
 }
 
-# `roms_metadata` is a view over STORED generated columns on `roms`, so these
-# read the same values the view exposes without joining it. Ordering through the
-# view leaves the sort key on a joined table, which the engine cannot serve from
-# an index: it filesorts the whole library for every page. Every column here is
-# indexed on `roms`, so the sort walks the index and stops at the page.
+# Every column here is indexed on `roms`, so the sort walks the index and stops at the page.
 ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
     "first_release_date": Rom.generated_first_release_date,
     "average_rating": Rom.generated_average_rating,
@@ -1423,8 +1419,6 @@ class DBRomsHandler(DBBaseHandler):
         elif order_by in ROM_METADATA_ORDER_COLUMNS:
             order_attr = ROM_METADATA_ORDER_COLUMNS[order_by]
         elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
-            # The rest of the view is JSON arrays with no index to sort on, and
-            # nothing offers them as a sort, so they keep reading the view.
             order_attr = getattr(RomMetadata, order_by)
             query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
         elif hasattr(Rom, order_by):
