@@ -162,6 +162,13 @@ ROM_FILE_HASH_COLUMNS_BY_DIGEST_LENGTH: dict[int, tuple[QueryableAttribute, ...]
     40: (RomFile.sha1_hash, RomFile.chd_sha1_hash),
 }
 
+# Every column here is indexed on `roms`, so the sort walks the index and stops at the page.
+ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
+    "first_release_date": Rom.generated_first_release_date,
+    "average_rating": Rom.generated_average_rating,
+    "player_count": Rom.generated_player_count,
+}
+
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
 # whose rows carry the raw metadata blobs. Column order matches the unpacking
 # in `_collect_filter_values`.
@@ -1415,6 +1422,8 @@ class DBRomsHandler(DBBaseHandler):
         if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomUser, order_by)
             query = query.filter(RomUser.user_id == user_id)
+        elif order_by in ROM_METADATA_ORDER_COLUMNS:
+            order_attr = ROM_METADATA_ORDER_COLUMNS[order_by]
         elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomMetadata, order_by)
             query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)

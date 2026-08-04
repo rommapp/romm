@@ -12,6 +12,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     Enum,
+    FetchedValue,
     Float,
     ForeignKey,
     Index,
@@ -399,6 +400,19 @@ class Rom(BaseModel):
     )
     manual_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
+    )
+
+    # Read-only slice of the stored generated columns from the `roms_metadata` view
+    generated_first_release_date: Mapped[int | None] = mapped_column(
+        BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+    generated_average_rating: Mapped[float | None] = mapped_column(
+        Float(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+    generated_player_count: Mapped[str | None] = mapped_column(
+        String(length=100),
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
