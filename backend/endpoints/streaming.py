@@ -398,11 +398,65 @@ class LoadStateRequest(BaseModel):
     slot: Annotated[int, Field(ge=1, le=_MAX_SLOT)] = 1
 
 
+def _expand_containers(entries: Any) -> list[dict[str, Any]]:
+    """One entry per (container, platform).
+
+    A container declaring `platforms` yields a copy per platform with
+    `platform` and `emulator` filled in; a flat entry yields itself. Every copy
+    keeps the same host, so `_container_key` collapses them back into the one
+    session the container can actually serve.
+    """
+    expanded: list[dict[str, Any]] = []
+    for entry in entries or []:
+        if not isinstance(entry, dict):
+            continue
+
+        platforms = entry.get("platforms")
+        if platforms is None:
+            expanded.append(entry)
+            continue
+        if not isinstance(platforms, dict):
+            log.warning(
+                "container `platforms` must be a map of platform to emulator, "
+                "skipping: %s",
+                entry,
+            )
+            continue
+        if entry.get("platform"):
+            log.warning(
+                "container declares both `platform` and `platforms`, "
+                "serving `platforms` only: %s",
+                entry,
+            )
+
+        base = {k: v for k, v in entry.items() if k != "platforms"}
+        for platform, emulator in platforms.items():
+            if not isinstance(platform, str) or not platform.strip():
+                log.warning(
+                    "container platform key is not a name, skipping: %r", platform
+                )
+                continue
+            if not isinstance(emulator, str) or not emulator.strip():
+                # The emulator names the state and card namespace, so guessing
+                # one would file this platform's saves under another container.
+                log.warning(
+                    "container platform '%s' has no emulator, skipping", platform
+                )
+                continue
+            expanded.append(
+                {**base, "platform": platform.strip(), "emulator": emulator.strip()}
+            )
+    return expanded
+
+
 def _get_streaming_config() -> dict[str, Any]:
     """Extract streaming config from the parsed Config object"""
     cfg = cm.get_config()
 
-    return {"enabled": cfg.STREAMING_ENABLED, "containers": cfg.STREAMING_CONTAINERS}
+    return {
+        "enabled": cfg.STREAMING_ENABLED,
+        "containers": _expand_containers(cfg.STREAMING_CONTAINERS),
+    }
 
 
 def _container_for_platform(platform: str) -> dict[str, Any] | None:
@@ -2248,34 +2302,36 @@ async def get_config(request: Request) -> JSONResponse:
     """Return streaming configuration to the frontend"""
     cfg = _get_streaming_config()
 
-    safe_containers = []
+    # Keyed by platform because only the first container serving one can ever
+    # be looked up; the rest are a pool, not a second choice for the frontend.
+    safe_containers: dict[str, dict[str, Any]] = {}
     for c in cfg.get("containers", []):
         if not c.get("platform") or not c.get("host"):
             log.warning("container missing platform/host, skipping: %s", c)
             continue
 
         platform = c.get("platform", "")
-        safe_containers.append(
-            {
-                "platform": platform,
-                "host": c.get("host"),
-                "label": c.get("label") or platform.upper(),
-                # Ship slot capabilities so the frontend selector reads them
-                # instead of keeping its own hardcoded per-platform copy.
-                "capabilities": _container_capabilities(c),
-                # State namespace for this container, so the frontend can
-                # filter the resume picker the same way hydration filters.
-                "emulator": _emulator_for_container(c),
-                # Whether this container syncs whole memory cards, so the
-                # frontend only offers the card picker where it applies.
-                "supports_memory_cards": _memory_card_sync_enabled(c),
-            }
-        )
+        if platform in safe_containers:
+            continue
+        safe_containers[platform] = {
+            "platform": platform,
+            "host": c.get("host"),
+            "label": c.get("label") or platform.upper(),
+            # Ship slot capabilities so the frontend selector reads them
+            # instead of keeping its own hardcoded per-platform copy.
+            "capabilities": _container_capabilities(c),
+            # State namespace for this container, so the frontend can
+            # filter the resume picker the same way hydration filters.
+            "emulator": _emulator_for_container(c),
+            # Whether this container syncs whole memory cards, so the
+            # frontend only offers the card picker where it applies.
+            "supports_memory_cards": _memory_card_sync_enabled(c),
+        }
 
     return JSONResponse(
         {
             "enabled": cfg.get("enabled", False),
-            "containers": safe_containers,
+            "containers": list(safe_containers.values()),
         }
     )
 

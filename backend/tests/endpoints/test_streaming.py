@@ -240,6 +240,130 @@ def test_memory_card_sync_honoured_on_a_platform_with_a_card(client, access_toke
     assert response.json()["containers"][0]["supports_memory_cards"] is True
 
 
+# ── Nested platform config ────────────────────────────────────────────────────
+
+
+def _nested(**overrides):
+    """A webstation container serving several platforms from one host."""
+    return {
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "platforms": {"ps2": "pcsx2", "ngc": "dolphin"},
+        **overrides,
+    }
+
+
+def test_nested_platforms_resolve_to_the_same_container():
+    """One entry serves every platform in its map, each with its own emulator."""
+    with _streaming(_nested()):
+        ps2 = streaming._container_for_platform("ps2")
+        ngc = streaming._container_for_platform("ngc")
+    assert ps2 is not None and ngc is not None
+    assert ps2["platform"] == "ps2"
+    assert streaming._emulator_for_container(ps2) == "pcsx2"
+    assert streaming._emulator_for_container(ngc) == "dolphin"
+
+
+def test_nested_platforms_share_one_session_key():
+    """Sessions key on the broker host, so the expanded copies collapse back
+    to the single session the container can actually serve."""
+    with _streaming(_nested()):
+        ps2 = streaming._container_for_platform("ps2")
+        ngc = streaming._container_for_platform("ngc")
+    assert ps2 is not None and ngc is not None
+    assert streaming._container_key(ps2) == streaming._container_key(ngc)
+
+
+def test_nested_platforms_reject_a_second_claim_across_platforms(
+    client, access_token, rom: Rom
+):
+    """The end-to-end consequence: claiming ps2 blocks ngc on the same box."""
+    ngc_rom = _rom_on("ngc")
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_nested()):
+        first = _claim_ok(client, access_token, ps2_rom.id)
+        second = _claim_ok(client, access_token, ngc_rom.id)
+    assert first.status_code == 200
+    assert second.status_code == 409
+
+
+def test_nested_platforms_ship_one_config_row_each(client, access_token):
+    """The frontend reads capabilities per platform, so expansion must reach
+    /config rather than stopping at the claim path."""
+    with _streaming(_nested()):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert r.status_code == 200
+    rows = {c["platform"]: c for c in r.json()["containers"]}
+    assert set(rows) == {"ps2", "ngc"}
+    assert rows["ngc"]["emulator"] == "dolphin"
+    assert rows["ps2"]["capabilities"]["max_slots"] == 9
+
+
+def test_config_keeps_one_row_per_platform(client, access_token):
+    """Two containers serving the same platform are a pool, not two choices.
+    Only the first can ever be looked up, so /config must not offer both."""
+    with _streaming(_nested(), _nested(host="http://192.168.1.11:3000")):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert r.status_code == 200
+    platforms = [c["platform"] for c in r.json()["containers"]]
+    assert sorted(platforms) == ["ngc", "ps2"]
+
+
+def test_flat_container_config_still_works(rom: Rom):
+    """The per-emulator mods are still deployed on the flat shape."""
+    with _streaming(_container_for(rom)):
+        found = streaming._container_for_platform(rom.platform_slug)
+    assert found is not None
+    assert found["platform"] == rom.platform_slug
+
+
+def test_nested_platforms_wins_over_a_flat_platform(caplog):
+    """Declaring both is a half-finished migration, so say so rather than
+    silently serving one platform out of the map."""
+    container = _nested(platform="xbox")
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(container):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                xbox = streaming._container_for_platform("xbox")
+                ps2 = streaming._container_for_platform("ps2")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert xbox is None
+    assert ps2 is not None
+    assert "both `platform` and `platforms`" in caplog.text
+
+
+def test_nested_platform_without_an_emulator_is_skipped(caplog):
+    """The emulator names the state namespace, so an entry missing one would
+    silently file saves under the wrong container."""
+    container = _nested(platforms={"ps2": "pcsx2", "ngc": ""})
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(container):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                assert streaming._container_for_platform("ngc") is None
+                assert streaming._container_for_platform("ps2") is not None
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert "no emulator" in caplog.text
+
+
+def test_platforms_that_is_not_a_map_skips_the_container(caplog):
+    container = _nested(platforms=["ps2", "ngc"])
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(container):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                assert streaming._container_for_platform("ps2") is None
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert "must be a map" in caplog.text
+
+
 # ── Claiming ──────────────────────────────────────────────────────────────────
 
 

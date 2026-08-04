@@ -163,7 +163,12 @@ class NetplayICEServer(TypedDict):
 
 
 class StreamingContainer(TypedDict):
-    platform: str
+    # A container declares either one platform (the per-emulator mods) or a
+    # `platforms` map (one webstation serving many). Exactly one of the two.
+    platform: NotRequired[str]
+    # Platform slug to the emulator that serves it, replacing platform +
+    # emulator on a container that hosts more than one.
+    platforms: NotRequired[dict[str, str]]
     host: str
     broker_host: str
     label: str
