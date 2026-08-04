@@ -237,6 +237,37 @@ describe("Collection view random rom", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it("stays quiet when a pick fails after the view moved to another collection", async () => {
+    let failPick: (reason: Error) => void = () => {};
+    getRandomRom.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        failPick = reject;
+      }),
+    );
+
+    const wrapper = await mountView();
+    await wrapper.get("button.random").trigger("click");
+
+    routeState.params = { collection: "2" };
+    routeGuards.forEach((guard) =>
+      guard({ name: "collection", params: { collection: "2" } }),
+    );
+    await flushPromises();
+
+    failPick(new Error("boom"));
+    await flushPromises();
+
+    expect(snackbarError).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+
+    // The button still works on the collection the user landed on.
+    getRandomRom.mockResolvedValue({ data: rom(7) });
+    await wrapper.get("button.random").trigger("click");
+    await flushPromises();
+
+    expect(push).toHaveBeenCalledWith({ name: "rom", params: { rom: 7 } });
+  });
+
   it("ignores a click while a pick is in flight", async () => {
     let resolvePick: (value: { data: SimpleRom }) => void = () => {};
     getRandomRom.mockReturnValue(
