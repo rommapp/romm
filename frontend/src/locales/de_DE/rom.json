@@ -318,6 +318,7 @@
   "rename-file-details": "Datei wird umbenannt von {from} in {to}. Tags im Dateinamen werden nicht verändert.",
   "rename-file-title": "Datei umbennen in gefundenen {source} Title",
   "results-found": "Gefundene Ergebnisse",
+  "retroachievements-supported": "Von RetroAchievements unterstützt",
   "revision": "Revision",
   "rom-updated-successfully": "ROM erfolgreich aktualisiert!",
   "save-data": "Speicherdaten",

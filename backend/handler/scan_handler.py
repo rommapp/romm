@@ -793,6 +793,14 @@ async def scan_rom(
                 )
             )
         ):
+            # Whether RA knows this exact dump is asked of RA's own hash
+            # list, independently of how the game was identified: an
+            # `ra_id` from Hasheous (or a filename tag) is the game, and
+            # every sibling shares it.
+            ra_hash_match = await meta_ra_handler.hash_is_known(
+                rom=rom, ra_hash=rom_attrs["ra_hash"]
+            )
+
             # Use Hasheous match to get the RA ID
             h_ra_id = hasheous_rom.get("ra_id")
             if h_ra_id:
@@ -801,16 +809,18 @@ async def scan_rom(
                     f"{hl(str(h_ra_id), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
                     extra=LOGGER_MODULE_NAME,
                 )
-                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=h_ra_id)
-
-            if (scan_type == ScanType.UPDATE and rom.ra_id) or (
+                ra_rom = await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=h_ra_id)
+            elif (scan_type == ScanType.UPDATE and rom.ra_id) or (
                 scan_type == ScanType.UNMATCHED and rom.ra_id and not rom.ra_metadata
             ):
-                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=rom.ra_id)
+                ra_rom = await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=rom.ra_id)
             else:
-                return await meta_ra_handler.get_rom(
+                ra_rom = await meta_ra_handler.get_rom(
                     rom=rom, ra_hash=rom_attrs["ra_hash"]
                 )
+
+            ra_rom["ra_hash_match"] = ra_hash_match
+            return ra_rom
 
         return RAGameRom(ra_id=None)
 

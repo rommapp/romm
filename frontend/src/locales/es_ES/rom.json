@@ -318,6 +318,7 @@
   "rename-file-details": "El fichero será renombrado de {from} a {to}. Las etiquetas del nombre no se verán afectadas.",
   "rename-file-title": "Renombrar archivo para coincidir con el título de {source}",
   "results-found": "Resultados encontrados",
+  "retroachievements-supported": "Compatible con RetroAchievements",
   "revision": "Revision",
   "rom-updated-successfully": "ROM actualizada correctamente",
   "save-data": "Datos guardados",

@@ -318,6 +318,7 @@
   "rename-file-details": "Файл будет переименован из {from} в {to}. Теги имени файла не будут затронуты.",
   "rename-file-title": "Переименовать файл в соответствии с названием {source}",
   "results-found": "Найдено результатов",
+  "retroachievements-supported": "Поддерживается RetroAchievements",
   "revision": "Revision",
   "rom-updated-successfully": "ROM успешно обновлён!",
   "save-data": "Сохранения",

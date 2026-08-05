@@ -318,6 +318,7 @@
   "rename-file-details": "파일 이름을 {from} 에서 다음으로 변경합니다: {to}. 파일 이름 태그에는 영향을 주지 않습니다.",
   "rename-file-title": "파일을 {source}에서의 이름과 동일하게 맞춥니다",
   "results-found": "검색 결과",
+  "retroachievements-supported": "RetroAchievements 지원",
   "revision": "Revision",
   "rom-updated-successfully": "ROM이 성공적으로 업데이트되었습니다!",
   "save-data": "저장 데이터",

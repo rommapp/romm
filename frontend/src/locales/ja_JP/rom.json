@@ -318,6 +318,7 @@
   "rename-file-details": "ファイル名が変更されます 元 {from} 変更後 {to}。ファイル名タグは変更されません。",
   "rename-file-title": "ファイル名を {source} に変更",
   "results-found": "検索結果",
+  "retroachievements-supported": "RetroAchievements対応",
   "revision": "Revision",
   "rom-updated-successfully": "ROMを正常に更新しました！",
   "save-data": "セーブデータ",

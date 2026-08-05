@@ -318,6 +318,7 @@
   "rename-file-details": "Plik zostanie przemianowany z {from} na {to}. Tagi w nazwie pliku nie zostaną zmienione.",
   "rename-file-title": "Zmień nazwę pliku, aby pasowała do tytułu źródłowego {source}",
   "results-found": "Znalezione wyniki",
+  "retroachievements-supported": "Obsługiwane przez RetroAchievements",
   "revision": "Revision",
   "rom-updated-successfully": "ROM zaktualizowany pomyślnie!",
   "save-data": "Dane zapisu",

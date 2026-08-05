@@ -441,6 +441,12 @@ class Rom(BaseModel):
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
     sha1_hash: Mapped[str | None] = mapped_column(String(length=100))
     ra_hash: Mapped[str | None] = mapped_column(String(length=100))
+    # Whether `ra_hash` is in RetroAchievements' own hash list for the
+    # platform, i.e. whether achievements will unlock for THIS file.
+    # Distinct from `ra_id`, which is the game and so is shared by every
+    # version. NULL means never checked (no RA hash, unsupported
+    # platform, or scanned before this column existed).
+    ra_hash_match: Mapped[bool | None] = mapped_column(default=None)
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 

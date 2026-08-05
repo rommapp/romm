@@ -331,6 +331,7 @@ class RomSchema(BaseModel):
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
+    ra_hash_match: bool | None
 
     has_simple_single_file: bool
     has_nested_single_file: bool
@@ -381,6 +382,11 @@ class SiblingRomSchema(BaseModel):
     fs_name_no_tags: str
     fs_name_no_ext: str
     is_main_sibling: bool
+    # Lets the version switcher flag which sibling RetroAchievements knows,
+    # so the user can pick the version whose achievements will actually
+    # unlock without opening each one. Not `ra_id`: that's the game, and
+    # every sibling shares it.
+    ra_hash_match: bool | None
 
     @computed_field  # type: ignore
     @property
@@ -402,6 +408,7 @@ class SiblingRomSchema(BaseModel):
             fs_name_no_tags=rom.fs_name_no_tags,
             fs_name_no_ext=rom.fs_name_no_ext,
             is_main_sibling=is_main_sibling,
+            ra_hash_match=rom.ra_hash_match,
         )
 
 

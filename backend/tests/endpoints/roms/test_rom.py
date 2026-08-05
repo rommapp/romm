@@ -44,6 +44,62 @@ def test_get_rom(client: TestClient, access_token: str, rom: Rom):
     assert body["id"] == rom.id
 
 
+def _add_sibling(rom: Rom, *, fs_name_no_ext: str, ra_hash_match: bool | None) -> Rom:
+    """Another version of `rom`, grouped by the shared IGDB id.
+
+    The `sibling_roms` view joins on matching provider ids (0073 dropped
+    fs_name_no_tags matching), so the versions need one id in common. They
+    also share `ra_id` (the game is the same), which is exactly why the
+    per-file `ra_hash_match` is what the switcher reads.
+    """
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=rom.platform_id,
+            name=rom.name,
+            slug=f"{rom.slug}_{fs_name_no_ext}",
+            fs_name=f"{fs_name_no_ext}.zip",
+            fs_name_no_tags=rom.fs_name_no_tags,
+            fs_name_no_ext=fs_name_no_ext,
+            fs_extension="zip",
+            fs_path=rom.fs_path,
+            igdb_id=MOCK_IGDB_ID,
+            ra_id=MOCK_RA_ID,
+            ra_hash_match=ra_hash_match,
+        )
+    )
+
+
+def test_get_rom_reports_ra_hash_match_per_sibling(
+    client: TestClient, access_token: str, rom: Rom
+):
+    """The version switcher flags which sibling RetroAchievements knows.
+
+    `ra_hash_match` has to survive the sibling `load_only` list, otherwise
+    the column comes back deferred and the schema can't read it. All three
+    versions share one `ra_id`, so only the per-file flag separates them.
+    """
+    db_rom_handler.update_rom(rom.id, {"igdb_id": MOCK_IGDB_ID})
+    _add_sibling(rom, fs_name_no_ext="test_rom (Rev 1)", ra_hash_match=True)
+    _add_sibling(rom, fs_name_no_ext="test_rom (Rev 2)", ra_hash_match=False)
+    _add_sibling(rom, fs_name_no_ext="test_rom (Rev 3)", ra_hash_match=None)
+
+    for endpoint in (f"/api/roms/{rom.id}", f"/api/roms/{rom.id}/simple"):
+        response = client.get(
+            endpoint, headers={"Authorization": f"Bearer {access_token}"}
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        siblings = {
+            s["fs_name_no_ext"]: s["ra_hash_match"]
+            for s in response.json()["sibling_roms"]
+        }
+        assert siblings == {
+            "test_rom (Rev 1)": True,
+            "test_rom (Rev 2)": False,
+            "test_rom (Rev 3)": None,
+        }, endpoint
+
+
 def test_get_rom_simple(client: TestClient, access_token: str, rom: Rom):
     response = client.get(
         f"/api/roms/{rom.id}/simple",

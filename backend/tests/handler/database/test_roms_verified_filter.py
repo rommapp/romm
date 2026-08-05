@@ -35,7 +35,13 @@ LEGACY_KEYS = [
 ]
 
 
-def _add_rom(platform: Platform, user: User, name: str, metadata: dict) -> Rom:
+def _add_rom(
+    platform: Platform,
+    user: User,
+    name: str,
+    metadata: dict,
+    ra_hash_match: bool | None = None,
+) -> Rom:
     rom = db_rom_handler.add_rom(
         Rom(
             platform_id=platform.id,
@@ -47,6 +53,7 @@ def _add_rom(platform: Platform, user: User, name: str, metadata: dict) -> Rom:
             fs_extension="zip",
             fs_path=f"{platform.slug}/roms",
             hasheous_metadata=metadata,
+            ra_hash_match=ra_hash_match,
         )
     )
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=user.id)
@@ -118,6 +125,81 @@ class TestVerifiedFilter:
         assert [r.id for r in roms] == [rom.id]
 
 
+class TestVerifiedRetroAchievements:
+    """RA is the one database RomM asks itself, so its answer outranks
+    Hasheous' RA signature coverage in both directions. Mirrors
+    `matchesRetroAchievements` in `romVerification.ts`."""
+
+    def test_ras_own_hash_match_verifies_without_any_hasheous_match(
+        self, platform: Platform, admin_user: User
+    ):
+        matched = _add_rom(
+            platform,
+            admin_user,
+            "ra_hash_only",
+            {key: False for key in LEGACY_KEYS},
+            ra_hash_match=True,
+        )
+
+        roms = db_rom_handler.get_roms_scalar(user_id=admin_user.id, verified=True)
+
+        assert [r.id for r in roms] == [matched.id]
+
+    def test_hasheous_answers_when_ra_was_never_asked(
+        self, platform: Platform, admin_user: User
+    ):
+        """NULL means unchecked, e.g. a ROM not rescanned since the column
+        landed, so the old Hasheous behaviour still applies."""
+        matched = _add_rom(
+            platform,
+            admin_user,
+            "hasheous_ra_only",
+            {key: key == "ra_match" for key in LEGACY_KEYS},
+            ra_hash_match=None,
+        )
+
+        roms = db_rom_handler.get_roms_scalar(user_id=admin_user.id, verified=True)
+
+        assert [r.id for r in roms] == [matched.id]
+
+    def test_a_definite_no_from_ra_beats_a_hasheous_ra_match(
+        self, platform: Platform, admin_user: User
+    ):
+        """RA has never seen this dump, so achievements won't unlock for it
+        whatever Hasheous' signatures say."""
+        _add_rom(
+            platform,
+            admin_user,
+            "ra_says_no",
+            {key: key == "ra_match" for key in LEGACY_KEYS},
+            ra_hash_match=False,
+        )
+
+        verified = db_rom_handler.get_roms_scalar(user_id=admin_user.id, verified=True)
+        unverified = db_rom_handler.get_roms_scalar(
+            user_id=admin_user.id, verified=False
+        )
+
+        assert [r.name for r in verified] == []
+        assert [r.name for r in unverified] == ["ra_says_no"]
+
+    def test_another_databases_match_still_verifies_a_ra_rejected_rom(
+        self, platform: Platform, admin_user: User
+    ):
+        """RA's veto is scoped to the RA row, not to the whole ROM."""
+        matched = _add_rom(
+            platform,
+            admin_user,
+            "nointro_but_not_ra",
+            {key: key in ("nointro_match", "ra_match") for key in LEGACY_KEYS},
+            ra_hash_match=False,
+        )
+
+        roms = db_rom_handler.get_roms_scalar(user_id=admin_user.id, verified=True)
+
+        assert [r.id for r in roms] == [matched.id]
+
+
 class TestVerifiedPostgresPredicate:
     """The PostgreSQL branch builds raw SQL, so it can only be checked by
     compiling it (the suite runs on a single driver at a time)."""
@@ -140,3 +222,21 @@ class TestVerifiedPostgresPredicate:
 
         for key in [*LEGACY_KEYS, "mame_redump_match"]:
             assert f"COALESCE((hasheous_metadata->>'{key}')::boolean, false)" in sql
+
+    @pytest.mark.parametrize("verified", [True, False])
+    def test_ra_prefers_its_own_answer_and_only_then_hasheous(
+        self, postgres_handler: DBRomsHandler, verified: bool
+    ):
+        """`IS TRUE` / `IS NULL`, never `= true`: a NULL term would poison
+        the OR and then its negation, dropping rows from the unverified
+        side (the bug this whole predicate is shaped around)."""
+        query, _ = postgres_handler.get_roms_query()
+        filtered = postgres_handler.filter_roms(query=query, verified=verified)
+
+        sql = str(filtered.compile(compile_kwargs={"literal_binds": True}))
+
+        assert "ra_hash_match IS TRUE" in sql
+        assert (
+            "ra_hash_match IS NULL AND"
+            " COALESCE((hasheous_metadata->>'ra_match')::boolean, false)"
+        ) in sql

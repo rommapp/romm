@@ -26,6 +26,11 @@ from .base_handler import UniversalPlatformSlug as UPS
 # Regex to detect RetroAchievements ID tags in filenames like (ra-12345)
 RA_TAG_REGEX = re.compile(r"\(ra-(\d+)\)", re.IGNORECASE)
 
+# How long an in-process copy of a platform's hash list stays usable.
+# Long enough to serve a whole scan from one parse, short enough that the
+# on-disk refresh still gets picked up.
+HASH_INDEX_CACHE_TTL_SECONDS = 900
+
 
 class RAGamesPlatform(TypedDict):
     slug: str
@@ -59,6 +64,7 @@ class RAMetadata(TypedDict):
 class RAGameRom(BaseRom):
     ra_id: int | None
     ra_metadata: NotRequired[RAMetadata]
+    ra_hash_match: NotRequired[bool | None]
 
 
 class EarnedAchievement(TypedDict):
@@ -128,6 +134,8 @@ class RAHandler(MetadataHandler):
     def __init__(self) -> None:
         self.ra_service = RetroAchievementsService()
         self.HASHES_FILE_NAME = "ra_hashes_v2.json"
+        # platform id -> (monotonic expiry, hash index)
+        self._hash_index_cache: dict[int, tuple[float, dict[str, int]]] = {}
 
     @classmethod
     def is_enabled(cls) -> bool:
@@ -173,9 +181,18 @@ class RAHandler(MetadataHandler):
         file_stat = await AnyioPath(str(full_path)).stat()
         return int((time.time() - file_stat.st_mtime) / (24 * 3600))
 
-    async def _search_rom(self, rom: Rom, ra_hash: str) -> int | None:
-        if not rom.platform.ra_id:
-            return None
+    async def _get_hash_index(self, rom: Rom) -> dict[str, int]:
+        """RetroAchievements' hash list for the platform: hash -> game ID.
+
+        Memoised per platform: a scan asks for the same index once per
+        ROM, and re-reading a multi-megabyte JSON blob every time
+        dominated the RA leg of large scans. The TTL keeps a long-lived
+        worker from pinning a stale index, since the memo also skips the
+        staleness check below.
+        """
+        cached = self._hash_index_cache.get(rom.platform.id)
+        if cached is not None and cached[0] > time.monotonic():
+            return cached[1]
 
         # hash_index maps lowercase hash -> game ID for O(1) lookups
         hash_index: dict[str, int]
@@ -210,7 +227,41 @@ class RAHandler(MetadataHandler):
             )
             hash_index = json.loads(json_file_bytes.decode("utf-8"))
 
+        self._hash_index_cache[rom.platform.id] = (
+            time.monotonic() + HASH_INDEX_CACHE_TTL_SECONDS,
+            hash_index,
+        )
+        return hash_index
+
+    async def _search_rom(self, rom: Rom, ra_hash: str) -> int | None:
+        if not rom.platform.ra_id:
+            return None
+
+        hash_index = await self._get_hash_index(rom)
         return hash_index.get(ra_hash.lower())
+
+    async def hash_is_known(self, rom: Rom, ra_hash: str) -> bool | None:
+        """Whether RetroAchievements recognises this exact file.
+
+        Asked of RetroAchievements' own hash list, never of another
+        provider: a sibling that Hasheous identifies inherits the game's
+        `ra_id` whether or not RA has ever seen that dump. Returns None
+        when there is nothing to check against.
+        """
+        if not rom.platform.ra_id or not ra_hash:
+            return None
+
+        try:
+            hash_index = await self._get_hash_index(rom)
+        except Exception as exc:
+            log.error(
+                "Couldn't read the RetroAchievements hash list, "
+                "leaving hash support unknown: %s",
+                exc,
+            )
+            return None
+
+        return ra_hash.lower() in hash_index
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
         if slug not in RA_PLATFORM_LIST:

@@ -318,6 +318,7 @@
   "rename-file-details": "Файлът ще бъде преименуван от {from} на {to}. Таговете на файла няма да бъдат засегнати.",
   "rename-file-title": "Преименувай файла според заглавието от {source}",
   "results-found": "Намерени резултати",
+  "retroachievements-supported": "Поддържа се от RetroAchievements",
   "revision": "Revision",
   "rom-updated-successfully": "ROM-ът е обновен успешно!",
   "save-data": "Данни от записи",
