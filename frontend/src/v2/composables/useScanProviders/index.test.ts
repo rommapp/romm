@@ -5,7 +5,7 @@ import { useScanProviders, type HashMatcher } from "./index";
 
 // Provider list the heartbeat would expose with every source enabled.
 const OPTIONS: MetadataOption[] = [
-  { value: "igdb", name: "IGDB + Playmatch", logo_path: "", disabled: "" },
+  { value: "igdb", name: "IGDB", logo_path: "", disabled: "" },
   { value: "ss", name: "ScreenScraper", logo_path: "", disabled: "" },
   { value: "moby", name: "MobyGames", logo_path: "", disabled: "" },
   { value: "ra", name: "RetroAchievements", logo_path: "", disabled: "" },

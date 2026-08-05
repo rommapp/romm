@@ -89,9 +89,7 @@ export function useScanProviders(): UseScanProviders {
 
   const calculateHashes = computed(() => !config.value.SKIP_HASH_CALCULATION);
 
-  // Catalog options — main metadata sources. IGDB's heartbeat label flips
-  // to "IGDB + Playmatch" when Playmatch is admin-enabled; strip the suffix
-  // since Playmatch has its own pill.
+  // Catalog options — main metadata sources, minus the hash matchers.
   const metadataOptions = computed(() =>
     heartbeat
       .getMetadataOptionsByPriority()
@@ -105,8 +103,7 @@ export function useScanProviders(): UseScanProviders {
         if (!calculateHashes.value && requiresHashes) {
           disabled = t("scan.requires-hashes", { source: option.name });
         }
-        const name = option.value === "igdb" ? "IGDB" : option.name;
-        return { ...option, name, disabled };
+        return { ...option, disabled };
       }),
   );
 
