@@ -111,7 +111,7 @@ const ratingChips = computed<RatingChip[]>(() => {
     },
     {
       key: "moby_id",
-      value: formatRating(parseFloat(rom.moby_metadata?.moby_score ?? "") * 10, {
+      value: formatRating(parseFloat(rom.moby_metadata?.moby_score ?? ""), {
         percent: true,
       }),
     },
