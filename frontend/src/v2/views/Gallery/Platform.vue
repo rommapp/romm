@@ -333,15 +333,21 @@ async function onRandomGame() {
   const p = currentPlatform.value;
   if (!p || randomLoading.value) return;
   randomLoading.value = true;
+  const scopeId = p.id;
+  // The pick belongs to the platform that was on screen when the button was
+  // clicked; following it after the user moved on would drop them into a
+  // game from a gallery they already left.
+  const stale = () => currentPlatform.value?.id !== scopeId;
   try {
-    const { data } = await romApi.getRandomRom({ platformIds: [p.id] });
+    const { data } = await romApi.getRandomRom({ platformIds: [scopeId] });
+    if (stale()) return;
     if (!data) {
       snackbar.info(t("platform.random-rom-empty"));
       return;
     }
     router.push({ name: ROUTES.ROM, params: { rom: data.id } });
   } catch {
-    snackbar.error(t("platform.random-rom-error"));
+    if (!stale()) snackbar.error(t("platform.random-rom-error"));
   } finally {
     randomLoading.value = false;
   }

@@ -13,6 +13,7 @@ const {
   getRoms,
   getPlatform,
   push,
+  routeGuards,
   snackbarError,
   snackbarInfo,
 } = vi.hoisted(() => ({
@@ -20,6 +21,10 @@ const {
   getRoms: vi.fn(),
   getPlatform: vi.fn(),
   push: vi.fn(),
+  routeGuards: [] as ((to: {
+    name: string;
+    params: Record<string, string>;
+  }) => unknown)[],
   snackbarError: vi.fn(),
   snackbarInfo: vi.fn(),
 }));
@@ -41,7 +46,9 @@ vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => routeState,
   useRouter: () => ({ push, replace: vi.fn() }),
-  onBeforeRouteUpdate: vi.fn(),
+  // Captured rather than dropped: calling the guard is how a test moves
+  // the view to another platform, which is what the stale check watches.
+  onBeforeRouteUpdate: vi.fn((guard) => routeGuards.push(guard)),
 }));
 
 vi.mock("@/plugins/router", () => ({
@@ -104,13 +111,13 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({ error: snackbarError, info: snackbarInfo }),
 }));
 
-function platform(id: number): Platform {
+function platform(id: number, name = "Super Nintendo"): Platform {
   return {
     id,
-    name: "Super Nintendo",
-    display_name: "Super Nintendo",
-    slug: "snes",
-    fs_slug: "snes",
+    name,
+    display_name: name,
+    slug: `platform-${id}`,
+    fs_slug: `platform-${id}`,
     rom_count: 83000,
   } as Platform;
 }
@@ -119,9 +126,41 @@ function rom(id: number): SimpleRom {
   return { id, name: "Chrono Trigger" } as SimpleRom;
 }
 
+/** Resolves the promise the next `getRandomRom` call returns, on demand. */
+function deferRandomRom() {
+  let settle: (value: { data: SimpleRom | null }) => void = () => {};
+  getRandomRom.mockReturnValueOnce(
+    new Promise((resolve) => {
+      settle = resolve;
+    }),
+  );
+  return (pick: SimpleRom | null) => settle({ data: pick });
+}
+
+/** Rejects the promise the next `getRandomRom` call returns, on demand. */
+function deferRandomRomFailure() {
+  let fail: (reason: Error) => void = () => {};
+  getRandomRom.mockReturnValueOnce(
+    new Promise((_resolve, reject) => {
+      fail = reject;
+    }),
+  );
+  return () => fail(new Error("boom"));
+}
+
+/** Moves the view to another platform the way the router would. */
+async function navigateTo(platformId: number) {
+  routeState.params = { platform: String(platformId) };
+  routeState.path = `/platform/${platformId}`;
+  routeGuards.forEach((guard) =>
+    guard({ name: "platform", params: { platform: String(platformId) } }),
+  );
+  await flushPromises();
+}
+
 async function mountView() {
   const platforms = storePlatforms();
-  platforms.set([platform(1)]);
+  platforms.set([platform(1), platform(2, "Mega Drive")]);
   const galleryRoms = storeGalleryRoms();
   vi.spyOn(galleryRoms, "fetchInitialMetadata").mockResolvedValue();
 
@@ -136,7 +175,13 @@ describe("Platform view random rom", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
-    getPlatform.mockResolvedValue({ data: platform(1) });
+    routeState.name = "platform";
+    routeState.path = "/platform/1";
+    routeState.params = { platform: "1" };
+    routeGuards.length = 0;
+    getPlatform.mockImplementation((id: number) =>
+      Promise.resolve({ data: platform(id) }),
+    );
     getRoms.mockResolvedValue({ data: { items: [], total: 0 } });
   });
 
@@ -176,6 +221,61 @@ describe("Platform view random rom", () => {
 
     expect(snackbarError).toHaveBeenCalledWith("platform.random-rom-error");
     expect(push).not.toHaveBeenCalled();
+  });
+
+  // Issue #4104: the pick is scoped to the platform that was on screen when
+  // the button was clicked, so following it after the user moved on drops
+  // them into a game from a gallery they already left.
+  it("drops a pick that lands after the view moved to another platform", async () => {
+    const resolvePick = deferRandomRom();
+
+    const wrapper = await mountView();
+    await wrapper.get("button.random").trigger("click");
+
+    await navigateTo(2);
+
+    resolvePick(rom(42));
+    await flushPromises();
+
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet when a pick fails after the view moved to another platform", async () => {
+    const failPick = deferRandomRomFailure();
+
+    const wrapper = await mountView();
+    await wrapper.get("button.random").trigger("click");
+
+    await navigateTo(2);
+
+    failPick();
+    await flushPromises();
+
+    expect(snackbarError).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+
+    // The button still works on the platform the user landed on.
+    getRandomRom.mockResolvedValue({ data: rom(7) });
+    await wrapper.get("button.random").trigger("click");
+    await flushPromises();
+
+    expect(push).toHaveBeenCalledWith({ name: "rom", params: { rom: 7 } });
+  });
+
+  // A same-platform reload swaps in a fresh `Platform` record, so the check
+  // has to compare ids rather than object identity.
+  it("still navigates when the view reloaded the same platform", async () => {
+    const resolvePick = deferRandomRom();
+
+    const wrapper = await mountView();
+    await wrapper.get("button.random").trigger("click");
+
+    await navigateTo(1);
+
+    resolvePick(rom(42));
+    await flushPromises();
+
+    expect(push).toHaveBeenCalledWith({ name: "rom", params: { rom: 42 } });
   });
 
   it("ignores a click while a pick is in flight", async () => {

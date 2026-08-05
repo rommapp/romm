@@ -288,17 +288,18 @@ async function onRandomGame() {
   if (!c || randomLoading.value) return;
   randomLoading.value = true;
   const scopeId = c.id;
+  // A pick from the collection the user just left leads nowhere useful.
+  const stale = () => currentCollection.value?.id !== scopeId;
   try {
     const { data } = await romApi.getRandomRom(randomScope());
-    // A pick from the collection the user just left leads nowhere useful.
-    if (currentCollection.value?.id !== scopeId) return;
+    if (stale()) return;
     if (!data) {
       snackbar.info(t("collection.empty"));
       return;
     }
     router.push({ name: ROUTES.ROM, params: { rom: data.id } });
   } catch {
-    snackbar.error(t("platform.random-rom-error"));
+    if (!stale()) snackbar.error(t("platform.random-rom-error"));
   } finally {
     randomLoading.value = false;
   }
