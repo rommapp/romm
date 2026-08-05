@@ -129,7 +129,7 @@ ARCHIVE_READERS = {
 
 
 def _chd_sha1_hash(file_path: Path) -> str:
-    """Return the disc-data SHA1 embedded in a CHD v5 header, or "" for non-CHD files."""
+    """Return the embedded CHD v5 raw+meta SHA-1, or "" for non-CHD files."""
     return extract_chd_hash(file_path) if is_chd_file(file_path) else ""
 
 
