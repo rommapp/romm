@@ -9,6 +9,7 @@ from fastapi import HTTPException, status
 from unidecode import unidecode as uc
 
 from adapters.services.screenscraper import (
+    ScreenScraperCredentialsError,
     ScreenScraperRateLimitError,
     ScreenScraperService,
     get_account_limits,
@@ -248,6 +249,17 @@ def _is_daily_quota_error(exc: HTTPException) -> bool:
     return exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS and not isinstance(
         exc, ScreenScraperRateLimitError
     )
+
+
+def _is_provider_exhausted(exc: HTTPException) -> bool:
+    """True for the errors that take ScreenScraper out for the rest of the scan.
+
+    Both an exhausted daily quota and a refused credential set trip a breaker in
+    the service, so the remaining ROMs short-circuit. The scan carries on with
+    the other providers rather than failing over a provider that has already said
+    everything it is going to say.
+    """
+    return _is_daily_quota_error(exc) or isinstance(exc, ScreenScraperCredentialsError)
 
 
 def _is_notgame(game: SSGame) -> bool:
@@ -842,9 +854,9 @@ class SSHandler(MetadataHandler):
                 rom_type=_get_rom_type(first_file),
             )
         except HTTPException as exc:
-            # Daily quota exhausted: skip ScreenScraper for this ROM so the scan
-            # falls back to the other providers.
-            if not _is_daily_quota_error(exc):
+            # Quota exhausted or credentials refused: skip ScreenScraper for this
+            # ROM so the scan falls back to the other providers.
+            if not _is_provider_exhausted(exc):
                 raise
             return SSRom(ss_id=None), False
         if not res:
@@ -968,8 +980,9 @@ class SSHandler(MetadataHandler):
                     terms[-1], platform_ss_id, split_game_name=True
                 )
         except HTTPException as exc:
-            # Daily quota exhausted: fall back to the name-only match (if any).
-            if not _is_daily_quota_error(exc):
+            # Quota exhausted or credentials refused: fall back to the name-only
+            # match (if any).
+            if not _is_provider_exhausted(exc):
                 raise
             return fallback_rom
 
@@ -985,8 +998,9 @@ class SSHandler(MetadataHandler):
         try:
             res = await self.ss_service.get_game_info(game_id=ss_id)
         except HTTPException as exc:
-            # Daily quota exhausted: return an empty match rather than failing.
-            if not _is_daily_quota_error(exc):
+            # Quota exhausted or credentials refused: return an empty match rather
+            # than failing.
+            if not _is_provider_exhausted(exc):
                 raise
             return SSRom(ss_id=None)
         if not res:
