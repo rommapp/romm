@@ -495,6 +495,32 @@ def test_claim_skips_container_missing_host(client, access_token, rom: Rom):
     assert r.status_code == 404
 
 
+def test_proxied_host_is_usable(rom: Rom):
+    """A host that is a path names a container reverse proxied onto RomM's own
+    origin, which is how the iframe ends up same origin as the player."""
+    proxied = {
+        "platform": rom.platform_slug,
+        "host": "/streaming",
+        "broker_host": "http://192.168.1.10:8000",
+    }
+    with _streaming(proxied):
+        container = _first_container(rom.platform_slug)
+    assert container is not None
+    assert container["host"] == "/streaming"
+    # The key still comes from the broker address, so proxying a container does
+    # not move the session it already holds.
+    assert streaming._container_key(container) == "http://192.168.1.10:8000"
+
+
+def test_claim_skips_proxied_host_without_broker_host(client, access_token, rom: Rom):
+    """A proxied host carries no address RomM can call, so without broker_host
+    the broker is unreachable and the entry must be skipped, not 500."""
+    bad = {"platform": rom.platform_slug, "host": "/streaming"}
+    with _streaming(bad):
+        r = _claim(client, access_token, rom.id)
+    assert r.status_code == 404
+
+
 @pytest.mark.asyncio
 async def test_claim_sets_session_ttl(access_token, rom: Rom):
     """A claimed session must carry a TTL so an abandoned one eventually frees

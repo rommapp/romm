@@ -244,6 +244,17 @@ def _parse_host_url(host: str) -> str | None:
     return host
 
 
+def _parse_stream_host(host: str) -> str | None:
+    """Validate a configured stream host: an absolute URL, or a path when the
+    container is reverse proxied onto RomM's own origin (`/streaming`). The
+    browser resolves a path against whatever origin it is already on, which is
+    what makes the iframe same origin and its pointer events reachable."""
+    host = host.strip()
+    if host.startswith("/"):
+        return host.rstrip("/") or "/"
+    return _parse_host_url(host)
+
+
 def _derive_broker_host(container: dict[str, Any]) -> str | None:
     """Resolve the broker API host for a container: broker_host if set,
     otherwise the stream host with its port swapped to 8000. Returns None
@@ -496,15 +507,25 @@ def _containers_for_platform(platform: str) -> list[dict[str, Any]]:
     for entry in cfg.get("containers", []):
         if not isinstance(entry, dict):
             continue
-        # An entry needs both a platform and a scheme-bearing host.
-        # Skipping a malformed entry here means claim / control routes raise
-        # a clean 404 instead of a 500 on container["host"].
+        # An entry needs a platform and a host that is either scheme bearing
+        # or a proxied path. Skipping a malformed entry here means claim /
+        # control routes raise a clean 404 instead of a 500 on container["host"].
         if entry.get("platform", "").lower() != lower:
             continue
-        if not _parse_host_url(entry.get("host", "")):
+        if not _parse_stream_host(entry.get("host", "")):
             log.warning(
-                "container for platform '%s' missing a scheme-bearing "
-                "host, skipping: %s",
+                "container for platform '%s' missing a scheme-bearing host "
+                "or a proxied path, skipping: %s",
+                platform,
+                entry,
+            )
+            continue
+        if not _derive_broker_host(entry):
+            # A proxied host carries no address RomM can call, so the broker
+            # is only reachable if the operator named it.
+            log.warning(
+                "container for platform '%s' has no reachable broker, set "
+                "broker_host, skipping: %s",
                 platform,
                 entry,
             )
