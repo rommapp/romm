@@ -1932,17 +1932,11 @@ async def update_rom(
                     media_type,
                 )
 
-            media_path = cleaned_data.get("ss_metadata", {}).get(
-                f"{media_type.value}_path"
+        ss_metadata = cleaned_data.get("ss_metadata")
+        if ss_metadata:
+            await fs_resource_handler.store_metadata_media(
+                ss_metadata, preferred_media_types, add_ss_auth_to_url
             )
-            media_url = cleaned_data.get("ss_metadata", {}).get(
-                f"{media_type.value}_url"
-            )
-            if media_path and media_url:
-                await fs_resource_handler.store_media_file(
-                    add_ss_auth_to_url(media_url),
-                    media_path,
-                )
 
     # Handle local media files from LaunchBox when the ID has changed
     if (
@@ -1962,17 +1956,11 @@ async def update_rom(
                     media_type,
                 )
 
-            media_path = cleaned_data.get("launchbox_metadata", {}).get(
-                f"{media_type.value}_path"
+        launchbox_metadata = cleaned_data.get("launchbox_metadata")
+        if launchbox_metadata:
+            await fs_resource_handler.store_metadata_media(
+                launchbox_metadata, preferred_media_types
             )
-            media_url = cleaned_data.get("launchbox_metadata", {}).get(
-                f"{media_type.value}_url"
-            )
-            if media_path and media_url:
-                await fs_resource_handler.store_media_file(
-                    media_url,
-                    media_path,
-                )
 
     log.debug(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"
