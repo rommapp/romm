@@ -239,6 +239,72 @@ def test_get_setup_library_info_handles_errors(client, admin_user, access_token)
             assert data["existing_platforms"] == []
 
 
+def test_get_setup_library_info_skips_filesystem_walk_when_roms_exist(
+    client, rom, access_token
+):
+    """A library with scanned ROMs never needs the on-disk hint, so skip the walk."""
+    with (
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.detect_library_structure"
+        ) as mock_detect,
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.get_platforms"
+        ) as mock_get_platforms,
+    ):
+        mock_detect.return_value = "struct_a"
+        mock_get_platforms.return_value = ["n64"]
+
+        response = client.get(
+            "/api/setup/library",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+
+    assert data["detected_structure"] == "struct_a"
+    assert data["existing_platforms"] == []
+    assert len(data["supported_platforms"]) > 0
+    mock_get_platforms.assert_not_called()
+
+
+def test_get_setup_library_info_walks_when_platforms_have_no_roms(
+    client, platform, access_token
+):
+    """Platform rows without ROMs still need the hint: that is the case it exists for."""
+    with (
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.detect_library_structure"
+        ) as mock_detect,
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.get_platforms"
+        ) as mock_get_platforms,
+        patch("endpoints.heartbeat.AnyioPath") as mock_anyio_path,
+    ):
+        mock_detect.return_value = "struct_a"
+        mock_get_platforms.return_value = ["n64"]
+
+        async def mock_iterdir():
+            entry = MagicMock()
+            entry.name = "game1.z64"
+            yield entry
+
+        mock_path = AsyncMock()
+        mock_path.exists = AsyncMock(return_value=True)
+        mock_path.iterdir = mock_iterdir
+        mock_anyio_path.return_value = mock_path
+
+        response = client.get(
+            "/api/setup/library",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+
+    assert data["existing_platforms"] == [{"fs_slug": "n64", "rom_count": 1}]
+
+
 def test_create_setup_platforms_success(client, admin_user, access_token):
     """Test create_setup_platforms successfully creates platforms"""
     platform_slugs = ["n64", "psx", "gba"]

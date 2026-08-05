@@ -359,38 +359,28 @@ function onScan() {
 }
 
 // Random ROM — pick one game from this platform and jump to its
-// details. Mirrors the Home RandomPickWidget approach: a cheap
-// count-only fetch gives the `total`, then a single-item fetch at a
-// random offset resolves the ROM. Scoped to the current platform via
-// `platformIds`.
+// details. Mirrors the Home RandomPickWidget: `/roms/random` samples the
+// pick server-side, so one request resolves it whatever the platform
+// holds. `null` means the platform holds no roms.
 async function onRandomGame() {
   const p = currentPlatform.value;
   if (!p || randomLoading.value) return;
   randomLoading.value = true;
+  const scopeId = p.id;
+  // The pick belongs to the platform that was on screen when the button was
+  // clicked; following it after the user moved on would drop them into a
+  // game from a gallery they already left.
+  const stale = () => currentPlatform.value?.id !== scopeId;
   try {
-    const { data: head } = await romApi.getRoms({
-      platformIds: [p.id],
-      limit: 1,
-      offset: 0,
-    });
-    if (!head.total) {
+    const { data } = await romApi.getRandomRom({ platformIds: [scopeId] });
+    if (stale()) return;
+    if (!data) {
       snackbar.info(t("platform.random-rom-empty"));
       return;
     }
-    const randomOffset = Math.floor(Math.random() * head.total);
-    const { data } = await romApi.getRoms({
-      platformIds: [p.id],
-      limit: 1,
-      offset: randomOffset,
-    });
-    const pick = data.items[0];
-    if (!pick) {
-      snackbar.info(t("platform.random-rom-empty"));
-      return;
-    }
-    router.push({ name: ROUTES.ROM, params: { rom: pick.id } });
+    router.push({ name: ROUTES.ROM, params: { rom: data.id } });
   } catch {
-    snackbar.error(t("platform.random-rom-error"));
+    if (!stale()) snackbar.error(t("platform.random-rom-error"));
   } finally {
     randomLoading.value = false;
   }
