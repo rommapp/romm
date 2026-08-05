@@ -740,22 +740,30 @@ class FSResourcesHandler(FSHandler):
 
         Providers record where each media file should live before it's fetched,
         so a failed download (or discarded placeholder art) would otherwise leave
-        the dict pointing at a file that isn't there. Clears those ``*_path``
-        entries and returns whether the dict was modified.
+        the dict pointing at a file that isn't there. Every ``*_path`` left in the
+        dict afterwards points at a file that exists; the rest are cleared, and
+        the ``*_url`` is kept so a later scan can retry. Returns whether the dict
+        was modified.
         """
         changed = False
 
         for media_type in media_types:
             path_key = f"{media_type.value}_path"
             media_path = metadata.get(path_key)
-            media_url = metadata.get(f"{media_type.value}_url")
-            if not media_path or not media_url:
+            if not media_path:
                 continue
 
-            stored = await self.store_media_file(
-                url_transform(media_url) if url_transform else media_url,
-                media_path,
-            )
+            media_url = metadata.get(f"{media_type.value}_url")
+            if media_url:
+                stored = await self.store_media_file(
+                    url_transform(media_url) if url_transform else media_url,
+                    media_path,
+                )
+            else:
+                # Nothing to fetch from, so the path only holds if an earlier
+                # scan already stored the file.
+                stored = await self.file_exists(media_path)
+
             if not stored:
                 metadata[path_key] = None
                 changed = True

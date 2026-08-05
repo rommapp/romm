@@ -927,9 +927,7 @@ class TestStoreMetadataMedia:
         assert metadata["fanart_path"] == "roms/1/1/fanart/fanart.png"
 
     @pytest.mark.asyncio
-    async def test_skips_media_types_without_a_url_or_path(
-        self, handler: FSResourcesHandler
-    ):
+    async def test_skips_media_types_without_a_path(self, handler: FSResourcesHandler):
         metadata = {"fanart_url": "http://example.com/fanart.png"}
 
         with patch.object(handler, "store_media_file") as store_mock:
@@ -940,6 +938,39 @@ class TestStoreMetadataMedia:
 
         assert changed is False
         store_mock.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_clears_a_urlless_path_when_the_file_is_missing(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # A path with no URL can never be fetched, so it must not survive when
+        # the file it names isn't there.
+        handler.base_path = tmp_path
+        metadata = {"fanart_path": "roms/1/1/fanart/fanart.png"}
+
+        changed = await handler.store_metadata_media(
+            metadata, [MetadataMediaType.FANART]
+        )
+
+        assert changed is True
+        assert metadata["fanart_path"] is None
+
+    @pytest.mark.asyncio
+    async def test_keeps_a_urlless_path_when_the_file_exists(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/fanart/fanart.png"
+        (tmp_path / rel).parent.mkdir(parents=True)
+        (tmp_path / rel).write_bytes(b"art")
+        metadata = {"fanart_path": rel}
+
+        changed = await handler.store_metadata_media(
+            metadata, [MetadataMediaType.FANART]
+        )
+
+        assert changed is False
+        assert metadata["fanart_path"] == rel
 
     @pytest.mark.asyncio
     async def test_applies_the_url_transform(self, handler: FSResourcesHandler):
