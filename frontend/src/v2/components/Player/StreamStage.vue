@@ -16,10 +16,19 @@ const props = withDefaults(
   { active: true },
 );
 
+// How close to the bottom edge the pointer has to get before the bar appears.
+// A hot edge, not a band: the container has its own taskbar down there and the
+// bar must not compete with it for clicks.
+const BAR_HOT_EDGE_PX = 8;
+const hotEdgeHeight = `${BAR_HOT_EDGE_PX}px`;
+
 const stageRef = ref<HTMLElement | null>(null);
 const streamFrame = ref<HTMLIFrameElement | null>(null);
 const isUIVisible = ref(true);
 const isFullscreen = ref(false);
+// Whether the frame let us listen inside it. A cross-origin container never
+// reports its pointer, so it gets the edge strip instead.
+const sameOrigin = ref(false);
 
 let uiTimeout: ReturnType<typeof setTimeout> | null = null;
 let attachTimeouts: ReturnType<typeof setTimeout>[] = [];
@@ -44,13 +53,29 @@ function focusStream(): void {
   streamFrame.value?.focus();
 }
 
-function handleMouseMove(): void {
+function revealNearBottom(offsetY: number, height: number): void {
+  if (height - offsetY <= BAR_HOT_EDGE_PX) showUI();
+}
+
+function handleStageMouseMove(event: MouseEvent): void {
+  const rect = stageRef.value?.getBoundingClientRect();
+  if (rect) revealNearBottom(event.clientY - rect.top, rect.height);
+}
+
+// The frame fills the stage, so its own viewport height is the bottom to
+// measure against.
+function handleFrameMouseMove(event: MouseEvent): void {
+  revealNearBottom(event.clientY, streamFrame.value?.clientHeight ?? 0);
+}
+
+// Touch has no hover to track, and a tap is deliberate enough to mean it.
+function handleTouchStart(): void {
   showUI();
 }
 
-// Attach pointer listeners inside the iframe when same-origin, so the
-// control bar reappears while the pointer is over the stream. Cross-
-// origin containers fall back to the bottom hover sensor.
+// Attach pointer listeners inside the iframe when same-origin, so the bottom
+// edge of the stream itself raises the bar. Cross-origin containers report
+// nothing and fall back to the edge strip.
 function attachIframeListeners(): void {
   const frame = streamFrame.value;
   if (!frame) return;
@@ -63,22 +88,18 @@ function attachIframeListeners(): void {
     if (contentWindowCleanup) return;
     try {
       if (frame.contentWindow) {
-        frame.contentWindow.addEventListener("mousemove", handleMouseMove);
-        frame.contentWindow.addEventListener("mousedown", handleMouseMove);
-        frame.contentWindow.addEventListener("touchstart", handleMouseMove);
+        frame.contentWindow.addEventListener("mousemove", handleFrameMouseMove);
+        frame.contentWindow.addEventListener("touchstart", handleTouchStart);
+        sameOrigin.value = true;
         contentWindowCleanup = () => {
           try {
             frame.contentWindow?.removeEventListener(
               "mousemove",
-              handleMouseMove,
-            );
-            frame.contentWindow?.removeEventListener(
-              "mousedown",
-              handleMouseMove,
+              handleFrameMouseMove,
             );
             frame.contentWindow?.removeEventListener(
               "touchstart",
-              handleMouseMove,
+              handleTouchStart,
             );
           } catch {
             // Cross-origin: listeners were never added, nothing to remove.
@@ -104,6 +125,7 @@ watch(
   () => props.src,
   (src) => {
     clearAttachTimeouts();
+    sameOrigin.value = false;
     if (!src) return;
     showUI();
     attachTimeouts.push(setTimeout(attachIframeListeners, 100));
@@ -172,7 +194,7 @@ defineExpose({
     class="r-v2-stage"
     :class="{ 'r-v2-stage--hide-cursor': !isUIVisible }"
     role="presentation"
-    @mousemove="handleMouseMove"
+    @mousemove="handleStageMouseMove"
   >
     <iframe
       v-if="src"
@@ -185,13 +207,19 @@ defineExpose({
       :title="frameTitle"
     />
 
-    <!-- Hover sensor for cross-origin fallback: bottom only so the top
-         of the stream is not blocked by an invisible trigger zone. -->
-    <div class="r-v2-stage__sensor" @mousemove="handleMouseMove" />
+    <!-- A cross-origin frame swallows the pointer, so there the only way to
+         reach the bar is a strip of our own along the bottom edge. -->
+    <div
+      v-if="!sameOrigin"
+      class="r-v2-stage__edge"
+      @mousemove="showUI"
+      @touchstart="handleTouchStart"
+    />
 
     <div
       class="r-v2-stage__bar"
       :class="{ 'r-v2-stage__bar--visible': isUIVisible }"
+      @mousemove="showUI"
     >
       <slot
         name="bar"
@@ -224,12 +252,12 @@ defineExpose({
   display: block;
 }
 
-.r-v2-stage__sensor {
+.r-v2-stage__edge {
   position: absolute;
   left: 0;
   bottom: 0;
   width: 100%;
-  height: 80px;
+  height: v-bind(hotEdgeHeight);
   z-index: 5;
   background: transparent;
 }
