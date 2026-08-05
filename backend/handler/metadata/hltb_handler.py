@@ -27,6 +27,12 @@ HLTB_MAX_REQUEST_ATTEMPTS: Final[int] = 3
 HLTB_RATE_LIMIT_BACKOFF_SECONDS: Final[float] = 2
 _rate_limiter = RateLimiter(HLTB_MAX_REQUESTS_PER_SECOND)
 
+# The session token decodes to "<issued-at>::<public IP>|<user agent>|<key>|<hmac>",
+# so logging it would put the host's public IP in any shared log or support bundle.
+HLTB_SESSION_HEADERS: Final[frozenset[str]] = frozenset(
+    {"x-auth-token", "x-hp-key", "x-hp-val"}
+)
+
 
 class HLTBPlatform(TypedDict):
     slug: str
@@ -332,8 +338,11 @@ class HLTBHandler(MetadataHandler):
             log.debug(
                 "HowLongToBeat API request: URL=%s, Headers=%s, Payload=%s, Timeout=%s",
                 url,
-                headers,
-                body,
+                {
+                    key: "[redacted]" if key in HLTB_SESSION_HEADERS else value
+                    for key, value in headers.items()
+                },
+                {key: value for key, value in body.items() if key != self.hp_key},
                 60,
             )
 

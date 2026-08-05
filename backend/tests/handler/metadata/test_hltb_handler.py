@@ -168,6 +168,30 @@ async def test_github_endpoint_fetch_is_not_rate_limited(
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
 @patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_debug_log_does_not_leak_session_material(mock_ctx_httpx_client):
+    # Logs are downloadable via /api/logs and routinely pasted into bug reports,
+    # and the token decodes to a string containing the host's public IP.
+    handler = _handler()
+    mock_client = AsyncMock()
+    mock_client.post.return_value = _response(json_body={"data": []})
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    with patch("handler.metadata.hltb_handler.log.debug") as mock_debug:
+        await handler._request(
+            "https://howlongtobeat.com/api/bleed", {"searchTerms": ["Chrono"]}
+        )
+
+    logged = repr(mock_debug.call_args.args)
+    for secret in ("token-1", "ign_aaaa", "val-1"):
+        assert secret not in logged
+
+    # The parts that make the log useful are still there.
+    assert "Chrono" in logged
+    assert "[redacted]" in logged
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
 async def test_request_backs_off_and_retries_on_429(mock_ctx_httpx_client):
     handler = _handler()
     mock_client = AsyncMock()
