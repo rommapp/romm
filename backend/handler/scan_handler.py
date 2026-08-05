@@ -1016,6 +1016,14 @@ async def scan_rom(
             if field_value:
                 rom_attrs[key] = field_value
 
+    # `ra_hash_match` is a tri-state, and the loop above copies truthy values
+    # only, so a definite "RetroAchievements doesn't have this dump" (False)
+    # would be dropped and left indistinguishable from never-checked (NULL).
+    # It also isn't gated on `ra_id`, which the loop is: a ROM can carry the
+    # game's id from Hasheous while RA has never seen the file.
+    if "ra_hash_match" in ra_handler_rom:
+        rom_attrs["ra_hash_match"] = ra_handler_rom["ra_hash_match"]
+
     # Artwork sources are prioritized separately, and each field can carry its
     # own override on top of the shared artwork priority.
     for field in ["url_cover", "url_screenshots", "url_manual"]:

@@ -1020,3 +1020,70 @@ async def test_scan_rom_ss_rate_limit_skips_the_rom_without_further_lookups(
     assert get_rate_limited_rom_names() == ["game.sfc"]
 
     reset_rate_limited_roms()
+
+
+@pytest.mark.parametrize(
+    ("hash_is_known", "expected"),
+    [(True, True), (False, False), (None, None)],
+    ids=["ra-knows-the-dump", "ra-has-never-seen-it", "nothing-to-check"],
+)
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ra_handler, "get_rom_by_id", new_callable=AsyncMock)
+@patch.object(meta_ra_handler, "hash_is_known", new_callable=AsyncMock)
+async def test_scan_rom_persists_every_ra_hash_match_state(
+    mock_hash_is_known,
+    mock_get_rom_by_id,
+    mock_playmatch_enabled,
+    hash_is_known: bool | None,
+    expected: bool | None,
+):
+    """All three states have to survive the scan, False especially.
+
+    The metadata priority loop copies truthy values only, so a plain
+    `rom_attrs[key] = value` pass would drop False and leave it
+    indistinguishable from never-checked. That would silently disable the
+    "RetroAchievements has never seen this dump" branch everywhere it's
+    read, since NULL falls back to Hasheous.
+    """
+    mock_hash_is_known.return_value = hash_is_known
+    # The game is identified either way: `ra_id` is the game, and it says
+    # nothing about whether RA hashed this particular file.
+    mock_get_rom_by_id.return_value = RAGameRom(ra_id=4321, name="Star Fox 64")
+
+    platform = db_platform_handler.add_platform(
+        Platform(slug="n64", fs_slug="n64", name="Nintendo 64", ra_id=2)
+    )
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            fs_name="Star Fox 64 (USA).z64",
+            fs_name_no_tags="Star Fox 64",
+            fs_name_no_ext="Star Fox 64 (USA)",
+            fs_extension="z64",
+            fs_path="n64/roms",
+            ra_id=4321,
+            tags=[],
+        )
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.COMPLETE,
+            rom=rom,
+            fs_rom=FSRom(
+                fs_name="Star Fox 64 (USA).z64",
+                flat=True,
+                nested=False,
+                files=[],
+                crc_hash="aabbccdd",
+                md5_hash="0123456789abcdef0123456789abcdef",
+                sha1_hash="0123456789abcdef0123456789abcdef01234567",
+                ra_hash="fedcba9876543210fedcba9876543210",
+            ),
+            metadata_sources=[MetadataSource.RA],
+            newly_added=True,
+        )
+
+    mock_hash_is_known.assert_awaited_once()
+    assert result.ra_hash_match is expected

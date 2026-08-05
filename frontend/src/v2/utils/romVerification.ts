@@ -25,7 +25,7 @@ export function matchesDatabase(
 // answer wins: `ra_hash_match` comes from RA's hash list, which is what
 // decides whether achievements unlock, while Hasheous knows RA's dumps
 // only as far as its signature coverage reaches. So a definite `false`
-// from RA is trusted over a Hasheous hit — falling back there would
+// from RA is trusted over a Hasheous hit, since falling back there would
 // promise achievements for a file RA has never seen. `null` means RA was
 // never asked (platform it doesn't cover, or a ROM not rescanned since
 // the column landed), and only then does Hasheous answer.
