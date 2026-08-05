@@ -295,6 +295,7 @@
   "public-notes": "公共笔记",
   "qr-scan-to-download": "扫码下载",
   "rating": "评分",
+  "ratings-label": "评分",
   "redownload": "重新下载",
   "redownload-manual": "Re-download scraped manual",
   "refresh-complete-desc": "从所有选定来源覆盖元数据",

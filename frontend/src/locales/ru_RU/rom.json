@@ -295,6 +295,7 @@
   "public-notes": "Публичные заметки",
   "qr-scan-to-download": "Отсканируйте для скачивания",
   "rating": "Рейтинг",
+  "ratings-label": "Оценки",
   "redownload": "Перезагрузить",
   "redownload-manual": "Re-download scraped manual",
   "refresh-complete-desc": "Перезаписать метаданные от всех выбранных провайдеров",

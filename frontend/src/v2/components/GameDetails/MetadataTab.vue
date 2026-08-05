@@ -11,6 +11,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
+import { PROVIDERS } from "@/v2/components/GameDetails/providers";
 import ProviderGrid from "@/v2/components/GameDetails/ProviderGrid.vue";
 import HashChip from "@/v2/components/shared/HashChip.vue";
 import {
@@ -68,6 +69,84 @@ const verifications = computed<Verification[]>(() =>
     match: matchesDatabase(props.rom, db.keys),
   })),
 );
+
+type RatingChip = {
+  key: "igdb_id" | "ss_id" | "moby_id" | "launchbox_id" | "hltb_id";
+  name: string;
+  logo: string;
+  value: string;
+};
+
+function formatRating(value: number, options?: { percent?: boolean }): string | null {
+  if (!Number.isFinite(value)) return null;
+  const rounded = value >= 10 ? value.toFixed(0) : value.toFixed(1);
+  const formatted = rounded.replace(/\.0$/, "");
+  return options?.percent ? `${formatted}%` : formatted;
+}
+
+function normalizeToTen(value: number): number {
+  if (!Number.isFinite(value)) return Number.NaN;
+  return value > 10 ? value / 10 : value;
+}
+
+function providerByKey(key: RatingChip["key"]) {
+  return PROVIDERS.find((p) => p.key === key) ?? null;
+}
+
+const ratingChips = computed<RatingChip[]>(() => {
+  const rom = props.rom;
+
+  const values: Array<{ key: RatingChip["key"]; value: string | null }> = [
+    {
+      key: "igdb_id",
+      value: formatRating(
+        normalizeToTen(parseFloat(rom.igdb_metadata?.total_rating ?? "")),
+      ),
+    },
+    {
+      key: "ss_id",
+      value: formatRating(parseFloat(rom.ss_metadata?.ss_score ?? "") * 10, {
+        percent: true,
+      }),
+    },
+    {
+      key: "moby_id",
+      value: formatRating(parseFloat(rom.moby_metadata?.moby_score ?? "") * 10, {
+        percent: true,
+      }),
+    },
+    {
+      key: "launchbox_id",
+      value: formatRating(
+        (rom.launchbox_metadata?.community_rating ?? Number.NaN) * 20,
+        { percent: true },
+      ),
+    },
+    {
+      key: "hltb_id",
+      value: formatRating(rom.hltb_metadata?.review_score ?? Number.NaN, {
+        percent: true,
+      }),
+    },
+  ];
+
+  const out: RatingChip[] = [];
+
+  for (const entry of values) {
+    if (!entry.value) continue;
+    const provider = providerByKey(entry.key);
+    if (!provider || !provider.logo) continue;
+
+    out.push({
+      key: entry.key,
+      name: provider.name,
+      logo: provider.logo,
+      value: entry.value,
+    });
+  }
+
+  return out;
+});
 </script>
 
 <template>
@@ -109,7 +188,27 @@ const verifications = computed<Verification[]>(() =>
       </div>
     </section>
 
-    <!-- 4. Provider links -->
+    <!-- 4. Ratings -->
+    <section v-if="ratingChips.length" class="metadata-tab__section">
+      <h3 class="metadata-tab__heading">{{ t("rom.ratings-label") }}</h3>
+      <div class="metadata-tab__ratings">
+        <span
+          v-for="chip in ratingChips"
+          :key="chip.key"
+          class="metadata-tab__rating-inline"
+          :aria-label="`${chip.name} rating ${chip.value}`"
+        >
+          <img
+            class="metadata-tab__rating-logo"
+            :src="chip.logo"
+            :alt="`${chip.name} logo`"
+          />
+          <span class="metadata-tab__rating-value">{{ chip.value }}</span>
+        </span>
+      </div>
+    </section>
+
+    <!-- 5. Provider links -->
     <section class="metadata-tab__section">
       <h3 class="metadata-tab__heading">
         {{ t("rom.metadata-sources-label") }}
@@ -170,5 +269,34 @@ const verifications = computed<Verification[]>(() =>
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+/* Ratings — logo + value pairs in a flex row. */
+.metadata-tab__ratings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.metadata-tab__rating-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--r-radius-sm);
+  background-color: var(--r-color-surface-secondary);
+  color: var(--r-color-fg);
+}
+
+.metadata-tab__rating-logo {
+  inline-size: 16px;
+  block-size: 16px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.metadata-tab__rating-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--r-font-weight-semibold);
 }
 </style>
