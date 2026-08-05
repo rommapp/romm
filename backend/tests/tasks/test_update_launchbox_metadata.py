@@ -186,6 +186,14 @@ class TestUpdateLaunchboxMetadataTask:
         files_calls = [call for call in hset_calls if call[0][0] == LAUNCHBOX_FILES_KEY]
         assert len(files_calls) == 2
 
+        # The same dump filename exists on several platforms, so its key carries
+        # the platform too.
+        files_fields = {field for call in files_calls for field in call[1]["mapping"]}
+        assert files_fields == {
+            "super mario 64 (usa):Nintendo 64",
+            "crash bandicoot (usa):PlayStation",
+        }
+
     @patch.object(RemoteFilePullTask, "run")
     @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
     async def test_empty_xml_elements_handling(

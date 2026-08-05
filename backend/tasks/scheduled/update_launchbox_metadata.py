@@ -271,13 +271,19 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                 for elem in _iter_elements(f):
                                     if elem.tag == "File":
                                         filename_elem = elem.find("FileName")
+                                        platform_elem = elem.find("Platform")
                                         if (
                                             filename_elem is not None
                                             and filename_elem.text
+                                            and platform_elem is not None
+                                            and platform_elem.text
                                         ):
+                                            # The same dump filename exists on
+                                            # several platforms, so the key has
+                                            # to carry the platform too.
                                             await writer.hset(
                                                 LAUNCHBOX_FILES_KEY,
-                                                filename_elem.text,
+                                                f"{filename_elem.text.lower()}:{platform_elem.text}",
                                                 _element_to_dict(elem),
                                             )
 
