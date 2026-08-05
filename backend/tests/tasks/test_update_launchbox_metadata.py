@@ -186,13 +186,27 @@ class TestUpdateLaunchboxMetadataTask:
         files_calls = [call for call in hset_calls if call[0][0] == LAUNCHBOX_FILES_KEY]
         assert len(files_calls) == 2
 
-        # The same dump filename exists on several platforms, so its key carries
-        # the platform too.
-        files_fields = {field for call in files_calls for field in call[1]["mapping"]}
-        assert files_fields == {
+        # The fixture pads one entry per index the way a pretty-printed dump
+        # would. Keys have to come out normalized, or nothing would ever query
+        # them: lookups strip (and lowercase, where the index is lowercased).
+        # The Files key carries its platform too, since the same dump filename
+        # exists on several systems.
+        def fields(calls) -> set[str]:
+            return {field for call in calls for field in call[1]["mapping"]}
+
+        assert fields(files_calls) == {
             "super mario 64 (usa):Nintendo 64",
             "crash bandicoot (usa):PlayStation",
         }
+        assert fields(platform_calls) == {"Nintendo 64", "PlayStation"}
+        assert fields(metadata_id_calls) == {"12345", "67890"}
+        assert fields(metadata_name_calls) == {
+            "super mario 64:Nintendo 64",
+            "crash bandicoot:PlayStation",
+        }
+        assert fields(metadata_alt_calls) == {"super mario 64 (usa)"}
+        assert fields(metadata_image_calls) == {"12345"}
+        assert fields(mame_calls) == {"mario.zip", "pacman.zip"}
 
     @patch.object(RemoteFilePullTask, "run")
     @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
