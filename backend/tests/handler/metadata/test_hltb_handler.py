@@ -29,15 +29,15 @@ def _response(status_code: int = 200, json_body: dict | None = None) -> MagicMoc
 
 
 @pytest.fixture(autouse=True)
-def _no_rate_limit():
+def acquire():
     with (
         patch(
             "handler.metadata.hltb_handler._rate_limiter.acquire",
             new_callable=AsyncMock,
-        ),
+        ) as mock_acquire,
         patch("handler.metadata.hltb_handler.asyncio.sleep", new_callable=AsyncMock),
     ):
-        yield
+        yield mock_acquire
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
@@ -82,6 +82,88 @@ async def test_request_does_not_mutate_caller_payload(mock_ctx_httpx_client):
     await handler._request("https://howlongtobeat.com/api/bleed", payload)
 
     assert payload == {"a": 1}
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_request_uses_session_renewed_while_it_was_paced(
+    mock_ctx_httpx_client, acquire
+):
+    # The handler is a shared singleton, so a peer scanning another ROM can renew
+    # the session while this call is waiting on the rate limiter.
+    handler = _handler()
+    mock_client = AsyncMock()
+    mock_client.post.return_value = _response(json_body={"data": []})
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    async def renew_while_waiting() -> None:
+        handler.security_token = "token-from-peer"
+        handler.hp_key = "ign_peer"
+        handler.hp_val = "val-peer"
+
+    acquire.side_effect = renew_while_waiting
+
+    await handler._request("https://howlongtobeat.com/api/bleed", {"a": 1})
+
+    kwargs = mock_client.post.await_args.kwargs
+    assert kwargs["headers"]["x-auth-token"] == "token-from-peer"
+    assert kwargs["json"] == {"a": 1, "ign_peer": "val-peer"}
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_request_bails_if_session_is_lost_while_it_was_paced(
+    mock_ctx_httpx_client, acquire
+):
+    handler = _handler()
+    mock_client = AsyncMock()
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    async def lose_session_while_waiting() -> None:
+        handler.security_token = None
+
+    acquire.side_effect = lose_session_while_waiting
+
+    assert await handler._request("https://howlongtobeat.com/api/bleed", {}) == {}
+    mock_client.post.assert_not_awaited()
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_session_renewal_is_rate_limited_too(mock_ctx_httpx_client, acquire):
+    handler = _handler()
+    mock_client = AsyncMock()
+    mock_client.post.side_effect = [
+        _response(status.HTTP_403_FORBIDDEN),
+        _response(json_body={"data": []}),
+    ]
+    mock_client.get.return_value = _response(
+        json_body={"token": "token-2", "hpKey": "ign_bbbb", "hpVal": "val-2"}
+    )
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    await handler._request("https://howlongtobeat.com/api/bleed", {})
+
+    # Two POSTs plus the /init renewal in between, all paced.
+    assert acquire.await_count == 3
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_github_endpoint_fetch_is_not_rate_limited(
+    mock_ctx_httpx_client, acquire
+):
+    # The endpoint fixture lives on GitHub, so it should not spend HLTB budget.
+    handler = HLTBHandler()
+    mock_client = AsyncMock()
+    mock_client.get.return_value = _response_with_text(
+        "https://howlongtobeat.com/api/rotated"
+    )
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    await handler._fetch_search_endpoint()
+
+    acquire.assert_not_awaited()
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)

@@ -255,6 +255,10 @@ class HLTBHandler(MetadataHandler):
         httpx_client = ctx_httpx_client.get()
         params = {"t": int(time.time())}
 
+        # /init is HLTB traffic too, and a wave of concurrent renewals would
+        # otherwise burst past the cap the search requests respect.
+        await _rate_limiter.acquire()
+
         try:
             response = await httpx_client.get(
                 self.search_init_url,
@@ -305,6 +309,14 @@ class HLTBHandler(MetadataHandler):
         httpx_client = ctx_httpx_client.get()
 
         for attempt in range(HLTB_MAX_REQUEST_ATTEMPTS):
+            await _rate_limiter.acquire()
+
+            # Read the session only after waiting, never before: this handler is a
+            # shared singleton, so a peer may have renewed (or lost) the session
+            # while we were paced.
+            if not self._has_session():
+                return {}
+
             headers = {
                 "Content-Type": "application/json",
                 **self._base_headers(),
@@ -324,8 +336,6 @@ class HLTBHandler(MetadataHandler):
                 body,
                 60,
             )
-
-            await _rate_limiter.acquire()
 
             try:
                 res = await httpx_client.post(
