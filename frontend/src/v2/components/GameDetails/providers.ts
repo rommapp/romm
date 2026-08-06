@@ -112,7 +112,7 @@ const RATING_SCORES: Partial<
 > = {
   igdb_id: (rom) => parseFloat(rom.igdb_metadata?.total_rating ?? ""),
   ss_id: (rom) => parseFloat(rom.ss_metadata?.ss_score ?? "") * 10,
-  moby_id: (rom) => parseFloat(rom.moby_metadata?.moby_score ?? ""),
+  moby_id: (rom) => parseFloat(rom.moby_metadata?.moby_score ?? "") * 10,
   launchbox_id: (rom) =>
     (rom.launchbox_metadata?.community_rating ?? Number.NaN) * 20,
   hltb_id: (rom) => rom.hltb_metadata?.review_score ?? Number.NaN,
