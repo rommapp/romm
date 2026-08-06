@@ -204,6 +204,7 @@
   "match-this-game": "匹配此游戏",
   "media": "Media",
   "media-bezel": "边框",
+  "media-box2d": "包装盒（2D，正面）",
   "media-box2d-back": "包装盒（2D，背面）",
   "media-box2d-side": "包装盒（2D，侧面）",
   "media-box3d": "包装盒（3D）",

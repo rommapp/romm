@@ -204,6 +204,7 @@
   "match-this-game": "Emparejar este juego",
   "media": "Media",
   "media-bezel": "Marco",
+  "media-box2d": "Caja (2D, frontal)",
   "media-box2d-back": "Caja (2D, trasera)",
   "media-box2d-side": "Caja (2D, lateral)",
   "media-box3d": "Caja (3D)",

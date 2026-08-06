@@ -720,9 +720,9 @@ class FSResourcesHandler(FSHandler):
                     return False
 
         # Drop ScreenScraper's green "missing art" placeholder so a box face
-        # (box-2D-back / box-2D-side) falls back to the dark placeholder rather
-        # than rendering bright green. Runs for pre-existing files too, cleaning
-        # them up on rescan.
+        # (box-2D / box-2D-back / box-2D-side) falls back to the dark placeholder
+        # rather than rendering bright green. Runs for pre-existing files too,
+        # cleaning them up on rescan.
         if await self._discard_if_chroma_key(dest_path):
             return False
 

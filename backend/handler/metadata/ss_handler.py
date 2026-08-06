@@ -292,6 +292,7 @@ class SSMetadataMedia(TypedDict):
 
     # Resources stored in filesystem
     bezel_path: str | None
+    box2d_path: str | None
     box2d_back_path: str | None
     box2d_side_path: str | None
     box3d_path: str | None
@@ -354,6 +355,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         video_url=None,
         video_normalized_url=None,
         bezel_path=None,
+        box2d_path=None,
         box2d_back_path=None,
         box2d_side_path=None,
         box3d_path=None,
@@ -393,6 +395,12 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 ss_media["box2d_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
                 )
+                # Stored locally as well as feeding url_cover, so the box front
+                # stays reachable when another provider wins the cover.
+                if MetadataMediaType.BOX2D in preferred_media_types:
+                    ss_media["box2d_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX2D)}/box2d.png"
+                    )
             elif media.get("type") == "fanart" and not ss_media["fanart_url"]:
                 ss_media["fanart_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
