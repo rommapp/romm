@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, nextTick } from "vue";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, reactive } from "vue";
 import type { ScanStats } from "@/__generated__";
 import taskApi from "@/services/api/task";
 import storeScanning from "@/stores/scanning";
@@ -34,17 +34,23 @@ vi.mock("@/services/api/platform", () => ({
   },
 }));
 
-const authState = {
+// Reactive so the composable's `watch` on `authStore.user` fires when the
+// user arrives after install, which is the real flow: AppLayout installs
+// while /users/me is still in flight.
+const authState = reactive({
   user: { id: 1, oauth_scopes: ["tasks.run"] } as {
     id: number;
     oauth_scopes: string[];
   } | null,
-};
+});
 vi.mock("@/stores/auth", () => ({
   default: () => authState,
 }));
 
 const getTaskStatus = vi.mocked(taskApi.getTaskStatus);
+
+/** Drain pending microtasks so the reconcile's promise chain has settled. */
+const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function makeStats(overrides: Partial<ScanStats> = {}): ScanStats {
   return {
@@ -77,9 +83,13 @@ function runningScanTask(stats: ScanStats | null) {
 }
 
 // The lifecycle uses `inject` and `onScopeDispose`, so it needs a host
-// component instance.
+// component instance. Tracked so `afterEach` can unmount it: the auth state
+// is reactive and shared, so a leaked host would keep watching it and
+// reconcile again during later tests.
+let host: ReturnType<typeof mount> | null = null;
+
 function install() {
-  mount(
+  host = mount(
     defineComponent({
       setup() {
         installScanLifecycle();
@@ -102,6 +112,11 @@ describe("installScanLifecycle", () => {
     authState.user = { id: 1, oauth_scopes: ["tasks.run"] };
   });
 
+  afterEach(() => {
+    host?.unmount();
+    host = null;
+  });
+
   it("treats a stats event as proof a scan is running", () => {
     install();
     const scanning = storeScanning();
@@ -119,13 +134,33 @@ describe("installScanLifecycle", () => {
     } as never);
 
     install();
-    await nextTick();
-    await nextTick();
+    await flushPromises();
 
     const scanning = storeScanning();
     expect(scanning.scanning).toBe(true);
     expect(scanning.scanStats.scanned_roms).toBe(40);
     expect(scanning.scanStats.total_roms).toBe(100);
+  });
+
+  it("reconciles once the user arrives after install", async () => {
+    // The real flow: AppLayout installs while /users/me is still in flight,
+    // so `user` is null at install and the watch has to catch the arrival.
+    authState.user = null;
+    getTaskStatus.mockResolvedValue({
+      data: [runningScanTask(makeStats({ scanned_roms: 7 }))],
+    } as never);
+
+    install();
+    await flushPromises();
+    expect(getTaskStatus).not.toHaveBeenCalled();
+
+    authState.user = { id: 1, oauth_scopes: ["tasks.run"] };
+    await flushPromises();
+
+    expect(getTaskStatus).toHaveBeenCalledTimes(1);
+    const scanning = storeScanning();
+    expect(scanning.scanning).toBe(true);
+    expect(scanning.scanStats.scanned_roms).toBe(7);
   });
 
   it("stays idle when no scan job is running", async () => {
@@ -134,8 +169,7 @@ describe("installScanLifecycle", () => {
     } as never);
 
     install();
-    await nextTick();
-    await nextTick();
+    await flushPromises();
 
     expect(storeScanning().scanning).toBe(false);
   });
@@ -144,7 +178,7 @@ describe("installScanLifecycle", () => {
     authState.user = { id: 1, oauth_scopes: ["platforms.write"] };
 
     install();
-    await nextTick();
+    await flushPromises();
 
     expect(getTaskStatus).not.toHaveBeenCalled();
     expect(storeScanning().scanning).toBe(false);
@@ -161,8 +195,7 @@ describe("installScanLifecycle", () => {
     install();
     fire("scan:done", makeStats({ scanned_roms: 100 }));
     resolveStatus({ data: [runningScanTask(makeStats({ scanned_roms: 40 }))] });
-    await nextTick();
-    await nextTick();
+    await flushPromises();
 
     const scanning = storeScanning();
     expect(scanning.scanning).toBe(false);
@@ -180,8 +213,7 @@ describe("installScanLifecycle", () => {
     install();
     fire("scan:update_stats", makeStats({ scanned_roms: 90 }));
     resolveStatus({ data: [runningScanTask(makeStats({ scanned_roms: 40 }))] });
-    await nextTick();
-    await nextTick();
+    await flushPromises();
 
     expect(storeScanning().scanStats.scanned_roms).toBe(90);
   });

@@ -250,7 +250,9 @@ export function installScanLifecycle() {
         scanningStore.setScanning(true);
         // The per-platform live log only ever lived in the originating tab's
         // memory, so the panel list fills in from the next platform onward.
-        if (running.meta.scan_stats)
+        // `meta` is typed as required but this is a JSON boundary: a missing
+        // snapshot just means no counters yet, not "no scan".
+        if (running.meta?.scan_stats)
           scanningStore.setScanStats(running.meta.scan_stats);
       })
       .catch((error) => console.error(error));
