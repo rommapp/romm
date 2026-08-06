@@ -430,9 +430,7 @@ class FSRomsHandler(FSHandler):
                         crc_c,
                         md5_h,
                         sha1_h,
-                        chd_sha1_hash=await asyncio.to_thread(
-                            _chd_sha1_hash, abs_file_path
-                        ),
+                        chd_sha1_hash=_chd_sha1_hash(abs_file_path),
                     )
                 else:
                     file_hash = FileHash(
@@ -572,7 +570,7 @@ class FSRomsHandler(FSHandler):
                 crc_c,
                 md5_h,
                 sha1_h,
-                chd_sha1_hash=await asyncio.to_thread(_chd_sha1_hash, rom_dir),
+                chd_sha1_hash=_chd_sha1_hash(rom_dir),
             )
             rom_files.append(
                 self._build_rom_file(
