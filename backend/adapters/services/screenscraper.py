@@ -29,6 +29,10 @@ from utils import get_version
 from utils.context import ctx_aiohttp_session
 from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
+# ScreenScraper answers a refused credential set with a 200 and this marker in the
+# body, so the text is checked before the status.
+LOGIN_ERROR_CHECK: Final = "Erreur de login"
+
 # ScreenScraper occasionally returns malformed JSON with unescaped backslashes in
 # text fields (e.g. game synopses), which the strict parser rejects with
 # "Invalid \escape" and discards the whole response. Match any backslash that is
@@ -618,7 +622,7 @@ class ScreenScraperService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res_text = await res.text()
-            if "Erreur de login" in res_text:
+            if LOGIN_ERROR_CHECK in res_text:
                 raise _reject_credentials(url, _error_message(res_text))
 
             try:
