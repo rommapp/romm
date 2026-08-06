@@ -295,6 +295,7 @@
   "public-notes": "公開メモ",
   "qr-scan-to-download": "スキャンしてダウンロード",
   "rating": "レーティング",
+  "ratings-label": "レーティング",
   "redownload": "再ダウンロード",
   "redownload-manual": "Re-download scraped manual",
   "refresh-complete-desc": "選択したすべてのプロバイダからメタデータを上書きします",
