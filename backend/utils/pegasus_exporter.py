@@ -295,7 +295,7 @@ class PegasusExporter:
         if dest.exists():
             return True
 
-        # Metadata scanned before RomM cleared unfetched media paths can still
+        # Metadata scanned before unfetched media paths were cleared can still
         # point at files that were never downloaded.
         if not source.is_file():
             log.debug(f"Skipping asset {source}: source file is missing")
