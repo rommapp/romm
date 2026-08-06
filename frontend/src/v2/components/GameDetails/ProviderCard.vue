@@ -19,7 +19,6 @@ interface Props {
   logo?: string | null;
   id?: string | number | null;
   href?: string | null;
-  /** Pre-formatted percentage; null when the provider has no score. */
   rating?: string | null;
 }
 

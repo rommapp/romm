@@ -5,7 +5,7 @@
 //   3. Verification — RTag per database; tone="success" for match,
 //      neutral for miss. Same source of truth (Hasheous match flags) as
 //      the "Verified" badge in the header, via `VERIFICATION_DATABASES`.
-//   4. Metadata sources — ProviderGrid (linked + unlinked, with ratings).
+//   4. Metadata sources — ProviderGrid (linked + unlinked).
 import { RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
