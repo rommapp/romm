@@ -62,6 +62,7 @@
   "reset-filters": "重置筛选器",
   "rom-count": "{n} 个 ROM | {n} 个 ROM",
   "scan-platform": "扫描平台",
+  "search-placeholder": "按名称、Slug、文件夹、分类搜索…",
   "search-platform": "搜索平台",
   "settings": "设置",
   "show": "显示",

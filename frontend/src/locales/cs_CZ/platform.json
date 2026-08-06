@@ -62,6 +62,7 @@
   "reset-filters": "Obnovit filtry",
   "rom-count": "{n} ROMů | {n} ROM | {n} ROMy | {n} ROMů",
   "scan-platform": "Skenovat platformu",
+  "search-placeholder": "Hledat podle názvu, slugu, složky, kategorie…",
   "search-platform": "Hledat platformu",
   "settings": "Nastavení",
   "show": "Zobrazit",
