@@ -1017,8 +1017,10 @@ async def scan_rom(
 
     # Tri-state, so it can ride neither the truthy-only loop above (False would
     # be dropped, reading as never-checked) nor its `ra_id` gate (Hasheous can
-    # supply an id for a file RA has never seen).
-    if "ra_hash_match" in ra_handler_rom:
+    # supply an id for a file RA has never seen). None means the question went
+    # unanswered, e.g. no hash to check or an unreadable hash list, so keep
+    # whatever the last scan that did get an answer recorded.
+    if ra_handler_rom.get("ra_hash_match") is not None:
         rom_attrs["ra_hash_match"] = ra_handler_rom["ra_hash_match"]
 
     # Artwork sources are prioritized separately, and each field can carry its
