@@ -29,21 +29,6 @@ from utils import get_version
 from utils.context import ctx_aiohttp_session
 from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
-LOGIN_ERROR_CHECK: Final = "Erreur de login"
-
-# ScreenScraper's error bodies are a single short line of plain text. Anything
-# longer, or marked up, is a page rather than a message.
-SS_MAX_ERROR_MESSAGE: Final[int] = 200
-
-# The one endpoint that checks the account password. The scraping endpoints
-# authorize on the developer credentials alone and never look at it.
-SS_ACCOUNT_ENDPOINT: Final = "ssuserInfos.php"
-
-# ScreenScraper names the developer credentials in the refusal itself, but only
-# from the scraping endpoints; the account endpoint blames the account whichever
-# set is actually at fault.
-SS_DEVELOPER_ERROR_CHECK: Final = "développeur"
-
 # ScreenScraper occasionally returns malformed JSON with unescaped backslashes in
 # text fields (e.g. game synopses), which the strict parser rejects with
 # "Invalid \escape" and discards the whole response. Match any backslash that is
@@ -193,7 +178,14 @@ class _ScanState:
     and media downloads go through the limiters without a service at all.
     """
 
+    # The account allowances read from the most recent response, if any. They govern
+    # how fast we may scrape (threads and requests per minute), how much of the
+    # daily quota is left, and how slowly media will download.
     account_limits: SSAccountLimits | None = None
+
+    # The one-shot advisories that are logged once per scan, so the log is not
+    # flooded with the same warning for every ROM. They are reset at the start of
+    # a scan so the next scan can report them again.
     logged_worker_advisory: bool = False
     logged_low_quota_warning: bool = False
 
@@ -250,20 +242,21 @@ def _error_message(body: str) -> str:
     if message.startswith("<"):
         return ""
 
-    return redact_sensitive(message[:SS_MAX_ERROR_MESSAGE])
+    # ScreenScraper's error bodies are a single short line of plain text. Anything
+    # longer, or marked up, is a page rather than a message.
+    return redact_sensitive(message[:200])
 
 
 def _credential_set(url: str, message: str) -> SSCredentialSet:
-    """Work out which credential set a refusal is about.
+    """Work out which credential set a refusal is about."""
 
-    ScreenScraper says so itself when a scraping endpoint refuses. When it does
-    not, the endpoint settles it: only the account endpoint checks the account
-    password, so a scraping endpoint can only be refusing the developer set.
-    """
-    if SS_DEVELOPER_ERROR_CHECK in message.lower():
+    # ScreenScraper names the developer credentials in the refusal itself, but only
+    # from the scraping endpoints; the account endpoint blames the account whichever
+    # set is actually at fault.
+    if "développeur" in message.lower():
         return SSCredentialSet.DEVELOPER
 
-    if SS_ACCOUNT_ENDPOINT in url:
+    if "ssuserInfos.php" in url:
         return SSCredentialSet.USER
 
     return SSCredentialSet.DEVELOPER
@@ -343,7 +336,7 @@ def get_account_limits() -> SSAccountLimits | None:
     return _state.account_limits
 
 
-def _parse_int(value: object, *, minimum: int = 0) -> int | None:
+def _parse_ss_int(value: object, *, minimum: int = 0) -> int | None:
     """Read one of the account's numeric fields, ignoring absent or junk values."""
     try:
         parsed = int(str(value))
@@ -355,15 +348,19 @@ def _parse_int(value: object, *, minimum: int = 0) -> int | None:
 
 def _read_account_limits(ssuser: SSUser) -> SSAccountLimits:
     return SSAccountLimits(
-        max_threads=_parse_int(ssuser.get("maxthreads"), minimum=1),
-        max_requests_per_minute=_parse_int(ssuser.get("maxrequestspermin"), minimum=1),
-        max_requests_per_day=_parse_int(ssuser.get("maxrequestsperday"), minimum=1),
-        requests_today=_parse_int(ssuser.get("requeststoday")),
-        max_ko_requests_per_day=_parse_int(
+        max_threads=_parse_ss_int(ssuser.get("maxthreads"), minimum=1),
+        max_requests_per_minute=_parse_ss_int(
+            ssuser.get("maxrequestspermin"), minimum=1
+        ),
+        max_requests_per_day=_parse_ss_int(ssuser.get("maxrequestsperday"), minimum=1),
+        requests_today=_parse_ss_int(ssuser.get("requeststoday")),
+        max_ko_requests_per_day=_parse_ss_int(
             ssuser.get("maxrequestskoperday"), minimum=1
         ),
-        ko_requests_today=_parse_int(ssuser.get("requestskotoday")),
-        max_download_speed_kbps=_parse_int(ssuser.get("maxdownloadspeed"), minimum=1),
+        ko_requests_today=_parse_ss_int(ssuser.get("requestskotoday")),
+        max_download_speed_kbps=_parse_ss_int(
+            ssuser.get("maxdownloadspeed"), minimum=1
+        ),
     )
 
 
@@ -598,7 +595,7 @@ class ScreenScraperService:
     ) -> None:
         self.url = yarl.URL(base_url or "https://api.screenscraper.fr/api2")
 
-    async def _attempt(self, url: str, request_timeout: int) -> dict:
+    async def _attempt_request(self, url: str, request_timeout: int) -> dict:
         """Make one request, and read the account allowances riding along on it.
 
         A refusal explains itself in the body, so the body is read before the
@@ -621,7 +618,7 @@ class ScreenScraperService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res_text = await res.text()
-            if LOGIN_ERROR_CHECK in res_text:
+            if "Erreur de login" in res_text:
                 raise _reject_credentials(url, _error_message(res_text))
 
             try:
@@ -653,7 +650,7 @@ class ScreenScraperService:
             raise ScreenScraperCredentialsError(_state.credentials_rejected)
 
         try:
-            return await self._attempt(url, request_timeout)
+            return await self._attempt_request(url, request_timeout)
         except aiohttp.ServerTimeoutError:
             # Retry the request once if it times out
             pass
@@ -676,15 +673,15 @@ class ScreenScraperService:
             return {}
 
         try:
-            return await self._attempt(url, request_timeout)
+            return await self._attempt_request(url, request_timeout)
         except aiohttp.ServerTimeoutError as err:
             log.error(err)
             return {}
         except aiohttp.ClientResponseError as err:
             if err.status == http.HTTPStatus.TOO_MANY_REQUESTS:
-                # Refused twice in a row: the pacing is behind the account's
-                # per-minute budget. Surface it so the ROM is reported as
-                # skipped instead of quietly saved without our metadata.
+                # The pacing is behind the account's  per-minute budget.
+                # Surface it so the ROM is reported as skipped instead
+                # of quietly saved without our metadata.
                 raise ScreenScraperRateLimitError() from err
 
             return _handle_client_error(url, err)
