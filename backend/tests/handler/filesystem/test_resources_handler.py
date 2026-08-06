@@ -13,6 +13,7 @@ from adapters.services.screenscraper import (
     SS_DEFAULT_MEDIA_TIMEOUT,
 )
 from config import RESOURCES_BASE_PATH
+from config.config_manager import MetadataMediaType
 from handler.filesystem.base_handler import CoverSize
 from handler.filesystem.resources_handler import (
     FSResourcesHandler,
@@ -769,6 +770,225 @@ class TestChromaKeyDetection:
         await handler.store_media_file("http://example.com/x.png", rel)
 
         assert (tmp_path / rel).exists()
+
+
+class TestStoreMediaFileResult:
+    """store_media_file reports whether the media actually landed on disk, so
+    callers can drop the recorded path instead of pointing at a missing file."""
+
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler()
+
+    @pytest.mark.asyncio
+    async def test_returns_true_for_downloaded_file(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(_FakeResponse())
+            assert await handler.store_media_file("http://example.com/x.png", rel)
+
+        assert (tmp_path / rel).exists()
+
+    @pytest.mark.asyncio
+    async def test_returns_true_for_pre_existing_file(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+        (tmp_path / rel).parent.mkdir(parents=True)
+        (tmp_path / rel).write_bytes(b"art")
+
+        assert await handler.store_media_file("http://example.com/x.png", rel)
+
+    @pytest.mark.asyncio
+    async def test_returns_false_on_error_response(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        response = _FakeResponse()
+        response.status_code = 404
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(response)
+            stored = await handler.store_media_file(
+                "http://example.com/x.png", "roms/1/1/box2d_back/box2d_back.png"
+            )
+
+        assert stored is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_on_unexpected_content_type(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        response = _FakeResponse()
+        response.headers = {"content-type": "text/html"}
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(response)
+            stored = await handler.store_media_file(
+                "http://example.com/x.png", "roms/1/1/box2d_back/box2d_back.png"
+            )
+
+        assert stored is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_on_transport_error(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            client = Mock()
+            client.stream.side_effect = httpx.ConnectError("no route")
+            mock_ctx.get.return_value = client
+            stored = await handler.store_media_file(
+                "http://example.com/x.png", "roms/1/1/box2d_back/box2d_back.png"
+            )
+
+        assert stored is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_for_discarded_chroma_key(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+        (tmp_path / rel).parent.mkdir(parents=True)
+        Image.new("RGB", (64, 64), (0, 255, 0)).save(tmp_path / rel)
+
+        assert await handler.store_media_file("http://example.com/x.png", rel) is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_for_unresolvable_local_uri(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        stored = await handler.store_media_file(
+            "launchbox-file://Videos/NES/missing.mp4", "roms/1/1/video/video.mp4"
+        )
+
+        assert stored is False
+
+
+class TestStoreMetadataMedia:
+    """Recorded media paths must not survive a download that didn't produce a
+    file, or exports and artwork URLs would point at nothing."""
+
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler()
+
+    @pytest.mark.asyncio
+    async def test_clears_paths_for_media_that_did_not_land(
+        self, handler: FSResourcesHandler
+    ):
+        metadata = {
+            "box2d_back_url": "http://example.com/back.png",
+            "box2d_back_path": "roms/1/1/box2d_back/box2d_back.png",
+            "fanart_url": "http://example.com/fanart.png",
+            "fanart_path": "roms/1/1/fanart/fanart.png",
+        }
+
+        async def fake_store(_url: str, dest_path: str) -> bool:
+            return "fanart" in dest_path
+
+        with patch.object(handler, "store_media_file", side_effect=fake_store):
+            changed = await handler.store_metadata_media(
+                metadata,
+                [MetadataMediaType.BOX2D_BACK, MetadataMediaType.FANART],
+            )
+
+        assert changed is True
+        assert metadata["box2d_back_path"] is None
+        assert metadata["fanart_path"] == "roms/1/1/fanart/fanart.png"
+        # The URL is kept so a later scan can retry the download
+        assert metadata["box2d_back_url"] == "http://example.com/back.png"
+
+    @pytest.mark.asyncio
+    async def test_leaves_metadata_untouched_when_all_media_lands(
+        self, handler: FSResourcesHandler
+    ):
+        metadata = {
+            "fanart_url": "http://example.com/fanart.png",
+            "fanart_path": "roms/1/1/fanart/fanart.png",
+        }
+
+        with patch.object(handler, "store_media_file", return_value=True):
+            changed = await handler.store_metadata_media(
+                metadata, [MetadataMediaType.FANART]
+            )
+
+        assert changed is False
+        assert metadata["fanart_path"] == "roms/1/1/fanart/fanart.png"
+
+    @pytest.mark.asyncio
+    async def test_skips_media_types_without_a_path(self, handler: FSResourcesHandler):
+        metadata = {"fanart_url": "http://example.com/fanart.png"}
+
+        with patch.object(handler, "store_media_file") as store_mock:
+            changed = await handler.store_metadata_media(
+                metadata,
+                [MetadataMediaType.FANART, MetadataMediaType.BOX2D_BACK],
+            )
+
+        assert changed is False
+        store_mock.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_clears_a_urlless_path_when_the_file_is_missing(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # A path with no URL can never be fetched, so it must not survive when
+        # the file it names isn't there.
+        handler.base_path = tmp_path
+        metadata = {"fanart_path": "roms/1/1/fanart/fanart.png"}
+
+        changed = await handler.store_metadata_media(
+            metadata, [MetadataMediaType.FANART]
+        )
+
+        assert changed is True
+        assert metadata["fanart_path"] is None
+
+    @pytest.mark.asyncio
+    async def test_keeps_a_urlless_path_when_the_file_exists(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/fanart/fanart.png"
+        (tmp_path / rel).parent.mkdir(parents=True)
+        (tmp_path / rel).write_bytes(b"art")
+        metadata = {"fanart_path": rel}
+
+        changed = await handler.store_metadata_media(
+            metadata, [MetadataMediaType.FANART]
+        )
+
+        assert changed is False
+        assert metadata["fanart_path"] == rel
+
+    @pytest.mark.asyncio
+    async def test_applies_the_url_transform(self, handler: FSResourcesHandler):
+        metadata = {
+            "fanart_url": "http://example.com/fanart.png",
+            "fanart_path": "roms/1/1/fanart/fanart.png",
+        }
+
+        with patch.object(handler, "store_media_file", return_value=True) as store_mock:
+            await handler.store_metadata_media(
+                metadata,
+                [MetadataMediaType.FANART],
+                lambda url: f"{url}?ssid=user",
+            )
+
+        store_mock.assert_awaited_once_with(
+            "http://example.com/fanart.png?ssid=user", "roms/1/1/fanart/fanart.png"
+        )
 
 
 class _FakeResponse:

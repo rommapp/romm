@@ -1,7 +1,9 @@
 import gzip
 import os
+from collections.abc import Callable, Iterable
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 import httpx
 from anyio import Path as AnyioPath
@@ -661,7 +663,12 @@ class FSResourcesHandler(FSHandler):
     ) -> str:
         return os.path.join("roms", str(platform_id), str(rom_id), media_type.value)
 
-    async def store_media_file(self, url_media: str, dest_path: str) -> None:
+    async def store_media_file(self, url_media: str, dest_path: str) -> bool:
+        """Fetch a media file into ``dest_path``.
+
+        Returns whether the file is on disk afterwards, so callers can stop
+        recording a path for media that never landed.
+        """
         directory, filename = os.path.split(dest_path)
 
         if await self.file_exists(dest_path):
@@ -679,7 +686,7 @@ class FSResourcesHandler(FSHandler):
                 except Exception as exc:
                     log.error(f"Unable to copy media file {url_media}: {str(exc)}")
                     await self._discard_partial_file(dest_path)
-                    return None
+                    return False
             else:
                 # Handle HTTP URLs
                 httpx_client = ctx_httpx_client.get()
@@ -696,7 +703,7 @@ class FSResourcesHandler(FSHandler):
                                 ("image/", "video/", "application/pdf"),
                                 "media",
                             ):
-                                return None
+                                return False
 
                             async with await self.write_file_streamed(
                                 path=directory, filename=filename
@@ -706,17 +713,62 @@ class FSResourcesHandler(FSHandler):
                 except httpx.TransportError as exc:
                     log.error(f"Unable to fetch media file at {url_media}: {str(exc)}")
                     await self._discard_partial_file(dest_path)
-                    return None
+                    return False
                 except OSError as exc:
                     log.error(f"Unable to write media file for {url_media}: {str(exc)}")
                     await self._discard_partial_file(dest_path)
-                    return None
+                    return False
 
         # Drop ScreenScraper's green "missing art" placeholder so a box face
         # (box-2D-back / box-2D-side) falls back to the dark placeholder rather
         # than rendering bright green. Runs for pre-existing files too, cleaning
         # them up on rescan.
-        await self._discard_if_chroma_key(dest_path)
+        if await self._discard_if_chroma_key(dest_path):
+            return False
+
+        # A non-200 response, or a local URI that resolved to nothing, leaves no
+        # file behind without raising.
+        return await self.file_exists(dest_path)
+
+    async def store_metadata_media(
+        self,
+        metadata: dict[str, Any],
+        media_types: Iterable[MetadataMediaType],
+        url_transform: Callable[[str], str] | None = None,
+    ) -> bool:
+        """Fetch every recorded media file of a provider metadata dict.
+
+        Providers record where each media file should live before it's fetched,
+        so a failed download (or discarded placeholder art) would otherwise leave
+        the dict pointing at a file that isn't there. Every ``*_path`` left in the
+        dict afterwards points at a file that exists; the rest are cleared, and
+        the ``*_url`` is kept so a later scan can retry. Returns whether the dict
+        was modified.
+        """
+        changed = False
+
+        for media_type in media_types:
+            path_key = f"{media_type.value}_path"
+            media_path = metadata.get(path_key)
+            if not media_path:
+                continue
+
+            media_url = metadata.get(f"{media_type.value}_url")
+            if media_url:
+                stored = await self.store_media_file(
+                    url_transform(media_url) if url_transform else media_url,
+                    media_path,
+                )
+            else:
+                # Nothing to fetch from, so the path only holds if an earlier
+                # scan already stored the file.
+                stored = await self.file_exists(media_path)
+
+            if not stored:
+                metadata[path_key] = None
+                changed = True
+
+        return changed
 
     async def remove_media_resources_path(
         self,

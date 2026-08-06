@@ -555,37 +555,32 @@ async def _identify_rom(
         },
     )
 
-    # Handle special media files from Screenscraper
+    # Handle special media files from Screenscraper, ES-DE gamelist.xml and
+    # LaunchBox. Media that didn't land on disk has its recorded path cleared, so
+    # write those dicts back when that happens.
+    preferred_media_types = get_preferred_media_types()
+    media_updates: dict[str, Any] = {}
+
     if _added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
-        preferred_media_types = get_preferred_media_types()
-        for media_type in preferred_media_types:
-            media_path = _added_rom.ss_metadata.get(f"{media_type.value}_path")
-            media_url = _added_rom.ss_metadata.get(f"{media_type.value}_url")
-            if media_path and media_url:
-                await fs_resource_handler.store_media_file(
-                    add_ss_auth_to_url(media_url),
-                    media_path,
-                )
+        if await fs_resource_handler.store_metadata_media(
+            _added_rom.ss_metadata, preferred_media_types, add_ss_auth_to_url
+        ):
+            media_updates["ss_metadata"] = _added_rom.ss_metadata
 
-    # Handle special media files from ES-DE gamelist.xml
     if _added_rom.gamelist_metadata and MetadataSource.GAMELIST in metadata_sources:
-        preferred_media_types = get_preferred_media_types()
-        for media_type in preferred_media_types:
-            if _added_rom.gamelist_metadata.get(f"{media_type.value}_path"):
-                await fs_resource_handler.store_media_file(
-                    _added_rom.gamelist_metadata[f"{media_type.value}_url"],
-                    _added_rom.gamelist_metadata[f"{media_type.value}_path"],
-                )
+        if await fs_resource_handler.store_metadata_media(
+            _added_rom.gamelist_metadata, preferred_media_types
+        ):
+            media_updates["gamelist_metadata"] = _added_rom.gamelist_metadata
 
-    # Handle special media files from LaunchBox
     if _added_rom.launchbox_metadata and MetadataSource.LAUNCHBOX in metadata_sources:
-        preferred_media_types = get_preferred_media_types()
-        for media_type in preferred_media_types:
-            if _added_rom.launchbox_metadata.get(f"{media_type.value}_path"):
-                await fs_resource_handler.store_media_file(
-                    _added_rom.launchbox_metadata[f"{media_type.value}_url"],
-                    _added_rom.launchbox_metadata[f"{media_type.value}_path"],
-                )
+        if await fs_resource_handler.store_metadata_media(
+            _added_rom.launchbox_metadata, preferred_media_types
+        ):
+            media_updates["launchbox_metadata"] = _added_rom.launchbox_metadata
+
+    if media_updates:
+        db_rom_handler.update_rom(_added_rom.id, media_updates)
 
     # Store normal and locked badges
     if _added_rom.ra_metadata and MetadataSource.RA in metadata_sources:
