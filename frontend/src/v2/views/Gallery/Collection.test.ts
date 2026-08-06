@@ -268,6 +268,48 @@ describe("Collection view random rom", () => {
     expect(push).toHaveBeenCalledWith({ name: "rom", params: { rom: 7 } });
   });
 
+  // Issue #4114: leaving for a route that is not another gallery leaves
+  // `currentCollection` set, so the id check alone cannot tell that the user
+  // walked away.
+  it("drops a pick that lands after the user left the gallery", async () => {
+    let resolvePick: (value: { data: SimpleRom }) => void = () => {};
+    getRandomRom.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolvePick = resolve;
+      }),
+    );
+
+    const wrapper = await mountView();
+    await wrapper.get("button.random").trigger("click");
+
+    wrapper.unmount();
+
+    resolvePick({ data: rom(42) });
+    await flushPromises();
+
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet when a pick fails after the user left the gallery", async () => {
+    let failPick: (reason: Error) => void = () => {};
+    getRandomRom.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        failPick = reject;
+      }),
+    );
+
+    const wrapper = await mountView();
+    await wrapper.get("button.random").trigger("click");
+
+    wrapper.unmount();
+
+    failPick(new Error("boom"));
+    await flushPromises();
+
+    expect(snackbarError).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it("ignores a click while a pick is in flight", async () => {
     let resolvePick: (value: { data: SimpleRom }) => void = () => {};
     getRandomRom.mockReturnValue(

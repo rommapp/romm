@@ -18,7 +18,14 @@
 // Edit (custom_name) and Delete moved inline into the Settings tab.
 import { RDivider, type RTabNavItem } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -325,6 +332,13 @@ function onScan() {
   scanOpen.value = true;
 }
 
+// Leaving for anything that isn't another gallery keeps the store's platform
+// in place, so the id check in `onRandomGame` can't see the user walked away.
+let unmounted = false;
+onBeforeUnmount(() => {
+  unmounted = true;
+});
+
 // Random ROM — pick one game from this platform and jump to its
 // details. Mirrors the Home RandomPickWidget: `/roms/random` samples the
 // pick server-side, so one request resolves it whatever the platform
@@ -337,7 +351,7 @@ async function onRandomGame() {
   // The pick belongs to the platform that was on screen when the button was
   // clicked; following it after the user moved on would drop them into a
   // game from a gallery they already left.
-  const stale = () => currentPlatform.value?.id !== scopeId;
+  const stale = () => unmounted || currentPlatform.value?.id !== scopeId;
   try {
     const { data } = await romApi.getRandomRom({ platformIds: [scopeId] });
     if (stale()) return;

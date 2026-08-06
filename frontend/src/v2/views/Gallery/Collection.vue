@@ -15,7 +15,14 @@
 // Edit + Delete moved out of the InfoPanel `#actions` kebab and into
 // the Settings tab (editable form on top, danger zone at the bottom).
 import { RDivider, type RTabNavItem } from "@v2/lib";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -281,6 +288,13 @@ function randomScope(): {
   return { collectionId: Number(c.id) };
 }
 
+// Leaving for anything that isn't another gallery keeps `currentCollection`
+// in place, so the id check in `onRandomGame` can't see the user walked away.
+let unmounted = false;
+onBeforeUnmount(() => {
+  unmounted = true;
+});
+
 // `/roms/random` samples the pick server-side, so one request resolves it
 // whatever the collection holds. `null` means the collection holds no roms.
 async function onRandomGame() {
@@ -289,7 +303,7 @@ async function onRandomGame() {
   randomLoading.value = true;
   const scopeId = c.id;
   // A pick from the collection the user just left leads nowhere useful.
-  const stale = () => currentCollection.value?.id !== scopeId;
+  const stale = () => unmounted || currentCollection.value?.id !== scopeId;
   try {
     const { data } = await romApi.getRandomRom(randomScope());
     if (stale()) return;
