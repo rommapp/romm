@@ -104,9 +104,7 @@ describe("VersionSwitcher RetroAchievements support", () => {
     });
   });
 
-  // `null` is "never checked": an unsupported platform, or a ROM not
-  // rescanned since the column landed. Claiming support would be worse
-  // than staying quiet.
+  // Claiming support RA never confirmed is worse than staying quiet.
   it("leaves rows unmarked when support was never checked", () => {
     const wrapper = mountSwitcher({
       id: 1,
@@ -121,9 +119,8 @@ describe("VersionSwitcher RetroAchievements support", () => {
   });
 
   // A native `title` would drop keyboard reveal and touch handling, and
-  // RTooltip costs nothing here (comment node inline, teleported panel),
-  // so the mark keeps a real tooltip anchored to itself rather than to
-  // the whole row.
+  // RTooltip costs no width here, so the mark keeps a real tooltip anchored
+  // to itself rather than to the whole row.
   it("explains the mark with an RTooltip bound to the mark", () => {
     const wrapper = mountSwitcher({
       id: 1,

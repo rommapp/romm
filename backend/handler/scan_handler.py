@@ -793,10 +793,9 @@ async def scan_rom(
                 )
             )
         ):
-            # Whether RA knows this exact dump is asked of RA's own hash
-            # list, independently of how the game was identified: an
-            # `ra_id` from Hasheous (or a filename tag) is the game, and
-            # every sibling shares it.
+            # Asked of RA's own hash list whatever identified the game, since
+            # an `ra_id` from Hasheous or a filename tag says nothing about
+            # this file.
             ra_hash_match = await meta_ra_handler.hash_is_known(
                 rom=rom, ra_hash=rom_attrs["ra_hash"]
             )
@@ -1016,11 +1015,9 @@ async def scan_rom(
             if field_value:
                 rom_attrs[key] = field_value
 
-    # `ra_hash_match` is a tri-state, and the loop above copies truthy values
-    # only, so a definite "RetroAchievements doesn't have this dump" (False)
-    # would be dropped and left indistinguishable from never-checked (NULL).
-    # It also isn't gated on `ra_id`, which the loop is: a ROM can carry the
-    # game's id from Hasheous while RA has never seen the file.
+    # Tri-state, so it can ride neither the truthy-only loop above (False would
+    # be dropped, reading as never-checked) nor its `ra_id` gate (Hasheous can
+    # supply an id for a file RA has never seen).
     if "ra_hash_match" in ra_handler_rom:
         rom_attrs["ra_hash_match"] = ra_handler_rom["ra_hash_match"]
 

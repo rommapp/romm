@@ -29,12 +29,9 @@ const visible = computed(() => props.rom.sibling_roms.length > 0);
 // so the badge surfaces consistently regardless of which sibling the
 // user is currently viewing.
 //
-// `ra` flags the versions whose own hash RetroAchievements knows, which
-// is what decides whether achievements unlock, so it belongs in the
-// menu you pick the version from. `ra_hash_match` is deliberately not
-// `ra_id`: the id is the game, shared by every sibling. `null` means
-// never checked (unsupported platform, or not scanned since the column
-// landed), which reads the same as unsupported here: no mark.
+// `ra` marks the versions RA's own hash list knows, which is what decides
+// whether achievements unlock. `null` (never checked) gets no mark, same
+// as unsupported.
 const versions = computed(() => [
   {
     id: props.rom.id,

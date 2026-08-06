@@ -21,14 +21,10 @@ export function matchesDatabase(
   return keys.some((key) => Boolean(h[key]));
 }
 
-// RetroAchievements is the one database RomM asks directly, and its own
-// answer wins: `ra_hash_match` comes from RA's hash list, which is what
-// decides whether achievements unlock, while Hasheous knows RA's dumps
-// only as far as its signature coverage reaches. So a definite `false`
-// from RA is trusted over a Hasheous hit, since falling back there would
-// promise achievements for a file RA has never seen. `null` means RA was
-// never asked (platform it doesn't cover, or a ROM not rescanned since
-// the column landed), and only then does Hasheous answer.
+// RetroAchievements is the one database RomM asks directly, and its answer
+// wins in both directions: `false` means RA has never seen this dump, so
+// achievements won't unlock however far Hasheous' RA signature coverage
+// reaches. `null` is "never asked", and only then does Hasheous answer.
 function matchesRetroAchievements(rom: SimpleRom): boolean {
   if (rom.ra_hash_match != null) return rom.ra_hash_match;
   return matchesDatabase(rom, ["ra_match"]);
