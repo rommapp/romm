@@ -143,10 +143,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                 # Update initial progress
                 update_stats.update(processed=processed_files, total=total_files)
 
-                # Every key below is stored the way lookups build it (stripped,
-                # and lowercased wherever the lookup lowercases). Storing the
-                # raw XML text instead would bury an entry behind whitespace
-                # nothing ever queries for.
+                # Keys are stored the way lookups build them: stripped, and
+                # lowercased wherever the lookup lowercases.
                 for file in file_list:
                     if file == "Platforms.xml":
                         with z.open(file, "r") as f:

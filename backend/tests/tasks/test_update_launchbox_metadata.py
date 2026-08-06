@@ -186,11 +186,9 @@ class TestUpdateLaunchboxMetadataTask:
         files_calls = [call for call in hset_calls if call[0][0] == LAUNCHBOX_FILES_KEY]
         assert len(files_calls) == 2
 
-        # The fixture pads one entry per index the way a pretty-printed dump
-        # would. Keys have to come out normalized, or nothing would ever query
-        # them: lookups strip (and lowercase, where the index is lowercased).
-        # The Files key carries its platform too, since the same dump filename
-        # exists on several systems.
+        # The fixture pads one entry per index, as a pretty-printed dump does.
+        # Keys come out normalized, and the Files key carries its platform,
+        # since one dump filename exists on several systems.
         def fields(calls) -> set[str]:
             return {field for call in calls for field in call[1]["mapping"]}
 
