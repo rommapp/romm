@@ -29,23 +29,32 @@ const visible = computed(() => props.rom.sibling_roms.length > 0);
 // so the badge surfaces consistently regardless of which sibling the
 // user is currently viewing.
 //
-// `ra` marks the versions RA's own hash list knows, which is what decides
-// whether achievements unlock. `null` (never checked) gets no mark, same
-// as unsupported.
+// RA's hash list covers games with no achievements too, so a hash match
+// alone doesn't mean anything will unlock. Gate on the game actually having
+// achievements, read off the metadata this page already loads: achievements
+// are game-level, so it holds for every sibling, and putting a per-sibling
+// count on the wire would mean hydrating `ra_metadata` for each one.
+const gameHasAchievements = computed(
+  () => (props.rom.merged_ra_metadata?.achievements?.length ?? 0) > 0,
+);
+
+// `ra` marks the versions RA hashed, so achievements unlock on this file
+// rather than a sibling. `null` (never checked) gets no mark, same as a
+// version RA doesn't have.
 const versions = computed(() => [
   {
     id: props.rom.id,
     label: props.rom.fs_name_no_ext,
     current: true,
     main: props.rom.rom_user?.is_main_sibling === true,
-    ra: props.rom.ra_hash_match === true,
+    ra: gameHasAchievements.value && props.rom.ra_hash_match === true,
   },
   ...props.rom.sibling_roms.map((s) => ({
     id: s.id,
     label: s.fs_name_no_ext,
     current: false,
     main: s.is_main_sibling === true,
-    ra: s.ra_hash_match === true,
+    ra: gameHasAchievements.value && s.ra_hash_match === true,
   })),
 ]);
 

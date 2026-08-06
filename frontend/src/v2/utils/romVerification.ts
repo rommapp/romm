@@ -22,9 +22,9 @@ export function matchesDatabase(
 }
 
 // RetroAchievements is the one database RomM asks directly, and its answer
-// wins in both directions: `false` means RA has never seen this dump, so
-// achievements won't unlock however far Hasheous' RA signature coverage
-// reaches. `null` is "never asked", and only then does Hasheous answer.
+// wins in both directions: `false` means RA's own hash list doesn't have
+// this dump, however far Hasheous' RA signature coverage reaches. `null` is
+// "never asked", and only then does Hasheous answer.
 function matchesRetroAchievements(rom: SimpleRom): boolean {
   if (rom.ra_hash_match != null) return rom.ra_hash_match;
   return matchesDatabase(rom, ["ra_match"]);

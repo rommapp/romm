@@ -31,6 +31,12 @@ RA_TAG_REGEX = re.compile(r"\(ra-(\d+)\)", re.IGNORECASE)
 # on-disk refresh still gets picked up.
 HASH_INDEX_CACHE_TTL_SECONDS = 900
 
+# A hash absent from a list this old (in days) is refetched before being
+# reported as unsupported. REFRESH_RETROACHIEVEMENTS_CACHE_DAYS governs when
+# the list is refreshed for matching, and defaults to 30: far too coarse to
+# record "RetroAchievements doesn't have this dump" against.
+NEGATIVE_MAX_LIST_AGE_DAYS = 1
+
 
 class RAGamesPlatform(TypedDict):
     slug: str
@@ -201,36 +207,46 @@ class RAHandler(MetadataHandler):
             <= await self._days_since_last_cache_file_update(rom.platform.id)
             or not await self._exists_cache_file(rom.platform.id)
         ):
-            # Fetch all games (including those without achievements) and build index
-            roms = await self.ra_service.get_game_list(
-                system_id=rom.platform.ra_id,
-                only_games_with_achievements=False,
-                include_hashes=True,
-            )
+            return await self._refresh_hash_index(rom)
 
-            hash_index = {h.lower(): r["ID"] for r in roms for h in r.get("Hashes", ())}
+        # Read the hash index from the JSON file
+        json_file_bytes = await fs_resource_handler.read_file(
+            self._get_hashes_file_path(rom.platform.id)
+        )
+        hash_index = json.loads(json_file_bytes.decode("utf-8"))
 
-            platform_resources_path = fs_resource_handler.get_platform_resources_path(
-                rom.platform.id
-            )
+        self._memoise_hash_index(rom.platform.id, hash_index)
+        return hash_index
 
-            json_file = json.dumps(hash_index, indent=4)
-            await fs_resource_handler.write_file(
-                json_file.encode("utf-8"),
-                platform_resources_path,
-                self.HASHES_FILE_NAME,
-            )
-        else:
-            # Read the hash index from the JSON file
-            json_file_bytes = await fs_resource_handler.read_file(
-                self._get_hashes_file_path(rom.platform.id)
-            )
-            hash_index = json.loads(json_file_bytes.decode("utf-8"))
-
-        self._hash_index_cache[rom.platform.id] = (
+    def _memoise_hash_index(self, platform_id: int, hash_index: dict[str, int]) -> None:
+        self._hash_index_cache[platform_id] = (
             time.monotonic() + HASH_INDEX_CACHE_TTL_SECONDS,
             hash_index,
         )
+
+    async def _refresh_hash_index(self, rom: Rom) -> dict[str, int]:
+        """Rebuild the platform's hash list from RetroAchievements and store it."""
+        # Fetch all games (including those without achievements) and build index
+        roms = await self.ra_service.get_game_list(
+            system_id=rom.platform.ra_id,
+            only_games_with_achievements=False,
+            include_hashes=True,
+        )
+
+        hash_index = {h.lower(): r["ID"] for r in roms for h in r.get("Hashes", ())}
+
+        platform_resources_path = fs_resource_handler.get_platform_resources_path(
+            rom.platform.id
+        )
+
+        json_file = json.dumps(hash_index, indent=4)
+        await fs_resource_handler.write_file(
+            json_file.encode("utf-8"),
+            platform_resources_path,
+            self.HASHES_FILE_NAME,
+        )
+
+        self._memoise_hash_index(rom.platform.id, hash_index)
         return hash_index
 
     async def _search_rom(self, rom: Rom, ra_hash: str) -> int | None:
@@ -247,12 +263,25 @@ class RAHandler(MetadataHandler):
         provider: a sibling that Hasheous identifies inherits the game's
         `ra_id` whether or not RA has ever seen that dump. Returns None
         when there is nothing to check against.
+
+        RetroAchievements adds hashes continuously, so a miss against a list
+        this old is not evidence of anything. Refetch before reporting one,
+        which costs a single request per platform per scan: the fresh list is
+        both memoised and written to disk, so the next miss reads it as
+        current.
         """
         if not rom.platform.ra_id or not ra_hash:
             return None
 
+        needle = ra_hash.lower()
         try:
             hash_index = await self._get_hash_index(rom)
+            if needle in hash_index:
+                return True
+
+            stale_days = await self._days_since_last_cache_file_update(rom.platform.id)
+            if stale_days >= NEGATIVE_MAX_LIST_AGE_DAYS:
+                hash_index = await self._refresh_hash_index(rom)
         except Exception as exc:
             log.error(
                 "Couldn't read the RetroAchievements hash list, "
@@ -261,7 +290,7 @@ class RAHandler(MetadataHandler):
             )
             return None
 
-        return ra_hash.lower() in hash_index
+        return needle in hash_index
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
         if slug not in RA_PLATFORM_LIST:

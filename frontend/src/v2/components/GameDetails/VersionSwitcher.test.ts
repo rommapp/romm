@@ -34,6 +34,7 @@ function mountSwitcher(rom: {
   fs_name_no_ext: string;
   ra_hash_match: boolean | null;
   siblings: Sibling[];
+  achievements?: number;
 }) {
   return mount(VersionSwitcher, {
     props: {
@@ -41,6 +42,12 @@ function mountSwitcher(rom: {
         id: rom.id,
         fs_name_no_ext: rom.fs_name_no_ext,
         ra_hash_match: rom.ra_hash_match,
+        merged_ra_metadata: {
+          achievements: Array.from(
+            { length: rom.achievements ?? 3 },
+            () => ({}),
+          ),
+        },
         rom_user: { is_main_sibling: false },
         sibling_roms: rom.siblings.map((s) => ({
           ...s,
@@ -62,8 +69,8 @@ function raByVersion(wrapper: ReturnType<typeof mountSwitcher>) {
 }
 
 describe("VersionSwitcher RetroAchievements support", () => {
-  // Achievements only unlock for the revision RA hashed, so the menu has
-  // to say which one that is without the user opening each version.
+  // RA hashes one dump per release, so the menu has to say which one
+  // without the user opening each version.
   it("marks only the versions RetroAchievements matched", () => {
     const wrapper = mountSwitcher({
       id: 1,
@@ -112,6 +119,26 @@ describe("VersionSwitcher RetroAchievements support", () => {
       ra_hash_match: null,
       siblings: [
         { id: 2, fs_name_no_ext: "Game (Europe)", ra_hash_match: null },
+      ],
+    });
+
+    expect(wrapper.findAll(".version-switcher__ra")).toHaveLength(0);
+  });
+
+  // RA's hash list includes games it has no achievements for, so a hash
+  // match alone would promise unlocks that can never happen.
+  it("marks nothing when the game has no achievements", () => {
+    const wrapper = mountSwitcher({
+      id: 1,
+      fs_name_no_ext: "Star Fox 64 (USA)",
+      ra_hash_match: true,
+      achievements: 0,
+      siblings: [
+        {
+          id: 2,
+          fs_name_no_ext: "Star Fox 64 (USA) (Rev 1)",
+          ra_hash_match: true,
+        },
       ],
     });
 

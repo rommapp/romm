@@ -34,6 +34,8 @@ class TestHashIsKnown:
 
     async def test_rejects_a_hash_ra_has_never_seen(self, handler: RAHandler):
         handler._get_hash_index = AsyncMock(return_value={"abc123": 42})  # type: ignore[method-assign]
+        # Fresh list, so the miss is trusted rather than refetched.
+        handler._days_since_last_cache_file_update = AsyncMock(return_value=0)  # type: ignore[method-assign]
 
         assert await handler.hash_is_known(_rom(), "deadbeef") is False
 
@@ -52,6 +54,52 @@ class TestHashIsKnown:
     async def test_stays_unknown_when_the_list_cant_be_read(self, handler: RAHandler):
         """A missing or unreadable index must not read as "unsupported"."""
         handler._get_hash_index = AsyncMock(side_effect=OSError("boom"))  # type: ignore[method-assign]
+
+        assert await handler.hash_is_known(_rom(), "abc123") is None
+
+
+class TestHashIsKnownRefetchesBeforeSayingNo:
+    """RetroAchievements adds hashes continuously, so a miss against an old
+    list says nothing. The answer is only recorded once it comes from a list
+    fresh enough to stand behind."""
+
+    async def test_refetches_and_finds_a_newly_added_hash(self, handler: RAHandler):
+        handler._get_hash_index = AsyncMock(return_value={})  # type: ignore[method-assign]
+        handler._days_since_last_cache_file_update = AsyncMock(return_value=9)  # type: ignore[method-assign]
+        # RetroAchievements hashed this dump since the local list was written.
+        handler._refresh_hash_index = AsyncMock(return_value={"abc123": 42})  # type: ignore[method-assign]
+
+        assert await handler.hash_is_known(_rom(), "abc123") is True
+        handler._refresh_hash_index.assert_awaited_once()
+
+    async def test_reports_no_once_the_fresh_list_agrees(self, handler: RAHandler):
+        handler._get_hash_index = AsyncMock(return_value={})  # type: ignore[method-assign]
+        handler._days_since_last_cache_file_update = AsyncMock(return_value=9)  # type: ignore[method-assign]
+        handler._refresh_hash_index = AsyncMock(return_value={"other": 1})  # type: ignore[method-assign]
+
+        assert await handler.hash_is_known(_rom(), "abc123") is False
+
+    async def test_a_hit_never_costs_a_request(self, handler: RAHandler):
+        handler._get_hash_index = AsyncMock(return_value={"abc123": 42})  # type: ignore[method-assign]
+        handler._refresh_hash_index = AsyncMock()  # type: ignore[method-assign]
+
+        assert await handler.hash_is_known(_rom(), "abc123") is True
+        handler._refresh_hash_index.assert_not_awaited()
+
+    async def test_a_fresh_list_is_trusted_without_refetching(self, handler: RAHandler):
+        """Otherwise every unmatched ROM in a library would refetch."""
+        handler._get_hash_index = AsyncMock(return_value={})  # type: ignore[method-assign]
+        handler._days_since_last_cache_file_update = AsyncMock(return_value=0)  # type: ignore[method-assign]
+        handler._refresh_hash_index = AsyncMock()  # type: ignore[method-assign]
+
+        assert await handler.hash_is_known(_rom(), "abc123") is False
+        handler._refresh_hash_index.assert_not_awaited()
+
+    async def test_stays_unknown_when_the_refetch_fails(self, handler: RAHandler):
+        """A failed refetch can't turn a stale miss into a recorded no."""
+        handler._get_hash_index = AsyncMock(return_value={})  # type: ignore[method-assign]
+        handler._days_since_last_cache_file_update = AsyncMock(return_value=9)  # type: ignore[method-assign]
+        handler._refresh_hash_index = AsyncMock(side_effect=OSError("boom"))  # type: ignore[method-assign]
 
         assert await handler.hash_is_known(_rom(), "abc123") is None
 
