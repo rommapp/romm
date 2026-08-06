@@ -1,5 +1,5 @@
-// romVerification — single source of truth for what "verified" means: a
-// ROM whose file hash matched a known ROM database. Mirrors the backend's
+// romVerification: single source of truth for what "verified" means, i.e.
+// a ROM whose file hash matched a known ROM database. Mirrors the backend's
 // `_filter_by_verified` (roms_handler.py) so the header badge, the
 // per-database chips in the Metadata tab, and the library "verified"
 // filter all agree. Merely having a computed hash (crc/md5/sha1) does

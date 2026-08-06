@@ -85,8 +85,8 @@ const raTooltip = computed(() => t("rom.retroachievements-supported"));
       <template v-if="v.ra || v.main" #append>
         <!-- The wrapper is what `activator="parent"` binds to, so the
              tooltip covers the mark and not the whole row. It adds no
-             width: RTooltip renders a comment node inline and teleports
-             its panel. -->
+             width: RTooltip leaves a `display: none` anchor here and
+             teleports its panel. -->
         <span v-if="v.ra" class="version-switcher__ra">
           <img
             src="/assets/scrappers/ra.png"
