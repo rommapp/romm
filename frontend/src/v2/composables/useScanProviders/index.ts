@@ -1,4 +1,4 @@
-// useScanProviders — the provider + hash-matcher model shared by every
+// useScanProviders: the provider + hash-matcher model shared by every
 // surface that launches a scan (the /scan view, the per-platform scan
 // dialog, the per-ROM refresh dialog), so all three send the backend the
 // same payload for the same choices.
@@ -10,7 +10,7 @@
 // `playmatch_enabled and IGDB in apis`), hence its IGDB requirement.
 //
 // A group's RSelect treats an empty model as "All", so an All-mode group
-// contributes nothing to `metadataSources` — while the backend reads an
+// contributes nothing to `metadataSources`, while the backend reads an
 // empty `apis` list as "no sources". `effectiveMetadataSources` bridges
 // that by expanding an All-mode group to its enabled providers.
 import { useLocalStorage, type RemovableRef } from "@vueuse/core";
@@ -28,10 +28,8 @@ const LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY = "scan.playmatchEnabled";
 
 const HASH_MATCHER_KEYS = ["hasheous", "playmatch"] as const;
 
-// Provider categorisation — mirrors the split used by the setup wizard's
-// metadata step. General catalogs ship a full game record (title, artwork,
-// descriptions); specific sources add a single domain dimension
-// (achievements, completion times, custom art).
+// Mirrors the split used by the setup wizard's metadata step: general
+// catalogs ship a full game record, specific sources add one dimension.
 const GENERAL_PROVIDER_KEYS = new Set([
   "igdb",
   "ss",
@@ -67,7 +65,7 @@ export interface UseScanProviders {
   specificProviders: ComputedRef<MetadataOption[]>;
   /** Explicit picks, shared as the v-model of both provider selects. */
   metadataSources: Ref<MetadataOption[]>;
-  /** Picks with All-mode groups expanded — what the scan actually uses. */
+  /** Picks with All-mode groups expanded, i.e. what the scan uses. */
   effectiveMetadataSources: ComputedRef<MetadataOption[]>;
   /** Bind to each select's `@update:all-selected`. */
   generalAllSelected: Ref<boolean>;
@@ -89,7 +87,7 @@ export function useScanProviders(): UseScanProviders {
 
   const calculateHashes = computed(() => !config.value.SKIP_HASH_CALCULATION);
 
-  // Catalog options — main metadata sources, minus the hash matchers.
+  // Catalog options: main metadata sources, minus the hash matchers.
   const metadataOptions = computed(() =>
     heartbeat
       .getMetadataOptionsByPriority()
@@ -143,9 +141,9 @@ export function useScanProviders(): UseScanProviders {
     [metadataOptions, storedMetadataSources],
     ([options, stored], previous) => {
       // A new stored list (written by whichever surface last scanned)
-      // replaces the picks. When only the option list moved — a heartbeat
-      // refresh, an admin toggle — keep the current picks and just drop
-      // the ones that went away, so an in-progress selection survives.
+      // replaces the picks. When only the option list moved (a heartbeat
+      // refresh, an admin toggle), keep the current picks and just drop the
+      // ones that went away, so an in-progress selection survives.
       const storedChanged = !previous || previous[1] !== stored;
       metadataSources.value = storedChanged
         ? options.filter((o) => stored.includes(o.value) && !o.disabled)

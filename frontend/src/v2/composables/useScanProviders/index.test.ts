@@ -38,7 +38,7 @@ beforeEach(() => {
   config.value.SKIP_HASH_CALCULATION = false;
 });
 
-describe("useScanProviders — effective sources", () => {
+describe("useScanProviders effective sources", () => {
   it("expands an All-mode group to its enabled providers", () => {
     const { effectiveMetadataSources } = useScanProviders();
     // Nothing stored ⇒ both selects boot in All-mode with an empty model.
@@ -88,7 +88,7 @@ describe("useScanProviders — effective sources", () => {
   });
 });
 
-describe("useScanProviders — Playmatch gate", () => {
+describe("useScanProviders Playmatch gate", () => {
   function playmatch(matchers: HashMatcher[]) {
     return matchers.find((m) => m.value === "playmatch")!;
   }
@@ -125,7 +125,7 @@ describe("useScanProviders — Playmatch gate", () => {
   });
 });
 
-describe("useScanProviders — scan payload", () => {
+describe("useScanProviders scan payload", () => {
   it("sends the expanded provider list and the playmatch flag", () => {
     const { buildScanPayload } = useScanProviders();
     expect(buildScanPayload()).toEqual({
