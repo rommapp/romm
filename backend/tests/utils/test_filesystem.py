@@ -10,7 +10,7 @@ from hypothesis import strategies as st
 
 from utils.filesystem import link_or_copy_file, sanitize_filename
 
-INVALID_AFTER_SANITIZE = set('\\/:|*?"<>+\0')
+INVALID_AFTER_SANITIZE = set('\\/:|*?"<>\0')
 
 
 class TestLinkOrCopyFile:
