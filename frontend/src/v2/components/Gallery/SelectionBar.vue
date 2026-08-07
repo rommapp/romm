@@ -14,7 +14,9 @@
 //   * favorite / unfavorite — direct collectionApi bulk call against
 //     the favorite collection. The Card/Row's per-rom favourite
 //     toggle still routes through `useGameActions` per-rom; here we
-//     bypass it to issue a single add/remove call for the whole set.
+//     bypass only its per-rom write to issue a single add/remove call
+//     for the whole set, while still reusing its
+//     `ensureFavoriteCollection` so a fresh instance gets one.
 //   * manage collections — re-uses the existing
 //     `ManageCollectionsDialog` (already accepts SimpleRom[]) via
 //     the `showManageCollectionsDialog` emitter event.
@@ -42,9 +44,10 @@ import {
   RDivider,
 } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
+import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
@@ -54,6 +57,7 @@ import { romStatusMap } from "@/utils";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
   ENUM_KEYS,
@@ -75,6 +79,10 @@ const snackbar = useSnackbar();
 const selection = storeGallerySelection();
 const collectionsStore = storeCollections();
 const romsStore = storeRoms();
+const galleryRomsStore = storeGalleryRoms();
+// No emitter: the composable's own creation toast is v1 copy, and this
+// surface reports the outcome with its own localized message below.
+const { ensureFavoriteCollection } = useFavoriteToggle();
 
 const canRefresh = useCan("rom.refresh");
 const canDownload = useCan("rom.download");
@@ -106,29 +114,44 @@ const favoriteLabel = computed(() =>
     : t("gallery.selection-favorite"),
 );
 
+// Guards the create-if-missing call below: a double click would otherwise
+// race two POSTs for the same collection, and the loser 409s.
+const favoritePending = ref(false);
+
 async function bulkFavorite() {
-  const fav = collectionsStore.favoriteCollection;
   const ids = selection.ids;
-  if (!fav || ids.length === 0) return;
+  const roms = selection.roms;
+  if (ids.length === 0 || favoritePending.value) return;
+  favoritePending.value = true;
   try {
-    const { data } = allFavorited.value
+    // A fresh instance has no favourites collection until something is
+    // favourited — same lazy creation the per-rom toggle relies on.
+    const fav = await ensureFavoriteCollection();
+    // `allFavorited` reads the collection's rom_ids, which the response
+    // below replaces, so the direction has to be snapshotted here.
+    const wasAllFavorited = allFavorited.value;
+    const { data } = wasAllFavorited
       ? await collectionApi.removeRomsFromCollection(fav.id, ids)
       : await collectionApi.addRomsToCollection(fav.id, ids);
     collectionsStore.updateCollection(data);
     collectionsStore.setFavoriteCollection(data);
-    if (allFavorited.value && romsStore.currentCollection?.id === fav.id) {
+    if (wasAllFavorited && galleryRomsStore.currentCollection?.id === fav.id) {
       // We were on the favourites collection view and just removed
       // every selected rom from it — drop them from the visible
       // roms so the UI reflects the new membership immediately.
-      romsStore.remove(selection.roms);
+      selection.removeIds(ids);
+      romsStore.remove(roms);
+      galleryRomsStore.remove(roms);
     }
     snackbar.success(
-      allFavorited.value
+      wasAllFavorited
         ? t("gallery.selection-unfavorite-success", { n: ids.length })
         : t("gallery.selection-favorite-success", { n: ids.length }),
     );
   } catch {
     snackbar.error(t("gallery.selection-favorite-fail"));
+  } finally {
+    favoritePending.value = false;
   }
 }
 
