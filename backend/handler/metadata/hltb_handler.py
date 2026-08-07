@@ -207,15 +207,17 @@ class HLTBHandler(MetadataHandler):
     """
 
     def __init__(self) -> None:
-        self.base_url = "https://howlongtobeat.com"
-        self.user_endpoint = f"{self.base_url}/api/user"
-        self.stats_endpoint = f"{self.base_url}/api/stats/games?platform=1&year=2000"
-        self.search_url = f"{self.base_url}/api/find"
-        self.search_init_url = f"{self.search_url}/init"
-        self.security_token = None
-        self.hp_key = None
-        self.hp_val = None
-        self.min_similarity_score: Final = 0.85
+        self.base_url: str = "https://howlongtobeat.com"
+        self.user_endpoint: str = f"{self.base_url}/api/user"
+        self.stats_endpoint: str = (
+            f"{self.base_url}/api/stats/games?platform=1&year=2000"
+        )
+        self.search_url: str = f"{self.base_url}/api/find"
+        self.search_init_url: str = f"{self.search_url}/init"
+        self.security_token: str | None = None
+        self.hp_key: str | None = None
+        self.hp_val: str | None = None
+        self.min_similarity_score: Final[float] = 0.85
 
     @classmethod
     def is_enabled(cls) -> bool:
