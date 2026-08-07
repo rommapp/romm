@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 import time
@@ -10,13 +11,27 @@ from config import HLTB_API_ENABLED
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from utils import get_version
-from utils.context import create_httpx_client, ctx_httpx_client
+from utils.context import ctx_httpx_client
+from utils.rate_limiter import RateLimiter
 
 from .base_handler import BaseRom, MetadataHandler
 
 # Regex to detect HLTB ID tags in filenames like (hltb-12345)
 HLTB_TAG_REGEX = re.compile(r"\(hltb-(\d+)\)", re.IGNORECASE)
 DASH_COLON_REGEX = re.compile(r"\s?-\s")
+
+# HLTB publishes no rate limit, so stay well clear of being throttled.
+HLTB_MAX_REQUESTS_PER_SECOND: Final[float] = 3
+# One attempt, plus one for a renewed session and one for a rate-limit backoff.
+HLTB_MAX_REQUEST_ATTEMPTS: Final[int] = 3
+HLTB_RATE_LIMIT_BACKOFF_SECONDS: Final[float] = 2
+_rate_limiter = RateLimiter(HLTB_MAX_REQUESTS_PER_SECOND)
+
+# The session token decodes to "<issued-at>::<public IP>|<user agent>|<key>|<hmac>",
+# so logging it would put the host's public IP in any shared log or support bundle.
+HLTB_SESSION_HEADERS: Final[frozenset[str]] = frozenset(
+    {"x-auth-token", "x-hp-key", "x-hp-val"}
+)
 
 
 class HLTBPlatform(TypedDict):
@@ -169,70 +184,101 @@ def extract_hltb_metadata(game: HLTBGame) -> HLTBMetadata:
 GITHUB_FILE_URL = "https://raw.githubusercontent.com/rommapp/romm/refs/heads/master/backend/handler/metadata/fixtures/hltb_api_url"
 
 
+def _unavailable_detail(status_code: int) -> str:
+    """Describe why HLTB is unusable, so the cause isn't misreported as a network fault."""
+    if status_code == status.HTTP_403_FORBIDDEN:
+        return (
+            "HowLongToBeat rejected the session, it may have expired or this "
+            "server's public IP address may have changed"
+        )
+    if status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+        return "HowLongToBeat is rate limiting requests, try again later"
+    if status_code == status.HTTP_404_NOT_FOUND:
+        return (
+            "HowLongToBeat search endpoint not found, it has likely rotated and "
+            "RomM could not fetch the current one"
+        )
+    return f"HowLongToBeat API returned HTTP {status_code}"
+
+
 class HLTBHandler(MetadataHandler):
     """
     Handler for HowLongToBeat, a service that provides game completion times.
     """
 
     def __init__(self) -> None:
-        self.base_url = "https://howlongtobeat.com"
-        self.user_endpoint = f"{self.base_url}/api/user"
-        self.stats_endpoint = f"{self.base_url}/api/stats/games?platform=1&year=2000"
-        self.search_url = f"{self.base_url}/api/find"
-        self.search_init_url = f"{self.search_url}/init"
-        self.security_token = None
-        self.hp_key = None
-        self.hp_val = None
-        self.min_similarity_score: Final = 0.85
+        self.base_url: str = "https://howlongtobeat.com"
+        self.user_endpoint: str = f"{self.base_url}/api/user"
+        self.stats_endpoint: str = (
+            f"{self.base_url}/api/stats/games?platform=1&year=2000"
+        )
+        self.search_url: str = f"{self.base_url}/api/find"
+        self.search_init_url: str = f"{self.search_url}/init"
+        self.security_token: str | None = None
+        self.hp_key: str | None = None
+        self.hp_val: str | None = None
+        self.min_similarity_score: Final[float] = 0.85
 
     @classmethod
     def is_enabled(cls) -> bool:
         return HLTB_API_ENABLED
 
-    def initialize(self) -> None:
+    async def initialize(self) -> None:
         # HLTB rotates their search endpoint regularly
-        self._fetch_search_endpoint()
+        await self._fetch_search_endpoint()
 
         # HLTB now requires a security token
-        self._fetch_security_token()
+        await self._fetch_security_token()
 
-    def _fetch_search_endpoint(self):
+    def _base_headers(self) -> dict[str, str]:
+        # HLTB binds a session to the user agent that requested it, so every call
+        # has to send the same one.
+        return {
+            "Referer": self.base_url,
+            "User-Agent": f"RomM/{get_version()}",
+        }
+
+    def _has_session(self) -> bool:
+        return bool(self.security_token and self.hp_key and self.hp_val)
+
+    async def _fetch_search_endpoint(self) -> None:
         """Fetch the API endpoint URL from Github."""
         if not HLTB_API_ENABLED:
             return
 
+        httpx_client = ctx_httpx_client.get()
+
         try:
-            with create_httpx_client() as client:
-                response = client.get(GITHUB_FILE_URL, timeout=10)
-                response.raise_for_status()
-                self.search_url = response.text.strip()
-                self.search_init_url = f"{self.search_url}/init"
+            response = await httpx_client.get(GITHUB_FILE_URL, timeout=10)
+            response.raise_for_status()
+            self.search_url = response.text.strip()
+            self.search_init_url = f"{self.search_url}/init"
         except Exception as e:
             log.warning("Unexpected error fetching HLTB endpoint from GitHub: %s", e)
 
-    def _fetch_security_token(self):
+    async def _fetch_security_token(self) -> None:
         if not HLTB_API_ENABLED:
             return
 
-        headers = {
-            "Referer": "https://howlongtobeat.com",
-            "User-Agent": f"RomM/{get_version()}",
-        }
+        httpx_client = ctx_httpx_client.get()
         params = {"t": int(time.time())}
 
+        # /init is HLTB traffic too, and a wave of concurrent renewals would
+        # otherwise burst past the cap the search requests respect.
+        await _rate_limiter.acquire()
+
         try:
-            with create_httpx_client() as client:
-                response = client.get(
-                    self.search_init_url,
-                    params=params,
-                    headers=headers,
-                    timeout=10,
-                )
-                response.raise_for_status()
-                data = response.json()
-                self.security_token = data.get("token", None)
-                self.hp_key = data.get("hpKey", None)
-                self.hp_val = data.get("hpVal", None)
+            response = await httpx_client.get(
+                self.search_init_url,
+                params=params,
+                headers=self._base_headers(),
+                timeout=10,
+            )
+            response.raise_for_status()
+            data = response.json()
+            self.security_token = data.get("token", None)
+            self.hp_key = data.get("hpKey", None)
+            self.hp_val = data.get("hpVal", None)
         except Exception as e:
             log.warning("Unexpected error fetching HLTB security token: %s", e)
 
@@ -242,7 +288,9 @@ class HLTBHandler(MetadataHandler):
 
         httpx_client = ctx_httpx_client.get()
         try:
-            response = await httpx_client.get(self.stats_endpoint)
+            response = await httpx_client.get(
+                self.stats_endpoint, headers=self._base_headers()
+            )
             response.raise_for_status()
         except Exception as e:
             log.error("Error checking HLTB API: %s", e)
@@ -254,53 +302,103 @@ class HLTBHandler(MetadataHandler):
         """
         Sends a POST request to HowLongToBeat API.
 
+        HLTB sessions are short-lived and pinned to the requesting IP address and
+        user agent, so a rejected session is renewed and the call retried rather
+        than failing every remaining lookup in a scan.
+
         :param url: The API endpoint URL.
         :param payload: A dictionary containing the request payload.
         :return: A dictionary with the json result.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
-        if not self.security_token or not self.hp_key or not self.hp_val:
+        if not self._has_session():
             return {}
 
         httpx_client = ctx_httpx_client.get()
 
-        headers = {
-            "Content-Type": "application/json",
-            "Referer": "https://howlongtobeat.com",
-            "User-Agent": f"RomM/{get_version()}",
-            "x-auth-token": self.security_token,
-            "x-hp-key": self.hp_key,
-            "x-hp-val": self.hp_val,
-        }
+        for attempt in range(HLTB_MAX_REQUEST_ATTEMPTS):
+            await _rate_limiter.acquire()
 
-        # Some HLTB endpoints require the key:val in the payload
-        payload[self.hp_key] = self.hp_val
+            # Read the session only after waiting, never before: this handler is a
+            # shared singleton, so a peer may have renewed (or lost) the session
+            # while we were paced.
+            if not self._has_session():
+                return {}
 
-        log.debug(
-            "HowLongToBeat API request: URL=%s, Headers=%s, Payload=%s, Timeout=%s",
-            url,
-            headers,
-            payload,
-            60,
-        )
+            headers = {
+                "Content-Type": "application/json",
+                **self._base_headers(),
+                "x-auth-token": self.security_token or "",
+                "x-hp-key": self.hp_key or "",
+                "x-hp-val": self.hp_val or "",
+            }
 
-        try:
-            res = await httpx_client.post(
-                url, json=payload, headers=headers, timeout=60
+            # Some HLTB endpoints require the key:val in the payload. The key rotates
+            # with the session, so copy the payload instead of accumulating stale keys.
+            body = {**payload, self.hp_key or "": self.hp_val}
+
+            log.debug(
+                "HowLongToBeat API request: URL=%s, Headers=%s, Payload=%s, Timeout=%s",
+                url,
+                {
+                    key: "[redacted]" if key in HLTB_SESSION_HEADERS else value
+                    for key, value in headers.items()
+                },
+                {key: value for key, value in body.items() if key != self.hp_key},
+                60,
             )
-            res.raise_for_status()
-            return res.json()
-        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
-            log.warning(
-                "Connection error: can't connect to HowLongToBeat API", exc_info=True
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to HowLongToBeat API, check your internet connection",
-            ) from exc
-        except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from HowLongToBeat API: %s", exc)
-            return {}
+
+            try:
+                res = await httpx_client.post(
+                    url, json=body, headers=headers, timeout=60
+                )
+                res.raise_for_status()
+                return res.json()
+            except httpx.HTTPStatusError as exc:
+                status_code = exc.response.status_code
+                is_last_attempt = attempt == HLTB_MAX_REQUEST_ATTEMPTS - 1
+
+                if status_code == status.HTTP_403_FORBIDDEN and not is_last_attempt:
+                    log.warning("HowLongToBeat rejected the session, renewing it")
+                    await self._fetch_security_token()
+                    if not self._has_session():
+                        return {}
+                    continue
+
+                if (
+                    status_code == status.HTTP_429_TOO_MANY_REQUESTS
+                    and not is_last_attempt
+                ):
+                    log.warning(
+                        "HowLongToBeat rate limit hit, retrying after %ss",
+                        HLTB_RATE_LIMIT_BACKOFF_SECONDS,
+                    )
+                    await asyncio.sleep(HLTB_RATE_LIMIT_BACKOFF_SECONDS)
+                    continue
+
+                log.warning(
+                    "HowLongToBeat API returned HTTP %s", status_code, exc_info=True
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=_unavailable_detail(status_code),
+                ) from exc
+            except (httpx.ConnectError, httpx.ReadTimeout) as exc:
+                log.warning(
+                    "Connection error: can't connect to HowLongToBeat API",
+                    exc_info=True,
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Can't connect to HowLongToBeat API, check your internet connection",
+                ) from exc
+            except json.JSONDecodeError as exc:
+                log.error(
+                    "Error decoding JSON response from HowLongToBeat API: %s", exc
+                )
+                return {}
+
+        return {}
 
     async def search_games(
         self, search_term: str, platform_slug: str
