@@ -989,6 +989,18 @@ def _mute_broker(container: dict[str, Any], mute: bool | None) -> bool | None:
 
 def _save_state_broker(container: dict[str, Any], slot: int) -> bool:
     """POST /save-state to the broker. Returns True if the request was accepted."""
+    if _is_webstation(container):
+        # Synchronous on this protocol: the broker answers once the emulator
+        # acked the write, so it needs the same budget as the exit save.
+        body = _broker_request_safe(
+            container,
+            _webstation_path(container, "/save-state"),
+            "save-state",
+            body={"slot": slot},
+            timeout=STREAMING_SAVE_TIMEOUT,
+        )
+        return bool(body and body.get("saved", False))
+
     body = _broker_request_safe(
         container,
         "/save-state",
@@ -1001,6 +1013,16 @@ def _save_state_broker(container: dict[str, Any], slot: int) -> bool:
 
 def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
     """POST /load-state to the broker. Returns True if broker confirmed success."""
+    if _is_webstation(container):
+        body = _broker_request_safe(
+            container,
+            _webstation_path(container, "/load-state"),
+            "load-state",
+            body={"slot": slot},
+            timeout=_BROKER_LOAD_STATE_TIMEOUT,
+        )
+        return bool(body and body.get("loaded", False))
+
     # Timeout covers the worst case: 9 slot cycles x ~5s xdotool timeout.
     body = _broker_request_safe(
         container,
@@ -1036,9 +1058,12 @@ def _stop_broker(container: dict[str, Any]) -> None:
 # lost on a failed push, so RomM pulls from the export list instead and deletes
 # what it stored.
 #
-# Not yet available on this protocol: volume, mute, mid-session save/load
-# state, per-slot state files and their screenshots, and whole-card sync. State
-# data still round-trips, but only inside the save archive.
+# Save states round-trip through the same /state-file routes as the other
+# brokers, just under the subfolder, so RomM holds the library either way. The
+# difference is that this broker keeps one working slot instead of ten: a slot
+# sent to it resolves to that one, and a pushed state is only accepted while a
+# session is up. What is still missing here is state screenshots, volume, mute
+# and whole-card sync.
 
 
 def _is_webstation(container: dict[str, Any]) -> bool:
@@ -1062,13 +1087,13 @@ def _webstation_path(container: dict[str, Any], path: str) -> str:
 def _container_capabilities(container: dict[str, Any]) -> PlatformCapabilities:
     """The save-state controls the frontend may offer for this container.
 
-    A webstation container serves no mid-session state routes, so shipping its
-    platform's slot table would advertise buttons that cannot work. Its autosave
-    still happens, just inside exit rather than on request.
+    A webstation container takes the same slot range as its platform's own
+    broker, but serves no whole-card route, so that one flag is cleared.
     """
-    if _is_webstation(container):
-        return _NO_CAPABILITIES
-    return platform_capabilities(str(container.get("platform", "")))
+    capabilities = platform_capabilities(str(container.get("platform", "")))
+    if _is_webstation(container) and capabilities["has_memory_card"]:
+        return {**capabilities, "has_memory_card": False}
+    return capabilities
 
 
 def _webstation_activate(
@@ -1280,6 +1305,14 @@ def _emulator_for_container(container: dict[str, Any]) -> str:
     return str(emulator).strip().lower()
 
 
+def _state_route(container: dict[str, Any], path: str) -> str:
+    """Where a state transfer lives on this container's broker.
+
+    The webstation broker serves the same routes, only under its subfolder.
+    """
+    return _webstation_path(container, path) if _is_webstation(container) else path
+
+
 def _fetch_state_file(container: dict[str, Any], slot: int) -> tuple[str, bytes] | None:
     """GET /state-file from the broker. Returns (filename, content) or None.
 
@@ -1289,7 +1322,7 @@ def _fetch_state_file(container: dict[str, Any], slot: int) -> tuple[str, bytes]
     limits = _state_transfer_limits(container)
     result = _broker_get_binary_safe(
         container,
-        f"/state-file?slot={slot}",
+        _state_route(container, f"/state-file?slot={slot}"),
         "state-file GET",
         max_bytes=limits["max_bytes"],
         timeout=limits["timeout"],
@@ -1308,7 +1341,7 @@ def _push_state_file(container: dict[str, Any], filename: str, content: bytes) -
     """PUT /state-file to the broker. Best-effort, logs but never raises."""
     return _broker_put_binary(
         container,
-        f"/state-file?filename={quote(filename, safe='')}",
+        _state_route(container, f"/state-file?filename={quote(filename, safe='')}"),
         content,
         "state-file PUT",
         content_type="application/octet-stream",
@@ -1328,7 +1361,7 @@ _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 def _extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | None:
     """Pull the embedded frame PNG out of a savestate archive, or None when the
     format carries no embedded screenshot. Only PCSX2 (.p2s zip) embeds one;
-    Dolphin's broker captures a frame instead, served by /state-screenshot."""
+    the others write the frame as its own file, served by /state-screenshot."""
     if emulator != "pcsx2":
         return None
     try:
@@ -1351,7 +1384,7 @@ def _fetch_state_screenshot(container: dict[str, Any], slot: int) -> bytes | Non
     capture frames" answer, so it is not logged."""
     result = _broker_get_binary_safe(
         container,
-        f"/state-screenshot?slot={slot}",
+        _state_route(container, f"/state-screenshot?slot={slot}"),
         "state-screenshot GET",
         max_bytes=_STATE_SCREENSHOT_MAX_BYTES,
         timeout=_BROKER_TRANSFER_TIMEOUT,
@@ -1539,10 +1572,6 @@ async def _pull_state_to_library(
     Best-effort by design, a sync failure must never surface to the player,
     the state still exists inside the container.
     """
-    if _is_webstation(container):
-        # No /state-file on this protocol: the state leaves with the save
-        # archive the exit dumps, which _pull_saves_to_library collects.
-        return False
     user = db_user_handler.get_user(user_id)
     rom = db_rom_handler.get_rom(rom_id)
     if user is None or rom is None:
@@ -1561,8 +1590,8 @@ async def _pull_state_to_library(
         except ValueError:
             log.warning("broker returned invalid state filename")
             return False
-        # PCSX2 embeds the frame in the state file itself. Dolphin's broker
-        # captures one alongside the save, so fall back to fetching it.
+        # PCSX2 embeds the frame in the state file itself. The others write it
+        # beside the state, so fall back to fetching it from the broker.
         screenshot = _extract_state_screenshot(emulator, content)
         if screenshot is None:
             screenshot = await asyncio.to_thread(
@@ -1583,6 +1612,30 @@ async def _pull_state_to_library(
 
     log.warning("no state file to pull after save, rom_id=%d slot=%d", rom_id, slot)
     return False
+
+
+async def _push_resume_state(container: dict[str, Any], resume_state: Any) -> bool:
+    """Send the state a player picked to resume from down to the container.
+
+    Best-effort: a failure means the session just starts fresh, which the claim
+    response reports through `resume`.
+    """
+    try:
+        content = await fs_asset_handler.read_file(
+            f"{resume_state.file_path}/{resume_state.file_name}"
+        )
+    except Exception:
+        log.exception("could not read resume state %s", resume_state.file_name)
+        return False
+    pushed = await asyncio.to_thread(
+        _push_state_file,
+        container,
+        _container_state_filename(resume_state.file_name),
+        content,
+    )
+    if not pushed:
+        log.warning("resume state not pushed, launching fresh")
+    return pushed
 
 
 async def _hydrate_states_to_broker(
@@ -2343,12 +2396,23 @@ async def _teardown_abandoned_session(
 
 # Slot number encoded in each emulator's state filename, e.g. PCSX2 writes
 # "SERIAL (CRC).03.p2s" for slot 3 and Dolphin writes "GAMEID.s03". Resuming
-# from a picked state needs the slot to tell the broker what to load.
+# from a picked state needs the slot to tell the broker what to load, and the
+# match is also where the capture stamp is inserted, so an emulator missing
+# from here gets no history either.
 _STATE_SLOT_PATTERNS = {
     "pcsx2": re.compile(r"\.(\d{1,2})\.p2s$"),
     "dolphin": re.compile(r"\.s(\d{2})$"),
     "xemu": re.compile(r"\.x(\d{2})$"),
+    # RetroArch leaves the number off its default slot: "GAME.state" is slot 0
+    # and "GAME.state3" is slot 3.
+    "retroarch": re.compile(r"\.state(\d{0,2})$"),
 }
+
+
+# Lowest slot each emulator's broker will actually address. Everything but
+# RetroArch counts from 1, so a "0" in one of their names is a filename that
+# happens to look like a state, not a slot they could load.
+_MIN_STATE_SLOT = {"retroarch": 0}
 
 
 def _slot_from_state_filename(emulator: str, filename: str) -> int | None:
@@ -2358,8 +2422,8 @@ def _slot_from_state_filename(emulator: str, filename: str) -> int | None:
     match = pattern.search(filename)
     if match is None:
         return None
-    slot = int(match.group(1))
-    return slot if slot >= 1 else None
+    slot = int(match.group(1) or 0)
+    return slot if slot >= _MIN_STATE_SLOT.get(emulator, 1) else None
 
 
 # Every capture is kept, so the library needs one file per save, not one per
@@ -2765,24 +2829,12 @@ async def claim_session(
     # Push the resume state before launch so its file is in place when the
     # broker's deferred slot load fires. Best-effort: a failed push falls
     # back to a fresh launch, reported through `resume` in the response.
-    # The webstation protocol serves no state-file route, so its resume rides
-    # inside the save archive uploaded below instead.
+    # The webstation broker only takes a state while a session is up, and its
+    # session starts at activate, so that push has to happen after launch.
     resume_pushed = False
-    if resume_state is not None and not _is_webstation(container):
-        try:
-            content = await fs_asset_handler.read_file(
-                f"{resume_state.file_path}/{resume_state.file_name}"
-            )
-            resume_pushed = await asyncio.to_thread(
-                _push_state_file,
-                container,
-                _container_state_filename(resume_state.file_name),
-                content,
-            )
-        except Exception:
-            log.exception("could not read resume state %s", resume_state.file_name)
-        if not resume_pushed:
-            log.warning("resume state not pushed, launching fresh")
+    resume_after_launch = _is_webstation(container) and resume_state is not None
+    if resume_state is not None and not resume_after_launch:
+        resume_pushed = await _push_resume_state(container, resume_state)
 
     # Prepare in-game saves before launch - games read them at boot, so unlike
     # states this cannot be deferred to a background task.
@@ -2815,12 +2867,15 @@ async def claim_session(
             )
         except Exception:
             log.exception("save hydration failed, continuing launch")
-        # Resume is all-or-nothing here. The exit archive carries the autosave
-        # slot's state file alongside the in-game saves, so restoring it and
-        # loading that slot IS the resume path, and there are no per-slot state
-        # assets for the player to pick from.
+        # With no pick to push, the restored archive is the resume: it carries
+        # the autosave slot's state file alongside the in-game saves, so
+        # loading that slot replays where the last session left off.
         caps = platform_capabilities(platform)
-        if archive_path is not None and caps["has_autosave"]:
+        if (
+            not resume_after_launch
+            and archive_path is not None
+            and caps["has_autosave"]
+        ):
             resume_slot = caps["autosave_slot"]
             resume_pushed = True
     else:
@@ -2848,7 +2903,9 @@ async def claim_session(
                     "path": rom_path,
                 },
                 archive_path=archive_path,
-                resume_slot=resume_slot if resume_pushed else None,
+                resume_slot=(
+                    resume_slot if resume_pushed or resume_after_launch else None
+                ),
             )
         else:
             launch_result = await asyncio.to_thread(
@@ -2867,18 +2924,22 @@ async def claim_session(
 
     log.info("session claimed, platform=%s rom=%s", platform, rom_name)
 
+    # The webstation broker's deferred load waits for its emulator to report
+    # the game running, and holds off further until the state file is there, so
+    # this push lands ahead of it even though it runs after activate.
+    if resume_after_launch and resume_state is not None:
+        resume_pushed = await _push_resume_state(container, resume_state)
+
     # Hydrate the container with the user's newest stored state in the
-    # background, the stream should not wait on file transfers. Webstation
-    # containers serve no state-file route, their states arrived in the archive.
-    if not _is_webstation(container):
-        _spawn_sync_task(
-            _hydrate_states_to_broker(
-                request.user.id,
-                rom.id,
-                container,
-                resume_pushed=resume_pushed,
-            )
+    # background, the stream should not wait on file transfers.
+    _spawn_sync_task(
+        _hydrate_states_to_broker(
+            request.user.id,
+            rom.id,
+            container,
+            resume_pushed=resume_pushed,
         )
+    )
 
     host = container.get("host", "")
     if _is_webstation(container):

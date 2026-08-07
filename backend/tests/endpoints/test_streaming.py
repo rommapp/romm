@@ -1042,6 +1042,81 @@ def test_the_admin_session_list_flags_a_desktop(client, access_token):
     assert session["rom_name"] is None
 
 
+def test_webstation_capabilities_keep_the_slots_and_drop_the_card(client, access_token):
+    """The webstation broker takes the same slots as the ps2 mod but serves no
+    whole-card route, so only that flag differs from the platform table."""
+    with _streaming(_webstation()):
+        response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    rows = {c["platform"]: c["capabilities"] for c in response.json()["containers"]}
+    assert rows["ps2"] == {
+        "max_slots": 9,
+        "has_autosave": True,
+        "autosave_slot": 10,
+        "has_memory_card": False,
+    }
+
+
+def _webstation_ps2():
+    """The resolved ps2 entry of a webstation container, as the routes see it."""
+    with _streaming(_webstation()):
+        return _first_container("ps2")
+
+
+def _webstation_json(body: dict):
+    """urlopen stub answering one webstation broker call with `body`."""
+    resp = MagicMock()
+    resp.__enter__.return_value.read.return_value = json.dumps(body).encode()
+    return resp
+
+
+def test_webstation_save_state_posts_under_the_subfolder():
+    """The state routes live behind SUBFOLDER like the rest of the protocol,
+    not at the bare paths the per-emulator mods serve."""
+    container = _webstation_ps2()
+    with patch(
+        "endpoints.streaming.urllib.request.urlopen",
+        return_value=_webstation_json({"status": "saved", "slot": 10, "saved": True}),
+    ) as urlopen:
+        assert streaming._save_state_broker(container, 10) is True
+    assert urlopen.call_args.args[0].full_url.endswith(
+        "/streaming/api/session/save-state"
+    )
+
+
+def test_webstation_save_state_reports_a_refused_save():
+    """The broker answers 200 with saved false when the emulator never acked,
+    so the status field is what decides, not the HTTP code."""
+    container = _webstation_ps2()
+    with patch(
+        "endpoints.streaming.urllib.request.urlopen",
+        return_value=_webstation_json({"status": "failed", "slot": 10, "saved": False}),
+    ):
+        assert streaming._save_state_broker(container, 10) is False
+
+
+def test_webstation_load_state_posts_under_the_subfolder():
+    container = _webstation_ps2()
+    with patch(
+        "endpoints.streaming.urllib.request.urlopen",
+        return_value=_webstation_json({"status": "loaded", "slot": 3, "loaded": True}),
+    ) as urlopen:
+        assert streaming._load_state_broker(container, 3) is True
+    assert urlopen.call_args.args[0].full_url.endswith(
+        "/streaming/api/session/load-state"
+    )
+
+
+def test_webstation_load_state_reports_an_empty_slot():
+    """Loading a slot that holds no state file is a failed load, not an error."""
+    container = _webstation_ps2()
+    with patch(
+        "endpoints.streaming.urllib.request.urlopen",
+        return_value=_webstation_json({"status": "failed", "slot": 3, "loaded": False}),
+    ):
+        assert streaming._load_state_broker(container, 3) is False
+
+
 # ── Staleness / heartbeat ─────────────────────────────────────────────────────
 
 
@@ -2263,7 +2338,12 @@ def test_slot_from_state_filename():
     assert (
         streaming._slot_from_state_filename("xemu", "MechAssault (USA).qcow2") is None
     )
-    assert streaming._slot_from_state_filename("retroarch", "Game.state") is None
+    # RetroArch leaves the number off its default slot, and unlike the others
+    # it really does work in slot 0, so an empty token resolves rather than
+    # reading as an unrecognizable name.
+    assert streaming._slot_from_state_filename("retroarch", "Game.state") == 0
+    assert streaming._slot_from_state_filename("retroarch", "Game.state7") == 7
+    assert streaming._slot_from_state_filename("retroarch", "Game.srm") is None
 
 
 def test_stamped_state_filename_round_trips_for_xemu():
@@ -2271,6 +2351,15 @@ def test_stamped_state_filename_round_trips_for_xemu():
     stamped = streaming._stamped_state_filename("xemu", "MechAssault.x03", when)
     assert re.fullmatch(r"MechAssault\.\d{8}-\d{12}\.x03", stamped)
     assert streaming._container_state_filename(stamped) == "MechAssault.x03"
+
+
+def test_stamped_state_filename_round_trips_for_retroarch():
+    """The stamp goes before the slot token even when the token is empty, so
+    every capture is its own file and the container name is still recoverable."""
+    when = datetime(2026, 7, 21, 4, 56, 45, 123456, tzinfo=timezone.utc)
+    stamped = streaming._stamped_state_filename("retroarch", "Super Mario.state", when)
+    assert re.fullmatch(r"Super Mario\.\d{8}-\d{12}\.state", stamped)
+    assert streaming._container_state_filename(stamped) == "Super Mario.state"
 
 
 def _resume_claim(client, token, rom, state_id, push_ok=True):
@@ -2379,6 +2468,105 @@ def test_claim_without_state_reports_no_resume(client, access_token, rom: Rom):
         r = _claim_ok(client, access_token, rom.id)
     assert r.status_code == 200
     assert r.json()["resume"] is None
+
+
+# ── Webstation state sync ─────────────────────────────────────────────────────
+
+
+def _webstation_for(rom: Rom) -> dict:
+    """The container a claim for this ROM's platform lands on, webstation side."""
+    return {**_container_for(rom), "protocol": "webstation", "label": "PCSX2"}
+
+
+def test_state_transfers_reach_the_webstation_broker_under_its_subfolder(rom: Rom):
+    """This broker answers behind a subfolder, so an unprefixed path would land
+    on the room's web server rather than on the broker."""
+    container = _webstation_for(rom)
+    resp = MagicMock()
+    inner = resp.__enter__.return_value
+    inner.read.return_value = b"state-bytes"
+    inner.headers = {"X-State-Filename": "Game.03.p2s"}
+
+    with patch(
+        "endpoints.streaming.urllib.request.urlopen", return_value=resp
+    ) as urlopen:
+        streaming._fetch_state_file(container, 3)
+        streaming._fetch_state_screenshot(container, 3)
+        inner.read.return_value = b'{"status": "ok"}'
+        streaming._push_state_file(container, "Game.03.p2s", b"bytes")
+
+    root = "http://192.168.1.10:8000/streaming/api/session"
+    assert [call.args[0].full_url for call in urlopen.call_args_list] == [
+        f"{root}/state-file?slot=3",
+        f"{root}/state-screenshot?slot=3",
+        f"{root}/state-file?filename=Game.03.p2s",
+    ]
+
+
+def test_pull_state_to_library_runs_for_a_webstation_container(
+    rom: Rom, admin_user: User
+):
+    """RomM is the library of states on this protocol too, so a save has to come
+    back out of the container rather than wait for the exit archive."""
+    container = _webstation_for(rom)
+    scanned = _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
+    with (
+        patch(
+            "endpoints.streaming._fetch_state_file",
+            return_value=("Game.03.p2s", b"state-bytes"),
+        ),
+        patch("endpoints.streaming._fetch_state_screenshot", return_value=None),
+        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("endpoints.streaming.scan_state", new=AsyncMock(return_value=scanned)),
+    ):
+        ok = asyncio.run(
+            streaming._pull_state_to_library(admin_user.id, rom.id, container, 3)
+        )
+    assert ok is True
+    assert (
+        db_state_handler.get_state_by_filename(
+            user_id=admin_user.id, rom_id=rom.id, file_name="Game.03.p2s"
+        )
+        is not None
+    )
+
+
+def test_webstation_resume_state_is_pushed_after_activate(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The state-file route only answers while a session is up, and the session
+    starts at activate, so pushing first would be refused. The broker's deferred
+    load waits for the file, which is what makes the later push still land."""
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
+    )
+    order = MagicMock()
+    order.activate.return_value = {"url": "/room/x"}
+    order.push.return_value = True
+    with _streaming(_webstation_for(rom)):
+        with (
+            patch("endpoints.streaming._webstation_activate", order.activate),
+            patch("endpoints.streaming._push_state_file", order.push),
+            patch(
+                "endpoints.streaming._hydrate_saves_to_webstation",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "endpoints.streaming.fs_asset_handler.read_file",
+                new=AsyncMock(return_value=b"state-bytes"),
+            ),
+            patch("endpoints.streaming._spawn_sync_task"),
+            patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
+        ):
+            r = _claim(client, access_token, rom.id, state_id=state.id)
+    assert r.status_code == 200
+    assert r.json()["resume"] is True
+    assert [c[0] for c in order.mock_calls if c[0] in ("activate", "push")] == [
+        "activate",
+        "push",
+    ]
+    assert order.activate.call_args.kwargs["resume_slot"] == 3
+    assert order.push.call_args[0][1] == "Game.03.p2s"
 
 
 # ── Auth guards ───────────────────────────────────────────────────────────────
