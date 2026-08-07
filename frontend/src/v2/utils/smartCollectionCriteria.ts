@@ -321,7 +321,7 @@ const FIELDS: FieldSpec[] = [
     labelKey: "platform.show-playables",
     defaultLabel: "Playable in browser",
     negLabelKey: "platform.show-not-playables-only",
-    negDefaultLabel: "Show non-playable ROMs only",
+    negDefaultLabel: "Show ROMs not playable in browser only",
     kind: "bool",
   },
   {
@@ -366,7 +366,7 @@ const FIELDS: FieldSpec[] = [
     labelKey: "platform.show-missing",
     defaultLabel: "Missing from disk",
     negLabelKey: "platform.show-not-missing-only",
-    negDefaultLabel: "Show non-missing ROMs only",
+    negDefaultLabel: "Show ROMs present on disk only",
     kind: "bool",
   },
   {
@@ -375,7 +375,7 @@ const FIELDS: FieldSpec[] = [
     labelKey: "platform.show-verified",
     defaultLabel: "Hash verified",
     negLabelKey: "platform.show-not-verified-only",
-    negDefaultLabel: "Show non-verified ROMs only",
+    negDefaultLabel: "Show ROMs without a hash match only",
     kind: "bool",
   },
   {
