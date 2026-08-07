@@ -1046,19 +1046,14 @@ def test_the_admin_session_list_flags_a_desktop(client, access_token):
     assert session["rom_name"] is None
 
 
-def test_webstation_capabilities_keep_the_slots_and_drop_the_card(client, access_token):
-    """The webstation broker takes the same slots as the ps2 mod but serves no
-    whole-card route, so only that flag differs from the platform table."""
+def test_webstation_capabilities_match_the_platform_table(client, access_token):
+    """The webstation broker serves the same slots and the same whole-card route
+    as the per-emulator ps2 mod, so nothing about it is special-cased."""
     with _streaming(_webstation()):
         response = client.get("/api/streaming/config", headers=_auth(access_token))
     assert response.status_code == 200
     rows = {c["platform"]: c["capabilities"] for c in response.json()["containers"]}
-    assert rows["ps2"] == {
-        "max_slots": 9,
-        "has_autosave": True,
-        "autosave_slot": 10,
-        "has_memory_card": False,
-    }
+    assert rows["ps2"] == streaming.platform_capabilities("ps2")
 
 
 def _webstation_ps2():
@@ -3680,6 +3675,78 @@ def test_occupied_undecided_container_returns_409_not_428(
     fetch.assert_not_called()
     push.assert_not_called()
     launch.assert_not_called()
+
+
+def _mc_webstation_for(rom: Rom):
+    """A webstation container on whole-card sync, serving ps2 through pcsx2."""
+    return {**_mc_container_for(rom), "protocol": "webstation", "subfolder": "/stream"}
+
+
+def test_memory_card_route_names_the_emulator_on_a_webstation_container(rom: Rom):
+    """One webstation container hosts several emulators, so the card it serves
+    has to be named; the per-emulator brokers serve the one card they have."""
+    with _streaming(_mc_webstation_for(rom)):
+        nested = _first_container(rom.platform_slug)
+    with _streaming(_mc_container_for(rom)):
+        flat = _first_container(rom.platform_slug)
+    assert (
+        streaming._memory_card_route(nested)
+        == "/stream/api/session/memory-card?emulator=pcsx2"
+    )
+    assert streaming._memory_card_route(flat) == "/memory-card"
+
+
+def test_webstation_claim_hydrates_the_card_and_the_states(
+    client, access_token, rom: Rom
+):
+    """A webstation container takes both hydrates: the card carries the game's
+    own saves, the archive carries the state the last session ended on."""
+    with _streaming(_mc_webstation_for(rom)):
+        with (
+            patch("endpoints.streaming._webstation_activate", return_value={}),
+            patch("endpoints.streaming._fetch_memory_card", return_value=None),
+            patch(
+                "endpoints.streaming._hydrate_memory_card_to_broker",
+                new=AsyncMock(return_value=True),
+            ) as card,
+            patch(
+                "endpoints.streaming._hydrate_states_to_broker", new=AsyncMock()
+            ) as states,
+            patch(
+                "endpoints.streaming._hydrate_saves_to_broker", new=AsyncMock()
+            ) as legacy,
+            patch("endpoints.streaming._spawn_sync_task"),
+        ):
+            r = _mc_claim(client, access_token, rom.id)
+    assert r.status_code == 200
+    card.assert_awaited_once()
+    # The state hydrate is spawned rather than awaited inline, so the claim can
+    # return while the push is still in flight.
+    states.assert_called_once()
+    legacy.assert_not_called()
+
+
+def test_webstation_claim_tells_the_broker_the_card_is_synced(
+    client, access_token, rom: Rom
+):
+    """Without the flag the broker would restore and dump the card inside the
+    save archive too, fighting the image the card routes just laid down."""
+    with _streaming(_mc_webstation_for(rom)):
+        with (
+            patch(
+                "endpoints.streaming._webstation_activate", return_value={}
+            ) as activate,
+            patch("endpoints.streaming._fetch_memory_card", return_value=None),
+            patch(
+                "endpoints.streaming._hydrate_memory_card_to_broker",
+                new=AsyncMock(return_value=True),
+            ),
+            patch("endpoints.streaming._hydrate_states_to_broker", new=AsyncMock()),
+            patch("endpoints.streaming._spawn_sync_task"),
+        ):
+            r = _mc_claim(client, access_token, rom.id)
+    assert r.status_code == 200
+    assert activate.call_args.kwargs["memory_card_synced"] is True
 
 
 def test_concurrent_adopts_record_one_decision(admin_user: User, rom: Rom):

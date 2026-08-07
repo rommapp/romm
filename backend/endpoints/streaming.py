@@ -1095,15 +1095,8 @@ def _webstation_path(container: dict[str, Any], path: str) -> str:
 
 
 def _container_capabilities(container: dict[str, Any]) -> PlatformCapabilities:
-    """The save-state controls the frontend may offer for this container.
-
-    A webstation container takes the same slot range as its platform's own
-    broker, but serves no whole-card route, so that one flag is cleared.
-    """
-    capabilities = platform_capabilities(str(container.get("platform", "")))
-    if _is_webstation(container) and capabilities["has_memory_card"]:
-        return {**capabilities, "has_memory_card": False}
-    return capabilities
+    """The save-state controls the frontend may offer for this container."""
+    return platform_capabilities(str(container.get("platform", "")))
 
 
 def _webstation_activate(
@@ -1115,6 +1108,7 @@ def _webstation_activate(
     rom: dict[str, Any] | None = None,
     archive_path: str | None = None,
     resume_slot: int | None = None,
+    memory_card_synced: bool = False,
 ) -> dict[str, Any]:
     """POST /activate. Raises HTTPException the same way _call_broker does.
 
@@ -1137,6 +1131,10 @@ def _webstation_activate(
         save["archive"] = archive_path
     if resume_slot is not None:
         save["resume_slot"] = resume_slot
+    if memory_card_synced:
+        # The card travels on its own routes, so the broker leaves it out of
+        # both the archive it restores and the one it dumps at exit.
+        save["memory_card_synced"] = True
     if save:
         body["save"] = save
 
@@ -1315,8 +1313,8 @@ def _emulator_for_container(container: dict[str, Any]) -> str:
     return str(emulator).strip().lower()
 
 
-def _state_route(container: dict[str, Any], path: str) -> str:
-    """Where a state transfer lives on this container's broker.
+def _transfer_route(container: dict[str, Any], path: str) -> str:
+    """Where a state or memory card transfer lives on this container's broker.
 
     The webstation broker serves the same routes, only under its subfolder.
     """
@@ -1332,7 +1330,7 @@ def _fetch_state_file(container: dict[str, Any], slot: int) -> tuple[str, bytes]
     limits = _state_transfer_limits(container)
     result = _broker_get_binary_safe(
         container,
-        _state_route(container, f"/state-file?slot={slot}"),
+        _transfer_route(container, f"/state-file?slot={slot}"),
         "state-file GET",
         max_bytes=limits["max_bytes"],
         timeout=limits["timeout"],
@@ -1351,7 +1349,7 @@ def _push_state_file(container: dict[str, Any], filename: str, content: bytes) -
     """PUT /state-file to the broker. Best-effort, logs but never raises."""
     return _broker_put_binary(
         container,
-        _state_route(container, f"/state-file?filename={quote(filename, safe='')}"),
+        _transfer_route(container, f"/state-file?filename={quote(filename, safe='')}"),
         content,
         "state-file PUT",
         content_type="application/octet-stream",
@@ -1394,7 +1392,7 @@ def _fetch_state_screenshot(container: dict[str, Any], slot: int) -> bytes | Non
     capture frames" answer, so it is not logged."""
     result = _broker_get_binary_safe(
         container,
-        _state_route(container, f"/state-screenshot?slot={slot}"),
+        _transfer_route(container, f"/state-screenshot?slot={slot}"),
         "state-screenshot GET",
         max_bytes=_STATE_SCREENSHOT_MAX_BYTES,
         timeout=_BROKER_TRANSFER_TIMEOUT,
@@ -1953,11 +1951,20 @@ def _memory_card_sync_enabled(container: dict[str, Any]) -> bool:
     """
     if not container.get("memory_card_sync", False):
         return False
-    if _is_webstation(container):
-        # That protocol serves no /memory-card; its cards ride along in the
-        # save archive instead.
-        return False
     return not _known_to_lack_memory_card(container.get("platform", ""))
+
+
+def _memory_card_route(container: dict[str, Any]) -> str:
+    """Where this container's broker serves the whole Slot-1 card.
+
+    The webstation broker hosts several emulators off one container and the
+    card belongs to the emulator, not to a session, so it takes the name in the
+    query. The per-emulator brokers serve the one card they have.
+    """
+    path = "/memory-card"
+    if _is_webstation(container):
+        path = f"{path}?emulator={quote(_emulator_for_container(container), safe='')}"
+    return _transfer_route(container, path)
 
 
 class _MemoryCardUnavailable(Exception):
@@ -1988,7 +1995,7 @@ def _fetch_memory_card(
     try:
         _, content = _broker_get_binary(
             container,
-            "/memory-card",
+            _memory_card_route(container),
             max_bytes=_MEMORY_CARD_MAX_BYTES,
             timeout=timeout,
         )
@@ -2016,7 +2023,7 @@ def _push_memory_card(
     but never raises. The caller decides whether a failure aborts the claim."""
     return _broker_put_binary(
         container,
-        "/memory-card",
+        _memory_card_route(container),
         content,
         "memory-card PUT",
         content_type="application/zip",
@@ -2867,9 +2874,11 @@ async def claim_session(
             raise HTTPException(
                 status_code=502, detail="Could not prepare the memory card"
             )
-    elif _is_webstation(container):
+    if _is_webstation(container):
         # Restore runs inside activate on this protocol, so hydration only gets
         # the bytes onto the container and names the path activate restores.
+        # Still runs under whole-card sync: the archive carries the state the
+        # last session ended on, which the card does not.
         # Best-effort: a failed upload just means the container keeps its own.
         try:
             archive_path = await _hydrate_saves_to_webstation(
@@ -2888,7 +2897,7 @@ async def claim_session(
         ):
             resume_slot = caps["autosave_slot"]
             resume_pushed = True
-    else:
+    elif memory_card is None:
         # Legacy per-file save sync (containers without memory_card_sync).
         # Best-effort: a failed hydration just means the container keeps its own.
         try:
@@ -2916,6 +2925,7 @@ async def claim_session(
                 resume_slot=(
                     resume_slot if resume_pushed or resume_after_launch else None
                 ),
+                memory_card_synced=memory_card is not None,
             )
         else:
             launch_result = await asyncio.to_thread(
