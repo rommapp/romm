@@ -15,14 +15,7 @@
 // Edit + Delete moved out of the InfoPanel `#actions` kebab and into
 // the Settings tab (editable form on top, danger zone at the bottom).
 import { RDivider, type RTabNavItem } from "@v2/lib";
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -40,6 +33,7 @@ import CollectionSettingsTab from "@/v2/components/Gallery/CollectionSettingsTab
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
@@ -290,10 +284,7 @@ function randomScope(): {
 
 // Leaving for anything that isn't another gallery keeps `currentCollection`
 // in place, so the id check in `onRandomGame` can't see the user walked away.
-let unmounted = false;
-onBeforeUnmount(() => {
-  unmounted = true;
-});
+const alive = useIsAlive();
 
 // `/roms/random` samples the pick server-side, so one request resolves it
 // whatever the collection holds. `null` means the collection holds no roms.
@@ -303,7 +294,7 @@ async function onRandomGame() {
   randomLoading.value = true;
   const scopeId = c.id;
   // A pick from the collection the user just left leads nowhere useful.
-  const stale = () => unmounted || currentCollection.value?.id !== scopeId;
+  const stale = () => !alive.value || currentCollection.value?.id !== scopeId;
   try {
     const { data } = await romApi.getRandomRom(randomScope());
     if (stale()) return;
