@@ -4,5 +4,7 @@
 /* eslint-disable */
 export type ClaimSessionRequest = {
     rom_id: number;
+    state_id?: (number | null);
+    memory_card_id?: (number | null);
 };
 
