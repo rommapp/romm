@@ -16,16 +16,31 @@ const props = withDefaults(
   { active: true },
 );
 
-// How close to the bottom the pointer has to get before the bar appears. Kept
-// under the bar's own height so a cursor resting near the bottom of the stream
-// does not keep summoning it.
-const BAR_REVEAL_BAND_PX = 16;
+// How close to the bottom the pointer has to get before the bar appears. Deep
+// enough that the bar is already up by the time the pointer reaches the screen
+// edge, where the host OS keeps its own auto-hiding taskbar.
+const BAR_REVEAL_BAND_PX = 84;
 
-// The cross-origin fallback strip is an overlay, so its height is stolen from
-// the container's own taskbar. It stays a hot edge rather than the full band
-// above: any pixel it covers is a pixel the desktop below cannot be clicked on.
-const BAR_HOT_EDGE_PX = 8;
-const hotEdgeHeight = `${BAR_HOT_EDGE_PX}px`;
+// The cross-origin fallback strip is an overlay: any pixel it covers is a pixel
+// of the container below that cannot be clicked. So it stops short of the
+// bottom edge, leaving the container's own taskbar reachable and keeping the
+// band clear of the host taskbar's reveal edge.
+const BAR_EDGE_GAP_PX = 36;
+
+// The container keeps its own reveal handle at dead centre of the bottom edge,
+// right under where our bar lands. Raising the bar there buries it, so a column
+// this wide is left alone: the bar neither appears while the pointer is in it
+// nor stays up once it gets there, which keeps the handle reachable. Wide
+// enough to approach the handle from any angle without clipping the column.
+const BAR_DEAD_SPOT_PX = 260;
+
+// Capture, because the stream's own input handling stops mousemove from
+// bubbling over the parts of the page it claims, and passive so listening in
+// on it can never delay that handling.
+const FRAME_LISTENER_OPTS = { capture: true, passive: true } as const;
+
+const hotEdgeBottom = `${BAR_EDGE_GAP_PX}px`;
+const hotEdgeHeight = `${BAR_REVEAL_BAND_PX - BAR_EDGE_GAP_PX}px`;
 
 const stageRef = ref<HTMLElement | null>(null);
 const streamFrame = ref<HTMLIFrameElement | null>(null);
@@ -37,8 +52,7 @@ const sameOrigin = ref(false);
 
 let uiTimeout: ReturnType<typeof setTimeout> | null = null;
 let attachTimeouts: ReturnType<typeof setTimeout>[] = [];
-let iframeLoadCleanup: (() => void) | null = null;
-let contentWindowCleanup: (() => void) | null = null;
+let frameCleanups: (() => void)[] = [];
 
 function showUI(): void {
   isUIVisible.value = true;
@@ -58,19 +72,37 @@ function focusStream(): void {
   streamFrame.value?.focus();
 }
 
-function revealNearBottom(offsetY: number, height: number): void {
-  if (height - offsetY <= BAR_REVEAL_BAND_PX) showUI();
+function revealNearBottom(
+  offsetX: number,
+  offsetY: number,
+  width: number,
+  height: number,
+): void {
+  if (height - offsetY > BAR_REVEAL_BAND_PX) return;
+  if (width > 0 && Math.abs(offsetX - width / 2) <= BAR_DEAD_SPOT_PX / 2)
+    return;
+  showUI();
 }
 
 function handleStageMouseMove(event: MouseEvent): void {
   const rect = stageRef.value?.getBoundingClientRect();
-  if (rect) revealNearBottom(event.clientY - rect.top, rect.height);
+  if (!rect) return;
+  revealNearBottom(
+    event.clientX - rect.left,
+    event.clientY - rect.top,
+    rect.width,
+    rect.height,
+  );
 }
 
-// The frame fills the stage, so its own viewport height is the bottom to
-// measure against.
+// Coordinates are measured against the viewport of whichever document the
+// pointer is actually in, which is not always the stage frame: the container
+// nests the stream inside a page of its own.
 function handleFrameMouseMove(event: MouseEvent): void {
-  revealNearBottom(event.clientY, streamFrame.value?.clientHeight ?? 0);
+  const frame = streamFrame.value;
+  const width = event.view?.innerWidth ?? frame?.clientWidth ?? 0;
+  const height = event.view?.innerHeight ?? frame?.clientHeight ?? 0;
+  revealNearBottom(event.clientX, event.clientY, width, height);
 }
 
 // Touch has no hover to track, and a tap is deliberate enough to mean it.
@@ -78,47 +110,82 @@ function handleTouchStart(): void {
   showUI();
 }
 
-// Attach pointer listeners inside the iframe when same-origin, so the bottom
-// edge of the stream itself raises the bar. Cross-origin containers report
+// Every same-origin window in the tree under the stage frame. The container
+// nests the stream inside a page of its own, and a pointer over one document
+// is invisible to all the others, so each one has to be listened to directly.
+function sameOriginFrames(win: Window | null, found: Window[] = []): Window[] {
+  if (!win) return found;
+  try {
+    void win.document.readyState;
+  } catch {
+    // Cross-origin frame: it reports nothing and cannot be reached into.
+    return found;
+  }
+  found.push(win);
+  for (let i = 0; i < win.frames.length; i += 1) {
+    sameOriginFrames(win.frames[i], found);
+  }
+  return found;
+}
+
+function detachFrameListeners(): void {
+  frameCleanups.forEach((off) => off());
+  frameCleanups = [];
+}
+
+// Listen in every frame, so the bottom edge of the stream itself raises the
+// bar wherever the pointer happens to be. Cross-origin containers report
 // nothing and fall back to the edge strip.
+//
+// A full re-scan rather than a one-time attach: a frame that has navigated is
+// a new document carrying none of our listeners, and the frame the container
+// streams into starts life as about:blank.
 function attachIframeListeners(): void {
   const frame = streamFrame.value;
   if (!frame) return;
 
-  iframeLoadCleanup?.();
-  iframeLoadCleanup = null;
+  detachFrameListeners();
+  focusStream();
 
-  const tryAttach = (): void => {
-    focusStream();
-    if (contentWindowCleanup) return;
-    try {
-      if (frame.contentWindow) {
-        frame.contentWindow.addEventListener("mousemove", handleFrameMouseMove);
-        frame.contentWindow.addEventListener("touchstart", handleTouchStart);
-        sameOrigin.value = true;
-        contentWindowCleanup = () => {
-          try {
-            frame.contentWindow?.removeEventListener(
-              "mousemove",
-              handleFrameMouseMove,
-            );
-            frame.contentWindow?.removeEventListener(
-              "touchstart",
-              handleTouchStart,
-            );
-          } catch {
-            // Cross-origin: listeners were never added, nothing to remove.
-          }
-        };
+  const frames = sameOriginFrames(frame.contentWindow);
+  sameOrigin.value = frames.length > 0;
+
+  frames.forEach((win) => {
+    win.addEventListener(
+      "mousemove",
+      handleFrameMouseMove,
+      FRAME_LISTENER_OPTS,
+    );
+    win.addEventListener("touchstart", handleTouchStart, FRAME_LISTENER_OPTS);
+    frameCleanups.push(() => {
+      try {
+        win.removeEventListener(
+          "mousemove",
+          handleFrameMouseMove,
+          FRAME_LISTENER_OPTS,
+        );
+        win.removeEventListener(
+          "touchstart",
+          handleTouchStart,
+          FRAME_LISTENER_OPTS,
+        );
+      } catch {
+        // The frame navigated away and took its listeners with it.
       }
-    } catch {
-      // Cross-origin container, can't access contentWindow.
-    }
-  };
+    });
 
-  frame.addEventListener("load", tryAttach);
-  iframeLoadCleanup = () => frame.removeEventListener("load", tryAttach);
-  tryAttach();
+    win.document.querySelectorAll("iframe").forEach((nested) => {
+      nested.addEventListener("load", attachIframeListeners);
+      frameCleanups.push(() =>
+        nested.removeEventListener("load", attachIframeListeners),
+      );
+    });
+  });
+
+  frame.addEventListener("load", attachIframeListeners);
+  frameCleanups.push(() =>
+    frame.removeEventListener("load", attachIframeListeners),
+  );
 }
 
 function clearAttachTimeouts(): void {
@@ -178,8 +245,7 @@ onBeforeUnmount(() => {
   document.removeEventListener("fullscreenchange", onFullscreenChange);
   if (uiTimeout) clearTimeout(uiTimeout);
   clearAttachTimeouts();
-  iframeLoadCleanup?.();
-  contentWindowCleanup?.();
+  detachFrameListeners();
 });
 
 defineExpose({
@@ -213,18 +279,18 @@ defineExpose({
     />
 
     <!-- A cross-origin frame swallows the pointer, so there the only way to
-         reach the bar is a strip of our own along the bottom edge. -->
+         reach the bar is a strip of our own across the bottom of the stage. -->
     <div
       v-if="!sameOrigin"
       class="r-v2-stage__edge"
-      @mousemove="showUI"
+      @mousemove="handleStageMouseMove"
       @touchstart="handleTouchStart"
     />
 
     <div
       class="r-v2-stage__bar"
       :class="{ 'r-v2-stage__bar--visible': isUIVisible }"
-      @mousemove="showUI"
+      @mousemove="handleStageMouseMove"
     >
       <slot
         name="bar"
@@ -260,8 +326,8 @@ defineExpose({
 .r-v2-stage__edge {
   position: absolute;
   left: 0;
-  bottom: 0;
-  width: 100%;
+  right: 0;
+  bottom: v-bind(hotEdgeBottom);
   height: v-bind(hotEdgeHeight);
   z-index: 5;
   background: transparent;
