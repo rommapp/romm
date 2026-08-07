@@ -281,9 +281,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             and platform_elem is not None
                                             and platform_elem.text
                                         ):
-                                            # The same dump filename exists on
-                                            # several platforms, so the key has
-                                            # to carry the platform too.
+                                            # The same dump filename exists on several platforms,
+                                            # so the key has to carry the platform too.
                                             await writer.hset(
                                                 LAUNCHBOX_FILES_KEY,
                                                 f"{filename_elem.text.strip().lower()}"
