@@ -353,6 +353,44 @@ class TestExtractMediaFromSsGame:
             },
         )
 
+    def test_box2d_path_set_when_in_config(self):
+        """When 'box2d' is in SCAN_MEDIA the box front is persisted locally, so it
+        stays reachable when another provider wins the cover."""
+        config = _make_config(scan_media=["box2d"])
+        rom = self._make_rom()
+        game = self._make_game_with_box_faces()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["box2d_url"] is not None
+        assert "box-2D" in result["box2d_url"]
+        assert result["box2d_path"] == "roms/1/100/box2d/box2d.png"
+
+    def test_box2d_path_not_set_when_absent_from_config(self):
+        """Without 'box2d' in SCAN_MEDIA the front URL is kept but not stored."""
+        config = _make_config(scan_media=["box2d_back"])
+        rom = self._make_rom()
+        game = self._make_game_with_box_faces()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["box2d_url"] is not None
+        assert result["box2d_path"] is None
+
     def test_box2d_side_path_set_when_in_config(self):
         """When 'box2d_side' is in SCAN_MEDIA the spine is persisted locally."""
         config = _make_config(scan_media=["box2d", "box2d_back", "box2d_side"])

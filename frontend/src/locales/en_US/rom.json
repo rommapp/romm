@@ -204,6 +204,7 @@
   "match-this-game": "Match this game",
   "media": "Media",
   "media-bezel": "Bezel",
+  "media-box2d": "Box (2D, front)",
   "media-box2d-back": "Box (2D, back)",
   "media-box2d-side": "Box (2D, side)",
   "media-box3d": "Box (3D)",
