@@ -277,11 +277,7 @@ onMounted(() => {
   }
 });
 
-// Fields a search term is matched against. Beyond the display name,
-// these are the identifiers a user already knows a platform by: the
-// slug used in URLs and provider ids, the folder it lives in on disk,
-// and the two group-by axes the list view exposes as columns. Category
-// contributes both the raw IGDB value and the prettified label, since
+// Category contributes both the raw IGDB value and the prettified label, since
 // the label is what the UI shows ("Portable console") while the raw
 // value is what the rest of the app stores ("portable_console").
 function searchFields(p: Platform): string[] {
