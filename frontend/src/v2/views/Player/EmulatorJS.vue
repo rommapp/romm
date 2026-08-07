@@ -57,7 +57,12 @@ import {
   resolveBezelUrl,
   resolveStoredBezelVisible,
 } from "@/v2/utils/playerBezel";
-import { resolveStoredDisc } from "@/v2/utils/playerDisc";
+import {
+  ALL_DISCS,
+  bootDiscId,
+  resolveStoredDisc,
+  type DiscSelection,
+} from "@/v2/utils/playerDisc";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
@@ -121,7 +126,7 @@ const heroRom = computed<DetailedRom | SimpleRom | null>(
 );
 const isSavesTabSelected = ref(true);
 const selectedState = ref<StateSchema | null>(null);
-const selectedDisc = ref<number | null>(null);
+const selectedDisc = ref<DiscSelection>(null);
 const selectedCore = ref<string | null>(null);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
@@ -190,6 +195,16 @@ const compatibleStates = computed(
       (s) => !s.emulator || s.emulator === selectedCore.value,
     ) ?? [],
 );
+
+// Booting every file at once hands EmulatorJS the whole set plus an .m3u
+// playlist, which unlocks its in-game disc switcher for multi-disc games.
+const discItems = computed<{ title: string; value: DiscSelection }[]>(() => [
+  { title: t("play.all-discs"), value: ALL_DISCS },
+  ...(rom.value?.files ?? []).map((f) => ({
+    title: f.file_name,
+    value: f.id,
+  })),
+]);
 
 const setBgArt = useBackgroundArt();
 
@@ -421,11 +436,11 @@ onMounted(async () => {
   // Validate the saved disc against the rom's current files: a rescan can
   // leave a stale id behind that would 404 the download (issue #3938).
   const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
-  const { discId, stale } = resolveStoredDisc(storedDisc, rom.value.files);
+  const { disc, stale } = resolveStoredDisc(storedDisc, rom.value.files);
   if (stale) {
     localStorage.removeItem(`player:${rom.value.id}:disc`);
   }
-  selectedDisc.value = discId;
+  selectedDisc.value = disc;
 
   // Prefer the core saved for this game, then the platform default, validating
   // each candidate so a stale entry falls through instead of masking the next
@@ -714,15 +729,9 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
             variant="outlined"
             density="comfortable"
             prepend-inner-icon="mdi-disc"
-            clearable
             hide-details
             :label="t('rom.file')"
-            :items="
-              (rom?.files ?? []).map((f) => ({
-                title: f.file_name,
-                value: f.id,
-              }))
-            "
+            :items="discItems"
           />
           <RSelect
             v-if="supportedCores.length > 1"
@@ -788,7 +797,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
         :save="selectedSave"
         :bios="selectedFirmware"
         :core="selectedCore"
-        :disc="selectedDisc"
+        :disc="bootDiscId(selectedDisc)"
       />
       <!-- Bezel overlay drawn around the game canvas. Purely decorative and
            click-through, so pointer events reach the emulator underneath. In
