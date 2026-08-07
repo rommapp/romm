@@ -464,7 +464,7 @@ function saveAsSmartCollection() {
     <!-- ── Boolean tri-state filters ────────────────────────── -->
     <section class="r-v2-fd__section">
       <h3 class="r-v2-fd__heading">
-        {{ t("platform.show") }}
+        {{ t("platform.properties") }}
       </h3>
       <div class="r-v2-fd__bool-rows">
         <div
