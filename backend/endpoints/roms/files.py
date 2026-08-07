@@ -18,9 +18,11 @@ from handler.filesystem import fs_rom_handler
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.download_event import DownloadKind
 from models.permission import PermAction, PermEntity
 from models.rom import RomFileCategory
 from utils.audio_tags import guess_audio_media_type
+from utils.downloads import record_rom_download
 from utils.media_types import (
     guess_media_file_type,
     is_allowed_document_file,
@@ -130,6 +132,12 @@ async def get_romfile_content(
     # keeps the browser from sniffing them into anything script-capable (e.g. a
     # Markdown manual into HTML).
     headers = {"X-Content-Type-Options": "nosniff"} if disposition == "inline" else {}
+
+    # Inline media (soundtrack tracks, manual pages, cover art) is rendered in
+    # the details view rather than saved, so only attachments count as a
+    # download. Otherwise opening a game page would inflate its stats.
+    if disposition == "attachment":
+        record_rom_download(request, rom, [file], kind=DownloadKind.FILE)
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:

@@ -92,6 +92,8 @@ export type DetailedRomSchema = {
     updated_at: string;
     missing_from_fs: boolean;
     has_notes: boolean;
+    download_count: number;
+    last_downloaded_at: (string | null);
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);

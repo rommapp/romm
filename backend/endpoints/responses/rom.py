@@ -341,6 +341,10 @@ class RomSchema(BaseModel):
     missing_from_fs: bool
     has_notes: bool
 
+    # Aggregate only. Who downloaded what stays in the admin-only download log.
+    download_count: int
+    last_downloaded_at: UTCDatetime | None
+
     rom_user: RomUserSchema
     merged_screenshots: list[str]
     merged_ra_metadata: RomRAMetadata | None

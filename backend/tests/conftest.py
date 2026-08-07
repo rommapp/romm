@@ -26,6 +26,7 @@ from models.assets import Save, Screenshot, State
 from models.client_token import ClientToken
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
+from models.download_event import DownloadEvent
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
@@ -90,6 +91,7 @@ def setup_database():
 @pytest.fixture(autouse=True)
 def clear_database():
     with session.begin() as s:
+        s.query(DownloadEvent).delete(synchronize_session="evaluate")
         s.query(PlaySession).delete(synchronize_session="evaluate")
         s.query(ClientToken).delete(synchronize_session="evaluate")
         s.query(SyncSession).delete(synchronize_session="evaluate")

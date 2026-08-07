@@ -5,7 +5,11 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from config.config_manager import MetadataMediaType
-from handler.database import db_collection_handler, db_rom_handler
+from handler.database import (
+    db_collection_handler,
+    db_download_handler,
+    db_rom_handler,
+)
 from handler.database.base_handler import sync_session
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
@@ -1900,3 +1904,55 @@ class TestUnmatchMetadata:
         assert body["igdb_id"] is None
         assert body["name"] == rom.fs_name
         assert body["summary"] == ""
+
+
+def test_get_rom_content_records_download(
+    client: TestClient, access_token: str, rom: Rom, rom_file
+):
+    client.get(
+        f"/api/roms/{rom.id}/content/test_rom.zip",
+        headers={"Authorization": f"Bearer {access_token}"},
+        follow_redirects=False,
+    )
+
+    page = db_download_handler.get_download_log(rom_id=rom.id)
+    assert page["total"] == 1
+    entry = page["items"][0]
+    assert entry["kind"] == "rom"
+    assert entry["size_bytes"] == rom_file.file_size_bytes
+
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    assert refreshed.download_count == 1
+
+
+def test_failed_rom_download_records_nothing(
+    client: TestClient, access_token: str, rom: Rom, rom_file
+):
+    # A 404 must not leave a phantom row behind.
+    client.get(
+        f"/api/roms/{rom.id}/content/test_rom.zip",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"file_ids": str(rom_file.id + 999)},
+        follow_redirects=False,
+    )
+
+    assert db_download_handler.get_download_log(rom_id=rom.id)["total"] == 0
+
+
+def test_download_recording_failure_does_not_break_download(
+    client: TestClient, access_token: str, rom: Rom, rom_file
+):
+    # Stats are best-effort: a broken recorder must still serve the bytes.
+    with patch(
+        "utils.downloads.db_download_handler.record_download",
+        side_effect=RuntimeError("boom"),
+    ):
+        response = client.get(
+            f"/api/roms/{rom.id}/content/test_rom.zip",
+            headers={"Authorization": f"Bearer {access_token}"},
+            follow_redirects=False,
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert db_download_handler.get_download_log(rom_id=rom.id)["total"] == 0
