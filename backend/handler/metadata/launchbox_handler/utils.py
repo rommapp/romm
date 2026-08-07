@@ -4,6 +4,7 @@ from pathlib import Path
 
 from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from models.base import compute_file_name_no_ext, compute_file_name_no_tags
+from models.rom import ARTICLES
 
 from .types import LAUNCHBOX_LOCAL_DIR
 
@@ -20,8 +21,7 @@ _LAUNCHBOX_REGION_OVERRIDES: dict[str, str] = {
 # LaunchBox keeps in front. The article has to sit at the end of the title or
 # right before a subtitle colon, so the group is anchored on both sides.
 _INVERTED_ARTICLE_REGEX = re.compile(
-    r"^(?P<title>.+?), (?P<article>the|a|an|le|la|les|el|los|las|il|lo|gli|der|die|das|het)"
-    r"(?P<subtitle>:.*)?$",
+    rf"^(?P<title>.+?), (?P<article>{'|'.join(ARTICLES)})(?P<subtitle>:.*)?$",
     re.IGNORECASE,
 )
 

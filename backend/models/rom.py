@@ -50,7 +50,28 @@ from utils.database import CustomJSON
 NAME_SORT_KEY_MAX_LENGTH = 500
 # Max length for free-text audio tag columns (title/artist/album).
 AUDIO_TAG_MAX_LENGTH = 512
-ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
+# Articles ignored when sorting or bucketing a title, across the languages
+# No-Intro and LaunchBox name games in. Both patterns built from this are
+# anchored on the right, so "la" preceding "las" costs nothing.
+ARTICLES = (
+    "the",
+    "a",
+    "an",
+    "le",
+    "la",
+    "les",
+    "el",
+    "los",
+    "las",
+    "il",
+    "lo",
+    "gli",
+    "der",
+    "die",
+    "das",
+    "het",
+)
+ARTICLE_PREFIX_RE = re.compile(rf"^({'|'.join(ARTICLES)})\s+")
 DIGIT_RUN_RE = re.compile(r"\d+")
 
 
