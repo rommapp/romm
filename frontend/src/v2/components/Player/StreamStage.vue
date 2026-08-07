@@ -16,9 +16,14 @@ const props = withDefaults(
   { active: true },
 );
 
-// How close to the bottom edge the pointer has to get before the bar appears.
-// A hot edge, not a band: the container has its own taskbar down there and the
-// bar must not compete with it for clicks.
+// How close to the bottom the pointer has to get before the bar appears. Kept
+// under the bar's own height so a cursor resting near the bottom of the stream
+// does not keep summoning it.
+const BAR_REVEAL_BAND_PX = 16;
+
+// The cross-origin fallback strip is an overlay, so its height is stolen from
+// the container's own taskbar. It stays a hot edge rather than the full band
+// above: any pixel it covers is a pixel the desktop below cannot be clicked on.
 const BAR_HOT_EDGE_PX = 8;
 const hotEdgeHeight = `${BAR_HOT_EDGE_PX}px`;
 
@@ -54,7 +59,7 @@ function focusStream(): void {
 }
 
 function revealNearBottom(offsetY: number, height: number): void {
-  if (height - offsetY <= BAR_HOT_EDGE_PX) showUI();
+  if (height - offsetY <= BAR_REVEAL_BAND_PX) showUI();
 }
 
 function handleStageMouseMove(event: MouseEvent): void {
