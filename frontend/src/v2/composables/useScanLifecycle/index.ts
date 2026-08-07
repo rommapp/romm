@@ -47,10 +47,6 @@ export function installScanLifecycle() {
   const authStore = storeAuth();
   const emitter = inject<Emitter<Events>>("emitter");
 
-  // Guards for `reconcileWithRunningScan` below.
-  let sawScanEnd = false;
-  let reconciledForUserId: number | null = null;
-
   useSocketEvent<ScanningPlatform>(
     "scan:scanning_platform",
     ({
@@ -184,7 +180,7 @@ export function installScanLifecycle() {
   });
 
   useSocketEvent<ScanStats>("scan:done", (stats) => {
-    sawScanEnd = true;
+    markScanEnded();
     scanningStore.setScanStats(stats);
     scanningStore.setScanning(false);
     // Reconcile against the backend once the scan settles: pick up anything
@@ -199,7 +195,7 @@ export function installScanLifecycle() {
   });
 
   useSocketEvent<string>("scan:done_ko", (msg) => {
-    sawScanEnd = true;
+    markScanEnded();
     scanningStore.setScanning(false);
     emitter?.emit("snackbarShow", {
       msg: `Scan failed: ${msg}`,
@@ -216,18 +212,21 @@ export function installScanLifecycle() {
   // `/tasks/status` needs `tasks.run`, the same scope the `scan` socket
   // handler gates on, so anyone who could have started this scan can read it
   // back. Users without it stay purely event-driven.
+  let sawScanEnd = false;
+  function markScanEnded() {
+    sawScanEnd = true;
+  }
+
+  // Reconciles once per eligible user: collapsing the source to an id keeps
+  // unrelated profile updates from re-firing it, and re-arms if the scope
+  // shows up later.
   watch(
-    () => authStore.user,
-    (user) => {
-      if (!user) {
-        reconciledForUserId = null;
-        return;
-      }
-      // Once per login — the watch also fires when the user object is
-      // replaced by an unrelated profile update.
-      if (reconciledForUserId === user.id) return;
-      if (!user.oauth_scopes.includes("tasks.run")) return;
-      reconciledForUserId = user.id;
+    () =>
+      authStore.user?.oauth_scopes.includes("tasks.run")
+        ? authStore.user.id
+        : null,
+    (userId) => {
+      if (userId === null) return;
       sawScanEnd = false;
       reconcileWithRunningScan();
     },
