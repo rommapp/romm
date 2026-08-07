@@ -27,6 +27,7 @@
   "desktop-frame-title": "Container desktop",
   "desktop-subtitle": "Desktop session",
   "desktop-title": "Container desktop",
+  "download-memory-card": "Download card",
   "emulator": "Emulator",
   "error-hint-auth": "You may not have permission to stream, or your login session expired. Try signing in again.",
   "error-hint-broker": "The {label} container refused to launch the game. Check the container logs for details.",
@@ -51,6 +52,7 @@
   "memory-card-created": "Memory card created",
   "memory-card-delete-failed": "Could not delete the memory card",
   "memory-card-deleted": "Memory card deleted",
+  "memory-card-download-failed": "Could not download the memory card",
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "The newest card loads by default. Progress syncs back when you exit.",
   "memory-card-import-adopt": "Import this card",
@@ -62,6 +64,7 @@
   "memory-card-import-games": "Games on this card: {games}",
   "memory-card-import-size": "{size} in total",
   "memory-card-import-title": "Memory card found",
+  "memory-card-no-data": "This card has no saved data yet",
   "memory-card-no-versions": "No saved versions yet",
   "memory-card-rename-failed": "Could not rename the memory card",
   "memory-card-renamed": "Memory card renamed",
@@ -74,6 +77,8 @@
   "memory-card-unreadable-title": "Memory card could not be read",
   "memory-card-unreadable-warning": "The existing card will be erased and cannot be recovered.",
   "memory-card-updated": "Updated {when}",
+  "memory-card-upload-failed": "Could not upload the memory card",
+  "memory-card-uploaded": "Memory card uploaded",
   "memory-card-versions": "Version history",
   "memory-cards": "Memory cards",
   "memory-cards-empty": "You don't have any memory cards for this emulator yet.",
@@ -132,5 +137,6 @@
   "stream-unknown-game": "Unknown Game",
   "stream-unmute": "Unmute",
   "stream-volume": "Volume",
-  "streaming-description": "The game runs in a dedicated {label} container and streams straight to your browser."
+  "streaming-description": "The game runs in a dedicated {label} container and streams straight to your browser.",
+  "upload-memory-card": "Upload card"
 }

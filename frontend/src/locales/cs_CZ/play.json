@@ -27,6 +27,7 @@
   "desktop-frame-title": "Container desktop",
   "desktop-subtitle": "Desktop session",
   "desktop-title": "Container desktop",
+  "download-memory-card": "Stáhnout kartu",
   "emulator": "Emulátor",
   "error-hint-auth": "Možná nemáte oprávnění ke streamování nebo vaše relace vypršela. Zkuste se přihlásit znovu.",
   "error-hint-broker": "Kontejner {label} odmítl spustit hru. Podrobnosti najdete v protokolech kontejneru.",
@@ -51,6 +52,7 @@
   "memory-card-created": "Paměťová karta vytvořena",
   "memory-card-delete-failed": "Paměťovou kartu se nepodařilo odstranit",
   "memory-card-deleted": "Paměťová karta odstraněna",
+  "memory-card-download-failed": "Paměťovou kartu se nepodařilo stáhnout",
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "Ve výchozím nastavení se načte nejnovější karta. Postup se synchronizuje při ukončení.",
   "memory-card-import-adopt": "Importovat tuto kartu",
@@ -62,6 +64,7 @@
   "memory-card-import-games": "Hry na této kartě: {games}",
   "memory-card-import-size": "Celkem {size}",
   "memory-card-import-title": "Nalezena paměťová karta",
+  "memory-card-no-data": "Tato karta zatím neobsahuje žádná uložená data",
   "memory-card-no-versions": "Zatím žádné uložené verze",
   "memory-card-rename-failed": "Paměťovou kartu se nepodařilo přejmenovat",
   "memory-card-renamed": "Paměťová karta přejmenována",
@@ -74,6 +77,8 @@
   "memory-card-unreadable-title": "Paměťovou kartu se nepodařilo přečíst",
   "memory-card-unreadable-warning": "Stávající karta bude vymazána a nepůjde obnovit.",
   "memory-card-updated": "Aktualizováno {when}",
+  "memory-card-upload-failed": "Paměťovou kartu se nepodařilo nahrát",
+  "memory-card-uploaded": "Paměťová karta nahrána",
   "memory-card-versions": "Historie verzí",
   "memory-cards": "Paměťové karty",
   "memory-cards-empty": "Pro tento emulátor zatím nemáte žádné paměťové karty.",
@@ -132,5 +137,6 @@
   "stream-unknown-game": "Neznámá hra",
   "stream-unmute": "Zrušit ztlumení",
   "stream-volume": "Hlasitost",
-  "streaming-description": "Hra běží ve vyhrazeném kontejneru {label} a streamuje se přímo do vašeho prohlížeče."
+  "streaming-description": "Hra běží ve vyhrazeném kontejneru {label} a streamuje se přímo do vašeho prohlížeče.",
+  "upload-memory-card": "Nahrát kartu"
 }

@@ -27,6 +27,7 @@
   "desktop-frame-title": "Container desktop",
   "desktop-subtitle": "Desktop session",
   "desktop-title": "Container desktop",
+  "download-memory-card": "Pobierz kartę",
   "emulator": "Emulator",
   "error-hint-auth": "Możesz nie mieć uprawnień do streamowania lub twoja sesja wygasła. Spróbuj zalogować się ponownie.",
   "error-hint-broker": "Kontener {label} odmówił uruchomienia gry. Szczegóły znajdziesz w dziennikach kontenera.",
@@ -51,6 +52,7 @@
   "memory-card-created": "Utworzono kartę pamięci",
   "memory-card-delete-failed": "Nie udało się usunąć karty pamięci",
   "memory-card-deleted": "Usunięto kartę pamięci",
+  "memory-card-download-failed": "Nie udało się pobrać karty pamięci",
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "Domyślnie ładowana jest najnowsza karta. Postęp jest synchronizowany przy wyjściu.",
   "memory-card-import-adopt": "Importuj tę kartę",
@@ -62,6 +64,7 @@
   "memory-card-import-games": "Gry na tej karcie: {games}",
   "memory-card-import-size": "Łącznie {size}",
   "memory-card-import-title": "Znaleziono kartę pamięci",
+  "memory-card-no-data": "Ta karta nie ma jeszcze zapisanych danych",
   "memory-card-no-versions": "Brak zapisanych wersji",
   "memory-card-rename-failed": "Nie udało się zmienić nazwy karty pamięci",
   "memory-card-renamed": "Zmieniono nazwę karty pamięci",
@@ -74,6 +77,8 @@
   "memory-card-unreadable-title": "Nie udało się odczytać karty pamięci",
   "memory-card-unreadable-warning": "Istniejąca karta zostanie wymazana i nie będzie można jej odzyskać.",
   "memory-card-updated": "Zaktualizowano {when}",
+  "memory-card-upload-failed": "Nie udało się przesłać karty pamięci",
+  "memory-card-uploaded": "Przesłano kartę pamięci",
   "memory-card-versions": "Historia wersji",
   "memory-cards": "Karty pamięci",
   "memory-cards-empty": "Nie masz jeszcze żadnych kart pamięci dla tego emulatora.",
@@ -132,5 +137,6 @@
   "stream-unknown-game": "Nieznana gra",
   "stream-unmute": "Wyłącz wyciszenie",
   "stream-volume": "Głośność",
-  "streaming-description": "Gra działa w dedykowanym kontenerze {label} i jest strumieniowana bezpośrednio do twojej przeglądarki."
+  "streaming-description": "Gra działa w dedykowanym kontenerze {label} i jest strumieniowana bezpośrednio do twojej przeglądarki.",
+  "upload-memory-card": "Prześlij kartę"
 }

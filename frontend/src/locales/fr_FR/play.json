@@ -27,6 +27,7 @@
   "desktop-frame-title": "Container desktop",
   "desktop-subtitle": "Desktop session",
   "desktop-title": "Container desktop",
+  "download-memory-card": "Télécharger la carte",
   "emulator": "Émulateur",
   "error-hint-auth": "Vous n'avez peut-être pas l'autorisation de streamer, ou votre session a expiré. Essayez de vous reconnecter.",
   "error-hint-broker": "Le conteneur {label} a refusé de lancer le jeu. Consultez les journaux du conteneur pour plus de détails.",
@@ -51,6 +52,7 @@
   "memory-card-created": "Carte mémoire créée",
   "memory-card-delete-failed": "Impossible de supprimer la carte mémoire",
   "memory-card-deleted": "Carte mémoire supprimée",
+  "memory-card-download-failed": "Impossible de télécharger la carte mémoire",
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "La carte la plus récente est chargée par défaut. La progression est synchronisée à la sortie.",
   "memory-card-import-adopt": "Importer cette carte",
@@ -62,6 +64,7 @@
   "memory-card-import-games": "Jeux sur cette carte : {games}",
   "memory-card-import-size": "{size} au total",
   "memory-card-import-title": "Carte mémoire détectée",
+  "memory-card-no-data": "Cette carte ne contient pas encore de données enregistrées",
   "memory-card-no-versions": "Aucune version enregistrée pour le moment",
   "memory-card-rename-failed": "Impossible de renommer la carte mémoire",
   "memory-card-renamed": "Carte mémoire renommée",
@@ -74,6 +77,8 @@
   "memory-card-unreadable-title": "Impossible de lire la carte mémoire",
   "memory-card-unreadable-warning": "La carte existante sera effacée et ne pourra pas être récupérée.",
   "memory-card-updated": "Mise à jour {when}",
+  "memory-card-upload-failed": "Impossible d'envoyer la carte mémoire",
+  "memory-card-uploaded": "Carte mémoire envoyée",
   "memory-card-versions": "Historique des versions",
   "memory-cards": "Cartes mémoire",
   "memory-cards-empty": "Vous n'avez pas encore de carte mémoire pour cet émulateur.",
@@ -132,5 +137,6 @@
   "stream-unknown-game": "Jeu inconnu",
   "stream-unmute": "Rétablir le son",
   "stream-volume": "Volume",
-  "streaming-description": "Le jeu s'exécute dans un conteneur {label} dédié et est diffusé directement dans votre navigateur."
+  "streaming-description": "Le jeu s'exécute dans un conteneur {label} dédié et est diffusé directement dans votre navigateur.",
+  "upload-memory-card": "Envoyer une carte"
 }

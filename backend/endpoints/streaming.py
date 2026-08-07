@@ -42,17 +42,17 @@ from handler.database import (
 from handler.filesystem import fs_asset_handler
 from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import async_cache
-from handler.scan_handler import (
-    scan_memory_card_version,
-    scan_save,
-    scan_screenshot,
-    scan_state,
-)
+from handler.scan_handler import scan_save, scan_screenshot, scan_state
 from handler.socket_handler import socket_handler
 from models.assets import MemoryCard, State
 from models.rom import Rom
 from models.user import Role, User
 from utils.filesystem import sanitize_filename
+from utils.memory_cards import (
+    MEMORY_CARD_MAX_BYTES,
+    content_hash_of_bytes,
+    store_memory_card_version,
+)
 from utils.router import APIRouter
 
 log = logging.getLogger("romm")
@@ -1923,8 +1923,6 @@ async def _hydrate_saves_to_webstation(
 # game is stopped. This REPLACES the /save-file in-game-save path above for that
 # container; save-STATE sync is untouched.
 
-_MEMORY_CARD_MAX_BYTES = 256 * 1024 * 1024
-
 
 def _empty_zip_bytes() -> bytes:
     buf = io.BytesIO()
@@ -1996,7 +1994,7 @@ def _fetch_memory_card(
         _, content = _broker_get_binary(
             container,
             _memory_card_route(container),
-            max_bytes=_MEMORY_CARD_MAX_BYTES,
+            max_bytes=MEMORY_CARD_MAX_BYTES,
             timeout=timeout,
         )
         return content
@@ -2147,89 +2145,6 @@ async def _hydrate_memory_card_to_broker(
     return ok
 
 
-def _content_hash_of_bytes(content: bytes) -> str | None:
-    """Compute the dedup hash of a card without writing it to disk. Mirrors
-    fs_asset_handler.compute_content_hash exactly (zip-entry hash for zips,
-    plain md5 otherwise, None on failure) so it matches stored content_hash
-    values. Must stay in lockstep with that implementation.
-    """
-    try:
-        buf = io.BytesIO(content)
-        if zipfile.is_zipfile(buf):
-            with zipfile.ZipFile(buf, "r") as zf:
-                file_hashes = []
-                for name in sorted(zf.namelist()):
-                    if not name.endswith("/"):
-                        entry = zf.read(name)
-                        entry_hash = hashlib.md5(
-                            entry, usedforsecurity=False
-                        ).hexdigest()
-                        file_hashes.append(f"{name}:{entry_hash}")
-                combined = "\n".join(file_hashes)
-                return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
-        return hashlib.md5(content, usedforsecurity=False).hexdigest()
-    except Exception as exc:
-        log.debug("could not hash memory card in memory, %s", exc)
-        return None
-
-
-async def _store_memory_card_version(
-    user: User, card: MemoryCard, emulator: str, content: bytes
-) -> bool:
-    """Store an evacuated card as a new MemoryCardVersion. Identical content is
-    deduplicated by hash so repeated exits do not pile up copies. Either way the
-    card's updated_at is bumped so it floats to the top of the next pick list.
-    Returns True when a new version was actually stored.
-    """
-    # Most exits leave the card unchanged, so check the hash in memory first
-    # and skip the disk round-trip for a card that already has this content.
-    content_hash = _content_hash_of_bytes(content)
-    if content_hash:
-        existing = db_memory_card_handler.get_version_by_content_hash(
-            card_id=card.id, content_hash=content_hash
-        )
-        if existing is not None:
-            db_memory_card_handler.update_card(
-                card.id, {"updated_at": datetime.now(timezone.utc)}
-            )
-            return False
-
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H-%M-%S")
-    filename = sanitize_filename(f"{card.name} [{ts}].card.zip")
-    cards_path = fs_asset_handler.build_memory_cards_file_path(
-        user=user, emulator=emulator, card_id=card.id
-    )
-    await fs_asset_handler.write_file(file=content, path=cards_path, filename=filename)
-
-    version = await scan_memory_card_version(
-        file_name=filename, user=user, emulator=emulator, card_id=card.id
-    )
-
-    # Fallback dedup on the scanned hash, for when the in-memory hash could
-    # not be computed. Keeps duplicates out even when the precheck misses.
-    stored = True
-    if version.content_hash:
-        existing = db_memory_card_handler.get_version_by_content_hash(
-            card_id=card.id, content_hash=version.content_hash
-        )
-        if existing is not None:
-            try:
-                await fs_asset_handler.remove_file(f"{cards_path}/{filename}")
-            except FileNotFoundError:
-                pass
-            stored = False
-
-    if stored:
-        db_memory_card_handler.add_version(version)
-
-    # Touch the card so "most recent" ordering reflects this session even when
-    # the content was unchanged (updated_at has no onupdate on add_version).
-    db_memory_card_handler.update_card(
-        card.id, {"updated_at": datetime.now(timezone.utc)}
-    )
-    return stored
-
-
 def _adoption_already_stored(card_id: int, content: bytes | None) -> bool:
     """Is the container's card already this card's latest version?
 
@@ -2242,7 +2157,7 @@ def _adoption_already_stored(card_id: int, content: bytes | None) -> bool:
     """
     if not content:
         return False
-    content_hash = _content_hash_of_bytes(content)
+    content_hash = content_hash_of_bytes(content)
     if not content_hash:
         return False
     latest = db_memory_card_handler.get_latest_version(card_id)
@@ -2281,7 +2196,7 @@ async def _evacuate_memory_card(
         log.info("broker slot empty, nothing to evacuate, card=%d", card_id)
         return True
     try:
-        stored = await _store_memory_card_version(user, card, emulator, content)
+        stored = await store_memory_card_version(user, card, emulator, content)
     except Exception:
         log.exception("failed to store evacuated memory card %d", card_id)
         return False
@@ -2807,7 +2722,7 @@ async def claim_session(
         if adopted:
             stored = False
             try:
-                stored = await _store_memory_card_version(
+                stored = await store_memory_card_version(
                     request.user,
                     memory_card,
                     _emulator_for_container(container),

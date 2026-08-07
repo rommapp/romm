@@ -27,6 +27,7 @@
   "desktop-frame-title": "Container desktop",
   "desktop-subtitle": "Desktop session",
   "desktop-title": "Container desktop",
+  "download-memory-card": "Kártya letöltése",
   "emulator": "Emulátor",
   "error-hint-auth": "Lehet, hogy nincs jogosultságod a streameléshez, vagy lejárt a munkameneted. Próbálj meg újra bejelentkezni.",
   "error-hint-broker": "A(z) {label} konténer megtagadta a játék indítását. A részletekért ellenőrizd a konténer naplóit.",
@@ -51,6 +52,7 @@
   "memory-card-created": "Memóriakártya létrehozva",
   "memory-card-delete-failed": "A memóriakártyát nem sikerült törölni",
   "memory-card-deleted": "Memóriakártya törölve",
+  "memory-card-download-failed": "A memóriakártyát nem sikerült letölteni",
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "Alapértelmezés szerint a legújabb kártya töltődik be. A haladás kilépéskor szinkronizálódik.",
   "memory-card-import-adopt": "Kártya importálása",
@@ -62,6 +64,7 @@
   "memory-card-import-games": "Játékok ezen a kártyán: {games}",
   "memory-card-import-size": "Összesen {size}",
   "memory-card-import-title": "Memóriakártya található",
+  "memory-card-no-data": "Ezen a kártyán még nincsenek mentett adatok",
   "memory-card-no-versions": "Még nincsenek mentett verziók",
   "memory-card-rename-failed": "A memóriakártyát nem sikerült átnevezni",
   "memory-card-renamed": "Memóriakártya átnevezve",
@@ -74,6 +77,8 @@
   "memory-card-unreadable-title": "A memóriakártyát nem sikerült beolvasni",
   "memory-card-unreadable-warning": "A meglévő kártya törlődik, és nem állítható vissza.",
   "memory-card-updated": "Frissítve: {when}",
+  "memory-card-upload-failed": "A memóriakártyát nem sikerült feltölteni",
+  "memory-card-uploaded": "Memóriakártya feltöltve",
   "memory-card-versions": "Verzióelőzmények",
   "memory-cards": "Memóriakártyák",
   "memory-cards-empty": "Még nincs memóriakártyád ehhez az emulátorhoz.",
@@ -132,5 +137,6 @@
   "stream-unknown-game": "Ismeretlen játék",
   "stream-unmute": "Némítás feloldása",
   "stream-volume": "Hangerő",
-  "streaming-description": "A játék egy dedikált {label} konténerben fut, és közvetlenül a böngésződbe streamel."
+  "streaming-description": "A játék egy dedikált {label} konténerben fut, és közvetlenül a böngésződbe streamel.",
+  "upload-memory-card": "Kártya feltöltése"
 }

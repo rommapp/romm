@@ -27,6 +27,7 @@
   "desktop-frame-title": "Container desktop",
   "desktop-subtitle": "Desktop session",
   "desktop-title": "Container desktop",
+  "download-memory-card": "Скачать карту",
   "emulator": "Эмулятор",
   "error-hint-auth": "Возможно, у вас нет прав на стриминг или ваша сессия истекла. Попробуйте войти снова.",
   "error-hint-broker": "Контейнер {label} отказался запустить игру. Подробности смотрите в журналах контейнера.",
@@ -51,6 +52,7 @@
   "memory-card-created": "Карта памяти создана",
   "memory-card-delete-failed": "Не удалось удалить карту памяти",
   "memory-card-deleted": "Карта памяти удалена",
+  "memory-card-download-failed": "Не удалось скачать карту памяти",
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "По умолчанию загружается новейшая карта. Прогресс синхронизируется при выходе.",
   "memory-card-import-adopt": "Импортировать эту карту",
@@ -62,6 +64,7 @@
   "memory-card-import-games": "Игры на этой карте: {games}",
   "memory-card-import-size": "Всего {size}",
   "memory-card-import-title": "Найдена карта памяти",
+  "memory-card-no-data": "На этой карте пока нет сохранённых данных",
   "memory-card-no-versions": "Пока нет сохранённых версий",
   "memory-card-rename-failed": "Не удалось переименовать карту памяти",
   "memory-card-renamed": "Карта памяти переименована",
@@ -74,6 +77,8 @@
   "memory-card-unreadable-title": "Не удалось прочитать карту памяти",
   "memory-card-unreadable-warning": "Существующая карта будет стёрта, и восстановить её не получится.",
   "memory-card-updated": "Обновлено {when}",
+  "memory-card-upload-failed": "Не удалось загрузить карту памяти",
+  "memory-card-uploaded": "Карта памяти загружена",
   "memory-card-versions": "История версий",
   "memory-cards": "Карты памяти",
   "memory-cards-empty": "У вас пока нет карт памяти для этого эмулятора.",
@@ -132,5 +137,6 @@
   "stream-unknown-game": "Неизвестная игра",
   "stream-unmute": "Включить звук",
   "stream-volume": "Громкость",
-  "streaming-description": "Игра запускается в выделенном контейнере {label} и транслируется прямо в ваш браузер."
+  "streaming-description": "Игра запускается в выделенном контейнере {label} и транслируется прямо в ваш браузер.",
+  "upload-memory-card": "Загрузить карту"
 }

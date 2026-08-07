@@ -27,6 +27,7 @@
   "desktop-frame-title": "Container desktop",
   "desktop-subtitle": "Desktop session",
   "desktop-title": "Container desktop",
+  "download-memory-card": "Kartı indir",
   "emulator": "Emülatör",
   "error-hint-auth": "Yayın yapma izniniz olmayabilir veya oturumunuzun süresi dolmuş olabilir. Yeniden oturum açmayı deneyin.",
   "error-hint-broker": "{label} konteyneri oyunu başlatmayı reddetti. Ayrıntılar için konteyner günlüklerini kontrol edin.",
@@ -51,6 +52,7 @@
   "memory-card-created": "Hafıza kartı oluşturuldu",
   "memory-card-delete-failed": "Hafıza kartı silinemedi",
   "memory-card-deleted": "Hafıza kartı silindi",
+  "memory-card-download-failed": "Hafıza kartı indirilemedi",
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "Varsayılan olarak en yeni kart yüklenir. İlerleme, çıkışta senkronize edilir.",
   "memory-card-import-adopt": "Bu kartı içe aktar",
@@ -62,6 +64,7 @@
   "memory-card-import-games": "Bu karttaki oyunlar: {games}",
   "memory-card-import-size": "Toplam {size}",
   "memory-card-import-title": "Hafıza kartı bulundu",
+  "memory-card-no-data": "Bu kartta henüz kayıtlı veri yok",
   "memory-card-no-versions": "Henüz kayıtlı sürüm yok",
   "memory-card-rename-failed": "Hafıza kartı yeniden adlandırılamadı",
   "memory-card-renamed": "Hafıza kartı yeniden adlandırıldı",
@@ -74,6 +77,8 @@
   "memory-card-unreadable-title": "Hafıza kartı okunamadı",
   "memory-card-unreadable-warning": "Mevcut kart silinecek ve geri getirilemeyecek.",
   "memory-card-updated": "{when} güncellendi",
+  "memory-card-upload-failed": "Hafıza kartı yüklenemedi",
+  "memory-card-uploaded": "Hafıza kartı yüklendi",
   "memory-card-versions": "Sürüm geçmişi",
   "memory-cards": "Hafıza kartları",
   "memory-cards-empty": "Bu emülatör için henüz hiç hafıza kartınız yok.",
@@ -132,5 +137,6 @@
   "stream-unknown-game": "Bilinmeyen oyun",
   "stream-unmute": "Sesi aç",
   "stream-volume": "Ses düzeyi",
-  "streaming-description": "Oyun, özel bir {label} konteynerinde çalışır ve doğrudan tarayıcınıza yayınlanır."
+  "streaming-description": "Oyun, özel bir {label} konteynerinde çalışır ve doğrudan tarayıcınıza yayınlanır.",
+  "upload-memory-card": "Kart yükle"
 }

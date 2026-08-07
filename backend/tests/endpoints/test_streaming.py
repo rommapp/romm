@@ -2874,12 +2874,12 @@ def test_store_memory_card_version_stores_new(admin_user: User):
     with (
         patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch(
-            "endpoints.streaming.scan_memory_card_version",
+            "utils.memory_cards.scan_memory_card_version",
             new=AsyncMock(return_value=scanned),
         ),
     ):
         stored = asyncio.run(
-            streaming._store_memory_card_version(
+            streaming.store_memory_card_version(
                 admin_user, card, "pcsx2", b"card-bytes"
             )
         )
@@ -2897,7 +2897,7 @@ def test_store_memory_card_version_dedups_identical(admin_user: User):
     with (
         patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
         patch(
-            "endpoints.streaming.scan_memory_card_version",
+            "utils.memory_cards.scan_memory_card_version",
             new=AsyncMock(return_value=scanned),
         ),
         patch(
@@ -2905,7 +2905,7 @@ def test_store_memory_card_version_dedups_identical(admin_user: User):
         ) as rm,
     ):
         stored = asyncio.run(
-            streaming._store_memory_card_version(
+            streaming.store_memory_card_version(
                 admin_user, card, "pcsx2", b"card-bytes"
             )
         )
@@ -2919,7 +2919,7 @@ def test_evacuate_memory_card_stores_snapshot(admin_user: User, rom: Rom):
     with (
         patch("endpoints.streaming._fetch_memory_card", return_value=b"card-bytes"),
         patch(
-            "endpoints.streaming._store_memory_card_version",
+            "endpoints.streaming.store_memory_card_version",
             new=AsyncMock(return_value=True),
         ) as store,
     ):
@@ -2941,7 +2941,7 @@ def test_evacuate_memory_card_confirmed_empty_is_safe_to_wipe(
     with (
         patch("endpoints.streaming._fetch_memory_card", return_value=None),
         patch(
-            "endpoints.streaming._store_memory_card_version", new=AsyncMock()
+            "endpoints.streaming.store_memory_card_version", new=AsyncMock()
         ) as store,
     ):
         ok = asyncio.run(
@@ -2965,7 +2965,7 @@ def test_evacuate_memory_card_unavailable_is_not_safe_to_wipe(
             side_effect=streaming._MemoryCardUnavailable("boom"),
         ),
         patch(
-            "endpoints.streaming._store_memory_card_version", new=AsyncMock()
+            "endpoints.streaming.store_memory_card_version", new=AsyncMock()
         ) as store,
     ):
         ok = asyncio.run(
@@ -3285,7 +3285,7 @@ def _adoption_storage(card_bytes: bytes):
             new=AsyncMock(return_value=card_bytes),
         ),
         patch(
-            "endpoints.streaming.scan_memory_card_version",
+            "utils.memory_cards.scan_memory_card_version",
             new=AsyncMock(side_effect=_scan),
         ),
     ):
@@ -3481,7 +3481,7 @@ def test_failed_adopt_aborts_the_claim_without_wiping(
         _streaming(container),
         patch("endpoints.streaming._fetch_memory_card", return_value=_gci_card_bytes()),
         patch(
-            "endpoints.streaming._store_memory_card_version",
+            "endpoints.streaming.store_memory_card_version",
             new=AsyncMock(side_effect=OSError("disk full")),
         ),
         patch("endpoints.streaming._push_memory_card", return_value=True) as push,
@@ -3518,7 +3518,7 @@ def test_adopt_retry_recovers_when_the_version_was_already_stored(
         _card_version(
             card.id,
             "My PS2 card [stored].card.zip",
-            streaming._content_hash_of_bytes(card_bytes),
+            streaming.content_hash_of_bytes(card_bytes),
         )
     )
     with (
@@ -3550,7 +3550,7 @@ def test_adopt_aborts_when_dedup_matches_an_older_version(
     older = _card_version(
         card.id,
         "My PS2 card [old].card.zip",
-        streaming._content_hash_of_bytes(card_bytes),
+        streaming.content_hash_of_bytes(card_bytes),
     )
     older.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
     newer = _card_version(card.id, "My PS2 card [newer].card.zip", "newer-hash")

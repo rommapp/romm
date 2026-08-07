@@ -27,6 +27,7 @@
   "desktop-frame-title": "Container desktop",
   "desktop-subtitle": "Desktop session",
   "desktop-title": "Container desktop",
+  "download-memory-card": "カードをダウンロード",
   "emulator": "エミュレーター",
   "error-hint-auth": "ストリーミングの権限がないか、ログインセッションの有効期限が切れている可能性があります。もう一度サインインしてみてください。",
   "error-hint-broker": "{label} コンテナがゲームの起動を拒否しました。詳細はコンテナのログを確認してください。",
@@ -51,6 +52,7 @@
   "memory-card-created": "メモリーカードを作成しました",
   "memory-card-delete-failed": "メモリーカードを削除できませんでした",
   "memory-card-deleted": "メモリーカードを削除しました",
+  "memory-card-download-failed": "メモリーカードをダウンロードできませんでした",
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "デフォルトで最新のカードが読み込まれます。終了時に進行状況が同期されます。",
   "memory-card-import-adopt": "このカードをインポート",
@@ -62,6 +64,7 @@
   "memory-card-import-games": "このカードのゲーム: {games}",
   "memory-card-import-size": "合計 {size}",
   "memory-card-import-title": "メモリーカードが見つかりました",
+  "memory-card-no-data": "このカードにはまだ保存されたデータがありません",
   "memory-card-no-versions": "保存されたバージョンはまだありません",
   "memory-card-rename-failed": "メモリーカードの名前を変更できませんでした",
   "memory-card-renamed": "メモリーカードの名前を変更しました",
@@ -74,6 +77,8 @@
   "memory-card-unreadable-title": "メモリーカードを読み取れませんでした",
   "memory-card-unreadable-warning": "既存のカードは消去され、復元できません。",
   "memory-card-updated": "{when} に更新",
+  "memory-card-upload-failed": "メモリーカードをアップロードできませんでした",
+  "memory-card-uploaded": "メモリーカードをアップロードしました",
   "memory-card-versions": "バージョン履歴",
   "memory-cards": "メモリーカード",
   "memory-cards-empty": "このエミュレーターのメモリーカードはまだありません。",
@@ -132,5 +137,6 @@
   "stream-unknown-game": "不明なゲーム",
   "stream-unmute": "ミュート解除",
   "stream-volume": "音量",
-  "streaming-description": "ゲームは専用の {label} コンテナで実行され、ブラウザに直接ストリーミングされます。"
+  "streaming-description": "ゲームは専用の {label} コンテナで実行され、ブラウザに直接ストリーミングされます。",
+  "upload-memory-card": "カードをアップロード"
 }

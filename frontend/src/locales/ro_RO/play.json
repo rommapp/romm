@@ -27,6 +27,7 @@
   "desktop-frame-title": "Container desktop",
   "desktop-subtitle": "Desktop session",
   "desktop-title": "Container desktop",
+  "download-memory-card": "Descarcă cardul",
   "emulator": "Emulator",
   "error-hint-auth": "Este posibil să nu ai permisiunea de a transmite sau sesiunea ta a expirat. Încearcă să te autentifici din nou.",
   "error-hint-broker": "Containerul {label} a refuzat să pornească jocul. Verifică jurnalele containerului pentru detalii.",
@@ -51,6 +52,7 @@
   "memory-card-created": "Card de memorie creat",
   "memory-card-delete-failed": "Cardul de memorie nu a putut fi șters",
   "memory-card-deleted": "Card de memorie șters",
+  "memory-card-download-failed": "Cardul de memorie nu a putut fi descărcat",
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "În mod implicit se încarcă cel mai recent card. Progresul se sincronizează la ieșire.",
   "memory-card-import-adopt": "Importă acest card",
@@ -62,6 +64,7 @@
   "memory-card-import-games": "Jocuri pe acest card: {games}",
   "memory-card-import-size": "{size} în total",
   "memory-card-import-title": "Card de memorie găsit",
+  "memory-card-no-data": "Acest card nu are încă date salvate",
   "memory-card-no-versions": "Încă nu există versiuni salvate",
   "memory-card-rename-failed": "Cardul de memorie nu a putut fi redenumit",
   "memory-card-renamed": "Card de memorie redenumit",
@@ -74,6 +77,8 @@
   "memory-card-unreadable-title": "Cardul de memorie nu a putut fi citit",
   "memory-card-unreadable-warning": "Cardul existent va fi șters și nu va putea fi recuperat.",
   "memory-card-updated": "Actualizat {when}",
+  "memory-card-upload-failed": "Cardul de memorie nu a putut fi încărcat",
+  "memory-card-uploaded": "Card de memorie încărcat",
   "memory-card-versions": "Istoricul versiunilor",
   "memory-cards": "Carduri de memorie",
   "memory-cards-empty": "Nu ai încă niciun card de memorie pentru acest emulator.",
@@ -132,5 +137,6 @@
   "stream-unknown-game": "Joc necunoscut",
   "stream-unmute": "Activează sunetul",
   "stream-volume": "Volum",
-  "streaming-description": "Jocul rulează într-un container {label} dedicat și este transmis direct în browserul tău."
+  "streaming-description": "Jocul rulează într-un container {label} dedicat și este transmis direct în browserul tău.",
+  "upload-memory-card": "Încarcă un card"
 }

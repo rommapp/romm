@@ -27,6 +27,7 @@
   "desktop-frame-title": "Container desktop",
   "desktop-subtitle": "Desktop session",
   "desktop-title": "Container desktop",
+  "download-memory-card": "下载记忆卡",
   "emulator": "模拟器",
   "error-hint-auth": "您可能没有串流权限，或者登录会话已过期。请尝试重新登录。",
   "error-hint-broker": "{label} 容器拒绝启动游戏。请查看容器日志以了解详情。",
@@ -51,6 +52,7 @@
   "memory-card-created": "已创建记忆卡",
   "memory-card-delete-failed": "无法删除记忆卡",
   "memory-card-deleted": "已删除记忆卡",
+  "memory-card-download-failed": "无法下载记忆卡",
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "默认加载最新的记忆卡。退出时会同步进度。",
   "memory-card-import-adopt": "导入此记忆卡",
@@ -62,6 +64,7 @@
   "memory-card-import-games": "此记忆卡上的游戏：{games}",
   "memory-card-import-size": "共 {size}",
   "memory-card-import-title": "发现记忆卡",
+  "memory-card-no-data": "此卡尚无已保存的数据",
   "memory-card-no-versions": "尚无已保存的版本",
   "memory-card-rename-failed": "无法重命名记忆卡",
   "memory-card-renamed": "已重命名记忆卡",
@@ -74,6 +77,8 @@
   "memory-card-unreadable-title": "无法读取记忆卡",
   "memory-card-unreadable-warning": "已有的记忆卡将被清除且无法恢复。",
   "memory-card-updated": "更新于 {when}",
+  "memory-card-upload-failed": "无法上传记忆卡",
+  "memory-card-uploaded": "已上传记忆卡",
   "memory-card-versions": "版本历史",
   "memory-cards": "记忆卡",
   "memory-cards-empty": "您还没有此模拟器的记忆卡。",
@@ -132,5 +137,6 @@
   "stream-unknown-game": "未知游戏",
   "stream-unmute": "取消静音",
   "stream-volume": "音量",
-  "streaming-description": "游戏在专用的 {label} 容器中运行，并直接串流到您的浏览器。"
+  "streaming-description": "游戏在专用的 {label} 容器中运行，并直接串流到您的浏览器。",
+  "upload-memory-card": "上传记忆卡"
 }

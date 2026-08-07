@@ -208,6 +208,23 @@ function isExpanded(id: number): boolean {
   return expanded.value.has(id);
 }
 
+async function loadVersions(cardId: number): Promise<void> {
+  const next = new Map(versions.value);
+  next.set(cardId, "loading");
+  versions.value = next;
+  try {
+    const { data } = await memoryCardApi.getMemoryCardVersions({ id: cardId });
+    const done = new Map(versions.value);
+    done.set(cardId, data);
+    versions.value = done;
+  } catch (err) {
+    console.warn("[memory-cards] Could not fetch versions:", err);
+    const done = new Map(versions.value);
+    done.set(cardId, []);
+    versions.value = done;
+  }
+}
+
 async function toggleVersions(card: MemoryCardSchema): Promise<void> {
   const open = new Set(expanded.value);
   if (open.has(card.id)) {
@@ -218,20 +235,7 @@ async function toggleVersions(card: MemoryCardSchema): Promise<void> {
   open.add(card.id);
   expanded.value = open;
   if (versions.value.has(card.id)) return;
-  const next = new Map(versions.value);
-  next.set(card.id, "loading");
-  versions.value = next;
-  try {
-    const { data } = await memoryCardApi.getMemoryCardVersions({ id: card.id });
-    const done = new Map(versions.value);
-    done.set(card.id, data);
-    versions.value = done;
-  } catch (err) {
-    console.warn("[memory-cards] Could not fetch versions:", err);
-    const done = new Map(versions.value);
-    done.set(card.id, []);
-    versions.value = done;
-  }
+  await loadVersions(card.id);
 }
 
 function versionList(id: number): MemoryCardVersionSchema[] {
@@ -240,6 +244,93 @@ function versionList(id: number): MemoryCardVersionSchema[] {
 }
 function versionsLoading(id: number): boolean {
   return versions.value.get(id) === "loading";
+}
+
+// ── Download / upload ───────────────────────────────────────────────
+const downloading = ref<Set<number>>(new Set());
+const uploading = ref(false);
+const uploadInput = ref<HTMLInputElement | null>(null);
+
+function filenameFromResponse(disposition: unknown, fallback: string): string {
+  const match = /filename="?([^";]+)"?/.exec(String(disposition ?? ""));
+  return match ? match[1] : fallback;
+}
+
+async function downloadCard(card: MemoryCardSchema): Promise<void> {
+  if (downloading.value.has(card.id)) return;
+  downloading.value = new Set(downloading.value).add(card.id);
+  try {
+    const response = await memoryCardApi.downloadMemoryCard({ id: card.id });
+    const url = URL.createObjectURL(response.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filenameFromResponse(
+      response.headers["content-disposition"],
+      `${card.name}.zip`,
+    );
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    // The body of a failed blob request is itself a blob, so the usual detail
+    // extraction has nothing to read: go by status instead.
+    const status = (err as { response?: { status?: number } })?.response
+      ?.status;
+    snackbar.error(
+      status === 404
+        ? t("play.memory-card-no-data")
+        : t("play.memory-card-download-failed"),
+      { icon: "mdi-close-circle" },
+    );
+  } finally {
+    const s = new Set(downloading.value);
+    s.delete(card.id);
+    downloading.value = s;
+  }
+}
+
+function pickUpload(): void {
+  const input = uploadInput.value;
+  if (!input) return;
+  // Clear first, so picking the same file twice still fires change.
+  input.value = "";
+  input.click();
+}
+
+async function onUploadPicked(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file || uploading.value) return;
+  uploading.value = true;
+  let created: MemoryCardSchema | null = null;
+  try {
+    const { data } = await memoryCardApi.createMemoryCard({
+      name: file.name.replace(/\.zip$/i, "").trim() || t("play.memory-card"),
+      emulator: props.emulator,
+      platform_id: props.platformId ?? null,
+    });
+    created = data;
+    await memoryCardApi.uploadMemoryCardVersion({ id: data.id, file });
+    await load(props.emulator);
+    emit("changed");
+    snackbar.success(t("play.memory-card-uploaded"), {
+      icon: "mdi-check-bold",
+    });
+  } catch (err) {
+    // A card whose upload failed holds nothing, so drop it rather than leave
+    // an empty card behind.
+    if (created) {
+      await memoryCardApi
+        .deleteMemoryCards({ cards: [created] })
+        .catch(() => undefined);
+    }
+    snackbar.error(errorText(err, "play.memory-card-upload-failed"), {
+      icon: "mdi-close-circle",
+    });
+  } finally {
+    uploading.value = false;
+  }
 }
 
 const hasCards = computed(() => cards.value.length > 0);
@@ -251,6 +342,15 @@ const hasCards = computed(() => cards.value.length > 0);
       <span class="r-mc-mgr__count">
         {{ t("play.memory-card-count", { count: cards.length }) }}
       </span>
+      <RBtn
+        variant="text"
+        size="small"
+        prepend-icon="mdi-upload"
+        :disabled="uploading"
+        @click="pickUpload"
+      >
+        {{ t("play.upload-memory-card") }}
+      </RBtn>
       <RBtn
         variant="text"
         size="small"
@@ -294,6 +394,15 @@ const hasCards = computed(() => cards.value.length > 0);
               :aria-label="t('play.memory-card-share-label')"
               :title="t('play.memory-card-share-label')"
               @update:model-value="(v) => toggleShare(card, v)"
+            />
+            <RBtn
+              variant="text"
+              size="small"
+              icon="mdi-download"
+              :disabled="downloading.has(card.id)"
+              :aria-label="t('play.download-memory-card')"
+              :title="t('play.download-memory-card')"
+              @click="downloadCard(card)"
             />
             <RBtn
               variant="text"
@@ -382,8 +491,25 @@ const hasCards = computed(() => cards.value.length > 0);
         >
           {{ t("play.new-memory-card") }}
         </RBtn>
+        <RBtn
+          variant="text"
+          prepend-icon="mdi-upload"
+          :disabled="uploading"
+          @click="pickUpload"
+        >
+          {{ t("play.upload-memory-card") }}
+        </RBtn>
       </template>
     </REmptyState>
+
+    <input
+      ref="uploadInput"
+      type="file"
+      accept=".zip,application/zip"
+      class="r-mc-mgr__file"
+      :aria-label="t('play.upload-memory-card')"
+      @change="onUploadPicked"
+    />
 
     <!-- Create dialog -->
     <RDialog
@@ -491,10 +617,10 @@ const hasCards = computed(() => cards.value.length > 0);
 .r-mc-mgr__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
 }
 .r-mc-mgr__count {
+  margin-right: auto;
   font-size: var(--r-font-size-sm);
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg-secondary);
@@ -566,6 +692,10 @@ const hasCards = computed(() => cards.value.length > 0);
 }
 .r-mc-mgr__toggle--on {
   color: var(--r-color-brand-primary);
+}
+
+.r-mc-mgr__file {
+  display: none;
 }
 
 /* ── Versions ──────────────────────────────────────────────────── */

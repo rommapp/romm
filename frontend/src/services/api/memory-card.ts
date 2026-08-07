@@ -28,6 +28,33 @@ async function getMemoryCardVersions({ id }: { id: number }) {
   return api.get<MemoryCardVersionSchema[]>(`/memory-cards/${id}/versions`);
 }
 
+// The card as it stands now, which is its newest version and also what the
+// next claim hydrates onto a container. 404s when it has never been synced.
+async function downloadMemoryCard({ id }: { id: number }) {
+  return api.get<Blob>(`/memory-cards/${id}/content`, {
+    responseType: "blob",
+  });
+}
+
+// Store a card image the user supplied as the card's newest version. Only the
+// zip layout the broker exchanges is accepted.
+async function uploadMemoryCardVersion({
+  id,
+  file,
+}: {
+  id: number;
+  file: File;
+}) {
+  const formData = new FormData();
+  formData.append("cardFile", file);
+
+  return api.post<MemoryCardVersionSchema>(
+    `/memory-cards/${id}/versions`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+}
+
 async function createMemoryCard(payload: MemoryCardCreatePayload) {
   return api.post<MemoryCardSchema>("/memory-cards", payload);
 }
@@ -58,6 +85,8 @@ export default {
   getMemoryCards,
   getSharedMemoryCards,
   getMemoryCardVersions,
+  downloadMemoryCard,
+  uploadMemoryCardVersion,
   createMemoryCard,
   renameMemoryCard,
   setMemoryCardVisibility,

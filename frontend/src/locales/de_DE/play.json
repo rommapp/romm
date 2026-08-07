@@ -27,6 +27,7 @@
   "desktop-frame-title": "Container desktop",
   "desktop-subtitle": "Desktop session",
   "desktop-title": "Container desktop",
+  "download-memory-card": "Karte herunterladen",
   "emulator": "Emulator",
   "error-hint-auth": "Möglicherweise hast du keine Berechtigung zum Streamen oder deine Sitzung ist abgelaufen. Versuche, dich erneut anzumelden.",
   "error-hint-broker": "Der {label}-Container hat den Start des Spiels abgelehnt. Prüfe die Container-Protokolle für Details.",
@@ -51,6 +52,7 @@
   "memory-card-created": "Speicherkarte erstellt",
   "memory-card-delete-failed": "Speicherkarte konnte nicht gelöscht werden",
   "memory-card-deleted": "Speicherkarte gelöscht",
+  "memory-card-download-failed": "Speicherkarte konnte nicht heruntergeladen werden",
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "Die neueste Karte wird standardmäßig geladen. Der Fortschritt wird beim Beenden zurücksynchronisiert.",
   "memory-card-import-adopt": "Diese Karte importieren",
@@ -62,6 +64,7 @@
   "memory-card-import-games": "Spiele auf dieser Karte: {games}",
   "memory-card-import-size": "{size} insgesamt",
   "memory-card-import-title": "Speicherkarte gefunden",
+  "memory-card-no-data": "Diese Karte enthält noch keine gespeicherten Daten",
   "memory-card-no-versions": "Noch keine gespeicherten Versionen",
   "memory-card-rename-failed": "Speicherkarte konnte nicht umbenannt werden",
   "memory-card-renamed": "Speicherkarte umbenannt",
@@ -74,6 +77,8 @@
   "memory-card-unreadable-title": "Speicherkarte konnte nicht gelesen werden",
   "memory-card-unreadable-warning": "Die vorhandene Karte wird gelöscht und kann nicht wiederhergestellt werden.",
   "memory-card-updated": "Aktualisiert {when}",
+  "memory-card-upload-failed": "Speicherkarte konnte nicht hochgeladen werden",
+  "memory-card-uploaded": "Speicherkarte hochgeladen",
   "memory-card-versions": "Versionsverlauf",
   "memory-cards": "Speicherkarten",
   "memory-cards-empty": "Du hast noch keine Speicherkarten für diesen Emulator.",
@@ -132,5 +137,6 @@
   "stream-unknown-game": "Unbekanntes Spiel",
   "stream-unmute": "Stummschaltung aufheben",
   "stream-volume": "Lautstärke",
-  "streaming-description": "Das Spiel läuft in einem dedizierten {label}-Container und wird direkt in deinen Browser gestreamt."
+  "streaming-description": "Das Spiel läuft in einem dedizierten {label}-Container und wird direkt in deinen Browser gestreamt.",
+  "upload-memory-card": "Karte hochladen"
 }

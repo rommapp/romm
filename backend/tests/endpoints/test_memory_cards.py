@@ -1,10 +1,14 @@
+import io
+import zipfile
 from unittest import mock
 
 from fastapi import status
+from tests._zipfile_shim import reload_zipfile
 
 from handler.database import db_memory_card_handler
 from models.assets import MemoryCard, MemoryCardVersion
 from models.platform import Platform
+from utils.memory_cards import content_hash_of_bytes
 
 
 def _auth(token: str) -> dict[str, str]:
@@ -229,6 +233,209 @@ def test_other_user_downloads_public_version(
 def test_download_missing_version_is_404(client, access_token: str):
     response = client.get(
         "/api/memory-cards/versions/99999/content", headers=_auth(access_token)
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+# --- Card content ---
+
+
+@mock.patch("endpoints.memory_cards.fs_asset_handler.validate_path")
+def test_owner_downloads_current_card_content(
+    mock_validate_path,
+    client,
+    access_token: str,
+    memory_card: MemoryCard,
+    memory_card_version: MemoryCardVersion,
+    tmp_path,
+):
+    test_file = tmp_path / "card.zip"
+    test_file.write_bytes(b"CURRENT_CARD")
+    mock_validate_path.return_value = test_file
+
+    response = client.get(
+        f"/api/memory-cards/{memory_card.id}/content", headers=_auth(access_token)
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.content == b"CURRENT_CARD"
+
+
+@mock.patch("endpoints.memory_cards.fs_asset_handler.validate_path")
+def test_download_serves_the_newest_version(
+    mock_validate_path,
+    client,
+    access_token: str,
+    memory_card: MemoryCard,
+    memory_card_version: MemoryCardVersion,
+    tmp_path,
+):
+    newest = db_memory_card_handler.add_version(
+        _version_for(memory_card.id, "newer.zip", "ffffffffffffffffffffffffffffffff")
+    )
+    test_file = tmp_path / "card.zip"
+    test_file.write_bytes(b"NEWEST_CARD")
+    mock_validate_path.return_value = test_file
+
+    response = client.get(
+        f"/api/memory-cards/{memory_card.id}/content", headers=_auth(access_token)
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.headers["content-disposition"].endswith(f'"{newest.file_name}"')
+
+
+def test_download_card_without_versions_is_404(
+    client, access_token: str, memory_card: MemoryCard
+):
+    response = client.get(
+        f"/api/memory-cards/{memory_card.id}/content", headers=_auth(access_token)
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_other_user_cannot_download_private_card_content(
+    client,
+    viewer_access_token: str,
+    memory_card: MemoryCard,
+    memory_card_version: MemoryCardVersion,
+):
+    response = client.get(
+        f"/api/memory-cards/{memory_card.id}/content",
+        headers=_auth(viewer_access_token),
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@mock.patch("endpoints.memory_cards.fs_asset_handler.validate_path")
+def test_other_user_downloads_public_card_content(
+    mock_validate_path,
+    client,
+    viewer_access_token: str,
+    memory_card: MemoryCard,
+    memory_card_version: MemoryCardVersion,
+    tmp_path,
+):
+    db_memory_card_handler.update_card(memory_card.id, {"is_public": True})
+    test_file = tmp_path / "card.zip"
+    test_file.write_bytes(b"SHARED_CARD")
+    mock_validate_path.return_value = test_file
+
+    response = client.get(
+        f"/api/memory-cards/{memory_card.id}/content",
+        headers=_auth(viewer_access_token),
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.content == b"SHARED_CARD"
+
+
+# --- Upload ---
+
+
+def _zip_bytes(members: dict[str, bytes]) -> bytes:
+    reload_zipfile()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, data in members.items():
+            zf.writestr(name, data)
+    return buf.getvalue()
+
+
+def _version_for(card_id: int, file_name: str, content_hash: str) -> MemoryCardVersion:
+    return MemoryCardVersion(
+        memory_card_id=card_id,
+        file_name=file_name,
+        file_name_no_tags=file_name,
+        file_name_no_ext=file_name,
+        file_extension="zip",
+        file_path="psx/memory_cards/pcsx2",
+        file_size_bytes=8.0,
+        content_hash=content_hash,
+    )
+
+
+def _stub_storage(card_id: int, file_name: str, content_hash: str):
+    """Keep a real store_memory_card_version call off the disk: the write is a
+    no-op and the scan hands back the version it would have produced."""
+
+    async def _scan(**kwargs):
+        return _version_for(card_id, file_name, content_hash)
+
+    return (
+        mock.patch(
+            "utils.memory_cards.fs_asset_handler.write_file", new=mock.AsyncMock()
+        ),
+        mock.patch(
+            "utils.memory_cards.scan_memory_card_version",
+            new=mock.AsyncMock(side_effect=_scan),
+        ),
+    )
+
+
+def test_upload_memory_card_version(client, access_token: str, memory_card: MemoryCard):
+    content = _zip_bytes({"Mcd001.ps2": b"card data"})
+    write_patch, scan_patch = _stub_storage(memory_card.id, "uploaded.zip", "uploaded")
+    with write_patch as write_file, scan_patch:
+        response = client.post(
+            f"/api/memory-cards/{memory_card.id}/versions",
+            files={"cardFile": ("card.zip", content, "application/zip")},
+            headers=_auth(access_token),
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["content_hash"] == "uploaded"
+    write_file.assert_awaited_once()
+    assert db_memory_card_handler.get_latest_version(memory_card.id).id == (
+        response.json()["id"]
+    )
+
+
+def test_upload_of_already_stored_content_still_becomes_newest(
+    client, access_token: str, memory_card: MemoryCard
+):
+    """Re-uploading a card the user downloaded earlier must not be deduplicated
+    away: the head version is what the next claim hydrates."""
+    content = _zip_bytes({"Mcd001.ps2": b"card data"})
+    hash_of_content = content_hash_of_bytes(content)
+    assert hash_of_content is not None
+    db_memory_card_handler.add_version(
+        _version_for(memory_card.id, "older.zip", hash_of_content)
+    )
+
+    write_patch, scan_patch = _stub_storage(
+        memory_card.id, "reuploaded.zip", hash_of_content
+    )
+    with write_patch, scan_patch:
+        response = client.post(
+            f"/api/memory-cards/{memory_card.id}/versions",
+            files={"cardFile": ("card.zip", content, "application/zip")},
+            headers=_auth(access_token),
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert len(db_memory_card_handler.get_versions(memory_card.id)) == 2
+    assert response.json()["file_name"] == "reuploaded.zip"
+
+
+def test_upload_non_zip_is_rejected(client, access_token: str, memory_card: MemoryCard):
+    """A bare card image is refused here rather than stored: nothing downstream
+    would notice until hydrate pushed it and the emulator rejected the card."""
+    response = client.post(
+        f"/api/memory-cards/{memory_card.id}/versions",
+        files={
+            "cardFile": ("Mcd001.ps2", b"raw card image", "application/octet-stream")
+        },
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_upload_to_another_users_card_is_404(
+    client, viewer_access_token: str, memory_card: MemoryCard
+):
+    db_memory_card_handler.update_card(memory_card.id, {"is_public": True})
+    response = client.post(
+        f"/api/memory-cards/{memory_card.id}/versions",
+        files={"cardFile": ("card.zip", _zip_bytes({"a": b"b"}), "application/zip")},
+        headers=_auth(viewer_access_token),
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 

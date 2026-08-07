@@ -122,11 +122,16 @@ class DBMemoryCardsHandler(DBBaseHandler):
         card_id: int,
         session: Session = None,  # type: ignore
     ) -> MemoryCardVersion | None:
-        """Newest snapshot of a card, used to hydrate a container at claim."""
+        """Newest snapshot of a card, used to hydrate a container at claim.
+
+        Ties on id, because created_at only has second resolution: an upload
+        landing in the same second as an evacuated snapshot would otherwise
+        hydrate arbitrarily.
+        """
         return session.scalar(
             select(MemoryCardVersion)
             .filter_by(memory_card_id=card_id)
-            .order_by(desc(MemoryCardVersion.created_at))
+            .order_by(desc(MemoryCardVersion.created_at), desc(MemoryCardVersion.id))
             .limit(1)
         )
 
@@ -164,7 +169,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
         return session.scalars(
             select(MemoryCardVersion)
             .filter_by(memory_card_id=card_id)
-            .order_by(desc(MemoryCardVersion.created_at))
+            .order_by(desc(MemoryCardVersion.created_at), desc(MemoryCardVersion.id))
         ).all()
 
     @begin_session

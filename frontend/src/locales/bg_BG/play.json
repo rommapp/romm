@@ -27,6 +27,7 @@
   "desktop-frame-title": "Container desktop",
   "desktop-subtitle": "Desktop session",
   "desktop-title": "Container desktop",
+  "download-memory-card": "Изтегляне на картата",
   "emulator": "Емулатор",
   "error-hint-auth": "Възможно е да нямате права за стрийминг или сесията ви да е изтекла. Опитайте да влезете отново.",
   "error-hint-broker": "Контейнерът {label} отказа да стартира играта. Проверете дневниците на контейнера за подробности.",
@@ -51,6 +52,7 @@
   "memory-card-created": "Картата памет е създадена",
   "memory-card-delete-failed": "Картата памет не може да бъде изтрита",
   "memory-card-deleted": "Картата памет е изтрита",
+  "memory-card-download-failed": "Картата памет не може да бъде изтеглена",
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "По подразбиране се зарежда най-новата карта. Напредъкът се синхронизира при изход.",
   "memory-card-import-adopt": "Импортирай тази карта",
@@ -62,6 +64,7 @@
   "memory-card-import-games": "Игри на тази карта: {games}",
   "memory-card-import-size": "Общо {size}",
   "memory-card-import-title": "Открита е карта памет",
+  "memory-card-no-data": "Тази карта все още няма запазени данни",
   "memory-card-no-versions": "Все още няма запазени версии",
   "memory-card-rename-failed": "Картата памет не може да бъде преименувана",
   "memory-card-renamed": "Картата памет е преименувана",
@@ -74,6 +77,8 @@
   "memory-card-unreadable-title": "Картата памет не можа да бъде прочетена",
   "memory-card-unreadable-warning": "Съществуващата карта ще бъде изтрита и няма да може да се възстанови.",
   "memory-card-updated": "Обновена {when}",
+  "memory-card-upload-failed": "Картата памет не може да бъде качена",
+  "memory-card-uploaded": "Картата памет е качена",
   "memory-card-versions": "История на версиите",
   "memory-cards": "Карти памет",
   "memory-cards-empty": "Все още нямате карти памет за този емулатор.",
@@ -132,5 +137,6 @@
   "stream-unknown-game": "Неизвестна игра",
   "stream-unmute": "Включване на звука",
   "stream-volume": "Сила на звука",
-  "streaming-description": "Играта работи в специален контейнер {label} и се предава директно към вашия браузър."
+  "streaming-description": "Играта работи в специален контейнер {label} и се предава директно към вашия браузър.",
+  "upload-memory-card": "Качване на карта"
 }

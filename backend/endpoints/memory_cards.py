@@ -1,6 +1,9 @@
+import io
+import zipfile
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import Body, HTTPException, Request, status
+from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel as PydanticBaseModel
 
@@ -16,13 +19,17 @@ from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import build_asset_file_response
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import MemoryCard
+from models.assets import MemoryCard, MemoryCardVersion
+from utils.memory_cards import MEMORY_CARD_MAX_BYTES, store_memory_card_version
 from utils.router import APIRouter
+from utils.uploads import check_asset_upload_size
 
 router = APIRouter(
     prefix="/memory-cards",
     tags=["memory-cards"],
 )
+
+MEMORY_CARD_FILE_UPLOAD = File(..., description="Memory card archive to upload.")
 
 
 class MemoryCardCreatePayload(PydanticBaseModel):
@@ -126,6 +133,23 @@ def get_shared_memory_cards(
     ]
 
 
+def _version_file_or_404(version: MemoryCardVersion) -> Path:
+    try:
+        file_path = fs_asset_handler.validate_path(version.full_path)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Memory card file not found",
+        ) from None
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Memory card file not found on disk",
+        )
+    return file_path
+
+
 @protected_route(
     router.get,
     "/versions/{id}/content",
@@ -144,21 +168,89 @@ def download_memory_card_version(request: Request, id: int) -> FileResponse:
     # Reuse the card visibility check on the parent.
     _card_or_404(version.memory_card_id, request.user.id)
 
-    try:
-        file_path = fs_asset_handler.validate_path(version.full_path)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Memory card file not found",
-        ) from None
+    return build_asset_file_response(
+        _version_file_or_404(version), filename=version.file_name
+    )
 
-    if not file_path.exists() or not file_path.is_file():
+
+@protected_route(
+    router.get,
+    "/{id}/content",
+    [Scope.ASSETS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def download_memory_card(request: Request, id: int) -> FileResponse:
+    """Download the card as it stands now, without going through its history.
+
+    This is the newest version, which is also what the next claim hydrates onto
+    a container, so what comes down here is what the emulator would boot with.
+    A card that has never been synced has nothing to serve and 404s."""
+    _card_or_404(id, request.user.id)
+
+    version = db_memory_card_handler.get_latest_version(id)
+    if not version:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Memory card file not found on disk",
+            detail="Memory card has no stored data yet",
         )
 
-    return build_asset_file_response(file_path, filename=version.file_name)
+    return build_asset_file_response(
+        _version_file_or_404(version), filename=version.file_name
+    )
+
+
+@protected_route(
+    router.post,
+    "/{id}/versions",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_413_CONTENT_TOO_LARGE: {},
+    },
+)
+async def upload_memory_card_version(
+    request: Request,
+    id: int,
+    cardFile: UploadFile = MEMORY_CARD_FILE_UPLOAD,
+) -> MemoryCardVersionSchema:
+    """Store a card image the user supplied as the card's newest version, which
+    is what the next claim hydrates onto the container (owner only).
+
+    Only the zip layout the broker exchanges is accepted. A bare card image
+    (`.ps2`, `.raw`) is refused rather than stored, because nothing downstream
+    would notice until hydrate pushed it and the emulator rejected the card.
+    """
+    check_asset_upload_size(cardFile, "Memory card file")
+    card = _owned_card_or_404(id, request.user.id)
+
+    content = await cardFile.read(MEMORY_CARD_MAX_BYTES + 1)
+    if len(content) > MEMORY_CARD_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=(
+                f"Memory card exceeds the maximum size of "
+                f"{MEMORY_CARD_MAX_BYTES} bytes"
+            ),
+        )
+    if not zipfile.is_zipfile(io.BytesIO(content)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Memory card upload must be a zip archive",
+        )
+
+    await store_memory_card_version(
+        request.user, card, card.emulator, content, deduplicate=False
+    )
+    version = db_memory_card_handler.get_latest_version(card.id)
+    if version is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Memory card upload was not stored",
+        )
+
+    log.info(f"Uploaded memory card {hl(card.name)} [{card.emulator}]")
+    return MemoryCardVersionSchema.model_validate(version)
 
 
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
