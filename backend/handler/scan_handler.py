@@ -331,6 +331,61 @@ async def scan_firmware(
     return Firmware(**firmware_attrs)
 
 
+async def resolve_launchbox_rom(
+    *,
+    rom: Rom,
+    fs_name: str,
+    platform_slug: str,
+    scan_type: ScanType,
+    playmatch_rom: PlaymatchRomMatch,
+    remote_enabled: bool,
+) -> LaunchboxRom:
+    """Resolve a ROM's LaunchBox match, by ID where one is known, else by filename."""
+    # An ID already on the ROM is a decision (often a manual match), so it is
+    # never traded for a filename guess.
+    if (
+        remote_enabled
+        and rom.launchbox_id
+        and (
+            scan_type == ScanType.UPDATE
+            or (scan_type == ScanType.UNMATCHED and not rom.launchbox_metadata)
+        )
+    ):
+        return await meta_launchbox_handler.get_rom_by_id(
+            rom.launchbox_id,
+            remote_enabled=True,
+            fs_name=fs_name,
+            platform_slug=platform_slug,
+        )
+
+    launchbox_rom = LaunchboxRom(launchbox_id=None)
+
+    if playmatch_rom["launchbox_id"] is not None and remote_enabled:
+        log.debug(
+            f"{hl(fs_name)} identified by Playmatch as LaunchBox "
+            f"{hl(str(playmatch_rom['launchbox_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+            extra=LOGGER_MODULE_NAME,
+        )
+        launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
+            playmatch_rom["launchbox_id"],
+            remote_enabled=True,
+            fs_name=fs_name,
+            platform_slug=platform_slug,
+        )
+
+    # Playmatch suggests an ID the metadata store may not hold, and on some
+    # platforms it answers for nearly every ROM. Letting that miss stand would
+    # strand the whole platform unmatched, so the filename lookup still runs.
+    if not launchbox_rom.get("launchbox_id"):
+        launchbox_rom = await meta_launchbox_handler.get_rom(
+            fs_name,
+            platform_slug,
+            remote_enabled=remote_enabled,
+        )
+
+    return launchbox_rom
+
+
 async def scan_rom(
     scan_type: ScanType,
     platform: Platform,
@@ -726,48 +781,14 @@ async def scan_rom(
                 and rom.platform_slug in LAUNCHBOX_PLATFORM_LIST
             )
         ):
-            if (
-                scan_type == ScanType.UPDATE
-                and rom.launchbox_id
-                and launchbox_remote_enabled
-            ):
-                launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
-                    rom.launchbox_id,
-                    remote_enabled=True,
-                    fs_name=rom_attrs["fs_name"],
-                    platform_slug=platform_slug,
-                )
-            elif (
-                scan_type == ScanType.UNMATCHED
-                and rom.launchbox_id
-                and not rom.launchbox_metadata
-                and launchbox_remote_enabled
-            ):
-                # ID was set manually but metadata was never fetched
-                launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
-                    rom.launchbox_id,
-                    remote_enabled=True,
-                    fs_name=rom_attrs["fs_name"],
-                    platform_slug=platform_slug,
-                )
-            elif playmatch_rom["launchbox_id"] is not None and launchbox_remote_enabled:
-                log.debug(
-                    f"{hl(rom_attrs['fs_name'])} identified by Playmatch as LaunchBox "
-                    f"{hl(str(playmatch_rom['launchbox_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
-                    extra=LOGGER_MODULE_NAME,
-                )
-                launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
-                    playmatch_rom["launchbox_id"],
-                    remote_enabled=True,
-                    fs_name=rom_attrs["fs_name"],
-                    platform_slug=platform_slug,
-                )
-            else:
-                launchbox_rom = await meta_launchbox_handler.get_rom(
-                    rom_attrs["fs_name"],
-                    platform_slug,
-                    remote_enabled=launchbox_remote_enabled,
-                )
+            launchbox_rom = await resolve_launchbox_rom(
+                rom=rom,
+                fs_name=str(rom_attrs["fs_name"]),
+                platform_slug=platform_slug,
+                scan_type=scan_type,
+                playmatch_rom=playmatch_rom,
+                remote_enabled=launchbox_remote_enabled,
+            )
 
             metadata = launchbox_rom.get("launchbox_metadata")
             if metadata:

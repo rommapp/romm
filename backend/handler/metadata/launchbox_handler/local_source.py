@@ -1,4 +1,4 @@
-from pathlib import Path, PureWindowsPath
+from pathlib import PureWindowsPath
 
 from defusedxml import ElementTree as ET
 
@@ -6,6 +6,7 @@ from logger.logger import log
 
 from .platforms import get_platform
 from .types import LAUNCHBOX_PLATFORMS_DIR
+from .utils import file_name_forms
 
 
 class LocalSource:
@@ -46,6 +47,8 @@ class LocalSource:
                             app_base = PureWindowsPath(app_path).name.strip().lower()
                             if app_base:
                                 indexed_val.setdefault(app_base, entry)
+                                for stem in file_name_forms(app_base):
+                                    indexed_val.setdefault(f"stem:{stem}", entry)
 
                         title = (entry.get("Title") or "").strip().lower()
                         if title:
@@ -68,18 +71,17 @@ class LocalSource:
         if not fs_key:
             return None
 
-        direct = indexed_val.get(fs_key)
-        if direct is not None:
-            return direct
+        stems = file_name_forms(fs_name)
+        probes = [
+            fs_key,
+            *(f"stem:{stem}" for stem in stems),
+            *(f"title:{stem}" for stem in stems),
+            f"title:{fs_key}",
+        ]
 
-        try:
-            stem = Path(fs_name).stem.strip().lower()
-        except Exception:
-            stem = ""
+        for probe in dict.fromkeys(probes):
+            hit = indexed_val.get(probe)
+            if hit is not None:
+                return hit
 
-        if stem:
-            by_title = indexed_val.get(f"title:{stem}")
-            if by_title is not None:
-                return by_title
-
-        return indexed_val.get(f"title:{fs_key}")
+        return None
