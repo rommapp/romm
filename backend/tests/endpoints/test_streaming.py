@@ -674,7 +674,9 @@ def test_pool_never_evicts_a_stale_session_while_a_container_is_free(
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, access_token, rom.id)
         _age_session_on(_pool_member(rom, 0), streaming._SESSION_STALE_SECONDS + 60)
-        with patch("endpoints.streaming._stop_broker") as stop_broker:
+        with patch(
+            "endpoints.streaming._stop_broker", return_value=None
+        ) as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
     assert r2.status_code == 200
     assert r2.json()["host"] == "http://192.168.1.11:3000"
@@ -689,7 +691,9 @@ def test_pool_takes_over_a_stale_session_once_every_container_is_held(
         _claim_ok(client, access_token, rom.id)
         _claim_ok(client, access_token, rom.id)
         _age_session_on(_pool_member(rom, 1), streaming._SESSION_STALE_SECONDS + 60)
-        with patch("endpoints.streaming._stop_broker") as stop_broker:
+        with patch(
+            "endpoints.streaming._stop_broker", return_value=None
+        ) as stop_broker:
             r3 = _claim_ok(client, viewer_access_token, rom.id)
     assert r3.status_code == 200
     assert r3.json()["host"] == "http://192.168.1.11:3000"
@@ -752,7 +756,7 @@ def test_admin_release_names_the_container(
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, viewer_access_token, rom.id)
         _claim_ok(client, viewer_access_token, rom.id)
-        with patch("endpoints.streaming._stop_broker"):
+        with patch("endpoints.streaming._stop_broker", return_value=None):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 params={"container": streaming._container_key(_pool_member(rom, 1))},
@@ -784,7 +788,7 @@ def test_status_finds_the_termination_on_whichever_container_held_it(
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, access_token, rom.id)
         _claim_ok(client, viewer_access_token, rom.id)
-        with patch("endpoints.streaming._stop_broker"):
+        with patch("endpoints.streaming._stop_broker", return_value=None):
             client.delete(
                 "/api/streaming/sessions",
                 params={"reason": "maintenance"},
@@ -1017,7 +1021,7 @@ def test_releasing_a_desktop_session_syncs_nothing_to_the_library(client, access
         container = _first_container("ps2")
         assert _desktop(client, access_token, _key_of(container))[0].status_code == 200
         with (
-            patch("endpoints.streaming._stop_broker") as stop,
+            patch("endpoints.streaming._stop_broker", return_value=None) as stop,
             patch("endpoints.streaming._spawn_sync_task") as spawn,
         ):
             response = client.delete(
@@ -1156,7 +1160,9 @@ def test_stale_session_taken_over_on_claim(
     with _streaming(_container_for(rom)):
         r1 = _claim_ok(client, access_token, rom.id)
         _age_session(rom, streaming._SESSION_STALE_SECONDS + 60)
-        with patch("endpoints.streaming._stop_broker") as stop_broker:
+        with patch(
+            "endpoints.streaming._stop_broker", return_value=None
+        ) as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
     assert r1.status_code == 200
     assert r2.status_code == 200
@@ -1170,7 +1176,9 @@ def test_fresh_session_not_taken_over(
     and the running emulator is never stopped."""
     with _streaming(_container_for(rom)):
         r1 = _claim_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._stop_broker") as stop_broker:
+        with patch(
+            "endpoints.streaming._stop_broker", return_value=None
+        ) as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
     assert r1.status_code == 200
     assert r2.status_code == 409
@@ -1412,7 +1420,7 @@ def test_release_uses_container_key_not_platform(client, access_token, rom: Rom)
     """release_session must find the session by broker_host, not platform string."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._stop_broker"):
+        with patch("endpoints.streaming._stop_broker", return_value=None):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 headers=_auth(access_token),
@@ -1495,7 +1503,9 @@ def test_force_release_all_stops_brokers(client, access_token, rom: Rom):
     """Force-release must tell each broker to stop, not just clear Redis."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
-        with patch("endpoints.streaming._stop_broker") as stop_broker:
+        with patch(
+            "endpoints.streaming._stop_broker", return_value=None
+        ) as stop_broker:
             r = client.delete("/api/streaming/sessions", headers=_auth(access_token))
     assert r.status_code == 200
     assert stop_broker.call_count == 1
@@ -2308,7 +2318,7 @@ def test_release_spawns_saves_pull(client, access_token, rom: Rom):
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("endpoints.streaming._stop_broker"),
+            patch("endpoints.streaming._stop_broker", return_value=None),
             patch("endpoints.streaming._spawn_sync_task") as spawn,
             patch(
                 "endpoints.streaming._pull_saves_to_library", new=MagicMock()
@@ -2569,6 +2579,69 @@ def test_webstation_resume_state_is_pushed_after_activate(
     assert order.push.call_args[0][1] == "Game.03.p2s"
 
 
+def test_stopping_a_webstation_broker_reports_the_state_it_captured(rom: Rom):
+    """Stopping this broker is an exit and its exit saves, so the slot has to
+    come back out: the caller is the only one who can file that state."""
+    container = _webstation_for(rom)
+    with patch(
+        "endpoints.streaming._webstation_exit",
+        return_value={"state_saved": True, "state_slot": 10},
+    ):
+        assert streaming._stop_broker(container) == 10
+    with patch(
+        "endpoints.streaming._webstation_exit",
+        return_value={"state_saved": False, "state_slot": 10},
+    ):
+        assert streaming._stop_broker(container) is None
+    with patch("endpoints.streaming._webstation_exit", return_value=None):
+        assert streaming._stop_broker(container) is None
+
+
+def test_stopping_a_legacy_broker_reports_no_state(rom: Rom):
+    """The per-emulator brokers stop without saving, so nothing is pulled."""
+    with patch("endpoints.streaming._broker_request_safe", return_value={}):
+        assert streaming._stop_broker(_container_for(rom)) is None
+
+
+def test_releasing_a_webstation_session_pulls_the_exit_state(
+    client, access_token, rom: Rom
+):
+    """A player who closes the tab still exits the broker, and that exit takes a
+    state. Leaving it in the container is how the last minutes of a session got
+    lost whenever the save-and-exit button was not the way out."""
+    pull = AsyncMock(return_value=True)
+    with _streaming(_webstation_for(rom)):
+        with (
+            patch(
+                "endpoints.streaming._webstation_activate",
+                return_value={"url": "/room/x"},
+            ),
+            patch(
+                "endpoints.streaming._hydrate_saves_to_webstation",
+                new=AsyncMock(return_value=None),
+            ),
+            patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
+            patch("endpoints.streaming._spawn_sync_task"),
+        ):
+            _claim_ok(client, access_token, rom.id)
+        with (
+            patch(
+                "endpoints.streaming._webstation_exit",
+                return_value={"state_saved": True, "state_slot": 10},
+            ),
+            patch("endpoints.streaming._pull_state_to_library", pull),
+            patch("endpoints.streaming._spawn_sync_task"),
+        ):
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    pull.assert_awaited_once()
+    assert pull.await_args is not None
+    assert pull.await_args.args[1:] == (rom.id, _webstation_for(rom), 10)
+
+
 # ── Auth guards ───────────────────────────────────────────────────────────────
 
 
@@ -2617,7 +2690,7 @@ def test_admin_can_release_other_users_session(
     """An admin may release a session claimed by someone else."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, viewer_access_token, rom.id)
-        with patch("endpoints.streaming._stop_broker") as stop:
+        with patch("endpoints.streaming._stop_broker", return_value=None) as stop:
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 headers=_auth(access_token),
@@ -3074,7 +3147,7 @@ def test_release_evacuates_card(client, access_token, rom: Rom):
         ):
             _mc_claim(client, access_token, rom.id)
         with (
-            patch("endpoints.streaming._stop_broker") as stop,
+            patch("endpoints.streaming._stop_broker", return_value=None) as stop,
             patch(
                 "endpoints.streaming._evacuate_memory_card",
                 new=AsyncMock(return_value=True),
@@ -3112,7 +3185,7 @@ def test_release_frees_the_claim_when_teardown_raises(client, access_token, rom:
         ):
             _mc_claim(client, access_token, rom.id)
         with (
-            patch("endpoints.streaming._stop_broker"),
+            patch("endpoints.streaming._stop_broker", return_value=None),
             patch(
                 "endpoints.streaming._evacuate_session_card",
                 new=AsyncMock(side_effect=OSError("broker went away")),

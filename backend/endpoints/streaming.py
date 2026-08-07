@@ -1034,14 +1034,23 @@ def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
     return bool(body and body.get("loaded", False))
 
 
-def _stop_broker(container: dict[str, Any]) -> None:
-    """Tell the broker to stop emulator. Best-effort, don't raise on failure."""
+def _stop_broker(container: dict[str, Any]) -> int | None:
+    """Tell the broker to stop emulator. Best-effort, don't raise on failure.
+
+    Returns the slot a state was captured in, or None when none was. Stopping
+    the webstation broker runs its exit, which saves, so the caller is left
+    holding the only reference to that state. The others stop without saving.
+    """
     if _is_webstation(container):
-        _webstation_exit(container, slot=0)
-        return
+        report = _webstation_exit(container, slot=0)
+        if report and report.get("state_saved"):
+            slot = report.get("state_slot")
+            return slot if isinstance(slot, int) else None
+        return None
     _broker_request_safe(
         container, "/launch", "stop", method="DELETE", timeout=_BROKER_ACK_TIMEOUT
     )
+    return None
 
 
 # ── Webstation broker protocol ────────────────────────────────────────────────
@@ -1062,8 +1071,9 @@ def _stop_broker(container: dict[str, Any]) -> None:
 # brokers, just under the subfolder, so RomM holds the library either way. The
 # difference is that this broker keeps one working slot instead of ten: a slot
 # sent to it resolves to that one, and a pushed state is only accepted while a
-# session is up. What is still missing here is state screenshots, volume, mute
-# and whole-card sync.
+# session is up. Reads outlive the session, because exit captures a state and
+# RomM can only come back for it once the teardown has answered. What is still
+# missing here is volume, mute and whole-card sync.
 
 
 def _is_webstation(container: dict[str, Any]) -> bool:
@@ -3256,7 +3266,7 @@ async def _teardown_released_session(
         # running game's exit flush could otherwise re-lay a card over the wipe,
         # and reading a live card risks a torn snapshot. The claim still guards
         # the container throughout, so no concurrent claim can interleave.
-        await asyncio.to_thread(_stop_broker, container)
+        state_slot = await asyncio.to_thread(_stop_broker, container)
 
         # Evacuate the whole card, then wipe the slot, both before releasing the
         # claim so a concurrent claim cannot clobber the fresh card or inherit
@@ -3283,10 +3293,18 @@ async def _teardown_released_session(
 
         await _record_play_session(session)
 
+        rom_id = session.get("rom_id")
+        # Awaited, not spawned: the broker holds the exited session's state only
+        # until the next activate, and releasing the claim below is what lets
+        # that activate happen.
+        if isinstance(rom_id, int) and state_slot is not None:
+            await _pull_state_to_library(
+                session["user_id"], rom_id, container, state_slot
+            )
+
         # Legacy per-file save pull, only for containers not on whole-card sync.
         # Fire and forget: it reads files the broker keeps after the emulator
         # dies, so it does not gate the claim release above it.
-        rom_id = session.get("rom_id")
         if isinstance(rom_id, int) and not _memory_card_sync_enabled(container):
             _spawn_sync_task(
                 _pull_saves_to_library(
