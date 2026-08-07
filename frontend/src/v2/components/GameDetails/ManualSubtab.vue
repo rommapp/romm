@@ -18,6 +18,7 @@ import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const PdfViewer = defineAsyncComponent(
@@ -41,6 +42,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
+const { syncRom } = useRomSync();
 const { t } = useI18n();
 
 // Every manual endpoint (upload / redownload / delete) gates on the ROM write
@@ -141,7 +143,7 @@ async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: props.rom.id });
     romsStore.currentRom = data;
-    romsStore.update(data);
+    syncRom(data);
   } catch (error) {
     console.error(error);
   }

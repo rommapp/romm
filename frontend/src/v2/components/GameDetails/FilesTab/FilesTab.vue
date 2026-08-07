@@ -53,6 +53,7 @@ import storeRoms from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import FileRow from "./FileRow.vue";
 import FilesSummary from "./FilesSummary.vue";
@@ -67,6 +68,7 @@ const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
 const romsStore = storeRoms();
+const { syncRom } = useRomSync();
 
 const canUpload = useCan("rom.upload");
 const hasDeleteGrant = useCan("rom.delete");
@@ -578,7 +580,7 @@ async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: props.rom.id });
     romsStore.currentRom = data;
-    romsStore.update(data);
+    syncRom(data);
   } catch (error) {
     console.error(error);
   }

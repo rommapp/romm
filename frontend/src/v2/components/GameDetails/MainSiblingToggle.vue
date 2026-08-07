@@ -15,8 +15,8 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomUserData } from "@/__generated__";
 import romApi from "@/services/api/rom";
-import storeRoms from "@/stores/roms";
 import type { DetailedRom } from "@/stores/roms";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
@@ -27,7 +27,7 @@ const props = defineProps<{
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
-const romsStore = storeRoms();
+const { syncRom } = useRomSync();
 
 const visible = computed(
   () => props.rom.sibling_roms.length > 0 && props.rom.rom_user != null,
@@ -48,13 +48,13 @@ async function toggle() {
   const data: Partial<RomUserData> = { is_main_sibling: next };
 
   ru.is_main_sibling = next;
-  romsStore.update(props.rom);
+  syncRom(props.rom);
 
   try {
     await romApi.updateUserRomProps({ romId: props.rom.id, data });
   } catch {
     ru.is_main_sibling = before;
-    romsStore.update(props.rom);
+    syncRom(props.rom);
     snackbar.error(t("rom.update-default-failed"), {
       icon: "mdi-alert-circle-outline",
     });

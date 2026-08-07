@@ -21,6 +21,7 @@ import storeRoms, { type DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const ManualSubtab = defineAsyncComponent(
@@ -49,6 +50,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
+const { syncRom } = useRomSync();
 const uploadStore = storeUpload();
 const { t } = useI18n();
 
@@ -159,7 +161,7 @@ async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: props.rom.id });
     romsStore.currentRom = data;
-    romsStore.update(data);
+    syncRom(data);
   } catch (error) {
     console.error(error);
   }

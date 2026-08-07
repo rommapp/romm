@@ -25,6 +25,7 @@ import storeUpload from "@/stores/upload";
 import type { ScreenshotItem } from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const ScreenshotsTab = defineAsyncComponent(
@@ -58,6 +59,7 @@ const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
+const { syncRom } = useRomSync();
 const uploadStore = storeUpload();
 const authStore = storeAuth();
 const { user } = storeToRefs(authStore);
@@ -134,7 +136,7 @@ async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: props.rom.id });
     romsStore.currentRom = data;
-    romsStore.update(data);
+    syncRom(data);
   } catch (error) {
     console.error(error);
   }
