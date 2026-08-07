@@ -62,6 +62,7 @@
   "reset-filters": "Reset filters",
   "rom-count": "{n} ROM | {n} ROMs",
   "scan-platform": "Scan platform",
+  "search-placeholder": "Search by name, slug, folder, category…",
   "search-platform": "Search platform",
   "settings": "Settings",
   "show": "Show",

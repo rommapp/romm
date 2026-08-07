@@ -62,6 +62,7 @@
   "reset-filters": "Resetta filtri",
   "rom-count": "{n} ROM | {n} ROM",
   "scan-platform": "Scansiona piattaforma",
+  "search-placeholder": "Cerca per nome, slug, cartella, categoria…",
   "search-platform": "Cerca Piattafroma",
   "settings": "Impostazioni",
   "show": "Mostra",
