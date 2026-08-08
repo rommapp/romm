@@ -265,6 +265,11 @@ watch(
   min-height: 0;
   display: flex;
   flex-direction: column;
+  /* Contains this variant's internal layers (the focus overlay sits at
+     z-index 5). Without a stacking context they compete directly with
+     the dialog's own absolutely-positioned children, and the saving
+     overlay at z-index 1 loses to the match panel. */
+  isolation: isolate;
 }
 
 .match-grid__grid {
