@@ -1195,12 +1195,13 @@ class TestDiskFullHandling:
         assert attempted == [0, 1]
 
     @pytest.mark.asyncio
-    async def test_locked_cover_survives_unmatch(
+    async def test_cover_with_no_source_url_is_rederived_from_disk(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path
     ):
-        # Unmatching clears the stored cover paths but never deletes the files,
-        # so a locked cover (scanned with url_cover="") is re-derived from disk
-        # rather than leaving the rom coverless.
+        # Second half of what keeps a locked cover alive through an unmatch,
+        # which clears the stored paths but never deletes the files. A lock is
+        # not visible here: it resolves to an empty url upstream, and
+        # test_update_scan_keeps_uploaded_cover covers that half.
         handler.base_path = tmp_path
         cover = tmp_path / "roms/1/1/cover"
         cover.mkdir(parents=True)
