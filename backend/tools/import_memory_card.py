@@ -22,17 +22,9 @@ import io
 import sys
 import zipfile
 
-# isort: off
-# Load the auth package first so the decorators.auth <-> handler.auth import
-# cycle resolves before endpoints.streaming pulls it in (matches the module
-# order the app's own entrypoint establishes at startup). Keep isort from
-# reordering these below the endpoints import.
-import handler.auth  # noqa: F401,E402
-from endpoints.streaming import _store_memory_card_version  # noqa: E402
-
-# isort: on
 from handler.database import db_memory_card_handler, db_user_handler
 from models.assets import MemoryCard
+from utils.memory_cards import store_memory_card_version
 
 
 async def _import(username: str, emulator: str, content: bytes) -> int:
@@ -58,7 +50,7 @@ async def _import(username: str, emulator: str, content: bytes) -> int:
         )
         print(f"created blank card id={card.id}")
 
-    stored = await _store_memory_card_version(user, card, emulator, content)
+    stored = await store_memory_card_version(user, card, emulator, content)
     latest = db_memory_card_handler.get_latest_version(card.id)
     print(
         f"stored={stored} card_id={card.id} "
