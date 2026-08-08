@@ -174,7 +174,7 @@
   "grant-none": "Not granted",
   "grant-own": "Own items only",
   "group-account": "Account",
-  "group-color": "Color",
+  "group-color": "Colour",
   "group-default-option": "Default group",
   "group-default-tag": "Default",
   "group-delete-confirm": "Delete the \"{name}\" group? Its members fall back to the default group.",
