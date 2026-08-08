@@ -36,6 +36,7 @@ import storeRoms from "@/stores/roms";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 // Slot payload from AssetList/AssetStrip is the full save|state union; these
@@ -138,6 +139,7 @@ const uploadingStates = ref(false);
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
+const { syncRom } = useRomSync();
 
 function errorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
@@ -152,7 +154,7 @@ async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: props.rom.id });
     romsStore.currentRom = data;
-    romsStore.update(data);
+    syncRom(data);
   } catch (error) {
     console.error(error);
   }
