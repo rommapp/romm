@@ -312,18 +312,21 @@ _PLATFORM_CAPABILITIES: dict[str, PlatformCapabilities] = {
         "autosave_slot": 8,
         "has_memory_card": False,
     },
-    # PCSX2 (ps2) and xemu (xbox): slots 1-9 manual, slot 10 autosave. xemu
-    # keeps saves on an emulated HDD and serves no /memory-card.
+    # PCSX2 (ps2): slots 1-9 manual, slot 10 autosave.
     "ps2": {
         "max_slots": 9,
         "has_autosave": True,
         "autosave_slot": 10,
         "has_memory_card": True,
     },
+    # xemu (xbox) keeps the emulated HDD in raw format so its FATX partition
+    # can be read directly, and a raw image cannot hold QEMU snapshots. No
+    # states at all, so the launch screen reports the save instead of
+    # offering slots. Saves round-trip through /save-file, not /memory-card.
     "xbox": {
-        "max_slots": 9,
-        "has_autosave": True,
-        "autosave_slot": 10,
+        "max_slots": 0,
+        "has_autosave": False,
+        "autosave_slot": 0,
         "has_memory_card": False,
     },
 }

@@ -6,9 +6,11 @@
 //
 // Layout mirrors the EmulatorJS view, three columns pre-game:
 //   1. Hero: cover + title + "Play on <emulator>" CTA + back links.
-//   2. Session: where the game runs and any claim errors (occupied /
+//   2. Resume: the state picker, or a save-data report where the
+//      emulator has no states.
+//   3. Session: where the game runs and any claim errors (occupied /
 //      not configured / server).
-//   3. Aside: memory card picker + fullscreen-on-play.
+//   4. Aside: memory card picker + fullscreen-on-play.
 //
 // The running state is a fixed stage hosting the Selkies iframe with an
 // auto-hiding control bar (volume, save/load state, fullscreen, exit).
@@ -25,7 +27,7 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
-import type { UserStateSchema } from "@/__generated__";
+import type { SaveSchema, UserStateSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import streamingApi, {
@@ -45,6 +47,7 @@ import {
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import MemoryCardImportDialog from "@/v2/components/Player/MemoryCardImportDialog.vue";
 import MemoryCardPicker from "@/v2/components/Player/MemoryCardPicker.vue";
+import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
 import AssetStrip, {
   type AssetLayout,
@@ -171,12 +174,32 @@ const capabilities = computed(() =>
   streamingStore.platformCapabilities(rom.value?.platform_slug),
 );
 
+// Emulators that keep saves in the emulated filesystem rather than in
+// snapshots get no slots from the backend. There is nothing to pick from
+// and never will be, so the picker gives way to a report of the save
+// archive instead of an empty grid.
+const supportsStates = computed(
+  () => capabilities.value.maxSlots > 0 || capabilities.value.hasAutosave,
+);
+
 // ── Resume-from-state picker ────────────────────────────────────────
 // States the container's emulator can resume from: the user's own plus
 // other users' public ones (that is what all_user_states carries), kept
 // to this emulator's namespace so EmulatorJS states stay out. The list
 // arrives newest-first from the backend.
 const selectedState = ref<UserStateSchema | null>(null);
+
+// The archive the broker restores before boot, newest-first from the
+// backend, scoped to this emulator the same way the states are.
+const newestSave = computed<SaveSchema | null>(() => {
+  const emulator = container.value?.emulator?.toLowerCase();
+  if (!rom.value || !emulator) return null;
+  return (
+    (rom.value.user_saves ?? []).find(
+      (s) => (s.emulator ?? "").toLowerCase() === emulator,
+    ) ?? null
+  );
+});
 
 const streamStates = computed<UserStateSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
@@ -690,7 +713,9 @@ async function performSaveAndExit(): Promise<void> {
     playerState.value = "exited";
     containerHost.value = "";
   }
-  if (!saved) {
+  // Without states there is no save to confirm: the exit dumps the in-game
+  // save archive instead, so an unconfirmed state is the expected answer.
+  if (!saved && supportsStates.value) {
     snackbar.warning(t("play.stream-save-unconfirmed"), {
       timeout: 6000,
       icon: "mdi-alert",
@@ -1018,7 +1043,11 @@ onBeforeUnmount(() => {
            so a first run and a long history read as the same screen; the
            strip carries its own empty state. Owner chips distinguish states
            shared by other users. -->
-      <RCard class="r-v2-stream__panel r-v2-stream__resume" variant="flat">
+      <RCard
+        v-if="supportsStates"
+        class="r-v2-stream__panel r-v2-stream__resume"
+        variant="flat"
+      >
         <div class="r-v2-stream__panel-head r-v2-stream__panel-head--label">
           <RIcon icon="mdi-content-save-outline" size="14" />
           <span>{{ t("play.resume-from-state") }}</span>
@@ -1063,6 +1092,22 @@ onBeforeUnmount(() => {
             show-owner
             @select="pickState($event as UserStateSchema)"
           />
+        </div>
+      </RCard>
+
+      <!-- Same cell for emulators without states: the save archive is
+           reported, not offered, since loading it is the game's own job. -->
+      <RCard
+        v-else
+        class="r-v2-stream__panel r-v2-stream__resume"
+        variant="flat"
+      >
+        <div class="r-v2-stream__panel-head r-v2-stream__panel-head--label">
+          <RIcon icon="mdi-content-save-outline" size="14" />
+          <span>{{ t("play.save-data") }}</span>
+        </div>
+        <div class="r-v2-stream__resume-body">
+          <SaveDataPanel :save="newestSave" :platform="platformLabel" />
         </div>
       </RCard>
 
