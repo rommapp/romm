@@ -8,6 +8,7 @@ from .libretro_handler import LibretroHandler
 from .moby_handler import MobyGamesHandler
 from .playmatch_handler import PlaymatchHandler
 from .ra_handler import RAHandler
+from .rawg_handler import RAWGHandler
 from .sgdb_handler import SGDBBaseHandler
 from .ss_handler import SSHandler
 from .tgdb_handler import TGDBHandler
@@ -25,3 +26,4 @@ meta_tgdb_handler = TGDBHandler()
 meta_flashpoint_handler = FlashpointHandler()
 meta_gamelist_handler = GamelistHandler()
 meta_hltb_handler = HLTBHandler()
+meta_rawg_handler = RAWGHandler()
