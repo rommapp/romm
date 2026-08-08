@@ -56,7 +56,7 @@ function run(fn: () => void | Promise<void>) {
         ? t('rom.stream-on', { container: actions.streamLabel.value })
         : t('rom.stream')
     "
-    icon="mdi-monitor-play"
+    icon="mdi-play-network"
     @click="run(() => actions.play('stream'))"
   />
   <RMenuItem

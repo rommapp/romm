@@ -169,7 +169,7 @@ const preset = computed<Preset>(() => {
   }
   if (props.action === "stream") {
     return {
-      icon: "mdi-monitor-play",
+      icon: "mdi-play-network",
       label: actions.streamLabel.value
         ? t("rom.stream-on", { container: actions.streamLabel.value })
         : t("rom.stream"),
