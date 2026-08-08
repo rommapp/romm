@@ -70,7 +70,7 @@ useGridNav(rootEl, {
       :rom="rom"
       action="stream"
       :size="btnSize"
-      :variant="actions.canPlayInBrowser.value ? 'surface' : 'emphasized'"
+      variant="brand"
       with-label
     />
     <div v-if="actions.canPlay.value" class="game-actions__break" />

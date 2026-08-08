@@ -523,9 +523,7 @@ function onStaticKeydown(e: KeyboardEvent) {
               v-if="actions?.canPlayStream.value"
               :rom="rom"
               action="stream"
-              :variant="
-                actions?.canPlayInBrowser.value ? 'glass' : 'emphasized'
-              "
+              variant="brand"
             />
           </div>
 

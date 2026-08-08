@@ -28,6 +28,8 @@
 //   glass      → default translucent frosted-glass pill
 //   surface    → translucent grey, page-background friendly (Details)
 //   emphasized → white-on-dark (used by Play in card + details)
+//   brand      → solid brand fill, the coloured peer to emphasized
+//                (used by Stream so it reads as its own destination)
 //   bare       → no background or border, just the icon (list rows /
 //                inline strips where the row's own surface frames the
 //                control)
@@ -87,10 +89,12 @@ interface Props {
    *             (GameDetails header where the buttons sit on the
    *             page background, not over a cover).
    * `emphasized` — primary white-on-dark CTA (Play).
+   * `brand` — solid brand fill. Sits beside `emphasized` as an equal
+   *           CTA that goes somewhere else (Stream).
    * `bare` — no chrome; just the icon. For list rows where the row's
    *          own surface already frames the control.
    */
-  variant?: "glass" | "surface" | "emphasized" | "bare";
+  variant?: "glass" | "surface" | "emphasized" | "brand" | "bare";
   withLabel?: boolean;
   /**
    * Status-only: when several status states are active, the button
@@ -693,6 +697,24 @@ function onClick(e: MouseEvent) {
   transform: translateY(-1px);
 }
 .r-v2-game-btn--emphasized:active {
+  transform: scale(0.96);
+}
+
+/* Brand — solid fill in the product colour. Play and Stream are peers
+   that lead somewhere different, so the second CTA takes colour rather
+   than a second white pill. */
+.r-v2-game-btn--brand {
+  background: var(--r-color-brand-primary) !important;
+  border-color: var(--r-color-brand-primary) !important;
+  color: white !important;
+}
+.r-v2-game-btn--brand:hover {
+  background: var(--r-color-brand-primary-hover) !important;
+  border-color: var(--r-color-brand-primary-hover) !important;
+  transform: translateY(-1px);
+}
+.r-v2-game-btn--brand:active {
+  background: var(--r-color-brand-primary-pressed) !important;
   transform: scale(0.96);
 }
 
