@@ -1,3 +1,5 @@
+import io
+import tarfile
 import time
 import zipfile
 from pathlib import Path
@@ -532,3 +534,34 @@ class TestZipAndTarReadFailures:
 
         with pytest.raises(archives.ArchiveReadError):
             list(archives.read_tar_archive_files(path, [], []))
+
+    def test_truncated_tar_raises(self, tmp_path):
+        path = tmp_path / "game.tar"
+        with tarfile.open(path, "w") as tf:
+            for name, data in (("a.bin", b"A" * 4096), ("b.bin", b"B" * 8192)):
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                tf.addfile(info, io.BytesIO(data))
+
+        # Cut into the second member's data, not just the trailing padding.
+        raw = path.read_bytes()
+        path.write_bytes(raw[: len(raw) // 2])
+
+        with pytest.raises(archives.ArchiveReadError):
+            for _name, _size, chunks in archives.read_tar_archive_files(path, [], []):
+                list(chunks)
+
+    def test_member_read_failure_is_wrapped(self):
+        """A member that fails mid-stream is reported as an archive error.
+
+        Tar failures surface while listing rather than while streaming, since
+        `getmembers()` walks the whole archive first, so the streaming guard is
+        covered directly here for every archive type that uses it.
+        """
+
+        class _FailingReader(io.RawIOBase):
+            def read(self, size=-1):
+                raise EOFError("Compressed file ended before the end-of-stream marker")
+
+        with pytest.raises(archives.ArchiveReadError):
+            list(archives._iter_chunks(_FailingReader(), Path("/fake.tar.gz"), "a.bin"))
