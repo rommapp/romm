@@ -5,7 +5,7 @@ import enum
 import re
 from datetime import datetime
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
 
 from sqlalchemy import (
     TIMESTAMP,
@@ -125,6 +125,14 @@ class RomArchiveMember(TypedDict):
     sha1_hash: str
 
 
+class LookupHashes(NamedTuple):
+    """The hashes a ROM database should be queried with."""
+
+    crc: str | None
+    md5: str | None
+    sha1: str | None
+
+
 class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
@@ -185,6 +193,28 @@ class RomFile(BaseModel):
         from handler.filesystem import fs_rom_handler
 
         return fs_rom_handler.parse_file_extension(self.file_name)
+
+    @cached_property
+    def lookup_hashes(self) -> LookupHashes:
+        """The hashes to identify this file by against a ROM database.
+
+        Often not the file's own digests: a CHD is indexed by the disc data
+        embedded in its header, and a multi-file archive by its largest member
+        (the ROM itself, next to readmes and the like). The file's own hashes
+        cover the container, which no database holds.
+        """
+        if self.chd_sha1_hash:
+            return LookupHashes(crc=None, md5=None, sha1=self.chd_sha1_hash)
+
+        if self.archive_members:
+            largest = max(self.archive_members, key=lambda m: m.get("size") or 0)
+            return LookupHashes(
+                crc=largest.get("crc_hash"),
+                md5=largest.get("md5_hash"),
+                sha1=largest.get("sha1_hash"),
+            )
+
+        return LookupHashes(crc=self.crc_hash, md5=self.md5_hash, sha1=self.sha1_hash)
 
     @cached_property
     def is_nested(self) -> bool:
