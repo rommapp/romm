@@ -442,6 +442,7 @@ async def scan_rom(
                 "path_cover_l": rom.path_cover_l,
                 "path_screenshots": rom.path_screenshots,
                 "path_manual": rom.path_manual,
+                "locked_fields": rom.locked_fields,
                 "igdb_id": rom.igdb_id,
                 "moby_id": rom.moby_id,
                 "ss_id": rom.ss_id,
@@ -996,7 +997,10 @@ async def scan_rom(
                 if fields["metadata_field"]:
                     rom_attrs[fields["metadata_field"]] = {}
 
-        # Reset artwork fields so stale values are cleared when no source supplies them
+        # Reset artwork fields so stale values are cleared when no source supplies them.
+        # The locks go with them: a complete rescan deletes the resource files, so
+        # keeping one would leave a cover locked to a file that no longer exists and
+        # block any replacement from being fetched.
         rom_attrs.update(
             {
                 "url_cover": "",
@@ -1006,6 +1010,7 @@ async def scan_rom(
                 "path_cover_l": "",
                 "path_screenshots": [],
                 "path_manual": "",
+                "locked_fields": [],
             }
         )
 
@@ -1064,14 +1069,13 @@ async def scan_rom(
             {
                 "name": existing_name or matched_name or fs_name_no_tags or None,
                 "summary": rom.summary or rom_attrs.get("summary") or None,
-                # Uploading artwork clears its source url while keeping the file,
-                # so a stored path with no url is user-supplied and stays put.
-                # Artwork that still carries a url came from a provider, and the
-                # freshly resolved url replaces it so a changed source or source
-                # priority reaches the download step.
+                # A locked cover was supplied by hand and stays put. Anything
+                # else came from a provider, and the freshly resolved url
+                # replaces it so a changed source or source priority reaches the
+                # download step.
                 "url_cover": (
                     ""
-                    if rom.path_cover_s and not rom.url_cover
+                    if rom.is_field_locked("url_cover")
                     else rom_attrs.get("url_cover") or None
                 ),
                 # A manual keeps its stored url because an uploaded manual and a

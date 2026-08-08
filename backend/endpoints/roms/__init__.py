@@ -1847,7 +1847,13 @@ async def update_rom(
 
     if remove_cover:
         cleaned_data.update(await fs_resource_handler.remove_cover(rom))
-        cleaned_data.update({"url_cover": ""})
+        # Dropping the hand-supplied cover hands the slot back to the providers.
+        cleaned_data.update(
+            {
+                "url_cover": "",
+                "locked_fields": rom.locked_fields_without("url_cover"),
+            }
+        )
     else:
         if artwork is not None and artwork.filename is not None:
             file_ext = validate_image_upload(artwork, label="Artwork")
@@ -1857,11 +1863,14 @@ async def update_rom(
                 path_cover_s,
             ) = await fs_resource_handler.store_artwork(rom, artwork_content, file_ext)
 
+            # Supplying a file is the explicit act that locks the cover; the
+            # lock outlives the file, so losing it to a scan can't unlock it.
             cleaned_data.update(
                 {
                     "url_cover": "",
                     "path_cover_s": path_cover_s,
                     "path_cover_l": path_cover_l,
+                    "locked_fields": rom.locked_fields_with("url_cover"),
                 }
             )
         else:
@@ -1881,6 +1890,11 @@ async def update_rom(
                         "path_cover_l": path_cover_l,
                     }
                 )
+                # Naming a source url is a handover back to the providers.
+                if "url_cover" in provided_fields and url_cover:
+                    cleaned_data["locked_fields"] = rom.locked_fields_without(
+                        "url_cover"
+                    )
             except ValidationError as e:
                 log.error(f"Invalid cover URL in update_rom: {str(e)}")
                 raise HTTPException(status_code=400, detail=str(e)) from e

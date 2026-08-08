@@ -779,6 +779,55 @@ def test_update_rom_artwork_uses_detected_extension(
     assert file_ext == "png"
 
 
+@patch.object(
+    FSResourcesHandler,
+    "store_artwork",
+    new_callable=AsyncMock,
+    return_value=("path/to/big.png", "path/to/small.png"),
+)
+def test_update_rom_artwork_locks_the_cover(
+    store_artwork_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    # Supplying a file is the explicit act that locks the cover. Scans read this
+    # rather than inferring it from path_cover_s, which they themselves clear
+    # whenever the file is unreadable.
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        files={"artwork": ("cover.png", _PNG_BYTES, "image/png")},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    assert db_rom_handler.get_rom(rom.id).locked_fields == ["url_cover"]
+
+
+@patch.object(
+    FSResourcesHandler,
+    "remove_cover",
+    new_callable=AsyncMock,
+    return_value={"path_cover_s": "", "path_cover_l": ""},
+)
+def test_remove_cover_releases_the_lock(
+    remove_cover_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    # Dropping the hand-supplied cover hands the slot back to the providers.
+    db_rom_handler.update_rom(rom.id, {"locked_fields": ["url_cover"]})
+
+    response = client.put(
+        f"/api/roms/{rom.id}?remove_cover=true",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    assert db_rom_handler.get_rom(rom.id).locked_fields == []
+
+
 def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
     response = client.post(
         "/api/roms/delete",

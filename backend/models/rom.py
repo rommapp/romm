@@ -482,6 +482,12 @@ class Rom(BaseModel):
         CustomJSON(), default=[], doc="URLs to screenshots stored in IGDB"
     )
 
+    locked_fields: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(),
+        default=[],
+        doc="Fields a user supplied by hand, which scans must not overwrite",
+    )
+
     revision: Mapped[str | None] = mapped_column(String(length=100))
     version: Mapped[str | None] = mapped_column(String(length=100))
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
@@ -650,6 +656,18 @@ class Rom(BaseModel):
             or (self.gamelist_metadata or {}).get("video_path")
             or (self.launchbox_metadata or {}).get("video_path")
         )
+
+    def is_field_locked(self, field: str) -> bool:
+        """Whether a user supplied this field by hand, so scans must leave it."""
+        return field in (self.locked_fields or [])
+
+    def locked_fields_with(self, field: str) -> list[str]:
+        """This rom's locks plus ``field``, for handing to an update."""
+        return sorted({*(self.locked_fields or []), field})
+
+    def locked_fields_without(self, field: str) -> list[str]:
+        """This rom's locks minus ``field``, for handing to an update."""
+        return [f for f in (self.locked_fields or []) if f != field]
 
     @property
     def is_unidentified(self) -> bool:

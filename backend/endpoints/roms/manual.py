@@ -120,10 +120,13 @@ async def add_rom_manuals(
             detail="There was an error uploading the manual",
         ) from exc
 
+    # An uploaded manual and a scraped one share this path and neither clears
+    # url_manual, so the lock is the only thing that will tell them apart.
     db_rom_handler.update_rom(
         id,
         {
             "path_manual": f"{manuals_path}/{rom.id}{ext}",
+            "locked_fields": rom.locked_fields_with("url_manual"),
         },
     )
 
@@ -163,7 +166,14 @@ async def redownload_rom_manual(
             overwrite=True,
             url_manual=str(rom.url_manual),
         )
-        db_rom_handler.update_rom(id, {"path_manual": path_manual})
+        # Asking for the provider's manual back is a handover.
+        db_rom_handler.update_rom(
+            id,
+            {
+                "path_manual": path_manual,
+                "locked_fields": rom.locked_fields_without("url_manual"),
+            },
+        )
         log.info(
             f"Re-downloaded manual for {hl(rom.name or 'ROM', color=BLUE)} "
             f"[{hl(rom.fs_name)}]"
@@ -384,6 +394,7 @@ async def delete_rom_manuals(
             {
                 "path_manual": "",
                 "url_manual": "",
+                "locked_fields": rom.locked_fields_without("url_manual"),
             },
         )
 
@@ -400,6 +411,7 @@ async def delete_rom_manuals(
             {
                 "path_manual": "",
                 "url_manual": "",
+                "locked_fields": rom.locked_fields_without("url_manual"),
             },
         )
     except Exception as exc:
