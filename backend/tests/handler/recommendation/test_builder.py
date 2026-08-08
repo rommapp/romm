@@ -24,6 +24,7 @@ def make_rom(
     companies: list[str] | None = None,
     similar_igdb_ids: list[int] | None = None,
     average_rating: float | None = None,
+    rating_votes: int | None = None,
 ) -> Rom:
     metadata: dict = {
         "genres": genres or [],
@@ -35,6 +36,8 @@ def make_rom(
     if average_rating is not None:
         # IGDB's total_rating is carried as a string; the generated column casts it.
         metadata["total_rating"] = str(average_rating)
+    if rating_votes is not None:
+        metadata["total_rating_count"] = rating_votes
     if similar_igdb_ids:
         metadata["similar_games"] = [
             {"id": similar_id, "name": f"game-{similar_id}", "type": "similar"}
@@ -284,3 +287,58 @@ def test_build_on_an_empty_library_is_a_no_op():
 
     assert stats.roms_indexed == 0
     assert stats.edges_written == 0
+
+
+def test_cold_start_prefers_a_well_voted_rating_over_a_lone_perfect_one(
+    platform: Platform,
+):
+    """Regression: the cold-start feed used to be topped by obscure games.
+
+    A single provider scoring something 100 is not evidence it is a great
+    game. On a real library exactly fourteen games hit a perfect 100, every
+    one a lone ScreenScraper score, and the feed recommended all of them
+    ahead of the classics.
+    """
+    # Shrinkage is toward the library mean, so the library needs a realistic
+    # one. With only the two games below, the mean sits between them and the
+    # estimator has nothing to pull the outlier down to.
+    for index in range(12):
+        make_rom(
+            platform,
+            f"Ordinary Game {index}",
+            igdb_id=7100 + index,
+            genres=["Action"],
+            average_rating=60.0 + index,
+            rating_votes=40,
+        )
+
+    lone_perfect = make_rom(
+        platform,
+        "Obscure Sports Title",
+        igdb_id=7001,
+        genres=["Sport"],
+        average_rating=100.0,
+        rating_votes=1,
+    )
+    broadly_loved = make_rom(
+        platform,
+        "Beloved Classic",
+        igdb_id=7002,
+        genres=["Adventure"],
+        average_rating=94.0,
+        rating_votes=1800,
+    )
+
+    ranked = db_recommendation_handler.get_fallback_rom_ids(limit=10)
+
+    assert broadly_loved.id in ranked
+    assert ranked.index(broadly_loved.id) < ranked.index(lone_perfect.id)
+
+
+def test_cold_start_still_returns_games_with_no_vote_count(platform: Platform):
+    """Most providers report no count at all; those games must not vanish."""
+    unvoted = make_rom(
+        platform, "Unvoted Game", igdb_id=7003, genres=["RPG"], average_rating=88.0
+    )
+
+    assert unvoted.id in db_recommendation_handler.get_fallback_rom_ids(limit=25)

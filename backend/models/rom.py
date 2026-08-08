@@ -268,6 +268,9 @@ class RomMetadata(BaseModel):
     player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")
     first_release_date: Mapped[int | None] = mapped_column(BigInteger(), default=None)
     average_rating: Mapped[float | None] = mapped_column(default=None)
+    # Votes behind `average_rating`, from IGDB. Zero where no provider
+    # reported one, which is how an unbacked perfect score is spotted.
+    rating_count: Mapped[int | None] = mapped_column(BigInteger(), default=0)
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")
 

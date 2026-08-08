@@ -25,6 +25,11 @@ EDGE_INSERT_CHUNK_SIZE = 1_000
 # relate its entire contents to itself.
 MAX_CO_OCCURRENCE_SET_SIZE = 250
 
+# Votes a rating needs before it is trusted on its own in the cold-start feed.
+# Below this it is blended with the library mean; well above it, the raw rating
+# carries. Tuned so a handful of votes cannot float an obscure game to the top.
+BAYESIAN_PRIOR_VOTES = 50
+
 
 class RomFeatureRow(NamedTuple):
     """The narrow slice of metadata the similarity build reads per ROM."""
@@ -384,7 +389,28 @@ class DBRecommendationsHandler(DBBaseHandler):
         exclude_rom_ids: Sequence[int] = (),
         session: Session = None,  # type: ignore
     ) -> list[int]:
-        """Cold-start feed: the best-reviewed games in the library."""
+        """Cold-start feed: the best-reviewed games in the library.
+
+        Ranked by a Bayesian average rather than the raw rating. A rating
+        backed by few votes is pulled toward the library mean in proportion to
+        how little evidence supports it, so a lone provider's perfect score no
+        longer outranks a broadly-liked classic. Without this the feed was
+        fourteen games that one source rated 100, listed alphabetically.
+        """
+        mean_rating = session.scalar(
+            select(func.avg(RomMetadata.average_rating)).where(
+                RomMetadata.average_rating.is_not(None)
+            )
+        )
+        prior = float(mean_rating or 0.0)
+
+        votes = func.coalesce(RomMetadata.rating_count, 0)
+        # (v * R + m * C) / (v + m): the standard shrinkage estimator, with m
+        # acting as "how many votes it takes to be believed on your own".
+        bayesian = (
+            votes * RomMetadata.average_rating + BAYESIAN_PRIOR_VOTES * prior
+        ) / (votes + BAYESIAN_PRIOR_VOTES)
+
         stmt = (
             select(Rom.id)
             .join(RomMetadata, RomMetadata.rom_id == Rom.id)
@@ -392,7 +418,7 @@ class DBRecommendationsHandler(DBBaseHandler):
                 Rom.missing_from_fs.is_(False),
                 RomMetadata.average_rating.is_not(None),
             )
-            .order_by(RomMetadata.average_rating.desc(), Rom.name_sort_key.asc())
+            .order_by(bayesian.desc(), Rom.name_sort_key.asc())
             .limit(limit)
         )
 

@@ -23,6 +23,7 @@ import argparse
 import asyncio
 import os
 import sys
+from typing import Any
 
 # Allow running as `python3 tools/backfill_igdb_tags.py` from backend/.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -37,8 +38,16 @@ from utils.context import initialize_context  # noqa: E402
 # IGDB caps a single response at 500 rows.
 BATCH_SIZE = 500
 
-TAG_FIELDS = ("id", "keywords.name", "themes.name", "player_perspectives.name")
+TAG_FIELDS = (
+    "id",
+    "keywords.name",
+    "themes.name",
+    "player_perspectives.name",
+    "total_rating_count",
+)
 TAG_KEYS = ("keywords", "themes", "player_perspectives")
+# Scalar rather than a list of named entities, so it is merged separately.
+SCALAR_KEYS = ("total_rating_count",)
 
 
 def load_igdb_ids(limit: int | None) -> dict[int, int]:
@@ -58,19 +67,19 @@ def report_coverage() -> None:
         ).all()
 
     total = len(rows)
-    have = {key: 0 for key in TAG_KEYS}
+    have = {key: 0 for key in TAG_KEYS + SCALAR_KEYS}
     for (metadata,) in rows:
-        for key in TAG_KEYS:
+        for key in TAG_KEYS + SCALAR_KEYS:
             if metadata and metadata.get(key):
                 have[key] += 1
 
     print(f"IGDB-matched roms: {total:,}")
-    for key in TAG_KEYS:
+    for key in TAG_KEYS + SCALAR_KEYS:
         share = (have[key] / total * 100) if total else 0
         print(f"  with {key:<20} {have[key]:>7,}  ({share:.1f}%)")
 
 
-async def fetch_tags(igdb_ids: list[int]) -> dict[int, dict[str, list[str]]]:
+async def fetch_tags(igdb_ids: list[int]) -> dict[int, dict[str, Any]]:
     """Ask IGDB for just the three tag fields, in batches of BATCH_SIZE."""
     results: dict[int, dict[str, list[str]]] = {}
 
@@ -86,14 +95,16 @@ async def fetch_tags(igdb_ids: list[int]) -> dict[int, dict[str, list[str]]]:
             game_id = game.get("id")
             if game_id is None:
                 continue
-            results[game_id] = {
+            values: dict[str, Any] = {
                 key: [
                     entry.get("name", "")
                     for entry in (game.get(key) or [])
-                    if entry.get("name")
+                    if isinstance(entry, dict) and entry.get("name")
                 ]
                 for key in TAG_KEYS
             }
+            values.update({key: game.get(key, 0) for key in SCALAR_KEYS})
+            results[game_id] = values
 
         done = min(start + BATCH_SIZE, len(igdb_ids))
         print(f"  fetched {done:,}/{len(igdb_ids):,}")
@@ -101,9 +112,7 @@ async def fetch_tags(igdb_ids: list[int]) -> dict[int, dict[str, list[str]]]:
     return results
 
 
-def merge_tags(
-    rom_by_igdb_id: dict[int, int], tags: dict[int, dict[str, list[str]]]
-) -> int:
+def merge_tags(rom_by_igdb_id: dict[int, int], tags: dict[int, dict[str, Any]]) -> int:
     """Merge the fetched tags into each ROM's existing igdb_metadata blob."""
     written = 0
 

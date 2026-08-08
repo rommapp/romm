@@ -119,6 +119,10 @@ class IGDBMetadataMultiplayerMode(TypedDict):
 
 class IGDBMetadata(TypedDict):
     total_rating: str | None
+    # How many votes back total_rating. A 10/10 from one source is not the
+    # same claim as 9/10 from a thousand, and the cold-start feed needs to
+    # tell them apart.
+    total_rating_count: int | None
     aggregated_rating: str | None
     first_release_date: int | None
     youtube_video_id: str | None
@@ -259,6 +263,7 @@ def extract_metadata_from_igdb_rom(
         {
             "youtube_video_id": videos[0].get("video_id") if videos else None,
             "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
+            "total_rating_count": rom.get("total_rating_count", 0),
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
             "first_release_date": rom.get("first_release_date", None),
             "genres": [g.get("name", "") for g in genres if g.get("name")],
@@ -1085,6 +1090,7 @@ GAMES_FIELDS = (
     "ports.slug",
     "ports.name",
     "ports.cover.url",
+    "total_rating_count",
     "keywords.name",
     "themes.name",
     "player_perspectives.name",
