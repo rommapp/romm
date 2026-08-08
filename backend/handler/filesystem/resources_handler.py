@@ -178,10 +178,6 @@ class FSResourcesHandler(FSHandler):
     async def _store_cover(self, entity: Rom | Collection, url_cover: str) -> None:
         """Fetch a cover once and write both sizes.
 
-        The small cover is a downscale of the large one, so fetching the same
-        URL a second time would only re-retrieve bytes we already hold, and on
-        ScreenScraper would spend a second request from the account's quota.
-
         Args:
             entity: Rom or Collection object
             url_cover: url to get the cover
@@ -253,8 +249,6 @@ class FSResourcesHandler(FSHandler):
             if not downloaded:
                 return None
 
-        # Inspecting and re-encoding the file is local work, so it runs once the
-        # provider's request slot has been handed back.
         try:
             if await self._discard_if_chroma_key(big_path):
                 # A small cover left by an earlier scan would outlive the large
@@ -287,9 +281,6 @@ class FSResourcesHandler(FSHandler):
 
     async def _derive_small_cover(self, entity: Rom | Collection) -> None:
         """Rebuild a missing small cover from the large one already on disk.
-
-        The small cover is a downscale of the large one, so a half-written pair
-        is repaired locally instead of spending a request on bytes we hold.
 
         Args:
             entity: Rom or Collection object
