@@ -1,10 +1,12 @@
 import time
+import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from utils import archives
+from utils.zip_cache import _ensure_zipfile_writable
 
 
 def _fake_7z_listing(names: list[str]) -> str:
@@ -471,3 +473,62 @@ class TestRarArchives:
             "--",
             "game.gba",
         ]
+
+
+class TestZipAndTarReadFailures:
+    """Unreadable zip/tar archives must be reported, not silently swallowed.
+
+    A swallowed failure yields no members, which the hashing path can't tell
+    apart from an empty archive: it falls back to hashing the container's raw
+    bytes, so the ROM ends up with hashes that match no hash database and no
+    log line saying why (GitHub issue #4159).
+    """
+
+    def _write_zip(self, path: Path, members: dict[str, bytes]) -> None:
+        # Importing `archives` patches zipfile for Enhanced Deflate, which
+        # leaves the writer unusable until this is called.
+        _ensure_zipfile_writable()
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as z:
+            for name, data in members.items():
+                z.writestr(name, data)
+
+    def test_unopenable_zip_raises(self, tmp_path):
+        path = tmp_path / "game.zip"
+        path.write_bytes(b"not a zip at all")
+
+        with pytest.raises(archives.ArchiveReadError):
+            list(archives.read_zip_archive_files(path, [], []))
+
+    def test_corrupt_zip_member_raises_while_streaming(self, tmp_path):
+        """The failure surfaces as the member's bytes are consumed, which
+        happens outside the reader's own error handling."""
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"a.bin": b"A" * 64, "b.bin": b"B" * 64})
+
+        # Corrupt b.bin's stored data so its CRC check fails on read.
+        raw = bytearray(path.read_bytes())
+        start = raw.index(b"B" * 64)
+        raw[start : start + 64] = b"C" * 64
+        path.write_bytes(bytes(raw))
+
+        with pytest.raises(archives.ArchiveReadError):
+            for _name, _size, chunks in archives.read_zip_archive_files(path, [], []):
+                list(chunks)
+
+    def test_healthy_zip_streams_every_member(self, tmp_path):
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"b.bin": b"B" * 32, "a.bin": b"A" * 16})
+
+        result = [
+            (name, size, b"".join(chunks))
+            for name, size, chunks in archives.read_zip_archive_files(path, [], [])
+        ]
+
+        assert result == [("a.bin", 16, b"A" * 16), ("b.bin", 32, b"B" * 32)]
+
+    def test_unopenable_tar_raises(self, tmp_path):
+        path = tmp_path / "game.tar"
+        path.write_bytes(b"not a tar at all")
+
+        with pytest.raises(archives.ArchiveReadError):
+            list(archives.read_tar_archive_files(path, [], []))
