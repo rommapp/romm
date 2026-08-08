@@ -185,6 +185,56 @@ def test_get_config_ships_platform_capabilities(client, access_token):
     }
 
 
+def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_token):
+    """RetroArch serves dozens of platforms, none of them listed by name. Without
+    a fallback they all reported no states and the player offered no save
+    button, only save and exit."""
+    container = {
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "platforms": {"psp": "retroarch"},
+    }
+    with _streaming(container):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert r.status_code == 200
+    caps = r.json()["containers"][0]["capabilities"]
+    assert caps["has_autosave"] is True
+    assert caps["autosave_slot"] == 10
+
+
+def test_a_platform_entry_wins_over_the_emulator_fallback():
+    """ngc has its own slot semantics, so serving it through RetroArch must not
+    quietly replace them."""
+    container = {
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "platforms": {"ngc": "retroarch"},
+    }
+    with _streaming(container):
+        assert streaming.platform_capabilities("ngc")["max_slots"] == 7
+
+
+def test_an_unconfigured_platform_still_has_no_states():
+    """The fallback keys off a configured container, so a platform nobody
+    streams stays out of the save-state UI."""
+    with _streaming():
+        assert streaming.platform_capabilities("psp") == streaming._NO_CAPABILITIES
+
+
+def test_the_retroarch_autosave_slot_passes_slot_validation():
+    """The gate in front of every state route reads the same table, so a slot
+    the frontend is told about has to survive it."""
+    container = {
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "platforms": {"psp": "retroarch"},
+    }
+    with _streaming(container):
+        streaming._assert_valid_slot("psp", 10)
+        with pytest.raises(HTTPException):
+            streaming._assert_valid_slot("psp", 3)
+
+
 def test_get_config_reports_memory_card_support(client, access_token, rom: Rom):
     """The picker gate: only containers with memory_card_sync report support."""
     plain = _container_for(rom)

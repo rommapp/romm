@@ -338,10 +338,42 @@ _NO_CAPABILITIES: PlatformCapabilities = {
     "has_memory_card": False,
 }
 
+# Keyed by emulator, consulted when the platform itself is not listed above.
+# RetroArch serves dozens of platforms from one container and the operator
+# picks which in their config, so enumerating them here would be a second copy
+# of the broker's core table that goes stale the moment the broker gains a
+# platform.
+_EMULATOR_CAPABILITIES: dict[str, PlatformCapabilities] = {
+    # The webstation broker resolves every state route to a single working
+    # slot, since RomM is the library of states. There is no grid to pick
+    # from, just the one slot save and resume both land in.
+    "retroarch": {
+        "max_slots": 0,
+        "has_autosave": True,
+        "autosave_slot": 10,
+        "has_memory_card": False,
+    },
+}
+
+
+def _configured_emulator(platform: str) -> str:
+    """The emulator a configured container serves this platform with, if any."""
+    for container in _get_streaming_config().get("containers", []):
+        if str(container.get("platform", "")).lower() == platform:
+            return _emulator_for_container(container)
+    return ""
+
 
 def platform_capabilities(platform: str) -> PlatformCapabilities:
-    """Save-state capabilities for a platform slug, or a no-slots default."""
-    return _PLATFORM_CAPABILITIES.get(platform.lower(), _NO_CAPABILITIES)
+    """Save-state capabilities for a platform slug, or a no-slots default.
+
+    A platform listed explicitly wins, so a platform served by more than one
+    emulator keeps the semantics its own entry describes.
+    """
+    platform = platform.lower()
+    if platform in _PLATFORM_CAPABILITIES:
+        return _PLATFORM_CAPABILITIES[platform]
+    return _EMULATOR_CAPABILITIES.get(_configured_emulator(platform), _NO_CAPABILITIES)
 
 
 def _known_to_lack_memory_card(platform: str) -> bool:
@@ -358,7 +390,10 @@ def _known_to_lack_memory_card(platform: str) -> bool:
 # exactly one place. The per-platform check in the routes is the tighter,
 # authoritative guard; this just rejects obviously out-of-range input up front.
 _MAX_SLOT = max(
-    (max(c["max_slots"], c["autosave_slot"]) for c in _PLATFORM_CAPABILITIES.values()),
+    (
+        max(c["max_slots"], c["autosave_slot"])
+        for c in (*_PLATFORM_CAPABILITIES.values(), *_EMULATOR_CAPABILITIES.values())
+    ),
     default=1,
 )
 
