@@ -414,15 +414,22 @@ class FSHandler:
                     else:
                         raise ValueError("Unsupported file type for writing")
 
+    @asynccontextmanager
     async def write_file_streamed(self, path: str, filename: str):
         """
         Write file to filesystem using a streamed approach.
+
+        The stream lands in a temporary file that is renamed over the target
+        once the caller's block completes, so a download killed mid-stream
+        leaves any existing file intact instead of truncating it in place. A
+        truncated file is the worse outcome, since it still satisfies the
+        `*_exists` checks and every later scan skips it.
 
         Args:
             path: Relative path within base directory
             filename: Name of the file to write
 
-        Returns:
+        Yields:
             File object for writing
 
         Raises:
@@ -443,8 +450,11 @@ class FSHandler:
             # Ensure target directory exists
             target_directory.mkdir(parents=True, exist_ok=True)
 
-            # Open file for writing
-            return await open_file(final_file_path, "wb")
+            # The handle closes before _atomic_write renames, so the target
+            # never receives a partially flushed file.
+            async with self._atomic_write(final_file_path) as temp_path:
+                async with await open_file(temp_path, "wb") as f:
+                    yield f
 
     async def read_file(self, file_path: str) -> bytes:
         """
