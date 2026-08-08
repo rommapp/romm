@@ -417,6 +417,8 @@
   "show-platforms-desc": "Show platforms section at the home page",
   "show-recently-added": "Show recently added ROMs",
   "show-recently-added-desc": "Show recently added ROMs section at the home page",
+  "show-recommendations": "Show recommendations",
+  "show-recommendations-desc": "Show the personalized recommendations section at the home page",
   "show-regions": "Show regions",
   "show-regions-desc": "Show region flags in the gallery",
   "show-siblings": "Show versions",

@@ -6,9 +6,11 @@ import type {
   BulkOperationResponse,
   DetailedRomSchema,
   ManualMetadata,
+  RecommendedRomSchema,
   RomUserData,
   RomUserSchema,
   SearchRomSchema,
+  SimilarRomSchema,
   SimpleRomSchema,
   SoundtrackTrackMetaSchema,
   UserNoteSchema,
@@ -390,6 +392,41 @@ async function getRecentPlayedRoms() {
       with_total: false,
       last_played: true,
     },
+  });
+}
+
+export const SIMILAR_ROMS_LIMIT = 12;
+export const RECOMMENDED_ROMS_LIMIT = 15;
+
+/** Library games similar to this one, from the precomputed similarity index. */
+async function getSimilarRoms({
+  romId,
+  limit = SIMILAR_ROMS_LIMIT,
+  signal,
+}: {
+  romId: number;
+  limit?: number;
+  signal?: AbortSignal;
+}) {
+  return api.get<SimilarRomSchema[]>(`/roms/${romId}/similar`, {
+    params: { limit },
+    signal,
+  });
+}
+
+/** Personalised recommendations for the signed-in user. */
+async function getRecommendedRoms({
+  limit = RECOMMENDED_ROMS_LIMIT,
+  refresh = false,
+  signal,
+}: {
+  limit?: number;
+  refresh?: boolean;
+  signal?: AbortSignal;
+} = {}) {
+  return api.get<RecommendedRomSchema[]>("/recommendations", {
+    params: { limit, ...(refresh ? { refresh: true } : {}) },
+    signal,
   });
 }
 
@@ -946,6 +983,8 @@ export default {
   getRoms,
   getRecentRoms,
   getRecentPlayedRoms,
+  getSimilarRoms,
+  getRecommendedRoms,
   getRom,
   getRomSimple,
   getRandomRom,

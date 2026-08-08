@@ -24,6 +24,7 @@ import { useI18n } from "vue-i18n";
 import type {
   IGDBRelatedGame,
   RomHLTBMetadata,
+  SimilarRomSchema,
   UserCollectionSchema,
 } from "@/__generated__";
 import storeCollections from "@/stores/collections";
@@ -38,6 +39,7 @@ import InfoGrid from "@/v2/components/GameDetails/InfoGrid.vue";
 import PlayerCountBadge from "@/v2/components/GameDetails/PlayerCountBadge.vue";
 import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
 import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
+import SimilarGamesGrid from "@/v2/components/GameDetails/SimilarGamesGrid.vue";
 import { PROVIDERS, providerId } from "@/v2/components/GameDetails/providers";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
@@ -59,7 +61,8 @@ const props = defineProps<{
   dlcs: IGDBRelatedGame[];
   remakes: IGDBRelatedGame[];
   remasters: IGDBRelatedGame[];
-  similarGames: IGDBRelatedGame[];
+  similarRoms: SimilarRomSchema[];
+  webp?: boolean;
 }>();
 
 const hasAgeRatings = computed(
@@ -132,7 +135,7 @@ const hasRelated = computed(
       props.dlcs.length +
       props.remakes.length +
       props.remasters.length +
-      props.similarGames.length >
+      props.similarRoms.length >
     0,
 );
 
@@ -314,12 +317,12 @@ const coverSource = computed(() => {
         </h4>
         <RelatedGamesGrid title="" :items="remasters" />
       </div>
-      <div v-if="similarGames.length" class="overview-tab__section">
+      <div v-if="similarRoms.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-shape-outline" size="14" />
-          Similar games
+          {{ t("recommendations.similar-games") }}
         </h4>
-        <RelatedGamesGrid title="" :items="similarGames" />
+        <SimilarGamesGrid :items="similarRoms" :webp="webp" />
       </div>
     </template>
 

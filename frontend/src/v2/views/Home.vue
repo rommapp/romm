@@ -11,8 +11,10 @@ import { RChip, RDivider, RIcon, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import type { RecommendedRomSchema } from "@/__generated__";
 import { useUISettings } from "@/composables/useUISettings";
 import { ROUTES } from "@/plugins/router";
+import romApi from "@/services/api/rom";
 import setupApi, { type SetupLibraryInfo } from "@/services/api/setup";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
@@ -25,6 +27,11 @@ import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
 import { useGridNav } from "@/v2/composables/useGridNav";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
+import {
+  primaryReason,
+  reasonIcon,
+  reasonLabel,
+} from "@/v2/utils/similarityReasons";
 
 const { t } = useI18n();
 
@@ -36,6 +43,7 @@ const {
   showHomeWidgets,
   showRecentRoms,
   showContinuePlaying,
+  showRecommendations,
   showPlatforms,
   showCollections,
   showSmartCollections,
@@ -57,6 +65,26 @@ const {
 
 const fetchingRecent = ref(false);
 const fetchingContinue = ref(false);
+
+// Personalised recommendations. Ranked server-side from the similarity index
+// plus this user's play history, so the row is fetched here rather than
+// derived from the ROM store's existing rails.
+const recommendedRoms = ref<RecommendedRomSchema[]>([]);
+const fetchingRecommendations = ref(false);
+
+async function loadRecommendations() {
+  fetchingRecommendations.value = true;
+  try {
+    const { data } = await romApi.getRecommendedRoms();
+    recommendedRoms.value = data;
+  } catch {
+    // An unbuilt index or a library too small to relate anything is a normal
+    // state, not an error: the row just stays hidden.
+    recommendedRoms.value = [];
+  } finally {
+    fetchingRecommendations.value = false;
+  }
+}
 
 const gridRoot = ref<HTMLElement | null>(null);
 useGridNav(gridRoot);
@@ -96,6 +124,9 @@ onMounted(async () => {
         .fetchContinuePlayingRoms()
         .finally(() => (fetchingContinue.value = false)),
     );
+  }
+  if (showRecommendations.value) {
+    initialLoads.push(loadRecommendations());
   }
 
   await Promise.allSettled(initialLoads);
@@ -315,6 +346,54 @@ function collectionCovers(c: {
         </template>
       </CardRow>
 
+      <!-- Recommended for you — each card carries the reason it was
+           suggested, so the row explains itself rather than presenting an
+           unattributed list of covers. -->
+      <CardRow
+        v-if="
+          showRecommendations &&
+          (recommendedRoms.length || fetchingRecommendations)
+        "
+        :title="t('recommendations.for-you')"
+        :count="recommendedRoms.length"
+      >
+        <template #icon>
+          <RIcon icon="mdi-lightbulb-on-outline" size="20" />
+        </template>
+        <template v-if="fetchingRecommendations && !recommendedRoms.length">
+          <GameCardSkeleton v-for="n in 6" :key="`fys-${n}`" />
+        </template>
+        <template v-else>
+          <div
+            v-for="(item, i) in recommendedRoms"
+            :key="`fy-${item.rom.id}`"
+            class="r-v2-home__rec"
+          >
+            <GameCard
+              class="r-v2-card-fade"
+              :style="{ '--card-fade-i': i }"
+              :rom="item.rom"
+              :webp="supportsWebp"
+            />
+            <span v-if="item.seed_rom_name" class="r-v2-home__rec-reason">
+              {{
+                t("recommendations.because-you-played", [item.seed_rom_name])
+              }}
+            </span>
+            <span
+              v-else-if="primaryReason(item.reasons)"
+              class="r-v2-home__rec-reason"
+            >
+              <RIcon
+                :icon="reasonIcon(primaryReason(item.reasons)!)"
+                size="11"
+              />
+              {{ reasonLabel(primaryReason(item.reasons)!, t) }}
+            </span>
+          </div>
+        </template>
+      </CardRow>
+
       <!-- Recently added -->
       <CardRow
         v-if="showRecentRoms"
@@ -489,6 +568,29 @@ function collectionCovers(c: {
   color: var(--r-color-fg-faint);
   font-size: 13px;
   padding: 24px var(--r-row-pad);
+}
+
+/* Recommendation cards stack the cover over its reason caption. The card
+   sets its own width, so the column tracks it and the caption clips to
+   match rather than widening the row's scroll track. */
+.r-v2-home__rec {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.r-v2-home__rec-reason {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 158px;
+  overflow: hidden;
+  font-size: 10.5px;
+  font-weight: var(--r-font-weight-medium);
+  color: var(--r-color-fg-faint);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* ── Empty library state ─────────────────────────────────────────
