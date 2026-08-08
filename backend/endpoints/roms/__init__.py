@@ -39,6 +39,7 @@ from config import (
 )
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
+from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
     DetailedRomSchema,
     RomFiltersDict,
@@ -53,7 +54,12 @@ from handler.auth.dependencies import (
     assert_rom_visible,
     get_permissions,
 )
-from handler.database import db_collection_handler, db_rom_handler, db_save_handler
+from handler.database import (
+    db_collection_handler,
+    db_recommendation_handler,
+    db_rom_handler,
+    db_save_handler,
+)
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
@@ -68,6 +74,7 @@ from handler.metadata import (
 )
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
+from handler.recommendation import invalidate_cached_feed
 from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -115,6 +122,11 @@ router.include_router(patch_router)
 
 # RomUser fields the statuses filter branches on.
 STATUS_MEMBERSHIP_FIELDS = frozenset({"status", "now_playing", "backlogged", "hidden"})
+
+# RomUser fields that feed the recommendation ranking.
+RECOMMENDATION_SEED_FIELDS = frozenset(
+    {"rating", "status", "last_played", "now_playing", "hidden"}
+)
 
 
 def safe_int_or_none(value: Any) -> int | None:
@@ -1265,6 +1277,59 @@ def get_rom_simple(
 
 @protected_route(
     router.get,
+    "/{id}/similar",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def get_similar_roms(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    limit: Annotated[
+        int, Query(ge=1, le=50, description="Maximum similar roms to return")
+    ] = 12,
+) -> list[SimilarRomSchema]:
+    """Games in this library that resemble the given one.
+
+    Reads the precomputed similarity graph, which blends library-relative
+    metadata overlap with IGDB's related games, collection co-membership and
+    co-play. Unlike the raw IGDB list, every result is a game the server
+    actually holds.
+    """
+
+    rom = db_rom_handler.get_rom_simple(id)
+
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
+
+    perms = get_permissions(request)
+    # Over-fetch so permission filtering cannot leave a short row.
+    edges = db_recommendation_handler.get_similar_rom_edges(id, limit=limit * 2)
+    scores = {edge.rom_id: edge for edge in edges}
+
+    similar_roms = {
+        similar.id: similar
+        for similar in db_rom_handler.get_roms_simple_by_ids(list(scores))
+        if not similar.missing_from_fs
+        and perms.can_see_rom(similar.id, similar.platform_id)
+    }
+
+    return [
+        SimilarRomSchema(
+            rom=SimpleRomSchema.from_orm_with_request(
+                similar_roms[edge.rom_id], request
+            ),
+            score=edge.score,
+            reasons=edge.reasons,  # type: ignore[arg-type]
+        )
+        for edge in edges
+        if edge.rom_id in similar_roms
+    ][:limit]
+
+
+@protected_route(
+    router.get,
     "/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
@@ -2201,5 +2266,11 @@ async def update_rom_user(
     # ROM from every user-scoped query, so any of them can move membership.
     if STATUS_MEMBERSHIP_FIELDS & cleaned_data.keys():
         refresh_affected_smart_collections([id], membership_only=True)
+
+    # These are the fields the recommendation feed scores on, so a rating or a
+    # finished playthrough should reshape it now rather than when its cache
+    # happens to expire.
+    if RECOMMENDATION_SEED_FIELDS & cleaned_data.keys():
+        invalidate_cached_feed(request.user.id)
 
     return RomUserSchema.model_validate(rom_user)

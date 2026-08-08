@@ -87,6 +87,7 @@ if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
     from models.collection import Collection
     from models.platform import Platform
+    from models.recommendation import RomSimilarity
     from models.user import User
 
 
@@ -493,6 +494,13 @@ class Rom(BaseModel):
         collection_class=set,
         lazy="raise",
         back_populates="roms",
+    )
+    similar_roms: Mapped[list[RomSimilarity]] = relationship(
+        "RomSimilarity",
+        foreign_keys="RomSimilarity.rom_id",
+        lazy="raise",
+        back_populates="rom",
+        passive_deletes=True,
     )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

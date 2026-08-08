@@ -471,6 +471,20 @@ class DBRomsHandler(DBBaseHandler):
             return []
         return session.scalars(query.filter(Rom.id.in_(ids))).all()
 
+    @begin_session
+    @with_simple_details
+    def get_roms_simple_by_ids(
+        self,
+        ids: Sequence[int],
+        *,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Rom]:
+        """Get multiple ROMs by ID with only the loads `SimpleRomSchema` needs."""
+        if not ids:
+            return []
+        return session.scalars(query.filter(Rom.id.in_(ids))).all()
+
     def get_files_for_roms(
         self,
         rom_ids: list[int],

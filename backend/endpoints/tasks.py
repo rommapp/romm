@@ -38,6 +38,7 @@ from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
 from tasks.manual.sync_folder_scan import sync_folder_scan_task
+from tasks.scheduled.build_recommendations import build_recommendations_task
 from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
@@ -86,6 +87,13 @@ scheduled_tasks: list[ScheduledTask] = [
             "name": "update_switch_titledb",
             "type": TaskType.UPDATE,
             "task": update_switch_titledb_task,
+        }
+    ),
+    ScheduledTask(
+        {
+            "name": "build_recommendations",
+            "type": TaskType.UPDATE,
+            "task": build_recommendations_task,
         }
     ),
     ScheduledTask(
