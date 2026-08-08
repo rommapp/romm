@@ -23,11 +23,7 @@ const { t } = useI18n();
 const { smAndDown } = useBreakpoint();
 const { destinations, activeId } = useNavDestinations();
 
-// iOS Safari can leave a `position: fixed` element stuck at a stale
-// offset after a scroll gesture, with no relayout able to correct it.
-// `position: sticky` (see the anchor below) is computed through ordinary
-// layout instead of that separate viewport-anchoring path, so it isn't
-// affected.
+// Sticky avoids a Safari bug where fixed elements can get stuck after scrolling.
 </script>
 
 <template>
@@ -45,11 +41,7 @@ const { destinations, activeId } = useNavDestinations();
 </template>
 
 <style scoped>
-/* `position: absolute; inset: 0` matches the height `.r-v2-shell__app`
-   already has without adding to it, so other views' bottom-nav clearance
-   math is unaffected. `flex-end` puts the pill's un-stuck position at the
-   bottom of that height, so `sticky; bottom: 0` below engages immediately
-   on any scrollable page. */
+/* Matches .r-v2-shell__app's height without adding to it; flex-end anchors the pill to sticky's bottom. */
 .r-v2-bottom-nav-anchor {
   position: absolute;
   inset: 0;
