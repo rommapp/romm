@@ -364,18 +364,25 @@ class TestCollectAssets:
         assets = PegasusExporter(local_export=True)._collect_assets(rom)
         assert assets[expected_pegasus_key] == f
 
-    def test_gamelist_metadata(self, tmp_path, monkeypatch):
+    @pytest.mark.parametrize(
+        "gl_key, gl_value, expected_pegasus_key",
+        [
+            ("marquee_path", "roms/1/1/marquee/m.png", "marquee"),
+            ("box2d_back_path", "roms/1/1/box2d_back/b.png", "box_back"),
+            ("fanart_path", "roms/1/1/fanart/f.jpg", "background"),
+        ],
+    )
+    def test_gamelist_metadata(
+        self, tmp_path, monkeypatch, gl_key, gl_value, expected_pegasus_key
+    ):
         monkeypatch.setattr(fs_resource_handler, "base_path", tmp_path)
-        f = tmp_path / "roms/1/1/marquee/m.png"
+        f = tmp_path / gl_value
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_bytes(b"x")
 
-        rom = _mock_rom(
-            ss_metadata=None,
-            gamelist_metadata={"marquee_path": "roms/1/1/marquee/m.png"},
-        )
+        rom = _mock_rom(ss_metadata=None, gamelist_metadata={gl_key: gl_value})
         assets = PegasusExporter(local_export=True)._collect_assets(rom)
-        assert assets["marquee"] == f
+        assert assets[expected_pegasus_key] == f
 
 
 class TestCopyAndEntry:
