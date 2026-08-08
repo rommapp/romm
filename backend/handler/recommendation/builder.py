@@ -162,6 +162,8 @@ class SimilarityBuilder:
                 franchises=row.franchises,
                 collections=row.collections,
                 companies=row.companies,
+                developers=row.developers,
+                publishers=row.publishers,
                 game_modes=row.game_modes,
                 keywords=row.keywords,
                 themes=row.themes,

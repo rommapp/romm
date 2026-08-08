@@ -41,6 +41,8 @@ class RomFeatureRow(NamedTuple):
     franchises: list[str] | None
     collections: list[str] | None
     companies: list[str] | None
+    developers: list[str] | None
+    publishers: list[str] | None
     game_modes: list[str] | None
     keywords: list[str] | None
     themes: list[str] | None
@@ -92,6 +94,8 @@ class DBRecommendationsHandler(DBBaseHandler):
                 RomFacets.franchises,
                 RomFacets.collections,
                 RomFacets.companies,
+                RomFacets.developers,
+                RomFacets.publishers,
                 RomFacets.game_modes,
                 RomFacets.keywords,
                 RomFacets.themes,

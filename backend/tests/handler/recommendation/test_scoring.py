@@ -20,6 +20,7 @@ from handler.recommendation.scoring import (
     quality_bonus,
     release_year_from_epoch,
     shared_reasons,
+    token_facet,
     vector_norm,
 )
 
@@ -94,6 +95,62 @@ def test_curated_facets_explain_a_match_before_keywords():
 
     assert reasons[0]["facet"] == "collection"
     assert reasons[-1]["facet"] == "keyword"
+
+
+def test_role_split_companies_replace_the_merged_list():
+    """Both would double-count a studio for IGDB-matched games only."""
+    tokens = extract_tokens(
+        platform_id=1,
+        genres=["Platform"],
+        companies=["Nintendo R&D1", "Playtronic"],
+        developers=["Nintendo R&D1"],
+        publishers=["Playtronic"],
+    )
+
+    assert make_token("developer", "Nintendo R&D1") in tokens
+    assert make_token("publisher", "Playtronic") in tokens
+    assert not any(token_facet(token) == "company" for token in tokens)
+
+
+def test_the_merged_company_list_is_the_fallback_without_roles():
+    """Providers other than IGDB report no roles, so those games keep the old
+    behaviour rather than losing the signal entirely."""
+    tokens = extract_tokens(
+        platform_id=1, genres=["Platform"], companies=["Some Studio"]
+    )
+
+    assert make_token("company", "Some Studio") in tokens
+    assert not any(token_facet(token) == "developer" for token in tokens)
+
+
+def test_a_shared_developer_outweighs_a_shared_publisher():
+    """Regression: matches were being explained by regional distributors.
+
+    Tec Toy and Playtronic distributed hundreds of titles apiece, which put
+    creatively unrelated games together under a shared "company".
+    """
+    idf = {
+        "developer:Treasure": 2.0,
+        "publisher:Sega": 2.0,
+        "genre:Action": 1.0,
+    }
+    vectors = build_normalised_vectors(
+        {
+            1: ("genre:Action", "developer:Treasure", "publisher:Sega"),
+            2: ("genre:Action", "developer:Treasure"),  # same studio
+            3: ("genre:Action", "publisher:Sega"),  # same label only
+        },
+        idf,
+    )
+
+    assert content_similarity(vectors[1], vectors[2]) > content_similarity(
+        vectors[1], vectors[3]
+    )
+
+
+def test_company_roles_count_as_a_taste_signal():
+    assert has_taste_signal(extract_tokens(platform_id=1, developers=["Treasure"]))
+    assert has_taste_signal(extract_tokens(platform_id=1, publishers=["Sega"]))
 
 
 def test_extract_tokens_skips_blanks_and_deduplicates():

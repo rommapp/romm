@@ -36,9 +36,21 @@ FACET_WEIGHTS: Final[Mapping[str, float]] = {
     # 0.5 kept 2D Mario platformers ahead of Mario Tennis. Revisit with the
     # inspection tool against a real shelf before trusting it.
     "keyword": 0.7,
-    # Below genre on purpose. A publisher spans wildly different games -- the
-    # same Nintendo label covers Metroid, Tetris and Mario Kart -- so a shared
-    # company is weaker evidence than a shared genre, not stronger.
+    # Who actually made it. Set to what the merged `company` facet carried
+    # before the split, so separating the roles redistributes that weight
+    # rather than adding new influence.
+    #
+    # Sweeping it from 1.0 down to 0.4 barely moved results: tight studios
+    # (Treasure, Sacnoth) hold their matches at every value because their
+    # games also share genre and theme, and wide-ranging ones (Neversoft)
+    # only improve at the very bottom of the range.
+    "developer": 0.7,
+    # Who shipped it. A label spans everything it ever released, and regional
+    # distributors land here too -- Tec Toy alone covers 768 games on a 12.7k
+    # library, dense enough that IDF does not suppress it on its own.
+    "publisher": 0.25,
+    # Used only where no provider reported roles, so the role is unknown and
+    # the value could be either. Below genre for the same reason publisher is.
     "company": 0.7,
     # Nearly every game is "Single player", so this mostly rides along; IDF
     # already flattens it and the low weight keeps it from breaking ties.
@@ -102,6 +114,8 @@ TASTE_FACETS: Final[frozenset[str]] = frozenset(
         "collection",
         "company",
         "game_mode",
+        "developer",
+        "publisher",
         "keyword",
         "theme",
         "perspective",
@@ -156,6 +170,8 @@ def extract_tokens(
     franchises: Sequence[str] | None = None,
     collections: Sequence[str] | None = None,
     companies: Sequence[str] | None = None,
+    developers: Sequence[str] | None = None,
+    publishers: Sequence[str] | None = None,
     game_modes: Sequence[str] | None = None,
     keywords: Sequence[str] | None = None,
     themes: Sequence[str] | None = None,
@@ -165,11 +181,21 @@ def extract_tokens(
     """Flatten a ROM's metadata into namespaced, deduplicated feature tokens."""
     tokens: list[str] = []
 
+    # Prefer the role-split lists where a provider reported them, and fall back
+    # to the merged one otherwise. Emitting both would count an IGDB-matched
+    # game's studio twice while a game matched elsewhere counted once.
+    has_roles = bool(developers) or bool(publishers)
+    company_facets: tuple[tuple[str, Sequence[str] | None], ...] = (
+        (("developer", developers), ("publisher", publishers))
+        if has_roles
+        else (("company", companies),)
+    )
+
     for facet, values in (
         ("genre", genres),
         ("franchise", franchises),
         ("collection", collections),
-        ("company", companies),
+        *company_facets,
         ("game_mode", game_modes),
         ("keyword", keywords),
         ("theme", themes),

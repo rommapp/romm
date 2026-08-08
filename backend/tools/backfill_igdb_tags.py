@@ -44,10 +44,16 @@ TAG_FIELDS = (
     "themes.name",
     "player_perspectives.name",
     "total_rating_count",
+    "involved_companies.company.name",
+    "involved_companies.developer",
+    "involved_companies.publisher",
 )
 TAG_KEYS = ("keywords", "themes", "player_perspectives")
 # Scalar rather than a list of named entities, so it is merged separately.
 SCALAR_KEYS = ("total_rating_count",)
+# Derived from involved_companies rather than returned directly:
+# {facet key: the IGDB involvement flag that fills it}.
+ROLE_KEYS = {"developers": "developer", "publishers": "publisher"}
 
 
 def load_igdb_ids(limit: int | None) -> dict[int, int]:
@@ -67,14 +73,14 @@ def report_coverage() -> None:
         ).all()
 
     total = len(rows)
-    have = {key: 0 for key in TAG_KEYS + SCALAR_KEYS}
+    have = {key: 0 for key in TAG_KEYS + SCALAR_KEYS + tuple(ROLE_KEYS)}
     for (metadata,) in rows:
-        for key in TAG_KEYS + SCALAR_KEYS:
+        for key in TAG_KEYS + SCALAR_KEYS + tuple(ROLE_KEYS):
             if metadata and metadata.get(key):
                 have[key] += 1
 
     print(f"IGDB-matched roms: {total:,}")
-    for key in TAG_KEYS + SCALAR_KEYS:
+    for key in TAG_KEYS + SCALAR_KEYS + tuple(ROLE_KEYS):
         share = (have[key] / total * 100) if total else 0
         print(f"  with {key:<20} {have[key]:>7,}  ({share:.1f}%)")
 
@@ -104,6 +110,15 @@ async def fetch_tags(igdb_ids: list[int]) -> dict[int, dict[str, Any]]:
                 for key in TAG_KEYS
             }
             values.update({key: game.get(key, 0) for key in SCALAR_KEYS})
+            involved = game.get("involved_companies") or []
+            for key, role in ROLE_KEYS.items():
+                values[key] = [
+                    entry["company"]["name"]
+                    for entry in involved
+                    if isinstance(entry, dict)
+                    and entry.get(role)
+                    and entry.get("company")
+                ]
             results[game_id] = values
 
         done = min(start + BATCH_SIZE, len(igdb_ids))
