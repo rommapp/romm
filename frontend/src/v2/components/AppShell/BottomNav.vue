@@ -22,33 +22,65 @@ import { useNavDestinations } from "@/v2/composables/useNavDestinations";
 const { t } = useI18n();
 const { smAndDown } = useBreakpoint();
 const { destinations, activeId } = useNavDestinations();
+
+// On-device testing (iOS Safari, real hardware) found `position: fixed`
+// unreliable here: during scroll it visibly tracked the page's momentum
+// instead of staying pinned, and it never correctly reset once scrolling
+// stopped — confirmed with getBoundingClientRect() reads showing it
+// permanently parked wherever the gesture happened to end, immune even to
+// a manually forced synchronous relayout (display toggle). That points to
+// a stale value in the engine's internal fixed-position viewport reference
+// that plain CSS/JS on the page can't reach or invalidate.
+//
+// `position: sticky` goes through the ordinary layout pipeline instead of
+// that separate "anchor to viewport" mechanism, so it isn't subject to the
+// same bug. See the `.r-v2-bottom-nav-anchor` comment below for how it's
+// wired up to behave identically to the old fixed strip.
 </script>
 
 <template>
-  <div v-if="smAndDown" class="r-v2-bottom-nav">
-    <RSliderBtnGroup
-      :model-value="activeId"
-      :items="destinations"
-      variant="tab"
-      class="r-v2-bottom-nav__group"
-      :aria-label="t('common.primary-navigation')"
-    />
+  <div v-if="smAndDown" class="r-v2-bottom-nav-anchor">
+    <div class="r-v2-bottom-nav">
+      <RSliderBtnGroup
+        :model-value="activeId"
+        :items="destinations"
+        variant="tab"
+        class="r-v2-bottom-nav__group"
+        :aria-label="t('common.primary-navigation')"
+      />
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* Fixed bottom strip that just hosts the pill. Transparent — the pill
-   itself carries the glass surface (tab variant), so it reads as a
-   floating control matching the top nav. Side gutters follow the
-   responsive `--r-row-pad`; the safe-area inset keeps the pill above a
-   notched phone's home indicator. `pointer-events: none` on the strip +
-   `auto` on the pill so taps in the transparent gutters fall through. */
-.r-v2-bottom-nav {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+/* `position: absolute; inset: 0` makes this anchor span exactly the same
+   height `.r-v2-shell__app` already occupies (it doesn't contribute to
+   that height itself, same as a `fixed` element wouldn't) — so no other
+   view's `100dvh - ...` clearance math needs to change. `flex-end` puts
+   the pill's un-stuck flow position at the very bottom of that full page
+   height, so `position: sticky; bottom: 0` on the pill activates
+   immediately on any page taller than one screen, exactly mimicking the
+   old fixed strip, but computed through ordinary layout instead of the
+   buggy fixed-to-viewport path. */
+.r-v2-bottom-nav-anchor {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
   z-index: 100;
+}
+
+/* Transparent — the pill itself carries the glass surface (tab variant),
+   so it reads as a floating control matching the top nav. Side gutters
+   follow the responsive `--r-row-pad`; the safe-area inset keeps the pill
+   above a notched phone's home indicator. `pointer-events: none` on the
+   strip + `auto` on the pill so taps in the transparent gutters fall
+   through. */
+.r-v2-bottom-nav {
+  position: sticky;
+  bottom: 0;
   display: flex;
   justify-content: center;
   padding: 8px var(--r-row-pad) calc(8px + env(safe-area-inset-bottom));
