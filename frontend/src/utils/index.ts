@@ -684,6 +684,25 @@ export function isRuffleEmulationSupported(
   return ["flash", "browser"].includes(slug.toLowerCase());
 }
 
+/**
+ * Check if js-dos emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
+ * @returns True if supported, false otherwise.
+ */
+export function isJsDosEmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+  config?: Config,
+) {
+  if (heartbeat.EMULATION.DISABLE_JSDOS) return false;
+
+  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  return ["win3x", "win9x"].includes(slug.toLowerCase());
+}
+
 export type PlayingStatus =
   RomUserStatus | "backlogged" | "now_playing" | "hidden";
 
