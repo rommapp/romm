@@ -23,19 +23,11 @@ const { t } = useI18n();
 const { smAndDown } = useBreakpoint();
 const { destinations, activeId } = useNavDestinations();
 
-// On-device testing (iOS Safari, real hardware) found `position: fixed`
-// unreliable here: during scroll it visibly tracked the page's momentum
-// instead of staying pinned, and it never correctly reset once scrolling
-// stopped — confirmed with getBoundingClientRect() reads showing it
-// permanently parked wherever the gesture happened to end, immune even to
-// a manually forced synchronous relayout (display toggle). That points to
-// a stale value in the engine's internal fixed-position viewport reference
-// that plain CSS/JS on the page can't reach or invalidate.
-//
-// `position: sticky` goes through the ordinary layout pipeline instead of
-// that separate "anchor to viewport" mechanism, so it isn't subject to the
-// same bug. See the `.r-v2-bottom-nav-anchor` comment below for how it's
-// wired up to behave identically to the old fixed strip.
+// iOS Safari can leave a `position: fixed` element stuck at a stale
+// offset after a scroll gesture, with no relayout able to correct it.
+// `position: sticky` (see the anchor below) is computed through ordinary
+// layout instead of that separate viewport-anchoring path, so it isn't
+// affected.
 </script>
 
 <template>
@@ -53,15 +45,11 @@ const { destinations, activeId } = useNavDestinations();
 </template>
 
 <style scoped>
-/* `position: absolute; inset: 0` makes this anchor span exactly the same
-   height `.r-v2-shell__app` already occupies (it doesn't contribute to
-   that height itself, same as a `fixed` element wouldn't) — so no other
-   view's `100dvh - ...` clearance math needs to change. `flex-end` puts
-   the pill's un-stuck flow position at the very bottom of that full page
-   height, so `position: sticky; bottom: 0` on the pill activates
-   immediately on any page taller than one screen, exactly mimicking the
-   old fixed strip, but computed through ordinary layout instead of the
-   buggy fixed-to-viewport path. */
+/* `position: absolute; inset: 0` matches the height `.r-v2-shell__app`
+   already has without adding to it, so other views' bottom-nav clearance
+   math is unaffected. `flex-end` puts the pill's un-stuck position at the
+   bottom of that height, so `sticky; bottom: 0` below engages immediately
+   on any scrollable page. */
 .r-v2-bottom-nav-anchor {
   position: absolute;
   inset: 0;
