@@ -1845,15 +1845,17 @@ async def update_rom(
             }
         )
 
+    # The cover and manual blocks below both take and release locks, so they
+    # share one running set that is written back once. Deriving each change from
+    # rom.locked_fields instead would let the later block discard the earlier
+    # block's change, since both would start from the same pre-update state.
+    locked_fields = set(rom.locked_fields or [])
+
     if remove_cover:
         cleaned_data.update(await fs_resource_handler.remove_cover(rom))
         # Dropping the hand-supplied cover hands the slot back to the providers.
-        cleaned_data.update(
-            {
-                "url_cover": "",
-                "locked_fields": rom.locked_fields_without("url_cover"),
-            }
-        )
+        cleaned_data.update({"url_cover": ""})
+        locked_fields.discard("url_cover")
     else:
         if artwork is not None and artwork.filename is not None:
             file_ext = validate_image_upload(artwork, label="Artwork")
@@ -1870,9 +1872,9 @@ async def update_rom(
                     "url_cover": "",
                     "path_cover_s": path_cover_s,
                     "path_cover_l": path_cover_l,
-                    "locked_fields": rom.locked_fields_with("url_cover"),
                 }
             )
+            locked_fields.add("url_cover")
         else:
             url_cover = (
                 form_data.url_cover if "url_cover" in provided_fields else rom.url_cover
@@ -1890,11 +1892,12 @@ async def update_rom(
                         "path_cover_l": path_cover_l,
                     }
                 )
-                # Naming a source url is a handover back to the providers.
-                if "url_cover" in provided_fields and url_cover:
-                    cleaned_data["locked_fields"] = rom.locked_fields_without(
-                        "url_cover"
-                    )
+                # Naming a different source url is a handover back to the
+                # providers. Testing that it changed, not merely that one was
+                # sent, matters because the client posts the stored url on every
+                # save, so a plain save must not release the lock.
+                if url_cover and url_cover != rom.url_cover:
+                    locked_fields.discard("url_cover")
             except ValidationError as e:
                 log.error(f"Invalid cover URL in update_rom: {str(e)}")
                 raise HTTPException(status_code=400, detail=str(e)) from e
@@ -1914,9 +1917,16 @@ async def update_rom(
                 "path_manual": path_manual,
             }
         )
+        # Same handover as the cover. An upload leaves url_manual untouched, so
+        # unlike the cover this url is often already set on a locked manual,
+        # which is exactly why only an actual change may release it.
+        if url_manual and url_manual != rom.url_manual:
+            locked_fields.discard("url_manual")
     except ValidationError as e:
         log.error(f"Invalid manual URL in update_rom: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+    cleaned_data["locked_fields"] = sorted(locked_fields)
 
     # Handle RetroAchievements badges when the ID has changed
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:

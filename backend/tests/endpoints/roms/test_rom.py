@@ -828,6 +828,87 @@ def test_remove_cover_releases_the_lock(
     assert db_rom_handler.get_rom(rom.id).locked_fields == []
 
 
+@patch.object(
+    FSResourcesHandler,
+    "get_cover",
+    new_callable=AsyncMock,
+    return_value=("path/to/small.png", "path/to/big.png"),
+)
+def test_saving_without_changing_urls_keeps_locks(
+    get_cover_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    # The client posts the stored urls on every save, so releasing a lock
+    # whenever a url is present would unlock hand-supplied artwork the first
+    # time anything else on the rom is edited.
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "url_cover": "",
+            "url_manual": "https://ss.fr/manual?id=1",
+            "locked_fields": ["url_cover", "url_manual"],
+        },
+    )
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"url_cover": "", "url_manual": "https://ss.fr/manual?id=1"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    assert db_rom_handler.get_rom(rom.id).locked_fields == [
+        "url_cover",
+        "url_manual",
+    ]
+
+
+@patch.object(
+    FSResourcesHandler,
+    "get_manual",
+    new_callable=AsyncMock,
+    return_value="path/to/manual.pdf",
+)
+@patch.object(
+    FSResourcesHandler,
+    "get_cover",
+    new_callable=AsyncMock,
+    return_value=("path/to/small.png", "path/to/big.png"),
+)
+def test_naming_new_source_urls_releases_both_locks(
+    get_cover_mock: AsyncMock,
+    get_manual_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    # Choosing a provider's artwork is a handover. Both fields release in one
+    # request, which is why the locks are accumulated rather than each derived
+    # from the pre-update row.
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "url_cover": "",
+            "url_manual": "https://ss.fr/manual?id=1",
+            "locked_fields": ["url_cover", "url_manual"],
+        },
+    )
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={
+            "url_cover": "https://ss.fr/cover?id=2",
+            "url_manual": "https://ss.fr/manual?id=2",
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    assert db_rom_handler.get_rom(rom.id).locked_fields == []
+
+
 def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
     response = client.post(
         "/api/roms/delete",
