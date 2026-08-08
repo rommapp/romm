@@ -37,6 +37,9 @@ class RomFeatureRow(NamedTuple):
     collections: list[str] | None
     companies: list[str] | None
     game_modes: list[str] | None
+    keywords: list[str] | None
+    themes: list[str] | None
+    player_perspectives: list[str] | None
     first_release_date: int | None
     average_rating: float | None
 
@@ -85,6 +88,9 @@ class DBRecommendationsHandler(DBBaseHandler):
                 RomFacets.collections,
                 RomFacets.companies,
                 RomFacets.game_modes,
+                RomFacets.keywords,
+                RomFacets.themes,
+                RomFacets.player_perspectives,
                 RomMetadata.first_release_date,
                 RomMetadata.average_rating,
             )

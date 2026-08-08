@@ -1,5 +1,6 @@
 import re
-from typing import Final, NotRequired, TypedDict
+from collections.abc import Sequence
+from typing import Any, Final, NotRequired, TypedDict
 
 import httpx
 import pydash
@@ -122,6 +123,9 @@ class IGDBMetadata(TypedDict):
     first_release_date: int | None
     youtube_video_id: str | None
     genres: list[str]
+    keywords: list[str]
+    themes: list[str]
+    player_perspectives: list[str]
     franchises: list[str]
     alternative_names: list[str]
     collections: list[str]
@@ -162,6 +166,20 @@ def build_related_game(
     )
 
 
+def _expanded_names(entries: Sequence[Any]) -> list[str]:
+    """Names from an IGDB expandable field.
+
+    A field that was requested without `.name` comes back as a bare id rather
+    than an object, so entries that are not dicts are skipped instead of
+    raising.
+    """
+    return [
+        name
+        for entry in entries
+        if isinstance(entry, dict) and (name := entry.get("name"))
+    ]
+
+
 def extract_metadata_from_igdb_rom(
     self: MetadataHandler, rom: Game, platform_igdb_id: int | None
 ) -> IGDBMetadata:
@@ -175,6 +193,9 @@ def extract_metadata_from_igdb_rom(
     franchises = rom.get("franchises", [])
     game_modes = rom.get("game_modes", [])
     genres = rom.get("genres", [])
+    keywords = rom.get("keywords", [])
+    themes = rom.get("themes", [])
+    player_perspectives = rom.get("player_perspectives", [])
     involved_companies = rom.get("involved_companies", [])
     platforms = rom.get("platforms", [])
     multiplayer_modes = rom.get("multiplayer_modes", [])
@@ -241,6 +262,11 @@ def extract_metadata_from_igdb_rom(
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
             "first_release_date": rom.get("first_release_date", None),
             "genres": [g.get("name", "") for g in genres if g.get("name")],
+            # Community tags ("metroidvania", "roguelike") describing how a game
+            # plays, which the coarse genre list does not capture.
+            "keywords": _expanded_names(keywords),
+            "themes": _expanded_names(themes),
+            "player_perspectives": _expanded_names(player_perspectives),
             "franchises": pydash.compact(
                 [franchise.get("name") if franchise else None]
                 + [f.get("name", "") for f in franchises if f.get("name")]
@@ -1059,6 +1085,9 @@ GAMES_FIELDS = (
     "ports.slug",
     "ports.name",
     "ports.cover.url",
+    "keywords.name",
+    "themes.name",
+    "player_perspectives.name",
     "similar_games.id",
     "similar_games.slug",
     "similar_games.name",

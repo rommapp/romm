@@ -258,6 +258,13 @@ class RomMetadata(BaseModel):
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    # IGDB-only descriptors: community tags plus the curated theme and
+    # viewpoint lists. Far more specific about how a game plays than genre.
+    keywords: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    themes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    player_perspectives: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(), default=[]
+    )
     player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")
     first_release_date: Mapped[int | None] = mapped_column(BigInteger(), default=None)
     average_rating: Mapped[float | None] = mapped_column(default=None)
@@ -290,6 +297,11 @@ class RomFacets(BaseModel):
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    keywords: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    themes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    player_perspectives: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(), default=[]
+    )
     player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])

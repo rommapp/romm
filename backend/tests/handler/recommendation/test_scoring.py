@@ -47,6 +47,55 @@ def test_extract_tokens_namespaces_every_facet():
     assert make_token("decade", "1990") in tokens
 
 
+def test_extract_tokens_namespaces_the_igdb_tag_facets():
+    tokens = extract_tokens(
+        platform_id=1,
+        genres=["Platform"],
+        keywords=["metroidvania", "interconnected-world"],
+        themes=["Action", "Horror"],
+        player_perspectives=["Side view"],
+    )
+
+    assert make_token("keyword", "metroidvania") in tokens
+    assert make_token("theme", "Horror") in tokens
+    assert make_token("perspective", "Side view") in tokens
+
+
+def test_igdb_tags_count_as_a_taste_signal():
+    """A game with only keywords is still worth indexing."""
+    assert has_taste_signal(extract_tokens(platform_id=1, keywords=["roguelike"]))
+    assert has_taste_signal(extract_tokens(platform_id=1, themes=["Horror"]))
+    assert has_taste_signal(
+        extract_tokens(platform_id=1, player_perspectives=["First person"])
+    )
+
+
+def test_curated_facets_explain_a_match_before_keywords():
+    """Keywords carry the highest IDF, so they would otherwise own every slot.
+
+    Real data explained a Castlevania match with "frankenstein's monster" and a
+    Zelda match with "drawbridge", both of which read as nonsense next to the
+    shared franchise or genre that actually drove the score.
+    """
+    idf = {
+        "collection:Castlevania": 2.0,
+        "genre:Platform": 1.0,
+        # Rare keywords dominate on IDF alone.
+        "keyword:frankenstein's monster": 9.0,
+    }
+    tokens = (
+        "collection:Castlevania",
+        "genre:Platform",
+        "keyword:frankenstein's monster",
+    )
+    vectors = build_normalised_vectors({1: tokens, 2: tokens}, idf)
+
+    reasons = shared_reasons(vectors[1], vectors[2])
+
+    assert reasons[0]["facet"] == "collection"
+    assert reasons[-1]["facet"] == "keyword"
+
+
 def test_extract_tokens_skips_blanks_and_deduplicates():
     tokens = extract_tokens(
         platform_id=1,
@@ -134,25 +183,44 @@ def test_build_vector_is_raw_facet_weight_times_idf():
 def test_pivoting_stops_a_sparse_game_outranking_a_rich_one():
     """The defect real data exposed: "Golf" above "Super Mario Sunshine".
 
-    A game tagged with one facet has that facet carry its entire vector, so
-    plain L2 normalisation scores it as a near-perfect match on a single
-    shared token. Pivoting divides short vectors by more than their true
-    length, which is what lets the richer, genuinely-closer game win.
+    Both candidates share the source's franchise, and the richer one *also*
+    shares its genre -- so it is plainly the better match. Under plain L2 the
+    richer game is divided by its own longer vector and loses anyway, which is
+    exactly how a one-tag entry outranked the real Mario platformers.
+
+    One value per facet throughout, so build_vector's per-facet split is
+    neutral here and the test isolates length normalisation.
     """
-    idf = {token: 1.0 for token in ("t:a", "t:b", "t:c", "t:d", "t:e", "t:f", "t:g")}
+    idf = {
+        token: 1.0
+        for token in (
+            "genre:a",
+            "franchise:b",
+            "company:c",
+            "theme:d",
+            "keyword:x",
+            "game_mode:z",
+            "perspective:q",
+        )
+    }
     token_sets = {
-        1: ("t:a", "t:b", "t:c", "t:d"),  # source
-        2: ("t:a",),  # sparse, shares one token
-        3: ("t:a", "t:b", "t:e", "t:f", "t:g"),  # rich, shares two
+        1: ("genre:a", "franchise:b", "company:c", "theme:d"),  # source
+        2: ("franchise:b",),  # sparse: shares the franchise only
+        3: (  # rich: shares franchise *and* genre, but carries more besides
+            "genre:a",
+            "franchise:b",
+            "keyword:x",
+            "game_mode:z",
+            "perspective:q",
+        ),
     }
 
-    # Plain L2 gets this backwards, which is the bug being fixed.
-    l2 = {
-        key: normalise(
-            build_vector(tokens, idf), vector_norm(build_vector(tokens, idf))
-        )
-        for key, tokens in token_sets.items()
-    }
+    l2 = {}
+    for key, tokens in token_sets.items():
+        raw = build_vector(tokens, idf)
+        l2[key] = normalise(raw, vector_norm(raw))
+
+    # Plain L2 ranks the sparse game first, which is the bug.
     assert content_similarity(l2[1], l2[2]) > content_similarity(l2[1], l2[3])
 
     pivoted = build_normalised_vectors(token_sets, idf)
@@ -181,12 +249,13 @@ def test_well_documented_games_are_not_penalised_by_default():
     were all 6-8 token entries, with the 12-16 token Mario platformers nowhere
     in the list.
     """
-    idf = {f"t:{c}": 1.0 for c in "abcdefg"}
+    facets = ("genre", "franchise", "company", "theme", "perspective", "keyword")
+    idf = {f"{facet}:v": 1.0 for facet in facets}
     vectors = build_normalised_vectors(
         {
-            1: ("t:a", "t:b", "t:c", "t:d"),
-            2: ("t:a",),
-            3: ("t:a", "t:b", "t:e", "t:f", "t:g"),
+            1: ("genre:v", "franchise:v", "company:v", "theme:v"),
+            2: ("genre:v",),
+            3: ("genre:v", "franchise:v", "perspective:v", "keyword:v"),
         },
         idf,
     )

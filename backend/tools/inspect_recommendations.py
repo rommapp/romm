@@ -94,6 +94,9 @@ def load_facets(rom_id: int) -> dict[str, list[str]]:
         RomMetadata.collections,
         RomMetadata.companies,
         RomMetadata.game_modes,
+        RomMetadata.keywords,
+        RomMetadata.themes,
+        RomMetadata.player_perspectives,
     ).where(RomMetadata.rom_id == rom_id)
 
     with sync_session.begin() as session:
@@ -108,6 +111,9 @@ def load_facets(rom_id: int) -> dict[str, list[str]]:
         "collections": row[2] or [],
         "companies": row[3] or [],
         "game_modes": row[4] or [],
+        "keywords": row[5] or [],
+        "themes": row[6] or [],
+        "perspectives": row[7] or [],
     }
 
 

@@ -160,6 +160,9 @@ class SimilarityBuilder:
                 collections=row.collections,
                 companies=row.companies,
                 game_modes=row.game_modes,
+                keywords=row.keywords,
+                themes=row.themes,
+                player_perspectives=row.player_perspectives,
                 first_release_date=row.first_release_date,
             )
 

@@ -23,6 +23,19 @@ FACET_WEIGHTS: Final[Mapping[str, float]] = {
     "collection": 3.0,
     "franchise": 2.5,
     "genre": 1.0,
+    # IGDB's curated viewpoint list. "Side view" versus "First person" says
+    # more about how a game plays than most genre labels do.
+    "perspective": 1.0,
+    # A secondary genre axis (Horror, Comedy, Fantasy), curated and low
+    # cardinality, so it earns close to a genre's weight.
+    "theme": 0.9,
+    # Community tags. High cardinality and mixed quality ("motorcycle" sits
+    # beside "metroidvania"), so IDF does most of the work and the weight
+    # stays below the curated facets. This is the least settled of the
+    # weights: on a 12.7k library 0.8 surfaced real golf games for Golf while
+    # 0.5 kept 2D Mario platformers ahead of Mario Tennis. Revisit with the
+    # inspection tool against a real shelf before trusting it.
+    "keyword": 0.7,
     # Below genre on purpose. A publisher spans wildly different games -- the
     # same Nintendo label covers Metroid, Tetris and Mario Kart -- so a shared
     # company is weaker evidence than a shared genre, not stronger.
@@ -83,7 +96,16 @@ SAME_DECADE_TOKEN: Final = "decade"
 # decade alone would make every unmatched file in a folder a perfect match for
 # every other, since both vectors normalise to the same thing.
 TASTE_FACETS: Final[frozenset[str]] = frozenset(
-    {"genre", "franchise", "collection", "company", "game_mode"}
+    {
+        "genre",
+        "franchise",
+        "collection",
+        "company",
+        "game_mode",
+        "keyword",
+        "theme",
+        "perspective",
+    }
 )
 
 
@@ -135,6 +157,9 @@ def extract_tokens(
     collections: Sequence[str] | None = None,
     companies: Sequence[str] | None = None,
     game_modes: Sequence[str] | None = None,
+    keywords: Sequence[str] | None = None,
+    themes: Sequence[str] | None = None,
+    player_perspectives: Sequence[str] | None = None,
     first_release_date: int | None = None,
 ) -> tuple[str, ...]:
     """Flatten a ROM's metadata into namespaced, deduplicated feature tokens."""
@@ -146,6 +171,9 @@ def extract_tokens(
         ("collection", collections),
         ("company", companies),
         ("game_mode", game_modes),
+        ("keyword", keywords),
+        ("theme", themes),
+        ("perspective", player_perspectives),
     ):
         for value in values or ():
             cleaned = (value or "").strip()
@@ -205,9 +233,26 @@ def compute_idf(
 
 
 def build_vector(tokens: Sequence[str], idf: Mapping[str, float]) -> dict[str, float]:
-    """Raw facet-weighted IDF vector, before any length normalisation."""
+    """Raw facet-weighted IDF vector, before any length normalisation.
+
+    A facet's weight is split across however many values it holds, so one
+    franchise counts for more than one of six. Without it, a compilation
+    carrying several franchises matches strongly on all of them: the SNES
+    Mario compilation pulled in Mario Tennis and Mario Party ahead of the 2D
+    platformers it actually resembles.
+
+    Splitting by sqrt rather than the count itself keeps a multi-value facet
+    worth more in total than a single-value one -- three genres really is more
+    information than one -- while stopping it from scaling linearly.
+    """
+    facet_counts = Counter(token_facet(token) for token in tokens)
+
     raw = {
-        token: FACET_WEIGHTS.get(token_facet(token), 1.0) * idf.get(token, 0.0)
+        token: (
+            FACET_WEIGHTS.get(token_facet(token), 1.0)
+            * idf.get(token, 0.0)
+            / math.sqrt(facet_counts[token_facet(token)])
+        )
         for token in tokens
     }
     return {token: weight for token, weight in raw.items() if weight > 0}
@@ -282,7 +327,15 @@ def shared_reasons(
         for token, weight in left.items()
         if token in right
     ]
-    contributions.sort(key=lambda pair: (-pair[0], pair[1]))
+    # Keywords are ranked last regardless of contribution. They are the rarest
+    # tokens, so they carry the highest IDF and would otherwise always win the
+    # slot -- explaining a match with "drawbridge" or "frankenstein's monster"
+    # when the two games are really both Castlevanias. They still earn a slot
+    # once the curated facets are exhausted, where "interconnected-world" says
+    # something no genre can.
+    contributions.sort(
+        key=lambda pair: (token_facet(pair[1]) == "keyword", -pair[0], pair[1])
+    )
 
     reasons: list[dict[str, str]] = []
     seen_facets: set[str] = set()

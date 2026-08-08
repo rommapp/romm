@@ -140,9 +140,15 @@ def test_same_franchise_outranks_same_genre(library: dict[str, Rom]):
     ranked = [edge.rom_id for edge in edges]
 
     # Metroid Fusion shares the franchise; Castlevania only shares genres.
-    assert ranked.index(library["metroid_2"].id) < ranked.index(
-        library["castlevania"].id
-    )
+    assert ranked[0] == library["metroid_2"].id
+
+    # A genre-only match may fall below MIN_EDGE_SCORE and be dropped entirely,
+    # which is a stronger version of the same result. Assert the ordering only
+    # when it survived, so the test measures ranking rather than the threshold.
+    if library["castlevania"].id in ranked:
+        assert ranked.index(library["metroid_2"].id) < ranked.index(
+            library["castlevania"].id
+        )
 
 
 def test_unrelated_game_scores_below_a_franchise_match(library: dict[str, Rom]):
