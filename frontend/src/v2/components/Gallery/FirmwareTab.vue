@@ -168,12 +168,13 @@ function onDeleted(deletedIds: number[]) {
 
 // `firmware_count` is a readonly derived field on PlatformSchema —
 // patched locally so the InfoPanel stat reacts instantly; a future
-// refetch reconciles.
+// refetch reconciles. It counts only firmware present on disk, matching
+// what the server derives.
 function syncFirmware(next: FirmwareSchema[]) {
   const updated: Platform = {
     ...props.platform,
     firmware: next,
-    firmware_count: next.length,
+    firmware_count: next.filter((f) => !f.missing_from_fs).length,
   };
   platformsStore.update(updated);
   if (galleryRoms.currentPlatform?.id === updated.id) {

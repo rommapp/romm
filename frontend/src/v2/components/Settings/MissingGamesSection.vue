@@ -40,6 +40,7 @@ import {
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms, { type SidecarOptions } from "@/v2/stores/galleryRoms";
 
@@ -66,6 +67,7 @@ const galleryFilter = storeGalleryFilter();
 const platformsStore = storePlatforms();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
+const { awaitTask } = useTaskCompletion();
 const { supportsWebp } = useWebpSupport();
 
 const { allPlatforms } = storeToRefs(platformsStore);
@@ -251,12 +253,14 @@ async function cleanupAll() {
       selectedPlatforms.value.length === 1
         ? { platform_id: selectedPlatforms.value[0].id }
         : {};
-    await taskApi.runTask("cleanup_missing_roms", body);
+    const { data } = await taskApi.runTask("cleanup_missing_roms", body);
     snackbar.success(t("settings.cleanup-queued"));
-    setTimeout(() => {
+    // The run endpoint returns once the job is queued, so wait for the worker
+    // to finish before reloading the table.
+    if (await awaitTask(data.task_id)) {
       galleryRoms.invalidateWindows();
-      void galleryRoms.fetchInitialMetadata(NO_SIDECARS);
-    }, 1500);
+      await galleryRoms.fetchInitialMetadata(NO_SIDECARS);
+    }
   } catch (err) {
     snackbar.error(t("settings.couldnt-queue-cleanup", { error: String(err) }));
   } finally {
