@@ -514,10 +514,18 @@ function onStaticKeydown(e: KeyboardEvent) {
         <div class="r-gc__overlay">
           <div class="r-gc__overlay-center">
             <GameActionBtn
-              v-if="actions?.canPlay.value"
+              v-if="actions?.canPlayInBrowser.value"
               :rom="rom"
               action="play"
               variant="emphasized"
+            />
+            <GameActionBtn
+              v-if="actions?.canPlayStream.value"
+              :rom="rom"
+              action="stream"
+              :variant="
+                actions?.canPlayInBrowser.value ? 'glass' : 'emphasized'
+              "
             />
           </div>
 
@@ -643,6 +651,7 @@ function onStaticKeydown(e: KeyboardEvent) {
   display: flex;
   justify-content: center;
   align-items: center;
+  gap: var(--r-space-2);
 }
 .r-gc__overlay-bottom {
   display: flex;

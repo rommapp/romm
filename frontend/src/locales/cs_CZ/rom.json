@@ -418,6 +418,8 @@
   "status-never-playing": "Nikdy nebudu hrát",
   "status-now-playing": "Právě hraji",
   "status-retired": "Opuštěno",
+  "stream": "Streamovat",
+  "stream-on": "Streamovat na {container}",
   "summary": "Souhrn",
   "switch-version": "Přepnout verzi",
   "tab-achievements": "Achievementy",

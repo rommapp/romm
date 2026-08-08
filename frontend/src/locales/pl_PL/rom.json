@@ -418,6 +418,8 @@
   "status-never-playing": "Nigdy nie gram",
   "status-now-playing": "Aktualnie grane",
   "status-retired": "Porzucone",
+  "stream": "Strumieniuj",
+  "stream-on": "Strumieniuj na {container}",
   "summary": "Podsumowanie",
   "switch-version": "Zmień wersję",
   "tab-achievements": "Osiągnięcia",

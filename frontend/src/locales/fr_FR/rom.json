@@ -418,6 +418,8 @@
   "status-never-playing": "Jamais joué",
   "status-now-playing": "En train de jouer",
   "status-retired": "Abandonné",
+  "stream": "Diffuser",
+  "stream-on": "Diffuser sur {container}",
   "summary": "Résumé",
   "switch-version": "Changer de version",
   "tab-achievements": "Succès",

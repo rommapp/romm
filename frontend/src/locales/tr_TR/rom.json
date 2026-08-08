@@ -418,6 +418,8 @@
   "status-never-playing": "Hiç Oynanmayacak",
   "status-now-playing": "Şu An Oynanıyor",
   "status-retired": "Bırakıldı",
+  "stream": "Yayınla",
+  "stream-on": "{container} üzerinde yayınla",
   "summary": "Özet",
   "switch-version": "Sürümü değiştir",
   "tab-achievements": "Başarımlar",

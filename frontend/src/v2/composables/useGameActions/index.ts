@@ -20,6 +20,7 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
+import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
 import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
@@ -39,6 +40,9 @@ export interface GameActionsOptions {
    *  the cover into /ejs the same way clicking the card morphs into details. */
   coverEl?: () => HTMLElement | null;
 }
+
+/** Which player a launch is asking for. "auto" lets availability decide. */
+export type PlayTarget = "auto" | "local" | "stream";
 
 // Validate flashpoint game IDs are UUIDs
 const FLASHPOINT_ID_RE =
@@ -75,6 +79,21 @@ export function useGameActions(
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
   const { canPlay, canPlayEJS, canPlayRuffle, canPlayStream } =
     useCanPlay(getRom);
+  const streamingStore = useStreamingStore();
+
+  // Streaming is offered as its own action rather than as the winner of a
+  // precedence rule, so each player needs a gate of its own.
+  const canPlayInBrowser = computed(
+    () => canPlayEJS.value || canPlayRuffle.value,
+  );
+
+  // Names the box the session runs on, so a library served by more than one
+  // container says which the button reaches.
+  const streamLabel = computed(() => {
+    const rom = getRom();
+    if (!rom) return "";
+    return streamingStore.containerForPlatform(rom.platform_slug)?.label ?? "";
+  });
 
   const isFavorited = computed(() => {
     const rom = getRom();
@@ -203,7 +222,7 @@ export function useGameActions(
     );
   });
 
-  async function play() {
+  async function play(player: PlayTarget = "auto") {
     const rom = getRom();
     if (!rom) return;
 
@@ -231,10 +250,19 @@ export function useGameActions(
       if (!ok) return;
     }
 
+    // A platform can be served by both an in-browser core and a streaming
+    // container, and they are different products (local latency versus the
+    // container's own emulator and save library). The caller says which it
+    // wants; "auto" keeps the single-button surfaces working by preferring
+    // the stream, as they did before either could be asked for by name.
+    const streaming =
+      player === "stream" || (player === "auto" && canPlayStream.value);
+    const inBrowser = player === "local" || player === "auto";
+
     // EmulatorJS cores can require SharedArrayBuffer. Nginx only attaches the
     // necessary COOP/COEP headers to the player document, so an SPA navigation
     // cannot enable cross-origin isolation. Load the document directly instead.
-    if (!canPlayStream.value && canPlayEJS.value) {
+    if (!streaming && inBrowser && canPlayEJS.value) {
       window.location.assign(`/rom/${rom.id}/ejs`);
       return;
     }
@@ -243,8 +271,8 @@ export function useGameActions(
     // player view itself — see EmulatorJS's onPlay — so navigation is
     // immediate here.
     let path: string | null = null;
-    if (canPlayStream.value) path = `/rom/${rom.id}/stream`;
-    else if (canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
+    if (streaming && canPlayStream.value) path = `/rom/${rom.id}/stream`;
+    else if (inBrowser && canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
     if (!path) return;
     const target = path;
     // When the caller supplies a cover element (the gallery card / detail
@@ -427,6 +455,8 @@ export function useGameActions(
     canOpenInFlashpoint,
     canPlay,
     canPlayStream,
+    canPlayInBrowser,
+    streamLabel,
     canRemoveFromContinuePlaying,
     canEdit,
     canDelete,

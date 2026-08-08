@@ -418,6 +418,8 @@
   "status-never-playing": "Nie spielen",
   "status-now-playing": "Wird gespielt",
   "status-retired": "Aufgegeben",
+  "stream": "Streamen",
+  "stream-on": "Auf {container} streamen",
   "summary": "Zusammenfassung",
   "switch-version": "Version wechseln",
   "tab-achievements": "Erfolge",

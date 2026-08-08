@@ -58,11 +58,19 @@ useGridNav(rootEl, {
 <template>
   <div ref="rootEl" class="game-actions">
     <GameActionBtn
-      v-if="actions.canPlay.value"
+      v-if="actions.canPlayInBrowser.value"
       :rom="rom"
       action="play"
       :size="btnSize"
       variant="emphasized"
+      with-label
+    />
+    <GameActionBtn
+      v-if="actions.canPlayStream.value"
+      :rom="rom"
+      action="stream"
+      :size="btnSize"
+      :variant="actions.canPlayInBrowser.value ? 'surface' : 'emphasized'"
       with-label
     />
     <div v-if="actions.canPlay.value" class="game-actions__break" />

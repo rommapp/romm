@@ -173,6 +173,48 @@ describe("useGameActions.play — launch confirmation", () => {
     expect(locationAssign).not.toHaveBeenCalled();
   });
 
+  it("goes to EmulatorJS when asked for the local player, stream or not", async () => {
+    // The whole point of the two buttons: a platform both can run must still
+    // be reachable in the browser.
+    streamContainer.value = {};
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play("local");
+
+    expect(locationAssign).toHaveBeenCalledWith("/rom/1/ejs");
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("goes to the stream when asked for it", async () => {
+    streamContainer.value = {};
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play("stream");
+
+    expect(push).toHaveBeenCalledWith("/rom/1/stream");
+    expect(locationAssign).not.toHaveBeenCalled();
+  });
+
+  it("launches nothing when the asked-for player cannot run it", async () => {
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play("stream");
+
+    expect(push).not.toHaveBeenCalled();
+    expect(locationAssign).not.toHaveBeenCalled();
+  });
+
+  it("still confirms a shelved game whichever player is asked for", async () => {
+    confirmFn.mockResolvedValue(false);
+    streamContainer.value = {};
+    const actions = useGameActions(() => makeRom("retired"));
+
+    await actions.play("stream");
+
+    expect(confirmFn).toHaveBeenCalledTimes(1);
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it("keeps SPA navigation for Ruffle", async () => {
     canPlayEJS.value = false;
     canPlayRuffle.value = true;

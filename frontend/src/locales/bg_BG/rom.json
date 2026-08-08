@@ -418,6 +418,8 @@
   "status-never-playing": "Неиграна никога",
   "status-now-playing": "Играна в момента",
   "status-retired": "Изоставена",
+  "stream": "Стрийминг",
+  "stream-on": "Стрийминг на {container}",
   "summary": "Резюме",
   "switch-version": "Смени версията",
   "tab-achievements": "Постижения",

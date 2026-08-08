@@ -65,6 +65,7 @@ const { t } = useI18n();
 
 export type GameAction =
   | "play"
+  | "stream"
   | "download"
   | "copy-link"
   | "qr"
@@ -162,7 +163,18 @@ const preset = computed<Preset>(() => {
       icon: "mdi-play",
       label: t("rom.play"),
       activeIcon: null,
-      onClick: actions.play,
+      onClick: () => actions.play("local"),
+      active: false,
+    };
+  }
+  if (props.action === "stream") {
+    return {
+      icon: "mdi-monitor-play",
+      label: actions.streamLabel.value
+        ? t("rom.stream-on", { container: actions.streamLabel.value })
+        : t("rom.stream"),
+      activeIcon: null,
+      onClick: () => actions.play("stream"),
       active: false,
     };
   }

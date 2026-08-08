@@ -418,6 +418,8 @@
   "status-never-playing": "プレイしない",
   "status-now-playing": "プレイ中",
   "status-retired": "中断",
+  "stream": "ストリーミング",
+  "stream-on": "{container} でストリーミング",
   "summary": "結果",
   "switch-version": "バージョン切り替え",
   "tab-achievements": "実績",

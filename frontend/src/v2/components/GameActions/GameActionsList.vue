@@ -44,10 +44,20 @@ function run(fn: () => void | Promise<void>) {
 <template>
   <!-- Primary actions -->
   <RMenuItem
-    v-if="actions.canPlay.value"
+    v-if="actions.canPlayInBrowser.value"
     :label="t('rom.play')"
     icon="mdi-play"
-    @click="run(actions.play)"
+    @click="run(() => actions.play('local'))"
+  />
+  <RMenuItem
+    v-if="actions.canPlayStream.value"
+    :label="
+      actions.streamLabel.value
+        ? t('rom.stream-on', { container: actions.streamLabel.value })
+        : t('rom.stream')
+    "
+    icon="mdi-monitor-play"
+    @click="run(() => actions.play('stream'))"
   />
   <RMenuItem
     :label="t('rom.download')"

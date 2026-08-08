@@ -418,6 +418,8 @@
   "status-never-playing": "不玩",
   "status-now-playing": "正在游玩",
   "status-retired": "已搁置",
+  "stream": "串流",
+  "stream-on": "在 {container} 上串流",
   "summary": "概要",
   "switch-version": "切换版本",
   "tab-achievements": "成就",

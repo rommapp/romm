@@ -418,6 +418,8 @@
   "status-never-playing": "Nu voi juca niciodată",
   "status-now-playing": "Joc acum",
   "status-retired": "Abandonat",
+  "stream": "Redare în flux",
+  "stream-on": "Redare în flux pe {container}",
   "summary": "Rezumat",
   "switch-version": "Schimbă versiunea",
   "tab-achievements": "Realizări",

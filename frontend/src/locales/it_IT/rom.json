@@ -418,6 +418,8 @@
   "status-never-playing": "Mai giocare",
   "status-now-playing": "In gioco",
   "status-retired": "Abbandonato",
+  "stream": "Trasmetti",
+  "stream-on": "Trasmetti su {container}",
   "summary": "Riassunto",
   "switch-version": "Cambia versione",
   "tab-achievements": "Obiettivi",

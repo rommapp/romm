@@ -418,6 +418,8 @@
   "status-never-playing": "Never Playing",
   "status-now-playing": "Now Playing",
   "status-retired": "Retired",
+  "stream": "Stream",
+  "stream-on": "Stream on {container}",
   "summary": "Summary",
   "switch-version": "Switch version",
   "tab-achievements": "Achievements",

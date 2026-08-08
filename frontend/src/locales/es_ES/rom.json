@@ -418,6 +418,8 @@
   "status-never-playing": "Nunca jugar",
   "status-now-playing": "Jugando",
   "status-retired": "Abandonado",
+  "stream": "Transmitir",
+  "stream-on": "Transmitir en {container}",
   "summary": "Resumen",
   "switch-version": "Cambiar versión",
   "tab-achievements": "Logros",
