@@ -16,31 +16,17 @@ const props = withDefaults(
   { active: true },
 );
 
-// How close to the bottom the pointer has to get before the bar appears. Deep
-// enough that the bar is already up by the time the pointer reaches the screen
-// edge, where the host OS keeps its own auto-hiding taskbar.
+// How close to the top the pointer has to get before the bar appears. The bar
+// lives at the top because the container's own taskbar and its reveal handle
+// both sit on the bottom edge, where nothing of ours can share the space.
 const BAR_REVEAL_BAND_PX = 84;
-
-// The cross-origin fallback strip is an overlay: any pixel it covers is a pixel
-// of the container below that cannot be clicked. So it stops short of the
-// bottom edge, leaving the container's own taskbar reachable and keeping the
-// band clear of the host taskbar's reveal edge.
-const BAR_EDGE_GAP_PX = 36;
-
-// The container keeps its own reveal handle at dead centre of the bottom edge,
-// right under where our bar lands. Raising the bar there buries it, so a column
-// this wide is left alone: the bar neither appears while the pointer is in it
-// nor stays up once it gets there, which keeps the handle reachable. Wide
-// enough to approach the handle from any angle without clipping the column.
-const BAR_DEAD_SPOT_PX = 260;
 
 // Capture, because the stream's own input handling stops mousemove from
 // bubbling over the parts of the page it claims, and passive so listening in
 // on it can never delay that handling.
 const FRAME_LISTENER_OPTS = { capture: true, passive: true } as const;
 
-const hotEdgeBottom = `${BAR_EDGE_GAP_PX}px`;
-const hotEdgeHeight = `${BAR_REVEAL_BAND_PX - BAR_EDGE_GAP_PX}px`;
+const hotEdgeHeight = `${BAR_REVEAL_BAND_PX}px`;
 
 const stageRef = ref<HTMLElement | null>(null);
 const streamFrame = ref<HTMLIFrameElement | null>(null);
@@ -72,37 +58,22 @@ function focusStream(): void {
   streamFrame.value?.focus();
 }
 
-function revealNearBottom(
-  offsetX: number,
-  offsetY: number,
-  width: number,
-  height: number,
-): void {
-  if (height - offsetY > BAR_REVEAL_BAND_PX) return;
-  if (width > 0 && Math.abs(offsetX - width / 2) <= BAR_DEAD_SPOT_PX / 2)
-    return;
+function revealNearTop(offsetY: number): void {
+  if (offsetY > BAR_REVEAL_BAND_PX) return;
   showUI();
 }
 
 function handleStageMouseMove(event: MouseEvent): void {
   const rect = stageRef.value?.getBoundingClientRect();
   if (!rect) return;
-  revealNearBottom(
-    event.clientX - rect.left,
-    event.clientY - rect.top,
-    rect.width,
-    rect.height,
-  );
+  revealNearTop(event.clientY - rect.top);
 }
 
 // Coordinates are measured against the viewport of whichever document the
 // pointer is actually in, which is not always the stage frame: the container
 // nests the stream inside a page of its own.
 function handleFrameMouseMove(event: MouseEvent): void {
-  const frame = streamFrame.value;
-  const width = event.view?.innerWidth ?? frame?.clientWidth ?? 0;
-  const height = event.view?.innerHeight ?? frame?.clientHeight ?? 0;
-  revealNearBottom(event.clientX, event.clientY, width, height);
+  revealNearTop(event.clientY);
 }
 
 // Touch has no hover to track, and a tap is deliberate enough to mean it.
@@ -191,9 +162,9 @@ function detachFrameListeners(): void {
   frameCleanups = [];
 }
 
-// Listen in every frame, so the bottom edge of the stream itself raises the
-// bar wherever the pointer happens to be. Cross-origin containers report
-// nothing and fall back to the edge strip.
+// Listen in every frame, so the top edge of the stream itself raises the bar
+// wherever the pointer happens to be. Cross-origin containers report nothing
+// and fall back to the edge strip.
 //
 // A full re-scan rather than a one-time attach: a frame that has navigated is
 // a new document carrying none of our listeners, and the frame the container
@@ -338,7 +309,7 @@ defineExpose({
     />
 
     <!-- A cross-origin frame swallows the pointer, so there the only way to
-         reach the bar is a strip of our own across the bottom of the stage. -->
+         reach the bar is a strip of our own across the top of the stage. -->
     <div
       v-if="!sameOrigin"
       class="r-v2-stage__edge"
@@ -386,17 +357,17 @@ defineExpose({
   position: absolute;
   left: 0;
   right: 0;
-  bottom: v-bind(hotEdgeBottom);
+  top: 0;
   height: v-bind(hotEdgeHeight);
   z-index: 5;
   background: transparent;
 }
 
-/* Control bar: glass strip pinned to the bottom of the stage.
+/* Control bar: glass strip pinned to the top of the stage.
    Visibility toggles via opacity so the stream never reflows. */
 .r-v2-stage__bar {
   position: absolute;
-  bottom: 0;
+  top: 0;
   left: 0;
   right: 0;
   display: flex;
@@ -405,7 +376,7 @@ defineExpose({
   padding: 8px 16px;
   min-height: 52px;
   background: color-mix(in srgb, var(--r-color-bg) 72%, transparent);
-  border-top: 1px solid var(--r-color-border);
+  border-bottom: 1px solid var(--r-color-border);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   z-index: 10;
