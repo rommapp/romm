@@ -56,14 +56,24 @@ SCALAR_KEYS = ("total_rating_count",)
 ROLE_KEYS = {"developers": "developer", "publishers": "publisher"}
 
 
-def load_igdb_ids(limit: int | None) -> dict[int, int]:
-    """IGDB id -> one ROM id, for every matched game in the library."""
+def load_igdb_ids(limit: int | None) -> dict[int, list[int]]:
+    """IGDB id -> every ROM carrying it.
+
+    A list rather than a single id: region and revision variants of one game
+    share an IGDB id, so keying one-to-one silently skips all but one of them.
+    On a 12.7k library 2,668 ROMs share an id with another, and keying this
+    way left 1,266 of them unbackfilled.
+    """
     stmt = select(Rom.igdb_id, Rom.id).where(Rom.igdb_id.is_not(None))
     if limit:
         stmt = stmt.limit(limit)
 
+    grouped: dict[int, list[int]] = {}
     with sync_session.begin() as session:
-        return {igdb_id: rom_id for igdb_id, rom_id in session.execute(stmt).all()}
+        for igdb_id, rom_id in session.execute(stmt).all():
+            grouped.setdefault(igdb_id, []).append(rom_id)
+
+    return grouped
 
 
 def report_coverage() -> None:
@@ -127,26 +137,25 @@ async def fetch_tags(igdb_ids: list[int]) -> dict[int, dict[str, Any]]:
     return results
 
 
-def merge_tags(rom_by_igdb_id: dict[int, int], tags: dict[int, dict[str, Any]]) -> int:
+def merge_tags(
+    roms_by_igdb_id: dict[int, list[int]], tags: dict[int, dict[str, Any]]
+) -> int:
     """Merge the fetched tags into each ROM's existing igdb_metadata blob."""
     written = 0
 
     with sync_session.begin() as session:
         for igdb_id, values in tags.items():
-            rom_id = rom_by_igdb_id.get(igdb_id)
-            if rom_id is None:
-                continue
+            for rom_id in roms_by_igdb_id.get(igdb_id, []):
+                rom = session.get(Rom, rom_id)
+                if rom is None:
+                    continue
 
-            rom = session.get(Rom, rom_id)
-            if rom is None:
-                continue
-
-            # Replace rather than merge: IGDB is the authority for these keys,
-            # and an empty list is a meaningful "this game has no keywords".
-            metadata = dict(rom.igdb_metadata or {})
-            metadata.update(values)
-            rom.igdb_metadata = metadata
-            written += 1
+                # Replace rather than merge: IGDB is the authority for these
+                # keys, and an empty list means "this game has no keywords".
+                metadata = dict(rom.igdb_metadata or {})
+                metadata.update(values)
+                rom.igdb_metadata = metadata
+                written += 1
 
     return written
 
@@ -164,11 +173,15 @@ async def main_async(args: argparse.Namespace) -> int:
         print("\nIGDB is not enabled: set IGDB_CLIENT_ID and IGDB_CLIENT_SECRET.")
         return 1
 
-    rom_by_igdb_id = load_igdb_ids(args.limit)
-    print(f"\nFetching tags for {len(rom_by_igdb_id):,} IGDB ids...")
+    roms_by_igdb_id = load_igdb_ids(args.limit)
+    total_roms = sum(len(v) for v in roms_by_igdb_id.values())
+    print(
+        f"\nFetching tags for {len(roms_by_igdb_id):,} IGDB ids "
+        f"covering {total_roms:,} roms..."
+    )
 
-    tags = await fetch_tags(sorted(rom_by_igdb_id))
-    written = merge_tags(rom_by_igdb_id, tags)
+    tags = await fetch_tags(sorted(roms_by_igdb_id))
+    written = merge_tags(roms_by_igdb_id, tags)
     print(f"\nUpdated {written:,} roms.")
 
     print("\nCoverage after:")
