@@ -18,8 +18,10 @@ const props = withDefaults(
 
 // How close to the top the pointer has to get before the bar appears. The bar
 // lives at the top because the container's own taskbar and its reveal handle
-// both sit on the bottom edge, where nothing of ours can share the space.
-const BAR_REVEAL_BAND_PX = 84;
+// both sit on the bottom edge, where nothing of ours can share the space. Kept
+// to a sliver so the emulator window's own title bar, which sits just below the
+// top edge, still takes the pointer and stays draggable.
+const BAR_REVEAL_BAND_PX = 6;
 
 // Capture, because the stream's own input handling stops mousemove from
 // bubbling over the parts of the page it claims, and passive so listening in
