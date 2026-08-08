@@ -142,6 +142,7 @@ const syntheticRom = computed<SimpleRom>(() => ({
   md5_hash: null,
   sha1_hash: null,
   ra_hash: null,
+  ra_hash_match: null,
   has_simple_single_file: false,
   has_nested_single_file: false,
   has_multiple_files: false,

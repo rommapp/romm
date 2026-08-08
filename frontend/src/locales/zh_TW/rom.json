@@ -320,6 +320,7 @@
   "rename-file-details": "檔案將被重命名 從 {from} 至 {to}. 檔案名稱標籤不會受到影響.",
   "rename-file-title": "重命名檔案以匹配 {source} 標題",
   "results-found": "搜尋结果",
+  "retroachievements-supported": "支援 RetroAchievements",
   "revision": "Revision",
   "rom-updated-successfully": "ROM 更新成功！",
   "save-data": "存檔資料",

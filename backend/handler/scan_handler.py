@@ -814,6 +814,13 @@ async def scan_rom(
                 )
             )
         ):
+            # Asked of RA's own hash list whatever identified the game, since
+            # an `ra_id` from Hasheous or a filename tag says nothing about
+            # this file.
+            ra_hash_match = await meta_ra_handler.hash_is_known(
+                rom=rom, ra_hash=rom_attrs["ra_hash"]
+            )
+
             # Use Hasheous match to get the RA ID
             h_ra_id = hasheous_rom.get("ra_id")
             if h_ra_id:
@@ -822,16 +829,18 @@ async def scan_rom(
                     f"{hl(str(h_ra_id), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
                     extra=LOGGER_MODULE_NAME,
                 )
-                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=h_ra_id)
-
-            if (scan_type == ScanType.UPDATE and rom.ra_id) or (
+                ra_rom = await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=h_ra_id)
+            elif (scan_type == ScanType.UPDATE and rom.ra_id) or (
                 scan_type == ScanType.UNMATCHED and rom.ra_id and not rom.ra_metadata
             ):
-                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=rom.ra_id)
+                ra_rom = await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=rom.ra_id)
             else:
-                return await meta_ra_handler.get_rom(
+                ra_rom = await meta_ra_handler.get_rom(
                     rom=rom, ra_hash=rom_attrs["ra_hash"]
                 )
+
+            ra_rom["ra_hash_match"] = ra_hash_match
+            return ra_rom
 
         return RAGameRom(ra_id=None)
 
@@ -1026,6 +1035,14 @@ async def scan_rom(
         for key, field_value in handler_data.items():
             if field_value:
                 rom_attrs[key] = field_value
+
+    # Tri-state, so it can ride neither the truthy-only loop above (False would
+    # be dropped, reading as never-checked) nor its `ra_id` gate (Hasheous can
+    # supply an id for a file RA has never seen). None means the question went
+    # unanswered, e.g. no hash to check or an unreadable hash list, so keep
+    # whatever the last scan that did get an answer recorded.
+    if ra_handler_rom.get("ra_hash_match") is not None:
+        rom_attrs["ra_hash_match"] = ra_handler_rom["ra_hash_match"]
 
     # Artwork sources are prioritized separately, and each field can carry its
     # own override on top of the shared artwork priority.

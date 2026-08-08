@@ -334,9 +334,9 @@ watch(isOpen, (open) => {
 });
 
 // For the parent-attach pattern we sit silently in the parent's DOM
-// and register listeners on `$el.parentElement` at mount. We deliberately
-// use a comment node as `$el` so the tooltip itself doesn't take up
-// flow space inside the parent.
+// and register listeners on `$el.parentElement` at mount. `$el` is the
+// `display: none` anchor span rendered below, so the tooltip itself takes
+// up no flow space inside the parent.
 const root = ref<HTMLElement | null>(null);
 function attachToParent() {
   if (props.activator !== "parent") return;

@@ -320,6 +320,7 @@
   "rename-file-details": "A fájl neve {from} -ról {to} -ra változik. A fájl címkéi nem változnak.",
   "rename-file-title": "Nevezd át a fájlt, hogy megegyezzen a {source} címével",
   "results-found": "Talált eredmények",
+  "retroachievements-supported": "A RetroAchievements támogatja",
   "revision": "Revision",
   "rom-updated-successfully": "A ROM frissítése sikeresen megtörtént!",
   "save-data": "Mentések",
