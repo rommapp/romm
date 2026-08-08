@@ -25,11 +25,14 @@ export type RomGamelistMetadata = {
     genres?: (Array<string> | null);
     player_count?: (string | null);
     md5_hash?: (string | null);
+    box2d_back_path?: (string | null);
     box3d_path?: (string | null);
+    fanart_path?: (string | null);
     miximage_path?: (string | null);
     miximage_v2_path?: (string | null);
     physical_path?: (string | null);
     marquee_path?: (string | null);
+    title_screen_path?: (string | null);
     video_path?: (string | null);
 };
 
