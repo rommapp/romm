@@ -436,29 +436,6 @@ watch(gameRunning, (running, prev) => {
   }
 });
 
-// ── Volume / mute ───────────────────────────────────────────────────
-// Debounced so the broker only hears the value once it settles.
-let volumeDebounce: ReturnType<typeof setTimeout> | null = null;
-watch(volume, (val) => {
-  if (volumeDebounce) clearTimeout(volumeDebounce);
-  volumeDebounce = setTimeout(() => {
-    const platform = rom.value?.platform_slug;
-    if (platform)
-      streamingApi
-        .setVolume(platform, Math.round(val))
-        .catch((err) => console.warn("[streaming] Could not set volume:", err));
-  }, 150);
-});
-
-function toggleMute(): void {
-  isMuted.value = !isMuted.value;
-  const platform = rom.value?.platform_slug;
-  if (platform)
-    streamingApi
-      .setMute(platform, isMuted.value)
-      .catch((err) => console.warn("[streaming] Could not set mute:", err));
-}
-
 // ── Stage ──────────────────────────────────────────────────────────
 // The iframe, the auto-hiding bar and the focus handling all live in
 // StreamStage; this view only supplies the bar's buttons.
@@ -466,6 +443,42 @@ const stage = ref<InstanceType<typeof StreamStage> | null>(null);
 
 function focusStream(): void {
   stage.value?.focusStream();
+}
+
+// ── Volume / mute ───────────────────────────────────────────────────
+// A same-origin container takes both straight from the browser, moving this
+// viewer's own output rather than the mixer every viewer shares. The broker
+// path is what is left for cross-origin containers, and it stays debounced so
+// the broker only hears the value once it settles.
+let volumeDebounce: ReturnType<typeof setTimeout> | null = null;
+
+function sendVolumeToBroker(level: number): void {
+  if (volumeDebounce) clearTimeout(volumeDebounce);
+  volumeDebounce = setTimeout(() => {
+    const platform = rom.value?.platform_slug;
+    if (platform)
+      streamingApi
+        .setVolume(platform, level)
+        .catch((err) => console.warn("[streaming] Could not set volume:", err));
+  }, 150);
+}
+
+watch(volume, (val) => {
+  const level = Math.round(val);
+  if (stage.value?.postToStream({ type: "setVolume", value: level / 100 }))
+    return;
+  sendVolumeToBroker(level);
+});
+
+function toggleMute(): void {
+  isMuted.value = !isMuted.value;
+  if (stage.value?.postToStream({ type: "setMute", value: isMuted.value }))
+    return;
+  const platform = rom.value?.platform_slug;
+  if (platform)
+    streamingApi
+      .setMute(platform, isMuted.value)
+      .catch((err) => console.warn("[streaming] Could not set mute:", err));
 }
 
 // ── Session lifecycle ──────────────────────────────────────────────

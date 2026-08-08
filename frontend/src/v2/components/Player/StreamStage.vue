@@ -157,6 +157,17 @@ async function captureFrame(): Promise<Blob | null> {
   return new Promise((resolve) => out.toBlob(resolve, "image/png"));
 }
 
+// The container's own client applies volume and mute to the gain node in front
+// of its audio output, and it drops any message whose origin is not its own.
+// Same origin is what makes that reachable, so the bar can move this viewer's
+// gain instead of asking the broker to move the whole container's mixer.
+// Returns whether there was anything to post to.
+function postToStream(message: unknown): boolean {
+  const frames = sameOriginFrames(streamFrame.value?.contentWindow ?? null);
+  frames.forEach((win) => win.postMessage(message, window.location.origin));
+  return frames.length > 0;
+}
+
 function detachFrameListeners(): void {
   frameCleanups.forEach((off) => off());
   frameCleanups = [];
@@ -283,6 +294,7 @@ defineExpose({
   showUI,
   focusStream,
   captureFrame,
+  postToStream,
   enterFullscreen,
   leaveFullscreen,
   toggleFullscreen,
