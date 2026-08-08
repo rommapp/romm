@@ -22,23 +22,30 @@ MAX_PER_SERIES: Final = 2
 T = TypeVar("T")
 
 
-def primary_series(rom: Rom) -> str | None:
-    """The series a game belongs to, preferring the broader grouping.
+def series_keys(rom: Rom) -> set[str]:
+    """Every series a game belongs to, franchises and collections alike.
 
-    `franchises` is the umbrella ("Metroid") while `collections` is the
-    narrower sub-series ("Metroid Prime"). The umbrella is the right diversity
-    key: keying on collections let Super Metroid return two Metroid games plus
-    two Metroid Prime games, which reads as four Metroids to anyone looking.
+    All of them, not just the first: IGDB lists a game's franchises in no
+    stable order, so keying on one entry splits a single real series across
+    several counters. Madden titles carry both "Madden" and "NFL", and the
+    cap let four through -- two counted against each.
     """
     metadatum = rom.metadatum
     if metadatum is None:
-        return None
+        return set()
 
-    for values in (metadatum.franchises, metadatum.collections):
-        if values:
-            return str(values[0])
+    return {
+        str(value)
+        for values in (metadatum.franchises, metadatum.collections)
+        for value in (values or [])
+        if value
+    }
 
-    return None
+
+def primary_series(rom: Rom) -> str | None:
+    """A single representative series, for display and attribution."""
+    keys = series_keys(rom)
+    return min(keys) if keys else None
 
 
 def cap_by_series(
@@ -64,12 +71,16 @@ def cap_by_series(
         if rom is None:
             continue
 
-        series = primary_series(rom)
-        if series is not None:
-            if counts.get(series, 0) >= max_per_series:
-                overflow.append((position, item))
-                continue
-            counts[series] = counts.get(series, 0) + 1
+        keys = series_keys(rom)
+        # Saturated on any one of its series is enough: a game sharing a
+        # franchise with two already-picked entries is the repetition the cap
+        # exists to stop, whichever of its franchises that happens to be.
+        if keys and any(counts.get(key, 0) >= max_per_series for key in keys):
+            overflow.append((position, item))
+            continue
+
+        for key in keys:
+            counts[key] = counts.get(key, 0) + 1
 
         selected.append((position, item))
         if len(selected) >= limit:

@@ -6,7 +6,11 @@ rather than database rows.
 
 from dataclasses import dataclass, field
 
-from handler.recommendation.diversity import cap_by_series, primary_series
+from handler.recommendation.diversity import (
+    cap_by_series,
+    primary_series,
+    series_keys,
+)
 
 
 @dataclass
@@ -21,11 +25,20 @@ class FakeRom:
     metadatum: FakeMetadata | None = None
 
 
-def rom(rom_id: int, franchise: str = "", collection: str = "") -> FakeRom:
+def rom(
+    rom_id: int,
+    franchise: str = "",
+    collection: str = "",
+    franchises: list[str] | None = None,
+) -> FakeRom:
     return FakeRom(
         id=rom_id,
         metadatum=FakeMetadata(
-            franchises=[franchise] if franchise else [],
+            franchises=(
+                franchises
+                if franchises is not None
+                else ([franchise] if franchise else [])
+            ),
             collections=[collection] if collection else [],
         ),
     )
@@ -108,3 +121,36 @@ def test_unresolvable_items_are_dropped():
     roms = {1: rom(1, franchise="Metroid")}
 
     assert cap_by_series([1, 2, 3], resolve(roms), limit=5) == [1]
+
+
+def test_series_keys_returns_every_franchise_and_collection():
+    entry = rom(1, collection="Madden NFL", franchises=["Madden", "NFL"])
+
+    assert series_keys(entry) == {"Madden", "NFL", "Madden NFL"}
+
+
+def test_a_series_listed_under_several_names_shares_one_allowance():
+    """Regression: four Madden games cleared a cap of two.
+
+    IGDB lists franchises in no stable order, so some Madden titles resolved
+    to "Madden" and others to "NFL". Keying on one entry gave each spelling
+    its own allowance, and the section filled with a single series.
+    """
+    roms = {
+        1: rom(1, franchises=["Madden", "NFL"]),
+        2: rom(2, franchises=["Madden", "NFL"]),
+        3: rom(3, franchises=["NFL", "Madden"]),
+        4: rom(4, franchises=["NFL"]),
+        5: rom(5, franchise="Tecmo Bowl"),
+    }
+
+    selected = cap_by_series([1, 2, 3, 4, 5], resolve(roms), limit=3, max_per_series=2)
+
+    # Two from the shared series, then the unrelated game -- not a third Madden.
+    assert selected == [1, 2, 5]
+
+
+def test_overlapping_series_still_backfills_when_nothing_else_exists():
+    roms = {i: rom(i, franchises=["Madden", "NFL"]) for i in range(1, 5)}
+
+    assert len(cap_by_series(list(roms), resolve(roms), limit=4, max_per_series=2)) == 4

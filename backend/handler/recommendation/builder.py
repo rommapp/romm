@@ -91,11 +91,14 @@ class _PairSignals:
         return self.adjacency.get(rom_id, set())
 
 
-def _series_token(feature: RomFeatures) -> str | None:
-    """The franchise token a game carries, used as its series key."""
-    return next(
-        (token for token in feature.tokens if token.startswith("franchise:")), None
-    )
+def _series_tokens(feature: RomFeatures) -> set[str]:
+    """Every franchise token a game carries.
+
+    All of them rather than the first, for the same reason the serving-side
+    cap uses every value: a game listing both "Madden" and "NFL" would
+    otherwise be reserved against whichever happened to come first.
+    """
+    return {token for token in feature.tokens if token.startswith("franchise:")}
 
 
 def _pair_key(left: int, right: int) -> tuple[int, int]:
@@ -371,11 +374,13 @@ class SimilarityBuilder:
             if source_title and candidate_title == source_title:
                 continue
 
-            series = _series_token(features[candidate_id])
-            if series is not None:
-                if series_counts.get(series, 0) >= MAX_STORED_PER_SERIES:
-                    continue
-                series_counts[series] = series_counts.get(series, 0) + 1
+            series = _series_tokens(features[candidate_id])
+            if series and any(
+                series_counts.get(token, 0) >= MAX_STORED_PER_SERIES for token in series
+            ):
+                continue
+            for token in series:
+                series_counts[token] = series_counts.get(token, 0) + 1
 
             edges.append(
                 {
