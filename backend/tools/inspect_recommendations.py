@@ -41,7 +41,11 @@ from handler.database import (  # noqa: E402
     db_user_handler,
 )
 from handler.database.base_handler import sync_session  # noqa: E402
-from handler.recommendation import FeedBuilder, SimilarityBuilder  # noqa: E402
+from handler.recommendation import (  # noqa: E402
+    FeedBuilder,
+    SimilarityBuilder,
+    cap_by_series,
+)
 from models.platform import Platform  # noqa: E402
 from models.recommendation import RomSimilarity  # noqa: E402
 from models.rom import Rom, RomMetadata  # noqa: E402
@@ -145,7 +149,9 @@ def find_rom_ids_by_name(needle: str, limit: int) -> list[int]:
         return [row[0] for row in session.execute(stmt).all()]
 
 
-def print_rom(rom_id: int, info: dict[int, RomInfo], limit: int) -> None:
+def print_rom(
+    rom_id: int, info: dict[int, RomInfo], limit: int, capped: bool = True
+) -> None:
     source = info.get(rom_id)
     print()
     print("=" * 78)
@@ -158,10 +164,25 @@ def print_rom(rom_id: int, info: dict[int, RomInfo], limit: int) -> None:
     print(f"  {summary or 'no metadata facets'}")
     print("-" * 78)
 
-    edges = db_recommendation_handler.get_similar_rom_edges(rom_id, limit=limit)
+    # Over-fetch and cap exactly like the endpoint, so this previews what the
+    # UI shows rather than the raw index.
+    edges = db_recommendation_handler.get_similar_rom_edges(rom_id, limit=limit * 4)
     if not edges:
         print("  (no neighbours -- unmatched metadata, or the index is not built)")
         return
+
+    if capped:
+        hydrated = {
+            rom.id: rom
+            for rom in db_rom_handler.get_roms_simple_by_ids(
+                [edge.rom_id for edge in edges]
+            )
+        }
+        edges = cap_by_series(
+            edges, lambda edge: hydrated.get(edge.rom_id), limit=limit
+        )
+    else:
+        edges = edges[:limit]
 
     neighbour_info = load_rom_info([edge.rom_id for edge in edges])
     for edge in edges:
@@ -281,6 +302,11 @@ def main() -> int:
     parser.add_argument("--feed", help="Show the personalised feed for this username")
     parser.add_argument("--stats", action="store_true", help="Show index health only")
     parser.add_argument("--seed", type=int, default=None, help="RNG seed for sampling")
+    parser.add_argument(
+        "--raw",
+        action="store_true",
+        help="Show the uncapped index instead of what the UI would render",
+    )
     args = parser.parse_args()
 
     if args.build:
@@ -319,7 +345,7 @@ def main() -> int:
 
     info = load_rom_info(rom_ids)
     for rom_id in rom_ids:
-        print_rom(rom_id, info, args.limit)
+        print_rom(rom_id, info, args.limit, capped=not args.raw)
 
     print()
     print_stats()

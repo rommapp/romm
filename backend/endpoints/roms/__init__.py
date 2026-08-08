@@ -74,7 +74,7 @@ from handler.metadata import (
 )
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
-from handler.recommendation import invalidate_cached_feed
+from handler.recommendation import cap_by_series, invalidate_cached_feed
 from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -1304,16 +1304,25 @@ def get_similar_roms(
     assert_rom_visible(request, rom)
 
     perms = get_permissions(request)
-    # Over-fetch so permission filtering cannot leave a short row.
-    edges = db_recommendation_handler.get_similar_rom_edges(id, limit=limit * 2)
-    scores = {edge.rom_id: edge for edge in edges}
+    # Over-fetch: permission filtering and the per-series cap below both drop
+    # entries, and a shelf deep in one franchise drops a lot of them.
+    edges = db_recommendation_handler.get_similar_rom_edges(id, limit=limit * 4)
 
     similar_roms = {
         similar.id: similar
-        for similar in db_rom_handler.get_roms_simple_by_ids(list(scores))
+        for similar in db_rom_handler.get_roms_simple_by_ids(
+            [edge.rom_id for edge in edges]
+        )
         if not similar.missing_from_fs
         and perms.can_see_rom(similar.id, similar.platform_id)
     }
+
+    # Without the cap this section is just the franchise the user is already
+    # looking at -- five Metroid games for Super Metroid, which a franchise
+    # filter already gives them.
+    selected = cap_by_series(
+        edges, lambda edge: similar_roms.get(edge.rom_id), limit=limit
+    )
 
     return [
         SimilarRomSchema(
@@ -1323,9 +1332,8 @@ def get_similar_roms(
             score=edge.score,
             reasons=edge.reasons,  # type: ignore[arg-type]
         )
-        for edge in edges
-        if edge.rom_id in similar_roms
-    ][:limit]
+        for edge in selected
+    ]
 
 
 @protected_route(

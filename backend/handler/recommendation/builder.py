@@ -21,7 +21,7 @@ from .scoring import (
     RomFeatures,
     blend,
     build_inverted_index,
-    build_vector,
+    build_normalised_vectors,
     candidate_ids,
     compute_idf,
     content_similarity,
@@ -41,6 +41,12 @@ MIN_EDGE_SCORE: Final = 0.05
 
 # ROMs per write batch. Bounds peak memory and lets the task commit as it goes.
 BUILD_BATCH_SIZE: Final = 500
+
+# Neighbours from any one franchise allowed into the stored graph. Read-time
+# diversity can only reorder what was stored, so a game sitting deep in a big
+# series would otherwise have all 24 slots taken by that series and nothing
+# left to promote.
+MAX_STORED_PER_SERIES: Final = 6
 
 # Hard ceiling on candidates scored per ROM. Reached only by games whose every
 # facet is rare, where the tail is noise anyway.
@@ -85,6 +91,13 @@ class _PairSignals:
         return self.adjacency.get(rom_id, set())
 
 
+def _series_token(feature: RomFeatures) -> str | None:
+    """The franchise token a game carries, used as its series key."""
+    return next(
+        (token for token in feature.tokens if token.startswith("franchise:")), None
+    )
+
+
 def _pair_key(left: int, right: int) -> tuple[int, int]:
     return (left, right) if left < right else (right, left)
 
@@ -110,10 +123,9 @@ class SimilarityBuilder:
         idf = compute_idf(
             (feature.tokens for feature in features.values()), total_documents
         )
-        vectors = {
-            rom_id: build_vector(feature.tokens, idf)
-            for rom_id, feature in features.items()
-        }
+        vectors = build_normalised_vectors(
+            {rom_id: feature.tokens for rom_id, feature in features.items()}, idf
+        )
         postings = build_inverted_index(features)
 
         igdb_ids = {
@@ -163,6 +175,7 @@ class SimilarityBuilder:
                 platform_id=row.platform_id,
                 tokens=tokens,
                 average_rating=row.average_rating,
+                title_key=row.title_key,
             )
 
         return features
@@ -333,15 +346,46 @@ class SimilarityBuilder:
 
         scored.sort(key=lambda item: (-item[0], item[1]))
 
-        return [
-            {
-                "rom_id": rom_id,
-                "related_rom_id": candidate_id,
-                "score": round(score, 6),
-                "reasons": reasons,
-            }
-            for score, candidate_id, reasons in scored[:MAX_NEIGHBOURS]
-        ]
+        # Second pass, over the ranked list: drop neighbours that duplicate the
+        # source or each other. The per-candidate check above only compares
+        # against the source, so two discs of one release (same igdb_id, same
+        # platform) would otherwise both take a slot.
+        edges: list[dict[str, Any]] = []
+        taken_igdb_ids: set[int] = set()
+        series_counts: dict[str, int] = {}
+        source_title = feature.title_key
+
+        for score, candidate_id, reasons in scored:
+            candidate_igdb_id = igdb_ids.get(candidate_id)
+            if candidate_igdb_id is not None:
+                if candidate_igdb_id in taken_igdb_ids:
+                    continue
+                taken_igdb_ids.add(candidate_igdb_id)
+
+            # The same game on another platform is not a recommendation, and
+            # IGDB gives ports their own id so the id check cannot catch it.
+            candidate_title = features[candidate_id].title_key
+            if source_title and candidate_title == source_title:
+                continue
+
+            series = _series_token(features[candidate_id])
+            if series is not None:
+                if series_counts.get(series, 0) >= MAX_STORED_PER_SERIES:
+                    continue
+                series_counts[series] = series_counts.get(series, 0) + 1
+
+            edges.append(
+                {
+                    "rom_id": rom_id,
+                    "related_rom_id": candidate_id,
+                    "score": round(score, 6),
+                    "reasons": reasons,
+                }
+            )
+            if len(edges) >= MAX_NEIGHBOURS:
+                break
+
+        return edges
 
     def _flush(self, rom_ids: list[int], edges: list[dict[str, Any]]) -> None:
         if not rom_ids:

@@ -56,6 +56,23 @@ CO_COLLECTION_WEIGHT: Final = 0.10
 # enough that it reorders ties without overriding genuine relatedness.
 MAX_QUALITY_BONUS: Final = 0.05
 
+# Length-normalisation strength: 1.0 is plain L2, 0.0 scales every vector by
+# the library average instead of its own length.
+#
+# Zero, against the 0.75 that text retrieval uses, because facet counts are not
+# verbosity. A long document repeating a word is not more relevant, which is
+# why retrieval normalises it away; but a game tagged with three genres and two
+# franchises genuinely has more in common than one carrying a single tag, and
+# dividing by its own length punished it for being well documented.
+#
+# Measured on a 12.7k-game library: at 0.75 every top match for a Mario
+# compilation was a 6-8 token entry (Golf, F-1 Race, Pinball); at 0.0 they were
+# 12-16 token entries (Yoshi's Island, Super Mario 64, Super Mario Kart). The
+# feared popularity bias did not appear -- across 300 sampled games the most
+# repeated recommendation fell from 6 lists to 3, and distinct results rose
+# from 1363 to 1384.
+PIVOT_B: Final = 0.0
+
 # Release proximity matters, but only softly: a decade token already carries
 # most of the era signal.
 SAME_DECADE_TOKEN: Final = "decade"
@@ -96,6 +113,9 @@ class RomFeatures:
     platform_id: int
     tokens: tuple[str, ...] = ()
     average_rating: float | None = None
+    # Normalised title, used to spot the same game released on another
+    # platform, which IGDB indexes as a separate id.
+    title_key: str | None = None
 
 
 @dataclass(slots=True)
@@ -185,26 +205,59 @@ def compute_idf(
 
 
 def build_vector(tokens: Sequence[str], idf: Mapping[str, float]) -> dict[str, float]:
-    """L2-normalised sparse vector, so cosine is a plain dot product.
-
-    Normalising also stops metadata-rich ROMs from dominating every candidate
-    list purely by carrying more tokens than everything else.
-    """
+    """Raw facet-weighted IDF vector, before any length normalisation."""
     raw = {
         token: FACET_WEIGHTS.get(token_facet(token), 1.0) * idf.get(token, 0.0)
         for token in tokens
     }
-    raw = {token: weight for token, weight in raw.items() if weight > 0}
+    return {token: weight for token, weight in raw.items() if weight > 0}
 
-    norm = math.sqrt(sum(weight * weight for weight in raw.values()))
-    if norm == 0:
+
+def vector_norm(vector: Mapping[str, float]) -> float:
+    return math.sqrt(sum(weight * weight for weight in vector.values()))
+
+
+def pivot_length(norm: float, average_norm: float, *, b: float = PIVOT_B) -> float:
+    """Blend a vector's own length with the library average.
+
+    Plain L2 normalisation (b=1) divides by the vector's own length, which
+    hands sparsely-tagged games an advantage: with only a few tokens each one
+    carries enormous weight, so a game sharing one broad facet outscores a
+    richly-tagged game sharing three. See PIVOT_B for why the default is 0.
+    """
+    if average_norm <= 0:
+        return norm or 1.0
+    return (1.0 - b) * average_norm + b * norm
+
+
+def normalise(vector: Mapping[str, float], pivot: float) -> dict[str, float]:
+    if pivot <= 0:
         return {}
+    return {token: weight / pivot for token, weight in vector.items()}
 
-    return {token: weight / norm for token, weight in raw.items()}
+
+def build_normalised_vectors(
+    token_sets: Mapping[int, Sequence[str]], idf: Mapping[str, float]
+) -> dict[int, dict[str, float]]:
+    """Vectors for a whole library, pivot-normalised against its average length.
+
+    Needs the full set up front because the pivot is relative to the library,
+    the same way the IDF weighting is.
+    """
+    raw = {key: build_vector(tokens, idf) for key, tokens in token_sets.items()}
+    norms = {key: vector_norm(vector) for key, vector in raw.items()}
+
+    populated = [norm for norm in norms.values() if norm > 0]
+    average_norm = sum(populated) / len(populated) if populated else 0.0
+
+    return {
+        key: normalise(vector, pivot_length(norms[key], average_norm))
+        for key, vector in raw.items()
+    }
 
 
 def content_similarity(left: Mapping[str, float], right: Mapping[str, float]) -> float:
-    """Cosine similarity of two normalised vectors."""
+    """Dot product of two pivot-normalised vectors."""
     # Iterate the smaller side; token overlap is sparse.
     if len(left) > len(right):
         left, right = right, left
@@ -265,7 +318,7 @@ def blend(
 ) -> float:
     """Combine the independent signals into a single 0-1-ish score."""
     return (
-        CONTENT_WEIGHT * content
+        CONTENT_WEIGHT * _clamp(content)
         + IGDB_PRIOR_WEIGHT * _clamp(igdb_prior)
         + CO_PLAY_WEIGHT * _clamp(co_play)
         + CO_COLLECTION_WEIGHT * _clamp(co_collection)

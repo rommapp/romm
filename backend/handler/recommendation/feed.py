@@ -16,6 +16,7 @@ from typing import Any, Final
 
 from handler.database import db_recommendation_handler, db_rom_handler
 from handler.database.recommendations_handler import UserAffinityRow
+from handler.recommendation.diversity import MAX_PER_SERIES, primary_series
 from handler.redis_handler import sync_cache
 from logger.logger import log
 from models.rom import Rom, RomUserStatus
@@ -49,8 +50,8 @@ PLAYED_NOVELTY_FACTOR: Final = 0.3
 # Disliked games steer, but less forcefully than loved ones.
 NEGATIVE_SEED_DAMPING: Final = 0.5
 
-# Ceilings applied during diversification, so one series cannot own the row.
-MAX_PER_FRANCHISE: Final = 2
+# Ceiling applied during diversification, so one platform cannot own the row.
+# The per-series ceiling is shared with the similar-games surface.
 MAX_PER_PLATFORM: Final = 4
 
 # Seeds are read in descending affinity; beyond this the contribution is noise.
@@ -255,8 +256,8 @@ class FeedBuilder:
             if rom is None:
                 continue
 
-            franchise = self._primary_franchise(rom)
-            if franchise and franchise_counts.get(franchise, 0) >= MAX_PER_FRANCHISE:
+            franchise = primary_series(rom)
+            if franchise and franchise_counts.get(franchise, 0) >= MAX_PER_SERIES:
                 continue
             if platform_counts.get(rom.platform_id, 0) >= MAX_PER_PLATFORM:
                 continue
@@ -300,16 +301,6 @@ class FeedBuilder:
             for rom_id in rom_ids
             if rom_id in roms
         ]
-
-    @staticmethod
-    def _primary_franchise(rom: Rom) -> str | None:
-        metadatum = rom.metadatum
-        if metadatum is None:
-            return None
-        for values in (metadatum.collections, metadatum.franchises):
-            if values:
-                return str(values[0])
-        return None
 
 
 def _hydrate(rom_ids: Sequence[int]) -> dict[int, Rom]:

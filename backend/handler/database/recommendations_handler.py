@@ -31,6 +31,7 @@ class RomFeatureRow(NamedTuple):
 
     rom_id: int
     platform_id: int
+    title_key: str | None
     genres: list[str] | None
     franchises: list[str] | None
     collections: list[str] | None
@@ -78,6 +79,7 @@ class DBRecommendationsHandler(DBBaseHandler):
             select(
                 RomFacets.rom_id,
                 RomFacets.platform_id,
+                Rom.name_sort_key,
                 RomFacets.genres,
                 RomFacets.franchises,
                 RomFacets.collections,

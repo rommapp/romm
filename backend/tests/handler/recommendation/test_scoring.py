@@ -1,12 +1,12 @@
-import math
-
 import pytest
 
 from handler.recommendation.scoring import (
+    FACET_WEIGHTS,
     MAX_QUALITY_BONUS,
     RomFeatures,
     blend,
     build_inverted_index,
+    build_normalised_vectors,
     build_vector,
     candidate_ids,
     compute_idf,
@@ -14,10 +14,13 @@ from handler.recommendation.scoring import (
     extract_tokens,
     has_taste_signal,
     make_token,
+    normalise,
     normalise_co_occurrence,
+    pivot_length,
     quality_bonus,
     release_year_from_epoch,
     shared_reasons,
+    vector_norm,
 )
 
 # 1991-08-13, the sort of epoch value roms_metadata carries.
@@ -118,12 +121,79 @@ def test_ubiquitous_facets_cannot_outrank_a_shared_genre():
     )
 
 
-def test_build_vector_is_unit_length():
+def test_build_vector_is_raw_facet_weight_times_idf():
     idf = {"genre:Action": 1.2, "franchise:Metroid": 2.4}
     vector = build_vector(("genre:Action", "franchise:Metroid"), idf)
 
-    magnitude = math.sqrt(sum(weight**2 for weight in vector.values()))
-    assert magnitude == pytest.approx(1.0)
+    assert vector["genre:Action"] == pytest.approx(FACET_WEIGHTS["genre"] * 1.2)
+    assert vector["franchise:Metroid"] == pytest.approx(
+        FACET_WEIGHTS["franchise"] * 2.4
+    )
+
+
+def test_pivoting_stops_a_sparse_game_outranking_a_rich_one():
+    """The defect real data exposed: "Golf" above "Super Mario Sunshine".
+
+    A game tagged with one facet has that facet carry its entire vector, so
+    plain L2 normalisation scores it as a near-perfect match on a single
+    shared token. Pivoting divides short vectors by more than their true
+    length, which is what lets the richer, genuinely-closer game win.
+    """
+    idf = {token: 1.0 for token in ("t:a", "t:b", "t:c", "t:d", "t:e", "t:f", "t:g")}
+    token_sets = {
+        1: ("t:a", "t:b", "t:c", "t:d"),  # source
+        2: ("t:a",),  # sparse, shares one token
+        3: ("t:a", "t:b", "t:e", "t:f", "t:g"),  # rich, shares two
+    }
+
+    # Plain L2 gets this backwards, which is the bug being fixed.
+    l2 = {
+        key: normalise(
+            build_vector(tokens, idf), vector_norm(build_vector(tokens, idf))
+        )
+        for key, tokens in token_sets.items()
+    }
+    assert content_similarity(l2[1], l2[2]) > content_similarity(l2[1], l2[3])
+
+    pivoted = build_normalised_vectors(token_sets, idf)
+    assert content_similarity(pivoted[1], pivoted[3]) > content_similarity(
+        pivoted[1], pivoted[2]
+    )
+
+
+def test_pivot_length_blends_towards_the_library_average():
+    average = 10.0
+
+    # Partial normalisation pulls both extremes towards the average.
+    assert 2.0 < pivot_length(2.0, average, b=0.75) < average
+    assert average < pivot_length(20.0, average, b=0.75) < 20.0
+    assert pivot_length(average, average, b=0.75) == pytest.approx(average)
+
+    # The shipped default ignores a vector's own length entirely.
+    assert pivot_length(2.0, average, b=0.0) == pytest.approx(average)
+    assert pivot_length(20.0, average, b=0.0) == pytest.approx(average)
+
+
+def test_well_documented_games_are_not_penalised_by_default():
+    """The shipped default must not let a one-tag game beat a five-tag one.
+
+    Real data: at full L2 normalisation a Mario compilation's nearest matches
+    were all 6-8 token entries, with the 12-16 token Mario platformers nowhere
+    in the list.
+    """
+    idf = {f"t:{c}": 1.0 for c in "abcdefg"}
+    vectors = build_normalised_vectors(
+        {
+            1: ("t:a", "t:b", "t:c", "t:d"),
+            2: ("t:a",),
+            3: ("t:a", "t:b", "t:e", "t:f", "t:g"),
+        },
+        idf,
+    )
+
+    assert content_similarity(vectors[1], vectors[3]) > content_similarity(
+        vectors[1], vectors[2]
+    )
 
 
 def test_build_vector_drops_zero_weight_tokens():
@@ -156,16 +226,16 @@ def test_content_similarity_ranks_shared_franchise_above_shared_genre():
     )
 
 
-def test_content_similarity_is_symmetric_and_bounded():
+def test_content_similarity_is_symmetric():
     idf = {"genre:Action": 1.0, "franchise:Metroid": 2.0}
-    left = build_vector(("genre:Action", "franchise:Metroid"), idf)
-    right = build_vector(("genre:Action",), idf)
-
-    assert content_similarity(left, right) == pytest.approx(
-        content_similarity(right, left)
+    vectors = build_normalised_vectors(
+        {1: ("genre:Action", "franchise:Metroid"), 2: ("genre:Action",)}, idf
     )
-    assert 0.0 <= content_similarity(left, right) <= 1.0
-    assert content_similarity(left, left) == pytest.approx(1.0)
+
+    assert content_similarity(vectors[1], vectors[2]) == pytest.approx(
+        content_similarity(vectors[2], vectors[1])
+    )
+    assert content_similarity(vectors[1], vectors[2]) > 0
 
 
 def test_content_similarity_of_disjoint_vectors_is_zero():
@@ -281,15 +351,20 @@ def test_has_taste_signal_rejects_context_only_tokens():
     assert has_taste_signal(("franchise:Metroid",))
 
 
-def test_context_only_vectors_would_otherwise_match_perfectly():
-    """Documents the reason context-only ROMs are excluded from the index."""
+def test_context_only_vectors_would_otherwise_match_each_other():
+    """Documents the reason context-only ROMs are excluded from the index.
+
+    Two games carrying nothing but platform and decade produce identical
+    vectors, so they match each other as strongly as anything possibly can.
+    """
     idf = {"platform:7": 2.0, "decade:1990": 1.5}
     tokens = ("platform:7", "decade:1990")
 
-    left = build_vector(tokens, idf)
-    right = build_vector(tokens, idf)
+    vectors = build_normalised_vectors({1: tokens, 2: tokens}, idf)
+    identical = content_similarity(vectors[1], vectors[2])
+    self_match = content_similarity(vectors[1], vectors[1])
 
-    assert content_similarity(left, right) == pytest.approx(1.0)
+    assert identical == pytest.approx(self_match)
 
 
 def test_normalise_co_occurrence_damps_ubiquitous_items():
