@@ -1,5 +1,5 @@
 import asyncio
-import hashlib
+import base64
 import io
 import json
 import logging
@@ -1386,6 +1386,37 @@ def _extract_state_screenshot(emulator: str, state_content: bytes) -> bytes | No
     return data
 
 
+_STATE_FRAME_KEY_PREFIX = "romm:streaming:frame:"
+# Long enough to cover the broker's state write plus the pull retries, short
+# enough that a frame never outlives the save it was captured for.
+_STATE_FRAME_TTL_SECONDS = 120
+
+
+def _state_frame_redis_key(user_id: int, rom_id: int) -> str:
+    return f"{_STATE_FRAME_KEY_PREFIX}{user_id}:{rom_id}"
+
+
+async def _stash_state_frame(user_id: int, rom_id: int, image: bytes) -> None:
+    """Hold a browser-captured frame until the state it belongs to is pulled."""
+    await async_cache.set(
+        _state_frame_redis_key(user_id, rom_id),
+        base64.b64encode(image),
+        ex=_STATE_FRAME_TTL_SECONDS,
+    )
+
+
+async def _take_state_frame(user_id: int, rom_id: int) -> bytes | None:
+    key = _state_frame_redis_key(user_id, rom_id)
+    raw = await async_cache.get(key)
+    await async_cache.delete(key)
+    if not raw:
+        return None
+    try:
+        return base64.b64decode(raw)
+    except (ValueError, TypeError):
+        return None
+
+
 def _fetch_state_screenshot(container: dict[str, Any], slot: int) -> bytes | None:
     """GET /state-screenshot from the broker, for emulators whose state files
     carry no frame of their own. A 404 is the normal "this broker does not
@@ -1598,9 +1629,13 @@ async def _pull_state_to_library(
         except ValueError:
             log.warning("broker returned invalid state filename")
             return False
-        # PCSX2 embeds the frame in the state file itself. The others write it
-        # beside the state, so fall back to fetching it from the broker.
-        screenshot = _extract_state_screenshot(emulator, content)
+        # The browser frame is preferred: it is what the player actually saw,
+        # and capturing it never asks the emulator to read back its own
+        # framebuffer, which is what deadlocks GPU-rendered cores. PCSX2 embeds
+        # a frame in the state file; the rest write one beside it.
+        screenshot = await _take_state_frame(user_id, rom_id)
+        if screenshot is None:
+            screenshot = _extract_state_screenshot(emulator, content)
         if screenshot is None:
             screenshot = await asyncio.to_thread(
                 _fetch_state_screenshot, container, slot
@@ -3093,6 +3128,29 @@ async def save_state(
         )
 
     return JSONResponse({"status": "saving", "slot": req.slot, "platform": platform})
+
+
+@protected_route(
+    router.post, "/sessions/{platform}/state-frame", [Scope.ROMS_USER_WRITE]
+)
+async def put_state_frame(request: Request, platform: str) -> JSONResponse:
+    """Stash a frame the browser grabbed off the stream canvas, for the state
+    save that follows it to pick up as its thumbnail."""
+    _, session_key, session = await _resolve_owned_session(platform, request)
+
+    image = await request.body()
+    if not image.startswith(_PNG_MAGIC):
+        raise HTTPException(status_code=400, detail="Frame must be a PNG")
+    if len(image) > _STATE_SCREENSHOT_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Frame too large")
+
+    rom_id = session.get("rom_id")
+    if not isinstance(rom_id, int):
+        raise HTTPException(status_code=409, detail="Session has no rom")
+
+    await _stash_state_frame(request.user.id, rom_id, image)
+    await _refresh_session(session_key)
+    return JSONResponse({"status": "ok", "platform": platform})
 
 
 @protected_route(

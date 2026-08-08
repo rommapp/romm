@@ -1778,6 +1778,71 @@ def test_pull_state_falls_back_to_broker_screenshot(rom: Rom, admin_user: User):
     assert db_state.screenshot is not None
 
 
+def test_pull_state_prefers_browser_frame(rom: Rom, admin_user: User):
+    """A frame the browser grabbed off the canvas beats asking the broker."""
+    container = {**_container_for(rom), "label": "Dolphin"}
+    scanned = _state_for(rom, admin_user, "Game.s04", "dolphin")
+    scanned_shot = Screenshot(
+        file_name="Game.s04.png",
+        file_name_no_tags="Game.s04",
+        file_name_no_ext="Game.s04",
+        file_extension="png",
+        file_path=f"{rom.platform_slug}/screenshots",
+        file_size_bytes=7,
+    )
+    with (
+        patch(
+            "endpoints.streaming._fetch_state_file",
+            return_value=("Game.s04", b"state-bytes"),
+        ),
+        patch(
+            "endpoints.streaming._take_state_frame",
+            new=AsyncMock(return_value=_PNG),
+        ),
+        patch("endpoints.streaming._fetch_state_screenshot") as fetch_shot,
+        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("endpoints.streaming.scan_state", new=AsyncMock(return_value=scanned)),
+        patch(
+            "endpoints.streaming.scan_screenshot",
+            new=AsyncMock(return_value=scanned_shot),
+        ),
+    ):
+        ok = asyncio.run(
+            streaming._pull_state_to_library(admin_user.id, rom.id, container, 4)
+        )
+    assert ok is True
+    fetch_shot.assert_not_called()
+
+
+def test_state_frame_stashes_capture(client, access_token):
+    """The endpoint holds the frame for the save that follows it."""
+    rom = _rom_on("ps2")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._stash_state_frame", new=AsyncMock()) as stash:
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/state-frame",
+                content=_PNG,
+                headers={**_auth(access_token), "Content-Type": "image/png"},
+            )
+    assert r.status_code == 200
+    stash.assert_awaited_once()
+    assert stash.await_args_list[0].args[2] == _PNG
+
+
+def test_state_frame_rejects_non_png(client, access_token):
+    """Only PNG survives the asset pipeline, so anything else is refused here."""
+    rom = _rom_on("ps2")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        r = client.post(
+            f"/api/streaming/sessions/{rom.platform_slug}/state-frame",
+            content=b"GIF89a-not-a-png",
+            headers={**_auth(access_token), "Content-Type": "image/png"},
+        )
+    assert r.status_code == 400
+
+
 def test_pull_state_rejects_unsanitizable_filename(rom: Rom, admin_user: User):
     """A broker filename that sanitizes to nothing must be dropped, not stored."""
     with (

@@ -128,6 +128,64 @@ function sameOriginFrames(win: Window | null, found: Window[] = []): Window[] {
   return found;
 }
 
+// Selkies paints the session into a 2D canvas it creates itself, falling back
+// to a video element on the WebRTC path. Neither is tainted, so a same-origin
+// container lets the frame be read straight out of the page. This is the only
+// capture that cannot stall the emulator: asking it to grab its own framebuffer
+// is what deadlocks a GPU-rendered core.
+const STREAM_CANVAS_ID = "videoCanvas";
+const STREAM_VIDEO_ID = "stream";
+// Long edge of the captured image. It is a thumbnail, and a full-resolution
+// PNG of the stream is several megabytes per save.
+const CAPTURE_MAX_EDGE = 960;
+
+function streamSurface(): HTMLCanvasElement | HTMLVideoElement | null {
+  // Elements come from another frame's realm, where `instanceof` against this
+  // document's constructors is always false, so match on the tag instead.
+  for (const win of sameOriginFrames(
+    streamFrame.value?.contentWindow ?? null,
+  )) {
+    const el = win.document.getElementById(STREAM_CANVAS_ID);
+    if (el?.tagName === "CANVAS") {
+      const canvas = el as HTMLCanvasElement;
+      if (canvas.width > 0) return canvas;
+    }
+    const videoEl = win.document.getElementById(STREAM_VIDEO_ID);
+    if (videoEl?.tagName === "VIDEO") {
+      const video = videoEl as HTMLVideoElement;
+      if (video.videoWidth > 0) return video;
+    }
+  }
+  return null;
+}
+
+// PNG because that is what the states API stores and what the backend's
+// thumbnail guard checks the magic bytes for.
+async function captureFrame(): Promise<Blob | null> {
+  const surface = streamSurface();
+  if (!surface) return null;
+  const isVideo = surface.tagName === "VIDEO";
+  const video = surface as HTMLVideoElement;
+  const canvas = surface as HTMLCanvasElement;
+  const sw = isVideo ? video.videoWidth : canvas.width;
+  const sh = isVideo ? video.videoHeight : canvas.height;
+  if (!sw || !sh) return null;
+
+  const scale = Math.min(1, CAPTURE_MAX_EDGE / Math.max(sw, sh));
+  const out = document.createElement("canvas");
+  out.width = Math.round(sw * scale);
+  out.height = Math.round(sh * scale);
+  const ctx = out.getContext("2d");
+  if (!ctx) return null;
+  try {
+    ctx.drawImage(surface, 0, 0, out.width, out.height);
+  } catch {
+    // A surface mid-resize has no drawable frame yet.
+    return null;
+  }
+  return new Promise((resolve) => out.toBlob(resolve, "image/png"));
+}
+
 function detachFrameListeners(): void {
   frameCleanups.forEach((off) => off());
   frameCleanups = [];
@@ -253,6 +311,7 @@ defineExpose({
   isFullscreen,
   showUI,
   focusStream,
+  captureFrame,
   enterFullscreen,
   leaveFullscreen,
   toggleFullscreen,
