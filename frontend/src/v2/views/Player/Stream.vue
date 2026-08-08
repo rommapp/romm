@@ -6,15 +6,24 @@
 //
 // Layout mirrors the EmulatorJS view, three columns pre-game:
 //   1. Hero: cover + title + "Play on <emulator>" CTA + back links.
-//   2. Resume: the state picker, or a save-data report where the
-//      emulator has no states.
+//   2. Resume: the state picker and the save-data report, tabbed where
+//      the emulator carries both.
 //   3. Session: where the game runs and any claim errors (occupied /
 //      not configured / server).
 //   4. Aside: memory card picker + fullscreen-on-play.
 //
 // The running state is a fixed stage hosting the Selkies iframe with an
 // auto-hiding control bar (volume, save/load state, fullscreen, exit).
-import { RAlert, RBtn, RCard, RDialog, RIcon, RSlider, RSwitch } from "@v2/lib";
+import {
+  RAlert,
+  RBtn,
+  RCard,
+  RDialog,
+  RIcon,
+  RSlider,
+  RSliderBtnGroup,
+  RSwitch,
+} from "@v2/lib";
 import { useLocalStorage } from "@vueuse/core";
 import { isAxiosError } from "axios";
 import {
@@ -61,6 +70,7 @@ import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
+import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
@@ -189,17 +199,20 @@ const supportsStates = computed(
 // arrives newest-first from the backend.
 const selectedState = ref<UserStateSchema | null>(null);
 
-// The archive the broker restores before boot, newest-first from the
-// backend, scoped to this emulator the same way the states are.
-const newestSave = computed<SaveSchema | null>(() => {
+// The archives the broker syncs, newest-first from the backend, scoped
+// to this emulator the same way the states are.
+const emulatorSaves = computed<SaveSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
-  if (!rom.value || !emulator) return null;
-  return (
-    (rom.value.user_saves ?? []).find(
-      (s) => (s.emulator ?? "").toLowerCase() === emulator,
-    ) ?? null
+  if (!rom.value || !emulator) return [];
+  return (rom.value.user_saves ?? []).filter(
+    (s) => (s.emulator ?? "").toLowerCase() === emulator,
   );
 });
+
+// The one the broker restores before boot.
+const newestSave = computed<SaveSchema | null>(
+  () => emulatorSaves.value[0] ?? null,
+);
 
 const streamStates = computed<UserStateSchema[]>(() => {
   const emulator = container.value?.emulator?.toLowerCase();
@@ -242,6 +255,44 @@ watch(
 function pickState(state: UserStateSchema): void {
   selectedState.value = state;
 }
+
+// ── Resume tabs ─────────────────────────────────────────────────────
+// A container can carry both a state library and a save archive, and
+// they resume different things: a snapshot picks up mid-frame, the
+// archive only puts the game's own save file back on disk. Where both
+// exist the panel tabs between them.
+type ResumeTab = "state" | "save";
+
+const resumeTab = ref<ResumeTab>("state");
+
+const showResumeTabs = computed(
+  () => supportsStates.value && emulatorSaves.value.length > 0,
+);
+
+// The pick only counts when there is something to pick between.
+const activeResumeTab = computed<ResumeTab>(() => {
+  if (!supportsStates.value) return "save";
+  return showResumeTabs.value ? resumeTab.value : "state";
+});
+
+function setResumeTab(id: ResumeTab): void {
+  resumeTab.value = id;
+}
+
+const resumeTabs = computed<SliderBtnGroupItem<ResumeTab>[]>(() => [
+  {
+    id: "state",
+    label: t("common.states"),
+    badge: streamStates.value.length,
+    icon: "mdi-file",
+  },
+  {
+    id: "save",
+    label: t("common.saves"),
+    badge: emulatorSaves.value.length,
+    icon: "mdi-content-save",
+  },
+]);
 
 // ── Memory card picker (whole-card sync) ────────────────────────────
 // Which card to hydrate onto the container at claim. Only shown for
@@ -1042,72 +1093,76 @@ onBeforeUnmount(() => {
       <!-- Resume: preview + strip of own and shared states. Always present
            so a first run and a long history read as the same screen; the
            strip carries its own empty state. Owner chips distinguish states
-           shared by other users. -->
-      <RCard
-        v-if="supportsStates"
-        class="r-v2-stream__panel r-v2-stream__resume"
-        variant="flat"
-      >
-        <div class="r-v2-stream__panel-head r-v2-stream__panel-head--label">
-          <RIcon icon="mdi-content-save-outline" size="14" />
-          <span>{{ t("play.resume-from-state") }}</span>
-        </div>
-        <div class="r-v2-stream__resume-body">
-          <AssetPreview
-            :asset="selectedState"
-            type="state"
-            :show-heading="false"
-            @clear="selectedState = null"
+           shared by other users. The save archive shares the cell, tabbed
+           where the emulator has both. -->
+      <RCard class="r-v2-stream__panel r-v2-stream__resume" variant="flat">
+        <div
+          class="r-v2-stream__panel-head"
+          :class="{ 'r-v2-stream__panel-head--label': !showResumeTabs }"
+        >
+          <RSliderBtnGroup
+            v-if="showResumeTabs"
+            variant="tab"
+            :model-value="activeResumeTab"
+            :items="resumeTabs"
+            :aria-label="t('rom.load-save-or-state')"
+            @update:model-value="setResumeTab"
           />
-          <div class="r-v2-stream__strip-label">
-            <span aria-hidden="true">{{ t("play.all-states") }}</span>
-            <span class="r-v2-stream__strip-count" aria-hidden="true">{{
-              streamStates.length
+          <template v-else>
+            <RIcon icon="mdi-content-save-outline" size="14" />
+            <span>{{
+              activeResumeTab === "state"
+                ? t("play.resume-from-state")
+                : t("play.save-data")
             }}</span>
-            <div
-              class="r-v2-stream__strip-views"
-              role="group"
-              :aria-label="t('play.states-view')"
-            >
-              <RBtn
-                v-for="view in STATE_LAYOUTS"
-                :key="view.value"
-                variant="text"
-                size="x-small"
-                :icon="view.icon"
-                :aria-pressed="stateLayout === view.value"
-                :class="{
-                  'r-v2-stream__strip-view--on': stateLayout === view.value,
-                }"
-                :aria-label="t(`play.states-view-${view.value}`)"
-                @click="stateLayout = view.value"
-              />
-            </div>
-          </div>
-          <AssetStrip
-            :assets="streamStates"
-            type="state"
-            :selected-id="selectedState?.id ?? null"
-            :layout="stateLayout"
-            show-owner
-            @select="pickState($event as UserStateSchema)"
-          />
-        </div>
-      </RCard>
-
-      <!-- Same cell for emulators without states: the save archive is
-           reported, not offered, since loading it is the game's own job. -->
-      <RCard
-        v-else
-        class="r-v2-stream__panel r-v2-stream__resume"
-        variant="flat"
-      >
-        <div class="r-v2-stream__panel-head r-v2-stream__panel-head--label">
-          <RIcon icon="mdi-content-save-outline" size="14" />
-          <span>{{ t("play.save-data") }}</span>
+          </template>
         </div>
         <div class="r-v2-stream__resume-body">
-          <SaveDataPanel :save="newestSave" :platform="platformLabel" />
+          <template v-if="activeResumeTab === 'state'">
+            <AssetPreview
+              :asset="selectedState"
+              type="state"
+              :show-heading="false"
+              @clear="selectedState = null"
+            />
+            <div class="r-v2-stream__strip-label">
+              <span aria-hidden="true">{{ t("play.all-states") }}</span>
+              <span class="r-v2-stream__strip-count" aria-hidden="true">{{
+                streamStates.length
+              }}</span>
+              <div
+                class="r-v2-stream__strip-views"
+                role="group"
+                :aria-label="t('play.states-view')"
+              >
+                <RBtn
+                  v-for="view in STATE_LAYOUTS"
+                  :key="view.value"
+                  variant="text"
+                  size="x-small"
+                  :icon="view.icon"
+                  :aria-pressed="stateLayout === view.value"
+                  :class="{
+                    'r-v2-stream__strip-view--on': stateLayout === view.value,
+                  }"
+                  :aria-label="t(`play.states-view-${view.value}`)"
+                  @click="stateLayout = view.value"
+                />
+              </div>
+            </div>
+            <AssetStrip
+              :assets="streamStates"
+              type="state"
+              :selected-id="selectedState?.id ?? null"
+              :layout="stateLayout"
+              show-owner
+              @select="pickState($event as UserStateSchema)"
+            />
+          </template>
+
+          <!-- The archive is reported, not offered: loading it is the
+               game's own job. -->
+          <SaveDataPanel v-else :save="newestSave" :platform="platformLabel" />
         </div>
       </RCard>
 

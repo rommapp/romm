@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// SaveDataPanel: what the streaming launch screen shows instead of the
-// state picker on platforms whose emulator has no save states.
+// SaveDataPanel: the save-archive half of the streaming launch screen's
+// resume panel. It stands alone where the emulator has no save states,
+// and sits behind a tab alongside the state picker where it has both.
 //
 // The save is reported, never offered. Nothing here is clickable and the
 // word "resume" is absent: the archive is restored into the emulated
