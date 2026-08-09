@@ -425,6 +425,10 @@ class ClaimSessionRequest(BaseModel):
     # card has never been adopted. "adopt" keeps it, "discard" wipes it, and
     # "discard" doubles as the override for a card that could not be read.
     card_import: Literal["adopt", "discard"] | None = None
+    # Decided on the launch screen and fixed for the session. True advertises
+    # the session on GET /sessions/joinable and tells the room to show its
+    # comms surface while the host is still alone.
+    multiplayer: bool = False
 
 
 class SaveAndExitRequest(BaseModel):
@@ -1147,6 +1151,7 @@ def _webstation_activate(
     archive_path: str | None = None,
     resume_slot: int | None = None,
     memory_card_synced: bool = False,
+    multiplayer: bool = False,
 ) -> dict[str, Any]:
     """POST /activate. Raises HTTPException the same way _call_broker does.
 
@@ -1161,6 +1166,7 @@ def _webstation_activate(
             "display_name": user.username,
         },
         "emulator": emulator,
+        "multiplayer": multiplayer,
     }
     if rom is not None:
         body["rom"] = rom
@@ -1206,6 +1212,30 @@ def _webstation_activate(
     resp = resp if isinstance(resp, dict) else {}
     log.info("broker activated session, %s", resp)
     return resp
+
+
+def _webstation_join(container: dict[str, Any], user: User) -> dict[str, Any] | None:
+    """POST /api/session/join. The broker's answer, or None if it refused.
+
+    The broker mints the seat and replies with a landing URL carrying the new
+    viewer's own token. Nothing here grants control of the container: every
+    control route still goes through _assert_session_owner.
+    """
+    body = _broker_request_safe(
+        container,
+        _webstation_path(container, "/join"),
+        "join",
+        body={
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "display_name": user.username,
+            },
+            "permission": "participant",
+        },
+        timeout=_BROKER_ACK_TIMEOUT,
+    )
+    return body if isinstance(body, dict) else None
 
 
 def _webstation_exit(container: dict[str, Any], slot: int) -> dict[str, Any] | None:
@@ -2626,6 +2656,10 @@ async def claim_session(
         # stops refreshing counts as abandoned and can be taken over.
         "last_seen": now,
         "user_id": request.user.id,
+        # Read by GET /sessions/joinable and enforced by POST
+        # /sessions/{platform}/join, so it has to survive on the record rather
+        # than living only on the broker.
+        "multiplayer": req.multiplayer,
         # Carried so every teardown path (owner release, save-and-exit, admin
         # force-release) can evacuate the right card before stopping the game.
         "memory_card_id": memory_card.id if memory_card is not None else None,
@@ -2914,6 +2948,7 @@ async def claim_session(
                     resume_slot if resume_pushed or resume_after_launch else None
                 ),
                 memory_card_synced=memory_card is not None,
+                multiplayer=req.multiplayer,
             )
         else:
             launch_result = await asyncio.to_thread(
@@ -3105,6 +3140,63 @@ async def session_status(request: Request, platform: str) -> JSONResponse:
     mount or after a reconnect without extending a claim it may not own.
     """
     return JSONResponse(await _session_status(platform, request))
+
+
+@protected_route(router.post, "/sessions/{platform}/join", [Scope.ROMS_READ])
+async def join_session(
+    request: Request,
+    platform: str,
+    container: str | None = Query(default=None),
+) -> JSONResponse:
+    """Join a multiplayer session someone else is hosting.
+
+    The caller gets a room URL and nothing else. Note the scope: ROMS_READ,
+    not the ROMS_USER_WRITE every control route below demands. Those all go
+    through _assert_session_owner, so a joiner cannot change the volume, write
+    states, or release the container.
+    """
+    if container is not None:
+        candidate, _, session = await _resolve_named_container(platform, container)
+        found = (candidate, session) if session is not None else None
+    else:
+        found = None
+        for candidate in _containers_for_platform(platform):
+            session = await _get_session(_container_key(candidate))
+            if session is None or session.get("draining"):
+                continue
+            if session.get("multiplayer"):
+                found = (candidate, session)
+                break
+
+    if found is None:
+        raise HTTPException(
+            status_code=404, detail=f"No active session on platform '{platform}'"
+        )
+    candidate, session = found
+
+    if not session.get("multiplayer"):
+        raise HTTPException(
+            status_code=403, detail="That session is not open for joining"
+        )
+    if not _is_webstation(candidate):
+        raise HTTPException(
+            status_code=409, detail="That container does not support joining"
+        )
+
+    joined = await asyncio.to_thread(_webstation_join, candidate, request.user)
+    room_url = str(joined.get("url", "")) if joined else ""
+    if not room_url:
+        raise HTTPException(status_code=502, detail="The session refused the join")
+
+    return JSONResponse(
+        {
+            "platform": platform,
+            "host": urljoin(candidate.get("host", ""), room_url),
+            "label": candidate.get("label", platform.upper()),
+            "rom_id": session.get("rom_id"),
+            "rom_name": session.get("rom_name"),
+        }
+    )
 
 
 @protected_route(router.post, "/sessions/{platform}/volume", [Scope.ROMS_USER_WRITE])
@@ -3502,6 +3594,55 @@ async def claim_desktop_session(
             "claimed_at": now,
         }
     )
+
+
+@protected_route(router.get, "/sessions/joinable", [Scope.ROMS_READ])
+async def list_joinable_sessions(
+    request: Request, rom_id: int | None = Query(default=None, ge=1)
+) -> JSONResponse:
+    """Active multiplayer sessions any user may ask to join.
+
+    Deliberately not admin-gated, unlike GET /sessions: it exposes only
+    sessions whose host opted into multiplayer at launch, and only the fields
+    a Join button needs. Sessions the caller is already hosting are left out.
+    """
+    grouped = _containers_by_key()
+
+    sessions: list[dict[str, Any]] = []
+    async for key in async_cache.scan_iter(match=f"{_SESSION_KEY_PREFIX}*"):
+        raw = await async_cache.get(key)
+        if raw is None:
+            continue
+        try:
+            s = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if not s.get("multiplayer") or s.get("draining"):
+            continue
+        if s.get("user_id") == request.user.id:
+            continue
+        if rom_id is not None and s.get("rom_id") != rom_id:
+            continue
+
+        # scan_iter yields bytes unless the client decodes responses.
+        key_str = key.decode() if isinstance(key, bytes) else key
+        container_key = key_str.removeprefix(_SESSION_KEY_PREFIX)
+        container = (
+            _container_for_session(grouped, container_key, s.get("platform")) or {}
+        )
+        user_id = s.get("user_id")
+        host = db_user_handler.get_user(user_id) if user_id is not None else None
+        sessions.append(
+            {
+                "container": container_key,
+                "label": container.get("label"),
+                "platform": s.get("platform"),
+                "rom_id": s.get("rom_id"),
+                "rom_name": s.get("rom_name"),
+                "host_username": host.username if host else None,
+            }
+        )
+    return JSONResponse({"sessions": sessions})
 
 
 @protected_route(router.get, "/sessions", [Scope.ROMS_READ])

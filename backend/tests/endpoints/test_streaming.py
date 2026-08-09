@@ -3974,3 +3974,216 @@ def test_kiosk_mode_can_still_read_config(client):
     """The read side of streaming stays open to kiosk visitors."""
     with patch("handler.auth.hybrid_auth.KIOSK_MODE", True), _streaming():
         assert client.get("/api/streaming/config").status_code == 200
+
+
+# ── multiplayer flag ─────────────────────────────────────────────────────────
+
+
+def _claim_multiplayer(client, token, rom_id, multiplayer=True):
+    with patch("endpoints.streaming._call_broker"):
+        return client.post(
+            "/api/streaming/sessions",
+            json={"rom_id": rom_id, "multiplayer": multiplayer},
+            headers=_auth(token),
+        )
+
+
+def test_a_multiplayer_claim_is_recorded_on_the_session(client, access_token, rom: Rom):
+    container = {"host": "http://192.168.1.10:3000", "platform": rom.platform_slug}
+    with _streaming(container):
+        _claim_multiplayer(client, access_token, rom.id)
+        raw = _session_raw(container)
+
+    assert json.loads(raw)["multiplayer"] is True
+
+
+def test_the_activate_body_carries_the_multiplayer_flag(client, access_token, rom: Rom):
+    """The broker gates its comms surface on this field, so stub the transport
+    rather than the activate helper: the body itself is what matters."""
+    with _streaming(_ws_for(rom)):
+        with patch(
+            "endpoints.streaming._broker_request", return_value={"url": "/room/x"}
+        ) as request:
+            client.post(
+                "/api/streaming/sessions",
+                json={"rom_id": rom.id, "multiplayer": True},
+                headers=_auth(access_token),
+            )
+
+    assert request.call_args.kwargs["body"]["multiplayer"] is True
+
+
+def test_a_claim_is_solo_unless_asked_otherwise(client, access_token, rom: Rom):
+    container = {"host": "http://192.168.1.10:3000", "platform": rom.platform_slug}
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        raw = _session_raw(container)
+
+    assert json.loads(raw)["multiplayer"] is False
+
+
+# ── joinable sessions ────────────────────────────────────────────────────────
+
+
+def _joinable(client, token, rom_id=None):
+    params = {} if rom_id is None else {"rom_id": rom_id}
+    return client.get(
+        "/api/streaming/sessions/joinable", params=params, headers=_auth(token)
+    )
+
+
+def test_joinable_lists_someone_elses_multiplayer_session(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    container = {"host": "http://192.168.1.10:3000", "platform": rom.platform_slug}
+    with _streaming(container):
+        _claim_multiplayer(client, access_token, rom.id)
+        body = _joinable(client, viewer_access_token).json()
+
+    assert [s["rom_id"] for s in body["sessions"]] == [rom.id]
+
+
+def test_joinable_hides_a_solo_session(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    container = {"host": "http://192.168.1.10:3000", "platform": rom.platform_slug}
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        body = _joinable(client, viewer_access_token).json()
+
+    assert body["sessions"] == []
+
+
+def test_joinable_hides_your_own_session(client, access_token, rom: Rom):
+    """Nobody needs a Join button for the game they are already hosting."""
+    container = {"host": "http://192.168.1.10:3000", "platform": rom.platform_slug}
+    with _streaming(container):
+        _claim_multiplayer(client, access_token, rom.id)
+        body = _joinable(client, access_token).json()
+
+    assert body["sessions"] == []
+
+
+def test_joinable_filters_by_rom(client, access_token, viewer_access_token, rom: Rom):
+    container = {"host": "http://192.168.1.10:3000", "platform": rom.platform_slug}
+    with _streaming(container):
+        _claim_multiplayer(client, access_token, rom.id)
+        body = _joinable(client, viewer_access_token, rom_id=rom.id + 1).json()
+
+    assert body["sessions"] == []
+
+
+def test_joinable_requires_auth(client):
+    assert client.get("/api/streaming/sessions/joinable").status_code == 401
+
+
+# ── joining a session ─────────────────────────────────────────────────────────
+
+
+def _ws_for(rom: Rom):
+    """A webstation container serving this rom's platform, since only the
+    webstation broker mints viewer seats."""
+    return _webstation(platforms={rom.platform_slug: "pcsx2"})
+
+
+def _claim_ws_multiplayer(client, token, rom_id, multiplayer=True):
+    with patch(
+        "endpoints.streaming._webstation_activate", return_value={"url": "/room/x"}
+    ):
+        return client.post(
+            "/api/streaming/sessions",
+            json={"rom_id": rom_id, "multiplayer": multiplayer},
+            headers=_auth(token),
+        )
+
+
+def _join(client, token, platform, container=None):
+    params = {} if container is None else {"container": container}
+    return client.post(
+        f"/api/streaming/sessions/{platform}/join",
+        params=params,
+        headers=_auth(token),
+    )
+
+
+def test_joining_a_multiplayer_session_returns_its_room_url(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    with _streaming(_ws_for(rom)):
+        _claim_ws_multiplayer(client, access_token, rom.id)
+        with patch(
+            "endpoints.streaming._webstation_join",
+            return_value={"url": "/webstation/?token=abc"},
+        ):
+            response = _join(client, viewer_access_token, rom.platform_slug)
+
+    assert response.status_code == 200
+    assert response.json()["host"] == "http://192.168.1.10:3000/webstation/?token=abc"
+
+
+def test_joining_a_solo_session_finds_nothing_to_join(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The scan skips solo sessions outright, so there is nothing to refuse."""
+    with _streaming(_ws_for(rom)):
+        _claim_ws_multiplayer(client, access_token, rom.id, multiplayer=False)
+        response = _join(client, viewer_access_token, rom.platform_slug)
+
+    assert response.status_code == 404
+
+
+def test_joining_a_named_solo_container_is_refused(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Naming the container skips the scan, so the refusal is explicit."""
+    container = _ws_for(rom)
+    with _streaming(container):
+        _claim_ws_multiplayer(client, access_token, rom.id, multiplayer=False)
+        response = _join(
+            client, viewer_access_token, rom.platform_slug, container=_key_of(container)
+        )
+
+    assert response.status_code == 403
+
+
+def test_joining_when_nothing_is_running_is_a_404(
+    client, viewer_access_token, rom: Rom
+):
+    with _streaming(_ws_for(rom)):
+        response = _join(client, viewer_access_token, rom.platform_slug)
+
+    assert response.status_code == 404
+
+
+def test_a_joiner_cannot_drive_the_session(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Joining hands out a room URL, never control of the container."""
+    with _streaming(_ws_for(rom)):
+        _claim_ws_multiplayer(client, access_token, rom.id)
+        with patch(
+            "endpoints.streaming._webstation_join",
+            return_value={"url": "/webstation/?token=abc"},
+        ):
+            assert (
+                _join(client, viewer_access_token, rom.platform_slug).status_code == 200
+            )
+        response = _volume(client, viewer_access_token, rom.platform_slug)
+
+    assert response.status_code == 403
+
+
+def test_a_refused_mint_is_a_502(client, access_token, viewer_access_token, rom: Rom):
+    """The broker answering with no URL must not read as a successful join."""
+    with _streaming(_ws_for(rom)):
+        _claim_ws_multiplayer(client, access_token, rom.id)
+        with patch("endpoints.streaming._webstation_join", return_value=None):
+            response = _join(client, viewer_access_token, rom.platform_slug)
+
+    assert response.status_code == 502
+
+
+def test_joining_requires_auth(client, rom: Rom):
+    with _streaming(_ws_for(rom)):
+        r = client.post(f"/api/streaming/sessions/{rom.platform_slug}/join")
+    assert r.status_code == 401
