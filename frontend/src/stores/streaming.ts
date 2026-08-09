@@ -4,6 +4,8 @@ import streamingApi from "@/services/api/streaming";
 import type {
   ActiveSession,
   AdminStreamingSession,
+  JoinableSession,
+  JoinedSession,
   MemoryCardImport,
   SessionStatus,
   StreamingConfig,
@@ -13,6 +15,8 @@ import type {
 export type {
   ActiveSession,
   AdminStreamingSession,
+  JoinableSession,
+  JoinedSession,
   MemoryCardImport,
   MemoryCardImportDetail,
   PlatformCapabilities,
@@ -123,14 +127,51 @@ export const useStreamingStore = defineStore("streaming", () => {
     stateId?: number,
     memoryCardId?: number,
     cardImport?: MemoryCardImport,
+    multiplayer?: boolean,
   ): Promise<ActiveSession> {
     const { data } = await streamingApi.claimSession(
       romId,
       stateId,
       memoryCardId,
       cardImport,
+      multiplayer,
     );
     activeSession.value = data;
+    return data;
+  }
+
+  // Populated on demand by surfaces that offer a Join affordance. Kept in the
+  // store rather than fetched per component: a virtualised gallery hosts many
+  // GameActions instances, and one request each would be a request storm.
+  const joinableSessions = ref<JoinableSession[]>([]);
+
+  async function fetchJoinableSessions(romId?: number): Promise<void> {
+    try {
+      const { data } = await streamingApi.listJoinableSessions(romId);
+      joinableSessions.value = data.sessions;
+    } catch {
+      // Best effort. A failed lookup just means no Join button is offered.
+      joinableSessions.value = [];
+    }
+  }
+
+  function joinableForRom(
+    romId: number | null | undefined,
+  ): JoinableSession | null {
+    if (romId == null) return null;
+    return joinableSessions.value.find((s) => s.rom_id === romId) ?? null;
+  }
+
+  /**
+   * Ask to join a session someone else opened to other players. Returns the
+   * room URL for the joiner's iframe. Unlike claimSession this grants no
+   * control of the container: every control route stays with the host.
+   */
+  async function joinSession(
+    platform: string,
+    container?: string,
+  ): Promise<JoinedSession> {
+    const { data } = await streamingApi.joinSession(platform, container);
     return data;
   }
 
@@ -292,6 +333,10 @@ export const useStreamingStore = defineStore("streaming", () => {
     platformCapabilities,
     fetchConfig,
     claimSession,
+    joinableSessions,
+    fetchJoinableSessions,
+    joinableForRom,
+    joinSession,
     releaseSession,
     saveAndExit,
     heartbeatSession,

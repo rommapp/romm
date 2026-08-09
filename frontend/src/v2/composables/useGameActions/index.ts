@@ -95,6 +95,23 @@ export function useGameActions(
     return streamingStore.containerForPlatform(rom.platform_slug)?.label ?? "";
   });
 
+  // A session someone else opened to other players on this exact ROM. Read
+  // from the store, never fetched here: this composable is instantiated once
+  // per GameActionBtn, and a fetch per instance would be a request storm.
+  const joinableSession = computed(() => {
+    const rom = getRom();
+    if (!rom) return null;
+    return streamingStore.joinableForRom(rom.id);
+  });
+
+  const canJoinStream = computed(
+    () => canPlayStream.value && joinableSession.value !== null,
+  );
+
+  const joinHostLabel = computed(
+    () => joinableSession.value?.host_username ?? "",
+  );
+
   const isFavorited = computed(() => {
     const rom = getRom();
     return rom ? Boolean(isFavorite(rom)) : false;
@@ -292,6 +309,27 @@ export function useGameActions(
     }
   }
 
+  // Joining is its own navigation: the stream view claims a container when it
+  // opens normally, so the join intent has to reach it in the URL. Confirming
+  // first is what stands in for the start page, which a joiner never sees:
+  // they land in someone else's running game with no settings of their own.
+  async function joinStream() {
+    const rom = getRom();
+    if (!rom || !canJoinStream.value) return;
+    const host = joinHostLabel.value;
+    const ok = await confirm({
+      title: host
+        ? t("rom.confirm-join-title-of", { user: host })
+        : t("rom.confirm-join-title"),
+      body: t("rom.confirm-join-body", {
+        name: rom.name ?? rom.fs_name_no_ext ?? "",
+      }),
+      confirmText: t("rom.join-session"),
+    });
+    if (!ok) return;
+    void router.push(`/rom/${rom.id}/stream?join=1`);
+  }
+
   const platformPath = computed(() => {
     const rom = getRom();
     return rom ? `/platform/${rom.platform_id}` : null;
@@ -457,6 +495,9 @@ export function useGameActions(
     canPlayStream,
     canPlayInBrowser,
     streamLabel,
+    canJoinStream,
+    joinHostLabel,
+    joinStream,
     canRemoveFromContinuePlaying,
     canEdit,
     canDelete,

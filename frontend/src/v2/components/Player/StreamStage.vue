@@ -37,6 +37,8 @@ const isFullscreen = ref(false);
 // Whether the frame let us listen inside it. A cross-origin container never
 // reports its pointer, so it gets the edge strip instead.
 const sameOrigin = ref(false);
+// The origin a room page announced from, empty until it does.
+const roomOrigin = ref("");
 
 let uiTimeout: ReturnType<typeof setTimeout> | null = null;
 let attachTimeouts: ReturnType<typeof setTimeout>[] = [];
@@ -163,11 +165,28 @@ async function captureFrame(): Promise<Blob | null> {
 // of its audio output, and it drops any message whose origin is not its own.
 // Same origin is what makes that reachable, so the bar can move this viewer's
 // gain instead of asking the broker to move the whole container's mixer.
+//
+// A room page announces itself instead, and relays what we send on to the
+// stream nested inside it. That is the only way across an origin boundary, and
+// it is what a container served from its own host does. Containers that say
+// nothing are left to the broker fallback, which is all they ever had.
 // Returns whether there was anything to post to.
 function postToStream(message: unknown): boolean {
   const frames = sameOriginFrames(streamFrame.value?.contentWindow ?? null);
   frames.forEach((win) => win.postMessage(message, window.location.origin));
-  return frames.length > 0;
+  if (frames.length > 0) return true;
+  const room = streamFrame.value?.contentWindow;
+  if (!room || !roomOrigin.value) return false;
+  room.postMessage(message, roomOrigin.value);
+  return true;
+}
+
+// Set by the room's own announcement, so it is the frame's real origin rather
+// than one parsed off a src that may have redirected.
+function onFrameAnnounce(event: MessageEvent): void {
+  if (event.source !== streamFrame.value?.contentWindow) return;
+  if ((event.data as { type?: string } | null)?.type !== "roomReady") return;
+  roomOrigin.value = event.origin;
 }
 
 function detachFrameListeners(): void {
@@ -240,6 +259,7 @@ watch(
   (src) => {
     clearAttachTimeouts();
     sameOrigin.value = false;
+    roomOrigin.value = "";
     if (!src) return;
     showUI();
     attachTimeouts.push(setTimeout(attachIframeListeners, 100));
@@ -281,10 +301,12 @@ function onFullscreenChange(): void {
 }
 onMounted(() => {
   document.addEventListener("fullscreenchange", onFullscreenChange);
+  window.addEventListener("message", onFrameAnnounce);
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener("fullscreenchange", onFullscreenChange);
+  window.removeEventListener("message", onFrameAnnounce);
   if (uiTimeout) clearTimeout(uiTimeout);
   clearAttachTimeouts();
   detachFrameListeners();

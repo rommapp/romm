@@ -68,6 +68,7 @@ const { t } = useI18n();
 export type GameAction =
   | "play"
   | "stream"
+  | "join"
   | "download"
   | "copy-link"
   | "qr"
@@ -179,6 +180,17 @@ const preset = computed<Preset>(() => {
         : t("rom.stream"),
       activeIcon: null,
       onClick: () => actions.play("stream"),
+      active: false,
+    };
+  }
+  if (props.action === "join") {
+    return {
+      icon: "mdi-account-multiple-plus",
+      label: actions.joinHostLabel.value
+        ? t("rom.join-session-of", { user: actions.joinHostLabel.value })
+        : t("rom.join-session"),
+      activeIcon: null,
+      onClick: () => void actions.joinStream(),
       active: false,
     };
   }

@@ -17,7 +17,12 @@ type Flags = {
   canRefresh: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  canJoinStream: boolean;
 };
+
+// Not a flag: the Join item picks its label off this, so it is held apart
+// from the booleans rather than squeezed into them.
+let joinHostLabel = "";
 
 const flags: Flags = {
   canPlay: true,
@@ -29,6 +34,7 @@ const flags: Flags = {
   canRefresh: true,
   canEdit: true,
   canDelete: true,
+  canJoinStream: false,
 };
 
 vi.mock("@/v2/composables/useGameActions", () => ({
@@ -45,6 +51,7 @@ vi.mock("@/v2/composables/useGameActions", () => ({
             };
           }
           if (prop === "isFavorited") return { value: false };
+          if (prop === "joinHostLabel") return { value: joinHostLabel };
           return vi.fn();
         },
       },
@@ -57,8 +64,9 @@ const RMenuItem = {
 };
 const RDivider = { template: `<hr class="divider" />` };
 
-function mountList(overrides: Partial<Flags> = {}) {
+function mountList(overrides: Partial<Flags> = {}, hostLabel = "") {
   Object.assign(flags, overrides);
+  joinHostLabel = hostLabel;
   return mount(GameActionsList, {
     props: { rom: { id: 1 } as SimpleRom },
     global: { stubs: { RMenuItem, RDivider } },
@@ -115,5 +123,23 @@ describe("GameActionsList — permission gating", () => {
     });
     expect(labels(wrapper)).toContain("common.edit");
     expect(wrapper.findAll(".divider")).toHaveLength(2);
+  });
+});
+
+describe("GameActionsList — joining someone else's session", () => {
+  it("names the host when the session advertises one", () => {
+    const wrapper = mountList({ canJoinStream: true }, "ana");
+    expect(labels(wrapper)).toContain("rom.join-session-of");
+  });
+
+  it("falls back to the plain label when the host is unknown", () => {
+    const wrapper = mountList({ canJoinStream: true }, "");
+    expect(labels(wrapper)).toContain("rom.join-session");
+  });
+
+  it("offers nothing to join when no session is open", () => {
+    const shown = labels(mountList({ canJoinStream: false }, "ana"));
+    expect(shown).not.toContain("rom.join-session");
+    expect(shown).not.toContain("rom.join-session-of");
   });
 });

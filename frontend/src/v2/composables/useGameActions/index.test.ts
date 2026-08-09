@@ -19,6 +19,9 @@ const confirmProtectedLaunch = { value: true };
 const canPlayEJS = { value: true };
 const canPlayRuffle = { value: false };
 const streamContainer = { value: null as object | null };
+const joinableSession = {
+  value: null as { host_username: string | null } | null,
+};
 // Mirrors the real composable, which reads it off the streaming store.
 const canPlayStream = {
   get value() {
@@ -56,6 +59,7 @@ vi.mock("@/stores/roms", () => ({
 vi.mock("@/stores/streaming", () => ({
   useStreamingStore: () => ({
     containerForPlatform: () => streamContainer.value,
+    joinableForRom: () => joinableSession.value,
   }),
 }));
 vi.mock("@/utils", () => ({
@@ -121,7 +125,63 @@ beforeEach(() => {
   canPlayEJS.value = true;
   canPlayRuffle.value = false;
   streamContainer.value = null;
+  joinableSession.value = null;
   grantedActions.value = null;
+});
+
+describe("useGameActions.joinStream", () => {
+  beforeEach(() => {
+    streamContainer.value = { host: "http://stream" };
+    joinableSession.value = { host_username: "ada" };
+  });
+
+  it("does not navigate until the user confirms", async () => {
+    confirmFn.mockResolvedValue(false);
+    const actions = useGameActions(() => makeRom());
+
+    await actions.joinStream();
+
+    expect(confirmFn).toHaveBeenCalledTimes(1);
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("navigates with the join intent once confirmed", async () => {
+    confirmFn.mockResolvedValue(true);
+    const actions = useGameActions(() => makeRom());
+
+    await actions.joinStream();
+
+    expect(push).toHaveBeenCalledWith("/rom/1/stream?join=1");
+  });
+
+  it("names the host in the confirmation", async () => {
+    confirmFn.mockResolvedValue(false);
+    const actions = useGameActions(() => makeRom());
+
+    await actions.joinStream();
+
+    expect(confirmFn.mock.calls[0][0].title).toBe("rom.confirm-join-title-of");
+  });
+
+  it("falls back to an unnamed prompt when the host is unknown", async () => {
+    joinableSession.value = { host_username: null };
+    confirmFn.mockResolvedValue(false);
+    const actions = useGameActions(() => makeRom());
+
+    await actions.joinStream();
+
+    expect(confirmFn.mock.calls[0][0].title).toBe("rom.confirm-join-title");
+  });
+
+  it("asks nothing when there is no session to join", async () => {
+    joinableSession.value = null;
+    const actions = useGameActions(() => makeRom());
+
+    await actions.joinStream();
+
+    expect(confirmFn).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+  });
 });
 
 describe("useGameActions.play — launch confirmation", () => {

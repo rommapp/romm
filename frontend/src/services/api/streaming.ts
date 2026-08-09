@@ -113,6 +113,27 @@ export interface MemoryCardImportDetail {
  *  the card currently on the container. */
 export type MemoryCardImport = "adopt" | "discard";
 
+/** Entry of GET /streaming/sessions/joinable. Nullable fields cover a session
+ *  claimed before a config change removed its container. */
+export interface JoinableSession {
+  container: string;
+  label: string | null;
+  platform: string | null;
+  rom_id: number | null;
+  rom_name: string | null;
+  host_username: string | null;
+}
+
+/** Answer to POST /streaming/sessions/{platform}/join. `host` is the room URL
+ *  the joiner's iframe loads; no control route accepts them. */
+export interface JoinedSession {
+  platform: string;
+  host: string;
+  label: string;
+  rom_id: number | null;
+  rom_name: string | null;
+}
+
 export function isMemoryCardImportDetail(
   value: unknown,
 ): value is MemoryCardImportDetail {
@@ -136,12 +157,14 @@ async function claimSession(
   stateId?: number,
   memoryCardId?: number,
   cardImport?: MemoryCardImport,
+  multiplayer?: boolean,
 ) {
   return api.post<ActiveSession>("/streaming/sessions", {
     rom_id: romId,
     ...(stateId !== undefined ? { state_id: stateId } : {}),
     ...(memoryCardId !== undefined ? { memory_card_id: memoryCardId } : {}),
     ...(cardImport !== undefined ? { card_import: cardImport } : {}),
+    ...(multiplayer !== undefined ? { multiplayer } : {}),
   });
 }
 
@@ -160,6 +183,21 @@ async function releaseSession(
       ...(container !== undefined ? { container } : {}),
     },
   });
+}
+
+async function listJoinableSessions(romId?: number) {
+  return api.get<{ sessions: JoinableSession[] }>(
+    "/streaming/sessions/joinable",
+    { params: romId !== undefined ? { rom_id: romId } : {} },
+  );
+}
+
+async function joinSession(platform: string, container?: string) {
+  return api.post<JoinedSession>(
+    `/streaming/sessions/${platform}/join`,
+    {},
+    { params: container !== undefined ? { container } : {} },
+  );
 }
 
 async function saveAndExit(platform: string, slot = 0, wait = true) {
@@ -256,6 +294,8 @@ function releaseSessionKeepalive(platform: string): void {
 export default {
   fetchConfig,
   claimSession,
+  listJoinableSessions,
+  joinSession,
   releaseSession,
   saveAndExit,
   heartbeatSession,

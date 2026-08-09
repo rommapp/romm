@@ -66,6 +66,7 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { useMultiplayerPref } from "@/v2/composables/useMultiplayerPref";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -85,6 +86,7 @@ const playingStore = storePlaying();
 const streamingStore = useStreamingStore();
 const snackbar = useSnackbar();
 const { fullscreenOnPlay } = useFullscreenPref();
+const { multiplayerOnPlay } = useMultiplayerPref();
 const { modality } = useInputModality();
 const playSession = usePlaySession();
 
@@ -107,6 +109,21 @@ const cardImportDetail = ref<MemoryCardImportDetail | null>(null);
 const showCardImport = ref(false);
 
 const gameRunning = computed(() => playerState.value === "playing");
+
+// Set by the Join action on the game page. A join attaches to a session
+// someone else is hosting instead of claiming a container, so none of the
+// claim's setup (state resume, memory card, card import) applies, and none
+// of the owner-only controls do either.
+//
+// Read once rather than kept reactive: useRoute() has already advanced to the
+// destination by the time the teardown guards below run, so a live computed
+// reports false on the way out and a joiner's unmount would release the
+// host's session out from under them.
+const isJoining = route.query.join === "1";
+
+// True only while this tab's own claim is held. The teardown paths key off
+// this rather than the player state, because a joiner reaches "playing" too.
+const holdsClaim = ref(false);
 
 // While a session is active (launching or playing) the emulator owns the
 // controller: the global playing flag mutes useGamepad's UI translation,
@@ -360,7 +377,10 @@ async function emitActivityHeartbeat() {
   // heartbeat stops long enough counts as abandoned and can be taken over.
   // The same reply reports whether the claim is still ours, which is how an
   // admin force-release reaches this tab.
-  if (sessionActive.value) {
+  // A joiner holds no claim, so the stamp is not theirs to refresh and the
+  // route would 403 on every tick. The socket beat above still runs: they
+  // are playing, and the activity panel should say so.
+  if (sessionActive.value && !isJoining) {
     await handleSessionStatus(
       await streamingStore.heartbeatSession(rom.value.platform_slug),
     );
@@ -456,6 +476,9 @@ async function pollSessionStatus(): Promise<void> {
 }
 
 function startSessionPoll() {
+  // The status route belongs to the claim holder; a joiner would only
+  // collect 403s and then be thrown out of a session that is still running.
+  if (isJoining) return;
   if (sessionPollTimer) return;
   sessionPollTimer = setInterval(pollSessionStatus, SESSION_POLL_MS);
 }
@@ -611,6 +634,19 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
   }
 
   try {
+    if (isJoining) {
+      const joined = await streamingStore.joinSession(rom.value.platform_slug);
+      await flourish;
+      if ((playerState.value as PlayerState) === "exited") return;
+      containerHost.value = joined.host;
+      playerState.value = "playing";
+      if (fullscreenOnPlay.value) {
+        await nextTick();
+        await stage.value?.enterFullscreen();
+      }
+      return;
+    }
+
     // The backend derives the ROM's filesystem path and platform from the id.
     // A selected state rides along: its file is pushed to the broker and the
     // emulator loads it once the game is up.
@@ -621,6 +657,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         ? (selectedMemoryCardId.value ?? undefined)
         : undefined,
       cardImport,
+      multiplayerOnPlay.value,
     );
     if (session.resume === false) {
       snackbar.warning(t("play.resume-failed"));
@@ -636,6 +673,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       void streamingStore.releaseSession(rom.value.platform_slug);
       return;
     }
+    holdsClaim.value = true;
     containerHost.value = session.host;
     playerState.value = "playing";
 
@@ -657,6 +695,18 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       playerState.value = "idle";
       cardImportDetail.value = detail;
       showCardImport.value = true;
+      return;
+    }
+
+    // A join races the host: they can close the session or end it between
+    // the game page listing it and this request landing.
+    if (isJoining && (status === 403 || status === 404)) {
+      playerState.value = "error";
+      errorType.value = "server";
+      errorMessage.value = t(
+        status === 403 ? "play.join-closed" : "play.join-ended",
+      );
+      errorHint.value = "";
       return;
     }
 
@@ -716,7 +766,12 @@ function onCardImportCancel(): void {
 }
 
 async function performStop(): Promise<void> {
-  await streamingStore.releaseSession(rom.value?.platform_slug ?? "");
+  // Leaving as a joiner ends nothing: the host keeps the container, so the
+  // only thing to do is drop this tab out of the room.
+  if (holdsClaim.value) {
+    await streamingStore.releaseSession(rom.value?.platform_slug ?? "");
+    holdsClaim.value = false;
+  }
   // "exited" tells onBeforeUnmount the session is already released, so
   // navigating away afterwards doesn't trigger a second DELETE.
   playerState.value = "exited";
@@ -743,6 +798,13 @@ async function pushStreamFrame(): Promise<void> {
 
 async function performSaveAndExit(): Promise<void> {
   if (!rom.value || playerState.value !== "playing") return;
+  // A joiner has no claim to save or release, and the host's game keeps
+  // running after they leave.
+  if (!holdsClaim.value) {
+    playerState.value = "exited";
+    containerHost.value = "";
+    return;
+  }
   isSavingAndExiting.value = true;
   let saved = false;
   try {
@@ -761,6 +823,7 @@ async function performSaveAndExit(): Promise<void> {
     }
   } finally {
     isSavingAndExiting.value = false;
+    holdsClaim.value = false;
     playerState.value = "exited";
     containerHost.value = "";
   }
@@ -780,7 +843,7 @@ async function handleSaveAndExit(): Promise<void> {
 }
 
 async function handleSaveState(): Promise<void> {
-  if (!rom.value || playerState.value !== "playing") return;
+  if (!rom.value || playerState.value !== "playing" || isJoining) return;
   isSavingState.value = true;
   try {
     await pushStreamFrame();
@@ -793,7 +856,7 @@ async function handleSaveState(): Promise<void> {
 }
 
 async function handleLoadState(): Promise<void> {
-  if (!rom.value || playerState.value !== "playing") return;
+  if (!rom.value || playerState.value !== "playing" || isJoining) return;
   isLoadingState.value = true;
   try {
     await streamingApi.loadState(rom.value.platform_slug, streamSlot.value);
@@ -947,6 +1010,12 @@ function formatTime(iso: string): string {
 // the broker-side save+kill then runs to completion server-side.
 function onPageHide(): void {
   if (playerState.value === "exited") return;
+  // Nothing of the host's to tear down, and the keepalive routes are
+  // owner-only anyway.
+  if (!holdsClaim.value) {
+    playerState.value = "exited";
+    return;
+  }
   const platform = rom.value?.platform_slug ?? "";
   if (playerState.value === "playing") {
     streamingStore.saveAndExitKeepalive(
@@ -983,6 +1052,17 @@ onMounted(async () => {
     document.title = `${rom.value.name} | Play`;
   }
 
+  // A join is confirmed on the game page, so there is no start page left to
+  // show: the settings on it (resume state, memory card, multiplayer) all
+  // belong to the claim, and a joiner makes none of those choices.
+  if (isJoining) {
+    // Reaching this URL directly can beat the app-level config fetch, and
+    // onPlay reads the container out of it.
+    if (!container.value) await streamingStore.fetchConfig();
+    void onPlay();
+    return;
+  }
+
   // Autofocus the Play CTA so gamepad/keyboard users land on the
   // primary action without an extra Tab.
   if (modality.value === "pad" || modality.value === "key") {
@@ -1010,6 +1090,7 @@ onBeforeUnmount(() => {
     // handleSaveAndExit / handleStop already released the session.
     return;
   }
+  if (!holdsClaim.value) return;
   if (playerState.value === "playing") {
     // Navigation away while a game is active: fire save+kill in the
     // broker background so navigation is never held up.
@@ -1249,6 +1330,16 @@ onBeforeUnmount(() => {
               v-model="fullscreenOnPlay"
               :label="t('play.full-screen')"
             />
+            <!-- Fixed for the session: the backend reads it at claim time. -->
+            <div class="r-v2-stream__setup-item">
+              <RSwitch
+                v-model="multiplayerOnPlay"
+                :label="t('play.multiplayer')"
+              />
+              <span class="r-v2-stream__setup-hint">
+                {{ t("play.multiplayer-hint") }}
+              </span>
+            </div>
           </div>
         </RCard>
       </div>
@@ -1285,7 +1376,8 @@ onBeforeUnmount(() => {
           :aria-label="t('play.stream-volume')"
         />
 
-        <template v-if="capabilities.hasAutosave">
+        <!-- States and the save-and-exit belong to the claim holder. -->
+        <template v-if="capabilities.hasAutosave && !isJoining">
           <RBtn
             icon="mdi-content-save-outline"
             variant="text"
@@ -1318,6 +1410,7 @@ onBeforeUnmount(() => {
           @click="toggleFullscreen"
         />
         <RBtn
+          v-if="!isJoining"
           icon="mdi-content-save-move-outline"
           variant="text"
           density="compact"
@@ -1327,11 +1420,11 @@ onBeforeUnmount(() => {
           @click="handleSaveAndExit"
         />
         <RBtn
-          icon="mdi-stop"
+          :icon="isJoining ? 'mdi-exit-to-app' : 'mdi-stop'"
           variant="text"
           density="compact"
           color="error"
-          :tooltip="t('play.stream-stop')"
+          :tooltip="isJoining ? t('play.leave-session') : t('play.stream-stop')"
           :disabled="isSavingAndExiting"
           @click="handleStop"
         />
@@ -1385,14 +1478,18 @@ onBeforeUnmount(() => {
 
     <RDialog v-model="exitDialogOpen" width="480">
       <template #header>
-        <span>{{ t("play.exit-dialog-title") }}</span>
+        <span>{{
+          isJoining ? t("play.leave-dialog-title") : t("play.exit-dialog-title")
+        }}</span>
       </template>
       <template #content>
         <p class="r-v2-stream__exit-text">
           {{
-            playerState === "loading"
-              ? t("play.exit-dialog-text-loading")
-              : t("play.exit-dialog-text")
+            isJoining
+              ? t("play.leave-dialog-text")
+              : playerState === "loading"
+                ? t("play.exit-dialog-text-loading")
+                : t("play.exit-dialog-text")
           }}
         </p>
       </template>
@@ -1407,7 +1504,16 @@ onBeforeUnmount(() => {
             {{ t("play.keep-playing") }}
           </RBtn>
           <RBtn
-            v-if="playerState === 'loading'"
+            v-if="isJoining"
+            color="error"
+            variant="text"
+            :loading="isStopping"
+            @click="exitWithoutSaving"
+          >
+            {{ t("play.leave-session") }}
+          </RBtn>
+          <RBtn
+            v-else-if="playerState === 'loading'"
             color="error"
             variant="text"
             :loading="isStopping"
@@ -1674,6 +1780,16 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 12px;
   flex: 1;
+}
+.r-v2-stream__setup-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.r-v2-stream__setup-hint {
+  font-size: var(--r-font-size-xs);
+  color: var(--r-color-fg-muted);
+  line-height: 1.35;
 }
 
 /* ── Running stage ───────────────────────────────────────── */

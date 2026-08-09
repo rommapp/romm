@@ -60,6 +60,16 @@ function run(fn: () => void | Promise<void>) {
     @click="run(() => actions.play('stream'))"
   />
   <RMenuItem
+    v-if="actions.canJoinStream.value"
+    :label="
+      actions.joinHostLabel.value
+        ? t('rom.join-session-of', { user: actions.joinHostLabel.value })
+        : t('rom.join-session')
+    "
+    icon="mdi-account-multiple-plus"
+    @click="run(actions.joinStream)"
+  />
+  <RMenuItem
     :label="t('rom.download')"
     icon="mdi-download-outline"
     @click="run(actions.download)"

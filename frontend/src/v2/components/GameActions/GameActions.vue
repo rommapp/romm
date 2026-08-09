@@ -73,6 +73,16 @@ useGridNav(rootEl, {
       variant="brand"
       with-label
     />
+    <!-- Only rendered while someone else is hosting an open session on this
+         ROM, so it sits beside Stream rather than replacing it. -->
+    <GameActionBtn
+      v-if="actions.canJoinStream.value"
+      :rom="rom"
+      action="join"
+      :size="btnSize"
+      variant="emphasized"
+      with-label
+    />
     <div v-if="actions.canPlay.value" class="game-actions__break" />
     <GameActionBtn
       :rom="rom"
