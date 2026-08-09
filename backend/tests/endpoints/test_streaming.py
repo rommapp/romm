@@ -2707,6 +2707,30 @@ def test_stopping_a_webstation_broker_reports_the_state_it_captured(rom: Rom):
         assert streaming._stop_broker(container) is None
 
 
+def test_stopping_without_saving_asks_the_broker_to_write_no_state(rom: Rom):
+    """A player leaving without saving must not have a state written for them,
+    and nothing comes back for the caller to file."""
+    container = _webstation_for(rom)
+    with patch(
+        "endpoints.streaming._webstation_exit",
+        return_value={"state_saved": False, "state_slot": None},
+    ) as exit_call:
+        assert streaming._stop_broker(container, save=False) is None
+    assert exit_call.call_args.kwargs["save"] is False
+
+
+def test_a_webstation_exit_carries_slot_zero_rather_than_dropping_it(rom: Rom):
+    """Slot 0 is this broker's working slot, so it has to reach the request:
+    omitting it would silently fall back to the broker's own default."""
+    container = _webstation_for(rom)
+    with patch("endpoints.streaming._broker_request_safe", return_value={}) as req:
+        streaming._webstation_exit(container, slot=0)
+        assert "slot=0" in req.call_args[0][1]
+        assert "save=0" not in req.call_args[0][1]
+        streaming._webstation_exit(container, slot=0, save=False)
+        assert "save=0" in req.call_args[0][1]
+
+
 def test_stopping_a_legacy_broker_reports_no_state(rom: Rom):
     """The per-emulator brokers stop without saving, so nothing is pulled."""
     with patch("endpoints.streaming._broker_request_safe", return_value={}):
@@ -2750,6 +2774,39 @@ def test_releasing_a_webstation_session_pulls_the_exit_state(
     pull.assert_awaited_once()
     assert pull.await_args is not None
     assert pull.await_args.args[1:] == (rom.id, _webstation_for(rom), 10)
+
+
+def test_releasing_without_saving_files_no_state(client, access_token, rom: Rom):
+    """The stop button is the deliberate way out without saving, so the exit
+    writes nothing and there is no state to pull into the library."""
+    pull = AsyncMock(return_value=True)
+    stop = MagicMock(return_value=None)
+    with _streaming(_webstation_for(rom)):
+        with (
+            patch(
+                "endpoints.streaming._webstation_activate",
+                return_value={"url": "/room/x"},
+            ),
+            patch(
+                "endpoints.streaming._hydrate_saves_to_webstation",
+                new=AsyncMock(return_value=None),
+            ),
+            patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
+            patch("endpoints.streaming._spawn_sync_task"),
+        ):
+            _claim_ok(client, access_token, rom.id)
+        with (
+            patch("endpoints.streaming._stop_broker", stop),
+            patch("endpoints.streaming._pull_state_to_library", pull),
+            patch("endpoints.streaming._spawn_sync_task"),
+        ):
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}?save=false",
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    assert stop.call_args[0][1] is False
+    pull.assert_not_awaited()
 
 
 # ── Auth guards ───────────────────────────────────────────────────────────────

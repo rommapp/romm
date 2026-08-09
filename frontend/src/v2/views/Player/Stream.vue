@@ -669,8 +669,9 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
     if (stateAfterClaim === "exited") {
       // The launch was cancelled from the exit dialog while the claim was
       // in flight; the claim that just resolved re-acquired the session,
-      // so release it again instead of entering the playing state.
-      void streamingStore.releaseSession(rom.value.platform_slug);
+      // so release it again instead of entering the playing state. Nobody
+      // played anything, so there is nothing worth saving over their pick.
+      void streamingStore.releaseSession(rom.value.platform_slug, false);
       return;
     }
     holdsClaim.value = true;
@@ -769,7 +770,9 @@ async function performStop(): Promise<void> {
   // Leaving as a joiner ends nothing: the host keeps the container, so the
   // only thing to do is drop this tab out of the room.
   if (holdsClaim.value) {
-    await streamingStore.releaseSession(rom.value?.platform_slug ?? "");
+    // This is the deliberate way out without saving, so no state is written.
+    // The in-game save data still travels back either way.
+    await streamingStore.releaseSession(rom.value?.platform_slug ?? "", false);
     holdsClaim.value = false;
   }
   // "exited" tells onBeforeUnmount the session is already released, so
@@ -1100,7 +1103,9 @@ onBeforeUnmount(() => {
       false,
     );
   } else {
-    void streamingStore.releaseSession(rom.value?.platform_slug ?? "");
+    // Nothing is running, so there is nothing worth a state: asking for one
+    // here would only file whatever the last session left in the slot.
+    void streamingStore.releaseSession(rom.value?.platform_slug ?? "", false);
   }
 });
 </script>

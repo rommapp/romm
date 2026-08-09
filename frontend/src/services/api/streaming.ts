@@ -172,6 +172,7 @@ async function releaseSession(
   platform: string,
   reason?: string,
   container?: string,
+  save?: boolean,
 ) {
   return api.delete(`/streaming/sessions/${platform}`, {
     params: {
@@ -181,6 +182,9 @@ async function releaseSession(
       // Names which container to release, needed when a pool serves the
       // platform and the admin is ending a session they do not own.
       ...(container !== undefined ? { container } : {}),
+      // Only the player who deliberately stopped without saving sends this.
+      // Everything else leaves it off so the backend still autosaves.
+      ...(save === false ? { save: false } : {}),
     },
   });
 }

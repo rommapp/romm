@@ -181,11 +181,16 @@ export const useStreamingStore = defineStore("streaming", () => {
    * (the local session record is dropped); false when the call
    * failed (the session is still held server-side, so the record is kept so
    * the user can retry instead of being wedged behind their own session).
+   * save=false is a player leaving deliberately without saving; it stays on
+   * by default so the tab-close path keeps autosaving.
    */
-  async function releaseSession(platform: string): Promise<boolean> {
+  async function releaseSession(
+    platform: string,
+    save = true,
+  ): Promise<boolean> {
     if (!platform) return false;
     try {
-      await streamingApi.releaseSession(platform);
+      await streamingApi.releaseSession(platform, undefined, undefined, save);
       activeSession.value = null;
       return true;
     } catch (err) {

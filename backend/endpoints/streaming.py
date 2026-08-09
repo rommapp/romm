@@ -1076,16 +1076,21 @@ def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
     return bool(body and body.get("loaded", False))
 
 
-def _stop_broker(container: dict[str, Any]) -> int | None:
+def _stop_broker(container: dict[str, Any], save: bool = True) -> int | None:
     """Tell the broker to stop emulator. Best-effort, don't raise on failure.
 
-    Returns the slot a state was captured in, or None when none was. Stopping
-    the webstation broker runs its exit, which saves, so the caller is left
-    holding the only reference to that state. The others stop without saving.
+    Returns the slot a state was captured in, or None when none was. With
+    `save` off no state is written at all, which is what a player leaving
+    without saving asked for; the game's own save data still travels either
+    way, so progress made at an in-game save point survives the stop.
+
+    `save` only reaches webstation containers. The per-emulator brokers have
+    one stop and it writes no state, so they are already what `save` off asks
+    for and there is nothing to pass them.
     """
     if _is_webstation(container):
-        report = _webstation_exit(container, slot=0)
-        if report and report.get("state_saved"):
+        report = _webstation_exit(container, slot=0, save=save)
+        if save and report and report.get("state_saved"):
             slot = report.get("state_slot")
             return slot if isinstance(slot, int) else None
         return None
@@ -1238,12 +1243,16 @@ def _webstation_join(container: dict[str, Any], user: User) -> dict[str, Any] | 
     return body if isinstance(body, dict) else None
 
 
-def _webstation_exit(container: dict[str, Any], slot: int) -> dict[str, Any] | None:
+def _webstation_exit(
+    container: dict[str, Any], slot: int, save: bool = True
+) -> dict[str, Any] | None:
     """POST /exit. Best-effort, the caller is already tearing the session down.
 
-    Slot 0 means the caller has no opinion, so the broker's own default stands.
+    Slot 0 is a real slot on this broker (it keeps one working slot), so the
+    request carries it like any other and the save flag, not the number, is
+    what says whether a state is wanted at all.
     """
-    query = f"?slot={slot}" if slot else ""
+    query = f"?slot={slot}" + ("" if save else "&save=0")
     body = _broker_request_safe(
         container,
         _webstation_path(container, f"/exit{query}"),
@@ -3309,6 +3318,7 @@ async def release_session(
     platform: str,
     reason: str | None = Query(default=None, max_length=200),
     container_key: str | None = Query(default=None, alias="container", max_length=300),
+    save: bool = Query(default=True),
 ) -> JSONResponse:
     """Release a session and tell the broker to stop the emulator.
 
@@ -3316,6 +3326,10 @@ async def release_session(
     is surfaced to the displaced player. `container` names which container to
     release, needed when a pool serves the platform and the admin is ending a
     session they do not own; it is the key `GET /streaming/sessions` reports.
+
+    `save=false` is a player leaving deliberately without saving. It defaults
+    on because the other way in here is a tab closing, where nobody chose
+    anything and the last minutes of play would otherwise be gone.
     """
     if container_key is not None:
         container, session_key, session = await _resolve_named_container(
@@ -3351,8 +3365,9 @@ async def release_session(
         acting_user_id=request.user.id,
         acting_username=request.user.username,
         reason=reason,
+        save=save,
     )
-    log.info("session releasing, platform=%s", platform)
+    log.info("session releasing, platform=%s save=%s", platform, save)
     return JSONResponse(
         {"status": "released", "platform": platform}, background=teardown
     )
@@ -3367,6 +3382,7 @@ async def _teardown_released_session(
     acting_user_id: int,
     acting_username: str,
     reason: str | None,
+    save: bool = True,
 ) -> None:
     """Stop the emulator, evacuate the card, then release the claim.
 
@@ -3379,7 +3395,7 @@ async def _teardown_released_session(
         # running game's exit flush could otherwise re-lay a card over the wipe,
         # and reading a live card risks a torn snapshot. The claim still guards
         # the container throughout, so no concurrent claim can interleave.
-        state_slot = await asyncio.to_thread(_stop_broker, container)
+        state_slot = await asyncio.to_thread(_stop_broker, container, save)
 
         # Evacuate the whole card, then wipe the slot, both before releasing the
         # claim so a concurrent claim cannot clobber the fresh card or inherit
