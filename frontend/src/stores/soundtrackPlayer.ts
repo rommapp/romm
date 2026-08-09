@@ -3,6 +3,8 @@ import { throttle } from "lodash";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import type { TrackMetaSchema } from "@/__generated__";
+import type { DetailedRom } from "@/stores/roms";
+import { FRONTEND_RESOURCES_PATH } from "@/utils";
 
 const volumeStorage = useLocalStorage<number>("soundtrack.volume", 1);
 const mutedStorage = useLocalStorage<boolean>("soundtrack.muted", false);
@@ -25,7 +27,22 @@ export type PlayerMeta = {
   duration?: number;
   coverUrl?: string;
   folderCoverUrl?: string;
+  gameArtworkUrl?: string;
 };
+
+export function resolveSoundtrackGameArtwork(
+  rom: DetailedRom,
+): string | undefined {
+  const logoPath = rom.ss_metadata?.logo_path;
+  if (logoPath) return `${FRONTEND_RESOURCES_PATH}/${logoPath}`;
+
+  return (
+    rom.path_cover_large ??
+    rom.path_cover_small ??
+    rom.url_cover ??
+    undefined
+  );
+}
 
 const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   const track = ref<PlayerTrack | null>(null);
