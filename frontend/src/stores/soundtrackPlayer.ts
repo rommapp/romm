@@ -30,8 +30,13 @@ export type PlayerMeta = {
   gameArtworkUrl?: string;
 };
 
+export type SoundtrackArtworkRom = Pick<
+  DetailedRom,
+  "ss_metadata" | "path_cover_large" | "path_cover_small" | "url_cover"
+>;
+
 export function resolveSoundtrackGameArtwork(
-  rom: DetailedRom,
+  rom: SoundtrackArtworkRom,
 ): string | undefined {
   const logoPath = rom.ss_metadata?.logo_path;
   if (logoPath) return `${FRONTEND_RESOURCES_PATH}/${logoPath}`;

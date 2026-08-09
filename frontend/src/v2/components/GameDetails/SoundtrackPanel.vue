@@ -677,6 +677,7 @@ function seekValueText(v: number): string {
   display: grid;
   place-items: center;
   background: color-mix(in srgb, black 45%, transparent);
+  z-index: 3;
 }
 
 @keyframes r-v2-stp-spin {
