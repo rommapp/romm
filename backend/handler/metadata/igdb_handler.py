@@ -241,9 +241,13 @@ def extract_metadata_from_igdb_rom(
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
             "first_release_date": rom.get("first_release_date", None),
             "genres": [g.get("name", "") for g in genres if g.get("name")],
-            "franchises": pydash.compact(
-                [franchise.get("name") if franchise else None]
-                + [f.get("name", "") for f in franchises if f.get("name")]
+            # IGDB reports the main franchise both on its own and inside the
+            # list, so the two sources overlap for most games that have one.
+            "franchises": pydash.uniq(
+                pydash.compact(
+                    [franchise.get("name") if franchise else None]
+                    + [f.get("name", "") for f in franchises if f.get("name")]
+                )
             ),
             "alternative_names": [
                 n.get("name", "") for n in alternative_names if n.get("name")

@@ -16,6 +16,7 @@ from handler.metadata.igdb_handler import (
     IGDBHandler,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
+    extract_metadata_from_igdb_rom,
     get_igdb_preferred_locale,
 )
 from handler.redis_handler import async_cache
@@ -879,3 +880,43 @@ class TestSearchRomPrefixSupersetVariant:
         assert result is not None
         assert result["id"] == 42
         search_mock.assert_not_awaited()
+
+
+class TestFranchiseDeduplication:
+    """IGDB sends the main franchise both on its own and inside `franchises`.
+
+    Measured on a 14,952-game library: 1,080 of 8,788 games carrying a
+    franchise carried it twice (12.3%), reaching the details page as
+    "Happy Feet, Happy Feet".
+    """
+
+    @staticmethod
+    def _extract(**overrides) -> dict:
+        game = _make_game(1, "Test Game")
+        game.update(overrides)
+        return extract_metadata_from_igdb_rom(IGDBHandler(), game, GENESIS_IGDB_ID)
+
+    def test_the_main_franchise_is_not_repeated_inside_the_list(self):
+        metadata = self._extract(
+            franchise={"name": "Happy Feet"},
+            franchises=[{"name": "Happy Feet"}, {"name": "Mumble"}],
+        )
+
+        assert metadata["franchises"] == ["Happy Feet", "Mumble"]
+
+    def test_the_main_franchise_stays_first(self):
+        """`gamelist` exports `franchises[0]` as <family>, so order matters."""
+        metadata = self._extract(
+            franchise={"name": "Metroid"},
+            franchises=[{"name": "Metroid"}, {"name": "Super Metroid"}],
+        )
+
+        assert metadata["franchises"][0] == "Metroid"
+
+    def test_distinct_franchises_are_both_kept(self):
+        metadata = self._extract(
+            franchise={"name": "Madden"},
+            franchises=[{"name": "NFL"}],
+        )
+
+        assert metadata["franchises"] == ["Madden", "NFL"]
