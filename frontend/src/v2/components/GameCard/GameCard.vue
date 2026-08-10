@@ -576,9 +576,14 @@ function onStaticKeydown(e: KeyboardEvent) {
   display: flex;
   flex-direction: column;
 }
-/* Width follows the cover (overrides GameCover's base `width: 100%`). */
+/* Width follows the cover (overrides GameCover's base `width: 100%`).
+   Multiplied out instead of leaning on GameCover's `aspect-ratio`: a
+   width derived from the aspect-ratio alone is circular inside a
+   shrink-to-fit ancestor (the match-dialog cell), and WebKit collapses
+   that to a few pixels. `--r-cover-ratio` is set inline on this element
+   with the cover's measured ratio, so it wins over the card-level one. */
 .r-gc:not(.r-gc--hero) .r-gc__art {
-  width: auto;
+  width: calc(var(--r-card-art-h) * var(--r-cover-ratio, 0.6667));
 }
 /* Label fills the cover's width and ellipsises, without widening the card. */
 .r-gc:not(.r-gc--hero) .r-gc__label {

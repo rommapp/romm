@@ -397,10 +397,9 @@ async def test_export_platform_to_file_omits_tags_when_copy_fails(
     # Successful copies present
     assert (platform_dir / "assets/covers/Super Mario World (USA).jpg").is_file()
     assert (platform_dir / "assets/screenshots/Super Mario World (USA).jpg").is_file()
-    # Failed copies don't produce destination files (an empty subdir may be
-    # left behind because _copy_asset mkdirs before opening the source).
-    assert not (platform_dir / "assets/manuals/Super Mario World (USA).pdf").exists()
-    assert not (platform_dir / "assets/videos/Super Mario World (USA).mp4").exists()
+    # A missing source produces neither a destination file nor an empty subdir
+    assert not (platform_dir / "assets/manuals").exists()
+    assert not (platform_dir / "assets/videos").exists()
 
     game = fromstring((platform_dir / "gamelist.xml").read_text()).findall("game")[0]
     assert game.find("manual") is None

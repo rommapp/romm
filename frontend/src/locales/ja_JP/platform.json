@@ -62,6 +62,7 @@
   "reset-filters": "フィルタをリセット",
   "rom-count": "{n}件のROM | {n}件のROM",
   "scan-platform": "プラットフォームをスキャン",
+  "search-placeholder": "名前、スラッグ、フォルダ、カテゴリで検索…",
   "search-platform": "プラットフォームを検索",
   "settings": "設定",
   "show": "表示",

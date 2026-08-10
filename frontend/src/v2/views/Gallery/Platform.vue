@@ -35,6 +35,7 @@ import SettingsTab from "@/v2/components/Gallery/SettingsTab.vue";
 import MemoryCardManager from "@/v2/components/Player/MemoryCardManager.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -358,6 +359,10 @@ function onScan() {
   scanOpen.value = true;
 }
 
+// Leaving for anything that isn't another gallery keeps the store's platform
+// in place, so the id check in `onRandomGame` can't see the user walked away.
+const alive = useIsAlive();
+
 // Random ROM — pick one game from this platform and jump to its
 // details. Mirrors the Home RandomPickWidget: `/roms/random` samples the
 // pick server-side, so one request resolves it whatever the platform
@@ -370,7 +375,7 @@ async function onRandomGame() {
   // The pick belongs to the platform that was on screen when the button was
   // clicked; following it after the user moved on would drop them into a
   // game from a gallery they already left.
-  const stale = () => currentPlatform.value?.id !== scopeId;
+  const stale = () => !alive.value || currentPlatform.value?.id !== scopeId;
   try {
     const { data } = await romApi.getRandomRom({ platformIds: [scopeId] });
     if (stale()) return;

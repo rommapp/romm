@@ -155,9 +155,16 @@ class GamelistExporter:
     def _copy_asset(self, source: Path, dest: Path) -> bool:
         """Place ``source`` at ``dest`` via hardlink (same filesystem) or copy
         (otherwise). Returns True on success."""
-        dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
             return True
+
+        # Metadata scanned before unfetched media paths were cleared can still
+        # point at files that were never downloaded.
+        if not source.is_file():
+            log.debug(f"Skipping asset {source}: source file is missing")
+            return False
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
 
         try:
             link_or_copy_file(source, dest)

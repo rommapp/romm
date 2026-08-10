@@ -5,12 +5,14 @@ from logger.logger import log
 
 from .platforms import get_platform
 from .types import (
+    LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
 )
+from .utils import deinvert_article, file_name_forms
 
 
 class RemoteSource:
@@ -49,6 +51,14 @@ class RemoteSource:
         if lower != file_name_clean:
             candidates.append(lower)
 
+        # Dump filenames invert leading articles, so the inverted form is tried
+        # against both indexes before giving up.
+        for candidate in list(candidates):
+            deinverted = deinvert_article(candidate)
+            if deinverted:
+                candidates.append(deinverted)
+        candidates = list(dict.fromkeys(candidates))
+
         for candidate in candidates:
             metadata_name_index_entry = await async_cache.hget(
                 LAUNCHBOX_METADATA_NAME_KEY, f"{candidate}:{platform_name}"
@@ -78,6 +88,38 @@ class RemoteSource:
             entry = json.loads(metadata_database_index_entry)
             if entry.get("Platform") == platform_name:
                 return entry
+
+        return None
+
+    async def get_rom_by_file_name(
+        self, file_name: str, platform_slug: str
+    ) -> dict | None:
+        """Resolve a ROM file name to its metadata entry via LaunchBox's Files.xml.
+
+        The dump ships a filename to title mapping, the only route to games whose
+        files are named nothing like them (MS-DOS, Amiga, Arcade). On sets where
+        the mapping is just the filename again it simply misses.
+        """
+        platform_name = get_platform(platform_slug).get("name")
+        if not platform_name:
+            return None
+
+        for candidate in file_name_forms(file_name):
+            entry = await async_cache.hget(
+                LAUNCHBOX_FILES_KEY, f"{candidate}:{platform_name}"
+            )
+            if not entry:
+                continue
+
+            game_name = (json.loads(entry).get("GameName") or "").strip()
+            if not game_name:
+                continue
+
+            index_entry = await self.get_rom(
+                game_name, platform_slug, assume_cache_present=True
+            )
+            if index_entry:
+                return index_entry
 
         return None
 

@@ -62,6 +62,7 @@
   "reset-filters": "필터 초기화",
   "rom-count": "{n}개 ROM | {n}개 ROM",
   "scan-platform": "플랫폼 스캔",
+  "search-placeholder": "이름, 슬러그, 폴더, 분류로 검색…",
   "search-platform": "플랫폼 검색",
   "settings": "설정",
   "show": "표시",

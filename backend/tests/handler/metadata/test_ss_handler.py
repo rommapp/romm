@@ -9,8 +9,10 @@ import pytest
 from fastapi import HTTPException, status
 
 from adapters.services.screenscraper import (
+    ScreenScraperCredentialsError,
     ScreenScraperRateLimitError,
     SSAccountLimits,
+    SSCredentialSet,
 )
 from adapters.services.screenscraper_types import SSGame
 from config.config_manager import Config, MetadataMediaType
@@ -350,6 +352,44 @@ class TestExtractMediaFromSsGame:
                 ]
             },
         )
+
+    def test_box2d_path_set_when_in_config(self):
+        """When 'box2d' is in SCAN_MEDIA the box front is persisted locally, so it
+        stays reachable when another provider wins the cover."""
+        config = _make_config(scan_media=["box2d"])
+        rom = self._make_rom()
+        game = self._make_game_with_box_faces()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["box2d_url"] is not None
+        assert "box-2D" in result["box2d_url"]
+        assert result["box2d_path"] == "roms/1/100/box2d/box2d.png"
+
+    def test_box2d_path_not_set_when_absent_from_config(self):
+        """Without 'box2d' in SCAN_MEDIA the front URL is kept but not stored."""
+        config = _make_config(scan_media=["box2d_back"])
+        rom = self._make_rom()
+        game = self._make_game_with_box_faces()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["box2d_url"] is not None
+        assert result["box2d_path"] is None
 
     def test_box2d_side_path_set_when_in_config(self):
         """When 'box2d_side' is in SCAN_MEDIA the spine is persisted locally."""
@@ -1345,6 +1385,81 @@ class TestScreenScraperQuotaFallback:
         ):
             result = await handler.get_rom(rom, "Sonic.bin", platform_ss_id=3)
         mock_search.assert_awaited()
+        assert result["ss_id"] is None
+
+
+class TestScreenScraperCredentialFallback:
+    """Rejected credentials are a configuration problem, not a scan failure: the
+    service reports them once and the scan carries on with the other providers."""
+
+    def _make_file(self) -> MagicMock:
+        mock_file = MagicMock()
+        mock_file.file_size_bytes = 131072
+        mock_file.is_top_level = True
+        mock_file.file_extension = "md"
+        mock_file.md5_hash = "abc123"
+        mock_file.sha1_hash = "def456"
+        mock_file.crc_hash = "78901234"
+        mock_file.file_name = "Sonic (USA).md"
+        mock_file.archive_members = None
+        return mock_file
+
+    @pytest.mark.asyncio
+    async def test_lookup_rom_returns_empty_on_rejected_credentials(self):
+        handler = SSHandler()
+        rom = MagicMock(
+            platform_slug="genesis", platform_id=1, id=1, fs_name="Sonic (USA).md"
+        )
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(
+                handler.ss_service,
+                "get_game_info",
+                AsyncMock(
+                    side_effect=ScreenScraperCredentialsError(SSCredentialSet.USER)
+                ),
+            ),
+        ):
+            result, _ = await handler.lookup_rom(rom, 1, [self._make_file()])
+
+        assert result["ss_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_rom_returns_empty_on_rejected_credentials(self):
+        handler = SSHandler()
+        rom = MagicMock(platform_slug="genesis", platform_id=1, id=1, regions=[])
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(
+                handler.ss_service,
+                "search_games",
+                AsyncMock(
+                    side_effect=ScreenScraperCredentialsError(SSCredentialSet.USER)
+                ),
+            ),
+        ):
+            result = await handler.get_rom(rom, "Sonic.bin", platform_ss_id=3)
+
+        assert result["ss_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_rom_by_id_returns_empty_on_rejected_credentials(self):
+        handler = SSHandler()
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(
+                handler.ss_service,
+                "get_game_info",
+                AsyncMock(
+                    side_effect=ScreenScraperCredentialsError(SSCredentialSet.USER)
+                ),
+            ),
+        ):
+            result = await handler.get_rom_by_id(MagicMock(), 1234)
+
         assert result["ss_id"] is None
 
 

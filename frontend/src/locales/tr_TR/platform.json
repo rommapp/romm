@@ -62,6 +62,7 @@
   "reset-filters": "Filtreleri sıfırla",
   "rom-count": "{n} ROM | {n} ROM",
   "scan-platform": "Platformu tara",
+  "search-placeholder": "Ad, slug, klasör, kategori ile ara…",
   "search-platform": "Platform ara",
   "settings": "Ayarlar",
   "show": "Göster",

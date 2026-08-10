@@ -278,6 +278,38 @@ describe("Platform view random rom", () => {
     expect(push).toHaveBeenCalledWith({ name: "rom", params: { rom: 42 } });
   });
 
+  // Issue #4114: leaving for a route that is not another gallery never runs
+  // `resetGallery`, so the store still holds this platform and the id check
+  // alone cannot tell that the user walked away.
+  it("drops a pick that lands after the user left the gallery", async () => {
+    const resolvePick = deferRandomRom();
+
+    const wrapper = await mountView();
+    await wrapper.get("button.random").trigger("click");
+
+    wrapper.unmount();
+
+    resolvePick(rom(42));
+    await flushPromises();
+
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet when a pick fails after the user left the gallery", async () => {
+    const failPick = deferRandomRomFailure();
+
+    const wrapper = await mountView();
+    await wrapper.get("button.random").trigger("click");
+
+    wrapper.unmount();
+
+    failPick();
+    await flushPromises();
+
+    expect(snackbarError).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it("ignores a click while a pick is in flight", async () => {
     let resolvePick: (value: { data: SimpleRom }) => void = () => {};
     getRandomRom.mockReturnValue(

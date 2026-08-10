@@ -143,6 +143,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                 # Update initial progress
                 update_stats.update(processed=processed_files, total=total_files)
 
+                # Keys are stored the way lookups build them: stripped, and
+                # lowercased wherever the lookup lowercases.
                 for file in file_list:
                     if file == "Platforms.xml":
                         with z.open(file, "r") as f:
@@ -155,7 +157,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                         if name_elem is not None and name_elem.text:
                                             await writer.hset(
                                                 LAUNCHBOX_PLATFORMS_KEY,
-                                                name_elem.text,
+                                                name_elem.text.strip(),
                                                 _element_to_dict(elem),
                                             )
 
@@ -177,7 +179,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                         if id_elem is not None and id_elem.text:
                                             await writer.hset(
                                                 LAUNCHBOX_METADATA_DATABASE_ID_KEY,
-                                                id_elem.text,
+                                                id_elem.text.strip(),
                                                 _element_to_dict(elem),
                                             )
 
@@ -192,7 +194,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             # Use a unique combination of name and platform as the key
                                             await writer.hset(
                                                 LAUNCHBOX_METADATA_NAME_KEY,
-                                                f"{name_elem.text.lower()}:{platform_elem.text}",
+                                                f"{name_elem.text.strip().lower()}"
+                                                f":{platform_elem.text.strip()}",
                                                 _element_to_dict(elem),
                                             )
 
@@ -204,14 +207,14 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                         ):
                                             await writer.hset(
                                                 LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
-                                                alternate_name_elem.text.lower(),
+                                                alternate_name_elem.text.strip().lower(),
                                                 _element_to_dict(elem),
                                             )
 
                                     elif elem.tag == "GameImage":
                                         id_elem = elem.find("DatabaseID")
                                         if id_elem is not None and id_elem.text:
-                                            image_id = str(id_elem.text)
+                                            image_id = id_elem.text.strip()
 
                                             if (
                                                 current_game_image_db_id is not None
@@ -255,7 +258,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                         ):
                                             await writer.hset(
                                                 LAUNCHBOX_MAME_KEY,
-                                                filename_elem.text,
+                                                filename_elem.text.strip(),
                                                 _element_to_dict(elem),
                                             )
 
@@ -271,13 +274,19 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                 for elem in _iter_elements(f):
                                     if elem.tag == "File":
                                         filename_elem = elem.find("FileName")
+                                        platform_elem = elem.find("Platform")
                                         if (
                                             filename_elem is not None
                                             and filename_elem.text
+                                            and platform_elem is not None
+                                            and platform_elem.text
                                         ):
+                                            # The same dump filename exists on several platforms,
+                                            # so the key has to carry the platform too.
                                             await writer.hset(
                                                 LAUNCHBOX_FILES_KEY,
-                                                filename_elem.text,
+                                                f"{filename_elem.text.strip().lower()}"
+                                                f":{platform_elem.text.strip()}",
                                                 _element_to_dict(elem),
                                             )
 

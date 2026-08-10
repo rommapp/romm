@@ -62,6 +62,7 @@
   "reset-filters": "Resetează filtrele",
   "rom-count": "{n} ROM | {n} ROM-uri",
   "scan-platform": "Scanează platforma",
+  "search-placeholder": "Caută după nume, slug, folder, categorie…",
   "search-platform": "Căutare în platformă",
   "settings": "Setări",
   "show": "Afișează",
