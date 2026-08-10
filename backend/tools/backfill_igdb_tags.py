@@ -61,8 +61,8 @@ def load_igdb_ids(limit: int | None) -> dict[int, list[int]]:
 
     A list rather than a single id: region and revision variants of one game
     share an IGDB id, so keying one-to-one silently skips all but one of them.
-    On a 12.7k library 2,668 ROMs share an id with another, and keying this
-    way left 1,266 of them unbackfilled.
+    On a 15k library 3,943 ROMs share an id with another, and keying this
+    way leaves most of them unbackfilled.
     """
     stmt = select(Rom.igdb_id, Rom.id).where(Rom.igdb_id.is_not(None))
     if limit:

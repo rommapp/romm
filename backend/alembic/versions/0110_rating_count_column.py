@@ -2,9 +2,9 @@
 
 `average_rating` averages whatever providers rated a game, which makes a
 single ScreenScraper 10/10 indistinguishable from a broad consensus. On a real
-12.7k library exactly fourteen games scored a perfect 100, every one of them a
-lone ScreenScraper score with IGDB unrated -- and the cold-start feed, which
-orders by rating alone, recommended all fourteen alphabetically.
+15k library sixteen games score a perfect 100, every one of them with no IGDB
+votes behind it -- and the cold-start feed, which orders by rating alone,
+recommended all sixteen alphabetically.
 
 Storing IGDB's vote count lets that feed shrink a rating toward the library
 mean in proportion to how little evidence backs it.

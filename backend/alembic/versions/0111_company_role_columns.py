@@ -6,10 +6,10 @@ regional distributor that boxed it. The roles carry very different weight for
 similarity: a developer's games genuinely resemble each other, while a
 publisher spans everything it ever shipped.
 
-The distinction is not academic. On a 12.7k-game library the second most
-common "company" is Tec Toy, Sega's Brazilian distributor, on 768 games, with
-Playtronic (Nintendo's) on 350 -- dense enough that IDF alone does not
-suppress them, so matches were being explained as "same distributor".
+The distinction is not academic. On a 15k-game library the most common
+"company" is Tec Toy, Sega's Brazilian distributor, on 774 games, ahead of
+Nintendo on 756 -- dense enough that IDF alone does not suppress them, so
+matches get explained as "same distributor".
 
 `companies` stays exactly as it is for display; these are additive, and the
 scorer prefers them where present and falls back to the merged list where a

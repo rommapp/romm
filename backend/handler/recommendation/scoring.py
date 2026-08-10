@@ -46,7 +46,7 @@ FACET_WEIGHTS: Final[Mapping[str, float]] = {
     # only improve at the very bottom of the range.
     "developer": 0.7,
     # Who shipped it. A label spans everything it ever released, and regional
-    # distributors land here too -- Tec Toy alone covers 768 games on a 12.7k
+    # distributors land here too -- Tec Toy alone covers 774 games on a 15k
     # library, dense enough that IDF does not suppress it on its own.
     "publisher": 0.25,
     # Used only where no provider reported roles, so the role is unknown and

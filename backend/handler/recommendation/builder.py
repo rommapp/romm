@@ -355,9 +355,8 @@ class SimilarityBuilder:
         scored.sort(key=lambda item: (-item[0], item[1]))
 
         # Second pass, over the ranked list: drop neighbours that duplicate the
-        # source or each other. The per-candidate check above only compares
-        # against the source, so two discs of one release (same igdb_id, same
-        # platform) would otherwise both take a slot.
+        # source or each other. The per-candidate check above compares against
+        # the source alone, so two discs of one release would each take a slot.
         edges: list[dict[str, Any]] = []
         taken_igdb_ids: set[int] = set()
         taken_titles: set[str] = set()
@@ -372,10 +371,9 @@ class SimilarityBuilder:
                 taken_igdb_ids.add(candidate_igdb_id)
 
             # The same game on another platform is not a recommendation, and
-            # IGDB gives ports their own id so the id check cannot catch it.
-            # Two ports of one game also collide with each other, not just
-            # with the source: a shelf holding Monopoly on both the GB and the
-            # NES otherwise spends two of six slots saying "Monopoly".
+            # IGDB gives every port its own id, so the id check above cannot
+            # catch it. Two ports collide with each other as readily as with
+            # the source, hence both comparisons.
             candidate_title = features[candidate_id].title_key
             if candidate_title:
                 if candidate_title == source_title or candidate_title in taken_titles:
