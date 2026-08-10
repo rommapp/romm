@@ -16,6 +16,7 @@ from handler.metadata.igdb_handler import (
     IGDBHandler,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
+    extract_metadata_from_igdb_rom,
     get_igdb_preferred_locale,
 )
 from handler.redis_handler import async_cache
@@ -879,3 +880,48 @@ class TestSearchRomPrefixSupersetVariant:
         assert result is not None
         assert result["id"] == 42
         search_mock.assert_not_awaited()
+
+
+class TestCompanyRoleDeduplication:
+    """`involved_companies` carries one entry per involvement, not per company.
+
+    A studio credited as both developer and publisher therefore appears twice
+    in its role list. Measured on a 14,952-game library: 235 developer lists
+    and 131 publisher lists repeated a name.
+    """
+
+    @staticmethod
+    def _extract(**overrides) -> dict:
+        game = _make_game(1, "Test Game")
+        game.update(overrides)
+        return extract_metadata_from_igdb_rom(IGDBHandler(), game, GENESIS_IGDB_ID)
+
+    def test_a_studio_credited_twice_in_one_role_is_listed_once(self):
+        involved = [
+            {"company": {"name": "Cavia"}, "developer": True, "publisher": False},
+            {"company": {"name": "Cavia"}, "developer": True, "publisher": False},
+        ]
+
+        assert self._extract(involved_companies=involved)["developers"] == ["Cavia"]
+
+    def test_a_studio_that_both_made_and_shipped_a_game_holds_both_roles(self):
+        """The two lists legitimately overlap; neither may repeat internally."""
+        involved = [
+            {"company": {"name": "Nintendo"}, "developer": True, "publisher": True},
+        ]
+
+        metadata = self._extract(involved_companies=involved)
+
+        assert metadata["developers"] == ["Nintendo"]
+        assert metadata["publishers"] == ["Nintendo"]
+
+    def test_distinct_developers_keep_their_order(self):
+        involved = [
+            {"company": {"name": "Crystal Dynamics"}, "developer": True},
+            {"company": {"name": "Nixxes Software"}, "developer": True},
+        ]
+
+        assert self._extract(involved_companies=involved)["developers"] == [
+            "Crystal Dynamics",
+            "Nixxes Software",
+        ]

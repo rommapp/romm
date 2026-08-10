@@ -195,11 +195,13 @@ def _companies_with_role(entries: Sequence[Any], role: str) -> list[str]:
     A company can hold more than one role on the same game, so the lists
     overlap where a studio both made and shipped a title.
     """
-    return [
-        entry["company"]["name"]
-        for entry in entries
-        if isinstance(entry, dict) and entry.get(role) and entry.get("company")
-    ]
+    return pydash.uniq(
+        [
+            entry["company"]["name"]
+            for entry in entries
+            if isinstance(entry, dict) and entry.get(role) and entry.get("company")
+        ]
+    )
 
 
 def extract_metadata_from_igdb_rom(
