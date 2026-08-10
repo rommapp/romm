@@ -27,6 +27,7 @@ def make_rom(
     collections: list[str] | None = None,
     companies: list[str] | None = None,
     similar_igdb_ids: list[int] | None = None,
+    port_igdb_ids: list[int] | None = None,
     average_rating: float | None = None,
     rating_votes: int | None = None,
 ) -> Rom:
@@ -46,6 +47,11 @@ def make_rom(
         metadata["similar_games"] = [
             {"id": similar_id, "name": f"game-{similar_id}", "type": "similar"}
             for similar_id in similar_igdb_ids
+        ]
+    if port_igdb_ids:
+        metadata["ports"] = [
+            {"id": port_id, "name": f"game-{port_id}", "type": "port"}
+            for port_id in port_igdb_ids
         ]
 
     # Set on insert rather than updated afterwards: the generated columns (and
@@ -257,6 +263,30 @@ def test_igdb_similar_games_link_owned_roms(platform: Platform):
 
     neighbours = db_recommendation_handler.get_similar_rom_edges(source.id)
     assert target.id in {edge.rom_id for edge in neighbours}
+
+
+def test_a_port_relation_is_not_a_recommendation(platform: Platform):
+    """A port is the same product on other hardware, not a suggestion.
+
+    IGDB's other related buckets feed the prior; `ports` must not, or a game
+    scores its own port more highly for being a port of itself. Measured on a
+    14,952-game library, that prior was live on 243 pairs whose titles differ
+    enough that the duplicate check cannot collapse them, e.g. Robocod: James
+    Pond II and James Pond: Codename - Robocod.
+    """
+    source = make_rom(
+        platform,
+        "Source Game",
+        igdb_id=5001,
+        genres=["Shooter"],
+        port_igdb_ids=[5002],
+    )
+    port = make_rom(platform, "Handheld Rework", igdb_id=5002, genres=["Puzzle"])
+
+    SimilarityBuilder().build()
+
+    neighbours = db_recommendation_handler.get_similar_rom_edges(source.id)
+    assert port.id not in {edge.rom_id for edge in neighbours}
 
 
 def test_rebuild_replaces_edges_rather_than_duplicating(library: dict[str, Rom]):

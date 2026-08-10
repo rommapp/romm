@@ -146,12 +146,16 @@ class DBRecommendationsHandler(DBBaseHandler):
                 continue
 
             related_ids: list[int] = []
+            # `ports` is deliberately absent. A port is the same product on
+            # other hardware, so the relation says nothing about whether one
+            # is worth suggesting to someone who played the other. Where the
+            # port is faithful it is a duplicate, and where it was rebuilt for
+            # the target hardware it can earn a place on its own facets.
             for bucket in (
                 "similar_games",
                 "remakes",
                 "remasters",
                 "expanded_games",
-                "ports",
                 "expansions",
                 "dlcs",
             ):
