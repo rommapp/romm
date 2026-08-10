@@ -882,6 +882,47 @@ class TestSearchRomPrefixSupersetVariant:
         search_mock.assert_not_awaited()
 
 
+def _extract_metadata(**overrides) -> dict:
+    """Run the extractor over a minimal game with the given fields overridden."""
+    game = _make_game(1, "Test Game")
+    game.update(overrides)
+    return extract_metadata_from_igdb_rom(IGDBHandler(), game, GENESIS_IGDB_ID)
+
+
+class TestFranchiseDeduplication:
+    """IGDB sends the main franchise both on its own and inside `franchises`.
+
+    Measured on a 14,952-game library: 1,080 of 8,788 games carrying a
+    franchise carried it twice (12.3%), reaching the details page as
+    "Happy Feet, Happy Feet".
+    """
+
+    def test_the_main_franchise_is_not_repeated_inside_the_list(self):
+        metadata = _extract_metadata(
+            franchise={"name": "Happy Feet"},
+            franchises=[{"name": "Happy Feet"}, {"name": "Mumble"}],
+        )
+
+        assert metadata["franchises"] == ["Happy Feet", "Mumble"]
+
+    def test_the_main_franchise_stays_first(self):
+        """`gamelist` exports `franchises[0]` as <family>, so order matters."""
+        metadata = _extract_metadata(
+            franchise={"name": "Metroid"},
+            franchises=[{"name": "Metroid"}, {"name": "Super Metroid"}],
+        )
+
+        assert metadata["franchises"][0] == "Metroid"
+
+    def test_distinct_franchises_are_both_kept(self):
+        metadata = _extract_metadata(
+            franchise={"name": "Madden"},
+            franchises=[{"name": "NFL"}],
+        )
+
+        assert metadata["franchises"] == ["Madden", "NFL"]
+
+
 class TestCompanyRoleDeduplication:
     """`involved_companies` carries one entry per involvement, not per company.
 
@@ -890,19 +931,13 @@ class TestCompanyRoleDeduplication:
     and 131 publisher lists repeated a name.
     """
 
-    @staticmethod
-    def _extract(**overrides) -> dict:
-        game = _make_game(1, "Test Game")
-        game.update(overrides)
-        return extract_metadata_from_igdb_rom(IGDBHandler(), game, GENESIS_IGDB_ID)
-
     def test_a_studio_credited_twice_in_one_role_is_listed_once(self):
         involved = [
             {"company": {"name": "Cavia"}, "developer": True, "publisher": False},
             {"company": {"name": "Cavia"}, "developer": True, "publisher": False},
         ]
 
-        assert self._extract(involved_companies=involved)["developers"] == ["Cavia"]
+        assert _extract_metadata(involved_companies=involved)["developers"] == ["Cavia"]
 
     def test_a_studio_that_both_made_and_shipped_a_game_holds_both_roles(self):
         """The two lists legitimately overlap; neither may repeat internally."""
@@ -910,7 +945,7 @@ class TestCompanyRoleDeduplication:
             {"company": {"name": "Nintendo"}, "developer": True, "publisher": True},
         ]
 
-        metadata = self._extract(involved_companies=involved)
+        metadata = _extract_metadata(involved_companies=involved)
 
         assert metadata["developers"] == ["Nintendo"]
         assert metadata["publishers"] == ["Nintendo"]
@@ -921,7 +956,7 @@ class TestCompanyRoleDeduplication:
             {"company": {"name": "Nixxes Software"}, "developer": True},
         ]
 
-        assert self._extract(involved_companies=involved)["developers"] == [
+        assert _extract_metadata(involved_companies=involved)["developers"] == [
             "Crystal Dynamics",
             "Nixxes Software",
         ]

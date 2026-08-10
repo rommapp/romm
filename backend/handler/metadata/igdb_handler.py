@@ -292,9 +292,13 @@ def extract_metadata_from_igdb_rom(
             "keywords": _expanded_names(keywords),
             "themes": _expanded_names(themes),
             "player_perspectives": _expanded_names(player_perspectives),
-            "franchises": pydash.compact(
-                [franchise.get("name") if franchise else None]
-                + [f.get("name", "") for f in franchises if f.get("name")]
+            # IGDB reports the main franchise both on its own and inside the
+            # list, so the two sources overlap for most games that have one.
+            "franchises": pydash.uniq(
+                pydash.compact(
+                    [franchise.get("name") if franchise else None]
+                    + [f.get("name", "") for f in franchises if f.get("name")]
+                )
             ),
             "alternative_names": [
                 n.get("name", "") for n in alternative_names if n.get("name")
