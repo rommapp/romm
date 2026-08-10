@@ -7,6 +7,7 @@ the columns derived from `name` / `fs_name` in sync explicitly.
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from endpoints.responses.rom import SimpleRomSchema
 from handler.database import (
     db_platform_handler,
     db_rom_handler,
@@ -405,3 +406,61 @@ class TestSyncRomFiles:
 
         assert synced.files == []
         assert synced.orphaned_cover_paths == ["covers/track01.png"]
+
+
+class TestAddRomLoadsWhatTheScanNeeds:
+    """`add_rom` is the scan's write path, called several times per new ROM.
+
+    It loads only what the scan reads back, which is scalar columns plus the
+    `SimpleRomSchema` progress payload. Most of `Rom`'s relationships are
+    `lazy="raise"`, so anything the payload needs but the loader skips surfaces
+    as an exception mid-scan rather than a slow query.
+    """
+
+    def test_returned_rom_serializes_the_scan_progress_payload(self, rom: Rom):
+        added = db_rom_handler.add_rom(rom)
+
+        # Mirrors the emit in _identify_rom / scan_rom.
+        payload = SimpleRomSchema.from_orm_with_factory(added).model_dump(
+            exclude={
+                "created_at",
+                "updated_at",
+                "rom_user",
+                "last_modified",
+                "files",
+                "sibling_roms",
+            }
+        )
+
+        assert payload["id"] == rom.id
+        assert payload["fs_name"] == rom.fs_name
+
+    def test_platform_backed_fields_are_loaded(self, rom: Rom, platform: Platform):
+        added = db_rom_handler.add_rom(rom)
+
+        # `platform` is lazy="joined", so these must not need an extra option.
+        assert added.platform_slug == platform.slug
+        assert added.platform_fs_slug == platform.fs_slug
+        assert added.platform_display_name == (platform.custom_name or platform.name)
+
+    def test_deferred_file_count_properties_are_loaded(self, rom: Rom):
+        added = db_rom_handler.add_rom(rom)
+
+        # The schema dumps these, and they are deferred column properties, so a
+        # missing undefer would raise once the instance is detached.
+        assert isinstance(added.has_simple_single_file, bool)
+        assert isinstance(added.has_nested_single_file, bool)
+        assert isinstance(added.has_multiple_files, bool)
+        assert isinstance(added.has_soundtrack, bool)
+
+    def test_scan_read_back_fields_survive_the_write(self, rom: Rom):
+        rom.url_cover = "https://example.invalid/cover.png"
+        rom.igdb_id = 1234
+
+        added = db_rom_handler.add_rom(rom)
+
+        # _identify_rom compares these against the pre-scan values to decide
+        # whether to re-download artwork.
+        assert added.url_cover == "https://example.invalid/cover.png"
+        assert added.igdb_id == 1234
+        assert added.is_identified is True

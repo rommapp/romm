@@ -348,3 +348,96 @@ def test_config_update_preserves_streaming_section(tmp_path):
             "label": "PCSX2",
         }
     ]
+
+
+class TestGetConfigCaching:
+    """`get_config` is called several times per ROM during a scan, so it reuses
+    the parsed config while the file is unchanged. What it must never do is serve
+    a stale answer."""
+
+    def _counting_loader(self, config_file, monkeypatch):
+        """A loader that records how many times it re-parses."""
+        loader = ConfigManager(str(config_file))
+        calls = {"n": 0}
+        original = loader._parse_config
+
+        def counting():
+            calls["n"] += 1
+            original()
+
+        monkeypatch.setattr(loader, "_parse_config", counting)
+        return loader, calls
+
+    def test_unchanged_file_is_parsed_once(self, tmp_path, monkeypatch):
+        config_file = tmp_path / "config.yml"
+        config_file.write_text("system:\n  platforms:\n    gba: gba\n")
+        loader, calls = self._counting_loader(config_file, monkeypatch)
+
+        for _ in range(10):
+            assert loader.get_config().PLATFORMS_BINDING == {"gba": "gba"}
+
+        assert calls["n"] == 1
+
+    def test_absent_file_is_also_cached(self, tmp_path, monkeypatch):
+        # A default install has no config file; that state has to cache too, or
+        # the fast path never applies to it.
+        loader, calls = self._counting_loader(tmp_path / "missing.yml", monkeypatch)
+
+        for _ in range(10):
+            loader.get_config()
+
+        assert calls["n"] == 1
+
+    def test_file_appearing_is_picked_up(self, tmp_path):
+        config_file = tmp_path / "config.yml"
+        loader = ConfigManager(str(config_file))
+        loader.get_config()
+
+        config_file.write_text("system:\n  platforms:\n    snes: snes\n")
+
+        assert loader.get_config().PLATFORMS_BINDING == {"snes": "snes"}
+
+    def test_edit_of_the_same_size_is_picked_up(self, tmp_path):
+        # Byte size alone can't detect this, so the fingerprint carries mtime too.
+        config_file = tmp_path / "config.yml"
+        config_file.write_text("system:\n  platforms:\n    msx1: msx1\n")
+        loader = ConfigManager(str(config_file))
+        assert loader.get_config().PLATFORMS_BINDING == {"msx1": "msx1"}
+
+        os.utime(config_file, (0, 0))
+        config_file.write_text("system:\n  platforms:\n    msx2: msx2\n")
+
+        assert loader.get_config().PLATFORMS_BINDING == {"msx2": "msx2"}
+
+    def test_write_through_the_app_invalidates(self, tmp_path):
+        config_file = tmp_path / "config.yml"
+        config_file.write_text("system:\n  platforms:\n    gba: gba\n")
+        loader = ConfigManager(str(config_file))
+        loader.get_config()
+
+        loader.add_platform_binding("n64", "n64")
+
+        assert loader.get_config().PLATFORMS_BINDING == {"gba": "gba", "n64": "n64"}
+
+    def test_library_structure_is_not_frozen_by_the_cache(self, tmp_path, monkeypatch):
+        """The structure is probed from disk, not read from the config file.
+
+        Caching it alongside the parsed values would mean a user who fixes their
+        folder layout keeps getting the old answer until config.yml changed.
+        """
+        config_file = tmp_path / "config.yml"
+        config_file.write_text("system:\n  platforms:\n    gba: gba\n")
+        loader = ConfigManager(str(config_file))
+
+        probes = {"n": 0}
+        real_isdir = os.path.isdir
+
+        def counting_isdir(path):
+            probes["n"] += 1
+            return real_isdir(path)
+
+        monkeypatch.setattr(os.path, "isdir", counting_isdir)
+        for _ in range(5):
+            assert loader.get_config().has_structure_path_a is False
+
+        assert probes["n"] >= 5

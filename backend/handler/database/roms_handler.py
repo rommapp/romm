@@ -416,6 +416,33 @@ def with_details(func):
     return wrapper
 
 
+def with_scan_details(func):
+    """Eager-load for a ROM the scan just wrote (`add_rom`).
+
+    The scan calls `add_rom` several times per new ROM and only ever reads
+    scalar columns plus the `SimpleRomSchema` progress payload, which it builds
+    via `from_orm_with_factory`. That factory stubs out `rom_user`,
+    `included_files`, `included_sibling_roms` and `has_notes`, so none of the
+    `lazy="raise"` collections are touched. `with_details` was loading all of
+    them anyway, turning each write into a dozen round trips.
+
+    `platform` and `metadatum` are `lazy="joined"` on the model, so they arrive
+    with the row itself. Only the deferred file-count properties the schema
+    reads (`has_simple_single_file` and friends) have to be asked for.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        kwargs["query"] = select(Rom).options(
+            undefer(Rom.multi_file),
+            undefer(Rom.top_level_file_count),
+            undefer(Rom.has_soundtrack),
+        )
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 def with_simple_details(func):
     """Lightweight eager-load for the `SimpleRomSchema` (v2 gallery card).
 
@@ -462,7 +489,7 @@ def with_simple_details(func):
 
 class DBRomsHandler(DBBaseHandler):
     @begin_session
-    @with_details
+    @with_scan_details
     def add_rom(
         self,
         rom: Rom,

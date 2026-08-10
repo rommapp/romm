@@ -30,6 +30,9 @@ from logger.logger import log
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
+# Fingerprint standing in for "there is no config file", so that state is cached
+# like any other instead of forcing a re-read on every call.
+_CONFIG_FILE_ABSENT: Final = "absent"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 DEFAULT_EXCLUDED_EXTENSIONS: Final = [
     "db",
@@ -255,6 +258,9 @@ class ConfigManager:
     # Tests require custom config path
     def __init__(self, config_file: str = ROMM_USER_CONFIG_FILE):
         self.config_file = config_file
+        # Fingerprint of the file state `self.config` was parsed from. None means
+        # "not from a known state", which forces the next read.
+        self._parsed_fingerprint: object = None
 
         try:
             # Check if the config file is mounted
@@ -834,7 +840,37 @@ class ConfigManager:
             log.critical("Invalid config.yml: streaming.containers must be a list")
             sys.exit(3)
 
+    def _config_file_fingerprint(self) -> object:
+        """Identity of the config file's current state.
+
+        Compared to decide whether the parsed config can be reused, so it has to
+        change whenever the file's contents might have. A missing file gets its
+        own value rather than an error, so the common no-config-file install is
+        cached too.
+        """
+        try:
+            stat = os.stat(self.config_file)
+        except OSError:
+            return _CONFIG_FILE_ABSENT
+
+        return (stat.st_mtime_ns, stat.st_size, stat.st_ino)
+
     def get_config(self) -> Config:
+        # Re-reading and re-parsing on every call is far from free: this is
+        # called several times per ROM during a scan, and building `Config`
+        # dominates the cost of the file read itself.
+        fingerprint = self._config_file_fingerprint()
+        if self._parsed_fingerprint is not None and fingerprint == (
+            self._parsed_fingerprint
+        ):
+            # The library structure is probed from disk, not read from the config
+            # file, so it must not be frozen alongside the parsed values. A user
+            # who fixes their folder layout and rescans would otherwise keep
+            # getting the old answer until the file changed.
+            self.config.__dict__.pop("has_structure_path_a", None)
+            self.config.__dict__.pop("has_structure_path_b", None)
+            return self.config
+
         try:
             with open(self.config_file, "r") as config_file:
                 self._raw_config = self._safe_load_yaml(config_file)
@@ -845,6 +881,7 @@ class ConfigManager:
 
         self._parse_config()
         self._validate_config()
+        self._parsed_fingerprint = fingerprint
 
         return self.config
 
@@ -936,6 +973,11 @@ class ConfigManager:
         except PermissionError as exc:
             log.critical("Config file not writable, skipping config file update")
             raise ConfigNotWritableException from exc
+        finally:
+            # Callers mutate `self.config` in place before writing, so the cached
+            # parse no longer matches what a fresh read would produce. Drop it
+            # rather than trust the file's mtime to have moved.
+            self._parsed_fingerprint = None
 
     def add_platform_binding(self, fs_slug: str, slug: str) -> None:
         platform_bindings = self.config.PLATFORMS_BINDING
