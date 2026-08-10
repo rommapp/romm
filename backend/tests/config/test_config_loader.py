@@ -397,15 +397,29 @@ class TestGetConfigCaching:
 
         assert loader.get_config().PLATFORMS_BINDING == {"snes": "snes"}
 
-    def test_edit_of_the_same_size_is_picked_up(self, tmp_path):
-        # Byte size alone can't detect this, so the fingerprint carries mtime too.
+    def test_same_size_edit_with_an_unchanged_timestamp_is_picked_up(self, tmp_path):
+        """The case file metadata cannot see.
+
+        On a filesystem with coarse mtime resolution (FAT32, many SMB/NFS
+        mounts) a same-size rewrite within one tick leaves mtime, size and inode
+        all identical. Reuse is therefore decided on content, or the app would
+        be stranded on the stale config indefinitely rather than for one tick.
+        """
         config_file = tmp_path / "config.yml"
         config_file.write_text("system:\n  platforms:\n    msx1: msx1\n")
         loader = ConfigManager(str(config_file))
         assert loader.get_config().PLATFORMS_BINDING == {"msx1": "msx1"}
+        before = os.stat(config_file)
 
-        os.utime(config_file, (0, 0))
         config_file.write_text("system:\n  platforms:\n    msx2: msx2\n")
+        # Force every metadata component back to its pre-edit value.
+        os.utime(config_file, ns=(before.st_atime_ns, before.st_mtime_ns))
+        after = os.stat(config_file)
+        assert (after.st_mtime_ns, after.st_size, after.st_ino) == (
+            before.st_mtime_ns,
+            before.st_size,
+            before.st_ino,
+        )
 
         assert loader.get_config().PLATFORMS_BINDING == {"msx2": "msx2"}
 

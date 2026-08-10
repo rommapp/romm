@@ -30,9 +30,9 @@ from logger.logger import log
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
-# Fingerprint standing in for "there is no config file", so that state is cached
-# like any other instead of forcing a re-read on every call.
-_CONFIG_FILE_ABSENT: Final = "absent"
+# Marks "no config file has been parsed yet", distinct from a parse of a config
+# file that does not exist (which is a legitimate cached state, recorded as None).
+_CONFIG_UNREAD: Final = object()
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 DEFAULT_EXCLUDED_EXTENSIONS: Final = [
     "db",
@@ -258,9 +258,9 @@ class ConfigManager:
     # Tests require custom config path
     def __init__(self, config_file: str = ROMM_USER_CONFIG_FILE):
         self.config_file = config_file
-        # Fingerprint of the file state `self.config` was parsed from. None means
-        # "not from a known state", which forces the next read.
-        self._parsed_fingerprint: object = None
+        # Raw bytes `self.config` was parsed from; None once parsed with no file
+        # present. Compared on each read to decide whether the parse can be reused.
+        self._parsed_source: bytes | None | object = _CONFIG_UNREAD
 
         try:
             # Check if the config file is mounted
@@ -281,11 +281,12 @@ class ConfigManager:
             self._parse_config()
             self._validate_config()
 
-    def _safe_load_yaml(self, cf) -> dict:
-        """Load YAML, falling back to an empty config on syntax errors so the
-        app can still boot with defaults rather than crashing."""
+    def _safe_load_yaml(self, source) -> dict:
+        """Load YAML from a stream, string or bytes, falling back to an empty
+        config on syntax errors so the app can still boot with defaults rather
+        than crashing."""
         try:
-            config = yaml.load(cf, Loader=SafeLoader) or {}
+            config = yaml.load(source, Loader=SafeLoader) or {}
             self._config_file_parse_error = None
             return config
         except yaml.YAMLError as exc:
@@ -840,29 +841,30 @@ class ConfigManager:
             log.critical("Invalid config.yml: streaming.containers must be a list")
             sys.exit(3)
 
-    def _config_file_fingerprint(self) -> object:
-        """Identity of the config file's current state.
+    def _read_config_source(self) -> bytes | None:
+        """The config file's raw bytes, or None when there is no file.
 
-        Compared to decide whether the parsed config can be reused, so it has to
-        change whenever the file's contents might have. A missing file gets its
-        own value rather than an error, so the common no-config-file install is
-        cached too.
+        Compared against the bytes the current `Config` was built from, so that
+        reuse is decided by content rather than by metadata. Timestamps are not
+        usable for this: on a filesystem with coarse mtime resolution (FAT32,
+        many SMB/NFS mounts) a same-size rewrite inside one tick leaves mtime,
+        size and inode all unchanged, which would strand the app on a stale
+        config indefinitely rather than for one tick.
         """
         try:
-            stat = os.stat(self.config_file)
-        except OSError:
-            return _CONFIG_FILE_ABSENT
-
-        return (stat.st_mtime_ns, stat.st_size, stat.st_ino)
+            with open(self.config_file, "rb") as config_file:
+                return config_file.read()
+        except (FileNotFoundError, IsADirectoryError):
+            return None
 
     def get_config(self) -> Config:
-        # Re-reading and re-parsing on every call is far from free: this is
-        # called several times per ROM during a scan, and building `Config`
-        # dominates the cost of the file read itself.
-        fingerprint = self._config_file_fingerprint()
-        if self._parsed_fingerprint is not None and fingerprint == (
-            self._parsed_fingerprint
-        ):
+        # Called several times per ROM during a scan. The file read is the cheap
+        # part; parsing the YAML and rebuilding `Config` is what costs, so skip
+        # those when the bytes are identical to what we last parsed. This does
+        # strictly less work than re-parsing unconditionally, with the same
+        # result.
+        source = self._read_config_source()
+        if self._parsed_source is not _CONFIG_UNREAD and source == self._parsed_source:
             # The library structure is probed from disk, not read from the config
             # file, so it must not be frozen alongside the parsed values. A user
             # who fixes their folder layout and rescans would otherwise keep
@@ -871,17 +873,16 @@ class ConfigManager:
             self.config.__dict__.pop("has_structure_path_b", None)
             return self.config
 
-        try:
-            with open(self.config_file, "r") as config_file:
-                self._raw_config = self._safe_load_yaml(config_file)
-        except FileNotFoundError:
+        if source is None:
             log.debug("Config file not found!")
             # No file to parse, so clear any stale parse error from a prior load.
             self._config_file_parse_error = None
+        else:
+            self._raw_config = self._safe_load_yaml(source)
 
         self._parse_config()
         self._validate_config()
-        self._parsed_fingerprint = fingerprint
+        self._parsed_source = source
 
         return self.config
 
@@ -975,9 +976,8 @@ class ConfigManager:
             raise ConfigNotWritableException from exc
         finally:
             # Callers mutate `self.config` in place before writing, so the cached
-            # parse no longer matches what a fresh read would produce. Drop it
-            # rather than trust the file's mtime to have moved.
-            self._parsed_fingerprint = None
+            # parse no longer corresponds to the bytes it was built from.
+            self._parsed_source = _CONFIG_UNREAD
 
     def add_platform_binding(self, fs_slug: str, slug: str) -> None:
         platform_bindings = self.config.PLATFORMS_BINDING
