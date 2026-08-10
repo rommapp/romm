@@ -45,29 +45,28 @@ def series_keys(rom: Rom) -> set[str]:
     }
 
 
-def primary_series(rom: Rom) -> str | None:
-    """A single representative series, for display and attribution."""
-    keys = series_keys(rom)
-    return min(keys) if keys else None
-
-
 def cap_by_series(
     items: Iterable[T],
     resolve_rom: Callable[[T], Rom | None],
     *,
     limit: int,
     max_per_series: int = MAX_PER_SERIES,
+    max_per_platform: int | None = None,
 ) -> list[T]:
     """Take items in order, allowing at most `max_per_series` from each series.
 
     Games with no series are never capped: they have nothing to cluster on, so
     treating them as one giant group would suppress most of an unmatched shelf.
+
+    `max_per_platform` additionally stops one platform owning the result, which
+    the personalised feed wants and a single game's "Similar games" does not.
     """
     # Positions are tracked so backfilled entries slot back into score order
     # rather than being appended after lower-scoring ones.
     selected: list[tuple[int, T]] = []
     overflow: list[tuple[int, T]] = []
     counts: dict[str, int] = {}
+    platform_counts: dict[int, int] = {}
 
     for position, item in enumerate(items):
         rom = resolve_rom(item)
@@ -82,8 +81,16 @@ def cap_by_series(
             overflow.append((position, item))
             continue
 
+        if (
+            max_per_platform is not None
+            and platform_counts.get(rom.platform_id, 0) >= max_per_platform
+        ):
+            overflow.append((position, item))
+            continue
+
         for key in keys:
             counts[key] = counts.get(key, 0) + 1
+        platform_counts[rom.platform_id] = platform_counts.get(rom.platform_id, 0) + 1
 
         selected.append((position, item))
         if len(selected) >= limit:

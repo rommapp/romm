@@ -1,14 +1,13 @@
-"""Unit tests for the per-series cap applied when serving recommendations.
+"""Unit tests for the diversity caps applied when serving recommendations.
 
-`primary_series` only reads `rom.metadatum`, so these use lightweight stand-ins
-rather than database rows.
+`cap_by_series` only reads `rom.metadatum` and `rom.platform_id`, so these use
+lightweight stand-ins rather than database rows.
 """
 
 from dataclasses import dataclass, field
 
 from handler.recommendation.diversity import (
     cap_by_series,
-    primary_series,
     series_keys,
 )
 
@@ -23,6 +22,7 @@ class FakeMetadata:
 class FakeRom:
     id: int
     metadatum: FakeMetadata | None = None
+    platform_id: int = 1
 
 
 def rom(
@@ -30,9 +30,11 @@ def rom(
     franchise: str = "",
     collection: str = "",
     franchises: list[str] | None = None,
+    platform_id: int = 1,
 ) -> FakeRom:
     return FakeRom(
         id=rom_id,
+        platform_id=platform_id,
         metadatum=FakeMetadata(
             franchises=(
                 franchises
@@ -46,24 +48,6 @@ def rom(
 
 def resolve(roms: dict[int, FakeRom]):
     return lambda rom_id: roms.get(rom_id)
-
-
-def test_primary_series_prefers_the_broader_franchise():
-    """Keying on the narrower collection let four Metroids through as two pairs."""
-    entry = rom(1, franchise="Metroid", collection="Metroid Prime")
-
-    assert primary_series(entry) == "Metroid"
-
-
-def test_primary_series_falls_back_to_collection():
-    assert primary_series(rom(1, collection="Sonic the Hedgehog")) == (
-        "Sonic the Hedgehog"
-    )
-
-
-def test_primary_series_is_none_without_metadata():
-    assert primary_series(FakeRom(id=1, metadatum=None)) is None
-    assert primary_series(rom(1)) is None
 
 
 def test_caps_each_series_at_the_limit():
@@ -154,3 +138,28 @@ def test_overlapping_series_still_backfills_when_nothing_else_exists():
     roms = {i: rom(i, franchises=["Madden", "NFL"]) for i in range(1, 5)}
 
     assert len(cap_by_series(list(roms), resolve(roms), limit=4, max_per_series=2)) == 4
+
+
+def test_a_platform_can_be_capped_too():
+    """The feed shares this path and does not want one console owning the row."""
+    roms = {i: rom(i, platform_id=1) for i in range(1, 4)}
+    roms.update({i: rom(i, platform_id=2) for i in range(4, 7)})
+
+    selected = cap_by_series(list(roms), resolve(roms), limit=4, max_per_platform=2)
+
+    assert selected == [1, 2, 4, 5]
+
+
+def test_the_platform_cap_is_off_unless_asked_for():
+    """A single game's "Similar games" is happy to be all one platform."""
+    roms = {i: rom(i, platform_id=1) for i in range(1, 5)}
+
+    assert len(cap_by_series(list(roms), resolve(roms), limit=4)) == 4
+
+
+def test_a_platform_capped_entry_backfills_a_short_list():
+    roms = {i: rom(i, platform_id=1) for i in range(1, 6)}
+
+    selected = cap_by_series(list(roms), resolve(roms), limit=4, max_per_platform=2)
+
+    assert len(selected) == 4

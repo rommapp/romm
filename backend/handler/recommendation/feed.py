@@ -16,7 +16,7 @@ from typing import Any, Final
 
 from handler.database import db_recommendation_handler, db_rom_handler
 from handler.database.recommendations_handler import UserAffinityRow
-from handler.recommendation.diversity import MAX_PER_SERIES, primary_series
+from handler.recommendation.diversity import cap_by_series
 from handler.redis_handler import sync_cache
 from logger.logger import log
 from models.rom import Rom, RomUserStatus
@@ -247,41 +247,25 @@ class FeedBuilder:
             ]
         )
 
-        selected: list[RecommendedRom] = []
-        franchise_counts: dict[str, int] = {}
-        platform_counts: dict[int, int] = {}
+        # Shared with the "Similar games" surface so a series is counted by
+        # every name it goes under, not by one representative.
+        chosen = cap_by_series(
+            ordered,
+            lambda candidate: roms.get(candidate.rom_id),
+            limit=limit,
+            max_per_platform=MAX_PER_PLATFORM,
+        )
 
-        for candidate in ordered:
-            rom = roms.get(candidate.rom_id)
-            if rom is None:
-                continue
-
-            franchise = primary_series(rom)
-            if franchise and franchise_counts.get(franchise, 0) >= MAX_PER_SERIES:
-                continue
-            if platform_counts.get(rom.platform_id, 0) >= MAX_PER_PLATFORM:
-                continue
-
-            if franchise:
-                franchise_counts[franchise] = franchise_counts.get(franchise, 0) + 1
-            platform_counts[rom.platform_id] = (
-                platform_counts.get(rom.platform_id, 0) + 1
+        return [
+            RecommendedRom(
+                rom=roms[candidate.rom_id],
+                score=round(candidate.score, 6),
+                reasons=candidate.reasons,
+                seed_rom_id=candidate.best_seed_id,
+                seed_rom_name=seed_names.get(candidate.best_seed_id or -1),
             )
-
-            selected.append(
-                RecommendedRom(
-                    rom=rom,
-                    score=round(candidate.score, 6),
-                    reasons=candidate.reasons,
-                    seed_rom_id=candidate.best_seed_id,
-                    seed_rom_name=seed_names.get(candidate.best_seed_id or -1),
-                )
-            )
-
-            if len(selected) >= limit:
-                break
-
-        return selected
+            for candidate in chosen
+        ]
 
     def _cold_start(self, limit: int, excluded: set[int]) -> list[RecommendedRom]:
         """No usable activity yet, so fall back to the library's best-reviewed."""

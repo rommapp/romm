@@ -1,5 +1,5 @@
 from .builder import BuildStats, SimilarityBuilder
-from .diversity import MAX_PER_SERIES, cap_by_series, primary_series
+from .diversity import MAX_PER_SERIES, cap_by_series
 from .feed import (
     FeedBuilder,
     RecommendedRom,
@@ -15,7 +15,6 @@ __all__ = [
     "RecommendedRom",
     "SimilarityBuilder",
     "cap_by_series",
-    "primary_series",
     "get_cached_feed",
     "invalidate_cached_feed",
     "set_cached_feed",
