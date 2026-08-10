@@ -13,7 +13,16 @@ function game(id: number, name: string): IGDBRelatedGame {
   return { id, name, slug: name, type: "port", cover_url: "" };
 }
 
-function mountTab(related: Partial<Record<string, IGDBRelatedGame[]>> = {}) {
+type RelatedOverrides = Partial<{
+  expansions: IGDBRelatedGame[];
+  dlcs: IGDBRelatedGame[];
+  remakes: IGDBRelatedGame[];
+  remasters: IGDBRelatedGame[];
+  ports: IGDBRelatedGame[];
+  similarGames: IGDBRelatedGame[];
+}>;
+
+function mountTab(related: RelatedOverrides = {}) {
   return shallowMount(OverviewTab, {
     props: {
       rom: {
@@ -21,7 +30,7 @@ function mountTab(related: Partial<Record<string, IGDBRelatedGame[]>> = {}) {
         metadatum: null,
         files: [],
         user_screenshots: [],
-      } as unknown as DetailedRom,
+      } as DetailedRom,
       summary: null,
       sections: [],
       playerCount: null,
