@@ -914,6 +914,55 @@ class TestFSRomsHandler:
         # Header SHA1 stored separately in chd_sha1_hash
         assert parsed_rom_files.rom_files[0].chd_sha1_hash == internal_sha1
 
+    @pytest.mark.asyncio
+    async def test_get_rom_files_folder_extracts_chd_hash_per_file(
+        self, tmp_path: Path
+    ):
+        """Every CHD in a folder-based ROM keeps its own header SHA1."""
+        disc_platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
+        roms_path = tmp_path / disc_platform.fs_slug / "roms"
+        game_dir = roms_path / "Final Fantasy VII"
+        game_dir.mkdir(parents=True)
+
+        sha1_by_disc = {
+            "Final Fantasy VII (Disc 1).chd": "0123456789abcdef0123456789abcdef01234567",
+            "Final Fantasy VII (Disc 2).chd": "89abcdef0123456789abcdef0123456789abcdef",
+        }
+        for file_name, internal_sha1 in sha1_by_disc.items():
+            header = bytearray(124)
+            header[0:8] = b"MComprHD"
+            header[12:16] = int(5).to_bytes(4, "big")
+            header[84:104] = bytes.fromhex(internal_sha1)
+            (game_dir / file_name).write_bytes(header + file_name.encode())
+
+        (game_dir / "Final Fantasy VII.m3u").write_text("\n".join(sha1_by_disc) + "\n")
+
+        test_handler = FSRomsHandler()
+        test_handler.base_path = tmp_path
+
+        rom = Rom(
+            id=1,
+            fs_name="Final Fantasy VII",
+            fs_extension="",
+            fs_path=str(roms_path.relative_to(tmp_path)),
+            platform=disc_platform,
+        )
+
+        with patch(
+            "adapters.services.rahasher.RAHasherService.calculate_hash",
+            return_value="",
+        ):
+            parsed_rom_files = await test_handler.get_rom_files(rom)
+
+        chd_hash_by_file = {
+            rom_file.file_name: rom_file.chd_sha1_hash
+            for rom_file in parsed_rom_files.rom_files
+        }
+        assert chd_hash_by_file == {
+            **sha1_by_disc,
+            "Final Fantasy VII.m3u": "",
+        }
+
     @staticmethod
     def _setup_archive_rom(
         tmp_path: Path, platform: Platform, fs_name: str, fs_extension: str, data: bytes

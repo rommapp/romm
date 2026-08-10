@@ -523,7 +523,10 @@ export default defineStore("v2GalleryRoms", {
       // object when these are skipped, so re-applying it would wipe the
       // populated values and blank the AlphaStrip / filter drawer. The id
       // index is a full-library scan we already paid for in the bootstrap, so
-      // window fetches opt out of recomputing it.
+      // window fetches opt out of recomputing it. Dropping it makes the backend
+      // count the result set separately instead, which is the same scan under
+      // another name for a total the bootstrap already gave us, so opt out of
+      // that too and keep the window fetch to just its page of covers.
       const withAggregations = !this.metadataLoaded;
 
       try {
@@ -535,6 +538,7 @@ export default defineStore("v2GalleryRoms", {
                 withCharIndex: false,
                 withFilterValues: false,
                 withRomIdIndex: false,
+                withTotal: false,
               }),
           signal: controller.signal,
         });
@@ -547,9 +551,10 @@ export default defineStore("v2GalleryRoms", {
 
         const data = response.data;
         // Only apply the full metadata when this window actually fetched the
-        // aggregations (the very first window before the bootstrap resolved).
+        // aggregations (a window reached before the bootstrap resolved).
         // Otherwise char_index / filter_values come back empty and would
-        // clobber what the bootstrap populated, so just refresh `total`.
+        // clobber what the bootstrap populated; `total` comes back null and
+        // the guard below leaves the established size alone.
         if (offset === 0 && withAggregations) {
           this._applyMetadata(data, galleryFilter, platformsStore);
         } else if (data.total !== null && data.total !== undefined) {

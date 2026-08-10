@@ -313,6 +313,63 @@ def test_get_roms_without_rom_id_index(
     assert items[0]["id"] == rom.id
 
 
+def test_get_roms_without_total(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+):
+    params = {
+        "platform_id": platform.id,
+        "limit": 15,
+        "with_rom_id_index": False,
+    }
+
+    with patch.object(
+        db_rom_handler, "get_rom_count", wraps=db_rom_handler.get_rom_count
+    ) as get_rom_count:
+        response = client.get(
+            "/api/roms",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={**params, "with_total": False},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        # The point of the opt-out: no second scan of the filtered set.
+        get_rom_count.assert_not_called()
+
+        body = response.json()
+        assert body["total"] is None
+
+        items = body["items"]
+        assert len(items) == 1
+        assert items[0]["id"] == rom.id
+
+        # Control: the count still runs for callers that ask for it.
+        response = client.get(
+            "/api/roms",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params=params,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total"] == 1
+        get_rom_count.assert_called_once()
+
+
+def test_get_roms_keeps_total_from_the_rom_id_index(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+):
+    # The index already carries the count, so opting out of the separate
+    # count query costs the caller nothing there.
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "with_total": False},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["total"] == 1
+    assert body["rom_id_index"] == [rom.id]
+
+
 def test_get_roms_filter_by_metadata_providers(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):

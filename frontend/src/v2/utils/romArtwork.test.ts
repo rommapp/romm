@@ -26,15 +26,42 @@ function makeFile(overrides: Partial<RomFileSchema>): RomFileSchema {
   };
 }
 
-function makeRom(files: RomFileSchema[]): DetailedRom {
+function makeRom(
+  files: RomFileSchema[],
+  overrides: Partial<DetailedRom> = {},
+): DetailedRom {
   return {
     updated_at: "2024-01-01T00:00:00Z",
     ss_metadata: null,
     gamelist_metadata: null,
     path_video: null,
     files,
+    ...overrides,
   } as DetailedRom;
 }
+
+describe("resolveRomArtwork — scraped resources", () => {
+  it("includes the ScreenScraper box front, which no other surface shows", () => {
+    const rom = makeRom([], {
+      ss_metadata: {
+        box2d_path: "roms/1/1/box2d/box2d.png",
+        box2d_back_path: "roms/1/1/box2d_back/box2d_back.png",
+      },
+    });
+    const entries = resolveRomArtwork(rom);
+
+    expect(entries.map((e) => e.key)).toEqual(["box2d", "box2d_back"]);
+    expect(entries[0].url).toContain("roms/1/1/box2d/box2d.png");
+  });
+
+  it("omits the box front when it was not stored locally", () => {
+    const rom = makeRom([], {
+      ss_metadata: { box2d_url: "https://screenscraper.example.com/box-2D" },
+    });
+
+    expect(resolveRomArtwork(rom)).toHaveLength(0);
+  });
+});
 
 describe("resolveRomArtwork — library media files", () => {
   it("includes image files as non-video entries pointing at the content endpoint", () => {

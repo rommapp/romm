@@ -155,6 +155,69 @@ def test_add_state_rejects_oversized_uploads(
     assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
 
 
+@mock.patch(
+    "endpoints.states.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+)
+@mock.patch("endpoints.states.fs_asset_handler.write_file", new_callable=mock.AsyncMock)
+@mock.patch("endpoints.states.scan_state", new_callable=mock.AsyncMock)
+def test_reupload_updates_file_path_and_emulator(
+    mock_scan,
+    _mock_write,
+    mock_remove,
+    client,
+    access_token: str,
+    rom: Rom,
+    platform: Platform,
+    admin_user: User,
+):
+    """Re-uploading the same filename under a different emulator must move the
+    row's file_path/emulator to where the new bytes landed, so the row never
+    serves the previous emulator's state."""
+    existing = db_state_handler.add_state(
+        State(
+            file_name="game.state",
+            file_name_no_tags="game",
+            file_name_no_ext="game",
+            file_extension="state",
+            file_path=f"{platform.slug}/states/old_emu",
+            file_size_bytes=100,
+            emulator="old_emu",
+            rom_id=rom.id,
+            user_id=admin_user.id,
+        )
+    )
+
+    new_path = f"{platform.slug}/states/new_emu"
+    mock_scan.return_value = State(
+        file_name="game.state",
+        file_name_no_tags="game",
+        file_name_no_ext="game",
+        file_extension="state",
+        file_path=new_path,
+        file_size_bytes=200,
+        rom_id=rom.id,
+        user_id=admin_user.id,
+    )
+
+    response = client.post(
+        f"/api/states?rom_id={rom.id}&emulator=new_emu",
+        files={"stateFile": ("game.state", b"NEW STATE", "application/octet-stream")},
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+
+    updated = db_state_handler.get_state(user_id=admin_user.id, id=existing.id)
+    assert updated is not None
+    assert updated.file_path == new_path
+    assert updated.emulator == "new_emu"
+    assert updated.file_size_bytes == 200
+    # full_path now points at the freshly written bytes, not the stale ones.
+    assert updated.full_path == f"{new_path}/game.state"
+    # The orphaned bytes at the old location are cleaned up.
+    mock_remove.assert_awaited_once_with(f"{platform.slug}/states/old_emu/game.state")
+
+
 @contextmanager
 def _kiosk_mode():
     """Both call sites of the setting, as a real KIOSK_MODE=true deploy sees it."""

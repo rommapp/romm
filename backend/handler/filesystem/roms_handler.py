@@ -128,6 +128,11 @@ ARCHIVE_READERS = {
 }
 
 
+def _chd_sha1_hash(file_path: Path) -> str:
+    """Return the embedded CHD v5 raw+meta SHA-1, or "" for non-CHD files."""
+    return extract_chd_hash(file_path) if is_chd_file(file_path) else ""
+
+
 def _make_file_hash(
     crc_c: int, md5_h: Any, sha1_h: Any, chd_sha1_hash: str = ""
 ) -> FileHash:
@@ -379,7 +384,6 @@ class FSRomsHandler(FSHandler):
                 f"{abs_fs_path}/{rom.fs_name}", recursive=True
             ):
                 # Check if file is excluded by extension.
-                f_rom_dir = Path(f_path, rom.fs_name)
                 file_name_lower = file_name.lower()
                 if any(
                     file_name_lower.endswith("." + ext) for ext in excluded_file_exts
@@ -396,6 +400,8 @@ class FSRomsHandler(FSHandler):
                 # Check if this is a top-level file (not in a subdirectory)
                 is_top_level = f_path.samefile(Path(abs_fs_path, rom.fs_name))
 
+                abs_file_path = Path(f_path, file_name)
+
                 if hashable_platform:
                     try:
                         if is_top_level:
@@ -403,7 +409,7 @@ class FSRomsHandler(FSHandler):
                             crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
                                 await asyncio.to_thread(
                                     self._calculate_rom_hashes,
-                                    Path(f_path, file_name),
+                                    abs_file_path,
                                     rom_crc_c,
                                     rom_md5_h,
                                     rom_sha1_h,
@@ -413,7 +419,7 @@ class FSRomsHandler(FSHandler):
                             # Calculate individual file hash only
                             crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
                                 self._calculate_rom_hashes,
-                                Path(f_path, file_name),
+                                abs_file_path,
                             )
                     except zlib.error:
                         crc_c = 0
@@ -424,11 +430,7 @@ class FSRomsHandler(FSHandler):
                         crc_c,
                         md5_h,
                         sha1_h,
-                        chd_sha1_hash=(
-                            extract_chd_hash(f_rom_dir)
-                            if is_chd_file(f_rom_dir)
-                            else ""
-                        ),
+                        chd_sha1_hash=_chd_sha1_hash(abs_file_path),
                     )
                 else:
                     file_hash = FileHash(
@@ -568,9 +570,7 @@ class FSRomsHandler(FSHandler):
                 crc_c,
                 md5_h,
                 sha1_h,
-                chd_sha1_hash=(
-                    extract_chd_hash(rom_dir) if is_chd_file(rom_dir) else ""
-                ),
+                chd_sha1_hash=_chd_sha1_hash(rom_dir),
             )
             rom_files.append(
                 self._build_rom_file(

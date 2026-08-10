@@ -165,6 +165,7 @@ describe("galleryRoms windowed fetch", () => {
     expect(params.withCharIndex).toBeUndefined();
     expect(params.withFilterValues).toBeUndefined();
     expect(params.withRomIdIndex).toBeUndefined();
+    expect(params.withTotal).toBeUndefined();
   });
 
   it("does not clobber the filter drawer when filter values are skipped", async () => {
@@ -223,6 +224,48 @@ describe("galleryRoms windowed fetch", () => {
     // the bootstrap already paid for.
     expect(windowCall?.[0].withRomIdIndex).toBe(false);
     expect(store.charIndex).toEqual({ A: 0, B: 10 });
+  });
+
+  // Skipping the id index used to make the backend fall back to a full COUNT,
+  // so every scroll batch re-counted the library for a total the page already
+  // had (issue #4053).
+  it("skips the total on a window the bootstrap already sized", async () => {
+    getRoms.mockImplementation((params: { limit?: number }) => {
+      if (params.limit === 1) {
+        return Promise.resolve({
+          data: { total: 500, items: [], char_index: {}, rom_id_index: [] },
+        });
+      }
+      // The backend returns a null total when the count is skipped.
+      return Promise.resolve({
+        data: { total: null, items: [], char_index: {}, rom_id_index: [] },
+      });
+    });
+    const store = storeGalleryRoms();
+
+    await store.fetchInitialMetadata();
+    expect(store.total).toBe(500);
+
+    store.syncVisibleWindows([72]);
+    await flushPromises();
+
+    const windowCall = getRoms.mock.calls.find((c) => c[0].offset === 72);
+    expect(windowCall?.[0].withTotal).toBe(false);
+    // The null total must not blank the size the bootstrap established.
+    expect(store.total).toBe(500);
+  });
+
+  // The very first window doubles as the bootstrap when nothing has loaded
+  // yet, so it still has to bring the total back with it.
+  it("asks for the total on the first window when no bootstrap ran", async () => {
+    getRoms.mockResolvedValue(windowResponse(0, 300));
+    const store = storeGalleryRoms();
+
+    store.syncVisibleWindows([0]);
+    await flushPromises();
+
+    expect(getRoms.mock.calls[0][0].withTotal).toBeUndefined();
+    expect(store.total).toBe(300);
   });
 
   it("does not mark a window loaded when the context is invalidated mid-apply", async () => {

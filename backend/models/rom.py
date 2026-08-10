@@ -12,6 +12,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     Enum,
+    FetchedValue,
     Float,
     ForeignKey,
     Index,
@@ -49,7 +50,28 @@ from utils.database import CustomJSON
 NAME_SORT_KEY_MAX_LENGTH = 500
 # Max length for free-text audio tag columns (title/artist/album).
 AUDIO_TAG_MAX_LENGTH = 512
-ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
+# Articles ignored when sorting or bucketing a title, across the languages
+# No-Intro and LaunchBox name games in. Both patterns built from this are
+# anchored on the right, so "la" preceding "las" costs nothing.
+ARTICLES = (
+    "the",
+    "a",
+    "an",
+    "le",
+    "la",
+    "les",
+    "el",
+    "los",
+    "las",
+    "il",
+    "lo",
+    "gli",
+    "der",
+    "die",
+    "das",
+    "het",
+)
+ARTICLE_PREFIX_RE = re.compile(rf"^({'|'.join(ARTICLES)})\s+")
 DIGIT_RUN_RE = re.compile(r"\d+")
 
 
@@ -399,6 +421,19 @@ class Rom(BaseModel):
     )
     manual_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
+    )
+
+    # Read-only slice of the stored generated columns from the `roms_metadata` view
+    generated_first_release_date: Mapped[int | None] = mapped_column(
+        BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+    generated_average_rating: Mapped[float | None] = mapped_column(
+        Float(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+    generated_player_count: Mapped[str | None] = mapped_column(
+        String(length=100),
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")

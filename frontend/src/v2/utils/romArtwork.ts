@@ -11,7 +11,9 @@
 //      to the ROM shows up here too.
 //
 // Covers, screenshots, the manual and the soundtrack are intentionally left
-// out: they each have their own surface elsewhere in the details view.
+// out: they each have their own surface elsewhere in the details view. The
+// ScreenScraper box front is listed, though: it is a specific scan that any
+// other provider's cover can outrank, so it needs a home of its own.
 import i18n from "@/locales";
 import type { DetailedRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
@@ -80,6 +82,11 @@ export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
         key: "box3d",
         label: i18n.global.t("rom.media-box3d"),
         url: ss?.box3d_path ?? gl?.box3d_path ?? null,
+      },
+      {
+        key: "box2d",
+        label: i18n.global.t("rom.media-box2d"),
+        url: ss?.box2d_path ?? null,
       },
       {
         key: "box2d_back",

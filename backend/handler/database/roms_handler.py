@@ -2,6 +2,7 @@ import functools
 import hashlib
 import json
 import re
+import secrets
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any, NamedTuple
@@ -140,6 +141,11 @@ FULLTEXT_MIN_TOKEN_SIZE = 3
 # stored lowercase, which keeps the lookup an indexed equality.
 HEX_DIGEST_REGEX = re.compile(r"[0-9a-fA-F]+")
 
+# Primary keys offered per round trip when picking a random rom. Sixteen
+# lands a hit ~99% of the time on a library occupying a quarter of its id
+# range, which is what deletions leave behind on a long-lived instance.
+RANDOM_ID_SAMPLE_SIZE = 16
+
 # CRC32 (8), MD5 and RetroAchievements (32), SHA-1 (40).
 ROM_HASH_COLUMNS_BY_DIGEST_LENGTH: dict[int, tuple[QueryableAttribute, ...]] = {
     8: (Rom.crc_hash,),
@@ -154,6 +160,13 @@ ROM_FILE_HASH_COLUMNS_BY_DIGEST_LENGTH: dict[int, tuple[QueryableAttribute, ...]
     8: (RomFile.crc_hash,),
     32: (RomFile.md5_hash, RomFile.ra_hash),
     40: (RomFile.sha1_hash, RomFile.chd_sha1_hash),
+}
+
+# Every column here is indexed on `roms`, so the sort walks the index and stops at the page.
+ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
+    "first_release_date": Rom.generated_first_release_date,
+    "average_rating": Rom.generated_average_rating,
+    "player_count": Rom.generated_player_count,
 }
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
@@ -1409,6 +1422,8 @@ class DBRomsHandler(DBBaseHandler):
         if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomUser, order_by)
             query = query.filter(RomUser.user_id == user_id)
+        elif order_by in ROM_METADATA_ORDER_COLUMNS:
+            order_attr = ROM_METADATA_ORDER_COLUMNS[order_by]
         elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomMetadata, order_by)
             query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
@@ -1641,6 +1656,51 @@ class DBRomsHandler(DBBaseHandler):
             )
             or 0
         )
+
+    @begin_session
+    def get_random_rom_id(
+        self,
+        query: Query,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> int | None:
+        """Pick one rom id at random, uniformly, from a filtered query.
+
+        Two mechanisms, both uniform. First a batch of random primary keys is
+        offered to the query: every id in the table is equally likely to be
+        offered, so any hit is an unbiased pick, and the whole batch costs one
+        index lookup per candidate no matter how large the library is.
+
+        A batch misses when the query matches too little of the id space (a
+        scoped gallery, an id range left full of gaps by deletions). It then
+        falls back to counting the set and taking the row at a random position
+        in it. That reads no rows, only index entries, since the statement
+        selects nothing but the id.
+        """
+        id_query = query.order_by(None).with_only_columns(Rom.id)  # type: ignore
+
+        # Bounds come from the table rather than the filtered set: they only
+        # need to cover it, and MIN/MAX over an untouched primary key are two
+        # index seeks, where the same pair over a joined and filtered set is a
+        # scan of it.
+        lowest, highest = session.execute(
+            select(func.min(Rom.id), func.max(Rom.id))
+        ).one()
+        if lowest is None or highest is None:
+            return None
+
+        span = highest - lowest + 1
+        candidates = {
+            lowest + secrets.randbelow(span) for _ in range(RANDOM_ID_SAMPLE_SIZE)
+        }
+        hits = session.scalars(id_query.where(Rom.id.in_(candidates))).all()
+        if hits:
+            return secrets.choice(hits)
+
+        total = self.get_rom_count(query=query, session=session)
+        if total == 0:
+            return None
+        return session.scalar(id_query.limit(1).offset(secrets.randbelow(total)))
 
     @begin_session
     def get_roms_by_fs_name(

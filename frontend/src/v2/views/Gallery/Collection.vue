@@ -33,6 +33,7 @@ import CollectionSettingsTab from "@/v2/components/Gallery/CollectionSettingsTab
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
@@ -267,8 +268,7 @@ function onDownload() {
 // ── Random ROM ──────────────────────────────────────────────────
 // Pick one game from this collection and jump to its details. The scope is
 // keyed off the collection kind so regular / virtual / smart all route
-// to the correct `getRoms` filter param (the same split the download
-// flow uses).
+// to the correct filter param (the same split the download flow uses).
 function randomScope(): {
   collectionId?: number;
   virtualCollectionId?: string;
@@ -282,39 +282,29 @@ function randomScope(): {
   return { collectionId: Number(c.id) };
 }
 
+// Leaving for anything that isn't another gallery keeps `currentCollection`
+// in place, so the id check in `onRandomGame` can't see the user walked away.
+const alive = useIsAlive();
+
+// `/roms/random` samples the pick server-side, so one request resolves it
+// whatever the collection holds. `null` means the collection holds no roms.
 async function onRandomGame() {
   const c = currentCollection.value;
   if (!c || randomLoading.value) return;
   randomLoading.value = true;
   const scopeId = c.id;
-  const stale = () => currentCollection.value?.id !== scopeId;
+  // A pick from the collection the user just left leads nowhere useful.
+  const stale = () => !alive.value || currentCollection.value?.id !== scopeId;
   try {
-    const scope = randomScope();
-    const { data: head } = await romApi.getRoms({
-      ...scope,
-      limit: 1,
-      offset: 0,
-    });
+    const { data } = await romApi.getRandomRom(randomScope());
     if (stale()) return;
-    if (!head.total) {
+    if (!data) {
       snackbar.info(t("collection.empty"));
       return;
     }
-    const randomOffset = Math.floor(Math.random() * head.total);
-    const { data } = await romApi.getRoms({
-      ...scope,
-      limit: 1,
-      offset: randomOffset,
-    });
-    if (stale()) return;
-    const pick = data.items[0];
-    if (!pick) {
-      snackbar.info(t("collection.empty"));
-      return;
-    }
-    router.push({ name: ROUTES.ROM, params: { rom: pick.id } });
+    router.push({ name: ROUTES.ROM, params: { rom: data.id } });
   } catch {
-    snackbar.error(t("platform.random-rom-error"));
+    if (!stale()) snackbar.error(t("platform.random-rom-error"));
   } finally {
     randomLoading.value = false;
   }
