@@ -283,7 +283,7 @@
   "perm-own-only-hint": "Limitado aos próprios itens do usuário",
   "permission-group": "Grupo de permissões",
   "permission-group-hint": "Sets which actions this user can perform across the library.",
-  "permission-groups": "Grupos de Permissões",
+  "permission-groups": "Grupos de permissões",
   "permission-overrides": "Substituições de permissões",
   "permission-overrides-hint": "Conceda ou revogue ações específicas para este usuário, além das do grupo.",
   "platform-count-games": "{count} jogo | {count} jogos",
