@@ -27,6 +27,7 @@ import type {
   SimilarRomSchema,
   UserCollectionSchema,
 } from "@/__generated__";
+import { useUISettings } from "@/composables/useUISettings";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
 import CollectionTile, {
@@ -64,6 +65,14 @@ const props = defineProps<{
   similarRoms: SimilarRomSchema[];
   webp?: boolean;
 }>();
+
+// The same preference hides the "Recommended for you" row on Home, so the
+// feature can be switched off wherever it appears rather than per surface.
+const { showRecommendations } = useUISettings();
+
+const visibleSimilarRoms = computed(() =>
+  showRecommendations.value ? props.similarRoms : [],
+);
 
 const hasAgeRatings = computed(
   () => (props.rom.metadatum?.age_ratings?.length ?? 0) > 0,
@@ -135,7 +144,7 @@ const hasRelated = computed(
       props.dlcs.length +
       props.remakes.length +
       props.remasters.length +
-      props.similarRoms.length >
+      visibleSimilarRoms.value.length >
     0,
 );
 
@@ -317,12 +326,12 @@ const coverSource = computed(() => {
         </h4>
         <RelatedGamesGrid title="" :items="remasters" />
       </div>
-      <div v-if="similarRoms.length" class="overview-tab__section">
+      <div v-if="visibleSimilarRoms.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-shape-outline" size="14" />
           {{ t("recommendations.similar-games") }}
         </h4>
-        <SimilarGamesGrid :items="similarRoms" :webp="webp" />
+        <SimilarGamesGrid :items="visibleSimilarRoms" :webp="webp" />
       </div>
     </template>
 
