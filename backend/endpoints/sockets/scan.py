@@ -32,6 +32,7 @@ from handler.database import (
     db_platform_handler,
     db_rom_handler,
 )
+from handler.database.roms_handler import RomScanState
 from handler.filesystem import (
     fs_firmware_handler,
     fs_platform_handler,
@@ -228,7 +229,7 @@ async def _identify_firmware(
 
 def should_scan_rom(
     scan_type: ScanType,
-    rom: Rom | None,
+    rom: RomScanState | None,
     roms_ids: list[int],
     metadata_sources: list[str],
 ) -> bool:
@@ -236,7 +237,9 @@ def should_scan_rom(
 
     Args:
         scan_type (ScanType): Type of scan to be performed.
-        rom (Rom | None): The rom to be scanned.
+        rom (RomScanState | None): Scan state of the rom, or None if no entry
+            matches the file. Narrow by design: this runs for every file in the
+            library, so it must not need a full `Rom`.
         roms_ids (list[int]): List of selected roms to be scanned.
         metadata_sources (list[str]): List of metadata sources to be used.
     """
@@ -736,29 +739,41 @@ async def _identify_platform(
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
-        roms_by_fs_name = db_rom_handler.get_roms_by_fs_name(
+        scan_states = db_rom_handler.get_rom_scan_states(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
         )
 
         # Separate skipped ROMs from those that need scanning
         skipped_rom_ids: list[int] = []
-        restored_roms: list[Rom] = []
-        roms_to_scan: list[tuple[FSRom, Rom | None]] = []
+        restored_roms: list[RomScanState] = []
+        states_to_scan: list[tuple[FSRom, RomScanState | None]] = []
 
         for fs_rom in fs_roms_batch:
-            rom = roms_by_fs_name.get(fs_rom["fs_name"])
+            state = scan_states.get(fs_rom["fs_name"])
             if should_scan_rom(
                 scan_type=scan_type,
-                rom=rom,
+                rom=state,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
             ):
-                roms_to_scan.append((fs_rom, rom))
-            elif rom:
-                skipped_rom_ids.append(rom.id)
-                if rom.id in previously_missing_rom_ids:
-                    restored_roms.append(rom)
+                states_to_scan.append((fs_rom, state))
+            elif state:
+                skipped_rom_ids.append(state.id)
+                if state.id in previously_missing_rom_ids:
+                    restored_roms.append(state)
+
+        # Scanning rewrites nearly every column, so only now that the batch is
+        # narrowed to the entries being acted on is the full row worth loading.
+        # An entry deleted since the decision above resolves to None and is
+        # treated as new, the same as any other unrecognised file.
+        hydrated_roms = db_rom_handler.get_roms_for_scan(
+            state.id for _, state in states_to_scan if state
+        )
+        roms_to_scan: list[tuple[FSRom, Rom | None]] = [
+            (fs_rom, hydrated_roms.get(state.id) if state else None)
+            for fs_rom, state in states_to_scan
+        ]
 
         # Bulk update all skipped ROMs in one query instead of per-ROM updates
         if skipped_rom_ids:
@@ -769,8 +784,8 @@ async def _identify_platform(
             )
 
         # Skipped ROMs emit nothing, so a ROM whose file came back would keep its
-        # stale "missing" badge in an open gallery until a refetch. Reload with
-        # details since the scan-loop lookup only eager-loads the platform.
+        # stale "missing" badge in an open gallery until a refetch. The scan-loop
+        # lookup holds only scan state, so load the full ROM the payload needs.
         for restored_rom in restored_roms:
             log.info(
                 f"{hl(restored_rom.fs_name)} is back in the filesystem, "

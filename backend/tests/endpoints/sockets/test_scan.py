@@ -1,4 +1,5 @@
 from itertools import count
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
@@ -17,7 +18,7 @@ from endpoints.sockets.scan import (
 )
 from exceptions.fs_exceptions import FolderStructureNotMatchException
 from handler.auth.constants import Scope
-from handler.database.roms_handler import SyncedRomFiles
+from handler.database.roms_handler import RomScanState, SyncedRomFiles
 from handler.filesystem.roms_handler import (
     FSRom,
     FSRomsHandler,
@@ -281,15 +282,21 @@ class TestScreenScraperScanReporting:
         summary.assert_not_called()
 
 
+def scan_state(**overrides: Any) -> RomScanState:
+    """A scan-state row with no metadata matches, plus any given overrides."""
+    unset: dict[str, Any] = dict.fromkeys(RomScanState._fields)
+    return RomScanState(**{**unset, "id": 1, "fs_name": "test_rom.zip", **overrides})
+
+
 class TestShouldScanRom:
     def test_new_platforms_scan_with_no_rom(self):
         """NEW_PLATFORMS should scan when rom is None"""
         result = should_scan_rom(ScanType.NEW_PLATFORMS, None, [], ["igdb"])
         assert result is True
 
-    def test_new_platforms_scan_with_existing_rom(self, rom: Rom):
+    def test_new_platforms_scan_with_existing_rom(self):
         """NEW_PLATFORMS should not scan when rom exists"""
-        result = should_scan_rom(ScanType.NEW_PLATFORMS, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.NEW_PLATFORMS, scan_state(), [], ["igdb"])
         assert result is False
 
     # Test QUICK scan type
@@ -298,14 +305,15 @@ class TestShouldScanRom:
         result = should_scan_rom(ScanType.QUICK, None, [], ["igdb"])
         assert result is True
 
-    def test_quick_scan_with_existing_rom(self, rom: Rom):
+    def test_quick_scan_with_existing_rom(self):
         """QUICK should not scan when rom exists"""
-        result = should_scan_rom(ScanType.QUICK, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.QUICK, scan_state(), [], ["igdb"])
         assert result is False
 
     # Test COMPLETE scan type
-    def test_complete_scan_always_scans(self, rom: Rom):
+    def test_complete_scan_always_scans(self):
         """COMPLETE should scan everything when unscoped, but respect roms_ids when scoped"""
+        rom = scan_state()
         assert should_scan_rom(ScanType.COMPLETE, None, [], ["igdb"]) is True
         assert should_scan_rom(ScanType.COMPLETE, rom, [], ["igdb"]) is True
         # Scoped scan should not scan/add new filesystem ROMs when rom is None
@@ -315,8 +323,9 @@ class TestShouldScanRom:
         assert should_scan_rom(ScanType.COMPLETE, rom, [rom.id], ["igdb"]) is True
 
     # Test HASHES scan type
-    def test_hashes_scan_always_scans(self, rom: Rom):
+    def test_hashes_scan_always_scans(self):
         """HASHES should scan everything when unscoped, but respect roms_ids when scoped"""
+        rom = scan_state()
         assert should_scan_rom(ScanType.HASHES, None, [], ["igdb"]) is True
         assert should_scan_rom(ScanType.HASHES, rom, [], ["igdb"]) is True
         # Scoped scan should not scan/add new filesystem ROMs when rom is None
@@ -331,19 +340,14 @@ class TestShouldScanRom:
         result = should_scan_rom(ScanType.UNMATCHED, None, [], ["igdb"])
         assert result is False
 
-    def test_unmatched_scan_with_unmatched_rom(self, rom: Rom):
+    def test_unmatched_scan_with_unmatched_rom(self):
         """UNMATCHED should scan when rom is unmatched"""
-        rom.igdb_id = None
-        rom.moby_id = None
-        rom.ss_id = None
-        rom.ra_id = None
-        rom.launchbox_id = None
-        result = should_scan_rom(ScanType.UNMATCHED, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.UNMATCHED, scan_state(), [], ["igdb"])
         assert result is True
 
-    def test_unmatched_scan_with_identified_rom(self, rom: Rom):
+    def test_unmatched_scan_with_identified_rom(self):
         """UNMATCHED should also scan when rom is identified"""
-        rom.igdb_id = 1
+        rom = scan_state(igdb_id=1)
         result = should_scan_rom(ScanType.UNMATCHED, rom, [], ["moby"])
         assert result is True
 
@@ -353,26 +357,21 @@ class TestShouldScanRom:
         result = should_scan_rom(ScanType.UPDATE, None, [], ["igdb"])
         assert result is False
 
-    def test_update_scan_with_identified_rom(self, rom: Rom):
+    def test_update_scan_with_identified_rom(self):
         """UPDATE should scan when rom is identified"""
-        rom.igdb_id = 1
+        rom = scan_state(igdb_id=1)
         result = should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"])
         assert result is True
 
-    def test_update_scan_with_unmatched_rom(self, rom: Rom):
+    def test_update_scan_with_unmatched_rom(self):
         """UPDATE should not scan when rom is not identified"""
-        rom.igdb_id = None
-        rom.moby_id = None
-        rom.ss_id = None
-        rom.ra_id = None
-        rom.launchbox_id = None
-        result = should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.UPDATE, scan_state(), [], ["igdb"])
         assert result is False
 
     # Test rom_ids parameter
-    def test_scan_when_rom_id_in_list(self, rom: Rom):
+    def test_scan_when_rom_id_in_list(self):
         """Should scan when rom.id is in roms_ids list regardless of scan type"""
-        rom.id = 1
+        rom = scan_state(id=1)
         roms_ids = [1, 2, 3]
 
         # Test with different scan types
@@ -384,14 +383,9 @@ class TestShouldScanRom:
             result = should_scan_rom(scan_type, rom, roms_ids, ["igdb"])
             assert result is True
 
-    def test_no_scan_when_rom_id_not_in_list(self, rom: Rom):
+    def test_no_scan_when_rom_id_not_in_list(self):
         """When roms_ids is non-empty, scan is scoped: roms outside the list are skipped for every scan type"""
-        rom.id = 4
-        rom.igdb_id = None
-        rom.moby_id = None
-        rom.ss_id = None
-        rom.ra_id = None
-        rom.launchbox_id = None
+        rom = scan_state(id=4)
         roms_ids = [1, 2, 3]
 
         for scan_type in [
@@ -405,31 +399,42 @@ class TestShouldScanRom:
             assert should_scan_rom(scan_type, rom, roms_ids, ["igdb"]) is False
 
     # Edge cases
-    def test_empty_roms_ids_list(self, rom: Rom):
+    def test_empty_roms_ids_list(self):
         """Test behavior with empty roms_ids list"""
-        rom.id = 1
-        rom.igdb_id = 1
+        rom = scan_state(id=1, igdb_id=1)
 
         assert should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"]) is True
         assert should_scan_rom(ScanType.NEW_PLATFORMS, rom, [], ["igdb"]) is False
 
-    def test_rom_id_type_conversion(self, rom: Rom):
-        """Test that rom.id (int) is properly compared with roms_ids (list of strings)"""
-        rom.id = 123
+    def test_scan_scoped_by_rom_id(self):
+        """A rom whose id is in roms_ids is scanned whatever the scan type"""
+        rom = scan_state(id=123)
         roms_ids = [123, 456]
 
-        # This should scan because 123 should match "123"
         result = should_scan_rom(ScanType.QUICK, rom, roms_ids, ["igdb"])
         assert result is True
+
+    def test_is_identified_matches_the_rom_model(self):
+        """RomScanState must judge identification exactly as Rom does.
+
+        `should_scan_rom` reads `is_identified` off the narrow row, so the two
+        definitions drifting would silently change which roms an UPDATE scan picks up.
+        """
+        for field in RomScanState._fields:
+            if not field.endswith("_id") or field == "id":
+                continue
+            rom = Rom()
+            setattr(rom, field, 1)
+            assert scan_state(**{field: 1}).is_identified is rom.is_identified, field
 
     @pytest.mark.parametrize(
         "scan_type,rom_exists,is_identified,rom_in_list,expected",
         [
             # Comprehensive test matrix
-            (ScanType.NEW_PLATFORMS, False, None, False, False),
+            (ScanType.NEW_PLATFORMS, False, None, False, True),
             (ScanType.NEW_PLATFORMS, True, True, False, False),
             (ScanType.NEW_PLATFORMS, True, True, True, True),
-            (ScanType.QUICK, False, None, False, False),
+            (ScanType.QUICK, False, None, False, True),
             (ScanType.QUICK, True, True, False, False),
             (ScanType.COMPLETE, False, None, False, True),
             (ScanType.COMPLETE, True, False, False, True),
@@ -449,24 +454,12 @@ class TestShouldScanRom:
         expected,
     ):
         """Test comprehensive scenarios with different combinations"""
-        rom: Rom = Mock(spec=Rom)
-        roms_ids = []
+        rom = scan_state(id=1, igdb_id=1 if is_identified else None)
+        roms_ids = [1] if rom_exists and rom_in_list else []
 
-        if rom_exists:
-            rom.id = 1
-            if is_identified:
-                rom.igdb_id = 1
-            else:
-                rom.igdb_id = None
-                rom.moby_id = None
-                rom.ss_id = None
-                rom.ra_id = None
-                rom.launchbox_id = None
-
-            if rom_in_list:
-                roms_ids = [1]
-
-        result = should_scan_rom(scan_type, rom, roms_ids, ["igdb"])
+        result = should_scan_rom(
+            scan_type, rom if rom_exists else None, roms_ids, ["igdb"]
+        )
         assert result is expected
 
 
@@ -734,7 +727,7 @@ class TestIdentifyPlatformMarksMissingBeforeScan:
             return []
 
         db_rom = mocker.patch.object(scan_module, "db_rom_handler")
-        db_rom.get_roms_by_fs_name.return_value = {}
+        db_rom.get_rom_scan_states.return_value = {}
         db_rom.mark_missing_roms.side_effect = record_mark_missing
         db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
         db_firmware.mark_missing_firmware.return_value = []
@@ -813,7 +806,10 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         rom.id = 42
 
         db_rom = mocker.patch.object(scan_module, "db_rom_handler")
-        db_rom.get_roms_by_fs_name.return_value = {"Game.zip": rom}
+        # A QUICK scan skips this entry, so it only ever holds its scan state.
+        db_rom.get_rom_scan_states.return_value = {
+            "Game.zip": scan_state(id=42, fs_name="Game.zip")
+        }
         db_rom.mark_missing_roms.return_value = []
         db_rom.get_rom.return_value = rom
 
@@ -913,7 +909,7 @@ class TestIdentifyPlatformFirmwareReporting:
         )
 
         db_rom = mocker.patch.object(scan_module, "db_rom_handler")
-        db_rom.get_roms_by_fs_name.return_value = {}
+        db_rom.get_rom_scan_states.return_value = {}
         db_rom.mark_missing_roms.return_value = []
         db_rom.get_missing_rom_ids.return_value = set()
 

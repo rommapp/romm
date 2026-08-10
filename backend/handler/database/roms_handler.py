@@ -5,7 +5,7 @@ import re
 import secrets
 from collections.abc import Iterable, Sequence
 from datetime import datetime
-from typing import Any, NamedTuple
+from typing import Any, Final, NamedTuple
 
 from redis.exceptions import WatchError
 from sqlalchemy import (
@@ -64,6 +64,7 @@ from models.rom import (
     SiblingRom,
     TrackMeta,
     compute_name_sort_key,
+    has_metadata_match,
 )
 from utils import get_version
 from utils.database import (
@@ -253,6 +254,45 @@ def _copy_scanned_columns(
 class SyncedRomFiles(NamedTuple):
     files: list[RomFile]
     orphaned_cover_paths: list[str]
+
+
+class RomScanState(NamedTuple):
+    """The columns a scan reads to decide whether an existing entry needs scanning.
+
+    A scan visits every entry in a platform, but only the ones it decides to scan
+    need a full `Rom`. Loading entities for the decision would pull all ten
+    metadata JSON blobs of every ROM in the library over the wire (~50 KB per
+    matched ROM) to answer a question that only needs these identifiers.
+    """
+
+    id: int
+    fs_name: str
+    igdb_id: int | None
+    moby_id: int | None
+    ss_id: int | None
+    sgdb_id: int | None
+    ra_id: int | None
+    launchbox_id: int | None
+    hasheous_id: int | None
+    tgdb_id: int | None
+    flashpoint_id: str | None
+    hltb_id: int | None
+    gamelist_id: str | None
+    libretro_id: str | None
+
+    @property
+    def is_identified(self) -> bool:
+        return has_metadata_match(self)
+
+    @property
+    def is_unidentified(self) -> bool:
+        return not has_metadata_match(self)
+
+
+# Derived from the field names so the SELECT and the row can't fall out of order.
+_ROM_SCAN_STATE_COLUMNS: Final = tuple(
+    getattr(Rom, field) for field in RomScanState._fields
+)
 
 
 def _rom_file_content_key(rom_file: RomFile) -> tuple[str, str, str] | None:
@@ -1703,37 +1743,60 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(id_query.limit(1).offset(secrets.randbelow(total)))
 
     @begin_session
-    def get_roms_by_fs_name(
+    def get_rom_scan_states(
         self,
         platform_id: int,
         fs_names: Iterable[str],
         session: Session = None,  # type: ignore
-    ) -> dict[str, Rom]:
-        """Retrieve a dictionary of roms by their filesystem names.
+    ) -> dict[str, RomScanState]:
+        """Scan-decision state for a platform's roms, keyed by filesystem name.
 
-        Eager-loads only `platform` (used downstream by the scan loop via
-        `rom.platform_slug` / `rom.platform.fs_slug`). This deliberately
-        avoids `with_details`, whose full relationship eager-load is
-        wasted work for the scan-skip decision on large platforms.
+        Selects columns rather than entities: no `Rom` is constructed, so the
+        JSON metadata blobs stay in the database and the `platform` / `metadatum`
+        joined-eager loads never fire. Entries the scan decides to act on are
+        hydrated by `get_roms_for_scan`.
         """
+        rows = session.execute(
+            select(*_ROM_SCAN_STATE_COLUMNS).where(
+                and_(
+                    Rom.platform_id == platform_id,
+                    Rom.fs_name.in_(fs_names),
+                )
+            )
+        ).all()
+
+        states = (RomScanState._make(row) for row in rows)
+        return {state.fs_name: state for state in states}
+
+    @begin_session
+    def get_roms_for_scan(
+        self,
+        ids: Iterable[int],
+        session: Session = None,  # type: ignore
+    ) -> dict[int, Rom]:
+        """Full roms for the entries a scan is about to act on, keyed by id.
+
+        Scanning reads and rewrites nearly every column, so these rows are loaded
+        whole. Only `platform` is eager-loaded; the scan reaches it via
+        `rom.platform_slug` / `rom.platform.fs_slug`.
+        """
+        ids = list(ids)
+        if not ids:
+            return {}
+
         roms = (
             session.scalars(
                 select(Rom)
                 .options(
                     selectinload(Rom.platform),
                 )
-                .where(
-                    and_(
-                        Rom.platform_id == platform_id,
-                        Rom.fs_name.in_(fs_names),
-                    )
-                )
+                .where(Rom.id.in_(ids))
             )
             .unique()
             .all()
         )
 
-        return {rom.fs_name: rom for rom in roms}
+        return {rom.id: rom for rom in roms}
 
     @begin_session
     def update_rom(

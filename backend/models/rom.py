@@ -5,7 +5,7 @@ import enum
 import re
 from datetime import datetime
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, Final, TypedDict
 
 from sqlalchemy import (
     TIMESTAMP,
@@ -316,6 +316,28 @@ class RomFacets(BaseModel):
     )
 
 
+# Match-id fields that make a ROM "identified". Shared with the narrow scan-state
+# row (`RomScanState`), which reads the same predicate off a subset of columns, so
+# a new metadata source only has to be added here.
+IDENTIFYING_ID_FIELDS: Final = (
+    "igdb_id",
+    "moby_id",
+    "ss_id",
+    "ra_id",
+    "launchbox_id",
+    "hasheous_id",
+    "flashpoint_id",
+    "hltb_id",
+    "gamelist_id",
+    "libretro_id",
+)
+
+
+def has_metadata_match(entity: Any) -> bool:
+    """Whether any metadata source claims a match on this ROM."""
+    return any(getattr(entity, field, None) for field in IDENTIFYING_ID_FIELDS)
+
+
 class Rom(BaseModel):
     __tablename__ = "roms"
 
@@ -623,18 +645,7 @@ class Rom(BaseModel):
 
     @property
     def is_unidentified(self) -> bool:
-        return (
-            not self.igdb_id
-            and not self.moby_id
-            and not self.ss_id
-            and not self.ra_id
-            and not self.launchbox_id
-            and not self.hasheous_id
-            and not self.flashpoint_id
-            and not self.hltb_id
-            and not self.gamelist_id
-            and not self.libretro_id
-        )
+        return not has_metadata_match(self)
 
     @property
     def is_identified(self) -> bool:
