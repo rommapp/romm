@@ -1,6 +1,5 @@
 import re
 from typing import Final, NotRequired, TypedDict
-from urllib.parse import quote
 
 import pydash
 from unidecode import unidecode as uc
@@ -110,7 +109,10 @@ class MobyGamesHandler(MetadataHandler):
 
         roms = await self.moby_service.list_games(
             platform_ids=[platform_moby_id],
-            title=quote(uc(search_term), safe="/ "),
+            # Pass the raw term: the service layer URL-encodes it exactly once
+            # when building the query. Pre-quoting here would double-encode
+            # special characters ("&" -> "%2526"), corrupting the search.
+            title=uc(search_term),
         )
         if not roms:
             return None
@@ -299,7 +301,8 @@ class MobyGamesHandler(MetadataHandler):
 
         matched_roms = await self.moby_service.list_games(
             platform_ids=[platform_moby_id],
-            title=quote(uc(search_term), safe="/ "),
+            # Raw term on purpose; see _search_rom for the double-encoding trap.
+            title=uc(search_term),
         )
 
         return [
