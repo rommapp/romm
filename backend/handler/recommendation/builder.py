@@ -360,6 +360,7 @@ class SimilarityBuilder:
         # platform) would otherwise both take a slot.
         edges: list[dict[str, Any]] = []
         taken_igdb_ids: set[int] = set()
+        taken_titles: set[str] = set()
         series_counts: dict[str, int] = {}
         source_title = feature.title_key
 
@@ -372,9 +373,14 @@ class SimilarityBuilder:
 
             # The same game on another platform is not a recommendation, and
             # IGDB gives ports their own id so the id check cannot catch it.
+            # Two ports of one game also collide with each other, not just
+            # with the source: a shelf holding Monopoly on both the GB and the
+            # NES otherwise spends two of six slots saying "Monopoly".
             candidate_title = features[candidate_id].title_key
-            if source_title and candidate_title == source_title:
-                continue
+            if candidate_title:
+                if candidate_title == source_title or candidate_title in taken_titles:
+                    continue
+                taken_titles.add(candidate_title)
 
             series = _series_tokens(features[candidate_id])
             if series and any(

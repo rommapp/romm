@@ -7,7 +7,11 @@ same source: writing the blob is what drives both.
 
 import pytest
 
-from handler.database import db_recommendation_handler, db_rom_handler
+from handler.database import (
+    db_platform_handler,
+    db_recommendation_handler,
+    db_rom_handler,
+)
 from handler.recommendation import SimilarityBuilder
 from models.platform import Platform
 from models.rom import Rom
@@ -205,6 +209,36 @@ def test_region_duplicates_are_not_recommendations(platform: Platform):
 
     neighbours = db_recommendation_handler.get_similar_rom_edges(usa.id)
     assert europe.id not in {edge.rom_id for edge in neighbours}
+
+
+def test_ports_of_one_game_take_a_single_slot(platform: Platform):
+    """Regression: the title check only compared candidates to the source.
+
+    IGDB gives each port its own id, so two ports of one game clear the
+    igdb_id check and, sharing no title with the source, both took a slot.
+    A section of six then spent two of them naming the same game.
+    """
+    other_platform = db_platform_handler.add_platform(
+        Platform(name="other", slug="other_slug", fs_slug="other_slug")
+    )
+    source = make_rom(
+        platform,
+        "100 Classic Games",
+        igdb_id=4001,
+        genres=["Card & Board Game"],
+    )
+    port_a = make_rom(platform, "Monopoly", igdb_id=4002, genres=["Card & Board Game"])
+    port_b = make_rom(
+        other_platform, "Monopoly", igdb_id=4003, genres=["Card & Board Game"]
+    )
+
+    SimilarityBuilder().build()
+
+    recommended = {
+        edge.rom_id
+        for edge in db_recommendation_handler.get_similar_rom_edges(source.id)
+    }
+    assert len({port_a.id, port_b.id} & recommended) == 1
 
 
 def test_igdb_similar_games_link_owned_roms(platform: Platform):
