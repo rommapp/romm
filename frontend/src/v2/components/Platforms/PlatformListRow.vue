@@ -10,7 +10,7 @@ import { RPlatformIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import {
-  playableTooltip,
+  playTooltip,
   usePlatformPlayable,
 } from "@/v2/composables/usePlatformPlayable";
 import {
@@ -19,6 +19,7 @@ import {
 } from "@/v2/composables/useViewTransition";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
+import PlayModeBadge from "./PlayModeBadge.vue";
 import {
   platformGenerationLabel,
   prettifyPlatformCategory,
@@ -70,8 +71,10 @@ const generationLabel = computed(() =>
     : null,
 );
 
-const { playable, emulator } = usePlatformPlayable(() => props.slug);
-const playableLabel = computed(() => playableTooltip(emulator.value));
+const { emulator, mode, streamLabel } = usePlatformPlayable(() => props.slug);
+const playableLabel = computed(() =>
+  playTooltip(mode.value, emulator.value, streamLabel.value),
+);
 
 function onRowClick(e: MouseEvent) {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
@@ -123,11 +126,20 @@ function onRowClick(e: MouseEvent) {
     <div
       class="plat-list-row__cell plat-list-row__cell--meta plat-list-row__cell--center"
     >
-      <span
+      <PlayModeBadge
+        v-if="mode"
         class="plat-list-row__playable"
-        :class="{ 'plat-list-row__playable--off': !playable }"
+        :mode="mode"
+        :emulator="emulator"
+        :stream-label="streamLabel"
+        :size="18"
+      />
+      <span
+        v-else
+        class="plat-list-row__playable plat-list-row__playable--off"
+        :aria-label="playableLabel"
       >
-        <RIcon :icon="playable ? 'mdi-play-circle' : 'mdi-cancel'" size="18" />
+        <RIcon icon="mdi-cancel" size="18" />
         <RTooltip activator="parent" :text="playableLabel" location="top" />
       </span>
     </div>
