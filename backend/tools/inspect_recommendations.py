@@ -15,6 +15,7 @@ Run from the backend directory:
     uv run tools/inspect_recommendations.py --platform snes
     uv run tools/inspect_recommendations.py --feed myusername
     uv run tools/inspect_recommendations.py --stats
+    uv run tools/inspect_recommendations.py --sample 40 --seed 7 --report out.html
 
 Reads the database configured by the usual env vars (DB_HOST, DB_NAME, ...).
 Point it at a copy of your library, not production: --build rewrites the
@@ -24,8 +25,10 @@ Point it at a copy of your library, not production: --build rewrites the
 from __future__ import annotations
 
 import argparse
+import html
 import os
 import random
+import shlex
 import sys
 from collections import Counter
 from typing import Any
@@ -155,6 +158,24 @@ def find_rom_ids_by_name(needle: str, limit: int) -> list[int]:
         return [row[0] for row in session.execute(stmt).all()]
 
 
+def neighbours_of(rom_id: int, limit: int, capped: bool) -> list[Any]:
+    """The edges a surface would render, over-fetched and capped like the endpoint."""
+    edges = db_recommendation_handler.get_similar_rom_edges(rom_id, limit=limit * 4)
+    if not edges:
+        return []
+
+    if not capped:
+        return edges[:limit]
+
+    hydrated = {
+        rom.id: rom
+        for rom in db_rom_handler.get_roms_simple_by_ids(
+            [edge.rom_id for edge in edges]
+        )
+    }
+    return cap_by_series(edges, lambda edge: hydrated.get(edge.rom_id), limit=limit)
+
+
 def print_rom(
     rom_id: int, info: dict[int, RomInfo], limit: int, capped: bool = True
 ) -> None:
@@ -170,25 +191,10 @@ def print_rom(
     print(f"  {summary or 'no metadata facets'}")
     print("-" * 78)
 
-    # Over-fetch and cap exactly like the endpoint, so this previews what the
-    # UI shows rather than the raw index.
-    edges = db_recommendation_handler.get_similar_rom_edges(rom_id, limit=limit * 4)
+    edges = neighbours_of(rom_id, limit, capped)
     if not edges:
         print("  (no neighbours -- unmatched metadata, or the index is not built)")
         return
-
-    if capped:
-        hydrated = {
-            rom.id: rom
-            for rom in db_rom_handler.get_roms_simple_by_ids(
-                [edge.rom_id for edge in edges]
-            )
-        }
-        edges = cap_by_series(
-            edges, lambda edge: hydrated.get(edge.rom_id), limit=limit
-        )
-    else:
-        edges = edges[:limit]
 
     neighbour_info = load_rom_info([edge.rom_id for edge in edges])
     for edge in edges:
@@ -227,7 +233,7 @@ def print_feed(username: str, limit: int) -> int:
     return 0
 
 
-def print_stats() -> None:
+def gather_stats() -> dict[str, Any]:
     with sync_session.begin() as session:
         total_roms = session.scalar(select(func.count()).select_from(Rom)) or 0
         edges = session.scalar(select(func.count()).select_from(RomSimilarity)) or 0
@@ -243,6 +249,30 @@ def print_stats() -> None:
         ).first()
         reason_rows = session.execute(select(RomSimilarity.reasons).limit(20_000)).all()
 
+    facet_counts: Counter[str] = Counter()
+    for (reasons,) in reason_rows:
+        for reason in reasons or ():
+            facet_counts[str(reason.get("facet"))] += 1
+
+    return {
+        "total_roms": total_roms,
+        "edges": edges,
+        "covered": covered,
+        "coverage": (covered / total_roms * 100) if total_roms else 0.0,
+        "avg_edges": (edges / covered) if covered else 0.0,
+        "score_bounds": score_bounds,
+        "facet_counts": facet_counts,
+    }
+
+
+def print_stats() -> None:
+    stats = gather_stats()
+    total_roms = stats["total_roms"]
+    edges = stats["edges"]
+    covered = stats["covered"]
+    score_bounds = stats["score_bounds"]
+    facet_counts = stats["facet_counts"]
+
     print()
     print("=" * 78)
     print("Index health")
@@ -250,21 +280,16 @@ def print_stats() -> None:
     print(f"  roms in library      {total_roms:>10,}")
     print(
         f"  roms with neighbours {covered:>10,}"
-        f"  ({(covered / total_roms * 100 if total_roms else 0):.1f}% coverage)"
+        f"  ({stats['coverage']:.1f}% coverage)"
     )
     print(f"  edges                {edges:>10,}")
     if covered:
-        print(f"  avg edges per rom    {edges / covered:>10.1f}")
+        print(f"  avg edges per rom    {stats['avg_edges']:>10.1f}")
     if score_bounds and score_bounds[0] is not None:
         print(
             f"  score min/avg/max    "
             f"{score_bounds[0]:.3f} / {float(score_bounds[1]):.3f} / {score_bounds[2]:.3f}"
         )
-
-    facet_counts: Counter[str] = Counter()
-    for (reasons,) in reason_rows:
-        for reason in reasons or ():
-            facet_counts[str(reason.get("facet"))] += 1
 
     if facet_counts:
         print()
@@ -285,6 +310,141 @@ def print_stats() -> None:
                 f"  NOTE: {top_facet} accounts for over 80% of matches. Expect weak "
                 "recommendations until more metadata is scraped."
             )
+
+
+REPORT_CSS = """
+:root { color-scheme: light dark; --bg: #fff; --fg: #1a1a1a; --dim: #666;
+        --line: #e3e3e3; --card: #fafafa; --accent: #2f6f4f; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #131316; --fg: #e8e8ea; --dim: #9a9aa2; --line: #2a2a30;
+          --card: #1b1b20; --accent: #6fcf97; }
+}
+* { box-sizing: border-box; }
+body { margin: 0 auto; padding: 2rem 1.25rem 4rem; max-width: 60rem; background: var(--bg);
+       color: var(--fg); font: 15px/1.55 ui-sans-serif, system-ui, sans-serif; }
+h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+h2 { font-size: 1.05rem; margin: 0 0 .1rem; }
+.sub { color: var(--dim); font-size: .85rem; margin: 0 0 2rem; }
+.health { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+          gap: .75rem; margin: 0 0 1rem; }
+.health div { background: var(--card); border: 1px solid var(--line);
+              border-radius: .5rem; padding: .6rem .75rem; }
+.health b { display: block; font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.health span { color: var(--dim); font-size: .75rem; text-transform: uppercase;
+               letter-spacing: .04em; }
+.game { border: 1px solid var(--line); border-radius: .5rem; margin: 0 0 1rem;
+        overflow: hidden; }
+.game > header { background: var(--card); padding: .7rem .9rem;
+                 border-bottom: 1px solid var(--line); }
+.plat { color: var(--dim); font-weight: 400; font-size: .85rem; }
+.facets { color: var(--dim); font-size: .8rem; margin: .2rem 0 0; }
+table { width: 100%; border-collapse: collapse; }
+td { padding: .4rem .9rem; border-top: 1px solid var(--line); vertical-align: top; }
+tr:first-child td { border-top: 0; }
+.score { font-variant-numeric: tabular-nums; color: var(--accent); width: 4.5rem;
+         font-weight: 600; }
+.why { color: var(--dim); font-size: .8rem; }
+.none { padding: .7rem .9rem; color: var(--dim); font-size: .85rem; }
+.bars { margin: 0 0 2rem; }
+.bars tr td { border: 0; padding: .15rem .5rem .15rem 0; }
+.bar { background: var(--accent); height: .55rem; border-radius: .3rem; display: block; }
+footer { color: var(--dim); font-size: .8rem; margin-top: 2.5rem;
+         border-top: 1px solid var(--line); padding-top: 1rem; }
+"""
+
+
+def esc(value: Any) -> str:
+    return html.escape(str(value if value is not None else ""), quote=True)
+
+
+def write_report(
+    path: str,
+    rom_ids: list[int],
+    info: dict[int, RomInfo],
+    limit: int,
+    capped: bool,
+    command: str,
+) -> None:
+    """Write the sampled games to a self-contained HTML page.
+
+    The terminal output is for the person running the tool; this is for
+    sending to someone who has not got the library.
+    """
+    stats = gather_stats()
+    out: list[str] = [
+        "<!doctype html><html lang=en><head><meta charset=utf-8>",
+        '<meta name="viewport" content="width=device-width,initial-scale=1">',
+        "<title>RomM recommendations sample</title>",
+        f"<style>{REPORT_CSS}</style></head><body>",
+        "<h1>RomM recommendations sample</h1>",
+        f"<p class=sub>{len(rom_ids)} games, "
+        f"{'capped as the UI renders them' if capped else 'raw index, uncapped'}. "
+        f"Reproduce with <code>{esc(command)}</code></p>",
+        "<div class=health>",
+        f"<div><span>Library</span><b>{stats['total_roms']:,}</b></div>",
+        f"<div><span>Coverage</span><b>{stats['coverage']:.1f}%</b></div>",
+        f"<div><span>Edges</span><b>{stats['edges']:,}</b></div>",
+        f"<div><span>Edges per game</span><b>{stats['avg_edges']:.1f}</b></div>",
+        "</div>",
+    ]
+
+    facet_counts = stats["facet_counts"]
+    if facet_counts:
+        total = sum(facet_counts.values())
+        out.append("<table class=bars>")
+        for facet, count in facet_counts.most_common():
+            share = count / total * 100
+            out.append(
+                f"<tr><td class=why>{esc(facet)}</td>"
+                f"<td class=why>{share:.1f}%</td>"
+                f"<td style='width:60%'><span class=bar "
+                f"style='width:{share:.1f}%'></span></td></tr>"
+            )
+        out.append("</table>")
+
+    for rom_id in rom_ids:
+        source = info.get(rom_id)
+        name = esc(source.name if source else f"rom {rom_id}")
+        platform = esc(source.platform if source else "?")
+        facets = load_facets(rom_id)
+        summary = " · ".join(
+            f"{key}={', '.join(values)}" for key, values in facets.items() if values
+        )
+        out.append(
+            f"<section class=game><header><h2>{name} "
+            f"<span class=plat>({platform})</span></h2>"
+            f"<p class=facets>{esc(summary) or 'no metadata facets'}</p></header>"
+        )
+
+        edges = neighbours_of(rom_id, limit, capped)
+        if not edges:
+            out.append("<p class=none>No neighbours.</p></section>")
+            continue
+
+        neighbour_info = load_rom_info([edge.rom_id for edge in edges])
+        out.append("<table>")
+        for edge in edges:
+            neighbour = neighbour_info.get(edge.rom_id)
+            label = esc(neighbour.name if neighbour else f"rom {edge.rom_id}")
+            plat = esc(neighbour.platform if neighbour else "?")
+            out.append(
+                f"<tr><td class=score>{edge.score:.3f}</td>"
+                f"<td>{label} <span class=plat>({plat})</span></td>"
+                f"<td class=why>{esc(format_reasons(edge.reasons))}</td></tr>"
+            )
+        out.append("</table></section>")
+
+    out.append(
+        "<footer>Games are sampled at random from the indexed library, not chosen. "
+        "Pass the same <code>--seed</code> against your own library to generate "
+        "the equivalent page for a shelf this tool has never seen.</footer>"
+    )
+    out.append("</body></html>")
+
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(out))
+
+    print(f"\nWrote {path}")
 
 
 def main() -> int:
@@ -312,6 +472,11 @@ def main() -> int:
         "--raw",
         action="store_true",
         help="Show the uncapped index instead of what the UI would render",
+    )
+    parser.add_argument(
+        "--report",
+        metavar="PATH",
+        help="Also write the sample to a self-contained HTML page",
     )
     args = parser.parse_args()
 
@@ -355,6 +520,35 @@ def main() -> int:
 
     print()
     print_stats()
+
+    if args.report:
+        # The report path is whatever the reader chooses, so it is replaced
+        # rather than echoed: the point of the line is the sampling flags.
+        flags: list[str] = []
+        skip_next = False
+        for token in sys.argv[1:]:
+            if skip_next:
+                skip_next = False
+                continue
+            if token == "--report":
+                skip_next = True
+                continue
+            if token.startswith("--report="):
+                continue
+            flags.append(token)
+
+        write_report(
+            args.report,
+            rom_ids,
+            info,
+            args.limit,
+            capped=not args.raw,
+            command=shlex.join(
+                ["uv", "run", "tools/inspect_recommendations.py", *flags]
+                + ["--report", "out.html"]
+            ),
+        )
+
     return 0
 
 
