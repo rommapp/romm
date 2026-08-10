@@ -463,13 +463,61 @@ class DesktopSessionRequest(BaseModel):
     container: Annotated[str, Field(min_length=1, max_length=300)]
 
 
+# Keys a platform block may set for itself. Everything else on a container
+# describes the container, not one platform it serves.
+PLATFORM_OVERRIDE_KEYS = ("emulator", "label", "memory_card_sync")
+
+
+def _platform_row(
+    base: dict[str, Any], platform: str, options: Any
+) -> dict[str, Any] | None:
+    """One expanded row for a platform, or None when the entry is unusable.
+
+    `options` is either the emulator name or a block overriding container keys.
+    """
+    if isinstance(options, str):
+        emulator = options.strip()
+        overrides: dict[str, Any] = {}
+    elif isinstance(options, dict):
+        raw = options.get("emulator")
+        emulator = raw.strip() if isinstance(raw, str) else ""
+        overrides = {
+            k: v
+            for k, v in options.items()
+            if k in PLATFORM_OVERRIDE_KEYS and k != "emulator"
+        }
+        for key in options:
+            if key not in PLATFORM_OVERRIDE_KEYS:
+                log.warning(
+                    "container platform '%s' sets unknown option '%s', ignoring",
+                    platform,
+                    key,
+                )
+    else:
+        log.warning(
+            "container platform '%s' must name an emulator or set a block of "
+            "options, skipping",
+            platform,
+        )
+        return None
+
+    if not emulator:
+        # The emulator names the state and card namespace, so guessing one
+        # would file this platform's saves under another container.
+        log.warning("container platform '%s' has no emulator, skipping", platform)
+        return None
+
+    return {**base, **overrides, "platform": platform, "emulator": emulator}
+
+
 def _expand_containers(entries: Any) -> list[dict[str, Any]]:
     """One entry per (container, platform).
 
     A container declaring `platforms` yields a copy per platform with
-    `platform` and `emulator` filled in; a flat entry yields itself. Every copy
-    keeps the same host, so `_container_key` collapses them back into the one
-    session the container can actually serve.
+    `platform` and `emulator` filled in; a flat entry yields itself. A map
+    value is either the emulator name or a block overriding container keys for
+    that one platform. Every copy keeps the same host, so `_container_key`
+    collapses them back into the one session the container can actually serve.
     """
     expanded: list[dict[str, Any]] = []
     for entry in entries or []:
@@ -495,22 +543,15 @@ def _expand_containers(entries: Any) -> list[dict[str, Any]]:
             )
 
         base = {k: v for k, v in entry.items() if k != "platforms"}
-        for platform, emulator in platforms.items():
+        for platform, options in platforms.items():
             if not isinstance(platform, str) or not platform.strip():
                 log.warning(
                     "container platform key is not a name, skipping: %r", platform
                 )
                 continue
-            if not isinstance(emulator, str) or not emulator.strip():
-                # The emulator names the state and card namespace, so guessing
-                # one would file this platform's saves under another container.
-                log.warning(
-                    "container platform '%s' has no emulator, skipping", platform
-                )
-                continue
-            expanded.append(
-                {**base, "platform": platform.strip(), "emulator": emulator.strip()}
-            )
+            row = _platform_row(base, platform.strip(), options)
+            if row is not None:
+                expanded.append(row)
     return expanded
 
 

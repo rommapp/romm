@@ -162,13 +162,22 @@ class NetplayICEServer(TypedDict):
     credential: NotRequired[str]
 
 
+class StreamingPlatformOverride(TypedDict):
+    # Names the state and card namespace, so it has no container-level default.
+    emulator: str
+    # Anything set here wins over the same key on the container.
+    label: NotRequired[str]
+    memory_card_sync: NotRequired[bool]
+
+
 class StreamingContainer(TypedDict):
     # A container declares either one platform (the per-emulator mods) or a
     # `platforms` map (one webstation serving many). Exactly one of the two.
     platform: NotRequired[str]
-    # Platform slug to the emulator that serves it, replacing platform +
+    # Platform slug to the emulator that serves it, or to a block of options
+    # overriding container keys for that platform, replacing platform +
     # emulator on a container that hosts more than one.
-    platforms: NotRequired[dict[str, str]]
+    platforms: NotRequired[dict[str, str | StreamingPlatformOverride]]
     host: str
     broker_host: str
     label: str

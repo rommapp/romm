@@ -4244,3 +4244,79 @@ def test_joining_requires_auth(client, rom: Rom):
     with _streaming(_ws_for(rom)):
         r = client.post(f"/api/streaming/sessions/{rom.platform_slug}/join")
     assert r.status_code == 401
+
+
+# ── Container expansion ───────────────────────────────────────────────────────
+
+
+def test_expand_platform_block_overrides_container_defaults():
+    """A platform block is the per-platform default, the container is the
+    fallback, so one webstation can label each emulator for itself."""
+    expanded = streaming._expand_containers(
+        [
+            {
+                "host": "http://box:3010",
+                "label": "Emulation station",
+                "memory_card_sync": False,
+                "platforms": {
+                    "ps2": {
+                        "emulator": "pcsx2",
+                        "label": "PCSX2",
+                        "memory_card_sync": True,
+                    },
+                    "wii": {"emulator": "dolphin"},
+                    "snes": "retroarch",
+                },
+            }
+        ]
+    )
+
+    by_platform = {row["platform"]: row for row in expanded}
+    assert by_platform["ps2"]["emulator"] == "pcsx2"
+    assert by_platform["ps2"]["label"] == "PCSX2"
+    assert by_platform["ps2"]["memory_card_sync"] is True
+    # A block that omits a key falls through to the container.
+    assert by_platform["wii"]["emulator"] == "dolphin"
+    assert by_platform["wii"]["label"] == "Emulation station"
+    assert by_platform["wii"]["memory_card_sync"] is False
+    # The bare string form keeps inheriting everything from the container.
+    assert by_platform["snes"]["emulator"] == "retroarch"
+    assert by_platform["snes"]["label"] == "Emulation station"
+    assert by_platform["snes"]["memory_card_sync"] is False
+
+
+def test_expand_platform_block_without_an_emulator_is_skipped():
+    """The emulator names the state and card namespace, so a block that omits
+    it is dropped rather than guessed, and its siblings still expand."""
+    expanded = streaming._expand_containers(
+        [
+            {
+                "host": "http://box:3010",
+                "platforms": {"ps2": {"label": "PCSX2"}, "snes": "retroarch"},
+            }
+        ]
+    )
+
+    assert [row["platform"] for row in expanded] == ["snes"]
+
+
+def test_expand_platform_block_ignores_an_unknown_option():
+    expanded = streaming._expand_containers(
+        [
+            {
+                "host": "http://box:3010",
+                "platforms": {"ps2": {"emulator": "pcsx2", "nonsense": 1}},
+            }
+        ]
+    )
+
+    assert len(expanded) == 1
+    assert "nonsense" not in expanded[0]
+
+
+def test_expand_platform_value_that_is_neither_name_nor_block_is_skipped():
+    expanded = streaming._expand_containers(
+        [{"host": "http://box:3010", "platforms": {"ps2": 42, "snes": "retroarch"}}]
+    )
+
+    assert [row["platform"] for row in expanded] == ["snes"]
