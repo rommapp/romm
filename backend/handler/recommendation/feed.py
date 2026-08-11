@@ -348,5 +348,11 @@ def invalidate_cached_feed(user_id: int) -> None:
         sync_cache.delete(key)
 
 
+def invalidate_all_cached_feeds() -> None:
+    """Drop every user's ranking, for when the graph underneath it changes."""
+    for key in sync_cache.scan_iter(f"{FEED_CACHE_PREFIX}:*"):
+        sync_cache.delete(key)
+
+
 def _cache_key(user_id: int, limit: int) -> str:
     return f"{FEED_CACHE_PREFIX}:{user_id}:{limit}"

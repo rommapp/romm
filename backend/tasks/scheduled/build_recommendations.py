@@ -4,7 +4,11 @@ from config import (
     ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS,
     SCHEDULED_BUILD_RECOMMENDATIONS_CRON,
 )
-from handler.recommendation import BuildStats, SimilarityBuilder
+from handler.recommendation import (
+    BuildStats,
+    SimilarityBuilder,
+    invalidate_all_cached_feeds,
+)
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType
 from utils.context import initialize_context
@@ -46,6 +50,9 @@ class BuildRecommendationsTask(PeriodicTask):
         except Exception:
             log.error("Failed to build recommendations index", exc_info=True)
             raise
+
+        # Every cached ranking was computed against the previous graph.
+        invalidate_all_cached_feeds()
 
         log.info(
             f"Recommendations index rebuilt: {build_stats.edges_written} edges "
