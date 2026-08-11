@@ -74,7 +74,7 @@ from handler.metadata import (
 )
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
-from handler.recommendation import cap_by_series, invalidate_cached_feed
+from handler.recommendation import cap_by_series
 from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -123,12 +123,8 @@ router.include_router(patch_router)
 # RomUser fields the statuses filter branches on.
 STATUS_MEMBERSHIP_FIELDS = frozenset({"status", "now_playing", "backlogged", "hidden"})
 
+
 # RomUser fields that feed the recommendation ranking.
-RECOMMENDATION_SEED_FIELDS = frozenset(
-    {"rating", "status", "last_played", "now_playing", "hidden"}
-)
-
-
 def safe_int_or_none(value: Any) -> int | None:
     if value is None or value == "":
         return None
@@ -2274,11 +2270,5 @@ async def update_rom_user(
     # ROM from every user-scoped query, so any of them can move membership.
     if STATUS_MEMBERSHIP_FIELDS & cleaned_data.keys():
         refresh_affected_smart_collections([id], membership_only=True)
-
-    # These are the fields the recommendation feed scores on, so a rating or a
-    # finished playthrough should reshape it now rather than when its cache
-    # happens to expire.
-    if RECOMMENDATION_SEED_FIELDS & cleaned_data.keys():
-        invalidate_cached_feed(request.user.id)
 
     return RomUserSchema.model_validate(rom_user)

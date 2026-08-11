@@ -160,10 +160,10 @@ async def main() -> None:
         if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
             log.info("Starting scheduled convert images to webp")
             convert_images_to_webp_task.init()
+            _enqueue_convert_images_to_webp()
         if ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS:
             log.info("Starting scheduled recommendations index build")
             build_recommendations_task.init()
-            _enqueue_convert_images_to_webp()
         if ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC:
             log.info("Starting scheduled RetroAchievements progress sync")
             sync_retroachievements_progress_task.init()
