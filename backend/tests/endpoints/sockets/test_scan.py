@@ -17,6 +17,7 @@ from endpoints.sockets.scan import (
     stop_scan_handler,
 )
 from exceptions.fs_exceptions import FolderStructureNotMatchException
+from exceptions.socket_exceptions import ScanStoppedException
 from handler.auth.constants import Scope
 from handler.database.roms_handler import SyncedRomFiles
 from handler.filesystem.roms_handler import (
@@ -1093,6 +1094,33 @@ class TestScanSelectedRoms:
         assert fs_rom["nested"] is True
         assert fs_rom["flat"] is False
 
+    async def test_a_scan_stopped_mid_flight_raises(self, mocker, platform, rom):
+        """`_identify_rom` returns rather than raises on the stop flag, so a stop
+        that lands after the run started has to be re-checked here or the scan
+        falls through to its post-scan work and reports itself done."""
+        # Unset when _scan_selected_roms starts, set by the time it finishes.
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(side_effect=[None, "1"]))
+        )
+        mocker.patch.object(
+            scan_module.fs_rom_handler, "file_exists", AsyncMock(return_value=True)
+        )
+        mocker.patch.object(scan_module, "db_rom_handler")
+        mocker.patch.object(scan_module, "_identify_rom", side_effect=AsyncMock())
+
+        with pytest.raises(ScanStoppedException):
+            await _scan_selected_roms(
+                platform=platform,
+                roms=[rom],
+                scan_type=ScanType.COMPLETE,
+                roms_ids=[rom.id],
+                metadata_sources=[],
+                launchbox_remote_enabled=False,
+                playmatch_enabled=False,
+                socket_manager=AsyncMock(),
+                scan_stats=AsyncMock(),
+            )
+
 
 class TestScopedScanSkipsLibraryWork:
     """`scan_platforms` with `roms_ids` must not fall into the library pipeline."""
@@ -1167,6 +1195,31 @@ class TestScopedScanSkipsLibraryWork:
         # Totals come from the selection, not from counting the platform folder.
         assert result.total_platforms == 1
         assert result.total_roms == 1
+
+    async def test_totals_exclude_roms_whose_platform_is_gone(self, patched, mocker):
+        """A rom whose platform row vanished can't be scanned, so counting it
+        would leave the tracker short of its own total forever."""
+        mocker.patch.object(
+            scan_module.db_rom_handler,
+            "get_roms_by_ids",
+            return_value=[
+                MagicMock(id=7, platform_id=1),
+                MagicMock(id=8, platform_id=99),
+            ],
+        )
+
+        result = await scan_platforms(
+            platform_ids=[1],
+            metadata_sources=[],
+            scan_type=ScanType.COMPLETE,
+            roms_ids=[7, 8],
+        )
+
+        # Only platform 1 exists, so only its rom is counted and scanned.
+        assert result.total_platforms == 1
+        assert result.total_roms == 1
+        patched["scoped"].assert_called_once()
+        assert [r.id for r in patched["scoped"].call_args.kwargs["roms"]] == [7]
 
     async def test_only_the_selected_roms_smart_collections_are_recounted(
         self, patched

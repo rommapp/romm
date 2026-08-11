@@ -693,6 +693,12 @@ async def _scan_selected_roms(
         if isinstance(result, Exception):
             log.error(f"Error scanning ROM {rom.fs_name}: {result}")
 
+    # `_identify_rom` returns rather than raises when the flag is set, so a scan
+    # stopped mid-gather would otherwise fall through to the post-scan work and
+    # report itself done, leaving the flag set behind it.
+    if redis_client.get(STOP_SCAN_FLAG):
+        raise ScanStoppedException()
+
     if MetadataSource.SS in metadata_sources:
         log_ss_quota()
 
@@ -991,13 +997,18 @@ async def scan_platforms(
     db_platforms_by_id = {p.id: p for p in db_platforms}
 
     if roms_ids:
-        scoped_platforms = [
-            db_platforms_by_id[platform_id]
-            for platform_id in scoped_roms_by_platform
+        # A rom whose platform row is gone can't be scanned, so drop it here
+        # rather than count it toward a total the scan will never reach.
+        scoped_roms_by_platform = {
+            platform_id: scoped_roms
+            for platform_id, scoped_roms in scoped_roms_by_platform.items()
             if platform_id in db_platforms_by_id
-        ]
-        platform_list = sorted(p.fs_slug for p in scoped_platforms)
-        total_platforms = len(scoped_platforms)
+        }
+        platform_list = sorted(
+            db_platforms_by_id[platform_id].fs_slug
+            for platform_id in scoped_roms_by_platform
+        )
+        total_platforms = len(scoped_roms_by_platform)
         total_roms = sum(len(roms) for roms in scoped_roms_by_platform.values())
     else:
         # Selected platforms arrive as database ids and/or filesystem slugs.
@@ -1049,12 +1060,8 @@ async def scan_platforms(
             log.info(f"Scanning {hl(str(total_roms))} selected roms")
 
             for platform_id, scoped_roms in scoped_roms_by_platform.items():
-                platform = db_platforms_by_id.get(platform_id)
-                if platform is None:
-                    continue
-
                 scan_stats = await _scan_selected_roms(
-                    platform=platform,
+                    platform=db_platforms_by_id[platform_id],
                     roms=scoped_roms,
                     scan_type=scan_type,
                     roms_ids=roms_ids,
