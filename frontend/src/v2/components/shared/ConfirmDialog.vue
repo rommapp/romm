@@ -55,6 +55,8 @@ function onShow(p: Payload) {
   });
 }
 
+// Closing without picking (header X, route change) counts as a cancel.
+// `useConfirm`'s promise is awaited, so it has to settle either way.
 function resolve(confirmed: boolean) {
   const id = payload.value?.id;
   open.value = false;
@@ -77,7 +79,7 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
 </script>
 
 <template>
-  <RDialog v-model="open" width="440" persistent>
+  <RDialog v-model="open" width="440" persistent @close="onCancel">
     <template v-if="payload" #header>
       <span>{{ payload.title }}</span>
     </template>
