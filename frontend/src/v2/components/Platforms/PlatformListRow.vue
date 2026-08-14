@@ -234,7 +234,6 @@ function onRowClick(e: MouseEvent) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--r-color-success);
 }
 
 .plat-list-row__playable--off {

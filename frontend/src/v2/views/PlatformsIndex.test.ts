@@ -198,6 +198,8 @@ describe("PlatformsIndex", () => {
       .map((h) => h.text());
     expect(headings).toContain("Playable");
     expect(headings).not.toContain("Not playable");
+  });
+
   describe("search", () => {
     function seed() {
       storePlatforms().set([
@@ -326,4 +328,4 @@ describe("PlatformsIndex", () => {
       expect(wrapper.text()).toContain("Arcade 7");
     });
   });
-})
+});

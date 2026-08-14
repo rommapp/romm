@@ -202,6 +202,26 @@ def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_t
     assert caps["autosave_slot"] == 10
 
 
+def test_get_config_ships_per_platform_label_overrides(client, access_token):
+    """The headline promise of a shared webstation container: a PS2 row can
+    say "PCSX2" while its siblings keep the container's fallback label."""
+    container = {
+        "host": "http://box:3010",
+        "protocol": "webstation",
+        "label": "Emulation station",
+        "platforms": {
+            "wii": "dolphin",
+            "ps2": {"emulator": "pcsx2", "label": "PCSX2"},
+        },
+    }
+    with _streaming(container):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert r.status_code == 200
+    by_platform = {c["platform"]: c for c in r.json()["containers"]}
+    assert by_platform["wii"]["label"] == "Emulation station"
+    assert by_platform["ps2"]["label"] == "PCSX2"
+
+
 def test_a_platform_entry_wins_over_the_emulator_fallback():
     """ngc has its own slot semantics, so serving it through RetroArch must not
     quietly replace them."""
@@ -341,6 +361,33 @@ def test_nested_platforms_reject_a_second_claim_across_platforms(
         second = _claim_ok(client, access_token, ngc_rom.id)
     assert first.status_code == 200
     assert second.status_code == 409
+
+
+def _webstation_nested(**overrides):
+    """A webstation container serving several platforms with a bare stream
+    host and no explicit broker_host, the shape the example config
+    documents as the headline case."""
+    return {
+        "host": "http://box:3010",
+        "protocol": "webstation",
+        "platforms": {
+            "wii": "dolphin",
+            "ps2": {"emulator": "pcsx2", "label": "PCSX2"},
+        },
+        **overrides,
+    }
+
+
+def test_webstation_nested_platforms_share_one_session_key():
+    """Tasks 6 and 7 each have their own tests; this pins the combination
+    the example config documents: no explicit broker_host still derives one
+    shared key across the container's expanded platform rows."""
+    with _streaming(_webstation_nested()):
+        wii = _first_container("wii")
+        ps2 = _first_container("ps2")
+    assert wii is not None and ps2 is not None
+    assert streaming._container_key(wii) == streaming._container_key(ps2)
+    assert streaming._container_key(wii) == "http://box:3010"
 
 
 def test_nested_platforms_ship_one_config_row_each(client, access_token):

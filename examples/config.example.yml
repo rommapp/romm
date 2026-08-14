@@ -193,11 +193,11 @@
 #   containers:
 #     # One container serving many platforms. Every key on the container is the
 #     # default for every platform it serves; a platform block overrides it.
-#     # This is the general rule, so options added later work at either level.
+#     # A platform block may only override emulator, label, and memory_card_sync.
 #     - # Browser-facing Selkies web UI, MUST be served over https
 #       # (use a reverse proxy or the built in self signed cert for linuxserver)
 #       # can also be a FQDN eg. https://your.example.com
-#       host: http://192.168.1.56:3010
+#       host: https://192.168.1.56:3010
 #       protocol: webstation
 #       # URL prefix the broker is served under, matching the container's
 #       # SUBFOLDER setting.
