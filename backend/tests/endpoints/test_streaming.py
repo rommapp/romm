@@ -363,7 +363,7 @@ def test_nested_platforms_reject_a_second_claim_across_platforms(
     assert second.status_code == 409
 
 
-def _webstation_nested(**overrides):
+def _webstation_nested():
     """A webstation container serving several platforms with a bare stream
     host and no explicit broker_host, the shape the example config
     documents as the headline case."""
@@ -374,7 +374,6 @@ def _webstation_nested(**overrides):
             "wii": "dolphin",
             "ps2": {"emulator": "pcsx2", "label": "PCSX2"},
         },
-        **overrides,
     }
 
 

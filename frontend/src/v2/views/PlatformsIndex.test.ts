@@ -114,7 +114,6 @@ vi.mock("@/v2/composables/usePlatformPlayable", () => ({
     isStreamable: ref((slug: string | null | undefined) =>
       slug ? streamableSlugs.has(slug) : false,
     ),
-    getMode: ref(() => null),
   }),
 }));
 

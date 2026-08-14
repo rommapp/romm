@@ -64,20 +64,16 @@ beforeEach(() => {
 describe("usePlatformPlayable", () => {
   it("resolves browser-only as browser", () => {
     ejsSlugs.add("snes");
-    const { mode, playable, streamable } = usePlatformPlayable(() => "snes");
+    const { mode, playable } = usePlatformPlayable(() => "snes");
     expect(mode.value).toBe("browser");
     expect(playable.value).toBe(true);
-    expect(streamable.value).toBe(false);
   });
 
   it("resolves streaming-only as stream and carries the container label", () => {
     streamContainers.set("ps2", { label: "PCSX2", emulator: "pcsx2" });
-    const { mode, playable, streamable, streamLabel } = usePlatformPlayable(
-      () => "ps2",
-    );
+    const { mode, playable, streamLabel } = usePlatformPlayable(() => "ps2");
     expect(mode.value).toBe("stream");
     expect(playable.value).toBe(false);
-    expect(streamable.value).toBe(true);
     expect(streamLabel.value).toBe("PCSX2");
   });
 
@@ -102,8 +98,7 @@ describe("usePlatformPlayable", () => {
   it("reports nothing streamable when streaming is disabled", () => {
     streamingEnabled.value = false;
     streamContainers.set("ps2", { label: "PCSX2", emulator: "pcsx2" });
-    const { mode, streamable, streamLabel } = usePlatformPlayable(() => "ps2");
-    expect(streamable.value).toBe(false);
+    const { mode, streamLabel } = usePlatformPlayable(() => "ps2");
     expect(streamLabel.value).toBeNull();
     expect(mode.value).toBeNull();
   });
@@ -113,12 +108,9 @@ describe("usePlatformPlayableChecker", () => {
   it("agrees with the reactive form for the same slug", () => {
     ejsSlugs.add("snes");
     streamContainers.set("ps2", { label: "PCSX2", emulator: "pcsx2" });
-    const { isStreamable, getMode } = usePlatformPlayableChecker();
+    const { isStreamable } = usePlatformPlayableChecker();
     expect(isStreamable.value("ps2")).toBe(true);
     expect(isStreamable.value("snes")).toBe(false);
-    expect(getMode.value("snes")).toBe("browser");
-    expect(getMode.value("ps2")).toBe("stream");
-    expect(getMode.value("xbox")).toBeNull();
   });
 
   it("reports nothing streamable when streaming is disabled", () => {

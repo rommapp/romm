@@ -650,6 +650,20 @@ def _containers_by_key() -> dict[str, list[dict[str, Any]]]:
     return grouped
 
 
+def _container_label(container_key: str, entries: list[dict[str, Any]]) -> str | None:
+    """The container's own default label, ignoring any per-platform override.
+
+    `label` is a PLATFORM_OVERRIDE_KEYS entry, so `entries[0]` may carry a
+    platform-specific override rather than the container's default. Look it
+    up on the raw, pre-expansion config entry instead.
+    """
+    raw_containers: Any = cm.get_config().STREAMING_CONTAINERS or []
+    for raw in raw_containers:
+        if isinstance(raw, dict) and _container_key(raw) == container_key:
+            return raw.get("label")
+    return entries[0].get("label") if entries else None
+
+
 def _container_for_session(
     grouped: dict[str, list[dict[str, Any]]], container_key: str, platform: Any
 ) -> dict[str, Any] | None:
@@ -3541,7 +3555,7 @@ async def list_containers(request: Request) -> JSONResponse:
         containers.append(
             {
                 "container": container_key,
-                "label": first.get("label"),
+                "label": _container_label(container_key, entries),
                 "host": first.get("host"),
                 "platforms": [e.get("platform") for e in entries if e.get("platform")],
                 # The desktop emulator lives on the webstation broker only; the

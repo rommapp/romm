@@ -63,7 +63,6 @@ export function usePlatformPlayable(getSlug: () => string | null | undefined): {
   playableEJS: ComputedRef<boolean>;
   playableRuffle: ComputedRef<boolean>;
   emulator: ComputedRef<PlatformEmulator>;
-  streamable: ComputedRef<boolean>;
   streamLabel: ComputedRef<string | null>;
   mode: ComputedRef<PlatformPlayMode>;
 } {
@@ -118,7 +117,6 @@ export function usePlatformPlayable(getSlug: () => string | null | undefined): {
     playableEJS,
     playableRuffle,
     emulator,
-    streamable,
     streamLabel,
     mode,
   };
@@ -130,7 +128,6 @@ export function usePlatformPlayableChecker(): {
     (slug: string | null | undefined) => PlatformEmulator
   >;
   isStreamable: ComputedRef<(slug: string | null | undefined) => boolean>;
-  getMode: ComputedRef<(slug: string | null | undefined) => PlatformPlayMode>;
 } {
   const heartbeatStore = storeHeartbeat();
   const configStore = storeConfig();
@@ -167,14 +164,7 @@ export function usePlatformPlayableChecker(): {
       cfg.enabled && streamingStore.containerForPlatform(slug) !== null;
   });
 
-  const getMode = computed(() => {
-    const playableFn = isPlayable.value;
-    const streamableFn = isStreamable.value;
-    return (slug: string | null | undefined): PlatformPlayMode =>
-      resolveMode(playableFn(slug), streamableFn(slug));
-  });
-
-  return { isPlayable, getEmulator, isStreamable, getMode };
+  return { isPlayable, getEmulator, isStreamable };
 }
 
 /** Human-readable tooltip for the play badge / column. Shared by every

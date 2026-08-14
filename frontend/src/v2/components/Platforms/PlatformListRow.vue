@@ -8,11 +8,9 @@
 // and list modes lands on the same destination animation.
 import { RPlatformIcon } from "@v2/lib";
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
-import {
-  playTooltip,
-  usePlatformPlayable,
-} from "@/v2/composables/usePlatformPlayable";
+import { usePlatformPlayable } from "@/v2/composables/usePlatformPlayable";
 import {
   pendingMorphName,
   useViewTransition,
@@ -49,6 +47,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const router = useRouter();
+const { t } = useI18n();
 const iconEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
 
@@ -72,9 +71,9 @@ const generationLabel = computed(() =>
 );
 
 const { emulator, mode, streamLabel } = usePlatformPlayable(() => props.slug);
-const playableLabel = computed(() =>
-  playTooltip(mode.value, emulator.value, streamLabel.value),
-);
+// PlayModeBadge covers every mode where the platform is playable; this
+// label only ever renders in the v-else "not playable" branch below.
+const playableLabel = computed(() => t("platform.playable-none"));
 
 function onRowClick(e: MouseEvent) {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
@@ -137,6 +136,7 @@ function onRowClick(e: MouseEvent) {
       <span
         v-else
         class="plat-list-row__playable plat-list-row__playable--off"
+        role="img"
         :aria-label="playableLabel"
       >
         <RIcon icon="mdi-cancel" size="18" />
