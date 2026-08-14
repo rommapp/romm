@@ -272,11 +272,12 @@ class FSHandler:
         excluded_extensions = cnfg.EXCLUDED_SINGLE_EXT
         excluded_names = cnfg.EXCLUDED_SINGLE_FILES
 
+        # Built once rather than per file, and endswith takes the whole tuple.
+        excluded_suffixes = tuple(f".{ext}" for ext in excluded_extensions)
+
         def is_excluded(file_name: str) -> bool:
             # Check whether the filename ends with any excluded extension entry.
-            if any(
-                file_name.lower().endswith("." + ext) for ext in excluded_extensions
-            ):
+            if file_name.lower().endswith(excluded_suffixes):
                 return True
 
             # Check if the file name matches a pattern in the excluded list.

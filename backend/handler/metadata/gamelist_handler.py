@@ -377,7 +377,9 @@ class GamelistHandler(MetadataHandler):
         xml_content = gamelist_path.read_text(encoding="utf-8", errors="replace")
         xml_content = ALTERNATIVE_EMULATOR_SELF_CLOSING_RE.sub("", xml_content)
         xml_content = ALTERNATIVE_EMULATOR_PAIRED_RE.sub("", xml_content)
-        yield from ET.fromstring(xml_content)
+        for elem in ET.fromstring(xml_content):
+            if elem.tag in ("game", "folder"):
+                yield elem
 
     def _parse_gamelist_xml(
         self, gamelist_path: Path, platform: Platform
@@ -481,6 +483,10 @@ class GamelistHandler(MetadataHandler):
             self._gamelist_cache[cache_key] = roms_data
         except ET.ParseError as e:
             log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
+            # Entries read before the document turned out to be invalid are
+            # dropped, so a corrupt file yields nothing rather than a partial
+            # import that silently looks complete.
+            roms_data.clear()
         except Exception as e:
             log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
 
