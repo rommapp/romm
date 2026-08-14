@@ -717,30 +717,30 @@ class FSRomsHandler(FSHandler):
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
 
-        fs_roms: list[dict] = [
-            {"fs_name": rom, "flat": True, "nested": False}
-            for rom in self.exclude_single_files(fs_single_roms)
-        ] + [
-            {"fs_name": rom, "flat": False, "nested": True}
-            for rom in self.exclude_multi_roms(fs_multi_roms)
-        ]
+        def build_rom(fs_name: str, *, flat: bool) -> FSRom:
+            return FSRom(
+                fs_name=fs_name,
+                flat=flat,
+                nested=not flat,
+                files=[],
+                crc_hash="",
+                md5_hash="",
+                sha1_hash="",
+                ra_hash="",
+            )
 
-        return sorted(
-            [
-                FSRom(
-                    fs_name=rom["fs_name"],
-                    flat=rom["flat"],
-                    nested=rom["nested"],
-                    files=[],
-                    crc_hash="",
-                    md5_hash="",
-                    sha1_hash="",
-                    ra_hash="",
-                )
-                for rom in fs_roms
-            ],
-            key=lambda rom: rom["fs_name"],
-        )
+        # Built in one pass and sorted in place, so a platform holding tens of
+        # thousands of entries never has two full copies of the list alive.
+        fs_roms = [
+            build_rom(rom, flat=True)
+            for rom in self.exclude_single_files(fs_single_roms)
+        ]
+        fs_roms += [
+            build_rom(rom, flat=False) for rom in self.exclude_multi_roms(fs_multi_roms)
+        ]
+        fs_roms.sort(key=lambda rom: rom["fs_name"])
+
+        return fs_roms
 
     async def rename_fs_rom(self, old_name: str, new_name: str, fs_path: str) -> None:
         if new_name != old_name:
