@@ -118,6 +118,15 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     isBuffering.value = false;
   }
 
+  function shuffledTracks(tracks: PlayerTrack[]): PlayerTrack[] {
+    const result = [...tracks];
+    for (let index = result.length - 1; index > 0; index -= 1) {
+      const target = Math.floor(Math.random() * (index + 1));
+      [result[index], result[target]] = [result[target], result[index]];
+    }
+    return result;
+  }
+
   function loadPlaylist(
     tracks: PlayerTrack[],
     metas: Record<number, PlayerMeta>,
@@ -140,7 +149,10 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
         tracksByKey.delete(item.romId + ":" + item.fileId);
         return [next];
       });
-      playlist.value = [...restored, ...tracksByKey.values()];
+      playlist.value =
+        restored.length > 0
+          ? [...restored, ...tracksByKey.values()]
+          : shuffledTracks([...tracksByKey.values()]);
       return;
     }
 
@@ -170,11 +182,8 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
         item.fileId !== current.fileId ||
         item.romId !== current.romId,
     );
-    for (let i = remaining.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
-    }
-    playlist.value = current ? [current, ...remaining] : remaining;
+    const shuffled = shuffledTracks(remaining);
+    playlist.value = current ? [current, ...shuffled] : shuffled;
     isShuffled.value = true;
   }
 
