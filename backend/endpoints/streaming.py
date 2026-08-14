@@ -256,15 +256,22 @@ def _parse_stream_host(host: str) -> str | None:
 
 
 def _derive_broker_host(container: dict[str, Any]) -> str | None:
-    """Resolve the broker API host for a container: broker_host if set,
-    otherwise the stream host with its port swapped to 8000. Returns None
-    when neither resolves to a usable scheme-bearing URL."""
+    """Resolve the broker API host for a container.
+
+    `broker_host` wins when set. Otherwise a webstation container serves the
+    broker on the same origin as the stream (`_webstation_path` adds the
+    subfolder), while the per-emulator mods serve it on port 8000. Returns None
+    when neither resolves to a usable scheme-bearing URL, which is the case for
+    a container proxied onto a bare path.
+    """
     broker_host = _parse_host_url(container.get("broker_host", ""))
     if broker_host:
         return broker_host.rstrip("/")
     stream_host = _parse_host_url(container.get("host", ""))
     if not stream_host:
         return None
+    if _is_webstation(container):
+        return stream_host.rstrip("/")
     parsed = urlparse(stream_host)
     return urlunparse(parsed._replace(netloc=f"{parsed.hostname}:8000")).rstrip("/")
 

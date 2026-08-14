@@ -4320,3 +4320,46 @@ def test_expand_platform_value_that_is_neither_name_nor_block_is_skipped():
     )
 
     assert [row["platform"] for row in expanded] == ["snes"]
+
+
+# ── Broker host derivation ────────────────────────────────────────────────────
+
+
+def test_webstation_broker_host_defaults_to_the_stream_host():
+    """Selkies and the broker share one port on the webstation container, and
+    the subfolder is added later, so the stream host is the broker host."""
+    assert (
+        streaming._derive_broker_host(
+            {"host": "http://box:3010", "protocol": "webstation"}
+        )
+        == "http://box:3010"
+    )
+
+
+def test_legacy_broker_host_still_defaults_to_port_8000():
+    assert (
+        streaming._derive_broker_host({"host": "http://box:3001"}) == "http://box:8000"
+    )
+
+
+def test_an_explicit_broker_host_wins_on_either_protocol():
+    for protocol in ("webstation", "broker"):
+        assert (
+            streaming._derive_broker_host(
+                {
+                    "host": "https://box:3010",
+                    "broker_host": "http://box:9000",
+                    "protocol": protocol,
+                }
+            )
+            == "http://box:9000"
+        )
+
+
+def test_a_proxied_webstation_host_derives_nothing():
+    """A bare path carries no address RomM can dial, so `broker_host` stays
+    required there."""
+    assert (
+        streaming._derive_broker_host({"host": "/streaming", "protocol": "webstation"})
+        is None
+    )
