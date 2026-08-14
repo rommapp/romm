@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libmagic-dev \
     7zip \
+    libarchive-tools \
     tzdata \
     libbz2-dev \
     libssl-dev \
@@ -52,6 +53,11 @@ RUN rm -rf /tmp/RALibretro
 # Install frontend dependencies
 COPY frontend/package.json /app/frontend/
 WORKDIR /app/frontend
+RUN npm install
+
+# Install backend Node helpers (server-side ROM patching)
+COPY backend/utils/rom_patcher/package.json /app/backend/utils/rom_patcher/
+WORKDIR /app/backend/utils/rom_patcher
 RUN npm install
 
 # Set working directory

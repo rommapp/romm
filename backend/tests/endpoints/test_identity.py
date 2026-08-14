@@ -55,7 +55,39 @@ def test_get_user(client, access_token: str, editor_user: User):
     assert user["username"] == "test_editor"
 
 
-@pytest.mark.parametrize("new_user_role", [Role.VIEWER, Role.EDITOR, Role.ADMIN])
+@mock.patch("endpoints.user.fs_asset_handler.validate_path")
+def test_get_user_avatar(
+    mock_validate_path, client, viewer_access_token: str, admin_user: User, tmp_path
+):
+    from handler.database import db_user_handler
+
+    db_user_handler.update_user(
+        admin_user.id,
+        {"avatar_path": f"users/{admin_user.fs_safe_folder_name}/profile/avatar.png"},
+    )
+    avatar = tmp_path / "avatar.png"
+    avatar.write_bytes(b"PNGDATA")
+    mock_validate_path.return_value = avatar
+
+    # Any authenticated user can read any user's avatar.
+    response = client.get(
+        f"/api/users/{admin_user.id}/avatar",
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.content == b"PNGDATA"
+    assert response.headers["content-type"].startswith("image/")
+
+
+def test_get_user_avatar_none_set(client, access_token: str, admin_user: User):
+    response = client.get(
+        f"/api/users/{admin_user.id}/avatar",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.parametrize("new_user_role", [Role.USER, Role.ADMIN])
 def test_add_user_from_admin_user(client, access_token: str, new_user_role: Role):
     response = client.post(
         "/api/users",
@@ -113,7 +145,7 @@ def test_add_user_from_unauthorized_user(
                 "username": "new_user",
                 "password": "new_user_password",
                 "email": "new_user@example.com",
-                "role": Role.VIEWER.value,
+                "role": Role.USER.value,
             },
             headers={"Authorization": f"Bearer {access_token}"},
         )
@@ -127,7 +159,7 @@ def test_add_user_with_existing_username(client, access_token: str, admin_user: 
             "username": admin_user.username,
             "password": "new_user_password",
             "email": "new_user@example.com",
-            "role": Role.VIEWER.value,
+            "role": Role.USER.value,
         },
         headers={"Authorization": f"Bearer {access_token}"},
     )
@@ -138,17 +170,17 @@ def test_add_user_with_existing_username(client, access_token: str, admin_user: 
 
 
 def test_update_user(client, access_token: str, editor_user: User):
-    assert editor_user.role == Role.EDITOR
+    assert editor_user.role == Role.USER
 
     response = client.put(
         f"/api/users/{editor_user.id}",
-        data={"username": "editor_user_new_username", "role": "viewer"},
+        data={"username": "editor_user_new_username", "role": "user"},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == status.HTTP_200_OK
 
     user = response.json()
-    assert user["role"] == "viewer"
+    assert user["role"] == "user"
 
 
 def test_update_user_rejects_non_image_avatar(

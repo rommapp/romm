@@ -1,21 +1,48 @@
 from typing import Literal
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from .base import BaseModel, UTCDatetime
 from .play_session import PlaySessionIngestResponse
 
 
 class SyncOperationSchema(BaseModel):
-    action: Literal["upload", "download", "conflict", "no_op"]
-    rom_id: int
-    save_id: int | None = None
-    file_name: str
-    slot: str | None = None
-    emulator: str | None = None
-    reason: str
-    server_updated_at: UTCDatetime | None = None
-    server_content_hash: str | None = None
+    action: Literal["upload", "download", "conflict", "no_op"] = Field(
+        description=(
+            "Operation the client should perform. 'upload' when the client has a "
+            "save the server lacks (including any null-slot save, which is never "
+            "paired with server saves), 'download' when the server has a newer or "
+            "unknown save, 'conflict' when both sides changed independently, and "
+            "'no_op' when no action is needed."
+        )
+    )
+    rom_id: int = Field(description="ID of the ROM this operation applies to.")
+    save_id: int | None = Field(
+        default=None,
+        description="ID of the server save, if one exists (null for uploads).",
+    )
+    file_name: str = Field(description="Name of the save file.")
+    slot: str | None = Field(
+        default=None,
+        description=(
+            "Slot the operation applies to. Echoes the client slot for uploads; "
+            "for downloads and conflicts it is the server save's slot."
+        ),
+    )
+    emulator: str | None = Field(
+        default=None, description="Emulator associated with the save, if known."
+    )
+    reason: str = Field(
+        description="Human-readable explanation of why this operation was chosen."
+    )
+    server_updated_at: UTCDatetime | None = Field(
+        default=None,
+        description="Last-modified timestamp of the server save, when applicable.",
+    )
+    server_content_hash: str | None = Field(
+        default=None,
+        description="Content hash of the server save, when applicable.",
+    )
 
 
 class SyncNegotiateResponse(BaseModel):

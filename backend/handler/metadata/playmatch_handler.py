@@ -7,7 +7,7 @@ import httpx
 import yarl
 from fastapi import HTTPException, status
 
-from config import PLAYMATCH_API_ENABLED
+from config import PLAYMATCH_API_ENABLED, PLAYMATCH_API_URL
 from handler.metadata.base_handler import MetadataHandler
 from logger.logger import log
 from models.rom import Rom, RomFile
@@ -68,6 +68,7 @@ class GameMatchType(str, Enum):
     SHA256 = "SHA256"
     SHA1 = "SHA1"
     MD5 = "MD5"
+    CRC = "CRC"
     FILE_NAME_AND_SIZE = "FileNameAndSize"
     NO_MATCH = "NoMatch"
 
@@ -103,7 +104,7 @@ class PlaymatchHandler(MetadataHandler):
     """
 
     def __init__(self):
-        self.base_url = "https://playmatch.retrorealm.dev/api"
+        self.base_url = PLAYMATCH_API_URL
         self.identify_url = f"{self.base_url}/identify/ids"
         self.healthcheck_url = f"{self.base_url}/health"
         self.suggestion_url = f"{self.base_url}/suggestion/external/game"
@@ -116,13 +117,22 @@ class PlaymatchHandler(MetadataHandler):
         if not self.is_enabled():
             return False
 
+        # The /health endpoint returns a plain-text body ("Healthy"), not
+        # JSON, so any 2xx response is enough to consider the service up.
+        httpx_client = ctx_httpx_client.get()
         try:
-            response = await self._request(self.healthcheck_url, {})
+            await _rate_limiter.acquire()
+            res = await httpx_client.get(
+                self.healthcheck_url,
+                headers={"user-agent": f"RomM/{get_version()}"},
+                timeout=60,
+            )
+            res.raise_for_status()
         except Exception as e:
             log.error("Error checking Playmatch API: %s", e)
             return False
 
-        return bool(response)
+        return True
 
     async def _request(self, url: str, query: dict) -> dict:
         """
@@ -141,7 +151,7 @@ class PlaymatchHandler(MetadataHandler):
             if value is not None and value != ""  # drop None and ""
         }
 
-        url_with_query = yarl.URL(url).update_query(**filtered_query)
+        url_with_query = yarl.URL(url).update_query(filtered_query)
 
         log.debug(
             "API request: URL=%s, Timeout=%s",
@@ -226,6 +236,7 @@ class PlaymatchHandler(MetadataHandler):
                     "fileSize": first_file.file_size_bytes,
                     "md5": first_file.md5_hash,
                     "sha1": first_file.sha1_hash,
+                    "crc": first_file.crc_hash,
                 },
             )
         except Exception as exc:

@@ -32,6 +32,9 @@ export interface SmartFilterCriteria {
   duplicate?: boolean;
   playable?: boolean;
   has_ra?: boolean;
+  has_saves?: boolean;
+  has_states?: boolean;
+  has_soundtrack?: boolean;
   missing?: boolean;
   verified?: boolean;
   genres?: string[];
@@ -50,6 +53,10 @@ export interface SmartFilterCriteria {
   languages_logic?: FilterLogic;
   player_counts?: string[];
   player_counts_logic?: FilterLogic;
+  metadata_providers?: string[];
+  metadata_providers_logic?: FilterLogic;
+  tags?: string[];
+  tags_logic?: FilterLogic;
   selected_status?: string[];
   statuses_logic?: FilterLogic;
 }
@@ -64,6 +71,9 @@ export interface GalleryFilterSnapshot {
   filterDuplicates: boolean | null;
   filterPlayables: boolean | null;
   filterRA: boolean | null;
+  filterSaves: boolean | null;
+  filterStates: boolean | null;
+  filterSoundtrack: boolean | null;
   filterMissing: boolean | null;
   filterVerified: boolean | null;
   selectedPlatforms: Platform[];
@@ -83,6 +93,10 @@ export interface GalleryFilterSnapshot {
   languagesLogic: FilterLogic;
   selectedPlayerCounts: string[];
   playerCountsLogic: FilterLogic;
+  selectedMetadataProviders: string[];
+  metadataProvidersLogic: FilterLogic;
+  selectedTags: string[];
+  tagsLogic: FilterLogic;
   selectedStatuses: string[];
   statusesLogic: FilterLogic;
 }
@@ -132,13 +146,19 @@ export function buildSmartFilterCriteria(
     out.smart_collection_id = context.currentSmartCollectionId;
   }
 
-  if (snap.filterMatched) out.matched = true;
-  if (snap.filterFavorites) out.favorite = true;
-  if (snap.filterDuplicates) out.duplicate = true;
-  if (snap.filterPlayables) out.playable = true;
-  if (snap.filterRA) out.has_ra = true;
-  if (snap.filterMissing) out.missing = true;
-  if (snap.filterVerified) out.verified = true;
+  // Tri-state filters: `false` is a real criterion ("show unmatched"),
+  // only `null` means "not filtering on this".
+  if (snap.filterMatched !== null) out.matched = snap.filterMatched;
+  if (snap.filterFavorites !== null) out.favorite = snap.filterFavorites;
+  if (snap.filterDuplicates !== null) out.duplicate = snap.filterDuplicates;
+  if (snap.filterPlayables !== null) out.playable = snap.filterPlayables;
+  if (snap.filterRA !== null) out.has_ra = snap.filterRA;
+  if (snap.filterSaves !== null) out.has_saves = snap.filterSaves;
+  if (snap.filterStates !== null) out.has_states = snap.filterStates;
+  if (snap.filterSoundtrack !== null)
+    out.has_soundtrack = snap.filterSoundtrack;
+  if (snap.filterMissing !== null) out.missing = snap.filterMissing;
+  if (snap.filterVerified !== null) out.verified = snap.filterVerified;
 
   if (snap.selectedGenres.length > 0) {
     out.genres = snap.selectedGenres;
@@ -171,6 +191,14 @@ export function buildSmartFilterCriteria(
   if (snap.selectedPlayerCounts.length > 0) {
     out.player_counts = snap.selectedPlayerCounts;
     out.player_counts_logic = snap.playerCountsLogic;
+  }
+  if (snap.selectedMetadataProviders.length > 0) {
+    out.metadata_providers = snap.selectedMetadataProviders;
+    out.metadata_providers_logic = snap.metadataProvidersLogic;
+  }
+  if (snap.selectedTags.length > 0) {
+    out.tags = snap.selectedTags;
+    out.tags_logic = snap.tagsLogic;
   }
   if (snap.selectedStatuses.length > 0) {
     out.selected_status = snap.selectedStatuses;
@@ -217,6 +245,9 @@ interface FieldSpec {
   icon: string;
   labelKey: string;
   defaultLabel: string;
+  /** "bool" fields only: label shown when the stored value is `false`. */
+  negLabelKey?: string;
+  negDefaultLabel?: string;
   kind: FieldKind;
 }
 
@@ -262,6 +293,8 @@ const FIELDS: FieldSpec[] = [
     icon: "mdi-star",
     labelKey: "platform.show-favorites",
     defaultLabel: "Show favourites",
+    negLabelKey: "platform.show-not-favorites-only",
+    negDefaultLabel: "Show non-favourite ROMs only",
     kind: "bool",
   },
   {
@@ -269,13 +302,17 @@ const FIELDS: FieldSpec[] = [
     icon: "mdi-check-decagram",
     labelKey: "platform.show-matched",
     defaultLabel: "Show matched",
+    negLabelKey: "platform.show-unmatched",
+    negDefaultLabel: "Show unmatched",
     kind: "bool",
   },
   {
     storage: "duplicate",
     icon: "mdi-content-duplicate",
     labelKey: "platform.show-duplicates",
-    defaultLabel: "Show duplicates",
+    defaultLabel: "Show versions",
+    negLabelKey: "platform.show-not-duplicates-only",
+    negDefaultLabel: "Show ROMs without versions only",
     kind: "bool",
   },
   {
@@ -283,6 +320,8 @@ const FIELDS: FieldSpec[] = [
     icon: "mdi-gamepad-variant-outline",
     labelKey: "platform.show-playables",
     defaultLabel: "Show playables",
+    negLabelKey: "platform.show-not-playables-only",
+    negDefaultLabel: "Show non-playable ROMs only",
     kind: "bool",
   },
   {
@@ -290,6 +329,35 @@ const FIELDS: FieldSpec[] = [
     icon: "mdi-trophy-outline",
     labelKey: "platform.show-ra",
     defaultLabel: "Show RetroAchievements",
+    negLabelKey: "platform.show-not-ra-only",
+    negDefaultLabel: "Show ROMs without RetroAchievements only",
+    kind: "bool",
+  },
+  {
+    storage: "has_saves",
+    icon: "mdi-content-save-outline",
+    labelKey: "platform.has-saves",
+    defaultLabel: "Has saves",
+    negLabelKey: "platform.show-not-saves-only",
+    negDefaultLabel: "Show ROMs without saves only",
+    kind: "bool",
+  },
+  {
+    storage: "has_states",
+    icon: "mdi-camera-outline",
+    labelKey: "platform.has-states",
+    defaultLabel: "Has save states",
+    negLabelKey: "platform.show-not-states-only",
+    negDefaultLabel: "Show ROMs without save states only",
+    kind: "bool",
+  },
+  {
+    storage: "has_soundtrack",
+    icon: "mdi-music-note",
+    labelKey: "platform.has-soundtrack",
+    defaultLabel: "Has soundtrack",
+    negLabelKey: "platform.show-no-soundtrack-only",
+    negDefaultLabel: "Show ROMs without soundtracks only",
     kind: "bool",
   },
   {
@@ -297,6 +365,8 @@ const FIELDS: FieldSpec[] = [
     icon: "mdi-file-alert-outline",
     labelKey: "platform.show-missing",
     defaultLabel: "Show missing",
+    negLabelKey: "platform.show-not-missing-only",
+    negDefaultLabel: "Show non-missing ROMs only",
     kind: "bool",
   },
   {
@@ -304,6 +374,8 @@ const FIELDS: FieldSpec[] = [
     icon: "mdi-shield-check-outline",
     labelKey: "platform.show-verified",
     defaultLabel: "Show verified",
+    negLabelKey: "platform.show-not-verified-only",
+    negDefaultLabel: "Show non-verified ROMs only",
     kind: "bool",
   },
   {
@@ -371,6 +443,22 @@ const FIELDS: FieldSpec[] = [
     kind: "list",
   },
   {
+    storage: "metadata_providers",
+    logicStorage: "metadata_providers_logic",
+    icon: "mdi-database-outline",
+    labelKey: "platform.metadata-provider",
+    defaultLabel: "Metadata providers",
+    kind: "list",
+  },
+  {
+    storage: "tags",
+    logicStorage: "tags_logic",
+    icon: "mdi-tag-outline",
+    labelKey: "platform.tag",
+    defaultLabel: "Tags",
+    kind: "list",
+  },
+  {
     storage: "selected_status",
     logicStorage: "statuses_logic",
     icon: "mdi-flag-outline",
@@ -420,6 +508,15 @@ export function summarizeSmartFilterCriteria(
     } else if (f.kind === "bool") {
       if (raw === true) {
         out.push({ key: f.storage, icon: f.icon, label });
+      } else if (raw === false) {
+        out.push({
+          key: f.storage,
+          icon: f.icon,
+          label: t(
+            f.negLabelKey ?? f.labelKey,
+            f.negDefaultLabel ?? f.defaultLabel,
+          ),
+        });
       }
     } else if (f.kind === "platforms") {
       if (Array.isArray(raw) && raw.length > 0) {

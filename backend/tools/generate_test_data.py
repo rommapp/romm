@@ -60,6 +60,7 @@ from models.play_session import PlaySession  # noqa: E402
 # NOTE: `roms_metadata` and `sibling_roms` are DB VIEWS, not tables: the
 # aggregated metadata and sibling links are derived from each rom's provider
 # columns, so we populate those columns instead of inserting into the views.
+# `roms_facets` is a real table, but triggers on `roms` fill it in.
 from models.rom import (  # noqa: E402
     Rom,
     RomFile,
@@ -615,6 +616,7 @@ def build_hasheous_metadata(rng: random.Random) -> dict[str, Any]:
         "mame_mess_match": rng.random() < 0.1,
         "nointro_match": rng.random() < 0.6,
         "redump_match": rng.random() < 0.4,
+        "mame_redump_match": rng.random() < 0.1,
         "whdload_match": False,
         "ra_match": rng.random() < 0.3,
         "fbneo_match": rng.random() < 0.1,
@@ -713,11 +715,6 @@ def main() -> int:
     )
     parser.add_argument(
         "--password", default="password", help="Plain password for every seeded user"
-    )
-    parser.add_argument(
-        "--user-prefix",
-        default="loadtest",
-        help="Prefix for seeded usernames (kept unique by id)",
     )
     parser.add_argument(
         "--wipe",
@@ -852,11 +849,9 @@ def main() -> int:
         # Suffix with the assigned id so usernames/emails never collide with
         # rows already in the target database.
         if i == 0:
-            username, role = f"{args.user_prefix}_admin_{uid}", Role.ADMIN
-        elif i <= 2:
-            username, role = f"{args.user_prefix}_editor_{uid}", Role.EDITOR
+            username, role = f"admin_{uid}", Role.ADMIN
         else:
-            username, role = f"{args.user_prefix}_viewer_{uid}", Role.VIEWER
+            username, role = f"user_{uid}", Role.USER
         created = rand_past(rng, now)
         user_rows.append(
             {
@@ -1130,7 +1125,6 @@ def main() -> int:
                         "chd_sha1_hash": rand_hex(rng, 20) if ext == "chd" else None,
                         "archive_members": None,
                         "category": RomFileCategory.GAME,
-                        "audio_meta": None,
                         "missing_from_fs": False,
                         "created_at": created,
                         "updated_at": created,
@@ -1154,7 +1148,6 @@ def main() -> int:
                         "chd_sha1_hash": None,
                         "archive_members": None,
                         "category": RomFileCategory.MANUAL,
-                        "audio_meta": None,
                         "missing_from_fs": False,
                         "created_at": created,
                         "updated_at": created,

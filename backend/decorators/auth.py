@@ -1,13 +1,17 @@
+import functools
+import inspect
 from typing import Any
 
 from authlib.integrations.starlette_client import OAuth
 from authlib.oidc.discovery import get_well_known_url
-from fastapi import Security
+from fastapi import HTTPException, Security, status
 from fastapi.security.http import HTTPBasic
 from fastapi.security.oauth2 import OAuth2PasswordBearer
 from fastapi.types import DecoratedCallable
-from starlette.authentication import requires
+from starlette._utils import is_async_callable
+from starlette.authentication import has_required_scope
 from starlette.config import Config
+from starlette.requests import Request
 
 from config import (
     OIDC_CLAIM_ROLES,
@@ -65,6 +69,63 @@ oauth.register(
 )
 
 
+def _raise_auth_error(request: Request) -> None:
+    """Raise the status matching the caller's auth state.
+
+    401 tells the client it has no valid credentials (so it can redirect to
+    login), while 403 means the authenticated user lacks the required scope
+    (an inline permission error, not a session problem).
+    """
+    if not request.user.is_authenticated:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
+def _requires_scopes(scopes: list[Scope]):
+    """Scope guard mirroring starlette's `requires`, with a 401/403 split."""
+
+    def decorator(func: DecoratedCallable) -> DecoratedCallable:
+        sig = inspect.signature(func)
+        idx = next(
+            (
+                i
+                for i, parameter in enumerate(sig.parameters.values())
+                if parameter.name == "request"
+            ),
+            None,
+        )
+        if idx is None:
+            raise Exception(f'No "request" argument on function "{func}"')
+
+        if is_async_callable(func):
+
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs) -> Any:
+                request = kwargs.get("request", args[idx] if idx < len(args) else None)
+                assert isinstance(request, Request)
+                if not has_required_scope(request, scopes):
+                    _raise_auth_error(request)
+                return await func(*args, **kwargs)
+
+            return async_wrapper  # type: ignore[return-value]
+
+        @functools.wraps(func)
+        def sync_wrapper(*args, **kwargs) -> Any:
+            request = kwargs.get("request", args[idx] if idx < len(args) else None)
+            assert isinstance(request, Request)
+            if not has_required_scope(request, scopes):
+                _raise_auth_error(request)
+            return func(*args, **kwargs)
+
+        return sync_wrapper  # type: ignore[return-value]
+
+    return decorator
+
+
 def protected_route(
     method: Any,
     path: str,
@@ -72,7 +133,7 @@ def protected_route(
     **kwargs,
 ):
     def decorator(func: DecoratedCallable) -> DecoratedCallable:
-        fn = requires(scopes or [])(func)
+        fn = _requires_scopes(scopes or [])(func)
         return method(
             path,
             dependencies=[

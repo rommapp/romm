@@ -23,9 +23,11 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from logger.logger import log
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
 from utils.archives import (
+    ArchiveReadError,
     detect_mime_type,
     extract_chd_hash,
     is_chd_file,
@@ -128,6 +130,11 @@ ARCHIVE_READERS = {
 }
 
 
+def _chd_sha1_hash(file_path: Path) -> str:
+    """Return the embedded CHD v5 raw+meta SHA-1, or "" for non-CHD files."""
+    return extract_chd_hash(file_path) if is_chd_file(file_path) else ""
+
+
 def _make_file_hash(
     crc_c: int, md5_h: Any, sha1_h: Any, chd_sha1_hash: str = ""
 ) -> FileHash:
@@ -143,7 +150,7 @@ def _make_file_hash(
 
 
 GENERIC_TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
-VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)[\s_-]?(.*)", re.I)
+VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)(?:[\s._-](.*)|([.\d].*))", re.I)
 REGION_TAG_REGEX = re.compile(r"^reg[\s|-](.*)$", re.I)
 REVISION_TAG_REGEX = re.compile(r"^rev[\s|-](.*)$", re.I)
 
@@ -210,14 +217,14 @@ class FSRomsHandler(FSHandler):
             # Version
             version_match = VERSION_TAG_REGEX.match(raw_tag)
             if version_match:
-                version = version_match[1]
+                version = (version_match[1] or version_match[2] or "").strip()
                 continue
 
             # Region prefix
             region_match = REGION_TAG_REGEX.match(raw_tag)
             if region_match:
-                key = region_match[1].lower()
-                regions.append(REGIONS_BY_SHORTCODE.get(key, region_match[1]))
+                region = region_match[1]
+                regions.append(REGIONS_BY_SHORTCODE.get(region, region))
                 continue
 
             # Revision prefix
@@ -281,12 +288,18 @@ class FSRomsHandler(FSHandler):
             None,
         )
 
-        audio_meta = None
+        track_meta = None
         if matching_category == RomFileCategory.SOUNDTRACK:
-            from utils.audio_tags import extract_audio_meta, is_allowed_audio_file
+            from utils.audio_tags import (
+                extract_audio_meta,
+                is_allowed_audio_file,
+                track_meta_columns,
+            )
 
             if is_allowed_audio_file(file_name):
-                audio_meta = extract_audio_meta(str(abs_file_path))
+                meta = extract_audio_meta(str(abs_file_path))
+                if meta:
+                    track_meta = TrackMeta(rom_id=rom.id, **track_meta_columns(meta))
 
         return RomFile(
             rom=rom,
@@ -304,7 +317,7 @@ class FSRomsHandler(FSHandler):
                 else os.path.getmtime(abs_file_path)
             ),
             category=matching_category,
-            audio_meta=audio_meta,
+            track_meta=track_meta,
             crc_hash=file_hash["crc_hash"],
             md5_hash=file_hash["md5_hash"],
             sha1_hash=file_hash["sha1_hash"],
@@ -374,7 +387,6 @@ class FSRomsHandler(FSHandler):
                 f"{abs_fs_path}/{rom.fs_name}", recursive=True
             ):
                 # Check if file is excluded by extension.
-                f_rom_dir = Path(f_path, rom.fs_name)
                 file_name_lower = file_name.lower()
                 if any(
                     file_name_lower.endswith("." + ext) for ext in excluded_file_exts
@@ -391,32 +403,26 @@ class FSRomsHandler(FSHandler):
                 # Check if this is a top-level file (not in a subdirectory)
                 is_top_level = f_path.samefile(Path(abs_fs_path, rom.fs_name))
 
+                abs_file_path = Path(f_path, file_name)
+
                 if hashable_platform:
                     try:
                         if is_top_level:
                             # Include this file in the main ROM hash calculation
-                            (
-                                crc_c,
-                                rom_crc_c,
-                                md5_h,
-                                rom_md5_h,
-                                sha1_h,
-                                rom_sha1_h,
-                            ) = await asyncio.to_thread(
-                                self._calculate_rom_hashes,
-                                Path(f_path, file_name),
-                                rom_crc_c,
-                                rom_md5_h,
-                                rom_sha1_h,
+                            crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
+                                await asyncio.to_thread(
+                                    self._calculate_rom_hashes,
+                                    abs_file_path,
+                                    rom_crc_c,
+                                    rom_md5_h,
+                                    rom_sha1_h,
+                                )
                             )
                         else:
                             # Calculate individual file hash only
                             crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
                                 self._calculate_rom_hashes,
-                                Path(f_path, file_name),
-                                0,
-                                hashlib.md5(usedforsecurity=False),
-                                hashlib.sha1(usedforsecurity=False),
+                                abs_file_path,
                             )
                     except zlib.error:
                         crc_c = 0
@@ -427,11 +433,7 @@ class FSRomsHandler(FSHandler):
                         crc_c,
                         md5_h,
                         sha1_h,
-                        chd_sha1_hash=(
-                            extract_chd_hash(f_rom_dir)
-                            if is_chd_file(f_rom_dir)
-                            else ""
-                        ),
+                        chd_sha1_hash=_chd_sha1_hash(abs_file_path),
                     )
                 else:
                     file_hash = FileHash(
@@ -461,39 +463,47 @@ class FSRomsHandler(FSHandler):
 
             def _hash_archive_entries(
                 crc: int, md5_h: Any, sha1_h: Any
-            ) -> tuple[list[dict[str, Any]], int]:
+            ) -> tuple[list[dict[str, Any]], int, Any, Any]:
+                # Accumulate into copies so an archive we can't read in full
+                # leaves the caller's hashers untouched for the raw fallback.
+                original_crc, md5_h, sha1_h = crc, md5_h.copy(), sha1_h.copy()
                 members: list[dict[str, Any]] = []
-                for name, size, chunks in ARCHIVE_READERS[rom_ext](
-                    rom_dir,
-                    DEFAULT_EXCLUDED_FILES,
-                    DEFAULT_EXCLUDED_EXTENSIONS,
-                ):
-                    member_crc = 0
-                    member_md5 = hashlib.md5(usedforsecurity=False)
-                    member_sha1 = hashlib.sha1(usedforsecurity=False)
-                    for chunk in chunks:
-                        crc = binascii.crc32(chunk, crc)
-                        md5_h.update(chunk)
-                        sha1_h.update(chunk)
-                        member_crc = binascii.crc32(chunk, member_crc)
-                        member_md5.update(chunk)
-                        member_sha1.update(chunk)
-                    members.append(
-                        {
-                            "name": name,
-                            "size": size,
-                            "crc_hash": crc32_to_hex(member_crc),
-                            "md5_hash": member_md5.hexdigest(),
-                            "sha1_hash": member_sha1.hexdigest(),
-                        }
-                    )
-                return members, crc
+                try:
+                    for name, size, chunks in ARCHIVE_READERS[rom_ext](
+                        rom_dir,
+                        DEFAULT_EXCLUDED_FILES,
+                        DEFAULT_EXCLUDED_EXTENSIONS,
+                    ):
+                        member_crc = 0
+                        member_md5 = hashlib.md5(usedforsecurity=False)
+                        member_sha1 = hashlib.sha1(usedforsecurity=False)
+                        for chunk in chunks:
+                            crc = binascii.crc32(chunk, crc)
+                            md5_h.update(chunk)
+                            sha1_h.update(chunk)
+                            member_crc = binascii.crc32(chunk, member_crc)
+                            member_md5.update(chunk)
+                            member_sha1.update(chunk)
+                        members.append(
+                            {
+                                "name": name,
+                                "size": size,
+                                "crc_hash": crc32_to_hex(member_crc),
+                                "md5_hash": member_md5.hexdigest(),
+                                "sha1_hash": member_sha1.hexdigest(),
+                            }
+                        )
+                except ArchiveReadError as e:
+                    log.error(f"Incomplete read of archive {rom_dir}: {e}")
+                    return [], original_crc, None, None
+                return members, crc, md5_h, sha1_h
 
-            members, rom_crc_c = await asyncio.to_thread(
+            members, rom_crc_c, archive_md5_h, archive_sha1_h = await asyncio.to_thread(
                 _hash_archive_entries, rom_crc_c, rom_md5_h, rom_sha1_h
             )
 
             if members:
+                rom_md5_h, rom_sha1_h = archive_md5_h, archive_sha1_h
                 if calculate_hashes:
                     ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
                     if ra_platform and ra_platform["ra_id"]:
@@ -512,7 +522,7 @@ class FSRomsHandler(FSHandler):
                     )
                 )
             else:
-                # Empty, malformed, or all-excluded archive: hash the archive
+                # Empty, malformed, unreadable, or all-excluded archive: hash the archive
                 # file's raw bytes. We avoid `_calculate_rom_hashes` here because
                 # it would decompress based on extension and end up hashing the
                 # largest internal member, not the archive itself — and would
@@ -537,24 +547,23 @@ class FSRomsHandler(FSHandler):
                 )
         elif hashable_platform:
             try:
-                (
-                    crc_c,
-                    rom_crc_c,
-                    md5_h,
-                    rom_md5_h,
-                    sha1_h,
-                    rom_sha1_h,
-                ) = await asyncio.to_thread(
-                    self._calculate_rom_hashes,
-                    Path(abs_fs_path, rom.fs_name),
-                    rom_crc_c,
-                    rom_md5_h,
-                    rom_sha1_h,
+                crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
+                    await asyncio.to_thread(
+                        self._calculate_rom_hashes,
+                        Path(abs_fs_path, rom.fs_name),
+                        rom_crc_c,
+                        rom_md5_h,
+                        rom_sha1_h,
+                    )
                 )
             except zlib.error:
                 crc_c = 0
                 md5_h = hashlib.md5(usedforsecurity=False)
                 sha1_h = hashlib.sha1(usedforsecurity=False)
+
+            # A single-file ROM spans exactly one file, so its ROM-level hashes
+            # are that file's hashes.
+            rom_crc_c, rom_md5_h, rom_sha1_h = crc_c, md5_h, sha1_h
 
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
             if calculate_hashes:
@@ -569,9 +578,7 @@ class FSRomsHandler(FSHandler):
                 crc_c,
                 md5_h,
                 sha1_h,
-                chd_sha1_hash=(
-                    extract_chd_hash(rom_dir) if is_chd_file(rom_dir) else ""
-                ),
+                chd_sha1_hash=_chd_sha1_hash(rom_dir),
             )
             rom_files.append(
                 self._build_rom_file(
@@ -616,10 +623,17 @@ class FSRomsHandler(FSHandler):
     def _calculate_rom_hashes(
         self,
         file_path: Path,
-        rom_crc_c: int,
-        rom_md5_h: Any,
-        rom_sha1_h: Any,
+        rom_crc_c: int = 0,
+        rom_md5_h: Any = None,
+        rom_sha1_h: Any = None,
     ) -> tuple[int, int, Any, Any, Any, Any]:
+        """Hash one file, optionally folding its bytes into ROM-level accumulators.
+
+        A ROM-level hash spans every top-level file of a multi-file ROM, so it
+        can only be built by feeding each file through a second set of hashers.
+        Callers that don't need one pass no accumulators, because a second pass
+        over a chunk costs as much as the first.
+        """
         extension = Path(file_path).suffix.lower()
         try:
             file_type = detect_mime_type(file_path)
@@ -627,18 +641,19 @@ class FSRomsHandler(FSHandler):
             crc_c = 0
             md5_h = hashlib.md5(usedforsecurity=False)
             sha1_h = hashlib.sha1(usedforsecurity=False)
+            accumulate = rom_md5_h is not None and rom_sha1_h is not None
 
             def update_hashes(chunk: bytes | bytearray):
+                nonlocal crc_c, rom_crc_c
+
                 md5_h.update(chunk)
-                rom_md5_h.update(chunk)
-
                 sha1_h.update(chunk)
-                rom_sha1_h.update(chunk)
-
-                nonlocal crc_c
                 crc_c = binascii.crc32(chunk, crc_c)
-                nonlocal rom_crc_c
-                rom_crc_c = binascii.crc32(chunk, rom_crc_c)
+
+                if accumulate:
+                    rom_md5_h.update(chunk)
+                    rom_sha1_h.update(chunk)
+                    rom_crc_c = binascii.crc32(chunk, rom_crc_c)
 
             if extension == ".zip" or file_type == "application/zip":
                 for chunk in read_zip_file(file_path):

@@ -11,7 +11,7 @@ from handler.auth import oauth_handler
 from handler.database import db_device_handler, db_play_session_handler, db_rom_handler
 from models.device import Device
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomUserStatus
 from models.user import User
 from utils.datetime import to_utc
 
@@ -66,6 +66,14 @@ def _session(
 
 def _ingest(device_id=None, sessions=None):
     return {"device_id": device_id, "sessions": sessions or []}
+
+
+def _prime_rom_user(rom_id, user_id, **fields):
+    """Fetch (or create) the rom_user and seed it with the given fields."""
+    rom_user = db_rom_handler.get_rom_user(rom_id=rom_id, user_id=user_id)
+    if rom_user is None:
+        rom_user = db_rom_handler.add_rom_user(rom_id=rom_id, user_id=user_id)
+    return db_rom_handler.update_rom_user(rom_user.id, fields)
 
 
 class TestPlaySessionIngest:
@@ -471,6 +479,96 @@ class TestPlaySessionRomUserUpdates:
         expected_latest = later + timedelta(minutes=30)
         last_played_utc = to_utc(rom_user.last_played)
         assert abs((last_played_utc - expected_latest).total_seconds()) < 2
+
+    def test_now_playing_set_on_ingest(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        payload = _ingest(sessions=[_session(rom_id=rom.id)])
+        client.post(
+            "/api/play-sessions",
+            json=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user is not None
+        assert rom_user.now_playing is True
+
+    def test_empty_status_rewound_to_incomplete(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id)]),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user.status == RomUserStatus.INCOMPLETE
+
+    def test_finished_status_rewound_to_incomplete(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        _prime_rom_user(rom.id, admin_user.id, status=RomUserStatus.FINISHED)
+
+        client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id)]),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user.status == RomUserStatus.INCOMPLETE
+
+    @pytest.mark.parametrize(
+        "protected_status",
+        [
+            RomUserStatus.COMPLETED_100,
+            RomUserStatus.RETIRED,
+            RomUserStatus.NEVER_PLAYING,
+        ],
+    )
+    def test_deliberate_status_preserved(
+        self, client, access_token, admin_user, rom, protected_status
+    ):
+        _prime_rom_user(rom.id, admin_user.id, status=protected_status)
+
+        client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id)]),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        # now_playing is orthogonal, so it still flips on...
+        assert rom_user.now_playing is True
+        # ...but the deliberate enum status is left untouched.
+        assert rom_user.status == protected_status
+
+    def test_older_session_does_not_resurrect_now_playing(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        # A recent play sets last_played and now_playing.
+        client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id, start_offset_hours=-1)]),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        db_rom_handler.update_rom_user(
+            rom_user.id, {"now_playing": False, "status": RomUserStatus.FINISHED}
+        )
+
+        # Backfilling an older session must not advance state.
+        client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id, start_offset_hours=-10)]),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user.now_playing is False
+        assert rom_user.status == RomUserStatus.FINISHED
 
     def test_rom_user_created_if_not_exists(
         self, client, access_token: str, admin_user: User, platform: Platform

@@ -130,7 +130,9 @@ async function removeFromFavorites() {
 }
 
 async function onDownload() {
-  await romApi.bulkDownloadRoms({ roms: romsStore.selectedRoms });
+  await romApi.bulkDownloadRoms({
+    romIDs: romsStore.selectedRoms.map((r) => r.id),
+  });
 }
 </script>
 

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Final, NotRequired, TypedDict
+from typing import Final, Literal, NotRequired, TypedDict
 
 from adapters.services.steamgriddb import SteamGridDBService
 from adapters.services.steamgriddb_types import SGDBDimension, SGDBGame, SGDBType
@@ -13,6 +13,14 @@ class SGDBResource(TypedDict):
     thumb: str
     url: str
     type: str
+    width: int
+    height: int
+    style: str
+    author: str
+    score: int
+    nsfw: bool
+    humor: bool
+    epilepsy: bool
 
 
 class SGDBResult(TypedDict):
@@ -87,8 +95,15 @@ class SGDBBaseHandler(MetadataHandler):
             log.debug(f"Could not find '{search_term}' on SteamGridDB")
             return []
 
+        # Fetch every content variant so the picker can toggle cover filters.
         tasks = [
-            self._get_game_covers(game_id=game["id"], game_name=game["name"])
+            self._get_game_covers(
+                game_id=game["id"],
+                game_name=game["name"],
+                is_nsfw="any",
+                is_humor="any",
+                is_epilepsy="any",
+            )
             for game in games
         ]
         results = await asyncio.gather(*tasks)
@@ -96,50 +111,64 @@ class SGDBBaseHandler(MetadataHandler):
         return list(filter(None, results))
 
     async def get_details_by_names(self, game_names: list[str]) -> SGDBRom:
+        """Get ROM details by candidate game names.
+
+        Returns an empty match if the lookup fails. The lookup is best-effort
+        and never raises to the caller, so an unreachable SteamGridDB can't
+        abort a scan.
+        """
         if not self.is_enabled():
             return SGDBRom(sgdb_id=None)
 
-        for game_name in game_names:
-            search_term = self.normalize_search_term(game_name, remove_articles=False)
-            games = await self.sgdb_service.search_games(term=search_term)
-            if not games:
-                log.debug(f"Could not find '{search_term}' on SteamGridDB")
-                continue
+        try:
+            for game_name in game_names:
+                search_term = self.normalize_search_term(
+                    game_name, remove_articles=False
+                )
+                games = await self.sgdb_service.search_games(term=search_term)
+                if not games:
+                    log.debug(f"Could not find '{search_term}' on SteamGridDB")
+                    continue
 
-            games_by_name: dict[str, SGDBGame] = {}
-            for game in games:
-                if (
-                    game["name"] not in games_by_name
-                    or game["id"] < games_by_name[game["name"]]["id"]
-                ):
-                    games_by_name[game["name"]] = game
+                games_by_name: dict[str, SGDBGame] = {}
+                for game in games:
+                    if (
+                        game["name"] not in games_by_name
+                        or game["id"] < games_by_name[game["name"]]["id"]
+                    ):
+                        games_by_name[game["name"]] = game
 
-            best_match, best_score = self.find_best_match(
-                search_term,
-                list(games_by_name.keys()),
-                min_similarity_score=self.min_similarity_score,
+                best_match, best_score = self.find_best_match(
+                    search_term,
+                    list(games_by_name.keys()),
+                    min_similarity_score=self.min_similarity_score,
+                )
+                if best_match:
+                    game_details = await self._get_game_covers(
+                        game_id=games_by_name[best_match]["id"],
+                        game_name=games_by_name[best_match]["name"],
+                        types=(SGDBType.STATIC,),
+                        is_nsfw=False,
+                        is_humor=False,
+                        is_epilepsy=False,
+                    )
+
+                    first_resource = next(
+                        (res for res in game_details["resources"] if res["url"]), None
+                    )
+                    if first_resource:
+                        log.debug(
+                            f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
+                        )
+                        return SGDBRom(
+                            sgdb_id=games_by_name[best_match]["id"],
+                            url_cover=first_resource["url"],
+                        )
+        except Exception as e:
+            log.error(
+                f"Failed to fetch SteamGridDB details for '{', '.join(game_names)}': {e}"
             )
-            if best_match:
-                game_details = await self._get_game_covers(
-                    game_id=games_by_name[best_match]["id"],
-                    game_name=games_by_name[best_match]["name"],
-                    types=(SGDBType.STATIC,),
-                    is_nsfw=False,
-                    is_humor=False,
-                    is_epilepsy=False,
-                )
-
-                first_resource = next(
-                    (res for res in game_details["resources"] if res["url"]), None
-                )
-                if first_resource:
-                    log.debug(
-                        f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
-                    )
-                    return SGDBRom(
-                        sgdb_id=games_by_name[best_match]["id"],
-                        url_cover=first_resource["url"],
-                    )
+            return SGDBRom(sgdb_id=None)
 
         log.debug(f"No good match found for '{', '.join(game_names)}' on SteamGridDB")
         return SGDBRom(sgdb_id=None)
@@ -156,9 +185,9 @@ class SGDBBaseHandler(MetadataHandler):
             SGDBDimension.SQUARE_1024,
         ),
         types: tuple[SGDBType, ...] = (SGDBType.STATIC, SGDBType.ANIMATED),
-        is_nsfw: bool | None = None,
-        is_humor: bool | None = None,
-        is_epilepsy: bool | None = None,
+        is_nsfw: bool | Literal["any"] | None = None,
+        is_humor: bool | Literal["any"] | None = None,
+        is_epilepsy: bool | Literal["any"] | None = None,
     ) -> SGDBResult:
         game_covers = [
             cover
@@ -170,6 +199,8 @@ class SGDBBaseHandler(MetadataHandler):
                 is_humor=is_humor,
                 is_epilepsy=is_epilepsy,
             )
+            # Locked grids serve a DMCA takedown placeholder instead of the artwork.
+            if not cover.get("lock")
         ]
         if not game_covers:
             return SGDBResult(name=game_name, resources=[])
@@ -181,6 +212,14 @@ class SGDBBaseHandler(MetadataHandler):
                     thumb=cover["thumb"],
                     url=cover["url"],
                     type="animated" if cover["thumb"].endswith(".webm") else "static",
+                    width=cover.get("width") or 0,
+                    height=cover.get("height") or 0,
+                    style=cover.get("style") or "",
+                    author=(cover.get("author") or {}).get("name") or "",
+                    score=cover.get("score") or 0,
+                    nsfw=bool(cover.get("nsfw")),
+                    humor=bool(cover.get("humor")),
+                    epilepsy=bool(cover.get("epilepsy")),
                 )
                 for cover in game_covers
             ],

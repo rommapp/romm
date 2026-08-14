@@ -22,6 +22,7 @@ const meta: Meta<typeof RDropzone> = {
     title: "Drop files here",
     hint: "Drag and drop, or click to browse",
     activeTitle: "Release to upload",
+    inputLabel: "Upload files",
     multiple: true,
   },
   render: (args) => ({

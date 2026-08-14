@@ -22,8 +22,16 @@
 // so a held face button doesn't shotgun actions. Synthetic-key buttons
 // (arrows) use the v1 console input cadence: 350ms initial delay, 120ms
 // repeat.
+//
+// Two contexts suppress this translation:
+//   * Game running (storePlaying.playing) — the emulator reads the pad
+//     itself, so all translation is off. Otherwise B (shared by Circle /
+//     Nintendo-A in the standard mapping) would quit the game.
+//   * Controller-test screen (ACTIONS_DISABLED_PATHS) — built-in actions
+//     are muted so every button can be pressed and inspected in place.
 import { onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import storePlaying from "@/stores/playing";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import {
   closeTopEscapable,
@@ -34,9 +42,11 @@ import {
 // `src/v2/components/AppShell/AppNav.vue`. LB/RB cycle through these.
 const NAV_SECTIONS = ["/", "/platforms", "/collections", "/search"] as const;
 
-// Routes where LB/RB should NOT trigger section navigation, so the
-// corresponding buttons remain inspectable/usable in-place.
-const SECTION_NAV_DISABLED_PATHS = new Set<string>(["/controller-debug"]);
+// Routes where useGamepad's built-in actions (back, activate, section
+// nav, user menu) must NOT fire, so every button stays inspectable in
+// place. The controller-debug "test" screen needs this: otherwise B
+// pops history and A clicks before the press can even be seen.
+const ACTIONS_DISABLED_PATHS = new Set<string>(["/controller-debug"]);
 
 const INITIAL_DELAY_MS = 350;
 const REPEAT_MS = 120;
@@ -94,6 +104,14 @@ const BUTTON_MAP: Record<number, Binding | undefined> = {
   15: { key: "ArrowRight", code: "ArrowRight" },
 };
 
+// Guards the polling loop against phantom gamepads.
+// Firefox keeps disconnected entries in the getGamepads() array,
+// and their stale analog values drift across the press threshold,
+// firing index-based actions with no user input. #3851.
+function isUsablePad(pad: Gamepad | null): pad is Gamepad {
+  return pad !== null && pad.connected;
+}
+
 function dispatchKey(binding: Binding) {
   const target =
     (document.activeElement as HTMLElement | null) ?? document.body;
@@ -121,9 +139,10 @@ export function useGamepad() {
   const router = useRouter();
   const route = useRoute();
 
+  const playingStore = storePlaying();
+
   function cycleSection(step: -1 | 1) {
     const currentPath = route.path;
-    if (SECTION_NAV_DISABLED_PATHS.has(currentPath)) return;
 
     // Match current section by path prefix so /platform/:id still registers
     // as "/platforms" when LB/RB is pressed from a gallery sub-route.
@@ -218,7 +237,7 @@ export function useGamepad() {
     // or first button press takes over.
     function detectPadPresence() {
       const list = navigator.getGamepads?.() ?? [];
-      const hasPad = Array.from(list).some((p) => p !== null);
+      const hasPad = Array.from(list).some((p) => isUsablePad(p));
       if (hasPad && !everSawPad) {
         everSawPad = true;
         setModality("pad");
@@ -235,8 +254,19 @@ export function useGamepad() {
       // mid-browse, or Chrome exposes it once the user moves a stick).
       if (!everSawPad) detectPadPresence();
 
+      // While a game is running the emulator owns the pad directly —
+      // translating presses into navigation here would, for example,
+      // make B (or Circle / Nintendo-A, which share the standard B
+      // index) quit the game. Suppress all built-in translation in that
+      // case; the emulator reads `navigator.getGamepads()` itself.
+      const gameOwnsInput = playingStore.playing;
+      // On the controller-test screen the built-in actions are muted so
+      // every button can be pressed and inspected without side effects.
+      const actionsDisabled = ACTIONS_DISABLED_PATHS.has(route.path);
+
       for (const pad of pads) {
-        if (!pad) continue;
+        // Skip disconnected phantom gamepads.
+        if (!isUsablePad(pad)) continue;
         const key = `${pad.index}:${pad.id}`;
         const st = (states[key] ||= {
           buttons: {},
@@ -246,20 +276,22 @@ export function useGamepad() {
         // Left stick → ArrowKey equivalents.
         const x = pad.axes[0] ?? 0;
         const y = pad.axes[1] ?? 0;
-        tickAxis(st, "x", x, t, (dir) =>
+        tickAxis(st, "x", x, t, (dir) => {
+          if (gameOwnsInput) return;
           dispatchKey(
             dir < 0
               ? { key: "ArrowLeft", code: "ArrowLeft" }
               : { key: "ArrowRight", code: "ArrowRight" },
-          ),
-        );
-        tickAxis(st, "y", y, t, (dir) =>
+          );
+        });
+        tickAxis(st, "y", y, t, (dir) => {
+          if (gameOwnsInput) return;
           dispatchKey(
             dir < 0
               ? { key: "ArrowUp", code: "ArrowUp" }
               : { key: "ArrowDown", code: "ArrowDown" },
-          ),
-        );
+          );
+        });
 
         // Buttons. Three tracks, evaluated in order:
         //   * BUTTON_MAP → synthetic keyboard event, with repeat cadence.
@@ -277,19 +309,21 @@ export function useGamepad() {
           const prev = (st.buttons[i] ||= { pressed: false, nextRepeatAt: 0 });
           if (button.pressed) {
             if (!prev.pressed) {
-              if (binding) dispatchKey(binding);
-              else action?.();
-              // Fire the CustomEvent on every press edge so views can
-              // bind to buttons we don't otherwise reserve.
-              window.dispatchEvent(
-                new CustomEvent("gamepad:buttondown", {
-                  detail: { index: i, name: BUTTON_NAMES[i] },
-                }),
-              );
+              if (!gameOwnsInput) {
+                if (binding) dispatchKey(binding);
+                else if (!actionsDisabled) action?.();
+                // Fire the CustomEvent on every press edge so views can
+                // bind to buttons we don't otherwise reserve.
+                window.dispatchEvent(
+                  new CustomEvent("gamepad:buttondown", {
+                    detail: { index: i, name: BUTTON_NAMES[i] },
+                  }),
+                );
+              }
               onAnyInput();
               prev.pressed = true;
               prev.nextRepeatAt = t + INITIAL_DELAY_MS;
-            } else if (binding && t >= prev.nextRepeatAt) {
+            } else if (!gameOwnsInput && binding && t >= prev.nextRepeatAt) {
               // Only synthetic-key bindings repeat while held.
               dispatchKey(binding);
               prev.nextRepeatAt = t + REPEAT_MS;

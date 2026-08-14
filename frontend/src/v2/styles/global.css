@@ -129,7 +129,15 @@ html[data-input="pad"] .r-v2 * {
 
 .r-v2-bg {
   position: fixed;
-  inset: 0;
+  /* Cover the LARGE viewport (mobile address bar hidden), not the dynamic
+     one: `inset: 0` tracks the current viewport, so as the address bar hides
+     during a scroll the layer lags a frame behind and the freshly-revealed
+     strip at the bottom flashes uncovered until scroll stops. A fixed 100lvh
+     height always reaches the bottom. `100vh` is the fallback (already the
+     large viewport on mobile) for engines without `lvh`. */
+  inset: 0 0 auto 0;
+  height: 100vh;
+  height: 100lvh;
   z-index: 0;
   pointer-events: none;
 }
@@ -137,6 +145,9 @@ html[data-input="pad"] .r-v2 * {
 .r-v2-bg__layer {
   position: absolute;
   inset: 0;
+  /* Fallback art when no cover is set (settings, admin, etc.). Kept in CSS
+     rather than inline so Firefox can swap it for the static variant below. */
+  background-image: url("/assets/auth_background.svg");
   background-size: cover;
   background-position: center 20%;
   background-repeat: no-repeat;
@@ -146,6 +157,17 @@ html[data-input="pad"] .r-v2 * {
   will-change: opacity;
 }
 
+/* Firefox: the animated fallback SVG is re-rasterized every frame under the
+   28px blur (and re-sampled by every backdrop-filter surface), pegging the
+   WebRender backend. Use the static variant in Gecko only (the empty
+   `url-prefix()` hack matches all Firefox pages and stays enabled by
+   default). Cover art is raster, so it's unaffected. */
+@-moz-document url-prefix() {
+  .r-v2-bg__layer {
+    background-image: url("/assets/auth_background_static.svg");
+  }
+}
+
 .r-v2-bg__layer--a {
   opacity: 1;
 }
@@ -153,9 +175,55 @@ html[data-input="pad"] .r-v2 * {
   opacity: 0;
 }
 
+/* Light theme: the dark-tuned brightness(0.45) here would let the darkened
+   art bleed through as a muddy mottle once the light wash sits on top. In
+   light mode we instead lift the art so its surviving contribution skews
+   light, and lean on a stronger, more even overlay (below) to keep it a
+   soft frosted backdrop rather than a busy field. */
+.r-v2-light .r-v2-bg__layer {
+  filter: blur(28px) brightness(1.12) saturate(0.7);
+}
+
+/* Reduced-motion mode (Settings, per device; defaults to the OS
+   `prefers-reduced-motion`): the backdrop art is authored to be read only
+   through the 28px blur — unblurred it shows hard seams and a bright diagonal
+   wedge. And a full-viewport blur(28px) is one of the heaviest things we ask
+   of the GPU (see the Firefox note above). So drop the whole fixed art +
+   overlay stack and let the solid page background (`.r-v2` bg) show through:
+   cheaper, and no weird seam. */
+html.r-v2-reduced-motion .r-v2-bg,
+html.r-v2-reduced-motion .r-v2-bg__overlay {
+  display: none;
+}
+
+/* The OS `prefers-reduced-motion` query is honored per-component (each R*
+   primitive / overlay carries its own tuned fallback), but a CSS class cannot
+   trigger those media blocks, and this toggle must also work when the user
+   forces it while the OS setting is off. So neutralize animation / transition
+   here globally: it kills continuously-running keyframes (CRT flicker, disc
+   spins, skeleton shimmer, spinners, scan pulses) that tax weak GPUs, and
+   collapses one-shot transitions. Near-zero (not zero) durations so JS still
+   gets its `transitionend` / `animationend` and Vue `<transition>` teardown
+   fires. `!important` intentionally overrides inline JS-set transitions (e.g.
+   RExpandTransition). JS-driven motion (the cover CD-spin, view-transition
+   morphs) is gated separately in its composables. */
+html.r-v2-reduced-motion *,
+html.r-v2-reduced-motion *::before,
+html.r-v2-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+}
+
 .r-v2-bg__overlay {
   position: fixed;
-  inset: 0;
+  /* Match .r-v2-bg — cover the large viewport so the dark overlay reaches the
+     bottom while the mobile address bar animates out during a scroll. */
+  inset: 0 0 auto 0;
+  height: 100vh;
+  height: 100lvh;
   z-index: 1;
   pointer-events: none;
   background:
@@ -174,13 +242,27 @@ html[data-input="pad"] .r-v2 * {
     );
 }
 
+/* Light theme overlay — a stronger, near-even light wash so content always
+   sits on a calm off-white field. The dark default dips to 0-30% bg in the
+   centre (right where the home rows live), which on light reads as the muddy
+   bleed-through. Here the field never drops below ~74% bg: a faint cover
+   tint survives mid-page for some life, and the top/bottom rise so titles
+   and dense list rows land on a stable, legible ground. */
+.r-v2-light .r-v2-bg__overlay {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--r-color-bg) 88%, transparent) 0%,
+    color-mix(in srgb, var(--r-color-bg) 84%, transparent) 40%,
+    color-mix(in srgb, var(--r-color-bg) 93%, transparent) 100%
+  );
+}
+
 /* ── Utility classes ───────────────────────────────────────── */
 
 .r-v2-surface {
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border-strong);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 
 .r-v2-scroll-hidden {

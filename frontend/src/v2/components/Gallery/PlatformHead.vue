@@ -17,9 +17,11 @@
 // on the parent so the bar stays in sync with `useCan`.
 import { RBtn, RChip, RPlatformIcon, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
+import { computed } from "vue";
 import type { Platform } from "@/stores/platforms";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 
 defineOptions({ inheritAttrs: false });
 
@@ -41,22 +43,23 @@ defineProps<{
   tab: string;
   tabs: RTabNavItem[];
   tags: string[];
+  /** User-authored platform description, empty when unset. */
+  description: string;
   stats: StatRow[];
   providers: ProviderChip[];
-  /** Permission flags — already evaluated against `useCan` in the
-   *  parent so the buttons render in or out atomically with the rest
-   *  of the page. */
+  /** Permission flags */
   canEdit: boolean;
   canScan: boolean;
-  /** Spinner on the random-game button while the parent resolves which
-   *  ROM to open. */
+  canDownload: boolean;
+  /** Spinner on the random-game button while the parent resolves the ROM. */
   randomLoading?: boolean;
-  /** Label text — passed in so the parent owns i18n and this stays a
-   *  presentational composite (no `useI18n` here). */
+  /** Label text passed in so the parent owns i18n and this stays a
+   *  presentational composite. */
   labels: {
     upload: string;
     scan: string;
     random: string;
+    download: string;
   };
 }>();
 
@@ -65,7 +68,15 @@ defineEmits<{
   (e: "upload"): void;
   (e: "scan"): void;
   (e: "random"): void;
+  (e: "download"): void;
 }>();
+
+// A square icon sized per breakpoint (smaller on phones). Driving the size
+// in JS keeps the box able to grow to the icon (reflow) instead of forcing
+// the icon to a fixed box height, which — for a tall icon — either overflowed
+// (overlap) or, once clipped, cut it off.
+const { xs } = useBreakpoint();
+const iconSize = computed(() => (xs.value ? 116 : 148));
 </script>
 
 <template>
@@ -79,12 +90,12 @@ defineEmits<{
           :slug="platform.slug"
           :fs-slug="platform.fs_slug"
           :alt="platform.display_name"
-          :size="148"
+          :size="iconSize"
         />
       </div>
     </template>
 
-    <template v-if="tags.length" #tags>
+    <template v-if="tags.length || description" #tags>
       <RChip
         v-for="tag in tags"
         :key="tag"
@@ -93,6 +104,14 @@ defineEmits<{
         :rounded="20"
       >
         {{ tag }}
+      </RChip>
+      <RChip
+        v-if="description"
+        size="small"
+        variant="translucent"
+        :rounded="20"
+      >
+        {{ description }}
       </RChip>
     </template>
 
@@ -149,6 +168,17 @@ defineEmits<{
         @click="$emit('random')"
       />
       <RBtn
+        v-if="canDownload"
+        variant="outlined"
+        surface
+        icon="mdi-download"
+        rounded="circle"
+        :disabled="platform.rom_count === 0"
+        :aria-label="labels.download"
+        :tooltip="labels.download"
+        @click="$emit('download')"
+      />
+      <RBtn
         v-if="canEdit"
         variant="outlined"
         surface
@@ -182,21 +212,21 @@ defineEmits<{
 <style scoped>
 .r-v2-plat__panel-icon {
   width: 200px;
-  height: 148px;
+  /* `min-height` (not a fixed `height`): the icon is a square sized in JS, so
+     the box floors at the icon height and simply grows to contain it — a tall
+     icon pushes the title/stats down (reflow) instead of overflowing and
+     getting clipped or overlapping. */
+  min-height: 148px;
   display: grid;
   place-items: center;
 }
 
 /* Keep the platform icon prominent on phones (it's the page's identity)
-   rather than shrinking it to a thumbnail — just trim it a little from
-   the desktop 200×148 so it leaves room for the centred title below. */
+   rather than shrinking it to a thumbnail — just a touch smaller than the
+   desktop size (see `iconSize`) so it leaves room for the centred title. */
 html[data-bp~="xs"] .r-v2-plat__panel-icon {
   width: 150px;
-  height: 112px;
-}
-html[data-bp~="xs"] .r-v2-plat__panel-icon :deep(.r-platform-icon) {
-  width: 100% !important;
-  height: 100% !important;
+  min-height: 116px;
 }
 
 .r-v2-plat__tabs {
@@ -233,9 +263,10 @@ html[data-bp~="xs"] .r-v2-plat__panel-icon :deep(.r-platform-icon) {
   color: var(--r-color-fg);
   transform: translateY(-1px);
 }
+/* Keep pointer events on passive chips so the native `title` tooltip still
+   shows on hover; only the pointer affordance is dropped. */
 .r-v2-plat__provider--passive {
   cursor: default;
-  pointer-events: none;
 }
 .r-v2-plat__provider--icon-only {
   padding: 2px 4px;

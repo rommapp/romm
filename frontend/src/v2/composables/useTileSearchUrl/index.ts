@@ -18,6 +18,7 @@
 //     keystroke). Skips the push when the URL already matches.
 import { ref, watch, type Ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { patchQuery } from "@/v2/utils/routeQuery";
 
 export function useTileSearchUrl(): Ref<string> {
   const route = useRoute();
@@ -40,10 +41,7 @@ export function useTileSearchUrl(): Ref<string> {
     const current =
       typeof route.query.search === "string" ? route.query.search : undefined;
     if (desired === current) return;
-    const nextQuery = { ...route.query };
-    if (desired === undefined) delete nextQuery.search;
-    else nextQuery.search = desired;
-    router.replace({ query: nextQuery });
+    patchQuery(router, { search: desired });
   });
 
   return term;

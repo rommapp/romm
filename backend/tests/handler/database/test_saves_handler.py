@@ -107,12 +107,85 @@ class TestDBSavesHandlerPlatformFiltering:
     ):
         """Test that get_save_by_filename works correctly with platform filtering."""
         retrieved_save = db_save_handler.get_save_by_filename(
-            user_id=admin_user.id, rom_id=rom.id, file_name=save.file_name
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            file_name=save.file_name,
+            slot=save.slot,
         )
 
         assert retrieved_save is not None
         assert retrieved_save.id == save.id
         assert retrieved_save.file_name == save.file_name
+
+    def test_get_save_by_filename_slotless_ignores_slotted_save(
+        self, admin_user: User, rom: Rom
+    ):
+        """A slot-less lookup must not match a same-named save in a named slot."""
+        slotted = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="shared.sav",
+            file_name_no_tags="shared",
+            file_name_no_ext="shared",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="Slot A",
+        )
+        slotted = db_save_handler.add_save(slotted)
+
+        # No null-slot save exists, so a slot-less lookup should find nothing.
+        assert (
+            db_save_handler.get_save_by_filename(
+                user_id=admin_user.id, rom_id=rom.id, file_name="shared.sav", slot=None
+            )
+            is None
+        )
+
+        # The named-slot lookup still resolves the slotted save.
+        found = db_save_handler.get_save_by_filename(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            file_name="shared.sav",
+            slot="Slot A",
+        )
+        assert found is not None
+        assert found.id == slotted.id
+
+    def test_get_save_by_filename_slotted_ignores_slotless_save(
+        self, admin_user: User, rom: Rom
+    ):
+        """A named-slot lookup must not match a same-named null-slot save."""
+        slotless = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="shared.sav",
+            file_name_no_tags="shared",
+            file_name_no_ext="shared",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot=None,
+        )
+        slotless = db_save_handler.add_save(slotless)
+
+        assert (
+            db_save_handler.get_save_by_filename(
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                file_name="shared.sav",
+                slot="Slot A",
+            )
+            is None
+        )
+
+        found = db_save_handler.get_save_by_filename(
+            user_id=admin_user.id, rom_id=rom.id, file_name="shared.sav", slot=None
+        )
+        assert found is not None
+        assert found.id == slotless.id
 
     def test_platform_filtering_with_different_emulators(
         self, admin_user: User, platform: Platform, rom: Rom

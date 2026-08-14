@@ -416,18 +416,20 @@ class OpenIDHandler:
                 detail=f"'{OIDC_USERNAME_ATTRIBUTE}' attribute is missing from token.",
             )
 
-        role = Role.VIEWER
+        # Admin claim grants admin; the legacy editor/viewer claims both map to
+        # the single `user` kind now (env var names kept to avoid a breaking
+        # ops rename). No matching claim -> no access.
+        role = Role.USER
         claims_provided = OIDC_CLAIM_ROLES and OIDC_CLAIM_ROLES in userinfo
         if claims_provided:
             roles = userinfo[OIDC_CLAIM_ROLES] or []
             if OIDC_ROLE_ADMIN and OIDC_ROLE_ADMIN in roles:
                 role = Role.ADMIN
-            elif OIDC_ROLE_EDITOR and OIDC_ROLE_EDITOR in roles:
-                role = Role.EDITOR
-            elif OIDC_ROLE_VIEWER and (
-                OIDC_ROLE_VIEWER in roles or OIDC_ROLE_VIEWER == "*"
+            elif (OIDC_ROLE_EDITOR and OIDC_ROLE_EDITOR in roles) or (
+                OIDC_ROLE_VIEWER
+                and (OIDC_ROLE_VIEWER in roles or OIDC_ROLE_VIEWER == "*")
             ):
-                role = Role.VIEWER
+                role = Role.USER
             else:
                 log.error("User has not been granted any roles for this application.")
                 raise HTTPException(

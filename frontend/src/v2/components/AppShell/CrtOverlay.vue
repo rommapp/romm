@@ -37,7 +37,6 @@ const { enabled } = useCrtMode();
      app root, so it never becomes a containing block for the app's own
      position:fixed chrome (navbar, gallery SelectionBar, …). */
   backdrop-filter: saturate(1.3) contrast(1.05) brightness(1.02);
-  -webkit-backdrop-filter: saturate(1.3) contrast(1.05) brightness(1.02);
   /* Subtle whole-screen flicker — the CRT never sits perfectly still. */
   animation: r-crtfx-flicker 0.14s steps(2, end) infinite;
 }

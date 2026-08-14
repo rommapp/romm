@@ -492,7 +492,7 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
                ├──────────────────┤
                │ smart_collections│  (filter-based, dynamic)
                ├──────────────────┤
-               │virtual_collections│  (DB view, read-only)
+               │virtual_collections│  (DB view over virtual_collection_roms)
                └──────────────────┘
 ```
 
@@ -571,15 +571,38 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
 
 Tracks individual files within a ROM (archives can contain multiple files).
 
-| Column                                         | Type        | Notes                                                                                                  |
-| ---------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------ |
-| `id`                                           | Integer     | PK                                                                                                     |
-| `rom_id`                                       | Integer     | FK → roms                                                                                              |
-| `file_name`, `file_path`                       | String      | File identity                                                                                          |
-| `file_size_bytes`                              | BigInteger  | Size                                                                                                   |
-| `crc_hash`, `md5_hash`, `sha1_hash`, `ra_hash` | String(100) | Hashes                                                                                                 |
-| `category`                                     | Enum        | `GAME`, `DLC`, `HACK`, `MANUAL`, `PATCH`, `UPDATE`, `MOD`, `DEMO`, `TRANSLATION`, `PROTOTYPE`, `CHEAT` |
-| `missing_from_fs`                              | Boolean     | Sync state                                                                                             |
+| Column                                         | Type        | Notes                                                                                                                              |
+| ---------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                           | Integer     | PK                                                                                                                                 |
+| `rom_id`                                       | Integer     | FK → roms                                                                                                                          |
+| `file_name`, `file_path`                       | String      | File identity                                                                                                                      |
+| `file_size_bytes`                              | BigInteger  | Size                                                                                                                               |
+| `crc_hash`, `md5_hash`, `sha1_hash`, `ra_hash` | String(100) | Hashes                                                                                                                             |
+| `category`                                     | Enum        | `GAME`, `DLC`, `HACK`, `MANUAL`, `PATCH`, `UPDATE`, `MOD`, `DEMO`, `TRANSLATION`, `PROTOTYPE`, `CHEAT`, `SOUNDTRACK`, `SCREENSHOT` |
+| `missing_from_fs`                              | Boolean     | Sync state                                                                                                                         |
+
+**Relationships:** rom (M:1), track_meta (1:1, `SOUNDTRACK` files only)
+
+---
+
+#### Track Meta
+
+**Table:** `track_meta`
+
+Audio metadata for a `SOUNDTRACK` rom_file (1:1), indexed for the music API. Written from file tags at upload/scan.
+
+| Column                     | Type         | Notes                            |
+| -------------------------- | ------------ | -------------------------------- |
+| `rom_file_id`              | Integer      | PK, FK → rom_files (cascade)     |
+| `rom_id`                   | Integer      | FK → roms (cascade), indexed     |
+| `title`, `artist`, `album` | String(512)  | Indexed: `artist`, `album`       |
+| `genre`                    | String(255)  |                                  |
+| `year`, `track`, `disc`    | SmallInteger | Parsed from tags; `year` indexed |
+| `duration_seconds`         | Float        | Indexed                          |
+| `has_embedded_cover`       | Boolean      |                                  |
+| `cover_path`               | String(1024) | Extracted cover under resources  |
+
+**Relationships:** rom_file (1:1)
 
 ---
 
@@ -661,6 +684,16 @@ Linked to ROMs via `collections_roms` join table (M:M).
 | `rom_count`       | Integer | Cached count            |
 
 **View:** `virtual_collections` (database view, read-only, excluded from migrations).
+
+It aggregates `virtual_collection_roms`, a real table holding one row per
+(`type`, `name`, `rom_id`) plus that rom's cover paths. Membership is derived
+from the `generated_*` columns on `roms` and maintained by triggers on that
+table (`virtual_collection_roms_ai`/`_au` on MariaDB/MySQL,
+`virtual_collection_roms_aiu` calling `romm_sync_virtual_collection_roms()` on
+PostgreSQL); rom deletions are handled by the foreign key's cascade. Reads are
+therefore indexed lookups instead of a full re-derivation of every rom's
+metadata. Covers are not aggregated in the view: the collections handler
+resolves at most `MAX_VIRTUAL_COLLECTION_COVERS` per collection.
 
 ---
 
@@ -818,17 +851,19 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 
 ### 6.5 ROMs (`/api/roms`)
 
-| Method | Path                         | Scope      | Description                       |
-| ------ | ---------------------------- | ---------- | --------------------------------- |
-| GET    | `/`                          | ROMS_READ  | List ROMs (paginated, filterable) |
-| GET    | `/identifiers`               | ROMS_READ  | Get ROM IDs                       |
-| GET    | `/{id}`                      | ROMS_READ  | Get ROM details                   |
-| PUT    | `/{id}`                      | ROMS_WRITE | Update ROM metadata               |
-| PUT    | `/{id}/user`                 | ME_WRITE   | Update user-specific ROM data     |
-| DELETE | `/{id}`                      | ROMS_WRITE | Delete ROM                        |
-| POST   | `/delete`                    | ROMS_WRITE | Bulk delete                       |
-| POST   | `/download/{id}/{file_name}` | ROMS_READ  | Download ROM                      |
-| POST   | `/unidentified`              | ROMS_READ  | Get unidentified ROMs             |
+| Method | Path                         | Scope      | Description                                      |
+| ------ | ---------------------------- | ---------- | ------------------------------------------------ |
+| GET    | `/`                          | ROMS_READ  | List ROMs (paginated, filterable)                |
+| GET    | `/identifiers`               | ROMS_READ  | Get ROM IDs                                      |
+| GET    | `/random`                    | ROMS_READ  | Get one ROM picked at random (optionally scoped) |
+| GET    | `/{id}`                      | ROMS_READ  | Get ROM details                                  |
+| PUT    | `/{id}`                      | ROMS_WRITE | Update ROM metadata                              |
+| POST   | `/{id}/convert-to-folder`    | ROMS_WRITE | Promote single-file ROM to a folder ROM in place |
+| PUT    | `/{id}/user`                 | ME_WRITE   | Update user-specific ROM data                    |
+| DELETE | `/{id}`                      | ROMS_WRITE | Delete ROM                                       |
+| POST   | `/delete`                    | ROMS_WRITE | Bulk delete                                      |
+| POST   | `/download/{id}/{file_name}` | ROMS_READ  | Download ROM                                     |
+| POST   | `/unidentified`              | ROMS_READ  | Get unidentified ROMs                            |
 
 #### ROM Upload (Chunked)
 
@@ -847,14 +882,28 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | GET    | `/{id}/files`                | ROMS_READ | Get ROM file metadata                   |
 | GET    | `/{id}/files/content/{name}` | ROMS_READ | Download file (nginx X-Accel or direct) |
 
-### 6.6 Search (`/api/search`)
+### 6.6 Music (`/api/music`)
+
+Music-first read API over soundtrack `track_meta`, for external music-player clients. All routes are visibility-filtered (hidden platforms/ROMs excluded).
+
+| Method | Path       | Scope     | Description                                                               |
+| ------ | ---------- | --------- | ------------------------------------------------------------------------- |
+| GET    | `/tracks`  | ROMS_READ | List tracks (search + artist/album/genre/year/duration filters, sortable) |
+| GET    | `/artists` | ROMS_READ | Distinct artists + counts (searchable)                                    |
+| GET    | `/albums`  | ROMS_READ | Distinct albums + counts (searchable)                                     |
+| GET    | `/genres`  | ROMS_READ | Distinct genres + counts (searchable)                                     |
+| GET    | `/years`   | ROMS_READ | Distinct years + counts                                                   |
+
+Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, count}` and accept the same filters as `/tracks`, for contextual typeahead browsing.
+
+### 6.7 Search (`/api/search`)
 
 | Method | Path     | Scope     | Description                          |
 | ------ | -------- | --------- | ------------------------------------ |
 | GET    | `/roms`  | ROMS_READ | Search metadata across all providers |
 | GET    | `/cover` | ROMS_READ | Search SteamGridDB for cover art     |
 
-### 6.7 Saves (`/api/saves`)
+### 6.8 Saves (`/api/saves`)
 
 | Method | Path               | Scope         | Description                             |
 | ------ | ------------------ | ------------- | --------------------------------------- |
@@ -870,7 +919,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | POST   | `/{id}/track`      | DEVICES_WRITE | Re-enable sync tracking                 |
 | POST   | `/{id}/untrack`    | DEVICES_WRITE | Disable sync tracking                   |
 
-### 6.8 States (`/api/states`)
+### 6.9 States (`/api/states`)
 
 | Method | Path           | Scope        | Description   |
 | ------ | -------------- | ------------ | ------------- |
@@ -881,7 +930,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | PUT    | `/{id}`        | ASSETS_WRITE | Update state  |
 | POST   | `/delete`      | ASSETS_WRITE | Bulk delete   |
 
-### 6.9 Screenshots (`/api/screenshots`)
+### 6.10 Screenshots (`/api/screenshots`)
 
 | Method | Path           | Scope        | Description        |
 | ------ | -------------- | ------------ | ------------------ |
@@ -892,7 +941,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | PUT    | `/{id}`        | ASSETS_WRITE | Update screenshot  |
 | POST   | `/delete`      | ASSETS_WRITE | Bulk delete        |
 
-### 6.10 Devices (`/api/devices`)
+### 6.11 Devices (`/api/devices`)
 
 | Method | Path    | Scope         | Description                         |
 | ------ | ------- | ------------- | ----------------------------------- |
@@ -902,7 +951,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | PUT    | `/{id}` | DEVICES_WRITE | Update device                       |
 | DELETE | `/{id}` | DEVICES_WRITE | Delete device                       |
 
-### 6.11 Collections (`/api/collections`)
+### 6.12 Collections (`/api/collections`)
 
 | Method | Path                  | Scope             | Description           |
 | ------ | --------------------- | ----------------- | --------------------- |
@@ -915,7 +964,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | POST   | `/{id}/roms`          | COLLECTIONS_WRITE | Add ROM to collection |
 | DELETE | `/{id}/roms/{rom_id}` | COLLECTIONS_WRITE | Remove ROM            |
 
-### 6.12 Feeds (`/api/feeds`)
+### 6.13 Feeds (`/api/feeds`)
 
 | Method | Path                  | Description                   |
 | ------ | --------------------- | ----------------------------- |
@@ -932,7 +981,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | GET    | `/pkgj/psvita/dlc`    | PKGj PS Vita DLC              |
 | GET    | `/pkgj/psx/games`     | PKGj PSX games                |
 
-### 6.13 Configuration (`/api/config`)
+### 6.14 Configuration (`/api/config`)
 
 | Method | Path                       | Scope           | Description              |
 | ------ | -------------------------- | --------------- | ------------------------ |
@@ -944,7 +993,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | POST   | `/system/exclusions`       | PLATFORMS_WRITE | Add exclusion pattern    |
 | DELETE | `/system/exclusions`       | PLATFORMS_WRITE | Remove exclusion pattern |
 
-### 6.14 Tasks (`/api/tasks`)
+### 6.15 Tasks (`/api/tasks`)
 
 | Method | Path          | Scope     | Description              |
 | ------ | ------------- | --------- | ------------------------ |
@@ -953,7 +1002,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | GET    | `/{id}`       | TASKS_RUN | Status of specific task  |
 | POST   | `/run/{name}` | TASKS_RUN | Trigger task execution   |
 
-### 6.15 Other Endpoints
+### 6.16 Other Endpoints
 
 | Router        | Path                                   | Description                            |
 | ------------- | -------------------------------------- | -------------------------------------- |
@@ -962,8 +1011,6 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | Heartbeat     | `GET /api/setup/library`               | Library structure info (wizard)        |
 | Heartbeat     | `POST /api/setup/platforms`            | Create platform folders (wizard)       |
 | Stats         | `GET /api/stats`                       | Library statistics                     |
-| Raw           | `HEAD /api/raw/assets/{path}`          | Check asset existence                  |
-| Raw           | `GET /api/raw/assets/{path}`           | Serve raw asset file                   |
 | Firmware      | Standard CRUD                          | BIOS file management                   |
 | Export        | `POST /api/export/gamelist-xml`        | Export ES-DE gamelist.xml              |
 | Export        | `POST /api/export/pegasus`             | Export Pegasus frontend metadata       |
@@ -1344,17 +1391,24 @@ Configured via environment variables and managed by RQ Scheduler:
 | `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`       | `0 4 * * *`        | Refresh LaunchBox data |
 | `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`          | `0 4 * * *`        | Image optimization     |
 | `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC` | `0 4 * * *`        | Sync RA user progress  |
+| `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`      | `0 5 * * *`        | Remove unused artwork  |
 | `cleanup_netplay`                 | Always enabled                                     | Periodic           | Clean stale rooms      |
 
 ### Manual Tasks
 
 Triggered via `POST /api/tasks/run/{task_name}`:
 
-| Task                         | Description                                   |
-| ---------------------------- | --------------------------------------------- |
-| `cleanup_missing_roms`       | Remove DB entries for files no longer on disk |
-| `cleanup_orphaned_resources` | Remove unused artwork/resource files          |
-| `sync_folder_scan`           | Scan sync folder for new device saves         |
+| Task                   | Description                                   |
+| ---------------------- | --------------------------------------------- |
+| `cleanup_missing_roms` | Remove DB entries for files no longer on disk |
+| `sync_folder_scan`     | Scan sync folder for new device saves         |
+
+`cleanup_orphaned_resources` is also runnable this way; it is listed under
+Scheduled Tasks because it additionally supports an opt-in cron schedule. It
+skips the cleanup when the database reports no platforms at all while artwork
+is still on disk, since that usually means the database is unavailable rather
+than the library being empty. Pass `{"force": true}` as the request body to
+clean up a genuinely emptied library.
 
 ### Filesystem Watcher
 
@@ -1484,20 +1538,21 @@ Falls back to `FakeRedis` in test mode.
 
 #### Redis
 
-| Variable         | Default     | Description           |
-| ---------------- | ----------- | --------------------- |
-| `REDIS_HOST`     | `127.0.0.1` | Redis host            |
-| `REDIS_PORT`     | `6379`      | Redis port            |
-| `REDIS_USERNAME` |             | Redis username (ACL)  |
-| `REDIS_PASSWORD` |             | Redis password        |
-| `REDIS_DB`       | `0`         | Redis database number |
-| `REDIS_SSL`      | `false`     | Enable SSL            |
+| Variable            | Default     | Description            |
+| ------------------- | ----------- | ---------------------- |
+| `REDIS_HOST`        | `127.0.0.1` | Redis host             |
+| `REDIS_PORT`        | `6379`      | Redis port             |
+| `REDIS_USERNAME`    |             | Redis username (ACL)   |
+| `REDIS_PASSWORD`    |             | Redis password         |
+| `REDIS_DB`          | `0`         | Redis database number  |
+| `REDIS_SSL`         | `false`     | Enable SSL             |
+| `REDIS_SAVE_POLICY` | `3600 1`    | Valkey snapshot policy |
 
 #### Authentication
 
 | Variable                             | Default   | Description                           |
 | ------------------------------------ | --------- | ------------------------------------- |
-| `ROMM_AUTH_SECRET_KEY`               |           | **Required.** JWT/session signing key |
+| `ROMM_AUTH_SECRET_KEY`               |           | Session signing key (random if unset) |
 | `OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS`  | `1800`    | 30 minutes                            |
 | `OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS` | `604800`  | 7 days                                |
 | `SESSION_MAX_AGE_SECONDS`            | `1209600` | 14 days                               |

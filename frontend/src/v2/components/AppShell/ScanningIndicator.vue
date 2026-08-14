@@ -15,7 +15,7 @@
 // Hidden on /scan itself. Honours `prefers-reduced-motion` by
 // dropping the shimmer + pulse animations; the spinner + progress
 // bar keep moving since they communicate live data, not affect.
-import { RProgressLinear, RSpinner, RTooltip } from "@v2/lib";
+import { RIcon, RProgressLinear, RSpinner, RTooltip } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -72,6 +72,12 @@ const counterLabel = computed(() => {
             <span class="r-scan-indicator__label">
               {{ t("scan.scanning") }}
             </span>
+            <RIcon
+              icon="mdi-radar"
+              size="15"
+              class="r-scan-indicator__icon"
+              aria-hidden="true"
+            />
             <span v-if="counterLabel">
               {{ counterLabel }}
             </span>
@@ -147,6 +153,18 @@ const counterLabel = computed(() => {
 
 .r-scan-indicator__label {
   white-space: nowrap;
+}
+
+/* Radar glyph stands in for the label on phones — hidden by default so
+   the desktop pill keeps its word. */
+.r-scan-indicator__icon {
+  display: none;
+}
+html[data-bp~="xs"] .r-scan-indicator__label {
+  display: none;
+}
+html[data-bp~="xs"] .r-scan-indicator__icon {
+  display: inline-flex;
 }
 
 /* Pinned to the pill's bottom edge; the pill's `overflow: hidden`

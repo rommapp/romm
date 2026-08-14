@@ -8,6 +8,7 @@ import type { NetplayICEServer } from './NetplayICEServer';
 export type ConfigResponse = {
     CONFIG_FILE_MOUNTED: boolean;
     CONFIG_FILE_WRITABLE: boolean;
+    CONFIG_FILE_PARSE_ERROR: (string | null);
     EXCLUDED_PLATFORMS: Array<string>;
     EXCLUDED_SINGLE_EXT: Array<string>;
     EXCLUDED_SINGLE_FILES: Array<string>;
@@ -30,10 +31,13 @@ export type ConfigResponse = {
     EJS_CONTROLS: Record<string, EjsControls>;
     SCAN_METADATA_PRIORITY: Array<string>;
     SCAN_ARTWORK_PRIORITY: Array<string>;
+    SCAN_ARTWORK_PRIORITY_OVERRIDES: Record<string, Array<string>>;
     SCAN_REGION_PRIORITY: Array<string>;
     SCAN_LANGUAGE_PRIORITY: Array<string>;
     SCAN_MEDIA: Array<string>;
+    GAMELIST_AUTO_EXPORT_ON_SCAN: boolean;
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType;
     GAMELIST_MEDIA_IMAGE: MetadataMediaType;
+    PEGASUS_AUTO_EXPORT_ON_SCAN: boolean;
 };
 

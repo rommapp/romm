@@ -15,10 +15,12 @@ import {
   onMounted,
   provide,
   ref,
+  watch,
 } from "vue";
 import { useRouter } from "vue-router";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
+import { useStreamingStore } from "@/stores/streaming";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import BottomNav from "@/v2/components/AppShell/BottomNav.vue";
@@ -29,10 +31,12 @@ import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
 import { installBreakpointAttribute } from "@/v2/composables/useBreakpoint";
 import { installPermissionsHydration } from "@/v2/composables/useCan";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
+import { installGalleryProvenance } from "@/v2/composables/useGalleryProvenance";
 import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
 
@@ -47,8 +51,24 @@ installScanLifecycle();
 // hardcoding `@media (max-width: …)` values across every SFC.
 installBreakpointAttribute();
 
+// Reduced-motion mode: mirror the flag onto <html> so global CSS can drop
+// its heaviest work via `html.r-v2-reduced-motion .foo { … }` (background-art
+// blur, cover blur-up, the global animation/transition neutralize). On <html>
+// (not the shell root) for the same reason as the theme classes: Vuetify
+// teleports overlays outside the app tree, and this keeps the flag reachable
+// there too.
+const { enabled: reducedMotion } = useReducedMotion();
+watch(
+  reducedMotion,
+  (on) => {
+    document.documentElement.classList.toggle("r-v2-reduced-motion", on);
+  },
+  { immediate: true },
+);
+
 const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
+const streamingStore = useStreamingStore();
 
 // Developer debug overlay — opt-in via Settings → Developer (per-device).
 // Lazily loaded so its chunk (and the vueuse perf hooks it pulls in) is only
@@ -98,6 +118,7 @@ const { install: installGlobalHotkeys } = useGlobalHotkeys();
 const router = useRouter();
 
 let removeBackMorph: (() => void) | null = null;
+let removeGalleryProvenance: (() => void) | null = null;
 
 onMounted(() => {
   installInputModality();
@@ -106,11 +127,20 @@ onMounted(() => {
   // Mirror morph: GameDetails cover → destination card on back/navbar/popstate.
   // Forward direction is handled at the source side in GameCard.
   removeBackMorph = installBackMorph(router);
+  // Tells GameDetails whether the user clicked through from a gallery, so the
+  // prev/next arrows don't step through a list the user has already left.
+  removeGalleryProvenance = installGalleryProvenance(router);
   // Hydrate collections (incl. favoriteCollection) so per-ROM favorite
   // state resolves on direct navigation to /rom/:id without going
   // through Home / Collections first. v1 did this in `Main.vue`.
   if (collectionsStore.allCollections.length === 0) {
     void collectionsStore.fetchCollections();
+  }
+  // Smart collections too, so GameDetails can enrich a ROM's smart-collection
+  // tiles (cover mosaic + rom count) on direct navigation instead of falling
+  // back to a countless, coverless entry.
+  if (collectionsStore.smartCollections.length === 0) {
+    void collectionsStore.fetchSmartCollections();
   }
   // Hydrate platforms for the same reason — views like MissingGames,
   // GameDetails, etc. read `platformsStore.get(id)` to resolve a
@@ -127,15 +157,23 @@ onMounted(() => {
   } else {
     prefetchPlatformIcons(platformsStore.allPlatforms.map((p) => p.slug));
   }
+
+  // Streaming config is fetched once on app load
+  void streamingStore.fetchConfig();
 });
 
 onBeforeUnmount(() => {
   removeBackMorph?.();
   removeBackMorph = null;
+  removeGalleryProvenance?.();
+  removeGalleryProvenance = null;
   if (bgTimer !== null) {
     clearTimeout(bgTimer);
     bgTimer = null;
   }
+  // Leaving v2 (e.g. switching back to the v1 UI): drop the root flag so
+  // the class doesn't linger on a non-v2 document.
+  document.documentElement.classList.remove("r-v2-reduced-motion");
 });
 </script>
 
@@ -176,7 +214,12 @@ onBeforeUnmount(() => {
 .r-v2-shell {
   color: var(--r-color-fg);
   position: relative;
+  /* `dvh` tracks the mobile visible viewport (address bar shown/hidden).
+     `vh` (the large viewport) leaves the app taller than the screen while
+     the bar is visible, forcing a second, document-level scroll on top of
+     a view's internal scroll. */
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .r-v2-shell__app {

@@ -4,17 +4,27 @@
 // `src/views/Player/RuffleRS/Base.vue` so playback stays identical; only the
 // chrome is v2. No shared state with EJS — Flash has its own config.
 import { RBtn, RCard, RIcon, RSwitch } from "@v2/lib";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
+import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import type { RuffleSourceAPI } from "@/types/ruffle";
 import { getDownloadPath } from "@/utils";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
+import { usePlaySession } from "@/v2/composables/usePlaySession";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { colorCanvas } from "@/v2/tokens";
 
@@ -25,6 +35,8 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const { fullscreenOnPlay } = useFullscreenPref();
+const playingStore = storePlaying();
+const playSession = usePlaySession();
 
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
@@ -97,6 +109,10 @@ const title = computed(
   () => heroRom.value?.name || heroRom.value?.fs_name_no_ext || "",
 );
 
+usePageTitle(() =>
+  title.value ? t("play.page-title", { name: title.value }) : null,
+);
+
 const platformLabel = computed(
   () =>
     heroRom.value?.platform_custom_name ||
@@ -106,6 +122,9 @@ const platformLabel = computed(
 
 function onPlay() {
   gameRunning.value = true;
+  // Flash games are keyboard-driven; flag the session so global hotkeys
+  // and pad-to-UI translation stay muted while the game owns input.
+  playingStore.setPlaying(true);
 
   nextTick(() => {
     if (!rom.value) return;
@@ -129,6 +148,11 @@ function onPlay() {
     });
     player.style.width = "100%";
     player.style.height = "100%";
+
+    // Start timing the session only once playback is actually under way, so a
+    // failed player creation / load records nothing. The session is ingested
+    // on unmount, which is what updates last_played / now_playing / status.
+    playSession.start(rom.value);
 
     if (player.fullscreenEnabled && fullscreenOnPlay.value) {
       player.enterFullscreen();
@@ -166,7 +190,6 @@ onMounted(async () => {
   rom.value = romResponse.data;
 
   if (rom.value) {
-    document.title = `${rom.value.name} | Play`;
     const storedColor = localStorage.getItem(
       `player:ruffle:${rom.value.id}:backgroundColor`,
     );
@@ -182,6 +205,14 @@ onMounted(async () => {
   };
   document.body.appendChild(script);
 });
+
+onBeforeUnmount(() => {
+  // Every exit path (Quit, back links, route change) unmounts the view, so
+  // this is the single choke point for recording the session.
+  playSession.flush();
+  // Hand the keyboard and gamepad back to the UI on any exit path.
+  playingStore.setPlaying(false);
+});
 </script>
 
 <template>
@@ -196,6 +227,7 @@ onMounted(async () => {
           :title="title"
           :identified="heroRom?.is_identified ?? true"
           :morph-id="morphRomId"
+          style-context="player"
           morph-static
           hover-motion
         />
@@ -339,7 +371,6 @@ onMounted(async () => {
   border: 1px solid var(--r-color-border) !important;
   border-radius: var(--r-radius-lg) !important;
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   display: flex !important;
   flex-direction: column;
   overflow: hidden;

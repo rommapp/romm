@@ -3,8 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { RomArchiveMember } from './RomArchiveMember';
-import type { RomFileAudioMetaSchema } from './RomFileAudioMetaSchema';
 import type { RomFileCategory } from './RomFileCategory';
+import type { TrackMetaSchema } from './TrackMetaSchema';
 export type RomFileSchema = {
     id: number;
     rom_id: number;
@@ -12,6 +12,7 @@ export type RomFileSchema = {
     file_path: string;
     file_size_bytes: number;
     full_path: string;
+    is_top_level: boolean;
     created_at: string;
     updated_at: string;
     last_modified: string;
@@ -22,6 +23,6 @@ export type RomFileSchema = {
     chd_sha1_hash: (string | null);
     archive_members: (Array<RomArchiveMember> | null);
     category: (RomFileCategory | null);
-    audio_meta?: (RomFileAudioMetaSchema | null);
+    track_meta?: (TrackMetaSchema | null);
 };
 

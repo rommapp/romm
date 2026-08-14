@@ -11,7 +11,6 @@ from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     TASK_RESULT_TTL,
-    TASK_TIMEOUT,
 )
 from decorators.auth import protected_route
 from endpoints.responses import (
@@ -35,11 +34,12 @@ from handler.redis_handler import (
     redis_client,
 )
 from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
-from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
 from tasks.manual.sync_folder_scan import sync_folder_scan_task
+from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
+from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
 from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
@@ -95,16 +95,23 @@ scheduled_tasks: list[ScheduledTask] = [
             "task": convert_images_to_webp_task,
         }
     ),
-]
-
-manual_tasks: list[ManualTask] = [
-    ManualTask(
+    ScheduledTask(
+        {
+            "name": "cleanup_zip_cache",
+            "type": TaskType.CLEANUP,
+            "task": cleanup_zip_cache_task,
+        }
+    ),
+    ScheduledTask(
         {
             "name": "cleanup_orphaned_resources",
             "type": TaskType.CLEANUP,
             "task": cleanup_orphaned_resources_task,
         }
     ),
+]
+
+manual_tasks: list[ManualTask] = [
     ManualTask(
         {
             "name": "cleanup_missing_roms",
@@ -137,7 +144,7 @@ def _build_task_info(name: str, task: Task) -> TaskInfo:
         title=task.title,
         description=task.description,
         enabled=task.enabled,
-        manual_run=task.manual_run,
+        manual_run=task.can_run_manually,
         cron_string=task.cron_string or "",
     )
 
@@ -377,7 +384,7 @@ async def run_single_task(
         )
 
     task_instance = all_tasks[task_name]
-    if not task_instance.enabled or not task_instance.manual_run:
+    if not task_instance.can_run_manually:
         raise HTTPException(
             status_code=400,
             detail=f"Task '{task_name}' cannot be run",
@@ -386,7 +393,7 @@ async def run_single_task(
     job = low_prio_queue.enqueue(
         task_instance.run,
         kwargs=task_kwargs or {},
-        job_timeout=TASK_TIMEOUT,
+        job_timeout=task_instance.timeout,
         result_ttl=TASK_RESULT_TTL,
         meta={
             "task_name": task_instance.title,

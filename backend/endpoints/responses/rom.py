@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
-from pydantic import ConfigDict, Field, computed_field, field_validator
+from pydantic import ConfigDict, Field, computed_field, field_validator, model_validator
 
 from endpoints.responses.assets import (
     SaveSchema,
@@ -25,7 +25,7 @@ from handler.metadata.launchbox_handler.types import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
-from models.collection import Collection
+from models.collection import Collection, SmartCollection
 from models.rom import Rom, RomArchiveMember, RomFile, RomFileCategory, RomUserStatus
 
 from .base import BaseModel, UTCDatetime
@@ -158,16 +158,16 @@ class RomUserSchema(BaseModel):
         return rom_user_schema_factory()
 
 
-class RomFileAudioMetaSchema(BaseModel):
+class TrackMetaSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     title: str | None = None
     artist: str | None = None
     album: str | None = None
-    year: str | None = None
+    year: int | None = None
     genre: str | None = None
-    track: str | None = None
-    disc: str | None = None
+    track: int | None = None
+    disc: int | None = None
     duration_seconds: float | None = None
     has_embedded_cover: bool = False
     cover_path: str | None = None
@@ -182,6 +182,7 @@ class RomFileSchema(BaseModel):
     file_path: str
     file_size_bytes: int
     full_path: str
+    is_top_level: bool
     created_at: UTCDatetime
     updated_at: UTCDatetime
     last_modified: UTCDatetime
@@ -192,7 +193,13 @@ class RomFileSchema(BaseModel):
     chd_sha1_hash: str | None
     archive_members: list[RomArchiveMember] | None
     category: RomFileCategory | None
-    audio_meta: RomFileAudioMetaSchema | None = None
+    track_meta: TrackMetaSchema | None = None
+
+    @model_validator(mode="after")
+    def default_category_for_non_nested(self) -> RomFileSchema:
+        if self.category is None and self.is_top_level:
+            self.category = RomFileCategory.GAME
+        return self
 
 
 class SoundtrackTrackMetaSchema(BaseModel):
@@ -201,7 +208,7 @@ class SoundtrackTrackMetaSchema(BaseModel):
     file_id: int
     file_name: str
     file_size_bytes: int
-    audio_meta: RomFileAudioMetaSchema | None = None
+    track_meta: TrackMetaSchema | None = None
 
 
 class RomMetadataSchema(BaseModel):
@@ -305,7 +312,6 @@ class RomSchema(BaseModel):
     url_cover: str | None
 
     has_manual: bool
-    has_manual_files: bool
     has_soundtrack: bool
     path_manual: str | None
     url_manual: str | None
@@ -399,6 +405,23 @@ class SiblingRomSchema(BaseModel):
         )
 
 
+def _visible_siblings(db_rom: Rom, request: Request) -> list[Rom]:
+    """`db_rom.sibling_roms` minus any sibling hidden from the caller.
+
+    Single-rom endpoints (detail / simple fallback) read siblings off the
+    eager-loaded relationship, which bypasses the list query's hidden filter.
+    """
+    siblings = list(db_rom.sibling_roms)
+    if not request.user.is_authenticated:
+        return siblings
+
+    # Local import: breaks the responses.rom <-> handler.auth.dependencies cycle.
+    from handler.auth.dependencies import get_permissions
+
+    perms = get_permissions(request)
+    return [s for s in siblings if perms.can_see_rom(s.id, s.platform_id)]
+
+
 class SimpleRomSchema(RomSchema):
     screenshot_path: str | None = None
 
@@ -433,7 +456,7 @@ class SimpleRomSchema(RomSchema):
                         for ru in s.rom_users
                     ),
                 )
-                for s in db_rom.sibling_roms
+                for s in _visible_siblings(db_rom, request)
             ]
 
         db_rom.included_files = list(files)  # type: ignore[assignment]
@@ -456,6 +479,7 @@ class SimpleRomSchema(RomSchema):
 class UserCollectionSchema(BaseModel):
     id: int
     name: str
+    is_smart: bool = False
 
     @classmethod
     def for_user(
@@ -468,6 +492,21 @@ class UserCollectionSchema(BaseModel):
             )
             for c in collections
             if c.user_id == user_id or c.is_public
+        ]
+
+    @classmethod
+    def from_smart_collections(
+        cls, smart_collections: Sequence[SmartCollection]
+    ) -> list["UserCollectionSchema"]:
+        # Membership + visibility are already filtered at the SQL layer by
+        # get_smart_collections_for_rom, so this is a plain mapping (see #3934).
+        return [
+            UserCollectionSchema(
+                id=c.id,
+                name=c.name,
+                is_smart=True,
+            )
+            for c in smart_collections
         ]
 
 
@@ -495,7 +534,7 @@ class DetailedRomSchema(RomSchema):
                         for ru in s.rom_users
                     ),
                 )
-                for s in db_rom.sibling_roms
+                for s in _visible_siblings(db_rom, request)
             ),
             key=lambda x: x.sort_comparator,
         )
@@ -513,9 +552,19 @@ class DetailedRomSchema(RomSchema):
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        db_rom.user_collections = UserCollectionSchema.for_user(  # type: ignore[assignment]
-            user_id, db_rom.collections
-        )
+        from handler.database import db_collection_handler
+
+        # Standard collections come off the already-loaded join relationship;
+        # smart collections have no reverse join, so match them by their cached
+        # rom-id membership at the SQL layer (see #3934).
+        db_rom.user_collections = [  # type: ignore[assignment]
+            *UserCollectionSchema.for_user(user_id, db_rom.collections),
+            *UserCollectionSchema.from_smart_collections(
+                db_collection_handler.get_smart_collections_for_rom(
+                    rom_id=db_rom.id, user_id=user_id
+                )
+            ),
+        ]
 
         # Load notes separately using the database handler to avoid lazy loading issues
         from handler.database import db_rom_handler
@@ -628,4 +677,5 @@ class RomFiltersDict(TypedDict):
     player_counts: list[str]
     regions: list[str]
     languages: list[str]
+    tags: list[str]
     platforms: list[int]

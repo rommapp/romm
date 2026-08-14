@@ -1,19 +1,29 @@
 import html
 import re
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Final, NotRequired, TypedDict
-from urllib.parse import urlparse
 
 import pydash
+from fastapi import HTTPException, status
 from unidecode import unidecode as uc
 
-from adapters.services.screenscraper import ScreenScraperService
+from adapters.services.screenscraper import (
+    ScreenScraperCredentialsError,
+    ScreenScraperRateLimitError,
+    ScreenScraperService,
+    get_account_limits,
+    is_screenscraper_url,
+    prime_account_limits,
+    reset_scan_state,
+)
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.base_handler import region_name_to_provider_shortcode
+from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomFile
 
@@ -34,23 +44,93 @@ from .base_handler import (
 SENSITIVE_KEYS = {"ssid", "sspassword"}
 
 
-def _is_screenscraper_host(url: str) -> bool:
-    """True only if the URL's hostname is screenscraper.fr or a subdomain.
+@dataclass
+class _ScanState:
+    """The ScreenScraper bookkeeping that lives for the length of one scan."""
 
-    Substring matching would let an attacker-controlled host like
-    screenscraper.fr.evil.example receive the user's credentials.
-    """
-    try:
-        host = urlparse(url).hostname
-    except ValueError:
-        return False
+    # ROMs whose ScreenScraper lookup was refused for exceeding the per-minute
+    # rate. They are saved without ScreenScraper metadata, so the scan reports
+    # them rather than leaving the gap to be noticed as missing box art later.
+    rate_limited_rom_names: set[str] = field(default_factory=set)
 
-    if not host:
-        return False
+    # The quota line last logged, so an unchanged one is not repeated.
+    last_quota_logged: str | None = None
 
-    return host.lower() == "screenscraper.fr" or host.lower().endswith(
-        ".screenscraper.fr"
+    def reset(self) -> None:
+        self.rate_limited_rom_names.clear()
+        self.last_quota_logged = None
+
+
+_scan_state = _ScanState()
+
+
+def note_rate_limited_rom(fs_name: str) -> None:
+    if fs_name in _scan_state.rate_limited_rom_names:
+        return
+
+    log.warning(
+        f"ScreenScraper rate limit reached, skipping ScreenScraper metadata for {fs_name}"
     )
+    _scan_state.rate_limited_rom_names.add(fs_name)
+
+
+def get_rate_limited_rom_names() -> list[str]:
+    return sorted(_scan_state.rate_limited_rom_names)
+
+
+def reset_rate_limited_roms() -> None:
+    _scan_state.rate_limited_rom_names.clear()
+
+
+async def begin_scan() -> None:
+    """Ready ScreenScraper for a scan, and report what the account has left.
+
+    Last scan's learned limits, tripped quota breaker and skipped ROMs are
+    dropped rather than inherited. The allowances then get read up front, so
+    pacing and the thread cap are right from the first request instead of from
+    the first response.
+    """
+    _scan_state.reset()
+    reset_scan_state()
+
+    await prime_account_limits()
+    log_quota()
+
+
+def log_quota() -> None:
+    """Report how much of the ScreenScraper daily quota is left.
+
+    ScreenScraper sends the counters with every response, so a scan heading for
+    the wall is visible before it gets there. Repeats are dropped: the last
+    platform and the end-of-scan summary would otherwise print the same numbers
+    twice in a row.
+    """
+    limits = get_account_limits()
+    if limits is None:
+        return
+
+    description = limits.describe()
+    if description == _scan_state.last_quota_logged:
+        return
+
+    _scan_state.last_quota_logged = description
+    log.info(description)
+
+
+def log_scan_summary() -> None:
+    """Close out a scan with the quota left and the ROMs rate limiting cost us."""
+    log_quota()
+
+    skipped_roms = get_rate_limited_rom_names()
+    if not skipped_roms:
+        return
+
+    log.warning(
+        f"{hl('Skipped')} ScreenScraper metadata for {hl(str(len(skipped_roms)))} "
+        f"roms after repeated rate limiting:"
+    )
+    for fs_name in skipped_roms:
+        log.warning(f" - {fs_name}")
 
 
 def add_ss_auth_to_url(url: str | None) -> str:
@@ -59,7 +139,7 @@ def add_ss_auth_to_url(url: str | None) -> str:
     Only injects credentials for screenscraper.fr URLs; returns other URLs
     unchanged to avoid leaking credentials to third-party sources.
     """
-    if not url or not _is_screenscraper_host(url):
+    if not url or not is_screenscraper_url(url):
         return url or ""
 
     if not SCREENSCRAPER_USER or not SCREENSCRAPER_PASSWORD:
@@ -74,7 +154,9 @@ def add_ss_auth_to_url(url: str | None) -> str:
     )
 
 
-def get_preferred_regions(rom: Rom | None = None) -> list[str]:
+def get_preferred_regions(
+    rom: Rom | None = None, *, for_media: bool = False
+) -> list[str]:
     """Get preferred regions, prepending the rom's own region tags when available.
 
     When a rom is tagged with multiple regions (e.g. "(Japan, USA)"), the rom's
@@ -82,6 +164,12 @@ def get_preferred_regions(rom: Rom | None = None) -> list[str]:
     user's preference wins among the regions the file is actually tagged as.
     Filename-tagged regions not present in the priority list keep their relative
     order and follow the prioritized ones.
+
+    With SCAN_REGION_MODE set to "prefer_config" and for_media=True, the
+    configured priority is authoritative instead: config regions come first and
+    the rom's own tags become the fallback when the config regions have no
+    media. The mode only applies to media selection; name and release-date
+    selection always keep the rom-tags-first ordering.
     """
     config = cm.get_config()
     priority = config.SCAN_REGION_PRIORITY
@@ -96,18 +184,29 @@ def get_preferred_regions(rom: Rom | None = None) -> list[str]:
             key=lambda code: priority.index(code) if code in priority else len(priority)
         )
 
-    return list(
-        dict.fromkeys(rom_codes + priority + ["us", "wor", "ss", "eu", "jp", "cus"])
-    ) + ["unk"]
+    if for_media and config.SCAN_REGION_MODE == "prefer_config":
+        ordered = priority + rom_codes
+    else:
+        ordered = rom_codes + priority
+
+    return list(dict.fromkeys(ordered + ["us", "wor", "ss", "eu", "jp", "cus"])) + [
+        "unk"
+    ]
 
 
 def get_preferred_languages() -> list[str]:
     """Get preferred languages from config.
 
-    Returns language priority list with default fallbacks.
+    Falls back to English when the list is empty, so clearing the setting does
+    not blank out every description.
     """
     config = cm.get_config()
-    return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY + ["en", "fr"]))
+    return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY)) or ["en"]
+
+
+def get_taxonomy_languages() -> list[str]:
+    """Preferred languages, extended with ScreenScraper's taxonomy fallbacks."""
+    return list(dict.fromkeys(get_preferred_languages() + ["en", "fr"]))
 
 
 def get_preferred_media_types() -> list[MetadataMediaType]:
@@ -138,6 +237,29 @@ ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {
     UPS.SEGACD: ["cue", "chd", "bin"],
     UPS.NGC: ["rvz", "iso", "gcz"],
 }
+
+
+def _is_daily_quota_error(exc: HTTPException) -> bool:
+    """True for the 429 that means the daily quota is exhausted.
+
+    The service trips a breaker on that one so the rest of the scan
+    short-circuits. The per-minute rate limit shares the status code but clears
+    on its own, so it is deliberately excluded: callers handle it separately.
+    """
+    return exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS and not isinstance(
+        exc, ScreenScraperRateLimitError
+    )
+
+
+def _is_provider_exhausted(exc: HTTPException) -> bool:
+    """True for the errors that take ScreenScraper out for the rest of the scan.
+
+    Both an exhausted daily quota and a refused credential set trip a breaker in
+    the service, so the remaining ROMs short-circuit. The scan carries on with
+    the other providers rather than failing over a provider that has already said
+    everything it is going to say.
+    """
+    return _is_daily_quota_error(exc) or isinstance(exc, ScreenScraperCredentialsError)
 
 
 def _is_notgame(game: SSGame) -> bool:
@@ -182,6 +304,7 @@ class SSMetadataMedia(TypedDict):
 
     # Resources stored in filesystem
     bezel_path: str | None
+    box2d_path: str | None
     box2d_back_path: str | None
     box2d_side_path: str | None
     box3d_path: str | None
@@ -244,6 +367,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         video_url=None,
         video_normalized_url=None,
         bezel_path=None,
+        box2d_path=None,
         box2d_back_path=None,
         box2d_side_path=None,
         box3d_path=None,
@@ -258,7 +382,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         video_normalized_path=None,
     )
 
-    for region in get_preferred_regions(rom):
+    for region in get_preferred_regions(rom, for_media=True):
         for media in game.get("medias", []):
             if media.get("region", "unk") != region or media.get("parent") != "jeu":
                 continue
@@ -283,6 +407,12 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 ss_media["box2d_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
                 )
+                # Stored locally as well as feeding url_cover, so the box front
+                # stays reachable when another provider wins the cover.
+                if MetadataMediaType.BOX2D in preferred_media_types:
+                    ss_media["box2d_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX2D)}/box2d.png"
+                    )
             elif media.get("type") == "fanart" and not ss_media["fanart_url"]:
                 ss_media["fanart_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
@@ -408,7 +538,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
 
 
 def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
-    preferred_languages = get_preferred_languages()
+    taxonomy_languages = get_taxonomy_languages()
 
     def _normalize_score(score: str) -> str:
         """Normalize the score to be between 0 and 10 because for some reason Screenscraper likes to rate over 20."""
@@ -418,13 +548,17 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             return ""
 
     def _parse_date(date_text: str) -> int | None:
+        # Release dates are date-only, so pin them to UTC midnight; a naive
+        # `.timestamp()` would read them as local time and shift by the host's
+        # UTC offset.
         try:
-            return int(datetime.strptime(date_text, "%Y-%m-%d").timestamp())
+            dt = datetime.strptime(date_text, "%Y-%m-%d")
         except ValueError:
             try:
-                return int(datetime.strptime(date_text, "%Y").timestamp())
+                dt = datetime.strptime(date_text, "%Y")
             except ValueError:
                 return None
+        return int(dt.replace(tzinfo=timezone.utc).timestamp())
 
     def _get_lowest_date(dates: list[SSGameDate]) -> int | None:
         if not dates:
@@ -456,7 +590,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
         ]
 
     def _get_franchises(game: SSGame) -> list[str]:
-        for lang in preferred_languages:
+        for lang in taxonomy_languages:
             franchises = [
                 franchise_name["text"]
                 for franchise in game.get("familles", [])
@@ -468,7 +602,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
         return []
 
     def _get_game_modes(game: SSGame) -> list[str]:
-        for lang in preferred_languages:
+        for lang in taxonomy_languages:
             modes = [
                 mode_name["text"]
                 for mode in game.get("modes", [])
@@ -561,21 +695,13 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
         if MetadataMediaType.MANUAL in preferred_media_types
         else None
     )
+    # Title screen and fanart are stored in their own dedicated media folders
+    # via their *_path entries, so they must not also land in screenshots/.
     url_screenshots = pydash.compact(
         [
             (
                 ss_metadata["screenshot_url"]
                 if MetadataMediaType.SCREENSHOT in preferred_media_types
-                else None
-            ),
-            (
-                ss_metadata["title_screen_url"]
-                if MetadataMediaType.TITLE_SCREEN in preferred_media_types
-                else None
-            ),
-            (
-                ss_metadata["fanart_url"]
-                if MetadataMediaType.FANART in preferred_media_types
                 else None
             ),
         ]
@@ -725,15 +851,22 @@ class SSHandler(MetadataHandler):
             )
             return SSRom(ss_id=None), False
 
-        res = await self.ss_service.get_game_info(
-            system_id=platform_ss_id,
-            md5=md5_hash,
-            sha1=sha1_hash,
-            crc=crc_hash,
-            rom_size_bytes=fs_size_bytes,
-            rom_name=rom_name,
-            rom_type=_get_rom_type(first_file),
-        )
+        try:
+            res = await self.ss_service.get_game_info(
+                system_id=platform_ss_id,
+                md5=md5_hash,
+                sha1=sha1_hash,
+                crc=crc_hash,
+                rom_size_bytes=fs_size_bytes,
+                rom_name=rom_name,
+                rom_type=_get_rom_type(first_file),
+            )
+        except HTTPException as exc:
+            # Quota exhausted or credentials refused: skip ScreenScraper for this
+            # ROM so the scan falls back to the other providers.
+            if not _is_provider_exhausted(exc):
+                raise
+            return SSRom(ss_id=None), False
         if not res:
             return SSRom(ss_id=None), False
 
@@ -782,7 +915,7 @@ class SSHandler(MetadataHandler):
             fallback_rom = SSRom(ss_id=None, name=search_term)
 
         # Support for sony serial filename format (PS, PS3, PS3)
-        match = SONY_SERIAL_REGEX.search(file_name, re.IGNORECASE)
+        match = SONY_SERIAL_REGEX.search(file_name)
         if platform_ss_id == PS1_SS_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
             fallback_rom = SSRom(ss_id=None, name=search_term)
@@ -842,17 +975,24 @@ class SSHandler(MetadataHandler):
         normalized_search_term = self.normalize_search_term(
             search_term, remove_punctuation=False
         )
-        res = await self._search_rom(
-            self.SEARCH_TERM_NORMALIZER.sub(" - ", normalized_search_term),
-            platform_ss_id,
-        )
-
-        # SS API doesn't handle some special characters well
-        if not res and " : " in search_term:
-            terms = re.split(self.SEARCH_TERM_SPLIT_PATTERN, search_term)
+        try:
             res = await self._search_rom(
-                terms[-1], platform_ss_id, split_game_name=True
+                self.SEARCH_TERM_NORMALIZER.sub(" - ", normalized_search_term),
+                platform_ss_id,
             )
+
+            # SS API doesn't handle some special characters well
+            if not res and " : " in search_term:
+                terms = re.split(self.SEARCH_TERM_SPLIT_PATTERN, search_term)
+                res = await self._search_rom(
+                    terms[-1], platform_ss_id, split_game_name=True
+                )
+        except HTTPException as exc:
+            # Quota exhausted or credentials refused: fall back to the name-only
+            # match (if any).
+            if not _is_provider_exhausted(exc):
+                raise
+            return fallback_rom
 
         if not res or not res.get("id"):
             return fallback_rom
@@ -863,7 +1003,14 @@ class SSHandler(MetadataHandler):
         if not self.is_enabled():
             return SSRom(ss_id=None)
 
-        res = await self.ss_service.get_game_info(game_id=ss_id)
+        try:
+            res = await self.ss_service.get_game_info(game_id=ss_id)
+        except HTTPException as exc:
+            # Quota exhausted or credentials refused: return an empty match rather
+            # than failing.
+            if not _is_provider_exhausted(exc):
+                raise
+            return SSRom(ss_id=None)
         if not res:
             return SSRom(ss_id=None)
 
@@ -1082,6 +1229,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.WIIU: {"id": 18, "name": "Wii U"},
     UPS.WIN: {"id": 138, "name": "PC Windows"},
     UPS.WIN3X: {"id": 136, "name": "PC Win3.xx"},
+    UPS.WIN9X: {"id": 137, "name": "PC Win9X"},
     UPS.WASM_4: {"id": 262, "name": "WASM-4"},
     UPS.WONDERSWAN: {"id": 45, "name": "WonderSwan"},
     UPS.WONDERSWAN_COLOR: {"id": 46, "name": "WonderSwan Color"},

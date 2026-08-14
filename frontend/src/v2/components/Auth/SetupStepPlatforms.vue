@@ -311,11 +311,6 @@ const structurePattern = computed(() => {
 const detectedPlatformCount = computed(
   () => props.libraryInfo.existing_platforms.length,
 );
-
-function platformFolderPath(slug: string): string {
-  if (detectedStructure.value === "struct_b") return `${slug}/roms`;
-  return `roms/${slug}`;
-}
 </script>
 
 <template>
@@ -547,17 +542,6 @@ function platformFolderPath(slug: string): string {
                     {{ platform.fs_slug }}
                   </span>
                 </div>
-                <div class="r-setup-platforms__item-state">
-                  <RChip
-                    v-if="isSelected(platform.fs_slug)"
-                    size="x-small"
-                    variant="translucent"
-                    color="success"
-                  >
-                    <RIcon name="mdi-folder-plus" :size="12" />
-                    <code>{{ platformFolderPath(platform.fs_slug) }}</code>
-                  </RChip>
-                </div>
               </li>
             </ul>
           </template>
@@ -656,17 +640,6 @@ function platformFolderPath(slug: string): string {
                       <span class="r-setup-platforms__item-slug">
                         {{ platform.fs_slug }}
                       </span>
-                    </div>
-                    <div class="r-setup-platforms__item-state">
-                      <RChip
-                        v-if="isSelected(platform.fs_slug)"
-                        size="x-small"
-                        variant="translucent"
-                        color="success"
-                      >
-                        <RIcon name="mdi-folder-plus" :size="12" />
-                        <code>{{ platformFolderPath(platform.fs_slug) }}</code>
-                      </RChip>
                     </div>
                   </li>
                 </ul>
@@ -792,10 +765,31 @@ function platformFolderPath(slug: string): string {
   gap: var(--r-space-5);
 }
 
-@media (max-width: 800px) {
-  .r-setup-platforms__columns {
-    grid-template-columns: 1fr;
-  }
+/* Stacked on mobile: the two sections stack into ONE vertical scroll area
+   (the columns wrapper) instead of the desktop 2-column split. The lead,
+   banner and summary stay fixed; only this lists region scrolls, like
+   desktop's per-column scroll. Flex column (not the grid) so the panes stack
+   cleanly; each pane flows and the wrapper scrolls. */
+html[data-bp~="sm-and-down"] .r-setup-platforms__columns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-5);
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Promote to its own layer so Chromium recomputes this flex+overflow
+     region's height when the list re-renders on selection. Without it the
+     region isn't re-laid-out until a forced reflow, so the content collapses
+     out of view after picking a platform (step 3's list works because it
+     never re-renders on interaction). */
+  transform: translateZ(0);
+}
+html[data-bp~="sm-and-down"] .r-setup-platforms__pane {
+  flex: 0 0 auto;
+}
+html[data-bp~="sm-and-down"] .r-setup-platforms__pane-scroll {
+  flex: 0 0 auto;
+  overflow: visible;
+  padding-right: 0;
 }
 
 .r-setup-platforms__pane {
@@ -973,12 +967,6 @@ function platformFolderPath(slug: string): string {
   display: flex;
   align-items: center;
   gap: var(--r-space-2);
-}
-
-.r-setup-platforms__item-state code {
-  font-family: var(--r-font-family-mono);
-  font-size: var(--r-font-size-xs);
-  margin-left: var(--r-space-1);
 }
 
 /* ── Groups (browse mode) ────────────────────────────────────────── */

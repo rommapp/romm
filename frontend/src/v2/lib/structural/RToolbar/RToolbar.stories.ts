@@ -145,8 +145,8 @@ export const Colored: Story = {
       <div style="display:flex;flex-direction:column;gap:14px;width:720px">
         <RToolbar color="primary" title="Primary">
           <template #append>
-            <RBtn variant="text" prepend-icon="mdi-bell" />
-            <RBtn variant="text" prepend-icon="mdi-account-circle" />
+            <RBtn variant="text" prepend-icon="mdi-bell" aria-label="Notifications" />
+            <RBtn variant="text" prepend-icon="mdi-account-circle" aria-label="Account" />
           </template>
         </RToolbar>
         <RToolbar color="success" title="Success — scan complete">
@@ -200,7 +200,7 @@ export const GalleryHeader: Story = {
             <RBtn icon="mdi-arrow-left" variant="text" aria-label="Back" />
           </template>
           <template #append>
-            <RBtn variant="text" prepend-icon="mdi-magnify" />
+            <RBtn variant="text" prepend-icon="mdi-magnify" aria-label="Search" />
             <RBtn variant="text" prepend-icon="mdi-filter">Filters</RBtn>
             <RBtn variant="text" prepend-icon="mdi-sort-variant">Sort</RBtn>
             <RBtn icon="mdi-dots-vertical" variant="text" aria-label="More" />

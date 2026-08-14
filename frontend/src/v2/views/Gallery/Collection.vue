@@ -18,24 +18,29 @@ import { RDivider, type RTabNavItem } from "@v2/lib";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
+import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeCollections, {
   type Collection,
   type SmartCollection,
   type VirtualCollection,
 } from "@/stores/collections";
+import type { Kind as CollectionKind } from "@/v2/components/Collections/CollectionTile.vue";
 import CollectionHead from "@/v2/components/Gallery/CollectionHead.vue";
 import CollectionSettingsTab from "@/v2/components/Gallery/CollectionSettingsTab.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
+import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
-type CollectionKind = "regular" | "virtual" | "smart";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -52,10 +57,14 @@ const currentKind = ref<CollectionKind>("regular");
 const currentCollection = ref<AnyCollection | null>(null);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
 const deleting = ref(false);
+const randomLoading = ref(false);
+const canDownload = useCan("rom.download");
+
+usePageTitle(() => currentCollection.value?.name ?? null);
 
 // Virtual collections are computed (no editable fields) — only
 // regular / smart get the Settings tab.
-const editableKind = computed<"regular" | "smart" | null>(() => {
+const editableKind = computed<CollectionKind | null>(() => {
   if (currentKind.value === "regular") return "regular";
   if (currentKind.value === "smart") return "smart";
   return null;
@@ -216,7 +225,6 @@ async function loadForRoute(kind: CollectionKind, id: string) {
     galleryRoms.setCurrentSmartCollection(collection as SmartCollection);
   }
 
-  document.title = collection.name;
   await galleryRoms.fetchInitialMetadata();
   await nextTick();
   shellRef.value?.applyRestoredScroll();
@@ -237,6 +245,70 @@ watch(
     loadForRoute(kindFromRoute(name), String(id));
   },
 );
+
+// ── Download ───────────────────────────────────────────────────
+// Triggered from the InfoPanel's download button. Delegates to the
+// API's bulk-download endpoint, which streams a ZIP of all ROMs in the
+// collection. The endpoint is smart enough to handle regular / virtual
+// / smart collections, so we just pass the right ID and let it figure
+// out which ROMs to include.
+function onDownload() {
+  const c = currentCollection.value;
+  if (!c || !c.rom_count) return;
+  const kind = currentKind.value;
+  void romApi.bulkDownloadRoms({
+    collectionId: kind === "regular" ? Number(c.id) : undefined,
+    virtualCollectionId: kind === "virtual" ? String(c.id) : undefined,
+    smartCollectionId: kind === "smart" ? Number(c.id) : undefined,
+    filename: `${c.name}.zip`,
+  });
+  snackbar.info(t("gallery.selection-download-many", { n: c.rom_count }));
+}
+
+// ── Random ROM ──────────────────────────────────────────────────
+// Pick one game from this collection and jump to its details. The scope is
+// keyed off the collection kind so regular / virtual / smart all route
+// to the correct filter param (the same split the download flow uses).
+function randomScope(): {
+  collectionId?: number;
+  virtualCollectionId?: string;
+  smartCollectionId?: number;
+} {
+  const c = currentCollection.value;
+  if (!c) return {};
+  if (currentKind.value === "virtual")
+    return { virtualCollectionId: String(c.id) };
+  if (currentKind.value === "smart") return { smartCollectionId: Number(c.id) };
+  return { collectionId: Number(c.id) };
+}
+
+// Leaving for anything that isn't another gallery keeps `currentCollection`
+// in place, so the id check in `onRandomGame` can't see the user walked away.
+const alive = useIsAlive();
+
+// `/roms/random` samples the pick server-side, so one request resolves it
+// whatever the collection holds. `null` means the collection holds no roms.
+async function onRandomGame() {
+  const c = currentCollection.value;
+  if (!c || randomLoading.value) return;
+  randomLoading.value = true;
+  const scopeId = c.id;
+  // A pick from the collection the user just left leads nowhere useful.
+  const stale = () => !alive.value || currentCollection.value?.id !== scopeId;
+  try {
+    const { data } = await romApi.getRandomRom(randomScope());
+    if (stale()) return;
+    if (!data) {
+      snackbar.info(t("collection.empty"));
+      return;
+    }
+    router.push({ name: ROUTES.ROM, params: { rom: data.id } });
+  } catch {
+    if (!stale()) snackbar.error(t("platform.random-rom-error"));
+  } finally {
+    randomLoading.value = false;
+  }
+}
 
 // ── Delete ──────────────────────────────────────────────────────
 // Mirrors the Platform.vue admin flow: confirm dialog with
@@ -267,7 +339,7 @@ async function onDelete() {
     snackbar.success(`Collection "${c.name}" deleted`, {
       icon: "mdi-check-bold",
     });
-    router.push({ name: "collections" });
+    router.push({ name: ROUTES.COLLECTIONS_INDEX });
   } catch (err) {
     const e = err as {
       response?: { data?: { msg?: string; detail?: string } };
@@ -312,7 +384,11 @@ async function onDelete() {
         :covers="mosaicCovers"
         :tab="tab"
         :tabs="tabs"
+        :can-download="canDownload"
+        :random-loading="randomLoading"
         @update:tab="onTabChange"
+        @random="onRandomGame"
+        @download="onDownload"
       />
     </template>
   </GalleryShell>
@@ -330,7 +406,11 @@ async function onDelete() {
         :covers="mosaicCovers"
         :tab="tab"
         :tabs="tabs"
+        :can-download="canDownload"
+        :random-loading="randomLoading"
         @update:tab="onTabChange"
+        @random="onRandomGame"
+        @download="onDownload"
       />
       <RDivider class="r-v2-coll-tabs__divider" />
       <div
@@ -354,15 +434,35 @@ async function onDelete() {
    The CollectionHead and the tab body scroll together as one surface,
    matching the platform-view layout. */
 .r-v2-coll-tabs {
+  /* `dvh` (not `vh`) so the section matches the mobile visible viewport
+     instead of the larger address-bar-hidden one — otherwise it spills below
+     the fold and stacks a second, document-level scroll on the internal one
+     ("double scroll"). Same rationale as GalleryShell / IndexShell. */
   height: calc(100vh - var(--r-nav-h));
+  height: calc(100dvh - var(--r-nav-h));
   overflow: hidden;
   position: relative;
+}
+/* On sm-and-down the layout <main> reserves the bottom tab bar's height; this
+   full-height section would otherwise sit on top of that padding and push the
+   document past one viewport. Cancel it with a matching negative margin so the
+   section extends under the (translucent) bar with a single scroll — the inner
+   scroll's bottom spacer lifts the last content (danger zone) clear of it. */
+html[data-bp~="sm-and-down"] .r-v2-coll-tabs {
+  margin-bottom: calc(
+    -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
+  );
 }
 
 .r-v2-coll-tabs__scroll {
   height: 100%;
   overflow-y: auto;
   padding: 32px var(--r-row-pad) 60px;
+}
+html[data-bp~="sm-and-down"] .r-v2-coll-tabs__scroll {
+  padding-bottom: calc(
+    var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px
+  );
 }
 
 .r-v2-coll-tabs__divider {

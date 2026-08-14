@@ -11,7 +11,6 @@ import type {
   NetplayICEServer,
 } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
-import playSessionApi from "@/services/api/play-session";
 import { saveApi as api } from "@/services/api/save";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
@@ -31,6 +30,7 @@ import {
   loadEmulatorJSSave,
   loadEmulatorJSState,
   invalidateEmulatorJSRomCacheIfRenamed,
+  installEJSDefaultOptionsTrap,
   createQuickLoadButton,
   createSaveQuitButton,
   createExitEmulationButton,
@@ -55,7 +55,6 @@ const props = defineProps<{
 }>();
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
-const sessionStartTime = ref<Date | null>(null);
 const deviceIDRef = ref(authStore.user?.current_device_id ?? undefined);
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -122,6 +121,10 @@ declare global {
       save: ArrayBuffer;
     }) => void;
     EJS_onLoadSave: () => void;
+    // Socket.IO global, bundled by EmulatorJS and used by its netplay code.
+    io?: ((url: string, opts?: Record<string, unknown>) => unknown) & {
+      __rommNetplayPatched?: boolean;
+    };
   }
 }
 
@@ -154,7 +157,7 @@ window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
   exitEmulation: false,
 };
-const coreOptions = configStore.getEJSCoreOptions(props.core);
+const coreOptions = configStore.getEJSCoreOptions(window.EJS_core);
 window.EJS_defaultOptions = {
   // Force saving saves and states to the browser
   "save-state-location": "browser",
@@ -178,7 +181,8 @@ const {
   EJS_NETPLAY_ICE_SERVERS,
   EJS_NETPLAY_ENABLED,
 } = configStore.config;
-window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.host : "";
+// Full origin (with scheme)
+window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.origin : "";
 window.EJS_netplayICEServers = EJS_NETPLAY_ENABLED
   ? EJS_NETPLAY_ICE_SERVERS
   : [];
@@ -186,6 +190,8 @@ window.EJS_DEBUG_XX = EJS_DEBUG;
 window.EJS_disableAutoUnload = EJS_DISABLE_AUTO_UNLOAD;
 window.EJS_disableBatchBootup = EJS_DISABLE_BATCH_BOOTUP;
 if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
+
+installEJSDefaultOptionsTrap();
 
 onMounted(() => {
   window.scrollTo(0, 0);
@@ -199,11 +205,14 @@ onMounted(() => {
   }
 
   if (props.core) {
+    // Remember the core per-game, and per-platform as the fallback default
+    localStorage.setItem(`player:${romRef.value.id}:core`, props.core);
     localStorage.setItem(
       `player:${romRef.value.platform_slug}:core`,
       props.core,
     );
   } else {
+    localStorage.removeItem(`player:${romRef.value.id}:core`);
     localStorage.removeItem(`player:${romRef.value.platform_slug}:core`);
   }
 
@@ -249,6 +258,24 @@ function displayMessage(
     }, duration);
   }
 }
+
+// Poll until EmulatorJS' gameManager is ready to accept save/state
+// injection. A fixed delay is unreliable: heavier/threaded cores (SNES with
+// enhancement chips, N64, DS) need longer than a few ms to boot, and applying
+// a state before the core is ready leaves it broken (black screen).
+async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const gameManager = window.EJS_emulator?.gameManager;
+    if (gameManager?.FS && gameManager.getSaveFilePath) return true;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
+}
+
+// Settle window after boot before applying a state. Some cores need a few
+// frames rendered before loadState takes cleanly.
+const STATE_APPLY_SETTLE_MS = 500;
 
 // Saves management
 async function loadSave(save: SaveSchema) {
@@ -359,16 +386,71 @@ window.EJS_onSaveState = async function ({
 };
 
 window.EJS_onGameStart = async () => {
-  sessionStartTime.value = new Date();
-  setTimeout(async () => {
-    if (props.save) await loadSave(props.save);
-    if (props.state) await loadState(props.state);
+  // The emulator now owns the keyboard: every key, "/" included, belongs to
+  // the game (a DOS prompt typing "mount A / -t floppy" must not reach the
+  // global hotkeys). Callers flag this at launch too, but taking it from the
+  // emulator's own start hook keeps the flag true for any entry point.
+  playing.value = true;
 
-    window.EJS_emulator.settings = {
-      ...window.EJS_emulator.settings,
-      "save-state-location": "browser",
+  // Install netplay overrides synchronously, before any await below, so they
+  // are in place before room polling or a Create/Join action can start.
+  const netplay = window.EJS_emulator?.netplay;
+  if (netplay) {
+    // EmulatorJS only prompts for a player name when netplay.name is unset,
+    // so presetting it adopts the RomM account username automatically.
+    if (!netplay.name && authStore.user?.username) {
+      netplay.name = authStore.user.username;
+    }
+    netplay.getOpenRooms = async () => {
+      try {
+        const response = await fetch(
+          `/api/netplay/list?game_id=${window.EJS_gameID}`,
+        );
+        if (!response.ok) return {};
+        return await response.json();
+      } catch (error) {
+        console.error("Error fetching netplay rooms:", error);
+        return {};
+      }
     };
-  }, 10);
+  }
+
+  // Wrap the bundled global `io` so netplay uses mounted socket path.
+  if (window.io && !window.io.__rommNetplayPatched) {
+    const originalIo = window.io;
+    const patchedIo = ((url: string, opts?: Record<string, unknown>) =>
+      originalIo(url, {
+        ...opts,
+        path: "/netplay/socket.io",
+      })) as NonNullable<Window["io"]>;
+    patchedIo.__rommNetplayPatched = true;
+    window.io = patchedIo;
+  }
+
+  void (async () => {
+    const ready = await waitForGameManager();
+    if (!ready) {
+      console.warn("Game manager not ready for save/state injection");
+    } else {
+      // A state restores the whole machine, SRAM included, so a save applied
+      // alongside it would be discarded: the state wins when both are set.
+      if (props.state) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, STATE_APPLY_SETTLE_MS),
+        );
+        await loadState(props.state);
+      } else if (props.save) {
+        await loadSave(props.save);
+      }
+    }
+
+    if (window.EJS_emulator) {
+      window.EJS_emulator.settings = {
+        ...window.EJS_emulator.settings,
+        "save-state-location": "browser",
+      };
+    }
+  })();
 
   const quickLoad = createQuickLoadButton();
   quickLoad.addEventListener("click", () => {
@@ -399,9 +481,16 @@ window.EJS_onGameStart = async () => {
   saveAndQuit.addEventListener("click", async () => {
     if (!romRef.value || !window.EJS_emulator) return immediateExit();
 
+    // Grab the screenshot while the game is still running (EmulatorJS reads
+    // the live canvas), then pause before serializing state/save. Reading
+    // state from a running threaded core (SNES, N64) races the worker thread
+    // and yields torn buffers, producing corrupt states that never load.
+    const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
+    window.EJS_emulator.pause();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
     const stateFile = window.EJS_emulator.gameManager.getState();
     const saveFile = window.EJS_emulator.gameManager.getSaveFile();
-    const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
 
     // Force a save of the current state
     await saveState({
@@ -422,62 +511,15 @@ window.EJS_onGameStart = async () => {
     romsStore.update(romRef.value);
     immediateExit();
   });
-
-  // The netplay implementation is finnicky, these overrides make it work
-  const { defineNetplayFunctions } = window.EJS_emulator;
-  window.EJS_emulator.defineNetplayFunctions = () => {
-    defineNetplayFunctions.bind(window.EJS_emulator)();
-
-    window.EJS_emulator.netplay.url = {
-      path: "/netplay/socket.io",
-    };
-
-    window.EJS_emulator.netplayGetOpenRooms = async () => {
-      try {
-        const response = await fetch(
-          `/api/netplay/list?game_id=${window.EJS_gameID}`,
-        );
-        return await response.json();
-      } catch (error) {
-        console.error("Error fetching open rooms:", error);
-        return {};
-      }
-    };
-  };
 };
 
 function immediateExit() {
-  if (!sessionStartTime.value) {
-    return router
-      .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
-      .catch((error) => {
-        console.error("Error navigating to console rom", error);
-      });
-  }
-
-  const endTime = new Date();
-  const durationMs = endTime.getTime() - sessionStartTime.value.getTime();
-
-  playSessionApi
-    .ingestPlaySessions({
-      deviceId: deviceIDRef.value,
-      sessions: [
-        {
-          rom_id: romRef.value.id,
-          start_time: sessionStartTime.value.toISOString(),
-          end_time: endTime.toISOString(),
-          duration_ms: durationMs,
-        },
-      ],
-    })
-    .catch((err) => console.error("Failed to submit play session:", err))
-    .finally(() => {
-      sessionStartTime.value = null;
-      router
-        .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
-        .catch((error) => {
-          console.error("Error navigating to console rom", error);
-        });
+  // Play-session recording is owned by the v2 player shell (usePlaySession);
+  // this only returns to the game details view.
+  router
+    .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
+    .catch((error) => {
+      console.error("Error navigating to console rom", error);
     });
 }
 

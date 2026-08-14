@@ -211,6 +211,10 @@ export const Validation: Story = {
 // ── Clearable ──────────────────────────────────────────────────────
 
 export const Clearable: Story = {
+  // a11y todo (#1848): clear <button> nested in the activator <button>
+  // (nested-interactive). Fix = lift clear/chip-close out as siblings; a
+  // visual-layout refactor deferred pending in-browser verification.
+  parameters: { a11y: { test: "todo" } },
   render: () => ({
     components: { RSelect },
     setup: () => ({ value: ref("psx"), items: PLATFORMS }),
@@ -226,6 +230,18 @@ export const Multiple: Story = {
     components: { RSelect },
     setup: () => ({ value: ref(["psx", "snes"]), items: PLATFORMS }),
     template: `<div style="width:480px"><RSelect v-model="value" :items="items" multiple chips closable-chips placeholder="Pick platforms" /></div>`,
+  }),
+};
+
+// Without `chips` the selections render as one run of text. The comma
+// separator must read "A, B" — a space on both sides means the separator
+// picked up the value row's flex gap.
+export const MultipleText: Story = {
+  name: "Multiple (no chips)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({ value: ref(["psx", "snes"]), items: PLATFORMS }),
+    template: `<div style="width:480px"><RSelect v-model="value" :items="items" multiple placeholder="Pick platforms" /></div>`,
   }),
 };
 

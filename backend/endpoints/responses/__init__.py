@@ -149,5 +149,5 @@ TaskStatusResponse = Union[
 
 class BulkOperationResponse(TypedDict):
     successful_items: int
-    failed_items: int
+    failed_ids: list[int]
     errors: list[str]

@@ -33,6 +33,8 @@ import ScanPlatformDialog from "@/v2/components/Gallery/ScanPlatformDialog.vue";
 import SettingsTab from "@/v2/components/Gallery/SettingsTab.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
@@ -47,6 +49,10 @@ const { currentPlatform, total } = storeToRefs(galleryRoms);
 
 const notFound = ref(false);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
+
+usePageTitle(() =>
+  notFound.value ? null : (currentPlatform.value?.display_name ?? null),
+);
 const deleting = ref(false);
 const scanOpen = ref(false);
 const randomLoading = ref(false);
@@ -55,6 +61,7 @@ const randomLoading = ref(false);
 // ribbon buttons hide automatically when the user's role changes.
 const canEditPlatform = useCan("platform.edit");
 const canScan = useCan("library.scan");
+const canDownload = useCan("rom.download");
 
 // ── Tabs ─────────────────────────────────────────────────────────
 // URL-persistent via `?tab=` (mirrors the GameDetails pattern). The
@@ -95,11 +102,16 @@ const headLabels = computed(() => ({
   upload: t("platform.upload-roms"),
   scan: t("platform.scan-platform"),
   random: t("platform.random-rom"),
+  download: t("platform.download-platform"),
 }));
 
 function onTabChange(next: string) {
   tab.value = next as TabId;
 }
+
+const platformDescription = computed(
+  () => currentPlatform.value?.description ?? "",
+);
 
 const tags = computed<string[]>(() => {
   const p = currentPlatform.value;
@@ -260,7 +272,6 @@ async function loadForId(platformId: number) {
     galleryRoms.resetGallery();
     galleryRoms.setCurrentPlatform(cached);
   }
-  document.title = cached.display_name;
   // Bootstrap metadata only; grid (shell viewport-sync) and list
   // (GameListRow's onMounted) both hydrate rows per-position from here.
   await galleryRoms.fetchInitialMetadata();
@@ -315,42 +326,47 @@ function onScan() {
   scanOpen.value = true;
 }
 
+// Leaving for anything that isn't another gallery keeps the store's platform
+// in place, so the id check in `onRandomGame` can't see the user walked away.
+const alive = useIsAlive();
+
 // Random ROM — pick one game from this platform and jump to its
-// details. Mirrors the Home RandomPickWidget approach: a cheap
-// count-only fetch gives the `total`, then a single-item fetch at a
-// random offset resolves the ROM. Scoped to the current platform via
-// `platformIds`.
+// details. Mirrors the Home RandomPickWidget: `/roms/random` samples the
+// pick server-side, so one request resolves it whatever the platform
+// holds. `null` means the platform holds no roms.
 async function onRandomGame() {
   const p = currentPlatform.value;
   if (!p || randomLoading.value) return;
   randomLoading.value = true;
+  const scopeId = p.id;
+  // The pick belongs to the platform that was on screen when the button was
+  // clicked; following it after the user moved on would drop them into a
+  // game from a gallery they already left.
+  const stale = () => !alive.value || currentPlatform.value?.id !== scopeId;
   try {
-    const { data: head } = await romApi.getRoms({
-      platformIds: [p.id],
-      limit: 1,
-      offset: 0,
-    });
-    if (!head.total) {
+    const { data } = await romApi.getRandomRom({ platformIds: [scopeId] });
+    if (stale()) return;
+    if (!data) {
       snackbar.info(t("platform.random-rom-empty"));
       return;
     }
-    const randomOffset = Math.floor(Math.random() * head.total);
-    const { data } = await romApi.getRoms({
-      platformIds: [p.id],
-      limit: 1,
-      offset: randomOffset,
-    });
-    const pick = data.items[0];
-    if (!pick) {
-      snackbar.info(t("platform.random-rom-empty"));
-      return;
-    }
-    router.push({ name: ROUTES.ROM, params: { rom: pick.id } });
+    router.push({ name: ROUTES.ROM, params: { rom: data.id } });
   } catch {
-    snackbar.error(t("platform.random-rom-error"));
+    if (!stale()) snackbar.error(t("platform.random-rom-error"));
   } finally {
     randomLoading.value = false;
   }
+}
+
+// Download all
+function onDownload() {
+  const p = currentPlatform.value;
+  if (!p || !p.rom_count) return;
+  void romApi.bulkDownloadRoms({
+    platformId: p.id,
+    filename: `${p.display_name}.zip`,
+  });
+  snackbar.info(t("gallery.selection-download-many", { n: p.rom_count }));
 }
 
 async function onDelete() {
@@ -372,7 +388,7 @@ async function onDelete() {
     snackbar.success(`Platform "${p.display_name}" deleted`, {
       icon: "mdi-check-bold",
     });
-    router.push({ name: "platforms" });
+    router.push({ name: ROUTES.PLATFORMS_INDEX });
   } catch (err) {
     const e = err as {
       response?: { data?: { msg?: string } };
@@ -414,16 +430,19 @@ async function onDelete() {
         :tab="tab"
         :tabs="tabs"
         :tags="tags"
+        :description="platformDescription"
         :stats="platformStats"
         :providers="providerChips"
         :can-edit="canEditPlatform"
         :can-scan="canScan"
+        :can-download="canDownload"
         :random-loading="randomLoading"
         :labels="headLabels"
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
         @random="onRandomGame"
+        @download="onDownload"
       />
     </template>
   </GalleryShell>
@@ -440,16 +459,19 @@ async function onDelete() {
         :tab="tab"
         :tabs="tabs"
         :tags="tags"
+        :description="platformDescription"
         :stats="platformStats"
         :providers="providerChips"
         :can-edit="canEditPlatform"
         :can-scan="canScan"
+        :can-download="canDownload"
         :random-loading="randomLoading"
         :labels="headLabels"
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
         @random="onRandomGame"
+        @download="onDownload"
       />
       <RDivider class="r-v2-plat-tabs__divider" />
       <div v-if="currentPlatform" class="r-v2-plat-tabs__panel">
@@ -480,15 +502,35 @@ async function onDelete() {
    one surface, so the user gets the same natural scroll feel as the
    Library tab (where GalleryShell handles it). */
 .r-v2-plat-tabs {
+  /* `dvh` (not `vh`) so the section matches the mobile visible viewport
+     instead of the larger address-bar-hidden one — otherwise it spills below
+     the fold and stacks a second, document-level scroll on the internal one
+     ("double scroll"). Same rationale as GalleryShell / IndexShell. */
   height: calc(100vh - var(--r-nav-h));
+  height: calc(100dvh - var(--r-nav-h));
   overflow: hidden;
   position: relative;
+}
+/* On sm-and-down the layout <main> reserves the bottom tab bar's height; this
+   full-height section would otherwise sit on top of that padding and push the
+   document past one viewport. Cancel it with a matching negative margin so the
+   section extends under the (translucent) bar with a single scroll — the inner
+   scroll's bottom spacer lifts the last content (danger zone) clear of it. */
+html[data-bp~="sm-and-down"] .r-v2-plat-tabs {
+  margin-bottom: calc(
+    -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
+  );
 }
 
 .r-v2-plat-tabs__scroll {
   height: 100%;
   overflow-y: auto;
   padding: 32px var(--r-row-pad) 60px;
+}
+html[data-bp~="sm-and-down"] .r-v2-plat-tabs__scroll {
+  padding-bottom: calc(
+    var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px
+  );
 }
 
 .r-v2-plat-tabs__divider {

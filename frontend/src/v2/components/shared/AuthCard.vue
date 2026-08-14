@@ -26,6 +26,10 @@ defineOptions({ inheritAttrs: false });
 .auth-card {
   width: 100%;
   max-width: 440px;
+  /* Flex item in the centred auth stage — allow it to shrink below its
+     content's min width on phones narrower than the card, so it never spills
+     past the viewport. */
+  min-width: 0;
   border-radius: var(--r-radius-lg) !important;
   box-shadow: var(--r-elev-4) !important;
   background: linear-gradient(

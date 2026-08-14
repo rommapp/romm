@@ -4,37 +4,54 @@
 //   useCan('rom.upload', { kind: 'platform', id: 5 })
 //                                                — scoped to a single resource.
 //
-// Returns ComputedRef<boolean>. False when no user is authenticated. Reads
-// from `permissionsStore.grants`, which today is derived from the user's
-// role via a hardcoded role-map. Once the backend ships /permissions/me,
-// the store hydrates directly from the response and this composable is
-// unchanged.
+// Returns ComputedRef<boolean>. Admins short-circuit to true; otherwise false
+// when no matching grant is present (and when no user is authenticated). Reads
+// from `permissionsStore`, hydrated from the backend's /permissions/me.
 //
-// Frontend is a UX hint, never the authority — the backend remains the
-// source of truth and rejects unauthorised actions regardless of what the
-// UI showed.
+// Frontend is a UX hint, never the authority — the backend remains the source
+// of truth and rejects unauthorised actions regardless of what the UI showed.
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef, watch } from "vue";
+import permissionsService from "@/services/api/permissions";
 import storeAuth from "@/stores/auth";
 import storePermissions from "@/stores/permissions";
+import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 import type { ActionKey, Grant, PermissionScope } from "./actions";
 
 export type { ActionKey, Grant, PermissionScope };
 
-/** Mount-time helper: keep permissionsStore in sync with the current user's
- *  role until the backend ships /permissions/me. Call once high in the
- *  v2 tree (AppLayout) — safe to call multiple times, the watch is idempotent. */
+/** Mount-time helper: keep permissionsStore in sync with the current user by
+ *  fetching /permissions/me on login and on the `permissions:changed` socket
+ *  event. Call once high in the v2 tree (AppLayout) — the watch is idempotent. */
 export function installPermissionsHydration() {
   const auth = storeAuth();
   const permissions = storePermissions();
   const { user } = storeToRefs(auth);
+
+  async function refresh() {
+    try {
+      const { data } = await permissionsService.fetchMyPermissions();
+      permissions.hydrateFromResponse(data);
+    } catch {
+      // The axios interceptor handles auth errors; clear grants so nothing
+      // stays gated-open after a failed refresh.
+      permissions.reset();
+    }
+  }
+
   watch(
     user,
     (u) => {
-      permissions.hydrateFromRole(u?.role ?? null);
+      if (u) refresh();
+      else permissions.reset();
     },
     { immediate: true },
   );
+
+  // The backend broadcasts on any permission change; refresh when it's ours.
+  useSocketEvent<{ user_id: number }>("permissions:changed", (payload) => {
+    if (user.value && payload.user_id === user.value.id) refresh();
+  });
 }
 
 function scopeMatches(
@@ -53,6 +70,7 @@ export function useCan(
 ): ComputedRef<boolean> {
   const permissions = storePermissions();
   return computed(() => {
+    if (permissions.isAdmin) return true;
     const asked: PermissionScope = scope ?? { kind: "global" };
     for (const grant of permissions.grants) {
       if (grant.action !== action) continue;

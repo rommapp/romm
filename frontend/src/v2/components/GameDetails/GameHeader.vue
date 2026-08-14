@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // GameHeader — right-column header for the details view.
 // Four rows, top to bottom:
-//   1. Title
+//   1. Title (+ previous / next game arrows on the right)
 //   2. Meta (year · platform-icon + platform · verified RTag)
 //   3. Tags (regions + languages + custom tags) — RTag primitive
 //   4. GameActions (Play · Download · Favorite · Share · More)
@@ -13,6 +13,7 @@ import { useI18n } from "vue-i18n";
 import type { DetailedRom } from "@/stores/roms";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
 import MainSiblingToggle from "@/v2/components/GameDetails/MainSiblingToggle.vue";
+import PrevNextNav from "@/v2/components/GameDetails/PrevNextNav.vue";
 import VersionSwitcher from "@/v2/components/GameDetails/VersionSwitcher.vue";
 import { useGameActions } from "@/v2/composables/useGameActions";
 
@@ -36,9 +37,12 @@ const actions = useGameActions(() => props.rom);
 
 <template>
   <div class="r-v2-det-header">
-    <h1 class="r-v2-det-header__title">
-      {{ title }}
-    </h1>
+    <div class="r-v2-det-header__title-row">
+      <h1 class="r-v2-det-header__title">
+        {{ title }}
+      </h1>
+      <PrevNextNav :rom-id="rom.id" />
+    </div>
 
     <div class="r-v2-det-header__meta">
       <router-link
@@ -60,12 +64,18 @@ const actions = useGameActions(() => props.rom);
       <span v-if="verified" class="r-v2-det-header__sep"> · </span>
       <!-- Icon-only verified indicator. The check decagram is a strong
            enough signal on its own; the "Verified" word was just noise
-           in a row that's already mostly text. RTooltip preserves the
-           label for keyboard / hover discovery. -->
-      <span v-if="verified" class="r-v2-det-header__verified">
+           in a row that's already mostly text. The tooltip spells out
+           what "verified" means (a database hash match) so the badge
+           isn't cryptic; the short label is the accessible name. -->
+      <span
+        v-if="verified"
+        class="r-v2-det-header__verified"
+        :aria-label="t('rom.verified-rom')"
+        tabindex="0"
+      >
         <RIcon icon="mdi-check-decagram" :size="18" color="success" />
         <RTooltip
-          :text="t('rom.verified-rom')"
+          :text="t('rom.verified-rom-hint')"
           location="top"
           activator="parent"
         />
@@ -117,13 +127,22 @@ const actions = useGameActions(() => props.rom);
   padding-top: 24px;
 }
 
+.r-v2-det-header__title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
 .r-v2-det-header__title {
+  flex: 1;
+  min-width: 0;
   font-size: var(--r-font-size-4xl);
   font-weight: var(--r-font-weight-extrabold);
   line-height: 1.1;
   letter-spacing: -0.02em;
   margin: 0 0 2px 0;
-  text-shadow: 0 2px 20px color-mix(in srgb, black 50%, transparent);
+  color: var(--r-color-fg-heading);
+  text-shadow: 0 2px 20px var(--r-color-title-shadow);
 }
 
 .r-v2-det-header__meta {
@@ -173,5 +192,26 @@ const actions = useGameActions(() => props.rom);
 
 html[data-bp~="xs"] .r-v2-det-header__title {
   font-size: 20px;
+}
+
+/* Mobile: the cover sits centred above this header, so centre the title and
+   its meta / tag rows to match instead of the desktop left-align. */
+html[data-bp~="sm-and-down"] .r-v2-det-header {
+  align-items: center;
+  text-align: center;
+  padding-top: 4px;
+}
+/* Stack the arrows above the centred title: beside a wrapping title they'd
+   hang off the last line. */
+html[data-bp~="sm-and-down"] .r-v2-det-header__title-row {
+  flex-direction: column-reverse;
+  align-items: center;
+  align-self: stretch;
+  gap: 10px;
+}
+html[data-bp~="sm-and-down"] .r-v2-det-header__meta,
+html[data-bp~="sm-and-down"] .r-v2-det-header__tags,
+html[data-bp~="sm-and-down"] .r-v2-det-header__versions {
+  justify-content: center;
 }
 </style>

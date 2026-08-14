@@ -128,7 +128,6 @@ const syntheticRom = computed<SimpleRom>(() => ({
   path_cover_large: null,
   url_cover: props.game.cover_url ?? null,
   has_manual: false,
-  has_manual_files: false,
   has_soundtrack: false,
   path_manual: null,
   url_manual: null,
@@ -221,7 +220,6 @@ function onClick(e: MouseEvent) {
   background: var(--r-color-brand-primary);
   color: var(--r-color-overlay-fg);
   backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   box-shadow: 0 1px 4px color-mix(in srgb, black 45%, transparent);
 }
 </style>

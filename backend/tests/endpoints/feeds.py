@@ -227,6 +227,15 @@ def test_fpkgi_feed(
             "regions": ["US"],
         },
     )
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Test PS4 [CUSA12345].pkg",
+            file_path=rom.fs_path,
+            file_size_bytes=456,
+            sha1_hash="beadfeed",
+        )
+    )
 
     response = client.get(
         "/api/feeds/fpkgi/ps4",
@@ -237,6 +246,158 @@ def test_fpkgi_feed(
     body = response.json()
     assert "DATA" in body
     assert len(body["DATA"]) == 1
+
+    entry = next(iter(body["DATA"].values()))
+    assert entry["name"] == "Test PS4"
+    assert entry["size"] == 456
+    assert entry["title_id"] == "CUSA12345"
+
+
+def test_fpkgi_feed_multi_file_rom(
+    client: TestClient, access_token: str, platform: Platform, rom: Rom
+):
+    platform = db_platform_handler.update_platform(
+        platform.id, {"name": "PlayStation 4", "slug": UPS.PS4, "fs_slug": UPS.PS4}
+    )
+    rom = db_rom_handler.update_rom(
+        rom.id,
+        {
+            "platform_id": platform.id,
+            "name": "Test PS4",
+            "fs_name": "Test PS4",
+            "fs_name_no_tags": "Test PS4",
+            "fs_name_no_ext": "Test PS4",
+            "fs_extension": "",
+            "fs_path": f"{platform.slug}/roms",
+            "fs_size_bytes": 369,
+            "regions": ["US"],
+        },
+    )
+    for file_name, category, missing_from_fs in (
+        ("Test PS4 base.pkg", None, False),
+        ("Test PS4 update.pkg", RomFileCategory.UPDATE, False),
+        ("Test PS4 dlc.pkg", RomFileCategory.DLC, False),
+        ("Test PS4 cover.png", None, False),
+        ("Test PS4 deleted.pkg", None, True),
+    ):
+        db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=rom.id,
+                file_name=file_name,
+                file_path=f"{rom.fs_path}/{rom.fs_name}",
+                file_size_bytes=123,
+                category=category,
+                missing_from_fs=missing_from_fs,
+            )
+        )
+
+    response = client.get(
+        "/api/feeds/fpkgi/ps4",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    data = response.json()["DATA"]
+    assert len(data) == 3
+    assert all(url.endswith(".pkg") for url in data)
+    assert not any("deleted" in url for url in data)
+    assert all(entry["size"] == 123 for entry in data.values())
+    assert sorted(entry["name"] for entry in data.values()) == [
+        "Test PS4 - DLC",
+        "Test PS4 - Test PS4 base",
+        "Test PS4 - Update",
+    ]
+    # Packages of the same game stay grouped under one title id
+    assert len({entry["title_id"] for entry in data.values()}) == 1
+
+    response = client.get(
+        "/api/feeds/fpkgi/ps4?content_type=update",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    data = response.json()["DATA"]
+    assert len(data) == 1
+    assert next(iter(data.values()))["name"] == "Test PS4 - Update"
+
+    response = client.get(
+        "/api/feeds/fpkgi/ps4?content_type=not-a-category",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_fpkgi_feed_names_are_unique_within_a_rom(
+    client: TestClient, access_token: str, platform: Platform, rom: Rom
+):
+    platform = db_platform_handler.update_platform(
+        platform.id, {"name": "PlayStation 4", "slug": UPS.PS4, "fs_slug": UPS.PS4}
+    )
+    rom = db_rom_handler.update_rom(
+        rom.id,
+        {
+            "platform_id": platform.id,
+            "name": "Test PS4",
+            "fs_name": "Test PS4",
+            "fs_name_no_tags": "Test PS4",
+            "fs_name_no_ext": "Test PS4",
+            "fs_extension": "",
+            "fs_path": f"{platform.slug}/roms",
+            "fs_size_bytes": 369,
+            "regions": ["US"],
+        },
+    )
+    for sub_path, file_name, category in (
+        ("", "Test PS4 base.pkg", None),
+        ("update", "Test PS4 patch.pkg", RomFileCategory.UPDATE),
+        ("dlc", "Test PS4 brawler.pkg", RomFileCategory.DLC),
+        ("dlc", "Test PS4 loadout.pkg", RomFileCategory.DLC),
+        # Same file name in two categories, so the file name alone is ambiguous
+        ("dlc", "Test PS4 extra.pkg", RomFileCategory.DLC),
+        ("demo", "Test PS4 extra.pkg", RomFileCategory.DEMO),
+        ("demo", "Test PS4 trial.pkg", RomFileCategory.DEMO),
+    ):
+        db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=rom.id,
+                file_name=file_name,
+                file_path=f"{rom.fs_path}/{rom.fs_name}/{sub_path}".rstrip("/"),
+                file_size_bytes=123,
+                category=category,
+            )
+        )
+
+    response = client.get(
+        "/api/feeds/fpkgi/ps4",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    data = response.json()["DATA"]
+    assert len(data) == 7
+    assert sorted(entry["name"] for entry in data.values()) == [
+        "Test PS4 - DLC - Test PS4 extra",
+        "Test PS4 - Demo - Test PS4 extra",
+        "Test PS4 - Test PS4 base",
+        "Test PS4 - Test PS4 brawler",
+        "Test PS4 - Test PS4 loadout",
+        "Test PS4 - Test PS4 trial",
+        "Test PS4 - Update",
+    ]
+
+    # Filtering must not change the name a package is served under
+    response = client.get(
+        "/api/feeds/fpkgi/ps4?content_type=dlc",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    dlc_data = response.json()["DATA"]
+    assert sorted(entry["name"] for entry in dlc_data.values()) == [
+        "Test PS4 - DLC - Test PS4 extra",
+        "Test PS4 - Test PS4 brawler",
+        "Test PS4 - Test PS4 loadout",
+    ]
 
 
 def test_kekatsu_feed(

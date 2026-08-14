@@ -43,13 +43,22 @@ setup((app) => {
     }),
   );
 
-  storePermissions().hydrateFromRole("admin");
+  // Seed an admin so stories render with every gated control available.
+  storePermissions().hydrateFromResponse({
+    is_admin: true,
+    grants: [],
+    hidden: { platforms: [], roms: [] },
+  });
 });
 
 const preview: Preview = {
   parameters: {
     layout: "centered",
     backgrounds: { disable: true },
+    // Accessibility gate
+    a11y: {
+      test: "error",
+    },
     controls: {
       matchers: {
         color: /(background|color)$/i,

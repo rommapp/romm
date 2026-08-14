@@ -17,7 +17,7 @@ All events broadcast to every connected client on the main `/ws` namespace.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from endpoints.responses.activity import ActivityClearSchema
 from handler.activity_handler import ActivityEntry, activity_handler
@@ -30,6 +30,9 @@ from handler.database import (
 from handler.socket_handler import socket_handler
 from logger.logger import log
 from utils.screenshots import continue_playing_screenshot
+
+if TYPE_CHECKING:
+    from models.user import User
 
 # Socket-session key holding the authenticated user id, written by the connect
 # handler. Identity for every activity event is derived from this, not payload.
@@ -63,6 +66,18 @@ async def _authenticated_user_id(sid: str) -> int | None:
     """Return the user id resolved at connect time, or ``None`` if unauthenticated."""
     user_id = (await _session(sid)).get(AUTH_USER_SESSION_KEY)
     return int(user_id) if user_id is not None else None
+
+
+async def get_authenticated_user(sid: str) -> User | None:
+    """Return the ``User`` resolved for this socket at connect time, or ``None``.
+
+    Identity comes from the server-resolved session stored on connect, never
+    from the client, so socket event handlers can enforce authorization.
+    """
+    user_id = await _authenticated_user_id(sid)
+    if user_id is None:
+        return None
+    return db_user_handler.get_user(user_id)
 
 
 async def _store_session(sid: str, user_id: int, device_id: str) -> None:

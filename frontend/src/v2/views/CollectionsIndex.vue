@@ -39,6 +39,7 @@ import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
+import { patchQuery } from "@/v2/utils/routeQuery";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 type Kind = "regular" | "virtual" | "smart";
@@ -63,7 +64,19 @@ const {
   virtualCollections,
   smartCollections,
   fetchingCollections,
+  fetchingSmartCollections,
+  fetchingVirtualCollections,
 } = storeToRefs(collectionsStore);
+
+// Any collection kind still in flight. Virtual collections (especially
+// the "all" type) can take 10s+ on large libraries, so the empty state
+// must wait on this instead of only `fetchingCollections`.
+const isLoading = computed(
+  () =>
+    fetchingCollections.value ||
+    fetchingSmartCollections.value ||
+    fetchingVirtualCollections.value,
+);
 
 const { groupBy, layout } = useGalleryMode();
 useGalleryViewModeUrl();
@@ -116,10 +129,7 @@ function writeEnumQuery(param: string, value: string, fallback: string) {
   const current = route.query[param];
   const currentStr = typeof current === "string" ? current : fallback;
   if ((desired ?? fallback) === currentStr) return;
-  const nextQuery = { ...route.query };
-  if (desired === undefined) delete nextQuery[param];
-  else nextQuery[param] = desired;
-  router.replace({ query: nextQuery });
+  patchQuery(router, { [param]: desired });
 }
 
 const kindFilter = ref<KindFilterValue>(
@@ -345,10 +355,7 @@ const sortedTiles = computed<CollectionTileEntry[]>(() =>
 
 const totalCount = computed(() => tiles.value.length);
 const noResults = computed(
-  () =>
-    !fetchingCollections.value &&
-    totalCount.value > 0 &&
-    filtered.value.length === 0,
+  () => !isLoading.value && totalCount.value > 0 && filtered.value.length === 0,
 );
 
 // Empty-state payload for the post-load "nothing matches" case. Split
@@ -445,6 +452,17 @@ const showCuratedSection = computed(
 const showVirtualSection = computed(
   () => layout.value === "grid" && virtualTiles.value.length > 0,
 );
+// When curated collections already fill the view (so the top-level
+// skeleton won't fire) but the virtual type is being (re)fetched, show
+// a skeleton in the virtual area so switching to a slow type ("all")
+// reads as loading rather than empty.
+const showVirtualLoading = computed(
+  () =>
+    layout.value === "grid" &&
+    fetchingVirtualCollections.value &&
+    virtualTiles.value.length === 0 &&
+    curatedTiles.value.length > 0,
+);
 
 // Drives `IndexShell`'s sticky list-header band — only render the
 // column header when the list itself is on screen (list layout + a
@@ -453,7 +471,7 @@ const showVirtualSection = computed(
 const showListHeader = computed(
   () =>
     layout.value === "list" &&
-    !fetchingCollections.value &&
+    !isLoading.value &&
     totalCount.value > 0 &&
     filtered.value.length > 0,
 );
@@ -492,7 +510,7 @@ const showListHeader = computed(
     </template>
 
     <div ref="gridRoot">
-      <div v-if="fetchingCollections && !totalCount" class="r-v2-cidx__grid">
+      <div v-if="isLoading && !totalCount" class="r-v2-cidx__grid">
         <RSkeletonBlock
           v-for="n in 12"
           :key="`sk-${n}`"
@@ -577,10 +595,31 @@ const showListHeader = computed(
           </div>
         </section>
 
+        <!-- Virtual section loading — curated is already on screen, so the
+           top-level skeleton doesn't fire; show one here while a slow
+           virtual type ("all") is still being fetched. -->
+        <section v-if="showVirtualLoading" class="r-v2-cidx__virtual">
+          <h3 class="r-v2-cidx__section-title">
+            <RIcon
+              icon="mdi-bookmark-box"
+              class="r-v2-cidx__panel-icon"
+            />Virtual
+          </h3>
+          <div class="r-v2-cidx__grid">
+            <RSkeletonBlock
+              v-for="n in 6"
+              :key="`vsk-${n}`"
+              width="100%"
+              height="150px"
+              rounded="lg"
+            />
+          </div>
+        </section>
+
         <!-- Virtual section — loose grid, no panel. The visual absence of
            a container is the contrast point against the curated panel
            above. -->
-        <section v-if="showVirtualSection" class="r-v2-cidx__virtual">
+        <section v-else-if="showVirtualSection" class="r-v2-cidx__virtual">
           <h3 v-if="showCuratedSection" class="r-v2-cidx__section-title">
             <RIcon
               icon="mdi-bookmark-box"

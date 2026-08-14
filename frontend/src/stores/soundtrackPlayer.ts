@@ -2,7 +2,7 @@ import { useLocalStorage } from "@vueuse/core";
 import { throttle } from "lodash";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
-import type { RomFileAudioMetaSchema } from "@/__generated__";
+import type { TrackMetaSchema } from "@/__generated__";
 
 const volumeStorage = useLocalStorage<number>("soundtrack.volume", 1);
 const mutedStorage = useLocalStorage<boolean>("soundtrack.muted", false);
@@ -17,16 +17,10 @@ export interface PlayerTrack {
 // Audio-tag fields are sourced from the generated schema; the rest (duration in
 // seconds + resolved cover URLs) are UI-specific to the player.
 type AudioTagKey =
-  | "title"
-  | "artist"
-  | "album"
-  | "year"
-  | "genre"
-  | "track"
-  | "disc";
+  "title" | "artist" | "album" | "year" | "genre" | "track" | "disc";
 
 export type PlayerMeta = {
-  [K in AudioTagKey]?: NonNullable<RomFileAudioMetaSchema[K]>;
+  [K in AudioTagKey]?: NonNullable<TrackMetaSchema[K]>;
 } & {
   duration?: number;
   coverUrl?: string;

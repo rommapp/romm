@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from defusedxml import ElementTree as ET
 
+from config.config_manager import MetadataMediaType
 from handler.metadata.gamelist_handler import (
     GamelistHandler,
     extract_metadata_from_gamelist_rom,
@@ -94,6 +95,49 @@ def test_parse_gamelist_xml_keeps_game_entries(tmp_path: Path, platform: Platfor
 
     assert "test-rom.zip" in roms_data
     assert roms_data["test-rom.zip"].get("name") == "Game Entry"
+
+
+def test_parse_gamelist_xml_title_screen_not_in_screenshots(
+    tmp_path: Path, platform: Platform
+):
+    """The title screen is stored in its dedicated media folder, so it must
+    not also land in url_screenshots (issue #3911)."""
+    gamelist_path = tmp_path / "gamelist.xml"
+    gamelist_path.write_text(
+        """<?xml version="1.0"?>
+<gameList>
+  <game>
+    <path>./test-rom.zip</path>
+    <name>Game Entry</name>
+  </game>
+</gameList>""",
+        encoding="utf-8",
+    )
+    handler = GamelistHandler()
+
+    metadata = dict(
+        MOCK_METADATA,
+        screenshot_url="file:///media/screenshot.png",
+        title_screen_url="file:///media/titlescreen.png",
+    )
+    with (
+        patch(
+            "handler.metadata.gamelist_handler.extract_metadata_from_gamelist_rom",
+            return_value=metadata,
+        ),
+        patch(
+            "handler.metadata.gamelist_handler.get_preferred_media_types",
+            return_value=[
+                MetadataMediaType.SCREENSHOT,
+                MetadataMediaType.TITLE_SCREEN,
+            ],
+        ),
+    ):
+        roms_data = handler._parse_gamelist_xml(gamelist_path, platform)
+
+    assert roms_data["test-rom.zip"]["url_screenshots"] == [
+        "file:///media/screenshot.png"
+    ]
 
 
 def test_extract_metadata_from_gamelist_rom_includes_sort_name(platform: Platform):

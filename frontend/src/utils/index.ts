@@ -63,6 +63,9 @@ export function getRoleIcon(role: string) {
   switch (role) {
     case "admin":
       return "mdi-shield-crown-outline";
+    case "user":
+      return "mdi-account-outline";
+    // Legacy roles, kept so any lingering value still renders an icon.
     case "editor":
       return "mdi-file-edit-outline";
     case "viewer":
@@ -123,7 +126,17 @@ export function getDownloadPath({
     queryParams.append("file_ids", fileIDs.join(","));
   }
   const queryString = queryParams.toString();
-  return `/api/roms/${rom.id}/content/${rom.fs_name}${
+
+  // If a single file is selected, use its name for the download path
+  const selectedFile =
+    fileIDs.length === 1
+      ? rom.files?.find((f) => f.id === fileIDs[0])
+      : undefined;
+  const contentName = selectedFile
+    ? encodeURIComponent(selectedFile.file_name)
+    : rom.fs_name;
+
+  return `/api/roms/${rom.id}/content/${contentName}${
     queryString ? `?${queryString}` : ""
   }`;
 }
@@ -256,9 +269,6 @@ export function regionToEmoji(region: string) {
     case "no":
     case "norway":
       return "🇳🇴";
-    case "pd":
-    case "public domain":
-      return "🇵🇱";
     case "r":
     case "russia":
       return "🇷🇺";
@@ -528,7 +538,7 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   wonderswan: ["mednafen_wswan"],
   swancrystal: ["mednafen_wswan"],
   "wonderswan-color": ["mednafen_wswan"],
-  zsx: ["fuse"],
+  zxs: ["fuse"],
 } as const;
 
 // TODO: Merge with _EJS_CORES_MAP next emukatorjs release (post 4.2.3)
@@ -675,10 +685,7 @@ export function isRuffleEmulationSupported(
 }
 
 export type PlayingStatus =
-  | RomUserStatus
-  | "backlogged"
-  | "now_playing"
-  | "hidden";
+  RomUserStatus | "backlogged" | "now_playing" | "hidden";
 
 /**
  * Map of ROM statuses to their corresponding emoji, text, and i18n key.

@@ -28,6 +28,7 @@ import type {
   UserStateSchema,
 } from "@/__generated__";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { toCssUrl } from "@/v2/utils/css";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
@@ -102,7 +103,7 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
           <div
             v-if="type === 'state' && screenshotOf(asset)"
             class="r-asset-strip__thumb-img"
-            :style="{ backgroundImage: `url(${screenshotOf(asset)})` }"
+            :style="{ backgroundImage: toCssUrl(screenshotOf(asset)!) }"
           />
           <div v-else class="r-asset-strip__thumb-icon">
             <RIcon
@@ -130,10 +131,11 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
           <span v-if="showOwner && ownerOf(asset)" class="r-asset-strip__owner">
             <RAvatar
               :image="
-                userAvatarUrl(
-                  ownerOf(asset)!.user_avatar_path,
-                  ownerOf(asset)!.user_updated_at,
-                )
+                userAvatarUrl({
+                  userId: ownerOf(asset)!.user_id,
+                  avatarPath: ownerOf(asset)!.user_avatar_path,
+                  updatedAt: ownerOf(asset)!.user_updated_at,
+                })
               "
               :size="14"
             />

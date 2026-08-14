@@ -89,6 +89,9 @@ const openHandler = () => {
       filterDuplicates: galleryFilter.filterDuplicates,
       filterPlayables: galleryFilter.filterPlayables,
       filterRA: galleryFilter.filterRA,
+      filterSaves: galleryFilter.filterSaves,
+      filterStates: galleryFilter.filterStates,
+      filterSoundtrack: galleryFilter.filterSoundtrack,
       filterMissing: galleryFilter.filterMissing,
       filterVerified: galleryFilter.filterVerified,
       selectedPlatforms: galleryFilter.selectedPlatforms,
@@ -108,6 +111,10 @@ const openHandler = () => {
       languagesLogic: galleryFilter.languagesLogic,
       selectedPlayerCounts: galleryFilter.selectedPlayerCounts,
       playerCountsLogic: galleryFilter.playerCountsLogic,
+      selectedMetadataProviders: galleryFilter.selectedMetadataProviders,
+      metadataProvidersLogic: galleryFilter.metadataProvidersLogic,
+      selectedTags: galleryFilter.selectedTags,
+      tagsLogic: galleryFilter.tagsLogic,
       selectedStatuses: galleryFilter.selectedStatuses,
       statusesLogic: galleryFilter.statusesLogic,
     },
@@ -334,11 +341,9 @@ async function submit() {
   grid-template-columns: 1fr;
   gap: 18px;
 }
-@media (min-width: 640px) {
-  .r-v2-csc__grid {
-    grid-template-columns: 1.1fr 1fr;
-    align-items: stretch;
-  }
+html[data-bp~="sm-and-up"] .r-v2-csc__grid {
+  grid-template-columns: 1.1fr 1fr;
+  align-items: stretch;
 }
 
 .r-v2-csc__fields {

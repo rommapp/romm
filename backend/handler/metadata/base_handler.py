@@ -205,7 +205,7 @@ class MetadataHandler(abc.ABC):
         return search_term
 
     async def _sony_serial_format(self, index_key: str, serial_code: str) -> str | None:
-        index_entry = await async_cache.hget(index_key, serial_code)
+        index_entry = await async_cache.hget(index_key, serial_code.upper())
         if index_entry:
             index_entry = json.loads(index_entry)
             return index_entry["title"]
@@ -754,6 +754,7 @@ class UniversalPlatformSlug(enum.StrEnum):
     WIIU = "wiiu"
     WIN = "win"
     WIN3X = "win3x"
+    WIN9X = "win9x"
     WINDOWS_APPS = "windows-apps"
     WINDOWS_MIXED_REALITY = "windows-mixed-reality"
     WINDOWS_MOBILE = "windows-mobile"

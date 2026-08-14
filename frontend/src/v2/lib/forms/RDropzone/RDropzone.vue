@@ -16,6 +16,8 @@ import { useDropZone } from "@vueuse/core";
 import { ref } from "vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 
+// Attrs land on the root (see `v-bind="$attrs"` below) rather than on the
+// hidden file input, so a consumer's `class` sizes the drop target.
 defineOptions({ inheritAttrs: false });
 
 interface Props {
@@ -88,6 +90,7 @@ defineExpose({ open, isOver: isOverDropZone });
 <template>
   <div
     ref="rootRef"
+    v-bind="$attrs"
     class="r-dropzone"
     :class="{
       'r-dropzone--active': isOverDropZone && !disabled,
@@ -151,6 +154,9 @@ defineExpose({ open, isOver: isOverDropZone });
 
 <style scoped>
 .r-dropzone {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   position: relative;
   border-radius: var(--r-radius-md);
 }
@@ -173,7 +179,6 @@ defineExpose({ open, isOver: isOverDropZone });
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 180px;
   padding: 24px 16px;
   text-align: center;
   cursor: pointer;
@@ -235,7 +240,6 @@ defineExpose({ open, isOver: isOverDropZone });
   border-radius: var(--r-radius-md);
   background: color-mix(in srgb, var(--r-color-bg) 78%, transparent);
   backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   pointer-events: none;
 }
 .r-dropzone__overlay-label {

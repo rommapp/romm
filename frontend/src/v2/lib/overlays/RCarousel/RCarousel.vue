@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="T">
 // RCarousel — slide-through viewer for an array of items.
 //
 // Two modes:
@@ -32,41 +32,11 @@ import {
 } from "vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import type { RCarouselProps } from "./types";
 
 defineOptions({ inheritAttrs: false });
 
-// Items are typed as `unknown` so the primitive stays free of any
-// product-domain knowledge (premise II.criterion-2). Consumers narrow the
-// slot payload with `v-slot="{ item }"` and an explicit cast or local
-// generic component.
-type CarouselItem = unknown;
-
-interface Props {
-  /** Active item index. */
-  modelValue: number;
-  /** Items array — the slot decides how each one is rendered. */
-  items: readonly CarouselItem[];
-  /** Render as a viewport-filling overlay with scrim and close button. */
-  fullscreen?: boolean;
-  /** Wrap from last → first and first → last. */
-  loop?: boolean;
-  /** Show "n / total" counter. Defaults to true when `items.length > 1`. */
-  showCounter?: boolean;
-  /** Show prev/next arrows. Defaults to true when `items.length > 1`. */
-  showArrows?: boolean;
-  /** Show a thumbnail strip below the active item. */
-  showThumbnails?: boolean;
-  /** Localised label for the close button. */
-  closeLabel?: string;
-  /** Localised label for the prev button. */
-  prevLabel?: string;
-  /** Localised label for the next button. */
-  nextLabel?: string;
-  /** Accessibility label for the carousel region. */
-  ariaLabel?: string;
-}
-
-const props = withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<RCarouselProps<T>>(), {
   fullscreen: false,
   loop: true,
   showCounter: undefined,
@@ -86,16 +56,8 @@ const emit = defineEmits<{
 }>();
 
 defineSlots<{
-  default(slotProps: {
-    item: CarouselItem;
-    index: number;
-    active: boolean;
-  }): unknown;
-  thumbnail(slotProps: {
-    item: CarouselItem;
-    index: number;
-    active: boolean;
-  }): unknown;
+  default(slotProps: { item: T; index: number; active: boolean }): unknown;
+  thumbnail(slotProps: { item: T; index: number; active: boolean }): unknown;
   empty(): unknown;
   counter(slotProps: { index: number; total: number }): unknown;
 }>();
@@ -117,9 +79,7 @@ const safeIndex = computed(() => {
   const i = Math.max(0, Math.min(props.modelValue, total.value - 1));
   return i;
 });
-const activeItem = computed<CarouselItem | undefined>(
-  () => props.items[safeIndex.value],
-);
+const activeItem = computed<T | undefined>(() => props.items[safeIndex.value]);
 
 // `direction` drives the slide direction of the <Transition> below. Updated
 // before we emit a new index so the transition class on the way out matches
@@ -450,9 +410,15 @@ function onBackdropClick(event: MouseEvent) {
      stays visible. CSS named "black" is allowed by the token policy. */
   background: color-mix(in srgb, black 92%, transparent);
   backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   display: grid;
   grid-template-rows: 1fr auto;
+  /* `minmax(0, 1fr)` — WITHOUT an explicit column the single implicit track
+     sizes to its content (the natural-width image, or the full thumbnail
+     strip) and blows past the viewport, so the image overflowed to the right
+     and the thumb strip + counter couldn't be constrained or scrolled. The
+     `0` minimum lets the track shrink below content so children clamp to the
+     viewport and scroll internally. */
+  grid-template-columns: minmax(0, 1fr);
   animation: r-carousel-backdrop-in var(--r-motion-med) var(--r-motion-ease-out);
 }
 
@@ -604,8 +570,8 @@ function onBackdropClick(event: MouseEvent) {
 
 /* Thumbnails --------------------------------------------------------------- */
 .r-carousel__thumbs-wrap {
-  display: flex;
-  justify-content: center;
+  /* Block, not flex-centred: the inner strip spans full width and does its
+     own `safe center` so it can scroll when it overflows. */
   padding: 12px 24px 18px;
 }
 .r-carousel--fullscreen .r-carousel__thumbs-wrap {
@@ -616,9 +582,16 @@ function onBackdropClick(event: MouseEvent) {
 
 .r-carousel__thumbs {
   display: flex;
+  /* `safe center` centres the strip when it fits but falls back to
+     flex-start when it overflows — plain `center` on an overflowing flex
+     container makes the leading items unreachable (can't scroll to them). */
+  justify-content: safe center;
   gap: 8px;
   max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
   scrollbar-width: thin;
   padding: 4px 4px 8px;
   scroll-padding-inline: 24px;
@@ -668,7 +641,6 @@ function onBackdropClick(event: MouseEvent) {
   from {
     opacity: 0;
     backdrop-filter: blur(0px);
-    -webkit-backdrop-filter: blur(0px);
   }
   to {
     opacity: 1;
@@ -734,23 +706,32 @@ function onBackdropClick(event: MouseEvent) {
 }
 
 /* Smaller viewports -------------------------------------------------------- */
-@media (max-width: 768px) {
-  .r-carousel--fullscreen .r-carousel__stage {
-    padding: 56px 16px;
-  }
-  .r-carousel--fullscreen .r-carousel__nav {
-    width: 44px;
-    height: 44px;
-  }
-  .r-carousel--fullscreen .r-carousel__nav--prev {
-    left: 8px;
-  }
-  .r-carousel--fullscreen .r-carousel__nav--next {
-    right: 8px;
-  }
-  .r-carousel__thumb {
-    width: 72px;
-    height: 42px;
-  }
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__stage {
+  padding: 48px 12px 8px;
+}
+/* Fit the active item to the stage row (the grid gives the thumb strip +
+   counter their own row below). The desktop `86vh` cap is taller than the
+   remaining stage on a phone, so the image overflowed and read off-centre. */
+html[data-bp~="sm-and-down"] .r-carousel__item--fullscreen {
+  max-width: 100%;
+  max-height: 100%;
+}
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen :deep(img),
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen :deep(video) {
+  max-height: 100%;
+}
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav {
+  width: 44px;
+  height: 44px;
+}
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav--prev {
+  left: 8px;
+}
+html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav--next {
+  right: 8px;
+}
+html[data-bp~="sm-and-down"] .r-carousel__thumb {
+  width: 72px;
+  height: 42px;
 }
 </style>

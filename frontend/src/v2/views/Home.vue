@@ -38,12 +38,22 @@ const {
   showContinuePlaying,
   showPlatforms,
   showCollections,
+  showSmartCollections,
+  showVirtualCollections,
+  virtualCollectionType,
 } = useUISettings();
 
 const { recentRoms, continuePlayingRoms } = storeToRefs(romsStore);
 const { filledPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
-const { allCollections, favoriteCollection, fetchingCollections } =
-  storeToRefs(collectionsStore);
+const {
+  allCollections,
+  smartCollections,
+  virtualCollections,
+  favoriteCollection,
+  fetchingCollections,
+  fetchingSmartCollections,
+  fetchingVirtualCollections,
+} = storeToRefs(collectionsStore);
 
 const fetchingRecent = ref(false);
 const fetchingContinue = ref(false);
@@ -51,23 +61,45 @@ const fetchingContinue = ref(false);
 const gridRoot = ref<HTMLElement | null>(null);
 useGridNav(gridRoot);
 
-onMounted(() => {
+// Flips once every initial request has settled. Until then the store
+// `fetching*` flags are still false and the stores are still empty, so
+// `isEmpty` reads true for a library that simply hasn't loaded yet.
+const initialLoadDone = ref(false);
+
+onMounted(async () => {
+  const initialLoads: Promise<unknown>[] = [];
+
   if (platformsStore.allPlatforms.length === 0) {
-    platformsStore.fetchPlatforms();
+    initialLoads.push(platformsStore.fetchPlatforms());
   }
   if (collectionsStore.allCollections.length === 0) {
-    collectionsStore.fetchCollections();
+    initialLoads.push(collectionsStore.fetchCollections());
+  }
+  if (showSmartCollections.value && smartCollections.value.length === 0) {
+    initialLoads.push(collectionsStore.fetchSmartCollections());
+  }
+  if (showVirtualCollections.value && virtualCollections.value.length === 0) {
+    initialLoads.push(
+      collectionsStore.fetchVirtualCollections(virtualCollectionType.value),
+    );
   }
   if (recentRoms.value.length === 0) {
     fetchingRecent.value = true;
-    romsStore.fetchRecentRoms().finally(() => (fetchingRecent.value = false));
+    initialLoads.push(
+      romsStore.fetchRecentRoms().finally(() => (fetchingRecent.value = false)),
+    );
   }
   if (continuePlayingRoms.value.length === 0) {
     fetchingContinue.value = true;
-    romsStore
-      .fetchContinuePlayingRoms()
-      .finally(() => (fetchingContinue.value = false));
+    initialLoads.push(
+      romsStore
+        .fetchContinuePlayingRoms()
+        .finally(() => (fetchingContinue.value = false)),
+    );
   }
+
+  await Promise.allSettled(initialLoads);
+  initialLoadDone.value = true;
 });
 
 // True when nothing has been added yet AND we're no longer fetching —
@@ -77,13 +109,21 @@ const isEmpty = computed(
   () =>
     !fetchingPlatforms.value &&
     !fetchingCollections.value &&
+    !fetchingSmartCollections.value &&
+    !fetchingVirtualCollections.value &&
     !fetchingRecent.value &&
     !fetchingContinue.value &&
     recentRoms.value.length === 0 &&
     continuePlayingRoms.value.length === 0 &&
     filledPlatforms.value.length === 0 &&
-    allCollections.value.length === 0,
+    allCollections.value.length === 0 &&
+    (!showSmartCollections.value || smartCollections.value.length === 0) &&
+    (!showVirtualCollections.value || virtualCollections.value.length === 0),
 );
+
+// Gate on the load having actually happened: `isEmpty` alone is true
+// during setup, before any request has been made.
+const showEmptyState = computed(() => initialLoadDone.value && isEmpty.value);
 
 // Filesystem snapshot for the empty state — shows the user what RomM
 // can already see on disk so the "run a scan" CTA isn't a leap of
@@ -117,13 +157,9 @@ async function loadLibraryInfo() {
   }
 }
 
-watch(
-  isEmpty,
-  (empty) => {
-    if (empty) void loadLibraryInfo();
-  },
-  { immediate: true },
-);
+watch(showEmptyState, (empty) => {
+  if (empty) void loadLibraryInfo();
+});
 
 // Favorite ROMs — derived from the Favorites collection's rom_ids.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- false positive: used in <template>; @typescript-eslint+projectService doesn't see Vue templates
@@ -155,7 +191,7 @@ function collectionCovers(c: {
     <!-- Empty library state — shown when nothing has been ingested
          yet. Hides every section underneath so the user lands on a
          decision (upload vs scan), not on a row of skeletons. -->
-    <section v-if="isEmpty" class="r-v2-home-empty">
+    <section v-if="showEmptyState" class="r-v2-home-empty">
       <div class="r-v2-home-empty__hero">
         <RIcon
           icon="mdi-controller-classic-outline"
@@ -380,6 +416,63 @@ function collectionCovers(c: {
           variant="row"
         />
       </CardRow>
+
+      <!-- Smart collections -->
+      <CardRow
+        v-if="
+          showSmartCollections &&
+          (smartCollections.length || fetchingSmartCollections)
+        "
+        :title="t('common.smart-collections')"
+        :count="smartCollections.length"
+        gap="16px"
+      >
+        <template #icon>
+          <RIcon icon="mdi-flash" size="20" />
+        </template>
+        <CollectionTile
+          v-for="(c, i) in smartCollections"
+          :id="c.id"
+          :key="`smart-${c.id}`"
+          class="r-v2-card-fade"
+          :style="{ '--card-fade-i': i }"
+          :to="`/collection/smart/${c.id}`"
+          :name="c.name"
+          :rom-count="c.rom_count"
+          :covers="collectionCovers(c)"
+          kind="smart"
+          :is-public="c.is_public ?? false"
+          variant="row"
+        />
+      </CardRow>
+
+      <!-- Virtual (autogenerated) collections -->
+      <CardRow
+        v-if="
+          showVirtualCollections &&
+          (virtualCollections.length || fetchingVirtualCollections)
+        "
+        :title="t('common.virtual-collections')"
+        :count="virtualCollections.length"
+        gap="16px"
+      >
+        <template #icon>
+          <RIcon icon="mdi-bookmark-box" size="20" />
+        </template>
+        <CollectionTile
+          v-for="(c, i) in virtualCollections"
+          :id="c.id"
+          :key="`virtual-${c.id}`"
+          class="r-v2-card-fade"
+          :style="{ '--card-fade-i': i }"
+          :to="`/collection/virtual/${c.id}`"
+          :name="c.name"
+          :rom-count="c.rom_count"
+          :covers="collectionCovers(c)"
+          kind="virtual"
+          variant="row"
+        />
+      </CardRow>
     </template>
   </div>
 </template>
@@ -466,14 +559,12 @@ function collectionCovers(c: {
   padding: var(--r-space-6);
 }
 
-@media (max-width: 720px) {
-  .r-v2-home-empty__choices {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--r-space-4);
-  }
-  .r-v2-home-empty__divider {
-    display: none;
-  }
+html[data-bp~="sm-and-down"] .r-v2-home-empty__choices {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--r-space-4);
+}
+html[data-bp~="sm-and-down"] .r-v2-home-empty__divider {
+  display: none;
 }
 
 .r-v2-home-empty__divider {

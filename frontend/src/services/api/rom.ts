@@ -153,6 +153,9 @@ export interface GetRomsParams {
   filterDuplicates?: boolean | null;
   filterPlayables?: boolean | null;
   filterRA?: boolean | null;
+  filterSaves?: boolean | null;
+  filterStates?: boolean | null;
+  filterSoundtrack?: boolean | null;
   filterMissing?: boolean | null;
   filterVerified?: boolean | null;
   groupByMetaId?: boolean;
@@ -165,6 +168,8 @@ export interface GetRomsParams {
   selectedRegions?: string[] | null;
   selectedLanguages?: string[] | null;
   selectedPlayerCounts?: string[] | null;
+  selectedMetadataProviders?: string[] | null;
+  selectedTags?: string[] | null;
   selectedStatuses?: string[] | null;
   // Logic operators for multi-value filters
   genresLogic?: string | null;
@@ -176,9 +181,13 @@ export interface GetRomsParams {
   languagesLogic?: string | null;
   statusesLogic?: string | null;
   playerCountsLogic?: string | null;
-  // Cancellation: pass an AbortSignal to let the caller abort an
-  // in-flight request (e.g. search-typing → previous query aborted,
-  // gallery-context switch → previous platform's windows aborted).
+  metadataProvidersLogic?: string | null;
+  tagsLogic?: string | null;
+  withCharIndex?: boolean;
+  withFilterValues?: boolean;
+  withRomIdIndex?: boolean;
+  withTotal?: boolean;
+  // Cancel an in-flight request
   signal?: AbortSignal;
 }
 
@@ -197,6 +206,9 @@ async function getRoms({
   filterDuplicates = null,
   filterPlayables = null,
   filterRA = null,
+  filterSaves = null,
+  filterStates = null,
+  filterSoundtrack = null,
   filterMissing = null,
   filterVerified = null,
   groupByMetaId = false,
@@ -208,6 +220,8 @@ async function getRoms({
   selectedRegions = null,
   selectedLanguages = null,
   selectedPlayerCounts = null,
+  selectedMetadataProviders = null,
+  selectedTags = null,
   selectedStatuses = null,
   // Logic operators
   genresLogic = null,
@@ -219,6 +233,12 @@ async function getRoms({
   languagesLogic = null,
   statusesLogic = null,
   playerCountsLogic = null,
+  metadataProvidersLogic = null,
+  tagsLogic = null,
+  withCharIndex = undefined,
+  withFilterValues = undefined,
+  withRomIdIndex = undefined,
+  withTotal = undefined,
   signal = undefined,
 }: GetRomsParams) {
   const params = {
@@ -267,6 +287,11 @@ async function getRoms({
       selectedPlayerCounts && selectedPlayerCounts.length > 0
         ? selectedPlayerCounts
         : undefined,
+    metadata_providers:
+      selectedMetadataProviders && selectedMetadataProviders.length > 0
+        ? selectedMetadataProviders
+        : undefined,
+    tags: selectedTags && selectedTags.length > 0 ? selectedTags : undefined,
     // Logic operators
     genres_logic:
       selectedGenres && selectedGenres.length > 0
@@ -304,13 +329,30 @@ async function getRoms({
       selectedPlayerCounts && selectedPlayerCounts.length > 0
         ? playerCountsLogic || "any"
         : undefined,
+    metadata_providers_logic:
+      selectedMetadataProviders && selectedMetadataProviders.length > 0
+        ? metadataProvidersLogic || "any"
+        : undefined,
+    tags_logic:
+      selectedTags && selectedTags.length > 0 ? tagsLogic || "any" : undefined,
     ...(filterMatched !== null ? { matched: filterMatched } : {}),
     ...(filterFavorites !== null ? { favorite: filterFavorites } : {}),
     ...(filterDuplicates !== null ? { duplicate: filterDuplicates } : {}),
     ...(filterPlayables !== null ? { playable: filterPlayables } : {}),
     ...(filterMissing !== null ? { missing: filterMissing } : {}),
     ...(filterRA !== null ? { has_ra: filterRA } : {}),
+    ...(filterSaves !== null ? { has_saves: filterSaves } : {}),
+    ...(filterStates !== null ? { has_states: filterStates } : {}),
+    ...(filterSoundtrack !== null ? { has_soundtrack: filterSoundtrack } : {}),
     ...(filterVerified !== null ? { verified: filterVerified } : {}),
+    ...(withCharIndex !== undefined ? { with_char_index: withCharIndex } : {}),
+    ...(withFilterValues !== undefined
+      ? { with_filter_values: withFilterValues }
+      : {}),
+    ...(withRomIdIndex !== undefined
+      ? { with_rom_id_index: withRomIdIndex }
+      : {}),
+    ...(withTotal !== undefined ? { with_total: withTotal } : {}),
   };
 
   return api.get<GetRomsResponse>(`/roms`, {
@@ -330,6 +372,8 @@ async function getRecentRoms() {
       limit: RECENT_ROMS_LIMIT,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
+      with_total: false,
     },
   });
 }
@@ -342,6 +386,8 @@ async function getRecentPlayedRoms() {
       limit: RECENT_PLAYED_ROMS_LIMIT,
       with_char_index: false,
       with_filter_values: false,
+      with_rom_id_index: false,
+      with_total: false,
       last_played: true,
     },
   });
@@ -369,6 +415,28 @@ async function getRomSimple({
   // for the v2 gallery card's per-card fetch path. Detail-level data is
   // pulled on demand (game details page, quick-note dialog open).
   return api.get<SimpleRom>(`/roms/${romId}/simple`, { signal });
+}
+
+async function getRandomRom({
+  platformIds = null,
+  collectionId = null,
+  virtualCollectionId = null,
+  smartCollectionId = null,
+}: {
+  platformIds?: number[] | null;
+  collectionId?: number | null;
+  virtualCollectionId?: string | null;
+  smartCollectionId?: number | null;
+} = {}) {
+  return api.get<SimpleRom | null>("/roms/random", {
+    params: {
+      platform_ids:
+        platformIds && platformIds.length > 0 ? platformIds : undefined,
+      collection_id: collectionId,
+      virtual_collection_id: virtualCollectionId,
+      smart_collection_id: smartCollectionId,
+    },
+  });
 }
 
 async function getRomByMetadataProvider({
@@ -401,16 +469,10 @@ async function searchRom({
   });
 }
 
-async function downloadRom({
-  rom,
-  fileIDs = [],
-}: {
-  rom: SimpleRom;
-  fileIDs?: number[];
-}) {
+function triggerFileDownload(href: string) {
   return new Promise<void>((resolve) => {
     const a = document.createElement("a");
-    a.href = getDownloadPath({ rom, fileIDs });
+    a.href = href;
     a.style.display = "none";
 
     document.body.appendChild(a);
@@ -423,34 +485,52 @@ async function downloadRom({
   });
 }
 
+async function downloadRom({
+  rom,
+  fileIDs = [],
+}: {
+  rom: SimpleRom;
+  fileIDs?: number[];
+}) {
+  return triggerFileDownload(getDownloadPath({ rom, fileIDs }));
+}
+
+// A platform/collection selector is expanded server-side into the full ROM
+// list, keeping the URL short (an explicit `romIDs` list can overflow the
+// browser's URL length limit for large libraries). Pass exactly one selector;
+// `romIDs` stays the fallback for ad-hoc multi-selections.
 async function bulkDownloadRoms({
-  roms,
+  romIDs,
+  platformId,
+  collectionId,
+  virtualCollectionId,
+  smartCollectionId,
   filename,
 }: {
-  roms: SimpleRom[];
+  romIDs?: number[];
+  platformId?: number;
+  collectionId?: number;
+  virtualCollectionId?: string;
+  smartCollectionId?: number;
   filename?: string;
 }) {
-  return new Promise<void>((resolve) => {
-    if (roms.length === 0) return resolve();
+  const queryParams = new URLSearchParams();
+  if (platformId != null) {
+    queryParams.append("platform_id", String(platformId));
+  } else if (collectionId != null) {
+    queryParams.append("collection_id", String(collectionId));
+  } else if (virtualCollectionId != null) {
+    queryParams.append("virtual_collection_id", virtualCollectionId);
+  } else if (smartCollectionId != null) {
+    queryParams.append("smart_collection_id", String(smartCollectionId));
+  } else if (romIDs && romIDs.length > 0) {
+    queryParams.append("rom_ids", romIDs.join(","));
+  } else {
+    return;
+  }
+  if (filename) queryParams.append("filename", filename);
 
-    const romIds = roms.map((rom) => rom.id);
-
-    const queryParams = new URLSearchParams();
-    queryParams.append("rom_ids", romIds.join(","));
-    if (filename) queryParams.append("filename", filename);
-
-    const a = document.createElement("a");
-    a.href = `/api/roms/download?${queryParams.toString()}`;
-    a.style.display = "none";
-
-    document.body.appendChild(a);
-    a.click();
-
-    setTimeout(() => {
-      document.body.removeChild(a);
-      resolve();
-    }, DOWNLOAD_CLEANUP_DELAY);
-  });
+  return triggerFileDownload(`/api/roms/download?${queryParams.toString()}`);
 }
 
 export type UpdateRom = SimpleRom & {
@@ -746,6 +826,16 @@ async function deleteManualFile({
   return api.delete(`/roms/${romId}/manuals/files/${fileId}`);
 }
 
+async function deleteRomFile({
+  romId,
+  fileId,
+}: {
+  romId: number;
+  fileId: number;
+}) {
+  return api.delete(`/roms/${romId}/files/${fileId}`);
+}
+
 async function updateUserRomProps({
   romId,
   data,
@@ -858,6 +948,7 @@ export default {
   getRecentPlayedRoms,
   getRom,
   getRomSimple,
+  getRandomRom,
   getRomByMetadataProvider,
   downloadRom,
   bulkDownloadRoms,
@@ -868,6 +959,7 @@ export default {
   redownloadManual,
   uploadManualFiles,
   deleteManualFile,
+  deleteRomFile,
   uploadSoundtracks,
   removeSoundtrack,
   getSoundtrackMetadata,

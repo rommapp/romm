@@ -3,6 +3,8 @@
 # tolerates unknown enum/option values instead of refusing to boot.
 
 scan:
+  priority:
+    region_mode: "some_future_region_mode"
   media:
     - box2d
     - some_future_media_type

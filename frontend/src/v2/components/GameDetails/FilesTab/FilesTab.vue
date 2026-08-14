@@ -5,8 +5,9 @@
 // Layout mirrors ScreenshotsSubtab / SaveDataTab / MediaTab: a vertical
 // subtab list on the left (navigation only — no inline action panel),
 // and a content column on the right with a section header that hosts
-// only the Upload button. Bulk download / copy-link affordances live
-// in the selection toolbar instead — pair them with select-all.
+// the Upload button plus a Patch button (multi-file ROMs only). Bulk
+// download / copy-link affordances live in the selection toolbar
+// instead — pair them with select-all.
 //
 // Grouping is **folder-based**: every direct subfolder of the ROM
 // becomes its own subtab, plus a "Root" subtab for files sitting
@@ -25,7 +26,7 @@
 //     about its current reach.
 //
 // Content column:
-//   * Section header (Upload only)
+//   * Section header (Upload + Patch)
 //   * ROM-info card (size, revision, ROM-level hashes — click to copy)
 //   * Selection toolbar (select-all + per-selection Download / Copy-link
 //     — also the path for "download everything in this subtab": select
@@ -34,10 +35,11 @@
 //     size, per-file hashes (click to copy), and per-row Download +
 //     Copy-link buttons.
 //
-// All destructive ops live elsewhere (MediaTab handles manual /
-// soundtrack deletion, EditRom dialog handles whole-ROM deletion).
-// This tab is browse + download + (limited) upload only.
+// Selected files in the Files tab can be deleted by users with the
+// `rom.delete` permission. Each file is removed from disk and the DB
+// row is dropped via `DELETE /roms/{rom_id}/files/{file_id}`.
 import { RBtn, RCheckbox, REmptyState, RIcon, RTooltip } from "@v2/lib";
+import axios from "axios";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
@@ -49,6 +51,8 @@ import type {
 import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
+import { useCan } from "@/v2/composables/useCan";
+import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import FileRow from "./FileRow.vue";
 import FilesSummary from "./FilesSummary.vue";
@@ -59,9 +63,24 @@ const props = defineProps<{ rom: DetailedRomSchema }>();
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
+const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
 const romsStore = storeRoms();
+
+const canUpload = useCan("rom.upload");
+const hasDeleteGrant = useCan("rom.delete");
+// `DELETE /roms/{id}/files/{file_id}` gates on ROMS_WRITE
+const canDelete = computed(() => hasDeleteGrant.value && canUpload.value);
+
+function errorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const detail = err.response?.data?.detail;
+    if (typeof detail === "string" && detail) return detail;
+    return err.message;
+  }
+  return String(err);
+}
 
 // ---------- Category metadata ----------
 // Drives per-file category chips (one per `RomFileCategory` enum
@@ -472,6 +491,64 @@ async function copySelectedLink() {
   );
 }
 
+// ---------- Delete ----------
+async function deleteSelectedFiles() {
+  const toDelete = selectedFiles.value;
+  if (toDelete.length === 0) return;
+
+  const ok = await confirm({
+    title: t("rom.delete-files-confirm-title", toDelete.length, {
+      named: { n: toDelete.length },
+    }),
+    body: t("rom.delete-files-confirm-body"),
+    confirmText: t("common.delete"),
+    tone: "danger",
+  });
+  if (!ok) return;
+
+  const results = await Promise.allSettled(
+    toDelete.map((file) =>
+      romApi.deleteRomFile({ romId: props.rom.id, fileId: file.id }),
+    ),
+  );
+
+  const succeeded = results.filter((r) => r.status === "fulfilled").length;
+  const failed = results.length - succeeded;
+
+  if (succeeded > 0) {
+    snackbar.success(
+      t("rom.files-deleted-n", succeeded, { named: { n: succeeded } }),
+      { icon: "mdi-check-bold" },
+    );
+  }
+  if (failed > 0) {
+    const firstError = results.find((r) => r.status === "rejected") as
+      PromiseRejectedResult | undefined;
+    snackbar.error(
+      t("rom.file-delete-failed", {
+        error: firstError ? errorMessage(firstError.reason) : "",
+      }),
+      { icon: "mdi-close-circle" },
+    );
+  }
+
+  clearSelection();
+  await refreshRom();
+
+  // Redirect to the gallery if no files remain after deletion.
+  const platformSlug = route.params["platform"] as string | undefined;
+  if (romsStore.currentRom && romsStore.currentRom.files?.length === 0) {
+    if (platformSlug) {
+      await router.push({
+        name: "platform",
+        params: { platform: platformSlug },
+      });
+    } else {
+      await router.push({ name: "home" });
+    }
+  }
+}
+
 // ---------- Upload ----------
 // One hidden `<input>` per supported target so each subtab's upload
 // button can route through the matching backend endpoint without a
@@ -623,7 +700,7 @@ const currentUploadState = computed<SubtabUploadState>(() => {
   <input
     ref="manualUploadInput"
     type="file"
-    accept="application/pdf"
+    accept="application/pdf,.md"
     multiple
     class="r-v2-files__file-input"
     :aria-label="t('rom.upload-manual-files')"
@@ -672,7 +749,10 @@ const currentUploadState = computed<SubtabUploadState>(() => {
            section, so the header skips a redundant title and just hosts
            the Upload button on the right. Download-all / Copy-link are
            covered by the selection toolbar below (select-all then act). -->
-      <header v-if="filteredFiles.length > 0" class="r-v2-files__section-head">
+      <header
+        v-if="filteredFiles.length > 0 && canUpload"
+        class="r-v2-files__section-head"
+      >
         <div class="r-v2-files__section-actions">
           <div class="r-v2-files__upload-slot">
             <RBtn
@@ -745,6 +825,16 @@ const currentUploadState = computed<SubtabUploadState>(() => {
             @click="copySelectedLink"
           >
             {{ t("rom.copy-link-action") }}
+          </RBtn>
+          <RBtn
+            v-if="canDelete"
+            variant="text"
+            color="danger"
+            prepend-icon="mdi-delete-outline"
+            size="small"
+            @click="deleteSelectedFiles"
+          >
+            {{ t("common.delete") }}
           </RBtn>
           <RBtn
             variant="text"
@@ -989,6 +1079,35 @@ const currentUploadState = computed<SubtabUploadState>(() => {
 .r-v2-files__list::-webkit-scrollbar-thumb {
   background: var(--r-color-border-strong);
   border-radius: 2px;
+}
+
+/* Mobile: the details view scrolls as one document (no fixed inner panel),
+   so FilesTab can't pin itself to a scroll viewport (`absolute; inset: 0`
+   would collapse to zero height). Unwind it: stack the folder sidebar above
+   the file list and drop every internal scroll so it flows with the page. */
+html[data-bp~="sm-and-down"] .r-v2-files {
+  position: static;
+  inset: auto;
+  overflow: visible;
+  flex-direction: column;
+  gap: 14px;
+}
+html[data-bp~="sm-and-down"] .r-v2-files__sidebar {
+  width: auto;
+}
+html[data-bp~="sm-and-down"] .r-v2-files__subtabs {
+  flex: none;
+  min-height: 0;
+  overflow-y: visible;
+}
+html[data-bp~="sm-and-down"] .r-v2-files__content {
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+html[data-bp~="sm-and-down"] .r-v2-files__list {
+  min-height: 0;
+  overflow-y: visible;
 }
 
 /* (File-row styles moved to the FileRow component.) */

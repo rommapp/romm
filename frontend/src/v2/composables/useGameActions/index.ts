@@ -15,15 +15,19 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
+import { useUISettings } from "@/composables/useUISettings";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
+import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
 import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
+import { useClipboard } from "@/v2/composables/useClipboard";
+import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 
@@ -37,6 +41,10 @@ export interface GameActionsOptions {
   coverEl?: () => HTMLElement | null;
 }
 
+// Validate flashpoint game IDs are UUIDs
+const FLASHPOINT_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function useGameActions(
   getRom: () => SimpleRom | null | undefined,
   options: GameActionsOptions = {},
@@ -46,12 +54,39 @@ export function useGameActions(
   const { morphTransition } = useViewTransition();
   const emitter = inject<Emitter<Events>>("emitter");
   const snackbar = useSnackbar();
+  const confirm = useConfirm();
+  const { confirmProtectedLaunch } = useUISettings();
+  const clipboard = useClipboard();
   const romsStore = storeRoms();
   const auth = storeAuth();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
+  // Write/destructive gates, mirroring the backend grants. Surfaces that
+  // offer these actions hide them outright rather than letting the request
+  // 403 and surface a permission error the user can't act on.
+  const canEdit = useCan("rom.edit");
+  const canMatch = useCan("rom.match");
+  const canRefresh = useCan("rom.refresh");
+  const hasDeleteGrant = useCan("rom.delete");
+  // `POST /roms/delete` gates on ROMS_WRITE, and a bare DELETE grant projects
+  // to no scope at all, so the delete grant alone can't authorise the call.
+  // Require the write grant too (`rom.edit` is its proxy) or the menu offers a
+  // delete that 403s.
+  const canDelete = computed(() => hasDeleteGrant.value && canEdit.value);
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
-  const { canPlay, canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
+  const { canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
+  const streamingStore = useStreamingStore();
+
+  // Streaming is the preferred way to play where a container is
+  // configured for the platform — the native emulator runs in a
+  // separate container and RomM streams it back. Wins over in-browser
+  // EJS/Ruffle when both are available.
+  const canPlayStream = computed(() =>
+    Boolean(streamingStore.containerForPlatform(getRom()?.platform_slug)),
+  );
+  const canPlay = computed(
+    () => canPlayStream.value || canPlayEJS.value || canPlayRuffle.value,
+  );
 
   const isFavorited = computed(() => {
     const rom = getRom();
@@ -173,14 +208,54 @@ export function useGameActions(
     return rom ? isNintendoDSRom(rom) : false;
   });
 
-  function play() {
+  const canOpenInFlashpoint = computed(() => {
+    const rom = getRom();
+    return Boolean(
+      rom?.flashpoint_id && FLASHPOINT_ID_RE.test(rom.flashpoint_id),
+    );
+  });
+
+  async function play() {
     const rom = getRom();
     if (!rom) return;
+
+    // Guard launching a game the user deliberately shelved. `retired` /
+    // `never_playing` encode an opt-in "don't play" intent, so confirm
+    // before booting one. Gated by a per-user preference (on by default).
+    const status = rom.rom_user?.status;
+    if (
+      confirmProtectedLaunch.value &&
+      (status === "retired" || status === "never_playing")
+    ) {
+      const ok = await confirm({
+        title: t("rom.confirm-launch-protected-title"),
+        body: t("rom.confirm-launch-protected-body", {
+          name: rom.name ?? rom.fs_name_no_ext ?? "",
+          status: t(
+            status === "retired"
+              ? "rom.status-retired"
+              : "rom.status-never-playing",
+          ),
+        }),
+        confirmText: t("play.play"),
+        tone: "warning",
+      });
+      if (!ok) return;
+    }
+
+    // EmulatorJS cores can require SharedArrayBuffer. Nginx only attaches the
+    // necessary COOP/COEP headers to the player document, so an SPA navigation
+    // cannot enable cross-origin isolation. Load the document directly instead.
+    if (!canPlayStream.value && canPlayEJS.value) {
+      window.location.assign(`/rom/${rom.id}/ejs`);
+      return;
+    }
+
     // The launch "load" flourish (disc/cartridge insert) lives on the
     // player view itself — see EmulatorJS's onPlay — so navigation is
     // immediate here.
     let path: string | null = null;
-    if (canPlayEJS.value) path = `/rom/${rom.id}/ejs`;
+    if (canPlayStream.value) path = `/rom/${rom.id}/stream`;
     else if (canPlayRuffle.value) path = `/rom/${rom.id}/ruffle`;
     if (!path) return;
     const target = path;
@@ -238,24 +313,36 @@ export function useGameActions(
     const nav = navigator as Navigator & {
       share?: (data: typeof shareData) => Promise<void>;
     };
-    try {
-      if (typeof nav.share === "function") {
+    if (typeof nav.share === "function") {
+      try {
         await nav.share(shareData);
-        return;
+      } catch {
+        // user cancelled the native share sheet — nothing to do
       }
-      await navigator.clipboard.writeText(url);
-      snackbar.success(t("rom.snackbar-link-copied"), {
-        icon: "mdi-link-variant",
-      });
-    } catch {
-      // user cancelled or clipboard denied — nothing to do
+      return;
     }
+    await clipboard.copy(url, {
+      successMessage: t("rom.snackbar-link-copied"),
+      successIcon: "mdi-link-variant",
+    });
   }
 
   function shareQR() {
     const rom = getRom();
     if (!rom) return;
     emitter?.emit("showQRCodeDialog", rom);
+  }
+
+  // Launch the game in installed Flashpoint
+  function openInFlashpoint() {
+    const rom = getRom();
+    if (!rom?.flashpoint_id || !FLASHPOINT_ID_RE.test(rom.flashpoint_id))
+      return;
+    const a = document.createElement("a");
+    a.href = `flashpoint://${rom.flashpoint_id}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
   // Copies the API download URL (origin + /api/roms/.../content/...) so
@@ -349,8 +436,14 @@ export function useGameActions(
     isFavorited,
     canManageCollections,
     canShareQR,
+    canOpenInFlashpoint,
     canPlay,
+    canPlayStream,
     canRemoveFromContinuePlaying,
+    canEdit,
+    canDelete,
+    canMatch,
+    canRefresh,
     currentStatusKey,
     setStatus,
     setStatusEnum,
@@ -362,6 +455,7 @@ export function useGameActions(
     favorite,
     share,
     shareQR,
+    openInFlashpoint,
     copyDownloadLink,
     manageCollections,
     refreshMetadata,

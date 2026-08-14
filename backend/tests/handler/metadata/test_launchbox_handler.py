@@ -20,19 +20,24 @@ from defusedxml import ElementTree as ET
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.local_source import LocalSource
 from handler.metadata.launchbox_handler.media import (
+    _get_cover,
     _get_video,
+    _select_remote_cover,
     build_launchbox_metadata,
     build_rom,
     populate_rom_specific_paths,
     remote_media_req,
+    rom_region_shortcodes,
 )
 from handler.metadata.launchbox_handler.platforms import get_platform
 from handler.metadata.launchbox_handler.remote_source import RemoteSource
 from handler.metadata.launchbox_handler.types import (
+    LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
+    LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
     LaunchboxImage,
     LaunchboxMetadata,
@@ -40,6 +45,8 @@ from handler.metadata.launchbox_handler.types import (
 )
 from handler.metadata.launchbox_handler.utils import (
     coalesce,
+    deinvert_article,
+    launchbox_region_to_shortcode,
     parse_playmode,
     parse_release_date,
     parse_videourl,
@@ -79,9 +86,21 @@ SAMPLE_NES_XML = """\
 </LaunchBox>
 """
 
+SAMPLE_N64_XML = """\
+<?xml version="1.0"?>
+<LaunchBox>
+  <Game>
+    <Title>Mario Kart 64</Title>
+    <ApplicationPath>Games\\Nintendo 64\\Mario Kart 64 (USA).z64</ApplicationPath>
+    <DatabaseID>266</DatabaseID>
+  </Game>
+</LaunchBox>
+"""
+
 REMOTE_ENTRY = {
     "DatabaseID": "1234",
     "Name": "Super Mario Bros.",
+    "Platform": "Nintendo Entertainment System",
     "Overview": "Jump and run platformer by Nintendo.",
     "MaxPlayers": "2",
     "ReleaseDate": "1985-09-13T00:00:00",
@@ -125,6 +144,14 @@ def nes_xml(platforms_dir: Path) -> Path:
     """Write a sample NES XML to the temporary platforms dir."""
     xml_file = platforms_dir / "Nintendo Entertainment System.xml"
     xml_file.write_text(SAMPLE_NES_XML)
+    return xml_file
+
+
+@pytest.fixture
+def n64_xml(platforms_dir: Path) -> Path:
+    """Write a sample N64 XML whose game points at an unzipped ROM."""
+    xml_file = platforms_dir / "Nintendo 64.xml"
+    xml_file.write_text(SAMPLE_N64_XML)
     return xml_file
 
 
@@ -177,6 +204,40 @@ class TestCoalesce:
 
     def test_strips_result(self):
         assert coalesce("  hello  ") == "hello"
+
+
+class TestDeinvertArticle:
+    """Dump filenames invert leading articles; LaunchBox titles don't."""
+
+    def test_article_before_subtitle(self):
+        assert (
+            deinvert_article("legend of zelda, the: ocarina of time")
+            == "the legend of zelda: ocarina of time"
+        )
+
+    def test_article_at_end(self):
+        assert deinvert_article("new tetris, the") == "the new tetris"
+
+    def test_indefinite_article(self):
+        assert deinvert_article("bug's life, a") == "a bug's life"
+
+    def test_non_english_article(self):
+        assert deinvert_article("stadt, die") == "die stadt"
+
+    def test_later_comma_is_not_confused(self):
+        assert (
+            deinvert_article("adventures of batman, robin, the")
+            == "the adventures of batman, robin"
+        )
+
+    def test_word_starting_with_an_article_is_not_moved(self):
+        assert deinvert_article("grand theft auto, they") is None
+
+    def test_plain_title_returns_none(self):
+        assert deinvert_article("super mario 64") is None
+
+    def test_comma_without_article_returns_none(self):
+        assert deinvert_article("banjo-kazooie, gruntilda") is None
 
 
 class TestParseReleaseDate:
@@ -343,6 +404,45 @@ class TestLocalSource:
         ):
             # "Mega Man 2.nes" → stem "Mega Man 2" → title key "mega man 2"
             result = await source.get_rom("Mega Man 2.nes", "nes")
+
+        assert result is not None
+        assert result.get("Title", None) == "Mega Man 2"
+
+    async def test_zipped_rom_matches_unzipped_application_path(
+        self, source: LocalSource, n64_xml: Path, platforms_dir: Path
+    ):
+        """A `.zip` library must still match a LaunchBox install pointing at `.z64`."""
+        with patch(
+            "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
+            platforms_dir,
+        ):
+            result = await source.get_rom("Mario Kart 64 (USA).zip", "n64")
+
+        assert result is not None
+        assert result.get("DatabaseID", None) == "266"
+
+    async def test_other_region_falls_back_to_untagged_stem(
+        self, source: LocalSource, n64_xml: Path, platforms_dir: Path
+    ):
+        """A region the install doesn't carry still resolves to the same game."""
+        with patch(
+            "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
+            platforms_dir,
+        ):
+            result = await source.get_rom("Mario Kart 64 (Europe).zip", "n64")
+
+        assert result is not None
+        assert result.get("DatabaseID", None) == "266"
+
+    async def test_tagged_filename_matches_clean_title(
+        self, source: LocalSource, nes_xml: Path, platforms_dir: Path
+    ):
+        """No-Intro tags must not keep a filename from reaching the Title key."""
+        with patch(
+            "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
+            platforms_dir,
+        ):
+            result = await source.get_rom("Mega Man 2 (USA) [!].zip", "nes")
 
         assert result is not None
         assert result.get("Title", None) == "Mega Man 2"
@@ -515,6 +615,58 @@ class TestRemoteSourceGetRom:
         assert result is not None
         assert result.get("Name", None) == "Super Mario Bros."
 
+    async def test_alternate_name_on_other_platform_is_rejected(
+        self, source: RemoteSource
+    ):
+        """The alternate name index is not keyed by platform, so a hit pointing
+        at a same-titled game on another system must not be returned."""
+        alt_entry = {"DatabaseID": "1234"}
+
+        async def side_effect(key, _field):
+            if key == LAUNCHBOX_METADATA_NAME_KEY:
+                return None
+            if key == LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY:
+                return json.dumps(alt_entry)
+            if key == LAUNCHBOX_METADATA_DATABASE_ID_KEY:
+                return json.dumps(REMOTE_ENTRY)
+            return None
+
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, side_effect=side_effect
+        ):
+            result = await source.get_rom(
+                "super mario bros.", "psx", assume_cache_present=True
+            )
+        assert result is None
+
+    async def test_inverted_article_match(self, source: RemoteSource):
+        """Dump names invert the article, so the de-inverted form is tried too."""
+        entry = {"DatabaseID": "161", "Name": "The Legend of Zelda: Ocarina of Time"}
+        queried: list[str] = []
+
+        async def side_effect(key, field):
+            queried.append(field)
+            if (
+                key == LAUNCHBOX_METADATA_NAME_KEY
+                and field == "the legend of zelda: ocarina of time:Nintendo 64"
+            ):
+                return json.dumps(entry)
+            return None
+
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, side_effect=side_effect
+        ):
+            result = await source.get_rom(
+                "legend of zelda, the: ocarina of time",
+                "n64",
+                assume_cache_present=True,
+            )
+
+        assert result is not None
+        assert result.get("DatabaseID", None) == "161"
+        # The literal name is still tried first.
+        assert queried[0] == "legend of zelda, the: ocarina of time:Nintendo 64"
+
     async def test_no_match_returns_none(self, source: RemoteSource):
         with patch.object(
             async_cache, "hget", new_callable=AsyncMock, return_value=None
@@ -526,6 +678,70 @@ class TestRemoteSourceGetRom:
 
     async def test_empty_filename_returns_none(self, source: RemoteSource):
         result = await source.get_rom("", "nes", assume_cache_present=True)
+        assert result is None
+
+
+class TestRemoteSourceGetRomByFileName:
+    """LaunchBox's Files.xml maps dump filenames onto titles."""
+
+    @pytest.fixture
+    def source(self) -> RemoteSource:
+        return RemoteSource()
+
+    async def test_file_name_resolves_to_title(self, source: RemoteSource):
+        file_entry = {
+            "Platform": "Commodore Amiga",
+            "FileName": "1943_v1.3",
+            "GameName": "1943: The Battle of Midway",
+        }
+        game_entry = {"DatabaseID": "999", "Name": "1943: The Battle of Midway"}
+
+        async def side_effect(key, field):
+            if key == LAUNCHBOX_FILES_KEY and field == "1943_v1.3:Commodore Amiga":
+                return json.dumps(file_entry)
+            if (
+                key == LAUNCHBOX_METADATA_NAME_KEY
+                and field == "1943: The Battle of Midway:Commodore Amiga"
+            ):
+                return json.dumps(game_entry)
+            return None
+
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, side_effect=side_effect
+        ):
+            result = await source.get_rom_by_file_name("1943_v1.3.lha", "amiga")
+
+        assert result is not None
+        assert result.get("DatabaseID", None) == "999"
+
+    async def test_unknown_platform_returns_none(self, source: RemoteSource):
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, return_value=None
+        ) as mock_hget:
+            result = await source.get_rom_by_file_name("game.zip", "unknown-xyz")
+
+        assert result is None
+        mock_hget.assert_not_called()
+
+    async def test_no_file_entry_returns_none(self, source: RemoteSource):
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, return_value=None
+        ):
+            result = await source.get_rom_by_file_name("game.zip", "nes")
+        assert result is None
+
+    async def test_file_entry_without_game_name_returns_none(
+        self, source: RemoteSource
+    ):
+        async def side_effect(key, _field):
+            if key == LAUNCHBOX_FILES_KEY:
+                return json.dumps({"FileName": "game"})
+            return None
+
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, side_effect=side_effect
+        ):
+            result = await source.get_rom_by_file_name("game.zip", "nes")
         assert result is None
 
 
@@ -884,6 +1100,74 @@ class TestRemoteMediaReq:
         assert req.platform_name is None
 
 
+class TestRegionAwareCover:
+    """Regression tests for #3706: remote cover art should match the ROM region."""
+
+    def _image(self, file_name: str, region: str, type_: str = "Box - Front") -> dict:
+        return {"FileName": file_name, "Type": type_, "Region": region}
+
+    def _req(self, images: list[dict], shortcodes: tuple[str, ...]) -> MediaRequest:
+        return MediaRequest(
+            platform_name=None,
+            fs_name="",
+            title="",
+            region_hint=None,
+            remote_images=images,
+            remote_enabled=True,
+            region_shortcodes=shortcodes,
+        )
+
+    def test_launchbox_region_to_shortcode(self):
+        assert launchbox_region_to_shortcode("North America") == "us"
+        assert launchbox_region_to_shortcode("Europe") == "eu"
+        assert launchbox_region_to_shortcode("Japan") == "jp"
+        assert launchbox_region_to_shortcode("World") == "wor"
+        assert launchbox_region_to_shortcode("United Kingdom") == "uk"
+        assert launchbox_region_to_shortcode("") is None
+        assert launchbox_region_to_shortcode(None) is None
+
+    def test_select_prefers_region_match_within_type(self):
+        images = [
+            self._image("eu.png", "Europe"),
+            self._image("us.png", "North America"),
+        ]
+        # USA rom must pick the North America box, not the first (EU) one.
+        best = _select_remote_cover(images, ("us", "eu"))
+        assert best is not None and best["FileName"] == "us.png"
+
+    def test_select_falls_back_to_first_without_region_info(self):
+        images = [
+            self._image("first.png", ""),
+            self._image("second.png", ""),
+        ]
+        # With preferred regions present but no usable Region data on images,
+        # selection should fall back to the first image (preserves prior behavior).
+        best = _select_remote_cover(images, ("us",))
+        assert best is not None and best["FileName"] == "first.png"
+
+    def test_select_type_priority_beats_region(self):
+        images = [
+            self._image("us-3d.png", "North America", type_="Box - 3D"),
+            self._image("eu-front.png", "Europe", type_="Box - Front"),
+        ]
+        # A same-region "Box - 3D" must not win over a higher-priority "Box - Front".
+        best = _select_remote_cover(images, ("us", "eu"))
+        assert best is not None and best["FileName"] == "eu-front.png"
+
+    def test_get_cover_uses_region_shortcodes(self):
+        # The 007: Nightfire (USA) scenario: two Box - Front covers, EU listed first.
+        images = [
+            self._image("nightfire-eu.png", "Europe"),
+            self._image("nightfire-us.png", "North America"),
+        ]
+        cover = _get_cover(self._req(images, ("us", "wor", "eu")))
+        assert cover == "https://images.launchbox-app.com/nightfire-us.png"
+
+    def test_rom_region_shortcodes_from_filename(self):
+        codes = rom_region_shortcodes("007 - Nightfire (USA).chd")
+        assert codes[0] == "us"
+
+
 class TestRemoteMatchLocalImages:
     """Regression test for bug where remote-matched roms skipped local image lookup.
 
@@ -921,6 +1205,7 @@ class TestRemoteMatchLocalImages:
         h._remote = MagicMock(spec=RemoteSource)
         h._local.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.get_mame_entry = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_rom_by_file_name = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.get_rom = AsyncMock(  # type: ignore[method-assign]
             return_value={
                 "DatabaseID": "42",
@@ -1037,6 +1322,60 @@ class TestLaunchboxHandlerEnabled:
                 assert LaunchboxHandler.is_enabled() is False
 
 
+class TestLaunchboxHandlerHeartbeat:
+    @staticmethod
+    def _cache_exists(*present: str) -> AsyncMock:
+        async def exists(key: str) -> int:
+            return 1 if key in present else 0
+
+        return AsyncMock(side_effect=exists)
+
+    async def test_unhealthy_when_cloud_store_is_empty(self):
+        handler = LaunchboxHandler()
+        with (
+            patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=True),
+            patch.object(LaunchboxHandler, "is_local_enabled", return_value=False),
+            patch.object(async_cache, "exists", self._cache_exists()),
+        ):
+            assert await handler.heartbeat() is False
+
+    async def test_healthy_when_cloud_store_is_populated(self):
+        handler = LaunchboxHandler()
+        with (
+            patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=True),
+            patch.object(LaunchboxHandler, "is_local_enabled", return_value=False),
+            patch.object(
+                async_cache, "exists", self._cache_exists(LAUNCHBOX_METADATA_NAME_KEY)
+            ),
+        ):
+            assert await handler.heartbeat() is True
+
+    async def test_unhealthy_while_the_first_import_is_still_running(self):
+        """The store answers only for the batches committed so far."""
+        handler = LaunchboxHandler()
+        with (
+            patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=True),
+            patch.object(LaunchboxHandler, "is_local_enabled", return_value=False),
+            patch.object(
+                async_cache,
+                "exists",
+                self._cache_exists(
+                    LAUNCHBOX_METADATA_NAME_KEY, LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY
+                ),
+            ),
+        ):
+            assert await handler.heartbeat() is False
+
+    async def test_healthy_from_local_install_without_cloud_store(self):
+        handler = LaunchboxHandler()
+        with (
+            patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=False),
+            patch.object(LaunchboxHandler, "is_local_enabled", return_value=True),
+            patch.object(async_cache, "exists", self._cache_exists()),
+        ):
+            assert await handler.heartbeat() is True
+
+
 class TestLaunchboxHandlerGetPlatform:
     def test_delegates_to_get_platform(self):
         handler = LaunchboxHandler()
@@ -1059,6 +1398,7 @@ class TestLaunchboxHandlerGetRom:
         h._remote.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.get_by_id = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.get_mame_entry = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_rom_by_file_name = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
@@ -1154,6 +1494,24 @@ class TestLaunchboxHandlerGetRom:
 
         # Falls through to name search, which succeeds
         assert result.get("launchbox_id", None) == 1234
+
+    async def test_file_name_index_short_circuits_name_search(
+        self, handler: LaunchboxHandler
+    ):
+        """A filename LaunchBox indexes needs no name rewriting at all."""
+        mock_get_rom = AsyncMock(return_value=None)
+        with (
+            patch.object(
+                handler._remote,
+                "get_rom_by_file_name",
+                new=AsyncMock(return_value=REMOTE_ENTRY),
+            ),
+            patch.object(handler._remote, "get_rom", new=mock_get_rom),
+        ):
+            result = await handler.get_rom("Super Mario Bros (USA).zip", "nes")
+
+        assert result.get("launchbox_id", None) == 1234
+        mock_get_rom.assert_not_called()
 
     async def test_name_search_succeeds(self, handler: LaunchboxHandler):
         with (
@@ -1330,6 +1688,7 @@ class TestLaunchboxHandlerSearch:
         h._remote.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.get_by_id = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.get_mame_entry = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_rom_by_file_name = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))

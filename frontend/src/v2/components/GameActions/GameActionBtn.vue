@@ -43,6 +43,8 @@ import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { romStatusMap } from "@/utils";
 import GameActionsList from "@/v2/components/GameActions/GameActionsList.vue";
+import GameMetricsSections from "@/v2/components/GameActions/GameMetricsSections.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import {
   GAME_ACTIONS_KEY,
   useGameActions,
@@ -66,6 +68,7 @@ export type GameAction =
   | "download"
   | "copy-link"
   | "qr"
+  | "flashpoint"
   | "favorite"
   | "collection"
   | "status"
@@ -94,6 +97,12 @@ interface Props {
    * (ribbon), `vertical` stacks them (GameCard top-left badge).
    */
   orientation?: "horizontal" | "vertical";
+  /**
+   * Status-only: on phones, append the three per-user metric editors
+   * (completion / rating / difficulty) as sections in the status sheet,
+   * so they don't need their own ribbon row. No-op on desktop.
+   */
+  withMetrics?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -101,7 +110,10 @@ const props = withDefaults(defineProps<Props>(), {
   variant: "glass",
   withLabel: false,
   orientation: "horizontal",
+  withMetrics: false,
 });
+
+const { smAndDown } = useBreakpoint();
 
 const romRef = toRef(props, "rom");
 // Reuse the host's shared instance when one is provided (GameCard provides a
@@ -137,6 +149,8 @@ type Preset = {
   activeIcon: string | null;
   onClick: (() => void) | null;
   active: boolean;
+  /** Renders an <img> in place of the mdi glyph (e.g. the Flashpoint logo). */
+  image?: string;
 };
 
 // Presentation metadata per action — icon swaps when active, different
@@ -176,6 +190,16 @@ const preset = computed<Preset>(() => {
       label: t("rom.share-qr"),
       activeIcon: null,
       onClick: actions.shareQR,
+      active: false,
+    };
+  }
+  if (props.action === "flashpoint") {
+    return {
+      icon: "mdi-rocket-launch-outline",
+      image: "/assets/scrappers/flashpoint.png",
+      label: t("rom.open-in-flashpoint"),
+      activeIcon: null,
+      onClick: actions.openInFlashpoint,
       active: false,
     };
   }
@@ -299,8 +323,15 @@ function onClick(e: MouseEvent) {
 </script>
 
 <template>
-  <!-- More — opens the shared GameActionsList dropdown. -->
-  <RMenu v-if="action === 'more'" v-model="moreOpen" :offset="8" width="260px">
+  <!-- More — opens the shared GameActionsList dropdown. On phones it docks
+       as a bottom sheet (content-height) instead of a floating dropdown. -->
+  <RMenu
+    v-if="action === 'more'"
+    v-model="moreOpen"
+    :offset="8"
+    width="260px"
+    sheet-on-mobile
+  >
     <template #activator="{ props: activatorProps }">
       <button
         v-bind="activatorProps"
@@ -343,6 +374,7 @@ function onClick(e: MouseEvent) {
     :offset="8"
     width="220px"
     :close-on-content-click="false"
+    sheet-on-mobile
   >
     <template #activator="{ props: activatorProps }">
       <button
@@ -442,6 +474,13 @@ function onClick(e: MouseEvent) {
         {{ t("rom.clear-all") }}
       </RMenuItem>
     </template>
+
+    <!-- Phones only: the per-user metrics (completion / rating /
+         difficulty) live here as sections instead of a ribbon row. -->
+    <template v-if="smAndDown && withMetrics && rom.rom_user">
+      <RDivider />
+      <GameMetricsSections :rom="rom" />
+    </template>
   </RMenu>
 
   <!-- Plain action — direct click. -->
@@ -463,7 +502,13 @@ function onClick(e: MouseEvent) {
     :aria-label="preset.label"
     @click="onClick"
   >
-    <RIcon :icon="displayedIcon" />
+    <img
+      v-if="preset.image"
+      :src="preset.image"
+      :alt="preset.label"
+      class="r-v2-game-btn__img"
+    />
+    <RIcon v-else :icon="displayedIcon" />
     <span v-if="withLabel" class="r-v2-game-btn__label">
       {{ preset.label }}
     </span>
@@ -497,7 +542,6 @@ function onClick(e: MouseEvent) {
   font-family: inherit;
   font-weight: var(--r-font-weight-semibold);
   backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out),
@@ -523,6 +567,10 @@ function onClick(e: MouseEvent) {
 .r-v2-game-btn--x-small :deep(.mdi) {
   font-size: 14px;
 }
+.r-v2-game-btn--x-small :deep(img) {
+  width: 14px;
+  height: 14px;
+}
 .r-v2-game-btn--small {
   width: 28px;
   height: 28px;
@@ -530,6 +578,10 @@ function onClick(e: MouseEvent) {
 }
 .r-v2-game-btn--small :deep(.mdi) {
   font-size: 16px;
+}
+.r-v2-game-btn--small :deep(img) {
+  width: 16px;
+  height: 16px;
 }
 .r-v2-game-btn--default {
   width: 40px;
@@ -539,6 +591,10 @@ function onClick(e: MouseEvent) {
 .r-v2-game-btn--default :deep(.mdi) {
   font-size: 20px;
 }
+.r-v2-game-btn--default :deep(img) {
+  width: 20px;
+  height: 20px;
+}
 .r-v2-game-btn--large {
   width: 44px;
   height: 44px;
@@ -547,6 +603,10 @@ function onClick(e: MouseEvent) {
 .r-v2-game-btn--large :deep(.mdi) {
   font-size: 22px;
 }
+.r-v2-game-btn--large :deep(img) {
+  width: 22px;
+  height: 22px;
+}
 .r-v2-game-btn--x-large {
   width: 52px;
   height: 52px;
@@ -554,6 +614,10 @@ function onClick(e: MouseEvent) {
 }
 .r-v2-game-btn--x-large :deep(.mdi) {
   font-size: 26px;
+}
+.r-v2-game-btn--x-large :deep(img) {
+  width: 26px;
+  height: 26px;
 }
 
 /* Labelled — expands to a pill with text. Used by Play in the
@@ -584,7 +648,6 @@ function onClick(e: MouseEvent) {
   border-color: var(--r-color-border-strong);
   color: var(--r-color-fg-secondary);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 .r-v2-game-btn--surface:hover {
   background: var(--r-color-surface-hover);
@@ -600,7 +663,6 @@ function onClick(e: MouseEvent) {
   border-color: transparent;
   color: var(--r-color-fg-muted);
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 .r-v2-game-btn--bare:hover {
   background: var(--r-color-surface-hover);

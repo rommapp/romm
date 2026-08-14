@@ -9,6 +9,7 @@ from handler.metadata.igdb_handler import IGDBHandler
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.libretro_handler import LibretroHandler
 from handler.metadata.moby_handler import MobyGamesHandler
+from handler.metadata.playmatch_handler import PlaymatchHandler
 from handler.metadata.ra_handler import RAHandler
 from handler.metadata.sgdb_handler import SGDBBaseHandler
 from handler.metadata.ss_handler import SSHandler
@@ -33,6 +34,7 @@ class TestScanLibraryTask:
         mocker.patch.object(IGDBHandler, "is_enabled", return_value=False)
         mocker.patch.object(LaunchboxHandler, "is_enabled", return_value=True)
         mocker.patch.object(MobyGamesHandler, "is_enabled", return_value=False)
+        mocker.patch.object(PlaymatchHandler, "is_enabled", return_value=False)
         mocker.patch.object(RAHandler, "is_enabled", return_value=True)
         mocker.patch.object(SGDBBaseHandler, "is_enabled", return_value=False)
         mocker.patch.object(SSHandler, "is_enabled", return_value=False)

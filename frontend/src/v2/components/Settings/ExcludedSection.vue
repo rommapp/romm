@@ -371,6 +371,7 @@ function onSort({ key, dir }: RTableSortPayload) {
       v-model="dialogOpen"
       icon="mdi-cancel"
       :width="540"
+      scroll-content
       @close="closeCreate"
     >
       <template #header>

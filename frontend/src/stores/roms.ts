@@ -165,6 +165,8 @@ export default defineStore("roms", {
         selectedRegions: galleryFilter.selectedRegions,
         selectedLanguages: galleryFilter.selectedLanguages,
         selectedPlayerCounts: galleryFilter.selectedPlayerCounts,
+        selectedMetadataProviders: galleryFilter.selectedMetadataProviders,
+        selectedTags: galleryFilter.selectedTags,
         selectedStatuses: galleryFilter.selectedStatuses,
         // Logic operators
         genresLogic: galleryFilter.genresLogic,
@@ -176,6 +178,8 @@ export default defineStore("roms", {
         languagesLogic: galleryFilter.languagesLogic,
         statusesLogic: galleryFilter.statusesLogic,
         playerCountsLogic: galleryFilter.playerCountsLogic,
+        metadataProvidersLogic: galleryFilter.metadataProvidersLogic,
+        tagsLogic: galleryFilter.tagsLogic,
       };
       return params;
     },
@@ -219,6 +223,7 @@ export default defineStore("roms", {
         galleryFilter.setFilterRegions(filter_values.regions);
         galleryFilter.setFilterLanguages(filter_values.languages);
         galleryFilter.setFilterPlayerCounts(filter_values.player_counts);
+        galleryFilter.setFilterTags(filter_values.tags);
       }
     },
     /** @deprecated v2: use `useGalleryRoms().fetchWindowAt(position)` for

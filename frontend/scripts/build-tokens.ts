@@ -14,6 +14,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   colorBrand,
+  colorBrandLight,
   colorCanvas,
   colorCrt,
   colorDark,
@@ -28,6 +29,7 @@ import {
   fontSize,
   fontWeight,
   layout,
+  colorStatusLight,
   lineHeight,
   motion,
   radius,
@@ -74,6 +76,12 @@ const NAME_OVERRIDES = {
     heroCardWidthXl: "--r-hero-w-xl",
     heroCardHeightXl: "--r-hero-h-xl",
     detailCoverWidth: "--r-cover-w",
+    collectionCoverWidth: "--r-coll-cover-w",
+    collectionCoverHeight: "--r-coll-cover-h",
+    collectionCoverWidthXs: "--r-coll-cover-w-xs",
+    collectionCoverHeightXs: "--r-coll-cover-h-xs",
+    alphaStripWidth: "--r-alpha-strip-w",
+    alphaStripWidthXs: "--r-alpha-strip-w-xs",
     listRowHeight: "--r-list-row-h",
     listHeaderHeight: "--r-list-header-h",
   },
@@ -83,6 +91,12 @@ const NAME_OVERRIDES = {
     rommRed: "--r-color-romm-red",
     rommGreen: "--r-color-romm-green",
     rommBlue: "--r-color-romm-blue",
+    rommGold: "--r-color-romm-gold",
+  },
+  // Light brand overrides reuse the romm-* legacy names where they cross
+  // over (the rating gold); the purple/accent keys fall through to the
+  // default --r-color-brand-* convention.
+  colorBrandLight: {
     rommGold: "--r-color-romm-gold",
   },
   // Stacking-layer tokens drop the "-index" suffix the default generator
@@ -161,7 +175,13 @@ const SHARED: Entry[] = [
 ];
 
 const DARK: Entry[] = entriesFor(colorDark, "colorDark", "--r-color");
-const LIGHT: Entry[] = entriesFor(colorLight, "colorLight", "--r-color");
+// Light theme: the surface palette, then the brand overrides that re-tune
+// primary/secondary/accent for the off-white page (deeper for contrast).
+const LIGHT: Entry[] = [
+  ...entriesFor(colorLight, "colorLight", "--r-color"),
+  ...entriesFor(colorStatusLight, "colorStatusLight", "--r-color"),
+  ...entriesFor(colorBrandLight, "colorBrandLight", "--r-color-brand"),
+];
 
 const HEADER = `/*
  * RomM v2 Design Tokens — CSS Custom Properties

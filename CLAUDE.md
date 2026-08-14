@@ -39,15 +39,16 @@ v2 has a detailed constitution, split across focused skills (below). **Read the 
 
 These live in `.claude/skills/` and carry the detailed rules. Invoke the one that matches what you're doing:
 
-| Skill                    | When                                                                                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `frontend-v2-components` | Building/editing any v2 component - tiers (lib/shared/feature), file & SFC conventions, barrels, anti-patterns.                      |
-| `frontend-v2-theming`    | Colors, tokens, light/dark themes, visual language - and the **zero-hex-literal** policy.                                            |
-| `frontend-v2-input`      | Interactive components, focus/spatial navigation, gamepad/keyboard, breakpoints & responsive layout.                                 |
-| `frontend-v2-patterns`   | Feature behavior - errors/snackbars, loading, sockets, state persistence, pagination, forms, permissions, destructive confirmations. |
-| `frontend-i18n`          | Any user-visible string or change under `frontend/src/locales/**`.                                                                   |
-| `backend-development`    | Endpoints, handlers, models, schemas, metadata adapters, tasks, migrations under `backend/`.                                         |
-| `pre-pr-verification`    | Before committing / opening a PR / declaring done - the checks that keep CI green.                                                   |
+| Skill                    | When                                                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `frontend-v2-components` | Building/editing any v2 component - tiers (lib/shared/feature), file & SFC conventions, barrels, anti-patterns.                                  |
+| `frontend-v2-theming`    | Colors, tokens, light/dark themes, visual language - and the **zero-hex-literal** policy.                                                        |
+| `frontend-v2-input`      | Interactive components, focus/spatial navigation, gamepad/keyboard, breakpoints & responsive layout.                                             |
+| `frontend-v2-patterns`   | Feature behavior - errors/snackbars, loading, sockets, state persistence, pagination, forms, permissions, destructive confirmations.             |
+| `frontend-i18n`          | Any user-visible string or change under `frontend/src/locales/**`.                                                                               |
+| `backend-development`    | Endpoints, handlers, models, schemas, metadata adapters, tasks, migrations under `backend/`.                                                     |
+| `pre-pr-verification`    | Before committing / opening a PR / declaring done - the checks that keep CI green.                                                               |
+| `security-audit`         | Vetting a diff (release tag range or PR) for anything malicious or a security regression - supply chain, egress, auth/injection, CI, provenance. |
 
 ---
 
@@ -62,9 +63,12 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 **English first.** Outside of language files, all code, comments, identifiers, `.md` files, and commit/PR messages are in English.
 **No em-dashes.** Never use em-dashes (—) when writing comments or text. Use commas, parentheses, or separate sentences instead.
 **Keep comments short.** Comments should be concise, and focus on the "why" rather than the "what" (the code itself is the "what"). Avoid long paragraphs; break them into multiple lines or sentences.
+**Don't restate the code.** The code is self-documenting, so skip comments that narrate what a reader can already see (which button sits where, that something is disabled when empty, obvious ordering). Comment only non-obvious "why" that the code can't convey on its own.
 **Never commit secrets.** Never commit secrets (API keys, passwords, tokens, etc.) to the repo. Use environment variables or secret management tools instead.
 **Don't explain a change.** Avoid comments that explain why a change was made to the code. Focus instead on the current behaviour of the code and how it works.
 **Python tools live in `backend/tools/`.** Standalone dev/test utilities and scripts (not part of the app runtime) go in `backend/tools/`, not scattered across `backend/`.
+**Link PRs to issues.** In the PR description, use `Fixes #XXXX` for issue/bug fixes and `Closes #XXXX` for feature implementations.
+**Use the PR template.** Base every PR description on `.github/PULL_REQUEST_TEMPLATE.md`.
 
 ---
 
@@ -89,11 +93,13 @@ npm install                         # install (Node 24)
 npm run dev                         # dev server :3000
 npm run typecheck                   # vue-tsc
 npm run test                        # vitest (+ Storybook play() tests)
+npm run test:e2e                    # playwright (needs a running app + seeded e2e users)
 npm run build                       # production build
 npm run generate                    # regenerate types from backend OpenAPI (backend must be running)
 npm run build:tokens                # regenerate v2 tokens.css (auto on predev/prebuild)
 npm run storybook                   # component library on :6006
 python3 src/locales/check_i18n_locales.py   # i18n parity check
+python3 src/locales/check_i18n_sorted.py    # locale keys sorted (--fix to sort)
 ```
 
 **Lint (both stacks):** `trunk fmt && trunk check`.

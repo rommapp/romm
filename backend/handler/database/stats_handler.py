@@ -1,51 +1,68 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from sqlalchemy import distinct, func, select
-from sqlalchemy.orm import Session
-from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm import InstrumentedAttribute, Session
+from sqlalchemy.sql.selectable import Select
 
 from decorators.database import begin_session
 from endpoints.responses.stats import MetadataCoverageItem, RegionBreakdownItem
 from models.assets import Save, Screenshot, State
-from models.rom import Rom, RomFile
+from models.rom import METADATA_SOURCE_FACET_COLUMNS, Rom, RomFacets, RomFile
 
 from .base_handler import DBBaseHandler
 
-# Metadata source columns on the Rom model, keyed by source identifier.
-_METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute] = {
-    "igdb": Rom.igdb_id,
-    "ss": Rom.ss_id,
-    "moby": Rom.moby_id,
-    "launchbox": Rom.launchbox_id,
-    "ra": Rom.ra_id,
-    "hasheous": Rom.hasheous_id,
-    "tgdb": Rom.tgdb_id,
-    "flashpoint": Rom.flashpoint_id,
-    "hltb": Rom.hltb_id,
-    "gamelist": Rom.gamelist_id,
-}
+
+def _exclude_hidden(
+    query: Select,
+    hidden_platform_ids: Sequence[int] | None,
+    hidden_rom_ids: Sequence[int] | None,
+    *,
+    platform_id_col: InstrumentedAttribute = Rom.platform_id,
+    rom_id_col: InstrumentedAttribute = Rom.id,
+) -> Select:
+    """Drop rows for platforms/roms hidden from the caller (admins pass None).
+
+    The platform/rom id columns are overridable so callers reading the narrow
+    `roms_facets` mirror can filter on its columns instead of `roms`.
+    """
+    if hidden_platform_ids:
+        query = query.where(platform_id_col.not_in(hidden_platform_ids))
+    if hidden_rom_ids:
+        query = query.where(rom_id_col.not_in(hidden_rom_ids))
+    return query
 
 
 class DBStatsHandler(DBBaseHandler):
     @begin_session
     def get_platforms_count(
         self,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> int:
         """Get the number of platforms with any roms."""
-        return (
-            session.scalar(
-                select(func.count(distinct(Rom.platform_id))).select_from(Rom)
-            )
-            or 0
+        query = _exclude_hidden(
+            select(func.count(distinct(Rom.platform_id))).select_from(Rom),
+            hidden_platform_ids,
+            hidden_rom_ids,
         )
+        return session.scalar(query) or 0
 
     @begin_session
     def get_roms_count(
         self,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> int:
-        return session.scalar(select(func.count()).select_from(Rom)) or 0
+        query = _exclude_hidden(
+            select(func.count()).select_from(Rom),
+            hidden_platform_ids,
+            hidden_rom_ids,
+        )
+        return session.scalar(query) or 0
 
     @begin_session
     def get_saves_count(
@@ -71,15 +88,17 @@ class DBStatsHandler(DBBaseHandler):
     @begin_session
     def get_total_filesize(
         self,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> int:
         """Get the total filesize of all roms in the database, in bytes."""
-        return (
-            session.scalar(
-                select(func.sum(RomFile.file_size_bytes)).select_from(RomFile)
+        query = select(func.sum(RomFile.file_size_bytes)).select_from(RomFile)
+        if hidden_platform_ids or hidden_rom_ids:
+            query = _exclude_hidden(
+                query.join(Rom), hidden_platform_ids, hidden_rom_ids
             )
-            or 0
-        )
+        return session.scalar(query) or 0
 
     @begin_session
     def get_platform_filesize(
@@ -101,26 +120,36 @@ class DBStatsHandler(DBBaseHandler):
     @begin_session
     def get_metadata_coverage_by_platform(
         self,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> dict[int, list[MetadataCoverageItem]]:
-        """Get the count of ROMs matched per metadata source, grouped by platform."""
+        """Get the count of ROMs matched per metadata source, grouped by platform.
+
+        Aggregates the narrow `roms_facets` mirror instead of `roms`, whose rows
+        also carry the raw provider-metadata blobs.
+        """
         rows = session.execute(
-            select(
-                Rom.platform_id,
-                *(
-                    func.count(col).label(key)
-                    for key, col in _METADATA_SOURCE_COLUMNS.items()
-                ),
-            )
-            .select_from(Rom)
-            .group_by(Rom.platform_id)
+            _exclude_hidden(
+                select(
+                    RomFacets.platform_id,
+                    *(
+                        func.count(col).label(key)
+                        for key, col in METADATA_SOURCE_FACET_COLUMNS.items()
+                    ),
+                ).select_from(RomFacets),
+                hidden_platform_ids,
+                hidden_rom_ids,
+                platform_id_col=RomFacets.platform_id,
+                rom_id_col=RomFacets.rom_id,
+            ).group_by(RomFacets.platform_id)
         ).all()
 
         result: dict[int, list[MetadataCoverageItem]] = {}
         for row in rows:
             result[row.platform_id] = [
                 MetadataCoverageItem(source=key, matched=getattr(row, key))
-                for key in _METADATA_SOURCE_COLUMNS
+                for key in METADATA_SOURCE_FACET_COLUMNS
                 if getattr(row, key) > 0
             ]
 
@@ -129,11 +158,24 @@ class DBStatsHandler(DBBaseHandler):
     @begin_session
     def get_region_breakdown_by_platform(
         self,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> dict[int, list[RegionBreakdownItem]]:
-        """Get the count of ROMs per region, grouped by platform."""
+        """Get the count of ROMs per region, grouped by platform.
+
+        Reads the narrow `roms_facets` mirror rather than scanning `roms`.
+        """
         rows = session.execute(
-            select(Rom.platform_id, Rom.regions).where(Rom.regions.is_not(None))
+            _exclude_hidden(
+                select(RomFacets.platform_id, RomFacets.regions).where(
+                    RomFacets.regions.is_not(None)
+                ),
+                hidden_platform_ids,
+                hidden_rom_ids,
+                platform_id_col=RomFacets.platform_id,
+                rom_id_col=RomFacets.rom_id,
+            )
         ).all()
 
         counter: dict[int, dict[str, int]] = {}

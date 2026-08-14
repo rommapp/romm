@@ -47,9 +47,10 @@ const { isOffline, retryNow } = useServerConnection();
 
 <style scoped>
 /* Compact toast-style card, centred under the navbar. Soft-red glass: the
-   neutral deep-canvas panel tinted lightly with the danger token (no hex
-   literals, §X) so text stays legible and the red reads as "soft", not a
-   solid alarm bar. */
+   theme-aware toast panel tinted lightly with the danger token (no hex
+   literals, §X) so the card flips with the theme (dark-red on dark, soft
+   pink on light) and the `fg` text stays legible on both, instead of a
+   fixed dark panel that left light-theme text black-on-dark. */
 .r-backend-banner {
   position: fixed;
   top: calc(var(--r-nav-h, 58px) + 14px);
@@ -64,13 +65,12 @@ const { isOffline, retryNow } = useServerConnection();
   background: color-mix(
     in srgb,
     var(--r-color-status-base-danger) 16%,
-    var(--r-color-canvas-bg-deep)
+    var(--r-color-toast-bg)
   );
   border: 1px solid
     color-mix(in srgb, var(--r-color-status-base-danger) 40%, transparent);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   box-shadow:
     0 10px 28px color-mix(in srgb, black 45%, transparent),
     0 2px 6px color-mix(in srgb, black 30%, transparent);

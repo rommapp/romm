@@ -61,7 +61,6 @@ export type SimpleRomSchema = {
     path_cover_large: (string | null);
     url_cover: (string | null);
     has_manual: boolean;
-    has_manual_files: boolean;
     has_soundtrack: boolean;
     path_manual: (string | null);
     url_manual: (string | null);

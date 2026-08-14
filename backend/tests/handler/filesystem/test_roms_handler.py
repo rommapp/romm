@@ -1,3 +1,4 @@
+import hashlib
 import os
 import shutil
 import tempfile
@@ -223,6 +224,64 @@ class TestFSRomsHandler:
         parsed_tags = handler.parse_tags(fs_name)
         assert parsed_tags.version == "1.2.3"
 
+        fs_name = "My Game (version B).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "B"
+
+        fs_name = "My Game (v1.2a).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2a"
+
+        # A separator with no version after it must yield "" (str), never None.
+        fs_name = "My Game (v-).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == ""
+
+        # A trailing separator leaves leading whitespace the group must strip.
+        fs_name = "My Game (v  1.2.3).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2.3"
+
+        # A dot separator (e.g. "v.1.0", "Ver. 1.00") must not leak into the
+        # version as a leading dot.
+        fs_name = "My Game (v.1.2.3).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2.3"
+
+        fs_name = "My Game (Ver.1.2.3).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2.3"
+
+        fs_name = "My Game (Ver. 1.00).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.00"
+
+        fs_name = "My Game (Version.2).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "2"
+
+    def test_parse_tags_non_version_tags_starting_with_v(self, handler: FSRomsHandler):
+        """Test parse_tags keeps non-version tags starting with v as generic tags"""
+        fs_name = "Rom [2026] [Variation].rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == ""
+        assert "2026" in parsed_tags.other_tags
+        assert "Variation" in parsed_tags.other_tags
+
+        fs_name = "Rom [versionB].rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == ""
+        assert "versionB" in parsed_tags.other_tags
+
+    def test_parse_tags_reg_prefix_resolves_shortcode(self, handler: FSRomsHandler):
+        """A "Reg-" prefixed shortcode resolves to its full region name."""
+        assert "Japan" in handler.parse_tags("Game [Reg-J].rom").regions
+        assert "USA" in handler.parse_tags("Game [Reg-U].rom").regions
+        assert "Netherlands" in handler.parse_tags("Game [Reg-NL].rom").regions
+
+        # A value that is not a shortcode is kept verbatim.
+        assert "PAL" in handler.parse_tags("Game [Reg-PAL].rom").regions
+
     def test_exclude_multi_roms_filters_excluded(self, handler: FSRomsHandler, config):
         """Test exclude_multi_roms filters out excluded multi-file ROMs"""
         roms = ["Game1", "excluded_multi", "Game2", "Game3"]
@@ -377,7 +436,7 @@ class TestFSRomsHandler:
             # Check excluded files are not present
             assert "excluded_test.tmp" not in rom_names
 
-    def _make_structure_config(self, templates: dict[str, str]) -> Config:
+    def _make_structure_config(self, templates: dict[str, str | list[str]]) -> Config:
         return Config(
             EXCLUDED_PLATFORMS=[],
             EXCLUDED_SINGLE_EXT=["tmp"],
@@ -638,6 +697,54 @@ class TestFSRomsHandler:
                 assert isinstance(rom_file, RomFile)
                 assert rom_file.file_size_bytes > 0
                 assert rom_file.last_modified is not None
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_single_rom_hashes_match_its_only_file(
+        self, handler: FSRomsHandler, rom_single, config
+    ):
+        """A single-file ROM's hashes are its one file's hashes.
+
+        The ROM-level values reuse that file's hashers instead of streaming the
+        same bytes through a second set, so pin the identity that allows it.
+        """
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            m.setattr("os.path.exists", lambda x: False)
+
+            parsed_rom_files = await handler.get_rom_files(rom_single)
+
+        assert len(parsed_rom_files.rom_files) == 1
+        only_file = parsed_rom_files.rom_files[0]
+        assert parsed_rom_files.crc_hash == only_file.crc_hash
+        assert parsed_rom_files.md5_hash == only_file.md5_hash
+        assert parsed_rom_files.sha1_hash == only_file.sha1_hash
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_multi_rom_hash_spans_every_part(
+        self, handler: FSRomsHandler, rom_multi, config
+    ):
+        """A multi-file ROM hashes the concatenation of its top-level files.
+
+        That composite cannot be derived from the per-file digests, so the parts
+        are streamed through a second set of hashers. Pin that it still covers
+        every part rather than collapsing to a single file's hash.
+        """
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            m.setattr("os.path.exists", lambda x: False)
+
+            parsed_rom_files = await handler.get_rom_files(rom_multi)
+
+        rom_dir = Path(LIBRARY_BASE_PATH, "n64", "roms", rom_multi.fs_name)
+        expected_md5 = hashlib.md5(usedforsecurity=False)
+        for rom_file in parsed_rom_files.rom_files:
+            expected_md5.update((rom_dir / rom_file.file_name).read_bytes())
+
+        assert len(parsed_rom_files.rom_files) >= 2
+        assert parsed_rom_files.md5_hash == expected_md5.hexdigest()
+        assert parsed_rom_files.md5_hash not in {
+            rom_file.md5_hash for rom_file in parsed_rom_files.rom_files
+        }
 
     @pytest.mark.asyncio
     async def test_get_rom_files_multi_rom_multi_dot_exclusion(
@@ -1023,6 +1130,55 @@ class TestFSRomsHandler:
 
         # Header SHA1 stored separately in chd_sha1_hash
         assert parsed_rom_files.rom_files[0].chd_sha1_hash == internal_sha1
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_folder_extracts_chd_hash_per_file(
+        self, tmp_path: Path
+    ):
+        """Every CHD in a folder-based ROM keeps its own header SHA1."""
+        disc_platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
+        roms_path = tmp_path / disc_platform.fs_slug / "roms"
+        game_dir = roms_path / "Final Fantasy VII"
+        game_dir.mkdir(parents=True)
+
+        sha1_by_disc = {
+            "Final Fantasy VII (Disc 1).chd": "0123456789abcdef0123456789abcdef01234567",
+            "Final Fantasy VII (Disc 2).chd": "89abcdef0123456789abcdef0123456789abcdef",
+        }
+        for file_name, internal_sha1 in sha1_by_disc.items():
+            header = bytearray(124)
+            header[0:8] = b"MComprHD"
+            header[12:16] = int(5).to_bytes(4, "big")
+            header[84:104] = bytes.fromhex(internal_sha1)
+            (game_dir / file_name).write_bytes(header + file_name.encode())
+
+        (game_dir / "Final Fantasy VII.m3u").write_text("\n".join(sha1_by_disc) + "\n")
+
+        test_handler = FSRomsHandler()
+        test_handler.base_path = tmp_path
+
+        rom = Rom(
+            id=1,
+            fs_name="Final Fantasy VII",
+            fs_extension="",
+            fs_path=str(roms_path.relative_to(tmp_path)),
+            platform=disc_platform,
+        )
+
+        with patch(
+            "adapters.services.rahasher.RAHasherService.calculate_hash",
+            return_value="",
+        ):
+            parsed_rom_files = await test_handler.get_rom_files(rom)
+
+        chd_hash_by_file = {
+            rom_file.file_name: rom_file.chd_sha1_hash
+            for rom_file in parsed_rom_files.rom_files
+        }
+        assert chd_hash_by_file == {
+            **sha1_by_disc,
+            "Final Fantasy VII.m3u": "",
+        }
 
     @staticmethod
     def _setup_archive_rom(

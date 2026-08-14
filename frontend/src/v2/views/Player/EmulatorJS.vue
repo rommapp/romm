@@ -14,7 +14,7 @@
 // wiring — not worth rewriting). The v1 SelectSaveDialog / SelectStateDialog
 // + CacheDialog are mounted in GlobalDialogs so the emitter bridge works.
 import { RBtn, RCard, RIcon, RSelect, RSliderBtnGroup, RSwitch } from "@v2/lib";
-import { useEventListener } from "@vueuse/core";
+import { useEventListener, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import {
@@ -48,8 +48,16 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
+import { usePlaySession } from "@/v2/composables/usePlaySession";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import {
+  resolveBezelHost,
+  resolveBezelUrl,
+  resolveStoredBezelVisible,
+} from "@/v2/utils/playerBezel";
+import { resolveStoredDisc } from "@/v2/utils/playerDisc";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
@@ -68,6 +76,7 @@ const configStore = storeConfig();
 const { playing, fullScreen } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
 const { modality } = useInputModality();
+const playSession = usePlaySession();
 
 // Ref the Play CTA so we can imperatively focus it on enter (and again
 // when the user comes back from a running session). RBtn forwards to
@@ -189,13 +198,40 @@ const setBgArt = useBackgroundArt();
 // the active style is alt-art, so the purple glow can be dropped for a
 // floating disc / cartridge / mix image. The launch flourish is triggered
 // imperatively on the GameCover via `coverRef` — see onPlay.
-const art = useCoverArt(() => heroRom.value);
+const art = useCoverArt(() => heroRom.value, { context: "player" });
 const heroIsAlt = computed(
   () =>
     art.style.value !== "cover_path" &&
     !!(art.coverUrl.value ?? art.fallbackUrl.value),
 );
 const coverRef = ref<InstanceType<typeof GameCover> | null>(null);
+
+// Scraped bezel drawn around the running game. `bezel_path` is stored relative
+// to the resources folder, so prefix it like every other resource URL (#3939).
+const bezelUrl = computed(() =>
+  resolveBezelUrl(rom.value?.ss_metadata?.bezel_path),
+);
+
+// Per-game bezel visibility. Bezels default on, but a bad / misaligned one can
+// obscure the game, so the user can hide it for this game (persisted). Keyed by
+// the route param so it binds before `rom` resolves; stored as the compact "0"
+// hidden / "1" shown marker (anything else fails safe to shown), and defaults
+// are not written so merely opening a game leaves storage untouched.
+const showBezel = useLocalStorage(`player:${morphRomId.value}:bezel`, true, {
+  writeDefaults: false,
+  serializer: {
+    read: resolveStoredBezelVisible,
+    write: (visible) => (visible ? "1" : "0"),
+  },
+});
+
+// When EmulatorJS enters fullscreen it promotes its own `#game` container to
+// the top layer, so a bezel that is merely a sibling would disappear. Track
+// that container here and teleport the bezel into it while fullscreen (#3939).
+const bezelHost = ref<HTMLElement | null>(null);
+useEventListener(document, "fullscreenchange", () => {
+  bezelHost.value = resolveBezelHost(document.fullscreenElement);
+});
 
 // Background art keeps the plain 2D cover — a blurred disc / cartridge
 // reads poorly as a full-bleed backdrop.
@@ -224,14 +260,6 @@ async function onPlay() {
 
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = installIOSFullscreenShim();
-
-  if (rom.value && auth.scopes.includes("roms.user.write")) {
-    romApi.updateUserRomProps({
-      romId: rom.value.id,
-      data: rom.value.rom_user,
-      updateLastPlayed: true,
-    });
-  }
 
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullscreenOnPlay.value;
@@ -302,10 +330,6 @@ async function onPlay() {
 
 function selectSave(save: SaveSchema) {
   selectedSave.value = save;
-  if (selectedState.value) {
-    selectedState.value = null;
-    localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
-  }
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:save_id`,
     save.id.toString(),
@@ -320,10 +344,6 @@ function unselectSave() {
 
 function selectState(state: StateSchema) {
   selectedState.value = state;
-  if (selectedSave.value) {
-    selectedSave.value = null;
-    localStorage.removeItem(`player:${rom.value?.platform_slug}:save_id`);
-  }
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:state_id`,
     state.id.toString(),
@@ -353,10 +373,6 @@ onMounted(async () => {
   });
   rom.value = romResponse.data;
 
-  if (rom.value) {
-    document.title = `${rom.value.name} | Play`;
-  }
-
   const firmwareResponse = await firmwareApi.getFirmware({
     platformId: romResponse.data.platform_id,
   });
@@ -380,40 +396,47 @@ onMounted(async () => {
     });
   }
 
-  // Default tab + selection (mutually exclusive).
+  // Default selection — save and state are independent, so both can be
+  // armed at once. The bound save is the write-back target for "Save &
+  // Quit" (PUT in place), so we only auto-bind it when the choice is
+  // unambiguous: never silently pick a slot when a state is armed and
+  // there are multiple saves, since loading the state injects a different
+  // SRAM timeline that would overwrite an arbitrary save the user never
+  // picked. In that case the user must select the save slot explicitly.
   const initiallyCompatibleStates = rom.value.user_states.filter(
     (s) => !s.emulator || s.emulator === supportedCores.value[0],
   );
+  const hasCompatibleState = initiallyCompatibleStates.length > 0;
 
-  if (initiallyCompatibleStates.length > 0) {
-    isSavesTabSelected.value = false;
+  if (hasCompatibleState) {
     selectedState.value = initiallyCompatibleStates[0];
-    selectedSave.value = null;
-  } else if (rom.value.user_saves.length > 0) {
-    isSavesTabSelected.value = true;
+  }
+  const safeToBindSave =
+    rom.value.user_saves.length === 1 || !hasCompatibleState;
+  if (rom.value.user_saves.length > 0 && safeToBindSave) {
     selectedSave.value = rom.value.user_saves[0];
-    selectedState.value = null;
-  } else {
-    isSavesTabSelected.value = true;
-    selectedSave.value = null;
-    selectedState.value = null;
   }
+  isSavesTabSelected.value = !hasCompatibleState;
 
+  // Validate the saved disc against the rom's current files: a rescan can
+  // leave a stale id behind that would 404 the download (issue #3938).
   const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
-  if (storedDisc) {
-    selectedDisc.value = parseInt(storedDisc);
-  } else {
-    selectedDisc.value = rom.value.files[0]?.id ?? null;
+  const { discId, stale } = resolveStoredDisc(storedDisc, rom.value.files);
+  if (stale) {
+    localStorage.removeItem(`player:${rom.value.id}:disc`);
   }
+  selectedDisc.value = discId;
 
-  const storedCore = localStorage.getItem(
+  // Prefer the core saved for this game, then the platform default, validating
+  // each candidate so a stale entry falls through instead of masking the next
+  const gameCore = localStorage.getItem(`player:${rom.value.id}:core`);
+  const platformCore = localStorage.getItem(
     `player:${rom.value.platform_slug}:core`,
   );
-  if (storedCore) {
-    selectedCore.value = storedCore;
-  } else {
-    selectedCore.value = supportedCores.value[0];
-  }
+  selectedCore.value =
+    [gameCore, platformCore].find(
+      (core): core is string => !!core && supportedCores.value.includes(core),
+    ) ?? supportedCores.value[0];
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
   const storedBiosID = localStorage.getItem(
@@ -448,10 +471,12 @@ onMounted(async () => {
 // to Play on exit so a Start-Play loop stays on the pad.
 watch(gameRunning, (running, prev) => {
   if (running && !prev) {
+    if (rom.value) playSession.start(rom.value);
     emitActivityStart();
     startActivityHeartbeat();
   }
   if (prev && !running) {
+    playSession.flush();
     stopActivityHeartbeat();
     emitActivityStop();
     nextTick(focusPlayButton);
@@ -468,9 +493,14 @@ function onGamepadButton(e: CustomEvent<{ name?: string }>) {
 
 onBeforeUnmount(() => {
   // Leaving the player (back nav / route change) ends the session even if
-  // the user never exited the game to the config screen first.
+  // the user never exited the game to the config screen first. flush() is
+  // idempotent, so an exit that already flushed via the watch is a no-op.
+  playSession.flush();
   stopActivityHeartbeat();
   emitActivityStop();
+  // Hand the keyboard and gamepad back to the UI; the flag otherwise
+  // stays true and pad/hotkey navigation is dead until a reload.
+  playing.value = false;
   window.EJS_emulator?.callEvent("exit");
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = null;
@@ -495,6 +525,10 @@ function backToPlatform() {
 
 const title = computed(
   () => heroRom.value?.name || heroRom.value?.fs_name_no_ext || "",
+);
+
+usePageTitle(() =>
+  title.value ? t("play.page-title", { name: title.value }) : null,
 );
 
 const platformLabel = computed(
@@ -572,6 +606,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
             :title="title"
             :identified="heroRom?.is_identified ?? true"
             :morph-id="morphRomId"
+            style-context="player"
             morph-static
             hover-motion
           />
@@ -709,11 +744,19 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
             clearable
             hide-details
             :label="t('common.firmware')"
-            :items="
-              firmwareOptions.map((f) => ({ title: f.file_name, value: f }))
-            "
+            :items="firmwareOptions"
+            item-title="file_name"
+            item-value="id"
+            return-object
           />
           <RSwitch v-model="fullscreenOnPlay" :label="t('play.full-screen')" />
+          <!-- Only offered when this game actually has a bezel, so the user can
+               hide a bad / misaligned one that obscures the game (#3939). -->
+          <RSwitch
+            v-if="bezelUrl"
+            v-model="showBezel"
+            :label="t('play.show-bezel')"
+          />
         </div>
         <div class="r-v2-ejs__setup-foot">
           <RBtn
@@ -747,6 +790,20 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
         :core="selectedCore"
         :disc="selectedDisc"
       />
+      <!-- Bezel overlay drawn around the game canvas. Purely decorative and
+           click-through, so pointer events reach the emulator underneath. In
+           fullscreen it teleports into the emulator's top-layer container so it
+           keeps framing the game; otherwise it renders here over the stage. -->
+      <Teleport :to="bezelHost" :disabled="!bezelHost">
+        <img
+          v-if="bezelUrl && showBezel"
+          :src="bezelUrl"
+          class="r-v2-ejs__bezel"
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        />
+      </Teleport>
     </div>
   </section>
 
@@ -783,7 +840,6 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   border: 1px solid var(--r-color-border) !important;
   border-radius: var(--r-radius-lg) !important;
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   display: flex !important;
   flex-direction: column;
   overflow: hidden;
@@ -953,6 +1009,23 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   inset: var(--r-nav-h) 0 0 0;
   background: var(--r-color-canvas-bg);
   z-index: 1;
+}
+
+/* Scraped bezel framing the running game. Full-height, centred, aspect
+   preserved; click-through so it never intercepts emulator input. Sits above
+   the game canvas but below the EmulatorJS controls / menus (z-index 9999+),
+   so the frame never hides them (matters once teleported into #game while
+   fullscreen). */
+.r-v2-ejs__bezel {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
 }
 
 /* ── Initial ROM fetch ───────────────────────────────────── */

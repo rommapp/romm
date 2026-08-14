@@ -9,6 +9,7 @@ LOGLEVEL="${LOGLEVEL:="INFO"}"
 
 # make it possible to disable the inotify watcher process
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="false"}"
+ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES="${ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES:="false"}"
 ENABLE_SCHEDULED_RESCAN="${ENABLE_SCHEDULED_RESCAN:="false"}"
 ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA="${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA:="false"}"
 ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB="${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:="false"}"
@@ -16,6 +17,11 @@ ENABLE_SYNC_FOLDER_WATCHER="${ENABLE_SYNC_FOLDER_WATCHER:="false"}"
 
 # if REDIS_HOST is set, we assume that an external redis is used
 REDIS_HOST="${REDIS_HOST:=""}"
+
+# snapshot policy of the internal valkey, as "<seconds> <changes>" pairs. Saving
+# hourly keeps a graceful shutdown lossless while a hard crash can only lose an
+# hour of sessions and cached metadata. Set to an empty value to never snapshot.
+REDIS_SAVE_POLICY="${REDIS_SAVE_POLICY="3600 1"}"
 
 # logger colors
 RED='\033[0;31m'
@@ -86,28 +92,31 @@ run_startup() {
 	fi
 }
 
-wait_for_gunicorn_socket() {
-	debug_log "Waiting for gunicorn socket file..."
+wait_for_gunicorn() {
+	local host="127.0.0.1"
+	local port="${DEV_PORT:-5000}"
+	debug_log "Waiting for gunicorn on ${host}:${port}..."
 	local wait_seconds=${WEB_SERVER_GUNICORN_WAIT_SECONDS:=30}
 	local retries=$((wait_seconds * 2))
 
-	while [[ ! -S /tmp/gunicorn.sock && retries -gt 0 ]]; do
+	# Temporarily disable errexit while polling the TCP port.
+	set +o errexit
+	while ((retries > 0)); do
+		if (echo >/dev/tcp/"${host}"/"${port}") 2>/dev/null; then
+			set -o errexit
+			debug_log "Gunicorn is ready and accepting connections"
+			return 0
+		fi
 		sleep 0.5
 		((retries--))
 	done
+	set -o errexit
 
-	if [[ -S /tmp/gunicorn.sock ]]; then
-		debug_log "Gunicorn socket file found"
-	else
-		warn_log "Gunicorn socket file not found after waiting ${wait_seconds}s!"
-	fi
+	warn_log "Gunicorn did not become ready after waiting ${wait_seconds}s!"
 }
 
 # Runs our main process and creates a corresponding PID file
 start_bin_gunicorn() {
-	# cleanup potentially leftover socket
-	rm /tmp/gunicorn.sock -f
-
 	# Wire LOGLEVEL into Gunicorn's logging config so it respects the env var.
 	local gunicorn_level="${LOGLEVEL^^}"
 	local gunicorn_log_config="/tmp/gunicorn/logging.conf"
@@ -126,7 +135,6 @@ start_bin_gunicorn() {
 	otel_prefix wrap api
 	"${wrap[@]}" gunicorn \
 		--bind=0.0.0.0:"${DEV_PORT:-5000}" \
-		--bind=unix:/tmp/gunicorn.sock \
 		--pid=/tmp/gunicorn.pid \
 		--forwarded-allow-ips="*" \
 		--worker-class uvicorn_worker.UvicornWorker \
@@ -143,7 +151,7 @@ start_bin_gunicorn() {
 
 # Commands to start nginx (handling PID creation internally)
 start_bin_nginx() {
-	wait_for_gunicorn_socket
+	wait_for_gunicorn
 
 	info_log "Starting nginx"
 	if [[ ${EUID} -ne 0 ]]; then
@@ -161,6 +169,16 @@ start_bin_nginx() {
 start_bin_valkey-server() {
 	info_log "Starting internal valkey"
 
+	# Most of the keyspace is bulky, rebuildable metadata (Switch TitleDB,
+	# LaunchBox), so every snapshot rewrites hundreds of MB of dump.rdb. Valkey's
+	# stock policy does that every few minutes even on an idle instance, which
+	# adds up to gigabytes of disk writes per hour.
+	local -a save_flags=(--save "")
+	if [[ -n ${REDIS_SAVE_POLICY} ]]; then
+		# shellcheck disable=SC2206 # each "<seconds> <changes>" token is its own argument
+		save_flags=(--save ${REDIS_SAVE_POLICY})
+	fi
+
 	if [[ -f /usr/local/etc/valkey/valkey.conf ]]; then
 		if [[ ${LOGLEVEL} == "DEBUG" ]]; then
 			valkey-server /usr/local/etc/valkey/valkey.conf &
@@ -169,9 +187,9 @@ start_bin_valkey-server() {
 		fi
 	else
 		if [[ ${LOGLEVEL} == "DEBUG" ]]; then
-			valkey-server --dir /redis-data &
+			valkey-server --dir /redis-data "${save_flags[@]}" &
 		else
-			valkey-server --dir /redis-data >/dev/null 2>&1 &
+			valkey-server --dir /redis-data "${save_flags[@]}" >/dev/null 2>&1 &
 		fi
 	fi
 
@@ -232,11 +250,19 @@ start_bin_rq_worker() {
 		redis_url="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
 	fi
 
-	# Set PYTHONPATH so RQ can find the tasks module
-	PYTHONPATH="/backend:${PYTHONPATH-}" rq worker \
+	# Set PYTHONPATH so RQ can find the tasks module.
+	# The connection URL goes through RQ_REDIS_URL rather than --url, so the
+	# embedded password stays out of the worker's world-readable command line.
+	# Use a worker class that drops the noisy per-sweep "cleaning registries for
+	# queue" log line. The maintenance interval keeps its default (~10 min) so
+	# orphaned STARTED jobs and stale workers are still pruned promptly, which the
+	# watcher's Worker.all() scan dedupe relies on.
+	PYTHONPATH="/backend:${PYTHONPATH-}" \
+		RQ_REDIS_URL="${redis_url}" \
+		rq worker \
 		--path /backend \
+		--worker-class handler.rq_worker.RomMWorker \
 		--pid /tmp/rq_worker.pid \
-		--url "${redis_url}" \
 		--results-ttl "${TASK_RESULT_TTL:-86400}" \
 		--logging_level "${LOGLEVEL}" \
 		high default low &
@@ -325,9 +351,9 @@ if ! printenv | grep -q '^OTEL_'; then
 fi
 
 # Set ROMM_AUTH_SECRET_KEY if not already set
-if [[ -z ${ROMM_AUTH_SECRET_KEY} ]]; then
+if [[ -z ${ROMM_AUTH_SECRET_KEY-} ]]; then
 	ROMM_AUTH_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-	info_log "ROMM_AUTH_SECRET_KEY not set, generating random secret key"
+	warn_log "ROMM_AUTH_SECRET_KEY not set, generating a random secret key!"
 	export ROMM_AUTH_SECRET_KEY
 fi
 
@@ -353,10 +379,8 @@ run_startup
 while ! ((exited)); do
 	watchdog_process_pid gunicorn
 
-	# only start the scheduler if enabled
-	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" || ${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA} == "true" ]]; then
-		watchdog_process_pid rq_scheduler
-	fi
+	# always run the scheduler
+	watchdog_process_pid rq_scheduler
 
 	watchdog_process_pid rq_worker
 

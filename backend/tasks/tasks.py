@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from itertools import chain
-from typing import Any
+from typing import Any, Final
 
 import httpx
 from rq import get_current_job
@@ -15,6 +15,10 @@ from logger.logger import log
 from utils.context import ctx_httpx_client
 
 tasks_scheduler = Scheduler(queue=low_prio_queue, connection=low_prio_queue.connection)
+
+# Lives here rather than in the task module so scan job discovery can recognise
+# the scheduled rescan without importing it, which would close an import cycle.
+SCAN_LIBRARY_TASK_FUNC: Final = "tasks.scheduled.scan_library.scan_library_task.run"
 
 
 def update_job_meta(metadata: dict[str, Any]) -> None:
@@ -50,6 +54,7 @@ class Task(ABC):
     manual_run: bool
     cron_string: str | None = None
     task_type: TaskType
+    timeout: int
 
     def __init__(
         self,
@@ -59,6 +64,7 @@ class Task(ABC):
         enabled: bool = False,
         manual_run: bool = False,
         cron_string: str | None = None,
+        timeout: int = TASK_TIMEOUT,
     ):
         self.title = title
         self.description = description or title
@@ -66,6 +72,12 @@ class Task(ABC):
         self.enabled = enabled
         self.manual_run = manual_run
         self.cron_string = cron_string
+        self.timeout = timeout
+
+    @property
+    def can_run_manually(self) -> bool:
+        """Whether an admin can trigger this task on demand."""
+        return self.manual_run and self.enabled
 
     @abstractmethod
     async def run(self, *args: Any, **kwargs: Any) -> Any: ...
@@ -118,7 +130,7 @@ class PeriodicTask(Task, ABC):
                 self.cron_string,
                 func=self.func,
                 repeat=None,
-                timeout=TASK_TIMEOUT,
+                timeout=self.timeout,
                 meta={
                     "task_name": self.title,
                     "task_type": self.task_type.value,

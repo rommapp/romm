@@ -1,7 +1,7 @@
 import shutil
 import time
 
-from endpoints.roms.upload import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
+from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType
 

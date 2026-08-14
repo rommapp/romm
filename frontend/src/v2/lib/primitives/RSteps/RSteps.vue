@@ -236,9 +236,7 @@ watch(
   transform: scaleX(1);
 }
 
-@media (max-width: 600px) {
-  .r-steps__line {
-    width: 32px !important;
-  }
+html[data-bp~="xs"] .r-steps__line {
+  width: 32px !important;
 }
 </style>

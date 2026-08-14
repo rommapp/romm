@@ -14,6 +14,7 @@ from config import (
 )
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType, update_job_meta
+from utils.media_types import ALLOWED_IMAGE_EXTENSIONS
 
 
 @dataclass
@@ -29,9 +30,6 @@ class ConversionResult:
 
 class ImageConverter:
     """Handles image format conversion to WebP."""
-
-    # Supported image formats
-    SUPPORTED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".gif"}
 
     # Image mode conversion mapping
     MODE_CONVERSIONS = {
@@ -147,7 +145,8 @@ class ConvertImagesToWebPTask(PeriodicTask):
             for p in self.resources_path.rglob("**/cover/*")
             if p.is_file()
             and not p.is_symlink()
-            and p.suffix.lower() in ImageConverter.SUPPORTED_EXTENSIONS
+            and p.suffix.lower() in ALLOWED_IMAGE_EXTENSIONS
+            and p.suffix.lower() != ".webp"
             and not p.with_suffix(".webp").exists()
         ]
 

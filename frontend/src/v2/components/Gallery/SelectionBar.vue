@@ -18,8 +18,9 @@
 //   * manage collections — re-uses the existing
 //     `ManageCollectionsDialog` (already accepts SimpleRom[]) via
 //     the `showManageCollectionsDialog` emitter event.
-//   * download — iterates selected ROMs and triggers one anchor
-//     download per item. Same pattern as `useGameActions.download`.
+//   * download — a single selected ROM downloads directly (like the
+//     per-rom `useGameActions.download`); multi-selections go through
+//     the bulk endpoint so the server bundles them into one zip.
 //   * refresh metadata — emits `showRefreshMetadataDialog` for each
 //     ROM in turn. (Phase-2 follow-up: the dialog will accept arrays
 //     so the user only sees the scan-type picker once for the whole
@@ -49,7 +50,7 @@ import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getDownloadPath, romStatusMap } from "@/utils";
+import { romStatusMap } from "@/utils";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -76,8 +77,11 @@ const collectionsStore = storeCollections();
 const romsStore = storeRoms();
 
 const canRefresh = useCan("rom.refresh");
-const canDelete = useCan("rom.delete");
 const canDownload = useCan("rom.download");
+const hasDeleteGrant = useCan("rom.delete");
+const canEditRom = useCan("rom.edit");
+// Bulk delete hits `POST /roms/delete`, which gates on ROMS_WRITE
+const canDelete = computed(() => hasDeleteGrant.value && canEditRom.value);
 
 // `favorite` is the favourite collection — used to compute "are all
 // selected ROMs in favorites?" so the button can toggle between
@@ -226,18 +230,14 @@ function manageCollections() {
 function bulkDownload() {
   const roms = selection.roms;
   if (roms.length === 0) return;
-  for (const rom of roms) {
-    const href = getDownloadPath({ rom });
-    const a = document.createElement("a");
-    a.href = href;
-    a.download = rom.fs_name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  if (roms.length === 1) {
+    void romApi.downloadRom({ rom: roms[0] });
+    return;
   }
-  if (roms.length > 1) {
-    snackbar.info(t("gallery.selection-download-many", { n: roms.length }));
-  }
+  // Bundle multi-selections into a single zip server-side; firing one
+  // anchor download per ROM trips browser multi-download blocking.
+  void romApi.bulkDownloadRoms({ romIDs: roms.map((r) => r.id) });
+  snackbar.info(t("gallery.selection-download-many", { n: roms.length }));
 }
 
 function bulkRefresh() {
@@ -515,7 +515,6 @@ html[data-bp~="sm-and-down"] .selection-bar--visible {
     0 12px 32px color-mix(in srgb, black 32%, transparent),
     0 0 0 1px color-mix(in srgb, white 4%, transparent) inset;
   backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
 .selection-bar__count {

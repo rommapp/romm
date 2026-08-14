@@ -5,15 +5,11 @@ import type { Platform } from "./platforms";
 
 export interface ScanningPlatform extends Pick<
   Platform,
-  | "id"
-  | "name"
-  | "display_name"
-  | "slug"
-  | "fs_slug"
-  | "is_identified"
-  | "firmware_count"
+  "id" | "name" | "display_name" | "slug" | "fs_slug" | "is_identified"
 > {
   roms: SimpleRom[];
+  /** Firmware discovered by the running scan, not the platform's total. */
+  new_firmware_count: number;
 }
 
 export default defineStore("scanning", {

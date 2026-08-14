@@ -83,7 +83,23 @@ const tabModel = computed<string>({
       </template>
       {{ t("settings.config-file-not-mounted-desc") }}
     </RAlert>
-    <RAlert v-else-if="!config.CONFIG_FILE_WRITABLE" type="warning">
+    <RAlert
+      v-if="config.CONFIG_FILE_MOUNTED && config.CONFIG_FILE_PARSE_ERROR"
+      type="error"
+    >
+      <template #title>
+        {{ t("settings.config-file-parse-error-title") }}
+      </template>
+      {{
+        t("settings.config-file-parse-error-desc", {
+          error: config.CONFIG_FILE_PARSE_ERROR,
+        })
+      }}
+    </RAlert>
+    <RAlert
+      v-if="config.CONFIG_FILE_MOUNTED && !config.CONFIG_FILE_WRITABLE"
+      type="warning"
+    >
       <template #title>
         {{ t("settings.config-file-not-writable-title") }}
       </template>

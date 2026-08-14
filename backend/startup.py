@@ -33,7 +33,9 @@ from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
 from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
+from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
+from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
 from tasks.scheduled.sync_retroachievements_progress import (
@@ -49,6 +51,7 @@ from utils.context import initialize_context
 tracer = trace.get_tracer(__name__)
 
 RECOMPUTE_SAVE_HASHES_JOB_ID = "recompute_save_content_hashes_bootstrap"
+CONVERT_IMAGES_TO_WEBP_JOB_ID = "convert_images_to_webp_bootstrap"
 
 
 def _enqueue_recompute_save_hashes_if_needed() -> None:
@@ -98,6 +101,38 @@ def _enqueue_recompute_save_hashes_if_needed() -> None:
         )
 
 
+def _enqueue_convert_images_to_webp() -> None:
+    """Backfill .webp covers when WebP conversion is enabled.
+
+    The frontend rewrites cover URLs to .webp as soon as the feature flag is
+    on, but the scheduled task only runs at its next cron time and the inline
+    conversion in the resources handler only fires for covers fetched after
+    enabling. Without a backfill, existing covers have no .webp sibling and
+    every request 404s until the cron eventually runs."""
+    try:
+        if Job.exists(CONVERT_IMAGES_TO_WEBP_JOB_ID, low_prio_queue.connection):
+            log.info(
+                "convert_images_to_webp already queued or running from a "
+                "previous restart; skipping enqueue"
+            )
+            return
+
+        low_prio_queue.enqueue(
+            convert_images_to_webp_task.run,
+            job_id=CONVERT_IMAGES_TO_WEBP_JOB_ID,
+            job_timeout=TASK_TIMEOUT,
+            meta={
+                "task_name": convert_images_to_webp_task.title,
+                "task_type": convert_images_to_webp_task.task_type.value,
+            },
+        )
+        log.info("Enqueued convert_images_to_webp backfill on low-priority worker")
+    except Exception:
+        log.exception(
+            "Failed to enqueue convert_images_to_webp; admins can run it manually"
+        )
+
+
 @tracer.start_as_current_span("main")
 async def main() -> None:
     """Run startup tasks."""
@@ -107,7 +142,9 @@ async def main() -> None:
 
         # Initialize scheduled tasks
         cleanup_netplay_task.init()
+        cleanup_zip_cache_task.init()
         cleanup_upload_tmp_task.init()
+        cleanup_orphaned_resources_task.init()
 
         if ENABLE_SCHEDULED_RESCAN:
             log.info("Starting scheduled rescan")
@@ -121,6 +158,7 @@ async def main() -> None:
         if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
             log.info("Starting scheduled convert images to webp")
             convert_images_to_webp_task.init()
+            _enqueue_convert_images_to_webp()
         if ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC:
             log.info("Starting scheduled RetroAchievements progress sync")
             sync_retroachievements_progress_task.init()

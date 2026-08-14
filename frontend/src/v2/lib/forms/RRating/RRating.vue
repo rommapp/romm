@@ -28,13 +28,7 @@ interface Props {
   halfIcon?: string;
   clearable?: boolean;
   size?:
-    | "x-small"
-    | "small"
-    | "default"
-    | "large"
-    | "x-large"
-    | string
-    | number;
+    "x-small" | "small" | "default" | "large" | "x-large" | string | number;
   readonly?: boolean;
   halfIncrements?: boolean;
   density?: "default" | "comfortable" | "compact";

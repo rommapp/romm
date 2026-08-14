@@ -17,6 +17,9 @@
 //   ?filterMissing=true|false
 //   ?filterVerified=true|false
 //   ?filterRA=true|false
+//   ?filterSaves=true|false
+//   ?filterStates=true|false
+//   ?filterSoundtrack=true|false
 //   ?platforms=1,2,3                  (selectedPlatforms IDs)
 //   ?genres=a,b&genresLogic=any|all|none
 //   ?franchises=…&franchisesLogic=…
@@ -27,6 +30,8 @@
 //   ?languages=…&languagesLogic=…
 //   ?statuses=…&statusesLogic=…
 //   ?playerCounts=…&playerCountsLogic=…
+//   ?metadataProviders=…&metadataProvidersLogic=…
+//   ?tags=…&tagsLogic=…
 //
 // Direction notes:
 //   * URL → store fires on every `route.query` change (browser back /
@@ -101,6 +106,9 @@ export function useGalleryFilterUrl() {
     filterMissing,
     filterVerified,
     filterRA,
+    filterSaves,
+    filterStates,
+    filterSoundtrack,
     selectedPlatforms,
     selectedGenres,
     selectedFranchises,
@@ -110,6 +118,8 @@ export function useGalleryFilterUrl() {
     selectedRegions,
     selectedLanguages,
     selectedPlayerCounts,
+    selectedMetadataProviders,
+    selectedTags,
     selectedStatuses,
     genresLogic,
     franchisesLogic,
@@ -119,6 +129,8 @@ export function useGalleryFilterUrl() {
     regionsLogic,
     languagesLogic,
     playerCountsLogic,
+    metadataProvidersLogic,
+    tagsLogic,
     statusesLogic,
   } = storeToRefs(filter);
 
@@ -138,6 +150,9 @@ export function useGalleryFilterUrl() {
       filterMissing: qBool(q.filterMissing),
       filterVerified: qBool(q.filterVerified),
       filterRA: qBool(q.filterRA),
+      filterSaves: qBool(q.filterSaves),
+      filterStates: qBool(q.filterStates),
+      filterSoundtrack: qBool(q.filterSoundtrack),
       platformIds: qList(q.platforms)
         .map((s) => Number(s))
         .filter((n) => !Number.isNaN(n)),
@@ -157,6 +172,10 @@ export function useGalleryFilterUrl() {
       languagesLogic: qLogic(q.languagesLogic),
       playerCounts: qList(q.playerCounts),
       playerCountsLogic: qLogic(q.playerCountsLogic),
+      metadataProviders: qList(q.metadataProviders),
+      metadataProvidersLogic: qLogic(q.metadataProvidersLogic),
+      tags: qList(q.tags),
+      tagsLogic: qLogic(q.tagsLogic),
       statuses: qList(q.statuses),
       statusesLogic: qLogic(q.statusesLogic),
     };
@@ -175,6 +194,12 @@ export function useGalleryFilterUrl() {
     if (url.filterVerified !== filterVerified.value)
       filterVerified.value = url.filterVerified;
     if (url.filterRA !== filterRA.value) filterRA.value = url.filterRA;
+    if (url.filterSaves !== filterSaves.value)
+      filterSaves.value = url.filterSaves;
+    if (url.filterStates !== filterStates.value)
+      filterStates.value = url.filterStates;
+    if (url.filterSoundtrack !== filterSoundtrack.value)
+      filterSoundtrack.value = url.filterSoundtrack;
 
     // Platforms — lookup objects from IDs. If the platform store hasn't
     // hydrated yet, the watch below retries when it does.
@@ -238,6 +263,19 @@ export function useGalleryFilterUrl() {
     )
       filter.setPlayerCountsLogic(url.playerCountsLogic);
 
+    if (!eqStrArr(url.metadataProviders, selectedMetadataProviders.value))
+      filter.setSelectedFilterMetadataProviders(url.metadataProviders);
+    if (
+      url.metadataProvidersLogic &&
+      url.metadataProvidersLogic !== metadataProvidersLogic.value
+    )
+      filter.setMetadataProvidersLogic(url.metadataProvidersLogic);
+
+    if (!eqStrArr(url.tags, selectedTags.value))
+      filter.setSelectedFilterTags(url.tags);
+    if (url.tagsLogic && url.tagsLogic !== tagsLogic.value)
+      filter.setTagsLogic(url.tagsLogic);
+
     if (!eqStrArr(url.statuses, selectedStatuses.value))
       filter.setSelectedFilterStatuses(url.statuses);
     if (url.statusesLogic && url.statusesLogic !== statusesLogic.value)
@@ -293,6 +331,9 @@ export function useGalleryFilterUrl() {
     setBool("filterMissing", filterMissing.value);
     setBool("filterVerified", filterVerified.value);
     setBool("filterRA", filterRA.value);
+    setBool("filterSaves", filterSaves.value);
+    setBool("filterStates", filterStates.value);
+    setBool("filterSoundtrack", filterSoundtrack.value);
 
     setList(
       "platforms",
@@ -339,6 +380,18 @@ export function useGalleryFilterUrl() {
       "playerCountsLogic",
       selectedPlayerCounts.value.length > 0 ? playerCountsLogic.value : null,
     );
+    setList("metadataProviders", selectedMetadataProviders.value);
+    setOrDelete(
+      "metadataProvidersLogic",
+      selectedMetadataProviders.value.length > 0
+        ? metadataProvidersLogic.value
+        : null,
+    );
+    setList("tags", selectedTags.value);
+    setOrDelete(
+      "tagsLogic",
+      selectedTags.value.length > 0 ? tagsLogic.value : null,
+    );
     setList("statuses", selectedStatuses.value);
     setOrDelete(
       "statusesLogic",
@@ -375,6 +428,9 @@ export function useGalleryFilterUrl() {
       filterMissing,
       filterVerified,
       filterRA,
+      filterSaves,
+      filterStates,
+      filterSoundtrack,
       selectedPlatforms,
       selectedGenres,
       genresLogic,
@@ -392,6 +448,10 @@ export function useGalleryFilterUrl() {
       languagesLogic,
       selectedPlayerCounts,
       playerCountsLogic,
+      selectedMetadataProviders,
+      metadataProvidersLogic,
+      selectedTags,
+      tagsLogic,
       selectedStatuses,
       statusesLogic,
     ],

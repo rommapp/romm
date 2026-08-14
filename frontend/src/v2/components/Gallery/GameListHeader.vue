@@ -177,7 +177,6 @@ function handleClick(col: ListColumn) {
   /* Glass tint so the BackgroundArt blur reads behind the row when the
      scroller's clip-path lifts at the toolbar/header band. */
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .game-list-header__cell {

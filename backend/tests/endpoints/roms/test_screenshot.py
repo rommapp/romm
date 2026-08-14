@@ -98,30 +98,7 @@ def test_upload_screenshot_upserts_on_reupload(
     assert len(screenshots) == 1
 
 
-def test_upload_screenshot_rejects_single_file_rom(
-    client: TestClient,
-    access_token: str,
-    rom: Rom,
-    screenshot_fs: Path,
-):
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name=rom.fs_name,
-            file_path=rom.fs_path,
-            file_size_bytes=1,
-            category=RomFileCategory.GAME,
-        )
-    )
-
-    response = client.post(
-        f"/api/roms/{rom.id}/screenshots",
-        headers={**_auth(access_token), "x-upload-filename": "shot1.png"},
-        files={"shot1.png": ("shot1.png", PNG_BYTES, "image/png")},
-    )
-
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "folder-based" in response.json()["detail"]
+# Single-file auto-convert on upload is covered in test_convert_to_folder.py.
 
 
 def test_upload_screenshot_rejects_invalid_extension(

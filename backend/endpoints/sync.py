@@ -40,18 +40,45 @@ router = APIRouter(
 
 
 class ClientSaveState(BaseModel):
-    rom_id: int
-    file_name: str
-    slot: str | None = None
-    emulator: str | None = None
-    content_hash: str | None = None
-    updated_at: datetime
-    file_size_bytes: int
+    rom_id: int = Field(description="ID of the ROM this save belongs to.")
+    file_name: str = Field(description="Name of the save file on the client.")
+    slot: str | None = Field(
+        default=None,
+        description=(
+            "Save slot name. Saves are paired between client and server on "
+            "(rom_id, slot), so provide a stable slot name (e.g. 'autosave') to "
+            "keep a save in sync across negotiations. A null slot is treated as "
+            "an archival, manual-upload save: it is never paired with slotted "
+            "server saves, so a null-slot client save always negotiates as an "
+            "'upload' even when an identical file already exists on the server "
+            "under a slot."
+        ),
+    )
+    emulator: str | None = Field(
+        default=None, description="Emulator that produced the save, if known."
+    )
+    content_hash: str | None = Field(
+        default=None,
+        description="Hash of the save contents, used to detect identical saves.",
+    )
+    updated_at: datetime = Field(
+        description="Last-modified timestamp of the save on the client."
+    )
+    file_size_bytes: int = Field(description="Size of the save file in bytes.")
 
 
 class SyncNegotiatePayload(BaseModel):
-    device_id: str | None = None
-    saves: list[ClientSaveState]
+    device_id: str | None = Field(
+        default=None,
+        description=(
+            "ID of the syncing device. Optional when the request uses a "
+            "device-bound client token, in which case the device is inferred "
+            "from the token."
+        ),
+    )
+    saves: list[ClientSaveState] = Field(
+        description="Current save state on the client."
+    )
 
 
 class SyncPlaySessionEntry(BaseModel):
@@ -85,6 +112,14 @@ def negotiate_sync(
 
     The client sends its current save state, and the server returns a list of
     operations (upload, download, conflict, no_op) to bring both sides in sync.
+
+    Saves are paired on (rom_id, slot). Clients that want a save to stay in sync
+    should send a stable, non-null slot name (e.g. "autosave"). Null-slot saves
+    are treated as archival, manual uploads: they are excluded from pairing, so a
+    null-slot client save always negotiates as an "upload" even when an identical
+    file (same content_hash) already exists on the server under a slot. This is
+    intentional, since saves can be cloned across slots and null slots overlap
+    with manual uploads.
     """
     device_id: str | None = payload.device_id or getattr(
         request.state, "device_id", None

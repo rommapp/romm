@@ -276,42 +276,44 @@ function downloadLogs() {
         :aria-label="t('logs.search-placeholder')"
       />
       <div class="r-v2-logs__spacer" />
-      <RBtn
-        :icon="paused ? 'mdi-play' : 'mdi-pause'"
-        variant="text"
-        density="compact"
-        :color="paused ? 'primary' : undefined"
-        :tooltip="paused ? t('logs.resume') : t('logs.pause')"
-        :aria-label="paused ? t('logs.resume') : t('logs.pause')"
-        @click="togglePause"
-      />
-      <RBtn
-        icon="mdi-content-copy"
-        variant="text"
-        density="compact"
-        :disabled="filtered.length === 0"
-        :tooltip="t('logs.copy')"
-        :aria-label="t('logs.copy')"
-        @click="copyLogs"
-      />
-      <RBtn
-        icon="mdi-download"
-        variant="text"
-        density="compact"
-        :disabled="filtered.length === 0"
-        :tooltip="t('logs.download')"
-        :aria-label="t('logs.download')"
-        @click="downloadLogs"
-      />
-      <RBtn
-        icon="mdi-notification-clear-all"
-        variant="text"
-        density="compact"
-        :disabled="entries.length === 0"
-        :tooltip="t('logs.clear')"
-        :aria-label="t('logs.clear')"
-        @click="clearLogs"
-      />
+      <div class="r-v2-logs__actions">
+        <RBtn
+          :icon="paused ? 'mdi-play' : 'mdi-pause'"
+          variant="text"
+          density="compact"
+          :color="paused ? 'primary' : undefined"
+          :tooltip="paused ? t('logs.resume') : t('logs.pause')"
+          :aria-label="paused ? t('logs.resume') : t('logs.pause')"
+          @click="togglePause"
+        />
+        <RBtn
+          icon="mdi-content-copy"
+          variant="text"
+          density="compact"
+          :disabled="filtered.length === 0"
+          :tooltip="t('logs.copy')"
+          :aria-label="t('logs.copy')"
+          @click="copyLogs"
+        />
+        <RBtn
+          icon="mdi-download"
+          variant="text"
+          density="compact"
+          :disabled="filtered.length === 0"
+          :tooltip="t('logs.download')"
+          :aria-label="t('logs.download')"
+          @click="downloadLogs"
+        />
+        <RBtn
+          icon="mdi-notification-clear-all"
+          variant="text"
+          density="compact"
+          :disabled="entries.length === 0"
+          :tooltip="t('logs.clear')"
+          :aria-label="t('logs.clear')"
+          @click="clearLogs"
+        />
+      </div>
     </div>
 
     <div class="r-v2-logs__panel">
@@ -408,6 +410,38 @@ function downloadLogs() {
 
 .r-v2-logs__spacer {
   flex: 1 1 auto;
+}
+
+.r-v2-logs__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+/* Phones: the single control row overflows off the right edge. Wrap it into
+   two: the level + module selectors share the first row; the search field and
+   the action buttons share the second. */
+html[data-bp~="sm-and-down"] .r-v2-logs__toolbar {
+  flex-wrap: wrap;
+}
+html[data-bp~="sm-and-down"] .r-v2-logs__level-select,
+html[data-bp~="sm-and-down"] .r-v2-logs__module-select {
+  width: auto;
+  flex: 1 1 calc(50% - 5px);
+  min-width: 0;
+}
+html[data-bp~="sm-and-down"] .r-v2-logs__search {
+  width: auto;
+  /* Small, non-zero basis: >0 so it wraps off the (full) first row, small
+     enough that it + the action cluster still share the second row on a 320px
+     screen. It grows to fill the leftover width. */
+  flex: 1 1 110px;
+  min-width: 0;
+}
+/* Search grows to fill the second row; the action cluster sits to its right. */
+html[data-bp~="sm-and-down"] .r-v2-logs__spacer {
+  display: none;
 }
 
 .r-v2-logs__panel {

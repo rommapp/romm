@@ -37,6 +37,7 @@ function makeSave(i: number, overrides: Partial<SaveSchema> = {}): SaveSchema {
     created_at: new Date(now - (i + 2) * 86400 * 1000).toISOString(),
     updated_at: new Date(now - (i + 1) * 4 * 3600 * 1000).toISOString(),
     emulator: i % 2 === 0 ? "snes9x" : null,
+    slot: i % 3 === 0 ? null : slot, // Every third save is slot-less
     screenshot: null,
     ...overrides,
   } as SaveSchema;

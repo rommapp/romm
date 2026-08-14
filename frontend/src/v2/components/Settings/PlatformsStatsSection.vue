@@ -37,7 +37,8 @@ const props = defineProps<Props>();
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();
-const { allPlatforms } = storeToRefs(platformsStore);
+// Only platforms that contain games should be displayed
+const { filledPlatforms } = storeToRefs(platformsStore);
 const heartbeat = storeHeartbeat();
 
 type OrderBy = "name" | "size" | "count";
@@ -67,7 +68,7 @@ const orderItems = computed<SliderBtnGroupItem<OrderBy>[]>(() => [
 
 const sortedPlatforms = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
-  let list = [...allPlatforms.value];
+  let list = [...filledPlatforms.value];
   if (q) {
     list = list.filter(
       (p) =>
@@ -180,7 +181,7 @@ function coveragePercent(matched: number, total: number): string {
     <div class="r-v2-plat-stats">
       <div
         v-for="platform in sortedPlatforms"
-        :key="platform.slug"
+        :key="platform.id"
         class="r-v2-plat-stats__row"
       >
         <RPlatformIcon
@@ -197,20 +198,26 @@ function coveragePercent(matched: number, total: number): string {
           <div class="r-v2-plat-stats__meta">
             <span class="r-v2-plat-stats__count">
               {{
-                t("settings.platform-count-games", {
-                  count: platform.rom_count,
+                t("settings.platform-count-games", platform.rom_count, {
+                  named: { count: platform.rom_count },
                 })
               }}
             </span>
             <template
               v-if="orderedCoverageByPlatform[String(platform.id)]?.length > 0"
             >
-              <span class="r-v2-plat-stats__sep">·</span>
+              <span class="r-v2-plat-stats__sep" aria-hidden="true" />
               <span
                 v-for="item in orderedCoverageByPlatform[String(platform.id)]"
                 :key="item.source"
                 class="r-v2-plat-stats__coverage"
-                :title="`${sourceInfo[item.source]?.name ?? item.source}: ${item.matched} / ${platform.rom_count}`"
+                :title="
+                  t('settings.platform-metadata-matches', {
+                    source: sourceInfo[item.source]?.name ?? item.source,
+                    matched: item.matched,
+                    total: platform.rom_count,
+                  })
+                "
               >
                 <img
                   v-if="sourceInfo[item.source]?.logo_path"
@@ -222,7 +229,7 @@ function coveragePercent(matched: number, total: number): string {
               </span>
             </template>
             <template v-if="getVisibleRegions(platform.id).length > 0">
-              <span class="r-v2-plat-stats__sep">·</span>
+              <span class="r-v2-plat-stats__sep" aria-hidden="true" />
               <span
                 v-for="r in getVisibleRegions(platform.id)"
                 :key="r.region"
@@ -238,11 +245,22 @@ function coveragePercent(matched: number, total: number): string {
                 "
                 type="button"
                 class="r-v2-plat-stats__more"
+                :title="
+                  expandedRegions.has(platform.id)
+                    ? t('settings.platform-regions-show-less')
+                    : t('settings.platform-regions-show-more')
+                "
+                :aria-label="
+                  expandedRegions.has(platform.id)
+                    ? t('settings.platform-regions-show-less')
+                    : t('settings.platform-regions-show-more')
+                "
+                :aria-expanded="expandedRegions.has(platform.id)"
                 @click="toggleRegions(platform.id)"
               >
                 {{
                   expandedRegions.has(platform.id)
-                    ? "-"
+                    ? "−"
                     : "+" + getHiddenRegionCount(platform.id)
                 }}
               </button>
@@ -318,9 +336,6 @@ function coveragePercent(matched: number, total: number): string {
 .r-v2-plat-stats__row:first-child {
   padding-top: 0;
 }
-.r-v2-plat-stats__row:last-child .r-v2-plat-stats__bar {
-  display: none;
-}
 
 .r-v2-plat-stats__icon {
   flex-shrink: 0;
@@ -347,8 +362,15 @@ function coveragePercent(matched: number, total: number): string {
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg-secondary);
 }
+/* Drawn as a shape rather than a middot glyph: at 12px the character was
+   too thin to read as a group separator between the count, coverage and
+   region clusters. */
 .r-v2-plat-stats__sep {
-  color: var(--r-color-fg-faint);
+  flex-shrink: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--r-color-fg-muted);
 }
 
 .r-v2-plat-stats__coverage,
@@ -372,15 +394,25 @@ function coveragePercent(matched: number, total: number): string {
   object-fit: cover;
 }
 
+/* Outlined so it reads as a control rather than stray punctuation, and
+   sized to sit flush with the region chips it toggles. */
 .r-v2-plat-stats__more {
-  border: none;
-  background: transparent;
-  color: var(--r-color-fg-faint);
-  font-size: 11px;
-  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
   padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
+  color: var(--r-color-fg-secondary);
+  font-size: 11px;
+  font-weight: var(--r-font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
 }
 .r-v2-plat-stats__more:hover {
+  background: var(--r-color-surface-hover);
   color: var(--r-color-fg);
 }
 
@@ -396,7 +428,7 @@ function coveragePercent(matched: number, total: number): string {
 }
 .r-v2-plat-stats__size-pct {
   font-size: 11px;
-  color: var(--r-color-fg-faint);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-plat-stats__bar {

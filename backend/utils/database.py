@@ -128,6 +128,18 @@ def json_array_contains_all(
     )
 
 
+LIKE_ESCAPE_CHAR = "\\"
+
+
+def escape_like(term: str) -> str:
+    """Escape LIKE wildcards so a search term matches literally (pass escape=LIKE_ESCAPE_CHAR to like())."""
+    return (
+        term.replace(LIKE_ESCAPE_CHAR, LIKE_ESCAPE_CHAR * 2)
+        .replace("%", f"{LIKE_ESCAPE_CHAR}%")
+        .replace("_", f"{LIKE_ESCAPE_CHAR}_")
+    )
+
+
 def safe_str_to_bool(value: Any, default: bool = False) -> bool:
     """Safely convert a value to bool, returning default if conversion fails."""
     try:

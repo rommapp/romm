@@ -7,11 +7,14 @@ from typing import Annotated
 from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
+from config import MAX_AUTOCLEANUP_LIMIT
 from decorators.auth import protected_route
 from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummarySchema
 from endpoints.responses.device import DeviceSyncSchema
+from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
@@ -31,6 +34,7 @@ from models.device_save_sync import DeviceSaveSync
 from utils.datetime import to_utc
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
+from utils.uploads import check_asset_upload_size
 
 
 def _build_save_schema(
@@ -168,6 +172,12 @@ async def add_save(
     screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPLOAD,
 ) -> SaveSchema:
     """Upload a save file for a ROM."""
+    check_asset_upload_size(saveFile, "Save file")
+    check_asset_upload_size(screenshotFile, "Screenshot file")
+
+    # Keep at least the save just uploaded, and cap what a client can retain
+    autocleanup_limit = max(1, min(autocleanup_limit, MAX_AUTOCLEANUP_LIMIT))
+
     device = _resolve_device(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
     )
@@ -193,6 +203,13 @@ async def add_save(
     actual_filename = sanitized_save_filename
     if slot:
         actual_filename = _apply_datetime_tag(sanitized_save_filename)
+
+    saves_path = fs_asset_handler.build_saves_file_path(
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
+    )
 
     db_save = db_save_handler.get_save_by_filename(
         user_id=request.user.id, rom_id=rom.id, file_name=actual_filename, slot=slot
@@ -231,13 +248,6 @@ async def add_save(
         f"Uploading save {hl(actual_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
-    saves_path = fs_asset_handler.build_saves_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom.id,
-        emulator=emulator,
-    )
-
     await fs_asset_handler.write_file(
         file=saveFile, path=saves_path, filename=actual_filename
     )
@@ -266,14 +276,43 @@ async def add_save(
                 existing_by_hash, _syncs_for_save(existing_by_hash.id, device), device
             )
 
+    if db_save is None:
+        # Refresh hash if the file already exists to avoid mismatched metadata.
+        colliding_save = db_save_handler.get_save_by_path(
+            user_id=request.user.id,
+            rom_id=rom.id,
+            file_path=scanned_save.file_path,
+            file_name=actual_filename,
+        )
+        if colliding_save and colliding_save.content_hash != scanned_save.content_hash:
+            db_save = colliding_save
+
     if db_save:
+        # Track file path and emulator to prevent hash-content drift.
+        stale_full_path = db_save.full_path
         update_data: dict = {
             "file_size_bytes": scanned_save.file_size_bytes,
             "content_hash": scanned_save.content_hash,
+            "file_path": scanned_save.file_path,
+            "emulator": emulator,
         }
         if slot is not None:
             update_data["slot"] = slot
         db_save = db_save_handler.update_save(db_save.id, update_data)
+
+        # Delete orphaned bytes only if no other row references the old path.
+        if stale_full_path != db_save.full_path:
+            still_referenced = any(
+                other.id != db_save.id and other.full_path == stale_full_path
+                for other in db_save_handler.get_saves(
+                    user_id=request.user.id, rom_id=rom.id
+                )
+            )
+            if not still_referenced:
+                try:
+                    await fs_asset_handler.remove_file(stale_full_path)
+                except FileNotFoundError:
+                    pass
     else:
         scanned_save.rom_id = rom.id
         scanned_save.user_id = request.user.id
@@ -352,6 +391,8 @@ async def add_save(
     db_rom_handler.update_rom_user(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
+
+    refresh_affected_smart_collections([rom.id], membership_only=True)
 
     return _build_save_schema(db_save, _syncs_for_save(db_save.id, device), device)
 
@@ -453,6 +494,13 @@ def download_save(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Save with ID {id} not found",
         )
+
+    # Sharing must not override the hidden-ROM/platform policy: a save on a ROM
+    # hidden from the caller stays 404-masked, just like the ROM itself.
+    assert_rom_visible(
+        request, save.rom, not_found_detail=f"Save with ID {id} not found"
+    )
+
     is_owner = save.user_id == request.user.id
 
     try:
@@ -518,6 +566,9 @@ async def update_save(
     screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPDATE,
 ) -> SaveSchema:
     """Update a save file."""
+
+    check_asset_upload_size(saveFile, "Save file")
+    check_asset_upload_size(screenshotFile, "Screenshot file")
 
     device = _resolve_device(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
@@ -628,6 +679,17 @@ def update_save_visibility(
         )
 
     updated = db_save_handler.update_save(id, {"is_public": is_public})
+
+    # Keep the auto-captured thumbnail's visibility in sync so a shared save
+    # still renders its preview for other users.
+    if save.screenshot:
+        db_screenshot_handler.update_screenshot(
+            save.screenshot.id, {"is_public": is_public}
+        )
+
+    # Sharing a save exposes it to every other user's `has_saves` filter.
+    refresh_affected_smart_collections([save.rom_id], membership_only=True)
+
     return _build_save_schema(updated)
 
 
@@ -656,6 +718,8 @@ async def delete_saves(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
+    affected_rom_ids: set[int] = set()
+
     for save_id in saves:
         save = db_save_handler.get_save(user_id=request.user.id, id=save_id)
         if not save:
@@ -663,6 +727,7 @@ async def delete_saves(
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+        affected_rom_ids.add(save.rom_id)
         db_save_handler.delete_save(save_id)
 
         log.info(
@@ -684,6 +749,8 @@ async def delete_saves(
             except FileNotFoundError:
                 error = f"Screenshot file {hl(save.screenshot.file_name)} not found for save {hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
                 log.error(error)
+
+    refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 
     return saves
 

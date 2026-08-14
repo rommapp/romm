@@ -166,6 +166,7 @@ DEFAULT_EXCLUDED_DIRS: Final = [
     "@eaDir",
     "assets",
     "__MACOSX",
+    "#recycle",
     "$RECYCLE.BIN",
     ".Trash-*",
     ".stfolder",
@@ -200,6 +201,63 @@ class MetadataMediaType(enum.StrEnum):
     MANUAL = "manual"
 
 
+# User-facing scan.priority.* keys that each override SCAN_ARTWORK_PRIORITY for a
+# single artwork field. Maps the config key to the Rom field it controls.
+ARTWORK_PRIORITY_KEYS = {
+    "cover": "url_cover",
+    "screenshot": "url_screenshots",
+    "manual": "url_manual",
+}
+
+# Valid MetadataMediaType values for the gamelist <thumbnail> and <image>
+# tags. Kept as module constants so the config loader and the scan-settings
+# endpoint validate against the same sets.
+VALID_GAMELIST_THUMBNAIL_TYPES = frozenset(
+    {
+        MetadataMediaType.BOX2D,
+        MetadataMediaType.BOX3D,
+        MetadataMediaType.MIXIMAGE,
+        MetadataMediaType.MIXIMAGE_V2,
+        MetadataMediaType.PHYSICAL,
+    }
+)
+VALID_GAMELIST_IMAGE_TYPES = frozenset(
+    {
+        MetadataMediaType.TITLE_SCREEN,
+        MetadataMediaType.MIXIMAGE,
+        MetadataMediaType.MIXIMAGE_V2,
+        MetadataMediaType.BOX2D,
+        MetadataMediaType.SCREENSHOT,
+    }
+)
+
+# Valid provider slugs for scan.priority.* lists. Mirrors
+# handler.scan_handler.MetadataSource, which can't be imported here without a
+# circular import; test_config_loader guards against drift.
+VALID_SCAN_PRIORITY_SOURCES = frozenset(
+    {
+        "igdb",
+        "moby",
+        "ss",
+        "ra",
+        "launchbox",
+        "hasheous",
+        "tgdb",
+        "sgdb",
+        "flashpoint",
+        "hltb",
+        "gamelist",
+        "libretro",
+        "playmatch",
+    }
+)
+
+# Valid values for scan.priority.region_mode. "prefer_rom_tags" keeps the
+# rom's filename region tags authoritative for media selection;
+# "prefer_config" makes scan.priority.region win over the rom's own tags.
+VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
+
+
 class EjsControls(TypedDict):
     _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
     _1: dict[int, EjsControlsButton]
@@ -216,9 +274,17 @@ class NetplayICEServer(TypedDict):
     credential: NotRequired[str]
 
 
+class StreamingContainer(TypedDict):
+    platform: str
+    host: str
+    broker_host: str
+    label: str
+
+
 class Config:
     CONFIG_FILE_MOUNTED: bool
     CONFIG_FILE_WRITABLE: bool
+    CONFIG_FILE_PARSE_ERROR: str | None
     EXCLUDED_PLATFORMS: list[str]
     EXCLUDED_SINGLE_EXT: list[str]
     EXCLUDED_SINGLE_FILES: list[str]
@@ -243,11 +309,15 @@ class Config:
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
     SCAN_METADATA_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY: list[str]
+    SCAN_ARTWORK_PRIORITY_OVERRIDES: dict[str, list[str]]
     SCAN_REGION_PRIORITY: list[str]
+    SCAN_REGION_MODE: str
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
+    STREAMING_ENABLED: bool
+    STREAMING_CONTAINERS: list[StreamingContainer]
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -302,6 +372,7 @@ class ConfigManager:
     _raw_config: dict = {}
     _config_file_mounted: bool = False
     _config_file_writable: bool = False
+    _config_file_parse_error: str | None = None
 
     def __new__(cls, *args, **kwargs):
         if cls._self is None:
@@ -336,13 +407,18 @@ class ConfigManager:
         """Load YAML, falling back to an empty config on syntax errors so the
         app can still boot with defaults rather than crashing."""
         try:
-            return yaml.load(cf, Loader=SafeLoader) or {}
+            config = yaml.load(cf, Loader=SafeLoader) or {}
+            self._config_file_parse_error = None
+            return config
         except yaml.YAMLError as exc:
             log.critical(
                 f"Failed to parse {hl(self.config_file, BLUE)}: {exc}. "
                 "Falling back to default configuration, fix the YAML "
                 "syntax to apply your settings."
             )
+            # Keep the error around so it can be surfaced in the UI, since the
+            # whole config (not just the broken part) is discarded here.
+            self._config_file_parse_error = str(exc)
             return {}
 
     def _create_missing_config_file(self) -> None:
@@ -358,6 +434,7 @@ class ConfigManager:
             # Reset any previously loaded singleton state so parsing reflects
             # the newly created empty config file.
             self._raw_config = {}
+            self._config_file_parse_error = None
             self._config_file_mounted = True
             self._config_file_writable = os.access(self.config_file, os.W_OK)
         except PermissionError:
@@ -415,6 +492,7 @@ class ConfigManager:
         self.config = Config(
             CONFIG_FILE_MOUNTED=self._config_file_mounted,
             CONFIG_FILE_WRITABLE=self._config_file_writable,
+            CONFIG_FILE_PARSE_ERROR=self._config_file_parse_error,
             EXCLUDED_PLATFORMS=sorted(
                 {
                     *DEFAULT_EXCLUDED_DIRS,
@@ -540,15 +618,26 @@ class ConfigManager:
                     "hltb",
                 ],
             ),
+            SCAN_ARTWORK_PRIORITY_OVERRIDES={
+                field: override
+                for key, field in ARTWORK_PRIORITY_KEYS.items()
+                if (override := pydash.get(self._raw_config, f"scan.priority.{key}"))
+                is not None
+            },
             SCAN_REGION_PRIORITY=pydash.get(
                 self._raw_config,
                 "scan.priority.region",
                 ["us", "wor", "ss", "eu", "jp"],
             ),
+            SCAN_REGION_MODE=pydash.get(
+                self._raw_config,
+                "scan.priority.region_mode",
+                "prefer_rom_tags",
+            ),
             SCAN_LANGUAGE_PRIORITY=pydash.get(
                 self._raw_config,
                 "scan.priority.language",
-                ["en", "fr"],
+                ["en"],
             ),
             SCAN_MEDIA=pydash.get(
                 self._raw_config,
@@ -577,6 +666,10 @@ class ConfigManager:
             ),
             STRUCTURE_TEMPLATES=pydash.get(
                 self._raw_config, "filesystem.structure", {}
+            ),
+            STREAMING_ENABLED=pydash.get(self._raw_config, "streaming.enabled", False),
+            STREAMING_CONTAINERS=pydash.get(
+                self._raw_config, "streaming.containers", []
             ),
         )
 
@@ -780,9 +873,37 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.priority.artwork must be a list")
             sys.exit(3)
 
+        for key, field in ARTWORK_PRIORITY_KEYS.items():
+            override = self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES.get(field)
+            if override is None:
+                continue
+
+            if not isinstance(override, list):
+                log.critical(f"Invalid config.yml: scan.priority.{key} must be a list")
+                sys.exit(3)
+
+            # Unknown sources are dropped downstream
+            unknown = [s for s in override if s not in VALID_SCAN_PRIORITY_SOURCES]
+            if unknown:
+                log.warning(
+                    f"Ignoring unknown values in scan.priority.{key}: {unknown}. "
+                    "Check for typos, or update if these are newer sources."
+                )
+
         if not isinstance(self.config.SCAN_REGION_PRIORITY, list):
             log.critical("Invalid config.yml: scan.priority.region must be a list")
             sys.exit(3)
+
+        if (
+            not isinstance(self.config.SCAN_REGION_MODE, str)
+            or self.config.SCAN_REGION_MODE not in VALID_SCAN_REGION_MODES
+        ):
+            log.warning(
+                f"Unknown scan.priority.region_mode value "
+                f"{self.config.SCAN_REGION_MODE!r}; falling back to "
+                f"'prefer_rom_tags'. Valid options: {sorted(VALID_SCAN_REGION_MODES)}."
+            )
+            self.config.SCAN_REGION_MODE = "prefer_rom_tags"
 
         if not isinstance(self.config.SCAN_LANGUAGE_PRIORITY, list):
             log.critical("Invalid config.yml: scan.priority.language must be a list")
@@ -798,17 +919,17 @@ class ConfigManager:
             )
             sys.exit(3)
         for fs_slug, value in self.config.STRUCTURE_TEMPLATES.items():
-            is_str = isinstance(value, str)
-            is_str_list = isinstance(value, list) and all(
-                isinstance(t, str) for t in value
-            )
-            if not (is_str or is_str_list):
+            if isinstance(value, str):
+                templates = [value]
+            elif isinstance(value, list) and all(isinstance(t, str) for t in value):
+                templates = value
+            else:
                 log.critical(
                     f"Invalid config.yml: filesystem.structure.{fs_slug} must be a "
                     "template string or a list of template strings"
                 )
                 sys.exit(3)
-            templates = [value] if is_str else value
+
             for template in templates:
                 try:
                     parse_library_structure(template)
@@ -833,13 +954,7 @@ class ConfigManager:
                 m for m in self.config.SCAN_MEDIA if m in MetadataMediaType
             ]
 
-        valid_thumbnail_options = {
-            MetadataMediaType.BOX2D,
-            MetadataMediaType.BOX3D,
-            MetadataMediaType.MIXIMAGE,
-            MetadataMediaType.MIXIMAGE_V2,
-            MetadataMediaType.PHYSICAL,
-        }
+        valid_thumbnail_options = VALID_GAMELIST_THUMBNAIL_TYPES
         if not isinstance(self.config.GAMELIST_MEDIA_THUMBNAIL, str):
             log.critical(
                 "Invalid config.yml: scan.gamelist.media.thumbnail must be a string"
@@ -853,13 +968,7 @@ class ConfigManager:
             )
             self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType.BOX2D
 
-        valid_image_options = {
-            MetadataMediaType.TITLE_SCREEN,
-            MetadataMediaType.MIXIMAGE,
-            MetadataMediaType.MIXIMAGE_V2,
-            MetadataMediaType.BOX2D,
-            MetadataMediaType.SCREENSHOT,
-        }
+        valid_image_options = VALID_GAMELIST_IMAGE_TYPES
 
         if not isinstance(self.config.GAMELIST_MEDIA_IMAGE, str):
             log.critical(
@@ -875,12 +984,22 @@ class ConfigManager:
             )
             self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType.SCREENSHOT
 
+        if not isinstance(self.config.STREAMING_ENABLED, bool):
+            log.critical("Invalid config.yml: streaming.enabled must be a boolean")
+            sys.exit(3)
+
+        if not isinstance(self.config.STREAMING_CONTAINERS, list):
+            log.critical("Invalid config.yml: streaming.containers must be a list")
+            sys.exit(3)
+
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r") as config_file:
                 self._raw_config = self._safe_load_yaml(config_file)
         except FileNotFoundError:
             log.debug("Config file not found!")
+            # No file to parse, so clear any stale parse error from a prior load.
+            self._config_file_parse_error = None
 
         self._parse_config()
         self._validate_config()
@@ -935,7 +1054,13 @@ class ConfigManager:
                 "priority": {
                     "metadata": self.config.SCAN_METADATA_PRIORITY,
                     "artwork": self.config.SCAN_ARTWORK_PRIORITY,
+                    **{
+                        key: self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES[field]
+                        for key, field in ARTWORK_PRIORITY_KEYS.items()
+                        if field in self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES
+                    },
                     "region": self.config.SCAN_REGION_PRIORITY,
+                    "region_mode": self.config.SCAN_REGION_MODE,
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
                 "media": self.config.SCAN_MEDIA,
@@ -951,6 +1076,15 @@ class ConfigManager:
                 },
             },
         }
+
+        # The streaming section isn't editable at runtime, but it must survive
+        # a rewrite triggered by any other setter. Only emit it when non-default
+        # so we don't add empty keys to configs that never used streaming.
+        if self.config.STREAMING_ENABLED or self.config.STREAMING_CONTAINERS:
+            self._raw_config["streaming"] = {
+                "enabled": self.config.STREAMING_ENABLED,
+                "containers": self.config.STREAMING_CONTAINERS,
+            }
 
         try:
             # Ensure the config directory exists
@@ -1025,6 +1159,44 @@ class ConfigManager:
             pass
 
         self.config.__setattr__(exclusion_type, config_item)
+        self._update_config_file()
+
+    def update_scan_settings(
+        self,
+        *,
+        metadata_priority: list[str],
+        artwork_priority: list[str],
+        artwork_overrides: dict[str, list[str] | None],
+        region_priority: list[str],
+        language_priority: list[str],
+        media: list[str],
+        gamelist_export: bool,
+        gamelist_thumbnail: str,
+        gamelist_image: str,
+        pegasus_export: bool,
+    ) -> None:
+        """Replace the whole scan.* section and persist it to config.yml.
+
+        `artwork_overrides` is keyed by the user-facing config key
+        (cover/screenshot/manual); a None value clears that override.
+        """
+        self.config.SCAN_METADATA_PRIORITY = metadata_priority
+        self.config.SCAN_ARTWORK_PRIORITY = artwork_priority
+
+        overrides: dict[str, list[str]] = {}
+        for key, field in ARTWORK_PRIORITY_KEYS.items():
+            value = artwork_overrides.get(key)
+            if value is not None:
+                overrides[field] = value
+        self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES = overrides
+
+        self.config.SCAN_REGION_PRIORITY = region_priority
+        self.config.SCAN_LANGUAGE_PRIORITY = language_priority
+        self.config.SCAN_MEDIA = media
+        self.config.GAMELIST_AUTO_EXPORT_ON_SCAN = gamelist_export
+        self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType(gamelist_thumbnail)
+        self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType(gamelist_image)
+        self.config.PEGASUS_AUTO_EXPORT_ON_SCAN = pegasus_export
         self._update_config_file()
 
 

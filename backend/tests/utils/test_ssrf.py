@@ -14,6 +14,7 @@ from hypothesis import strategies as st
 from utils.ssrf import (
     SSRFProtectedAsyncBackend,
     SSRFProtectedSyncBackend,
+    _parse_origin,
     is_forbidden_ip,
     parse_ip_literal,
     validate_url_for_http_request,
@@ -65,13 +66,29 @@ class TestIsForbiddenIp:
             "fc00::1",
             "fe80::1",
             "ff02::1",
+            # NAT64-wrapped internal IPv4 must stay blocked (embedded IPv4 checked).
+            "64:ff9b::7f00:1",  # 127.0.0.1 loopback
+            "64:ff9b::a00:1",  # 10.0.0.1 private
+            "64:ff9b::c0a8:101",  # 192.168.1.1 private
+            "64:ff9b::a9fe:a9fe",  # 169.254.169.254 cloud metadata
+            # RFC 8215 local-use NAT64 prefix is private; not unwrapped, stays blocked.
+            "64:ff9b:1::8d5f:accd",
         ],
     )
     def test_forbidden(self, ip):
         assert is_forbidden_ip(ipaddress.ip_address(ip)) is True
 
     @pytest.mark.parametrize(
-        "ip", ["8.8.8.8", "1.1.1.1", "93.184.216.34", "2001:4860:4860::8888"]
+        "ip",
+        [
+            "8.8.8.8",
+            "1.1.1.1",
+            "93.184.216.34",
+            "2001:4860:4860::8888",
+            # NAT64-wrapped public IPv4 (DNS64) must be allowed. See issue #3668.
+            "64:ff9b::8d5f:accd",  # 141.95.172.205
+            "64:ff9b::808:808",  # 8.8.8.8
+        ],
     )
     def test_allowed(self, ip):
         assert is_forbidden_ip(ipaddress.ip_address(ip)) is False
@@ -111,6 +128,36 @@ class TestSSRFProtectedAsyncBackend:
         # That is what pins the address against DNS rebinding.
         assert calls[0][0][0] == "93.184.216.34"
         assert calls[0][0][1] == 443
+
+    async def test_nat64_wrapped_public_ip_connects(self, monkeypatch):
+        """DNS64 case (issue #3668): a NAT64-wrapped public IPv4 must be reachable."""
+        calls: list[ConnectCall] = []
+        inner = _stub_async_inner(calls)
+        backend = SSRFProtectedAsyncBackend(inner=inner)
+
+        async def fake_getaddrinfo(host, port, *args, **kwargs):
+            return _addr_info("64:ff9b::8d5f:accd", port)  # wraps 141.95.172.205
+
+        monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", fake_getaddrinfo)
+
+        await backend.connect_tcp("neoclone.screenscraper.fr", 443)
+
+        assert calls[0][0][0] == "64:ff9b::8d5f:accd"
+        assert calls[0][0][1] == 443
+
+    async def test_nat64_wrapped_private_ip_is_rejected(self, monkeypatch):
+        """A NAT64-wrapped private/loopback IPv4 must still be blocked."""
+        inner = _stub_async_inner([])
+        backend = SSRFProtectedAsyncBackend(inner=inner)
+
+        async def fake_getaddrinfo(host, port, *args, **kwargs):
+            return _addr_info("64:ff9b::7f00:1", port)  # wraps 127.0.0.1
+
+        monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", fake_getaddrinfo)
+
+        with pytest.raises(httpcore.ConnectError, match="forbidden IP"):
+            await backend.connect_tcp("nat64.rebind.example.com", 80)
+        inner.connect_tcp.assert_not_called()
 
     async def test_hostname_resolving_to_private_ip_is_rejected(self, monkeypatch):
         """DNS rebinding case: hostname resolves to 127.0.0.1 must fail."""
@@ -230,6 +277,95 @@ class TestSSRFProtectedSyncBackend:
         with pytest.raises(httpcore.ConnectError, match="forbidden IP"):
             backend.connect_tcp("10.0.0.1", 80)
         inner.connect_tcp.assert_not_called()
+
+
+class TestInternalOriginAllowlist:
+    """Admin-configured origins (e.g. self-hosted Playmatch) bypass SSRF checks,
+    but only for the exact host:port that was trusted."""
+
+    def test_parse_origin_normalizes(self):
+        assert _parse_origin("http://playmatch:8000/api/v2") == ("playmatch", 8000)
+        assert _parse_origin("https://pm.example.com/api") == ("pm.example.com", 443)
+        assert _parse_origin("http://LAN-HOST/") == ("lan-host", 80)
+
+    def test_parse_origin_rejects_invalid(self):
+        assert _parse_origin("") is None  # empty is skipped
+        assert _parse_origin("ftp://nope") is None  # non-http scheme is skipped
+
+    async def test_async_allowlisted_ip_connects_without_validation(self):
+        """A trusted private LAN IP:port connects directly, no rebinding check."""
+        calls: list[ConnectCall] = []
+        inner = _stub_async_inner(calls)
+        backend = SSRFProtectedAsyncBackend(
+            inner=inner, allowlist=frozenset({("192.168.1.50", 8000)})
+        )
+
+        await backend.connect_tcp("192.168.1.50", 8000)
+
+        assert calls[0][0][0] == "192.168.1.50"
+        assert calls[0][0][1] == 8000
+
+    async def test_async_allowlisted_hostname_connects_without_resolution(
+        self, monkeypatch
+    ):
+        """A trusted Docker service name connects via the inner backend directly."""
+        calls: list[ConnectCall] = []
+        inner = _stub_async_inner(calls)
+        backend = SSRFProtectedAsyncBackend(
+            inner=inner, allowlist=frozenset({("playmatch", 8000)})
+        )
+
+        def _boom(*args, **kwargs):
+            raise AssertionError("allowlisted host must not be resolved")
+
+        monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", _boom)
+
+        await backend.connect_tcp("playmatch", 8000)
+
+        assert calls[0][0][0] == "playmatch"
+
+    async def test_async_allowlist_is_port_scoped(self, monkeypatch):
+        """Same host on a non-trusted port still gets the full SSRF check."""
+        inner = _stub_async_inner([])
+        backend = SSRFProtectedAsyncBackend(
+            inner=inner, allowlist=frozenset({("192.168.1.50", 8000)})
+        )
+
+        with pytest.raises(httpcore.ConnectError, match="forbidden IP"):
+            await backend.connect_tcp("192.168.1.50", 9999)
+        inner.connect_tcp.assert_not_called()
+
+    def test_sync_allowlisted_ip_connects_without_validation(self):
+        calls: list[ConnectCall] = []
+        inner = _stub_sync_inner(calls)
+        backend = SSRFProtectedSyncBackend(
+            inner=inner, allowlist=frozenset({("192.168.1.50", 8000)})
+        )
+
+        backend.connect_tcp("192.168.1.50", 8000)
+
+        assert calls[0][0][0] == "192.168.1.50"
+
+    def test_validator_allows_trusted_lan_ip(self):
+        """The static gate lets a trusted literal LAN IP:port through."""
+        allow = frozenset({("192.168.1.50", 8000)})
+        # Would raise without the allowlist (private IP literal).
+        validate_url_for_http_request(
+            "http://192.168.1.50:8000/health", allowlist=allow
+        )
+        with pytest.raises(ValidationError):
+            validate_url_for_http_request(
+                "http://192.168.1.50:8000/health", allowlist=frozenset()
+            )
+
+    def test_validator_allows_trusted_localhost(self):
+        """The static gate lets a trusted localhost:port through despite the deny list."""
+        allow = frozenset({("localhost", 8000)})
+        validate_url_for_http_request("http://localhost:8000/health", allowlist=allow)
+        with pytest.raises(ValidationError):
+            validate_url_for_http_request(
+                "http://localhost:8000/health", allowlist=frozenset()
+            )
 
 
 class TestRequestEventHook:

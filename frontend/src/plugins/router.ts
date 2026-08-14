@@ -32,13 +32,14 @@ export const ROUTES = {
   ROM: "rom",
   EMULATORJS: "emulatorjs",
   RUFFLE: "ruffle",
+  STREAM: "stream",
   SCAN: "scan",
   UPLOAD: "upload",
-  PATCHER: "patcher",
   ACTIVITY: "activity",
   USER_PROFILE: "user-profile",
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
+  SCAN_SETTINGS: "scan-settings",
   METADATA_SOURCES: "metadata-sources",
   CLIENT_API_TOKENS: "client-api-tokens",
   ADMINISTRATION: "administration",
@@ -269,6 +270,14 @@ const routes = [
           v2: v2For(ROUTES.APRIL_FOOLS),
         },
       },
+      {
+        path: "rom/:rom/stream",
+        name: ROUTES.STREAM,
+        components: {
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.STREAM),
+        },
+      },
       // Settings group — every settings route shares the same v2
       // sub-layout (sidebar + content panel). Library Tools (Scan /
       // Upload / Patcher) live here too so they share the settings
@@ -305,18 +314,6 @@ const routes = [
               // back to Scan on v1 so deep-linking doesn't 404 there.
               default: () => import("@/views/Scan.vue"),
               v2: v2For(ROUTES.UPLOAD),
-            },
-          },
-          {
-            path: "patcher",
-            name: ROUTES.PATCHER,
-            meta: {
-              title: i18n.global.t("common.patcher"),
-              bare: true,
-            },
-            components: {
-              default: () => import("@/views/Patcher.vue"),
-              v2: v2For(ROUTES.PATCHER),
             },
           },
           {
@@ -364,6 +361,18 @@ const routes = [
             components: {
               default: () => import("@/views/Settings/LibraryManagement.vue"),
               v2: v2For(ROUTES.LIBRARY_MANAGEMENT),
+            },
+          },
+          {
+            path: "scan-settings",
+            name: ROUTES.SCAN_SETTINGS,
+            meta: {
+              title: i18n.global.t("settings.scan-settings"),
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.SCAN_SETTINGS),
             },
           },
           {
@@ -452,7 +461,7 @@ const routes = [
         // it redirects this URL home; v2 renders PlatformsIndex.vue.
         path: "platforms",
         name: ROUTES.PLATFORMS_INDEX,
-        meta: { title: "Platforms" },
+        meta: { title: i18n.global.t("common.platforms") },
         components: {
           default: () => import("@/views/Home.vue"),
           v2: v2For(ROUTES.PLATFORMS_INDEX),
@@ -461,7 +470,7 @@ const routes = [
       {
         path: "collections",
         name: ROUTES.COLLECTIONS_INDEX,
-        meta: { title: "Collections" },
+        meta: { title: i18n.global.t("common.collections") },
         components: {
           default: () => import("@/views/Home.vue"),
           v2: v2For(ROUTES.COLLECTIONS_INDEX),
@@ -561,6 +570,7 @@ const routePermissions: RoutePermissions[] = [
   { path: ROUTES.SCAN, requiredScopes: ["platforms.write"] },
   { path: ROUTES.UPLOAD, requiredScopes: ["roms.write"] },
   { path: ROUTES.LIBRARY_MANAGEMENT, requiredScopes: ["platforms.write"] },
+  { path: ROUTES.SCAN_SETTINGS, requiredScopes: ["platforms.write"] },
   { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
   { path: ROUTES.LOGS, requiredScopes: ["logs.read"] },
 ];
@@ -635,8 +645,14 @@ router.beforeEach(async (to, _from, next) => {
       });
     }
 
-    if (user.value && currentRoute == ROUTES.SETUP) {
-      return next({ name: ROUTES.HOME });
+    // SHOW_SETUP_WIZARD is false here, so setup is already done — nobody
+    // belongs on /setup anymore. `/setup` is auth-exempt (so the block above
+    // won't bounce an unauthenticated visitor), so redirect both cases:
+    // authenticated users go home, everyone else to login. Without covering
+    // the unauth case, a stale link / manual nav to /setup would strand the
+    // user on the wizard, whose API then 403s once an admin exists.
+    if (currentRoute === ROUTES.SETUP) {
+      return next({ name: user.value ? ROUTES.HOME : ROUTES.LOGIN });
     }
 
     // Check permissions
@@ -666,7 +682,13 @@ router.beforeEach(async (to, _from, next) => {
   }
 });
 
-router.beforeResolve(async () => {
+router.beforeResolve(async (to, from) => {
+  // Query/hash-only changes (same path — e.g. the v2 GameDetails `?tab=`
+  // param) aren't a real view change. Running a view transition would
+  // snapshot every `view-transition-name` element (like the details cover)
+  // into the browser's top layer for the crossfade, briefly floating it over
+  // the fixed navbar. Skip them — matching `scrollBehavior` above.
+  if (to.path === from.path) return;
   const viewTransition = startViewTransition();
   await viewTransition.captured;
 });

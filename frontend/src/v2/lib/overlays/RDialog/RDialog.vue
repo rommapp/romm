@@ -17,6 +17,7 @@
 // REmptyState / RProgressCircular / RSpinner as needed.
 import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import { createBodyScrollLock, overlayCount } from "../bodyScrollLock";
 import {
   type EscapableEntry,
   popEscapable,
@@ -38,6 +39,12 @@ const props = withDefaults(
      *  instead of a centred card. Default on — opt out for surfaces that
      *  must stay a compact floating card on phones. */
     fullscreenOnMobile?: boolean;
+    /** With the mobile sheet, always fill the full height below the top
+     *  navbar (like the full-height user-menu sheet) instead of hugging the
+     *  content from the bottom. For tall forms (Match / Edit ROM) that read
+     *  better as a stable full-screen surface. Needs `scrollContent` so the
+     *  body scrolls internally. Ignored on desktop / when not a sheet. */
+    fullHeightOnMobile?: boolean;
   }>(),
   {
     scrollContent: false,
@@ -46,6 +53,7 @@ const props = withDefaults(
     height: "auto",
     persistent: false,
     fullscreenOnMobile: true,
+    fullHeightOnMobile: false,
   },
 );
 
@@ -61,7 +69,11 @@ const panelRef = ref<HTMLElement | null>(null);
 // when the dialog closes so keyboard users don't lose their place.
 let previouslyFocused: HTMLElement | null = null;
 
-// Stack depth at the moment this dialog opened (number of OTHER dialogs
+// Shared, reference-counted body scroll lock (see bodyScrollLock.ts).
+const { lock: lockBodyScroll, unlock: unlockBodyScroll } =
+  createBodyScrollLock();
+
+// Stack depth at the moment this dialog opened (number of overlays
 // already open). Drives a per-instance z-index bump so a dialog opened
 // from inside another dialog always paints above its parent surface,
 // regardless of Teleport mount order. Reset to 0 on close.
@@ -96,41 +108,15 @@ const stackEntry: EscapableEntry = {
   },
 };
 
-// ── Body scroll lock — reference-counted so nested dialogs unlock
-// correctly when the outer one is still open. ─────────────────────
-function lockBodyScroll() {
-  const cur = Number(document.body.dataset.rDialogOpenCount ?? "0") + 1;
-  document.body.dataset.rDialogOpenCount = String(cur);
-  if (cur === 1) {
-    // Remember whatever overflow was already in effect (e.g. a gallery
-    // view that locks the body for its whole lifetime) so we restore it
-    // on unlock instead of clobbering it to "".
-    document.body.dataset.rDialogPrevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-  }
-}
-function unlockBodyScroll() {
-  const cur = Math.max(
-    0,
-    Number(document.body.dataset.rDialogOpenCount ?? "0") - 1,
-  );
-  document.body.dataset.rDialogOpenCount = String(cur);
-  if (cur === 0) {
-    document.body.style.overflow =
-      document.body.dataset.rDialogPrevOverflow ?? "";
-    delete document.body.dataset.rDialogPrevOverflow;
-  }
-}
-
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
       previouslyFocused = document.activeElement as HTMLElement | null;
-      // Snapshot the open-dialog count BEFORE incrementing it via
+      // Snapshot the open-overlay count BEFORE incrementing it via
       // lockBodyScroll(), so the first dialog reads depth 0 and any
       // subsequent dialog sees the previous ones and stacks on top.
-      stackDepth.value = Number(document.body.dataset.rDialogOpenCount ?? "0");
+      stackDepth.value = overlayCount();
       lockBodyScroll();
       pushEscapable(stackEntry);
       // Defer to the next tick so the panel is mounted before we
@@ -159,9 +145,14 @@ watch(
 );
 
 // Safety net — if the component unmounts while still open (parent
-// teardown, route change), drop our stack entry so the global listener
-// never tries to close a destroyed instance.
-onBeforeUnmount(() => popEscapable(stackEntry));
+// teardown, route change, or a consumer nulling its `v-if` entity in the
+// same tick as `show`), drop our stack entry so the global listener never
+// tries to close a destroyed instance, and release the body scroll lock
+// the watcher's close branch never got to run.
+onBeforeUnmount(() => {
+  popEscapable(stackEntry);
+  unlockBodyScroll();
+});
 
 // ── Width / height resolution ───────────────────────────────────
 function asLength(v: number | string): string | undefined {
@@ -198,7 +189,10 @@ const panelStyle = computed(() => {
         v-if="modelValue"
         v-bind="$attrs"
         class="r-dialog"
-        :class="{ 'r-dialog--fs-mobile': fullscreenOnMobile }"
+        :class="{
+          'r-dialog--fs-mobile': fullscreenOnMobile,
+          'r-dialog--full-height': fullHeightOnMobile,
+        }"
         role="presentation"
         :style="dialogStyle"
       >
@@ -296,7 +290,6 @@ const panelStyle = computed(() => {
   border: 1px solid var(--r-color-panel-border);
   border-radius: var(--r-radius-card);
   backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
   box-shadow:
     0 20px 60px color-mix(in srgb, black 70%, transparent),
     0 4px 20px color-mix(in srgb, black 40%, transparent);
@@ -322,10 +315,23 @@ html[data-bp~="sm-and-down"] .r-dialog--fs-mobile .r-dialog__panel {
   width: 100vw !important;
   max-width: 100vw !important;
   min-height: 0 !important;
-  max-height: 92dvh !important;
+  /* Cap at the space below the top navbar so a tall sheet (Match / Edit ROM)
+     never rides up over it — same ceiling the full-height user-menu sheet
+     uses. Short dialogs stay content-height; tall ones scroll internally. */
+  max-height: calc(100dvh - var(--r-nav-h)) !important;
   border-radius: var(--r-radius-xl) var(--r-radius-xl) 0 0 !important;
   border-bottom: 0 !important;
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Full-height variant — pin the sheet to that same ceiling as a fixed height
+   (not just a cap) so it fills the screen below the navbar regardless of
+   content, overriding any inline `height` the consumer set for desktop. The
+   body (with `scrollContent`) scrolls internally. */
+html[data-bp~="sm-and-down"]
+  .r-dialog--fs-mobile.r-dialog--full-height
+  .r-dialog__panel {
+  height: calc(100dvh - var(--r-nav-h)) !important;
 }
 
 /* ── Header ─────────────────────────────────────────────────────── */

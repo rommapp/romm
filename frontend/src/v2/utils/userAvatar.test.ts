@@ -3,26 +3,43 @@ import { defaultAvatarPath } from "@/utils";
 import { userAvatarUrl } from "./userAvatar";
 
 describe("userAvatarUrl", () => {
-  it("builds a raw-asset URL for an uploaded avatar", () => {
+  it("builds an id-based avatar URL for an uploaded avatar", () => {
     expect(
-      userAvatarUrl(
-        "users/abc/profile/avatar.png",
-        "2026-06-17T10:58:32+00:00",
-      ),
-    ).toBe(
-      "/api/raw/assets/users/abc/profile/avatar.png?ts=2026-06-17T10:58:32+00:00",
-    );
+      userAvatarUrl({
+        userId: 42,
+        avatarPath: "users/abc/profile/avatar.png",
+        updatedAt: "2026-06-17T10:58:32+00:00",
+      }),
+    ).toBe("/api/users/42/avatar?ts=2026-06-17T10:58:32+00:00");
   });
 
-  it("uses the /api/raw/assets prefix, not the static frontend mount", () => {
-    const url = userAvatarUrl("users/abc/profile/avatar.png", "ts");
-    expect(url.startsWith("/api/raw/assets/")).toBe(true);
+  it("uses the /api/users prefix, not the static frontend mount", () => {
+    const url = userAvatarUrl({
+      userId: 42,
+      avatarPath: "users/abc/profile/avatar.png",
+      updatedAt: "ts",
+    });
+    expect(url.startsWith("/api/users/")).toBe(true);
     expect(url).not.toContain("/assets/romm/");
   });
 
-  it("falls back to the default avatar when no path is set", () => {
-    expect(userAvatarUrl("", "2026-06-17")).toBe(defaultAvatarPath);
-    expect(userAvatarUrl(null, null)).toBe(defaultAvatarPath);
-    expect(userAvatarUrl(undefined, undefined)).toBe(defaultAvatarPath);
+  it("falls back to the default avatar when no path or id is set", () => {
+    expect(
+      userAvatarUrl({ userId: 42, avatarPath: "", updatedAt: "2026-06-17" }),
+    ).toBe(defaultAvatarPath);
+    expect(
+      userAvatarUrl({
+        userId: null,
+        avatarPath: "users/abc/profile/avatar.png",
+        updatedAt: "ts",
+      }),
+    ).toBe(defaultAvatarPath);
+    expect(
+      userAvatarUrl({
+        userId: undefined,
+        avatarPath: undefined,
+        updatedAt: undefined,
+      }),
+    ).toBe(defaultAvatarPath);
   });
 });

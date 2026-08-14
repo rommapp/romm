@@ -3,24 +3,27 @@ from typing import Annotated
 from fastapi import Body, File, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, UploadFile, status
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import ScreenshotSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
+from handler.filesystem.assets_handler import build_asset_file_response
 from handler.scan_handler import scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.filesystem import sanitize_filename
-from utils.router import APIRouter
-from utils.screenshots import (
-    ALLOWED_SCREENSHOT_EXTENSIONS,
-    is_allowed_screenshot_file,
+from utils.media_types import (
+    ALLOWED_IMAGE_EXTENSIONS,
+    is_allowed_image_file,
 )
+from utils.router import APIRouter
+from utils.uploads import check_asset_upload_size
 
 router = APIRouter(
     prefix="/screenshots",
@@ -42,6 +45,8 @@ async def add_screenshot(
     `is_gallery=True` so it surfaces in the gallery; `is_public=False` so it
     stays private until the owner shares it.
     """
+    check_asset_upload_size(screenshotFile, "Screenshot file")
+
     rom = db_rom_handler.get_rom(id=rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
@@ -68,12 +73,12 @@ async def add_screenshot(
             detail=f"Invalid screenshot filename: {str(exc)}",
         ) from exc
 
-    if not is_allowed_screenshot_file(sanitized_screenshot_filename):
+    if not is_allowed_image_file(sanitized_screenshot_filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"Unsupported image file type. Allowed: "
-                f"{', '.join(sorted(ALLOWED_SCREENSHOT_EXTENSIONS))}"
+                f"{', '.join(sorted(ALLOWED_IMAGE_EXTENSIONS))}"
             ),
         )
 
@@ -113,6 +118,48 @@ async def add_screenshot(
         )
 
     return ScreenshotSchema.model_validate(db_screenshot)
+
+
+@protected_route(
+    router.get,
+    "/{id}/content",
+    [Scope.ASSETS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def download_screenshot(
+    request: Request,
+    id: Annotated[int, PathVar(description="Screenshot internal id.", ge=1)],
+) -> FileResponse:
+    """Download a screenshot file. Owner can download any of their screenshots;
+    everyone else only public ones."""
+    screenshot = db_screenshot_handler.get_screenshot_by_id(id)
+    if not screenshot or (
+        screenshot.user_id != request.user.id and not screenshot.is_public
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Screenshot not found",
+        )
+
+    # Sharing must not override the hidden-ROM/platform policy: a screenshot on a
+    # ROM hidden from the caller stays 404-masked, just like the ROM itself.
+    assert_rom_visible(request, screenshot.rom, not_found_detail="Screenshot not found")
+
+    try:
+        file_path = fs_asset_handler.validate_path(screenshot.full_path)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Screenshot not found",
+        ) from None
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Screenshot file not found on disk",
+        )
+
+    return build_asset_file_response(file_path, filename=screenshot.file_name)
 
 
 @protected_route(

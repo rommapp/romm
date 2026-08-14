@@ -9,6 +9,7 @@ import { useI18n } from "vue-i18n";
 import userApi from "@/services/api/user";
 import type { Events } from "@/types/emitter";
 import { getRoleIcon } from "@/utils";
+import { useClipboard } from "@/v2/composables/useClipboard";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 
@@ -17,6 +18,7 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const clipboard = useClipboard();
 
 const show = ref(false);
 const generating = ref(false);
@@ -24,7 +26,7 @@ const fullInviteLink = ref("");
 const selectedRole = ref<string | null>(null);
 const selectedExpiration = ref<number>(86400);
 
-const roles = ["viewer", "editor", "admin"];
+const roles = ["admin", "user"];
 const expirationOptions = computed(() => [
   { title: t("settings.expiry-1h"), value: 3600 },
   { title: t("settings.expiry-6h"), value: 21600 },
@@ -72,12 +74,9 @@ async function createInviteLink() {
 }
 
 async function copyLink() {
-  try {
-    await navigator.clipboard.writeText(fullInviteLink.value);
-    snackbar.success(t("settings.link-copied"), { icon: "mdi-check-bold" });
-  } catch {
-    /* clipboard unavailable */
-  }
+  await clipboard.copy(fullInviteLink.value, {
+    successMessage: t("settings.link-copied"),
+  });
 }
 
 function close() {
@@ -106,7 +105,7 @@ function close() {
             @click="selectedRole = role"
           >
             <RIcon :icon="getRoleIcon(role)" size="14" />
-            {{ role.charAt(0).toUpperCase() + role.slice(1) }}
+            {{ t(`settings.role-${role}`) }}
           </button>
         </div>
       </div>

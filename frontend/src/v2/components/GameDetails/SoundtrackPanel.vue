@@ -22,7 +22,7 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
-  RomFileAudioMetaSchema,
+  TrackMetaSchema,
   SoundtrackTrackMetaSchema,
 } from "@/__generated__";
 import romApi from "@/services/api/rom";
@@ -42,7 +42,11 @@ const VolumeControl = defineAsyncComponent(
   () => import("@/v2/components/Soundtrack/VolumeControl.vue"),
 );
 
-const props = defineProps<{ rom: DetailedRom }>();
+const props = defineProps<{
+  rom: DetailedRom;
+  /** Show the per-track delete button (host gates it on the ROM write grant). */
+  deletable?: boolean;
+}>();
 const emit = defineEmits<{
   (e: "upload-tracks"): void;
   (e: "delete-track", fileId: number): void;
@@ -102,16 +106,16 @@ const folderCoverUrl = computed(() => {
 });
 
 // ---------- Metadata fetch ----------
-const tracksMeta = ref<Map<number, RomFileAudioMetaSchema>>(new Map());
+const tracksMeta = ref<Map<number, TrackMetaSchema>>(new Map());
 const isLoadingMeta = ref(false);
 let metaAbort: AbortController | null = null;
 
-function coverUrlForMeta(m: RomFileAudioMetaSchema | undefined): string | null {
+function coverUrlForMeta(m: TrackMetaSchema | undefined): string | null {
   if (m?.cover_path) return `${FRONTEND_RESOURCES_PATH}/${m.cover_path}`;
   return null;
 }
 
-function toPlayerMeta(m: RomFileAudioMetaSchema | undefined): PlayerMeta {
+function toPlayerMeta(m: TrackMetaSchema | undefined): PlayerMeta {
   return {
     title: m?.title ?? undefined,
     artist: m?.artist ?? undefined,
@@ -150,9 +154,9 @@ async function loadAllMetadata() {
       romId: props.rom.id,
       signal: metaAbort.signal,
     });
-    const next = new Map<number, RomFileAudioMetaSchema>();
+    const next = new Map<number, TrackMetaSchema>();
     for (const row of data as SoundtrackTrackMetaSchema[]) {
-      if (row.audio_meta) next.set(row.file_id, row.audio_meta);
+      if (row.track_meta) next.set(row.file_id, row.track_meta);
     }
     tracksMeta.value = next;
     syncStorePlaylist();
@@ -193,7 +197,7 @@ const activeTrack = computed(() =>
   tracks.value.find((t) => t.id === activeTrackId.value),
 );
 
-const activeMeta = computed<RomFileAudioMetaSchema | undefined>(() =>
+const activeMeta = computed<TrackMetaSchema | undefined>(() =>
   activeTrackId.value != null
     ? tracksMeta.value.get(activeTrackId.value)
     : undefined,
@@ -237,14 +241,18 @@ function trackDurationFor(fileId: number): number | undefined {
 // Chips shown in the now-playing header.
 type ChipItem = { icon: string; label: string; color?: string };
 
-function headerChips(meta: RomFileAudioMetaSchema | undefined): ChipItem[] {
+function headerChips(meta: TrackMetaSchema | undefined): ChipItem[] {
   if (!meta) return [];
   const items: ChipItem[] = [];
   if (meta.album) items.push({ icon: "mdi-album", label: meta.album });
   if (meta.artist)
     items.push({ icon: "mdi-account-music", label: meta.artist });
   if (meta.year)
-    items.push({ icon: "mdi-calendar", label: meta.year, color: "accent" });
+    items.push({
+      icon: "mdi-calendar",
+      label: String(meta.year),
+      color: "accent",
+    });
   if (meta.genre)
     items.push({ icon: "mdi-music-clef-treble", label: meta.genre });
   if (meta.track)
@@ -266,11 +274,15 @@ function rowChips(fileId: number): ChipItem[] {
   if (!meta) return [];
   const items: ChipItem[] = [];
   if (meta.year)
-    items.push({ icon: "mdi-calendar", label: meta.year, color: "accent" });
+    items.push({
+      icon: "mdi-calendar",
+      label: String(meta.year),
+      color: "accent",
+    });
   if (meta.genre)
     items.push({ icon: "mdi-music-clef-treble", label: meta.genre });
   if (meta.track) items.push({ icon: "mdi-numeric", label: `#${meta.track}` });
-  if (meta.disc) items.push({ icon: "mdi-disc", label: meta.disc });
+  if (meta.disc) items.push({ icon: "mdi-disc", label: String(meta.disc) });
   return items;
 }
 
@@ -535,6 +547,7 @@ function seekValueText(v: number): string {
             @click.stop="downloadTrack(track)"
           />
           <RBtn
+            v-if="deletable"
             icon="mdi-delete-outline"
             variant="text"
             size="small"
@@ -692,6 +705,7 @@ function seekValueText(v: number): string {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 

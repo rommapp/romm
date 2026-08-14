@@ -8,10 +8,7 @@
 // (96px, right-aligned).
 
 export type CollectionListSortKey =
-  | "name"
-  | "kind"
-  | "visibility"
-  | "rom_count";
+  "name" | "kind" | "visibility" | "rom_count";
 
 export interface CollectionListColumn {
   /** Unique column id. */

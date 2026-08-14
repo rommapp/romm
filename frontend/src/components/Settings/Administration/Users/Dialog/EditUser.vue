@@ -128,7 +128,7 @@ function closeDialog() {
             <v-select
               v-model="user.role"
               variant="outlined"
-              :items="['viewer', 'editor', 'admin']"
+              :items="['admin', 'user']"
               :label="t('settings.role')"
               required
               class="ma-2"
