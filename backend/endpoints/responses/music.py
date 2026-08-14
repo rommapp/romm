@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import quote
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from config import FRONTEND_RESOURCES_PATH
 
@@ -26,11 +26,14 @@ class MusicTrackSchema(BaseModel):
     has_embedded_cover: bool = False
     is_favorite: bool = False
     game_name: str | None = None
+    game_genres: list[str] = Field(default_factory=list)
+    added_at: UTCDatetime
     platform_id: int
     platform_slug: str
     platform_name: str
     stream_url: str
     cover_url: str | None = None
+    game_cover_url: str | None = None
 
     @staticmethod
     def cover_url_for(cover_path: str | None, rom_cover_path: str | None) -> str | None:
@@ -55,11 +58,18 @@ class MusicTrackSchema(BaseModel):
             has_embedded_cover=row.has_embedded_cover,
             is_favorite=bool(row.is_favorite),
             game_name=row.game_name,
+            game_genres=row.game_genres or [],
+            added_at=row.added_at,
             platform_id=row.platform_id,
             platform_slug=row.platform_slug,
             platform_name=row.platform_name,
             stream_url=f"/api/roms/{row.rom_file_id}/files/content/{quote(row.file_name)}",
             cover_url=cls.cover_url_for(row.cover_path, row.path_cover_l),
+            game_cover_url=(
+                f"{FRONTEND_RESOURCES_PATH}/{row.path_cover_l}"
+                if row.path_cover_l
+                else None
+            ),
         )
 
 

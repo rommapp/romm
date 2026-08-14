@@ -2353,6 +2353,8 @@ class DBRomsHandler(DBBaseHandler):
                 is_favorite_col.label("is_favorite"),
                 Rom.name.label("game_name"),
                 Rom.path_cover_l.label("path_cover_l"),
+                RomMetadata.genres.label("game_genres"),
+                RomFile.created_at.label("added_at"),
                 Platform.id.label("platform_id"),
                 Platform.slug.label("platform_slug"),
                 Platform.name.label("platform_name"),
@@ -2360,6 +2362,7 @@ class DBRomsHandler(DBBaseHandler):
             .select_from(TrackMeta)
             .join(RomFile, TrackMeta.rom_file_id == RomFile.id)
             .join(Rom, TrackMeta.rom_id == Rom.id)
+            .outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
             .join(Platform, Rom.platform_id == Platform.id)
         )
         if is_favorite_user_id is not None:

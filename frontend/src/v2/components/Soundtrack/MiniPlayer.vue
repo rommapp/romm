@@ -38,6 +38,7 @@ const {
   duration,
   hasPrevious,
   hasNext,
+  isShuffled,
 } = storeToRefs(store);
 
 const audioEl = ref<HTMLAudioElement | null>(null);
@@ -48,15 +49,33 @@ const audioEl = ref<HTMLAudioElement | null>(null);
 // current state. Same idiom as v1's mini player.
 let loadToken = 0;
 
-const onSoundtrackSubtab = computed(
-  () =>
+const JUKEBOX_PLAYER_MODES = new Set([
+  "album",
+  "artist",
+  "decade",
+  "favorite",
+  "genre",
+  "platform",
+  "recent",
+  "play-all",
+  "station",
+]);
+
+const onFullSoundtrackPlayer = computed(() => {
+  const jukeboxMode = route.query.mode;
+  const onJukeboxPlayer =
+    route.name === "music" &&
+    typeof jukeboxMode === "string" &&
+    JUKEBOX_PLAYER_MODES.has(jukeboxMode);
+  const onGameSoundtrack =
     route.name === "rom" &&
     route.query.tab === "media" &&
-    route.query.subtab === "soundtrack",
-);
+    route.query.subtab === "soundtrack";
+  return onJukeboxPlayer || onGameSoundtrack;
+});
 
 const showMiniPlayer = computed(
-  () => track.value !== null && !onSoundtrackSubtab.value,
+  () => track.value !== null && !onFullSoundtrackPlayer.value,
 );
 
 const coverUrl = computed(
@@ -272,6 +291,16 @@ function openRom() {
         />
         <span class="r-v2-mp__transport-spacer" />
         <VolumeControl size="small" />
+        <RBtn
+          icon="mdi-shuffle"
+          :variant="isShuffled ? 'translucent' : 'text'"
+          size="small"
+          :color="isShuffled ? 'primary' : undefined"
+          :aria-pressed="isShuffled"
+          :tooltip="t('common.shuffle')"
+          :aria-label="t('common.shuffle')"
+          @click="store.toggleShuffle()"
+        />
       </div>
 
       <!-- Seek row -->

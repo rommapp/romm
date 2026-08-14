@@ -4,17 +4,27 @@
 // Consumes the shared `useSoundtrackPlayer` store (the actual HTMLAudioElement
 // lives inside SoundtrackMiniPlayer, which stays mounted app-wide). Clicking
 // a track here fills the store playlist and calls `player.play(...)`; the
-// mini-player hides automatically when route.query.subtab === "soundtrack",
-// so only one "now playing" surface is ever on screen.
+// mini-player hides automatically whenever this panel is hosted by a full
+// soundtrack surface, so only one "now playing" surface is ever on screen.
 //
 // Key difference from the v1 player: metadata chips are shown per track AND
 // in the now-playing header, not just in the header.
-import { RBtn, RChip, RIcon, RSlider, RSpinner } from "@v2/lib";
+import {
+  RBtn,
+  RChip,
+  RDivider,
+  RIcon,
+  RMenu,
+  RMenuItem,
+  RSlider,
+  RSpinner,
+} from "@v2/lib";
 import axios, { type AxiosRequestConfig } from "axios";
 import { storeToRefs } from "pinia";
 import {
   computed,
   defineAsyncComponent,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -22,9 +32,11 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
+  MusicTrackSchema,
   TrackMetaSchema,
   SoundtrackTrackMetaSchema,
 } from "@/__generated__";
+import musicApi from "@/services/api/music";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import useSoundtrackPlayer, {
@@ -33,6 +45,7 @@ import useSoundtrackPlayer, {
   resolveSoundtrackGameArtwork,
 } from "@/stores/soundtrackPlayer";
 import { FRONTEND_RESOURCES_PATH, formatBytes } from "@/utils";
+import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 // Volume / mute widget — v2 native (RMenu + RSlider + RBtn). The
@@ -44,17 +57,21 @@ const VolumeControl = defineAsyncComponent(
 );
 
 const props = defineProps<{
-  rom: DetailedRom;
+  rom?: DetailedRom;
+  musicTracks?: MusicTrackSchema[];
+  startShuffled?: boolean;
   /** Show the per-track delete button (host gates it on the ROM write grant). */
   deletable?: boolean;
 }>();
 const emit = defineEmits<{
   (e: "upload-tracks"): void;
-  (e: "delete-track", fileId: number): void;
+  (e: "delete-track", fileId: number, romId: number): void;
+  (e: "favorite-track", fileId: number, isFavorite: boolean): void;
 }>();
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
+const canEditPlaylists = useCan("playlist.edit");
 
 const player = useSoundtrackPlayer();
 const {
@@ -63,8 +80,10 @@ const {
   isBuffering,
   currentTime,
   duration,
+  playlist,
   hasPrevious,
   hasNext,
+  isShuffled,
 } = storeToRefs(player);
 
 // ---------- Track + cover discovery ----------
@@ -88,17 +107,100 @@ function fileUrl(fileId: number, fileName: string): string {
   return `/api/roms/${fileId}/files/content/${encodeURIComponent(fileName)}`;
 }
 
-const tracks = computed(() =>
-  (props.rom.files ?? [])
+interface PanelTrack {
+  id: number;
+  romId: number;
+  fileName: string;
+  fileSizeBytes?: number;
+  url: string;
+  coverUrl?: string;
+  gameArtworkUrl?: string;
+  context?: string;
+  isFavorite: boolean;
+}
+
+const tracks = computed<PanelTrack[]>(() => {
+  if (props.musicTracks) {
+    return props.musicTracks.map((track) => ({
+      id: track.rom_file_id,
+      romId: track.rom_id,
+      fileName: track.title || track.game_name || String(track.rom_file_id),
+      url: track.stream_url,
+      coverUrl: track.cover_url || undefined,
+      gameArtworkUrl: track.game_cover_url || undefined,
+      context: [track.game_name, track.platform_name].filter(Boolean).join(" · "),
+      isFavorite: Boolean(track.is_favorite),
+    }));
+  }
+
+  return (props.rom?.files ?? [])
     .filter(
-      (f) => f.category === "soundtrack" && AUDIO_EXTS.has(getExt(f.file_name)),
+      (file) =>
+        file.category === "soundtrack" && AUDIO_EXTS.has(getExt(file.file_name)),
     )
     .slice()
-    .sort((a, b) => a.file_name.localeCompare(b.file_name)),
-);
+    .sort((a, b) => a.file_name.localeCompare(b.file_name))
+    .map((track) => ({
+      id: track.id,
+      romId: props.rom!.id,
+      fileName: track.file_name,
+      fileSizeBytes: track.file_size_bytes,
+      url: fileUrl(track.id, track.file_name),
+      isFavorite: false,
+    }));
+});
+
+const favoriteOverrides = ref<Map<number, boolean>>(new Map());
+const updatingFavorites = ref<Set<number>>(new Set());
+
+function isTrackFavorite(track: PanelTrack): boolean {
+  return favoriteOverrides.value.get(track.id) ?? track.isFavorite;
+}
+
+async function toggleFavorite(track: PanelTrack) {
+  if (updatingFavorites.value.has(track.id)) return;
+  const nextFavorite = !isTrackFavorite(track);
+  updatingFavorites.value = new Set(updatingFavorites.value).add(track.id);
+  try {
+    const payload = { rom_file_ids: [track.id] };
+    if (nextFavorite) await musicApi.addFavorites(payload);
+    else await musicApi.removeFavorites(payload);
+    favoriteOverrides.value = new Map(favoriteOverrides.value).set(
+      track.id,
+      nextFavorite,
+    );
+    emit("favorite-track", track.id, nextFavorite);
+    snackbar.success(
+      t(
+        nextFavorite
+          ? "common.soundtrack-favorite-added"
+          : "common.soundtrack-favorite-removed",
+      ),
+      { icon: nextFavorite ? "mdi-heart" : "mdi-heart-outline" },
+    );
+  } catch {
+    snackbar.error(t("common.soundtrack-favorite-failed"), {
+      icon: "mdi-alert-circle-outline",
+    });
+  } finally {
+    const pending = new Set(updatingFavorites.value);
+    pending.delete(track.id);
+    updatingFavorites.value = pending;
+  }
+}
+
+const displayedTracks = computed(() => {
+  if (!props.startShuffled || !isShuffled.value) return tracks.value;
+  const byId = new Map(
+    tracks.value.map((track) => [`${track.romId}:${track.id}`, track]),
+  );
+  return playlist.value
+    .map((track) => byId.get(`${track.romId}:${track.fileId}`))
+    .filter((track): track is PanelTrack => Boolean(track));
+});
 
 const folderCoverUrl = computed(() => {
-  const cover = (props.rom.files ?? [])
+  const cover = (props.rom?.files ?? [])
     .filter(
       (f) => f.category === "soundtrack" && COVER_EXTS.has(getExt(f.file_name)),
     )
@@ -107,20 +209,24 @@ const folderCoverUrl = computed(() => {
 });
 
 const gameArtworkUrl = computed(() =>
-  resolveSoundtrackGameArtwork(props.rom),
+  props.rom ? resolveSoundtrackGameArtwork(props.rom) : undefined,
 );
 
 // ---------- Metadata fetch ----------
 const tracksMeta = ref<Map<number, TrackMetaSchema>>(new Map());
 const isLoadingMeta = ref(false);
 let metaAbort: AbortController | null = null;
+let shouldStartShuffled = Boolean(props.startShuffled);
 
 function coverUrlForMeta(m: TrackMetaSchema | undefined): string | null {
   if (m?.cover_path) return `${FRONTEND_RESOURCES_PATH}/${m.cover_path}`;
   return null;
 }
 
-function toPlayerMeta(m: TrackMetaSchema | undefined): PlayerMeta {
+function toPlayerMeta(
+  m: TrackMetaSchema | undefined,
+  track?: PanelTrack,
+): PlayerMeta {
   return {
     title: m?.title ?? undefined,
     artist: m?.artist ?? undefined,
@@ -130,28 +236,50 @@ function toPlayerMeta(m: TrackMetaSchema | undefined): PlayerMeta {
     track: m?.track ?? undefined,
     disc: m?.disc ?? undefined,
     duration: m?.duration_seconds ?? undefined,
-    coverUrl: coverUrlForMeta(m) ?? undefined,
+    coverUrl: track?.coverUrl ?? coverUrlForMeta(m) ?? undefined,
     folderCoverUrl: folderCoverUrl.value ?? undefined,
-    gameArtworkUrl: gameArtworkUrl.value,
+    gameArtworkUrl: track?.gameArtworkUrl ?? gameArtworkUrl.value,
   };
 }
 
-function syncStorePlaylist() {
-  if (player.activePlaylistRomId !== props.rom.id) return;
+function syncOrStartPlaylist() {
+  const selectedTrackIsAvailable =
+    tracks.value.some(
+      (track) =>
+        track.id === activeStoreTrack.value?.fileId &&
+        track.romId === activeStoreTrack.value?.romId,
+    );
+  if (!selectedTrackIsAvailable) {
+    const firstTrack = tracks.value[0];
+    if (firstTrack) selectTrack(firstTrack.id);
+    return;
+  }
   const playerTracks: PlayerTrack[] = tracks.value.map((t) => ({
-    romId: props.rom.id,
+    romId: t.romId,
     fileId: t.id,
-    fileName: t.file_name,
-    url: fileUrl(t.id, t.file_name),
+    fileName: t.fileName,
+    url: t.url,
   }));
   const metas: Record<number, PlayerMeta> = {};
   for (const t of tracks.value) {
-    metas[t.id] = toPlayerMeta(tracksMeta.value.get(t.id));
+    metas[t.id] = toPlayerMeta(tracksMeta.value.get(t.id), t);
   }
-  player.loadPlaylistForRom(props.rom.id, playerTracks, metas);
+  player.loadPlaylist(playerTracks, metas, props.rom?.id, true);
+  if (shouldStartShuffled) {
+    if (!isShuffled.value) player.toggleShuffle();
+    shouldStartShuffled = false;
+  }
 }
 
 async function loadAllMetadata() {
+  if (props.musicTracks) {
+    tracksMeta.value = new Map(
+      props.musicTracks.map((track) => [track.rom_file_id, track]),
+    );
+    syncOrStartPlaylist();
+    return;
+  }
+  if (!props.rom) return;
   metaAbort?.abort();
   metaAbort = new AbortController();
   isLoadingMeta.value = true;
@@ -165,7 +293,18 @@ async function loadAllMetadata() {
       if (row.track_meta) next.set(row.file_id, row.track_meta);
     }
     tracksMeta.value = next;
-    syncStorePlaylist();
+    try {
+      const { data: catalog } = await musicApi.getTracks({ romId: props.rom.id });
+      favoriteOverrides.value = new Map(
+        catalog.items.map((track) => [
+          track.rom_file_id,
+          Boolean(track.is_favorite),
+        ]),
+      );
+    } catch {
+      // Metadata playback remains available if favorite state cannot load.
+    }
+    syncOrStartPlaylist();
   } catch (err: unknown) {
     const maybeCfg = err as { config?: AxiosRequestConfig };
     if (axios.isCancel(err) || maybeCfg.config?.signal?.aborted) return;
@@ -173,6 +312,7 @@ async function loadAllMetadata() {
       icon: "mdi-alert",
       timeout: 3000,
     });
+    syncOrStartPlaylist();
   } finally {
     isLoadingMeta.value = false;
   }
@@ -184,7 +324,7 @@ onMounted(() => {
 
 // Refetch when the rom updates (new tracks, re-tagged files, etc.).
 watch(
-  () => props.rom.updated_at,
+  () => [props.rom?.updated_at, props.musicTracks] as const,
   () => void loadAllMetadata(),
 );
 
@@ -194,7 +334,12 @@ onBeforeUnmount(() => {
 
 // ---------- Active-track + derived metadata ----------
 const activeTrackId = computed(() =>
-  activeStoreTrack.value && activeStoreTrack.value.romId === props.rom.id
+  activeStoreTrack.value &&
+  tracks.value.some(
+    (track) =>
+      track.id === activeStoreTrack.value?.fileId &&
+      track.romId === activeStoreTrack.value?.romId,
+  )
     ? activeStoreTrack.value.fileId
     : null,
 );
@@ -202,6 +347,15 @@ const activeTrackId = computed(() =>
 const activeTrack = computed(() =>
   tracks.value.find((t) => t.id === activeTrackId.value),
 );
+
+const panelRoot = ref<HTMLElement | null>(null);
+watch(activeTrackId, async (fileId, previousFileId) => {
+  if (fileId == null || fileId === previousFileId) return;
+  await nextTick();
+  panelRoot.value
+    ?.querySelector<HTMLElement>(`[data-track-id="${fileId}"]`)
+    ?.scrollIntoView({ block: "nearest" });
+});
 
 const activeMeta = computed<TrackMetaSchema | undefined>(() =>
   activeTrackId.value != null
@@ -211,6 +365,7 @@ const activeMeta = computed<TrackMetaSchema | undefined>(() =>
 
 const activeArtUrl = computed(
   () =>
+    activeTrack.value?.coverUrl ??
     coverUrlForMeta(activeMeta.value) ??
     folderCoverUrl.value ??
     gameArtworkUrl.value ??
@@ -221,7 +376,7 @@ const activeTitle = computed(
   () =>
     activeMeta.value?.title ??
     (activeTrack.value
-      ? activeTrack.value.file_name.replace(/\.[^.]+$/, "")
+      ? activeTrack.value.fileName.replace(/\.[^.]+$/, "")
       : ""),
 );
 
@@ -234,10 +389,11 @@ function trackTitleFor(fileId: number, fallback: string): string {
 
 function trackSubtitleFor(fileId: number): string {
   const m = tracksMeta.value.get(fileId);
-  if (!m) return "";
   const parts: string[] = [];
-  if (m.artist) parts.push(m.artist);
-  if (m.album) parts.push(m.album);
+  if (m?.artist) parts.push(m.artist);
+  if (m?.album) parts.push(m.album);
+  const context = tracks.value.find((track) => track.id === fileId)?.context;
+  if (context) parts.push(context);
   return parts.join(" · ");
 }
 
@@ -275,24 +431,6 @@ function headerChips(meta: TrackMetaSchema | undefined): ChipItem[] {
   return items;
 }
 
-// Compact chips shown on each track row — keep it tight so rows don't bloat.
-function rowChips(fileId: number): ChipItem[] {
-  const meta = tracksMeta.value.get(fileId);
-  if (!meta) return [];
-  const items: ChipItem[] = [];
-  if (meta.year)
-    items.push({
-      icon: "mdi-calendar",
-      label: String(meta.year),
-      color: "accent",
-    });
-  if (meta.genre)
-    items.push({ icon: "mdi-music-clef-treble", label: meta.genre });
-  if (meta.track) items.push({ icon: "mdi-numeric", label: `#${meta.track}` });
-  if (meta.disc) items.push({ icon: "mdi-disc", label: String(meta.disc) });
-  return items;
-}
-
 // ---------- Totals ----------
 const totalDurationSeconds = computed(() => {
   let total = 0;
@@ -309,32 +447,35 @@ function selectTrack(fileId: number) {
   if (!target) return;
 
   const playerTracks: PlayerTrack[] = tracks.value.map((t) => ({
-    romId: props.rom.id,
+    romId: t.romId,
     fileId: t.id,
-    fileName: t.file_name,
-    url: fileUrl(t.id, t.file_name),
+    fileName: t.fileName,
+    url: t.url,
   }));
   const metas: Record<number, PlayerMeta> = {};
   for (const t of tracks.value) {
-    metas[t.id] = toPlayerMeta(tracksMeta.value.get(t.id));
+    metas[t.id] = toPlayerMeta(tracksMeta.value.get(t.id), t);
   }
-  player.loadPlaylistForRom(props.rom.id, playerTracks, metas);
+  const wasShuffled = isShuffled.value;
+  player.loadPlaylist(playerTracks, metas, props.rom?.id, wasShuffled);
   const entry = playerTracks.find((p) => p.fileId === fileId)!;
   player.play(entry, metas[fileId]);
+  if (shouldStartShuffled && !isShuffled.value) player.toggleShuffle();
+  shouldStartShuffled = false;
 }
 
-function onDelete(fileId: number) {
-  if (activeTrackId.value === fileId) player.stop();
-  emit("delete-track", fileId);
+function onDelete(track: PanelTrack) {
+  if (activeTrackId.value === track.id) player.stop();
+  emit("delete-track", track.id, track.romId);
 }
 
 // Mirror the saves/states pattern: synthesize an anchor click against
 // the file content endpoint so the browser routes the download with
 // the original filename instead of opening it in a new tab.
-function downloadTrack(track: { id: number; file_name: string }) {
+function downloadTrack(track: PanelTrack) {
   const a = document.createElement("a");
-  a.href = fileUrl(track.id, track.file_name);
-  a.download = track.file_name;
+  a.href = track.url;
+  a.download = track.fileName;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -359,7 +500,7 @@ function seekValueText(v: number): string {
 </script>
 
 <template>
-  <div class="r-v2-stp">
+  <div ref="panelRoot" class="r-v2-stp">
     <!-- Now playing / placeholder header -->
     <header class="r-v2-stp__now">
       <div class="r-v2-stp__cover">
@@ -430,60 +571,78 @@ function seekValueText(v: number): string {
       role="region"
       :aria-label="t('rom.soundtrack-player')"
     >
+      <div class="r-v2-stp__transport">
+        <RBtn
+          variant="text"
+          size="small"
+          :disabled="!hasPrevious"
+          prepend-icon="mdi-skip-previous"
+          :tooltip="t('rom.soundtrack-previous')"
+          :aria-label="t('rom.soundtrack-previous')"
+          @click="player.previous()"
+        />
+        <RBtn
+          variant="text"
+          size="small"
+          :disabled="!activeTrack"
+          :prepend-icon="isPlaying ? 'mdi-pause-circle' : 'mdi-play-circle'"
+          :tooltip="
+            isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
+          "
+          :aria-label="
+            isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
+          "
+          @click="player.togglePlayPause()"
+        />
+        <RBtn
+          variant="text"
+          size="small"
+          :disabled="!hasNext"
+          prepend-icon="mdi-skip-next"
+          :tooltip="t('rom.soundtrack-next')"
+          :aria-label="t('rom.soundtrack-next')"
+          @click="player.next()"
+        />
+      </div>
+      <div class="r-v2-stp__timeline">
+        <span class="r-v2-stp__time">{{ fmt(currentTime) }}</span>
+        <RSlider
+          :model-value="currentTime"
+          :max="duration || 0"
+          :step="0.1"
+          :disabled="!activeTrack"
+          color="primary"
+          class="r-v2-stp__slider"
+          :aria-label="t('rom.soundtrack-seek')"
+          :aria-valuetext="seekValueText(currentTime)"
+          @update:model-value="(v: number) => player.seek(v)"
+        />
+        <span class="r-v2-stp__time r-v2-stp__time--right">
+          {{ fmt(duration) }}
+        </span>
+      </div>
+      <div class="r-v2-stp__volume">
+        <VolumeControl size="small" />
+      </div>
       <RBtn
-        variant="text"
+        icon="mdi-shuffle"
+        :variant="isShuffled ? 'translucent' : 'text'"
         size="small"
-        :disabled="!hasPrevious"
-        prepend-icon="mdi-skip-previous"
-        :tooltip="t('rom.soundtrack-previous')"
-        :aria-label="t('rom.soundtrack-previous')"
-        @click="player.previous()"
+        :disabled="tracks.length === 0"
+        :color="isShuffled ? 'primary' : undefined"
+        :aria-pressed="isShuffled"
+        :tooltip="t('common.shuffle')"
+        :aria-label="t('common.shuffle')"
+        @click="player.toggleShuffle()"
       />
-      <RBtn
-        variant="text"
-        size="small"
-        :disabled="!activeTrack"
-        :prepend-icon="isPlaying ? 'mdi-pause-circle' : 'mdi-play-circle'"
-        :tooltip="
-          isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
-        "
-        :aria-label="
-          isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
-        "
-        @click="player.togglePlayPause()"
-      />
-      <RBtn
-        variant="text"
-        size="small"
-        :disabled="!hasNext"
-        prepend-icon="mdi-skip-next"
-        :tooltip="t('rom.soundtrack-next')"
-        :aria-label="t('rom.soundtrack-next')"
-        @click="player.next()"
-      />
-      <span class="r-v2-stp__time">{{ fmt(currentTime) }}</span>
-      <RSlider
-        :model-value="currentTime"
-        :max="duration || 0"
-        :step="0.1"
-        :disabled="!activeTrack"
-        color="primary"
-        class="r-v2-stp__slider"
-        :aria-label="t('rom.soundtrack-seek')"
-        :aria-valuetext="seekValueText(currentTime)"
-        @update:model-value="(v: number) => player.seek(v)"
-      />
-      <span class="r-v2-stp__time r-v2-stp__time--right">
-        {{ fmt(duration) }}
-      </span>
-      <VolumeControl size="small" />
     </div>
 
     <!-- Track list -->
     <ul class="r-v2-stp__list">
       <li
-        v-for="(track, trackIdx) in tracks"
+        v-for="(track, trackIdx) in displayedTracks"
         :key="track.id"
+        :data-track-id="track.id"
         class="r-v2-stp__row r-v2-asset-fade"
         :class="{
           'r-v2-stp__row--active': activeTrackId === track.id,
@@ -498,7 +657,7 @@ function seekValueText(v: number): string {
           class="r-v2-stp__row-btn"
           :aria-label="
             t('rom.play-track', {
-              title: trackTitleFor(track.id, track.file_name),
+              title: trackTitleFor(track.id, track.fileName),
             })
           "
           @click="selectTrack(track.id)"
@@ -508,25 +667,13 @@ function seekValueText(v: number): string {
                track is actually playing (vs. just selected/paused). -->
           <div class="r-v2-stp__row-meta">
             <div class="r-v2-stp__row-title">
-              {{ trackTitleFor(track.id, track.file_name) }}
+              {{ trackTitleFor(track.id, track.fileName) }}
             </div>
             <div
               v-if="trackSubtitleFor(track.id)"
               class="r-v2-stp__row-subtitle"
             >
               {{ trackSubtitleFor(track.id) }}
-            </div>
-            <div v-if="rowChips(track.id).length" class="r-v2-stp__row-chips">
-              <RChip
-                v-for="(c, i) in rowChips(track.id)"
-                :key="`r-${track.id}-${i}`"
-                size="x-small"
-                variant="translucent"
-                :color="c.color"
-                :prepend-icon="c.icon"
-              >
-                {{ c.label }}
-              </RChip>
             </div>
           </div>
         </button>
@@ -538,31 +685,52 @@ function seekValueText(v: number): string {
           >
             {{ fmt(trackDurationFor(track.id)) }}
           </span>
-          <span class="r-v2-stp__row-size">
-            {{ formatBytes(track.file_size_bytes) }}
+          <span v-if="track.fileSizeBytes != null" class="r-v2-stp__row-size">
+            {{ formatBytes(track.fileSizeBytes) }}
           </span>
-          <RBtn
-            icon="mdi-download-outline"
-            variant="text"
-            size="small"
-            :tooltip="t('common.download')"
-            :aria-label="
-              t('rom.download-named', {
-                name: trackTitleFor(track.id, track.file_name),
-              })
-            "
-            @click.stop="downloadTrack(track)"
-          />
-          <RBtn
-            v-if="deletable"
-            icon="mdi-delete-outline"
-            variant="text"
-            size="small"
-            color="romm-red"
-            :tooltip="t('common.delete')"
-            :aria-label="t('rom.soundtrack-delete-track')"
-            @click.stop="onDelete(track.id)"
-          />
+          <RMenu location="bottom end" :offset="6" width="200px">
+            <template #activator="{ props: activatorProps }">
+              <RBtn
+                v-bind="activatorProps"
+                icon="mdi-dots-vertical"
+                variant="text"
+                size="small"
+                :tooltip="t('rom.more-actions')"
+                :aria-label="t('rom.more-actions')"
+              />
+            </template>
+            <RMenuItem
+              icon="mdi-play"
+              :label="t('rom.play')"
+              @click="selectTrack(track.id)"
+            />
+            <RDivider />
+            <RMenuItem
+              v-if="canEditPlaylists"
+              :icon="isTrackFavorite(track) ? 'mdi-heart' : 'mdi-heart-outline'"
+              :label="
+                t(
+                  isTrackFavorite(track)
+                    ? 'rom.remove-from-favorites'
+                    : 'rom.add-to-favorites',
+                )
+              "
+              :disabled="updatingFavorites.has(track.id)"
+              @click="toggleFavorite(track)"
+            />
+            <RMenuItem
+              icon="mdi-download-outline"
+              :label="t('common.download')"
+              @click="downloadTrack(track)"
+            />
+            <RMenuItem
+              v-if="deletable"
+              icon="mdi-delete-outline"
+              :label="t('common.delete')"
+              variant="danger"
+              @click="onDelete(track)"
+            />
+          </RMenu>
         </div>
       </li>
     </ul>
@@ -585,35 +753,18 @@ function seekValueText(v: number): string {
 .r-v2-stp {
   display: flex;
   flex-direction: column;
-  gap: var(--r-space-4);
-  padding: var(--r-space-5);
-  /* Soundtrack tab lives inside MediaTab's `__panel` (a flex item with
-     `flex: 1; min-height: 0`), but neither MediaTab nor the GameDetails
-     panel scroll for this child — the GameDetails panel is locked to
-     viewport height via `.r-v2-media { height: 100% }`. Without an
-     internal scroll context the last track + footer get clipped by the
-     panel's overflow boundary. Owning the scroll here (full panel
-     scrolls together — now-playing header, controls and list) keeps
-     the whole thing reachable without restructuring MediaTab's chain. */
+  gap: var(--r-space-2);
+  padding: var(--r-space-4);
   height: 100%;
   min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--r-color-border-strong) transparent;
-}
-.r-v2-stp::-webkit-scrollbar {
-  width: 4px;
-}
-.r-v2-stp::-webkit-scrollbar-thumb {
-  background: var(--r-color-border-strong);
-  border-radius: 2px;
+  overflow: hidden;
 }
 
 /* Now playing / placeholder header */
 .r-v2-stp__now {
   display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: var(--r-space-5);
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: var(--r-space-4);
   align-items: center;
 }
 
@@ -733,9 +884,10 @@ function seekValueText(v: number): string {
 
 .r-v2-stp__chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--r-space-1);
   margin-top: var(--r-space-1);
+  overflow: hidden;
 }
 
 .r-v2-stp__now-hint {
@@ -755,6 +907,12 @@ function seekValueText(v: number): string {
   border-radius: var(--r-radius-md);
 }
 
+.r-v2-stp__transport,
+.r-v2-stp__timeline,
+.r-v2-stp__volume {
+  display: contents;
+}
+
 .r-v2-stp__slider {
   flex: 1;
 }
@@ -770,8 +928,51 @@ function seekValueText(v: number): string {
   text-align: right;
 }
 
+html[data-bp~="xs"] .r-v2-stp {
+  padding: var(--r-space-3);
+}
+
+html[data-bp~="xs"] .r-v2-stp__now {
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: var(--r-space-3);
+}
+
+html[data-bp~="xs"] .r-v2-stp__cover {
+  width: 64px;
+  height: 64px;
+}
+
+html[data-bp~="xs"] .r-v2-stp__controls {
+  flex-wrap: wrap;
+}
+
+html[data-bp~="xs"] .r-v2-stp__transport {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+html[data-bp~="xs"] .r-v2-stp__volume {
+  display: flex;
+  margin-left: auto;
+}
+
+html[data-bp~="xs"] .r-v2-stp__timeline {
+  order: 2;
+  flex: 1 0 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--r-space-2);
+  min-width: 0;
+}
+
 /* Track list */
 .r-v2-stp__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--r-color-border-strong) transparent;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -780,7 +981,17 @@ function seekValueText(v: number): string {
   gap: var(--r-space-1);
 }
 
+.r-v2-stp__list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.r-v2-stp__list::-webkit-scrollbar-thumb {
+  background: var(--r-color-border-strong);
+  border-radius: 2px;
+}
+
 .r-v2-stp__row {
+  flex: 0 0 auto;
   display: flex;
   align-items: stretch;
   gap: var(--r-space-2);
@@ -1119,13 +1330,6 @@ function seekValueText(v: number): string {
   text-overflow: ellipsis;
 }
 
-.r-v2-stp__row-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
-}
-
 .r-v2-stp__row-right {
   display: flex;
   align-items: center;
@@ -1146,12 +1350,12 @@ function seekValueText(v: number): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: var(--r-space-2);
-  border-top: 1px dashed var(--r-color-border);
+  min-height: 16px;
 }
 
 .r-v2-stp__footer-total {
   color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-sm);
+  font-size: var(--r-font-size-xs);
+  line-height: 16px;
 }
 </style>
