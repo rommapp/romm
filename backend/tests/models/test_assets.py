@@ -1,4 +1,6 @@
+from handler.database import db_state_handler
 from models.assets import Save, Screenshot, State
+from models.rom import Rom
 
 
 def test_save(save: Save):
@@ -15,4 +17,21 @@ def test_screenshot(screenshot: Screenshot):
     assert "test_platform_slug/screenshots/test_screenshot.png" in screenshot.full_path
     assert screenshot.download_path.startswith(
         f"/api/screenshots/{screenshot.id}/content"
+    )
+
+
+def test_a_state_defaults_to_no_disc(state: State):
+    """A single-disc game records nothing, so the column stays empty."""
+    assert state.disc_file_id is None
+
+
+def test_a_state_remembers_the_disc_it_was_captured_on(
+    state: State, multi_file_rom: Rom
+):
+    """Multi-disc resume needs the disc, not just the state file."""
+    disc = multi_file_rom.files[1]
+    db_state_handler.update_state(state.id, {"disc_file_id": disc.id})
+    assert (
+        db_state_handler.get_state(user_id=state.user_id, id=state.id).disc_file_id
+        == disc.id
     )
