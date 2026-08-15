@@ -224,11 +224,24 @@ const hasM3uFile = computed(() =>
   (rom.value?.files ?? []).some((f) => fileExtension(f.file_name) === "m3u"),
 );
 
-// A single-file rom has nothing to swap to, whatever the platform can do.
+// Mirrors the download endpoint's playlist filtering: when .cue files are
+// present only those are valid swap targets (raw .bin tracks are not), and
+// the .m3u itself is never something to swap to.
+const discOptions = computed(() => {
+  const files = (rom.value?.files ?? []).filter(
+    (f) => fileExtension(f.file_name) !== "m3u",
+  );
+  const cueFiles = files.filter((f) => fileExtension(f.file_name) === "cue");
+  const listed = cueFiles.length > 0 ? cueFiles : files;
+  return listed.map((f) => ({ title: f.file_name, value: f.id }));
+});
+
+// A rom with a single swappable disc has nothing to swap to, whatever the
+// platform can do.
 const canSwapDisc = computed(
   () =>
     capabilities.value.supportsDiscSwap &&
-    (rom.value?.files?.length ?? 0) > 1 &&
+    discOptions.value.length > 1 &&
     hasM3uFile.value &&
     !isJoining,
 );
@@ -241,18 +254,6 @@ const showManualDiscHint = computed(
     (rom.value?.files?.length ?? 0) > 1 &&
     !isJoining,
 );
-
-// Mirrors the download endpoint's playlist filtering: when .cue files are
-// present only those are valid swap targets (raw .bin tracks are not), and
-// the .m3u itself is never something to swap to.
-const discOptions = computed(() => {
-  const files = (rom.value?.files ?? []).filter(
-    (f) => fileExtension(f.file_name) !== "m3u",
-  );
-  const cueFiles = files.filter((f) => fileExtension(f.file_name) === "cue");
-  const listed = cueFiles.length > 0 ? cueFiles : files;
-  return listed.map((f) => ({ title: f.file_name, value: f.id }));
-});
 
 // ── Resume-from-state picker ────────────────────────────────────────
 // States the container's emulator can resume from: the user's own plus
