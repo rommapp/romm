@@ -4494,7 +4494,8 @@ def test_a_proxied_webstation_host_derives_nothing():
 def test_swap_disc_calls_the_broker_and_records_the_disc(client, access_token):
     rom = _rom_on("dc")
     disc = _add_rom_file(rom, "Game (Disc 2).chd")
-    with _streaming(_container_for(rom)):
+    container = _container_for(rom)
+    with _streaming(container):
         _claim_ok(client, access_token, rom.id)
         with patch("endpoints.streaming._swap_disc_broker", return_value=True) as swap:
             r = client.post(
@@ -4502,6 +4503,7 @@ def test_swap_disc_calls_the_broker_and_records_the_disc(client, access_token):
                 json={"file_id": disc.id},
                 headers=_auth(access_token),
             )
+        raw = _session_raw(container)
     assert r.status_code == 200
     assert r.json() == {
         "status": "ok",
@@ -4509,12 +4511,14 @@ def test_swap_disc_calls_the_broker_and_records_the_disc(client, access_token):
         "platform": rom.platform_slug,
     }
     assert swap.call_args.args[1].endswith(disc.full_path)
+    assert json.loads(raw)["disc_file_id"] == disc.id
 
 
 def test_swap_disc_reports_a_broker_failure(client, access_token):
     rom = _rom_on("dc")
     disc = _add_rom_file(rom, "Game (Disc 2).chd")
-    with _streaming(_container_for(rom)):
+    container = _container_for(rom)
+    with _streaming(container):
         _claim_ok(client, access_token, rom.id)
         with patch("endpoints.streaming._swap_disc_broker", return_value=False):
             r = client.post(
@@ -4522,7 +4526,9 @@ def test_swap_disc_reports_a_broker_failure(client, access_token):
                 json={"file_id": disc.id},
                 headers=_auth(access_token),
             )
+        raw = _session_raw(container)
     assert r.status_code == 502
+    assert "disc_file_id" not in json.loads(raw)
 
 
 def test_swap_disc_refuses_a_file_from_another_rom(client, access_token, rom):
