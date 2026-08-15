@@ -6,6 +6,7 @@ import { ref } from "vue";
 import storeAuth from "@/stores/auth";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import type { User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -67,10 +68,24 @@ function collection(romIds: number[]): Collection {
 async function toggleRow(roms: SimpleRom[]) {
   const emitter = mitt<Events>();
   const wrapper = mountDialog(emitter);
-  emitter.emit("showManageCollectionsDialog", roms);
-  await flushPromises();
+  await open(wrapper, emitter, roms);
   await wrapper.get("[data-test-row]").trigger("click");
   await flushPromises();
+  return { wrapper, emitter };
+}
+
+async function open(
+  wrapper: VueWrapper,
+  emitter: Emitter<Events>,
+  roms: SimpleRom[],
+) {
+  emitter.emit("showManageCollectionsDialog", roms);
+  await flushPromises();
+}
+
+/** The tri-state the row is currently painting. */
+function rowState(wrapper: VueWrapper) {
+  return wrapper.get("[data-test-row]").attributes("data-state");
 }
 
 function mountDialog(emitter: Emitter<Events>): VueWrapper {
@@ -83,9 +98,10 @@ function mountDialog(emitter: Emitter<Events>): VueWrapper {
         GameCard: true,
         NewCollectionRow: true,
         CollectionPickerRow: {
+          props: ["state"],
           emits: ["toggle"],
           template:
-            "<button data-test-row @click=\"$emit('toggle')\"></button>",
+            '<button data-test-row :data-state="state" @click="$emit(\'toggle\')"></button>',
         },
       },
     },
@@ -96,7 +112,7 @@ describe("ManageCollectionsDialog gallery reconcile", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
-    storeAuth().setCurrentUser({ id: USER_ID } as never);
+    storeAuth().setCurrentUser({ id: USER_ID } as User);
   });
 
   it("drops the roms from the gallery when removing them from the collection on screen", async () => {
@@ -159,10 +175,35 @@ describe("ManageCollectionsDialog gallery reconcile", () => {
     const selection = storeGallerySelection();
     [rom(1), rom(2)].forEach((r, i) => selection.toggle(r, i));
 
-    await toggleRow([rom(1), rom(2)]);
+    const { wrapper } = await toggleRow([rom(1), rom(2)]);
 
     expect(galleryRemove).not.toHaveBeenCalled();
     expect(selection.count).toBe(2);
     expect(snackbarError).toHaveBeenCalled();
+    // Nothing was written, so the row goes back to real membership.
+    expect(rowState(wrapper)).toBe("all");
+  });
+
+  it("does not pin the row when a failure lands after the dialog reopens", async () => {
+    const collections = storeCollections();
+    collections.setCollections([collection([1, 2])]);
+    let reject: (reason: Error) => void = () => {};
+    removeRomsFromCollection.mockReturnValue(
+      new Promise((_resolve, r) => {
+        reject = r;
+      }),
+    );
+    const emitter = mitt<Events>();
+    const wrapper = mountDialog(emitter);
+
+    await open(wrapper, emitter, [rom(1), rom(2)]);
+    await wrapper.get("[data-test-row]").trigger("click");
+    // Reopened over a game the collection doesn't hold, while the removal
+    // above is still in flight.
+    await open(wrapper, emitter, [rom(3)]);
+    reject(new Error("Forbidden"));
+    await flushPromises();
+
+    expect(rowState(wrapper)).toBe("off");
   });
 });

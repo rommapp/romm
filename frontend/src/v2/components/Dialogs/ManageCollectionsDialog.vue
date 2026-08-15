@@ -145,7 +145,12 @@ async function toggle(collection: Collection) {
       galleryRomsStore.remove(targetRoms);
     }
   } catch (error: unknown) {
-    optimistic.value.set(collection.id, prevState);
+    // Drop the override rather than restoring `prevState`, so the row falls
+    // back to the collection's real membership. Nothing was written, so that
+    // is `prevState` anyway, and a stale override would pin the row: it was
+    // computed against whichever ROMs the dialog held when the click landed,
+    // which a reopen can replace while the call is in flight.
+    optimistic.value.delete(collection.id);
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(
       axiosErr.response?.data?.detail ??
