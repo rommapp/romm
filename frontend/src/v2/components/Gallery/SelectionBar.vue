@@ -80,8 +80,6 @@ const selection = storeGallerySelection();
 const collectionsStore = storeCollections();
 const romsStore = storeRoms();
 const galleryRomsStore = storeGalleryRoms();
-// No emitter: the composable's own creation toast is v1 copy, and this
-// surface reports the outcome with its own localized message below.
 const { ensureFavoriteCollection } = useFavoriteToggle();
 
 const canRefresh = useCan("rom.refresh");
@@ -114,22 +112,22 @@ const favoriteLabel = computed(() =>
     : t("gallery.selection-favorite"),
 );
 
-// Guards the create-if-missing call below: a double click would otherwise
-// race two POSTs for the same collection, and the loser 409s.
+// Guards the create-if-missing call below.
 const favoritePending = ref(false);
 
 async function bulkFavorite() {
   const ids = selection.ids;
   const roms = selection.roms;
   if (ids.length === 0 || favoritePending.value) return;
+  // `allFavorited` tracks the live selection and the collection's rom_ids,
+  // both of which can move while the calls below are in flight, so the
+  // direction has to be snapshotted alongside the ids it applies to.
+  const wasAllFavorited = allFavorited.value;
   favoritePending.value = true;
   try {
     // A fresh instance has no favourites collection until something is
-    // favourited — same lazy creation the per-rom toggle relies on.
+    // favourited.
     const fav = await ensureFavoriteCollection();
-    // `allFavorited` reads the collection's rom_ids, which the response
-    // below replaces, so the direction has to be snapshotted here.
-    const wasAllFavorited = allFavorited.value;
     const { data } = wasAllFavorited
       ? await collectionApi.removeRomsFromCollection(fav.id, ids)
       : await collectionApi.addRomsToCollection(fav.id, ids);
