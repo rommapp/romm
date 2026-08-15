@@ -288,16 +288,21 @@ def _container_key(container: dict[str, Any]) -> str:
 # frontend via /config, so the slot selector is not a second hardcoded copy.
 
 
-class PlatformCapabilities(TypedDict):
+class _SlotCapabilities(TypedDict):
     max_slots: int  # manual save slots, selectable as 1..max_slots
     has_autosave: bool  # whether a dedicated autosave slot can be loaded
     autosave_slot: int  # that slot's index, 0 if none
     has_memory_card: bool  # whether the broker serves a whole-card /memory-card
 
 
+class PlatformCapabilities(_SlotCapabilities):
+    supports_disc_swap: bool  # a live swap route exists for this platform
+    has_manual_disc_swap: bool  # no route, but the emulator's own UI can do it
+
+
 # Keyed by platform slug (lowercase). A platform absent here gets no save-state
 # UI until its broker's slot semantics are known.
-_PLATFORM_CAPABILITIES: dict[str, PlatformCapabilities] = {
+_PLATFORM_CAPABILITIES: dict[str, _SlotCapabilities] = {
     # Dolphin (ngc, wii, wiiu): slots 1-7 manual, slot 8 autosave. Only the
     # GameCube side has a memory card; Wii and Wii U saves live in NAND and
     # round-trip through /save-file instead.
@@ -338,7 +343,7 @@ _PLATFORM_CAPABILITIES: dict[str, PlatformCapabilities] = {
     },
 }
 
-_NO_CAPABILITIES: PlatformCapabilities = {
+_NO_CAPABILITIES: _SlotCapabilities = {
     "max_slots": 0,
     "has_autosave": False,
     "autosave_slot": 0,
@@ -350,7 +355,7 @@ _NO_CAPABILITIES: PlatformCapabilities = {
 # picks which in their config, so enumerating them here would be a second copy
 # of the broker's core table that goes stale the moment the broker gains a
 # platform.
-_EMULATOR_CAPABILITIES: dict[str, PlatformCapabilities] = {
+_EMULATOR_CAPABILITIES: dict[str, _SlotCapabilities] = {
     # The webstation broker resolves every state route to a single working
     # slot, since RomM is the library of states. There is no grid to pick
     # from, just the one slot save and resume both land in.
@@ -363,6 +368,17 @@ _EMULATOR_CAPABILITIES: dict[str, PlatformCapabilities] = {
 }
 
 
+# Platforms whose emulator can change discs on a running game. Kept apart from
+# the tables above because those are keyed by platform or by emulator and this
+# is neither: RetroArch serves dozens of platforms and only these five load a
+# playlist its tray commands can step through.
+_DISC_SWAP_PLATFORMS = frozenset({"dc", "saturn", "segacd", "turbografx-cd", "dos"})
+
+# Platforms with no swap route but a working manual swap inside the emulator's
+# own UI. The frontend shows this as a static hint, not a control.
+_MANUAL_DISC_SWAP_PLATFORMS = frozenset({"ps2"})
+
+
 def _configured_emulator(platform: str) -> str:
     """The emulator a configured container serves this platform with, if any."""
     for container in _get_streaming_config().get("containers", []):
@@ -372,15 +388,25 @@ def _configured_emulator(platform: str) -> str:
 
 
 def platform_capabilities(platform: str) -> PlatformCapabilities:
-    """Save-state capabilities for a platform slug, or a no-slots default.
+    """Save-state and disc capabilities for a platform slug, or a no-slots
+    default.
 
     A platform listed explicitly wins, so a platform served by more than one
-    emulator keeps the semantics its own entry describes.
+    emulator keeps the semantics its own entry describes. The disc flags are an
+    overlay on top of that, keyed only by platform.
     """
     platform = platform.lower()
-    if platform in _PLATFORM_CAPABILITIES:
-        return _PLATFORM_CAPABILITIES[platform]
-    return _EMULATOR_CAPABILITIES.get(_configured_emulator(platform), _NO_CAPABILITIES)
+    base = _PLATFORM_CAPABILITIES.get(platform) or _EMULATOR_CAPABILITIES.get(
+        _configured_emulator(platform), _NO_CAPABILITIES
+    )
+    return {
+        "max_slots": base["max_slots"],
+        "has_autosave": base["has_autosave"],
+        "autosave_slot": base["autosave_slot"],
+        "has_memory_card": base["has_memory_card"],
+        "supports_disc_swap": platform in _DISC_SWAP_PLATFORMS,
+        "has_manual_disc_swap": platform in _MANUAL_DISC_SWAP_PLATFORMS,
+    }
 
 
 def _known_to_lack_memory_card(platform: str) -> bool:

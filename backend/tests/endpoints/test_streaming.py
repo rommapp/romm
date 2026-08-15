@@ -16,6 +16,7 @@ from main import app
 
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import streaming
+from endpoints.streaming import platform_capabilities
 from handler.auth import oauth_handler
 from handler.database import (
     db_container_adoption_handler,
@@ -182,6 +183,8 @@ def test_get_config_ships_platform_capabilities(client, access_token):
         "has_autosave": True,
         "autosave_slot": 10,
         "has_memory_card": True,
+        "supports_disc_swap": False,
+        "has_manual_disc_swap": True,
     }
 
 
@@ -238,7 +241,36 @@ def test_an_unconfigured_platform_still_has_no_states():
     """The fallback keys off a configured container, so a platform nobody
     streams stays out of the save-state UI."""
     with _streaming():
-        assert streaming.platform_capabilities("psp") == streaming._NO_CAPABILITIES
+        assert streaming.platform_capabilities("psp") == {
+            **streaming._NO_CAPABILITIES,
+            "supports_disc_swap": False,
+            "has_manual_disc_swap": False,
+        }
+
+
+@pytest.mark.parametrize("platform", ["dc", "saturn", "segacd", "turbografx-cd", "dos"])
+def test_the_disc_platforms_support_a_live_swap(platform):
+    assert platform_capabilities(platform)["supports_disc_swap"] is True
+
+
+def test_ps2_gets_a_hint_instead_of_a_swap_control():
+    caps = platform_capabilities("ps2")
+    assert caps["supports_disc_swap"] is False
+    assert caps["has_manual_disc_swap"] is True
+
+
+def test_a_platform_with_no_tray_gets_neither():
+    caps = platform_capabilities("xbox")
+    assert caps["supports_disc_swap"] is False
+    assert caps["has_manual_disc_swap"] is False
+
+
+def test_disc_swap_does_not_disturb_the_slot_capabilities():
+    """The disc flags are an overlay; a platform's slot semantics are
+    whatever its own table entry already said."""
+    caps = platform_capabilities("ngc")
+    assert caps["max_slots"] == 7
+    assert caps["autosave_slot"] == 8
 
 
 def test_the_retroarch_autosave_slot_passes_slot_validation():
