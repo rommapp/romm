@@ -4567,3 +4567,32 @@ def test_swap_disc_rejects_a_platform_with_no_tray(client, access_token):
             headers=_auth(access_token),
         )
     assert r.status_code == 400
+
+
+def test_a_state_captured_after_a_swap_records_the_disc(client, access_token):
+    rom = _rom_on("dc")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    # "dc" is in no capability table, so without an explicit emulator the
+    # container resolves to the slug and every slot fails validation.
+    container = {**_container_for(rom), "emulator": "retroarch"}
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._swap_disc_broker", return_value=True):
+            client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
+                json={"file_id": disc.id},
+                headers=_auth(access_token),
+            )
+        with (
+            patch("endpoints.streaming._save_state_broker", return_value=True),
+            patch("endpoints.streaming._spawn_sync_task"),
+            patch(
+                "endpoints.streaming._pull_state_to_library", new=MagicMock()
+            ) as pull,
+        ):
+            client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-state",
+                json={"slot": 10},
+                headers=_auth(access_token),
+            )
+    assert pull.call_args.kwargs["disc_file_id"] == disc.id

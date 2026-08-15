@@ -1762,6 +1762,7 @@ async def _store_state_asset(
     filename: str,
     content: bytes,
     screenshot: bytes | None = None,
+    disc_file_id: int | None = None,
 ) -> None:
     """Store a pulled state file as a new entry in the ROM's state history.
 
@@ -1803,6 +1804,7 @@ async def _store_state_asset(
         scanned_state.rom_id = rom.id
         scanned_state.user_id = user.id
         scanned_state.emulator = emulator
+        scanned_state.disc_file_id = disc_file_id
         db_state_handler.add_state(state=scanned_state)
 
     # Bind a thumbnail to the state so the resume picker shows the right frame.
@@ -1817,7 +1819,11 @@ async def _store_state_asset(
 
 
 async def _pull_state_to_library(
-    user_id: int, rom_id: int, container: dict[str, Any], slot: int
+    user_id: int,
+    rom_id: int,
+    container: dict[str, Any],
+    slot: int,
+    disc_file_id: int | None = None,
 ) -> bool:
     """Background task: pull a freshly saved state from the broker and store it.
 
@@ -1854,7 +1860,9 @@ async def _pull_state_to_library(
                 _fetch_state_screenshot, container, slot
             )
         try:
-            await _store_state_asset(user, rom, emulator, filename, content, screenshot)
+            await _store_state_asset(
+                user, rom, emulator, filename, content, screenshot, disc_file_id
+            )
         except Exception:
             log.exception("failed to store pulled state %s", filename)
             return False
@@ -3222,7 +3230,13 @@ async def save_and_exit_session(
     rom_id = session.get("rom_id")
     if isinstance(rom_id, int) and (saved or not effective_wait):
         _spawn_sync_task(
-            _pull_state_to_library(request.user.id, rom_id, container, effective_slot)
+            _pull_state_to_library(
+                request.user.id,
+                rom_id,
+                container,
+                effective_slot,
+                disc_file_id=_session_disc_id(session),
+            )
         )
 
     # Legacy per-file in-game save pull, only for containers not on whole-card
@@ -3399,7 +3413,13 @@ async def save_state(
     rom_id = session.get("rom_id")
     if isinstance(rom_id, int):
         _spawn_sync_task(
-            _pull_state_to_library(request.user.id, rom_id, container, req.slot)
+            _pull_state_to_library(
+                request.user.id,
+                rom_id,
+                container,
+                req.slot,
+                disc_file_id=_session_disc_id(session),
+            )
         )
 
     return JSONResponse({"status": "saving", "slot": req.slot, "platform": platform})
@@ -3593,7 +3613,11 @@ async def _teardown_released_session(
         # that activate happen.
         if isinstance(rom_id, int) and state_slot is not None:
             await _pull_state_to_library(
-                session["user_id"], rom_id, container, state_slot
+                session["user_id"],
+                rom_id,
+                container,
+                state_slot,
+                disc_file_id=_session_disc_id(session),
             )
 
         # Legacy per-file save pull, only for containers not on whole-card sync.
