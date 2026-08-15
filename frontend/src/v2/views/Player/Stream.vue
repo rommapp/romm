@@ -20,6 +20,7 @@ import {
   RCard,
   RDialog,
   RIcon,
+  RSelect,
   RSlider,
   RSliderBtnGroup,
   RSwitch,
@@ -107,6 +108,9 @@ const isMuted = ref(false);
 // fresh one.
 const cardImportDetail = ref<MemoryCardImportDetail | null>(null);
 const showCardImport = ref(false);
+const showDiscSwap = ref(false);
+const selectedDisc = ref<number | null>(null);
+const isSwappingDisc = ref(false);
 
 const gameRunning = computed(() => playerState.value === "playing");
 
@@ -207,6 +211,27 @@ const capabilities = computed(() =>
 // archive instead of an empty grid.
 const supportsStates = computed(
   () => capabilities.value.maxSlots > 0 || capabilities.value.hasAutosave,
+);
+
+// A single-file rom has nothing to swap to, whatever the platform can do.
+const canSwapDisc = computed(
+  () =>
+    capabilities.value.supportsDiscSwap &&
+    (rom.value?.files?.length ?? 0) > 1 &&
+    !isJoining,
+);
+
+// Platforms whose emulator changes discs from its own menu get a note
+// instead of a control.
+const showManualDiscHint = computed(
+  () =>
+    capabilities.value.hasManualDiscSwap &&
+    (rom.value?.files?.length ?? 0) > 1 &&
+    !isJoining,
+);
+
+const discOptions = computed(() =>
+  (rom.value?.files ?? []).map((f) => ({ title: f.file_name, value: f.id })),
 );
 
 // ── Resume-from-state picker ────────────────────────────────────────
@@ -870,8 +895,31 @@ async function handleLoadState(): Promise<void> {
   }
 }
 
+function openDiscSwap(): void {
+  selectedDisc.value = null;
+  showDiscSwap.value = true;
+}
+
+async function handleSwapDisc(): Promise<void> {
+  if (!rom.value || selectedDisc.value === null) return;
+  isSwappingDisc.value = true;
+  try {
+    await streamingApi.swapDisc(rom.value.platform_slug, selectedDisc.value);
+    showDiscSwap.value = false;
+  } catch (err) {
+    console.warn("[streaming] Could not swap disc:", err);
+    snackbar.error(t("play.swap-disc-failed"), { timeout: 6000 });
+  } finally {
+    isSwappingDisc.value = false;
+  }
+}
+
 const stateActionBusy = computed(
-  () => isSavingState.value || isLoadingState.value || isSavingAndExiting.value,
+  () =>
+    isSavingState.value ||
+    isLoadingState.value ||
+    isSavingAndExiting.value ||
+    isSwappingDisc.value,
 );
 
 // ── Navigation ─────────────────────────────────────────────────────
@@ -1404,6 +1452,24 @@ onBeforeUnmount(() => {
         </template>
 
         <RBtn
+          v-if="canSwapDisc"
+          icon="mdi-disc"
+          variant="text"
+          density="compact"
+          :tooltip="t('play.stream-swap-disc')"
+          :loading="isSwappingDisc"
+          :disabled="stateActionBusy"
+          @click="openDiscSwap"
+        />
+        <RBtn
+          v-else-if="showManualDiscHint"
+          icon="mdi-disc-alert"
+          variant="text"
+          density="compact"
+          :tooltip="t('play.manual-disc-swap-hint')"
+        />
+
+        <RBtn
           :icon="isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
           variant="text"
           density="compact"
@@ -1547,6 +1613,42 @@ onBeforeUnmount(() => {
             </RBtn>
           </template>
         </div>
+      </template>
+    </RDialog>
+
+    <RDialog v-model="showDiscSwap" width="440">
+      <template #header>
+        <span>{{ t("play.swap-disc-title") }}</span>
+      </template>
+      <template #content>
+        <p class="r-v2-stream__exit-text">{{ t("play.swap-disc-text") }}</p>
+        <RSelect
+          v-model="selectedDisc"
+          variant="outlined"
+          density="comfortable"
+          prepend-inner-icon="mdi-disc"
+          hide-details
+          :label="t('rom.file')"
+          :items="discOptions"
+        />
+      </template>
+      <template #footer>
+        <RBtn
+          variant="text"
+          :disabled="isSwappingDisc"
+          @click="showDiscSwap = false"
+        >
+          {{ t("common.cancel") }}
+        </RBtn>
+        <RBtn
+          color="primary"
+          variant="flat"
+          :loading="isSwappingDisc"
+          :disabled="selectedDisc === null"
+          @click="handleSwapDisc"
+        >
+          {{ t("play.swap-disc-confirm") }}
+        </RBtn>
       </template>
     </RDialog>
   </section>
