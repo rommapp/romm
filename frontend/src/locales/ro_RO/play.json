@@ -51,6 +51,7 @@
   "load-autosave": "Încarcă salvarea automată",
   "load-state": "Încarcă starea",
   "manage-memory-cards": "Gestionează cardurile de memorie",
+  "manual-disc-swap-hint": "Acest emulator schimbă discurile din propriul meniu, nu de aici.",
   "memory-card": "Card de memorie",
   "memory-card-count": "{count} carduri",
   "memory-card-create-failed": "Cardul de memorie nu a putut fi creat",
@@ -147,10 +148,15 @@
   "stream-save-unconfirmed": "Emulatorul nu a confirmat salvarea. Progresul recent ar putea fi pierdut.",
   "stream-stop": "Oprește",
   "stream-subtitle": "Streaming",
+  "stream-swap-disc": "Schimbă discul",
   "stream-try-again": "Încearcă din nou",
   "stream-unknown-game": "Joc necunoscut",
   "stream-unmute": "Activează sunetul",
   "stream-volume": "Volum",
   "streaming-description": "Jocul rulează într-un container {label} dedicat și este transmis direct în browserul tău.",
+  "swap-disc-confirm": "Schimbă",
+  "swap-disc-failed": "Schimbarea discului a eșuat. Consola poate fi încă în mijlocul schimbării, încearcă din nou.",
+  "swap-disc-text": "Alege discul de încărcat. Jocul rămâne pornit, așa că salvează-ți mai întâi progresul în joc.",
+  "swap-disc-title": "Schimbarea discului",
   "upload-memory-card": "Încarcă un card"
 }

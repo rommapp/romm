@@ -51,6 +51,7 @@
   "load-autosave": "Wczytaj automatyczny zapis",
   "load-state": "Wczytaj stan",
   "manage-memory-cards": "Zarządzaj kartami pamięci",
+  "manual-disc-swap-hint": "Ten emulator zmienia płyty z własnego menu, nie stąd.",
   "memory-card": "Karta pamięci",
   "memory-card-count": "{count} kart",
   "memory-card-create-failed": "Nie udało się utworzyć karty pamięci",
@@ -147,10 +148,15 @@
   "stream-save-unconfirmed": "Emulator nie potwierdził zapisu. Ostatnie postępy mogą zostać utracone.",
   "stream-stop": "Zatrzymaj",
   "stream-subtitle": "Transmisja",
+  "stream-swap-disc": "Zmień płytę",
   "stream-try-again": "Spróbuj ponownie",
   "stream-unknown-game": "Nieznana gra",
   "stream-unmute": "Wyłącz wyciszenie",
   "stream-volume": "Głośność",
   "streaming-description": "Gra działa w dedykowanym kontenerze {label} i jest strumieniowana bezpośrednio do twojej przeglądarki.",
+  "swap-disc-confirm": "Zmień",
+  "swap-disc-failed": "Nie udało się zmienić płyty. Konsola może być wciąż w trakcie zmiany, spróbuj ponownie.",
+  "swap-disc-text": "Wybierz płytę do wczytania. Gra działa dalej, więc najpierw zapisz postęp w samej grze.",
+  "swap-disc-title": "Zmiana płyty",
   "upload-memory-card": "Prześlij kartę"
 }

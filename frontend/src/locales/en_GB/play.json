@@ -51,6 +51,7 @@
   "load-autosave": "Load autosave",
   "load-state": "Load state",
   "manage-memory-cards": "Manage memory cards",
+  "manual-disc-swap-hint": "This emulator changes discs from its own menu, not from here.",
   "memory-card": "Memory card",
   "memory-card-count": "{count} cards",
   "memory-card-create-failed": "Could not create the memory card",
@@ -147,10 +148,15 @@
   "stream-save-unconfirmed": "The emulator did not confirm the save. Recent progress may be lost.",
   "stream-stop": "Stop",
   "stream-subtitle": "Streaming",
+  "stream-swap-disc": "Swap disc",
   "stream-try-again": "Try Again",
   "stream-unknown-game": "Unknown Game",
   "stream-unmute": "Unmute",
   "stream-volume": "Volume",
   "streaming-description": "The game runs in a dedicated {label} container and streams straight to your browser.",
+  "swap-disc-confirm": "Swap",
+  "swap-disc-failed": "Disc swap failed. The console may still be mid-swap, try again.",
+  "swap-disc-text": "Choose the disc to load. The game keeps running, so save your progress in-game first.",
+  "swap-disc-title": "Swap disc",
   "upload-memory-card": "Upload card"
 }

@@ -51,6 +51,7 @@
   "load-autosave": "Charger la sauvegarde automatique",
   "load-state": "Charger l'état",
   "manage-memory-cards": "Gérer les cartes mémoire",
+  "manual-disc-swap-hint": "Cet émulateur change de disque depuis son propre menu, pas d'ici.",
   "memory-card": "Carte mémoire",
   "memory-card-count": "{count} cartes",
   "memory-card-create-failed": "Impossible de créer la carte mémoire",
@@ -147,10 +148,15 @@
   "stream-save-unconfirmed": "L'émulateur n'a pas confirmé la sauvegarde. La progression récente pourrait être perdue.",
   "stream-stop": "Arrêter",
   "stream-subtitle": "Streaming",
+  "stream-swap-disc": "Changer de disque",
   "stream-try-again": "Réessayer",
   "stream-unknown-game": "Jeu inconnu",
   "stream-unmute": "Rétablir le son",
   "stream-volume": "Volume",
   "streaming-description": "Le jeu s'exécute dans un conteneur {label} dédié et est diffusé directement dans votre navigateur.",
+  "swap-disc-confirm": "Changer",
+  "swap-disc-failed": "Le changement de disque a échoué. La console est peut-être encore en train de changer, réessayez.",
+  "swap-disc-text": "Choisissez le disque à charger. Le jeu continue de tourner, sauvegardez donc votre progression dans le jeu d'abord.",
+  "swap-disc-title": "Changer de disque",
   "upload-memory-card": "Envoyer une carte"
 }

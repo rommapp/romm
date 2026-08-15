@@ -51,6 +51,7 @@
   "load-autosave": "オートセーブを読み込む",
   "load-state": "ステートをロード",
   "manage-memory-cards": "メモリーカードを管理",
+  "manual-disc-swap-hint": "このエミュレーターはディスクの交換をエミュレーター側のメニューで行います。",
   "memory-card": "メモリーカード",
   "memory-card-count": "{count} 枚",
   "memory-card-create-failed": "メモリーカードを作成できませんでした",
@@ -147,10 +148,15 @@
   "stream-save-unconfirmed": "エミュレーターが保存を確認できませんでした。最近の進行状況が失われる可能性があります。",
   "stream-stop": "停止",
   "stream-subtitle": "ストリーミング",
+  "stream-swap-disc": "ディスクを交換",
   "stream-try-again": "再試行",
   "stream-unknown-game": "不明なゲーム",
   "stream-unmute": "ミュート解除",
   "stream-volume": "音量",
   "streaming-description": "ゲームは専用の {label} コンテナで実行され、ブラウザに直接ストリーミングされます。",
+  "swap-disc-confirm": "交換",
+  "swap-disc-failed": "ディスクの交換に失敗しました。本体がまだ交換中の可能性があります。もう一度お試しください。",
+  "swap-disc-text": "読み込むディスクを選んでください。ゲームは動作したままなので、先にゲーム内で進行状況を保存してください。",
+  "swap-disc-title": "ディスクの交換",
   "upload-memory-card": "カードをアップロード"
 }

@@ -51,6 +51,7 @@
   "load-autosave": "載入自動存檔",
   "load-state": "載入即時存檔",
   "manage-memory-cards": "管理記憶卡",
+  "manual-disc-swap-hint": "此模擬器在自己的選單中更換光碟，而不是在這裡。",
   "memory-card": "記憶卡",
   "memory-card-count": "{count} 張",
   "memory-card-create-failed": "無法建立記憶卡",
@@ -147,10 +148,15 @@
   "stream-save-unconfirmed": "模擬器未確認儲存。最近的進度可能會遺失。",
   "stream-stop": "停止",
   "stream-subtitle": "串流",
+  "stream-swap-disc": "更換光碟",
   "stream-try-again": "重試",
   "stream-unknown-game": "未知遊戲",
   "stream-unmute": "取消靜音",
   "stream-volume": "音量",
   "streaming-description": "遊戲在專用的 {label} 容器中執行，並直接串流到您的瀏覽器。",
+  "swap-disc-confirm": "更換",
+  "swap-disc-failed": "更換光碟失敗。主機可能仍在更換過程中，請再試一次。",
+  "swap-disc-text": "選擇要載入的光碟。遊戲會繼續執行，請先在遊戲內儲存進度。",
+  "swap-disc-title": "更換光碟",
   "upload-memory-card": "上傳記憶卡"
 }

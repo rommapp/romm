@@ -51,6 +51,7 @@
   "load-autosave": "Načíst automatické uložení",
   "load-state": "Načíst stav",
   "manage-memory-cards": "Spravovat paměťové karty",
+  "manual-disc-swap-hint": "Tento emulátor mění disky ve své vlastní nabídce, ne odsud.",
   "memory-card": "Paměťová karta",
   "memory-card-count": "{count} karet",
   "memory-card-create-failed": "Paměťovou kartu se nepodařilo vytvořit",
@@ -147,10 +148,15 @@
   "stream-save-unconfirmed": "Emulátor nepotvrdil uložení. Nedávný postup může být ztracen.",
   "stream-stop": "Zastavit",
   "stream-subtitle": "Streamování",
+  "stream-swap-disc": "Vyměnit disk",
   "stream-try-again": "Zkusit znovu",
   "stream-unknown-game": "Neznámá hra",
   "stream-unmute": "Zrušit ztlumení",
   "stream-volume": "Hlasitost",
   "streaming-description": "Hra běží ve vyhrazeném kontejneru {label} a streamuje se přímo do vašeho prohlížeče.",
+  "swap-disc-confirm": "Vyměnit",
+  "swap-disc-failed": "Výměna disku selhala. Konzole může být stále uprostřed výměny, zkuste to znovu.",
+  "swap-disc-text": "Vyberte disk, který se má načíst. Hra běží dál, takže si nejprve uložte postup ve hře.",
+  "swap-disc-title": "Výměna disku",
   "upload-memory-card": "Nahrát kartu"
 }

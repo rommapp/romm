@@ -51,6 +51,7 @@
   "load-autosave": "Carregar salvamento automático",
   "load-state": "Carregar estado",
   "manage-memory-cards": "Gerenciar cartões de memória",
+  "manual-disc-swap-hint": "Este emulador troca de disco pelo próprio menu, não por aqui.",
   "memory-card": "Cartão de memória",
   "memory-card-count": "{count} cartões",
   "memory-card-create-failed": "Não foi possível criar o cartão de memória",
@@ -147,10 +148,15 @@
   "stream-save-unconfirmed": "O emulador não confirmou o salvamento. O progresso recente pode ser perdido.",
   "stream-stop": "Parar",
   "stream-subtitle": "Transmissão",
+  "stream-swap-disc": "Trocar disco",
   "stream-try-again": "Tentar novamente",
   "stream-unknown-game": "Jogo desconhecido",
   "stream-unmute": "Ativar som",
   "stream-volume": "Volume",
   "streaming-description": "O jogo é executado em um contêiner {label} dedicado e transmitido diretamente para o seu navegador.",
+  "swap-disc-confirm": "Trocar",
+  "swap-disc-failed": "A troca de disco falhou. O console pode ainda estar no meio da troca, tente novamente.",
+  "swap-disc-text": "Escolha o disco que deseja carregar. O jogo continua rodando, então salve seu progresso dentro do jogo primeiro.",
+  "swap-disc-title": "Trocar disco",
   "upload-memory-card": "Enviar cartão"
 }

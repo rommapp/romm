@@ -51,6 +51,7 @@
   "load-autosave": "Otomatik kaydı yükle",
   "load-state": "Durumu yükle",
   "manage-memory-cards": "Hafıza kartlarını yönet",
+  "manual-disc-swap-hint": "Bu emülatör diskleri kendi menüsünden değiştirir, buradan değil.",
   "memory-card": "Hafıza kartı",
   "memory-card-count": "{count} kart",
   "memory-card-create-failed": "Hafıza kartı oluşturulamadı",
@@ -147,10 +148,15 @@
   "stream-save-unconfirmed": "Emülatör kaydı onaylamadı. Son ilerleme kaybolabilir.",
   "stream-stop": "Durdur",
   "stream-subtitle": "Yayın",
+  "stream-swap-disc": "Disk değiştir",
   "stream-try-again": "Tekrar dene",
   "stream-unknown-game": "Bilinmeyen oyun",
   "stream-unmute": "Sesi aç",
   "stream-volume": "Ses düzeyi",
   "streaming-description": "Oyun, özel bir {label} konteynerinde çalışır ve doğrudan tarayıcınıza yayınlanır.",
+  "swap-disc-confirm": "Değiştir",
+  "swap-disc-failed": "Disk değiştirilemedi. Konsol hâlâ değişimin ortasında olabilir, tekrar deneyin.",
+  "swap-disc-text": "Yüklenecek diski seçin. Oyun çalışmaya devam ediyor, bu yüzden önce ilerlemenizi oyun içinde kaydedin.",
+  "swap-disc-title": "Disk değiştirme",
   "upload-memory-card": "Kart yükle"
 }

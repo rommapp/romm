@@ -51,6 +51,7 @@
   "load-autosave": "Automatische Speicherung laden",
   "load-state": "Spielstand laden",
   "manage-memory-cards": "Speicherkarten verwalten",
+  "manual-disc-swap-hint": "Dieser Emulator wechselt Discs über sein eigenes Menü, nicht von hier aus.",
   "memory-card": "Speicherkarte",
   "memory-card-count": "{count} Karten",
   "memory-card-create-failed": "Speicherkarte konnte nicht erstellt werden",
@@ -147,10 +148,15 @@
   "stream-save-unconfirmed": "Der Emulator hat die Speicherung nicht bestätigt. Der letzte Fortschritt könnte verloren gehen.",
   "stream-stop": "Stopp",
   "stream-subtitle": "Streaming",
+  "stream-swap-disc": "Disc wechseln",
   "stream-try-again": "Erneut versuchen",
   "stream-unknown-game": "Unbekanntes Spiel",
   "stream-unmute": "Stummschaltung aufheben",
   "stream-volume": "Lautstärke",
   "streaming-description": "Das Spiel läuft in einem dedizierten {label}-Container und wird direkt in deinen Browser gestreamt.",
+  "swap-disc-confirm": "Wechseln",
+  "swap-disc-failed": "Der Disc-Wechsel ist fehlgeschlagen. Die Konsole steckt möglicherweise noch im Wechsel, versuche es erneut.",
+  "swap-disc-text": "Wähle die Disc, die geladen werden soll. Das Spiel läuft weiter, speichere deinen Fortschritt also zuerst im Spiel.",
+  "swap-disc-title": "Disc wechseln",
   "upload-memory-card": "Karte hochladen"
 }

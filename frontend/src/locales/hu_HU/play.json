@@ -51,6 +51,7 @@
   "load-autosave": "Automatikus mentés betöltése",
   "load-state": "Állapot betöltése",
   "manage-memory-cards": "Memóriakártyák kezelése",
+  "manual-disc-swap-hint": "Ez az emulátor a saját menüjéből cserél lemezt, nem innen.",
   "memory-card": "Memóriakártya",
   "memory-card-count": "{count} kártya",
   "memory-card-create-failed": "A memóriakártyát nem sikerült létrehozni",
@@ -147,10 +148,15 @@
   "stream-save-unconfirmed": "Az emulátor nem erősítette meg a mentést. A legutóbbi előrehaladás elveszhet.",
   "stream-stop": "Leállítás",
   "stream-subtitle": "Streamelés",
+  "stream-swap-disc": "Lemezcsere",
   "stream-try-again": "Próbálja újra",
   "stream-unknown-game": "Ismeretlen játék",
   "stream-unmute": "Némítás feloldása",
   "stream-volume": "Hangerő",
   "streaming-description": "A játék egy dedikált {label} konténerben fut, és közvetlenül a böngésződbe streamel.",
+  "swap-disc-confirm": "Csere",
+  "swap-disc-failed": "A lemezcsere nem sikerült. Lehet, hogy a konzol még a csere közepén tart, próbáld újra.",
+  "swap-disc-text": "Válaszd ki a betöltendő lemezt. A játék tovább fut, ezért előbb mentsd el a haladásodat a játékon belül.",
+  "swap-disc-title": "Lemezcsere",
   "upload-memory-card": "Kártya feltöltése"
 }

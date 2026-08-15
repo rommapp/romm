@@ -51,6 +51,7 @@
   "load-autosave": "加载自动存档",
   "load-state": "加载即时存档",
   "manage-memory-cards": "管理记忆卡",
+  "manual-disc-swap-hint": "此模拟器在自己的菜单中更换光盘，而不是在这里。",
   "memory-card": "记忆卡",
   "memory-card-count": "{count} 张",
   "memory-card-create-failed": "无法创建记忆卡",
@@ -147,10 +148,15 @@
   "stream-save-unconfirmed": "模拟器未确认保存。最近的进度可能会丢失。",
   "stream-stop": "停止",
   "stream-subtitle": "串流",
+  "stream-swap-disc": "更换光盘",
   "stream-try-again": "重试",
   "stream-unknown-game": "未知游戏",
   "stream-unmute": "取消静音",
   "stream-volume": "音量",
   "streaming-description": "游戏在专用的 {label} 容器中运行，并直接串流到您的浏览器。",
+  "swap-disc-confirm": "更换",
+  "swap-disc-failed": "更换光盘失败。主机可能仍在更换过程中，请重试。",
+  "swap-disc-text": "选择要载入的光盘。游戏会继续运行，请先在游戏内保存进度。",
+  "swap-disc-title": "更换光盘",
   "upload-memory-card": "上传记忆卡"
 }
