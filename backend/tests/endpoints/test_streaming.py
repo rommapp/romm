@@ -4596,3 +4596,48 @@ def test_a_state_captured_after_a_swap_records_the_disc(client, access_token):
                 headers=_auth(access_token),
             )
     assert pull.call_args.kwargs["disc_file_id"] == disc.id
+
+
+def _retroarch_resume(client, token, rom, state_id):
+    """Claim with a resume state on a retroarch container, launch mocked.
+    Returns (response, restore mock)."""
+    container = {**_container_for(rom), "emulator": "retroarch"}
+    with _streaming(container):
+        with (
+            patch("endpoints.streaming._call_broker"),
+            patch("endpoints.streaming._push_resume_state", return_value=True),
+            patch("endpoints.streaming._spawn_sync_task"),
+            patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
+            patch(
+                "endpoints.streaming._restore_session_disc", new=MagicMock()
+            ) as restore,
+        ):
+            r = _claim(client, token, rom.id, state_id=state_id)
+    return r, restore
+
+
+def test_resuming_a_state_puts_its_disc_back(client, access_token, admin_user: User):
+    rom = _rom_on("dc")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.state", "retroarch")
+    )
+    db_state_handler.update_state(state.id, {"disc_file_id": disc.id})
+
+    r, restore = _retroarch_resume(client, access_token, rom, state.id)
+
+    assert r.status_code == 200
+    assert restore.call_args.kwargs["file_id"] == disc.id
+
+
+def test_resuming_a_state_with_no_disc_swaps_nothing(
+    client, access_token, admin_user: User
+):
+    rom = _rom_on("dc")
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.state", "retroarch")
+    )
+
+    _, restore = _retroarch_resume(client, access_token, rom, state.id)
+
+    restore.assert_not_called()

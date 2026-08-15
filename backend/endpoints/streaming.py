@@ -1818,6 +1818,36 @@ async def _store_state_asset(
     await _prune_state_history(user, rom, emulator)
 
 
+async def _restore_session_disc(
+    user_id: int,
+    rom_id: int,
+    container: dict[str, Any],
+    session_key: str,
+    file_id: int,
+) -> bool:
+    """Background task: put back the disc a resumed state was captured on.
+
+    The launch always mounts the ROM folder so the emulator loads the playlist
+    and starts on the first disc; anything else would boot a bare image the
+    tray commands cannot step through. So the disc is restored afterwards, and
+    the broker holds the swap until the core reports a running game.
+
+    Best-effort: a failure leaves the session on disc one, which the player can
+    fix with the swap control.
+    """
+    rom_file = db_rom_handler.get_rom_file_by_id(file_id)
+    if rom_file is None or rom_file.rom_id != rom_id:
+        return False
+    library_base = (container.get("library_path") or LIBRARY_BASE_PATH).rstrip("/")
+    disc_path = f"{library_base}/{rom_file.full_path}"
+    if not await asyncio.to_thread(_swap_disc_broker, container, disc_path):
+        log.warning("resume: could not restore disc %s", rom_file.file_name)
+        return False
+    await _set_session_disc(session_key, file_id)
+    log.info("resume: restored disc %s", rom_file.file_name)
+    return True
+
+
 async def _pull_state_to_library(
     user_id: int,
     rom_id: int,
@@ -3136,6 +3166,22 @@ async def claim_session(
             resume_pushed=resume_pushed,
         )
     )
+
+    # A resumed state remembers which disc it was captured on. The launch
+    # always starts on the playlist's first disc, so put the right one back.
+    resume_disc_id = (
+        getattr(resume_state, "disc_file_id", None) if resume_pushed else None
+    )
+    if isinstance(resume_disc_id, int):
+        _spawn_sync_task(
+            _restore_session_disc(
+                request.user.id,
+                rom.id,
+                container,
+                session_key,
+                file_id=resume_disc_id,
+            )
+        )
 
     host = container.get("host", "")
     if _is_webstation(container):
