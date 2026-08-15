@@ -1796,9 +1796,13 @@ async def _store_state_asset(
     )
     if db_state:
         # Only reachable when the stamp collides, so the file on disk was just
-        # overwritten and the row needs to agree with it.
+        # overwritten and the row needs to agree with it, disc included.
         db_state_handler.update_state(
-            db_state.id, {"file_size_bytes": scanned_state.file_size_bytes}
+            db_state.id,
+            {
+                "file_size_bytes": scanned_state.file_size_bytes,
+                "disc_file_id": disc_file_id,
+            },
         )
     else:
         scanned_state.rom_id = rom.id
@@ -1819,7 +1823,6 @@ async def _store_state_asset(
 
 
 async def _restore_session_disc(
-    user_id: int,
     rom_id: int,
     container: dict[str, Any],
     session_key: str,
@@ -1837,6 +1840,9 @@ async def _restore_session_disc(
     """
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if rom_file is None or rom_file.rom_id != rom_id:
+        log.warning(
+            "resume: could not restore disc, file %s is not in the library", file_id
+        )
         return False
     library_base = (container.get("library_path") or LIBRARY_BASE_PATH).rstrip("/")
     disc_path = f"{library_base}/{rom_file.full_path}"
@@ -3175,7 +3181,6 @@ async def claim_session(
     if isinstance(resume_disc_id, int):
         _spawn_sync_task(
             _restore_session_disc(
-                request.user.id,
                 rom.id,
                 container,
                 session_key,

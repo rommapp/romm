@@ -2398,6 +2398,42 @@ def test_store_state_asset_without_screenshot_still_stores_state(
     assert state.screenshot is None
 
 
+def test_store_state_asset_collision_keeps_disc_file_id_in_sync(
+    admin_user: User, rom: Rom
+):
+    """A same-second capture collides with the row already on disk instead of
+    adding a new one; the update must also refresh which disc it was captured
+    on, not just the file size."""
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    when = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    stamped = streaming._stamped_state_filename("pcsx2", "Game.03.p2s", when)
+    existing = db_state_handler.add_state(_state_for(rom, admin_user, stamped, "pcsx2"))
+    scanned_state = _state_for(rom, admin_user, stamped, "pcsx2")
+    scanned_state.file_size_bytes = 999
+    with (
+        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
+        patch(
+            "endpoints.streaming.scan_state",
+            new=AsyncMock(return_value=scanned_state),
+        ),
+        patch("endpoints.streaming.datetime") as mock_dt,
+    ):
+        mock_dt.now.return_value = when
+        asyncio.run(
+            streaming._store_state_asset(
+                admin_user,
+                rom,
+                "pcsx2",
+                "Game.03.p2s",
+                _p2s_bytes(None),
+                disc_file_id=disc.id,
+            )
+        )
+    updated = db_state_handler.get_state_by_id(existing.id)
+    assert updated.disc_file_id == disc.id
+    assert updated.file_size_bytes == 999
+
+
 # ── In-game save sync ─────────────────────────────────────────────────────────
 
 
@@ -4544,6 +4580,21 @@ def test_swap_disc_refuses_a_file_from_another_rom(client, access_token, rom):
     assert r.status_code == 404
 
 
+def test_swap_disc_by_other_user_is_forbidden(
+    client, access_token, viewer_access_token
+):
+    rom = _rom_on("dc")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        r = client.post(
+            f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
+            json={"file_id": disc.id},
+            headers=_auth(viewer_access_token),
+        )
+    assert r.status_code == 403
+
+
 def test_swap_disc_needs_a_session(client, access_token):
     rom = _rom_on("dc")
     disc = _add_rom_file(rom, "Game (Disc 2).chd")
@@ -4641,3 +4692,103 @@ def test_resuming_a_state_with_no_disc_swaps_nothing(
     _, restore = _retroarch_resume(client, access_token, rom, state.id)
 
     restore.assert_not_called()
+
+
+# ── _restore_session_disc (direct) ──────────────────────────────────────────
+
+
+def _session_for(container: dict, rom: Rom, user: User) -> str:
+    """Seed a redis session for `container` and return its (unprefixed)
+    session key, the form `_restore_session_disc` and friends take."""
+    session_key = streaming._container_key(container)
+    asyncio.run(
+        async_cache.set(
+            streaming._session_redis_key(session_key),
+            json.dumps(
+                {
+                    "rom_id": rom.id,
+                    "rom_name": rom.name,
+                    "platform": rom.platform_slug,
+                    "claimed_at": datetime.now(timezone.utc).isoformat(),
+                    "last_seen": datetime.now(timezone.utc).isoformat(),
+                    "user_id": user.id,
+                }
+            ),
+        )
+    )
+    return session_key
+
+
+def test_restore_session_disc_swaps_and_records_the_disc(admin_user: User):
+    rom = _rom_on("dc")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    container = _container_for(rom)
+    session_key = _session_for(container, rom, admin_user)
+    with patch("endpoints.streaming._swap_disc_broker", return_value=True) as swap:
+        ok = asyncio.run(
+            streaming._restore_session_disc(
+                rom.id, container, session_key, file_id=disc.id
+            )
+        )
+    assert ok is True
+    assert swap.call_args.args[1].endswith(disc.full_path)
+    raw = _session_raw(container)
+    assert json.loads(raw)["disc_file_id"] == disc.id
+
+
+def test_restore_session_disc_refuses_a_file_from_another_rom(
+    admin_user: User, rom: Rom
+):
+    streamed = _rom_on("dc")
+    stranger = _add_rom_file(rom, "Other.chd")
+    container = _container_for(streamed)
+    session_key = _session_for(container, streamed, admin_user)
+    with patch("endpoints.streaming._swap_disc_broker") as swap:
+        ok = asyncio.run(
+            streaming._restore_session_disc(
+                streamed.id, container, session_key, file_id=stranger.id
+            )
+        )
+    assert ok is False
+    swap.assert_not_called()
+    raw = _session_raw(container)
+    assert "disc_file_id" not in json.loads(raw)
+
+
+def test_restore_session_disc_bails_out_when_the_file_is_gone(admin_user: User, caplog):
+    rom = _rom_on("dc")
+    container = _container_for(rom)
+    session_key = _session_for(container, rom, admin_user)
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with (
+            patch("endpoints.streaming._swap_disc_broker") as swap,
+            caplog.at_level(logging.WARNING, logger="romm"),
+        ):
+            ok = asyncio.run(
+                streaming._restore_session_disc(
+                    rom.id, container, session_key, file_id=999999
+                )
+            )
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert ok is False
+    swap.assert_not_called()
+    assert "not in the library" in caplog.text
+
+
+def test_restore_session_disc_does_not_record_on_broker_failure(admin_user: User):
+    rom = _rom_on("dc")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    container = _container_for(rom)
+    session_key = _session_for(container, rom, admin_user)
+    with patch("endpoints.streaming._swap_disc_broker", return_value=False):
+        ok = asyncio.run(
+            streaming._restore_session_disc(
+                rom.id, container, session_key, file_id=disc.id
+            )
+        )
+    assert ok is False
+    raw = _session_raw(container)
+    assert "disc_file_id" not in json.loads(raw)

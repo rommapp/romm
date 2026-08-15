@@ -24,6 +24,7 @@ import {
   RSlider,
   RSliderBtnGroup,
   RSwitch,
+  RTooltip,
 } from "@v2/lib";
 import { useLocalStorage } from "@vueuse/core";
 import { isAxiosError } from "axios";
@@ -213,11 +214,22 @@ const supportsStates = computed(
   () => capabilities.value.maxSlots > 0 || capabilities.value.hasAutosave,
 );
 
+function fileExtension(name: string): string {
+  return name.split(".").pop()?.toLowerCase() ?? "";
+}
+
+// Mirrors the backend's Rom.has_m3u_file(): the emulator's disc-swap menu
+// only exists for multi-disc sets that ship a playlist.
+const hasM3uFile = computed(() =>
+  (rom.value?.files ?? []).some((f) => fileExtension(f.file_name) === "m3u"),
+);
+
 // A single-file rom has nothing to swap to, whatever the platform can do.
 const canSwapDisc = computed(
   () =>
     capabilities.value.supportsDiscSwap &&
     (rom.value?.files?.length ?? 0) > 1 &&
+    hasM3uFile.value &&
     !isJoining,
 );
 
@@ -230,9 +242,17 @@ const showManualDiscHint = computed(
     !isJoining,
 );
 
-const discOptions = computed(() =>
-  (rom.value?.files ?? []).map((f) => ({ title: f.file_name, value: f.id })),
-);
+// Mirrors the download endpoint's playlist filtering: when .cue files are
+// present only those are valid swap targets (raw .bin tracks are not), and
+// the .m3u itself is never something to swap to.
+const discOptions = computed(() => {
+  const files = (rom.value?.files ?? []).filter(
+    (f) => fileExtension(f.file_name) !== "m3u",
+  );
+  const cueFiles = files.filter((f) => fileExtension(f.file_name) === "cue");
+  const listed = cueFiles.length > 0 ? cueFiles : files;
+  return listed.map((f) => ({ title: f.file_name, value: f.id }));
+});
 
 // ── Resume-from-state picker ────────────────────────────────────────
 // States the container's emulator can resume from: the user's own plus
@@ -1461,13 +1481,18 @@ onBeforeUnmount(() => {
           :disabled="stateActionBusy"
           @click="openDiscSwap"
         />
-        <RBtn
+        <span
           v-else-if="showManualDiscHint"
-          icon="mdi-disc-alert"
-          variant="text"
-          density="compact"
-          :tooltip="t('play.manual-disc-swap-hint')"
-        />
+          class="r-v2-stream__disc-hint"
+          role="img"
+          :aria-label="t('play.manual-disc-swap-hint')"
+        >
+          <RIcon icon="mdi-disc-alert" size="small" />
+          <RTooltip
+            activator="parent"
+            :text="t('play.manual-disc-swap-hint')"
+          />
+        </span>
 
         <RBtn
           :icon="isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
@@ -1919,6 +1944,15 @@ onBeforeUnmount(() => {
 }
 .r-v2-stream__volume {
   width: 90px;
+}
+.r-v2-stream__disc-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--r-color-fg-muted);
+  flex-shrink: 0;
 }
 
 /* ── Exit dialog ─────────────────────────────────────────── */
