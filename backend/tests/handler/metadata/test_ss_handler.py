@@ -353,6 +353,44 @@ class TestExtractMediaFromSsGame:
             },
         )
 
+    def test_box2d_path_set_when_in_config(self):
+        """When 'box2d' is in SCAN_MEDIA the box front is persisted locally, so it
+        stays reachable when another provider wins the cover."""
+        config = _make_config(scan_media=["box2d"])
+        rom = self._make_rom()
+        game = self._make_game_with_box_faces()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["box2d_url"] is not None
+        assert "box-2D" in result["box2d_url"]
+        assert result["box2d_path"] == "roms/1/100/box2d/box2d.png"
+
+    def test_box2d_path_not_set_when_absent_from_config(self):
+        """Without 'box2d' in SCAN_MEDIA the front URL is kept but not stored."""
+        config = _make_config(scan_media=["box2d_back"])
+        rom = self._make_rom()
+        game = self._make_game_with_box_faces()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["box2d_url"] is not None
+        assert result["box2d_path"] is None
+
     def test_box2d_side_path_set_when_in_config(self):
         """When 'box2d_side' is in SCAN_MEDIA the spine is persisted locally."""
         config = _make_config(scan_media=["box2d", "box2d_back", "box2d_side"])
@@ -1195,6 +1233,44 @@ class TestLookupRom:
         with patch.object(handler.ss_service, "get_game_info", side_effect=capture):
             await handler.lookup_rom(MagicMock(platform_slug="psx"), 57, [mock_file])
         assert captured.get("rom_name") == "Mario.zip"
+
+    @pytest.mark.asyncio
+    async def test_multi_file_archive_keeps_sending_the_composite_hashes(self):
+        """Unlike Hasheous and Playmatch, ScreenScraper stays on the archive's
+        own digests: jeuInfos falls back to romnom, so an arcade set still
+        resolves by name, and moving to the member hash would shift match
+        results across every library."""
+        handler = SSHandler()
+        mock_file = self._make_mock_file()
+        mock_file.file_name = "Mario.zip"
+        mock_file.archive_members = [
+            {
+                "name": "mario.bin",
+                "size": 1024,
+                "crc_hash": "membercrc",
+                "md5_hash": "membermd5",
+                "sha1_hash": "membersha1",
+            },
+            {
+                "name": "mario.cue",
+                "size": 64,
+                "crc_hash": "cuecrc",
+                "md5_hash": "cuemd5",
+                "sha1_hash": "cuesha1",
+            },
+        ]
+        captured = {}
+
+        async def capture(**kwargs):
+            captured.update(kwargs)
+            return None
+
+        with patch.object(handler.ss_service, "get_game_info", side_effect=capture):
+            await handler.lookup_rom(MagicMock(platform_slug="psx"), 57, [mock_file])
+
+        assert captured.get("md5") == "abc123"
+        assert captured.get("sha1") == "def456"
+        assert captured.get("crc") == "12345678"
 
     @pytest.mark.asyncio
     async def test_romnom_uses_archive_filename_when_no_archive_members(self):

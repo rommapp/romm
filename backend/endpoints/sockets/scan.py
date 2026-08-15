@@ -885,7 +885,7 @@ async def scan_platforms(
 
     # Initialize HLTB handler (fetches current search endpoint and security token)
     if MetadataSource.HLTB in metadata_sources:
-        meta_hltb_handler.initialize()
+        await meta_hltb_handler.initialize()
 
     # Resolve the platforms that will actually be scanned. When no platform ids
     # are provided, every filesystem platform is scanned.

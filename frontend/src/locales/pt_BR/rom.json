@@ -204,6 +204,7 @@
   "match-this-game": "Vincular este jogo",
   "media": "Media",
   "media-bezel": "Moldura",
+  "media-box2d": "Caixa (2D, frente)",
   "media-box2d-back": "Caixa (2D, verso)",
   "media-box2d-side": "Caixa (2D, lateral)",
   "media-box3d": "Caixa (3D)",

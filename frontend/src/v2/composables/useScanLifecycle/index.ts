@@ -18,14 +18,20 @@
 //   * `scan:done_ko`           — scan errored; surface the message as a
 //                                snackbar and flip `scanning` off.
 //
+// Events alone can't tell a tab that loads mid-scan what's going on, so
+// install also reconciles against the running RQ job — see
+// `reconcileWithRunningScan` below.
+//
 // `useSocketEvent` is the typed subscription wrapper that auto-cleans up
 // on unmount; since AppLayout never unmounts during normal use the
 // listeners effectively live for the session.
 import { debounce } from "lodash";
 import type { Emitter } from "mitt";
-import { inject } from "vue";
-import type { ScanStats } from "@/__generated__";
+import { inject, watch } from "vue";
+import type { ScanStats, ScanTaskStatusResponse } from "@/__generated__";
 import platformApi from "@/services/api/platform";
+import taskApi from "@/services/api/task";
+import storeAuth from "@/stores/auth";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning, { type ScanningPlatform } from "@/stores/scanning";
@@ -38,6 +44,7 @@ export function installScanLifecycle() {
   const romsStore = storeRoms();
   const platformsStore = storePlatforms();
   const galleryRomsStore = storeGalleryRoms();
+  const authStore = storeAuth();
   const emitter = inject<Emitter<Events>>("emitter");
 
   useSocketEvent<ScanningPlatform>(
@@ -162,11 +169,18 @@ export function installScanLifecycle() {
     processRomUpdates();
   });
 
+  // Stats are the only event a scan emits continuously: `scanning_platform`
+  // fires once per platform, and `scanning_rom` only for ROMs the scan
+  // actually adds, so an update scan over a settled library can go a long
+  // while emitting nothing else. Flipping `scanning` here is what lets a tab
+  // that missed the start of the scan catch up on the next tick.
   useSocketEvent<ScanStats>("scan:update_stats", (stats) => {
+    scanningStore.setScanning(true);
     scanningStore.setScanStats(stats);
   });
 
   useSocketEvent<ScanStats>("scan:done", (stats) => {
+    markScanEnded();
     scanningStore.setScanStats(stats);
     scanningStore.setScanning(false);
     // Reconcile against the backend once the scan settles: pick up anything
@@ -181,6 +195,7 @@ export function installScanLifecycle() {
   });
 
   useSocketEvent<string>("scan:done_ko", (msg) => {
+    markScanEnded();
     scanningStore.setScanning(false);
     emitter?.emit("snackbarShow", {
       msg: `Scan failed: ${msg}`,
@@ -189,4 +204,56 @@ export function installScanLifecycle() {
       timeout: 6000,
     });
   });
+
+  // Reconcile with the scan the server is actually running. Without this a
+  // tab that loads mid-scan (refresh, second tab, another device) shows the
+  // /scan empty state and an armed "Start scan" button until an event lands.
+  //
+  // `/tasks/status` needs `tasks.run`, the same scope the `scan` socket
+  // handler gates on, so anyone who could have started this scan can read it
+  // back. Users without it stay purely event-driven.
+  let sawScanEnd = false;
+  function markScanEnded() {
+    sawScanEnd = true;
+  }
+
+  // Reconciles once per eligible user: collapsing the source to an id keeps
+  // unrelated profile updates from re-firing it, and re-arms if the scope
+  // shows up later.
+  watch(
+    () =>
+      authStore.user?.oauth_scopes.includes("tasks.run")
+        ? authStore.user.id
+        : null,
+    (userId) => {
+      if (userId === null) return;
+      sawScanEnd = false;
+      reconcileWithRunningScan();
+    },
+    { immediate: true },
+  );
+
+  function reconcileWithRunningScan() {
+    taskApi
+      .getTaskStatus()
+      .then(({ data }) => {
+        // A terminal event that landed while the request was in flight means
+        // the job we asked about is already over; don't resurrect it. Same for
+        // stats already streaming in, which are fresher than the job's meta.
+        if (sawScanEnd || scanningStore.scanning) return;
+        const running = data.find(
+          (task): task is ScanTaskStatusResponse =>
+            task.task_type === "scan" && task.status === "started",
+        );
+        if (!running) return;
+        scanningStore.setScanning(true);
+        // The per-platform live log only ever lived in the originating tab's
+        // memory, so the panel list fills in from the next platform onward.
+        // `meta` is typed as required but this is a JSON boundary: a missing
+        // snapshot just means no counters yet, not "no scan".
+        if (running.meta?.scan_stats)
+          scanningStore.setScanStats(running.meta.scan_stats);
+      })
+      .catch((error) => console.error(error));
+  }
 }
