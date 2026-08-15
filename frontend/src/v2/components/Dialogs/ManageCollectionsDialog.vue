@@ -27,7 +27,7 @@ import storeCollections, {
   type Collection,
   type CollectionType,
 } from "@/stores/collections";
-import type { SimpleRom } from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import CollectionPickerRow from "@/v2/components/Collections/CollectionPickerRow.vue";
 import NewCollectionRow from "@/v2/components/Collections/NewCollectionRow.vue";
@@ -35,6 +35,8 @@ import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 defineOptions({ inheritAttrs: false });
@@ -43,6 +45,9 @@ const { t } = useI18n();
 const { mdAndUp } = useBreakpoint();
 const show = ref(false);
 const collectionsStore = storeCollections();
+const romsStore = storeRoms();
+const galleryRomsStore = storeGalleryRoms();
+const gallerySelectionStore = storeGallerySelection();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const { toWebp } = useWebpSupport();
@@ -118,13 +123,27 @@ async function toggle(collection: Collection) {
   // selected ids — the backend de-dupes against existing membership,
   // so this is safe and saves a per-id diff round-trip from the
   // frontend.
-  const romIds = roms.value.map((r) => r.id);
+  //
+  // Snapshotted because the dialog is a singleton: a fresh
+  // `showManageCollectionsDialog` can replace `roms` while the call below
+  // is in flight, and the response applies to the set we sent.
+  const targetRoms = roms.value;
+  const romIds = targetRoms.map((r) => r.id);
   try {
     const { data } = adding
       ? await collectionApi.addRomsToCollection(collection.id, romIds)
       : await collectionApi.removeRomsFromCollection(collection.id, romIds);
     collectionsStore.updateCollection(data);
     optimistic.value.delete(collection.id);
+    if (!adding && galleryRomsStore.currentCollection?.id === collection.id) {
+      // We're looking at the collection the ROMs just left, so the cards
+      // have to go with them. Removing from the collection you're viewing
+      // is the only reachable direction here: every selected ROM is
+      // already a member, so the row reads "all" and toggles to "off".
+      gallerySelectionStore.removeIds(romIds);
+      romsStore.remove(targetRoms);
+      galleryRomsStore.remove(targetRoms);
+    }
   } catch (error: unknown) {
     optimistic.value.set(collection.id, prevState);
     const axiosErr = error as { response?: { data?: { detail?: string } } };
