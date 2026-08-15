@@ -7,6 +7,8 @@ export interface PlatformCapabilities {
   max_slots: number; // manual save slots, selectable as 1..max_slots
   has_autosave: boolean; // whether a dedicated autosave slot can be loaded
   autosave_slot: number; // that slot's index (loadable, not savable), 0 if none
+  supports_disc_swap?: boolean; // a live swap route exists for this platform
+  has_manual_disc_swap?: boolean; // no route, but the emulator's own UI can do it
 }
 
 export interface StreamingContainer {
@@ -248,6 +250,12 @@ async function loadState(platform: string, slot = 1) {
   return api.post(`/streaming/sessions/${platform}/load-state`, { slot });
 }
 
+async function swapDisc(platform: string, fileId: number) {
+  return api.post(`/streaming/sessions/${platform}/swap-disc`, {
+    file_id: fileId,
+  });
+}
+
 async function adminListSessions() {
   return api.get<{ sessions: AdminStreamingSession[] }>("/streaming/sessions");
 }
@@ -309,6 +317,7 @@ export default {
   saveState,
   putStateFrame,
   loadState,
+  swapDisc,
   adminListSessions,
   adminListContainers,
   claimDesktop,

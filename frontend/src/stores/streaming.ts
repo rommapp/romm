@@ -30,6 +30,8 @@ const NO_CAPABILITIES = {
   maxSlots: 0,
   hasAutosave: false,
   autosaveSlot: 0,
+  supportsDiscSwap: false,
+  hasManualDiscSwap: false,
 } as const;
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -68,11 +70,15 @@ export const useStreamingStore = defineStore("streaming", () => {
    * maxSlots    - number of user-accessible save slots (slot selector range)
    * hasAutosave - whether a dedicated "load autosave" action is available
    * autosaveSlot - the slot index used for autosave (0 when none)
+   * supportsDiscSwap - whether the disc can be changed mid-session
+   * hasManualDiscSwap - whether the emulator's own UI can change it instead
    */
   function platformCapabilities(slug: string | null | undefined): {
     maxSlots: number;
     hasAutosave: boolean;
     autosaveSlot: number;
+    supportsDiscSwap: boolean;
+    hasManualDiscSwap: boolean;
   } {
     const caps = containerForPlatform(slug)?.capabilities;
     if (!caps) return { ...NO_CAPABILITIES };
@@ -80,6 +86,8 @@ export const useStreamingStore = defineStore("streaming", () => {
       maxSlots: caps.max_slots,
       hasAutosave: caps.has_autosave,
       autosaveSlot: caps.autosave_slot,
+      supportsDiscSwap: caps.supports_disc_swap ?? false,
+      hasManualDiscSwap: caps.has_manual_disc_swap ?? false,
     };
   }
 
