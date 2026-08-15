@@ -112,6 +112,31 @@ async def _refresh_session(session_key: str) -> None:
     await async_cache.expire(_session_redis_key(session_key), SESSION_TTL_SECONDS)
 
 
+async def _set_session_disc(session_key: str, file_id: int) -> None:
+    """Record the disc a session is now running.
+
+    Re-read rather than writing back the caller's copy, so a swap racing a
+    heartbeat does not undo it. `xx=True` so it cannot resurrect a released
+    session.
+    """
+    session = await _get_session(session_key)
+    if session is None:
+        return
+    session["disc_file_id"] = file_id
+    await async_cache.set(
+        _session_redis_key(session_key),
+        json.dumps(session),
+        xx=True,
+        ex=SESSION_TTL_SECONDS,
+    )
+
+
+def _session_disc_id(session: dict[str, Any]) -> int | None:
+    """The disc a swap put this session on, if any."""
+    value = session.get("disc_file_id")
+    return value if isinstance(value, int) else None
+
+
 def _session_is_stale(session: dict[str, Any]) -> bool:
     """True when the owner's heartbeat stopped long enough ago that the session
     counts as abandoned. Sessions written before heartbeats existed carry no
@@ -483,6 +508,10 @@ class SaveStateRequest(BaseModel):
     slot: Annotated[int, Field(ge=1, le=_MAX_SLOT)] = 1
 
 
+class SwapDiscRequest(BaseModel):
+    file_id: Annotated[int, Field(ge=1)]
+
+
 class LoadStateRequest(BaseModel):
     # Coarse union bound (widest is the autosave slot); the route validates the
     # exact per-platform ceiling against _PLATFORM_CAPABILITIES.
@@ -809,6 +838,9 @@ _BROKER_ACK_TIMEOUT = 5
 _BROKER_LAUNCH_TIMEOUT = 10
 _BROKER_LOAD_STATE_TIMEOUT = 60
 _BROKER_TRANSFER_TIMEOUT = 60
+# The broker waits for the core to report a running game before touching the
+# tray, then sits out the tray settle, so this has to outlast that wait.
+_BROKER_SWAP_DISC_TIMEOUT = 120
 _CARD_HYDRATE_TIMEOUT = 120
 _CARD_TEARDOWN_TIMEOUT = 30
 
@@ -1162,6 +1194,22 @@ def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
         timeout=_BROKER_LOAD_STATE_TIMEOUT,
     )
     return bool(body and body.get("loaded", False))
+
+
+def _swap_disc_broker(container: dict[str, Any], disc_path: str) -> bool:
+    """POST /swap-disc to the broker. True once the disc is mounted."""
+    if _is_webstation(container):
+        body = _broker_request_safe(
+            container,
+            _webstation_path(container, "/swap-disc"),
+            "swap-disc",
+            body={"path": disc_path},
+            timeout=_BROKER_SWAP_DISC_TIMEOUT,
+        )
+        return bool(body and body.get("status") == "ok")
+    # Only the webstation broker has a tray protocol; the legacy per-emulator
+    # brokers have no route to call.
+    return False
 
 
 def _stop_broker(container: dict[str, Any], save: bool = True) -> int | None:
@@ -3398,6 +3446,35 @@ async def load_state(
     return JSONResponse(
         {"status": "ok", "loaded": True, "slot": req.slot, "platform": platform}
     )
+
+
+@protected_route(router.post, "/sessions/{platform}/swap-disc", [Scope.ROMS_USER_WRITE])
+async def swap_disc(
+    request: Request, platform: str, req: Annotated[SwapDiscRequest, Body()]
+) -> JSONResponse:
+    """Change the mounted disc without restarting the emulator."""
+    container, session_key, session = await _resolve_owned_session(platform, request)
+    if not platform_capabilities(platform)["supports_disc_swap"]:
+        raise HTTPException(
+            status_code=400, detail=f"Platform '{platform}' cannot swap discs"
+        )
+
+    rom_id = session.get("rom_id")
+    if not isinstance(rom_id, int):
+        raise HTTPException(status_code=409, detail="Session has no rom")
+    rom_file = db_rom_handler.get_rom_file_by_id(req.file_id)
+    if rom_file is None or rom_file.rom_id != rom_id:
+        raise HTTPException(status_code=404, detail="File does not belong to this rom")
+
+    library_base = (container.get("library_path") or LIBRARY_BASE_PATH).rstrip("/")
+    disc_path = f"{library_base}/{rom_file.full_path}"
+    ok = await asyncio.to_thread(_swap_disc_broker, container, disc_path)
+    if not ok:
+        raise HTTPException(status_code=502, detail="Broker failed to swap disc")
+
+    await _set_session_disc(session_key, req.file_id)
+    await _refresh_session(session_key)
+    return JSONResponse({"status": "ok", "file_id": req.file_id, "platform": platform})
 
 
 @protected_route(router.delete, "/sessions/{platform}", [Scope.ROMS_USER_WRITE])

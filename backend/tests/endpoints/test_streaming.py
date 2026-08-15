@@ -32,7 +32,7 @@ from handler.redis_handler import async_cache
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from models.user import User
 
 # ── Fixtures / helpers ────────────────────────────────────────────────────────
@@ -124,6 +124,18 @@ def _rom_on(slug: str) -> Rom:
             fs_name_no_ext=slug,
             fs_extension="zip",
             fs_path=f"{slug}/roms",
+        )
+    )
+
+
+def _add_rom_file(rom: Rom, file_name: str) -> RomFile:
+    """A RomFile on `rom`, the way multi_file_rom builds them."""
+    return db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name=file_name,
+            file_path=f"{rom.fs_path}/{rom.fs_name}",
+            file_size_bytes=1,
         )
     )
 
@@ -1242,6 +1254,39 @@ def test_webstation_load_state_reports_an_empty_slot():
         return_value=_webstation_json({"status": "failed", "slot": 3, "loaded": False}),
     ):
         assert streaming._load_state_broker(container, 3) is False
+
+
+def test_webstation_swap_disc_posts_under_the_subfolder():
+    container = _webstation_ps2()
+    with patch(
+        "endpoints.streaming.urllib.request.urlopen",
+        return_value=_webstation_json({"status": "ok", "path": "/library/disc2.chd"}),
+    ) as urlopen:
+        assert streaming._swap_disc_broker(container, "/library/disc2.chd") is True
+    assert urlopen.call_args.args[0].full_url.endswith(
+        "/streaming/api/session/swap-disc"
+    )
+    assert json.loads(urlopen.call_args.args[0].data) == {"path": "/library/disc2.chd"}
+
+
+def test_webstation_swap_disc_reports_a_broker_refusal():
+    """A non-ok status (a bad path, no live session, an unsupported core) is a
+    failed swap, not an error."""
+    container = _webstation_ps2()
+    with patch(
+        "endpoints.streaming.urllib.request.urlopen",
+        return_value=_webstation_json({"status": "error", "detail": "no session"}),
+    ):
+        assert streaming._swap_disc_broker(container, "/library/disc2.chd") is False
+
+
+def test_swap_disc_broker_has_nothing_to_call_on_a_legacy_container():
+    """Only the webstation broker speaks the tray protocol; the per-emulator
+    brokers this replaced never learned it."""
+    container = _container_for(_rom_on("dc"), broker_host="http://192.168.1.10:8000")
+    with patch("endpoints.streaming.urllib.request.urlopen") as urlopen:
+        assert streaming._swap_disc_broker(container, "/library/disc2.chd") is False
+    urlopen.assert_not_called()
 
 
 # ── Staleness / heartbeat ─────────────────────────────────────────────────────
@@ -4441,3 +4486,78 @@ def test_a_proxied_webstation_host_derives_nothing():
         streaming._derive_broker_host({"host": "/streaming", "protocol": "webstation"})
         is None
     )
+
+
+# ── /sessions/{platform}/swap-disc ──────────────────────────────────────────
+
+
+def test_swap_disc_calls_the_broker_and_records_the_disc(client, access_token):
+    rom = _rom_on("dc")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._swap_disc_broker", return_value=True) as swap:
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
+                json={"file_id": disc.id},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    assert r.json() == {
+        "status": "ok",
+        "file_id": disc.id,
+        "platform": rom.platform_slug,
+    }
+    assert swap.call_args.args[1].endswith(disc.full_path)
+
+
+def test_swap_disc_reports_a_broker_failure(client, access_token):
+    rom = _rom_on("dc")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._swap_disc_broker", return_value=False):
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
+                json={"file_id": disc.id},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 502
+
+
+def test_swap_disc_refuses_a_file_from_another_rom(client, access_token, rom):
+    streamed = _rom_on("dc")
+    stranger = _add_rom_file(rom, "Other.chd")
+    with _streaming(_container_for(streamed)):
+        _claim_ok(client, access_token, streamed.id)
+        r = client.post(
+            f"/api/streaming/sessions/{streamed.platform_slug}/swap-disc",
+            json={"file_id": stranger.id},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 404
+
+
+def test_swap_disc_needs_a_session(client, access_token):
+    rom = _rom_on("dc")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    with _streaming(_container_for(rom)):
+        r = client.post(
+            f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
+            json={"file_id": disc.id},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 404
+
+
+def test_swap_disc_rejects_a_platform_with_no_tray(client, access_token):
+    rom = _rom_on("ps2")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        r = client.post(
+            f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
+            json={"file_id": disc.id},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 400
