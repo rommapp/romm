@@ -2,12 +2,12 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
+import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import {
   type EscapableEntry,
   popEscapable,
   pushEscapable,
 } from "@/v2/lib/overlays/RDialog/escapeStack";
-import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { installOverlayRouteDismiss } from "./index";
 
 const Blank = { template: "<div />" };
