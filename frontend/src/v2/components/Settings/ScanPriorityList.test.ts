@@ -15,23 +15,48 @@ const SOURCES = [
   { value: "ra", label: "RetroAchievements" },
 ];
 
-// Stub RBtn as a plain <button> so clicks and the disabled state work
-// without pulling in the full primitive; RIcon renders nothing.
+const CODES = [
+  { value: "us", label: "us" },
+  { value: "eu", label: "eu" },
+  { value: "jp", label: "jp" },
+];
+
+// Stub RBtn as a plain <button> and RTextField as a plain <input> so
+// clicks, typing and the disabled state work without pulling in the full
+// primitives; RIcon renders nothing.
+const STUBS = {
+  RIcon: true,
+  RBtn: {
+    props: ["disabled"],
+    emits: ["click"],
+    template:
+      '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
+  },
+  RTextField: {
+    props: ["modelValue", "disabled"],
+    emits: ["update:modelValue"],
+    template:
+      '<input :value="modelValue" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+  },
+};
+
 function mountList(modelValue: string[]) {
   return mount(ScanPriorityList, {
     props: { modelValue, sources: SOURCES },
-    global: {
-      stubs: {
-        RIcon: true,
-        RBtn: {
-          props: ["disabled"],
-          emits: ["click"],
-          template:
-            '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
-        },
-      },
-    },
+    global: { stubs: STUBS },
   });
+}
+
+function mountCustomList(modelValue: string[]): ReturnType<typeof mountList> {
+  return mount(ScanPriorityList, {
+    props: { modelValue, sources: CODES, allowCustom: true },
+    global: { stubs: STUBS },
+  });
+}
+
+// The free-text field is the only <input> the component renders.
+async function type(wrapper: ReturnType<typeof mountList>, value: string) {
+  await wrapper.find("input").setValue(value);
 }
 
 function lastEmit(wrapper: ReturnType<typeof mountList>): string[] {
@@ -93,6 +118,10 @@ describe("ScanPriorityList", () => {
     expect(lastEmit(wrapper)).toEqual(["igdb", "ss"]);
   });
 
+  it("has no free-text field unless allow-custom is set", () => {
+    expect(mountList(["igdb"]).find("input").exists()).toBe(false);
+  });
+
   it("does not move the first source up or the last source down", () => {
     const wrapper = mountList(["igdb", "moby"]);
     const rows = wrapper.findAll(".r-v2-spl__row");
@@ -103,5 +132,50 @@ describe("ScanPriorityList", () => {
     expect(
       (rows[1].findAll("button")[1].element as HTMLButtonElement).disabled,
     ).toBe(true);
+  });
+});
+
+describe("ScanPriorityList with allow-custom", () => {
+  it("appends a typed code on Enter, lowercased", async () => {
+    const wrapper = mountCustomList(["us"]);
+    await type(wrapper, " BR ");
+    await wrapper.find("input").trigger("keydown.enter");
+    expect(lastEmit(wrapper)).toEqual(["us", "br"]);
+  });
+
+  it("appends a typed code from the add button", async () => {
+    const wrapper = mountCustomList(["us"]);
+    await type(wrapper, "jp");
+    // The add button is the only one outside the rows.
+    await wrapper.find(".r-v2-spl__entry button").trigger("click");
+    expect(lastEmit(wrapper)).toEqual(["us", "jp"]);
+  });
+
+  it("splits a comma-separated list and skips duplicates", async () => {
+    const wrapper = mountCustomList(["us"]);
+    await type(wrapper, "eu, jp, US, eu");
+    await wrapper.find("input").trigger("keydown.enter");
+    expect(lastEmit(wrapper)).toEqual(["us", "eu", "jp"]);
+  });
+
+  it("emits nothing when the typed code is already listed", async () => {
+    const wrapper = mountCustomList(["us"]);
+    await type(wrapper, "us");
+    await wrapper.find("input").trigger("keydown.enter");
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  });
+
+  it("lists custom codes absent from the suggestions", () => {
+    const wrapper = mountCustomList(["wor", "us"]);
+    const rows = wrapper.findAll(".r-v2-spl__row");
+    expect(rows.map((r) => r.find(".r-v2-spl__label").text())).toEqual([
+      "wor",
+      "us",
+    ]);
+    // Suggestions drop the codes already listed.
+    expect(wrapper.findAll(".r-v2-spl__add").map((b) => b.text())).toEqual([
+      "eu",
+      "jp",
+    ]);
   });
 });

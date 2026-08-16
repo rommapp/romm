@@ -186,6 +186,26 @@ class TestUpdateLaunchboxMetadataTask:
         files_calls = [call for call in hset_calls if call[0][0] == LAUNCHBOX_FILES_KEY]
         assert len(files_calls) == 2
 
+        # The fixture pads one entry per index, as a pretty-printed dump does.
+        # Keys come out normalized, and the Files key carries its platform,
+        # since one dump filename exists on several systems.
+        def fields(calls) -> set[str]:
+            return {field for call in calls for field in call[1]["mapping"]}
+
+        assert fields(files_calls) == {
+            "super mario 64 (usa):Nintendo 64",
+            "crash bandicoot (usa):PlayStation",
+        }
+        assert fields(platform_calls) == {"Nintendo 64", "PlayStation"}
+        assert fields(metadata_id_calls) == {"12345", "67890"}
+        assert fields(metadata_name_calls) == {
+            "super mario 64:Nintendo 64",
+            "crash bandicoot:PlayStation",
+        }
+        assert fields(metadata_alt_calls) == {"super mario 64 (usa)"}
+        assert fields(metadata_image_calls) == {"12345"}
+        assert fields(mame_calls) == {"mario.zip", "pacman.zip"}
+
     @patch.object(RemoteFilePullTask, "run")
     @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
     async def test_empty_xml_elements_handling(

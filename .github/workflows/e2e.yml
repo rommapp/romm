@@ -147,3 +147,10 @@ jobs:
       - name: Dump backend log
         if: failure()
         run: tail -200 "$RUNNER_TEMP/backend.log" || true
+
+      # `uv run` holds the uv cache lock for as long as it lives, so leaving the
+      # backend up makes setup-uv's post-job `uv cache prune` block until the
+      # runner kills cleanup after 5 minutes, failing an otherwise green job.
+      - name: Stop the backend
+        if: always()
+        run: pkill -f "main.py" || true

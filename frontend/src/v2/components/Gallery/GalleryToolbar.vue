@@ -27,6 +27,8 @@ import type {
   LayoutMode,
   ToolbarPosition,
 } from "@/v2/composables/useGalleryMode";
+import { useInputModality } from "@/v2/composables/useInputModality";
+import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
 
 defineOptions({ inheritAttrs: false });
 
@@ -78,6 +80,9 @@ const props = withDefaults(
     showSearch?: boolean;
     search?: string;
     searchPlaceholder?: string;
+    /** Ask for the search field to take focus on mount. Only honoured on
+     *  precise-pointer, non-gamepad devices (see `autofocusSearchField`). */
+    autofocusSearch?: boolean;
     /** Segmented filter clusters (sit left of the view cluster). Used by
      *  CollectionsIndex for the kind + visibility filters. Each renders as
      *  an inline slider (≥ sm) and mirrors into the kebab menu below it. */
@@ -101,6 +106,7 @@ const props = withDefaults(
     showSearch: false,
     search: "",
     searchPlaceholder: "",
+    autofocusSearch: false,
     segmentFilters: () => [],
     showFilter: false,
     filterActiveCount: 0,
@@ -184,6 +190,17 @@ const effectiveSearchPlaceholder = computed(
   () => props.searchPlaceholder || `${t("common.search")}…`,
 );
 
+const { modality } = useInputModality();
+
+// A focused text field swallows the gamepad's synthetic arrow keys, which
+// would strand a pad user in the toolbar with no way to reach the grid.
+const autofocusSearchField = computed(
+  () =>
+    props.autofocusSearch &&
+    modality.value !== "pad" &&
+    shouldAutofocusSearch(),
+);
+
 function setGroupBy(value: GroupByMode) {
   emit("update:groupBy", value);
 }
@@ -214,6 +231,7 @@ const { smAndUp } = useBreakpoint();
 <template>
   <div class="gallery-toolbar" :class="[`gallery-toolbar--${position}`]">
     <!-- Filter controls. Always sits left of the controls cluster. -->
+    <!-- eslint-disable vuejs-accessibility/no-autofocus -- the Search view is opened to type a query -->
     <RTextField
       v-if="showSearch"
       :model-value="search"
@@ -222,6 +240,7 @@ const { smAndUp } = useBreakpoint();
       prefix-label="inline"
       clearable
       hide-details
+      :autofocus="autofocusSearchField"
       class="gallery-toolbar__search"
       @update:model-value="(v: string) => setSearch(v ?? '')"
     >
@@ -229,6 +248,7 @@ const { smAndUp } = useBreakpoint();
         <RIcon icon="mdi-magnify" size="16" />
       </template>
     </RTextField>
+    <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
     <!-- Filter button — sits flush against the search field. Same disc
          shape as the kebab (outlined icon-only RBtn); the active-count

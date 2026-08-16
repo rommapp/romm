@@ -5,13 +5,14 @@ import enum
 import re
 from datetime import datetime
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
 
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
     Boolean,
     Enum,
+    FetchedValue,
     Float,
     ForeignKey,
     Index,
@@ -49,7 +50,28 @@ from utils.database import CustomJSON
 NAME_SORT_KEY_MAX_LENGTH = 500
 # Max length for free-text audio tag columns (title/artist/album).
 AUDIO_TAG_MAX_LENGTH = 512
-ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
+# Articles ignored when sorting or bucketing a title, across the languages
+# No-Intro and LaunchBox name games in. Both patterns built from this are
+# anchored on the right, so "la" preceding "las" costs nothing.
+ARTICLES = (
+    "the",
+    "a",
+    "an",
+    "le",
+    "la",
+    "les",
+    "el",
+    "los",
+    "las",
+    "il",
+    "lo",
+    "gli",
+    "der",
+    "die",
+    "das",
+    "het",
+)
+ARTICLE_PREFIX_RE = re.compile(rf"^({'|'.join(ARTICLES)})\s+")
 DIGIT_RUN_RE = re.compile(r"\d+")
 
 
@@ -111,12 +133,26 @@ class RomArchiveMember(TypedDict):
     sha1_hash: str
 
 
+class LookupHashes(NamedTuple):
+    """The hashes a ROM database should be queried with."""
+
+    crc: str | None
+    md5: str | None
+    sha1: str | None
+
+
 class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
     __table_args__ = (
         Index("idx_rom_files_rom_id", "rom_id"),
         Index("idx_rom_files_title_id", "title_id"),
+        # Searching the gallery by a hash digest
+        Index("idx_rom_files_crc_hash", "crc_hash"),
+        Index("idx_rom_files_md5_hash", "md5_hash"),
+        Index("idx_rom_files_sha1_hash", "sha1_hash"),
+        Index("idx_rom_files_ra_hash", "ra_hash"),
+        Index("idx_rom_files_chd_sha1_hash", "chd_sha1_hash"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -170,6 +206,28 @@ class RomFile(BaseModel):
         from handler.filesystem import fs_rom_handler
 
         return fs_rom_handler.parse_file_extension(self.file_name)
+
+    @cached_property
+    def lookup_hashes(self) -> LookupHashes:
+        """The hashes to identify this file by against a ROM database.
+
+        Often not the file's own digests: a CHD is indexed by the disc data
+        embedded in its header, and a multi-file archive by its largest member
+        (the ROM itself, next to readmes and the like). The file's own hashes
+        cover the container, which no database holds.
+        """
+        if self.chd_sha1_hash:
+            return LookupHashes(crc=None, md5=None, sha1=self.chd_sha1_hash)
+
+        if self.archive_members:
+            largest = max(self.archive_members, key=lambda m: m.get("size") or 0)
+            return LookupHashes(
+                crc=largest.get("crc_hash"),
+                md5=largest.get("md5_hash"),
+                sha1=largest.get("sha1_hash"),
+            )
+
+        return LookupHashes(crc=self.crc_hash, md5=self.md5_hash, sha1=self.sha1_hash)
 
     @cached_property
     def is_nested(self) -> bool:
@@ -322,7 +380,11 @@ class Rom(BaseModel):
     __table_args__ = (
         # Enforce unique fs name per platform to avoid duplicates
         Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name", unique=True),
-        # Covers the sibling_roms view self-join
+        # Covers the sibling_roms view self-join and the group_by_meta_id dedup
+        # window. Both read only these columns, so the index has to carry every
+        # one of them: a single missing column (flashpoint_id or fs_name_no_ext,
+        # the window's partition tail and sort tiebreaker) drops the plan to a
+        # full scan of the wide roms row, JSON metadata blobs included.
         Index(
             "idx_roms_sibling_cover",
             "platform_id",
@@ -333,9 +395,12 @@ class Rom(BaseModel):
             "ra_id",
             "hasheous_id",
             "tgdb_id",
+            "flashpoint_id",
+            "fs_name_no_ext",
             "id",
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
+        Index("idx_roms_missing_from_fs", "missing_from_fs", "name_sort_key"),
         Index("idx_roms_name", "name"),
         Index("idx_roms_name_sort_key", "name_sort_key"),
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -351,6 +416,11 @@ class Rom(BaseModel):
         Index("idx_roms_gamelist_id", "gamelist_id"),
         Index("idx_roms_libretro_id", "libretro_id"),
         Index("idx_roms_title_id", "title_id"),
+        # Searching the gallery by a hash digest
+        Index("idx_roms_crc_hash", "crc_hash"),
+        Index("idx_roms_md5_hash", "md5_hash"),
+        Index("idx_roms_sha1_hash", "sha1_hash"),
+        Index("idx_roms_ra_hash", "ra_hash"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
@@ -395,6 +465,19 @@ class Rom(BaseModel):
     )
     manual_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
+    )
+
+    # Read-only slice of the stored generated columns from the `roms_metadata` view
+    generated_first_release_date: Mapped[int | None] = mapped_column(
+        BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+    generated_average_rating: Mapped[float | None] = mapped_column(
+        Float(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+    generated_player_count: Mapped[str | None] = mapped_column(
+        String(length=100),
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")

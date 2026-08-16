@@ -1,8 +1,8 @@
 """Add sigil-extracted title_version column to rom_files (Switch title
 versions are u32, stored as BigInteger).
 
-Revision ID: 0105_sigil_title_version
-Revises: 0104_sigil_title_ids
+Revision ID: 0109_sigil_title_version
+Revises: 0108_sigil_title_ids
 Create Date: 2026-07-24 00:00:00.000000
 
 """
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0105_sigil_title_version"
-down_revision = "0104_sigil_title_ids"
+revision = "0109_sigil_title_version"
+down_revision = "0108_sigil_title_ids"
 branch_labels = None
 depends_on = None
 

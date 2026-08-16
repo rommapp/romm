@@ -263,9 +263,10 @@ html[data-bp~="xs"] .r-v2-plat__panel-icon {
   color: var(--r-color-fg);
   transform: translateY(-1px);
 }
+/* Keep pointer events on passive chips so the native `title` tooltip still
+   shows on hover; only the pointer affordance is dropped. */
 .r-v2-plat__provider--passive {
   cursor: default;
-  pointer-events: none;
 }
 .r-v2-plat__provider--icon-only {
   padding: 2px 4px;

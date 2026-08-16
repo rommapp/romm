@@ -65,6 +65,7 @@ class SGDBGrid(TypedDict):
     nsfw: NotRequired[bool]
     humor: NotRequired[bool]
     epilepsy: NotRequired[bool]
+    lock: NotRequired[bool]
     url: str
     thumb: str
     tags: NotRequired[list[str]]

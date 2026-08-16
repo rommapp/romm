@@ -2,6 +2,7 @@ import glob
 import os
 import re
 import uuid
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Final, NotRequired, TypedDict
 from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
@@ -64,11 +65,14 @@ class GamelistMetadata(GamelistMetadataMedia):
     genres: list[str] | None
     player_count: str | None
     md5_hash: str | None
+    box2d_back_path: str | None
     box3d_path: str | None
+    fanart_path: str | None
     miximage_path: str | None
     miximage_v2_path: str | None
     physical_path: str | None
     marquee_path: str | None
+    title_screen_path: str | None
     video_path: str | None
 
 
@@ -244,11 +248,14 @@ def extract_metadata_from_gamelist_rom(
         genres=_split_comma_separated_values(genre),
         player_count=players,
         md5_hash=md5,
+        box2d_back_path=None,
         box3d_path=None,
+        fanart_path=None,
         miximage_path=None,
         miximage_v2_path=None,
         physical_path=None,
         marquee_path=None,
+        title_screen_path=None,
         video_path=None,
         **extract_media_from_gamelist_rom(game, platform),
     )
@@ -264,11 +271,23 @@ def populate_rom_specific_paths(
     updated_metadata: dict[str, str] = {}
 
     # Set paths for media types that are preferred
+    if MetadataMediaType.BOX2D_BACK in preferred_media_types and rom_metadata.get(
+        "box2d_back_url"
+    ):
+        updated_metadata["box2d_back_path"] = (
+            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX2D_BACK)}/box2d_back.png"
+        )
     if MetadataMediaType.BOX3D in preferred_media_types and rom_metadata.get(
         "box3d_url"
     ):
         updated_metadata["box3d_path"] = (
             f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX3D)}/box3d.png"
+        )
+    if MetadataMediaType.FANART in preferred_media_types and rom_metadata.get(
+        "fanart_url"
+    ):
+        updated_metadata["fanart_path"] = (
+            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.FANART)}/fanart.png"
         )
     if MetadataMediaType.MARQUEE in preferred_media_types and rom_metadata.get(
         "marquee_url"
@@ -351,6 +370,35 @@ class GamelistHandler(MetadataHandler):
 
         return None
 
+    def _iter_game_elements(self, gamelist_path: Path) -> Iterator[Element]:
+        """Yield each top-level game/folder element of a gamelist.xml.
+
+        Parsing incrementally keeps one entry alive at a time instead of
+        holding a tree for the whole document, which matters on platforms
+        with thousands of games.
+
+        ES-DE writes an <alternativeEmulator> sibling to <gameList>, producing
+        invalid multi-root XML that the incremental parser rejects. Those files
+        fall back to stripping the element from the document first. Entries are
+        keyed by filename by the caller, so re-yielding any element already
+        consumed before the failure is harmless.
+        """
+        try:
+            for _, elem in ET.iterparse(gamelist_path, events=("end",)):
+                if elem.tag in ("game", "folder"):
+                    yield elem
+                    elem.clear()
+            return
+        except ET.ParseError:
+            pass
+
+        xml_content = gamelist_path.read_text(encoding="utf-8", errors="replace")
+        xml_content = ALTERNATIVE_EMULATOR_SELF_CLOSING_RE.sub("", xml_content)
+        xml_content = ALTERNATIVE_EMULATOR_PAIRED_RE.sub("", xml_content)
+        for elem in ET.fromstring(xml_content):
+            if elem.tag in ("game", "folder"):
+                yield elem
+
     def _parse_gamelist_xml(
         self, gamelist_path: Path, platform: Platform
     ) -> dict[str, GamelistRom]:
@@ -367,22 +415,7 @@ class GamelistHandler(MetadataHandler):
         roms_data: dict[str, GamelistRom] = {}
 
         try:
-            xml_content = gamelist_path.read_text(encoding="utf-8", errors="replace")
-            xml_content = ALTERNATIVE_EMULATOR_SELF_CLOSING_RE.sub("", xml_content)
-            xml_content = ALTERNATIVE_EMULATOR_PAIRED_RE.sub("", xml_content)
-            root: Element | None = ET.fromstring(xml_content)
-        except ET.ParseError as e:
-            log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
-            root = None
-        except Exception as e:
-            log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
-            root = None
-
-        if root is None:
-            return roms_data
-
-        try:
-            for game in root:
+            for game in self._iter_game_elements(gamelist_path):
                 if game.tag not in ("game", "folder"):
                     continue
 
@@ -466,6 +499,12 @@ class GamelistHandler(MetadataHandler):
 
             # Cache the parsed data for this platform
             self._gamelist_cache[cache_key] = roms_data
+        except ET.ParseError as e:
+            log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
+            # Entries read before the document turned out to be invalid are
+            # dropped, so a corrupt file yields nothing rather than a partial
+            # import that silently looks complete.
+            roms_data.clear()
         except Exception as e:
             log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
 

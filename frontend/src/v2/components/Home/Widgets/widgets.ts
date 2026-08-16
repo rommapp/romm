@@ -28,7 +28,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     component: RandomPickWidget,
     enabledKey: "widgetRandomPick",
     labelKey: "settings.widget-random-pick",
-    icon: "mdi-dice-multiple-outline",
+    icon: "mdi-dice-5-outline",
   },
   {
     id: "libraryStats",

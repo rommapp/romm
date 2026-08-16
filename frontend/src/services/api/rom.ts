@@ -183,10 +183,10 @@ export interface GetRomsParams {
   playerCountsLogic?: string | null;
   metadataProvidersLogic?: string | null;
   tagsLogic?: string | null;
-  // Skip the char index / filter-value / id-index aggregations server-side
   withCharIndex?: boolean;
   withFilterValues?: boolean;
   withRomIdIndex?: boolean;
+  withTotal?: boolean;
   // Cancel an in-flight request
   signal?: AbortSignal;
 }
@@ -238,6 +238,7 @@ async function getRoms({
   withCharIndex = undefined,
   withFilterValues = undefined,
   withRomIdIndex = undefined,
+  withTotal = undefined,
   signal = undefined,
 }: GetRomsParams) {
   const params = {
@@ -351,6 +352,7 @@ async function getRoms({
     ...(withRomIdIndex !== undefined
       ? { with_rom_id_index: withRomIdIndex }
       : {}),
+    ...(withTotal !== undefined ? { with_total: withTotal } : {}),
   };
 
   return api.get<GetRomsResponse>(`/roms`, {
@@ -371,6 +373,7 @@ async function getRecentRoms() {
       with_char_index: false,
       with_filter_values: false,
       with_rom_id_index: false,
+      with_total: false,
     },
   });
 }
@@ -384,6 +387,7 @@ async function getRecentPlayedRoms() {
       with_char_index: false,
       with_filter_values: false,
       with_rom_id_index: false,
+      with_total: false,
       last_played: true,
     },
   });
@@ -411,6 +415,28 @@ async function getRomSimple({
   // for the v2 gallery card's per-card fetch path. Detail-level data is
   // pulled on demand (game details page, quick-note dialog open).
   return api.get<SimpleRom>(`/roms/${romId}/simple`, { signal });
+}
+
+async function getRandomRom({
+  platformIds = null,
+  collectionId = null,
+  virtualCollectionId = null,
+  smartCollectionId = null,
+}: {
+  platformIds?: number[] | null;
+  collectionId?: number | null;
+  virtualCollectionId?: string | null;
+  smartCollectionId?: number | null;
+} = {}) {
+  return api.get<SimpleRom | null>("/roms/random", {
+    params: {
+      platform_ids:
+        platformIds && platformIds.length > 0 ? platformIds : undefined,
+      collection_id: collectionId,
+      virtual_collection_id: virtualCollectionId,
+      smart_collection_id: smartCollectionId,
+    },
+  });
 }
 
 async function getRomByMetadataProvider({
@@ -922,6 +948,7 @@ export default {
   getRecentPlayedRoms,
   getRom,
   getRomSimple,
+  getRandomRom,
   getRomByMetadataProvider,
   downloadRom,
   bulkDownloadRoms,

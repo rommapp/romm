@@ -7,7 +7,7 @@ from models.platform import CUSTOM_NAME_MAX_LENGTH, DESCRIPTION_MAX_LENGTH
 
 def test_get_platforms(client, access_token, platform):
     response = client.get("/api/platforms")
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     response = client.get(
         "/api/platforms", headers={"Authorization": f"Bearer {access_token}"}
@@ -27,7 +27,7 @@ def test_get_filesystem_platforms(client, access_token, platform):
         mock_get_platforms.return_value = [platform.fs_slug, "segacd"]
 
         response = client.get("/api/platforms/filesystem")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
         response = client.get(
             "/api/platforms/filesystem",
@@ -175,4 +175,4 @@ def test_update_platform_description_requires_write_scope(client, platform):
         f"/api/platforms/{platform.id}",
         json={"description": "Nope"},
     )
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED

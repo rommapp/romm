@@ -161,6 +161,17 @@ async function applyItemsBatched(
   }
 }
 
+/** Which whole-library sidecars a bootstrap asks the backend to compute.
+ * Each one is a scan over the full result set, so a surface that renders
+ * none of them (the Settings "Missing" tab: no filter drawer, no AlphaStrip,
+ * and a scroller sized off `total` alone) opts out rather than paying for
+ * lists it discards. Omitted flags keep the backend's default (`true`). */
+export interface SidecarOptions {
+  withCharIndex?: boolean;
+  withFilterValues?: boolean;
+  withRomIdIndex?: boolean;
+}
+
 interface State {
   currentPlatform: Platform | null;
   currentCollection: Collection | null;
@@ -380,13 +391,21 @@ export default defineStore("v2GalleryRoms", {
       data: GetRomsResponse,
       galleryFilter: GalleryFilterStore,
       platformsStore: ReturnType<typeof storePlatforms>,
+      sidecars: SidecarOptions = {},
     ) {
       if (data.total !== null && data.total !== undefined) {
         this.total = data.total;
       }
-      if (data.char_index) this.charIndex = data.char_index;
-      if (data.rom_id_index) this.romIdIndex = data.rom_id_index;
-      if (data.filter_values) {
+      // A skipped sidecar comes back empty but truthy, so applying it would
+      // blank whatever a previous fetch populated (same trap `fetchWindowAt`
+      // guards with `withAggregations`).
+      if (sidecars.withCharIndex !== false && data.char_index) {
+        this.charIndex = data.char_index;
+      }
+      if (sidecars.withRomIdIndex !== false && data.rom_id_index) {
+        this.romIdIndex = data.rom_id_index;
+      }
+      if (sidecars.withFilterValues !== false && data.filter_values) {
         if (galleryFilter.filterPlatforms.length === 0) {
           galleryFilter.setFilterPlatforms(
             platformsStore.allPlatforms.filter((p) =>
@@ -416,8 +435,12 @@ export default defineStore("v2GalleryRoms", {
      *
      * The backend's `limit` minimum is 1, so we still pay for one
      * `SimpleRomSchema` build server-side, but the item is discarded
-     * client-side. */
-    async fetchInitialMetadata(): Promise<void> {
+     * client-side.
+     *
+     * `sidecars` opts out of the aggregates the caller doesn't render; the
+     * backend then serves `total` from a plain COUNT instead of a full
+     * ordered id scan. */
+    async fetchInitialMetadata(sidecars: SidecarOptions = {}): Promise<void> {
       if (this.metadataLoaded) return;
       if (this.initialFetching) return;
 
@@ -433,6 +456,7 @@ export default defineStore("v2GalleryRoms", {
       try {
         const response = await romApi.getRoms({
           ...params,
+          ...sidecars,
           limit: 1,
           signal: controller.signal,
         });
@@ -441,7 +465,12 @@ export default defineStore("v2GalleryRoms", {
         // newer bootstrap may have replaced our entry under the same key.
         // Identity comparison avoids applying stale metadata in that race.
         if (inFlightControllers.get(ctrlKey) !== controller) return;
-        this._applyMetadata(response.data, galleryFilter, platformsStore);
+        this._applyMetadata(
+          response.data,
+          galleryFilter,
+          platformsStore,
+          sidecars,
+        );
       } catch (err) {
         if (axios.isCancel(err)) return;
         console.error("[v2GalleryRoms] bootstrap fetch failed", err);
@@ -494,7 +523,10 @@ export default defineStore("v2GalleryRoms", {
       // object when these are skipped, so re-applying it would wipe the
       // populated values and blank the AlphaStrip / filter drawer. The id
       // index is a full-library scan we already paid for in the bootstrap, so
-      // window fetches opt out of recomputing it.
+      // window fetches opt out of recomputing it. Dropping it makes the backend
+      // count the result set separately instead, which is the same scan under
+      // another name for a total the bootstrap already gave us, so opt out of
+      // that too and keep the window fetch to just its page of covers.
       const withAggregations = !this.metadataLoaded;
 
       try {
@@ -506,6 +538,7 @@ export default defineStore("v2GalleryRoms", {
                 withCharIndex: false,
                 withFilterValues: false,
                 withRomIdIndex: false,
+                withTotal: false,
               }),
           signal: controller.signal,
         });
@@ -518,9 +551,10 @@ export default defineStore("v2GalleryRoms", {
 
         const data = response.data;
         // Only apply the full metadata when this window actually fetched the
-        // aggregations (the very first window before the bootstrap resolved).
+        // aggregations (a window reached before the bootstrap resolved).
         // Otherwise char_index / filter_values come back empty and would
-        // clobber what the bootstrap populated, so just refresh `total`.
+        // clobber what the bootstrap populated; `total` comes back null and
+        // the guard below leaves the established size alone.
         if (offset === 0 && withAggregations) {
           this._applyMetadata(data, galleryFilter, platformsStore);
         } else if (data.total !== null && data.total !== undefined) {

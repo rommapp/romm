@@ -78,6 +78,36 @@ class TestGetGameCoversMapping:
         # `.webm` thumbs are animated covers.
         assert resource["type"] == "animated"
 
+    @pytest.mark.asyncio
+    async def test_skips_dmca_locked_grids(self):
+        handler = SGDBBaseHandler()
+        grids = [
+            _make_grid(id=1, lock=True, url="https://cdn.example.com/grid/locked.png?"),
+            _make_grid(id=2, lock=False),
+            _make_grid(id=3),
+        ]
+        with patch.object(
+            handler.sgdb_service,
+            "iter_grids_for_game",
+            side_effect=lambda *a, **k: _aiter(grids),
+        ):
+            result = await handler._get_game_covers(game_id=1, game_name="Test Game")
+
+        assert len(result["resources"]) == 2
+        assert all("locked" not in resource["url"] for resource in result["resources"])
+
+    @pytest.mark.asyncio
+    async def test_all_locked_grids_yield_no_resources(self):
+        handler = SGDBBaseHandler()
+        with patch.object(
+            handler.sgdb_service,
+            "iter_grids_for_game",
+            side_effect=lambda *a, **k: _aiter([_make_grid(lock=True)]),
+        ):
+            result = await handler._get_game_covers(game_id=1, game_name="Test Game")
+
+        assert result == {"name": "Test Game", "resources": []}
+
 
 class TestGetDetailsContentFilters:
     @pytest.mark.asyncio

@@ -17,6 +17,6 @@
   "widget-library-stats": "Library stats",
   "widget-random-pick": "Random pick",
   "widget-random-pick-empty": "No games loaded yet",
-  "widget-random-pick-open": "Open",
+  "widget-random-pick-error": "Couldn't pick a game",
   "widget-random-pick-reroll": "Reroll"
 }

@@ -17,6 +17,6 @@
   "widget-library-stats": "Statistiky knihovny",
   "widget-random-pick": "Náhodný výběr",
   "widget-random-pick-empty": "Zatím nebyly načteny žádné hry",
-  "widget-random-pick-open": "Otevřít",
+  "widget-random-pick-error": "Nepodařilo se vybrat hru",
   "widget-random-pick-reroll": "Vybrat znovu"
 }

@@ -17,6 +17,6 @@
   "widget-library-stats": "Statistiche della libreria",
   "widget-random-pick": "Scelta casuale",
   "widget-random-pick-empty": "Nessun gioco ancora caricato",
-  "widget-random-pick-open": "Apri",
+  "widget-random-pick-error": "Impossibile scegliere un gioco",
   "widget-random-pick-reroll": "Rilancia"
 }

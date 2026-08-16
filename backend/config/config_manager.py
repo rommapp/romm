@@ -54,6 +54,7 @@ DEFAULT_EXCLUDED_DIRS: Final = [
     "@eaDir",
     "assets",
     "__MACOSX",
+    "#recycle",
     "$RECYCLE.BIN",
     ".Trash-*",
     ".stfolder",
@@ -516,7 +517,7 @@ class ConfigManager:
             SCAN_LANGUAGE_PRIORITY=pydash.get(
                 self._raw_config,
                 "scan.priority.language",
-                ["en", "fr"],
+                ["en"],
             ),
             SCAN_MEDIA=pydash.get(
                 self._raw_config,

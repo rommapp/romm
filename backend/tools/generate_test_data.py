@@ -616,6 +616,7 @@ def build_hasheous_metadata(rng: random.Random) -> dict[str, Any]:
         "mame_mess_match": rng.random() < 0.1,
         "nointro_match": rng.random() < 0.6,
         "redump_match": rng.random() < 0.4,
+        "mame_redump_match": rng.random() < 0.1,
         "whdload_match": False,
         "ra_match": rng.random() < 0.3,
         "fbneo_match": rng.random() < 0.1,

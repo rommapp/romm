@@ -167,10 +167,14 @@ const lastPlayed = computed(() => {
 // would be a lie. "Franchises" mirrors the singular→plural consistency
 // of the surrounding rows.
 const overviewSections = computed<InfoGridSection[]>(() => [
-  { label: t("rom.genres"), items: genres.value },
-  { label: t("rom.companies"), items: companies.value },
-  { label: t("rom.franchises"), items: franchises.value },
-  { label: t("rom.collections"), items: collections.value },
+  { label: t("rom.genres"), items: genres.value, filter: "genres" },
+  { label: t("rom.companies"), items: companies.value, filter: "companies" },
+  { label: t("rom.franchises"), items: franchises.value, filter: "franchises" },
+  {
+    label: t("rom.collections"),
+    items: collections.value,
+    filter: "collections",
+  },
 ]);
 
 const playerCount = computed<string | null>(() => {
@@ -216,6 +220,7 @@ const expansions = computed<IGDBRelatedGame[]>(
   () => igdb.value?.expansions ?? [],
 );
 const dlcs = computed<IGDBRelatedGame[]>(() => igdb.value?.dlcs ?? []);
+const ports = computed<IGDBRelatedGame[]>(() => igdb.value?.ports ?? []);
 
 const savesCount = computed(() => currentRom.value?.user_saves?.length ?? 0);
 const statesCount = computed(() => currentRom.value?.user_states?.length ?? 0);
@@ -281,6 +286,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :dlcs="dlcs"
             :remakes="remakes"
             :remasters="remasters"
+            :ports="ports"
             :similar-games="similarGames"
           />
           <FilesTab v-if="tab === 'files'" :rom="currentRom" />

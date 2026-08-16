@@ -12,12 +12,13 @@ from decorators.auth import protected_route
 from endpoints.responses.rom import RomFileSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import assert_can, assert_rom_visible, get_permissions
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.permission import PermAction, PermEntity
 from models.rom import RomFileCategory
 from utils.audio_tags import guess_audio_media_type
 from utils.media_types import (
@@ -164,6 +165,12 @@ async def delete_rom_file(
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
     """Delete a single file from a ROM."""
+
+    # Removing a game file destroys library content, so it needs the same
+    # DELETE grant the whole-ROM delete route requires. The sibling routes for
+    # manuals/soundtracks/screenshots settle for ROMS_WRITE because a category
+    # guard keeps them off the game files themselves.
+    assert_can(get_permissions(request), PermEntity.ROMS, PermAction.DELETE)
 
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:

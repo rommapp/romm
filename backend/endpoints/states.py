@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import StateSchema
+from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
@@ -104,9 +105,23 @@ async def add_state(
         user_id=request.user.id, rom_id=rom.id, file_name=sanitized_state_filename
     )
     if db_state:
+        # The new bytes land under the requested emulator's folder, so the row
+        # follows them and the file at the old location is left orphaned.
+        stale_full_path = db_state.full_path
         db_state = db_state_handler.update_state(
-            db_state.id, {"file_size_bytes": scanned_state.file_size_bytes}
+            db_state.id,
+            {
+                "file_size_bytes": scanned_state.file_size_bytes,
+                "file_path": scanned_state.file_path,
+                "emulator": emulator,
+            },
         )
+
+        if stale_full_path != db_state.full_path:
+            try:
+                await fs_asset_handler.remove_file(stale_full_path)
+            except FileNotFoundError:
+                pass
     else:
         scanned_state.rom_id = rom.id
         scanned_state.user_id = request.user.id
@@ -168,6 +183,8 @@ async def add_state(
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
+
+    refresh_affected_smart_collections([rom.id], membership_only=True)
 
     return StateSchema.model_validate(db_state)
 
@@ -357,6 +374,9 @@ def update_state_visibility(
             state.screenshot.id, {"is_public": is_public}
         )
 
+    # Sharing a state exposes it to every other user's `has_states` filter.
+    refresh_affected_smart_collections([state.rom_id], membership_only=True)
+
     return StateSchema.model_validate(updated)
 
 
@@ -385,6 +405,8 @@ async def delete_states(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
+    affected_rom_ids: set[int] = set()
+
     for state_id in states:
         state = db_state_handler.get_state(user_id=request.user.id, id=state_id)
         if not state:
@@ -392,6 +414,7 @@ async def delete_states(
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+        affected_rom_ids.add(state.rom_id)
         db_state_handler.delete_state(state_id)
         log.info(
             f"Deleting state {hl(state.file_name)} [{state.rom.platform_slug}] from filesystem"
@@ -413,5 +436,7 @@ async def delete_states(
             except FileNotFoundError:
                 error = f"Screenshot file {hl(state.screenshot.file_name)} not found for state {hl(state.file_name)}[{hl(state.rom.platform_slug)}]"
                 log.error(error)
+
+    refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 
     return states

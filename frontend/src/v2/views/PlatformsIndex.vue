@@ -277,11 +277,21 @@ onMounted(() => {
   }
 });
 
+// Category contributes both the raw IGDB value and the prettified label, since
+// the label is what the UI shows ("Portable console") while the raw
+// value is what the rest of the app stores ("portable_console").
+function searchFields(p: Platform): string[] {
+  const fields = [p.display_name, p.slug, p.fs_slug];
+  if (p.category) fields.push(p.category, prettifyPlatformCategory(p.category));
+  if (p.family_name) fields.push(p.family_name);
+  return fields;
+}
+
 const filtered = computed<Platform[]>(() => {
   const term = searchTerm.value.trim().toLowerCase();
   if (!term) return visiblePlatforms.value;
   return visiblePlatforms.value.filter((p) =>
-    p.display_name.toLowerCase().includes(term),
+    searchFields(p).some((field) => field.toLowerCase().includes(term)),
   );
 });
 
@@ -479,7 +489,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         :group-by-items="platformGroupByItems"
         :segment-filters="segmentFilters"
         show-search
-        :search-placeholder="t('platform.search-platform')"
+        :search-placeholder="t('platform.search-placeholder')"
         @update:group-by="groupBy = $event"
         @update:layout="layout = $event"
         @update:sort-dir="gridSortDir = $event"

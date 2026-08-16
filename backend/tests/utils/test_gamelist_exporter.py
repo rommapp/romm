@@ -278,6 +278,49 @@ def test_export_gamelist_xml_local_ss_metadata_media_relative(platform_with_roms
         assert not isabs(elem.text)
 
 
+def test_export_gamelist_xml_miximage_variants_use_distinct_tags(platform_with_roms):
+    """Both miximage variants must reach the XML under their own tag."""
+    platform, roms = platform_with_roms
+
+    db_rom_handler.update_rom(
+        roms[0].id,
+        {
+            "ss_metadata": {
+                "miximage_path": "snes-ss/miximage/test.png",
+                "miximage_v2_path": "snes-ss/miximage_v2/test.png",
+            }
+        },
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    xml_str = exporter.export_platform_to_xml(platform.id, request=None)
+    game = fromstring(xml_str).findall("game")[0]
+
+    miximages = game.findall("miximage")
+    miximages_v2 = game.findall("miximage_v2")
+    assert len(miximages) == 1
+    assert len(miximages_v2) == 1
+    assert miximages[0].text != miximages_v2[0].text
+
+
+def test_export_gamelist_xml_gamelist_backcover_fallback(platform_with_roms):
+    """A back cover discovered by the gamelist handler must reach <boxback>."""
+    platform, roms = platform_with_roms
+
+    db_rom_handler.update_rom(
+        roms[0].id,
+        {"gamelist_metadata": {"box2d_back_path": "snes-gl/box2d_back/test.png"}},
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    xml_str = exporter.export_platform_to_xml(platform.id, request=None)
+    game = fromstring(xml_str).findall("game")[0]
+
+    boxback = game.find("boxback")
+    assert boxback is not None
+    assert boxback.text == "./assets/backcovers/Super Mario World (USA).png"
+
+
 def test_export_gamelist_xml_local_no_absolute_paths_anywhere(platform_with_roms):
     """Catch-all: when local_export=True, no element text should contain
     the FRONTEND_RESOURCES_PATH absolute prefix."""
@@ -369,6 +412,54 @@ async def test_export_platform_to_file_copies_assets(
         assert elem is not None and elem.text == expected
 
 
+async def test_export_platform_to_file_keeps_miximage_variants_separate(
+    platform_with_roms, isolated_filesystem
+):
+    """The two miximage variants share a file extension, so they must land in
+    separate asset directories instead of overwriting each other."""
+    resources_base, library_base = isolated_filesystem
+    platform, roms = platform_with_roms
+
+    db_rom_handler.update_rom(
+        roms[0].id,
+        {
+            "ss_metadata": {
+                "miximage_path": "snes-ss/miximage/test.png",
+                "miximage_v2_path": "snes-ss/miximage_v2/test.png",
+            }
+        },
+    )
+
+    sources = {
+        "snes-ss/miximage/test.png": b"mix-v1-bytes",
+        "snes-ss/miximage_v2/test.png": b"mix-v2-bytes",
+    }
+    for rel, content in sources.items():
+        src = resources_base / rel
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_bytes(content)
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    platform_dir = library_base / fs_platform_handler.get_platform_fs_structure(
+        platform.fs_slug
+    )
+
+    v1 = platform_dir / "assets/miximages/Super Mario World (USA).png"
+    v2 = platform_dir / "assets/miximages_v2/Super Mario World (USA).png"
+    assert v1.read_bytes() == b"mix-v1-bytes"
+    assert v2.read_bytes() == b"mix-v2-bytes"
+
+    game = fromstring((platform_dir / "gamelist.xml").read_text()).findall("game")[0]
+    miximage = game.find("miximage")
+    miximage_v2 = game.find("miximage_v2")
+    assert miximage is not None
+    assert miximage_v2 is not None
+    assert miximage.text == "./assets/miximages/Super Mario World (USA).png"
+    assert miximage_v2.text == "./assets/miximages_v2/Super Mario World (USA).png"
+
+
 async def test_export_platform_to_file_omits_tags_when_copy_fails(
     platform_with_roms, isolated_filesystem
 ):
@@ -397,10 +488,9 @@ async def test_export_platform_to_file_omits_tags_when_copy_fails(
     # Successful copies present
     assert (platform_dir / "assets/covers/Super Mario World (USA).jpg").is_file()
     assert (platform_dir / "assets/screenshots/Super Mario World (USA).jpg").is_file()
-    # Failed copies don't produce destination files (an empty subdir may be
-    # left behind because _copy_asset mkdirs before opening the source).
-    assert not (platform_dir / "assets/manuals/Super Mario World (USA).pdf").exists()
-    assert not (platform_dir / "assets/videos/Super Mario World (USA).mp4").exists()
+    # A missing source produces neither a destination file nor an empty subdir
+    assert not (platform_dir / "assets/manuals").exists()
+    assert not (platform_dir / "assets/videos").exists()
 
     game = fromstring((platform_dir / "gamelist.xml").read_text()).findall("game")[0]
     assert game.find("manual") is None

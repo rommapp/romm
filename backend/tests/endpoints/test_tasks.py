@@ -186,7 +186,7 @@ class TestListTasks:
     def test_list_tasks_unauthorized(self, client):
         """Test that unauthorized requests are rejected"""
         response = client.get("/api/tasks")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_list_tasks_insufficient_scope(self, client, admin_user):
         """Test that requests without proper scope are rejected"""
@@ -336,7 +336,7 @@ class TestRunSingleTask:
     def test_run_single_task_unauthorized(self, client):
         """Test running a task without authentication"""
         response = client.post("/api/tasks/run/test_task")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestGetTasksStatus:
@@ -492,7 +492,7 @@ class TestGetTaskById:
     def test_get_task_by_id_unauthorized(self, client):
         """Test retrieval of a task without authentication"""
         response = client.get("/api/tasks/test-job-id")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestTaskInfoBuilding:

@@ -855,6 +855,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | ------ | ---------------------------- | ---------- | ------------------------------------------------ |
 | GET    | `/`                          | ROMS_READ  | List ROMs (paginated, filterable)                |
 | GET    | `/identifiers`               | ROMS_READ  | Get ROM IDs                                      |
+| GET    | `/random`                    | ROMS_READ  | Get one ROM picked at random (optionally scoped) |
 | GET    | `/{id}`                      | ROMS_READ  | Get ROM details                                  |
 | PUT    | `/{id}`                      | ROMS_WRITE | Update ROM metadata                              |
 | POST   | `/{id}/convert-to-folder`    | ROMS_WRITE | Promote single-file ROM to a folder ROM in place |

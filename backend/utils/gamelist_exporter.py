@@ -26,7 +26,7 @@ ASSET_DIRS: dict[str, str] = {
     "fanart": "fanart",
     "marquee": "marquees",
     "miximage": "miximages",
-    "miximage_v2": "miximages",
+    "miximage_v2": "miximages_v2",
     "physical": "physical",
     "screenshot": "screenshots",
     "title_screen": "titlescreens",
@@ -90,7 +90,10 @@ class GamelistExporter:
             "fanart": [ss.get("fanart_path", ""), gl.get("fanart_path", "")],
             "marquee": [ss.get("logo_path", ""), gl.get("marquee_path", "")],
             "miximage": [ss.get("miximage_path", ""), gl.get("miximage_path", "")],
-            "miximage_v2": [ss.get("miximage_v2_path", "")],
+            "miximage_v2": [
+                ss.get("miximage_v2_path", ""),
+                gl.get("miximage_v2_path", ""),
+            ],
             "physical": [ss.get("physical_path", ""), gl.get("physical_path", "")],
             "title_screen": [
                 ss.get("title_screen_path", ""),
@@ -155,9 +158,16 @@ class GamelistExporter:
     def _copy_asset(self, source: Path, dest: Path) -> bool:
         """Place ``source`` at ``dest`` via hardlink (same filesystem) or copy
         (otherwise). Returns True on success."""
-        dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
             return True
+
+        # Metadata scanned before unfetched media paths were cleared can still
+        # point at files that were never downloaded.
+        if not source.is_file():
+            log.debug(f"Skipping asset {source}: source file is missing")
+            return False
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
 
         try:
             link_or_copy_file(source, dest)
@@ -264,7 +274,7 @@ class GamelistExporter:
             "fanart": "fanart",
             "marquee": "marquee",
             "miximage": "miximage",
-            "miximage_v2": "miximage",
+            "miximage_v2": "miximage_v2",
             "physical": "physicalmedia",
             "title_screen": "title_screen",
             "bezel": "bezel",

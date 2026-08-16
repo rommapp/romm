@@ -138,9 +138,9 @@ def _resolve_non_admin(
         ResolvedGrant(entity, action, own_only)
         for (entity, action), own_only in grant_map.items()
     )
-    # Kiosk mode locks every non-admin to read-only at the fine layer too, so a
-    # mutating route gated only by `assert_can` (no coarse scope) stays blocked.
-    if KIOSK_MODE:
+    # Cap the anonymous visitor at the fine layer too, so a mutating route gated
+    # only by `assert_can` (no coarse scope) stays blocked for them.
+    if KIOSK_MODE and user.is_kiosk_guest:
         grants = frozenset(g for g in grants if g.action == PermAction.READ)
 
     # Resolve the effective group (own or default) so hides assigned to the
@@ -169,7 +169,7 @@ def compute_oauth_scopes(
 ) -> list[Scope]:
     """Project a user's effective grants onto the coarse legacy ``Scope`` set.
 
-    Admins get the full set; ``KIOSK_MODE`` caps every non-admin user to
+    Admins get the full set; the anonymous ``KIOSK_MODE`` visitor is capped to
     read-only (the public-display lockdown).
     """
 
@@ -193,8 +193,8 @@ def _compute_non_admin_scopes(
             for (entity, action), own_only in grant_map.items()
         )
     )
-    # Only non-admins reach here (admins short-circuit above), so kiosk mode
-    # locks all of them down to read-only.
-    if KIOSK_MODE:
+    # Kiosk mode is an anonymous-visitor lockdown, not an account-wide cap: a
+    # user someone deliberately logged into keeps the grants they were given.
+    if KIOSK_MODE and user.is_kiosk_guest:
         scopes &= set(READ_SCOPES)
     return order_scopes(scopes)

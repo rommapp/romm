@@ -251,15 +251,18 @@ start_bin_rq_worker() {
 	fi
 
 	# Set PYTHONPATH so RQ can find the tasks module.
+	# The connection URL goes through RQ_REDIS_URL rather than --url, so the
+	# embedded password stays out of the worker's world-readable command line.
 	# Use a worker class that drops the noisy per-sweep "cleaning registries for
 	# queue" log line. The maintenance interval keeps its default (~10 min) so
 	# orphaned STARTED jobs and stale workers are still pruned promptly, which the
 	# watcher's Worker.all() scan dedupe relies on.
-	PYTHONPATH="/backend:${PYTHONPATH-}" rq worker \
+	PYTHONPATH="/backend:${PYTHONPATH-}" \
+		RQ_REDIS_URL="${redis_url}" \
+		rq worker \
 		--path /backend \
 		--worker-class handler.rq_worker.RomMWorker \
 		--pid /tmp/rq_worker.pid \
-		--url "${redis_url}" \
 		--results-ttl "${TASK_RESULT_TTL:-86400}" \
 		--logging_level "${LOGLEVEL}" \
 		high default low &
@@ -376,10 +379,8 @@ run_startup
 while ! ((exited)); do
 	watchdog_process_pid gunicorn
 
-	# only start the scheduler if enabled
-	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" || ${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA} == "true" || ${ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES} == "true" ]]; then
-		watchdog_process_pid rq_scheduler
-	fi
+	# always run the scheduler
+	watchdog_process_pid rq_scheduler
 
 	watchdog_process_pid rq_worker
 
