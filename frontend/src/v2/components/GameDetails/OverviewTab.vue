@@ -28,6 +28,7 @@ import type {
 } from "@/__generated__";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
+import { formatTimestamp } from "@/utils";
 import CollectionTile, {
   type Kind,
 } from "@/v2/components/Collections/CollectionTile.vue";
@@ -86,7 +87,17 @@ const hasHltb = computed(() => {
 // route, and carry the "smart" kind so the tile shows its flash badge.
 // Falls back to a bare entry if the store is empty (e.g. deep-link before
 // the AppLayout fetch resolves).
-const { t } = useI18n();
+const { t, locale } = useI18n();
+
+// Lifetime download total, always shown (including zero) so the figure sits
+// where you'd look for it rather than appearing only once someone downloads.
+// Aggregate only: who downloaded it stays in the admin-only log.
+const downloadCount = computed(() => props.rom.download_count ?? 0);
+const lastDownloaded = computed(() =>
+  props.rom.last_downloaded_at
+    ? formatTimestamp(props.rom.last_downloaded_at, locale.value)
+    : null,
+);
 const collectionsStore = storeCollections();
 const { toWebp } = useWebpSupport();
 
@@ -187,11 +198,21 @@ const coverSource = computed(() => {
          collections — get a row each so each fact can render its own
          semantic widget instead of being flattened to a chip list. -->
     <div
-      v-if="
-        revision || lastPlayed || hasQuickFacts || userCollectionTiles.length
-      "
       class="overview-tab__facts"
     >
+      <div class="overview-tab__row">
+        <div class="overview-tab__label">{{ t("rom.downloads") }}</div>
+        <div class="overview-tab__field">
+          <span class="overview-tab__downloads">
+            <RIcon icon="mdi-download" size="15" />
+            {{ downloadCount.toLocaleString() }}
+          </span>
+          <span v-if="lastDownloaded" class="overview-tab__downloads-meta">
+            {{ t("rom.last-downloaded") }}: {{ lastDownloaded }}
+          </span>
+        </div>
+      </div>
+
       <div v-if="revision" class="overview-tab__row">
         <div class="overview-tab__label">{{ t("rom.revision") }}</div>
         <div class="overview-tab__field">{{ revision }}</div>
@@ -381,6 +402,19 @@ const coverSource = computed(() => {
    (Last played, Players badge, Age rating badges, RomM collections)
    stay aligned in a column without forcing every row through the
    InfoGrid chip styling. */
+.overview-tab__downloads {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: var(--r-font-weight-bold);
+  color: var(--r-color-brand-primary);
+  font-variant-numeric: tabular-nums;
+}
+.overview-tab__downloads-meta {
+  font-size: 12px;
+  color: var(--r-color-fg-muted);
+}
+
 .overview-tab__facts {
   display: flex;
   flex-direction: column;

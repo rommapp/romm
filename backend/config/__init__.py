@@ -259,6 +259,15 @@ SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = _get_env(
     "SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+# Age limit for rows in `download_events`. 0 (the default) keeps them forever;
+# the per-rom counters are lifetime totals and are never affected by pruning.
+DOWNLOAD_EVENTS_RETENTION_DAYS: Final[int] = safe_int(
+    _get_env("DOWNLOAD_EVENTS_RETENTION_DAYS"), 0
+)
+SCHEDULED_CLEANUP_DOWNLOAD_EVENTS_CRON: Final[str] = _get_env(
+    "SCHEDULED_CLEANUP_DOWNLOAD_EVENTS_CRON",
+    "30 4 * * *",  # At 4:30 AM every day
+)
 
 # SYNC
 SYNC_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/sync"

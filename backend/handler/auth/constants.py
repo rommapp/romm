@@ -9,6 +9,21 @@ DEFAULT_OAUTH_TOKEN_EXPIRY: Final = timedelta(minutes=15)
 SESSION_COOKIE_NAME: Final = "romm_session"
 
 
+class AuthMethod(enum.StrEnum):
+    """How a request proved who it is.
+
+    Stashed on `request.state.auth_method` by HybridAuthBackend so downstream
+    code (e.g. download logging) can tell a browser apart from an API client.
+    """
+
+    SESSION = "session"
+    BASIC = "basic"
+    # Names an auth mechanism, not a credential.
+    CLIENT_TOKEN = "client_token"  # nosec B105
+    OAUTH = "oauth"
+    KIOSK = "kiosk"
+
+
 class Scope(enum.StrEnum):
     ME_READ = "me.read"
     ME_WRITE = "me.write"

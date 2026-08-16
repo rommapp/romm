@@ -2,6 +2,7 @@ from .client_tokens_handler import DBClientTokensHandler
 from .collections_handler import DBCollectionsHandler
 from .device_save_sync_handler import DBDeviceSaveSyncHandler
 from .devices_handler import DBDevicesHandler
+from .downloads_handler import DBDownloadsHandler
 from .firmware_handler import DBFirmwareHandler
 from .music_playlists_handler import DBMusicPlaylistsHandler
 from .permissions_handler import DBPermissionsHandler
@@ -19,6 +20,7 @@ db_client_token_handler = DBClientTokensHandler()
 db_collection_handler = DBCollectionsHandler()
 db_device_handler = DBDevicesHandler()
 db_device_save_sync_handler = DBDeviceSaveSyncHandler()
+db_download_handler = DBDownloadsHandler()
 db_firmware_handler = DBFirmwareHandler()
 db_music_playlist_handler = DBMusicPlaylistsHandler()
 db_permission_handler = DBPermissionsHandler()

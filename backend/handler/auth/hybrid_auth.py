@@ -14,7 +14,7 @@ from handler.database import (
 from models.user import User
 from utils.datetime import to_utc
 
-from .constants import READ_SCOPES
+from .constants import READ_SCOPES, AuthMethod
 
 
 class HybridAuthBackend(AuthenticationBackend):
@@ -25,6 +25,7 @@ class HybridAuthBackend(AuthenticationBackend):
         user = await auth_handler.get_current_active_user_from_session(conn)
         if user:
             user.set_last_active()
+            conn.state.auth_method = AuthMethod.SESSION
             return (AuthCredentials(user.oauth_scopes), user)
 
         # Check if Authorization header exists
@@ -48,6 +49,7 @@ class HybridAuthBackend(AuthenticationBackend):
                     return None
 
                 user.set_last_active()
+                conn.state.auth_method = AuthMethod.BASIC
                 return (AuthCredentials(user.oauth_scopes), user)
 
             # Check if bearer auth header is valid
@@ -73,6 +75,7 @@ class HybridAuthBackend(AuthenticationBackend):
 
                     db_client_token_handler.update_last_used(client_token.id)
                     user.set_last_active()
+                    conn.state.auth_method = AuthMethod.CLIENT_TOKEN
                     conn.state.client_token_id = client_token.id
                     conn.state.device_id = client_token.device_id
                     if client_token.device_id:
@@ -99,11 +102,13 @@ class HybridAuthBackend(AuthenticationBackend):
                 overlapping_scopes = list(token_scopes & set(user.oauth_scopes))
 
                 user.set_last_active()
+                conn.state.auth_method = AuthMethod.OAUTH
                 return (AuthCredentials(overlapping_scopes), user)
 
         # Check if we're in KIOSK_MODE
         if KIOSK_MODE:
             user = User.kiosk_mode_user()
+            conn.state.auth_method = AuthMethod.KIOSK
             return (AuthCredentials(READ_SCOPES), user)
 
         return None
