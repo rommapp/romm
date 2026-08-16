@@ -90,26 +90,10 @@ REGIONS = (
 
 REGIONS_BY_SHORTCODE = {region[0]: region[1] for region in REGIONS}
 
-# Alternate spellings seen in filenames, mapped onto their REGIONS name. The
-# shortcodes and canonical names above are accepted without being listed here.
-# Nothing in this table may collide with a LANGUAGES shortcode: region tags are
-# resolved first, so "De" as a region would make German unparseable.
-REGION_ALIASES = {
-    "BRA": "Brazil",
-    "CHN": "China",
-    "EU": "Europe",
-    "EUR": "Europe",
-    "GLOBAL": "World",
-    "JP": "Japan",
-    "US": "USA",
-    "WR": "World",
-}
-
 # Every accepted region spelling, lowercased, mapped to its canonical name.
 _REGION_BY_ALIAS = {
     **{name.lower(): name for _, name in REGIONS},
     **{code.lower(): name for code, name in REGIONS},
-    **{alias.lower(): name for alias, name in REGION_ALIASES.items()},
 }
 
 
@@ -169,8 +153,6 @@ def region_name_to_provider_shortcode(region_name: str | None) -> str | None:
 LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}
 
 # Every accepted language spelling, lowercased, mapped to its canonical name.
-# No alias table alongside it: unlike regions, filenames spell languages either
-# as the ISO code or the English name, both of which are already in LANGUAGES.
 _LANGUAGE_BY_ALIAS = {
     **{name.lower(): name for _, name in LANGUAGES},
     **{code.lower(): name for code, name in LANGUAGES},

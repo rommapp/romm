@@ -13,7 +13,6 @@ from tests._zipfile_shim import reload_zipfile
 from config.config_manager import LIBRARY_BASE_PATH, Config
 from handler.filesystem.base_handler import (
     LANGUAGES_BY_SHORTCODE,
-    REGION_ALIASES,
     REGIONS_BY_SHORTCODE,
 )
 from handler.filesystem.roms_handler import (
@@ -283,12 +282,9 @@ class TestFSRomsHandler:
         # A value that is not a shortcode is kept verbatim.
         assert "PAL" in handler.parse_tags("Game [Reg-PAL].rom").regions
 
-        # Aliases resolve here too, so [Reg-US] and (USA) agree.
-        assert "USA" in handler.parse_tags("Game [Reg-US].rom").regions
-
         # A space after the separator isn't part of the value.
         assert handler.parse_tags("Game [Reg- PAL].rom").regions == ["PAL"]
-        assert handler.parse_tags("Game [Reg- US].rom").regions == ["USA"]
+        assert handler.parse_tags("Game [Reg- U].rom").regions == ["USA"]
 
     def test_parse_tags_region_casing_is_normalized(self, handler: FSRomsHandler):
         """Region names collapse to one canonical spelling regardless of casing."""
@@ -297,18 +293,7 @@ class TestFSRomsHandler:
 
         assert handler.parse_tags("Game (europe).rom").regions == ["Europe"]
         assert handler.parse_tags("Game (hong kong).rom").regions == ["Hong Kong"]
-
-    def test_parse_tags_region_aliases(self, handler: FSRomsHandler):
-        """Alternate spellings resolve to the canonical region name."""
-        assert handler.parse_tags("Game (US).rom").regions == ["USA"]
         assert handler.parse_tags("Game (u).rom").regions == ["USA"]
-        assert handler.parse_tags("Game (EU).rom").regions == ["Europe"]
-        assert handler.parse_tags("Game (eur).rom").regions == ["Europe"]
-        assert handler.parse_tags("Game (jp).rom").regions == ["Japan"]
-
-        # WR joins (W) and (World) on the same facet value.
-        assert handler.parse_tags("Game (WR).rom").regions == ["World"]
-        assert handler.parse_tags("Game [Reg-WR].rom").regions == ["World"]
 
         # An unknown tag is still just a tag.
         parsed = handler.parse_tags("Game (Nonsense).rom")
@@ -1779,19 +1764,6 @@ class TestExtractCHDHash:
         assert result
         assert result == "f" * 40
         assert len(result) == 40
-
-
-def test_region_aliases_never_shadow_a_language_code():
-    """Enforce the constraint REGION_ALIASES only documents.
-
-    Region tags resolve before language ones, so an alias that matched a
-    language shortcode would make that language unparseable in lowercase.
-    The Nl/No overlap in REGIONS itself is deliberate and covered separately.
-    """
-    language_codes = {code.lower() for code in LANGUAGES_BY_SHORTCODE}
-    collisions = {alias for alias in REGION_ALIASES if alias.lower() in language_codes}
-
-    assert not collisions, f"region aliases shadow language codes: {collisions}"
 
 
 KNOWN_REGION_NAMES = frozenset(REGIONS_BY_SHORTCODE.values())
