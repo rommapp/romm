@@ -3,14 +3,17 @@ from types import SimpleNamespace
 from typing import cast
 from unittest.mock import patch
 
+import pytest
 from defusedxml import ElementTree as ET
 
 from config.config_manager import MetadataMediaType
 from handler.metadata.gamelist_handler import (
     GamelistHandler,
     extract_metadata_from_gamelist_rom,
+    populate_rom_specific_paths,
 )
 from models.platform import Platform
+from models.rom import Rom
 
 MOCK_METADATA = {
     "box2d_url": None,
@@ -153,6 +156,50 @@ def test_extract_metadata_from_gamelist_rom_includes_sort_name(platform: Platfor
         metadata = extract_metadata_from_gamelist_rom(game, platform)
 
     assert metadata["sort_name"] == "Akumajou Dracula"
+
+
+@pytest.mark.parametrize(
+    "url_key, media_type, expected_path_key, expected_filename",
+    [
+        (
+            "box2d_back_url",
+            MetadataMediaType.BOX2D_BACK,
+            "box2d_back_path",
+            "box2d_back.png",
+        ),
+        ("fanart_url", MetadataMediaType.FANART, "fanart_path", "fanart.png"),
+    ],
+)
+def test_populate_rom_specific_paths_records_discovered_media(
+    url_key, media_type, expected_path_key, expected_filename
+):
+    """Media the handler discovers locally must get a path recorded, otherwise
+    it is never copied into the resources directory (issue #4128)."""
+    rom = cast(Rom, SimpleNamespace(id=7, platform_id=3))
+    metadata = dict(MOCK_METADATA, **{url_key: "file:///media/asset.png"})
+
+    with patch(
+        "handler.metadata.gamelist_handler.get_preferred_media_types",
+        return_value=[media_type],
+    ):
+        paths = populate_rom_specific_paths(metadata, rom)  # type: ignore[arg-type]
+
+    assert (
+        paths[expected_path_key] == f"roms/3/7/{media_type.value}/{expected_filename}"
+    )
+
+
+def test_populate_rom_specific_paths_skips_unpreferred_media():
+    rom = cast(Rom, SimpleNamespace(id=7, platform_id=3))
+    metadata = dict(MOCK_METADATA, box2d_back_url="file:///media/back.png")
+
+    with patch(
+        "handler.metadata.gamelist_handler.get_preferred_media_types",
+        return_value=[],
+    ):
+        paths = populate_rom_specific_paths(metadata, rom)  # type: ignore[arg-type]
+
+    assert "box2d_back_path" not in paths
 
 
 class TestGamelistHandler:
