@@ -651,6 +651,27 @@ class FSHandler:
         async with lock:
             return full_path.is_file()
 
+    async def directory_exists(self, path: str) -> bool:
+        """
+        Check if a directory exists.
+
+        Args:
+            path: Relative path to the directory
+
+        Returns:
+            True if directory exists, False otherwise
+        """
+        if not path:
+            raise ValueError("Directory path cannot be empty")
+
+        # Validate and normalize path
+        full_path = self.validate_path(path)
+
+        # Async thread-safe existence check
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
+            return full_path.is_dir()
+
     async def get_file_size(self, file_path: str) -> int:
         """
         Get the size of a file.
