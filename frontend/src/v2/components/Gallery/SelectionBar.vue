@@ -82,7 +82,7 @@ const collectionsStore = storeCollections();
 const romsStore = storeRoms();
 const galleryRomsStore = storeGalleryRoms();
 const { ensureFavoriteCollection } = useFavoriteToggle();
-const { syncRom, refreshAfterUserStateChange } = useRomSync();
+const { syncCachedRom, refreshAfterUserStateChange } = useRomSync();
 
 const canRefresh = useCan("rom.refresh");
 const canDownload = useCan("rom.download");
@@ -204,7 +204,7 @@ async function applyStatus(data: Partial<RomUserData>) {
     if (!rom.rom_user) continue;
     before.set(rom.id, { ...rom.rom_user });
     Object.assign(rom.rom_user, data);
-    syncRom(rom);
+    syncCachedRom(rom);
   }
 
   const results = await Promise.allSettled(
@@ -215,7 +215,7 @@ async function applyStatus(data: Partial<RomUserData>) {
     const snapshot = before.get(rom.id);
     if (rom.rom_user && snapshot) {
       Object.assign(rom.rom_user, snapshot);
-      syncRom(rom);
+      syncCachedRom(rom);
     }
   }
 

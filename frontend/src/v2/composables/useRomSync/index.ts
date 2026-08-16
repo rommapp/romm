@@ -1,11 +1,8 @@
 // useRomSync: fan a ROM mutation out to every cache that holds it.
 //
-// Two stores cache the same ROM for different surfaces: v1 `stores/roms`
-// (Home rows, `recentRoms`, `currentRom`) and v2 `galleryRoms.byPosition`
-// (the gallery's sparse windowed cache). The v2 gallery never reads v1's
-// `_allRoms`, so a write that only lands in v1 leaves the gallery card
-// rendering the pre-edit name and cover until its window happens to be
-// refetched.
+// The same ROM is cached in two stores: `galleryRoms.byPosition` (the
+// gallery's sparse windowed cache) and `stores/roms`, which owns Home's
+// recent / continue-playing rows and the `currentRom` behind GameDetails.
 //
 // Optimistic toggles appeared to work without this only by accident: they
 // mutate the ROM object in place and the gallery holds that same object
@@ -34,18 +31,30 @@ const SORT_VALUE: Record<GalleryOrderKey, (rom: SimpleRom) => unknown> = {
   last_played: (rom) => rom.rom_user?.last_played,
 };
 
+const replaceById = (roms: SimpleRom[], rom: SimpleRom) =>
+  roms.map((cached) => (cached.id === rom.id ? rom : cached));
+
 export function useRomSync() {
   const romsStore = storeRoms();
   const galleryRomsStore = storeGalleryRoms();
   const galleryFilter = storeGalleryFilter();
   const collectionsStore = storeCollections();
 
-  /** Apply an updated ROM to every cache holding it. Safe to call with a
-   * ROM the gallery has never loaded: the gallery update is a no-op when
-   * no position holds that id. */
-  function syncRom(rom: SimpleRom) {
-    romsStore.update(rom);
+  /** Apply an already-persisted ROM to every cache that renders it; this
+   * writes nothing to the server. Safe to call with a ROM none of them
+   * hold: each update is a no-op when no surface has that id. */
+  function syncCachedRom(rom: SimpleRom) {
     galleryRomsStore.update(rom);
+    romsStore.recentRoms = replaceById(romsStore.recentRoms, rom);
+    romsStore.continuePlayingRoms = replaceById(
+      romsStore.continuePlayingRoms,
+      rom,
+    );
+    // Spread over the cached DetailedRom so its detailed-only fields
+    // (metadatum, screenshots, related games, ...) survive a SimpleRom write.
+    if (romsStore.currentRom?.id === rom.id) {
+      romsStore.currentRom = { ...romsStore.currentRom, ...rom };
+    }
   }
 
   /** Did this write move the value the gallery is currently ordered by?
@@ -69,13 +78,13 @@ export function useRomSync() {
    * compare just the active sort key and leave the gallery alone when it
    * didn't move.
    *
-   * Use `syncRom` instead for optimistic toggles and asset writes: throwing
-   * the windows away costs skeletons and the scroll position, too much for a
-   * favourite flip or a screenshot upload. */
+   * Use `syncCachedRom` instead for optimistic toggles and asset writes:
+   * throwing the windows away costs skeletons and the scroll position, too
+   * much for a favourite flip or a screenshot upload. */
   function applyRomWrite(rom: SimpleRom) {
-    // Read the pre-write copy before `syncRom` overwrites it.
+    // Read the pre-write copy before `syncCachedRom` overwrites it.
     const previous = galleryRomsStore.getRomById(rom.id);
-    syncRom(rom);
+    syncCachedRom(rom);
     if (!galleryRomsStore.onGalleryView) return;
     if (!galleryFilter.isFiltered() && !sortValueChanged(previous, rom)) return;
     galleryRomsStore.invalidateWindows();
@@ -125,7 +134,7 @@ export function useRomSync() {
   }
 
   return {
-    syncRom,
+    syncCachedRom,
     applyRomWrite,
     refreshAfterUserStateChange,
     refreshIfOrderedBy,

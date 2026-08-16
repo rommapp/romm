@@ -59,7 +59,7 @@ const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
-const { syncRom } = useRomSync();
+const { syncCachedRom } = useRomSync();
 const uploadStore = storeUpload();
 const authStore = storeAuth();
 const { user } = storeToRefs(authStore);
@@ -136,7 +136,7 @@ async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: props.rom.id });
     romsStore.currentRom = data;
-    syncRom(data);
+    syncCachedRom(data);
   } catch (error) {
     console.error(error);
   }

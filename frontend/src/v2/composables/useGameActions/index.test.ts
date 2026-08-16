@@ -75,7 +75,7 @@ vi.mock("@/v2/composables/useConfirm", () => ({
 }));
 vi.mock("@/v2/composables/useRomSync", () => ({
   useRomSync: () => ({
-    syncRom: vi.fn(),
+    syncCachedRom: vi.fn(),
     applyRomWrite: vi.fn(),
     refreshAfterUserStateChange: vi.fn(),
     refreshIfOrderedBy: vi.fn(),

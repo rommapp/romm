@@ -27,7 +27,7 @@ const props = defineProps<{
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
-const { syncRom } = useRomSync();
+const { syncCachedRom } = useRomSync();
 
 const visible = computed(
   () => props.rom.sibling_roms.length > 0 && props.rom.rom_user != null,
@@ -48,13 +48,13 @@ async function toggle() {
   const data: Partial<RomUserData> = { is_main_sibling: next };
 
   ru.is_main_sibling = next;
-  syncRom(props.rom);
+  syncCachedRom(props.rom);
 
   try {
     await romApi.updateUserRomProps({ romId: props.rom.id, data });
   } catch {
     ru.is_main_sibling = before;
-    syncRom(props.rom);
+    syncCachedRom(props.rom);
     snackbar.error(t("rom.update-default-failed"), {
       icon: "mdi-alert-circle-outline",
     });

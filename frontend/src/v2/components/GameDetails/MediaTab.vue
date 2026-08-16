@@ -50,7 +50,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
-const { syncRom } = useRomSync();
+const { syncCachedRom } = useRomSync();
 const uploadStore = storeUpload();
 const { t } = useI18n();
 
@@ -161,7 +161,7 @@ async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: props.rom.id });
     romsStore.currentRom = data;
-    syncRom(data);
+    syncCachedRom(data);
   } catch (error) {
     console.error(error);
   }

@@ -21,7 +21,7 @@ const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const romsStore = storeRoms();
-const { syncRom } = useRomSync();
+const { syncCachedRom } = useRomSync();
 const uploadStore = storeUpload();
 
 const show = ref(false);
@@ -46,7 +46,7 @@ async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: rom.value.id });
     romsStore.currentRom = data;
-    syncRom(data);
+    syncCachedRom(data);
   } catch (error) {
     console.error(error);
   }

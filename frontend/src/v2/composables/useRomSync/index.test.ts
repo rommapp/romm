@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Platform } from "@/stores/platforms";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { useRomSync } from "./index";
 
@@ -42,21 +42,29 @@ describe("useRomSync", () => {
     });
   });
 
-  it("syncRom refreshes the gallery card as well as the v1 caches", () => {
+  it("syncCachedRom refreshes every surface rendering the ROM", () => {
     const gallery = seedGallery(makeRom({ name: "old" }));
     const romsStore = storeRoms();
-    romsStore._allRoms = [makeRom({ name: "old" })];
+    romsStore.recentRoms = [makeRom({ name: "old" })];
+    romsStore.continuePlayingRoms = [makeRom({ name: "old" })];
+    // Detailed-only fields have to survive a SimpleRom write.
+    romsStore.currentRom = makeRom({ summary: "detailed" }) as DetailedRom;
 
-    useRomSync().syncRom(makeRom({ name: "new" }));
+    useRomSync().syncCachedRom(makeRom({ name: "new" }));
 
     expect(gallery.getRomAt(3)?.name).toBe("new");
-    expect(romsStore.filteredRoms[0].name).toBe("new");
+    expect(romsStore.recentRoms[0].name).toBe("new");
+    expect(romsStore.continuePlayingRoms[0].name).toBe("new");
+    expect(romsStore.currentRom).toMatchObject({
+      name: "new",
+      summary: "detailed",
+    });
   });
 
-  it("syncRom is a no-op for a ROM the gallery has never loaded", () => {
+  it("syncCachedRom is a no-op for a ROM the gallery has never loaded", () => {
     const gallery = seedGallery(makeRom({ id: 2 }));
 
-    useRomSync().syncRom(makeRom({ id: 1 }));
+    useRomSync().syncCachedRom(makeRom({ id: 1 }));
 
     expect(gallery.byPosition.size).toBe(1);
     expect(gallery.getRomAt(3)?.id).toBe(2);

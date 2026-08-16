@@ -139,7 +139,7 @@ const uploadingStates = ref(false);
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
-const { syncRom } = useRomSync();
+const { syncCachedRom } = useRomSync();
 
 function errorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
@@ -154,7 +154,7 @@ async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: props.rom.id });
     romsStore.currentRom = data;
-    syncRom(data);
+    syncCachedRom(data);
   } catch (error) {
     console.error(error);
   }

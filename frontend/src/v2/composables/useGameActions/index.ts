@@ -59,7 +59,7 @@ export function useGameActions(
   const { confirmProtectedLaunch } = useUISettings();
   const clipboard = useClipboard();
   const romsStore = storeRoms();
-  const { syncRom, refreshAfterUserStateChange, refreshIfOrderedBy } =
+  const { syncCachedRom, refreshAfterUserStateChange, refreshIfOrderedBy } =
     useRomSync();
   const auth = storeAuth();
   const canCreateCollection = useCan("collection.create");
@@ -118,12 +118,12 @@ export function useGameActions(
     const data: Partial<RomUserData> = { status: value };
     const before = { ...rom.rom_user };
     rom.rom_user.status = value;
-    syncRom(rom);
+    syncCachedRom(rom);
     try {
       await romApi.updateUserRomProps({ romId: rom.id, data });
     } catch {
       Object.assign(rom.rom_user, before);
-      syncRom(rom);
+      syncCachedRom(rom);
       snackbar.error(t("rom.snackbar-update-status-failed"), {
         icon: "mdi-alert-circle-outline",
       });
@@ -157,13 +157,13 @@ export function useGameActions(
 
     const before = { ...rom.rom_user };
     Object.assign(rom.rom_user, data);
-    syncRom(rom);
+    syncCachedRom(rom);
 
     try {
       await romApi.updateUserRomProps({ romId: rom.id, data });
     } catch {
       Object.assign(rom.rom_user, before);
-      syncRom(rom);
+      syncCachedRom(rom);
       snackbar.error(t("rom.snackbar-update-status-failed"), {
         icon: "mdi-alert-circle-outline",
       });
@@ -186,13 +186,13 @@ export function useGameActions(
     const data: Partial<RomUserData> = { [field]: next };
     const before = { ...rom.rom_user };
     rom.rom_user[field] = next;
-    syncRom(rom);
+    syncCachedRom(rom);
 
     try {
       await romApi.updateUserRomProps({ romId: rom.id, data });
     } catch {
       Object.assign(rom.rom_user, before);
-      syncRom(rom);
+      syncCachedRom(rom);
       snackbar.error(t("rom.snackbar-update-field-failed", { field }), {
         icon: "mdi-alert-circle-outline",
       });
@@ -307,8 +307,6 @@ export function useGameActions(
     const rom = getRom();
     if (!rom) return;
     await toggleFavorite(rom);
-    // The v1 composable's own "drop it from the Favourites view" branch
-    // checks the v1 store's collection, which v2 never sets.
     refreshAfterUserStateChange();
   }
 
@@ -428,7 +426,7 @@ export function useGameActions(
         removeLastPlayed: true,
       });
       if (rom.rom_user) rom.rom_user.last_played = null;
-      syncRom(rom);
+      syncCachedRom(rom);
       // Clearing the timestamp moves the card in a last-played-ordered
       // gallery, and the in-place mutation above leaves nothing for
       // `applyRomWrite` to diff against.

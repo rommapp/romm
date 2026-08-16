@@ -42,7 +42,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
-const { syncRom } = useRomSync();
+const { syncCachedRom } = useRomSync();
 const { t } = useI18n();
 
 // Every manual endpoint (upload / redownload / delete) gates on the ROM write
@@ -143,7 +143,7 @@ async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: props.rom.id });
     romsStore.currentRom = data;
-    syncRom(data);
+    syncCachedRom(data);
   } catch (error) {
     console.error(error);
   }
