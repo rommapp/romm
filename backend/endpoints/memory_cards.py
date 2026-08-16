@@ -1,3 +1,4 @@
+import asyncio
 import re
 from pathlib import Path
 from typing import Annotated
@@ -147,11 +148,15 @@ def get_shared_memory_cards(
     ]
 
 
-def _assert_safe_archive(content: bytes) -> None:
+async def _assert_safe_archive(content: bytes) -> None:
     """The shared archive check, as a 400. Covers the whole gate: readable zip,
-    no escaping paths, no symlinks, no runaway expansion."""
+    no escaping paths, no symlinks, no runaway expansion.
+
+    Off the loop: the expansion check decompresses what the uploader sent, which
+    is CPU-bound for as long as the archive is large.
+    """
     try:
-        assert_card_archive_safe(content)
+        await asyncio.to_thread(assert_card_archive_safe, content)
     except UnsafeCardArchive as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -259,7 +264,7 @@ async def upload_memory_card_version(
                 f"{MEMORY_CARD_MAX_BYTES} bytes"
             ),
         )
-    _assert_safe_archive(content)
+    await _assert_safe_archive(content)
 
     # The version this call wrote, not the card's latest: a teardown evacuating
     # the same card alongside the upload would make the latest describe a

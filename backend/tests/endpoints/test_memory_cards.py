@@ -578,6 +578,30 @@ def test_upload_that_unpacks_past_the_cap_is_rejected(
     assert db_memory_card_handler.get_versions(memory_card.id) == []
 
 
+def test_upload_whose_entries_only_add_up_past_the_cap_is_rejected(
+    client, access_token: str, memory_card: MemoryCard
+):
+    """A card set is several files and the container's disk pays for the whole
+    of it, so the budget is spent across entries rather than per entry."""
+    content = _zip_bytes({f"Mcd00{slot}.ps2": b"\0" * 512 for slot in range(1, 4)})
+    write_patch, scan_patch = _stub_storage(memory_card.id, "uploaded.zip", "uploaded")
+    with (
+        mock.patch("utils.memory_cards._CARD_MAX_UNPACKED_BYTES", 1024),
+        write_patch as write_file,
+        scan_patch,
+    ):
+        response = client.post(
+            f"/api/memory-cards/{memory_card.id}/versions",
+            files={"cardFile": ("card.zip", content, "application/zip")},
+            headers=_auth(access_token),
+        )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "unpacks to over" in response.json()["detail"]
+    write_file.assert_not_awaited()
+    assert db_memory_card_handler.get_versions(memory_card.id) == []
+
+
 def test_upload_to_another_users_card_is_404(
     client, viewer_access_token: str, memory_card: MemoryCard
 ):

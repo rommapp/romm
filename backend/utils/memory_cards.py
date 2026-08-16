@@ -57,10 +57,11 @@ _ZIP_MODE_SHIFT = 16
 _S_IFMT = 0o170000
 _S_IFLNK = 0o120000
 
-# What the entries of a card archive may add up to once unpacked. A memory card
-# is megabytes at most, and the archive's own size says nothing about this: a
-# few hundred compressed megabytes of zeros expand to hundreds of gigabytes, on
-# a container whose disk the broker unpacks into.
+# What a card archive may add up to once unpacked, over the whole archive rather
+# than per entry: a card set is several files and the container's disk pays for
+# the total. The archive's own size says nothing about it, since a few hundred
+# compressed megabytes of zeros expand to hundreds of gigabytes. Held to the
+# transfer cap, which a real card of a few megabytes comes nowhere near.
 _CARD_MAX_UNPACKED_BYTES = MEMORY_CARD_MAX_BYTES
 
 # Enough that a card-sized entry is a handful of reads, small enough that the

@@ -2252,6 +2252,51 @@ def test_a_write_that_lands_on_nothing_is_contention_not_success():
             )
 
 
+def test_work_running_under_a_claim_keeps_it_off_the_stale_list():
+    """The exit paths that could not write a drain marker run under the claim
+    itself, and the player whose heartbeat kept it fresh is gone: an unrefreshed
+    claim reads as abandoned and the next claimant tears the container down."""
+    key = streaming._session_redis_key("cas-hold-claim")
+    claim = _session_at(key, last_seen="2026-01-01T00:00:00+00:00")
+
+    async def refresh_once():
+        task = asyncio.ensure_future(
+            streaming._hold_session_claim("cas-hold-claim", claim)
+        )
+        await asyncio.sleep(0.05)
+        task.cancel()
+
+    try:
+        with patch.object(streaming, "_CLAIM_REFRESH_SECONDS", 0):
+            asyncio.run(refresh_once())
+        current = json.loads(asyncio.run(async_cache.get(key)))
+        assert current["last_seen"] != "2026-01-01T00:00:00+00:00"
+        assert not streaming._session_is_stale(current)
+    finally:
+        asyncio.run(async_cache.delete(key))
+
+
+def test_holding_a_claim_stops_once_it_is_somebody_else_s():
+    """Refreshing past a takeover would keep another player's session alive on
+    a stamp nobody is producing."""
+    key = streaming._session_redis_key("cas-hold-lost")
+    claim = _session_at(key)
+    _session_at(key, claimed_at="2026-01-01T00:05:00+00:00")
+    try:
+        with patch.object(streaming, "_CLAIM_REFRESH_SECONDS", 0):
+            # Returns rather than looping forever against a claim it lost.
+            asyncio.run(
+                asyncio.wait_for(
+                    streaming._hold_session_claim("cas-hold-lost", claim), 5
+                )
+            )
+        current = json.loads(asyncio.run(async_cache.get(key)))
+        assert current["claimed_at"] == "2026-01-01T00:05:00+00:00"
+        assert "last_seen" not in current
+    finally:
+        asyncio.run(async_cache.delete(key))
+
+
 def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):
     """A pulled state file lands in the user's state library under the
     container's emulator namespace, keyed by the broker-supplied filename."""

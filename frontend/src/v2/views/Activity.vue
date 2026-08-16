@@ -159,30 +159,23 @@ async function confirmRelease() {
   releaseTarget.value = null;
   releasingContainer.value = session.container;
   try {
-    let released = true;
-    try {
-      // Another user's session, so nothing local tracks it: the panel is
-      // refreshed off the backend below either way.
-      await streamingApi.releaseSession(
-        session.platform,
-        reason,
-        session.container,
-      );
-    } catch (err) {
-      console.warn("[streaming] Could not release session:", err);
-      released = false;
-    }
-    if (released) {
-      snackbar.success(t("activity.session-released"), {
-        icon: "mdi-check-bold",
-      });
-    } else {
-      snackbar.error(t("activity.release-failed"), {
-        icon: "mdi-close-circle",
-      });
-    }
-    await refreshStreamingSessions();
+    // Another user's session, so nothing local tracks it: the panel is
+    // refreshed off the backend afterwards either way.
+    await streamingApi.releaseSession(
+      session.platform,
+      reason,
+      session.container,
+    );
+    snackbar.success(t("activity.session-released"), {
+      icon: "mdi-check-bold",
+    });
+  } catch (err) {
+    console.warn("[streaming] Could not release session:", err);
+    snackbar.error(t("activity.release-failed"), {
+      icon: "mdi-close-circle",
+    });
   } finally {
+    await refreshStreamingSessions();
     releasingContainer.value = null;
   }
 }

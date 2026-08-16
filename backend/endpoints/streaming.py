@@ -100,6 +100,10 @@ _DRAIN_MARKER_REFRESH = 20
 # minute).
 _SESSION_STALE_SECONDS = 180
 
+# How often backend-side work running under a claim restamps it. Well inside the
+# stale window, so a single missed refresh cannot hand the container away.
+_CLAIM_REFRESH_SECONDS = _SESSION_STALE_SECONDS // 3
+
 
 def _session_redis_key(session_key: str) -> str:
     return f"{_SESSION_KEY_PREFIX}{session_key}"
@@ -298,9 +302,35 @@ async def _hold_drain_marker(session_key: str, token: str) -> None:
                 _DRAIN_MARKER_TTL,
             )
         except _SessionContended:
-            held = False
+            # Contention is not a takeover: the marker is still ours, the write
+            # just did not land. Stopping here would leave the work behind the
+            # marker running against a key nothing refreshes.
+            continue
         if not held:
             log.warning("drain marker on %s is no longer ours", session_key)
+            return
+
+
+async def _hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
+    """Keep a claim's liveness stamp current for as long as work runs under it.
+
+    For the paths where a drain marker could not be written and the claim itself
+    is what reserves the container. The stamp is the player's, and the player is
+    gone, so without this the record ages past `_SESSION_STALE_SECONDS` and the
+    next claimant tears the container down mid-work.
+    """
+    while True:
+        await asyncio.sleep(_CLAIM_REFRESH_SECONDS)
+        try:
+            held = await _mutate_session(
+                session_key,
+                {"last_seen": datetime.now(timezone.utc).isoformat()},
+                require=lambda current: _same_claim(current, claim),
+            )
+        except _SessionContended:
+            continue
+        if held is None:
+            log.warning("claim on %s is no longer ours", session_key)
             return
 
 
@@ -2261,11 +2291,15 @@ async def _release_claim_after_state_pull(
     """The same, for an exit whose drain marker never landed.
 
     Nothing took the container over in that case, so the claim itself is what
-    still reserves it: the pull runs under it and the claim goes afterwards.
+    still reserves it: the pull runs under it and the claim goes afterwards. The
+    stamp is kept current meanwhile, since the player who owned it has left and
+    an unrefreshed claim reads as abandoned to the next claimant.
     """
+    keepalive = asyncio.ensure_future(_hold_session_claim(session_key, claim))
     try:
         await pull
     finally:
+        keepalive.cancel()
         if not await _release_own_session(session_key, claim):
             log.error("session %s survived its own exit", session_key)
 
@@ -4259,8 +4293,9 @@ async def _teardown_released_session(
     try:
         token = await _claim_drain_marker(session_key, session)
     except _SessionContended:
-        # The claim is still ours, it just could not be marked; the delete at
-        # the end is guarded on it anyway.
+        # The claim is still ours, it just could not be marked: it is what
+        # reserves the container below, and the delete at the end is guarded on
+        # it anyway.
         log.error("could not drain released session %s", session_key)
         token = None
     else:
@@ -4268,16 +4303,17 @@ async def _teardown_released_session(
             log.warning("skipping teardown, session %s was taken over", session_key)
             return
 
-    keepalive = (
-        asyncio.ensure_future(_hold_drain_marker(session_key, token))
+    keepalive = asyncio.ensure_future(
+        _hold_drain_marker(session_key, token)
         if token is not None
-        else None
+        else _hold_session_claim(session_key, session)
     )
     try:
         # Stop the emulator first so the card is quiescent before evacuation: a
         # running game's exit flush could otherwise re-lay a card over the wipe,
-        # and reading a live card risks a torn snapshot. The drain marker holds
-        # the container throughout, so no concurrent claim can interleave.
+        # and reading a live card risks a torn snapshot. The marker, or the
+        # claim it could not replace, holds the container throughout, so no
+        # concurrent claim can interleave.
         state_slot = await asyncio.to_thread(_stop_broker, container, save)
 
         # Evacuate the whole card, then wipe the slot, both before releasing the
@@ -4340,8 +4376,8 @@ async def _teardown_released_session(
         # later claim until stale takeover or the TTL expires. A card left
         # un-evacuated is recoverable, since the next claim prompts to adopt
         # whatever is still on the container; a phantom claim is not.
-        if keepalive is not None and token is not None:
-            keepalive.cancel()
+        keepalive.cancel()
+        if token is not None:
             await _drop_drain_marker(session_key, token)
         else:
             await _release_own_session(session_key, session)
