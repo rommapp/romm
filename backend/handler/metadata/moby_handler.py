@@ -109,9 +109,7 @@ class MobyGamesHandler(MetadataHandler):
 
         roms = await self.moby_service.list_games(
             platform_ids=[platform_moby_id],
-            # Pass the raw term: the service layer URL-encodes it exactly once
-            # when building the query. Pre-quoting here would double-encode
-            # special characters ("&" -> "%2526"), corrupting the search.
+            # Pass the raw term to prevent double-encoding
             title=uc(search_term),
         )
         if not roms:
@@ -301,7 +299,6 @@ class MobyGamesHandler(MetadataHandler):
 
         matched_roms = await self.moby_service.list_games(
             platform_ids=[platform_moby_id],
-            # Raw term on purpose; see _search_rom for the double-encoding trap.
             title=uc(search_term),
         )
 
