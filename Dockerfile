@@ -81,7 +81,7 @@ ENV PATH="/app/.venv/bin:${PATH}"
 # Build and install sigil (optional, for title ID extraction)
 # Placed after `uv sync` because the extension is compiled with the venv's
 # Python so the ABI matches.
-ARG SIGIL_VERSION=98f3c626eecac48aa99209414d88a15ebe9b70c4
+ARG SIGIL_VERSION=469dac19d9ec75ac848af5feb6de9e0564e30711
 RUN git clone --recurse-submodules https://github.com/rommforge/argosy-sigil.git /tmp/argosy-sigil
 WORKDIR /tmp/argosy-sigil
 RUN git checkout "${SIGIL_VERSION}" \
