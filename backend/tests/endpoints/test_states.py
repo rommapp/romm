@@ -155,6 +155,54 @@ def test_add_state_rejects_oversized_uploads(
     assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
 
 
+@mock.patch("endpoints.states.fs_asset_handler.write_file", new_callable=mock.AsyncMock)
+@mock.patch("endpoints.states.scan_state", new_callable=mock.AsyncMock)
+def test_hidden_rom_masks_state_upload(
+    _mock_scan,
+    mock_write,
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    rom: Rom,
+):
+    # Uploading onto a ROM hidden from the caller is 404-masked the same way
+    # downloading from one is, and nothing reaches disk.
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+
+    response = client.post(
+        f"/api/states?rom_id={rom.id}",
+        files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
+        headers=_auth(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    mock_write.assert_not_awaited()
+
+
+@mock.patch("endpoints.states.fs_asset_handler.write_file", new_callable=mock.AsyncMock)
+@mock.patch("endpoints.states.scan_state", new_callable=mock.AsyncMock)
+def test_hidden_platform_masks_state_upload(
+    _mock_scan,
+    mock_write,
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    rom: Rom,
+    platform: Platform,
+):
+    # Hiding the parent platform cascades to uploads against its ROMs.
+    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+
+    response = client.post(
+        f"/api/states?rom_id={rom.id}",
+        files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
+        headers=_auth(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    mock_write.assert_not_awaited()
+
+
 @mock.patch(
     "endpoints.states.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
 )
