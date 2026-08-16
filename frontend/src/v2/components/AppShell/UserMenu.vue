@@ -7,7 +7,7 @@
 //   • Library  — Library management, Scan settings, Metadata sources,
 //                Client API tokens
 //   • System   — Administration, Server stats
-//   • Tools    — Controller debug
+//   • Tools    — Jukebox, Controller debug
 //   • Actions  — Scan, Upload (librarian actions, not settings)
 //   • About / Changelog — kept as dialogs (no dedicated views)
 //   • Log out
@@ -272,6 +272,18 @@ async function onLogout() {
       <div class="r-v2-user-menu__group-label">
         {{ t("settings.group-tools") }}
       </div>
+      <RMenuItem
+        :to="{ name: ROUTES.MUSIC }"
+        icon="mdi-music-box-multiple-outline"
+        :label="t('common.jukebox')"
+        @click="open = false"
+      >
+        <template #append>
+          <RChip size="x-small" color="primary">
+            {{ t("common.beta") }}
+          </RChip>
+        </template>
+      </RMenuItem>
       <RMenuItem
         :to="{ name: ROUTES.CONTROLLER_DEBUG }"
         icon="mdi-controller"

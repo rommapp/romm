@@ -3,6 +3,8 @@ import { throttle } from "lodash";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import type { TrackMetaSchema } from "@/__generated__";
+import type { DetailedRom } from "@/stores/roms";
+import { FRONTEND_RESOURCES_PATH } from "@/utils";
 
 const volumeStorage = useLocalStorage<number>("soundtrack.volume", 1);
 const mutedStorage = useLocalStorage<boolean>("soundtrack.muted", false);
@@ -25,7 +27,27 @@ export type PlayerMeta = {
   duration?: number;
   coverUrl?: string;
   folderCoverUrl?: string;
+  gameArtworkUrl?: string;
 };
+
+export type SoundtrackArtworkRom = Pick<
+  DetailedRom,
+  "ss_metadata" | "path_cover_large" | "path_cover_small" | "url_cover"
+>;
+
+export function resolveSoundtrackGameArtwork(
+  rom: SoundtrackArtworkRom,
+): string | undefined {
+  const logoPath = rom.ss_metadata?.logo_path;
+  if (logoPath) return `${FRONTEND_RESOURCES_PATH}/${logoPath}`;
+
+  return (
+    rom.path_cover_large ??
+    rom.path_cover_small ??
+    rom.url_cover ??
+    undefined
+  );
+}
 
 const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   const track = ref<PlayerTrack | null>(null);
@@ -39,6 +61,8 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   const volume = volumeStorage;
   const muted = mutedStorage;
   const playlist = ref<PlayerTrack[]>([]);
+  const originalPlaylist = ref<PlayerTrack[]>([]);
+  const isShuffled = ref(false);
   const playlistMeta = ref<Record<number, PlayerMeta>>({});
   const activePlaylistRomId = ref<number | null>(null);
 
@@ -94,14 +118,73 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     isBuffering.value = false;
   }
 
+  function shuffledTracks(tracks: PlayerTrack[]): PlayerTrack[] {
+    const result = [...tracks];
+    for (let index = result.length - 1; index > 0; index -= 1) {
+      const target = Math.floor(Math.random() * (index + 1));
+      [result[index], result[target]] = [result[target], result[index]];
+    }
+    return result;
+  }
+
+  function loadPlaylist(
+    tracks: PlayerTrack[],
+    metas: Record<number, PlayerMeta>,
+    romId: number | null = null,
+    preserveShuffle = false,
+  ) {
+    const previousOrder = playlist.value;
+    const wasShuffled = isShuffled.value;
+    originalPlaylist.value = [...tracks];
+    playlistMeta.value = metas;
+    activePlaylistRomId.value = romId;
+
+    if (preserveShuffle && wasShuffled) {
+      const tracksByKey = new Map(
+        tracks.map((item) => [item.romId + ":" + item.fileId, item]),
+      );
+      const restored = previousOrder.flatMap((item) => {
+        const next = tracksByKey.get(item.romId + ":" + item.fileId);
+        if (!next) return [];
+        tracksByKey.delete(item.romId + ":" + item.fileId);
+        return [next];
+      });
+      playlist.value =
+        restored.length > 0
+          ? [...restored, ...tracksByKey.values()]
+          : shuffledTracks([...tracksByKey.values()]);
+      return;
+    }
+
+    playlist.value = [...tracks];
+    isShuffled.value = false;
+  }
+
   function loadPlaylistForRom(
     romId: number,
     tracks: PlayerTrack[],
     metas: Record<number, PlayerMeta>,
   ) {
-    playlist.value = tracks;
-    playlistMeta.value = metas;
-    activePlaylistRomId.value = romId;
+    loadPlaylist(tracks, metas, romId);
+  }
+
+  function toggleShuffle() {
+    if (isShuffled.value) {
+      playlist.value = [...originalPlaylist.value];
+      isShuffled.value = false;
+      return;
+    }
+
+    const current = track.value;
+    const remaining = originalPlaylist.value.filter(
+      (item) =>
+        !current ||
+        item.fileId !== current.fileId ||
+        item.romId !== current.romId,
+    );
+    const shuffled = shuffledTracks(remaining);
+    playlist.value = current ? [current, ...shuffled] : shuffled;
+    isShuffled.value = true;
   }
 
   function play(t: PlayerTrack, m: PlayerMeta) {
@@ -161,7 +244,9 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     currentTime.value = 0;
     duration.value = 0;
     playlist.value = [];
+    originalPlaylist.value = [];
     playlistMeta.value = {};
+    isShuffled.value = false;
     activePlaylistRomId.value = null;
   }
 
@@ -191,6 +276,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     volume,
     muted,
     playlist,
+    isShuffled,
     activePlaylistRomId,
     hasPrevious,
     hasNext,
@@ -202,12 +288,14 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     seek,
     setVolume,
     toggleMute,
+    toggleShuffle,
     setPlaying,
     setBuffering,
     setDuration,
     setError,
     next,
     previous,
+    loadPlaylist,
     loadPlaylistForRom,
     reportCurrentTime,
   };
