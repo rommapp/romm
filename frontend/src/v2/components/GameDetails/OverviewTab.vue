@@ -13,7 +13,7 @@
 //      which is where uploads will live)
 //   7. HLTB strip
 //   8. Related games — a single RCollapsible collapsing all of:
-//      Expansions, DLC, Remakes, Remasters, Similar games.
+//      Expansions, DLC, Remakes, Remasters, Ports, Similar games.
 //
 // Status enum + flags (now_playing / backlogged / hidden) and personal
 // metrics (rating / difficulty / completion) live in the action ribbon
@@ -59,6 +59,7 @@ const props = defineProps<{
   dlcs: IGDBRelatedGame[];
   remakes: IGDBRelatedGame[];
   remasters: IGDBRelatedGame[];
+  ports: IGDBRelatedGame[];
   similarGames: IGDBRelatedGame[];
 }>();
 
@@ -132,6 +133,7 @@ const hasRelated = computed(
       props.dlcs.length +
       props.remakes.length +
       props.remasters.length +
+      props.ports.length +
       props.similarGames.length >
     0,
 );
@@ -289,35 +291,42 @@ const coverSource = computed(() => {
       <div v-if="expansions.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-puzzle-outline" size="14" />
-          Expansions
+          {{ t("rom.related-expansions") }}
         </h4>
         <RelatedGamesGrid title="" :items="expansions" />
       </div>
       <div v-if="dlcs.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-package-variant-closed" size="14" />
-          DLC
+          {{ t("rom.related-dlc") }}
         </h4>
         <RelatedGamesGrid title="" :items="dlcs" />
       </div>
       <div v-if="remakes.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-refresh" size="14" />
-          Remakes
+          {{ t("rom.related-remakes") }}
         </h4>
         <RelatedGamesGrid title="" :items="remakes" />
       </div>
       <div v-if="remasters.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-image-auto-adjust" size="14" />
-          Remasters
+          {{ t("rom.related-remasters") }}
         </h4>
         <RelatedGamesGrid title="" :items="remasters" />
+      </div>
+      <div v-if="ports.length" class="overview-tab__section">
+        <h4 class="overview-tab__section-heading">
+          <RIcon icon="mdi-swap-horizontal" size="14" />
+          {{ t("rom.related-ports") }}
+        </h4>
+        <RelatedGamesGrid title="" :items="ports" />
       </div>
       <div v-if="similarGames.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-shape-outline" size="14" />
-          Similar games
+          {{ t("rom.related-similar-games") }}
         </h4>
         <RelatedGamesGrid title="" :items="similarGames" />
       </div>
