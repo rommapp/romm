@@ -845,6 +845,14 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "ra_id": 57,
         "tgdb_id": None,
     },
+    UPS.FAMICOM: {
+        "id": 68,
+        "igdb_id": 18,
+        "igdb_slug": "nes",
+        "name": "Nintendo Entertainment System",
+        "ra_id": 7,
+        "tgdb_id": None,
+    },
     UPS.FDS: {
         "id": 54692,
         "igdb_id": 51,
