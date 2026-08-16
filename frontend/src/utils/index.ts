@@ -213,10 +213,10 @@ export function formatRelativeDate(date: string | Date) {
  */
 export function regionToEmoji(region: string) {
   switch (region.toLowerCase()) {
-    case "as":
+    case "a":
     case "australia":
       return "🇦🇺";
-    case "a":
+    case "as":
     case "asia":
       return "🌏";
     case "b":

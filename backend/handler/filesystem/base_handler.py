@@ -89,7 +89,22 @@ REGIONS = (
 )
 
 REGIONS_BY_SHORTCODE = {region[0]: region[1] for region in REGIONS}
-REGIONS_NAME_KEYS = frozenset(region[1].lower() for region in REGIONS)
+
+# Every accepted region spelling, lowercased, mapped to its canonical name.
+_REGION_BY_ALIAS = {
+    **{name.lower(): name for _, name in REGIONS},
+    **{code.lower(): name for code, name in REGIONS},
+}
+
+
+def normalize_region(tag: str) -> str | None:
+    """Resolve a filename region tag to its canonical REGIONS name.
+
+    Case-insensitive, so "usa", "USA" and "Usa" collapse to one facet value
+    instead of three. Returns None for tags that name no known region.
+    """
+    return _REGION_BY_ALIAS.get(tag.strip().lower())
+
 
 # Maps full REGIONS names to lowercase shortcodes used by metadata providers
 REGION_NAME_TO_PROVIDER_SHORTCODE: dict[str, str] = {
@@ -136,7 +151,21 @@ def region_name_to_provider_shortcode(region_name: str | None) -> str | None:
 
 
 LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}
-LANGUAGES_NAME_KEYS = frozenset(lang[1].lower() for lang in LANGUAGES)
+
+# Every accepted language spelling, lowercased, mapped to its canonical name.
+_LANGUAGE_BY_ALIAS = {
+    **{name.lower(): name for _, name in LANGUAGES},
+    **{code.lower(): name for code, name in LANGUAGES},
+}
+
+
+def normalize_language(tag: str) -> str | None:
+    """Resolve a filename language tag to its canonical LANGUAGES name.
+
+    Case-insensitive, so "english", "English" and "ENGLISH" collapse to one
+    facet value. Returns None for tags that name no known language.
+    """
+    return _LANGUAGE_BY_ALIAS.get(tag.strip().lower())
 
 
 class CoverSize(Enum):
