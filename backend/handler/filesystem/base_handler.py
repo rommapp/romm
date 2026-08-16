@@ -271,24 +271,24 @@ class FSHandler:
         cnfg = cm.get_config()
         excluded_extensions = cnfg.EXCLUDED_SINGLE_EXT
         excluded_names = cnfg.EXCLUDED_SINGLE_FILES
-        excluded_files: list[str] = []
 
-        for file_name in files:
-            file_name_lower = file_name.lower()
+        # Built once rather than per file, and endswith takes the whole tuple.
+        excluded_suffixes = tuple(f".{ext}" for ext in excluded_extensions)
 
+        def is_excluded(file_name: str) -> bool:
             # Check whether the filename ends with any excluded extension entry.
-            if any(file_name_lower.endswith("." + ext) for ext in excluded_extensions):
-                excluded_files.append(file_name)
-                continue
+            if file_name.lower().endswith(excluded_suffixes):
+                return True
 
             # Check if the file name matches a pattern in the excluded list.
-            if file_name in excluded_names or any(
+            return file_name in excluded_names or any(
                 fnmatch.fnmatch(file_name, name) for name in excluded_names
-            ):
-                excluded_files.append(file_name)
+            )
 
-        # Return files that are not in the filtered list.
-        return [f for f in files if f not in excluded_files]
+        # Deciding per file keeps this linear. Collecting the exclusions first and
+        # then filtering against that list rescans it once per file, which gets
+        # expensive on platforms holding tens of thousands of files.
+        return [f for f in files if not is_excluded(f)]
 
     async def make_directory(self, path: str) -> None:
         """
