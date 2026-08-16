@@ -320,6 +320,7 @@
   "rename-file-details": "Fișierul va fi redenumit de la {from} la {to}. Etichetele din numele fișierului nu vor fi afectate.",
   "rename-file-title": "Redenumește fișierul pentru a corespunde titlului {source}",
   "results-found": "Rezultate găsite",
+  "retroachievements-supported": "Compatibil cu RetroAchievements",
   "revision": "Revision",
   "rom-updated-successfully": "ROM actualizat cu succes!",
   "save-data": "Date salvate",

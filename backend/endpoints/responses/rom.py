@@ -331,6 +331,7 @@ class RomSchema(BaseModel):
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
+    ra_hash_match: bool | None
 
     has_simple_single_file: bool
     has_nested_single_file: bool
@@ -381,6 +382,9 @@ class SiblingRomSchema(BaseModel):
     fs_name_no_tags: str
     fs_name_no_ext: str
     is_main_sibling: bool
+    # Per-file, unlike `ra_id`, so the version switcher can flag which
+    # sibling's achievements will actually unlock.
+    ra_hash_match: bool | None
 
     @computed_field  # type: ignore
     @property
@@ -402,6 +406,7 @@ class SiblingRomSchema(BaseModel):
             fs_name_no_tags=rom.fs_name_no_tags,
             fs_name_no_ext=rom.fs_name_no_ext,
             is_main_sibling=is_main_sibling,
+            ra_hash_match=rom.ra_hash_match,
         )
 
 

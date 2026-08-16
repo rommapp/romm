@@ -363,6 +363,7 @@ def with_details(func):
                     Rom.platform_id,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
+                    Rom.ra_hash_match,
                 ),
             ),
             selectinload(Rom.collections),
@@ -408,6 +409,7 @@ def with_simple_details(func):
                     Rom.platform_id,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
+                    Rom.ra_hash_match,
                 ),
             ),
             selectinload(Rom.notes),
@@ -537,6 +539,7 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.name,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
+                    Rom.ra_hash_match,
                 )
             )
         )
@@ -856,6 +859,10 @@ class DBRomsHandler(DBBaseHandler):
         return query.filter(Rom.missing_from_fs == (true() if value else false()))
 
     def _filter_by_verified(self, query: Query, value: bool) -> Query:
+        # Databases Hasheous answers for. RetroAchievements is handled
+        # separately below: RomM asks RA directly, and that answer outranks
+        # Hasheous' RA signature coverage in both directions. Keep in step
+        # with `romVerification.ts` on the frontend.
         keys_to_check = [
             "tosec_match",
             "mame_arcade_match",
@@ -864,7 +871,6 @@ class DBRomsHandler(DBBaseHandler):
             "redump_match",
             "mame_redump_match",
             "whdload_match",
-            "ra_match",
             "fbneo_match",
             "puredos_match",
         ]
@@ -879,13 +885,25 @@ class DBRomsHandler(DBBaseHandler):
                 f"COALESCE((hasheous_metadata->>'{key}')::boolean, false)"
                 for key in keys_to_check
             )
+            # RA verified when its own hash list says so, or when it was
+            # never asked (NULL) and Hasheous saw the hash.
+            conditions += (
+                " OR ra_hash_match IS TRUE"
+                " OR (ra_hash_match IS NULL AND"
+                " COALESCE((hasheous_metadata->>'ra_match')::boolean, false))"
+            )
             predicate = text(f"({conditions})")
             if not value:
                 predicate = text(f"NOT ({conditions})")
             return query.filter(predicate)
         else:
             predicate = or_(
-                *(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check)
+                *(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check),
+                Rom.ra_hash_match.is_(true()),
+                and_(
+                    Rom.ra_hash_match.is_(None),
+                    Rom.hasheous_metadata["ra_match"].as_boolean(),
+                ),
             )
             if not value:
                 predicate = not_(predicate)
