@@ -197,12 +197,26 @@ def _get_socket_manager() -> socketio.AsyncRedisManager:
 async def _identify_firmware(
     platform: Platform,
     fs_fw: str,
+    scan_type: ScanType,
 ) -> int:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return 0
 
     firmware = db_firmware_handler.get_firmware_by_filename(platform.id, fs_fw)
+
+    # The row is consulted before the filesystem, so an entry that could never
+    # be skipped costs no stat.
+    if firmware and not _should_hash_firmware(scan_type, firmware):
+        file_size = await fs_firmware_handler.get_file_size(firmware.full_path)
+        if file_size == firmware.file_size_bytes:
+            # Only written when it actually flips, keeping `updated_at` usable
+            # as an incremental signal.
+            if firmware.missing_from_fs:
+                db_firmware_handler.update_firmware(
+                    firmware.id, {"missing_from_fs": False}
+                )
+            return 0
 
     scanned_firmware = await scan_firmware(
         platform=platform,
@@ -300,6 +314,29 @@ def _should_get_rom_files(
         or (scan_type == ScanType.COMPLETE)
         or (scan_type == ScanType.HASHES)
         or (rom and rom.id in roms_ids)
+    )
+
+
+def _should_hash_firmware(
+    scan_type: ScanType,
+    firmware: Firmware | None,
+) -> bool:
+    """Decide if a firmware file's hashes should be recalculated or not
+
+    The firmware counterpart of `_should_get_rom_files`: bytes are only re-read
+    for a new entry or a scan that asked for hashes. An entry with no stored
+    hash is treated as new.
+
+    Args:
+        scan_type (ScanType): Type of scan to be performed.
+        firmware (Firmware | None): The firmware entry already in the database.
+    """
+
+    return bool(
+        firmware is None
+        or not firmware.md5_hash
+        or (scan_type == ScanType.COMPLETE)
+        or (scan_type == ScanType.HASHES)
     )
 
 
@@ -665,6 +702,7 @@ async def _identify_platform(
         new_firmware += await _identify_firmware(
             platform=platform,
             fs_fw=fs_fw,
+            scan_type=scan_type,
         )
 
     # `new_firmware_count` is scoped to this scan: the client reports what the
