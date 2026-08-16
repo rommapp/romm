@@ -231,8 +231,9 @@ class FSRomsHandler(FSHandler):
                 # Stripped because the separator class doesn't swallow a space
                 # after "Reg-", which would make " PAL" its own facet value.
                 raw_region = region_match[1].strip()
-                regions.append(normalize_region(raw_region) or raw_region)
-                continue
+                if raw_region:
+                    regions.append(normalize_region(raw_region) or raw_region)
+                    continue
 
             # Revision prefix
             revision_match = REVISION_TAG_REGEX.match(raw_tag)

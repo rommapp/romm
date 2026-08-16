@@ -285,6 +285,13 @@ class TestFSRomsHandler:
         # A space after the separator isn't part of the value.
         assert handler.parse_tags("Game [Reg- PAL].rom").regions == ["PAL"]
         assert handler.parse_tags("Game [Reg- U].rom").regions == ["USA"]
+        assert handler.parse_tags("Game [Reg-  PAL ].rom").regions == ["PAL"]
+
+        # A prefix with no value behind it is not a region.
+        for fs_name in ("Game [Reg-].rom", "Game [Reg- ].rom"):
+            parsed = handler.parse_tags(fs_name)
+            assert parsed.regions == []
+            assert parsed.other_tags == ["Reg-"]
 
     def test_parse_tags_region_casing_is_normalized(self, handler: FSRomsHandler):
         """Region names collapse to one canonical spelling regardless of casing."""
