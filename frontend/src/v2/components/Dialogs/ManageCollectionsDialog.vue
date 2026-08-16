@@ -27,16 +27,16 @@ import storeCollections, {
   type Collection,
   type CollectionType,
 } from "@/stores/collections";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import CollectionPickerRow from "@/v2/components/Collections/CollectionPickerRow.vue";
 import NewCollectionRow from "@/v2/components/Collections/NewCollectionRow.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
-import storeGallerySelection from "@/v2/stores/gallerySelection";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 defineOptions({ inheritAttrs: false });
@@ -45,11 +45,10 @@ const { t } = useI18n();
 const { mdAndUp } = useBreakpoint();
 const show = ref(false);
 const collectionsStore = storeCollections();
-const romsStore = storeRoms();
 const galleryRomsStore = storeGalleryRoms();
-const gallerySelectionStore = storeGallerySelection();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const { removeCachedRoms } = useRomSync();
 const { toWebp } = useWebpSupport();
 
 function coversFor(collection: CollectionType): string[] {
@@ -140,9 +139,7 @@ async function toggle(collection: Collection) {
       // have to go with them. Removing from the collection you're viewing
       // is the only reachable direction here: every selected ROM is
       // already a member, so the row reads "all" and toggles to "off".
-      gallerySelectionStore.removeIds(romIds);
-      romsStore.remove(targetRoms);
-      galleryRomsStore.remove(targetRoms);
+      removeCachedRoms(targetRoms);
     }
   } catch (error: unknown) {
     // Drop the override rather than restoring `prevState`, so the row falls
