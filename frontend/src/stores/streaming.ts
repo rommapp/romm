@@ -3,7 +3,6 @@ import { ref, computed } from "vue";
 import streamingApi from "@/services/api/streaming";
 import type {
   ActiveSession,
-  AdminStreamingSession,
   JoinableSession,
   JoinedSession,
   MemoryCardImport,
@@ -340,43 +339,6 @@ export const useStreamingStore = defineStore("streaming", () => {
     });
   }
 
-  /**
-   * List all active streaming sessions across every container. Admin only.
-   * Best-effort, never throws, returns [] on failure.
-   */
-  async function adminListSessions(): Promise<AdminStreamingSession[]> {
-    try {
-      const { data } = await streamingApi.adminListSessions();
-      return data.sessions ?? [];
-    } catch (err) {
-      console.warn("[streaming] Could not list sessions:", err);
-      return [];
-    }
-  }
-
-  /**
-   * Force-release another user's session by platform. Admin only.
-   * Does not touch local activeSession state - the target session belongs
-   * to someone else. Returns whether the release succeeded.
-   *
-   * `container` names which one to end: a pool serves the platform with several
-   * containers, and without it the backend picks its own.
-   */
-  async function adminReleaseSession(
-    platform: string,
-    reason?: string,
-    container?: string,
-  ): Promise<boolean> {
-    if (!platform) return false;
-    try {
-      await streamingApi.releaseSession(platform, reason, container);
-      return true;
-    } catch (err) {
-      console.warn("[streaming] Could not release session:", err);
-      return false;
-    }
-  }
-
   return {
     config,
     activeSession,
@@ -399,7 +361,5 @@ export const useStreamingStore = defineStore("streaming", () => {
     fetchSessionStatus,
     saveAndExitKeepalive,
     releaseSessionKeepalive,
-    adminListSessions,
-    adminReleaseSession,
   };
 });

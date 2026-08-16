@@ -86,7 +86,7 @@ function labels(wrapper: ReturnType<typeof mountList>) {
   return wrapper.findAll(".item").map((w) => w.text());
 }
 
-describe("GameActionsList — permission gating", () => {
+describe("GameActionsList: permission gating", () => {
   it("offers the write and destructive actions to a user who holds them", () => {
     const wrapper = mountList({
       canMatch: true,
@@ -135,7 +135,7 @@ describe("GameActionsList — permission gating", () => {
   });
 });
 
-describe("GameActionsList — playing", () => {
+describe("GameActionsList: playing", () => {
   it("offers each way to play the caller is allowed", () => {
     const wrapper = mountList({ canPlayInBrowser: true, canPlayStream: true });
     const shown = labels(wrapper);
@@ -164,7 +164,7 @@ describe("GameActionsList — playing", () => {
   });
 });
 
-describe("GameActionsList — joining someone else's session", () => {
+describe("GameActionsList: joining someone else's session", () => {
   it("names the host when the session advertises one", () => {
     const wrapper = mountList({ canJoinStream: true }, "ana");
     expect(labels(wrapper)).toContain("rom.join-session-of");

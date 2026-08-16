@@ -41,7 +41,7 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     server-resolved identity instead of a client-supplied ``user_id``, joins
     every authenticated user to their own ``user:{id}`` room (the target for
     sync and streaming push notifications), and joins admins to the
-    log-streaming room. Always returns ``None`` (accepts the connection) —
+    log-streaming room. Always returns ``None`` (accepts the connection):
     only identity storage and room membership are gated, so the existing
     scan/sync sockets keep working for everyone.
     """

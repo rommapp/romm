@@ -2330,7 +2330,7 @@ async def _pull_state_to_library(
     return False
 
 
-async def _push_resume_state(container: dict[str, Any], resume_state: Any) -> bool:
+async def _push_resume_state(container: dict[str, Any], resume_state: State) -> bool:
     """Send the state a player picked to resume from down to the container.
 
     Best-effort: a failure means the session just starts fresh, which the claim
@@ -3203,7 +3203,7 @@ def _container_state_filename(filename: str) -> str:
 
 def _resolve_resume_state(
     user_id: int, rom: Rom, container: dict[str, Any], state_id: int
-) -> tuple[Any, int]:
+) -> tuple[State, int]:
     """Validate a resume-from-state pick and return (state, slot).
 
     Visibility follows the same rule as the state list the picker was built
@@ -3719,7 +3719,7 @@ async def claim_session(
     # A resumed state remembers which disc it was captured on. The launch
     # always starts on the playlist's first disc, so put the right one back.
     resume_disc_id = (
-        getattr(resume_state, "disc_file_id", None) if resume_pushed else None
+        resume_state.disc_file_id if resume_pushed and resume_state else None
     )
     if isinstance(resume_disc_id, int):
         _spawn_sync_task(

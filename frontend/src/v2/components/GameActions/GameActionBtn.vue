@@ -84,16 +84,16 @@ interface Props {
   /** Size ladder shared with RBtn / RChip / RTag. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
   /**
-   * `glass` — dark scrim, designed to read on top of cover art
-   *           (GameCard hover overlay).
-   * `surface` — translucent grey surface, matches RTag tokens
-   *             (GameDetails header where the buttons sit on the
-   *             page background, not over a cover).
-   * `emphasized` — primary white-on-dark CTA (Play).
-   * `brand` — solid brand fill. Sits beside `emphasized` as an equal
-   *           CTA that goes somewhere else (Stream).
-   * `bare` — no chrome; just the icon. For list rows where the row's
-   *          own surface already frames the control.
+   * `glass`: dark scrim, designed to read on top of cover art
+   *          (GameCard hover overlay).
+   * `surface`: translucent grey surface, matches RTag tokens
+   *            (GameDetails header where the buttons sit on the
+   *            page background, not over a cover).
+   * `emphasized`: primary white-on-dark CTA (Play).
+   * `brand`: solid brand fill. Sits beside `emphasized` as an equal
+   *          CTA that goes somewhere else (Stream).
+   * `bare`: no chrome; just the icon. For list rows where the row's
+   *         own surface already frames the control.
    */
   variant?: "glass" | "surface" | "emphasized" | "brand" | "bare";
   withLabel?: boolean;
@@ -712,7 +712,7 @@ function onClick(e: MouseEvent) {
   transform: scale(0.96);
 }
 
-/* Brand — solid fill in the product colour. Play and Stream are peers
+/* Brand, a solid fill in the product colour. Play and Stream are peers
    that lead somewhere different, so the second CTA takes colour rather
    than a second white pill. */
 .r-v2-game-btn--brand {

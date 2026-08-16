@@ -20,11 +20,10 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import type { ActivityEntry } from "@/services/api/activity";
-import storeActivity from "@/stores/activity";
-import {
-  useStreamingStore,
+import streamingApi, {
   type AdminStreamingSession,
-} from "@/stores/streaming";
+} from "@/services/api/streaming";
+import storeActivity from "@/stores/activity";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import ActivityCard from "@/v2/components/Activity/ActivityCard.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
@@ -36,7 +35,6 @@ import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 const { t } = useI18n();
 const activityStore = storeActivity();
-const streamingStore = useStreamingStore();
 const snackbar = useSnackbar();
 const isAdmin = useCan("app.admin");
 const { toWebp } = useWebpSupport();
@@ -56,7 +54,12 @@ const releasingContainer = ref<string | null>(null);
 
 async function refreshStreamingSessions() {
   if (!isAdmin.value) return;
-  streamingSessions.value = await streamingStore.adminListSessions();
+  try {
+    const { data } = await streamingApi.adminListSessions();
+    streamingSessions.value = data.sessions ?? [];
+  } catch (err) {
+    console.warn("[streaming] Could not list sessions:", err);
+  }
 }
 
 onMounted(async () => {
@@ -156,11 +159,19 @@ async function confirmRelease() {
   releaseTarget.value = null;
   releasingContainer.value = session.container;
   try {
-    const released = await streamingStore.adminReleaseSession(
-      session.platform,
-      reason,
-      session.container,
-    );
+    let released = true;
+    try {
+      // Another user's session, so nothing local tracks it: the panel is
+      // refreshed off the backend below either way.
+      await streamingApi.releaseSession(
+        session.platform,
+        reason,
+        session.container,
+      );
+    } catch (err) {
+      console.warn("[streaming] Could not release session:", err);
+      released = false;
+    }
     if (released) {
       snackbar.success(t("activity.session-released"), {
         icon: "mdi-check-bold",

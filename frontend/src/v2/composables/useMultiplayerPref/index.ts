@@ -1,4 +1,4 @@
-// useMultiplayerPref — shared "open this session to other players?" preference.
+// useMultiplayerPref, the shared "open this session to other players?" preference.
 // Persisted the way the neighbouring fullscreen switch is, so the launch
 // screen remembers how the user plays. The consequence is deliberate: leaving
 // it on keeps later sessions advertised until it is turned off again.

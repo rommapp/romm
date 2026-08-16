@@ -103,7 +103,7 @@ const visiblePlatforms = computed<Platform[]>(() =>
 const gridRoot = ref<HTMLElement | null>(null);
 useWrapGridNav(gridRoot, { cellSelector: ".plat-tile" });
 
-// Pre-compute the play flag per platform — sort comparator and every row
+// Pre-compute the play flag per platform: sort comparator and every row
 // read this map so the column, the badge on the tile, and the playable
 // bucket all agree on a single source of truth. "Playable" here means by
 // any means: in this tab through EmulatorJS or Ruffle, or on a configured

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// StreamingSection — the operator's view of the streaming fleet, one row
+// StreamingSection, the operator's view of the streaming fleet, one row
 // per configured container. A container serves many platforms but hosts a
 // single session, so the container is the unit that matters here, which is
 // what `GET /streaming/containers` reports.
