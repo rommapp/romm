@@ -1,6 +1,4 @@
-import io
 import re
-import zipfile
 from pathlib import Path
 from typing import Annotated
 
@@ -149,8 +147,9 @@ def get_shared_memory_cards(
     ]
 
 
-def _assert_no_traversal(content: bytes) -> None:
-    """The shared archive check, as a 400."""
+def _assert_safe_archive(content: bytes) -> None:
+    """The shared archive check, as a 400. Covers the whole gate: readable zip,
+    no escaping paths, no symlinks, no runaway expansion."""
     try:
         assert_card_archive_safe(content)
     except UnsafeCardArchive as exc:
@@ -260,12 +259,7 @@ async def upload_memory_card_version(
                 f"{MEMORY_CARD_MAX_BYTES} bytes"
             ),
         )
-    if not zipfile.is_zipfile(io.BytesIO(content)):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Memory card upload must be a zip archive",
-        )
-    _assert_no_traversal(content)
+    _assert_safe_archive(content)
 
     # The version this call wrote, not the card's latest: a teardown evacuating
     # the same card alongside the upload would make the latest describe a

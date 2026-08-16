@@ -143,6 +143,7 @@
   "stream-load-state-failed": "The state could not be loaded.",
   "stream-mute": "Dezactivează sunetul",
   "stream-occupied-body": "{rom} este jucat din {time}.",
+  "stream-occupied-draining": "The previous session is still saving. Try again in a moment.",
   "stream-occupied-fallback": "Altcineva joacă în acest moment. Încercați din nou mai târziu.",
   "stream-occupied-title": "Sesiune în uz",
   "stream-release-failed": "The session could not be released. The container may still be in use.",

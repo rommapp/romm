@@ -56,6 +56,9 @@ async function loadCards(emulator: string): Promise<void> {
   } catch (err) {
     console.warn("[memory-cards] Could not fetch cards:", err);
     cards.value = [];
+    // The parent still holds whatever the last emulator selected, and claiming
+    // with a card this emulator does not own is a 404.
+    preselect();
   } finally {
     loading.value = false;
   }

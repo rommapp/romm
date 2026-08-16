@@ -143,6 +143,7 @@
   "stream-load-state-failed": "The state could not be loaded.",
   "stream-mute": "음소거",
   "stream-occupied-body": "{rom}을(를) {time}부터 플레이하고 있습니다.",
+  "stream-occupied-draining": "The previous session is still saving. Try again in a moment.",
   "stream-occupied-fallback": "현재 다른 사람이 플레이 중입니다. 나중에 다시 시도하세요.",
   "stream-occupied-title": "세션 사용 중",
   "stream-release-failed": "The session could not be released. The container may still be in use.",

@@ -143,6 +143,7 @@
   "stream-load-state-failed": "The state could not be loaded.",
   "stream-mute": "静音",
   "stream-occupied-body": "{rom} 自 {time} 起一直在游玩。",
+  "stream-occupied-draining": "The previous session is still saving. Try again in a moment.",
   "stream-occupied-fallback": "当前有其他人正在游玩。请稍后再试。",
   "stream-occupied-title": "会话使用中",
   "stream-release-failed": "The session could not be released. The container may still be in use.",

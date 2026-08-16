@@ -143,6 +143,7 @@
   "stream-load-state-failed": "The state could not be loaded.",
   "stream-mute": "Stummschalten",
   "stream-occupied-body": "{rom} wird seit {time} gespielt.",
+  "stream-occupied-draining": "The previous session is still saving. Try again in a moment.",
   "stream-occupied-fallback": "Jemand anderes spielt gerade. Versuchen Sie es später erneut.",
   "stream-occupied-title": "Sitzung in Benutzung",
   "stream-release-failed": "The session could not be released. The container may still be in use.",

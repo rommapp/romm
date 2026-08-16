@@ -98,6 +98,7 @@ const errorType = ref<ErrorType>(null);
 const errorMessage = ref<string>("");
 const errorHint = ref<string>("");
 const occupiedBy = ref<{ rom_name: string; claimed_at: string } | null>(null);
+const draining = ref(false);
 const containerHost = ref<string>("");
 const isSavingAndExiting = ref(false);
 const isSavingState = ref(false);
@@ -784,9 +785,20 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
 
     if (status === 409) {
       errorType.value = "occupied";
-      occupiedBy.value =
+      const busy =
         detail && typeof detail === "object"
-          ? (detail as { rom_name: string; claimed_at: string })
+          ? (detail as {
+              rom_name: string | null;
+              claimed_at: string | null;
+              draining?: boolean;
+            })
+          : null;
+      // A draining container is nobody's: the previous session is over and its
+      // exit state is still being collected, so there is no holder to name.
+      draining.value = busy?.draining === true;
+      occupiedBy.value =
+        busy && busy.rom_name && busy.claimed_at
+          ? { rom_name: busy.rom_name, claimed_at: busy.claimed_at }
           : null;
     } else if (status === 404) {
       // 404 covers two cases: no container configured for the platform,
@@ -1126,9 +1138,10 @@ function formatTime(iso: string): string {
 // pagehide is the only signal. The keepalive requests outlive the page;
 // the broker-side save+kill then runs to completion server-side.
 function onPageHide(): void {
-  if (playerState.value === "exited") return;
-  // Nothing of the host's to tear down, and the keepalive routes are
-  // owner-only anyway.
+  // The claim, not the player state, says whether anything is still held: an
+  // exit whose release failed is "exited" and still holding the container.
+  // Nothing of the host's to tear down either way, and the keepalive routes
+  // are owner-only.
   if (!holdsClaim.value) {
     playerState.value = "exited";
     return;
@@ -1139,10 +1152,10 @@ function onPageHide(): void {
       platform,
       capabilities.value.autosaveSlot,
     );
-  } else if (sessionActive.value) {
-    streamingStore.releaseSessionKeepalive(platform);
   } else {
-    return;
+    // Still loading, or exited with a release that failed: nothing to save,
+    // and this is the last chance to hand the container back.
+    streamingStore.releaseSessionKeepalive(platform);
   }
   // Guards the in-app unmount path from double-releasing if the page
   // comes back from the bfcache and is then navigated normally.
@@ -1374,12 +1387,14 @@ onBeforeUnmount(() => {
             variant="translucent"
             :title="t('play.stream-occupied-title')"
             :text="
-              occupiedBy
-                ? t('play.stream-occupied-body', {
-                    rom: occupiedBy.rom_name,
-                    time: formatTime(occupiedBy.claimed_at),
-                  })
-                : t('play.stream-occupied-fallback')
+              draining
+                ? t('play.stream-occupied-draining')
+                : occupiedBy
+                  ? t('play.stream-occupied-body', {
+                      rom: occupiedBy.rom_name,
+                      time: formatTime(occupiedBy.claimed_at),
+                    })
+                  : t('play.stream-occupied-fallback')
             "
           />
           <RAlert

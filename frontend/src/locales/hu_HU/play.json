@@ -143,6 +143,7 @@
   "stream-load-state-failed": "The state could not be loaded.",
   "stream-mute": "Némítás",
   "stream-occupied-body": "A(z) {rom} játékban van {time} óta.",
+  "stream-occupied-draining": "The previous session is still saving. Try again in a moment.",
   "stream-occupied-fallback": "Jelenleg valaki más játszik. Próbálja meg később.",
   "stream-occupied-title": "A munkamenet használatban van",
   "stream-release-failed": "The session could not be released. The container may still be in use.",

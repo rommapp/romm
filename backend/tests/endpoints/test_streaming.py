@@ -2077,12 +2077,13 @@ def test_save_and_exit_failed_blocking_save_skips_state_pull(
     spawn.assert_called_once()
 
 
-def test_save_and_exit_wait_false_drains_instead_of_freeing(
+def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
     client, access_token, rom: Rom
 ):
-    """wait=false means the broker is still killing in the background; the
-    session key must briefly block a re-claim (drain) rather than be deleted
-    immediately, so a new launch can't land on a not-yet-dead emulator."""
+    """A session with a rom always has an exit state to collect, so the key is
+    replaced by the marker that guards the pull rather than deleted: a re-claim
+    landing first would let the container overwrite the state on its next
+    launch. The marker has to outlive the pull's own worst case."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
@@ -2101,11 +2102,47 @@ def test_save_and_exit_wait_false_drains_instead_of_freeing(
     assert r.status_code == 200
     # Re-claim during the drain window is rejected (409), not accepted (200).
     assert r2.status_code == 409
-    # The marker is the fallback for a backend that dies before the exit state
-    # is pulled, so it is bounded well under the full session TTL.
-    key = streaming._session_redis_key(streaming._container_key(_container_for(rom)))
+    # Nobody holds the container, so the 409 has to say that rather than name a
+    # holder it does not have.
+    assert r2.json()["detail"]["draining"] is True
+    container = _container_for(rom)
+    key = streaming._session_redis_key(streaming._container_key(container))
     ttl = asyncio.run(async_cache.ttl(key))
-    assert 0 < ttl <= streaming._STATE_PULL_DRAIN_SECONDS
+    budget = streaming._state_pull_drain_seconds(container)
+    # Every retry can sit on the broker for the whole transfer timeout, so a
+    # marker shorter than that expires while the state is still coming out.
+    assert budget > streaming._STATE_PULL_ATTEMPTS * streaming._BROKER_TRANSFER_TIMEOUT
+    assert 0 < ttl <= budget
+
+
+def test_save_and_exit_without_a_rom_drains_only_briefly(
+    client, access_token, rom: Rom
+):
+    """A session with no rom (a desktop) has no exit state to collect, so
+    wait=false leaves the short marker that keeps a new launch off a not-yet-dead
+    emulator, not the long one that guards a pull."""
+    container = _container_for(rom)
+    key = streaming._session_redis_key(streaming._container_key(container))
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        session = json.loads(asyncio.run(async_cache.get(key)))
+        session.pop("rom_id")
+        asyncio.run(
+            async_cache.set(key, json.dumps(session), ex=streaming.SESSION_TTL_SECONDS)
+        )
+        with (
+            patch("endpoints.streaming._save_and_exit_broker", return_value=(True, 10)),
+            patch("endpoints.streaming._spawn_sync_task") as spawn,
+        ):
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 0, "wait": False},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    spawn.assert_not_called()
+    ttl = asyncio.run(async_cache.ttl(key))
+    assert 0 < ttl <= streaming.SESSION_DRAIN_SECONDS
 
 
 def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):

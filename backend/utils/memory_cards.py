@@ -57,11 +57,18 @@ _ZIP_MODE_SHIFT = 16
 _S_IFMT = 0o170000
 _S_IFLNK = 0o120000
 
+# What the entries of a card archive may add up to once unpacked. A memory card
+# is megabytes at most, and the archive's own size says nothing about this: a
+# few hundred compressed megabytes of zeros expand to hundreds of gigabytes, on
+# a container whose disk the broker unpacks into.
+_CARD_MAX_UNPACKED_BYTES = 4 * MEMORY_CARD_MAX_BYTES
+
 
 def assert_card_archive_safe(content: bytes) -> None:
-    """Refuse an archive whose entries would escape the directory they unpack
-    into. RomM stores the zip whole, but the broker unpacks it onto a container,
-    and this is the last point that can look at what is inside before it does.
+    """Refuse an archive the broker must not be asked to unpack: one whose
+    entries would escape the directory they land in, or fill the disk they land
+    on. RomM stores the zip whole, and this is the last point that can look at
+    what is inside before a container unpacks it.
     """
     try:
         with zipfile.ZipFile(io.BytesIO(content), "r") as zf:
@@ -69,7 +76,13 @@ def assert_card_archive_safe(content: bytes) -> None:
     except zipfile.BadZipFile:
         raise UnsafeCardArchive("not a readable zip archive") from None
 
+    unpacked = 0
     for entry in entries:
+        # The declared size is what an unpacker acts on. A header that lies
+        # about a bigger payload is left to the broker's own write to stop.
+        unpacked += entry.file_size
+        if unpacked > _CARD_MAX_UNPACKED_BYTES:
+            raise UnsafeCardArchive(f"unpacks to over {_CARD_MAX_UNPACKED_BYTES} bytes")
         name = entry.filename
         # Zip names are meant to be slash-separated, so a hand-written entry can
         # hide `..\..\evil` in what PurePosixPath reads as one opaque part. Both

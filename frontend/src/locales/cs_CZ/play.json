@@ -143,6 +143,7 @@
   "stream-load-state-failed": "The state could not be loaded.",
   "stream-mute": "Ztlumit",
   "stream-occupied-body": "{rom} se hraje od {time}.",
+  "stream-occupied-draining": "The previous session is still saving. Try again in a moment.",
   "stream-occupied-fallback": "Právě hraje někdo jiný. Zkuste to později.",
   "stream-occupied-title": "Relace se používá",
   "stream-release-failed": "The session could not be released. The container may still be in use.",
