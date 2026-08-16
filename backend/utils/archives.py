@@ -10,6 +10,7 @@ import tempfile
 import threading
 import time
 import zipfile
+import zlib
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import IO, Final, Literal
@@ -221,9 +222,24 @@ def read_bz2_file(file_path: Path) -> Iterator[bytes]:
             yield chunk
 
 
-def _iter_chunks(reader: IO[bytes]) -> Iterator[bytes]:
-    while chunk := reader.read(FILE_READ_CHUNK_SIZE):
-        yield chunk
+def _iter_chunks(reader: IO[bytes], file_path: Path, name: str) -> Iterator[bytes]:
+    """Stream a member's bytes, raising `ArchiveReadError` if it can't be read.
+
+    Chunks are consumed by the caller, outside the reader's own error
+    handling, so decompression failures (a bad CRC, truncated data) surface
+    here rather than escaping as a raw zipfile/tarfile error.
+    """
+    try:
+        while chunk := reader.read(FILE_READ_CHUNK_SIZE):
+            yield chunk
+    except (
+        zipfile.BadZipFile,
+        tarfile.TarError,
+        zlib.error,
+        EOFError,
+        OSError,
+    ) as e:
+        raise ArchiveReadError(f"Error reading {name} from {file_path}: {e}") from e
 
 
 def read_zip_archive_files(
@@ -236,6 +252,9 @@ def read_zip_archive_files(
     Each yielded `(internal_name, file_size_bytes, chunks)` streams its
     member's bytes lazily; chunks must be fully consumed before advancing
     to the next entry, since the underlying file is closed at that point.
+
+    Raises `ArchiveReadError` if the archive can't be read in full, so callers
+    never mistake a partial read for a complete one.
     """
     try:
         with zipfile.ZipFile(file_path, "r") as z:
@@ -254,9 +273,9 @@ def read_zip_archive_files(
                 ):
                     continue
                 with z.open(entry, "r") as f:
-                    yield name, entry.file_size, _iter_chunks(f)
-    except (zipfile.BadZipFile, RuntimeError, OSError):
-        return
+                    yield name, entry.file_size, _iter_chunks(f, file_path, name)
+    except (zipfile.BadZipFile, RuntimeError, NotImplementedError, OSError) as e:
+        raise ArchiveReadError(f"Error reading zip {file_path}: {e}") from e
 
 
 def read_tar_archive_files(
@@ -269,6 +288,9 @@ def read_tar_archive_files(
     Each yielded `(internal_name, file_size_bytes, chunks)` streams its
     member's bytes lazily; chunks must be fully consumed before advancing
     to the next entry, since the underlying file is closed at that point.
+
+    Raises `ArchiveReadError` if the archive can't be read in full, so callers
+    never mistake a partial read for a complete one.
     """
     try:
         with tarfile.open(file_path, "r:*") as tf:
@@ -295,9 +317,9 @@ def read_tar_archive_files(
                     continue
 
                 with ef:
-                    yield member.name, member.size, _iter_chunks(ef)
-    except tarfile.ReadError:
-        return
+                    yield member.name, member.size, _iter_chunks(ef, file_path, name)
+    except (tarfile.TarError, OSError) as e:
+        raise ArchiveReadError(f"Error reading tar {file_path}: {e}") from e
 
 
 def _stream_7z_chunks(

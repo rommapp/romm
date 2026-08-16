@@ -41,3 +41,59 @@ class TestSonySerialFilenames:
         mock_hget.assert_awaited_once_with(PS1_SERIAL_INDEX_KEY, "SCUS-94163")
         assert result.get("name") == "Gran Turismo"
         assert result["moby_id"] is None
+
+
+class TestSearchTermEncoding:
+    """Tests that search terms are passed to the service layer unencoded."""
+
+    @pytest.mark.asyncio
+    async def test_search_rom_does_not_pre_encode_special_characters(self):
+        """The service layer URL-encodes the title exactly once via
+        ``with_query``. Regression: the handler pre-quoted the term, so titles
+        containing "&", "+" or "'" were double-encoded ("&" -> "%2526") and
+        never matched (e.g. "Sonic & Knuckles",
+        "Super Mario 3D World + Bowser's Fury")."""
+        handler = MobyGamesHandler()
+
+        with patch.object(
+            handler.moby_service,
+            "list_games",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as mock_list_games:
+            await handler._search_rom("Sonic & Knuckles", platform_moby_id=16)
+
+        mock_list_games.assert_awaited_once()
+        await_args = mock_list_games.await_args
+        assert await_args is not None
+        title = await_args.kwargs["title"]
+        assert title == "Sonic & Knuckles"
+        assert "%" not in title
+
+    @pytest.mark.asyncio
+    async def test_get_matched_roms_by_name_does_not_pre_encode(self):
+        """Same double-encoding regression for the manual-search path."""
+        handler = MobyGamesHandler()
+
+        with (
+            patch(
+                "handler.metadata.moby_handler.MobyGamesHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(
+                handler.moby_service,
+                "list_games",
+                new_callable=AsyncMock,
+                return_value=[],
+            ) as mock_list_games,
+        ):
+            await handler.get_matched_roms_by_name(
+                "Super Mario 3D World + Bowser's Fury", platform_moby_id=203
+            )
+
+        mock_list_games.assert_awaited_once()
+        await_args = mock_list_games.await_args
+        assert await_args is not None
+        title = await_args.kwargs["title"]
+        assert title == "Super Mario 3D World + Bowser's Fury"
+        assert "%" not in title

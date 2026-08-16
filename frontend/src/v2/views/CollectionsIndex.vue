@@ -522,7 +522,7 @@ const showListHeader = computed(
 
       <EmptyState
         v-else-if="!totalCount"
-        message="You don't have any collections yet. Favourite a game or create one from any ROM's action bar to populate this view."
+        :message="t('collection.no-collections-yet-detail')"
       />
 
       <EmptyState

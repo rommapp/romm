@@ -184,6 +184,6 @@ describe("buildSmartFilterCriteria — negative tri-state filters", () => {
 
     const row = rows.find((r) => r.key === "matched");
     expect(row).toBeDefined();
-    expect(row?.label).toBe("Show unmatched");
+    expect(row?.label).toBe("Unmatched");
   });
 });

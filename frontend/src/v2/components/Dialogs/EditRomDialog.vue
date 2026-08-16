@@ -30,6 +30,7 @@ import MetadataIdSection from "@/v2/components/EditRom/MetadataIdSection.vue";
 import RawMetadataPanel from "@/v2/components/EditRom/RawMetadataPanel.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { getMissingCoverImage } from "@/v2/utils/covers";
 
@@ -59,6 +60,7 @@ const coverFileInput = ref<HTMLInputElement | null>(null);
 const saving = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const { applyRomWrite } = useRomSync();
 
 const openHandler = async (romToEdit: SimpleRom) => {
   show.value = true;
@@ -242,7 +244,7 @@ async function handleRomUpdate(
   try {
     const { data } = await romApi.updateRom(options);
     snackbar.success(successMessage, { icon: "mdi-check-bold" });
-    romsStore.update(data as SimpleRom);
+    applyRomWrite(data as SimpleRom);
     if (route.name === "rom") romsStore.currentRom = data;
   } catch (error: unknown) {
     console.error(error);

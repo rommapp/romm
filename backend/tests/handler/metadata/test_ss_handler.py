@@ -1235,6 +1235,44 @@ class TestLookupRom:
         assert captured.get("rom_name") == "Mario.zip"
 
     @pytest.mark.asyncio
+    async def test_multi_file_archive_keeps_sending_the_composite_hashes(self):
+        """Unlike Hasheous and Playmatch, ScreenScraper stays on the archive's
+        own digests: jeuInfos falls back to romnom, so an arcade set still
+        resolves by name, and moving to the member hash would shift match
+        results across every library."""
+        handler = SSHandler()
+        mock_file = self._make_mock_file()
+        mock_file.file_name = "Mario.zip"
+        mock_file.archive_members = [
+            {
+                "name": "mario.bin",
+                "size": 1024,
+                "crc_hash": "membercrc",
+                "md5_hash": "membermd5",
+                "sha1_hash": "membersha1",
+            },
+            {
+                "name": "mario.cue",
+                "size": 64,
+                "crc_hash": "cuecrc",
+                "md5_hash": "cuemd5",
+                "sha1_hash": "cuesha1",
+            },
+        ]
+        captured = {}
+
+        async def capture(**kwargs):
+            captured.update(kwargs)
+            return None
+
+        with patch.object(handler.ss_service, "get_game_info", side_effect=capture):
+            await handler.lookup_rom(MagicMock(platform_slug="psx"), 57, [mock_file])
+
+        assert captured.get("md5") == "abc123"
+        assert captured.get("sha1") == "def456"
+        assert captured.get("crc") == "12345678"
+
+    @pytest.mark.asyncio
     async def test_romnom_uses_archive_filename_when_no_archive_members(self):
         handler = SSHandler()
         mock_file = self._make_mock_file()
