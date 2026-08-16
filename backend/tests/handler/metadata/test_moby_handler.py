@@ -64,7 +64,9 @@ class TestSearchTermEncoding:
             await handler._search_rom("Sonic & Knuckles", platform_moby_id=16)
 
         mock_list_games.assert_awaited_once()
-        title = mock_list_games.await_args.kwargs["title"]
+        await_args = mock_list_games.await_args
+        assert await_args is not None
+        title = await_args.kwargs["title"]
         assert title == "Sonic & Knuckles"
         assert "%" not in title
 
@@ -90,6 +92,8 @@ class TestSearchTermEncoding:
             )
 
         mock_list_games.assert_awaited_once()
-        title = mock_list_games.await_args.kwargs["title"]
+        await_args = mock_list_games.await_args
+        assert await_args is not None
+        title = await_args.kwargs["title"]
         assert title == "Super Mario 3D World + Bowser's Fury"
         assert "%" not in title
