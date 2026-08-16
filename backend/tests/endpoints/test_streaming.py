@@ -2255,20 +2255,19 @@ def test_a_write_that_lands_on_nothing_is_contention_not_success():
 def test_work_running_under_a_claim_keeps_it_off_the_stale_list():
     """The exit paths that could not write a drain marker run under the claim
     itself, and the player whose heartbeat kept it fresh is gone: an unrefreshed
-    claim reads as abandoned and the next claimant tears the container down."""
+    claim reads as abandoned and the next claimant tears the container down. The
+    refresh stops at the ceiling, so a wedged step cannot hold it forever."""
     key = streaming._session_redis_key("cas-hold-claim")
     claim = _session_at(key, last_seen="2026-01-01T00:00:00+00:00")
 
-    async def refresh_once():
-        task = asyncio.ensure_future(
-            streaming._hold_session_claim("cas-hold-claim", claim)
-        )
-        await asyncio.sleep(0.05)
-        task.cancel()
-
     try:
-        with patch.object(streaming, "_CLAIM_REFRESH_SECONDS", 0):
-            asyncio.run(refresh_once())
+        # A zero ceiling ends the loop on the first pass, so exactly one refresh
+        # runs and the test never waits on a clock.
+        with (
+            patch.object(streaming, "_CLAIM_REFRESH_SECONDS", 0),
+            patch.object(streaming, "_HOLD_CEILING_SECONDS", 0),
+        ):
+            asyncio.run(streaming._hold_session_claim("cas-hold-claim", claim))
         current = json.loads(asyncio.run(async_cache.get(key)))
         assert current["last_seen"] != "2026-01-01T00:00:00+00:00"
         assert not streaming._session_is_stale(current)

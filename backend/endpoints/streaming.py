@@ -104,6 +104,12 @@ _SESSION_STALE_SECONDS = 180
 # stale window, so a single missed refresh cannot hand the container away.
 _CLAIM_REFRESH_SECONDS = _SESSION_STALE_SECONDS // 3
 
+# How long a marker or a claim may be kept alive by the work behind it. Past
+# this the refresh stops and the container ages back out on its own: every step
+# under a keepalive carries its own timeout, so overrunning this means something
+# is wedged, and a wedged step must not reserve a container indefinitely.
+_HOLD_CEILING_SECONDS = 15 * 60
+
 
 def _session_redis_key(session_key: str) -> str:
     return f"{_SESSION_KEY_PREFIX}{session_key}"
@@ -292,6 +298,7 @@ async def _hold_drain_marker(session_key: str, token: str) -> None:
     minute instead of parking it for the length of a transfer nobody is doing.
     """
     marker = _drain_marker(token)
+    deadline = time.monotonic() + _HOLD_CEILING_SECONDS
     while True:
         await asyncio.sleep(_DRAIN_MARKER_REFRESH)
         try:
@@ -309,6 +316,14 @@ async def _hold_drain_marker(session_key: str, token: str) -> None:
         if not held:
             log.warning("drain marker on %s is no longer ours", session_key)
             return
+        if time.monotonic() >= deadline:
+            log.warning(
+                "stopped refreshing the drain marker on %s, the work behind it "
+                "has run for over %ss",
+                session_key,
+                _HOLD_CEILING_SECONDS,
+            )
+            return
 
 
 async def _hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
@@ -319,6 +334,7 @@ async def _hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
     gone, so without this the record ages past `_SESSION_STALE_SECONDS` and the
     next claimant tears the container down mid-work.
     """
+    deadline = time.monotonic() + _HOLD_CEILING_SECONDS
     while True:
         await asyncio.sleep(_CLAIM_REFRESH_SECONDS)
         try:
@@ -331,6 +347,14 @@ async def _hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
             continue
         if held is None:
             log.warning("claim on %s is no longer ours", session_key)
+            return
+        if time.monotonic() >= deadline:
+            log.warning(
+                "stopped refreshing the claim on %s, the work behind it has run "
+                "for over %ss",
+                session_key,
+                _HOLD_CEILING_SECONDS,
+            )
             return
 
 

@@ -148,15 +148,19 @@ def get_shared_memory_cards(
     ]
 
 
+# The expansion check decompresses what the uploader sent, so it runs off the
+# loop. The executor it lands in is the one every other blocking call in the
+# process shares, hence the cap on how many uploads may occupy it at once.
+_ARCHIVE_CHECKS = asyncio.Semaphore(2)
+
+
 async def _assert_safe_archive(content: bytes) -> None:
     """The shared archive check, as a 400. Covers the whole gate: readable zip,
     no escaping paths, no symlinks, no runaway expansion.
-
-    Off the loop: the expansion check decompresses what the uploader sent, which
-    is CPU-bound for as long as the archive is large.
     """
     try:
-        await asyncio.to_thread(assert_card_archive_safe, content)
+        async with _ARCHIVE_CHECKS:
+            await asyncio.to_thread(assert_card_archive_safe, content)
     except UnsafeCardArchive as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
