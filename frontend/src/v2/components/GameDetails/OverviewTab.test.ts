@@ -1,7 +1,7 @@
 import { shallowMount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { IGDBRelatedGame } from "@/__generated__";
+import type { IGDBRelatedGame, RomMetadataSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import OverviewTab from "./OverviewTab.vue";
 
@@ -9,8 +9,31 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
+const EMPTY_METADATA: RomMetadataSchema = {
+  rom_id: 1,
+  genres: [],
+  franchises: [],
+  collections: [],
+  companies: [],
+  game_modes: [],
+  age_ratings: [],
+  player_count: "",
+  first_release_date: null,
+  average_rating: null,
+};
+
 function game(id: number, name: string): IGDBRelatedGame {
   return { id, name, slug: name, type: "port", cover_url: "" };
+}
+
+function rom(overrides: Partial<DetailedRom> = {}): DetailedRom {
+  return {
+    id: 1,
+    metadatum: EMPTY_METADATA,
+    files: [],
+    user_screenshots: [],
+    ...overrides,
+  } as DetailedRom;
 }
 
 type RelatedOverrides = Partial<{
@@ -25,12 +48,7 @@ type RelatedOverrides = Partial<{
 function mountTab(related: RelatedOverrides = {}) {
   return shallowMount(OverviewTab, {
     props: {
-      rom: {
-        id: 1,
-        metadatum: null,
-        files: [],
-        user_screenshots: [],
-      } as DetailedRom,
+      rom: rom(),
       summary: null,
       sections: [],
       playerCount: null,
