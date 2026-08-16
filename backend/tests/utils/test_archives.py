@@ -559,8 +559,8 @@ class TestZipAndTarReadFailures:
         covered directly here for every archive type that uses it.
         """
 
-        class _FailingReader(io.RawIOBase):
-            def read(self, size=-1):
+        class _FailingReader(io.BytesIO):
+            def read(self, size: int | None = -1) -> bytes:
                 raise EOFError("Compressed file ended before the end-of-stream marker")
 
         with pytest.raises(archives.ArchiveReadError):
