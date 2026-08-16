@@ -51,7 +51,6 @@ import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
-import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { romStatusMap } from "@/utils";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
@@ -79,10 +78,10 @@ const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const selection = storeGallerySelection();
 const collectionsStore = storeCollections();
-const romsStore = storeRoms();
 const galleryRomsStore = storeGalleryRoms();
 const { ensureFavoriteCollection } = useFavoriteToggle();
-const { syncCachedRom, refreshAfterUserStateChange } = useRomSync();
+const { syncCachedRom, removeCachedRoms, refreshAfterUserStateChange } =
+  useRomSync();
 
 const canRefresh = useCan("rom.refresh");
 const canDownload = useCan("rom.download");
@@ -139,9 +138,7 @@ async function bulkFavorite() {
       // We were on the favourites collection view and just removed
       // every selected rom from it — drop them from the visible
       // roms so the UI reflects the new membership immediately.
-      selection.removeIds(ids);
-      romsStore.remove(roms);
-      galleryRomsStore.remove(roms);
+      removeCachedRoms(roms);
     }
     // The branch above only covers the Favourites collection view; a
     // favourites filter moves membership just as much.

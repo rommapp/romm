@@ -5,6 +5,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Platform } from "@/stores/platforms";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
 import { useRomSync } from "./index";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
@@ -188,6 +189,40 @@ describe("useRomSync", () => {
 
     expect(gallery.byPosition.size).toBe(1);
     expect(getRoms).not.toHaveBeenCalled();
+  });
+
+  // The three caches a removed ROM has to leave. Missing any one of them is
+  // what #4151 and #4204 each had to fix, one call site at a time.
+  it("removeCachedRoms drops the ROMs from the gallery, the v1 store and the selection", () => {
+    const removed = makeRom({ id: 1 });
+    const kept = makeRom({ id: 2 });
+    const gallery = seedGallery(removed);
+    const romsStore = storeRoms();
+    romsStore._allRoms = [removed, kept];
+    const selection = storeGallerySelection();
+    selection.setSelection([removed, kept]);
+
+    useRomSync().removeCachedRoms([removed]);
+
+    expect(gallery.byPosition.size).toBe(0);
+    expect(getRoms).toHaveBeenCalled();
+    expect(romsStore._allRoms).toEqual([kept]);
+    expect([...selection.selected.keys()]).toEqual([2]);
+  });
+
+  // Leaving a collection isn't leaving the library: the pruning that a real
+  // delete needs stays in DeleteRomDialog rather than folding in here.
+  it("removeCachedRoms leaves Home's rows alone", () => {
+    const removed = makeRom({ id: 1 });
+    seedGallery(removed);
+    const romsStore = storeRoms();
+    romsStore.recentRoms = [removed];
+    romsStore.continuePlayingRoms = [removed];
+
+    useRomSync().removeCachedRoms([removed]);
+
+    expect(romsStore.recentRoms).toEqual([removed]);
+    expect(romsStore.continuePlayingRoms).toEqual([removed]);
   });
 
   it("applyRomWrite leaves an unloaded ROM alone (no row on screen to reorder)", () => {
