@@ -31,6 +31,7 @@ import type {
   MatchVariant,
 } from "@/v2/components/MatchRom/types";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
@@ -71,6 +72,7 @@ const matchedRoms = ref<SearchRom[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const heartbeat = storeHeartbeat();
+const { applyRomWrite } = useRomSync();
 
 // Active body variant — the toolbar selector toggles between the
 // gallery-style grid and the master/detail list, mirroring the
@@ -257,7 +259,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
     snackbar.success(t("rom.rom-updated-successfully"), {
       icon: "mdi-check-bold",
     });
-    romsStore.update(data as SimpleRom);
+    applyRomWrite(data as SimpleRom);
     if (route.name === "rom") romsStore.currentRom = data;
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };

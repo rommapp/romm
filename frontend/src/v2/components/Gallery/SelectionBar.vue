@@ -56,6 +56,7 @@ import type { Events } from "@/types/emitter";
 import { romStatusMap } from "@/utils";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -81,6 +82,7 @@ const collectionsStore = storeCollections();
 const romsStore = storeRoms();
 const galleryRomsStore = storeGalleryRoms();
 const { ensureFavoriteCollection } = useFavoriteToggle();
+const { syncCachedRom, refreshAfterUserStateChange } = useRomSync();
 
 const canRefresh = useCan("rom.refresh");
 const canDownload = useCan("rom.download");
@@ -141,6 +143,9 @@ async function bulkFavorite() {
       romsStore.remove(roms);
       galleryRomsStore.remove(roms);
     }
+    // The branch above only covers the Favourites collection view; a
+    // favourites filter moves membership just as much.
+    refreshAfterUserStateChange();
     snackbar.success(
       wasAllFavorited
         ? t("gallery.selection-unfavorite-success", { n: ids.length })
@@ -199,7 +204,7 @@ async function applyStatus(data: Partial<RomUserData>) {
     if (!rom.rom_user) continue;
     before.set(rom.id, { ...rom.rom_user });
     Object.assign(rom.rom_user, data);
-    romsStore.update(rom);
+    syncCachedRom(rom);
   }
 
   const results = await Promise.allSettled(
@@ -210,9 +215,12 @@ async function applyStatus(data: Partial<RomUserData>) {
     const snapshot = before.get(rom.id);
     if (rom.rom_user && snapshot) {
       Object.assign(rom.rom_user, snapshot);
-      romsStore.update(rom);
+      syncCachedRom(rom);
     }
   }
+
+  // Once for the whole batch, after the reverts are in.
+  refreshAfterUserStateChange();
 
   const ok = roms.length - failed.length;
   if (failed.length === 0) {

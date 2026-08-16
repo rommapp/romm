@@ -28,6 +28,7 @@ import { useCan } from "@/v2/composables/useCan";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useClipboard } from "@/v2/composables/useClipboard";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 
@@ -58,6 +59,8 @@ export function useGameActions(
   const { confirmProtectedLaunch } = useUISettings();
   const clipboard = useClipboard();
   const romsStore = storeRoms();
+  const { syncCachedRom, refreshAfterUserStateChange, refreshIfOrderedBy } =
+    useRomSync();
   const auth = storeAuth();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
@@ -115,16 +118,17 @@ export function useGameActions(
     const data: Partial<RomUserData> = { status: value };
     const before = { ...rom.rom_user };
     rom.rom_user.status = value;
-    romsStore.update(rom);
+    syncCachedRom(rom);
     try {
       await romApi.updateUserRomProps({ romId: rom.id, data });
     } catch {
       Object.assign(rom.rom_user, before);
-      romsStore.update(rom);
+      syncCachedRom(rom);
       snackbar.error(t("rom.snackbar-update-status-failed"), {
         icon: "mdi-alert-circle-outline",
       });
     }
+    refreshAfterUserStateChange();
   }
 
   // Toggle semantics match v1's Personal tab: booleans flip independently,
@@ -153,17 +157,18 @@ export function useGameActions(
 
     const before = { ...rom.rom_user };
     Object.assign(rom.rom_user, data);
-    romsStore.update(rom);
+    syncCachedRom(rom);
 
     try {
       await romApi.updateUserRomProps({ romId: rom.id, data });
     } catch {
       Object.assign(rom.rom_user, before);
-      romsStore.update(rom);
+      syncCachedRom(rom);
       snackbar.error(t("rom.snackbar-update-status-failed"), {
         icon: "mdi-alert-circle-outline",
       });
     }
+    refreshAfterUserStateChange();
   }
 
   // Optimistic write of a numeric per-user field (rating | difficulty
@@ -181,13 +186,13 @@ export function useGameActions(
     const data: Partial<RomUserData> = { [field]: next };
     const before = { ...rom.rom_user };
     rom.rom_user[field] = next;
-    romsStore.update(rom);
+    syncCachedRom(rom);
 
     try {
       await romApi.updateUserRomProps({ romId: rom.id, data });
     } catch {
       Object.assign(rom.rom_user, before);
-      romsStore.update(rom);
+      syncCachedRom(rom);
       snackbar.error(t("rom.snackbar-update-field-failed", { field }), {
         icon: "mdi-alert-circle-outline",
       });
@@ -302,6 +307,7 @@ export function useGameActions(
     const rom = getRom();
     if (!rom) return;
     await toggleFavorite(rom);
+    refreshAfterUserStateChange();
   }
 
   async function share() {
@@ -420,7 +426,11 @@ export function useGameActions(
         removeLastPlayed: true,
       });
       if (rom.rom_user) rom.rom_user.last_played = null;
-      romsStore.update(rom);
+      syncCachedRom(rom);
+      // Clearing the timestamp moves the card in a last-played-ordered
+      // gallery, and the in-place mutation above leaves nothing for
+      // `applyRomWrite` to diff against.
+      refreshIfOrderedBy("last_played");
       romsStore.removeFromContinuePlaying(rom);
       snackbar.success(t("rom.snackbar-removed-from-playing"), {
         icon: "mdi-check-bold",
