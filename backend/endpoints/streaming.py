@@ -85,11 +85,12 @@ SESSION_TTL_SECONDS = 6 * 60 * 60
 SESSION_DRAIN_SECONDS = 5
 
 # Save-and-exit holds the container past the drain window when an exit state is
-# still coming back out of it. This is only the fallback for a backend that
-# dies mid-pull: the pull drops the key itself when it finishes. The TTL is
-# derived from the pull's own worst case (see _state_pull_drain_seconds), so a
-# slow transfer cannot outlive the marker guarding it.
-_STATE_PULL_DRAIN_HEADROOM = 60
+# still coming back out of it. The marker is short and refreshed for as long as
+# the pull runs (see _hold_drain_marker) rather than sized to the slowest
+# possible transfer, so a backend that dies mid-pull frees the container in a
+# minute instead of parking it for the length of a transfer nobody is doing.
+_DRAIN_MARKER_TTL = 60
+_DRAIN_MARKER_REFRESH = 20
 
 # A live player refreshes `last_seen` roughly every 30s (frontend heartbeat,
 # piggybacked on the activity interval). A session whose stamp is older than
@@ -179,9 +180,13 @@ async def _mutate_session(
             # undone by resurrecting the key.
             await pipe.set(key, json.dumps(session), xx=True, ex=SESSION_TTL_SECONDS)
             try:
-                await pipe.execute()
+                results = await pipe.execute()
             except WatchError:
                 continue
+            # An expiry between the watch and the exec does not abort the
+            # transaction, so an xx write can succeed having set nothing.
+            if not (results and results[0]):
+                return None
             return session
     raise _SessionContended(session_key)
 
@@ -197,8 +202,60 @@ def _same_claim(session: dict[str, Any], claim: dict[str, Any]) -> bool:
     )
 
 
+async def _replace_session_if(
+    session_key: str,
+    require: Callable[[dict[str, Any]], bool],
+    value: str | None,
+    ttl: int | None = None,
+) -> bool:
+    """Overwrite or delete a session key, while `require` accepts what is there.
+
+    Returns True when the intended state is what the key now holds, False when
+    `require` rejected it. A delete finding the key already gone counts as done;
+    a write that did not land does not, so it raises `_SessionContended` along
+    with running out of retries. The caller still holds what it tried to give up
+    in that case, and must not report otherwise.
+    """
+    key = _session_redis_key(session_key)
+    for _ in range(_SESSION_CAS_ATTEMPTS):
+        async with async_cache.pipeline() as pipe:
+            await pipe.watch(key)
+            raw = await pipe.get(key)
+            if raw is None:
+                await pipe.unwatch()
+                return value is None
+            try:
+                current = json.loads(raw)
+            except (TypeError, json.JSONDecodeError):
+                current = None
+            if not isinstance(current, dict) or not require(current):
+                await pipe.unwatch()
+                return False
+            pipe.multi()
+            if value is None:
+                await pipe.delete(key)
+            else:
+                # xx so a release landing between the watch and the exec cannot
+                # be undone by resurrecting the key.
+                await pipe.set(key, value, xx=True, ex=ttl)
+            try:
+                results = await pipe.execute()
+            except WatchError:
+                continue
+            # An expiry between the watch and the exec does not abort the
+            # transaction, so a write can succeed having set nothing.
+            if value is not None and not (results and results[0]):
+                raise _SessionContended(session_key)
+            return True
+    raise _SessionContended(session_key)
+
+
+def _drain_marker(token: str) -> str:
+    return json.dumps({"draining": True, "drain_token": token})
+
+
 async def _claim_drain_marker(
-    session_key: str, claim: dict[str, Any], ttl: int
+    session_key: str, claim: dict[str, Any], ttl: int = _DRAIN_MARKER_TTL
 ) -> str | None:
     """Replace a session with a drain marker, while the key still holds the claim
     that is exiting.
@@ -210,37 +267,41 @@ async def _claim_drain_marker(
     session somebody is playing.
 
     Returns the token the marker carries, or None when the key had moved on.
+    Raises `_SessionContended` when the marker never landed, which leaves the
+    container held by a claim the caller has already stopped.
     """
-    key = _session_redis_key(session_key)
     token = secrets.token_hex(8)
-    for _ in range(_SESSION_CAS_ATTEMPTS):
-        async with async_cache.pipeline() as pipe:
-            await pipe.watch(key)
-            raw = await pipe.get(key)
-            if raw is None:
-                await pipe.unwatch()
-                return None
-            try:
-                current = json.loads(raw)
-            except (TypeError, json.JSONDecodeError):
-                await pipe.unwatch()
-                return None
-            if not _same_claim(current, claim):
-                await pipe.unwatch()
-                return None
-            pipe.multi()
-            await pipe.set(
-                key,
-                json.dumps({"draining": True, "drain_token": token}),
-                xx=True,
-                ex=ttl,
+    landed = await _replace_session_if(
+        session_key,
+        lambda current: _same_claim(current, claim),
+        _drain_marker(token),
+        ttl,
+    )
+    return token if landed else None
+
+
+async def _hold_drain_marker(session_key: str, token: str) -> None:
+    """Keep a drain marker alive for as long as the work behind it runs.
+
+    The marker is short-lived and refreshed rather than sized to the slowest
+    imaginable pull: a backend that dies mid-pull then frees the container in a
+    minute instead of parking it for the length of a transfer nobody is doing.
+    """
+    marker = _drain_marker(token)
+    while True:
+        await asyncio.sleep(_DRAIN_MARKER_REFRESH)
+        try:
+            held = await _replace_session_if(
+                session_key,
+                lambda current: current.get("drain_token") == token,
+                marker,
+                _DRAIN_MARKER_TTL,
             )
-            try:
-                await pipe.execute()
-            except WatchError:
-                continue
-            return token
-    return None
+        except _SessionContended:
+            held = False
+        if not held:
+            log.warning("drain marker on %s is no longer ours", session_key)
+            return
 
 
 async def _drop_drain_marker(session_key: str, token: str) -> None:
@@ -249,61 +310,33 @@ async def _drop_drain_marker(session_key: str, token: str) -> None:
     A marker that expired, or that a later exit replaced, belongs to whoever
     holds the container now, and deleting it would free a container mid-play.
     """
-    key = _session_redis_key(session_key)
-    for _ in range(_SESSION_CAS_ATTEMPTS):
-        async with async_cache.pipeline() as pipe:
-            await pipe.watch(key)
-            raw = await pipe.get(key)
-            if raw is None:
-                await pipe.unwatch()
-                return
-            try:
-                current = json.loads(raw)
-            except (TypeError, json.JSONDecodeError):
-                current = None
-            if not isinstance(current, dict) or current.get("drain_token") != token:
-                await pipe.unwatch()
-                return
-            pipe.multi()
-            await pipe.delete(key)
-            try:
-                await pipe.execute()
-            except WatchError:
-                continue
-            return
-    log.warning("could not drop the drain marker on %s", session_key)
+    try:
+        await _replace_session_if(
+            session_key,
+            lambda current: current.get("drain_token") == token,
+            None,
+        )
+    except _SessionContended:
+        log.warning("could not drop the drain marker on %s", session_key)
 
 
-async def _release_own_session(session_key: str, claim: dict[str, Any]) -> None:
+async def _release_own_session(session_key: str, claim: dict[str, Any]) -> bool:
     """Free a container, while the key still holds the claim being released.
 
     Save-and-exit blocks on the broker for as long as the emulator takes to
     write and die, and an admin force-release plus a new claim both fit in that
     window. The unguarded delete would then end a session that had just begun.
+
+    False means the container is still held, either by somebody else's claim or
+    because the delete never landed.
     """
-    key = _session_redis_key(session_key)
-    for _ in range(_SESSION_CAS_ATTEMPTS):
-        async with async_cache.pipeline() as pipe:
-            await pipe.watch(key)
-            raw = await pipe.get(key)
-            if raw is None:
-                await pipe.unwatch()
-                return
-            try:
-                current = json.loads(raw)
-            except (TypeError, json.JSONDecodeError):
-                current = {}
-            if not isinstance(current, dict) or not _same_claim(current, claim):
-                await pipe.unwatch()
-                return
-            pipe.multi()
-            await pipe.delete(key)
-            try:
-                await pipe.execute()
-            except WatchError:
-                continue
-            return
-    log.warning("could not release session %s", session_key)
+    try:
+        return await _replace_session_if(
+            session_key, lambda current: _same_claim(current, claim), None
+        )
+    except _SessionContended:
+        log.warning("could not release session %s", session_key)
+        return False
 
 
 async def _set_session_disc(
@@ -1844,20 +1877,6 @@ _STATE_PULL_ATTEMPTS = 5
 _STATE_PULL_RETRY_DELAY = 3.0
 
 
-def _state_pull_drain_seconds(container: dict[str, Any]) -> int:
-    """How long the drain marker guarding an exit pull has to live.
-
-    Every retry can sit on the broker for that emulator's whole transfer
-    timeout, which for xemu's 2 GiB images is minutes rather than seconds. A
-    fixed TTL shorter than that expires mid-pull and leaves the container free
-    while its state is still coming out of it.
-    """
-    budget = _STATE_PULL_ATTEMPTS * (
-        _state_transfer_limits(container)["timeout"] + _STATE_PULL_RETRY_DELAY
-    )
-    return min(int(budget) + _STATE_PULL_DRAIN_HEADROOM, SESSION_TTL_SECONDS)
-
-
 # Strong references to fire-and-forget sync tasks so the event loop does not
 # garbage-collect them mid-flight.
 _sync_tasks: set[asyncio.Task] = set()
@@ -2228,10 +2247,27 @@ async def _release_after_state_pull(
     keeps that release aimed at this drain, so an overrun that outlived its own
     marker cannot free whoever took the container afterwards.
     """
+    keepalive = asyncio.ensure_future(_hold_drain_marker(session_key, token))
     try:
         await pull
     finally:
+        keepalive.cancel()
         await _drop_drain_marker(session_key, token)
+
+
+async def _release_claim_after_state_pull(
+    session_key: str, pull: Coroutine[Any, Any, Any], claim: dict[str, Any]
+) -> None:
+    """The same, for an exit whose drain marker never landed.
+
+    Nothing took the container over in that case, so the claim itself is what
+    still reserves it: the pull runs under it and the claim goes afterwards.
+    """
+    try:
+        await pull
+    finally:
+        if not await _release_own_session(session_key, claim):
+            log.error("session %s survived its own exit", session_key)
 
 
 async def _pull_state_to_library(
@@ -3007,18 +3043,26 @@ async def _teardown_abandoned_session(
     # seconds, and the staleness check that led here is older still, so without
     # the marker a heartbeat landing in that window would refresh a claim whose
     # container is already being wiped. Re-checking staleness under the same
-    # watch is what makes the decision current rather than the caller's.
+    # watch is what makes the decision current rather than the caller's, and the
+    # marker's own token is what keeps a second claim from running all of this
+    # a second time over the same container.
+    token = secrets.token_hex(8)
     try:
-        marked = await _mutate_session(
-            session_key, {"draining": True}, require=_session_is_stale
+        marked = await _replace_session_if(
+            session_key,
+            lambda current: _session_is_stale(current)
+            and _same_claim(current, session),
+            _drain_marker(token),
+            _DRAIN_MARKER_TTL,
         )
     except _SessionContended:
         # Somebody is writing to this key, so it is not the derelict session
         # this path exists to clean up.
         return False
-    if marked is None:
+    if not marked:
         return False
 
+    keepalive = asyncio.ensure_future(_hold_drain_marker(session_key, token))
     try:
         state_slot = await asyncio.to_thread(_stop_broker, container)
         safe_to_wipe = await _evacuate_session_card(session, container)
@@ -3051,10 +3095,12 @@ async def _teardown_abandoned_session(
     except Exception:
         log.exception("abandoned session teardown failed, key=%s", session_key)
     finally:
-        # The marker carries the full session TTL, so a step raising above would
-        # otherwise leave the container unclaimable until it expires: draining
-        # blocks the claim, the takeover skips it, and no release path owns it.
-        await async_cache.delete(_session_redis_key(session_key))
+        # A step raising above would otherwise leave the container unclaimable
+        # until the marker expires: draining blocks the claim, the takeover
+        # skips it, and no release path owns it. Only this teardown's own marker
+        # goes, never a claim that replaced it in the meantime.
+        keepalive.cancel()
+        await _drop_drain_marker(session_key, token)
     return True
 
 
@@ -3359,8 +3405,10 @@ async def claim_session(
         # session down (evacuating its card and crediting its playtime) and
         # retry. Evicting anyone is deferred until here so a pool never
         # displaces a stale session while another container sits idle. A drain
-        # marker is never taken over: the broker is still killing the previous
-        # emulator, and the marker expires on its own within seconds.
+        # marker is never taken over: an exit still has the broker killing the
+        # emulator or the state coming out of it, and the marker only outlives
+        # that work by _DRAIN_MARKER_TTL, since the backend doing it is what
+        # refreshes it.
         deadline = time.monotonic() + _ABANDONED_TEARDOWN_WAIT
         for candidate in candidates:
             existing = await _get_session(_container_key(candidate))
@@ -3772,28 +3820,35 @@ async def save_and_exit_session(
         else None
     )
 
+    released = True
     if pull_state is not None:
         # The container holds until the state is in the library. The broker keeps
         # the exited session's state only until the next activate, so dropping
         # the key first is what lets a new claim overwrite it.
-        token = await _claim_drain_marker(
-            session_key, session, _state_pull_drain_seconds(container)
-        )
-        if token is None:
-            # The key stopped being this claim while the save+kill blocked, so
-            # the pull runs without holding anything: whoever owns the container
-            # now owns the key too.
-            pull_state.close()
-            log.warning(
-                "skipping the exit state pull, session %s was taken over",
-                session_key,
+        try:
+            token = await _claim_drain_marker(session_key, session)
+        except _SessionContended:
+            _spawn_sync_task(
+                _release_claim_after_state_pull(session_key, pull_state, session)
             )
         else:
-            _spawn_sync_task(_release_after_state_pull(session_key, pull_state, token))
+            if token is None:
+                # The key stopped being this claim while the save+kill blocked,
+                # so the pull runs without holding anything: whoever owns the
+                # container now owns the key too.
+                pull_state.close()
+                log.warning(
+                    "skipping the exit state pull, session %s was taken over",
+                    session_key,
+                )
+            else:
+                _spawn_sync_task(
+                    _release_after_state_pull(session_key, pull_state, token)
+                )
     elif effective_wait:
         # Broker confirmed the save+kill is done and there is no state coming
         # back, the key can go now.
-        await _release_own_session(session_key, session)
+        released = await _release_own_session(session_key, session)
     else:
         # Broker is still killing the emulator in the background. Drop the
         # key to a short drain TTL instead of deleting it outright: a
@@ -3802,7 +3857,10 @@ async def save_and_exit_session(
         # save). The marker is JSON so _get_session leaves it in place
         # (a bare string would parse as corrupt and be deleted, ending
         # the drain early). The key expires on its own once the window passes.
-        await _claim_drain_marker(session_key, session, SESSION_DRAIN_SECONDS)
+        try:
+            await _claim_drain_marker(session_key, session, SESSION_DRAIN_SECONDS)
+        except _SessionContended:
+            released = False
 
     # Legacy per-file in-game save pull, only for containers not on whole-card
     # sync (those were evacuated above, independent of any savestate).
@@ -3816,8 +3874,14 @@ async def save_and_exit_session(
             )
         )
 
+    if not released:
+        log.error("save-and-exit could not give up session %s", session_key)
     log.info("save-and-exit, platform=%s saved=%s", platform, saved)
-    return JSONResponse({"status": "ok", "saved": saved, "platform": platform})
+    # `released` false means the container is still on this claim, so the client
+    # is still the one holding it and has to try again.
+    return JSONResponse(
+        {"status": "ok", "saved": saved, "platform": platform, "released": released}
+    )
 
 
 @protected_route(router.post, "/sessions/{platform}/heartbeat", [Scope.ROMS_USER_WRITE])
@@ -4188,10 +4252,31 @@ async def _teardown_released_session(
     release request; every step is best-effort so a teardown hiccup cannot wedge
     the claim, which the stale-session takeover reclaims if this never finishes.
     """
+    # Take the claim into a drain marker first. Everything below runs detached
+    # and blocks on the broker for as long as the emulator takes to die, so a
+    # takeover landing in that window would otherwise have its emulator stopped
+    # and its claim deleted along with the session it replaced.
+    try:
+        token = await _claim_drain_marker(session_key, session)
+    except _SessionContended:
+        # The claim is still ours, it just could not be marked; the delete at
+        # the end is guarded on it anyway.
+        log.error("could not drain released session %s", session_key)
+        token = None
+    else:
+        if token is None:
+            log.warning("skipping teardown, session %s was taken over", session_key)
+            return
+
+    keepalive = (
+        asyncio.ensure_future(_hold_drain_marker(session_key, token))
+        if token is not None
+        else None
+    )
     try:
         # Stop the emulator first so the card is quiescent before evacuation: a
         # running game's exit flush could otherwise re-lay a card over the wipe,
-        # and reading a live card risks a torn snapshot. The claim still guards
+        # and reading a live card risks a torn snapshot. The drain marker holds
         # the container throughout, so no concurrent claim can interleave.
         state_slot = await asyncio.to_thread(_stop_broker, container, save)
 
@@ -4255,7 +4340,11 @@ async def _teardown_released_session(
         # later claim until stale takeover or the TTL expires. A card left
         # un-evacuated is recoverable, since the next claim prompts to adopt
         # whatever is still on the container; a phantom claim is not.
-        await async_cache.delete(_session_redis_key(session_key))
+        if keepalive is not None and token is not None:
+            keepalive.cancel()
+            await _drop_drain_marker(session_key, token)
+        else:
+            await _release_own_session(session_key, session)
 
 
 def _container_by_key(container_key: str) -> tuple[dict[str, Any], str]:

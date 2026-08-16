@@ -2083,7 +2083,8 @@ def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
     """A session with a rom always has an exit state to collect, so the key is
     replaced by the marker that guards the pull rather than deleted: a re-claim
     landing first would let the container overwrite the state on its next
-    launch. The marker has to outlive the pull's own worst case."""
+    launch. The marker is refreshed while the pull runs, so it only has to
+    outlive one refresh interval."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
@@ -2108,11 +2109,11 @@ def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
     container = _container_for(rom)
     key = streaming._session_redis_key(streaming._container_key(container))
     ttl = asyncio.run(async_cache.ttl(key))
-    budget = streaming._state_pull_drain_seconds(container)
-    # Every retry can sit on the broker for the whole transfer timeout, so a
-    # marker shorter than that expires while the state is still coming out.
-    assert budget > streaming._STATE_PULL_ATTEMPTS * streaming._BROKER_TRANSFER_TIMEOUT
-    assert 0 < ttl <= budget
+    # Long enough that a refresh has room to land, short enough that a backend
+    # dying mid-pull does not park the container for the length of a transfer
+    # nobody is doing.
+    assert streaming._DRAIN_MARKER_TTL > 2 * streaming._DRAIN_MARKER_REFRESH
+    assert streaming.SESSION_DRAIN_SECONDS < ttl <= streaming._DRAIN_MARKER_TTL
 
 
 def test_save_and_exit_without_a_rom_drains_only_briefly(
@@ -2143,6 +2144,112 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
     spawn.assert_not_called()
     ttl = asyncio.run(async_cache.ttl(key))
     assert 0 < ttl <= streaming.SESSION_DRAIN_SECONDS
+
+
+def _session_at(key: str, **fields) -> dict:
+    """Put a session on the key and hand back the claim a route would hold."""
+    session = {"user_id": 1, "claimed_at": "2026-01-01T00:00:00+00:00", **fields}
+    asyncio.run(
+        async_cache.set(key, json.dumps(session), ex=streaming.SESSION_TTL_SECONDS)
+    )
+    return session
+
+
+def test_drain_marker_is_not_claimed_over_a_takeover():
+    """Save-and-exit blocks on the broker for as long as the emulator takes to
+    die, and a force-release plus a fresh claim fit in that window. The marker
+    would bury a session somebody is playing."""
+    key = streaming._session_redis_key("cas-takeover")
+    claim = _session_at(key)
+    _session_at(key, claimed_at="2026-01-01T00:05:00+00:00")
+    try:
+        assert asyncio.run(streaming._claim_drain_marker("cas-takeover", claim)) is None
+        # The claim that took over is still there, untouched.
+        current = json.loads(asyncio.run(async_cache.get(key)))
+        assert current["claimed_at"] == "2026-01-01T00:05:00+00:00"
+        assert "draining" not in current
+    finally:
+        asyncio.run(async_cache.delete(key))
+
+
+def test_a_stale_drain_token_frees_nobody():
+    """A pull that outlived its own marker must not release whoever holds the
+    container now."""
+    key = streaming._session_redis_key("cas-stale-token")
+    token = asyncio.run(
+        streaming._claim_drain_marker("cas-stale-token", _session_at(key))
+    )
+    assert token is not None
+    try:
+        # The marker expired and a new claim took the container.
+        _session_at(key, claimed_at="2026-01-01T00:05:00+00:00")
+        asyncio.run(streaming._drop_drain_marker("cas-stale-token", token))
+        assert asyncio.run(async_cache.get(key)) is not None
+        # The drain that owns the marker still clears it.
+        retaken = asyncio.run(
+            streaming._claim_drain_marker(
+                "cas-stale-token",
+                {"user_id": 1, "claimed_at": "2026-01-01T00:05:00+00:00"},
+            )
+        )
+        assert retaken is not None
+        asyncio.run(streaming._drop_drain_marker("cas-stale-token", retaken))
+        assert asyncio.run(async_cache.get(key)) is None
+    finally:
+        asyncio.run(async_cache.delete(key))
+
+
+def test_releasing_a_session_somebody_else_holds_reports_failure():
+    """The container is not this claim's to give back, and a release that says
+    otherwise ends a session that had just begun."""
+    key = streaming._session_redis_key("cas-release")
+    claim = _session_at(key)
+    _session_at(key, claimed_at="2026-01-01T00:05:00+00:00")
+    try:
+        assert (
+            asyncio.run(streaming._release_own_session("cas-release", claim)) is False
+        )
+        assert asyncio.run(async_cache.get(key)) is not None
+    finally:
+        asyncio.run(async_cache.delete(key))
+
+
+def test_a_write_that_lands_on_nothing_is_contention_not_success():
+    """A key expiring between the WATCH and the EXEC does not abort the
+    transaction, so an xx write can report success having set nothing. Treating
+    that as a landed marker leaves the container held by a claim the caller has
+    already stopped."""
+
+    class _NoOpPipe:
+        async def watch(self, key):
+            return True
+
+        async def get(self, key):
+            return json.dumps({"user_id": 1, "claimed_at": "x"})
+
+        def multi(self):
+            return None
+
+        async def set(self, *args, **kwargs):
+            return None
+
+        async def execute(self):
+            # What redis returns for a SET xx against a key that is gone.
+            return [None]
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+    with patch.object(async_cache, "pipeline", lambda: _NoOpPipe()):
+        with pytest.raises(streaming._SessionContended):
+            asyncio.run(
+                streaming._claim_drain_marker(
+                    "cas-noop", {"user_id": 1, "claimed_at": "x"}
+                )
+            )
 
 
 def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):

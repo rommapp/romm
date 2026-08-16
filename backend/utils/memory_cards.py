@@ -61,7 +61,31 @@ _S_IFLNK = 0o120000
 # is megabytes at most, and the archive's own size says nothing about this: a
 # few hundred compressed megabytes of zeros expand to hundreds of gigabytes, on
 # a container whose disk the broker unpacks into.
-_CARD_MAX_UNPACKED_BYTES = 4 * MEMORY_CARD_MAX_BYTES
+_CARD_MAX_UNPACKED_BYTES = MEMORY_CARD_MAX_BYTES
+
+# Enough that a card-sized entry is a handful of reads, small enough that the
+# check never holds much more than this per entry.
+_UNPACK_CHUNK_BYTES = 1024 * 1024
+
+
+def _assert_entry_fits(zf: zipfile.ZipFile, entry: zipfile.ZipInfo, budget: int) -> int:
+    """Decompress one entry against what is left of the archive's budget, and
+    return what it consumed.
+
+    Decompressed rather than trusting `file_size`: that header is whatever the
+    uploader put there, and an unpacker writes what actually comes out.
+    """
+    read = 0
+    with zf.open(entry, "r") as stream:
+        while True:
+            chunk = stream.read(_UNPACK_CHUNK_BYTES)
+            if not chunk:
+                return read
+            read += len(chunk)
+            if read > budget:
+                raise UnsafeCardArchive(
+                    f"unpacks to over {_CARD_MAX_UNPACKED_BYTES} bytes"
+                )
 
 
 def assert_card_archive_safe(content: bytes) -> None:
@@ -72,29 +96,33 @@ def assert_card_archive_safe(content: bytes) -> None:
     """
     try:
         with zipfile.ZipFile(io.BytesIO(content), "r") as zf:
-            entries = zf.infolist()
-    except zipfile.BadZipFile:
+            budget = _CARD_MAX_UNPACKED_BYTES
+            for entry in zf.infolist():
+                name = entry.filename
+                # Zip names are meant to be slash-separated, so a hand-written
+                # entry can hide `..\..\evil` in what PurePosixPath reads as one
+                # opaque part. Both separators are split before the parts are
+                # judged.
+                parts = re.split(r"[\\/]", name)
+                if (
+                    PurePosixPath(name).is_absolute()
+                    or ntpath.isabs(name)
+                    or ".." in parts
+                ):
+                    raise UnsafeCardArchive(f"unsafe path: {name}")
+                # A symlink's own name is harmless; its target is not, and an
+                # unpacker that follows it writes wherever the target points on
+                # the next entry.
+                mode = entry.external_attr >> _ZIP_MODE_SHIFT
+                if mode & _S_IFMT == _S_IFLNK:
+                    raise UnsafeCardArchive(f"symlink entry: {name}")
+                if not name.endswith("/"):
+                    budget -= _assert_entry_fits(zf, entry, budget)
+    # Encrypted entries and unsupported compression raise on the read rather
+    # than on the open, and an archive this cannot look inside is one the broker
+    # must not be handed either.
+    except (zipfile.BadZipFile, NotImplementedError, RuntimeError):
         raise UnsafeCardArchive("not a readable zip archive") from None
-
-    unpacked = 0
-    for entry in entries:
-        # The declared size is what an unpacker acts on. A header that lies
-        # about a bigger payload is left to the broker's own write to stop.
-        unpacked += entry.file_size
-        if unpacked > _CARD_MAX_UNPACKED_BYTES:
-            raise UnsafeCardArchive(f"unpacks to over {_CARD_MAX_UNPACKED_BYTES} bytes")
-        name = entry.filename
-        # Zip names are meant to be slash-separated, so a hand-written entry can
-        # hide `..\..\evil` in what PurePosixPath reads as one opaque part. Both
-        # separators are split before the parts are judged.
-        parts = re.split(r"[\\/]", name)
-        if PurePosixPath(name).is_absolute() or ntpath.isabs(name) or ".." in parts:
-            raise UnsafeCardArchive(f"unsafe path: {name}")
-        # A symlink's own name is harmless; its target is not, and an unpacker
-        # that follows it writes wherever the target points on the next entry.
-        mode = entry.external_attr >> _ZIP_MODE_SHIFT
-        if mode & _S_IFMT == _S_IFLNK:
-            raise UnsafeCardArchive(f"symlink entry: {name}")
 
 
 # Names only ever collide when two snapshots land in the same millisecond, so

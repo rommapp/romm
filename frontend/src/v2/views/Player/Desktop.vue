@@ -34,6 +34,10 @@ const label = ref("");
 // keys on. Whatever it reports, not something this view can derive.
 const platform = ref("");
 const isExiting = ref(false);
+// Whether the container is still claimed. Tracked apart from `state`, which
+// describes the view: a release that failed leaves an "error" screen over a
+// claim that is very much still standing.
+const holdsClaim = ref(false);
 
 usePageTitle(() => t("play.desktop-title"));
 
@@ -48,6 +52,7 @@ async function openDesktop(): Promise<void> {
     containerHost.value = data.host;
     label.value = data.label;
     platform.value = data.platform;
+    holdsClaim.value = true;
     state.value = "running";
   } catch (err: unknown) {
     state.value = "error";
@@ -65,13 +70,14 @@ async function openDesktop(): Promise<void> {
 // the claim standing, and saying "exited" over it hides a container nobody can
 // take until it times out.
 async function release(): Promise<boolean> {
-  if (state.value !== "running") return true;
+  if (!holdsClaim.value) return true;
   try {
     await streamingApi.releaseSession(
       platform.value,
       undefined,
       containerKey.value,
     );
+    holdsClaim.value = false;
     state.value = "exited";
     return true;
   } catch (err) {
@@ -116,14 +122,17 @@ async function handleExit(): Promise<void> {
 // Every way out of a live session funnels through the same confirmation, so
 // a stray back press cannot drop the container mid-configuration.
 onBeforeRouteLeave(async () => {
-  if (state.value !== "running") return true;
+  if (!holdsClaim.value) return true;
   return confirmAndRelease();
 });
 
 // The tab closing takes the session's only owner with it, so hand the claim
 // back on a path that survives the page going away.
 function onPageHide(): void {
-  if (state.value !== "running") return;
+  // The claim, not the view state, says whether the container is still held:
+  // an exit whose release failed shows an error and still holds it.
+  if (!holdsClaim.value) return;
+  holdsClaim.value = false;
   state.value = "exited";
   streamingApi.releaseSessionKeepalive(platform.value, containerKey.value);
 }

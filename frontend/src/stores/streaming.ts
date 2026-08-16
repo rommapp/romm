@@ -249,11 +249,11 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Save game state then release the session.
    * wait=true (default): blocks until broker confirms save+kill - use for explicit button press.
    * wait=false: broker fires save+kill in background, returns immediately - use for navigation away.
-   * released: the request succeeded, so the backend dropped the claim
-   *   (it always releases on success, even when the save itself failed).
+   * released: the backend gave the container back (it does so even when the
+   *   save itself failed), and reports when it could not.
    * saved: the broker confirmed the state save.
-   * released=false means the request failed and the claim may still be live -
-   *   callers should fall back to releaseSession.
+   * released=false means the claim may still be live - callers should fall
+   * back to releaseSession.
    */
   async function saveAndExit(
     platform: string,
@@ -263,8 +263,9 @@ export const useStreamingStore = defineStore("streaming", () => {
     if (!platform) return { released: false, saved: false };
     try {
       const { data } = await streamingApi.saveAndExit(platform, slot, wait);
-      activeSession.value = null;
-      return { released: true, saved: data.saved ?? false };
+      const released = data.released ?? true;
+      if (released) activeSession.value = null;
+      return { released, saved: data.saved ?? false };
     } catch (err) {
       console.warn("[streaming] Could not save-and-exit:", err);
       return { released: false, saved: false };
