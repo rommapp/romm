@@ -413,6 +413,8 @@ function emitActivityStart() {
   });
 }
 
+let heartbeatInFlight = false;
+
 async function emitActivityHeartbeat() {
   if (!auth.user || !rom.value) return;
   socket.emit("activity:heartbeat", {
@@ -426,10 +428,16 @@ async function emitActivityHeartbeat() {
   // A joiner holds no claim, so the stamp is not theirs to refresh and the
   // route would 403 on every tick. The socket beat above still runs: they
   // are playing, and the activity panel should say so.
-  if (sessionActive.value && !isJoining) {
-    await handleSessionStatus(
-      await streamingStore.heartbeatSession(rom.value.platform_slug),
-    );
+  // A slow round-trip must not let the next tick stack a second request.
+  if (sessionActive.value && !isJoining && !heartbeatInFlight) {
+    heartbeatInFlight = true;
+    try {
+      await handleSessionStatus(
+        await streamingStore.heartbeatSession(rom.value.platform_slug),
+      );
+    } finally {
+      heartbeatInFlight = false;
+    }
   }
 }
 
@@ -729,6 +737,13 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       await stage.value?.enterFullscreen();
     }
   } catch (err: unknown) {
+    // Same race the success path guards: the user can leave via the exit
+    // dialog while the claim is in flight. Nothing was claimed here, so
+    // just stay exited rather than resurrecting the launch screen.
+    if ((playerState.value as PlayerState) === "exited") {
+      return;
+    }
+
     // The store propagates the raw axios error; the status and the
     // backend's detail payload live on its response.
     const status = isAxiosError(err) ? err.response?.status : undefined;

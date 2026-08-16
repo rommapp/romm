@@ -38,7 +38,8 @@ async function load(): Promise<void> {
     const { data } = await streamingApi.adminListContainers();
     enabled.value = data.enabled;
     containers.value = data.containers;
-  } catch {
+  } catch (err) {
+    console.warn("[streaming] Could not load containers:", err);
     snackbar.error(t("settings.streaming-load-failed"));
   } finally {
     loading.value = false;
@@ -76,7 +77,8 @@ async function release(container: AdminStreamingContainer): Promise<void> {
     );
     snackbar.success(t("settings.streaming-released"));
     await load();
-  } catch {
+  } catch (err) {
+    console.warn("[streaming] Could not release session:", err);
     snackbar.error(t("settings.streaming-release-failed"));
   } finally {
     releasing.value = null;

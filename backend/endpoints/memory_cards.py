@@ -290,6 +290,10 @@ def rename_memory_card(
             detail="Name cannot be empty",
         )
     updated = db_memory_card_handler.update_card(id, {"name": cleaned})
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Memory card not found"
+        )
     return MemoryCardSchema.model_validate(updated)
 
 
@@ -308,6 +312,10 @@ def update_memory_card_visibility(
     one-way: a recipient's writes go to their own card, never back to this one."""
     _owned_card_or_404(id, request.user.id)
     updated = db_memory_card_handler.update_card(id, {"is_public": is_public})
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Memory card not found"
+        )
     return MemoryCardSchema.model_validate(updated)
 
 
@@ -338,9 +346,14 @@ async def delete_memory_cards(
             detail="No memory cards were provided",
         )
 
-    for card_id in cards:
-        card = _owned_card_or_404(card_id, request.user.id)
+    # Resolve every card up front: deletion is irreversible and spans one
+    # transaction per card, so a bad id in the batch must fail before the
+    # first archive is removed rather than half way through.
+    owned = [
+        (card_id, _owned_card_or_404(card_id, request.user.id)) for card_id in cards
+    ]
 
+    for card_id, card in owned:
         # Remove each version's archive before the DB rows cascade away.
         for version in db_memory_card_handler.get_versions(card_id):
             try:

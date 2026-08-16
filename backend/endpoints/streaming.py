@@ -29,7 +29,7 @@ from config import (
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import assert_rom_visible, get_permissions
 from handler.database import (
     db_container_adoption_handler,
     db_memory_card_handler,
@@ -734,6 +734,43 @@ def _container_for_session(
             if entry.get("platform", "").lower() == lower:
                 return entry
     return entries[0]
+
+
+def _swappable_disc_file_ids(rom: Rom) -> set[int]:
+    """The rom files that are valid swap targets.
+
+    Mirrors the playlist filtering the client and the download endpoint use:
+    the .m3u is never a target, and when .cue files are present the raw tracks
+    they reference are not either.
+    """
+    files = [f for f in rom.files if f.file_extension.lower() != "m3u"]
+    cues = [f for f in files if f.file_extension.lower() == "cue"]
+    return {f.id for f in (cues or files)}
+
+
+def _session_rom_is_visible(request: Request, session: dict[str, Any]) -> bool:
+    """Can the caller see the ROM a session is running?
+
+    Sessions outlive nothing but the cache, so a rom_id that no longer
+    resolves is treated as visible: there is no hidden ROM left to protect.
+    """
+    rom_id = session.get("rom_id")
+    if rom_id is None:
+        return True
+    rom = db_rom_handler.get_rom(rom_id)
+    if rom is None:
+        return True
+    if not request.user.is_authenticated:
+        return True
+    return get_permissions(request).can_see_rom(rom.id, rom.platform_id)
+
+
+def _assert_session_rom_visible(
+    request: Request, session: dict[str, Any], *, not_found_detail: str
+) -> None:
+    """Raise 404 when the session's ROM is hidden from the caller."""
+    if not _session_rom_is_visible(request, session):
+        raise HTTPException(status_code=404, detail=not_found_detail)
 
 
 async def _find_session_for_user(
@@ -3333,12 +3370,17 @@ async def heartbeat_session(request: Request, platform: str) -> JSONResponse:
     # XX: only rewrite a key that still exists, so a heartbeat racing a
     # teardown cannot resurrect a released session as a ghost claim. The
     # rewrite also resets the TTL back to the full window.
-    await async_cache.set(
+    written = await async_cache.set(
         _session_redis_key(session_key),
         json.dumps(session),
         xx=True,
         ex=SESSION_TTL_SECONDS,
     )
+    # XX returns falsy when the key was already gone, meaning the claim was
+    # torn down mid-flight. Reporting "active" there would leave the client
+    # heartbeating a session it no longer holds.
+    if not written:
+        return JSONResponse(await _session_status(platform, request))
     return JSONResponse({"status": "active", "platform": platform})
 
 
@@ -3388,6 +3430,14 @@ async def join_session(
         raise HTTPException(
             status_code=403, detail="That session is not open for joining"
         )
+
+    # Joining streams someone else's ROM, so it needs the same visibility
+    # policy the claim route enforces. Masked as the not-found above so a
+    # hidden ROM's existence stays hidden.
+    _assert_session_rom_visible(
+        request, session, not_found_detail=f"No active session on platform '{platform}'"
+    )
+
     if not _is_webstation(candidate):
         raise HTTPException(
             status_code=409, detail="That container does not support joining"
@@ -3536,6 +3586,10 @@ async def swap_disc(
     rom_file = db_rom_handler.get_rom_file_by_id(req.file_id)
     if rom_file is None or rom_file.rom_id != rom_id:
         raise HTTPException(status_code=404, detail="File does not belong to this rom")
+
+    rom = db_rom_handler.get_rom(rom_id)
+    if rom is None or req.file_id not in _swappable_disc_file_ids(rom):
+        raise HTTPException(status_code=400, detail="File is not a swappable disc")
 
     library_base = (container.get("library_path") or LIBRARY_BASE_PATH).rstrip("/")
     disc_path = f"{library_base}/{rom_file.full_path}"
@@ -3878,6 +3932,8 @@ async def list_joinable_sessions(
         if s.get("user_id") == request.user.id:
             continue
         if rom_id is not None and s.get("rom_id") != rom_id:
+            continue
+        if not _session_rom_is_visible(request, s):
             continue
 
         # scan_iter yields bytes unless the client decodes responses.

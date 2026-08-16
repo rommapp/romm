@@ -534,6 +534,25 @@ def test_delete_empty_list_rejected(client, access_token: str):
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
+@mock.patch("endpoints.memory_cards.fs_asset_handler.remove_file")
+def test_delete_batch_with_a_bad_id_deletes_nothing(
+    mock_remove_file,
+    client,
+    access_token: str,
+    memory_card: MemoryCard,
+):
+    """Deletion is irreversible and runs a transaction per card, so a bad id
+    anywhere in the batch must fail before the first card is touched."""
+    response = client.post(
+        "/api/memory-cards/delete",
+        json={"cards": [memory_card.id, 999999]},
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    mock_remove_file.assert_not_awaited()
+    assert db_memory_card_handler.get_card_by_id(memory_card.id) is not None
+
+
 def test_other_user_cannot_delete_card(
     client, viewer_access_token: str, memory_card: MemoryCard
 ):

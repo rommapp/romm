@@ -323,7 +323,15 @@ async function onUploadPicked(event: Event): Promise<void> {
     if (created) {
       await memoryCardApi
         .deleteMemoryCards({ cards: [created] })
-        .catch(() => undefined);
+        .catch((cleanupErr) => {
+          // The empty card survives; say so rather than reporting only the
+          // upload failure and leaving it unexplained in the list.
+          console.warn(
+            "[memory-cards] Could not remove empty card:",
+            cleanupErr,
+          );
+          void load(props.emulator);
+        });
     }
     snackbar.error(errorText(err, "play.memory-card-upload-failed"), {
       icon: "mdi-close-circle",

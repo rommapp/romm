@@ -1370,6 +1370,29 @@ def test_heartbeat_refreshes_last_seen(client, access_token, rom: Rom):
     assert not streaming._session_is_stale(session)
 
 
+def test_heartbeat_racing_a_teardown_reports_ended(client, access_token, rom: Rom):
+    """The XX write no-ops when the claim was released mid-flight; answering
+    "active" there would leave the client beating a session it no longer holds."""
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        key = streaming._session_redis_key(streaming._container_key(container))
+
+        real_set = async_cache.set
+
+        async def drop_then_set(*args, **kwargs):
+            await async_cache.delete(key)
+            return await real_set(*args, **kwargs)
+
+        with patch.object(async_cache, "set", side_effect=drop_then_set):
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+
+
 def test_heartbeat_without_session_reports_ended(client, access_token, rom: Rom):
     """No session at all still answers 200/ended: the poll is how a player
     learns their stream is gone, so it must not look like a route error."""
@@ -4293,6 +4316,32 @@ def test_joinable_requires_auth(client):
     assert client.get("/api/streaming/sessions/joinable").status_code == 401
 
 
+def test_joinable_hides_a_session_whose_rom_is_hidden(
+    client, access_token, viewer_access_token, viewer_user: User, rom: Rom
+):
+    """The listing leaks rom_name and host_username, so a ROM the caller
+    cannot see must not appear in it."""
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    container = {"host": "http://192.168.1.10:3000", "platform": rom.platform_slug}
+    with _streaming(container):
+        _claim_multiplayer(client, access_token, rom.id)
+        body = _joinable(client, viewer_access_token).json()
+
+    assert body["sessions"] == []
+
+
+def test_joinable_hides_a_session_on_a_hidden_platform(
+    client, access_token, viewer_access_token, viewer_user: User, rom: Rom, platform
+):
+    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+    container = {"host": "http://192.168.1.10:3000", "platform": rom.platform_slug}
+    with _streaming(container):
+        _claim_multiplayer(client, access_token, rom.id)
+        body = _joinable(client, viewer_access_token).json()
+
+    assert body["sessions"] == []
+
+
 # ── joining a session ─────────────────────────────────────────────────────────
 
 
@@ -4335,6 +4384,34 @@ def test_joining_a_multiplayer_session_returns_its_room_url(
 
     assert response.status_code == 200
     assert response.json()["host"] == "http://192.168.1.10:3000/webstation/?token=abc"
+
+
+def test_joining_a_hidden_rom_is_404_masked(
+    client, access_token, viewer_access_token, viewer_user: User, rom: Rom
+):
+    """Joining streams the host's ROM, so it needs the same visibility policy
+    the claim route enforces; masked as the not-found so nothing leaks."""
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    with _streaming(_ws_for(rom)):
+        _claim_ws_multiplayer(client, access_token, rom.id)
+        with patch("endpoints.streaming._webstation_join") as join_broker:
+            response = _join(client, viewer_access_token, rom.platform_slug)
+
+    assert response.status_code == 404
+    join_broker.assert_not_called()
+
+
+def test_joining_a_rom_on_a_hidden_platform_is_404_masked(
+    client, access_token, viewer_access_token, viewer_user: User, rom: Rom, platform
+):
+    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+    with _streaming(_ws_for(rom)):
+        _claim_ws_multiplayer(client, access_token, rom.id)
+        with patch("endpoints.streaming._webstation_join") as join_broker:
+            response = _join(client, viewer_access_token, rom.platform_slug)
+
+    assert response.status_code == 404
+    join_broker.assert_not_called()
 
 
 def test_joining_a_solo_session_finds_nothing_to_join(
@@ -4578,6 +4655,42 @@ def test_swap_disc_refuses_a_file_from_another_rom(client, access_token, rom):
             headers=_auth(access_token),
         )
     assert r.status_code == 404
+
+
+def test_swap_disc_refuses_the_m3u_playlist(client, access_token):
+    """The .m3u is the playlist, not a disc; mounting it would hand the broker
+    a path the emulator's tray cannot take."""
+    rom = _rom_on("dc")
+    playlist = _add_rom_file(rom, "Game.m3u")
+    _add_rom_file(rom, "Game (Disc 2).chd")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._swap_disc_broker") as swap:
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
+                json={"file_id": playlist.id},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 400
+    swap.assert_not_called()
+
+
+def test_swap_disc_refuses_a_raw_track_when_cues_are_present(client, access_token):
+    """With .cue sheets present the raw .bin tracks they reference are not
+    swap targets, matching the download endpoint's playlist filtering."""
+    rom = _rom_on("dc")
+    _add_rom_file(rom, "Game (Disc 2).cue")
+    track = _add_rom_file(rom, "Game (Disc 2) (Track 01).bin")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._swap_disc_broker") as swap:
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
+                json={"file_id": track.id},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 400
+    swap.assert_not_called()
 
 
 def test_swap_disc_by_other_user_is_forbidden(

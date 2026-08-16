@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 
 from handler.database import db_memory_card_handler
 from handler.filesystem import fs_asset_handler
+from handler.filesystem.assets_handler import hash_zip_entry
 from handler.scan_handler import scan_memory_card_version
 from logger.logger import log
 from models.assets import MemoryCard
@@ -33,10 +34,7 @@ def content_hash_of_bytes(content: bytes) -> str | None:
                 file_hashes = []
                 for name in sorted(zf.namelist()):
                     if not name.endswith("/"):
-                        entry = zf.read(name)
-                        entry_hash = hashlib.md5(
-                            entry, usedforsecurity=False
-                        ).hexdigest()
+                        entry_hash = hash_zip_entry(zf, name)
                         file_hashes.append(f"{name}:{entry_hash}")
                 combined = "\n".join(file_hashes)
                 return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()

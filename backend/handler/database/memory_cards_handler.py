@@ -84,14 +84,15 @@ class DBMemoryCardsHandler(DBBaseHandler):
         id: int,
         data: dict,
         session: Session = None,  # type: ignore
-    ) -> MemoryCard:
+    ) -> MemoryCard | None:
+        """Returns None when the row was deleted concurrently."""
         session.execute(
             update(MemoryCard)
             .where(MemoryCard.id == id)
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(MemoryCard).filter_by(id=id).one()
+        return session.query(MemoryCard).filter_by(id=id).one_or_none()
 
     @begin_session
     def delete_card(

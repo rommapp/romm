@@ -40,6 +40,9 @@ export const useStreamingStore = defineStore("streaming", () => {
   const config = ref<StreamingConfig>({ enabled: false, containers: [] });
   const activeSession = ref<ActiveSession | null>(null);
   const loading = ref(false);
+  // `loading` is false both before and after the fetch, so consumers that must
+  // not act on an unresolved config need this instead.
+  const configLoaded = ref(false);
   const error = ref<string | null>(null);
 
   const isEnabled = computed(() => config.value.enabled);
@@ -109,6 +112,7 @@ export const useStreamingStore = defineStore("streaming", () => {
       console.warn("[streaming] Could not fetch config:", err);
     } finally {
       loading.value = false;
+      configLoaded.value = true;
     }
   }
 
@@ -340,6 +344,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     config,
     activeSession,
     loading,
+    configLoaded,
     error,
     isEnabled,
     containerForPlatform,

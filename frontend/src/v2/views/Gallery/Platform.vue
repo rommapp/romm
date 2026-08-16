@@ -119,12 +119,12 @@ const tabs = computed<RTabNavItem[]>(() => [
 
 // Guard a stale `?tab=memory-cards` deep link on a platform that doesn't
 // support cards (or once its container is removed): fall back to library.
-// Wait for the streaming config to finish loading first, so a hard-refresh
-// deep link isn't bounced before `memoryCardEmulator` can resolve.
+// Keyed on `configLoaded` rather than `loading`, which is still false on a
+// hard refresh before the fetch starts and would bounce the tab too early.
 watch(
-  [tab, memoryCardEmulator, () => streamingStore.loading],
-  ([current, emulator, loadingConfig]) => {
-    if (!loadingConfig && current === "memory-cards" && !emulator) {
+  [tab, memoryCardEmulator, () => streamingStore.configLoaded],
+  ([current, emulator, loadedConfig]) => {
+    if (loadedConfig && current === "memory-cards" && !emulator) {
       tab.value = "library";
     }
   },

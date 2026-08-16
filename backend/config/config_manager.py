@@ -179,7 +179,9 @@ class StreamingContainer(TypedDict):
     # emulator on a container that hosts more than one.
     platforms: NotRequired[dict[str, str | StreamingPlatformOverride]]
     host: str
-    broker_host: str
+    # Optional under `protocol: webstation`, which derives the broker host from
+    # `host` and `subfolder` when it is omitted.
+    broker_host: NotRequired[str]
     label: str
     library_path: NotRequired[str]
     # Namespace for stored states/cards; defaults to label (or platform)
