@@ -109,6 +109,16 @@ describe("usePlatformPlayableChecker", () => {
     ejsSlugs.add("snes");
     streamContainers.set("ps2", { label: "PCSX2", emulator: "pcsx2" });
     const { isStreamable } = usePlatformPlayableChecker();
+
+    // The sort comparators read the batch form and the tiles read the
+    // reactive one, so a slug that disagrees between them shows a badge the
+    // grouping contradicts.
+    for (const slug of ["ps2", "snes"]) {
+      const { mode } = usePlatformPlayable(() => slug);
+      expect(isStreamable.value(slug)).toBe(
+        mode.value === "stream" || mode.value === "both",
+      );
+    }
     expect(isStreamable.value("ps2")).toBe(true);
     expect(isStreamable.value("snes")).toBe(false);
   });

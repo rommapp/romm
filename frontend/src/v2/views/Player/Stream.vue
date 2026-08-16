@@ -806,12 +806,10 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       }
     } else {
       errorType.value = "server";
-      // Without a status the request never got a response, so the axios
-      // message is meaningless - show a generic title and let the hint
-      // explain the likely cause.
-      errorMessage.value =
-        (status !== undefined && err instanceof Error ? err.message : null) ??
-        t("play.stream-error-generic");
+      // The axios message ("Request failed with status code 502") is English
+      // and says nothing the hint does not, so the title stays translated and
+      // the status carries the detail.
+      errorMessage.value = t("play.stream-error-generic");
       errorHint.value = hintForStatus(status);
     }
   }
@@ -848,14 +846,18 @@ async function performStop(): Promise<void> {
     if (holdsClaim.value) {
       // This is the deliberate way out without saving, so no state is written.
       // The in-game save data still travels back either way.
-      await streamingStore.releaseSession(
+      const released = await streamingStore.releaseSession(
         rom.value?.platform_slug ?? "",
         false,
       );
-      holdsClaim.value = false;
+      // The claim only goes when the backend says it went. Left standing, it
+      // tells the user why the container is still busy and gives the unmount
+      // release something to retry.
+      holdsClaim.value = !released;
+      if (!released) {
+        snackbar.error(t("play.stream-release-failed"), { timeout: 6000 });
+      }
     }
-    // "exited" tells onBeforeUnmount the session is already released, so
-    // navigating away afterwards doesn't trigger a second DELETE.
     playerState.value = "exited";
     containerHost.value = "";
   } finally {
@@ -895,6 +897,7 @@ async function performSaveAndExit(): Promise<void> {
   }
   isSavingAndExiting.value = true;
   let saved = false;
+  let released = false;
   try {
     await pushStreamFrame();
     const result = await streamingStore.saveAndExit(
@@ -903,17 +906,21 @@ async function performSaveAndExit(): Promise<void> {
       true,
     );
     saved = result.saved;
-    if (!result.released) {
+    released = result.released;
+    if (!released) {
       // The save-and-exit request failed, so the claim may still be held;
       // fall back to a plain release so the container is freed before the
       // player is marked exited.
-      await streamingStore.releaseSession(rom.value.platform_slug);
+      released = await streamingStore.releaseSession(rom.value.platform_slug);
     }
   } finally {
     isSavingAndExiting.value = false;
-    holdsClaim.value = false;
+    holdsClaim.value = !released;
     playerState.value = "exited";
     containerHost.value = "";
+  }
+  if (!released) {
+    snackbar.error(t("play.stream-release-failed"), { timeout: 6000 });
   }
   // Without states there is no save to confirm: the exit dumps the in-game
   // save archive instead, so an unconfirmed state is the expected answer.
@@ -1139,6 +1146,7 @@ function onPageHide(): void {
   }
   // Guards the in-app unmount path from double-releasing if the page
   // comes back from the bfcache and is then navigated normally.
+  holdsClaim.value = false;
   playerState.value = "exited";
 }
 
@@ -1192,10 +1200,8 @@ onBeforeUnmount(() => {
   stopActivityHeartbeat();
   stopSessionPoll();
   emitActivityStop();
-  if (playerState.value === "exited") {
-    // handleSaveAndExit / handleStop already released the session.
-    return;
-  }
+  // The claim, not the player state, says whether anything is still held:
+  // an exit whose release failed leaves it standing, and this is its retry.
   if (!holdsClaim.value) return;
   if (playerState.value === "playing") {
     // Navigation away while a game is active: fire save+kill in the

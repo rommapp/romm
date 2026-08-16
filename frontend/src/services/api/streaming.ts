@@ -6,7 +6,7 @@ import api from "@/services/api";
 export interface PlatformCapabilities {
   max_slots: number; // manual save slots, selectable as 1..max_slots
   has_autosave: boolean; // whether a dedicated autosave slot can be loaded
-  autosave_slot: number; // that slot's index (loadable, not savable), 0 if none
+  autosave_slot: number; // that slot's index, where exit saves land, 0 if none
   supports_disc_swap?: boolean; // a live swap route exists for this platform
   has_manual_disc_swap?: boolean; // no route, but the emulator's own UI can do it
 }

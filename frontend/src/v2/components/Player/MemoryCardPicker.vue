@@ -65,12 +65,14 @@ async function loadCards(emulator: string): Promise<void> {
 // to the newest card when nothing is selected yet.
 function preselect(): void {
   const current = props.modelValue;
-  if (current != null && !cards.value.some((c) => c.id === current)) {
-    emit("update:modelValue", null);
-  }
-  if (props.modelValue == null && cards.value.length > 0) {
-    emit("update:modelValue", cards.value[0].id);
-  }
+  // Resolved in one pass off the list rather than re-read from the prop: the
+  // parent has not applied an emit from this same call by the time it lands.
+  const kept =
+    current != null && cards.value.some((c) => c.id === current)
+      ? current
+      : null;
+  const next = kept ?? cards.value[0]?.id ?? null;
+  if (next !== current) emit("update:modelValue", next);
 }
 
 watch(() => props.emulator, loadCards, { immediate: true });
@@ -166,7 +168,7 @@ async function submitCreate(): Promise<void> {
         icon="mdi-cog-outline"
         variant="text"
         :tooltip="t('play.manage-memory-cards')"
-        :disabled="loading || cards.length === 0"
+        :disabled="loading"
         @click="showManage = true"
       />
     </div>

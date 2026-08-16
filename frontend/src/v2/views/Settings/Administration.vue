@@ -5,9 +5,9 @@
 // keeping the `?tab=` query param so deep links survive a reload.
 //
 // Tabs are gated by scope: `users.write` for the groups tab,
-// `tasks.run` for the Tasks tab. Users tab is always visible to anyone
-// who can reach this route (route-level guard already checks
-// `app.admin`).
+// `tasks.run` for the Tasks tab, `app.admin` for Streaming, whose every
+// endpoint is admin-only. Users tab is always visible to anyone who can
+// reach this route (route-level guard already checks `app.admin`).
 import { RTabNav, type RTabNavItem } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -21,11 +21,13 @@ import PermissionGroupsSection from "@/v2/components/Settings/PermissionGroupsSe
 import StreamingSection from "@/v2/components/Settings/StreamingSection.vue";
 import TasksSection from "@/v2/components/Settings/TasksSection.vue";
 import UsersSection from "@/v2/components/Settings/UsersSection.vue";
+import { useCan } from "@/v2/composables/useCan";
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const auth = storeAuth();
+const isAdmin = useCan("app.admin");
 
 type Tab = "users" | "groups" | "tasks" | "streaming";
 const validTabs: Tab[] = ["users", "groups", "tasks", "streaming"];
@@ -79,13 +81,26 @@ const tabs = computed<RTabNavItem[]>(() => {
       icon: "mdi-pulse",
     });
   }
-  items.push({
-    id: "streaming",
-    label: t("settings.streaming"),
-    icon: "mdi-monitor-dashboard",
-  });
+  if (isAdmin.value) {
+    items.push({
+      id: "streaming",
+      label: t("settings.streaming"),
+      icon: "mdi-monitor-dashboard",
+    });
+  }
   return items;
 });
+
+// A tab nobody can see is not one the query param may select: the route
+// admits `users.write` as well, and Streaming would otherwise deep-link them
+// to a panel whose every request 403s.
+watch(
+  tabs,
+  (items) => {
+    if (!items.some((item) => item.id === tab.value)) tab.value = "users";
+  },
+  { immediate: true },
+);
 
 // Bridge between RTabNav's string modelValue and our Tab union.
 const tabModel = computed<string>({
@@ -103,7 +118,7 @@ const tabModel = computed<string>({
     <UsersSection v-if="tab === 'users'" />
     <PermissionGroupsSection v-else-if="tab === 'groups'" />
     <TasksSection v-else-if="tab === 'tasks'" />
-    <StreamingSection v-else-if="tab === 'streaming'" />
+    <StreamingSection v-else-if="tab === 'streaming' && isAdmin" />
 
     <CreateUserDialog />
     <EditUserDialog />

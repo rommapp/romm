@@ -10,7 +10,7 @@ import time
 import urllib.error
 import urllib.request
 import zipfile
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from datetime import datetime, timezone
 from email.message import Message
 from pathlib import PurePosixPath
@@ -48,7 +48,7 @@ from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import async_cache
 from handler.scan_handler import scan_save, scan_screenshot, scan_state
 from handler.socket_handler import socket_handler
-from models.assets import MemoryCard, State
+from models.assets import MemoryCard, MemoryCardVersion, State
 from models.rom import Rom
 from models.user import Role, User
 from utils.filesystem import sanitize_filename
@@ -83,6 +83,12 @@ SESSION_TTL_SECONDS = 6 * 60 * 60
 # a not-yet-dead emulator (which would lose the in-flight save). The key
 # expires on its own; no explicit DELETE.
 SESSION_DRAIN_SECONDS = 5
+
+# Save-and-exit holds the container past the drain window when an exit state is
+# still coming back out of it. This is only the fallback for a backend that
+# dies mid-pull: the pull drops the key itself when it finishes. Bounded well
+# under the session TTL, since nothing takes a drain marker over.
+_STATE_PULL_DRAIN_SECONDS = 5 * 60
 
 # A live player refreshes `last_seen` roughly every 30s (frontend heartbeat,
 # piggybacked on the activity interval). A session whose stamp is older than
@@ -179,15 +185,34 @@ async def _mutate_session(
     raise _SessionContended(session_key)
 
 
-async def _set_session_disc(session_key: str, file_id: int) -> None:
+async def _set_session_disc(
+    session_key: str, file_id: int, broker_session_id: str | None = None
+) -> None:
     """Record the disc a session is now running.
+
+    The write only lands on the claim it was made for. A swap can outlive that
+    claim: the broker holds it until the game is up, by which time the key can
+    be the short drain marker save-and-exit leaves behind, or a fresh claim by
+    someone else. Writing either would stamp the wrong disc, and the drain
+    marker would come back with a six-hour TTL that no release path owns.
 
     Best-effort: the disc is already in the tray by the time this runs, so a
     key that could not be written costs the next state capture its disc, not
     the swap the player asked for.
     """
+
+    def _still_the_same_claim(session: dict[str, Any]) -> bool:
+        if session.get("draining"):
+            return False
+        return (
+            broker_session_id is None
+            or session.get("broker_session_id") == broker_session_id
+        )
+
     try:
-        await _mutate_session(session_key, {"disc_file_id": file_id})
+        await _mutate_session(
+            session_key, {"disc_file_id": file_id}, require=_still_the_same_claim
+        )
     except _SessionContended:
         log.warning("could not record disc %s on session %s", file_id, session_key)
 
@@ -1019,6 +1044,23 @@ def _broker_headers(container: dict[str, Any]) -> dict[str, str]:
 _BROKER_READ_CHUNK = 1024 * 1024
 # Control responses are small; a JSON body past this is a broker fault.
 _BROKER_JSON_MAX_BYTES = 4 * 1024 * 1024
+# An error body only ever reaches a log line and a 502 detail.
+_BROKER_ERROR_MAX_BYTES = 8 * 1024
+
+
+def _broker_error_body(exc: urllib.error.HTTPError) -> str:
+    """The text a failed broker call answered with.
+
+    HTTPError is itself the response, so it holds a connection until something
+    closes it, and its body is as long as the broker cares to make it.
+    """
+    try:
+        return exc.read(_BROKER_ERROR_MAX_BYTES).decode(errors="replace")
+    except OSError as read_exc:
+        log.warning("could not read broker error body, %s", read_exc)
+        return ""
+    finally:
+        exc.close()
 
 
 def _read_bounded(resp: Any, max_bytes: int, deadline: float) -> bytes:
@@ -1137,6 +1179,8 @@ def _broker_get_binary_safe(
     try:
         return _broker_get_binary(container, path, max_bytes=max_bytes, timeout=timeout)
     except urllib.error.HTTPError as exc:
+        # The error is a response too, and these routes are polled.
+        exc.close()
         if exc.code != 404:
             log.warning("broker %s failed, HTTP %d", label, exc.code)
         return None
@@ -1219,7 +1263,7 @@ def _call_broker(
         log.info("broker launched ROM, %s", resp)
         return resp if isinstance(resp, dict) else {}
     except urllib.error.HTTPError as exc:
-        error_body = exc.read().decode(errors="replace")
+        error_body = _broker_error_body(exc)
         log.error("broker HTTP error %d: %s", exc.code, error_body)
         try:
             detail = json.loads(error_body)
@@ -1497,7 +1541,7 @@ def _webstation_activate(
             container, path, body=body, timeout=_BROKER_LAUNCH_TIMEOUT
         )
     except urllib.error.HTTPError as exc:
-        error_body = exc.read().decode(errors="replace")
+        error_body = _broker_error_body(exc)
         log.error("broker HTTP error %d: %s", exc.code, error_body)
         try:
             detail = json.loads(error_body)
@@ -1572,7 +1616,7 @@ def _webstation_upload_archive(
     """PUT a save archive and return the container path activate wants."""
     body = _broker_put_binary_json(
         container,
-        _webstation_path(container, f"/imports/{quote(name)}"),
+        _webstation_path(container, f"/imports/{quote(name, safe='')}"),
         content,
         "archive upload",
         content_type="application/zip",
@@ -1597,10 +1641,14 @@ def _webstation_exports(container: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _webstation_collect_export(container: dict[str, Any], name: str) -> bytes | None:
-    """Download one archive and drop the container's copy once it is in hand."""
+    """Download one archive and drop the container's copy once it is in hand.
+
+    The name comes from the broker's own listing, so it is escaped whole: a
+    slash or a `..` in it would otherwise address a different broker route.
+    """
     result = _broker_get_binary_safe(
         container,
-        _webstation_path(container, f"/exports/{quote(name)}"),
+        _webstation_path(container, f"/exports/{quote(name, safe='')}"),
         "export download",
         max_bytes=_SAVE_FILE_MAX_BYTES,
         timeout=_BROKER_TRANSFER_TIMEOUT,
@@ -1609,7 +1657,7 @@ def _webstation_collect_export(container: dict[str, Any], name: str) -> bytes | 
         return None
     _broker_request_safe(
         container,
-        _webstation_path(container, f"/exports/{quote(name)}"),
+        _webstation_path(container, f"/exports/{quote(name, safe='')}"),
         "export delete",
         method="DELETE",
         timeout=_BROKER_ACK_TIMEOUT,
@@ -1672,10 +1720,11 @@ _STATE_PULL_RETRY_DELAY = 3.0
 _sync_tasks: set[asyncio.Task] = set()
 
 
-def _spawn_sync_task(coro: Any) -> None:
+def _spawn_sync_task(coro: Any) -> asyncio.Task:
     task = asyncio.get_running_loop().create_task(coro)
     _sync_tasks.add(task)
     task.add_done_callback(_sync_tasks.discard)
+    return task
 
 
 def _emulator_for_container(container: dict[str, Any]) -> str:
@@ -1886,6 +1935,18 @@ async def _is_duplicate_of_latest(latest: State | None, content: bytes) -> bool:
     return existing == content
 
 
+async def _remove_pruned_file(path: str) -> None:
+    """Drop a pruned asset's file. A file that will not go leaves the prune
+    running: the rows are already gone, and stopping here would leave the rest
+    of the history over the limit as well."""
+    try:
+        await fs_asset_handler.remove_file(file_path=path)
+    except FileNotFoundError:
+        log.warning("pruned file already gone, %s", path)
+    except OSError as exc:
+        log.error("could not remove pruned file %s, leaving it orphaned: %s", path, exc)
+
+
 async def _prune_state_history(user: User, rom: Rom, emulator: str) -> int:
     """Delete the oldest states past the retention limit. Returns how many went.
 
@@ -1900,22 +1961,10 @@ async def _prune_state_history(user: User, rom: Rom, emulator: str) -> int:
     for state in stale:
         screenshot = state.screenshot
         db_state_handler.delete_state(state.id)
-        try:
-            await fs_asset_handler.remove_file(
-                file_path=f"{state.file_path}/{state.file_name}"
-            )
-        except FileNotFoundError:
-            log.warning("pruned state file already gone, %s", state.file_name)
+        await _remove_pruned_file(f"{state.file_path}/{state.file_name}")
         if screenshot is not None:
             db_screenshot_handler.delete_screenshot(screenshot.id)
-            try:
-                await fs_asset_handler.remove_file(
-                    file_path=f"{screenshot.file_path}/{screenshot.file_name}"
-                )
-            except FileNotFoundError:
-                log.warning(
-                    "pruned screenshot file already gone, %s", screenshot.file_name
-                )
+            await _remove_pruned_file(f"{screenshot.file_path}/{screenshot.file_name}")
     if stale:
         log.info(
             "pruned %d state(s) past the %d limit, rom=%s",
@@ -1998,6 +2047,7 @@ async def _restore_session_disc(
     container: dict[str, Any],
     session_key: str,
     file_id: int,
+    broker_session_id: str | None = None,
 ) -> bool:
     """Background task: put back the disc a resumed state was captured on.
 
@@ -2020,9 +2070,23 @@ async def _restore_session_disc(
     if not await asyncio.to_thread(_swap_disc_broker, container, disc_path):
         log.warning("resume: could not restore disc %s", rom_file.file_name)
         return False
-    await _set_session_disc(session_key, file_id)
+    await _set_session_disc(session_key, file_id, broker_session_id)
     log.info("resume: restored disc %s", rom_file.file_name)
     return True
+
+
+async def _release_after_state_pull(
+    session_key: str, pull: Coroutine[Any, Any, Any]
+) -> None:
+    """Run the exit state pull, then drop the claim it was holding.
+
+    The claim goes even when the pull raised: the state is recoverable from the
+    container on the next claim, a container nothing releases is not.
+    """
+    try:
+        await pull
+    finally:
+        await async_cache.delete(_session_redis_key(session_key))
 
 
 async def _pull_state_to_library(
@@ -2636,7 +2700,7 @@ async def _discard_blank_card(card_id: int) -> None:
 
 
 async def _evacuate_memory_card(
-    user_id: int, card_id: int, emulator: str, container: dict[str, Any]
+    user_id: int, card_id: int, container: dict[str, Any]
 ) -> bool:
     """Pull the whole Slot-1 card off the broker and store it as a new version.
 
@@ -2667,7 +2731,7 @@ async def _evacuate_memory_card(
         log.info("broker slot empty, nothing to evacuate, card=%d", card_id)
         return True
     try:
-        stored = await store_memory_card_version(user, card, emulator, content)
+        stored = await store_memory_card_version(user, card, content)
     except Exception:
         log.exception("failed to store evacuated memory card %d", card_id)
         return False
@@ -2696,9 +2760,8 @@ async def _evacuate_session_card(
     user_id = session.get("user_id")
     if not isinstance(card_id, int) or not isinstance(user_id, int):
         return False
-    emulator = _emulator_for_container(container)
     try:
-        return await _evacuate_memory_card(user_id, card_id, emulator, container)
+        return await _evacuate_memory_card(user_id, card_id, container)
     except Exception:
         log.exception("memory card evacuation failed, card=%d", card_id)
         return False
@@ -2845,6 +2908,39 @@ async def _teardown_abandoned_session(
         # blocks the claim, the takeover skips it, and no release path owns it.
         await async_cache.delete(_session_redis_key(session_key))
     return True
+
+
+# How long a claim waits for a stale session to be torn down before it gives up
+# on that container. The teardown stops a broker, evacuates and wipes a card and
+# pulls the exit state, each with its own timeout and retries, so on a sick
+# container it can run for minutes. A claim is an interactive request and must
+# not.
+_ABANDONED_TEARDOWN_WAIT = 30.0
+
+
+async def _await_teardown_within_budget(
+    container: dict[str, Any], session_key: str, session: dict[str, Any]
+) -> bool:
+    """Tear down an abandoned session, but only wait so long for it.
+
+    A teardown that overruns keeps running, shielded, and frees the container
+    when it lands. It is never cancelled part-way: the card evacuation and the
+    state pull are the abandoned player's only copies, and the drain marker
+    this leaves behind blocks a claim until the teardown drops it.
+    """
+    task = _spawn_sync_task(
+        _teardown_abandoned_session(container, session_key, session)
+    )
+    try:
+        return await asyncio.wait_for(
+            asyncio.shield(task), timeout=_ABANDONED_TEARDOWN_WAIT
+        )
+    except asyncio.TimeoutError:
+        log.warning(
+            "stale session teardown is taking too long, leaving it to finish, key=%s",
+            session_key,
+        )
+        return False
 
 
 # Slot number encoded in each emulator's state filename, e.g. PCSX2 writes
@@ -3129,7 +3225,7 @@ async def claim_session(
                 platform,
                 existing.get("user_id"),
             )
-            if not await _teardown_abandoned_session(
+            if not await _await_teardown_within_budget(
                 candidate, _container_key(candidate), existing
             ):
                 continue
@@ -3254,12 +3350,11 @@ async def claim_session(
         assert memory_card is not None
         adopted = req.card_import == "adopt" and adoption_content is not None
         if adopted:
-            stored = False
+            stored: MemoryCardVersion | None = None
             try:
                 stored = await store_memory_card_version(
                     request.user,
                     memory_card,
-                    _emulator_for_container(container),
                     adoption_content,  # type: ignore[arg-type]
                 )
             except Exception as exc:
@@ -3423,6 +3518,7 @@ async def claim_session(
                 container,
                 session_key,
                 file_id=resume_disc_id,
+                broker_session_id=session["broker_session_id"],
             )
         )
 
@@ -3497,8 +3593,38 @@ async def save_and_exit_session(
     if safe_to_wipe:
         await _wipe_session_card(container)
 
-    if effective_wait:
-        # Broker confirmed the save+kill is done, the key can go now.
+    await _record_play_session(session)
+
+    # Sync the exit save to the library. With wait=false the broker save may
+    # still be running; the pull blocks on the broker until it finishes.
+    rom_id = session.get("rom_id")
+    pull_state = (
+        _pull_state_to_library(
+            request.user.id,
+            rom_id,
+            container,
+            effective_slot,
+            disc_file_id=_session_disc_id(session),
+        )
+        if isinstance(rom_id, int) and (saved or not effective_wait)
+        else None
+    )
+
+    if pull_state is not None:
+        # The claim holds until the state is in the library. The broker keeps
+        # the exited session's state only until the next activate, so dropping
+        # the key first is what lets a new claim overwrite it. A drain marker
+        # rather than the session record: the session is over, and joinable and
+        # the admin views must not keep advertising it while the pull runs.
+        await async_cache.set(
+            _session_redis_key(session_key),
+            json.dumps({"draining": True}),
+            ex=_STATE_PULL_DRAIN_SECONDS,
+        )
+        _spawn_sync_task(_release_after_state_pull(session_key, pull_state))
+    elif effective_wait:
+        # Broker confirmed the save+kill is done and there is no state coming
+        # back, the key can go now.
         await async_cache.delete(_session_redis_key(session_key))
     else:
         # Broker is still killing the emulator in the background. Drop the
@@ -3512,22 +3638,6 @@ async def save_and_exit_session(
             _session_redis_key(session_key),
             json.dumps({"draining": True}),
             ex=SESSION_DRAIN_SECONDS,
-        )
-
-    await _record_play_session(session)
-
-    # Sync the exit save to the library. With wait=false the broker save may
-    # still be running; the pull blocks on the broker until it finishes.
-    rom_id = session.get("rom_id")
-    if isinstance(rom_id, int) and (saved or not effective_wait):
-        _spawn_sync_task(
-            _pull_state_to_library(
-                request.user.id,
-                rom_id,
-                container,
-                effective_slot,
-                disc_file_id=_session_disc_id(session),
-            )
         )
 
     # Legacy per-file in-game save pull, only for containers not on whole-card
@@ -3832,7 +3942,7 @@ async def swap_disc(
         raise HTTPException(status_code=502, detail="Broker failed to swap disc")
 
     # Resets the TTL as part of the same write.
-    await _set_session_disc(session_key, req.file_id)
+    await _set_session_disc(session_key, req.file_id, session.get("broker_session_id"))
     return JSONResponse({"status": "ok", "file_id": req.file_id, "platform": platform})
 
 

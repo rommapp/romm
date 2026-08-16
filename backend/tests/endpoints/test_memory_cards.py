@@ -1,4 +1,5 @@
 import io
+import shutil
 import zipfile
 from unittest import mock
 
@@ -7,6 +8,7 @@ from fastapi import status
 from tests._zipfile_shim import reload_zipfile
 
 from handler.database import db_memory_card_handler
+from handler.filesystem import fs_asset_handler
 from models.assets import MemoryCard, MemoryCardVersion
 from models.platform import Platform
 from models.user import User
@@ -524,6 +526,33 @@ def test_upload_with_an_escaping_entry_is_rejected(
     assert db_memory_card_handler.get_versions(memory_card.id) == []
 
 
+def test_upload_with_a_symlink_entry_is_rejected(
+    client, access_token: str, memory_card: MemoryCard
+):
+    """A symlink's own name passes every path check; what it points at does
+    not, and the extractor this guard protects follows it."""
+    reload_zipfile()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        link = zipfile.ZipInfo("Mcd001.ps2")
+        # High half of external_attr is the unix mode: symlink, 0777.
+        link.external_attr = (0o120777 << 16) | 0o600
+        zf.writestr(link, "/etc/passwd")
+
+    write_patch, scan_patch = _stub_storage(memory_card.id, "uploaded.zip", "uploaded")
+    with write_patch as write_file, scan_patch:
+        response = client.post(
+            f"/api/memory-cards/{memory_card.id}/versions",
+            files={"cardFile": ("card.zip", buf.getvalue(), "application/zip")},
+            headers=_auth(access_token),
+        )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "symlink" in response.json()["detail"]
+    write_file.assert_not_awaited()
+    assert db_memory_card_handler.get_versions(memory_card.id) == []
+
+
 def test_upload_to_another_users_card_is_404(
     client, viewer_access_token: str, memory_card: MemoryCard
 ):
@@ -656,19 +685,32 @@ def test_delete_batch_with_a_bad_id_deletes_nothing(
 def test_delete_survives_an_archive_that_will_not_budge(
     client,
     access_token: str,
+    admin_user: User,
     memory_card: MemoryCard,
     memory_card_version: MemoryCardVersion,
 ):
     """An orphaned archive is recoverable; a batch that stops half way with
-    nothing telling the caller how far it got is not."""
+    nothing telling the caller how far it got is not. The unremovable archive
+    is on the first card, so the second one proves the batch carried on."""
+    second = db_memory_card_handler.add_card(
+        MemoryCard(
+            user_id=admin_user.id,
+            emulator="pcsx2",
+            platform_id=memory_card.platform_id,
+            name="second_card",
+            slot=1,
+            is_public=False,
+        )
+    )
     response = client.post(
         "/api/memory-cards/delete",
-        json={"cards": [memory_card.id]},
+        json={"cards": [memory_card.id, second.id]},
         headers=_auth(access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert db_memory_card_handler.get_card_by_id(memory_card.id) is None
     assert db_memory_card_handler.get_version_by_id(memory_card_version.id) is None
+    assert db_memory_card_handler.get_card_by_id(second.id) is None
 
 
 def test_other_user_cannot_delete_card(
@@ -685,6 +727,31 @@ def test_other_user_cannot_delete_card(
 
 
 # --- Version storage ---
+
+
+async def _hash_on_disk(content: bytes, filename: str) -> str | None:
+    """The hash the scan stores, computed the way the scan computes it."""
+    path = "memory_card_hash_lockstep"
+    await fs_asset_handler.write_file(file=content, path=path, filename=filename)
+    try:
+        return await fs_asset_handler.compute_content_hash(f"{path}/{filename}")
+    finally:
+        shutil.rmtree(fs_asset_handler.base_path / path, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    ("content", "filename"),
+    [
+        (_zip_bytes({"Mcd001.ps2": b"card data", "sub/Mcd002.ps2": b"more"}), "c.zip"),
+        (b"a card that is not an archive", "c.bin"),
+    ],
+    ids=["zip", "plain"],
+)
+async def test_the_in_memory_hash_matches_the_stored_one(content: bytes, filename: str):
+    """Dedup compares a hash taken in memory against hashes the scan wrote to
+    the database. The two are separate implementations, so a drift between them
+    would not fail anywhere: it would quietly stop deduplicating."""
+    assert content_hash_of_bytes(content) == await _hash_on_disk(content, filename)
 
 
 async def test_version_filename_steps_around_an_occupied_name(
@@ -719,7 +786,7 @@ async def test_version_filename_steps_around_an_occupied_name(
         ),
     ):
         assert await store_memory_card_version(
-            admin_user, memory_card, "pcsx2", b"card data", deduplicate=False
+            admin_user, memory_card, b"card data", deduplicate=False
         )
 
     written = write_file.await_args.kwargs["filename"] if write_file.await_args else ""
@@ -752,7 +819,7 @@ async def test_a_failed_scan_leaves_no_archive_behind(
     ):
         with pytest.raises(OSError):
             await store_memory_card_version(
-                admin_user, memory_card, "pcsx2", b"card data", deduplicate=False
+                admin_user, memory_card, b"card data", deduplicate=False
             )
 
     remove_file.assert_awaited_once()

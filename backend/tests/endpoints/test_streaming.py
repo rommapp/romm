@@ -1819,26 +1819,41 @@ def test_save_state_by_other_user_is_forbidden(
     assert r.status_code == 403
 
 
-def test_save_and_exit_releases_session(client, access_token, rom: Rom):
+async def _run_spawned(tasks: list) -> None:
+    """Run what the route handed to the mocked _spawn_sync_task."""
+    for task in tasks:
+        if asyncio.iscoroutine(task):
+            await task
+
+
+def test_save_and_exit_releases_session_once_the_state_is_pulled(
+    client, access_token, rom: Rom
+):
+    """The broker keeps the exited session's state only until the next
+    activate, so the claim holds while the pull runs and goes when it lands."""
+    spawned: list = []
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
             patch("endpoints.streaming._save_and_exit_broker", return_value=(True, 10)),
+            patch("endpoints.streaming._pull_state_to_library", new=AsyncMock()),
             # Plain MagicMock: the async original would auto-mock to AsyncMock,
             # whose call handed to the mocked spawn is a never-awaited coroutine.
-            patch("endpoints.streaming._pull_state_to_library", new=MagicMock()),
             patch("endpoints.streaming._pull_saves_to_library", new=MagicMock()),
-            patch("endpoints.streaming._spawn_sync_task"),
+            patch("endpoints.streaming._spawn_sync_task", side_effect=spawned.append),
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={"slot": 0, "wait": True},
                 headers=_auth(access_token),
             )
-        # Container must be claimable again after save-and-exit.
+            # Still held: the state has not come back out of the container yet.
+            held = _claim_ok(client, access_token, rom.id)
+            asyncio.run(_run_spawned(spawned))
         r2 = _claim_ok(client, access_token, rom.id)
     assert r.status_code == 200
     assert r.json()["saved"] is True
+    assert held.status_code == 409
     assert r2.status_code == 200
 
 
@@ -2086,10 +2101,11 @@ def test_save_and_exit_wait_false_drains_instead_of_freeing(
     assert r.status_code == 200
     # Re-claim during the drain window is rejected (409), not accepted (200).
     assert r2.status_code == 409
-    # Drain TTL is bounded to the short window, not the full session TTL.
+    # The marker is the fallback for a backend that dies before the exit state
+    # is pulled, so it is bounded well under the full session TTL.
     key = streaming._session_redis_key(streaming._container_key(_container_for(rom)))
     ttl = asyncio.run(async_cache.ttl(key))
-    assert 0 < ttl <= streaming.SESSION_DRAIN_SECONDS
+    assert 0 < ttl <= streaming._STATE_PULL_DRAIN_SECONDS
 
 
 def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):
@@ -3423,18 +3439,16 @@ def test_store_memory_card_version_stores_new(admin_user: User):
     card = _make_card(admin_user)
     scanned = _card_version(card.id, "My PS2 card [new].card.zip", "hash-new")
     with (
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+        patch("utils.memory_cards.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch(
             "utils.memory_cards.scan_memory_card_version",
             new=AsyncMock(return_value=scanned),
         ),
     ):
         stored = asyncio.run(
-            streaming.store_memory_card_version(
-                admin_user, card, "pcsx2", b"card-bytes"
-            )
+            streaming.store_memory_card_version(admin_user, card, b"card-bytes")
         )
-    assert stored is True
+    assert stored is not None
     wf.assert_awaited_once()
     assert db_memory_card_handler.get_latest_version(card.id).content_hash == "hash-new"
 
@@ -3446,21 +3460,17 @@ def test_store_memory_card_version_dedups_identical(admin_user: User):
     )
     scanned = _card_version(card.id, "My PS2 card [new].card.zip", "dup")
     with (
-        patch("endpoints.streaming.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("utils.memory_cards.fs_asset_handler.write_file", new=AsyncMock()),
         patch(
             "utils.memory_cards.scan_memory_card_version",
             new=AsyncMock(return_value=scanned),
         ),
-        patch(
-            "endpoints.streaming.fs_asset_handler.remove_file", new=AsyncMock()
-        ) as rm,
+        patch("utils.memory_cards.fs_asset_handler.remove_file", new=AsyncMock()) as rm,
     ):
         stored = asyncio.run(
-            streaming.store_memory_card_version(
-                admin_user, card, "pcsx2", b"card-bytes"
-            )
+            streaming.store_memory_card_version(admin_user, card, b"card-bytes")
         )
-    assert stored is False
+    assert stored is None
     rm.assert_awaited_once()
     assert len(db_memory_card_handler.get_versions(card.id)) == 1
 
@@ -3476,7 +3486,7 @@ def test_evacuate_memory_card_stores_snapshot(admin_user: User, rom: Rom):
     ):
         ok = asyncio.run(
             streaming._evacuate_memory_card(
-                admin_user.id, card.id, "pcsx2", _mc_container_for(rom)
+                admin_user.id, card.id, _mc_container_for(rom)
             )
         )
     assert ok is True
@@ -3497,7 +3507,7 @@ def test_evacuate_memory_card_confirmed_empty_is_safe_to_wipe(
     ):
         ok = asyncio.run(
             streaming._evacuate_memory_card(
-                admin_user.id, card.id, "pcsx2", _mc_container_for(rom)
+                admin_user.id, card.id, _mc_container_for(rom)
             )
         )
     assert ok is True
@@ -3521,7 +3531,7 @@ def test_evacuate_memory_card_unavailable_is_not_safe_to_wipe(
     ):
         ok = asyncio.run(
             streaming._evacuate_memory_card(
-                admin_user.id, card.id, "pcsx2", _mc_container_for(rom)
+                admin_user.id, card.id, _mc_container_for(rom)
             )
         )
     assert ok is False
@@ -5023,8 +5033,9 @@ def test_resuming_a_state_with_no_disc_swaps_nothing(
         _state_for(rom, admin_user, "Game.state", "retroarch")
     )
 
-    _, restore = _retroarch_resume(client, access_token, rom, state.id)
+    r, restore = _retroarch_resume(client, access_token, rom, state.id)
 
+    assert r.status_code == 200
     restore.assert_not_called()
 
 

@@ -24,7 +24,12 @@ import zipfile
 
 from handler.database import db_memory_card_handler, db_user_handler
 from models.assets import MemoryCard
-from utils.memory_cards import MEMORY_CARD_MAX_BYTES, store_memory_card_version
+from utils.memory_cards import (
+    MEMORY_CARD_MAX_BYTES,
+    UnsafeCardArchive,
+    assert_card_archive_safe,
+    store_memory_card_version,
+)
 
 
 async def _import(username: str, emulator: str, content: bytes) -> int:
@@ -50,12 +55,11 @@ async def _import(username: str, emulator: str, content: bytes) -> int:
         )
         print(f"created blank card id={card.id}")
 
-    stored = await store_memory_card_version(user, card, emulator, content)
-    latest = db_memory_card_handler.get_latest_version(card.id)
+    version = await store_memory_card_version(user, card, content)
     print(
-        f"stored={stored} card_id={card.id} "
-        f"latest_version={latest.file_name if latest else None} "
-        f"hash={latest.content_hash if latest else None}"
+        f"stored={version is not None} card_id={card.id} "
+        f"version={version.file_name if version else None} "
+        f"hash={version.content_hash if version else None}"
     )
     return 0
 
@@ -90,6 +94,13 @@ def main() -> int:
             f"(got {content[:80]!r}); did the broker GET return an error body?",
             file=sys.stderr,
         )
+        return 2
+    # The same gate the upload route applies: a card imported here hydrates onto
+    # a container exactly like an uploaded one.
+    try:
+        assert_card_archive_safe(content)
+    except UnsafeCardArchive as exc:
+        print(f"error: {zip_path} rejected, {exc}", file=sys.stderr)
         return 2
 
     return asyncio.run(_import(username, emulator, content))

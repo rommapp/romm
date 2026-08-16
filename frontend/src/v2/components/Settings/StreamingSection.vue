@@ -29,17 +29,22 @@ const snackbar = useSnackbar();
 
 const loading = ref(true);
 const enabled = ref(false);
+// A failed listing is not a configuration answer: without this the panel
+// reports streaming as disabled over what was a 403 or a server error.
+const loadFailed = ref(false);
 const containers = ref<AdminStreamingContainer[]>([]);
 const releasing = ref<string | null>(null);
 
 async function load(): Promise<void> {
   loading.value = true;
+  loadFailed.value = false;
   try {
     const { data } = await streamingApi.adminListContainers();
     enabled.value = data.enabled;
     containers.value = data.containers;
   } catch (err) {
     console.warn("[streaming] Could not load containers:", err);
+    loadFailed.value = true;
     snackbar.error(t("settings.streaming-load-failed"));
   } finally {
     loading.value = false;
@@ -114,6 +119,10 @@ onMounted(load);
     <div v-if="loading" class="r-v2-streaming__loading">
       <RSpinner />
     </div>
+
+    <p v-else-if="loadFailed" class="r-v2-streaming__empty">
+      {{ t("settings.streaming-load-failed") }}
+    </p>
 
     <p v-else-if="!enabled" class="r-v2-streaming__empty">
       {{ t("settings.streaming-disabled") }}

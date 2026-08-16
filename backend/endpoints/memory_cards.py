@@ -1,8 +1,7 @@
 import io
-import ntpath
 import re
 import zipfile
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Body, File, HTTPException, Request, UploadFile, status
@@ -22,7 +21,12 @@ from handler.filesystem.assets_handler import build_asset_file_response
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import MemoryCard, MemoryCardVersion
-from utils.memory_cards import MEMORY_CARD_MAX_BYTES, store_memory_card_version
+from utils.memory_cards import (
+    MEMORY_CARD_MAX_BYTES,
+    UnsafeCardArchive,
+    assert_card_archive_safe,
+    store_memory_card_version,
+)
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size
 
@@ -146,29 +150,14 @@ def get_shared_memory_cards(
 
 
 def _assert_no_traversal(content: bytes) -> None:
-    """Refuse an archive whose entries would escape the directory they unpack
-    into. RomM stores the zip whole, but the broker unpacks it onto a container,
-    and this is the last point that can look at the names before it does.
-    """
+    """The shared archive check, as a 400."""
     try:
-        with zipfile.ZipFile(io.BytesIO(content), "r") as zf:
-            names = zf.namelist()
-    except zipfile.BadZipFile:
+        assert_card_archive_safe(content)
+    except UnsafeCardArchive as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Memory card upload is not a readable zip archive",
+            detail=f"Memory card archive rejected, {exc}",
         ) from None
-
-    for name in names:
-        # Zip names are meant to be slash-separated, so a hand-written entry can
-        # hide `..\..\evil` in what PurePosixPath reads as one opaque part. Both
-        # separators are split before the parts are judged.
-        parts = re.split(r"[\\/]", name)
-        if PurePosixPath(name).is_absolute() or ntpath.isabs(name) or ".." in parts:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Memory card archive contains an unsafe path: {name}",
-            )
 
 
 def _version_file_or_404(version: MemoryCardVersion) -> Path:
@@ -278,10 +267,12 @@ async def upload_memory_card_version(
         )
     _assert_no_traversal(content)
 
-    await store_memory_card_version(
-        request.user, card, card.emulator, content, deduplicate=False
+    # The version this call wrote, not the card's latest: a teardown evacuating
+    # the same card alongside the upload would make the latest describe a
+    # snapshot the uploader never sent.
+    version = await store_memory_card_version(
+        request.user, card, content, deduplicate=False
     )
-    version = db_memory_card_handler.get_latest_version(card.id)
     if version is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -73,6 +73,7 @@ from utils.context import (
     initialize_context,
     set_context_middleware,
 )
+from utils.memory_cards import MEMORY_CARD_MAX_BYTES
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -130,8 +131,16 @@ app.add_middleware(
         re.compile(r"^/api/saves"),
         re.compile(r"^/api/states"),
         re.compile(r"^/api/screenshots"),
-        re.compile(r"^/api/memory-cards"),
     ],
+)
+
+# Memory cards are bounded by what a broker will take, which is lower than the
+# asset ceiling. Bounding them here too keeps a card the endpoint would refuse
+# from being spooled to disk in full first.
+app.add_middleware(
+    UploadSizeLimitMiddleware,
+    max_size=min(MEMORY_CARD_MAX_BYTES, MAX_ASSET_UPLOAD_SIZE_BYTES),
+    paths=[re.compile(r"^/api/memory-cards")],
 )
 
 if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:

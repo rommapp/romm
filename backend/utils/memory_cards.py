@@ -4,15 +4,18 @@ the user, so both agree on how a version is hashed, named and deduplicated."""
 
 import hashlib
 import io
+import ntpath
+import re
 import zipfile
 from datetime import datetime, timezone
+from pathlib import PurePosixPath
 
 from handler.database import db_memory_card_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import hash_zip_entry
 from handler.scan_handler import scan_memory_card_version
 from logger.logger import log
-from models.assets import MemoryCard
+from models.assets import MemoryCard, MemoryCardVersion
 from models.user import User
 from utils.filesystem import sanitize_filename
 
@@ -42,6 +45,43 @@ def content_hash_of_bytes(content: bytes) -> str | None:
     except Exception as exc:
         log.debug("could not hash memory card in memory, %s", exc)
         return None
+
+
+class UnsafeCardArchive(ValueError):
+    """A card archive the broker must not be asked to unpack."""
+
+
+# The unix mode a zip entry carries in the top half of its external attributes,
+# and the bits that mark it a symlink.
+_ZIP_MODE_SHIFT = 16
+_S_IFMT = 0o170000
+_S_IFLNK = 0o120000
+
+
+def assert_card_archive_safe(content: bytes) -> None:
+    """Refuse an archive whose entries would escape the directory they unpack
+    into. RomM stores the zip whole, but the broker unpacks it onto a container,
+    and this is the last point that can look at what is inside before it does.
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(content), "r") as zf:
+            entries = zf.infolist()
+    except zipfile.BadZipFile:
+        raise UnsafeCardArchive("not a readable zip archive") from None
+
+    for entry in entries:
+        name = entry.filename
+        # Zip names are meant to be slash-separated, so a hand-written entry can
+        # hide `..\..\evil` in what PurePosixPath reads as one opaque part. Both
+        # separators are split before the parts are judged.
+        parts = re.split(r"[\\/]", name)
+        if PurePosixPath(name).is_absolute() or ntpath.isabs(name) or ".." in parts:
+            raise UnsafeCardArchive(f"unsafe path: {name}")
+        # A symlink's own name is harmless; its target is not, and an unpacker
+        # that follows it writes wherever the target points on the next entry.
+        mode = entry.external_attr >> _ZIP_MODE_SHIFT
+        if mode & _S_IFMT == _S_IFLNK:
+            raise UnsafeCardArchive(f"symlink entry: {name}")
 
 
 # Names only ever collide when two snapshots land in the same millisecond, so
@@ -76,14 +116,14 @@ async def _discard_version_file(cards_path: str, filename: str) -> None:
 async def store_memory_card_version(
     user: User,
     card: MemoryCard,
-    emulator: str,
     content: bytes,
     deduplicate: bool = True,
-) -> bool:
+) -> MemoryCardVersion | None:
     """Store card content as a new MemoryCardVersion. Identical content is
     deduplicated by hash so repeated exits do not pile up copies. Either way the
     card's updated_at is bumped so it floats to the top of the next pick list.
-    Returns True when a new version was actually stored.
+    Returns the version that was written, or None when the content was already
+    in the history.
 
     `deduplicate` is off for an upload, where the user is asking for exactly
     this content to become current: matching an older snapshot would leave that
@@ -101,33 +141,34 @@ async def store_memory_card_version(
             db_memory_card_handler.update_card(
                 card.id, {"updated_at": datetime.now(timezone.utc)}
             )
-            return False
+            return None
 
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H-%M-%S-%f")[:-3]
     cards_path = fs_asset_handler.build_memory_cards_file_path(
-        user=user, emulator=emulator, card_id=card.id
+        user=user, emulator=card.emulator, card_id=card.id
     )
     filename = await _free_version_filename(cards_path, card.name, ts)
     await fs_asset_handler.write_file(file=content, path=cards_path, filename=filename)
 
     try:
         version = await scan_memory_card_version(
-            file_name=filename, user=user, emulator=emulator, card_id=card.id
+            file_name=filename, user=user, emulator=card.emulator, card_id=card.id
         )
 
         # Fallback dedup on the scanned hash, for when the in-memory hash could
         # not be computed. Keeps duplicates out even when the precheck misses.
-        stored = True
-        if deduplicate and version.content_hash:
-            existing = db_memory_card_handler.get_version_by_content_hash(
+        stored: MemoryCardVersion | None = None
+        if (
+            deduplicate
+            and version.content_hash
+            and db_memory_card_handler.get_version_by_content_hash(
                 card_id=card.id, content_hash=version.content_hash
             )
-            if existing is not None:
-                await _discard_version_file(cards_path, filename)
-                stored = False
-
-        if stored:
-            db_memory_card_handler.add_version(version)
+            is not None
+        ):
+            await _discard_version_file(cards_path, filename)
+        else:
+            stored = db_memory_card_handler.add_version(version)
     except Exception:
         # No row points at the archive yet, so leaving it behind strands bytes
         # that nothing can reach and no delete would ever clean up.
