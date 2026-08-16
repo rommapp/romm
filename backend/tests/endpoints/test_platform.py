@@ -176,3 +176,21 @@ def test_update_platform_description_requires_write_scope(client, platform):
         json={"description": "Nope"},
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_firmware_count_excludes_missing_firmware(
+    client, access_token, platform, firmware, missing_firmware
+):
+    """A platform whose only BIOS file was deleted from disk shouldn't still
+    advertise it (issue #4075)."""
+    response = client.get(
+        f"/api/platforms/{platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["firmware_count"] == 1
+    # The rows themselves still ship so the Firmware tab can strike them
+    # through and offer a cleanup.
+    assert len(body["firmware"]) == 2

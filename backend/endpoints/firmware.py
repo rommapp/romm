@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Body, File, HTTPException, Request, UploadFile, status
+from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
@@ -124,6 +124,10 @@ async def add_firmware(
 def get_platform_firmware(
     request: Request,
     platform_id: int | None = None,
+    missing: Annotated[
+        bool | None,
+        Query(description="Whether the firmware is missing from the filesystem."),
+    ] = None,
 ) -> list[FirmwareSchema]:
     """Get firmware endpoint
 
@@ -138,6 +142,7 @@ def get_platform_firmware(
         FirmwareSchema.model_validate(f)
         for f in db_firmware_handler.list_firmware(
             platform_id=platform_id,
+            missing=missing,
             hidden_platform_ids=perms.hidden_platform_ids,
         )
     ]

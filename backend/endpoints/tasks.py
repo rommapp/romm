@@ -33,6 +33,7 @@ from handler.redis_handler import (
     low_prio_queue,
     redis_client,
 )
+from tasks.manual.cleanup_missing_firmware import cleanup_missing_firmware_task
 from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
 from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
@@ -117,6 +118,13 @@ manual_tasks: list[ManualTask] = [
             "name": "cleanup_missing_roms",
             "type": TaskType.CLEANUP,
             "task": cleanup_missing_roms_task,
+        }
+    ),
+    ManualTask(
+        {
+            "name": "cleanup_missing_firmware",
+            "type": TaskType.CLEANUP,
+            "task": cleanup_missing_firmware_task,
         }
     ),
     ManualTask(
