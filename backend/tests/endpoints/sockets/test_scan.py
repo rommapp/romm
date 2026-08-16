@@ -1028,13 +1028,25 @@ class TestIdentifyFirmwareRehashing:
                 "get_file_size",
                 AsyncMock(return_value=1024),
             ),
+            get_fs_structure=mocker.patch.object(
+                scan_module.fs_firmware_handler,
+                "get_firmware_fs_structure",
+                return_value="bios/test",
+            ),
             db_firmware=mocker.patch.object(scan_module, "db_firmware_handler"),
         )
         patches.db_firmware.get_firmware_by_filename.return_value = self._stored()
         return patches
 
-    def _stored(self, *, size: int = 1024, md5: str = "d41d8cd9", missing=False):
-        firmware = Firmware(file_name="bios.bin", file_path="bios/test", platform_id=1)
+    def _stored(
+        self,
+        *,
+        size: int = 1024,
+        md5: str = "d41d8cd9",
+        missing=False,
+        file_path: str = "bios/test",
+    ):
+        firmware = Firmware(file_name="bios.bin", file_path=file_path, platform_id=1)
         firmware.id = 7
         firmware.md5_hash = md5
         firmware.file_size_bytes = size
@@ -1108,6 +1120,26 @@ class TestIdentifyFirmwareRehashing:
         await self._run()
 
         patched.db_firmware.update_firmware.assert_not_called()
+
+    async def test_stats_the_file_where_it_was_enumerated(self, patched):
+        await self._run()
+
+        patched.get_file_size.assert_awaited_once_with("bios/test/bios.bin")
+
+    async def test_rebuilds_a_row_recorded_at_a_stale_path(self, patched):
+        """A library layout change leaves the recorded path pointing nowhere.
+
+        Statting it would raise FileNotFoundError out of the whole scan, so a
+        row whose path no longer matches is rehashed, which refreshes it.
+        """
+        patched.db_firmware.get_firmware_by_filename.return_value = self._stored(
+            file_path="test/bios"
+        )
+
+        await self._run()
+
+        patched.scan_firmware.assert_called_once()
+        patched.get_file_size.assert_not_called()
 
 
 class TestGetPico8CoverUrl:

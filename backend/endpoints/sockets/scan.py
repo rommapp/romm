@@ -208,15 +208,22 @@ async def _identify_firmware(
     # The row is consulted before the filesystem, so an entry that could never
     # be skipped costs no stat.
     if firmware and not _should_hash_firmware(scan_type, firmware):
-        file_size = await fs_firmware_handler.get_file_size(firmware.full_path)
-        if file_size == firmware.file_size_bytes:
-            # Only written when it actually flips, keeping `updated_at` usable
-            # as an incremental signal.
-            if firmware.missing_from_fs:
-                db_firmware_handler.update_firmware(
-                    firmware.id, {"missing_from_fs": False}
-                )
-            return 0
+        # The file is stat'd where it was just enumerated, never at the path the
+        # row recorded. A row whose path predates a change in the library layout
+        # is rebuilt below instead, which is what refreshes it.
+        firmware_path = fs_firmware_handler.get_firmware_fs_structure(platform.fs_slug)
+        if firmware.file_path == firmware_path:
+            file_size = await fs_firmware_handler.get_file_size(
+                f"{firmware_path}/{fs_fw}"
+            )
+            if file_size == firmware.file_size_bytes:
+                # Only written when it actually flips, keeping `updated_at`
+                # usable as an incremental signal.
+                if firmware.missing_from_fs:
+                    db_firmware_handler.update_firmware(
+                        firmware.id, {"missing_from_fs": False}
+                    )
+                return 0
 
     scanned_firmware = await scan_firmware(
         platform=platform,
