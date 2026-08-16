@@ -46,10 +46,10 @@ from utils.hashing import crc32_to_hex
 
 from .base_handler import (
     LANGUAGES_BY_SHORTCODE,
-    LANGUAGES_NAME_KEYS,
     REGIONS_BY_SHORTCODE,
-    REGIONS_NAME_KEYS,
     FSHandler,
+    normalize_language,
+    normalize_region,
 )
 
 # PICO-8 cartridges are often stored as PNG files
@@ -194,22 +194,28 @@ class FSRomsHandler(FSHandler):
         version = revision = ""
 
         for raw_tag in tags:
-            lower_tag = raw_tag.lower()
-
-            # Region by code
+            # Region by exact code, before any language check: some language
+            # shortcodes differ from a region code only by case (Nl/NL, No/NO).
             if raw_tag in REGIONS_BY_SHORTCODE.keys():
                 regions.append(REGIONS_BY_SHORTCODE[raw_tag])
                 continue
-            if lower_tag in REGIONS_NAME_KEYS:
-                regions.append(raw_tag)
-                continue
 
-            # Language by code
+            # Language by exact code, for the same reason
             if raw_tag in LANGUAGES_BY_SHORTCODE.keys():
                 languages.append(LANGUAGES_BY_SHORTCODE[raw_tag])
                 continue
-            if lower_tag in LANGUAGES_NAME_KEYS:
-                languages.append(raw_tag)
+
+            # Region by name, alternate spelling, or differently-cased code.
+            # Ahead of the equivalent language pass so a lowercased code that
+            # both tables claim ("nl", "no") keeps reading as a region.
+            region = normalize_region(raw_tag)
+            if region:
+                regions.append(region)
+                continue
+
+            language = normalize_language(raw_tag)
+            if language:
+                languages.append(language)
                 continue
 
             # Version
@@ -218,11 +224,12 @@ class FSRomsHandler(FSHandler):
                 version = (version_match[1] or version_match[2] or "").strip()
                 continue
 
-            # Region prefix
+            # Region prefix. An explicit "Reg-" means the user called it a
+            # region, so an unrecognized code is kept rather than dropped.
             region_match = REGION_TAG_REGEX.match(raw_tag)
             if region_match:
-                region = region_match[1]
-                regions.append(REGIONS_BY_SHORTCODE.get(region, region))
+                raw_region = region_match[1]
+                regions.append(normalize_region(raw_region) or raw_region)
                 continue
 
             # Revision prefix

@@ -282,6 +282,71 @@ class TestFSRomsHandler:
         # A value that is not a shortcode is kept verbatim.
         assert "PAL" in handler.parse_tags("Game [Reg-PAL].rom").regions
 
+        # Aliases resolve here too, so [Reg-US] and (USA) agree.
+        assert "USA" in handler.parse_tags("Game [Reg-US].rom").regions
+
+    def test_parse_tags_region_casing_is_normalized(self, handler: FSRomsHandler):
+        """Region names collapse to one canonical spelling regardless of casing."""
+        for fs_name in ("Game (USA).rom", "Game (usa).rom", "Game (Usa).rom"):
+            assert handler.parse_tags(fs_name).regions == ["USA"]
+
+        assert handler.parse_tags("Game (europe).rom").regions == ["Europe"]
+        assert handler.parse_tags("Game (hong kong).rom").regions == ["Hong Kong"]
+
+    def test_parse_tags_region_aliases(self, handler: FSRomsHandler):
+        """Alternate spellings resolve to the canonical region name."""
+        assert handler.parse_tags("Game (US).rom").regions == ["USA"]
+        assert handler.parse_tags("Game (u).rom").regions == ["USA"]
+        assert handler.parse_tags("Game (EU).rom").regions == ["Europe"]
+        assert handler.parse_tags("Game (eur).rom").regions == ["Europe"]
+        assert handler.parse_tags("Game (jp).rom").regions == ["Japan"]
+
+        # WR joins (W) and (World) on the same facet value.
+        assert handler.parse_tags("Game (WR).rom").regions == ["World"]
+        assert handler.parse_tags("Game [Reg-WR].rom").regions == ["World"]
+
+        # An unknown tag is still just a tag.
+        parsed = handler.parse_tags("Game (Nonsense).rom")
+        assert parsed.regions == []
+        assert "Nonsense" in parsed.other_tags
+
+    def test_parse_tags_region_codes_do_not_shadow_languages(
+        self, handler: FSRomsHandler
+    ):
+        """Nl/No are languages; NL/NO are regions. Case decides."""
+        assert handler.parse_tags("Game (Nl).rom").languages == ["Dutch"]
+        assert handler.parse_tags("Game (No).rom").languages == ["Norwegian"]
+        assert handler.parse_tags("Game (NL).rom").regions == ["Netherlands"]
+        assert handler.parse_tags("Game (NO).rom").regions == ["Norway"]
+
+        # Lowercased, the region wins; neither table can claim both.
+        assert handler.parse_tags("Game (nl).rom").regions == ["Netherlands"]
+        assert handler.parse_tags("Game (no).rom").regions == ["Norway"]
+
+    def test_parse_tags_language_casing_is_normalized(self, handler: FSRomsHandler):
+        """Language names collapse to one canonical spelling regardless of casing."""
+        for fs_name in (
+            "Game (English).rom",
+            "Game (english).rom",
+            "Game (ENGLISH).rom",
+        ):
+            assert handler.parse_tags(fs_name).languages == ["English"]
+
+        assert handler.parse_tags("Game (japanese).rom").languages == ["Japanese"]
+        assert handler.parse_tags("Game (no language).rom").languages == ["No Language"]
+
+    def test_parse_tags_language_codes_are_case_insensitive(
+        self, handler: FSRomsHandler
+    ):
+        """A differently-cased language shortcode still resolves."""
+        assert handler.parse_tags("Game (en).rom").languages == ["English"]
+        assert handler.parse_tags("Game (EN).rom").languages == ["English"]
+        assert handler.parse_tags("Game (de).rom").languages == ["German"]
+        assert handler.parse_tags("Game [ja,FR].rom").languages == [
+            "Japanese",
+            "French",
+        ]
+
     def test_exclude_multi_roms_filters_excluded(self, handler: FSRomsHandler, config):
         """Test exclude_multi_roms filters out excluded multi-file ROMs"""
         roms = ["Game1", "excluded_multi", "Game2", "Game3"]
