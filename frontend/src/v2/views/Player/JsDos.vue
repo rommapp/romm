@@ -99,13 +99,21 @@ async function onPlay() {
   const dosFactory = window.Dos;
   const currentRom = rom.value;
   const userId = authStore.user?.id;
-  if (!currentRom || !dosFactory || userId == null) return;
+  if (!currentRom || userId == null) return;
+  if (!dosFactory) {
+    snackbar.error(t("play.stream-error-generic"));
+    return;
+  }
   gameRunning.value = true;
   // Let the emulator own keyboard input while running.
   playingStore.setPlaying(true);
 
   await nextTick();
-  if (!stage.value) return;
+  if (!stage.value) {
+    gameRunning.value = false;
+    playingStore.setPlaying(false);
+    return;
+  }
 
   // DOSBox-X provides Windows support.
   dos = dosFactory(stage.value, {
@@ -176,12 +184,15 @@ function onlyQuit() {
   void leavePlayer(`/rom/${romId}`);
 }
 function backToRom() {
-  router.push({ name: ROUTES.ROM, params: { rom: rom.value?.id } });
+  const romId = heroRom.value?.id ?? route.params.rom;
+  router.push({ name: ROUTES.ROM, params: { rom: romId } });
 }
 function backToPlatform() {
+  const platformId = heroRom.value?.platform_id;
+  if (platformId == null) return;
   router.push({
     name: ROUTES.PLATFORM,
-    params: { platform: rom.value?.platform_id },
+    params: { platform: platformId },
   });
 }
 

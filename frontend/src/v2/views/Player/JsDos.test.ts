@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   playSessionStart: vi.fn(),
   push: vi.fn(),
   confirm: vi.fn(),
+  galleryRom: null as Record<string, unknown> | null,
   routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
   setPlaying: vi.fn(),
   snackbarError: vi.fn(),
@@ -94,7 +95,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 vi.mock("@/v2/stores/galleryRoms", () => ({
-  default: () => ({ getRomById: () => null }),
+  default: () => ({ getRomById: () => mocks.galleryRom }),
 }));
 
 const rom = {
@@ -129,17 +130,16 @@ afterAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.galleryRom = null;
   mocks.routeLeaveGuard = null;
   mocks.userId = 7;
   mocks.confirm.mockResolvedValue(false);
   mocks.getRom.mockResolvedValue({ data: rom });
+  window.Dos = undefined;
 });
 
-async function mountPlayer(handle: JsDosProps): Promise<VueWrapper> {
-  window.Dos = vi.fn(
-    (_element: HTMLDivElement, _options: Partial<JsDosOptions>) => handle,
-  );
-  const wrapper = mount(JsDos, {
+function mountView(): VueWrapper {
+  return mount(JsDos, {
     global: {
       stubs: {
         RBtn: {
@@ -152,6 +152,13 @@ async function mountPlayer(handle: JsDosProps): Promise<VueWrapper> {
       },
     },
   });
+}
+
+async function mountPlayer(handle: JsDosProps): Promise<VueWrapper> {
+  window.Dos = vi.fn(
+    (_element: HTMLDivElement, _options: Partial<JsDosOptions>) => handle,
+  );
+  const wrapper = mountView();
   await flushPromises();
   await wrapper.get(".r-v2-jsdos__play").trigger("click");
   await nextTick();
@@ -168,6 +175,40 @@ function makeHandle(saveResult: boolean) {
 }
 
 describe("JsDos player exit", () => {
+  it("reports when the runtime has not loaded", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+
+    await wrapper.get(".r-v2-jsdos__play").trigger("click");
+
+    expect(mocks.snackbarError).toHaveBeenCalledWith(
+      "play.stream-error-generic",
+    );
+    expect(mocks.setPlaying).not.toHaveBeenCalledWith(true);
+    wrapper.unmount();
+  });
+
+  it("uses the gallery seed for back navigation while the ROM loads", async () => {
+    mocks.galleryRom = rom;
+    mocks.getRom.mockReturnValue(new Promise(() => undefined));
+    const wrapper = mountView();
+    await nextTick();
+
+    const buttons = wrapper.findAll("button");
+    await buttons[1]!.trigger("click");
+    await buttons[2]!.trigger("click");
+
+    expect(mocks.push).toHaveBeenNthCalledWith(1, {
+      name: "rom",
+      params: { rom: 1 },
+    });
+    expect(mocks.push).toHaveBeenNthCalledWith(2, {
+      name: "platform",
+      params: { platform: 2 },
+    });
+    wrapper.unmount();
+  });
+
   it("hard-navigates after saving without awaiting stop", async () => {
     const handle = makeHandle(true);
     const wrapper = await mountPlayer(handle);
