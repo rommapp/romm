@@ -49,7 +49,9 @@ LOGGING_CONFIG = {
             "propagate": False,
         },
         "uvicorn.access": {
-            "level": LOGLEVEL,
+            # Suppress routine HTTP access logs at INFO; only show them when
+            # the user has explicitly opted into DEBUG logging.
+            "level": "DEBUG" if LOGLEVEL == "DEBUG" else "WARNING",
             "handlers": ["default"],
             "propagate": False,
         },
