@@ -49,7 +49,7 @@ function showUI(): void {
   if (uiTimeout) clearTimeout(uiTimeout);
   uiTimeout = setTimeout(() => {
     isUIVisible.value = false;
-    focusStream();
+    reclaimStreamFocus();
   }, 2500);
 }
 
@@ -60,6 +60,20 @@ function showUI(): void {
 function focusStream(): void {
   if (!props.active) return;
   streamFrame.value?.focus();
+}
+
+// The hide timer runs regardless of what is on screen, and a dialog over the
+// stream holds focus on purpose: pulling it into the iframe there would take
+// the keyboard away from the buttons the user is answering with.
+function reclaimStreamFocus(): void {
+  const focused = document.activeElement;
+  const heldOutside =
+    focused !== null &&
+    focused !== document.body &&
+    focused !== document.documentElement &&
+    !(stageRef.value?.contains(focused) ?? false);
+  if (heldOutside) return;
+  focusStream();
 }
 
 function revealNearTop(offsetY: number): void {

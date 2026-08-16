@@ -33,6 +33,7 @@ const label = ref("");
 // The platform the backend filed the session under, which the release route
 // keys on. Whatever it reports, not something this view can derive.
 const platform = ref("");
+const isExiting = ref(false);
 
 usePageTitle(() => t("play.desktop-title"));
 
@@ -60,17 +61,24 @@ async function openDesktop(): Promise<void> {
 
 // Releasing names the container explicitly: the platform alone is ambiguous
 // once a pool serves it.
-async function release(): Promise<void> {
-  if (state.value !== "running") return;
-  state.value = "exited";
+// Returns whether the container is actually free: a release that failed leaves
+// the claim standing, and saying "exited" over it hides a container nobody can
+// take until it times out.
+async function release(): Promise<boolean> {
+  if (state.value !== "running") return true;
   try {
     await streamingApi.releaseSession(
       platform.value,
       undefined,
       containerKey.value,
     );
+    state.value = "exited";
+    return true;
   } catch (err) {
     console.warn("[streaming] Could not release the desktop session:", err);
+    state.value = "error";
+    errorMessage.value = t("play.desktop-error-release");
+    return false;
   }
 }
 
@@ -78,37 +86,38 @@ function backToAdministration(): void {
   router.push({ name: ROUTES.ADMINISTRATION, query: { tab: "streaming" } });
 }
 
-async function handleExit(): Promise<void> {
-  await stage.value?.leaveFullscreen();
-  const ok = await confirm({
-    title: t("play.desktop-exit-title"),
-    body: t("play.desktop-exit-body"),
-    confirmText: t("play.desktop-exit-confirm"),
-  });
-  if (!ok) {
-    stage.value?.focusStream();
-    return;
+// Returns whether the session is done with and the view may be left. The
+// confirmation is awaited, so the flag keeps a second press (or a back nav
+// arriving mid-dialog) from stacking a second dialog behind the first.
+async function confirmAndRelease(): Promise<boolean> {
+  if (isExiting.value) return false;
+  isExiting.value = true;
+  try {
+    await stage.value?.leaveFullscreen();
+    const ok = await confirm({
+      title: t("play.desktop-exit-title"),
+      body: t("play.desktop-exit-body"),
+      confirmText: t("play.desktop-exit-confirm"),
+    });
+    if (!ok) {
+      stage.value?.focusStream();
+      return false;
+    }
+    return await release();
+  } finally {
+    isExiting.value = false;
   }
-  await release();
-  backToAdministration();
+}
+
+async function handleExit(): Promise<void> {
+  if (await confirmAndRelease()) backToAdministration();
 }
 
 // Every way out of a live session funnels through the same confirmation, so
 // a stray back press cannot drop the container mid-configuration.
 onBeforeRouteLeave(async () => {
   if (state.value !== "running") return true;
-  await stage.value?.leaveFullscreen();
-  const ok = await confirm({
-    title: t("play.desktop-exit-title"),
-    body: t("play.desktop-exit-body"),
-    confirmText: t("play.desktop-exit-confirm"),
-  });
-  if (!ok) {
-    stage.value?.focusStream();
-    return false;
-  }
-  await release();
-  return true;
+  return confirmAndRelease();
 });
 
 // The tab closing takes the session's only owner with it, so hand the claim
@@ -116,7 +125,7 @@ onBeforeRouteLeave(async () => {
 function onPageHide(): void {
   if (state.value !== "running") return;
   state.value = "exited";
-  streamingApi.releaseSessionKeepalive(platform.value);
+  streamingApi.releaseSessionKeepalive(platform.value, containerKey.value);
 }
 
 onMounted(() => {

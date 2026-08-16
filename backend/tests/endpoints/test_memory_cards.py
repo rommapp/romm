@@ -2,13 +2,15 @@ import io
 import zipfile
 from unittest import mock
 
+import pytest
 from fastapi import status
 from tests._zipfile_shim import reload_zipfile
 
 from handler.database import db_memory_card_handler
 from models.assets import MemoryCard, MemoryCardVersion
 from models.platform import Platform
-from utils.memory_cards import content_hash_of_bytes
+from models.user import User
+from utils.memory_cards import content_hash_of_bytes, store_memory_card_version
 
 
 def _auth(token: str) -> dict[str, str]:
@@ -47,6 +49,22 @@ def test_create_memory_card_blank_name_rejected(client, access_token: str):
     response = client.post(
         "/api/memory-cards",
         json={"name": "   ", "emulator": "pcsx2"},
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.parametrize(
+    "emulator", ["../../etc", "pcsx2/../..", "pcsx2\\..", ".hidden", "/abs"]
+)
+def test_create_memory_card_unsafe_emulator_rejected(
+    client, access_token: str, emulator: str
+):
+    """The emulator names a folder under the user's card directory, so a value
+    that walks out of it is refused at creation rather than at the first write."""
+    response = client.post(
+        "/api/memory-cards",
+        json={"name": "Card", "emulator": emulator},
         headers=_auth(access_token),
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -176,6 +194,53 @@ def test_list_memory_card_versions(
     assert body[0]["download_path"].startswith(
         f"/api/memory-cards/versions/{memory_card_version.id}/content?timestamp="
     )
+
+
+@mock.patch("endpoints.memory_cards.fs_asset_handler.validate_path")
+def test_version_listing_flags_an_archive_that_is_gone(
+    mock_validate_path,
+    client,
+    access_token: str,
+    memory_card: MemoryCard,
+    memory_card_version: MemoryCardVersion,
+    tmp_path,
+):
+    """The history is the only place a user sees a snapshot is unrecoverable
+    before clicking download, so the flag is brought back in line here."""
+    mock_validate_path.return_value = tmp_path / "not-there.zip"
+
+    response = client.get(
+        f"/api/memory-cards/{memory_card.id}/versions", headers=_auth(access_token)
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()[0]["missing_from_fs"] is True
+    assert db_memory_card_handler.get_version_by_id(
+        memory_card_version.id
+    ).missing_from_fs
+
+
+@mock.patch("endpoints.memory_cards.fs_asset_handler.validate_path")
+def test_version_listing_clears_the_flag_when_the_archive_is_back(
+    mock_validate_path,
+    client,
+    access_token: str,
+    memory_card: MemoryCard,
+    memory_card_version: MemoryCardVersion,
+    tmp_path,
+):
+    db_memory_card_handler.set_version_missing(memory_card_version.id, True)
+    restored = tmp_path / "card.zip"
+    restored.write_bytes(b"CARD_ZIP")
+    mock_validate_path.return_value = restored
+
+    response = client.get(
+        f"/api/memory-cards/{memory_card.id}/versions", headers=_auth(access_token)
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()[0]["missing_from_fs"] is False
+    assert not db_memory_card_handler.get_version_by_id(
+        memory_card_version.id
+    ).missing_from_fs
 
 
 @mock.patch("endpoints.memory_cards.fs_asset_handler.validate_path")
@@ -428,6 +493,37 @@ def test_upload_non_zip_is_rejected(client, access_token: str, memory_card: Memo
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "../escaped.ps2",
+        "sub/../../escaped.ps2",
+        "/etc/passwd",
+        "..\\..\\escaped.ps2",
+        "sub\\..\\..\\escaped.ps2",
+        "\\\\server\\share\\escaped.ps2",
+    ],
+)
+def test_upload_with_an_escaping_entry_is_rejected(
+    client, access_token: str, memory_card: MemoryCard, entry: str
+):
+    """RomM keeps the zip whole, so this is the last place that sees the entry
+    names before the broker unpacks them onto a container."""
+    content = _zip_bytes({entry: b"card data"})
+    write_patch, scan_patch = _stub_storage(memory_card.id, "uploaded.zip", "uploaded")
+    with write_patch as write_file, scan_patch:
+        response = client.post(
+            f"/api/memory-cards/{memory_card.id}/versions",
+            files={"cardFile": ("card.zip", content, "application/zip")},
+            headers=_auth(access_token),
+        )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "unsafe path" in response.json()["detail"]
+    write_file.assert_not_awaited()
+    assert db_memory_card_handler.get_versions(memory_card.id) == []
+
+
 def test_upload_to_another_users_card_is_404(
     client, viewer_access_token: str, memory_card: MemoryCard
 ):
@@ -553,6 +649,28 @@ def test_delete_batch_with_a_bad_id_deletes_nothing(
     assert db_memory_card_handler.get_card_by_id(memory_card.id) is not None
 
 
+@mock.patch(
+    "endpoints.memory_cards.fs_asset_handler.remove_file",
+    new=mock.AsyncMock(side_effect=PermissionError("read-only mount")),
+)
+def test_delete_survives_an_archive_that_will_not_budge(
+    client,
+    access_token: str,
+    memory_card: MemoryCard,
+    memory_card_version: MemoryCardVersion,
+):
+    """An orphaned archive is recoverable; a batch that stops half way with
+    nothing telling the caller how far it got is not."""
+    response = client.post(
+        "/api/memory-cards/delete",
+        json={"cards": [memory_card.id]},
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert db_memory_card_handler.get_card_by_id(memory_card.id) is None
+    assert db_memory_card_handler.get_version_by_id(memory_card_version.id) is None
+
+
 def test_other_user_cannot_delete_card(
     client, viewer_access_token: str, memory_card: MemoryCard
 ):
@@ -564,3 +682,78 @@ def test_other_user_cannot_delete_card(
     assert response.status_code == status.HTTP_404_NOT_FOUND
     # The card survives the rejected delete.
     assert db_memory_card_handler.get_card_by_id(memory_card.id) is not None
+
+
+# --- Version storage ---
+
+
+async def test_version_filename_steps_around_an_occupied_name(
+    admin_user: User, memory_card: MemoryCard
+):
+    """Two snapshots in the same millisecond would otherwise share a name, and
+    write_file overwrites silently: the first archive's bytes would go while its
+    row lived on describing them."""
+    taken = {"first": True}
+
+    async def _file_exists(file_path: str) -> bool:
+        if taken["first"]:
+            taken["first"] = False
+            return True
+        return False
+
+    with (
+        mock.patch(
+            "utils.memory_cards.fs_asset_handler.file_exists",
+            new=mock.AsyncMock(side_effect=_file_exists),
+        ),
+        mock.patch(
+            "utils.memory_cards.fs_asset_handler.write_file", new=mock.AsyncMock()
+        ) as write_file,
+        mock.patch(
+            "utils.memory_cards.scan_memory_card_version",
+            new=mock.AsyncMock(
+                side_effect=lambda **kwargs: _version_for(
+                    memory_card.id, kwargs["file_name"], "stored"
+                )
+            ),
+        ),
+    ):
+        assert await store_memory_card_version(
+            admin_user, memory_card, "pcsx2", b"card data", deduplicate=False
+        )
+
+    written = write_file.await_args.kwargs["filename"] if write_file.await_args else ""
+    assert "(2)" in written
+    assert (
+        db_memory_card_handler.get_latest_version(memory_card.id).file_name == written
+    )
+
+
+async def test_a_failed_scan_leaves_no_archive_behind(
+    admin_user: User, memory_card: MemoryCard
+):
+    """No row points at the archive yet, so leaving it there strands bytes
+    nothing can reach and no delete would ever clean up."""
+    with (
+        mock.patch(
+            "utils.memory_cards.fs_asset_handler.file_exists",
+            new=mock.AsyncMock(return_value=False),
+        ),
+        mock.patch(
+            "utils.memory_cards.fs_asset_handler.write_file", new=mock.AsyncMock()
+        ),
+        mock.patch(
+            "utils.memory_cards.fs_asset_handler.remove_file", new=mock.AsyncMock()
+        ) as remove_file,
+        mock.patch(
+            "utils.memory_cards.scan_memory_card_version",
+            new=mock.AsyncMock(side_effect=OSError("scan blew up")),
+        ),
+    ):
+        with pytest.raises(OSError):
+            await store_memory_card_version(
+                admin_user, memory_card, "pcsx2", b"card data", deduplicate=False
+            )
+
+    remove_file.assert_awaited_once()
+    assert db_memory_card_handler.get_versions(memory_card.id) == []

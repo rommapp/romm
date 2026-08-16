@@ -132,7 +132,10 @@ class State(RomAsset):
     # same one back. SET NULL rather than CASCADE: losing the file row must
     # not take the player's save with it.
     disc_file_id: Mapped[int | None] = mapped_column(
-        ForeignKey("rom_files.id", ondelete="SET NULL"), nullable=True, default=None
+        ForeignKey("rom_files.id", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
+        index=True,
     )
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="states")

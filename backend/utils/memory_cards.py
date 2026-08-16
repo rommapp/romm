@@ -44,6 +44,35 @@ def content_hash_of_bytes(content: bytes) -> str | None:
         return None
 
 
+# Names only ever collide when two snapshots land in the same millisecond, so
+# the walk exists to break that tie, not to search.
+_FILENAME_COLLISION_ATTEMPTS = 20
+
+
+async def _free_version_filename(cards_path: str, card_name: str, ts: str) -> str:
+    """A version filename no archive already occupies.
+
+    `write_file` overwrites silently, so a name reused by a second snapshot
+    would replace the first one's bytes on disk while its row lived on
+    describing content that is no longer there.
+    """
+    for attempt in range(1, _FILENAME_COLLISION_ATTEMPTS + 1):
+        suffix = "" if attempt == 1 else f" ({attempt})"
+        filename = sanitize_filename(f"{card_name} [{ts}{suffix}].card.zip")
+        if not await fs_asset_handler.file_exists(f"{cards_path}/{filename}"):
+            return filename
+    raise RuntimeError(f"could not find a free filename for card {card_name}")
+
+
+async def _discard_version_file(cards_path: str, filename: str) -> None:
+    """Drop an archive no version row will reference. Best effort: it is
+    already unreachable, and raising here would mask the reason we are here."""
+    try:
+        await fs_asset_handler.remove_file(f"{cards_path}/{filename}")
+    except OSError as exc:
+        log.warning("could not remove unreferenced card archive %s, %s", filename, exc)
+
+
 async def store_memory_card_version(
     user: User,
     card: MemoryCard,
@@ -74,33 +103,36 @@ async def store_memory_card_version(
             )
             return False
 
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H-%M-%S")
-    filename = sanitize_filename(f"{card.name} [{ts}].card.zip")
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H-%M-%S-%f")[:-3]
     cards_path = fs_asset_handler.build_memory_cards_file_path(
         user=user, emulator=emulator, card_id=card.id
     )
+    filename = await _free_version_filename(cards_path, card.name, ts)
     await fs_asset_handler.write_file(file=content, path=cards_path, filename=filename)
 
-    version = await scan_memory_card_version(
-        file_name=filename, user=user, emulator=emulator, card_id=card.id
-    )
-
-    # Fallback dedup on the scanned hash, for when the in-memory hash could
-    # not be computed. Keeps duplicates out even when the precheck misses.
-    stored = True
-    if deduplicate and version.content_hash:
-        existing = db_memory_card_handler.get_version_by_content_hash(
-            card_id=card.id, content_hash=version.content_hash
+    try:
+        version = await scan_memory_card_version(
+            file_name=filename, user=user, emulator=emulator, card_id=card.id
         )
-        if existing is not None:
-            try:
-                await fs_asset_handler.remove_file(f"{cards_path}/{filename}")
-            except FileNotFoundError:
-                pass
-            stored = False
 
-    if stored:
-        db_memory_card_handler.add_version(version)
+        # Fallback dedup on the scanned hash, for when the in-memory hash could
+        # not be computed. Keeps duplicates out even when the precheck misses.
+        stored = True
+        if deduplicate and version.content_hash:
+            existing = db_memory_card_handler.get_version_by_content_hash(
+                card_id=card.id, content_hash=version.content_hash
+            )
+            if existing is not None:
+                await _discard_version_file(cards_path, filename)
+                stored = False
+
+        if stored:
+            db_memory_card_handler.add_version(version)
+    except Exception:
+        # No row points at the archive yet, so leaving it behind strands bytes
+        # that nothing can reach and no delete would ever clean up.
+        await _discard_version_file(cards_path, filename)
+        raise
 
     # Touch the card so "most recent" ordering reflects this session even when
     # the content was unchanged (updated_at has no onupdate on add_version).

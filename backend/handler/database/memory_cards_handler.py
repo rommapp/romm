@@ -99,13 +99,27 @@ class DBMemoryCardsHandler(DBBaseHandler):
         self,
         id: int,
         session: Session = None,  # type: ignore
-    ) -> None:
+    ) -> list[str]:
+        """Delete a card and return the paths of the version archives that went
+        with it. The listing shares the delete's transaction and locks the rows,
+        so a snapshot written alongside cannot end up deleted in the database and
+        absent from the caller's removal list."""
+        paths = [
+            f"{file_path}/{file_name}"
+            for file_path, file_name in session.execute(
+                select(MemoryCardVersion.file_path, MemoryCardVersion.file_name)
+                .filter_by(memory_card_id=id)
+                .with_for_update()
+            ).all()
+        ]
+
         # Versions cascade via the FK / relationship.
         session.execute(
             delete(MemoryCard)
             .where(MemoryCard.id == id)
             .execution_options(synchronize_session="evaluate")
         )
+        return paths
 
     # --- Card versions (snapshots) ---
 
@@ -172,6 +186,22 @@ class DBMemoryCardsHandler(DBBaseHandler):
             .filter_by(memory_card_id=card_id)
             .order_by(desc(MemoryCardVersion.created_at), desc(MemoryCardVersion.id))
         ).all()
+
+    @begin_session
+    def set_version_missing(
+        self,
+        id: int,
+        missing: bool,
+        session: Session = None,  # type: ignore
+    ) -> None:
+        """Record whether a version's archive is still on disk, so the history
+        can say a snapshot is gone instead of offering a download that 404s."""
+        session.execute(
+            update(MemoryCardVersion)
+            .where(MemoryCardVersion.id == id)
+            .values(missing_from_fs=missing)
+            .execution_options(synchronize_session="evaluate")
+        )
 
     @begin_session
     def delete_version(

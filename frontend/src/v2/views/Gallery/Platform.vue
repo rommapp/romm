@@ -119,12 +119,13 @@ const tabs = computed<RTabNavItem[]>(() => [
 
 // Guard a stale `?tab=memory-cards` deep link on a platform that doesn't
 // support cards (or once its container is removed): fall back to library.
-// Keyed on `configLoaded` rather than `loading`, which is still false on a
-// hard refresh before the fetch starts and would bounce the tab too early.
+// Both the container config and the platform itself have to have landed:
+// either one still missing reads as "no cards here" and would bounce a deep
+// link that is about to turn out valid.
 watch(
-  [tab, memoryCardEmulator, () => streamingStore.configLoaded],
-  ([current, emulator, loadedConfig]) => {
-    if (loadedConfig && current === "memory-cards" && !emulator) {
+  [tab, memoryCardEmulator, () => streamingStore.configLoaded, currentPlatform],
+  ([current, emulator, loadedConfig, platform]) => {
+    if (loadedConfig && platform && current === "memory-cards" && !emulator) {
       tab.value = "library";
     }
   },

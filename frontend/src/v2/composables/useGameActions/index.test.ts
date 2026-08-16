@@ -60,6 +60,7 @@ vi.mock("@/stores/streaming", () => ({
   useStreamingStore: () => ({
     containerForPlatform: () => streamContainer.value,
     joinableForRom: () => joinableSession.value,
+    fetchJoinableSessions: vi.fn(),
   }),
 }));
 vi.mock("@/utils", () => ({

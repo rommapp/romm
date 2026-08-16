@@ -43,6 +43,20 @@ def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
         s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
 
 
+def _reads(body: bytes):
+    """A `read(n)` that drains like a socket: the body once, then EOF.
+
+    The broker readers loop until the response runs dry, so a stub answering the
+    same bytes to every call would look like a body that never ends.
+    """
+    chunks = iter([body])
+
+    def read(_size: int | None = None) -> bytes:
+        return next(chunks, b"")
+
+    return read
+
+
 @pytest.fixture
 def client():
     with TestClient(app) as client:
@@ -358,6 +372,53 @@ def test_memory_card_sync_honoured_on_a_platform_with_a_card(client, access_toke
         response = client.get("/api/streaming/config", headers=_auth(access_token))
     assert response.status_code == 200
     assert response.json()["containers"][0]["supports_memory_cards"] is True
+
+
+def test_get_config_hides_a_hidden_platform(
+    client, viewer_access_token, viewer_user: User, rom: Rom, platform
+):
+    """The entry carries the platform's label and capabilities, so a platform
+    an admin hid from this user must not be listed."""
+    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+    with _streaming(_container_for(rom)):
+        response = client.get(
+            "/api/streaming/config", headers=_auth(viewer_access_token)
+        )
+    assert response.status_code == 200
+    assert response.json()["containers"] == []
+
+
+def test_get_config_keeps_a_platform_the_caller_can_see(
+    client, viewer_access_token, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        response = client.get(
+            "/api/streaming/config", headers=_auth(viewer_access_token)
+        )
+    assert response.status_code == 200
+    listed = [c["platform"] for c in response.json()["containers"]]
+    assert listed == [rom.platform_slug]
+
+
+def test_get_config_offers_disc_swap_only_on_a_webstation_container(
+    client, access_token
+):
+    """Only the webstation broker has a tray route. A legacy container serving
+    a multi-disc platform would 502 on every swap it advertised."""
+    legacy = {"platform": "dc", "host": "http://192.168.1.10:3000"}
+    with _streaming(legacy):
+        legacy_caps = client.get(
+            "/api/streaming/config", headers=_auth(access_token)
+        ).json()["containers"][0]["capabilities"]
+
+    webstation = {**legacy, "protocol": "webstation"}
+    with _streaming(webstation):
+        ws_caps = client.get(
+            "/api/streaming/config", headers=_auth(access_token)
+        ).json()["containers"][0]["capabilities"]
+
+    assert legacy_caps["supports_disc_swap"] is False
+    assert ws_caps["supports_disc_swap"] is True
 
 
 # ── Nested platform config ────────────────────────────────────────────────────
@@ -1205,7 +1266,7 @@ def _webstation_ps2():
 def _webstation_json(body: dict):
     """urlopen stub answering one webstation broker call with `body`."""
     resp = MagicMock()
-    resp.__enter__.return_value.read.return_value = json.dumps(body).encode()
+    resp.__enter__.return_value.read.side_effect = _reads(json.dumps(body).encode())
     return resp
 
 
@@ -1337,6 +1398,66 @@ def test_stale_session_taken_over_on_claim(
     stop_broker.assert_called_once()
 
 
+def test_takeover_leaves_the_displaced_owner_a_notice(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Their tab is still showing the stream. Without the note the picture just
+    stops with nothing to explain it."""
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        owner = json.loads(
+            asyncio.run(
+                async_cache.get(
+                    streaming._session_redis_key(streaming._container_key(container))
+                )
+            )
+        )["user_id"]
+        _age_session(rom, streaming._SESSION_STALE_SECONDS + 60)
+        with patch("endpoints.streaming._stop_broker", return_value=None):
+            _claim_ok(client, viewer_access_token, rom.id)
+
+        notice = asyncio.run(
+            streaming._get_termination(streaming._container_key(container), owner)
+        )
+
+    assert notice is not None
+    assert notice["reason"] == "abandoned"
+    assert notice["rom_id"] == rom.id
+
+
+def test_takeover_aborts_when_the_owner_comes_back_first(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The staleness check is older than the teardown it triggers. Re-checking
+    under the marker is what stops a returning owner's container being wiped."""
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, streaming._SESSION_STALE_SECONDS + 60)
+
+        real_stale = streaming._session_is_stale
+        checked = False
+
+        def stale_then_fresh(session):
+            # Stale for the scan that picks the candidate, fresh by the time
+            # the teardown re-checks it, as if a heartbeat landed in between.
+            nonlocal checked
+            if checked:
+                return False
+            checked = True
+            return real_stale(session)
+
+        with patch.object(streaming, "_session_is_stale", stale_then_fresh):
+            with patch(
+                "endpoints.streaming._stop_broker", return_value=None
+            ) as stop_broker:
+                r = _claim_ok(client, viewer_access_token, rom.id)
+
+    assert r.status_code == 409
+    stop_broker.assert_not_called()
+
+
 def test_fresh_session_not_taken_over(
     client, access_token, viewer_access_token, rom: Rom
 ):
@@ -1371,26 +1492,76 @@ def test_heartbeat_refreshes_last_seen(client, access_token, rom: Rom):
 
 
 def test_heartbeat_racing_a_teardown_reports_ended(client, access_token, rom: Rom):
-    """The XX write no-ops when the claim was released mid-flight; answering
-    "active" there would leave the client beating a session it no longer holds."""
+    """The refresh finds nothing when the claim was released between the lookup
+    and the write; answering "active" there would leave the client beating a
+    session it no longer holds."""
     container = _container_for(rom)
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
         key = streaming._session_redis_key(streaming._container_key(container))
 
-        real_set = async_cache.set
+        real_find = streaming._find_session_for_user
 
-        async def drop_then_set(*args, **kwargs):
+        async def find_then_drop(*args, **kwargs):
+            found = await real_find(*args, **kwargs)
             await async_cache.delete(key)
-            return await real_set(*args, **kwargs)
+            return found
 
-        with patch.object(async_cache, "set", side_effect=drop_then_set):
+        with patch.object(streaming, "_find_session_for_user", find_then_drop):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
                 headers=_auth(access_token),
             )
     assert r.status_code == 200
     assert r.json()["status"] == "ended"
+
+
+def test_heartbeat_does_not_revive_a_draining_session(client, access_token, rom: Rom):
+    """A container being torn down must not be made to look live again: the
+    emulator is already stopped and its card evacuated."""
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        key = streaming._session_redis_key(streaming._container_key(container))
+        session = json.loads(asyncio.run(async_cache.get(key)))
+        session["draining"] = True
+        asyncio.run(async_cache.set(key, json.dumps(session)))
+
+        r = client.post(
+            f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+
+
+def test_heartbeat_keeps_a_disc_swap_that_landed_first(client, access_token, rom: Rom):
+    """Heartbeat and swap rewrite the same session blob. Writing back the copy
+    read at the start of the request would drop the disc the swap just set."""
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        session_key = streaming._container_key(container)
+        key = streaming._session_redis_key(session_key)
+
+        real_find = streaming._find_session_for_user
+
+        async def find_then_swap(*args, **kwargs):
+            # The swap lands after the heartbeat read its copy of the session.
+            found = await real_find(*args, **kwargs)
+            await streaming._set_session_disc(session_key, 4242)
+            return found
+
+        with patch.object(streaming, "_find_session_for_user", find_then_swap):
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
+                headers=_auth(access_token),
+            )
+        session = json.loads(asyncio.run(async_cache.get(key)))
+
+    assert r.json()["status"] == "active"
+    assert session["disc_file_id"] == 4242
+    assert not streaming._session_is_stale(session)
 
 
 def test_heartbeat_without_session_reports_ended(client, access_token, rom: Rom):
@@ -1661,7 +1832,7 @@ def test_save_and_exit_releases_session(client, access_token, rom: Rom):
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
-                json={"slot": 10, "wait": True},
+                json={"slot": 0, "wait": True},
                 headers=_auth(access_token),
             )
         # Container must be claimable again after save-and-exit.
@@ -1681,13 +1852,31 @@ def test_save_and_exit_failure_still_releases_session(client, access_token, rom:
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
-                json={"slot": 10, "wait": True},
+                json={"slot": 0, "wait": True},
                 headers=_auth(access_token),
             )
         r2 = _claim_ok(client, access_token, rom.id)
     assert r.status_code == 200
     assert r.json()["saved"] is False
     assert r2.status_code == 200
+
+
+def test_save_and_exit_rejects_a_slot_the_platform_lacks(client, access_token):
+    """The exit save writes to a slot like any other save, so a slot the
+    platform does not expose is refused here too rather than at the broker."""
+    rom = _rom_on("ngc")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch(
+            "endpoints.streaming._save_and_exit_broker", return_value=(True, 9)
+        ) as broker:
+            r = client.post(
+                "/api/streaming/sessions/ngc/save-and-exit",
+                json={"slot": 9, "wait": True},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 422
+    broker.assert_not_called()
 
 
 def test_force_release_all_stops_brokers(client, access_token, rom: Rom):
@@ -1864,7 +2053,7 @@ def test_save_and_exit_failed_blocking_save_skips_state_pull(
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
-                json={"slot": 10, "wait": True},
+                json={"slot": 0, "wait": True},
                 headers=_auth(access_token),
             )
     assert r.status_code == 200
@@ -2122,12 +2311,14 @@ def test_hydrate_pushes_newest_state_under_container_name(rom: Rom, admin_user: 
     """Only the newest capture is hydrated, and it lands under the unstamped name
     the emulator expects on disk."""
     _add_state_at(rom, admin_user, "Game.20260101-000000000000.01.p2s", 1)
-    _add_state_at(rom, admin_user, "Game.20260202-000000000000.01.p2s", 2)
+    newest = _add_state_at(rom, admin_user, "Game.20260202-000000000000.01.p2s", 2)
     container = {**_container_for(rom), "label": "PCSX2"}
     with (
+        # Both stamps collapse to the same destination name, so only the bytes
+        # say which source was read; a constant here would pass either way.
         patch(
             "endpoints.streaming.fs_asset_handler.read_file",
-            new=AsyncMock(return_value=b"state-bytes"),
+            new=AsyncMock(side_effect=lambda path: path.encode()),
         ),
         patch("endpoints.streaming._push_state_file", return_value=True) as push,
     ):
@@ -2137,6 +2328,7 @@ def test_hydrate_pushes_newest_state_under_container_name(rom: Rom, admin_user: 
     assert pushed == 1
     push.assert_called_once()
     assert push.call_args[0][1] == "Game.01.p2s"
+    assert push.call_args[0][2] == newest.full_path.encode()
 
 
 def test_pull_state_skips_capture_identical_to_previous(rom: Rom, admin_user: User):
@@ -2249,7 +2441,7 @@ def test_state_transfer_limits_are_larger_for_xemu():
 def test_fetch_state_file_reads_and_waits_to_the_emulator_limits(rom: Rom):
     resp = MagicMock()
     inner = resp.__enter__.return_value
-    inner.read.return_value = b"state-bytes"
+    inner.read.side_effect = _reads(b"state-bytes")
     inner.headers = {"X-State-Filename": "game.xemu.state"}
     container = dict(_container_for(rom), emulator="xemu")
 
@@ -2263,12 +2455,15 @@ def test_fetch_state_file_reads_and_waits_to_the_emulator_limits(rom: Rom):
 
     limits = streaming._STATE_TRANSFER_LIMITS["xemu"]
     assert urlopen.call_args.kwargs["timeout"] == limits["timeout"]
-    inner.read.assert_called_once_with(limits["max_bytes"] + 1)
+    # The read is chunked, but never asks for more in total than the ceiling it
+    # will accept, plus the one byte that proves the body overran it.
+    requested = sum(call.args[0] for call in inner.read.call_args_list)
+    assert requested <= limits["max_bytes"] + 1
 
 
 def test_push_state_file_waits_to_the_emulator_limits(rom: Rom):
     resp = MagicMock()
-    resp.__enter__.return_value.read.return_value = b'{"status": "ok"}'
+    resp.__enter__.return_value.read.side_effect = _reads(b'{"status": "ok"}')
     container = dict(_container_for(rom), emulator="xemu")
 
     with patch(
@@ -2284,7 +2479,7 @@ def test_push_state_file_waits_to_the_emulator_limits(rom: Rom):
 
 def test_fetch_state_screenshot_returns_png(rom: Rom):
     resp = MagicMock()
-    resp.__enter__.return_value.read.return_value = _PNG
+    resp.__enter__.return_value.read.side_effect = _reads(_PNG)
     with patch("endpoints.streaming.urllib.request.urlopen", return_value=resp):
         assert streaming._fetch_state_screenshot(_container_for(rom), 1) == _PNG
 
@@ -2545,7 +2740,7 @@ def test_hydrate_saves_pushes_newest_matching_zip(rom: Rom, admin_user: User):
     db_save_handler.add_save(
         _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
     )
-    db_save_handler.add_save(
+    newest = db_save_handler.add_save(
         _save_for(rom, admin_user, "Game [pcsx2 b].saves.zip", "pcsx2", "h2")
     )
     db_save_handler.add_save(_save_for(rom, admin_user, "loose.mcr", "pcsx2", "h3"))
@@ -2554,9 +2749,11 @@ def test_hydrate_saves_pushes_newest_matching_zip(rom: Rom, admin_user: User):
     )
     container = {**_container_for(rom), "label": "PCSX2"}
     with (
+        # Path-derived bytes, so the assertion below names which of the four
+        # saves was actually read rather than just that something was pushed.
         patch(
             "endpoints.streaming.fs_asset_handler.read_file",
-            new=AsyncMock(return_value=b"zip-bytes"),
+            new=AsyncMock(side_effect=lambda path: path.encode()),
         ),
         patch("endpoints.streaming._push_save_archive", return_value=True) as push,
     ):
@@ -2565,9 +2762,8 @@ def test_hydrate_saves_pushes_newest_matching_zip(rom: Rom, admin_user: User):
         )
     assert ok is True
     push.assert_called_once()
-    # The pushed file must be a pcsx2 .zip, never the .mcr or the dolphin save.
-    pushed_content = push.call_args[0][1]
-    assert pushed_content == b"zip-bytes"
+    # The newest pcsx2 .zip, never the .mcr, the dolphin save, or the older zip.
+    assert push.call_args[0][1] == newest.full_path.encode()
 
 
 def test_hydrate_saves_no_matching_save_returns_false(rom: Rom, admin_user: User):
@@ -2786,15 +2982,16 @@ def test_state_transfers_reach_the_webstation_broker_under_its_subfolder(rom: Ro
     container = _webstation_for(rom)
     resp = MagicMock()
     inner = resp.__enter__.return_value
-    inner.read.return_value = b"state-bytes"
     inner.headers = {"X-State-Filename": "Game.03.p2s"}
 
     with patch(
         "endpoints.streaming.urllib.request.urlopen", return_value=resp
     ) as urlopen:
+        inner.read.side_effect = _reads(b"state-bytes")
         streaming._fetch_state_file(container, 3)
+        inner.read.side_effect = _reads(_PNG)
         streaming._fetch_state_screenshot(container, 3)
-        inner.read.return_value = b'{"status": "ok"}'
+        inner.read.side_effect = _reads(b'{"status": "ok"}')
         streaming._push_state_file(container, "Game.03.p2s", b"bytes")
 
     root = "http://192.168.1.10:8000/streaming/api/session"
@@ -3343,7 +3540,7 @@ def _http_error(code: int, headers: dict[str, str] | None = None):
 
 def test_fetch_memory_card_returns_bytes(rom: Rom):
     resp = MagicMock()
-    resp.__enter__.return_value.read.return_value = b"card-bytes"
+    resp.__enter__.return_value.read.side_effect = _reads(b"card-bytes")
     with patch("endpoints.streaming.urllib.request.urlopen", return_value=resp):
         assert streaming._fetch_memory_card(_mc_container_for(rom)) == b"card-bytes"
 
@@ -4604,12 +4801,18 @@ def test_a_proxied_webstation_host_derives_nothing():
 # ── /sessions/{platform}/swap-disc ──────────────────────────────────────────
 
 
+def _tray_container(rom: Rom, **overrides):
+    """Only the webstation broker has a tray route, so every swap that is meant
+    to reach the broker starts from one of these."""
+    return {**_container_for(rom), "protocol": "webstation", **overrides}
+
+
 def test_swap_disc_calls_the_broker_and_records_the_disc(client, access_token):
     rom = _rom_on("dc")
     disc = _add_rom_file(rom, "Game (Disc 2).chd")
-    container = _container_for(rom)
+    container = _tray_container(rom)
     with _streaming(container):
-        _claim_ok(client, access_token, rom.id)
+        _claim_webstation_ok(client, access_token, rom.id)
         with patch("endpoints.streaming._swap_disc_broker", return_value=True) as swap:
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
@@ -4630,9 +4833,9 @@ def test_swap_disc_calls_the_broker_and_records_the_disc(client, access_token):
 def test_swap_disc_reports_a_broker_failure(client, access_token):
     rom = _rom_on("dc")
     disc = _add_rom_file(rom, "Game (Disc 2).chd")
-    container = _container_for(rom)
+    container = _tray_container(rom)
     with _streaming(container):
-        _claim_ok(client, access_token, rom.id)
+        _claim_webstation_ok(client, access_token, rom.id)
         with patch("endpoints.streaming._swap_disc_broker", return_value=False):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
@@ -4647,8 +4850,8 @@ def test_swap_disc_reports_a_broker_failure(client, access_token):
 def test_swap_disc_refuses_a_file_from_another_rom(client, access_token, rom):
     streamed = _rom_on("dc")
     stranger = _add_rom_file(rom, "Other.chd")
-    with _streaming(_container_for(streamed)):
-        _claim_ok(client, access_token, streamed.id)
+    with _streaming(_tray_container(streamed)):
+        _claim_webstation_ok(client, access_token, streamed.id)
         r = client.post(
             f"/api/streaming/sessions/{streamed.platform_slug}/swap-disc",
             json={"file_id": stranger.id},
@@ -4663,8 +4866,8 @@ def test_swap_disc_refuses_the_m3u_playlist(client, access_token):
     rom = _rom_on("dc")
     playlist = _add_rom_file(rom, "Game.m3u")
     _add_rom_file(rom, "Game (Disc 2).chd")
-    with _streaming(_container_for(rom)):
-        _claim_ok(client, access_token, rom.id)
+    with _streaming(_tray_container(rom)):
+        _claim_webstation_ok(client, access_token, rom.id)
         with patch("endpoints.streaming._swap_disc_broker") as swap:
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
@@ -4681,8 +4884,8 @@ def test_swap_disc_refuses_a_raw_track_when_cues_are_present(client, access_toke
     rom = _rom_on("dc")
     _add_rom_file(rom, "Game (Disc 2).cue")
     track = _add_rom_file(rom, "Game (Disc 2) (Track 01).bin")
-    with _streaming(_container_for(rom)):
-        _claim_ok(client, access_token, rom.id)
+    with _streaming(_tray_container(rom)):
+        _claim_webstation_ok(client, access_token, rom.id)
         with patch("endpoints.streaming._swap_disc_broker") as swap:
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
@@ -4723,8 +4926,8 @@ def test_swap_disc_needs_a_session(client, access_token):
 def test_swap_disc_rejects_a_platform_with_no_tray(client, access_token):
     rom = _rom_on("ps2")
     disc = _add_rom_file(rom, "Game (Disc 2).chd")
-    with _streaming(_container_for(rom)):
-        _claim_ok(client, access_token, rom.id)
+    with _streaming(_tray_container(rom)):
+        _claim_webstation_ok(client, access_token, rom.id)
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
             json={"file_id": disc.id},
@@ -4733,14 +4936,32 @@ def test_swap_disc_rejects_a_platform_with_no_tray(client, access_token):
     assert r.status_code == 400
 
 
+def test_swap_disc_rejects_a_container_with_no_tray_route(client, access_token):
+    """The platform swaps discs but this broker has no tray route, and /config
+    told the frontend as much, so the refusal comes from RomM and not as a 502
+    from a broker asked for a route it does not serve."""
+    rom = _rom_on("dc")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._swap_disc_broker") as swap:
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
+                json={"file_id": disc.id},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 400
+    swap.assert_not_called()
+
+
 def test_a_state_captured_after_a_swap_records_the_disc(client, access_token):
     rom = _rom_on("dc")
     disc = _add_rom_file(rom, "Game (Disc 2).chd")
     # "dc" is in no capability table, so without an explicit emulator the
     # container resolves to the slug and every slot fails validation.
-    container = {**_container_for(rom), "emulator": "retroarch"}
+    container = _tray_container(rom, emulator="retroarch")
     with _streaming(container):
-        _claim_ok(client, access_token, rom.id)
+        _claim_webstation_ok(client, access_token, rom.id)
         with patch("endpoints.streaming._swap_disc_broker", return_value=True):
             client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",

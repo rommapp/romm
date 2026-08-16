@@ -191,10 +191,9 @@ async function releaseSession(
   });
 }
 
-async function listJoinableSessions(romId?: number) {
+async function listJoinableSessions() {
   return api.get<{ sessions: JoinableSession[] }>(
     "/streaming/sessions/joinable",
-    { params: romId !== undefined ? { rom_id: romId } : {} },
   );
 }
 
@@ -284,8 +283,8 @@ function keepaliveHeaders(): Record<string, string> {
   };
 }
 
-function saveAndExitKeepalive(platform: string, slot = 0): void {
-  void fetch(`/api/streaming/sessions/${platform}/save-and-exit`, {
+function saveAndExitKeepalive(platform: string, slot = 0): Promise<Response> {
+  return fetch(`/api/streaming/sessions/${platform}/save-and-exit`, {
     method: "POST",
     keepalive: true,
     credentials: "same-origin",
@@ -294,8 +293,13 @@ function saveAndExitKeepalive(platform: string, slot = 0): void {
   });
 }
 
-function releaseSessionKeepalive(platform: string): void {
-  void fetch(`/api/streaming/sessions/${platform}`, {
+function releaseSessionKeepalive(
+  platform: string,
+  container?: string,
+): Promise<Response> {
+  // Names which container to release, for the platforms a pool serves.
+  const query = container ? `?container=${encodeURIComponent(container)}` : "";
+  return fetch(`/api/streaming/sessions/${platform}${query}`, {
     method: "DELETE",
     keepalive: true,
     credentials: "same-origin",

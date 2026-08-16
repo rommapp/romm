@@ -10,7 +10,7 @@
 //   actions.isFavorite     // reactive Ref<boolean>
 //   actions.canManageCollections  // reactive Ref<boolean>
 import type { Emitter } from "mitt";
-import { computed, inject, type InjectionKey } from "vue";
+import { computed, inject, type InjectionKey, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
@@ -94,6 +94,18 @@ export function useGameActions(
     if (!rom) return "";
     return streamingStore.containerForPlatform(rom.platform_slug)?.label ?? "";
   });
+
+  // Asked for here so every surface offering Join has the list, not just the
+  // game details page. The store collapses concurrent callers into one request
+  // and holds the answer for a freshness window, so a gallery of cards costs
+  // what a single card costs.
+  watch(
+    canPlayStream,
+    (can) => {
+      if (can) void streamingStore.fetchJoinableSessions();
+    },
+    { immediate: true },
+  );
 
   // A session someone else opened to other players on this exact ROM. Read
   // from the store, never fetched here: this composable is instantiated once

@@ -130,6 +130,7 @@ app.add_middleware(
         re.compile(r"^/api/saves"),
         re.compile(r"^/api/states"),
         re.compile(r"^/api/screenshots"),
+        re.compile(r"^/api/memory-cards"),
     ],
 )
 

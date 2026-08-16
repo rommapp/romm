@@ -6,9 +6,11 @@ import logging
 import os
 import re
 import secrets
+import time
 import urllib.error
 import urllib.request
 import zipfile
+from collections.abc import Callable
 from datetime import datetime, timezone
 from email.message import Message
 from pathlib import PurePosixPath
@@ -18,6 +20,7 @@ from urllib.parse import quote, urljoin, urlparse, urlunparse
 from fastapi import Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from redis.exceptions import WatchError
 from starlette.background import BackgroundTask
 
 from config import (
@@ -33,6 +36,7 @@ from handler.auth.dependencies import assert_rom_visible, get_permissions
 from handler.database import (
     db_container_adoption_handler,
     db_memory_card_handler,
+    db_platform_handler,
     db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
@@ -112,23 +116,80 @@ async def _refresh_session(session_key: str) -> None:
     await async_cache.expire(_session_redis_key(session_key), SESSION_TTL_SECONDS)
 
 
+# A contended session key is rewritten by at most a heartbeat, a swap and a
+# release, so a handful of retries is far more than the contention warrants.
+_SESSION_CAS_ATTEMPTS = 5
+
+
+class _SessionContended(Exception):
+    """The session key stayed contended for the whole CAS budget.
+
+    Kept apart from the None that means "gone": a key nobody could write is
+    still a key that exists, and callers that treat it as a vanished claim
+    report a live session as ended.
+    """
+
+
+async def _mutate_session(
+    session_key: str,
+    changes: dict[str, Any],
+    *,
+    require: Callable[[dict[str, Any]], bool] | None = None,
+) -> dict[str, Any] | None:
+    """Merge `changes` into a live session, atomically.
+
+    The whole session is one JSON blob, so a plain read-modify-write silently
+    drops whichever concurrent update landed in between: a heartbeat racing a
+    disc swap would write back a copy with no `disc_file_id`. WATCH aborts the
+    write when the key moved under us and the retry re-reads.
+
+    `require` is evaluated against the freshly read session inside the same
+    watch, so a caller can act on a condition without it going stale between
+    the check and the write. Returns the stored session, or None when the key
+    is gone, corrupt, or `require` rejected it. Raises `_SessionContended` when
+    the write never landed, which is not the same as the key being gone.
+    """
+    key = _session_redis_key(session_key)
+    for _ in range(_SESSION_CAS_ATTEMPTS):
+        async with async_cache.pipeline() as pipe:
+            await pipe.watch(key)
+            raw = await pipe.get(key)
+            if raw is None:
+                await pipe.unwatch()
+                return None
+            try:
+                session = json.loads(raw)
+            except (TypeError, json.JSONDecodeError):
+                await pipe.unwatch()
+                await async_cache.delete(key)
+                return None
+            if require is not None and not require(session):
+                await pipe.unwatch()
+                return None
+            session.update(changes)
+            pipe.multi()
+            # xx so a release landing between the watch and the exec cannot be
+            # undone by resurrecting the key.
+            await pipe.set(key, json.dumps(session), xx=True, ex=SESSION_TTL_SECONDS)
+            try:
+                await pipe.execute()
+            except WatchError:
+                continue
+            return session
+    raise _SessionContended(session_key)
+
+
 async def _set_session_disc(session_key: str, file_id: int) -> None:
     """Record the disc a session is now running.
 
-    Re-read rather than writing back the caller's copy, so a swap racing a
-    heartbeat does not undo it. `xx=True` so it cannot resurrect a released
-    session.
+    Best-effort: the disc is already in the tray by the time this runs, so a
+    key that could not be written costs the next state capture its disc, not
+    the swap the player asked for.
     """
-    session = await _get_session(session_key)
-    if session is None:
-        return
-    session["disc_file_id"] = file_id
-    await async_cache.set(
-        _session_redis_key(session_key),
-        json.dumps(session),
-        xx=True,
-        ex=SESSION_TTL_SECONDS,
-    )
+    try:
+        await _mutate_session(session_key, {"disc_file_id": file_id})
+    except _SessionContended:
+        log.warning("could not record disc %s on session %s", file_id, session_key)
 
 
 def _session_disc_id(session: dict[str, Any]) -> int | None:
@@ -490,7 +551,9 @@ class ClaimSessionRequest(BaseModel):
 
 
 class SaveAndExitRequest(BaseModel):
-    slot: Annotated[int, Field(ge=0, le=10)] = 0
+    # 0 leaves the slot to the broker's own exit save. Anything else is a
+    # coarse union bound here and the exact per-platform ceiling in the route.
+    slot: Annotated[int, Field(ge=0, le=_MAX_SLOT)] = 0
     wait: bool = True
 
 
@@ -773,18 +836,46 @@ def _assert_session_rom_visible(
         raise HTTPException(status_code=404, detail=not_found_detail)
 
 
+def _visible_rom_name(request: Request, session: dict[str, Any]) -> str | None:
+    """The name of the ROM a session is running, blanked when the caller cannot
+    see that ROM. "Busy" is safe to report to anyone; what is running is not."""
+    if not session or not _session_rom_is_visible(request, session):
+        return None
+    name = session.get("rom_name")
+    return str(name) if name else None
+
+
+def _platform_is_visible(request: Request, platform_slug: str) -> bool:
+    """Can the caller see this platform?
+
+    A container may name a slug the library has never scanned, which has no
+    platform row and so nothing to hide.
+    """
+    if not platform_slug or not request.user.is_authenticated:
+        return True
+    platform = db_platform_handler.get_platform_by_slug(platform_slug)
+    if platform is None:
+        return True
+    return get_permissions(request).can_see_platform(platform.id)
+
+
 async def _find_session_for_user(
     candidates: list[dict[str, Any]], user_id: int
 ) -> tuple[dict[str, Any], str, dict[str, Any]] | None:
     """The candidate holding this user's session, as (container, key, session).
 
     With a pool the platform no longer identifies the container, the session
-    does. A drain marker records no user, so it never matches.
+    does. A container being drained is nobody's, whether the marker replaced
+    the session (release) or was set on it (teardown): its emulator is already
+    being killed, so treating it as held would report a live stream and let
+    control routes act on it.
     """
     for candidate in candidates:
         session_key = _container_key(candidate)
         session = await _get_session(session_key)
-        if session is not None and session.get("user_id") == user_id:
+        if session is None or session.get("draining"):
+            continue
+        if session.get("user_id") == user_id:
             return candidate, session_key, session
     return None
 
@@ -922,6 +1013,33 @@ def _broker_headers(container: dict[str, Any]) -> dict[str, str]:
     return {"X-Broker-Secret": secret} if secret else {}
 
 
+# urllib's timeout bounds a single socket operation, not the transfer, so a
+# broker feeding one byte per timeout window can hold a read open for as long
+# as it likes. Reading in chunks against a wall clock is what ends it.
+_BROKER_READ_CHUNK = 1024 * 1024
+# Control responses are small; a JSON body past this is a broker fault.
+_BROKER_JSON_MAX_BYTES = 4 * 1024 * 1024
+
+
+def _read_bounded(resp: Any, max_bytes: int, deadline: float) -> bytes:
+    """Read up to `max_bytes` from an open response, giving up at `deadline`.
+
+    Reads one byte past the cap so the caller can tell a body that fits from
+    one that was truncated.
+    """
+    chunks: list[bytes] = []
+    size = 0
+    while size <= max_bytes:
+        if time.monotonic() > deadline:
+            raise TimeoutError("broker response exceeded its time budget")
+        chunk = resp.read(min(_BROKER_READ_CHUNK, max_bytes + 1 - size))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        size += len(chunk)
+    return b"".join(chunks)
+
+
 def _broker_request(
     container: dict[str, Any],
     path: str,
@@ -944,8 +1062,11 @@ def _broker_request(
         headers["Content-Type"] = "application/json"
         headers["Content-Length"] = str(len(data))
     req = urllib.request.Request(url, data=data, method=method, headers=headers)
+    deadline = time.monotonic() + timeout
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
-        raw = resp.read()
+        raw = _read_bounded(resp, _BROKER_JSON_MAX_BYTES, deadline)
+    if len(raw) > _BROKER_JSON_MAX_BYTES:
+        raise ValueError("broker response exceeds size limit")
     return json.loads(raw) if raw else {}
 
 
@@ -989,9 +1110,10 @@ def _broker_get_binary(
         method="GET",
         headers=_broker_headers(container),
     )
+    deadline = time.monotonic() + timeout
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
         headers = resp.headers
-        content = resp.read(max_bytes + 1)
+        content = _read_bounded(resp, max_bytes, deadline)
     if not content:
         raise ValueError("broker returned an empty body")
     if len(content) > max_bytes:
@@ -1046,9 +1168,10 @@ def _broker_put_binary_json(
             **_broker_headers(container),
         },
     )
+    deadline = time.monotonic() + timeout
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
-            body = json.loads(resp.read())
+            body = json.loads(_read_bounded(resp, _BROKER_JSON_MAX_BYTES, deadline))
         return body if isinstance(body, dict) else {}
     except Exception as exc:
         log.warning("broker %s failed, %s", label, exc)
@@ -1315,8 +1438,16 @@ def _webstation_path(container: dict[str, Any], path: str) -> str:
 
 
 def _container_capabilities(container: dict[str, Any]) -> PlatformCapabilities:
-    """The save-state controls the frontend may offer for this container."""
-    return platform_capabilities(str(container.get("platform", "")))
+    """The save-state controls the frontend may offer for this container.
+
+    Disc swap is keyed by platform, but only the webstation broker has a tray
+    route, so it is cleared here rather than in `platform_capabilities`: a
+    legacy container must not advertise a control whose every use 502s.
+    """
+    capabilities = platform_capabilities(str(container.get("platform", "")))
+    if not _is_webstation(container):
+        capabilities = {**capabilities, "supports_disc_swap": False}
+    return capabilities
 
 
 def _webstation_activate(
@@ -1730,7 +1861,10 @@ def _user_states_for_emulator(user_id: int, rom_id: int, emulator: str) -> list[
         for s in db_state_handler.get_states(user_id=user_id, rom_id=rom_id)
         if (s.emulator or "").lower() == emulator
     ]
-    states.sort(key=lambda s: s.updated_at, reverse=True)
+    # Ties on id, because updated_at only has second resolution: two captures
+    # in the same second would otherwise order arbitrarily, and only the first
+    # of them is ever hydrated.
+    states.sort(key=lambda s: (s.updated_at, s.id), reverse=True)
     return states
 
 
@@ -2174,18 +2308,16 @@ async def _newest_save_archive(
     """The user's most recent stored save archive for this emulator, read off
     disk. Returns (file name, content), or None when there is nothing to send.
     """
-    newest = None
-    for save in db_save_handler.get_saves(
-        user_id=user_id, rom_id=rom_id, order_by="created_at", order_dir="desc"
-    ):
-        if (save.emulator or "").lower() != emulator:
-            continue
-        if not save.file_name.endswith(".zip"):
-            continue
-        newest = save
-        break
-    if newest is None:
+    archives = [
+        save
+        for save in db_save_handler.get_saves(user_id=user_id, rom_id=rom_id)
+        if (save.emulator or "").lower() == emulator and save.file_name.endswith(".zip")
+    ]
+    if not archives:
         return None
+    # Ties on id, because created_at only has second resolution: two archives
+    # written in the same second would otherwise hydrate arbitrarily.
+    newest = max(archives, key=lambda s: (s.created_at, s.id))
 
     try:
         content = await fs_asset_handler.read_file(
@@ -2493,6 +2625,16 @@ def _adoption_already_stored(card_id: int, content: bytes | None) -> bool:
     return latest is not None and latest.content_hash == content_hash
 
 
+async def _discard_blank_card(card_id: int) -> None:
+    """Drop a card this claim created, with any archive it picked up on the way:
+    an abort after adoption is a card that already holds a version."""
+    for path in db_memory_card_handler.delete_card(card_id):
+        try:
+            await fs_asset_handler.remove_file(file_path=path)
+        except OSError as exc:
+            log.warning("could not remove card archive %s, %s", path, exc)
+
+
 async def _evacuate_memory_card(
     user_id: int, card_id: int, emulator: str, container: dict[str, Any]
 ) -> bool:
@@ -2641,18 +2783,68 @@ async def _record_play_session(session: dict[str, Any]) -> None:
 
 async def _teardown_abandoned_session(
     container: dict[str, Any], session_key: str, session: dict[str, Any]
-) -> None:
+) -> bool:
     """Free a container whose owner vanished without releasing (heartbeat went
     stale). Same order as an owner release: stop the emulator so the card is
     quiescent, evacuate and wipe it, credit the owner's playtime, then drop
     the claim.
+
+    Returns False when the session stopped looking abandoned before any of that
+    started, meaning the owner came back or another request got here first.
     """
-    await asyncio.to_thread(_stop_broker, container)
-    safe_to_wipe = await _evacuate_session_card(session, container)
-    if safe_to_wipe:
-        await _wipe_session_card(container)
-    await _record_play_session(session)
-    await async_cache.delete(_session_redis_key(session_key))
+    # Claim the teardown before touching the broker. The work below runs for
+    # seconds, and the staleness check that led here is older still, so without
+    # the marker a heartbeat landing in that window would refresh a claim whose
+    # container is already being wiped. Re-checking staleness under the same
+    # watch is what makes the decision current rather than the caller's.
+    try:
+        marked = await _mutate_session(
+            session_key, {"draining": True}, require=_session_is_stale
+        )
+    except _SessionContended:
+        # Somebody is writing to this key, so it is not the derelict session
+        # this path exists to clean up.
+        return False
+    if marked is None:
+        return False
+
+    try:
+        state_slot = await asyncio.to_thread(_stop_broker, container)
+        safe_to_wipe = await _evacuate_session_card(session, container)
+        if safe_to_wipe:
+            await _wipe_session_card(container)
+        await _record_play_session(session)
+        # That tab may still be showing the stream, so leave the same note an
+        # admin force-release does rather than letting the picture simply stop.
+        await _record_termination(
+            session, session_key, ended_by=None, reason="abandoned"
+        )
+
+        rom_id = session.get("rom_id")
+        user_id = session.get("user_id")
+        # The stop wrote an exit state the broker keeps only until the next
+        # activate, and dropping the claim below is what lets that activate
+        # happen, so it is collected here rather than left to be overwritten.
+        if (
+            state_slot is not None
+            and isinstance(rom_id, int)
+            and isinstance(user_id, int)
+        ):
+            await _pull_state_to_library(
+                user_id,
+                rom_id,
+                container,
+                state_slot,
+                disc_file_id=_session_disc_id(session),
+            )
+    except Exception:
+        log.exception("abandoned session teardown failed, key=%s", session_key)
+    finally:
+        # The marker carries the full session TTL, so a step raising above would
+        # otherwise leave the container unclaimable until it expires: draining
+        # blocks the claim, the takeover skips it, and no release path owns it.
+        await async_cache.delete(_session_redis_key(session_key))
+    return True
 
 
 # Slot number encoded in each emulator's state filename, e.g. PCSX2 writes
@@ -2783,6 +2975,10 @@ async def get_config(request: Request) -> JSONResponse:
 
         platform = c.get("platform", "")
         if platform in safe_containers:
+            continue
+        # The entry carries the platform's label and capabilities, so a
+        # platform hidden from this caller must not be listed here either.
+        if not _platform_is_visible(request, platform):
             continue
         safe_containers[platform] = {
             "platform": platform,
@@ -2933,9 +3129,10 @@ async def claim_session(
                 platform,
                 existing.get("user_id"),
             )
-            await _teardown_abandoned_session(
+            if not await _teardown_abandoned_session(
                 candidate, _container_key(candidate), existing
-            )
+            ):
+                continue
             if await _try_claim(candidate):
                 container = candidate
                 break
@@ -2953,7 +3150,7 @@ async def claim_session(
                     if len(candidates) == 1
                     else f"All {len(candidates)} containers for this platform are in use"
                 ),
-                "rom_name": existing.get("rom_name"),
+                "rom_name": _visible_rom_name(request, existing),
                 "claimed_at": existing.get("claimed_at"),
             },
         )
@@ -3038,11 +3235,15 @@ async def claim_session(
         )
         created_blank_card_id = memory_card.id
         session["memory_card_id"] = memory_card.id
-        await async_cache.set(
-            _session_redis_key(session_key),
-            json.dumps(session),
-            ex=SESSION_TTL_SECONDS,
-        )
+        # Through _mutate_session, not a plain SET: a force-release landing in
+        # this window deletes the key, and writing it back whole would resurrect
+        # a claim on a container whose emulator is already being stopped.
+        try:
+            await _mutate_session(session_key, {"memory_card_id": memory_card.id})
+        except _SessionContended:
+            log.warning(
+                "could not record card %s on session %s", memory_card.id, session_key
+            )
 
     # Establish version 1 from the container's own card before hydrate runs, so
     # the hydrate that follows pushes the adopted card back rather than a blank.
@@ -3067,7 +3268,7 @@ async def claim_session(
                 log.exception("could not adopt the container memory card")
                 await async_cache.delete(_session_redis_key(session_key))
                 if created_blank_card_id is not None:
-                    db_memory_card_handler.delete_card(created_blank_card_id)
+                    await _discard_blank_card(created_blank_card_id)
                 raise HTTPException(
                     status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL
                 ) from exc
@@ -3083,7 +3284,7 @@ async def claim_session(
                 )
                 await async_cache.delete(_session_redis_key(session_key))
                 if created_blank_card_id is not None:
-                    db_memory_card_handler.delete_card(created_blank_card_id)
+                    await _discard_blank_card(created_blank_card_id)
                 raise HTTPException(status_code=502, detail=_CARD_IMPORT_FAILED_DETAIL)
         db_container_adoption_handler.add_adoption(
             container_key=_container_key(container),
@@ -3118,7 +3319,7 @@ async def claim_session(
         if not hydrated:
             await async_cache.delete(_session_redis_key(session_key))
             if created_blank_card_id is not None:
-                db_memory_card_handler.delete_card(created_blank_card_id)
+                await _discard_blank_card(created_blank_card_id)
             raise HTTPException(
                 status_code=502, detail="Could not prepare the memory card"
             )
@@ -3188,7 +3389,7 @@ async def claim_session(
         # Launch failed, free the claim so the container isn't wedged.
         await async_cache.delete(_session_redis_key(session_key))
         if created_blank_card_id is not None:
-            db_memory_card_handler.delete_card(created_blank_card_id)
+            await _discard_blank_card(created_blank_card_id)
         raise
 
     log.info("session claimed, platform=%s rom=%s", platform, rom_name)
@@ -3275,6 +3476,8 @@ async def save_and_exit_session(
     wait=false: broker fires save+kill in background, returns immediately.
     """
     container, session_key, session = await _resolve_owned_session(platform, request)
+    if req.slot:
+        _assert_valid_slot(platform, req.slot)
 
     # Whole-card sync must evacuate a quiescent card, so force a blocking
     # save+kill for these containers even on the navigate-away (wait=false)
@@ -3364,22 +3567,25 @@ async def heartbeat_session(request: Request, platform: str) -> JSONResponse:
     found = await _find_session_for_user(candidates, request.user.id)
     if found is None:
         return JSONResponse(await _session_status(platform, request))
-    _, session_key, session = found
+    _, session_key, _ = found
 
-    session["last_seen"] = datetime.now(timezone.utc).isoformat()
-    # XX: only rewrite a key that still exists, so a heartbeat racing a
-    # teardown cannot resurrect a released session as a ghost claim. The
-    # rewrite also resets the TTL back to the full window.
-    written = await async_cache.set(
-        _session_redis_key(session_key),
-        json.dumps(session),
-        xx=True,
-        ex=SESSION_TTL_SECONDS,
-    )
-    # XX returns falsy when the key was already gone, meaning the claim was
-    # torn down mid-flight. Reporting "active" there would leave the client
-    # heartbeating a session it no longer holds.
-    if not written:
+    # Merging rather than writing the copy read above keeps a swap that landed
+    # in between; refusing a draining session keeps a heartbeat from making a
+    # container that is already being torn down look live. Either returns None,
+    # meaning the claim is gone and reporting "active" would leave the client
+    # beating a session it no longer holds.
+    try:
+        refreshed = await _mutate_session(
+            session_key,
+            {"last_seen": datetime.now(timezone.utc).isoformat()},
+            require=lambda s: not s.get("draining"),
+        )
+    except _SessionContended:
+        # A key too busy to write is a key that exists, so the session is live
+        # and the missed stamp is covered by the next beat.
+        log.warning("heartbeat could not stamp contended session %s", session_key)
+        return JSONResponse({"status": "active", "platform": platform})
+    if refreshed is None:
         return JSONResponse(await _session_status(platform, request))
     return JSONResponse({"status": "active", "platform": platform})
 
@@ -3526,6 +3732,26 @@ async def save_state(
     return JSONResponse({"status": "saving", "slot": req.slot, "platform": platform})
 
 
+async def _read_capped_body(request: Request, max_bytes: int) -> bytes | None:
+    """The request body, or None once it goes past `max_bytes`.
+
+    `Request.body()` buffers everything the client sends before any check can
+    look at the size, so the cap is applied as the chunks arrive instead.
+    """
+    declared = request.headers.get("content-length")
+    if declared is not None and declared.isdigit() and int(declared) > max_bytes:
+        return None
+
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > max_bytes:
+            return None
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 @protected_route(
     router.post, "/sessions/{platform}/state-frame", [Scope.ROMS_USER_WRITE]
 )
@@ -3534,11 +3760,11 @@ async def put_state_frame(request: Request, platform: str) -> JSONResponse:
     save that follows it to pick up as its thumbnail."""
     _, session_key, session = await _resolve_owned_session(platform, request)
 
-    image = await request.body()
+    image = await _read_capped_body(request, _STATE_SCREENSHOT_MAX_BYTES)
+    if image is None:
+        raise HTTPException(status_code=413, detail="Frame too large")
     if not image.startswith(_PNG_MAGIC):
         raise HTTPException(status_code=400, detail="Frame must be a PNG")
-    if len(image) > _STATE_SCREENSHOT_MAX_BYTES:
-        raise HTTPException(status_code=413, detail="Frame too large")
 
     rom_id = session.get("rom_id")
     if not isinstance(rom_id, int):
@@ -3575,7 +3801,10 @@ async def swap_disc(
 ) -> JSONResponse:
     """Change the mounted disc without restarting the emulator."""
     container, session_key, session = await _resolve_owned_session(platform, request)
-    if not platform_capabilities(platform)["supports_disc_swap"]:
+    # Container-scoped, not platform-scoped: only the webstation broker has a
+    # tray route, so a legacy container serving this platform gets the same
+    # refusal the frontend was told to expect rather than a 502 from the broker.
+    if not _container_capabilities(container)["supports_disc_swap"]:
         raise HTTPException(
             status_code=400, detail=f"Platform '{platform}' cannot swap discs"
         )
@@ -3587,8 +3816,13 @@ async def swap_disc(
     if rom_file is None or rom_file.rom_id != rom_id:
         raise HTTPException(status_code=404, detail="File does not belong to this rom")
 
+    # Loaded separately: the file comes back detached, so reaching its rom from
+    # there is a lazy load with no session behind it.
     rom = db_rom_handler.get_rom(rom_id)
-    if rom is None or req.file_id not in _swappable_disc_file_ids(rom):
+    if rom is None:
+        raise HTTPException(status_code=404, detail="Rom not found")
+
+    if req.file_id not in _swappable_disc_file_ids(rom):
         raise HTTPException(status_code=400, detail="File is not a swappable disc")
 
     library_base = (container.get("library_path") or LIBRARY_BASE_PATH).rstrip("/")
@@ -3597,8 +3831,8 @@ async def swap_disc(
     if not ok:
         raise HTTPException(status_code=502, detail="Broker failed to swap disc")
 
+    # Resets the TTL as part of the same write.
     await _set_session_disc(session_key, req.file_id)
-    await _refresh_session(session_key)
     return JSONResponse({"status": "ok", "file_id": req.file_id, "platform": platform})
 
 
@@ -3782,6 +4016,11 @@ async def list_containers(request: Request) -> JSONResponse:
     for container_key, entries in _containers_by_key().items():
         first = entries[0]
         session = await _get_session(container_key) if container_key else None
+        # A drain marker is a container on its way to idle, not an occupant:
+        # reporting it would put an all-null session row in the fleet view and
+        # offer a force-release for a teardown that is already running.
+        if session and session.get("draining"):
+            session = None
         user_id = session.get("user_id") if session else None
         user = db_user_handler.get_user(user_id) if isinstance(user_id, int) else None
         containers.append(
@@ -3871,7 +4110,7 @@ async def claim_desktop_session(
             status_code=409,
             detail={
                 "message": "Container in use",
-                "rom_name": existing.get("rom_name"),
+                "rom_name": _visible_rom_name(request, existing),
                 "claimed_at": existing.get("claimed_at"),
             },
         )
@@ -3978,6 +4217,10 @@ async def list_sessions(request: Request) -> JSONResponse:
             s = json.loads(raw)
         except (TypeError, json.JSONDecodeError):
             continue
+        # A drain marker holds the key while a teardown finishes; it has no
+        # owner and nothing to release, so it is not an active session.
+        if s.get("draining"):
+            continue
         # scan_iter yields bytes unless the client decodes responses.
         key_str = key.decode() if isinstance(key, bytes) else key
         container_key = key_str.removeprefix(_SESSION_KEY_PREFIX)
@@ -4028,24 +4271,47 @@ async def force_release_all(
         # Stop the emulator, then evacuate and wipe the card, all while the claim
         # still guards the container and before deleting the key. Stopping first
         # quiesces the card so an exit flush cannot undo the wipe.
-        if container is not None:
-            # Best-effort stop; a broker error must not abort the sweep.
-            await asyncio.to_thread(_stop_broker, container)
+        try:
+            if container is not None:
+                # Best-effort stop; a broker error must not abort the sweep.
+                state_slot = await asyncio.to_thread(_stop_broker, container)
+                if session is not None:
+                    safe_to_wipe = await _evacuate_session_card(session, container)
+                    if safe_to_wipe:
+                        await _wipe_session_card(container)
+                    # Credit playtime to the session's owner, not the admin.
+                    await _record_play_session(session)
+
+                    rom_id = session.get("rom_id")
+                    user_id = session.get("user_id")
+                    # The next claim's activate overwrites the exit state, so a
+                    # displaced player only keeps it if it is collected here.
+                    if (
+                        state_slot is not None
+                        and isinstance(rom_id, int)
+                        and isinstance(user_id, int)
+                    ):
+                        await _pull_state_to_library(
+                            user_id,
+                            rom_id,
+                            container,
+                            state_slot,
+                            disc_file_id=_session_disc_id(session),
+                        )
+
+            # Note who ended it before the key goes, so the player's next poll
+            # can explain the stream vanishing.
             if session is not None:
-                safe_to_wipe = await _evacuate_session_card(session, container)
-                if safe_to_wipe:
-                    await _wipe_session_card(container)
-                # Credit playtime to the session's owner, not the admin.
-                await _record_play_session(session)
-
-        # Note who ended it before the key goes, so the player's next poll can
-        # explain the stream vanishing.
-        if session is not None:
-            await _record_termination(
-                session, container_key, ended_by=request.user.username, reason=reason
-            )
-
-        await async_cache.delete(key)
+                await _record_termination(
+                    session,
+                    container_key,
+                    ended_by=request.user.username,
+                    reason=reason,
+                )
+        finally:
+            # The sweep answered "released", so the key goes even when a step
+            # above raised; a phantom claim would block every later claim.
+            await async_cache.delete(key)
 
     released = []
     teardowns = []

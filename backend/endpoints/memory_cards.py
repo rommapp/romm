@@ -1,6 +1,8 @@
 import io
+import ntpath
+import re
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Annotated
 
 from fastapi import Body, File, HTTPException, Request, UploadFile, status
@@ -30,6 +32,10 @@ router = APIRouter(
 )
 
 MEMORY_CARD_FILE_UPLOAD = File(..., description="Memory card archive to upload.")
+
+# The emulator name is a folder under the user's memory_cards directory, so it
+# is held to what a folder may be called rather than to any list of emulators.
+EMULATOR_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]*$")
 
 
 class MemoryCardCreatePayload(PydanticBaseModel):
@@ -77,6 +83,12 @@ def add_memory_card(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Both name and emulator are required",
+        )
+
+    if not EMULATOR_NAME_RE.match(emulator):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Not a valid emulator name: {emulator}",
         )
 
     if payload.platform_id is not None and not db_platform_handler.get_platform(
@@ -131,6 +143,32 @@ def get_shared_memory_cards(
         )
         for card in cards
     ]
+
+
+def _assert_no_traversal(content: bytes) -> None:
+    """Refuse an archive whose entries would escape the directory they unpack
+    into. RomM stores the zip whole, but the broker unpacks it onto a container,
+    and this is the last point that can look at the names before it does.
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(content), "r") as zf:
+            names = zf.namelist()
+    except zipfile.BadZipFile:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Memory card upload is not a readable zip archive",
+        ) from None
+
+    for name in names:
+        # Zip names are meant to be slash-separated, so a hand-written entry can
+        # hide `..\..\evil` in what PurePosixPath reads as one opaque part. Both
+        # separators are split before the parts are judged.
+        parts = re.split(r"[\\/]", name)
+        if PurePosixPath(name).is_absolute() or ntpath.isabs(name) or ".." in parts:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Memory card archive contains an unsafe path: {name}",
+            )
 
 
 def _version_file_or_404(version: MemoryCardVersion) -> Path:
@@ -238,6 +276,7 @@ async def upload_memory_card_version(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Memory card upload must be a zip archive",
         )
+    _assert_no_traversal(content)
 
     await store_memory_card_version(
         request.user, card, card.emulator, content, deduplicate=False
@@ -260,6 +299,24 @@ def get_memory_card(request: Request, id: int) -> MemoryCardSchema:
     return MemoryCardSchema.model_validate(card)
 
 
+def _reconcile_missing(version: MemoryCardVersion) -> bool:
+    """Whether this version's archive is gone, persisting the answer.
+
+    Nothing else writes `missing_from_fs`, and the history is the only place a
+    user can see that a snapshot is unrecoverable before clicking download, so
+    the listing is where the flag is brought back in line with the disk.
+    """
+    try:
+        path = fs_asset_handler.validate_path(version.full_path)
+        missing = not path.is_file()
+    except (ValueError, OSError):
+        missing = True
+
+    if missing != version.missing_from_fs:
+        db_memory_card_handler.set_version_missing(version.id, missing)
+    return missing
+
+
 @protected_route(router.get, "/{id}/versions", [Scope.ASSETS_READ])
 def get_memory_card_versions(
     request: Request, id: int
@@ -267,7 +324,12 @@ def get_memory_card_versions(
     """A card's snapshot history, newest first."""
     _card_or_404(id, request.user.id)
     versions = db_memory_card_handler.get_versions(id)
-    return [MemoryCardVersionSchema.model_validate(v) for v in versions]
+    return [
+        MemoryCardVersionSchema.model_validate(v).model_copy(
+            update={"missing_from_fs": _reconcile_missing(v)}
+        )
+        for v in versions
+    ]
 
 
 @protected_route(
@@ -354,16 +416,23 @@ async def delete_memory_cards(
     ]
 
     for card_id, card in owned:
-        # Remove each version's archive before the DB rows cascade away.
-        for version in db_memory_card_handler.get_versions(card_id):
+        # The delete reports the archives that went with it, so the removal list
+        # cannot miss a version written while the batch was running. A file that
+        # will not budge (permissions, a locked mount) must not abort the batch:
+        # the rest of the cards would be left untouched with nothing to tell the
+        # caller how far it got. An orphaned archive is recoverable, a
+        # half-deleted batch is not.
+        for path in db_memory_card_handler.delete_card(card_id):
             try:
-                await fs_asset_handler.remove_file(file_path=version.full_path)
+                await fs_asset_handler.remove_file(file_path=path)
             except FileNotFoundError:
-                log.warning(
-                    f"Memory card file {hl(version.file_name)} already gone from disk"
+                log.warning(f"Memory card file {hl(path)} already gone from disk")
+            except OSError as exc:
+                log.error(
+                    f"Could not remove memory card file {hl(path)}, "
+                    f"leaving it orphaned: {exc}"
                 )
 
-        db_memory_card_handler.delete_card(card_id)
         log.info(f"Deleted memory card {hl(card.name)} [{card.emulator}]")
 
     return cards

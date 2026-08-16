@@ -159,11 +159,13 @@ watch(
 
 // Fills the store the Join action reads from. Done here rather than in the
 // action composable because that one is instantiated per button; navigating
-// between ROMs reuses this component, so it re-runs on the id.
+// between ROMs reuses this component, so it re-runs on the id. Forced, since
+// this is the page a user acts on: a session that ended in the meantime must
+// not still be offered.
 watch(
   () => currentRom.value?.id ?? null,
   (romId) => {
-    if (romId != null) void streamingStore.fetchJoinableSessions(romId);
+    if (romId != null) void streamingStore.fetchJoinableSessions(true);
   },
   { immediate: true },
 );

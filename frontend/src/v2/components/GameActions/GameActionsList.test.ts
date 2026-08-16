@@ -8,7 +8,8 @@ vi.mock("vue-i18n", () => ({
 }));
 
 type Flags = {
-  canPlay: boolean;
+  canPlayInBrowser: boolean;
+  canPlayStream: boolean;
   canShareQR: boolean;
   canOpenInFlashpoint: boolean;
   canManageCollections: boolean;
@@ -20,12 +21,14 @@ type Flags = {
   canJoinStream: boolean;
 };
 
-// Not a flag: the Join item picks its label off this, so it is held apart
-// from the booleans rather than squeezed into them.
+// Not flags: the Join and Stream items pick their labels off these, so they
+// are held apart from the booleans rather than squeezed into them.
 let joinHostLabel = "";
+let streamLabel = "";
 
 const flags: Flags = {
-  canPlay: true,
+  canPlayInBrowser: true,
+  canPlayStream: false,
   canShareQR: false,
   canOpenInFlashpoint: false,
   canManageCollections: true,
@@ -52,6 +55,7 @@ vi.mock("@/v2/composables/useGameActions", () => ({
           }
           if (prop === "isFavorited") return { value: false };
           if (prop === "joinHostLabel") return { value: joinHostLabel };
+          if (prop === "streamLabel") return { value: streamLabel };
           return vi.fn();
         },
       },
@@ -64,9 +68,14 @@ const RMenuItem = {
 };
 const RDivider = { template: `<hr class="divider" />` };
 
-function mountList(overrides: Partial<Flags> = {}, hostLabel = "") {
+function mountList(
+  overrides: Partial<Flags> = {},
+  hostLabel = "",
+  stream = "",
+) {
   Object.assign(flags, overrides);
   joinHostLabel = hostLabel;
+  streamLabel = stream;
   return mount(GameActionsList, {
     props: { rom: { id: 1 } as SimpleRom },
     global: { stubs: { RMenuItem, RDivider } },
@@ -123,6 +132,35 @@ describe("GameActionsList — permission gating", () => {
     });
     expect(labels(wrapper)).toContain("common.edit");
     expect(wrapper.findAll(".divider")).toHaveLength(2);
+  });
+});
+
+describe("GameActionsList — playing", () => {
+  it("offers each way to play the caller is allowed", () => {
+    const wrapper = mountList({ canPlayInBrowser: true, canPlayStream: true });
+    const shown = labels(wrapper);
+    expect(shown).toContain("rom.play");
+    expect(shown).toContain("rom.stream");
+  });
+
+  it("names the container when the platform's stream has a label", () => {
+    const wrapper = mountList(
+      { canPlayInBrowser: false, canPlayStream: true },
+      "",
+      "Dreamcast box",
+    );
+    const shown = labels(wrapper);
+    expect(shown).toContain("rom.stream-on");
+    expect(shown).not.toContain("rom.play");
+  });
+
+  it("offers neither when the ROM cannot be played", () => {
+    const shown = labels(
+      mountList({ canPlayInBrowser: false, canPlayStream: false }),
+    );
+    expect(shown).not.toContain("rom.play");
+    expect(shown).not.toContain("rom.stream");
+    expect(shown).not.toContain("rom.stream-on");
   });
 });
 

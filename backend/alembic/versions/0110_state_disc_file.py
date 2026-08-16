@@ -19,6 +19,9 @@ depends_on = None
 def upgrade() -> None:
     with op.batch_alter_table("states", schema=None) as batch_op:
         batch_op.add_column(sa.Column("disc_file_id", sa.Integer(), nullable=True))
+        # Postgres indexes no FK column on its own, and the SET NULL cascade
+        # scans this on every rom_files delete.
+        batch_op.create_index("ix_states_disc_file_id", ["disc_file_id"])
         batch_op.create_foreign_key(
             "fk_states_disc_file_id",
             "rom_files",
@@ -31,4 +34,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     with op.batch_alter_table("states", schema=None) as batch_op:
         batch_op.drop_constraint("fk_states_disc_file_id", type_="foreignkey")
+        batch_op.drop_index("ix_states_disc_file_id")
         batch_op.drop_column("disc_file_id")

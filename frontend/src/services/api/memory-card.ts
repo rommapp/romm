@@ -6,8 +6,6 @@ import type {
 } from "@/__generated__";
 import api from "@/services/api";
 
-export const memoryCardApi = api;
-
 // A user's own cards, newest-synced first, optionally scoped to one emulator.
 async function getMemoryCards({ emulator }: { emulator?: string } = {}) {
   return api.get<MemoryCardSchema[]>("/memory-cards", {

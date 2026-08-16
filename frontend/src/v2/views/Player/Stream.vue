@@ -698,43 +698,48 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         await nextTick();
         await stage.value?.enterFullscreen();
       }
-      return;
-    }
+    } else {
+      // The backend derives the ROM's filesystem path and platform from the id.
+      // A selected state rides along: its file is pushed to the broker and the
+      // emulator loads it once the game is up.
+      const session = await streamingStore.claimSession(
+        rom.value.id,
+        selectedState.value?.id,
+        container.value?.supports_memory_cards
+          ? (selectedMemoryCardId.value ?? undefined)
+          : undefined,
+        cardImport,
+        multiplayerOnPlay.value,
+      );
+      if (session.resume === false) {
+        snackbar.warning(t("play.resume-failed"));
+      }
+      await flourish;
+      // Widen past TS's "loading" narrowing: the exit dialog can flip the
+      // state to "exited" while the claim is awaited.
+      const stateAfterClaim = playerState.value as PlayerState;
+      if (stateAfterClaim === "exited") {
+        // The launch was cancelled from the exit dialog while the claim was
+        // in flight; the claim that just resolved re-acquired the session,
+        // so release it again instead of entering the playing state. Nobody
+        // played anything, so there is nothing worth saving over their pick.
+        const released = await streamingStore.releaseSession(
+          rom.value.platform_slug,
+          false,
+        );
+        if (!released) {
+          snackbar.error(t("play.stream-release-failed"), { timeout: 6000 });
+        }
+        return;
+      }
+      holdsClaim.value = true;
+      containerHost.value = session.host;
+      playerState.value = "playing";
 
-    // The backend derives the ROM's filesystem path and platform from the id.
-    // A selected state rides along: its file is pushed to the broker and the
-    // emulator loads it once the game is up.
-    const session = await streamingStore.claimSession(
-      rom.value.id,
-      selectedState.value?.id,
-      container.value?.supports_memory_cards
-        ? (selectedMemoryCardId.value ?? undefined)
-        : undefined,
-      cardImport,
-      multiplayerOnPlay.value,
-    );
-    if (session.resume === false) {
-      snackbar.warning(t("play.resume-failed"));
-    }
-    await flourish;
-    // Widen past TS's "loading" narrowing: the exit dialog can flip the
-    // state to "exited" while the claim is awaited.
-    const stateAfterClaim = playerState.value as PlayerState;
-    if (stateAfterClaim === "exited") {
-      // The launch was cancelled from the exit dialog while the claim was
-      // in flight; the claim that just resolved re-acquired the session,
-      // so release it again instead of entering the playing state. Nobody
-      // played anything, so there is nothing worth saving over their pick.
-      void streamingStore.releaseSession(rom.value.platform_slug, false);
-      return;
-    }
-    holdsClaim.value = true;
-    containerHost.value = session.host;
-    playerState.value = "playing";
-
-    if (fullscreenOnPlay.value) {
-      await nextTick();
-      await stage.value?.enterFullscreen();
+      if (fullscreenOnPlay.value) {
+        await nextTick();
+        await stage.value?.enterFullscreen();
+      }
     }
   } catch (err: unknown) {
     // Same race the success path guards: the user can leave via the exit
@@ -763,6 +768,9 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
     // A join races the host: they can close the session or end it between
     // the game page listing it and this request landing.
     if (isJoining && (status === 403 || status === 404)) {
+      // The list that offered this Join is now known to be wrong, so drop the
+      // entry rather than leaving the affordance up on the page behind.
+      if (rom.value) streamingStore.forgetJoinableSession(rom.value.id);
       playerState.value = "error";
       errorType.value = "server";
       errorMessage.value = t(
@@ -782,9 +790,10 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
           : null;
     } else if (status === 404) {
       // 404 covers two cases: no container configured for the platform,
-      // and the ROM itself missing (deleted between fetch and claim).
-      // The detail string disambiguates.
-      if (typeof detail === "string" && detail.includes("ROM not found")) {
+      // and the ROM itself missing (deleted between fetch and claim). The
+      // config the view already holds says which, rather than the wording of
+      // the backend's detail string.
+      if (container.value) {
         errorType.value = "rom_not_found";
         errorMessage.value = t("play.stream-error-rom-not-found");
         errorHint.value = "";
@@ -828,18 +837,30 @@ function onCardImportCancel(): void {
 }
 
 async function performStop(): Promise<void> {
-  // Leaving as a joiner ends nothing: the host keeps the container, so the
-  // only thing to do is drop this tab out of the room.
-  if (holdsClaim.value) {
-    // This is the deliberate way out without saving, so no state is written.
-    // The in-game save data still travels back either way.
-    await streamingStore.releaseSession(rom.value?.platform_slug ?? "", false);
-    holdsClaim.value = false;
+  // Both the control bar and the exit dialog land here, and the release takes
+  // long enough for a second press to arrive mid-flight; the second DELETE
+  // would hit a key the first one already freed, or one a new claim now owns.
+  if (isStopping.value) return;
+  isStopping.value = true;
+  try {
+    // Leaving as a joiner ends nothing: the host keeps the container, so the
+    // only thing to do is drop this tab out of the room.
+    if (holdsClaim.value) {
+      // This is the deliberate way out without saving, so no state is written.
+      // The in-game save data still travels back either way.
+      await streamingStore.releaseSession(
+        rom.value?.platform_slug ?? "",
+        false,
+      );
+      holdsClaim.value = false;
+    }
+    // "exited" tells onBeforeUnmount the session is already released, so
+    // navigating away afterwards doesn't trigger a second DELETE.
+    playerState.value = "exited";
+    containerHost.value = "";
+  } finally {
+    isStopping.value = false;
   }
-  // "exited" tells onBeforeUnmount the session is already released, so
-  // navigating away afterwards doesn't trigger a second DELETE.
-  playerState.value = "exited";
-  containerHost.value = "";
 }
 
 async function handleStop(): Promise<void> {
@@ -862,6 +883,9 @@ async function pushStreamFrame(): Promise<void> {
 
 async function performSaveAndExit(): Promise<void> {
   if (!rom.value || playerState.value !== "playing") return;
+  // The broker's save+kill runs for seconds with the player still on screen,
+  // so the guard is on the flag rather than on the state it eventually sets.
+  if (isSavingAndExiting.value || isStopping.value) return;
   // A joiner has no claim to save or release, and the host's game keeps
   // running after they leave.
   if (!holdsClaim.value) {
@@ -908,12 +932,14 @@ async function handleSaveAndExit(): Promise<void> {
 
 async function handleSaveState(): Promise<void> {
   if (!rom.value || playerState.value !== "playing" || isJoining) return;
+  if (isSavingState.value) return;
   isSavingState.value = true;
   try {
     await pushStreamFrame();
     await streamingApi.saveState(rom.value.platform_slug, streamSlot.value);
   } catch (err) {
     console.warn("[streaming] Could not save state:", err);
+    snackbar.error(t("play.stream-save-state-failed"), { timeout: 6000 });
   } finally {
     isSavingState.value = false;
   }
@@ -921,11 +947,13 @@ async function handleSaveState(): Promise<void> {
 
 async function handleLoadState(): Promise<void> {
   if (!rom.value || playerState.value !== "playing" || isJoining) return;
+  if (isLoadingState.value) return;
   isLoadingState.value = true;
   try {
     await streamingApi.loadState(rom.value.platform_slug, streamSlot.value);
   } catch (err) {
     console.warn("[streaming] Could not load state:", err);
+    snackbar.error(t("play.stream-load-state-failed"), { timeout: 6000 });
   } finally {
     isLoadingState.value = false;
   }
@@ -937,7 +965,7 @@ function openDiscSwap(): void {
 }
 
 async function handleSwapDisc(): Promise<void> {
-  if (!rom.value || selectedDisc.value === null) return;
+  if (!rom.value || selectedDisc.value === null || isSwappingDisc.value) return;
   isSwappingDisc.value = true;
   try {
     await streamingApi.swapDisc(rom.value.platform_slug, selectedDisc.value);
@@ -1015,12 +1043,7 @@ async function exitSaveAndQuit(): Promise<void> {
 
 async function exitWithoutSaving(): Promise<void> {
   const leave = pendingLeave;
-  isStopping.value = true;
-  try {
-    await performStop();
-  } finally {
-    isStopping.value = false;
-  }
+  await performStop();
   exitDialogOpen.value = false;
   (leave ?? backToRom)();
 }
@@ -1133,10 +1156,6 @@ onMounted(async () => {
     errorType.value = "server";
     errorMessage.value = t("play.stream-error-load-rom");
     return;
-  }
-
-  if (rom.value) {
-    document.title = `${rom.value.name} | Play`;
   }
 
   // A join is confirmed on the game page, so there is no start page left to

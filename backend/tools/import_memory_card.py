@@ -24,7 +24,7 @@ import zipfile
 
 from handler.database import db_memory_card_handler, db_user_handler
 from models.assets import MemoryCard
-from utils.memory_cards import store_memory_card_version
+from utils.memory_cards import MEMORY_CARD_MAX_BYTES, store_memory_card_version
 
 
 async def _import(username: str, emulator: str, content: bytes) -> int:
@@ -70,9 +70,17 @@ def main() -> int:
     _, username, emulator, zip_path = sys.argv
 
     with open(zip_path, "rb") as fh:
-        content = fh.read()
+        content = fh.read(MEMORY_CARD_MAX_BYTES + 1)
     if not content:
         print(f"error: {zip_path} is empty", file=sys.stderr)
+        return 2
+    # The upload route enforces the same ceiling, and the broker refuses
+    # anything larger; importing past it just moves where the transfer fails.
+    if len(content) > MEMORY_CARD_MAX_BYTES:
+        print(
+            f"error: {zip_path} exceeds the {MEMORY_CARD_MAX_BYTES} byte card limit",
+            file=sys.stderr,
+        )
         return 2
     # Guard against importing a non-archive: a `curl -o` of a broker 404/409
     # writes the JSON error body to the file, which must never become a card.

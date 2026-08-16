@@ -159,6 +159,7 @@ async function confirmRelease() {
     const released = await streamingStore.adminReleaseSession(
       session.platform,
       reason,
+      session.container,
     );
     if (released) {
       snackbar.success(t("activity.session-released"), {

@@ -156,15 +156,49 @@ export const useStreamingStore = defineStore("streaming", () => {
   // store rather than fetched per component: a virtualised gallery hosts many
   // GameActions instances, and one request each would be a request storm.
   const joinableSessions = ref<JoinableSession[]>([]);
+  let joinableRequest: Promise<void> | null = null;
+  let joinableFetchedAt = 0;
+  // A host can end a session at any time, so the list is only trusted for as
+  // long as a user takes to scan a page before acting on it.
+  const JOINABLE_MAX_AGE_MS = 30_000;
 
-  async function fetchJoinableSessions(romId?: number): Promise<void> {
-    try {
-      const { data } = await streamingApi.listJoinableSessions(romId);
-      joinableSessions.value = data.sessions;
-    } catch {
-      // Best effort. A failed lookup just means no Join button is offered.
-      joinableSessions.value = [];
-    }
+  /**
+   * Refresh the whole-library list of joinable sessions.
+   *
+   * Whole-library rather than per-ROM: a gallery card offers Join for its own
+   * ROM and cannot fetch for itself. Concurrent callers share the one in-flight
+   * request, which is also what keeps an older response from landing last and
+   * overwriting a newer one. `force` skips the freshness window, for a surface
+   * the user is about to act on.
+   */
+  async function fetchJoinableSessions(force = false): Promise<void> {
+    if (joinableRequest) return joinableRequest;
+    if (!force && Date.now() - joinableFetchedAt < JOINABLE_MAX_AGE_MS) return;
+
+    joinableRequest = (async () => {
+      try {
+        const { data } = await streamingApi.listJoinableSessions();
+        joinableSessions.value = data.sessions;
+      } catch {
+        // Best effort, and the last known list stays: a failed refresh says
+        // nothing about which sessions are still up, and wiping it would pull
+        // the Join affordance off every card the user is looking at.
+      } finally {
+        joinableFetchedAt = Date.now();
+        joinableRequest = null;
+      }
+    })();
+    return joinableRequest;
+  }
+
+  /**
+   * Drop a session the caller has just found to be gone, so the Join
+   * affordance disappears instead of waiting out the freshness window.
+   */
+  function forgetJoinableSession(romId: number): void {
+    joinableSessions.value = joinableSessions.value.filter(
+      (s) => s.rom_id !== romId,
+    );
   }
 
   function joinableForRom(
@@ -286,11 +320,11 @@ export const useStreamingStore = defineStore("streaming", () => {
   function saveAndExitKeepalive(platform: string, slot = 0): void {
     if (!platform) return;
     activeSession.value = null;
-    try {
-      streamingApi.saveAndExitKeepalive(platform, slot);
-    } catch (err) {
+    // The caller is unloading and cannot await, so the rejection is caught on
+    // the promise itself; try/catch here would only see a synchronous throw.
+    streamingApi.saveAndExitKeepalive(platform, slot).catch((err) => {
       console.warn("[streaming] Could not save-and-exit (keepalive):", err);
-    }
+    });
   }
 
   /**
@@ -300,11 +334,9 @@ export const useStreamingStore = defineStore("streaming", () => {
   function releaseSessionKeepalive(platform: string): void {
     if (!platform) return;
     activeSession.value = null;
-    try {
-      streamingApi.releaseSessionKeepalive(platform);
-    } catch (err) {
+    streamingApi.releaseSessionKeepalive(platform).catch((err) => {
       console.warn("[streaming] Could not release session (keepalive):", err);
-    }
+    });
   }
 
   /**
@@ -325,14 +357,18 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Force-release another user's session by platform. Admin only.
    * Does not touch local activeSession state - the target session belongs
    * to someone else. Returns whether the release succeeded.
+   *
+   * `container` names which one to end: a pool serves the platform with several
+   * containers, and without it the backend picks its own.
    */
   async function adminReleaseSession(
     platform: string,
     reason?: string,
+    container?: string,
   ): Promise<boolean> {
     if (!platform) return false;
     try {
-      await streamingApi.releaseSession(platform, reason);
+      await streamingApi.releaseSession(platform, reason, container);
       return true;
     } catch (err) {
       console.warn("[streaming] Could not release session:", err);
@@ -353,6 +389,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     claimSession,
     joinableSessions,
     fetchJoinableSessions,
+    forgetJoinableSession,
     joinableForRom,
     joinSession,
     releaseSession,

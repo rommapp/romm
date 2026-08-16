@@ -175,7 +175,13 @@ async function toggleShare(
 }
 
 // ── Delete ──────────────────────────────────────────────────────────
+const deleting = ref<Set<number>>(new Set());
+
 async function confirmDelete(card: MemoryCardSchema): Promise<void> {
+  // The confirmation is awaited, so without this a second press stacks a
+  // second dialog behind the first and deletes a card that is already gone.
+  if (deleting.value.has(card.id)) return;
+  deleting.value = new Set(deleting.value).add(card.id);
   const ok = await confirm({
     title: t("play.delete-memory-card"),
     body: t("play.delete-memory-card-body", { name: card.name }),
@@ -183,8 +189,8 @@ async function confirmDelete(card: MemoryCardSchema): Promise<void> {
     tone: "danger",
     requireTyped: card.name,
   });
-  if (!ok) return;
   try {
+    if (!ok) return;
     await memoryCardApi.deleteMemoryCards({ cards: [card] });
     cards.value = cards.value.filter((c) => c.id !== card.id);
     versions.value.delete(card.id);
@@ -196,6 +202,10 @@ async function confirmDelete(card: MemoryCardSchema): Promise<void> {
     snackbar.error(errorText(err, "play.memory-card-delete-failed"), {
       icon: "mdi-close-circle",
     });
+  } finally {
+    const s = new Set(deleting.value);
+    s.delete(card.id);
+    deleting.value = s;
   }
 }
 
@@ -434,6 +444,7 @@ const hasCards = computed(() => cards.value.length > 0);
               size="small"
               icon="mdi-delete-outline"
               color="danger"
+              :disabled="deleting.has(card.id)"
               :aria-label="t('play.delete-memory-card')"
               :title="t('play.delete-memory-card')"
               @click="confirmDelete(card)"
