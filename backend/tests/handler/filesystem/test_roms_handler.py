@@ -13,6 +13,7 @@ from tests._zipfile_shim import reload_zipfile
 from config.config_manager import LIBRARY_BASE_PATH, Config
 from handler.filesystem.base_handler import (
     LANGUAGES_BY_SHORTCODE,
+    REGION_ALIASES,
     REGIONS_BY_SHORTCODE,
 )
 from handler.filesystem.roms_handler import (
@@ -284,6 +285,10 @@ class TestFSRomsHandler:
 
         # Aliases resolve here too, so [Reg-US] and (USA) agree.
         assert "USA" in handler.parse_tags("Game [Reg-US].rom").regions
+
+        # A space after the separator isn't part of the value.
+        assert handler.parse_tags("Game [Reg- PAL].rom").regions == ["PAL"]
+        assert handler.parse_tags("Game [Reg- US].rom").regions == ["USA"]
 
     def test_parse_tags_region_casing_is_normalized(self, handler: FSRomsHandler):
         """Region names collapse to one canonical spelling regardless of casing."""
@@ -1774,6 +1779,19 @@ class TestExtractCHDHash:
         assert result
         assert result == "f" * 40
         assert len(result) == 40
+
+
+def test_region_aliases_never_shadow_a_language_code():
+    """Enforce the constraint REGION_ALIASES only documents.
+
+    Region tags resolve before language ones, so an alias that matched a
+    language shortcode would make that language unparseable in lowercase.
+    The Nl/No overlap in REGIONS itself is deliberate and covered separately.
+    """
+    language_codes = {code.lower() for code in LANGUAGES_BY_SHORTCODE}
+    collisions = {alias for alias in REGION_ALIASES if alias.lower() in language_codes}
+
+    assert not collisions, f"region aliases shadow language codes: {collisions}"
 
 
 KNOWN_REGION_NAMES = frozenset(REGIONS_BY_SHORTCODE.values())

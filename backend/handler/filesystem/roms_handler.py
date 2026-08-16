@@ -228,7 +228,9 @@ class FSRomsHandler(FSHandler):
             # region, so an unrecognized code is kept rather than dropped.
             region_match = REGION_TAG_REGEX.match(raw_tag)
             if region_match:
-                raw_region = region_match[1]
+                # Stripped because the separator class doesn't swallow a space
+                # after "Reg-", which would make " PAL" its own facet value.
+                raw_region = region_match[1].strip()
                 regions.append(normalize_region(raw_region) or raw_region)
                 continue
 

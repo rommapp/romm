@@ -119,6 +119,14 @@ _smart_collections = sa.table(
     sa.column("filter_criteria", CustomJSON()),
 )
 
+# Both spellings of the criteria key. Early versions stored a single value
+# under `selected_region`, and `get_smart_collection_criteria` still reads it.
+_CRITERIA_KEYS = ("regions", "selected_region")
+
+# Rows held in memory at once. The roms pass walks the table by id rather than
+# materializing it, so a large library can't balloon startup memory.
+_BATCH_SIZE = 1000
+
 
 def _normalize(regions: list) -> list[str]:
     """Canonicalize a region list, dropping duplicates but keeping order."""
@@ -134,63 +142,88 @@ def _normalize(regions: list) -> list[str]:
     return normalized
 
 
-def _execute_in_chunks(connection, statement, updates: list[dict]) -> None:
-    for chunk_start in range(0, len(updates), 1000):
-        connection.execute(statement, updates[chunk_start : chunk_start + 1000])
+def _normalize_criteria(criteria: dict) -> dict | None:
+    """Canonicalize a criteria blob, or return None if nothing changed.
+
+    Handles both the list-valued key and the scalar `selected_*` one, keeping
+    each value's original shape so the reader sees what it expects.
+    """
+    updated = dict(criteria)
+    changed = False
+
+    for key in _CRITERIA_KEYS:
+        value = updated.get(key)
+        if isinstance(value, list):
+            normalized: list | str = _normalize(value)
+        elif isinstance(value, str):
+            resolved = _normalize([value])
+            normalized = resolved[0] if resolved else value
+        else:
+            continue
+
+        if normalized != value:
+            updated[key] = normalized
+            changed = True
+
+    return updated if changed else None
 
 
 def _upgrade_roms(connection) -> None:
-    rows = connection.execute(
-        sa.select(_roms.c.id, _roms.c.regions).where(_roms.c.regions.is_not(None))
-    ).fetchall()
-
-    updates = []
-    for rom_id, regions in rows:
-        if not isinstance(regions, list):
-            continue
-        normalized = _normalize(regions)
-        if normalized != regions:
-            updates.append({"rom_id": rom_id, "new_regions": normalized})
-
-    if not updates:
-        return
-
-    # Per-row values rule out a CASE expression, and the JSON bind keeps the
-    # dialect differences (JSON vs JSONB) inside the type.
-    _execute_in_chunks(
-        connection,
-        sa.update(_roms)
-        .where(_roms.c.id == sa.bindparam("rom_id"))
-        .values(regions=sa.bindparam("new_regions", type_=CustomJSON())),
-        updates,
+    # Walked by id in batches: a library can hold millions of rows, and this
+    # runs at startup.
+    statement = (
+        sa.update(_roms).where(_roms.c.id == sa.bindparam("rom_id"))
+        # Per-row values rule out a CASE expression, and the JSON bind keeps
+        # the dialect differences (JSON vs JSONB) inside the type.
+        .values(regions=sa.bindparam("new_regions", type_=CustomJSON()))
     )
+
+    last_id = -1
+    while True:
+        rows = connection.execute(
+            sa.select(_roms.c.id, _roms.c.regions)
+            .where(_roms.c.regions.is_not(None), _roms.c.id > last_id)
+            .order_by(_roms.c.id)
+            .limit(_BATCH_SIZE)
+        ).fetchall()
+
+        if not rows:
+            return
+
+        last_id = rows[-1][0]
+
+        updates = []
+        for rom_id, regions in rows:
+            if not isinstance(regions, list):
+                continue
+            normalized = _normalize(regions)
+            if normalized != regions:
+                updates.append({"rom_id": rom_id, "new_regions": normalized})
+
+        if updates:
+            connection.execute(statement, updates)
 
 
 def _upgrade_smart_collections(connection) -> None:
+    # Not batched: one row per user-created collection, so this is tens of rows.
     rows = connection.execute(
         sa.select(_smart_collections.c.id, _smart_collections.c.filter_criteria)
     ).fetchall()
 
     updates = []
     for collection_id, criteria in rows:
-        if not isinstance(criteria, dict) or not isinstance(
-            criteria.get("regions"), list
-        ):
+        if not isinstance(criteria, dict):
             continue
-        normalized = _normalize(criteria["regions"])
-        if normalized != criteria["regions"]:
+        normalized_criteria = _normalize_criteria(criteria)
+        if normalized_criteria is not None:
             updates.append(
-                {
-                    "collection_id": collection_id,
-                    "new_criteria": {**criteria, "regions": normalized},
-                }
+                {"collection_id": collection_id, "new_criteria": normalized_criteria}
             )
 
     if not updates:
         return
 
-    _execute_in_chunks(
-        connection,
+    connection.execute(
         sa.update(_smart_collections)
         .where(_smart_collections.c.id == sa.bindparam("collection_id"))
         .values(filter_criteria=sa.bindparam("new_criteria", type_=CustomJSON())),
