@@ -106,9 +106,7 @@ const folderCoverUrl = computed(() => {
   return cover ? fileUrl(cover.id, cover.file_name) : null;
 });
 
-const gameArtworkUrl = computed(() =>
-  resolveSoundtrackGameArtwork(props.rom),
-);
+const gameArtworkUrl = computed(() => resolveSoundtrackGameArtwork(props.rom));
 
 // ---------- Metadata fetch ----------
 const tracksMeta = ref<Map<number, TrackMetaSchema>>(new Map());
