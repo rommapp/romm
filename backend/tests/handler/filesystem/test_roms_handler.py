@@ -1118,9 +1118,8 @@ class TestFSRomsHandler:
 
         parsed = await test_handler.get_rom_files(rom)
 
-        # On a malformed zip, the reader yields nothing and the fallback path
-        # hashes the archive file itself; read_zip_file's BadZipFile guard
-        # routes that to raw-byte hashing.
+        # On a malformed zip, the reader raises ArchiveReadError and the
+        # fallback path hashes the archive file itself.
         assert parsed.md5_hash == hashlib.md5(junk, usedforsecurity=False).hexdigest()
         assert parsed.sha1_hash == hashlib.sha1(junk, usedforsecurity=False).hexdigest()
         assert len(parsed.rom_files) == 1

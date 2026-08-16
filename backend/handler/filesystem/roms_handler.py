@@ -491,7 +491,10 @@ class FSRomsHandler(FSHandler):
                             }
                         )
                 except ArchiveReadError as e:
-                    log.error(f"Incomplete read of archive {rom_dir}: {e}")
+                    log.error(
+                        f"Incomplete read of archive {rom_dir}: {e}. Hashing the "
+                        "archive itself instead, which won't match a hash database."
+                    )
                     return [], original_crc, None, None
                 return members, crc, md5_h, sha1_h
 

@@ -64,11 +64,14 @@ class GamelistMetadata(GamelistMetadataMedia):
     genres: list[str] | None
     player_count: str | None
     md5_hash: str | None
+    box2d_back_path: str | None
     box3d_path: str | None
+    fanart_path: str | None
     miximage_path: str | None
     miximage_v2_path: str | None
     physical_path: str | None
     marquee_path: str | None
+    title_screen_path: str | None
     video_path: str | None
 
 
@@ -244,11 +247,14 @@ def extract_metadata_from_gamelist_rom(
         genres=_split_comma_separated_values(genre),
         player_count=players,
         md5_hash=md5,
+        box2d_back_path=None,
         box3d_path=None,
+        fanart_path=None,
         miximage_path=None,
         miximage_v2_path=None,
         physical_path=None,
         marquee_path=None,
+        title_screen_path=None,
         video_path=None,
         **extract_media_from_gamelist_rom(game, platform),
     )
@@ -264,11 +270,23 @@ def populate_rom_specific_paths(
     updated_metadata: dict[str, str] = {}
 
     # Set paths for media types that are preferred
+    if MetadataMediaType.BOX2D_BACK in preferred_media_types and rom_metadata.get(
+        "box2d_back_url"
+    ):
+        updated_metadata["box2d_back_path"] = (
+            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX2D_BACK)}/box2d_back.png"
+        )
     if MetadataMediaType.BOX3D in preferred_media_types and rom_metadata.get(
         "box3d_url"
     ):
         updated_metadata["box3d_path"] = (
             f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX3D)}/box3d.png"
+        )
+    if MetadataMediaType.FANART in preferred_media_types and rom_metadata.get(
+        "fanart_url"
+    ):
+        updated_metadata["fanart_path"] = (
+            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.FANART)}/fanart.png"
         )
     if MetadataMediaType.MARQUEE in preferred_media_types and rom_metadata.get(
         "marquee_url"
