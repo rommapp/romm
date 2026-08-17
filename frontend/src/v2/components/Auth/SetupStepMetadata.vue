@@ -3,7 +3,8 @@
 //
 // Three sections, matching how Settings → Metadata sources groups them:
 //   * General metadata — first-party catalogues (IGDB, MobyGames…)
-//   * Specialised sources — achievements, cover art, completion times
+//   * Specialised sources — achievements, cover art, completion times,
+//     demoscene catalogs (Demozoo, Pouët)
 //   * Match proxies — community hash matchers (Hasheous, Playmatch)
 //
 // For each source we surface two pieces of state separately:
@@ -132,6 +133,36 @@ const specialised = computed<Source[]>(() => {
       caveatKey: "setup.provider-hltb-caveat",
       requiresKey: false,
       disabled: !m.HLTB_API_ENABLED,
+    },
+    {
+      key: "demozoo",
+      name: "Demozoo",
+      logoPath: "/assets/scrappers/demozoo.png?v=2",
+      descKey: "setup.provider-demozoo-desc",
+      setupKey: "setup.provider-demozoo-setup",
+      caveatKey: "setup.provider-demozoo-caveat",
+      requiresKey: false,
+      disabled: !m.DEMOZOO_API_ENABLED,
+    },
+    {
+      key: "pouet",
+      name: "Pouët",
+      logoPath: "/assets/scrappers/pouet.png?v=2",
+      descKey: "setup.provider-pouet-desc",
+      setupKey: "setup.provider-pouet-setup",
+      caveatKey: "setup.provider-pouet-caveat",
+      requiresKey: false,
+      disabled: !m.POUET_API_ENABLED,
+    },
+    {
+      key: "csdb",
+      name: "CSDb",
+      logoPath: "/assets/scrappers/csdb.png",
+      descKey: "setup.provider-csdb-desc",
+      setupKey: "setup.provider-csdb-setup",
+      caveatKey: "setup.provider-csdb-caveat",
+      requiresKey: false,
+      disabled: !m.CSDB_API_ENABLED,
     },
   ];
 });
@@ -262,6 +293,7 @@ onMounted(() => {
               :src="source.logoPath"
               :width="36"
               :height="36"
+              contain
               class="r-setup-metadata__item-logo"
               :alt="source.name"
             />
@@ -318,6 +350,7 @@ onMounted(() => {
               :src="source.logoPath"
               :width="36"
               :height="36"
+              contain
               class="r-setup-metadata__item-logo"
               :alt="source.name"
             />
@@ -374,6 +407,7 @@ onMounted(() => {
               :src="source.logoPath"
               :width="36"
               :height="36"
+              contain
               class="r-setup-metadata__item-logo"
               :alt="source.name"
             />

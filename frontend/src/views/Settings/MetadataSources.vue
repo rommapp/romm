@@ -18,6 +18,9 @@ const heartbeatStatus = ref<Record<string, boolean | undefined>>({
   launchbox: undefined,
   flashpoint: undefined,
   hltb: undefined,
+  demozoo: undefined,
+  pouet: undefined,
+  csdb: undefined,
   sgdb: undefined,
 });
 
@@ -78,6 +81,27 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/hltb.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.HLTB_API_ENABLED,
     heartbeat: heartbeatStatus.value.hltb,
+  },
+  {
+    name: "Demozoo",
+    value: "demozoo",
+    logo_path: "/assets/scrappers/demozoo.png?v=2",
+    disabled: !heartbeat.value.METADATA_SOURCES?.DEMOZOO_API_ENABLED,
+    heartbeat: heartbeatStatus.value.demozoo,
+  },
+  {
+    name: "Pouët",
+    value: "pouet",
+    logo_path: "/assets/scrappers/pouet.png?v=2",
+    disabled: !heartbeat.value.METADATA_SOURCES?.POUET_API_ENABLED,
+    heartbeat: heartbeatStatus.value.pouet,
+  },
+  {
+    name: "CSDb",
+    value: "csdb",
+    logo_path: "/assets/scrappers/csdb.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.CSDB_API_ENABLED,
+    heartbeat: heartbeatStatus.value.csdb,
   },
   {
     name: "SteamgridDB",

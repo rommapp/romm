@@ -28,6 +28,9 @@ export type SimpleRomSchema = {
     tgdb_id: (number | null);
     flashpoint_id: (string | null);
     hltb_id: (number | null);
+    demozoo_id: (number | null);
+    pouet_id: (number | null);
+    csdb_id: (number | null);
     gamelist_id: (string | null);
     libretro_id: (string | null);
     platform_id: number;
@@ -55,6 +58,9 @@ export type SimpleRomSchema = {
     hasheous_metadata: (RomHasheousMetadata | null);
     flashpoint_metadata: (RomFlashpointMetadata | null);
     hltb_metadata: (RomHLTBMetadata | null);
+    demozoo_metadata: (Record<string, unknown> | null);
+    pouet_metadata: (Record<string, unknown> | null);
+    csdb_metadata: (Record<string, unknown> | null);
     gamelist_metadata: (RomGamelistMetadata | null);
     manual_metadata: (ManualMetadata | null);
     path_cover_small: (string | null);
