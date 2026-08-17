@@ -53,10 +53,14 @@ def fold_title(title: str) -> str:
 
     Spaces go too, so "Area-51" and "Area 51" agree. Returns "" for a title
     with nothing left to compare, which callers must treat as no key.
+
+    Letters of every script survive. Keeping only ASCII would reduce a title
+    written in one to whatever digits it carries, collapsing "三國立志傳2" and
+    "忍者村大战2" onto the same key.
     """
     decomposed = unicodedata.normalize("NFKD", title.casefold())
     without_accents = "".join(c for c in decomposed if not unicodedata.combining(c))
-    return re.sub(r"[^a-z0-9]+", "", without_accents)
+    return "".join(c for c in without_accents if c.isalnum())
 
 
 def file_name_forms(file_name: str) -> list[str]:

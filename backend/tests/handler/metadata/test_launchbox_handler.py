@@ -702,6 +702,27 @@ class TestRemoteSourceGetRom:
         assert result is not None
         assert result.get("DatabaseID", None) == "77"
 
+    @pytest.mark.parametrize(
+        ("title", "expected"),
+        [
+            ("Burnout: Revenge", "burnoutrevenge"),
+            ("Astérix at the Olympic Games", "asterixattheolympicgames"),
+            ("AC/DC Live", "acdclive"),
+            ("Area-51", "area51"),
+            # A title in a non-Latin script keeps its letters. Reducing it to
+            # its digits would collide with every other title numbered alike.
+            ("三國立志傳2", "三國立志傳2"),
+            ("Зона 51", "зона51"),
+            # Nothing comparable left, so callers must treat it as no key.
+            (":: -- ::", ""),
+        ],
+    )
+    def test_fold_title(self, title: str, expected: str):
+        assert fold_title(title) == expected
+
+    def test_fold_title_separates_titles_sharing_only_their_digits(self):
+        assert fold_title("三國立志傳2") != fold_title("忍者村大战2")
+
     async def test_folded_match_is_only_tried_after_exact_forms(
         self, source: RemoteSource
     ):
