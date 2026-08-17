@@ -53,7 +53,7 @@ async function createInviteLink() {
       expiration: selectedExpiration.value,
     });
     // The backend builds the link from ROMM_BASE_URL so it stays shareable when
-    // generated from localhost; it only omits it when that's unconfigured.
+    // generated from localhost. It omits it when ROMM_BASE_URL is unset or non-public.
     fullInviteLink.value =
       data.url ?? `${window.location.origin}/register?token=${data.token}`;
     snackbar.success(t("settings.invite-link-created"), {
