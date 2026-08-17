@@ -11,6 +11,7 @@ from endpoints.sockets.scan import (
     ScanStats,
     _identify_rom,
     _scan_selected_roms,
+    _should_reparse_tags,
     reject_unauthorized_scan,
     scan_handler,
     scan_platforms,
@@ -471,6 +472,195 @@ class TestShouldScanRom:
 
         result = should_scan_rom(scan_type, rom, roms_ids, ["igdb"])
         assert result is expected
+
+
+class TestShouldReparseTags:
+    """Which scans re-read filename tags onto a row that already exists."""
+
+    @pytest.fixture
+    def rom(self) -> Rom:
+        rom: Rom = Mock(spec=Rom)
+        rom.id = 1
+        return rom
+
+    def test_complete_rescan_reparses(self, rom: Rom):
+        assert _should_reparse_tags(ScanType.COMPLETE, rom, []) is True
+
+    @pytest.mark.parametrize(
+        "scan_type",
+        [
+            ScanType.QUICK,
+            ScanType.NEW_PLATFORMS,
+            ScanType.UPDATE,
+            ScanType.UNMATCHED,
+        ],
+    )
+    def test_other_scans_leave_tags_alone(self, scan_type, rom: Rom):
+        assert _should_reparse_tags(scan_type, rom, []) is False
+
+    def test_hashes_rescan_leaves_tags_alone(self, rom: Rom):
+        """A hashes rescan is scoped to file bytes, so it must not touch tags."""
+        assert _should_reparse_tags(ScanType.HASHES, rom, []) is False
+
+    def test_selected_roms_reparse_under_any_scan_type(self, rom: Rom):
+        assert _should_reparse_tags(ScanType.QUICK, rom, [rom.id]) is True
+        assert _should_reparse_tags(ScanType.HASHES, rom, [rom.id]) is True
+
+    def test_unselected_rom_is_left_alone(self, rom: Rom):
+        assert _should_reparse_tags(ScanType.QUICK, rom, [rom.id + 99]) is False
+
+
+class TestIdentifyRomTagReparse:
+    """A complete rescan re-reads filename tags onto an existing entry.
+
+    Tags are parsed once at insert and otherwise never revisited, so a change to
+    `parse_tags` (a new normalization rule, say) would never reach rows scanned
+    before it. A HASHES scan is used for the negative case so the flow returns
+    right after the file-rebuild step.
+    """
+
+    @pytest.fixture
+    def patched(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        fs = scan_module.fs_rom_handler
+        mocker.patch.object(
+            fs,
+            "parse_tags",
+            return_value=ParsedTags(
+                version="1.1",
+                revision="A",
+                regions=["USA"],
+                languages=["English"],
+                other_tags=["Proto"],
+            ),
+        )
+        mocker.patch.object(fs, "get_roms_fs_structure", return_value="test/roms")
+        mocker.patch.object(fs, "get_file_name_with_no_tags", return_value="Game")
+        mocker.patch.object(
+            fs,
+            "get_rom_files",
+            AsyncMock(
+                return_value=ParsedRomFiles(
+                    rom_files=[],
+                    crc_hash="crc",
+                    md5_hash="md5",
+                    sha1_hash="sha1",
+                    ra_hash="",
+                )
+            ),
+        )
+
+        config = MagicMock()
+        config.SKIP_HASH_CALCULATION = False
+        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+        scan_rom = mocker.patch.object(
+            scan_module,
+            "scan_rom",
+            AsyncMock(return_value=MagicMock(is_identified=False)),
+        )
+
+        # A COMPLETE scan runs past the point a HASHES scan returns at, into the
+        # resource downloads and the closing emit, none of which is under test.
+        resources = mocker.patch.object(
+            scan_module, "fs_resource_handler", new=AsyncMock()
+        )
+        resources.get_cover.return_value = ("cover_s.png", "cover_l.png")
+        resources.get_manual.return_value = "manual.pdf"
+        resources.get_rom_screenshots.return_value = []
+        resources.store_metadata_media.return_value = False
+        mocker.patch.object(scan_module, "SimpleRomSchema", MagicMock())
+
+        db = mocker.patch.object(scan_module, "db_rom_handler")
+        db.add_rom.return_value = MagicMock(
+            is_identified=False,
+            id=1,
+            url_cover="",
+            url_manual="",
+            url_screenshots=[],
+        )
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=[]
+        )
+        return SimpleNamespace(db=db, scan_rom=scan_rom)
+
+    def _existing_rom(self) -> Rom:
+        """A row carrying the raw values an older parser would have written."""
+        rom = Rom(
+            platform_id=1,
+            fs_name="Game (USA) (En) (Proto) (v1.1) (Rev A).zip",
+            fs_path="test/roms",
+            regions=["us"],
+            languages=["en"],
+            tags=["proto"],
+            revision="",
+            version="",
+        )
+        rom.id = 1
+        return rom
+
+    async def _run(self, rom: Rom, scan_type: ScanType, roms_ids: list[int]):
+        fs_rom: FSRom = {
+            "fs_name": "Game (USA) (En) (Proto) (v1.1) (Rev A).zip",
+            "flat": True,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+
+        await _identify_rom(
+            platform=platform,
+            fs_rom=fs_rom,
+            rom=rom,
+            scan_type=scan_type,
+            roms_ids=roms_ids,
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
+
+    async def test_complete_rescan_rewrites_stale_tags(self, patched):
+        rom = self._existing_rom()
+
+        await self._run(rom, ScanType.COMPLETE, [])
+
+        # scan_rom carries these columns forward from the rom it is handed, and
+        # merging its result is what persists them.
+        assert rom.regions == ["USA"]
+        assert rom.languages == ["English"]
+        assert rom.tags == ["Proto"]
+        assert rom.revision == "A"
+        assert rom.version == "1.1"
+
+        # The mutated instance is the one carried onward, not a copy.
+        assert patched.scan_rom.call_args.kwargs["rom"] is rom
+
+    async def test_hashes_rescan_keeps_existing_tags(self, patched):
+        rom = self._existing_rom()
+
+        await self._run(rom, ScanType.HASHES, [])
+
+        assert rom.regions == ["us"]
+        assert rom.languages == ["en"]
+        assert rom.tags == ["proto"]
+
+    async def test_selected_rom_rewrites_tags(self, patched):
+        rom = self._existing_rom()
+
+        await self._run(rom, ScanType.HASHES, [rom.id])
+
+        assert rom.regions == ["USA"]
+        assert rom.languages == ["English"]
 
 
 class TestScanAuthorization:

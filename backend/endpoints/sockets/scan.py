@@ -324,6 +324,28 @@ def _should_get_rom_files(
     )
 
 
+def _should_reparse_tags(
+    scan_type: ScanType,
+    rom: Rom,
+    roms_ids: list[int],
+) -> bool:
+    """Decide if filename tags should be re-read onto an existing rom
+
+    A rom parses its tags when it is first inserted and again when the edit
+    endpoint renames it, but never in between, so a change to `parse_tags` only
+    reaches rows that were scanned after it. A complete rescan or an explicit
+    per-rom selection re-reads them; a hashes rescan does not, since it is
+    scoped to re-reading file bytes.
+
+    Args:
+        scan_type (ScanType): Type of scan to be performed.
+        rom (Rom): The rom whose tags may be re-read.
+        roms_ids (list[int]): List of selected roms to be scanned.
+    """
+
+    return bool(scan_type == ScanType.COMPLETE or (rom and rom.id in roms_ids))
+
+
 def _should_hash_firmware(
     scan_type: ScanType,
     firmware: Firmware | None,
@@ -453,6 +475,17 @@ async def _identify_rom(
                     f"Skipping {hl(fs_rom['fs_name'])}: already created by a concurrent scan"
                 )
                 return
+
+    # Re-read the filename tags onto an existing entry. Written onto the instance
+    # rather than through update_rom because scan_rom carries these columns
+    # forward from the rom it is handed, and merging its result is what persists
+    # them.
+    if not newly_added and _should_reparse_tags(scan_type, rom, roms_ids):
+        rom.regions = parsed_tags.regions
+        rom.languages = parsed_tags.languages
+        rom.tags = parsed_tags.other_tags
+        rom.revision = parsed_tags.revision
+        rom.version = parsed_tags.version
 
     # Build rom files object before scanning. A reassociated ROM always rebuilds
     # its files so the stale paths from the old filename are replaced.
