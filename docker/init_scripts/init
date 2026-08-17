@@ -300,6 +300,10 @@ watchdog_process_pid() {
 		# Check if the pid we last wrote to our state file is actually active
 		PID=$(cat "/tmp/${PROCESS}.pid") || true
 		if [[ ! -d "/proc/${PID}" ]]; then
+			# Restarting silently hides both the crash and whatever died with it.
+			# A valkey restart in particular drops every cached key written since
+			# the last snapshot, which no amount of retrying brings back.
+			warn_log "${PROCESS} exited unexpectedly, restarting it"
 			start_bin_"${PROCESS}"
 		fi
 	else

@@ -165,6 +165,9 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
 FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}@sha256:${NGINX_SHA256} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
+# valkey-cli is packaged separately from valkey on Alpine, and nothing in the
+# image invokes it. It ships so operators can inspect the internal cache, which
+# holds metadata that only a task re-run can rebuild.
 RUN apk add --no-cache \
     bash \
     libarchive-tools \
@@ -174,7 +177,8 @@ RUN apk add --no-cache \
     nodejs \
     7zip \
     tzdata \
-    valkey
+    valkey \
+    valkey-cli
 
 # Add Python by copying it from the official Docker image. This way, we don't rely on Alpine's
 # Python version, which could not be the same as the one used in the backend build stage.
