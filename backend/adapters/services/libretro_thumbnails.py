@@ -16,6 +16,9 @@ from utils.context import ctx_aiohttp_session
 LIBRETRO_THUMBNAIL_ROOT = "https://thumbnails.libretro.com"
 LIBRETRO_LISTING_CACHE_KEY = "romm:libretro:listing"
 LIBRETRO_LISTING_CACHE_TTL = 60 * 60 * 24  # 24 hours
+# Not every system has every art type, so misses are cached too, on a shorter
+# TTL in case the directory is added upstream later.
+LIBRETRO_MISSING_LISTING_CACHE_TTL = 60 * 60  # 1 hour
 
 
 class _AnchorHrefParser(HTMLParser):
@@ -99,6 +102,12 @@ class LibretroThumbnailsService:
                 exc.status,
                 url,
             )
+            # Client errors mean the directory isn't there, which won't change
+            # between ROMs of the same platform. Server errors might.
+            if exc.status < 500:
+                await self._cache_listing(
+                    cache_key, [], ttl=LIBRETRO_MISSING_LISTING_CACHE_TTL
+                )
             return []
         except aiohttp.client_exceptions.ClientError as exc:
             log.warning("Libretro listing request failed for URL %s: %s", url, exc)
@@ -108,14 +117,16 @@ class LibretroThumbnailsService:
         parser.feed(body)
         filenames = parser.filenames
 
-        try:
-            await async_cache.set(
-                cache_key, json.dumps(filenames), ex=LIBRETRO_LISTING_CACHE_TTL
-            )
-        except Exception as exc:  # pragma: no cover - cache is best-effort
-            log.warning("Failed to cache libretro listing %s: %s", cache_key, exc)
+        await self._cache_listing(cache_key, filenames, ttl=LIBRETRO_LISTING_CACHE_TTL)
 
         return filenames
+
+    @staticmethod
+    async def _cache_listing(cache_key: str, filenames: list[str], *, ttl: int) -> None:
+        try:
+            await async_cache.set(cache_key, json.dumps(filenames), ex=ttl)
+        except Exception as exc:  # pragma: no cover - cache is best-effort
+            log.warning("Failed to cache libretro listing %s: %s", cache_key, exc)
 
     async def head(self) -> bool:
         """Lightweight connectivity check against the thumbnail server root."""
