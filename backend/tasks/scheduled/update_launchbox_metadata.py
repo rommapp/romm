@@ -19,11 +19,13 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
     LAUNCHBOX_PLATFORMS_KEY,
 )
+from handler.metadata.launchbox_handler.utils import fold_title
 from handler.redis_handler import async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask, TaskType
@@ -198,6 +200,15 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                                 f":{platform_elem.text.strip()}",
                                                 _element_to_dict(elem),
                                             )
+
+                                            folded = fold_title(name_elem.text)
+                                            if folded:
+                                                await writer.hset(
+                                                    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
+                                                    f"{folded}"
+                                                    f":{platform_elem.text.strip()}",
+                                                    _element_to_dict(elem),
+                                                )
 
                                     elif elem.tag == "GameAlternateName":
                                         alternate_name_elem = elem.find("AlternateName")

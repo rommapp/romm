@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
@@ -39,6 +40,23 @@ def deinvert_article(term: str) -> str | None:
 
     subtitle = match.group("subtitle") or ""
     return f"{match.group('article')} {match.group('title')}{subtitle}"
+
+
+def fold_title(title: str) -> str:
+    """Reduce a title to letters and digits for punctuation-blind comparison.
+
+    Dump titles and ROM filenames disagree on punctuation constantly: LaunchBox
+    writes a colon a filename has no room for ("Burnout: Revenge"), keeps
+    diacritics a dump filename drops ("Astérix"), and uses characters a
+    filesystem forbids ("AC/DC"). Folding both sides to `burnoutrevenge` /
+    `asterix` / `acdc` makes those the same key.
+
+    Spaces go too, so "Area-51" and "Area 51" agree. Returns "" for a title
+    with nothing left to compare, which callers must treat as no key.
+    """
+    decomposed = unicodedata.normalize("NFKD", title.casefold())
+    without_accents = "".join(c for c in decomposed if not unicodedata.combining(c))
+    return re.sub(r"[^a-z0-9]+", "", without_accents)
 
 
 def file_name_forms(file_name: str) -> list[str]:
