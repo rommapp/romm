@@ -1,3 +1,4 @@
+import ipaddress
 import os
 from pathlib import Path
 from typing import Final, overload
@@ -25,19 +26,24 @@ def _get_env(var: str, fallback: str | None = None) -> str | None:
 ROMM_BASE_URL: Final[str] = _get_env("ROMM_BASE_URL", "http://0.0.0.0")
 ROMM_PORT: Final[int] = safe_int(_get_env("ROMM_PORT"), 8080)
 
-# Hosts that only resolve for whoever is running the instance, so a link built
-# from them is useless to the person receiving it.
-_NON_PUBLIC_HOSTS: Final[frozenset[str]] = frozenset(
-    {"0.0.0.0", "127.0.0.1", "localhost", "::", "::1"}
-)
+
+def _is_shareable_host(host: str) -> bool:
+    """Whether a host resolves to something other than the instance itself."""
+    if host.lower() == "localhost":
+        return False
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return True  # A hostname, so assume it resolves for everyone.
+    return not address.is_loopback and not address.is_unspecified
 
 
 def get_public_base_url() -> str | None:
     """Return ROMM_BASE_URL when it points somewhere shareable, else None."""
     url = yarl.URL(ROMM_BASE_URL)
-    if not url.is_absolute() or not url.host:
+    if url.scheme not in ("http", "https") or not url.host:
         return None
-    if url.host.lower() in _NON_PUBLIC_HOSTS:
+    if not _is_shareable_host(url.host):
         return None
     return str(url).rstrip("/")
 

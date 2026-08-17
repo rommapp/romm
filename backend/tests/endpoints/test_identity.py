@@ -228,6 +228,10 @@ def test_update_user_accepts_png_avatar(
         ("https://romm.example.com/", "https://romm.example.com/register?token="),
         ("http://0.0.0.0", None),
         ("http://localhost:3000", None),
+        ("http://127.0.0.2:8080", None),
+        ("http://[::1]:8080", None),
+        ("romm.example.com", None),
+        ("ftp://romm.example.com", None),
     ],
 )
 def test_create_invite_link_url(
