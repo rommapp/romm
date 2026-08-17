@@ -25,6 +25,23 @@ def _get_env(var: str, fallback: str | None = None) -> str | None:
 ROMM_BASE_URL: Final[str] = _get_env("ROMM_BASE_URL", "http://0.0.0.0")
 ROMM_PORT: Final[int] = safe_int(_get_env("ROMM_PORT"), 8080)
 
+# Hosts that only resolve for whoever is running the instance, so a link built
+# from them is useless to the person receiving it.
+_NON_PUBLIC_HOSTS: Final[frozenset[str]] = frozenset(
+    {"0.0.0.0", "127.0.0.1", "localhost", "::", "::1"}
+)
+
+
+def get_public_base_url() -> str | None:
+    """Return ROMM_BASE_URL when it points somewhere shareable, else None."""
+    url = yarl.URL(ROMM_BASE_URL)
+    if not url.is_absolute() or not url.host:
+        return None
+    if url.host.lower() in _NON_PUBLIC_HOSTS:
+        return None
+    return str(url).rstrip("/")
+
+
 # GUNICORN
 DEV_MODE: Final[bool] = safe_str_to_bool(_get_env("DEV_MODE"))
 DEV_HOST: Final[str] = _get_env("DEV_HOST", "127.0.0.1")
