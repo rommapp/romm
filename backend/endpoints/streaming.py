@@ -686,6 +686,19 @@ _EMULATOR_CAPABILITIES: dict[str, _SlotCapabilities] = {
         "autosave_slot": 10,
         "has_memory_card": False,
     },
+    # PPSSPP has no control socket, so it works the same way: every save/load
+    # route resolves to the one slot its controls.ini hotkey always lands on
+    # (PPSSPP_STATE_SLOT, default 1). Saves live on the emulated Memory Stick
+    # and round-trip through /save-file, not /memory-card. Kept apart from
+    # ngc/wii/wiiu/ps2/xbox above (platform-keyed) because psp can also be
+    # served through RetroArch, which needs its own generic entry to win
+    # instead.
+    "ppsspp": {
+        "max_slots": 0,
+        "has_autosave": True,
+        "autosave_slot": 1,
+        "has_memory_card": False,
+    },
 }
 
 

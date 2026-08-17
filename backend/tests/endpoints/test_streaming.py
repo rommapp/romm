@@ -231,6 +231,26 @@ def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_t
     assert caps["autosave_slot"] == 10
 
 
+def test_get_config_ships_capabilities_for_a_native_ppsspp_platform(
+    client, access_token
+):
+    """PPSSPP has no control socket either, so it gets the same single-slot
+    treatment as RetroArch, but its own slot: the broker's controls.ini
+    hotkey always lands on PPSSPP_STATE_SLOT (1), not RetroArch's 10."""
+    container = {
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "platforms": {"psp": {"emulator": "ppsspp", "label": "PPSSPP"}},
+    }
+    with _streaming(container):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert r.status_code == 200
+    caps = r.json()["containers"][0]["capabilities"]
+    assert caps["has_autosave"] is True
+    assert caps["autosave_slot"] == 1
+    assert caps["max_slots"] == 0
+
+
 def test_get_config_ships_per_platform_label_overrides(client, access_token):
     """The headline promise of a shared webstation container: a PS2 row can
     say "PCSX2" while its siblings keep the container's fallback label."""
