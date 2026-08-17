@@ -193,21 +193,23 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             and platform_elem is not None
                                             and platform_elem.text
                                         ):
+                                            platform_name = platform_elem.text.strip()
+                                            game = _element_to_dict(elem)
+
                                             # Use a unique combination of name and platform as the key
                                             await writer.hset(
                                                 LAUNCHBOX_METADATA_NAME_KEY,
                                                 f"{name_elem.text.strip().lower()}"
-                                                f":{platform_elem.text.strip()}",
-                                                _element_to_dict(elem),
+                                                f":{platform_name}",
+                                                game,
                                             )
 
                                             folded = fold_title(name_elem.text)
                                             if folded:
                                                 await writer.hset(
                                                     LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
-                                                    f"{folded}"
-                                                    f":{platform_elem.text.strip()}",
-                                                    _element_to_dict(elem),
+                                                    f"{folded}:{platform_name}",
+                                                    game,
                                                 )
 
                                     elif elem.tag == "GameAlternateName":

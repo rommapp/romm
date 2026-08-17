@@ -713,6 +713,10 @@ class TestRemoteSourceGetRom:
             # its digits would collide with every other title numbered alike.
             ("三國立志傳2", "三國立志傳2"),
             ("Зона 51", "зона51"),
+            # Scripts that build syllables from marks keep them; stripping to
+            # alphanumerics alone would spell these titles differently.
+            ("हिन्दी गेम", "हिन्दीगेम"),
+            ("สนุกเกอร์", "สนุกเกอร์"),
             # Nothing comparable left, so callers must treat it as no key.
             (":: -- ::", ""),
         ],

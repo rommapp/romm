@@ -57,10 +57,22 @@ def fold_title(title: str) -> str:
     Letters of every script survive. Keeping only ASCII would reduce a title
     written in one to whatever digits it carries, collapsing "三國立志傳2" and
     "忍者村大战2" onto the same key.
+
+    A mark only goes when it sits on a Latin letter, where it is an accent the
+    two sides may disagree about ("Astérix" against "Asterix"). Elsewhere it
+    spells the word: Devanagari and Thai build syllables from marks, so dropping
+    them would reduce "हिन्दी" to "हनद" and collide titles that differ.
     """
-    decomposed = unicodedata.normalize("NFKD", title.casefold())
-    without_accents = "".join(c for c in decomposed if not unicodedata.combining(c))
-    return "".join(c for c in without_accents if c.isalnum())
+    kept: list[str] = []
+    for char in unicodedata.normalize("NFKD", title.casefold()):
+        if unicodedata.category(char).startswith("M"):
+            if kept and "a" <= kept[-1] <= "z":
+                continue
+            kept.append(char)
+        elif char.isalnum():
+            kept.append(char)
+
+    return "".join(kept)
 
 
 def file_name_forms(file_name: str) -> list[str]:
