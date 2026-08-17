@@ -19,6 +19,9 @@ LIBRETRO_LISTING_CACHE_TTL = 60 * 60 * 24  # 24 hours
 # Not every system has every art type, so misses are cached too, on a shorter
 # TTL in case the directory is added upstream later.
 LIBRETRO_MISSING_LISTING_CACHE_TTL = 60 * 60  # 1 hour
+# Statuses that mean the directory isn't there, as opposed to a request that
+# could succeed on a retry (429, 408, 403, 5xx).
+LIBRETRO_MISSING_LISTING_STATUSES = frozenset({404, 410})
 
 
 class _AnchorHrefParser(HTMLParser):
@@ -102,9 +105,9 @@ class LibretroThumbnailsService:
                 exc.status,
                 url,
             )
-            # Client errors mean the directory isn't there, which won't change
-            # between ROMs of the same platform. Server errors might.
-            if exc.status < 500:
+            # An absent directory won't reappear between ROMs of the same
+            # platform, so remember it. Anything retryable stays uncached.
+            if exc.status in LIBRETRO_MISSING_LISTING_STATUSES:
                 await self._cache_listing(
                     cache_key, [], ttl=LIBRETRO_MISSING_LISTING_CACHE_TTL
                 )

@@ -106,9 +106,22 @@ async def test_fetch_listing_serves_cached_miss_without_a_request(service):
 
 
 @pytest.mark.asyncio
-async def test_fetch_listing_does_not_cache_server_errors(service):
-    system_name = "Test - Server Error"
-    session = mock_session_raising(response_error(503))
+async def test_fetch_listing_caches_miss_on_410(service):
+    system_name = "Test - Gone"
+    session = mock_session_raising(response_error(410))
+
+    assert await fetch_with(service, session, system_name) == []
+
+    cache_key = service._cache_key(system_name, LibretroArtType.LOGO)
+    assert json.loads(await async_cache.get(cache_key)) == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [403, 408, 429, 503])
+async def test_fetch_listing_does_not_cache_retryable_errors(service, status):
+    """A directory that exists must not be masked by a transient failure."""
+    system_name = f"Test - Retryable {status}"
+    session = mock_session_raising(response_error(status))
 
     assert await fetch_with(service, session, system_name) == []
 
