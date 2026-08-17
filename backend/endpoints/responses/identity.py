@@ -3,9 +3,9 @@ from typing import NotRequired, TypedDict, get_type_hints
 from pydantic import ConfigDict
 from starlette.requests import Request
 
-from config import get_public_base_url
 from handler.metadata.ra_handler import RAUserProgression
 from models.user import Role, User
+from utils.urls import get_public_base_url
 
 from .base import BaseModel, UTCDatetime
 
