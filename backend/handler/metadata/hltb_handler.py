@@ -541,9 +541,13 @@ class HLTBHandler(MetadataHandler):
         if rom["hltb_id"]:
             return rom
 
-        terms = re.split(self.SEARCH_TERM_SPLIT_PATTERN, search_term)
-        tail = terms[-1].strip()
-        if len(terms) > 1 and tail and tail != search_term:
+        # `get_rom` has already rewritten " - " as ": ", so a series separator is
+        # a colon by this point and any hyphen still present is inside a word.
+        # Splitting on those as well would retry "spider-man 2" as "man 2" and
+        # invite a match on an unrelated game.
+        head, _, tail = search_term.rpartition(":")
+        tail = tail.strip()
+        if head and tail:
             return await self._search_and_score(
                 tail, platform_slug, split_game_name=True
             )

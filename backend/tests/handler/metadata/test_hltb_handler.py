@@ -407,6 +407,23 @@ async def test_term_without_a_separator_is_not_searched_twice():
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_hyphen_inside_a_word_does_not_trigger_a_retry():
+    """A retry on "man 2" would invite a match on an unrelated game."""
+    handler = _handler()
+    searched: list[str] = []
+
+    async def search_games(term, _platform_slug):
+        searched.append(term)
+        return []
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("Spider-Man 2 (USA).chd", "ps2")
+
+    assert rom["hltb_id"] is None
+    assert searched == ["spider-man 2"]
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
 async def test_retry_still_requires_recorded_times():
     """A catalogue entry nobody has submitted a time for is not a match."""
     handler = _handler()
