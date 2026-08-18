@@ -424,7 +424,7 @@ class FSHandler:
         The stream lands in a temporary file that is renamed over the target
         once the caller's block completes, so a download killed mid-stream
         leaves any existing file intact instead of truncating it in place. A
-        truncated file is the worse outcome, since it still satisfies the
+        truncated file is the worst outcome, since it still satisfies the
         `*_exists` checks and every later scan skips it.
 
         Args:
