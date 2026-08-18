@@ -87,8 +87,7 @@ const homeOptions = computed(() => [
 
 const platformsDrawerOptions = computed(() => [
   {
-    title: t("settings.group-platforms-by"),
-    description: t("settings.group-platforms-by-desc"),
+    title: t("settings.platforms-drawer-group-by"),
     iconEnabled: "mdi-controller",
     iconDisabled: "mdi-controller",
     model: platformsGroupByRef,

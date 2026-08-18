@@ -364,12 +364,7 @@ async function performDelete(
             <div class="r-v2-fw__row-name-line">
               <RTooltip
                 v-if="f.missing_from_fs"
-                :text="
-                  t(
-                    'platform.firmware-missing-from-fs',
-                    'Missing from filesystem',
-                  )
-                "
+                :text="t('platform.firmware-missing-from-fs')"
               >
                 <template #activator="{ props: act }">
                   <RIcon
@@ -410,12 +405,7 @@ async function performDelete(
                 color="success"
                 variant="translucent"
                 prepend-icon="mdi-check-circle"
-                :title="
-                  t(
-                    'platform.firmware-verified-tooltip',
-                    'Passed size, SHA1 and MD5 checksum checks',
-                  )
-                "
+                :title="t('platform.firmware-verified-tooltip')"
               >
                 {{ t("platform.firmware-verified", "Verified") }}
               </RChip>

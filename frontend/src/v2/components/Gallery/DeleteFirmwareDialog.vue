@@ -126,12 +126,7 @@ async function confirm() {
           :model-value="allOnFs"
           :indeterminate="someOnFs"
           hide-details
-          :label="
-            t(
-              'platform.firmware-toggle-all-fs',
-              'Also delete all files from filesystem',
-            )
-          "
+          :label="t('platform.firmware-toggle-all-fs')"
           @update:model-value="toggleAllFs"
         />
       </div>
