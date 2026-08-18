@@ -248,7 +248,9 @@ class FSHandler:
             os.chmod(temp_path, 0o644)
             os.replace(str(temp_path), str(target_path))
 
-        except Exception:
+        # BaseException, not Exception: a cancelled scan raises CancelledError,
+        # which would otherwise skip cleanup and strand a temp file per cancel.
+        except BaseException:
             async_temp = AnyioPath(temp_path)
             if await async_temp.exists():
                 await async_temp.unlink()

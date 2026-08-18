@@ -1,3 +1,4 @@
+import asyncio
 import errno
 import os
 from io import BytesIO
@@ -1110,6 +1111,26 @@ class TestDiskFullHandling:
             await handler._store_cover(rom, "http://example.com/cover.png")
 
         assert target.read_bytes() == b"the good cover"
+
+    @pytest.mark.asyncio
+    async def test_cancelled_download_leaves_no_temp_file(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # Stopping a scan raises CancelledError, which derives from
+        # BaseException. Cleanup has to catch it or every cancel strands a
+        # temp file in the resource directory.
+        handler.base_path = tmp_path
+        cover_dir = tmp_path / "roms/1/1/cover"
+        cover_dir.mkdir(parents=True)
+
+        with pytest.raises(asyncio.CancelledError):
+            async with handler.write_file_streamed(
+                path="roms/1/1/cover", filename="big.png"
+            ) as f:
+                await f.write(b"partial")
+                raise asyncio.CancelledError()
+
+        assert list(cover_dir.iterdir()) == []
 
     @pytest.mark.asyncio
     async def test_interrupted_download_leaves_no_temp_file(
