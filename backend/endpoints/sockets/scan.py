@@ -39,7 +39,12 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.metadata import meta_gamelist_handler, meta_hltb_handler
+from handler.metadata import (
+    meta_gamelist_handler,
+    meta_hltb_handler,
+    meta_launchbox_handler,
+)
+from handler.metadata.launchbox_handler.types import LAUNCHBOX_PLATFORMS_DIR
 from handler.metadata.ss_handler import add_ss_auth_to_url
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import get_preferred_media_types
@@ -1067,6 +1072,40 @@ async def scan_platforms(
     # Initialize HLTB handler (fetches current search endpoint and security token)
     if MetadataSource.HLTB in metadata_sources:
         await meta_hltb_handler.initialize()
+
+    # A local install is read on every lookup; the per-scan switch only decides
+    # whether the cloud store is consulted as well. Both can be empty, and a
+    # lookup against an absent source is silent, so what LaunchBox can actually
+    # read is recorded here rather than left to be inferred from a platform's
+    # worth of empty results.
+    if MetadataSource.LAUNCHBOX in metadata_sources:
+        local_available = meta_launchbox_handler.is_local_enabled()
+        store_available = launchbox_remote_enabled and (
+            await meta_launchbox_handler.is_remote_store_populated()
+        )
+        readable = [
+            name
+            for name, present in (
+                (f"a {hl('local')} install", local_available),
+                (f"the {hl('cloud')} store", store_available),
+            )
+            if present
+        ]
+        if readable:
+            log.info(f"LaunchBox is reading {' and '.join(readable)}")
+        elif launchbox_remote_enabled:
+            log.warning(
+                f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} LaunchBox has nothing "
+                f"to read: no install at {hl(str(LAUNCHBOX_PLATFORMS_DIR))} and the "
+                "cloud store is empty. Run the LaunchBox metadata update task."
+            )
+        else:
+            log.warning(
+                f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} LaunchBox is set to "
+                f"local only and no install was found at "
+                f"{hl(str(LAUNCHBOX_PLATFORMS_DIR))}, so it will match nothing. "
+                "Switch it to cloud, or mount an install there."
+            )
 
     # Resolve the platforms that will actually be scanned. When no platform ids
     # are provided, every filesystem platform is scanned.
