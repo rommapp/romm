@@ -21,8 +21,9 @@ src_dir = os.path.dirname(locales_dir)
 en_dir = os.path.join(locales_dir, "en_US")
 
 # `t("x.y")`, `$t('x.y')`, `i18n.global.t("x.y")`, `tm("x")`. The lookbehind
-# keeps `get(`, `format(` and friends from passing as `t(`.
-CALL = re.compile(r"""(?<![\w.$])(?:\$t|t|tm)\(\s*["']([\w.-]+)["']""")
+# keeps `get(`, `format(` and friends from passing as `t(`, while still
+# allowing the `.t(` of a qualified call.
+CALL = re.compile(r"""(?<![\w$])(?:\$t|t|tm)\(\s*["']([\w.-]+)["']""")
 
 # Reference docs in a comment shouldn't fail the build.
 COMMENT = re.compile(r"^\s*(//|/?\*)")
@@ -55,11 +56,14 @@ def used_keys(path):
 
 
 def resolve(key, messages):
-    namespace, _, rest = key.partition(".")
-    if namespace not in messages:
-        return False
-    # `tm("common")` addresses the namespace itself.
-    return rest in messages[namespace] if rest else True
+    # Namespaces are flat, but a few (settings.perm-entity.roms) nest one
+    # level deeper, and `tm("common")` addresses a namespace on its own.
+    node = messages
+    for part in key.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return False
+        node = node[part]
+    return True
 
 
 def main():
