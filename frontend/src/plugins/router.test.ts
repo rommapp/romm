@@ -3,9 +3,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 import i18n, { localesReady } from "@/locales";
 import router from "@/plugins/router";
 
-// Titles that are plain strings rather than i18n keys.
-const LITERAL_TITLES = new Set(["RomM", "Controller debug"]);
-
 describe("route titles", () => {
   beforeAll(async () => {
     setActivePinia(createPinia());
@@ -16,8 +13,7 @@ describe("route titles", () => {
     const titles = router
       .getRoutes()
       .map((route) => route.meta.title)
-      .filter((title): title is string => typeof title === "string")
-      .filter((title) => !LITERAL_TITLES.has(title));
+      .filter((title): title is string => typeof title === "string");
 
     expect(titles.length).toBeGreaterThan(0);
 

@@ -6,7 +6,7 @@ import {
   type NavigationGuardWithThis,
   type RouteLocationNormalized,
 } from "vue-router";
-import i18n from "@/locales";
+import i18n, { loadLocale } from "@/locales";
 import { startViewTransition } from "@/plugins/transition";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
@@ -155,9 +155,6 @@ const routes = [
   {
     path: "/",
     name: ROUTES.MAIN,
-    meta: {
-      title: "RomM",
-    },
     // Named views let v1 and v2 coexist at the same URL. The v2 layout owns
     // its own <router-view name="v2"> so child routes with a `v2` component
     // render inside the v2 shell.
@@ -448,7 +445,7 @@ const routes = [
             // settings-adjacent tool rather than a standalone view.
             path: "controller-debug",
             name: ROUTES.CONTROLLER_DEBUG,
-            meta: { title: "Controller debug", bare: true },
+            meta: { title: "settings.controller-debug", bare: true },
             components: {
               // v1 has no equivalent; redirect to home if a v1 user
               // somehow lands here.
@@ -611,8 +608,8 @@ function checkRoutePermissions(route: string, user: User | null): boolean {
 }
 
 // `meta.title` holds an i18n key, translated per navigation rather than when
-// the route table is built — messages load asynchronously and aren't there
-// yet at module-eval time.
+// the route table is built. Messages load asynchronously and aren't there yet
+// at module-eval time.
 function applyRouteTitle(route: RouteLocationNormalized) {
   document.title = route.meta.title
     ? i18n.global.t(route.meta.title as string)
@@ -690,10 +687,10 @@ router.beforeEach(async (to, _from, next) => {
 // The stored language is applied when the app mounts, after the first
 // navigation has already resolved the title in the default locale. Routes
 // whose view owns its title (usePageTitle) carry no `meta.title` and keep it.
-watch(i18n.global.locale, () => {
-  if (router.currentRoute.value.meta.title) {
-    applyRouteTitle(router.currentRoute.value);
-  }
+watch(i18n.global.locale, async (locale) => {
+  await loadLocale(locale);
+  const route = router.currentRoute.value;
+  if (route.meta.title) applyRouteTitle(route);
 });
 
 router.beforeResolve(async (to, from) => {
