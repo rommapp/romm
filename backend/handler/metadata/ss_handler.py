@@ -940,7 +940,6 @@ class SSHandler(MetadataHandler):
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
                     url_cover=index_entry.get("iconUrl", ""),
-                    url_manual=index_entry.get("iconUrl", ""),
                     url_screenshots=index_entry.get("screenshots", None) or [],
                 )
 
@@ -956,7 +955,6 @@ class SSHandler(MetadataHandler):
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
                     url_cover=index_entry.get("iconUrl", ""),
-                    url_manual=index_entry.get("iconUrl", ""),
                     url_screenshots=index_entry.get("screenshots", None) or [],
                 )
 
