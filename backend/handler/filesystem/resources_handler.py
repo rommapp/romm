@@ -659,7 +659,7 @@ class FSResourcesHandler(FSHandler):
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
         except httpx.TransportError as exc:
-            log.error(f"Unable to fetch cover at {url}: {str(exc)}")
+            log.error(f"Unable to fetch badge at {url}: {str(exc)}")
         except OSError as exc:
             log.error(f"Unable to write badge for {url}: {str(exc)}")
 
