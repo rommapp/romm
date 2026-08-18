@@ -527,6 +527,36 @@ class HLTBHandler(MetadataHandler):
         search_term = re.sub(DASH_COLON_REGEX, ": ", search_term)
         search_term = self.normalize_search_term(search_term, remove_punctuation=False)
 
+        return await self._search_and_match(search_term, platform_slug)
+
+    async def _search_and_match(self, search_term: str, platform_slug: str) -> HLTBRom:
+        """Search HowLongToBeat for one normalized term and score the results.
+
+        A series prefix the term carries and the catalogue does not sinks the
+        similarity score ("007: Quantum of Solace" scores 0.838 against
+        "Quantum of Solace", under the gate), and a long enough term returns no
+        results at all, so the part after the last separator is tried as well.
+        """
+        rom = await self._search_and_score(search_term, platform_slug)
+        if rom["hltb_id"]:
+            return rom
+
+        # `get_rom` has already rewritten " - " as ": ", so a series separator is
+        # a colon by this point and any hyphen still present is inside a word.
+        # Splitting on those as well would retry "spider-man 2" as "man 2" and
+        # invite a match on an unrelated game.
+        head, _, tail = search_term.rpartition(":")
+        tail = tail.strip()
+        if head and tail:
+            return await self._search_and_score(
+                tail, platform_slug, split_game_name=True
+            )
+
+        return rom
+
+    async def _search_and_score(
+        self, search_term: str, platform_slug: str, split_game_name: bool = False
+    ) -> HLTBRom:
         # Search for games
         games = await self.search_games(search_term, platform_slug)
 
@@ -540,6 +570,7 @@ class HLTBHandler(MetadataHandler):
             search_term,
             game_names,
             min_similarity_score=self.min_similarity_score,
+            split_game_name=split_game_name,
         )
 
         if best_match:

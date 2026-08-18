@@ -329,3 +329,109 @@ async def test_heartbeat_sends_the_user_agent_hltb_requires(mock_ctx_httpx_clien
     headers = mock_client.get.await_args.kwargs["headers"]
     assert headers["User-Agent"] == f"RomM/{get_version()}"
     assert headers["Referer"] == "https://howlongtobeat.com"
+
+
+def _game(game_id: int, name: str, *, timed: bool = True) -> dict:
+    """A search result carrying only the fields matching depends on."""
+    time = 3600 if timed else 0
+    return {
+        "game_id": game_id,
+        "game_name": name,
+        "game_image": "",
+        "comp_main": time,
+        "comp_plus": time,
+        "comp_100": time,
+        "comp_all": time,
+        "comp_main_count": 1,
+        "comp_plus_count": 1,
+        "comp_100_count": 1,
+        "comp_all_count": 1,
+        "release_world": 2008,
+        "review_score": 70,
+        "count_review": 5,
+        "profile_popular": 3,
+        "count_comp": 4,
+    }
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_series_prefix_the_catalogue_omits_still_matches():
+    """ "007: Quantum of Solace" scores 0.838 against "Quantum of Solace",
+    under the gate, so the part after the separator has to be searched too."""
+    handler = _handler()
+    searched: list[str] = []
+
+    async def search_games(term, _platform_slug):
+        searched.append(term)
+        return [_game(7467, "Quantum of Solace")]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("007 - Quantum of Solace (USA).chd", "ps2")
+
+    assert rom["hltb_id"] == 7467
+    assert searched == ["007: quantum of solace", "quantum of solace"]
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_full_term_match_does_not_trigger_a_second_search():
+    handler = _handler()
+    searched: list[str] = []
+
+    async def search_games(term, _platform_slug):
+        searched.append(term)
+        return [_game(4806, "James Bond 007: Agent Under Fire")]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom(
+            "James Bond 007 - Agent Under Fire (USA).chd", "ps2"
+        )
+
+    assert rom["hltb_id"] == 4806
+    assert len(searched) == 1
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_term_without_a_separator_is_not_searched_twice():
+    handler = _handler()
+    searched: list[str] = []
+
+    async def search_games(term, _platform_slug):
+        searched.append(term)
+        return []
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("Nothing Like It (USA).chd", "ps2")
+
+    assert rom["hltb_id"] is None
+    assert searched == ["nothing like it"]
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_hyphen_inside_a_word_does_not_trigger_a_retry():
+    """A retry on "man 2" would invite a match on an unrelated game."""
+    handler = _handler()
+    searched: list[str] = []
+
+    async def search_games(term, _platform_slug):
+        searched.append(term)
+        return []
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("Spider-Man 2 (USA).chd", "ps2")
+
+    assert rom["hltb_id"] is None
+    assert searched == ["spider-man 2"]
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_retry_still_requires_recorded_times():
+    """A catalogue entry nobody has submitted a time for is not a match."""
+    handler = _handler()
+
+    async def search_games(_term, _platform_slug):
+        return [_game(7467, "Quantum of Solace", timed=False)]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("007 - Quantum of Solace (USA).chd", "ps2")
+
+    assert rom["hltb_id"] is None
