@@ -651,3 +651,30 @@ async def test_the_live_page_shape_still_parses():
         "review_count": 1762,
         "completions": 5364,
     }
+
+
+@pytest.mark.parametrize(
+    "transport_error",
+    [
+        httpx.ConnectTimeout("timed out"),
+        httpx.PoolTimeout("pool exhausted"),
+        httpx.ReadError("reset"),
+        httpx.RemoteProtocolError("bad framing"),
+    ],
+)
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_transport_failures_report_service_unavailable(
+    mock_ctx_httpx_client, transport_error
+):
+    """A slow or unreachable HLTB must not surface as a bare 500 on the rom edit."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(side_effect=transport_error)
+    mock_ctx_httpx_client.get.return_value = client
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handler.get_rom_by_id(7169)
+
+    assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert "check your internet connection" in exc_info.value.detail

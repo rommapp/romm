@@ -726,7 +726,9 @@ class HLTBHandler(MetadataHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=_unavailable_detail(status_code),
             ) from exc
-        except (httpx.ConnectError, httpx.ReadTimeout) as exc:
+        # Broader than the search path's catch: a connect timeout is the likely
+        # failure here, and it would otherwise escape update_rom as a bare 500.
+        except httpx.RequestError as exc:
             log.warning(
                 "Connection error: can't connect to HowLongToBeat", exc_info=True
             )
