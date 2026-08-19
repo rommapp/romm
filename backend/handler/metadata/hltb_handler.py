@@ -5,6 +5,7 @@ import time
 from typing import Final, NotRequired, TypedDict
 
 import httpx
+import pydash
 from fastapi import HTTPException, status
 
 from config import HLTB_API_ENABLED
@@ -19,6 +20,12 @@ from .base_handler import BaseRom, MetadataHandler
 # Regex to detect HLTB ID tags in filenames like (hltb-12345)
 HLTB_TAG_REGEX = re.compile(r"\(hltb-(\d+)\)", re.IGNORECASE)
 DASH_COLON_REGEX = re.compile(r"\s?-\s")
+# The game page ships its record as JSON in the Next.js hydration payload. The
+# id alone identifies the tag, so attribute order and extras a CSP would add
+# (nonce, crossorigin) do not read as a rewritten page.
+NEXT_DATA_REGEX = re.compile(
+    r"""<script[^>]*\bid=["']__NEXT_DATA__["'][^>]*>(.*?)</script>""", re.DOTALL
+)
 
 # HLTB publishes no rate limit, so stay well clear of being throttled.
 HLTB_MAX_REQUESTS_PER_SECOND: Final[float] = 3
@@ -131,6 +138,60 @@ class HLTBRom(BaseRom):
     hltb_metadata: NotRequired[HLTBMetadata]
 
 
+def _release_year(value: object) -> int:
+    """Normalize a release date: search returns a year, the game page an ISO date."""
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        year, _, _ = value.partition("-")
+        if year.isdigit():
+            return int(year)
+    return 0
+
+
+def build_hltb_game(game_data: dict) -> HLTBGame:
+    """Build an HLTBGame, defaulting the fields a given HLTB payload omits."""
+    return HLTBGame(
+        game_id=game_data.get("game_id", 0),
+        game_name=game_data.get("game_name", ""),
+        game_name_date=game_data.get("game_name_date", 0),
+        game_alias=game_data.get("game_alias", ""),
+        game_type=game_data.get("game_type", ""),
+        game_image=game_data.get("game_image", ""),
+        comp_lvl_combine=game_data.get("comp_lvl_combine", 0),
+        comp_lvl_sp=game_data.get("comp_lvl_sp", 0),
+        comp_lvl_co=game_data.get("comp_lvl_co", 0),
+        comp_lvl_mp=game_data.get("comp_lvl_mp", 0),
+        comp_main=game_data.get("comp_main", 0),
+        comp_plus=game_data.get("comp_plus", 0),
+        comp_100=game_data.get("comp_100", 0),
+        comp_all=game_data.get("comp_all", 0),
+        comp_main_count=game_data.get("comp_main_count", 0),
+        comp_plus_count=game_data.get("comp_plus_count", 0),
+        comp_100_count=game_data.get("comp_100_count", 0),
+        comp_all_count=game_data.get("comp_all_count", 0),
+        invested_co=game_data.get("invested_co", 0),
+        invested_mp=game_data.get("invested_mp", 0),
+        invested_co_count=game_data.get("invested_co_count", 0),
+        invested_mp_count=game_data.get("invested_mp_count", 0),
+        count_comp=game_data.get("count_comp", 0),
+        count_speedrun=game_data.get("count_speedrun", 0),
+        count_backlog=game_data.get("count_backlog", 0),
+        count_review=game_data.get("count_review", 0),
+        review_score=game_data.get("review_score", 0),
+        count_playing=game_data.get("count_playing", 0),
+        count_retired=game_data.get("count_retired", 0),
+        profile_platform=game_data.get("profile_platform", ""),
+        profile_popular=game_data.get("profile_popular", 0) or 0,
+        release_world=_release_year(game_data.get("release_world")),
+    )
+
+
+def build_cover_url(game: HLTBGame) -> str:
+    image = game.get("game_image")
+    return f"https://howlongtobeat.com/games/{image}" if image else ""
+
+
 def extract_hltb_metadata(game: HLTBGame) -> HLTBMetadata:
     """Extract metadata from HLTB game data."""
     metadata = HLTBMetadata()
@@ -182,6 +243,21 @@ def extract_hltb_metadata(game: HLTBGame) -> HLTBMetadata:
 
 
 GITHUB_FILE_URL = "https://raw.githubusercontent.com/rommapp/romm/refs/heads/master/backend/handler/metadata/fixtures/hltb_api_url"
+
+
+# Raised where the page parsed but did not carry the shape we read, so a
+# rewrite upstream surfaces as itself instead of as a game with no times.
+HLTB_FORMAT_CHANGED_DETAIL: Final[str] = (
+    "HowLongToBeat changed their game page, RomM could not read the game data"
+)
+
+
+def _format_changed(reason: str) -> HTTPException:
+    log.error("HowLongToBeat game page could not be read: %s", reason)
+    return HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=HLTB_FORMAT_CHANGED_DETAIL,
+    )
 
 
 def _unavailable_detail(status_code: int) -> str:
@@ -455,42 +531,7 @@ class HLTBHandler(MetadataHandler):
             games = []
             for game_data in games_data:
                 if isinstance(game_data, dict) and "game_id" in game_data:
-                    # Create HLTBGame with all required fields, using defaults for missing ones
-                    hltb_game = HLTBGame(
-                        game_id=game_data.get("game_id", 0),
-                        game_name=game_data.get("game_name", ""),
-                        game_name_date=game_data.get("game_name_date", 0),
-                        game_alias=game_data.get("game_alias", ""),
-                        game_type=game_data.get("game_type", ""),
-                        game_image=game_data.get("game_image", ""),
-                        comp_lvl_combine=game_data.get("comp_lvl_combine", 0),
-                        comp_lvl_sp=game_data.get("comp_lvl_sp", 0),
-                        comp_lvl_co=game_data.get("comp_lvl_co", 0),
-                        comp_lvl_mp=game_data.get("comp_lvl_mp", 0),
-                        comp_main=game_data.get("comp_main", 0),
-                        comp_plus=game_data.get("comp_plus", 0),
-                        comp_100=game_data.get("comp_100", 0),
-                        comp_all=game_data.get("comp_all", 0),
-                        comp_main_count=game_data.get("comp_main_count", 0),
-                        comp_plus_count=game_data.get("comp_plus_count", 0),
-                        comp_100_count=game_data.get("comp_100_count", 0),
-                        comp_all_count=game_data.get("comp_all_count", 0),
-                        invested_co=game_data.get("invested_co", 0),
-                        invested_mp=game_data.get("invested_mp", 0),
-                        invested_co_count=game_data.get("invested_co_count", 0),
-                        invested_mp_count=game_data.get("invested_mp_count", 0),
-                        count_comp=game_data.get("count_comp", 0),
-                        count_speedrun=game_data.get("count_speedrun", 0),
-                        count_backlog=game_data.get("count_backlog", 0),
-                        count_review=game_data.get("count_review", 0),
-                        review_score=game_data.get("review_score", 0),
-                        count_playing=game_data.get("count_playing", 0),
-                        count_retired=game_data.get("count_retired", 0),
-                        profile_platform=game_data.get("profile_platform", ""),
-                        profile_popular=game_data.get("profile_popular", 0),
-                        release_world=game_data.get("release_world", 0),
-                    )
-                    games.append(hltb_game)
+                    games.append(build_hltb_game(game_data))
             return games
 
         except Exception as exc:
@@ -593,17 +634,10 @@ class HLTBHandler(MetadataHandler):
                     f"Found HowLongToBeat match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
                 )
 
-                # Build cover URL if image is available
-                cover_url = ""
-                if best_game.get("game_image"):
-                    cover_url = (
-                        f"https://howlongtobeat.com/games/{best_game['game_image']}"
-                    )
-
                 return HLTBRom(
                     hltb_id=best_game["game_id"],
                     name=best_game["game_name"],
-                    url_cover=cover_url,
+                    url_cover=build_cover_url(best_game),
                     hltb_metadata=extract_hltb_metadata(best_game),
                 )
 
@@ -628,21 +662,109 @@ class HLTBHandler(MetadataHandler):
 
         roms = []
         for game in games:
-            # Build cover URL if image is available
-            cover_url = ""
-            if game.get("game_image"):
-                cover_url = f"https://howlongtobeat.com/games/{game['game_image']}"
-
             roms.append(
                 HLTBRom(
                     hltb_id=game["game_id"],
                     name=game["game_name"],
-                    url_cover=cover_url,
+                    url_cover=build_cover_url(game),
                     hltb_metadata=extract_hltb_metadata(game),
                 )
             )
 
         return roms
+
+    async def get_rom_by_id(self, hltb_id: int) -> HLTBRom:
+        """
+        Get ROM information from HowLongToBeat by its game ID.
+
+        HLTB's API only exposes search, so the record is read from the hydration
+        payload the game page already ships to the browser.
+
+        :param hltb_id: The HowLongToBeat game ID.
+        :return: A HLTBRom object.
+        """
+        if not self.is_enabled():
+            return HLTBRom(hltb_id=None)
+
+        game_data = await self._fetch_game_page(hltb_id)
+        if not game_data:
+            return HLTBRom(hltb_id=None)
+
+        game = build_hltb_game(game_data)
+
+        return HLTBRom(
+            hltb_id=game["game_id"],
+            name=game["game_name"],
+            url_cover=build_cover_url(game),
+            hltb_metadata=extract_hltb_metadata(game),
+        )
+
+    async def _fetch_game_page(self, hltb_id: int) -> dict:
+        """Fetch and parse a game page's hydration payload."""
+        httpx_client = ctx_httpx_client.get()
+
+        # The page is HLTB traffic like any other, so it respects the same cap.
+        await _rate_limiter.acquire()
+
+        try:
+            # The canonical path, which answers directly today. Redirects are
+            # followed anyway because a 3xx does not raise, so a hop HLTB added
+            # later would otherwise read as a page we can no longer parse. The
+            # client validates every hop against SSRF, redirects included.
+            res = await httpx_client.get(
+                f"{self.base_url}/game/{hltb_id}",
+                headers=self._base_headers(),
+                follow_redirects=True,
+                timeout=60,
+            )
+            res.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            status_code = exc.response.status_code
+            if status_code == status.HTTP_404_NOT_FOUND:
+                log.debug("HowLongToBeat has no game with ID %s", hltb_id)
+                return {}
+
+            log.warning(
+                "HowLongToBeat game page returned HTTP %s", status_code, exc_info=True
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=_unavailable_detail(status_code),
+            ) from exc
+        # Broader than the search path's catch: a connect timeout is the likely
+        # failure here, and it would otherwise escape update_rom as a bare 500.
+        except httpx.RequestError as exc:
+            log.warning(
+                "Connection error: can't connect to HowLongToBeat", exc_info=True
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Can't connect to HowLongToBeat API, check your internet connection",
+            ) from exc
+
+        match = NEXT_DATA_REGEX.search(res.text)
+        if not match:
+            raise _format_changed("the page carried no hydration payload")
+
+        try:
+            payload = json.loads(match.group(1))
+        except json.JSONDecodeError as exc:
+            raise _format_changed(f"the hydration payload is not JSON: {exc}") from exc
+
+        games = pydash.get(payload, "props.pageProps.game.data.game")
+        if not isinstance(games, list):
+            raise _format_changed("the hydration payload holds no game records")
+
+        # An empty list is HLTB answering honestly, not a rewrite: the ID is gone.
+        if not games:
+            log.debug("HowLongToBeat has no record for game ID %s", hltb_id)
+            return {}
+
+        game_data = games[0]
+        if not isinstance(game_data, dict) or "game_id" not in game_data:
+            raise _format_changed("the game record is not in the expected shape")
+
+        return game_data
 
     async def price_check(
         self, hltb_id: int, steam_id: int = 0, itch_id: int = 0
