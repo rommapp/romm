@@ -59,6 +59,7 @@ from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
 from handler.metadata import (
     meta_flashpoint_handler,
+    meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
@@ -1789,6 +1790,13 @@ async def update_rom(
             cleaned_data.update(igdb_rom)
     elif rom.igdb_id and not cleaned_data["igdb_id"]:
         cleaned_data.update({"igdb_id": None, "igdb_metadata": {}})
+
+    if cleaned_data["hltb_id"] and int(cleaned_data["hltb_id"]) != rom.hltb_id:
+        hltb_rom = await meta_hltb_handler.get_rom_by_id(int(cleaned_data["hltb_id"]))
+        if hltb_rom.get("hltb_id"):
+            cleaned_data.update(hltb_rom)
+    elif rom.hltb_id and not cleaned_data["hltb_id"]:
+        cleaned_data.update({"hltb_id": None, "hltb_metadata": {}})
 
     url_screenshots = cleaned_data.get("url_screenshots", [])
     screenshots_changed = pydash.xor(url_screenshots, rom.url_screenshots or [])
