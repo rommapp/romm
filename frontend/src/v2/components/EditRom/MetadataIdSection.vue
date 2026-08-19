@@ -64,6 +64,7 @@ const FIELDS = computed<IdField[]>(() => [
     type: "string",
   },
   { key: "hltb_id", label: t("rom.provider-howlongtobeat-id"), type: "number" },
+  { key: "steam_id", label: t("rom.provider-steam-id"), type: "number" },
 ]);
 
 function modelFor(field: IdField): string {

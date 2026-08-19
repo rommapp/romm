@@ -14,6 +14,7 @@ import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomRAMetadata } from './RomRAMetadata';
 import type { RomSSMetadata } from './RomSSMetadata';
+import type { RomSteamMetadata } from './RomSteamMetadata';
 import type { RomUserSchema } from './RomUserSchema';
 import type { SiblingRomSchema } from './SiblingRomSchema';
 export type SimpleRomSchema = {
@@ -28,6 +29,7 @@ export type SimpleRomSchema = {
     tgdb_id: (number | null);
     flashpoint_id: (string | null);
     hltb_id: (number | null);
+    steam_id: (number | null);
     gamelist_id: (string | null);
     libretro_id: (string | null);
     platform_id: number;
@@ -55,6 +57,7 @@ export type SimpleRomSchema = {
     hasheous_metadata: (RomHasheousMetadata | null);
     flashpoint_metadata: (RomFlashpointMetadata | null);
     hltb_metadata: (RomHLTBMetadata | null);
+    steam_metadata: (RomSteamMetadata | null);
     gamelist_metadata: (RomGamelistMetadata | null);
     manual_metadata: (ManualMetadata | null);
     path_cover_small: (string | null);

@@ -38,6 +38,7 @@ const heartbeatStatus = ref<Record<string, boolean | undefined>>({
   launchbox: undefined,
   flashpoint: undefined,
   hltb: undefined,
+  steam: undefined,
   sgdb: undefined,
   playmatch: undefined,
 });
@@ -137,6 +138,17 @@ const specialised = computed<Source[]>(() => [
     requiresKey: true,
     disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED,
     heartbeat: heartbeatStatus.value.sgdb,
+  },
+  {
+    name: "Steam",
+    subtitle: t("settings.metadata-subtitle-pc"),
+    value: "steam",
+    logo: "/assets/scrappers/steam.svg",
+    website: "https://store.steampowered.com",
+    docsUrl: "https://store.steampowered.com",
+    requiresKey: false,
+    disabled: !heartbeat.value.METADATA_SOURCES?.STEAM_API_ENABLED,
+    heartbeat: heartbeatStatus.value.steam,
   },
   {
     name: "HowLongToBeat",
