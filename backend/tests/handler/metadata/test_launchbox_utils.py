@@ -1,5 +1,9 @@
 """Property-based tests for the LaunchBox metadata parsing helpers."""
 
+import os
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 
 from hypothesis import assume, given
@@ -13,6 +17,22 @@ from handler.metadata.launchbox_handler.utils import (
 )
 
 LB_INVALID_CHARS = set("\\/|<>\"?*:'")
+
+
+@contextmanager
+def local_timezone(name: str) -> Iterator[None]:
+    """Pin the process timezone that a naive datetime.timestamp() reads."""
+    previous = os.environ.get("TZ")
+    os.environ["TZ"] = name
+    time.tzset()
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = previous
+        time.tzset()
 
 
 class TestParseList:
@@ -65,10 +85,16 @@ class TestParseReleaseDate:
         assert result == int(dt.timestamp())
 
     def test_ambiguous_local_time_uses_first_occurrence(self):
-        first = datetime(1981, 10, 25, 1, 0)
-        second = first.replace(fold=1)
-        assert first.isoformat() == second.isoformat()
-        assert parse_release_date(second.isoformat()) == int(first.timestamp())
+        # No local time is ambiguous under the UTC that CI runs in, so the
+        # timezone has to be pinned to one that observes DST.
+        with local_timezone("America/New_York"):
+            first = datetime(1981, 10, 25, 1, 0)
+            second = first.replace(fold=1)
+            # Fails loudly if the zone above ever stops being ambiguous here,
+            # rather than leaving the assertions below trivially true.
+            assert int(second.timestamp()) - int(first.timestamp()) == 3600
+            assert first.isoformat() == second.isoformat()
+            assert parse_release_date(second.isoformat()) == int(first.timestamp())
 
     @given(st.dates(min_value=datetime(1971, 1, 1).date()))
     def test_date_only_format_parses(self, d):
