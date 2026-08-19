@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi import UploadFile
 
+from config.config_manager import DEFAULT_EXCLUDED_FILES
 from handler.filesystem.base_handler import FSHandler
 from models.base import FILE_NAME_MAX_LENGTH
 
@@ -198,6 +199,15 @@ class TestFSHandler:
             assert "readme.txt" in result
             assert "game.nds" in result
             assert "game.rom" in result
+
+    def test_exclude_single_files_zone_identifier(self, handler: FSHandler):
+        files = ["game.iso", "game.iso:Zone.Identifier"]
+
+        with patch("handler.filesystem.base_handler.cm.get_config") as mock_config:
+            mock_config.return_value.EXCLUDED_SINGLE_EXT = []
+            mock_config.return_value.EXCLUDED_SINGLE_FILES = DEFAULT_EXCLUDED_FILES
+
+            assert handler.exclude_single_files(files) == ["game.iso"]
 
     async def test_make_directory(self, handler: FSHandler):
         """Test directory creation"""
