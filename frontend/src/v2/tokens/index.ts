@@ -116,6 +116,7 @@ export const colorProvider = {
   hasheous: "#6B7280",
   flashpoint: "#F97316",
   hltb: "#22C55E",
+  steam: "#66C0F4",
 } as const;
 
 // Dark (default) palette — the mockup is dark-only, so light uses an

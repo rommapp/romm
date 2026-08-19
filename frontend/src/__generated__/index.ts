@@ -150,6 +150,7 @@ export type { RomMetadataSchema } from './models/RomMetadataSchema';
 export type { RomMobyMetadata } from './models/RomMobyMetadata';
 export type { RomRAMetadata } from './models/RomRAMetadata';
 export type { RomSSMetadata } from './models/RomSSMetadata';
+export type { RomSteamMetadata } from './models/RomSteamMetadata';
 export type { RomUserData } from './models/RomUserData';
 export type { RomUserSchema } from './models/RomUserSchema';
 export type { RomUserStatus } from './models/RomUserStatus';
@@ -174,6 +175,7 @@ export type { SoundtrackTrackMetaSchema } from './models/SoundtrackTrackMetaSche
 export type { SSAgeRating } from './models/SSAgeRating';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
+export type { SteamPlatforms } from './models/SteamPlatforms';
 export type { SyncCompletePayload } from './models/SyncCompletePayload';
 export type { SyncCompleteResponse } from './models/SyncCompleteResponse';
 export type { SyncMode } from './models/SyncMode';

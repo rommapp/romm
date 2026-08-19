@@ -158,6 +158,14 @@ const providers: ProviderRow[] = [
     setupKey: "setup.provider-flashpoint-setup",
   },
   {
+    key: "steam",
+    name: "Steam",
+    logo: `${LOGO_BASE}/steam.svg`,
+    descKey: "setup.provider-steam-desc",
+    setupKey: "setup.provider-steam-setup",
+    caveatKey: "setup.provider-steam-caveat",
+  },
+  {
     key: "ra",
     name: "RetroAchievements",
     logo: `${LOGO_BASE}/ra.png`,
