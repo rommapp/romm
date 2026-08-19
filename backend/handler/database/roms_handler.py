@@ -1234,6 +1234,36 @@ class DBRomsHandler(DBBaseHandler):
         if updated_after:
             query = query.filter(Rom.updated_at > updated_after)
 
+        # Apply metadata and rom-level filters efficiently
+        # Moved before applying group_by_meta_id to avoid missing titles when
+        # filters don't match the primary ROM version in a group but would match a different version instead.
+        filters_to_apply = [
+            (genres, genres_logic, self._filter_by_genres),
+            (franchises, franchises_logic, self._filter_by_franchises),
+            (collections, collections_logic, self._filter_by_collections),
+            (companies, companies_logic, self._filter_by_companies),
+            (age_ratings, age_ratings_logic, self._filter_by_age_ratings),
+            (regions, regions_logic, self._filter_by_regions),
+            (languages, languages_logic, self._filter_by_languages),
+            (player_counts, player_counts_logic, self._filter_by_player_counts),
+            (
+                metadata_providers,
+                metadata_providers_logic,
+                self._filter_by_metadata_providers,
+            ),
+            (tags, tags_logic, self._filter_by_tags),
+        ]
+
+        for values, logic, filter_func in filters_to_apply:
+            if values:
+                query = filter_func(
+                    query,
+                    session=session,
+                    values=values,
+                    match_all=(logic == "all"),
+                    match_none=(logic == "none"),
+                )
+
         # BEWARE YE WHO ENTERS HERE 💀
         if group_by_meta_id:
             # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
@@ -1354,34 +1384,6 @@ class DBRomsHandler(DBBaseHandler):
 
         if needs_metadata_join:
             query = query.outerjoin(RomMetadata)
-
-        # Apply metadata and rom-level filters efficiently
-        filters_to_apply = [
-            (genres, genres_logic, self._filter_by_genres),
-            (franchises, franchises_logic, self._filter_by_franchises),
-            (collections, collections_logic, self._filter_by_collections),
-            (companies, companies_logic, self._filter_by_companies),
-            (age_ratings, age_ratings_logic, self._filter_by_age_ratings),
-            (regions, regions_logic, self._filter_by_regions),
-            (languages, languages_logic, self._filter_by_languages),
-            (player_counts, player_counts_logic, self._filter_by_player_counts),
-            (
-                metadata_providers,
-                metadata_providers_logic,
-                self._filter_by_metadata_providers,
-            ),
-            (tags, tags_logic, self._filter_by_tags),
-        ]
-
-        for values, logic, filter_func in filters_to_apply:
-            if values:
-                query = filter_func(
-                    query,
-                    session=session,
-                    values=values,
-                    match_all=(logic == "all"),
-                    match_none=(logic == "none"),
-                )
 
         # The RomUser table is already joined if user_id is set
         if statuses and user_id:
