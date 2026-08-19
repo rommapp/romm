@@ -231,7 +231,6 @@
   "metadata-proxies": "Eşleştirme proxy'leri",
   "metadata-specialised": "Özel kaynaklar",
   "metadata-ss-dev-credentials-desc": "Bu RomM sürümü ScreenScraper geliştirici kimlik bilgilerini içermiyor, bu nedenle hesabınız geçerli olsa bile ScreenScraper tüm istekleri reddediyor. Kendi ScreenScraper geliştirici hesabınızın bilgileriyle ortamda SCREENSCRAPER_DEV_ID ve SCREENSCRAPER_DEV_PASSWORD değerlerini ayarlayın.",
-  "metadata-ss-dev-credentials-docs": "Kurulum kılavuzu",
   "metadata-ss-dev-credentials-title": "ScreenScraper geliştirici kimlik bilgileri eksik",
   "metadata-subtitle-achievements": "Başarımlar",
   "metadata-subtitle-completion": "Tamamlama süreleri",

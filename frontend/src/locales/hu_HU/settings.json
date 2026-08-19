@@ -231,7 +231,6 @@
   "metadata-proxies": "Egyeztetési proxyk",
   "metadata-specialised": "Specializált források",
   "metadata-ss-dev-credentials-desc": "Ez a RomM build nem tartalmaz ScreenScraper fejlesztői hitelesítő adatokat, ezért a ScreenScraper minden kérést elutasít, még érvényes fiókkal is. Állítsd be a SCREENSCRAPER_DEV_ID és SCREENSCRAPER_DEV_PASSWORD változókat a környezetben a saját ScreenScraper fejlesztői fiókod adataival.",
-  "metadata-ss-dev-credentials-docs": "Beállítási útmutató",
   "metadata-ss-dev-credentials-title": "Hiányzó ScreenScraper fejlesztői hitelesítő adatok",
   "metadata-subtitle-achievements": "Teljesítmények",
   "metadata-subtitle-completion": "Befejezési idők",

@@ -231,7 +231,6 @@
   "metadata-proxies": "Proxy-uri de asociere",
   "metadata-specialised": "Surse specializate",
   "metadata-ss-dev-credentials-desc": "Această versiune de RomM nu include credențiale de dezvoltator ScreenScraper, așa că ScreenScraper respinge toate cererile, chiar și cu un cont valid. Setează SCREENSCRAPER_DEV_ID și SCREENSCRAPER_DEV_PASSWORD în mediu, folosind credențialele propriului cont de dezvoltator ScreenScraper.",
-  "metadata-ss-dev-credentials-docs": "Ghid de configurare",
   "metadata-ss-dev-credentials-title": "Lipsesc credențialele de dezvoltator ScreenScraper",
   "metadata-subtitle-achievements": "Realizări",
   "metadata-subtitle-completion": "Timpi de finalizare",

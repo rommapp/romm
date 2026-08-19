@@ -231,7 +231,6 @@
   "metadata-proxies": "일치 프록시",
   "metadata-specialised": "전문 소스",
   "metadata-ss-dev-credentials-desc": "이 RomM 빌드에는 ScreenScraper 개발자 인증 정보가 없어 계정이 유효해도 ScreenScraper가 모든 요청을 거부합니다. 본인의 ScreenScraper 개발자 계정 정보로 환경 변수 SCREENSCRAPER_DEV_ID와 SCREENSCRAPER_DEV_PASSWORD를 설정하세요.",
-  "metadata-ss-dev-credentials-docs": "설정 가이드",
   "metadata-ss-dev-credentials-title": "ScreenScraper 개발자 인증 정보 없음",
   "metadata-subtitle-achievements": "도전 과제",
   "metadata-subtitle-completion": "완료 시간",

@@ -29,9 +29,6 @@ const { t } = useI18n();
 const heartbeat = storeHeartbeat();
 const configStore = storeConfig();
 
-const SS_DOCS_URL =
-  "https://docs.romm.app/latest/Getting-Started/Metadata-Providers/";
-
 const heartbeatStatus = ref<Record<string, boolean | undefined>>({
   igdb: undefined,
   moby: undefined,
@@ -266,18 +263,6 @@ onMounted(() => {
         {{ t("settings.metadata-ss-dev-credentials-title") }}
       </template>
       {{ t("settings.metadata-ss-dev-credentials-desc") }}
-      <template #append>
-        <RBtn
-          variant="text"
-          size="small"
-          prepend-icon="mdi-book-open-variant"
-          :href="SS_DOCS_URL"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {{ t("settings.metadata-ss-dev-credentials-docs") }}
-        </RBtn>
-      </template>
     </RAlert>
 
     <SettingsSection

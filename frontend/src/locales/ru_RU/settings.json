@@ -231,7 +231,6 @@
   "metadata-proxies": "Прокси сопоставления",
   "metadata-specialised": "Специализированные источники",
   "metadata-ss-dev-credentials-desc": "В этой сборке RomM нет учётных данных разработчика ScreenScraper, поэтому ScreenScraper отклоняет все запросы даже с действующей учётной записью. Задайте SCREENSCRAPER_DEV_ID и SCREENSCRAPER_DEV_PASSWORD в окружении, используя данные собственной учётной записи разработчика ScreenScraper.",
-  "metadata-ss-dev-credentials-docs": "Руководство по настройке",
   "metadata-ss-dev-credentials-title": "Отсутствуют учётные данные разработчика ScreenScraper",
   "metadata-subtitle-achievements": "Достижения",
   "metadata-subtitle-completion": "Время прохождения",

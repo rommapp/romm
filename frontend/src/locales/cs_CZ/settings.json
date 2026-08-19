@@ -231,7 +231,6 @@
   "metadata-proxies": "Párovací proxy",
   "metadata-specialised": "Specializované zdroje",
   "metadata-ss-dev-credentials-desc": "Toto sestavení RomM neobsahuje vývojářské přihlašovací údaje ScreenScraper, takže ScreenScraper odmítá všechny požadavky i s platným účtem. Nastavte v prostředí SCREENSCRAPER_DEV_ID a SCREENSCRAPER_DEV_PASSWORD pomocí údajů vlastního vývojářského účtu ScreenScraper.",
-  "metadata-ss-dev-credentials-docs": "Průvodce nastavením",
   "metadata-ss-dev-credentials-title": "Chybí vývojářské přihlašovací údaje ScreenScraper",
   "metadata-subtitle-achievements": "Achievementy",
   "metadata-subtitle-completion": "Časy dokončení",

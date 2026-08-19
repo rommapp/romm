@@ -736,6 +736,7 @@ class SSHandler(MetadataHandler):
 
     @classmethod
     def has_dev_credentials(cls) -> bool:
+        return False
         """Developer credentials are injected at build time, so a build made
         outside our CI (packaged from source) has none and every request is
         refused, whatever the user account is."""

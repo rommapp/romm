@@ -231,7 +231,6 @@
   "metadata-proxies": "匹配代理",
   "metadata-specialised": "專門來源",
   "metadata-ss-dev-credentials-desc": "此 RomM 建置未包含 ScreenScraper 開發者憑證，因此即使帳號有效，ScreenScraper 仍會拒絕所有請求。請使用你自己的 ScreenScraper 開發者帳號，在環境變數中設定 SCREENSCRAPER_DEV_ID 與 SCREENSCRAPER_DEV_PASSWORD。",
-  "metadata-ss-dev-credentials-docs": "設定指南",
   "metadata-ss-dev-credentials-title": "缺少 ScreenScraper 開發者憑證",
   "metadata-subtitle-achievements": "成就",
   "metadata-subtitle-completion": "完成時間",
