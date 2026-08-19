@@ -51,15 +51,24 @@ class TestParseReleaseDate:
         result = parse_release_date(value)
         assert result is None or isinstance(result, int)
 
+    # datetime.isoformat() omits fold, so both occurrences of an ambiguous
+    # local time reach the parser as the same string. Only the first occurrence
+    # is a satisfiable expectation, which is also what fromisoformat returns.
     @given(
         st.datetimes(
             min_value=datetime(1971, 1, 1),
             max_value=datetime(2100, 1, 1),
-        )
+        ).map(lambda dt: dt.replace(fold=0))
     )
     def test_valid_iso_dates_parse_to_timestamp(self, dt):
         result = parse_release_date(dt.isoformat())
         assert result == int(dt.timestamp())
+
+    def test_ambiguous_local_time_uses_first_occurrence(self):
+        first = datetime(1981, 10, 25, 1, 0)
+        second = first.replace(fold=1)
+        assert first.isoformat() == second.isoformat()
+        assert parse_release_date(second.isoformat()) == int(first.timestamp())
 
     @given(st.dates(min_value=datetime(1971, 1, 1).date()))
     def test_date_only_format_parses(self, d):
