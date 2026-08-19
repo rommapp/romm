@@ -90,6 +90,7 @@
 #       - gamelist # ES-DE gamelist.xml
 #       - hasheous # Hasheous
 #       - flashpoint # Flashpoint Project
+#       - steam # Steam (PC platforms only)
 #       - hltb # HowLongToBeat (lowest priority)
 #     artwork: # Cover art and screenshots
 #       - igdb # IGDB
@@ -101,6 +102,7 @@
 #       - gamelist # ES-DE gamelist.xml
 #       - hasheous # Hasheous
 #       - flashpoint # Flashpoint Project
+#       - steam # Steam (PC platforms only)
 #       - hltb # HowLongToBeat
 #     # Optional per-field overrides, each falls back to "artwork" when omitted
 #     cover: # Cover art only
