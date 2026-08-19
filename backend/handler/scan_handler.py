@@ -24,6 +24,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_tgdb_handler,
 )
 from handler.metadata.flashpoint_handler import FLASHPOINT_PLATFORM_LIST, FlashpointRom
@@ -47,6 +48,7 @@ from handler.metadata.ss_handler import (
     SSRom,
     note_rate_limited_rom,
 )
+from handler.metadata.steam_handler import STEAM_PLATFORMS, SteamRom
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -83,6 +85,7 @@ class MetadataSource(enum.StrEnum):
     SGDB = "sgdb"  # SteamGridDB
     FLASHPOINT = "flashpoint"  # Flashpoint Project
     HLTB = "hltb"  # HowLongToBeat
+    STEAM = "steam"  # Steam storefront
     GAMELIST = "gamelist"  # ES-DE gamelist.xml
     LIBRETRO = "libretro"  # Libretro thumbnails
     PLAYMATCH = "playmatch"  # Playmatch
@@ -453,6 +456,7 @@ async def scan_rom(
                 "gamelist_id": rom.gamelist_id,
                 "flashpoint_id": rom.flashpoint_id,
                 "hltb_id": rom.hltb_id,
+                "steam_id": rom.steam_id,
                 "libretro_id": rom.libretro_id,
                 "igdb_metadata": rom.igdb_metadata,
                 "moby_metadata": rom.moby_metadata,
@@ -463,6 +467,7 @@ async def scan_rom(
                 "gamelist_metadata": rom.gamelist_metadata,
                 "flashpoint_metadata": rom.flashpoint_metadata,
                 "hltb_metadata": rom.hltb_metadata,
+                "steam_metadata": rom.steam_metadata,
             }
         )
 
@@ -694,6 +699,24 @@ async def scan_rom(
 
         return HLTBRom(hltb_id=None)
 
+    async def fetch_steam_rom() -> SteamRom:
+        if (
+            MetadataSource.STEAM in metadata_sources
+            and platform.slug in STEAM_PLATFORMS
+            and (
+                newly_added
+                or scan_type == ScanType.COMPLETE
+                or (scan_type == ScanType.UPDATE and rom.steam_id)
+                or (
+                    scan_type == ScanType.UNMATCHED
+                    and (not rom.steam_id or not rom.steam_metadata)
+                )
+            )
+        ):
+            return await meta_steam_handler.get_rom(rom_attrs["fs_name"], platform.slug)
+
+        return SteamRom(steam_id=None)
+
     async def fetch_moby_rom(playmatch_rom: PlaymatchRomMatch) -> MobyGamesRom:
         if (
             MetadataSource.MOBY in metadata_sources
@@ -898,6 +921,7 @@ async def scan_rom(
         ),
         (fetch_flashpoint_rom(), FlashpointRom(flashpoint_id=None)),
         (fetch_hltb_rom(), HLTBRom(hltb_id=None)),
+        (fetch_steam_rom(), SteamRom(steam_id=None)),
         (fetch_gamelist_rom(), GamelistRom(gamelist_id=None)),
         (fetch_libretro_rom(), LibretroRom(libretro_id=None)),
     )
@@ -928,6 +952,7 @@ async def scan_rom(
         hasheous_handler_rom,
         flashpoint_handler_rom,
         hltb_handler_rom,
+        steam_handler_rom,
         gamelist_handler_rom,
         libretro_handler_rom,
     ) = resolved
@@ -972,6 +997,11 @@ async def scan_rom(
             "handler": hltb_handler_rom,
             "id_field": "hltb_id",
             "metadata_field": "hltb_metadata",
+        },
+        MetadataSource.STEAM: {
+            "handler": steam_handler_rom,
+            "id_field": "steam_id",
+            "metadata_field": "steam_metadata",
         },
         MetadataSource.GAMELIST: {
             "handler": gamelist_handler_rom,
@@ -1117,6 +1147,7 @@ async def scan_rom(
         and not rom_attrs.get("hasheous_id")
         and not rom_attrs.get("flashpoint_id")
         and not rom_attrs.get("hltb_id")
+        and not rom_attrs.get("steam_id")
         and not rom_attrs.get("gamelist_id")
     ):
         log.warning(
