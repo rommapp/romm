@@ -177,8 +177,12 @@ const proxies = computed<Source[]>(() => [
   },
 ]);
 
+// Gated on a heartbeat having landed: the store defaults to "not set", and a
+// backend that is down must not read as a ScreenScraper misconfiguration.
 const missingSSDevCredentials = computed(
-  () => !heartbeat.value.METADATA_SOURCES?.SS_DEV_CREDENTIALS_SET,
+  () =>
+    heartbeat.loaded &&
+    !heartbeat.value.METADATA_SOURCES?.SS_DEV_CREDENTIALS_SET,
 );
 
 function statusOf(source: Source): SourceStatus {

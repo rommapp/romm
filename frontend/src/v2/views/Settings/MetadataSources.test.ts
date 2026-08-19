@@ -34,9 +34,10 @@ vi.mock("@/v2/components/Settings/SettingsSection.vue", () => ({
   default: defineComponent({ template: "<section><slot /></section>" }),
 }));
 
-function mountWith(devCredentialsSet: boolean) {
+function mountWith(devCredentialsSet: boolean, loaded = true) {
   const heartbeat = storeHeartbeat();
   heartbeat.value.METADATA_SOURCES.SS_DEV_CREDENTIALS_SET = devCredentialsSet;
+  heartbeat.loaded = loaded;
   return mount(MetadataSources);
 }
 
@@ -57,5 +58,9 @@ describe("MetadataSources", () => {
 
   it("stays quiet when the developer credentials are present", () => {
     expect(mountWith(true).find(".alert").exists()).toBe(false);
+  });
+
+  it("stays quiet until a heartbeat has landed", () => {
+    expect(mountWith(false, false).find(".alert").exists()).toBe(false);
   });
 });
