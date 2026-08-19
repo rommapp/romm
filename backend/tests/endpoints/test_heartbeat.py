@@ -25,6 +25,7 @@ def test_heartbeat(client):
     assert isinstance(metadata["IGDB_API_ENABLED"], bool)
     assert isinstance(metadata["MOBY_API_ENABLED"], bool)
     assert isinstance(metadata["SS_API_ENABLED"], bool)
+    assert isinstance(metadata["SS_DEV_CREDENTIALS_SET"], bool)
     assert isinstance(metadata["STEAMGRIDDB_API_ENABLED"], bool)
     assert isinstance(metadata["RA_API_ENABLED"], bool)
     assert isinstance(metadata["LAUNCHBOX_API_ENABLED"], bool)

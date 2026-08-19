@@ -12,7 +12,11 @@
 //     PlayMatch) talk about the connection / enabled state.
 //   • A "visit website" `RBtn`, plus a "get API key" `RBtn` shown only
 //     for key-based providers (flag-only providers have no key to get).
-import { RBtn, RTag } from "@v2/lib";
+//
+// A warning banner sits above the tiles when the build carries no
+// ScreenScraper developer credentials, since nothing on the tile itself
+// can explain why a valid account still gets refused.
+import { RAlert, RBtn, RTag } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import storeConfig from "@/stores/config";
@@ -24,6 +28,9 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 const heartbeat = storeHeartbeat();
 const configStore = storeConfig();
+
+const SS_DOCS_URL =
+  "https://docs.romm.app/latest/Getting-Started/Metadata-Providers/";
 
 const heartbeatStatus = ref<Record<string, boolean | undefined>>({
   igdb: undefined,
@@ -170,6 +177,10 @@ const proxies = computed<Source[]>(() => [
   },
 ]);
 
+const missingSSDevCredentials = computed(
+  () => !heartbeat.value.METADATA_SOURCES?.SS_DEV_CREDENTIALS_SET,
+);
+
 function statusOf(source: Source): SourceStatus {
   if (source.disabled) return "missing";
   if (source.heartbeat === true) return "ok";
@@ -246,6 +257,25 @@ onMounted(() => {
 
 <template>
   <div class="r-v2-section-stack">
+    <RAlert v-if="missingSSDevCredentials" type="warning">
+      <template #title>
+        {{ t("settings.metadata-ss-dev-credentials-title") }}
+      </template>
+      {{ t("settings.metadata-ss-dev-credentials-desc") }}
+      <template #append>
+        <RBtn
+          variant="text"
+          size="small"
+          prepend-icon="mdi-book-open-variant"
+          :href="SS_DOCS_URL"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{ t("settings.metadata-ss-dev-credentials-docs") }}
+        </RBtn>
+      </template>
+    </RAlert>
+
     <SettingsSection
       :title="t('settings.metadata-catalogs')"
       icon="mdi-database-search-outline"

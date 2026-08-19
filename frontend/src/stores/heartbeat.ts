@@ -21,6 +21,7 @@ const defaultHeartbeat: Heartbeat = {
     ANY_SOURCE_ENABLED: false,
     IGDB_API_ENABLED: false,
     SS_API_ENABLED: false,
+    SS_DEV_CREDENTIALS_SET: false,
     MOBY_API_ENABLED: false,
     RA_API_ENABLED: false,
     STEAMGRIDDB_API_ENABLED: false,
