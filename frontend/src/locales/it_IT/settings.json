@@ -230,6 +230,8 @@
   "metadata-get-key": "Ottieni chiave API",
   "metadata-proxies": "Proxy di associazione",
   "metadata-specialised": "Fonti specializzate",
+  "metadata-ss-dev-credentials-desc": "Questa build di RomM non include le credenziali sviluppatore di ScreenScraper, quindi ScreenScraper rifiuta ogni richiesta anche con un account valido. Imposta SCREENSCRAPER_DEV_ID e SCREENSCRAPER_DEV_PASSWORD nell'ambiente con le credenziali del tuo account sviluppatore ScreenScraper.",
+  "metadata-ss-dev-credentials-title": "Credenziali sviluppatore ScreenScraper mancanti",
   "metadata-subtitle-achievements": "Obiettivi",
   "metadata-subtitle-completion": "Tempi di completamento",
   "metadata-subtitle-cover-art": "Copertine",

@@ -230,6 +230,8 @@
   "metadata-get-key": "Получи API ключ",
   "metadata-proxies": "Прокси за разпознаване",
   "metadata-specialised": "Специализирани източници",
+  "metadata-ss-dev-credentials-desc": "Тази версия на RomM не съдържа данни за достъп на разработчик за ScreenScraper, затова ScreenScraper отхвърля всички заявки дори с валиден акаунт. Задайте SCREENSCRAPER_DEV_ID и SCREENSCRAPER_DEV_PASSWORD в средата с данните от собствения си акаунт на разработчик в ScreenScraper.",
+  "metadata-ss-dev-credentials-title": "Липсват данни за достъп на разработчик за ScreenScraper",
   "metadata-subtitle-achievements": "Постижения",
   "metadata-subtitle-completion": "Време за завършване",
   "metadata-subtitle-cover-art": "Корици",

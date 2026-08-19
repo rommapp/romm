@@ -230,6 +230,8 @@
   "metadata-get-key": "获取 API 密钥",
   "metadata-proxies": "匹配代理",
   "metadata-specialised": "专用来源",
+  "metadata-ss-dev-credentials-desc": "此 RomM 构建未包含 ScreenScraper 开发者凭据，因此即使账号有效，ScreenScraper 也会拒绝所有请求。请使用你自己的 ScreenScraper 开发者账号，在环境变量中设置 SCREENSCRAPER_DEV_ID 和 SCREENSCRAPER_DEV_PASSWORD。",
+  "metadata-ss-dev-credentials-title": "缺少 ScreenScraper 开发者凭据",
   "metadata-subtitle-achievements": "成就",
   "metadata-subtitle-completion": "完成时长",
   "metadata-subtitle-cover-art": "封面图",

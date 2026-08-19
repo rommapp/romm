@@ -18,7 +18,12 @@ from adapters.services.screenscraper import (
     reset_scan_state,
 )
 from adapters.services.screenscraper_types import SSGame, SSGameDate
-from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
+from config import (
+    SCREENSCRAPER_DEV_ID,
+    SCREENSCRAPER_DEV_PASSWORD,
+    SCREENSCRAPER_PASSWORD,
+    SCREENSCRAPER_USER,
+)
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
@@ -728,6 +733,13 @@ class SSHandler(MetadataHandler):
     @classmethod
     def is_enabled(cls) -> bool:
         return bool(SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD)
+
+    @classmethod
+    def has_dev_credentials(cls) -> bool:
+        """Developer credentials are injected at build time, so a build made
+        outside our CI (packaged from source) has none and every request is
+        refused, whatever the user account is."""
+        return bool(SCREENSCRAPER_DEV_ID and SCREENSCRAPER_DEV_PASSWORD)
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():

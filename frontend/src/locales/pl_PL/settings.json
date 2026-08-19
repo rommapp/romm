@@ -230,6 +230,8 @@
   "metadata-get-key": "Uzyskaj klucz API",
   "metadata-proxies": "Proxy dopasowania",
   "metadata-specialised": "Wyspecjalizowane źródła",
+  "metadata-ss-dev-credentials-desc": "Ta kompilacja RomM nie zawiera danych dostępowych dewelopera ScreenScraper, więc ScreenScraper odrzuca każde żądanie nawet przy poprawnym koncie. Ustaw SCREENSCRAPER_DEV_ID i SCREENSCRAPER_DEV_PASSWORD w środowisku, używając danych własnego konta dewelopera ScreenScraper.",
+  "metadata-ss-dev-credentials-title": "Brak danych dostępowych dewelopera ScreenScraper",
   "metadata-subtitle-achievements": "Osiągnięcia",
   "metadata-subtitle-completion": "Czasy ukończenia",
   "metadata-subtitle-cover-art": "Okładki",

@@ -230,6 +230,8 @@
   "metadata-get-key": "APIキーを取得",
   "metadata-proxies": "マッチプロキシ",
   "metadata-specialised": "特化型ソース",
+  "metadata-ss-dev-credentials-desc": "このRomMビルドにはScreenScraperの開発者認証情報が含まれていないため、アカウントが有効でもScreenScraperはすべてのリクエストを拒否します。独自のScreenScraper開発者アカウントの情報を使用して、環境変数SCREENSCRAPER_DEV_IDとSCREENSCRAPER_DEV_PASSWORDを設定してください。",
+  "metadata-ss-dev-credentials-title": "ScreenScraperの開発者認証情報がありません",
   "metadata-subtitle-achievements": "実績",
   "metadata-subtitle-completion": "クリア時間",
   "metadata-subtitle-cover-art": "カバーアート",

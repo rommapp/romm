@@ -230,6 +230,8 @@
   "metadata-get-key": "Obtenir la clé API",
   "metadata-proxies": "Proxys de correspondance",
   "metadata-specialised": "Sources spécialisées",
+  "metadata-ss-dev-credentials-desc": "Cette version de RomM ne contient pas d'identifiants développeur ScreenScraper : ScreenScraper refuse donc toutes les requêtes, même avec un compte valide. Définissez SCREENSCRAPER_DEV_ID et SCREENSCRAPER_DEV_PASSWORD dans l'environnement avec les identifiants de votre propre compte développeur ScreenScraper.",
+  "metadata-ss-dev-credentials-title": "Identifiants développeur ScreenScraper manquants",
   "metadata-subtitle-achievements": "Succès",
   "metadata-subtitle-completion": "Temps de complétion",
   "metadata-subtitle-cover-art": "Jaquettes",

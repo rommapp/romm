@@ -230,6 +230,8 @@
   "metadata-get-key": "API-Schlüssel holen",
   "metadata-proxies": "Match-Proxies",
   "metadata-specialised": "Spezialisierte Quellen",
+  "metadata-ss-dev-credentials-desc": "Dieser RomM-Build enthält keine ScreenScraper-Entwicklerzugangsdaten, daher lehnt ScreenScraper jede Anfrage ab, selbst bei einem gültigen Konto. SCREENSCRAPER_DEV_ID und SCREENSCRAPER_DEV_PASSWORD müssen in der Umgebung mit den Zugangsdaten eines eigenen ScreenScraper-Entwicklerkontos gesetzt werden.",
+  "metadata-ss-dev-credentials-title": "ScreenScraper-Entwicklerzugangsdaten fehlen",
   "metadata-subtitle-achievements": "Erfolge",
   "metadata-subtitle-completion": "Abschlusszeiten",
   "metadata-subtitle-cover-art": "Coverbild",
