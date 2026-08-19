@@ -1614,6 +1614,66 @@ class TestLaunchboxHandlerGetRom:
         assert result.get("launchbox_id", None) == 1234
         assert result.get("name", None) == "Super Mario Bros."
 
+    @pytest.mark.parametrize(
+        "no_tags_name",
+        (
+            "Legend of Zelda, The - A Link to the Past",
+            "Legend_of_Zelda,_The_-_A_Link_to_the_Past",
+        ),
+    )
+    async def test_underscore_separator_rewrites_like_spaced_form(
+        self, handler: LaunchboxHandler, no_tags_name: str
+    ):
+        mock_get_rom = AsyncMock(return_value=None)
+        with (
+            patch.object(handler._remote, "get_rom", new=mock_get_rom),
+            patch(
+                "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+            ) as mock_fs,
+        ):
+            mock_fs.get_file_name_with_no_tags.return_value = no_tags_name
+            await handler.get_rom(f"{no_tags_name}.smc", "snes")
+
+        assert (
+            mock_get_rom.call_args.args[0] == "legend of zelda, the: a link to the past"
+        )
+
+    async def test_underscore_separated_inverted_article_hits_name_index(
+        self, handler: LaunchboxHandler
+    ):
+        """Both the dash and the article rewrite must fire to reach the key."""
+        entry = {
+            "DatabaseID": "5678",
+            "Name": "The Legend of Zelda: A Link to the Past",
+            "Platform": "Super Nintendo Entertainment System",
+        }
+        index = {
+            (
+                LAUNCHBOX_METADATA_NAME_KEY,
+                "the legend of zelda: a link to the past"
+                ":Super Nintendo Entertainment System",
+            ): json.dumps(entry)
+        }
+
+        async def hget(key, field):
+            return index.get((key, field))
+
+        with (
+            patch.object(handler._remote, "get_rom", new=RemoteSource().get_rom),
+            patch.object(async_cache, "hget", new=AsyncMock(side_effect=hget)),
+            patch(
+                "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+            ) as mock_fs,
+        ):
+            mock_fs.get_file_name_with_no_tags.return_value = (
+                "Legend_of_Zelda,_The_-_A_Link_to_the_Past"
+            )
+            result = await handler.get_rom(
+                "Legend_of_Zelda,_The_-_A_Link_to_the_Past.smc", "snes"
+            )
+
+        assert result.get("launchbox_id", None) == 5678
+
     async def test_name_search_fails_returns_fallback(self, handler: LaunchboxHandler):
         with patch(
             "handler.metadata.launchbox_handler.handler.fs_rom_handler"
