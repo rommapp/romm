@@ -36,6 +36,9 @@ export type DetailedRomSchema = {
     tgdb_id: (number | null);
     flashpoint_id: (string | null);
     hltb_id: (number | null);
+    demozoo_id: (number | null);
+    pouet_id: (number | null);
+    csdb_id: (number | null);
     gamelist_id: (string | null);
     libretro_id: (string | null);
     platform_id: number;

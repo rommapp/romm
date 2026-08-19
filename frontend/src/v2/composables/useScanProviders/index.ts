@@ -38,6 +38,10 @@ const GENERAL_PROVIDER_KEYS = new Set([
   "flashpoint",
   "gamelist",
   "libretro",
+  // Full production records (title, credits, screenshots, video).
+  "demozoo",
+  "pouet",
+  "csdb",
 ]);
 const SPECIFIC_PROVIDER_KEYS = new Set(["ra", "sgdb", "hltb"]);
 

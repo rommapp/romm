@@ -90,6 +90,27 @@ export const PROVIDERS: Provider[] = [
     logo: "/assets/scrappers/hltb.png",
     url: (id) => `https://howlongtobeat.com/game/${id}`,
   },
+  {
+    key: "demozoo_id",
+    name: "Demozoo",
+    color: "var(--r-color-provider-hltb)",
+    logo: "/assets/scrappers/demozoo.png?v=2",
+    url: (id) => `https://demozoo.org/productions/${id}/`,
+  },
+  {
+    key: "pouet_id",
+    name: "Pouët",
+    color: "var(--r-color-provider-hltb)",
+    logo: "/assets/scrappers/pouet.png?v=2",
+    url: (id) => `https://www.pouet.net/prod.php?which=${id}`,
+  },
+  {
+    key: "csdb_id",
+    name: "CSDb",
+    color: "var(--r-color-provider-hltb)",
+    logo: "/assets/scrappers/csdb.png",
+    url: (id) => `https://csdb.dk/release/?id=${id}`,
+  },
 ];
 
 /**

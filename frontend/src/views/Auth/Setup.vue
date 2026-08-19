@@ -93,6 +93,24 @@ const metadataOptions = computed(() => [
     disabled: !heartbeat.value.METADATA_SOURCES?.HLTB_API_ENABLED,
   },
   {
+    name: "Demozoo",
+    value: "demozoo",
+    logo_path: "/assets/scrappers/demozoo.png?v=2",
+    disabled: !heartbeat.value.METADATA_SOURCES?.DEMOZOO_API_ENABLED,
+  },
+  {
+    name: "Pouët",
+    value: "pouet",
+    logo_path: "/assets/scrappers/pouet.png?v=2",
+    disabled: !heartbeat.value.METADATA_SOURCES?.POUET_API_ENABLED,
+  },
+  {
+    name: "CSDb",
+    value: "csdb",
+    logo_path: "/assets/scrappers/csdb.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.CSDB_API_ENABLED,
+  },
+  {
     name: "SteamgridDB",
     value: "sgdb",
     logo_path: "/assets/scrappers/sgdb.png",

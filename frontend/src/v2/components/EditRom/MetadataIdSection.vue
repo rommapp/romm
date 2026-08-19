@@ -11,6 +11,7 @@ import { RTextField } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { UpdateRom } from "@/services/api/rom";
+import { parseSceneId } from "@/utils/sceneIds";
 
 const props = defineProps<{ rom: UpdateRom }>();
 
@@ -26,7 +27,13 @@ function updateField(field: keyof UpdateRom, value: string | number | null) {
   emit("update:rom", { ...props.rom, [field]: value });
 }
 
-function parseIdValue(raw: string | number | null): number | null {
+function parseIdValue(
+  raw: string | number | null,
+  field: keyof UpdateRom,
+): number | null {
+  if (field === "demozoo_id") return parseSceneId(raw, "demozoo");
+  if (field === "pouet_id") return parseSceneId(raw, "pouet");
+  if (field === "csdb_id") return parseSceneId(raw, "csdb");
   if (raw == null) return null;
   const s = String(raw).trim();
   if (s === "") return null;
@@ -64,6 +71,9 @@ const FIELDS = computed<IdField[]>(() => [
     type: "string",
   },
   { key: "hltb_id", label: t("rom.provider-howlongtobeat-id"), type: "number" },
+  { key: "demozoo_id", label: t("rom.provider-demozoo-id"), type: "number" },
+  { key: "pouet_id", label: t("rom.provider-pouet-id"), type: "number" },
+  { key: "csdb_id", label: t("rom.provider-csdb-id"), type: "number" },
 ]);
 
 function modelFor(field: IdField): string {
@@ -73,7 +83,7 @@ function modelFor(field: IdField): string {
 
 function onUpdate(field: IdField, raw: string | number | null) {
   if (field.type === "number") {
-    updateField(field.key, parseIdValue(raw));
+    updateField(field.key, parseIdValue(raw, field.key));
   } else {
     const s = raw == null ? null : String(raw);
     updateField(field.key, s && s.trim() !== "" ? s : null);

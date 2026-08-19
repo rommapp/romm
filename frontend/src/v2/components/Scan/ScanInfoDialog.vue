@@ -157,6 +157,22 @@ const generalProviders: ProviderRow[] = [
     descKey: "setup.provider-flashpoint-desc",
     setupKey: "setup.provider-flashpoint-setup",
   },
+  {
+    id: "demozoo",
+    name: "Demozoo",
+    logo: `${LOGO_BASE}/demozoo.png?v=2`,
+    descKey: "setup.provider-demozoo-desc",
+    setupKey: "setup.provider-demozoo-setup",
+    caveatKey: "setup.provider-demozoo-caveat",
+  },
+  {
+    id: "pouet",
+    name: "Pouët",
+    logo: `${LOGO_BASE}/pouet.png?v=2`,
+    descKey: "setup.provider-pouet-desc",
+    setupKey: "setup.provider-pouet-setup",
+    caveatKey: "setup.provider-pouet-caveat",
+  },
 ];
 
 const specificProviders: ProviderRow[] = [
