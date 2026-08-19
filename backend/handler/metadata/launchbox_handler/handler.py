@@ -155,6 +155,10 @@ class LaunchboxHandler(MetadataHandler):
             else:
                 search_term = fs_name
 
+            # The rewrites below are anchored on spaces, so a dump that separates
+            # words with underscores reaches none of them.
+            search_term = search_term.replace("_", " ")
+
             # Resolve MAME arcade filename (e.g. wrlok_l3.zip) to its full title
             # via LaunchBox's Mame.xml before name-based lookup.
             if platform_slug == UPS.ARCADE:
