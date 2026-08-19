@@ -20,9 +20,11 @@ from .base_handler import BaseRom, MetadataHandler
 # Regex to detect HLTB ID tags in filenames like (hltb-12345)
 HLTB_TAG_REGEX = re.compile(r"\(hltb-(\d+)\)", re.IGNORECASE)
 DASH_COLON_REGEX = re.compile(r"\s?-\s")
-# The game page ships its record as JSON in the Next.js hydration payload.
+# The game page ships its record as JSON in the Next.js hydration payload. The
+# id alone identifies the tag, so attribute order and extras a CSP would add
+# (nonce, crossorigin) do not read as a rewritten page.
 NEXT_DATA_REGEX = re.compile(
-    r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', re.DOTALL
+    r"""<script[^>]*\bid=["']__NEXT_DATA__["'][^>]*>(.*?)</script>""", re.DOTALL
 )
 
 # HLTB publishes no rate limit, so stay well clear of being throttled.
@@ -705,11 +707,14 @@ class HLTBHandler(MetadataHandler):
         await _rate_limiter.acquire()
 
         try:
-            # Request the canonical path directly: the `/game?id=` form answers
-            # with a redirect, which the shared client does not follow.
+            # The canonical path, which answers directly today. Redirects are
+            # followed anyway because a 3xx does not raise, so a hop HLTB added
+            # later would otherwise read as a page we can no longer parse. The
+            # client validates every hop against SSRF, redirects included.
             res = await httpx_client.get(
                 f"{self.base_url}/game/{hltb_id}",
                 headers=self._base_headers(),
+                follow_redirects=True,
                 timeout=60,
             )
             res.raise_for_status()

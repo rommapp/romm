@@ -678,3 +678,74 @@ async def test_transport_failures_report_service_unavailable(
 
     assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
     assert "check your internet connection" in exc_info.value.detail
+
+
+@pytest.mark.parametrize(
+    ("label", "attributes"),
+    [
+        ("plain", 'id="__NEXT_DATA__" type="application/json"'),
+        ("csp nonce", 'id="__NEXT_DATA__" type="application/json" nonce="r4nd0m"'),
+        ("reordered", 'type="application/json" id="__NEXT_DATA__"'),
+        ("single quotes", "id='__NEXT_DATA__' type='application/json'"),
+        ("crossorigin", 'crossorigin="" id="__NEXT_DATA__" type="application/json"'),
+    ],
+)
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_hydration_tag_is_found_however_it_is_marked_up(
+    mock_ctx_httpx_client, label, attributes
+):
+    """Markup around the payload is not the contract; the id is. Reporting a
+    rewrite over an added nonce would be a false alarm."""
+    payload = json.dumps(
+        {"props": {"pageProps": {"game": {"data": {"game": [_game(7169, "Pokémon")]}}}}}
+    )
+    response = MagicMock()
+    response.status_code = 200
+    response.text = f"<script {attributes}>{payload}</script>"
+    client = MagicMock()
+    client.get = AsyncMock(return_value=response)
+    mock_ctx_httpx_client.get.return_value = client
+
+    rom = await _handler().get_rom_by_id(7169)
+
+    assert rom["hltb_id"] == 7169, label
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_a_redirect_is_followed_rather_than_read_as_a_rewrite(
+    mock_ctx_httpx_client,
+):
+    """`raise_for_status` lets a 3xx through, so an unfollowed hop would reach
+    the parser as a page with no payload and be blamed on HLTB reshaping it."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page(_game(7169, "Pokémon")))
+    mock_ctx_httpx_client.get.return_value = client
+
+    await handler.get_rom_by_id(7169)
+
+    assert client.get.await_args.kwargs["follow_redirects"] is True
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_an_unrelated_json_script_is_not_mistaken_for_the_payload(
+    mock_ctx_httpx_client,
+):
+    """The looser tag match must not start picking up other JSON blocks."""
+    handler = _handler()
+    response = MagicMock()
+    response.status_code = 200
+    response.text = (
+        '<script id="__OTHER_DATA__" type="application/json">{"game": []}</script>'
+    )
+    client = MagicMock()
+    client.get = AsyncMock(return_value=response)
+    mock_ctx_httpx_client.get.return_value = client
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handler.get_rom_by_id(7169)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
