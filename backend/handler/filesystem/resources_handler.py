@@ -220,7 +220,7 @@ class FSResourcesHandler(FSHandler):
                                 == "gzip"
                             )
 
-                            async with await self.write_file_streamed(
+                            async with self.write_file_streamed(
                                 path=cover_file, filename=f"{CoverSize.BIG.value}.png"
                             ) as f:
                                 if is_gzipped:
@@ -239,11 +239,9 @@ class FSResourcesHandler(FSHandler):
                             downloaded = True
             except httpx.TransportError as exc:
                 log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
-                await self._discard_partial_file(big_path)
                 return None
             except OSError as exc:
                 log.error(f"Unable to write cover for {url_cover}: {str(exc)}")
-                await self._discard_partial_file(big_path)
                 return None
 
             if not downloaded:
@@ -453,7 +451,7 @@ class FSResourcesHandler(FSHandler):
                             == "gzip"
                         )
 
-                        async with await self.write_file_streamed(
+                        async with self.write_file_streamed(
                             path=screenshot_path, filename=f"{idx}.jpg"
                         ) as f:
                             if is_gzipped:
@@ -470,11 +468,9 @@ class FSResourcesHandler(FSHandler):
                                     await f.write(chunk)
             except httpx.TransportError as exc:
                 log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
-                await self._discard_partial_file(f"{screenshot_path}/{idx}.jpg")
                 return None
             except OSError as exc:
                 log.error(f"Unable to write screenshot for {url_screenhot}: {str(exc)}")
-                await self._discard_partial_file(f"{screenshot_path}/{idx}.jpg")
                 return None
 
     def screenshots_exist(self, rom: Rom) -> bool:
@@ -583,7 +579,7 @@ class FSResourcesHandler(FSHandler):
                             == "gzip"
                         )
 
-                        async with await self.write_file_streamed(
+                        async with self.write_file_streamed(
                             path=manual_path, filename=f"{rom.id}.pdf"
                         ) as f:
                             if is_gzipped:
@@ -600,11 +596,9 @@ class FSResourcesHandler(FSHandler):
                                     await f.write(chunk)
             except httpx.TransportError as exc:
                 log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
-                await self._discard_partial_file(f"{manual_path}/{rom.id}.pdf")
                 return None
             except OSError as exc:
                 log.error(f"Unable to write manual for {url_manual}: {str(exc)}")
-                await self._discard_partial_file(f"{manual_path}/{rom.id}.pdf")
                 return None
 
     def _get_manual_path(self, rom: Rom) -> str | None:
@@ -659,17 +653,15 @@ class FSResourcesHandler(FSHandler):
                     if not _check_content_type(response, ("image/",), "badge"):
                         return
 
-                    async with await self.write_file_streamed(
+                    async with self.write_file_streamed(
                         path=directory, filename=filename
                     ) as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
         except httpx.TransportError as exc:
-            log.error(f"Unable to fetch cover at {url}: {str(exc)}")
-            await self._discard_partial_file(path)
+            log.error(f"Unable to fetch badge at {url}: {str(exc)}")
         except OSError as exc:
             log.error(f"Unable to write badge for {url}: {str(exc)}")
-            await self._discard_partial_file(path)
 
     def get_ra_resources_path(self, platform_id: int, rom_id: int) -> str:
         return os.path.join(
@@ -733,18 +725,16 @@ class FSResourcesHandler(FSHandler):
                             ):
                                 return False
 
-                            async with await self.write_file_streamed(
+                            async with self.write_file_streamed(
                                 path=directory, filename=filename
                             ) as f:
                                 async for chunk in response.aiter_raw():
                                     await f.write(chunk)
                 except httpx.TransportError as exc:
                     log.error(f"Unable to fetch media file at {url_media}: {str(exc)}")
-                    await self._discard_partial_file(dest_path)
                     return False
                 except OSError as exc:
                     log.error(f"Unable to write media file for {url_media}: {str(exc)}")
-                    await self._discard_partial_file(dest_path)
                     return False
 
         # Drop ScreenScraper's green "missing art" placeholder so a box face

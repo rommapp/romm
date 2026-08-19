@@ -318,7 +318,7 @@ class TestFSHandler:
 
     async def test_write_file_streamed(self, handler: FSHandler, sample_file_content):
         """Test streamed file writing"""
-        async with await handler.write_file_streamed(".", "test_file.txt") as f:
+        async with handler.write_file_streamed(".", "test_file.txt") as f:
             await f.write(sample_file_content)
 
         file_path = handler.base_path / "test_file.txt"

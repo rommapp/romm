@@ -1,3 +1,4 @@
+import asyncio
 import errno
 import os
 from io import BytesIO
@@ -1001,27 +1002,16 @@ class _FakeHttpxClient:
         return _FakeStreamContext(self._response)
 
 
-class _EnospcWriter:
-    """Writes a truncated file, then fails the way a full disk does."""
+class _EnospcResponse:
+    """Streams one chunk, then fails the way a full disk does."""
 
-    def __init__(self, path: Path):
-        self._path = path
+    def __init__(self, content_type: str = "image/png"):
+        self.status_code = 200
+        self.headers = {"content-type": content_type}
 
-    async def write(self, _data):
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_bytes(b"partial")
+    async def aiter_raw(self):
+        yield b"partial"
         raise OSError(errno.ENOSPC, "No space left on device")
-
-
-class _EnospcWriteContext:
-    def __init__(self, path: Path):
-        self._path = path
-
-    async def __aenter__(self):
-        return _EnospcWriter(self._path)
-
-    async def __aexit__(self, *_args):
-        return False
 
 
 class TestDiskFullHandling:
@@ -1080,15 +1070,8 @@ class TestDiskFullHandling:
         handler.base_path = tmp_path
         target = tmp_path / "roms/1/1/cover/big.png"
 
-        with (
-            patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx,
-            patch.object(
-                handler,
-                "write_file_streamed",
-                new=AsyncMock(return_value=_EnospcWriteContext(target)),
-            ),
-        ):
-            mock_ctx.get.return_value = _FakeHttpxClient(_FakeResponse())
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(_EnospcResponse())
 
             await handler._store_cover(rom, "http://example.com/cover.png")
 
@@ -1111,6 +1094,61 @@ class TestDiskFullHandling:
         assert not target.exists()
 
     @pytest.mark.asyncio
+    async def test_store_cover_keeps_existing_file_when_refresh_dies(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        # Refreshing a cover that is already on disk must not cost the good copy
+        # when the transfer dies: the stream lands in a temp file, so the
+        # existing bytes survive untouched.
+        handler.base_path = tmp_path
+        target = tmp_path / "roms/1/1/cover/big.png"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"the good cover")
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(_DroppedResponse())
+
+            await handler._store_cover(rom, "http://example.com/cover.png")
+
+        assert target.read_bytes() == b"the good cover"
+
+    @pytest.mark.asyncio
+    async def test_cancelled_download_leaves_no_temp_file(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # Stopping a scan raises CancelledError, which derives from
+        # BaseException. Cleanup has to catch it or every cancel strands a
+        # temp file in the resource directory.
+        handler.base_path = tmp_path
+        cover_dir = tmp_path / "roms/1/1/cover"
+        cover_dir.mkdir(parents=True)
+
+        with pytest.raises(asyncio.CancelledError):
+            async with handler.write_file_streamed(
+                path="roms/1/1/cover", filename="big.png"
+            ) as f:
+                await f.write(b"partial")
+                raise asyncio.CancelledError()
+
+        assert list(cover_dir.iterdir()) == []
+
+    @pytest.mark.asyncio
+    async def test_interrupted_download_leaves_no_temp_file(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        # A temp file left in the cover directory would be served as a resource
+        # and would accumulate one per failed scan.
+        handler.base_path = tmp_path
+        cover_dir = tmp_path / "roms/1/1/cover"
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(_DroppedResponse())
+
+            await handler._store_cover(rom, "http://example.com/cover.png")
+
+        assert list(cover_dir.iterdir()) == []
+
+    @pytest.mark.asyncio
     async def test_store_ra_badge_discards_partial_download(
         self, handler: FSResourcesHandler, tmp_path
     ):
@@ -1120,15 +1158,8 @@ class TestDiskFullHandling:
         rel = "roms/1/1/ra/badge.png"
         target = tmp_path / rel
 
-        with (
-            patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx,
-            patch.object(
-                handler,
-                "write_file_streamed",
-                new=AsyncMock(return_value=_EnospcWriteContext(target)),
-            ),
-        ):
-            mock_ctx.get.return_value = _FakeHttpxClient(_FakeResponse())
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(_EnospcResponse())
 
             await handler.store_ra_badge("http://example.com/badge.png", rel)
 
