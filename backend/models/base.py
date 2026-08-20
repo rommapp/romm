@@ -11,8 +11,10 @@ FILE_EXTENSION_MAX_LENGTH = 100
 
 # Matches parenthesised/bracketed tag groups, e.g. " (USA)" or " [!]", or " (USA) (Rev 1) [!]"
 TAG_GROUP_REGEX = re.compile(r"(?:\s*(?:\([^)]*\)|\[[^]]*\]))+\s*$")
-# Matches a trailing file extension, including multi-part ones like ".tar.gz".
-EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
+# Matches a trailing file extension, including the tarball family's two-part
+# ones (".tar.gz"). Only that family is compound: any other inner segment is a
+# word of the title, as in a dot-separated name ("final.fantasy.vii.iso").
+EXTENSION_REGEX = re.compile(r"\.((?:tar\.)?\w+)$", re.IGNORECASE)
 
 
 def utc_now() -> datetime:

@@ -11,6 +11,23 @@ from models.rom import Rom, compute_name_sort_key
     [
         ("Sonic (USA) [!].md", "Sonic", "Sonic (USA) [!]", "md"),
         ("game.tar.gz", "game", "game", "tar.gz"),
+        # The tarball family is the only compound extension, and its casing
+        # doesn't matter.
+        ("game.TAR.GZ", "game", "game", "TAR.GZ"),
+        # Every other inner segment is a title word, whatever its casing, so a
+        # dot-separated name keeps all of them.
+        (
+            "final.fantasy.vii.iso",
+            "final.fantasy.vii",
+            "final.fantasy.vii",
+            "iso",
+        ),
+        (
+            "Final.Fantasy.VII.iso",
+            "Final.Fantasy.VII",
+            "Final.Fantasy.VII",
+            "iso",
+        ),
         ("README", "README", "README", ""),
         (
             "Final Fantasy VII (Disc 1).bin",
