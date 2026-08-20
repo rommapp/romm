@@ -43,6 +43,18 @@ How v2 features behave. Each pattern has one canonical mechanism — don't inven
 
 Don't push state into `useUISettings` "so it persists" — follow the rule above.
 
+For layer 3 written to `localStorage` directly (per-game player toggles and the like), use `useLocalStorage` from VueUse with `writeDefaults: false` and a `serializer`, not a `ref` plus a `watch` plus `localStorage.setItem`. Key it off the route param so it binds before the entity resolves, and make the read fail safe to the default.
+
+## D2. Async and reactive lifecycle
+
+Three mistakes that keep reaching review:
+
+1. **Snapshot before the first `await`.** Any reactive value a decision depends on can move while requests are in flight. Read it into a local before the call, not between calls: `const wasAllFavorited = allFavorited.value` goes above `await ensureFavoriteCollection()`, because the response replaces the very `rom_ids` that `allFavorited` derives from.
+2. **Watch the narrowest source.** `watch(() => authStore.user, ...)` refires on every unrelated profile update, which then needs a manual "already ran for this id" flag. Watch a derived primitive instead so the watch is self-guarding: `() => user?.oauth_scopes.includes("tasks.run") ? user.id : null`.
+3. **Guard late resolutions with `useIsAlive()`** (`src/v2/composables/useIsAlive/`), not a local `unmounted` flag plus `onBeforeUnmount`. It uses `onScopeDispose`, so it also works inside another composable. VueUse's `useMounted` is not a substitute.
+
+Name a helper for what it touches: `syncCachedRom`, not `syncRom`, when it updates the cache and does not fetch.
+
 ## E. Pagination & infinite scroll
 
 - `LoadMore` (`RBtn` + `RSpinner` + IntersectionObserver) is the canonical fallback when virtualization stalls.

@@ -7,6 +7,10 @@ description: The before-handoff / before-PR verification gate for RomM, covering
 
 Run the checks that match what you touched. **Static checks don't prove a feature works** — when UI changed, also test it in the browser. Mirror the CI gates so review isn't the first place a failure shows up. **Never `--no-verify`.**
 
+**Run `trunk fmt && trunk check` last, and commit what it changes.** A "run fmt" commit landing on top of a PR is the single most common post-review fix in this repo. The recurring hits: import order (Vitest before Vue, component before its sibling module), Prettier joining a wrapped call or swapping quotes in a template string, ESLint's Vue rules on test mocks (`vue/one-component-per-file`, array-shorthand `props`), and mypy wanting explicit annotations on `__init__` attributes (`self.search_url: str = ...`, `Final[float]`).
+
+Then run the `review-polish` pass, which covers what the formatters can't see (comment length, duplicated constants, naming).
+
 ---
 
 ## Frontend (`frontend/`)
