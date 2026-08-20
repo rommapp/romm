@@ -294,6 +294,7 @@
   "platform-mapping-deleted": "平台映射已删除",
   "platform-mapping-updated": "平台映射已更新",
   "platform-metadata-matches": "{source} 匹配: {matched} / {total}",
+  "platform-open": "打开 {name}",
   "platform-regions-show-less": "显示更少地区",
   "platform-regions-show-more": "显示更多地区",
   "platform-variant": "平台变体",

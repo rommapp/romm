@@ -294,6 +294,7 @@
   "platform-mapping-deleted": "플랫폼 매핑이 삭제되었습니다",
   "platform-mapping-updated": "플랫폼 매핑이 업데이트되었습니다",
   "platform-metadata-matches": "{source} 일치: {matched} / {total}",
+  "platform-open": "{name} 열기",
   "platform-regions-show-less": "지역 간략히 보기",
   "platform-regions-show-more": "지역 더 보기",
   "platform-variant": "플랫폼 변형",

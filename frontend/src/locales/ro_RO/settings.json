@@ -294,6 +294,7 @@
   "platform-mapping-deleted": "Maparea platformei a fost ștearsă",
   "platform-mapping-updated": "Maparea platformei a fost actualizată",
   "platform-metadata-matches": "Potriviri {source}: {matched} / {total}",
+  "platform-open": "Deschide {name}",
   "platform-regions-show-less": "Afișează mai puține regiuni",
   "platform-regions-show-more": "Afișează mai multe regiuni",
   "platform-variant": "Variantă platformă",

@@ -294,6 +294,7 @@
   "platform-mapping-deleted": "Mappatura della piattaforma eliminata",
   "platform-mapping-updated": "Mappatura della piattaforma aggiornata",
   "platform-metadata-matches": "Corrispondenze {source}: {matched} / {total}",
+  "platform-open": "Apri {name}",
   "platform-regions-show-less": "Mostra meno regioni",
   "platform-regions-show-more": "Mostra più regioni",
   "platform-variant": "Variante piattaforma",

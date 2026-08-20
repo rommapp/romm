@@ -294,6 +294,7 @@
   "platform-mapping-deleted": "Платформената връзка е изтрита",
   "platform-mapping-updated": "Платформената връзка е обновена",
   "platform-metadata-matches": "Съвпадения в {source}: {matched} / {total}",
+  "platform-open": "Отвори {name}",
   "platform-regions-show-less": "Покажи по-малко региони",
   "platform-regions-show-more": "Покажи още региони",
   "platform-variant": "Вариант на платформа",

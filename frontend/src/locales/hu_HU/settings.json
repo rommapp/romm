@@ -294,6 +294,7 @@
   "platform-mapping-deleted": "Platformleképezés törölve",
   "platform-mapping-updated": "Platformleképezés frissítve",
   "platform-metadata-matches": "{source} találatok: {matched} / {total}",
+  "platform-open": "{name} megnyitása",
   "platform-regions-show-less": "Kevesebb régió megjelenítése",
   "platform-regions-show-more": "További régiók megjelenítése",
   "platform-variant": "Platform változat",

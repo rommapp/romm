@@ -294,6 +294,7 @@
   "platform-mapping-deleted": "Platform eşlemesi silindi",
   "platform-mapping-updated": "Platform eşlemesi güncellendi",
   "platform-metadata-matches": "{source} eşleşmeleri: {matched} / {total}",
+  "platform-open": "{name} platformunu aç",
   "platform-regions-show-less": "Daha az bölge göster",
   "platform-regions-show-more": "Daha fazla bölge göster",
   "platform-variant": "Platform varyantı",

@@ -294,6 +294,7 @@
   "platform-mapping-deleted": "Сопоставление платформы удалено",
   "platform-mapping-updated": "Сопоставление платформы обновлено",
   "platform-metadata-matches": "Совпадения {source}: {matched} / {total}",
+  "platform-open": "Открыть {name}",
   "platform-regions-show-less": "Показать меньше регионов",
   "platform-regions-show-more": "Показать больше регионов",
   "platform-variant": "Вариант платформы",
