@@ -41,9 +41,9 @@ How v2 features behave. Each pattern has one canonical mechanism — don't inven
 2. **Bookmarkable session state** (active filters, search query, sort, current tab in detail views) → **URL query params**. Anyone copying the link reproduces what they see. **Active gallery filter must be in URL.**
 3. **Ephemeral session state** (open dialog, hover, expansion) → `ref` if local, Pinia store if cross-component within the session.
 
-Don't push state into `useUISettings` "so it persists" — follow the rule above.
+Don't push state into `useUISettings` "so it persists", follow the rule above. Layer 3 never touches `localStorage`: if a value has to survive a reload, it is layer 1 or the per-entity variant below, not ephemeral state.
 
-For layer 3 written to `localStorage` directly (per-game player toggles and the like), use `useLocalStorage` from VueUse with `writeDefaults: false` and a `serializer`, not a `ref` plus a `watch` plus `localStorage.setItem`. Key it off the route param so it binds before the entity resolves, and make the read fail safe to the default.
+**Per-entity device preferences** (a bezel hidden for one game, the core picked for one game) are a narrow variant of layer 1: they persist per device but stay out of `useUISettings`, because they are keyed by entity rather than global and must not sync to `user.ui_settings`. Use `useLocalStorage` from VueUse with `writeDefaults: false` and a `serializer`, not a `ref` plus a `watch` plus `localStorage.setItem`. Key it off the route param so it binds before the entity resolves, and make the read fail safe to the default so a stale value can't wedge the view.
 
 ## D2. Async and reactive lifecycle
 
