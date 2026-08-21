@@ -19,6 +19,12 @@ import { computed, ref, watch, type ComputedRef, type Ref } from "vue";
 import { useI18n } from "vue-i18n";
 import storeConfig from "@/stores/config";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
+import {
+  metadataProviderGroup,
+  providerKeysInGroup,
+  type MetadataProviderGroup,
+  type MetadataProviderKeyIn,
+} from "@/v2/utils/metadataProviderGroups";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
@@ -26,22 +32,9 @@ const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
 const LOCAL_STORAGE_HASHEOUS_ENABLED_KEY = "scan.hasheousEnabled";
 const LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY = "scan.playmatchEnabled";
 
-const HASH_MATCHER_KEYS = ["hasheous", "playmatch"] as const;
+const HASH_MATCHER_KEYS: readonly string[] = providerKeysInGroup("proxy");
 
-// Mirrors the split used by the setup wizard's metadata step: general
-// catalogs ship a full game record, specific sources add one dimension.
-const GENERAL_PROVIDER_KEYS = new Set([
-  "igdb",
-  "ss",
-  "moby",
-  "launchbox",
-  "flashpoint",
-  "gamelist",
-  "libretro",
-]);
-const SPECIFIC_PROVIDER_KEYS = new Set(["ra", "sgdb", "hltb"]);
-
-export type HashMatcherKey = (typeof HASH_MATCHER_KEYS)[number];
+export type HashMatcherKey = MetadataProviderKeyIn<"proxy">;
 
 export interface HashMatcher {
   value: HashMatcherKey;
@@ -91,10 +84,7 @@ export function useScanProviders(): UseScanProviders {
   const metadataOptions = computed(() =>
     heartbeat
       .getMetadataOptionsByPriority()
-      .filter(
-        (option) =>
-          !(HASH_MATCHER_KEYS as readonly string[]).includes(option.value),
-      )
+      .filter((option) => !HASH_MATCHER_KEYS.includes(option.value))
       .map((option) => {
         const requiresHashes = option.value === "ra";
         let disabled = option.disabled;
@@ -106,10 +96,14 @@ export function useScanProviders(): UseScanProviders {
   );
 
   const generalProviders = computed<MetadataOption[]>(() =>
-    metadataOptions.value.filter((o) => GENERAL_PROVIDER_KEYS.has(o.value)),
+    metadataOptions.value.filter(
+      (o) => metadataProviderGroup(o.value) === "catalog",
+    ),
   );
   const specificProviders = computed<MetadataOption[]>(() =>
-    metadataOptions.value.filter((o) => SPECIFIC_PROVIDER_KEYS.has(o.value)),
+    metadataOptions.value.filter(
+      (o) => metadataProviderGroup(o.value) === "specialised",
+    ),
   );
   const enabledGeneralProviders = computed(() =>
     generalProviders.value.filter((o) => !o.disabled),
@@ -154,36 +148,40 @@ export function useScanProviders(): UseScanProviders {
     { immediate: true },
   );
 
-  function hasGroupSelection(keys: Set<string>): boolean {
-    return metadataSources.value.some((s) => keys.has(s.value));
+  function hasGroupSelection(group: MetadataProviderGroup): boolean {
+    return metadataSources.value.some(
+      (s) => metadataProviderGroup(s.value) === group,
+    );
   }
 
   // All-mode mirrors of each select, initialised the way the primitive does
   // (no own selection ⇒ All) and kept in sync via `@update:all-selected`.
-  const generalAllSelected = ref(!hasGroupSelection(GENERAL_PROVIDER_KEYS));
-  const specificAllSelected = ref(!hasGroupSelection(SPECIFIC_PROVIDER_KEYS));
+  const generalAllSelected = ref(!hasGroupSelection("catalog"));
+  const specificAllSelected = ref(!hasGroupSelection("specialised"));
 
   // An explicit pick always wins over the All flag: the two are mutually
   // exclusive in the select, and reading the model keeps us right even
   // before a select has mounted to emit its initial state.
   function resolveGroup(
-    keys: Set<string>,
+    group: MetadataProviderGroup,
     allSelected: boolean,
     enabled: MetadataOption[],
   ): MetadataOption[] {
-    const picked = metadataSources.value.filter((s) => keys.has(s.value));
+    const picked = metadataSources.value.filter(
+      (s) => metadataProviderGroup(s.value) === group,
+    );
     if (picked.length > 0) return picked;
     return allSelected ? enabled : [];
   }
 
   const effectiveMetadataSources = computed<MetadataOption[]>(() => [
     ...resolveGroup(
-      GENERAL_PROVIDER_KEYS,
+      "catalog",
       generalAllSelected.value,
       enabledGeneralProviders.value,
     ),
     ...resolveGroup(
-      SPECIFIC_PROVIDER_KEYS,
+      "specialised",
       specificAllSelected.value,
       enabledSpecificProviders.value,
     ),

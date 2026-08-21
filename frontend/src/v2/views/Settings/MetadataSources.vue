@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// MetadataSources — v2-native rewrite. Provider tiles grouped into
-// three categories (general catalogs, specialised sources, match
-// proxies) matching the split used in the Setup wizard. Each tile
-// shows:
+// MetadataSources — v2-native rewrite. Provider tiles grouped by the
+// shared provider taxonomy, so a new provider is grouped the same way
+// here as in the Setup wizard and the Scan view's info dialog. Each
+// tile shows:
 //   • A circular logo
 //   • Provider name + tone-coloured `RTag` status chip. Wording adapts
 //     to how the provider is configured: key-based providers (IGDB,
@@ -22,6 +22,12 @@ import { useI18n } from "vue-i18n";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
+import {
+  METADATA_PROVIDER_GROUP_ORDER,
+  METADATA_PROVIDER_GROUPS,
+  type MetadataProviderGroup,
+  type MetadataProviderKey,
+} from "@/v2/utils/metadataProviderGroups";
 
 defineOptions({ inheritAttrs: false });
 
@@ -29,18 +35,7 @@ const { t } = useI18n();
 const heartbeat = storeHeartbeat();
 const configStore = storeConfig();
 
-const heartbeatStatus = ref<Record<string, boolean | undefined>>({
-  igdb: undefined,
-  moby: undefined,
-  ss: undefined,
-  ra: undefined,
-  hasheous: undefined,
-  launchbox: undefined,
-  flashpoint: undefined,
-  hltb: undefined,
-  sgdb: undefined,
-  playmatch: undefined,
-});
+const heartbeatStatus = ref<Partial<Record<MetadataProviderKey, boolean>>>({});
 
 type SourceStatus = "missing" | "invalid" | "ok" | "pending";
 
@@ -50,7 +45,7 @@ interface Source {
    *  (Achievements, Cover art, Completion times) so the user knows what
    *  each one contributes without having to recognise the brand. */
   subtitle?: string;
-  value: string;
+  key: MetadataProviderKey;
   logo: string;
   website: string;
   docsUrl: string;
@@ -62,10 +57,10 @@ interface Source {
   heartbeat?: boolean;
 }
 
-const catalogs = computed<Source[]>(() => [
+const sources = computed<Source[]>(() => [
   {
     name: "IGDB",
-    value: "igdb",
+    key: "igdb",
     logo: "/assets/scrappers/igdb.png",
     website: "https://www.igdb.com",
     docsUrl: "https://api-docs.igdb.com/#account-creation",
@@ -75,7 +70,7 @@ const catalogs = computed<Source[]>(() => [
   },
   {
     name: "ScreenScraper",
-    value: "ss",
+    key: "ss",
     logo: "/assets/scrappers/ss.png",
     website: "https://www.screenscraper.fr",
     docsUrl: "https://www.screenscraper.fr/membreinscription.php",
@@ -85,7 +80,7 @@ const catalogs = computed<Source[]>(() => [
   },
   {
     name: "MobyGames",
-    value: "moby",
+    key: "moby",
     logo: "/assets/scrappers/moby.png",
     website: "https://www.mobygames.com",
     docsUrl: "https://www.mobygames.com/info/api/",
@@ -95,7 +90,7 @@ const catalogs = computed<Source[]>(() => [
   },
   {
     name: "LaunchBox",
-    value: "launchbox",
+    key: "launchbox",
     logo: "/assets/scrappers/launchbox.png",
     website: "https://www.launchbox-app.com",
     docsUrl: "https://gamesdb.launchbox-app.com",
@@ -105,7 +100,7 @@ const catalogs = computed<Source[]>(() => [
   },
   {
     name: "Flashpoint Archive",
-    value: "flashpoint",
+    key: "flashpoint",
     logo: "/assets/scrappers/flashpoint.png",
     website: "https://flashpointarchive.org",
     docsUrl: "https://flashpointarchive.org/datahub/Flashpoint_API",
@@ -113,13 +108,10 @@ const catalogs = computed<Source[]>(() => [
     disabled: !heartbeat.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED,
     heartbeat: heartbeatStatus.value.flashpoint,
   },
-]);
-
-const specialised = computed<Source[]>(() => [
   {
     name: "RetroAchievements",
     subtitle: t("settings.metadata-subtitle-achievements"),
-    value: "ra",
+    key: "ra",
     logo: "/assets/scrappers/ra.png",
     website: "https://retroachievements.org",
     docsUrl: "https://retroachievements.org/APIDemo.php",
@@ -130,7 +122,7 @@ const specialised = computed<Source[]>(() => [
   {
     name: "SteamGridDB",
     subtitle: t("settings.metadata-subtitle-cover-art"),
-    value: "sgdb",
+    key: "sgdb",
     logo: "/assets/scrappers/sgdb.png",
     website: "https://www.steamgriddb.com",
     docsUrl: "https://www.steamgriddb.com/profile/preferences/api",
@@ -141,7 +133,7 @@ const specialised = computed<Source[]>(() => [
   {
     name: "HowLongToBeat",
     subtitle: t("settings.metadata-subtitle-completion"),
-    value: "hltb",
+    key: "hltb",
     logo: "/assets/scrappers/hltb.png",
     website: "https://howlongtobeat.com",
     docsUrl: "https://howlongtobeat.com",
@@ -149,12 +141,9 @@ const specialised = computed<Source[]>(() => [
     disabled: !heartbeat.value.METADATA_SOURCES?.HLTB_API_ENABLED,
     heartbeat: heartbeatStatus.value.hltb,
   },
-]);
-
-const proxies = computed<Source[]>(() => [
   {
     name: "Hasheous",
-    value: "hasheous",
+    key: "hasheous",
     logo: "/assets/scrappers/hasheous.png",
     website: "https://hasheous.org",
     docsUrl: "https://hasheous.org/index.html?page=apidocs",
@@ -164,7 +153,7 @@ const proxies = computed<Source[]>(() => [
   },
   {
     name: "PlayMatch",
-    value: "playmatch",
+    key: "playmatch",
     logo: "/assets/scrappers/playmatch.png",
     website: "https://github.com/RetroRealm/playmatch",
     docsUrl: "https://github.com/RetroRealm/playmatch",
@@ -173,6 +162,34 @@ const proxies = computed<Source[]>(() => [
     heartbeat: heartbeatStatus.value.playmatch,
   },
 ]);
+
+const GROUP_LABELS: Record<
+  MetadataProviderGroup,
+  { titleKey: string; icon: string }
+> = {
+  catalog: {
+    titleKey: "settings.metadata-catalogs",
+    icon: "mdi-database-search-outline",
+  },
+  specialised: {
+    titleKey: "settings.metadata-specialised",
+    icon: "mdi-puzzle-outline",
+  },
+  proxy: {
+    titleKey: "settings.metadata-proxies",
+    icon: "mdi-swap-horizontal-bold",
+  },
+};
+
+const groups = computed(() =>
+  METADATA_PROVIDER_GROUP_ORDER.map((group) => ({
+    group,
+    ...GROUP_LABELS[group],
+    sources: sources.value.filter(
+      (source) => METADATA_PROVIDER_GROUPS[source.key] === group,
+    ),
+  })),
+);
 
 // Gated on a heartbeat having landed: the store defaults to "not set", and a
 // backend that is down must not read as a ScreenScraper misconfiguration.
@@ -239,13 +256,12 @@ function statusInfo(source: Source): StatusInfo {
 }
 
 async function fetchAllHeartbeats() {
-  const all = [...catalogs.value, ...specialised.value, ...proxies.value];
   await Promise.all(
-    all
+    sources.value
       .filter((source) => !source.disabled)
       .map(async (source) => {
-        const result = await heartbeat.fetchMetadataHeartbeat(source.value);
-        heartbeatStatus.value[source.value] = result;
+        heartbeatStatus.value[source.key] =
+          await heartbeat.fetchMetadataHeartbeat(source.key);
       }),
   );
 }
@@ -266,130 +282,17 @@ onMounted(() => {
     </RAlert>
 
     <SettingsSection
-      :title="t('settings.metadata-catalogs')"
-      icon="mdi-database-search-outline"
+      v-for="group in groups"
+      :key="group.group"
+      :title="t(group.titleKey)"
+      :icon="group.icon"
     >
-      <div class="r-v2-meta__grid">
+      <div class="r-v2-meta__grid" :data-group="group.group">
         <article
-          v-for="source in catalogs"
-          :key="source.value"
+          v-for="source in group.sources"
+          :key="source.key"
           class="r-v2-meta__card"
-          :class="{
-            'r-v2-meta__card--missing': statusOf(source) === 'missing',
-          }"
-        >
-          <header class="r-v2-meta__header">
-            <div class="r-v2-meta__logo">
-              <img :src="source.logo" :alt="source.name" />
-            </div>
-            <div class="r-v2-meta__head-text">
-              <span class="r-v2-meta__name">{{ source.name }}</span>
-              <span v-if="source.subtitle" class="r-v2-meta__subtitle">
-                {{ source.subtitle }}
-              </span>
-              <RTag
-                :tone="statusInfo(source).tone"
-                :prepend-icon="statusInfo(source).icon"
-                :text="statusInfo(source).label"
-                size="x-small"
-              />
-            </div>
-          </header>
-
-          <div class="r-v2-meta__actions">
-            <RBtn
-              v-if="source.requiresKey"
-              variant="translucent"
-              size="small"
-              prepend-icon="mdi-key-variant"
-              :href="source.docsUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {{ t("settings.metadata-get-key") }}
-            </RBtn>
-            <RBtn
-              variant="text"
-              size="small"
-              prepend-icon="mdi-open-in-new"
-              :href="source.website"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {{ t("settings.metadata-website") }}
-            </RBtn>
-          </div>
-        </article>
-      </div>
-    </SettingsSection>
-
-    <SettingsSection
-      :title="t('settings.metadata-specialised')"
-      icon="mdi-puzzle-outline"
-    >
-      <div class="r-v2-meta__grid">
-        <article
-          v-for="source in specialised"
-          :key="source.value"
-          class="r-v2-meta__card"
-          :class="{
-            'r-v2-meta__card--missing': statusOf(source) === 'missing',
-          }"
-        >
-          <header class="r-v2-meta__header">
-            <div class="r-v2-meta__logo">
-              <img :src="source.logo" :alt="source.name" />
-            </div>
-            <div class="r-v2-meta__head-text">
-              <span class="r-v2-meta__name">{{ source.name }}</span>
-              <span v-if="source.subtitle" class="r-v2-meta__subtitle">
-                {{ source.subtitle }}
-              </span>
-              <RTag
-                :tone="statusInfo(source).tone"
-                :prepend-icon="statusInfo(source).icon"
-                :text="statusInfo(source).label"
-                size="x-small"
-              />
-            </div>
-          </header>
-
-          <div class="r-v2-meta__actions">
-            <RBtn
-              v-if="source.requiresKey"
-              variant="translucent"
-              size="small"
-              prepend-icon="mdi-key-variant"
-              :href="source.docsUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {{ t("settings.metadata-get-key") }}
-            </RBtn>
-            <RBtn
-              variant="text"
-              size="small"
-              prepend-icon="mdi-open-in-new"
-              :href="source.website"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {{ t("settings.metadata-website") }}
-            </RBtn>
-          </div>
-        </article>
-      </div>
-    </SettingsSection>
-
-    <SettingsSection
-      :title="t('settings.metadata-proxies')"
-      icon="mdi-swap-horizontal-bold"
-    >
-      <div class="r-v2-meta__grid">
-        <article
-          v-for="source in proxies"
-          :key="source.value"
-          class="r-v2-meta__card"
+          :data-provider="source.key"
           :class="{
             'r-v2-meta__card--missing': statusOf(source) === 'missing',
           }"
