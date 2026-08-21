@@ -408,6 +408,33 @@ describe("Collection view freshness", () => {
     expect(wrapper.get(".rom-count").text()).toBe("5");
   });
 
+  // Both the route guard and the route watch call the loader per navigation,
+  // and its read can outlive the route, so only the newest may write.
+  it("ignores a read that lands after the route moved on", async () => {
+    let settleFirst!: (value: { data: Collection }) => void;
+    getCollection.mockReturnValueOnce(
+      new Promise((resolve) => {
+        settleFirst = resolve;
+      }),
+    );
+
+    const galleryRoms = storeGalleryRoms();
+    vi.spyOn(galleryRoms, "fetchInitialMetadata").mockResolvedValue();
+    const wrapper = mount(CollectionView);
+
+    routeState.params = { collection: "2" };
+    getCollection.mockResolvedValueOnce({
+      data: { ...collection(2), rom_count: 22 },
+    });
+    await routeGuards[0]?.({ name: "collection", params: { collection: "2" } });
+    await flushPromises();
+
+    settleFirst({ data: { ...collection(1), rom_count: 11 } });
+    await flushPromises();
+
+    expect(wrapper.get(".rom-count").text()).toBe("22");
+  });
+
   it("falls back to the cached copy when the re-read fails", async () => {
     getCollection.mockRejectedValue(new Error("offline"));
 

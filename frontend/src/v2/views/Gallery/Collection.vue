@@ -168,6 +168,14 @@ const kindLabel = computed(() => {
   return "Collection";
 });
 
+// Leaving for anything that isn't another gallery keeps `currentCollection`
+// in place, so neither the load flow nor `onRandomGame` can tell from the id
+// alone that the user walked away.
+const alive = useIsAlive();
+
+// Only the newest `loadForRoute` may write to the page or drive the gallery.
+let loadToken = 0;
+
 function kindFromRoute(
   name: string | symbol | null | undefined,
 ): CollectionKind {
@@ -217,6 +225,7 @@ function refreshFromServer(
 }
 
 async function loadForRoute(kind: CollectionKind, id: string) {
+  const token = ++loadToken;
   currentKind.value = kind;
   // The list is still loaded, unused here, for the surfaces reachable from
   // this page that read it (the add-to-collection dialog).
@@ -224,6 +233,9 @@ async function loadForRoute(kind: CollectionKind, id: string) {
     refreshFromServer(kind, id),
     ensureLoaded(kind),
   ]);
+  // A newer load owns the page: both the route guard and the route watch call
+  // this per navigation, and the read they wait on can outlive the route.
+  if (token !== loadToken || !alive.value) return;
   const collection = fresh ?? findById(kind, id);
   if (!collection) {
     notFound.value = true;
@@ -308,10 +320,6 @@ function randomScope(): {
   if (currentKind.value === "smart") return { smartCollectionId: Number(c.id) };
   return { collectionId: Number(c.id) };
 }
-
-// Leaving for anything that isn't another gallery keeps `currentCollection`
-// in place, so the id check in `onRandomGame` can't see the user walked away.
-const alive = useIsAlive();
 
 // `/roms/random` samples the pick server-side, so one request resolves it
 // whatever the collection holds. `null` means the collection holds no roms.

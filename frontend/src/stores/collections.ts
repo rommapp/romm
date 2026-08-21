@@ -21,6 +21,8 @@ export default defineStore("collections", {
     // The type `virtualCollections` was fetched for, so a refresh knows which
     // slice it is re-reading.
     virtualCollectionType: null as string | null,
+    // A refresh asked for while a fetch was in flight, to run once it settles.
+    virtualCollectionsStale: false as boolean,
     smartCollections: [] as SmartCollection[],
     favoriteCollection: undefined as Collection | undefined,
     filterText: "" as string,
@@ -129,14 +131,27 @@ export default defineStore("collections", {
           })
           .finally(() => {
             this.fetchingVirtualCollections = false;
+            if (this.virtualCollectionsStale) {
+              this.virtualCollectionsStale = false;
+              void this.refreshVirtualCollections();
+            }
           });
       });
     },
     /** Re-read the loaded virtual collections, whose membership (and so ROM
-     * count) is derived from ROM metadata that scans and matches rewrite. */
+     * count) is derived from ROM metadata that scans and matches rewrite.
+     * Never rejects: every caller fires it in the background. */
     refreshVirtualCollections(): Promise<VirtualCollection[]> {
-      if (this.virtualCollectionType === null) return Promise.resolve([]);
-      return this.fetchVirtualCollections(this.virtualCollectionType);
+      const type = this.virtualCollectionType;
+      if (type === null) return Promise.resolve([]);
+      // A response already in flight left the server before the change did, so
+      // it cannot be the re-read. Queue one behind it instead of being dropped
+      // by the in-flight guard.
+      if (this.fetchingVirtualCollections) {
+        this.virtualCollectionsStale = true;
+        return Promise.resolve([]);
+      }
+      return this.fetchVirtualCollections(type).catch(() => []);
     },
     /** Re-read one collection, refreshing the cached copy on the way through.
      * Resolves to null when the server refuses it, so the caller can choose
@@ -264,6 +279,7 @@ export default defineStore("collections", {
       this.allCollections = [];
       this.virtualCollections = [];
       this.virtualCollectionType = null;
+      this.virtualCollectionsStale = false;
       this.smartCollections = [];
       this.favoriteCollection = undefined;
       this.filterText = "";
