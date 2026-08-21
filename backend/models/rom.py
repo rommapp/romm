@@ -772,10 +772,10 @@ Rom.top_level_file_count = column_property(
 
 
 def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
-    """Fill the three deferred file-stat columns from an already-loaded file list.
+    """Fill the deferred file-stat columns from an already-loaded file list.
 
-    Mirrors the subqueries above; keep the predicates in step with them. Note
-    `RomFile.is_top_level` is a different rule and is not interchangeable here.
+    These predicates mirror the subqueries above, not `RomFile.is_top_level`,
+    which answers a different question and disagrees on nested files.
     """
     set_committed_value(
         rom, "multi_file", any(f.file_path != rom.fs_path for f in files)

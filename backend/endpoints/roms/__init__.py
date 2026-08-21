@@ -695,8 +695,7 @@ def get_roms(
         tags_logic=tags_logic,
         group_by_meta_id=group_by_meta_id,
         updated_after=updated_after,
-        # The page's files answer all three flags, so the correlated subqueries
-        # are only worth running when the caller isn't asking for files.
+        # The page's files answer all three flags without the subqueries.
         include_file_stats=not with_files,
         # Siblings and the notes indicator are resolved per page below.
         include_siblings=False,
@@ -878,9 +877,8 @@ def get_roms(
         if with_rom_id_index:
             page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
         else:
-            # Order the page over bare ids, then fetch the rows by primary key.
-            # Sorting the entity directly carries every JSON metadata blob
-            # through the sort for a page that only keeps `limit` of them.
+            # Ordering the entity itself carries every JSON metadata blob
+            # through the sort, for a page that keeps `limit` of them.
             page_ids = list(
                 session.scalars(
                     query.with_only_columns(Rom.id)
