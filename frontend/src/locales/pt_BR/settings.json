@@ -376,7 +376,7 @@
   "scan-priority-suggestions": "Sugestões",
   "scan-region-placeholder": "Adicionar um código de região (ex.: us, eu, jp)",
   "scan-region-priority": "Prioridade de regiões",
-  "scan-region-priority-desc": "Ordem dos códigos de região usados pelo IGDB e ScreenScraper para variantes regionais. A primeira região disponível prevalece.",
+  "scan-region-priority-desc": "Ordem dos códigos de região usados para variantes regionais, tanto a versão de um jogo exibida por padrão quanto as imagens do IGDB e ScreenScraper. A primeira região disponível prevalece.",
   "scan-settings": "Configurações de escaneamento",
   "scan-settings-load-error-desc": "Não foi possível carregar as configurações de escaneamento do servidor. A edição está desativada para evitar sobrescrever sua configuração existente.",
   "scan-settings-load-error-title": "Não foi possível carregar as configurações de escaneamento",

@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import tempfile
+from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from enum import Enum
 from io import BytesIO
@@ -148,6 +149,29 @@ def region_name_to_provider_shortcode(region_name: str | None) -> str | None:
     if not region_name:
         return None
     return _REGION_NAME_TO_PROVIDER_SHORTCODE_CI.get(region_name.lower())
+
+
+# Reverse of REGION_NAME_TO_PROVIDER_SHORTCODE. A list per code because two
+# names can claim one code ("nl" for both Holland and Netherlands), and a rom
+# tagged with either has to rank the same.
+_REGION_NAMES_BY_PROVIDER_SHORTCODE: dict[str, list[str]] = {}
+for _name, _code in REGION_NAME_TO_PROVIDER_SHORTCODE.items():
+    _REGION_NAMES_BY_PROVIDER_SHORTCODE.setdefault(_code, []).append(_name)
+
+
+def region_names_for_priority(shortcodes: Sequence[str]) -> list[str]:
+    """Expand a provider-shortcode priority list into canonical region names.
+
+    A shortcode naming no known region (ScreenScraper's "ss", or a typo the
+    open-ended settings input allowed) contributes nothing rather than shifting
+    the ranks of everything after it.
+    """
+    names: list[str] = []
+    for shortcode in shortcodes:
+        for name in _REGION_NAMES_BY_PROVIDER_SHORTCODE.get(shortcode.lower(), ()):
+            if name not in names:
+                names.append(name)
+    return names
 
 
 LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}
