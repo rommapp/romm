@@ -204,10 +204,27 @@ function findById(kind: CollectionKind, id: string): AnyCollection | undefined {
   return collectionsStore.smartCollections.find((c) => String(c.id) === id);
 }
 
+// The head band renders a ROM count, and the store's lists are loaded once per
+// session, so a cached virtual collection counts whatever it held back then
+// against a gallery that fetches live.
+function refreshFromServer(
+  kind: CollectionKind,
+  id: string,
+): Promise<AnyCollection | null> {
+  if (kind === "regular") return collectionsStore.refreshCollection(Number(id));
+  if (kind === "virtual") return collectionsStore.refreshVirtualCollection(id);
+  return collectionsStore.refreshSmartCollection(Number(id));
+}
+
 async function loadForRoute(kind: CollectionKind, id: string) {
   currentKind.value = kind;
-  await ensureLoaded(kind);
-  const collection = findById(kind, id);
+  // The list is still loaded, unused here, for the surfaces reachable from
+  // this page that read it (the add-to-collection dialog).
+  const [fresh] = await Promise.all([
+    refreshFromServer(kind, id),
+    ensureLoaded(kind),
+  ]);
+  const collection = fresh ?? findById(kind, id);
   if (!collection) {
     notFound.value = true;
     currentCollection.value = null;
@@ -243,6 +260,16 @@ watch(
   ([name, id]) => {
     if (id == null) return;
     loadForRoute(kindFromRoute(name), String(id));
+  },
+);
+
+// Adopt the store's copy when a refresh replaces it, so a scan or a metadata
+// write landing while this page is open corrects the head band as well as the
+// gallery below.
+watch(
+  () => findById(currentKind.value, String(route.params.collection)),
+  (fresh) => {
+    if (fresh) currentCollection.value = fresh;
   },
 );
 

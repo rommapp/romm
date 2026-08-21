@@ -18,6 +18,9 @@ export default defineStore("collections", {
   state: () => ({
     allCollections: [] as Collection[],
     virtualCollections: [] as VirtualCollection[],
+    // The type `virtualCollections` was fetched for, so a refresh knows which
+    // slice it is re-reading.
+    virtualCollectionType: null as string | null,
     smartCollections: [] as SmartCollection[],
     favoriteCollection: undefined as Collection | undefined,
     filterText: "" as string,
@@ -111,6 +114,7 @@ export default defineStore("collections", {
     fetchVirtualCollections(type: string): Promise<VirtualCollection[]> {
       if (this.fetchingVirtualCollections) return Promise.resolve([]);
       this.fetchingVirtualCollections = true;
+      this.virtualCollectionType = type;
 
       return new Promise((resolve, reject) => {
         collectionApi
@@ -127,6 +131,47 @@ export default defineStore("collections", {
             this.fetchingVirtualCollections = false;
           });
       });
+    },
+    /** Re-read the loaded virtual collections, whose membership (and so ROM
+     * count) is derived from ROM metadata that scans and matches rewrite. */
+    refreshVirtualCollections(): Promise<VirtualCollection[]> {
+      if (this.virtualCollectionType === null) return Promise.resolve([]);
+      return this.fetchVirtualCollections(this.virtualCollectionType);
+    },
+    /** Re-read one collection, refreshing the cached copy on the way through.
+     * Resolves to null when the server refuses it, so the caller can choose
+     * between its cached copy and a not-found state. */
+    async refreshCollection(id: number): Promise<Collection | null> {
+      try {
+        const { data } = await collectionApi.getCollection(id);
+        this.updateCollection(data);
+        return data;
+      } catch (error) {
+        console.error(error);
+        return null;
+      }
+    },
+    async refreshVirtualCollection(
+      id: string,
+    ): Promise<VirtualCollection | null> {
+      try {
+        const { data } = await collectionApi.getVirtualCollection(id);
+        this.updateVirtualCollection(data);
+        return data;
+      } catch (error) {
+        console.error(error);
+        return null;
+      }
+    },
+    async refreshSmartCollection(id: number): Promise<SmartCollection | null> {
+      try {
+        const { data } = await collectionApi.getSmartCollection(id);
+        this.updateSmartCollection(data);
+        return data;
+      } catch (error) {
+        console.error(error);
+        return null;
+      }
     },
     setFavoriteCollection(favoriteCollection: Collection | undefined) {
       this.favoriteCollection = favoriteCollection;
@@ -157,6 +202,13 @@ export default defineStore("collections", {
         value.id === collection.id ? collection : value,
       );
       this._reorderCollections();
+    },
+    // Replaces in place only: the list holds one virtual collection type, and
+    // an id carries its own type, so inserting could mix them.
+    updateVirtualCollection(collection: VirtualCollection) {
+      this.virtualCollections = this.virtualCollections.map((value) =>
+        value.id === collection.id ? collection : value,
+      );
     },
     updateSmartCollection(collection: SmartCollection) {
       this.smartCollections = this.smartCollections.map((value) =>
@@ -211,6 +263,7 @@ export default defineStore("collections", {
     reset() {
       this.allCollections = [];
       this.virtualCollections = [];
+      this.virtualCollectionType = null;
       this.smartCollections = [];
       this.favoriteCollection = undefined;
       this.filterText = "";

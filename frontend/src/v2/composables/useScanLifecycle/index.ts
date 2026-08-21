@@ -32,6 +32,7 @@ import type { ScanStats, ScanTaskStatusResponse } from "@/__generated__";
 import platformApi from "@/services/api/platform";
 import taskApi from "@/services/api/task";
 import storeAuth from "@/stores/auth";
+import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning, { type ScanningPlatform } from "@/stores/scanning";
@@ -42,6 +43,7 @@ import storeGalleryRoms from "@/v2/stores/galleryRoms";
 export function installScanLifecycle() {
   const scanningStore = storeScanning();
   const romsStore = storeRoms();
+  const collectionsStore = storeCollections();
   const platformsStore = storePlatforms();
   const galleryRomsStore = storeGalleryRoms();
   const authStore = storeAuth();
@@ -184,8 +186,10 @@ export function installScanLifecycle() {
     scanningStore.setScanStats(stats);
     scanningStore.setScanning(false);
     // Reconcile against the backend once the scan settles: pick up anything
-    // the live updates missed and correct rom_counts that drifted.
+    // the live updates missed and correct rom_counts that drifted, virtual
+    // collections included (a scan rewrites the metadata they derive from).
     void platformsStore.fetchPlatforms();
+    void collectionsStore.refreshVirtualCollections();
     emitter?.emit("snackbarShow", {
       msg: "Scan completed successfully.",
       color: "success",
