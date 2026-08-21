@@ -331,6 +331,25 @@ async def scan_firmware(
     return Firmware(**firmware_attrs)
 
 
+async def resolve_hltb_rom(
+    *,
+    rom: Rom,
+    fs_name: str,
+    platform_slug: str,
+    scan_type: ScanType,
+) -> HLTBRom:
+    """Resolve a ROM's HowLongToBeat match, by ID where one is known, else by filename."""
+    # An ID already on the ROM is a decision (often a manual match), so it is
+    # never traded for a filename guess.
+    if rom.hltb_id and (
+        scan_type == ScanType.UPDATE
+        or (scan_type == ScanType.UNMATCHED and not rom.hltb_metadata)
+    ):
+        return await meta_hltb_handler.get_rom_by_id(rom.hltb_id)
+
+    return await meta_hltb_handler.get_rom(fs_name, platform_slug)
+
+
 async def resolve_launchbox_rom(
     *,
     rom: Rom,
@@ -682,7 +701,12 @@ async def scan_rom(
                 )
             )
         ):
-            return await meta_hltb_handler.get_rom(rom_attrs["fs_name"], platform.slug)
+            return await resolve_hltb_rom(
+                rom=rom,
+                fs_name=str(rom_attrs["fs_name"]),
+                platform_slug=platform.slug,
+                scan_type=scan_type,
+            )
 
         return HLTBRom(hltb_id=None)
 
