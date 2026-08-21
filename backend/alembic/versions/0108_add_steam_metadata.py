@@ -1,13 +1,8 @@
 """Add Steam metadata fields
 
-Adds ``roms.steam_id`` / ``roms.steam_metadata`` for the Steam storefront
-provider, and mirrors the id into ``roms_facets`` so the Server Stats
-metadata-coverage breakdown counts it alongside the other providers (migration
-0103). The mirror is trigger-maintained, so the triggers are recreated with the
-wider column set.
-
-Purely additive: the ``generated_*`` columns on ``roms`` are left alone, so no
-table rebuild is needed.
+Adds ``roms.steam_id`` / ``roms.steam_metadata`` and mirrors the id into
+``roms_facets``. That mirror is trigger-maintained, so the triggers are
+recreated over the wider column set.
 
 Revision ID: 0108_add_steam_metadata
 Revises: 0107_roms_dedup_cover_index
@@ -30,7 +25,7 @@ depends_on = None
 
 
 # (roms_facets column, roms source column) pairs the triggers keep in sync.
-# Mirrors migration 0103's final list; `steam_id` is appended by this revision.
+# Must match migration 0103's final list, which this revision appends to.
 _MIRRORED_COLUMNS_BEFORE = [
     ("platform_id", "platform_id"),
     ("genres", "generated_genres"),
@@ -142,9 +137,8 @@ def upgrade() -> None:
             "idx_roms_steam_id", ["steam_id"], unique=False, if_not_exists=True
         )
 
-    # Guarded so a re-run after a partial failure skips a column already added.
-    # MySQL/MariaDB auto-commit each DDL, so a mid-migration crash can leave the
-    # column behind without advancing the alembic version.
+    # MySQL/MariaDB auto-commit each DDL, so a crash here can leave the column
+    # behind without advancing the alembic version.
     existing = {
         col["name"] for col in inspect(op.get_bind()).get_columns("roms_facets")
     }
@@ -157,7 +151,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     _recreate_triggers(_MIRRORED_COLUMNS_BEFORE)
-    op.drop_column("roms_facets", "steam_id")
+    op.drop_column("roms_facets", "steam_id", if_exists=True)
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.drop_index("idx_roms_steam_id", if_exists=True)
