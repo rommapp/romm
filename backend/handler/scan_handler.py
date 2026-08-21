@@ -705,6 +705,13 @@ async def scan_rom(
                 )
             )
         ):
+            if (scan_type == ScanType.UPDATE and rom.steam_id) or (
+                scan_type == ScanType.UNMATCHED
+                and rom.steam_id
+                and not rom.steam_metadata
+            ):
+                return await meta_steam_handler.get_rom_by_id(rom.steam_id)
+
             return await meta_steam_handler.get_rom(rom_attrs["fs_name"], platform.slug)
 
         return SteamRom(steam_id=None)
