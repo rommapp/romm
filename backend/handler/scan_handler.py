@@ -338,9 +338,9 @@ async def resolve_hltb_rom(
     platform_slug: str,
     scan_type: ScanType,
 ) -> HLTBRom:
-    """Resolve a ROM's HowLongToBeat match, by ID where one is known, else by filename."""
-    # An ID already on the ROM is a decision (often a manual match), so it is
-    # never traded for a filename guess.
+    """Resolve a HowLongToBeat match by stored ID on a refresh, else by filename."""
+    # A refresh keeps the ID already on the ROM, often a manual match, rather than
+    # trading it for a filename guess. COMPLETE rematches from scratch by design.
     if rom.hltb_id and (
         scan_type == ScanType.UPDATE
         or (scan_type == ScanType.UNMATCHED and not rom.hltb_metadata)

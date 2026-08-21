@@ -54,6 +54,22 @@ async def test_no_stored_id_uses_the_file_name_lookup(lookups):
     assert result["hltb_id"] == 9999
 
 
+async def test_complete_rescan_rematches_a_stored_id(lookups):
+    """A complete rescan wipes external IDs by design, so it re-runs the search."""
+    lookups.by_name.return_value = GUESSED
+
+    result = await resolve_hltb_rom(
+        rom=_rom(hltb_id=2255),
+        fs_name="Mario Kart 64 (USA).zip",
+        platform_slug="n64",
+        scan_type=ScanType.COMPLETE,
+    )
+
+    lookups.by_id.assert_not_awaited()
+    lookups.by_name.assert_awaited_once_with("Mario Kart 64 (USA).zip", "n64")
+    assert result["hltb_id"] == 9999
+
+
 async def test_update_scan_refetches_a_stored_id(lookups):
     """A pinned match is refreshed by ID, never re-guessed from the filename."""
     lookups.by_id.return_value = PINNED
