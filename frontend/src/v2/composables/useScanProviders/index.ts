@@ -32,9 +32,10 @@ const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
 const LOCAL_STORAGE_HASHEOUS_ENABLED_KEY = "scan.hasheousEnabled";
 const LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY = "scan.playmatchEnabled";
 
-const HASH_MATCHER_KEYS: readonly string[] = providerKeysInGroup("proxy");
-
 export type HashMatcherKey = MetadataProviderKeyIn<"proxy">;
+
+// Render order for the hash-matcher switches.
+const HASH_MATCHER_KEYS = providerKeysInGroup("proxy");
 
 export interface HashMatcher {
   value: HashMatcherKey;
@@ -84,7 +85,7 @@ export function useScanProviders(): UseScanProviders {
   const metadataOptions = computed(() =>
     heartbeat
       .getMetadataOptionsByPriority()
-      .filter((option) => !HASH_MATCHER_KEYS.includes(option.value))
+      .filter((option) => metadataProviderGroup(option.value) !== "proxy")
       .map((option) => {
         const requiresHashes = option.value === "ra";
         let disabled = option.disabled;
@@ -120,14 +121,10 @@ export function useScanProviders(): UseScanProviders {
     LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY,
     true,
   );
-  const hasheousEnabled = useLocalStorage(
-    LOCAL_STORAGE_HASHEOUS_ENABLED_KEY,
-    true,
-  );
-  const playmatchEnabled = useLocalStorage(
-    LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY,
-    true,
-  );
+  const hashMatcherEnabled: Record<HashMatcherKey, RemovableRef<boolean>> = {
+    hasheous: useLocalStorage(LOCAL_STORAGE_HASHEOUS_ENABLED_KEY, true),
+    playmatch: useLocalStorage(LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY, true),
+  };
 
   // A group with no pick stays empty, which the selects read as All.
   const metadataSources = ref<MetadataOption[]>([]);
@@ -201,9 +198,8 @@ export function useScanProviders(): UseScanProviders {
     const hasheousAdmin = Boolean(sources?.HASHEOUS_API_ENABLED);
     const playmatchAdmin = Boolean(sources?.PLAYMATCH_API_ENABLED);
 
-    return [
-      {
-        value: "hasheous",
+    const matchers: Record<HashMatcherKey, Omit<HashMatcher, "value">> = {
+      hasheous: {
         name: "Hasheous",
         logo: "/assets/scrappers/hasheous.png",
         blockedReason: !hasheousAdmin
@@ -213,8 +209,7 @@ export function useScanProviders(): UseScanProviders {
             : null,
         switchEnabled: hasheousAdmin && !noHashes,
       },
-      {
-        value: "playmatch",
+      playmatch: {
         name: "Playmatch",
         logo: "/assets/scrappers/playmatch.png",
         blockedReason: !playmatchAdmin
@@ -226,19 +221,17 @@ export function useScanProviders(): UseScanProviders {
               : null,
         switchEnabled: playmatchAdmin && !noHashes && igdbSelected,
       },
-    ];
+    };
+
+    return HASH_MATCHER_KEYS.map((value) => ({ value, ...matchers[value] }));
   });
 
   function setHashMatcher(value: HashMatcherKey, next: boolean) {
-    if (value === "hasheous") hasheousEnabled.value = next;
-    else playmatchEnabled.value = next;
+    hashMatcherEnabled[value].value = next;
   }
 
   function isHashMatcherOn(matcher: HashMatcher): boolean {
-    if (!matcher.switchEnabled) return false;
-    return matcher.value === "hasheous"
-      ? hasheousEnabled.value
-      : playmatchEnabled.value;
+    return matcher.switchEnabled && hashMatcherEnabled[matcher.value].value;
   }
 
   function isOn(value: HashMatcherKey): boolean {

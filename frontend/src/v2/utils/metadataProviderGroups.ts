@@ -24,9 +24,9 @@ export const METADATA_PROVIDER_GROUPS = {
 
 export type MetadataProviderKey = keyof typeof METADATA_PROVIDER_GROUPS;
 
-/** The provider keys of one group, as a union. Lets a consumer that
- *  branches per provider (the hash-matcher switches) get a compile error
- *  when the group grows a member. */
+/** The provider keys of one group, as a union. A consumer that holds
+ *  per-provider state or config in a `Record` keyed by this gets a
+ *  compile error when the group grows a member. */
 export type MetadataProviderKeyIn<G extends MetadataProviderGroup> = {
   [K in MetadataProviderKey]: (typeof METADATA_PROVIDER_GROUPS)[K] extends G
     ? K
@@ -40,12 +40,15 @@ export const METADATA_PROVIDER_GROUP_ORDER = [
   "proxy",
 ] as const satisfies readonly MetadataProviderGroup[];
 
-export function providerKeysInGroup(
-  group: MetadataProviderGroup,
-): MetadataProviderKey[] {
+export function providerKeysInGroup<G extends MetadataProviderGroup>(
+  group: G,
+): MetadataProviderKeyIn<G>[] {
   return (
     Object.keys(METADATA_PROVIDER_GROUPS) as MetadataProviderKey[]
-  ).filter((key) => METADATA_PROVIDER_GROUPS[key] === group);
+  ).filter(
+    (key): key is MetadataProviderKeyIn<G> =>
+      METADATA_PROVIDER_GROUPS[key] === group,
+  );
 }
 
 /** Group of an unvalidated key (a heartbeat option value), or undefined
