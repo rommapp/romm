@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -491,6 +493,26 @@ def test_group_by_meta_id_ranks_region_below_release_status(platform: Platform):
     _add_sibling(platform, "(Japan)", 4567, ["Japan"])
 
     assert _grouped_names(platform) == ["Sonic (Japan)"]
+
+
+def test_group_by_meta_id_ties_names_sharing_a_region_shortcode(
+    platform: Platform,
+):
+    """Holland and Netherlands both configure as "nl", so neither outranks the
+    other and the filename tiebreak decides.
+
+    The filenames deliberately sort opposite to the order the reverse shortcode
+    map emits those two names in, so ranking them separately picks the Holland
+    rom and ranking them equally picks the alphabetically first one.
+    """
+    _add_sibling(platform, "(NL-a)", 5678, ["Netherlands"])
+    _add_sibling(platform, "(NL-b)", 5678, ["Holland"])
+
+    with patch(
+        "handler.database.roms_handler.cm.get_config",
+        return_value=SimpleNamespace(SCAN_REGION_PRIORITY=["nl"]),
+    ):
+        assert _grouped_names(platform) == ["Sonic (NL-a)"]
 
 
 def test_group_by_meta_id_keeps_a_prerelease_only_group(platform: Platform):

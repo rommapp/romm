@@ -159,19 +159,27 @@ for _name, _code in REGION_NAME_TO_PROVIDER_SHORTCODE.items():
     _REGION_NAMES_BY_PROVIDER_SHORTCODE.setdefault(_code, []).append(_name)
 
 
-def region_names_for_priority(shortcodes: Sequence[str]) -> list[str]:
-    """Expand a provider-shortcode priority list into canonical region names.
+def region_ranks_for_priority(shortcodes: Sequence[str]) -> dict[str, int]:
+    """Map canonical region names to their rank in a shortcode priority list.
+
+    The rank is the shortcode's position, not the name's, so two names claiming
+    one shortcode ("nl" for both Holland and Netherlands) rank equally and fall
+    through to whatever tiebreak follows.
 
     A shortcode naming no known region (ScreenScraper's "ss", or a typo the
     open-ended settings input allowed) contributes nothing rather than shifting
-    the ranks of everything after it.
+    the ranks of everything after it. Nor does a repeated shortcode.
     """
-    names: list[str] = []
-    for shortcode in shortcodes:
-        for name in _REGION_NAMES_BY_PROVIDER_SHORTCODE.get(shortcode.lower(), ()):
-            if name not in names:
-                names.append(name)
-    return names
+    ranks: dict[str, int] = {}
+    next_rank = 0
+    for shortcode in dict.fromkeys(code.lower() for code in shortcodes):
+        names = _REGION_NAMES_BY_PROVIDER_SHORTCODE.get(shortcode)
+        if not names:
+            continue
+        for name in names:
+            ranks[name] = next_rank
+        next_rank += 1
+    return ranks
 
 
 LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}

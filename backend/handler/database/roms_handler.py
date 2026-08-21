@@ -335,16 +335,16 @@ def _region_rank() -> ColumnElement:
     """
     # Imported here because handler.filesystem and handler.metadata import each
     # other, and reaching filesystem first from this module trips the cycle.
-    from handler.filesystem.base_handler import region_names_for_priority
+    from handler.filesystem.base_handler import region_ranks_for_priority
 
-    priority_regions = region_names_for_priority(cm.get_config().SCAN_REGION_PRIORITY)
-    if not priority_regions:
+    ranks = region_ranks_for_priority(cm.get_config().SCAN_REGION_PRIORITY)
+    if not ranks:
         return literal(0)
 
     return case(
-        {region: index for index, region in enumerate(priority_regions)},
+        ranks,
         value=Rom.generated_primary_region,
-        else_=len(priority_regions),
+        else_=max(ranks.values()) + 1,
     )
 
 
