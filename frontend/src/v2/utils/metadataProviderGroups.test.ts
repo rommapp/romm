@@ -89,6 +89,11 @@ describe("metadata provider taxonomy", () => {
     expect(unclassified).toEqual([]);
   });
 
+  it("leaves an inherited property unclassified", () => {
+    expect(metadataProviderGroup("toString")).toBeUndefined();
+    expect(metadataProviderGroup("constructor")).toBeUndefined();
+  });
+
   it("classifies every provider the ROM match registry lists", () => {
     const unclassified = METADATA_PROVIDER_FILTER_OPTIONS.map(
       (option) => option.value,

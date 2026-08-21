@@ -56,7 +56,8 @@ export function providerKeysInGroup<G extends MetadataProviderGroup>(
 export function metadataProviderGroup(
   key: string,
 ): MetadataProviderGroup | undefined {
-  return key in METADATA_PROVIDER_GROUPS
+  // Own-property check, so a prototype member ("toString") is not a group.
+  return Object.hasOwn(METADATA_PROVIDER_GROUPS, key)
     ? METADATA_PROVIDER_GROUPS[key as MetadataProviderKey]
     : undefined;
 }
