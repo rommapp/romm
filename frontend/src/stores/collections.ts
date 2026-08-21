@@ -14,6 +14,14 @@ export type VirtualCollection = VirtualCollectionSchema;
 export type SmartCollection = SmartCollectionSchema;
 export type CollectionType = Collection | VirtualCollection | SmartCollection;
 
+/** 404 / 403 is the server saying this collection is gone or off limits, which
+ * is an answer; any other failure means the read didn't happen. */
+function isGone(error: unknown): boolean {
+  const status = (error as { response?: { status?: number } })?.response
+    ?.status;
+  return status === 404 || status === 403;
+}
+
 export default defineStore("collections", {
   state: () => ({
     allCollections: [] as Collection[],
@@ -154,15 +162,23 @@ export default defineStore("collections", {
       return this.fetchVirtualCollections(type).catch(() => []);
     },
     /** Re-read one collection, refreshing the cached copy on the way through.
-     * Resolves to null when the server refuses it, so the caller can choose
-     * between its cached copy and a not-found state. */
+     * Resolves to null either way: a collection the server says is gone is
+     * dropped from the cache too, so the caller reads not-found from the cache
+     * being empty, while a failed read leaves the cached copy to fall back on. */
     async refreshCollection(id: number): Promise<Collection | null> {
       try {
         const { data } = await collectionApi.getCollection(id);
         this.updateCollection(data);
         return data;
       } catch (error) {
-        console.error(error);
+        if (!isGone(error)) {
+          console.error(error);
+          return null;
+        }
+        this.allCollections = this.allCollections.filter((c) => c.id !== id);
+        if (this.favoriteCollection?.id === id) {
+          this.favoriteCollection = undefined;
+        }
         return null;
       }
     },
@@ -174,7 +190,13 @@ export default defineStore("collections", {
         this.updateVirtualCollection(data);
         return data;
       } catch (error) {
-        console.error(error);
+        if (isGone(error)) {
+          this.virtualCollections = this.virtualCollections.filter(
+            (c) => c.id !== id,
+          );
+        } else {
+          console.error(error);
+        }
         return null;
       }
     },
@@ -184,7 +206,13 @@ export default defineStore("collections", {
         this.updateSmartCollection(data);
         return data;
       } catch (error) {
-        console.error(error);
+        if (isGone(error)) {
+          this.smartCollections = this.smartCollections.filter(
+            (c) => c.id !== id,
+          );
+        } else {
+          console.error(error);
+        }
         return null;
       }
     },

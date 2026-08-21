@@ -435,6 +435,19 @@ describe("Collection view freshness", () => {
     expect(wrapper.get(".rom-count").text()).toBe("22");
   });
 
+  // A 404 is the server answering, unlike a failed read, so the cached copy
+  // must not keep a deleted collection on screen.
+  it("shows not-found when the server says the collection is gone", async () => {
+    getCollection.mockRejectedValue(
+      Object.assign(new Error("HTTP 404"), { response: { status: 404 } }),
+    );
+
+    const wrapper = await mountView();
+
+    expect(wrapper.find(".rom-count").exists()).toBe(false);
+    expect(storeCollections().allCollections).toEqual([]);
+  });
+
   it("falls back to the cached copy when the re-read fails", async () => {
     getCollection.mockRejectedValue(new Error("offline"));
 

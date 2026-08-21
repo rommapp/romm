@@ -2,13 +2,18 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeCollections, { type VirtualCollection } from "@/stores/collections";
 
-const { getVirtualCollections } = vi.hoisted(() => ({
+const { getVirtualCollection, getVirtualCollections } = vi.hoisted(() => ({
+  getVirtualCollection: vi.fn(),
   getVirtualCollections: vi.fn(),
 }));
 
 vi.mock("@/services/api/collection", () => ({
-  default: { getVirtualCollections },
+  default: { getVirtualCollection, getVirtualCollections },
 }));
+
+function httpError(status: number) {
+  return Object.assign(new Error(`HTTP ${status}`), { response: { status } });
+}
 
 function virtualCollection(romCount: number): VirtualCollection {
   return {
@@ -30,6 +35,7 @@ function deferred() {
 describe("collections store virtual refresh", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    getVirtualCollection.mockReset();
     getVirtualCollections.mockReset();
   });
 
@@ -74,5 +80,29 @@ describe("collections store virtual refresh", () => {
       storeCollections().refreshVirtualCollections(),
     ).resolves.toEqual([]);
     expect(getVirtualCollections).not.toHaveBeenCalled();
+  });
+
+  // A rescan can take a collection below the ROM threshold that generates it,
+  // and a cached tile for it would outlive the collection itself.
+  it("drops the cached copy when the server says the collection is gone", async () => {
+    const collections = storeCollections();
+    collections.setVirtualCollections([virtualCollection(8)]);
+    getVirtualCollection.mockRejectedValueOnce(httpError(404));
+
+    await expect(
+      collections.refreshVirtualCollection("collection-zelda"),
+    ).resolves.toBeNull();
+    expect(collections.virtualCollections).toEqual([]);
+  });
+
+  it("keeps the cached copy when the read itself failed", async () => {
+    const collections = storeCollections();
+    collections.setVirtualCollections([virtualCollection(8)]);
+    getVirtualCollection.mockRejectedValueOnce(httpError(500));
+
+    await expect(
+      collections.refreshVirtualCollection("collection-zelda"),
+    ).resolves.toBeNull();
+    expect(collections.virtualCollections).toHaveLength(1);
   });
 });
