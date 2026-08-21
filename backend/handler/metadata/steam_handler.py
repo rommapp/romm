@@ -15,19 +15,19 @@ from utils.context import ctx_aiohttp_session
 
 from .base_handler import BaseRom, MetadataHandler
 
+# Half-Life 2: never region locked, so a fetch failing means Steam is down.
+STEAM_HEARTBEAT_APP_ID: Final[int] = 220
+
 # Regex to detect Steam app ID tags in filenames like (steam-12345)
 STEAM_TAG_REGEX = re.compile(r"\(steam-(\d+)\)", re.IGNORECASE)
 
-# Portrait capsule, the only Steam artwork shaped like a RomM cover. It is a
-# convention rather than a documented asset, so a miss falls back to the
-# landscape header the store payload always carries.
+# Undocumented convention, so a miss falls back to the landscape header.
 STEAM_LIBRARY_CAPSULE_URL = (
     "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/"
     "{app_id}/library_600x900.jpg"
 )
 
-# Steam category IDs mapped onto the vocabulary the other providers already use
-# for game modes, so the values stay comparable across sources.
+# Steam category IDs mapped onto the game-mode vocabulary the other providers use.
 STEAM_CATEGORY_GAME_MODES: Final[dict[int, str]] = {
     1: "Multiplayer",
     2: "Single player",
@@ -41,8 +41,8 @@ STEAM_CATEGORY_GAME_MODES: Final[dict[int, str]] = {
 
 
 class SteamMetadata(TypedDict):
-    # Keys shared with the other providers keep their names and shapes, so the
-    # facet columns can later read Steam without reshaping stored rows.
+    # Shared keys keep the other providers' names and shapes, so the facet
+    # columns can read Steam without reshaping stored rows.
     total_rating: NotRequired[str]
     first_release_date: NotRequired[int]
     genres: NotRequired[list[str]]
@@ -65,11 +65,10 @@ class SteamRom(BaseRom):
 
 
 def _parse_release_date(raw_date: str) -> int | None:
-    """Convert Steam's localized release date into an epoch timestamp.
+    """Convert Steam's release date into an epoch timestamp, or None if coarse.
 
-    With `l=en` the store returns "10 Dec, 2020" or "Dec 10, 2020" depending on
-    the app, and coarser values ("2020", "Q1 2021") for unreleased ones. Only
-    the full dates are precise enough to keep.
+    The store mixes "10 Dec, 2020" and "Dec 10, 2020" across apps, and returns
+    year-only or quarter values for unreleased ones.
     """
     for date_format in ("%d %b, %Y", "%b %d, %Y", "%d %B, %Y", "%B %d, %Y"):
         try:
@@ -135,8 +134,9 @@ def extract_steam_metadata(details: SteamAppDetails) -> SteamMetadata:
     if details.get("controller_support"):
         metadata["controller_support"] = details["controller_support"]
 
-    if details.get("website"):
-        metadata["website"] = details["website"] or ""
+    website = details.get("website")
+    if website:
+        metadata["website"] = website
 
     if details.get("is_free") is not None:
         metadata["is_free"] = bool(details["is_free"])
@@ -189,8 +189,7 @@ class SteamHandler(MetadataHandler):
         if not self.is_enabled():
             return SteamRom(steam_id=None)
 
-        # Steam only sells for the three PC platforms, so anything else would
-        # spend requests to find a title that cannot be there.
+        # Skip non-PC platforms rather than spend requests that cannot match.
         if platform_slug not in STEAM_PLATFORMS:
             return SteamRom(steam_id=None)
 
@@ -279,8 +278,7 @@ class SteamHandler(MetadataHandler):
     async def _resolve_cover_url(self, app_id: int, details: SteamAppDetails) -> str:
         """Prefer the portrait capsule, falling back to the landscape header.
 
-        The capsule lives on the CDN rather than the storefront, so probing it
-        costs nothing against the storefront's request budget.
+        The capsule is on the CDN, so probing it costs no storefront budget.
         """
         capsule_url = STEAM_LIBRARY_CAPSULE_URL.format(app_id=app_id)
 
@@ -299,10 +297,4 @@ class SteamHandler(MetadataHandler):
         return details.get("header_image", "")
 
 
-# Half-Life 2, a store page that has existed since 2004 and is not region
-# locked, so a successful fetch means the storefront is reachable.
-STEAM_HEARTBEAT_APP_ID: Final[int] = 220
-
-
-# Steam publishes for the three PC platforms only.
 STEAM_PLATFORMS: Final[frozenset[UPS]] = frozenset({UPS.WIN, UPS.LINUX, UPS.MAC})

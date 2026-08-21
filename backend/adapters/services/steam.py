@@ -19,9 +19,8 @@ from utils import get_version
 from utils.context import ctx_aiohttp_session
 from utils.rate_limiter import RateLimiter
 
-# The storefront publishes no rate limit, but it starts returning 429 at roughly
-# 200 requests per 5 minutes per IP. Pace well under that, since a library scan
-# spends two requests per game.
+# Undocumented, but the storefront starts returning 429 at roughly 200 requests
+# per 5 minutes per IP, and a scan spends two requests per game.
 STEAM_MAX_REQUESTS_PER_SECOND: Final[float] = 0.6
 STEAM_MAX_REQUEST_ATTEMPTS: Final[int] = 3
 STEAM_RATE_LIMIT_BACKOFF_SECONDS: Final[float] = 5
@@ -31,10 +30,8 @@ _rate_limiter = RateLimiter(STEAM_MAX_REQUESTS_PER_SECOND)
 class SteamService:
     """Service to interact with the Steam storefront API.
 
-    Valve documents no storefront API. These two endpoints back the store's own
-    search box and app pages, take no key, and are what ProtonDB and comparable
-    tools read. They carry no compatibility promise, so every failure path here
-    degrades to "no result" rather than aborting a scan.
+    Valve documents neither endpoint and promises no compatibility, so every
+    failure path degrades to "no result" rather than aborting a scan.
     """
 
     def __init__(
@@ -102,8 +99,7 @@ class SteamService:
     ) -> list[SteamStoreSearchItem]:
         """Search the storefront by name.
 
-        Results include DLC, soundtracks and tools alongside games, so callers
-        have to filter by type themselves.
+        Results include DLC, soundtracks and tools, so callers filter by type.
         """
         url = self.url.joinpath("storesearch").with_query(
             term=term, cc=country, l=language
@@ -120,8 +116,7 @@ class SteamService:
     ) -> SteamAppDetails | None:
         """Fetch the store page payload for a single app.
 
-        Returns None when Steam has no such app, or when the app is region
-        locked for the configured country.
+        Returns None when Steam has no such app, or it is locked for `country`.
         """
         url = self.url.joinpath("appdetails").with_query(
             appids=str(app_id), cc=country, l=language
