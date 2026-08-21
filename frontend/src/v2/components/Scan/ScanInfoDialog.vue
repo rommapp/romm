@@ -157,6 +157,14 @@ const generalProviders: ProviderRow[] = [
     descKey: "setup.provider-flashpoint-desc",
     setupKey: "setup.provider-flashpoint-setup",
   },
+  {
+    id: "steam",
+    name: "Steam",
+    logo: `${LOGO_BASE}/steam.svg`,
+    descKey: "setup.provider-steam-desc",
+    setupKey: "setup.provider-steam-setup",
+    caveatKey: "setup.provider-steam-caveat",
+  },
 ];
 
 const specificProviders: ProviderRow[] = [
@@ -175,14 +183,6 @@ const specificProviders: ProviderRow[] = [
     descKey: "setup.provider-sgdb-desc",
     setupKey: "setup.provider-sgdb-setup",
     caveatKey: "setup.provider-sgdb-caveat",
-  },
-  {
-    id: "steam",
-    name: "Steam",
-    logo: `${LOGO_BASE}/steam.svg`,
-    descKey: "setup.provider-steam-desc",
-    setupKey: "setup.provider-steam-setup",
-    caveatKey: "setup.provider-steam-caveat",
   },
   {
     id: "hltb",
