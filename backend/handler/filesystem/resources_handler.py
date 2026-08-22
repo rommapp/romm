@@ -473,6 +473,11 @@ class FSResourcesHandler(FSHandler):
                 log.error(f"Unable to write screenshot for {url_screenhot}: {str(exc)}")
                 return None
 
+    def _stored_screenshot_count(self, rom: Rom) -> int:
+        """How many screenshot files this rom actually has on disk."""
+        full_path = self.validate_path(f"{rom.fs_resources_path}/screenshots")
+        return sum(1 for _ in full_path.glob("*.jpg"))
+
     def screenshots_exist(self, rom: Rom) -> bool:
         """Check if rom screenshots exist in filesystem
 
@@ -507,16 +512,24 @@ class FSResourcesHandler(FSHandler):
         Returns
             List of paths to screenshots
         """
-        # Return existing screenshots if no URLs provided
-        # Or if not overwriting and screenshots already exist
-        if not url_screenshots or (not overwrite and self.screenshots_exist(rom)):
+        if not url_screenshots:
+            return rom.path_screenshots or []
+
+        # Count what is on disk rather than what was recorded: fewer files than
+        # urls means an earlier run lost some, and the url set alone would never
+        # signal that, so fall through and fetch them again.
+        if not overwrite and self._stored_screenshot_count(rom) >= len(url_screenshots):
             return rom.path_screenshots or []
 
         # Download and store new screenshots
         path_screenshots: list[str] = []
         for idx, url_screenshot in enumerate(url_screenshots):
             await self._store_screenshot(rom, url_screenshot, idx)
-            path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
+            path = self._get_screenshot_path(rom, str(idx))
+            # A failed download leaves nothing behind, and recording its path
+            # anyway points the database at a file that isn't there.
+            if await self.file_exists(path):
+                path_screenshots.append(path)
 
         return path_screenshots
 

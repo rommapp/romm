@@ -89,6 +89,9 @@ def test_upload_manual_to_resources_success(
     assert written.read_bytes() == PDF_BYTES
     refreshed = db_rom_handler.get_rom(rom.id)
     assert refreshed.path_manual == f"{rom.fs_resources_path}/manual/{rom.id}.pdf"
+    # An uploaded manual and a scraped one land at the same path and neither
+    # clears url_manual, so the lock is the only thing telling them apart.
+    assert refreshed.locked_fields == ["url_manual"]
 
 
 def test_upload_markdown_manual_to_resources_preserves_extension(
@@ -252,7 +255,11 @@ def test_redownload_manual_success(
     monkeypatch: pytest.MonkeyPatch,
 ):
     db_rom_handler.update_rom(
-        rom.id, {"url_manual": "https://screenscraper.fr/api/manual.pdf"}
+        rom.id,
+        {
+            "url_manual": "https://screenscraper.fr/api/manual.pdf",
+            "locked_fields": ["url_manual"],
+        },
     )
     fake_path = f"{rom.fs_resources_path}/manual/{rom.id}.pdf"
     monkeypatch.setattr(
@@ -269,6 +276,8 @@ def test_redownload_manual_success(
     assert response.status_code == status.HTTP_200_OK
     refreshed = db_rom_handler.get_rom(rom.id)
     assert refreshed.path_manual == fake_path
+    # Asking for the provider's manual back is a handover.
+    assert refreshed.locked_fields == []
 
 
 # ---------- DELETE /api/roms/{id}/manuals (resources) ----------
@@ -305,6 +314,7 @@ def test_delete_manual_success(
         {
             "path_manual": f"{rom.fs_resources_path}/manual/{rom.id}.pdf",
             "url_manual": "https://screenscraper.fr/api/manual.pdf",
+            "locked_fields": ["url_manual"],
         },
     )
     monkeypatch.setattr(
@@ -325,6 +335,8 @@ def test_delete_manual_success(
     refreshed = db_rom_handler.get_rom(rom.id)
     assert refreshed.path_manual == ""
     assert refreshed.url_manual == ""
+    # Deleting the hand-supplied manual hands the slot back to the providers.
+    assert refreshed.locked_fields == []
 
 
 # ---------- DELETE /api/roms/{id}/manuals/files/{file_id} ----------
