@@ -65,6 +65,15 @@ oauth.register(
     client_kwargs={
         "scope": f"openid profile email {OIDC_CLAIM_ROLES}".strip(),
         "verify": OIDC_TLS_CACERTFILE,
+        # PKCE (RFC 7636). Authlib only derives a code_verifier when
+        # code_challenge_method is set, so without this the authorization
+        # request carries no code_challenge at all. Providers that mandate
+        # PKCE then refuse to issue the code: the user authenticates fine and
+        # is redirected back without a `code`, surfacing as a generic login
+        # failure. Providers that don't support PKCE ignore the extra
+        # parameters (OIDC Core 3.1.2.1), so sending it unconditionally is
+        # backwards-compatible -- and OAuth 2.1 requires it of every client.
+        "code_challenge_method": "S256",
     },
 )
 
