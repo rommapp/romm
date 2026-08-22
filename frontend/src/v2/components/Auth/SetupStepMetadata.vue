@@ -1,9 +1,7 @@
 <script setup lang="ts">
 // SetupStepMetadata — Step 3 of the setup wizard. Informational only.
 //
-// Sections come from the shared provider taxonomy, so a new provider is
-// grouped the same way here as in Settings → Metadata sources and the
-// Scan view's info dialog.
+// Sections come from the shared provider taxonomy.
 //
 // For each source we surface two pieces of state separately:
 //   * `disabled`  — admin flag from heartbeat (provider is enabled
@@ -17,9 +15,8 @@ import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import storeHeartbeat from "@/stores/heartbeat";
 import {
-  METADATA_PROVIDER_GROUP_ORDER,
-  METADATA_PROVIDER_GROUPS,
-  type MetadataProviderGroup,
+  groupProviders,
+  SETUP_GROUP_LABELS,
   type MetadataProviderKey,
 } from "@/v2/utils/metadataProviderGroups";
 
@@ -154,32 +151,8 @@ const sources = computed<Source[]>(() => {
   ];
 });
 
-const GROUP_LABELS: Record<
-  MetadataProviderGroup,
-  { titleKey: string; hintKey: string }
-> = {
-  catalog: {
-    titleKey: "setup.metadata-catalogs",
-    hintKey: "setup.metadata-catalogs-hint",
-  },
-  specialised: {
-    titleKey: "setup.metadata-specialised",
-    hintKey: "setup.metadata-specialised-hint",
-  },
-  proxy: {
-    titleKey: "setup.metadata-proxies",
-    hintKey: "setup.metadata-proxies-hint",
-  },
-};
-
 const groups = computed(() =>
-  METADATA_PROVIDER_GROUP_ORDER.map((group) => ({
-    group,
-    ...GROUP_LABELS[group],
-    sources: sources.value.filter(
-      (source) => METADATA_PROVIDER_GROUPS[source.key] === group,
-    ),
-  })),
+  groupProviders(sources.value, SETUP_GROUP_LABELS),
 );
 
 type StatusTone = "neutral" | "success" | "warning" | "danger";
@@ -276,7 +249,7 @@ onMounted(() => {
 
         <ul class="r-setup-metadata__items">
           <li
-            v-for="source in group.sources"
+            v-for="source in group.providers"
             :key="source.key"
             class="r-setup-metadata__item"
             :data-provider="source.key"

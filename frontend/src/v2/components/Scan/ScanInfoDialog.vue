@@ -14,9 +14,8 @@ import { RAvatar, RDialog, RIcon, RTabNav } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import {
-  METADATA_PROVIDER_GROUP_ORDER,
-  METADATA_PROVIDER_GROUPS,
-  type MetadataProviderGroup,
+  groupProviders,
+  SETUP_GROUP_LABELS,
   type MetadataProviderKey,
 } from "@/v2/utils/metadataProviderGroups";
 
@@ -119,8 +118,7 @@ const LOGO_BASE = "/assets/scrappers";
 
 // Static reference set — every text string lives under the wizard's
 // `setup.*` locale namespace so the Setup Wizard's Step 3 and this
-// dialog never drift. Sections come from the shared provider taxonomy,
-// which the wizard groups by too.
+// dialog never drift.
 const providers: ProviderRow[] = [
   {
     key: "igdb",
@@ -201,29 +199,7 @@ const providers: ProviderRow[] = [
   },
 ];
 
-const GROUP_LABELS: Record<
-  MetadataProviderGroup,
-  { titleKey: string; hintKey: string }
-> = {
-  catalog: {
-    titleKey: "setup.metadata-catalogs",
-    hintKey: "setup.metadata-catalogs-hint",
-  },
-  specialised: {
-    titleKey: "setup.metadata-specialised",
-    hintKey: "setup.metadata-specialised-hint",
-  },
-  proxy: {
-    titleKey: "setup.metadata-proxies",
-    hintKey: "setup.metadata-proxies-hint",
-  },
-};
-
-const providerGroups = METADATA_PROVIDER_GROUP_ORDER.map((group) => ({
-  group,
-  ...GROUP_LABELS[group],
-  providers: providers.filter((p) => METADATA_PROVIDER_GROUPS[p.key] === group),
-}));
+const providerGroups = groupProviders(providers, SETUP_GROUP_LABELS);
 
 // Split a multi-line description on double-newline so each paragraph
 // renders in its own `<p>`. Single newlines stay inline.

@@ -1,8 +1,6 @@
 <script setup lang="ts">
 // MetadataSources — v2-native rewrite. Provider tiles grouped by the
-// shared provider taxonomy, so a new provider is grouped the same way
-// here as in the Setup wizard and the Scan view's info dialog. Each
-// tile shows:
+// shared provider taxonomy. Each tile shows:
 //   • A circular logo
 //   • Provider name + tone-coloured `RTag` status chip. Wording adapts
 //     to how the provider is configured: key-based providers (IGDB,
@@ -23,8 +21,7 @@ import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import {
-  METADATA_PROVIDER_GROUP_ORDER,
-  METADATA_PROVIDER_GROUPS,
+  groupProviders,
   type MetadataProviderGroup,
   type MetadataProviderKey,
 } from "@/v2/utils/metadataProviderGroups";
@@ -181,15 +178,7 @@ const GROUP_LABELS: Record<
   },
 };
 
-const groups = computed(() =>
-  METADATA_PROVIDER_GROUP_ORDER.map((group) => ({
-    group,
-    ...GROUP_LABELS[group],
-    sources: sources.value.filter(
-      (source) => METADATA_PROVIDER_GROUPS[source.key] === group,
-    ),
-  })),
-);
+const groups = computed(() => groupProviders(sources.value, GROUP_LABELS));
 
 // Gated on a heartbeat having landed: the store defaults to "not set", and a
 // backend that is down must not read as a ScreenScraper misconfiguration.
@@ -289,7 +278,7 @@ onMounted(() => {
     >
       <div class="r-v2-meta__grid" :data-group="group.group">
         <article
-          v-for="source in group.sources"
+          v-for="source in group.providers"
           :key="source.key"
           class="r-v2-meta__card"
           :data-provider="source.key"

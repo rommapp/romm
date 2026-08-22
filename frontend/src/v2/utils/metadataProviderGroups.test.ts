@@ -1,9 +1,5 @@
-// Contract test for the provider taxonomy: the four surfaces that group
-// providers (the scan selects, the setup wizard's metadata step, the
-// settings view, the scan info dialog) must agree on which group each
-// provider belongs to, and every provider the heartbeat exposes must be
-// classified — an unclassified one silently disappears from the scan
-// selects.
+// Contract test for the provider taxonomy: the four grouping surfaces must
+// agree, and an unclassified provider silently disappears from the scan selects.
 /* eslint-disable vue/one-component-per-file */
 import { mount, type VueWrapper } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
@@ -16,10 +12,12 @@ import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { METADATA_PROVIDER_FILTER_OPTIONS } from "@/v2/utils/metadataProviders";
 import MetadataSources from "@/v2/views/Settings/MetadataSources.vue";
 import {
+  groupProviders,
   METADATA_PROVIDER_GROUP_ORDER,
   METADATA_PROVIDER_GROUPS,
   metadataProviderGroup,
   providerKeysInGroup,
+  SETUP_GROUP_LABELS,
 } from "./metadataProviderGroups";
 
 vi.mock("vue-i18n", () => ({
@@ -114,9 +112,8 @@ describe("metadata provider surfaces", () => {
   });
 
   it("groups the providers it renders the same way everywhere", async () => {
-    // The reference surfaces carry a description and links per provider,
-    // so they cover fewer providers than the scan selects do. They must
-    // still cover the same ones as each other.
+    // The reference surfaces carry a description and links per provider, so
+    // they cover fewer providers than the scan selects, but the same ones.
     const wizard = renderedGroups(mount(SetupStepMetadata));
     const settings = renderedGroups(mount(MetadataSources));
     const scanInfo = renderedGroups(await providersTab());
@@ -139,5 +136,22 @@ describe("providerKeysInGroup", () => {
     expect(partitioned.sort()).toEqual(
       Object.keys(METADATA_PROVIDER_GROUPS).sort(),
     );
+  });
+});
+
+describe("groupProviders", () => {
+  it("sections the providers in render order and merges their labels", () => {
+    const sections = groupProviders(
+      [{ key: "playmatch" as const }, { key: "igdb" as const }],
+      SETUP_GROUP_LABELS,
+    );
+
+    expect(sections.map((section) => section.group)).toEqual([
+      ...METADATA_PROVIDER_GROUP_ORDER,
+    ]);
+    expect(
+      sections.map((section) => section.providers.map((p) => p.key)),
+    ).toEqual([["igdb"], [], ["playmatch"]]);
+    expect(sections[0].titleKey).toBe(SETUP_GROUP_LABELS.catalog.titleKey);
   });
 });
