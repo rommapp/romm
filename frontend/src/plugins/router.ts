@@ -1,10 +1,12 @@
 import { storeToRefs } from "pinia";
+import { watch } from "vue";
 import {
   createRouter,
   createWebHistory,
   type NavigationGuardWithThis,
+  type RouteLocationNormalized,
 } from "vue-router";
-import i18n from "@/locales";
+import i18n, { loadLocale } from "@/locales";
 import { startViewTransition } from "@/plugins/transition";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
@@ -81,7 +83,7 @@ const routes = [
         path: "",
         name: ROUTES.SETUP,
         meta: {
-          title: i18n.global.t("login.setup-wizard"),
+          title: "login.setup-wizard",
         },
         components: {
           default: () => import("@/views/Auth/Setup.vue"),
@@ -101,7 +103,7 @@ const routes = [
         path: "",
         name: ROUTES.LOGIN,
         meta: {
-          title: i18n.global.t("login.login"),
+          title: "login.login",
         },
         components: {
           default: () => import("@/views/Auth/Login.vue"),
@@ -121,7 +123,7 @@ const routes = [
         path: "",
         name: ROUTES.RESET_PASSWORD,
         meta: {
-          title: i18n.global.t("login.reset-password"),
+          title: "login.reset-password",
         },
         components: {
           default: () => import("@/views/Auth/ResetPassword.vue"),
@@ -141,7 +143,7 @@ const routes = [
         path: "",
         name: ROUTES.REGISTER,
         meta: {
-          title: i18n.global.t("login.register"),
+          title: "login.register",
         },
         components: {
           default: () => import("@/views/Auth/Register.vue"),
@@ -153,9 +155,6 @@ const routes = [
   {
     path: "/",
     name: ROUTES.MAIN,
-    meta: {
-      title: "RomM",
-    },
     // Named views let v1 and v2 coexist at the same URL. The v2 layout owns
     // its own <router-view name="v2"> so child routes with a `v2` component
     // render inside the v2 shell.
@@ -168,7 +167,7 @@ const routes = [
         path: "",
         name: ROUTES.HOME,
         meta: {
-          title: i18n.global.t("settings.home"),
+          title: "settings.home",
         },
         components: {
           default: () => import("@/views/Home.vue"),
@@ -179,7 +178,7 @@ const routes = [
         path: "search",
         name: ROUTES.SEARCH,
         meta: {
-          title: i18n.global.t("common.search"),
+          title: "common.search",
         },
         components: {
           default: () => import("@/views/Gallery/Search.vue"),
@@ -294,7 +293,7 @@ const routes = [
             path: "scan",
             name: ROUTES.SCAN,
             meta: {
-              title: i18n.global.t("scan.scan"),
+              title: "scan.scan",
               bare: true,
             },
             components: {
@@ -306,7 +305,7 @@ const routes = [
             path: "upload",
             name: ROUTES.UPLOAD,
             meta: {
-              title: i18n.global.t("common.upload-roms", "Upload ROMs"),
+              title: "common.upload-roms",
             },
             components: {
               // v1 has no Upload view (the dialog was its only entry
@@ -320,7 +319,7 @@ const routes = [
             path: "activity",
             name: ROUTES.ACTIVITY,
             meta: {
-              title: i18n.global.t("activity.active-sessions"),
+              title: "activity.active-sessions",
               bare: true,
             },
             components: {
@@ -343,7 +342,7 @@ const routes = [
             path: "user-interface",
             name: ROUTES.USER_INTERFACE,
             meta: {
-              title: i18n.global.t("common.user-interface"),
+              title: "common.user-interface",
               bare: true,
             },
             components: {
@@ -355,7 +354,7 @@ const routes = [
             path: "library-management",
             name: ROUTES.LIBRARY_MANAGEMENT,
             meta: {
-              title: i18n.global.t("common.library-management"),
+              title: "common.library-management",
               bare: true,
             },
             components: {
@@ -367,7 +366,7 @@ const routes = [
             path: "scan-settings",
             name: ROUTES.SCAN_SETTINGS,
             meta: {
-              title: i18n.global.t("settings.scan-settings"),
+              title: "settings.scan-settings",
               bare: true,
             },
             components: {
@@ -379,7 +378,7 @@ const routes = [
             path: "metadata-sources",
             name: ROUTES.METADATA_SOURCES,
             meta: {
-              title: i18n.global.t("scan.metadata-sources"),
+              title: "scan.metadata-sources",
               bare: true,
             },
             components: {
@@ -391,7 +390,7 @@ const routes = [
             path: "client-api-tokens",
             name: ROUTES.CLIENT_API_TOKENS,
             meta: {
-              title: i18n.global.t("settings.client-api-tokens"),
+              title: "settings.client-api-tokens",
               bare: true,
             },
             components: {
@@ -403,7 +402,7 @@ const routes = [
             path: "administration",
             name: ROUTES.ADMINISTRATION,
             meta: {
-              title: i18n.global.t("common.administration"),
+              title: "common.administration",
               bare: true,
             },
             components: {
@@ -415,7 +414,7 @@ const routes = [
             path: "server-stats",
             name: ROUTES.SERVER_STATS,
             meta: {
-              title: i18n.global.t("common.server-stats"),
+              title: "common.server-stats",
               bare: true,
             },
             components: {
@@ -427,7 +426,7 @@ const routes = [
             path: "logs",
             name: ROUTES.LOGS,
             meta: {
-              title: i18n.global.t("common.logs"),
+              title: "common.logs",
               bare: true,
               // The log panel fills the viewport and scrolls internally
               // instead of growing the document — see SettingsLayout `fill`.
@@ -446,7 +445,7 @@ const routes = [
             // settings-adjacent tool rather than a standalone view.
             path: "controller-debug",
             name: ROUTES.CONTROLLER_DEBUG,
-            meta: { title: "Controller debug", bare: true },
+            meta: { title: "settings.controller-debug", bare: true },
             components: {
               // v1 has no equivalent; redirect to home if a v1 user
               // somehow lands here.
@@ -461,7 +460,7 @@ const routes = [
         // it redirects this URL home; v2 renders PlatformsIndex.vue.
         path: "platforms",
         name: ROUTES.PLATFORMS_INDEX,
-        meta: { title: i18n.global.t("common.platforms") },
+        meta: { title: "common.platforms" },
         components: {
           default: () => import("@/views/Home.vue"),
           v2: v2For(ROUTES.PLATFORMS_INDEX),
@@ -470,7 +469,7 @@ const routes = [
       {
         path: "collections",
         name: ROUTES.COLLECTIONS_INDEX,
-        meta: { title: i18n.global.t("common.collections") },
+        meta: { title: "common.collections" },
         components: {
           default: () => import("@/views/Home.vue"),
           v2: v2For(ROUTES.COLLECTIONS_INDEX),
@@ -608,6 +607,15 @@ function checkRoutePermissions(route: string, user: User | null): boolean {
   );
 }
 
+// `meta.title` holds an i18n key, translated per navigation rather than when
+// the route table is built. Messages load asynchronously and aren't there yet
+// at module-eval time.
+function applyRouteTitle(route: RouteLocationNormalized) {
+  document.title = route.meta.title
+    ? i18n.global.t(route.meta.title as string)
+    : "RomM";
+}
+
 router.beforeEach(async (to, _from, next) => {
   const heartbeat = storeHeartbeat();
   const auth = storeAuth();
@@ -621,9 +629,7 @@ router.beforeEach(async (to, _from, next) => {
     // allows; the offline notice explains it and the connection layer
     // re-routes correctly once the backend answers again.
     if (!heartbeat.connected) {
-      document.title = to.meta.title
-        ? i18n.global.t(to.meta.title as string)
-        : "RomM";
+      applyRouteTitle(to);
       return next();
     }
 
@@ -669,17 +675,22 @@ router.beforeEach(async (to, _from, next) => {
       return next({ name: ROUTES.NOT_FOUND });
     }
 
-    if (to.meta.title) {
-      document.title = i18n.global.t(to.meta.title as string);
-    } else {
-      document.title = "RomM";
-    }
+    applyRouteTitle(to);
     next();
   } catch (error) {
     console.error("Navigation guard error:", error);
     document.title = "RomM";
     next({ name: ROUTES.LOGIN });
   }
+});
+
+// The stored language is applied when the app mounts, after the first
+// navigation has already resolved the title in the default locale. Routes
+// whose view owns its title (usePageTitle) carry no `meta.title` and keep it.
+watch(i18n.global.locale, async (locale) => {
+  await loadLocale(locale);
+  const route = router.currentRoute.value;
+  if (route.meta.title) applyRouteTitle(route);
 });
 
 router.beforeResolve(async (to, from) => {

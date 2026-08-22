@@ -19,6 +19,8 @@ services:
       - RETROACHIEVEMENTS_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
       - STEAMGRIDDB_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
       - HASHEOUS_API_ENABLED=true # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#hasheous
+      - SCAN_WORKERS=2 # How many items you want scanned at once, we recommend 1 worker per CPU.
+      - WEB_SERVER_CONCURRENCY=3 # How many workers you want available for API calls and tasks we recommend 2 x CPU + 1
     volumes:
       - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
       - romm_redis_data:/redis-data # Cached data for background tasks

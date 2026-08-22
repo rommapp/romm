@@ -46,10 +46,10 @@ from utils.hashing import crc32_to_hex
 
 from .base_handler import (
     LANGUAGES_BY_SHORTCODE,
-    LANGUAGES_NAME_KEYS,
     REGIONS_BY_SHORTCODE,
-    REGIONS_NAME_KEYS,
     FSHandler,
+    normalize_language,
+    normalize_region,
 )
 
 # PICO-8 cartridges are often stored as PNG files
@@ -194,22 +194,28 @@ class FSRomsHandler(FSHandler):
         version = revision = ""
 
         for raw_tag in tags:
-            lower_tag = raw_tag.lower()
-
-            # Region by code
+            # Region by exact code, before any language check: some language
+            # shortcodes differ from a region code only by case (Nl/NL, No/NO).
             if raw_tag in REGIONS_BY_SHORTCODE.keys():
                 regions.append(REGIONS_BY_SHORTCODE[raw_tag])
                 continue
-            if lower_tag in REGIONS_NAME_KEYS:
-                regions.append(raw_tag)
-                continue
 
-            # Language by code
+            # Language by exact code, for the same reason
             if raw_tag in LANGUAGES_BY_SHORTCODE.keys():
                 languages.append(LANGUAGES_BY_SHORTCODE[raw_tag])
                 continue
-            if lower_tag in LANGUAGES_NAME_KEYS:
-                languages.append(raw_tag)
+
+            # Region by name, alternate spelling, or differently-cased code.
+            # Ahead of the equivalent language pass so a lowercased code that
+            # both tables claim ("nl", "no") keeps reading as a region.
+            region = normalize_region(raw_tag)
+            if region:
+                regions.append(region)
+                continue
+
+            language = normalize_language(raw_tag)
+            if language:
+                languages.append(language)
                 continue
 
             # Version
@@ -218,12 +224,16 @@ class FSRomsHandler(FSHandler):
                 version = (version_match[1] or version_match[2] or "").strip()
                 continue
 
-            # Region prefix
+            # Region prefix. An explicit "Reg-" means the user called it a
+            # region, so an unrecognized code is kept rather than dropped.
             region_match = REGION_TAG_REGEX.match(raw_tag)
             if region_match:
-                region = region_match[1]
-                regions.append(REGIONS_BY_SHORTCODE.get(region, region))
-                continue
+                # Stripped because the separator class doesn't swallow a space
+                # after "Reg-", which would make " PAL" its own facet value.
+                raw_region = region_match[1].strip()
+                if raw_region:
+                    regions.append(normalize_region(raw_region) or raw_region)
+                    continue
 
             # Revision prefix
             revision_match = REVISION_TAG_REGEX.match(raw_tag)
@@ -491,7 +501,10 @@ class FSRomsHandler(FSHandler):
                             }
                         )
                 except ArchiveReadError as e:
-                    log.error(f"Incomplete read of archive {rom_dir}: {e}")
+                    log.error(
+                        f"Incomplete read of archive {rom_dir}: {e}. Hashing the "
+                        "archive itself instead, which won't match a hash database."
+                    )
                     return [], original_crc, None, None
                 return members, crc, md5_h, sha1_h
 
@@ -717,30 +730,30 @@ class FSRomsHandler(FSHandler):
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
 
-        fs_roms: list[dict] = [
-            {"fs_name": rom, "flat": True, "nested": False}
-            for rom in self.exclude_single_files(fs_single_roms)
-        ] + [
-            {"fs_name": rom, "flat": False, "nested": True}
-            for rom in self.exclude_multi_roms(fs_multi_roms)
-        ]
+        def build_rom(fs_name: str, *, flat: bool) -> FSRom:
+            return FSRom(
+                fs_name=fs_name,
+                flat=flat,
+                nested=not flat,
+                files=[],
+                crc_hash="",
+                md5_hash="",
+                sha1_hash="",
+                ra_hash="",
+            )
 
-        return sorted(
-            [
-                FSRom(
-                    fs_name=rom["fs_name"],
-                    flat=rom["flat"],
-                    nested=rom["nested"],
-                    files=[],
-                    crc_hash="",
-                    md5_hash="",
-                    sha1_hash="",
-                    ra_hash="",
-                )
-                for rom in fs_roms
-            ],
-            key=lambda rom: rom["fs_name"],
-        )
+        # Built in one pass and sorted in place, so a platform holding tens of
+        # thousands of entries never has two full copies of the list alive.
+        fs_roms = [
+            build_rom(rom, flat=True)
+            for rom in self.exclude_single_files(fs_single_roms)
+        ]
+        fs_roms += [
+            build_rom(rom, flat=False) for rom in self.exclude_multi_roms(fs_multi_roms)
+        ]
+        fs_roms.sort(key=lambda rom: rom["fs_name"])
+
+        return fs_roms
 
     async def rename_fs_rom(self, old_name: str, new_name: str, fs_path: str) -> None:
         if new_name != old_name:

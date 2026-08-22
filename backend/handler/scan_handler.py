@@ -404,6 +404,7 @@ async def scan_rom(
         "fs_path": rom.fs_path,
         "regions": rom.regions,
         "revision": rom.revision,
+        "version": rom.version,
         "languages": rom.languages,
         "tags": rom.tags,
         "crc_hash": rom.crc_hash,

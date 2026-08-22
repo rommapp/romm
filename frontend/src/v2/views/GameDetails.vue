@@ -247,6 +247,7 @@ const expansions = computed<IGDBRelatedGame[]>(
   () => igdb.value?.expansions ?? [],
 );
 const dlcs = computed<IGDBRelatedGame[]>(() => igdb.value?.dlcs ?? []);
+const ports = computed<IGDBRelatedGame[]>(() => igdb.value?.ports ?? []);
 
 const savesCount = computed(() => currentRom.value?.user_saves?.length ?? 0);
 const statesCount = computed(() => currentRom.value?.user_states?.length ?? 0);
@@ -312,6 +313,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :dlcs="dlcs"
             :remakes="remakes"
             :remasters="remasters"
+            :ports="ports"
             :similar-roms="similarRoms"
             :webp="supportsWebp"
           />

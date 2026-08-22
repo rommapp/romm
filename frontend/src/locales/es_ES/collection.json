@@ -23,6 +23,7 @@
   "name-placeholder": "Nombre de la colección",
   "no-collections-search": "Ninguna colección coincide con \"{query}\".",
   "no-collections-yet": "Aún no hay colecciones.",
+  "no-collections-yet-detail": "Aún no tienes ninguna colección. Marca un juego como favorito o crea una desde la barra de acciones de cualquier ROM.",
   "no-collections-yet-hint": "Crea tu primera colección para organizar tu biblioteca.",
   "not-found": "Colección no encontrada.",
   "owner": "Propietario",

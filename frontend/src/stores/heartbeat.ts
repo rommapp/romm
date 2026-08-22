@@ -21,6 +21,7 @@ const defaultHeartbeat: Heartbeat = {
     ANY_SOURCE_ENABLED: false,
     IGDB_API_ENABLED: false,
     SS_API_ENABLED: false,
+    SS_DEV_CREDENTIALS_SET: false,
     MOBY_API_ENABLED: false,
     RA_API_ENABLED: false,
     STEAMGRIDDB_API_ENABLED: false,
@@ -73,6 +74,10 @@ export default defineStore("heartbeat", {
     // and by the router guard so a broken backend isn't mistaken for "logged
     // out, setup already done".
     connected: true,
+    // Whether a heartbeat response was ever applied. The defaults above read
+    // as "everything off", so a consumer that draws a conclusion from a flag
+    // being false has to know the flag came from the backend.
+    loaded: false,
   }),
 
   actions: {
@@ -81,6 +86,7 @@ export default defineStore("heartbeat", {
         const response = await api.get("/heartbeat", options);
         this.value = { ...this.value, ...response.data };
         this.connected = true;
+        this.loaded = true;
         return this.value;
       } catch (error) {
         // 5xx or no response (network/timeout) → backend is down/broken.

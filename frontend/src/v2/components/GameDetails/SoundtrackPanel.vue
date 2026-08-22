@@ -30,6 +30,7 @@ import type { DetailedRom } from "@/stores/roms";
 import useSoundtrackPlayer, {
   type PlayerMeta,
   type PlayerTrack,
+  resolveSoundtrackGameArtwork,
 } from "@/stores/soundtrackPlayer";
 import { FRONTEND_RESOURCES_PATH, formatBytes } from "@/utils";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -105,6 +106,8 @@ const folderCoverUrl = computed(() => {
   return cover ? fileUrl(cover.id, cover.file_name) : null;
 });
 
+const gameArtworkUrl = computed(() => resolveSoundtrackGameArtwork(props.rom));
+
 // ---------- Metadata fetch ----------
 const tracksMeta = ref<Map<number, TrackMetaSchema>>(new Map());
 const isLoadingMeta = ref(false);
@@ -127,6 +130,7 @@ function toPlayerMeta(m: TrackMetaSchema | undefined): PlayerMeta {
     duration: m?.duration_seconds ?? undefined,
     coverUrl: coverUrlForMeta(m) ?? undefined,
     folderCoverUrl: folderCoverUrl.value ?? undefined,
+    gameArtworkUrl: gameArtworkUrl.value,
   };
 }
 
@@ -207,6 +211,7 @@ const activeArtUrl = computed(
   () =>
     coverUrlForMeta(activeMeta.value) ??
     folderCoverUrl.value ??
+    gameArtworkUrl.value ??
     "/assets/default/album_cover.jpg",
 );
 
@@ -355,16 +360,16 @@ function seekValueText(v: number): string {
   <div class="r-v2-stp">
     <!-- Now playing / placeholder header -->
     <header class="r-v2-stp__now">
-      <div
-        class="r-v2-stp__cover"
-        :class="{ 'r-v2-stp__cover--spinning': activeTrack && isPlaying }"
-      >
-        <img
+      <div class="r-v2-stp__cover">
+        <div
           v-if="activeArtUrl"
-          :src="activeArtUrl"
-          class="r-v2-stp__cover-img"
-          alt=""
-        />
+          class="r-v2-stp__cover-rotor"
+          :class="{
+            'r-v2-stp__cover-rotor--spinning': activeTrack && isPlaying,
+          }"
+        >
+          <img :src="activeArtUrl" class="r-v2-stp__cover-img" alt="" />
+        </div>
         <RIcon v-else icon="mdi-music-note" size="48" />
         <div
           v-if="activeTrack && isBuffering"
@@ -629,15 +634,24 @@ function seekValueText(v: number): string {
     0 0 0 4px color-mix(in srgb, black 20%, transparent);
 }
 
-.r-v2-stp__cover-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.r-v2-stp__cover-rotor {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+  transform-box: border-box;
   animation: r-v2-stp-spin 12s linear infinite;
   animation-play-state: paused;
 }
 
-.r-v2-stp__cover--spinning .r-v2-stp__cover-img {
+.r-v2-stp__cover-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.r-v2-stp__cover-rotor--spinning {
   animation-play-state: running;
 }
 
@@ -661,6 +675,7 @@ function seekValueText(v: number): string {
   display: grid;
   place-items: center;
   background: color-mix(in srgb, black 45%, transparent);
+  z-index: 3;
 }
 
 @keyframes r-v2-stp-spin {
@@ -673,7 +688,7 @@ function seekValueText(v: number): string {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .r-v2-stp__cover-img {
+  .r-v2-stp__cover-rotor {
     animation: none;
   }
 }

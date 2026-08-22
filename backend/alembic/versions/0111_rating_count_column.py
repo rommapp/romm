@@ -12,8 +12,8 @@ mean in proportion to how little evidence backs it.
 Only IGDB reports a count, and `manual_metadata` can override it like every
 other generated facet.
 
-Revision ID: 0110_rating_count_column
-Revises: 0109_igdb_tag_columns
+Revision ID: 0111_rating_count_column
+Revises: 0110_igdb_tag_columns
 Create Date: 2026-08-08 00:00:00.000000
 
 """
@@ -23,8 +23,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0110_rating_count_column"
-down_revision = "0109_igdb_tag_columns"
+revision = "0111_rating_count_column"
+down_revision = "0110_igdb_tag_columns"
 branch_labels = None
 depends_on = None
 

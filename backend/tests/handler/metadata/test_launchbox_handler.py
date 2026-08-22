@@ -36,6 +36,7 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
@@ -46,6 +47,7 @@ from handler.metadata.launchbox_handler.types import (
 from handler.metadata.launchbox_handler.utils import (
     coalesce,
     deinvert_article,
+    fold_title,
     launchbox_region_to_shortcode,
     parse_playmode,
     parse_release_date,
@@ -666,6 +668,88 @@ class TestRemoteSourceGetRom:
         assert result.get("DatabaseID", None) == "161"
         # The literal name is still tried first.
         assert queried[0] == "legend of zelda, the: ocarina of time:Nintendo 64"
+
+    @pytest.mark.parametrize(
+        ("search_term", "dump_title"),
+        [
+            # LaunchBox adds a colon the filename has no room for.
+            ("burnout revenge", "Burnout: Revenge"),
+            # The dump keeps diacritics a No-Intro filename drops.
+            ("asterix at the olympic games", "Astérix at the Olympic Games"),
+            # "/" cannot appear in a filename at all.
+            ("ac-dc live: rock band track pack", "AC/DC Live: Rock Band Track Pack"),
+            # Hyphen against space.
+            ("area 51", "Area-51"),
+        ],
+    )
+    async def test_folded_title_match(
+        self, source: RemoteSource, search_term: str, dump_title: str
+    ):
+        """Punctuation-only differences resolve through the folded index."""
+        entry = {"DatabaseID": "77", "Name": dump_title}
+        folded_field = f"{fold_title(dump_title)}:Sony Playstation 2"
+
+        async def side_effect(key, field):
+            if key == LAUNCHBOX_METADATA_FOLDED_NAME_KEY and field == folded_field:
+                return json.dumps(entry)
+            return None
+
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, side_effect=side_effect
+        ):
+            result = await source.get_rom(search_term, "ps2", assume_cache_present=True)
+
+        assert result is not None
+        assert result.get("DatabaseID", None) == "77"
+
+    @pytest.mark.parametrize(
+        ("title", "expected"),
+        [
+            ("Burnout: Revenge", "burnoutrevenge"),
+            ("Astérix at the Olympic Games", "asterixattheolympicgames"),
+            ("AC/DC Live", "acdclive"),
+            ("Area-51", "area51"),
+            # A title in a non-Latin script keeps its letters. Reducing it to
+            # its digits would collide with every other title numbered alike.
+            ("三國立志傳2", "三國立志傳2"),
+            ("Зона 51", "зона51"),
+            # Scripts that build syllables from marks keep them; stripping to
+            # alphanumerics alone would spell these titles differently.
+            ("हिन्दी गेम", "हिन्दीगेम"),
+            ("สนุกเกอร์", "สนุกเกอร์"),
+            # Nothing comparable left, so callers must treat it as no key.
+            (":: -- ::", ""),
+        ],
+    )
+    def test_fold_title(self, title: str, expected: str):
+        assert fold_title(title) == expected
+
+    def test_fold_title_separates_titles_sharing_only_their_digits(self):
+        assert fold_title("三國立志傳2") != fold_title("忍者村大战2")
+
+    async def test_folded_match_is_only_tried_after_exact_forms(
+        self, source: RemoteSource
+    ):
+        """Folding discards information, so an exact hit must always win."""
+        exact = {"DatabaseID": "1", "Name": "Burnout Revenge"}
+        folded = {"DatabaseID": "2", "Name": "Burnout: Revenge"}
+
+        async def side_effect(key, _field):
+            if key == LAUNCHBOX_METADATA_NAME_KEY:
+                return json.dumps(exact)
+            if key == LAUNCHBOX_METADATA_FOLDED_NAME_KEY:
+                return json.dumps(folded)
+            return None
+
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, side_effect=side_effect
+        ):
+            result = await source.get_rom(
+                "burnout revenge", "ps2", assume_cache_present=True
+            )
+
+        assert result is not None
+        assert result.get("DatabaseID", None) == "1"
 
     async def test_no_match_returns_none(self, source: RemoteSource):
         with patch.object(
@@ -1529,6 +1613,66 @@ class TestLaunchboxHandlerGetRom:
 
         assert result.get("launchbox_id", None) == 1234
         assert result.get("name", None) == "Super Mario Bros."
+
+    @pytest.mark.parametrize(
+        "no_tags_name",
+        (
+            "Legend of Zelda, The - A Link to the Past",
+            "Legend_of_Zelda,_The_-_A_Link_to_the_Past",
+        ),
+    )
+    async def test_underscore_separator_rewrites_like_spaced_form(
+        self, handler: LaunchboxHandler, no_tags_name: str
+    ):
+        mock_get_rom = AsyncMock(return_value=None)
+        with (
+            patch.object(handler._remote, "get_rom", new=mock_get_rom),
+            patch(
+                "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+            ) as mock_fs,
+        ):
+            mock_fs.get_file_name_with_no_tags.return_value = no_tags_name
+            await handler.get_rom(f"{no_tags_name}.smc", "snes")
+
+        assert (
+            mock_get_rom.call_args.args[0] == "legend of zelda, the: a link to the past"
+        )
+
+    async def test_underscore_separated_inverted_article_hits_name_index(
+        self, handler: LaunchboxHandler
+    ):
+        """Both the dash and the article rewrite must fire to reach the key."""
+        entry = {
+            "DatabaseID": "5678",
+            "Name": "The Legend of Zelda: A Link to the Past",
+            "Platform": "Super Nintendo Entertainment System",
+        }
+        index = {
+            (
+                LAUNCHBOX_METADATA_NAME_KEY,
+                "the legend of zelda: a link to the past"
+                ":Super Nintendo Entertainment System",
+            ): json.dumps(entry)
+        }
+
+        async def hget(key, field):
+            return index.get((key, field))
+
+        with (
+            patch.object(handler._remote, "get_rom", new=RemoteSource().get_rom),
+            patch.object(async_cache, "hget", new=AsyncMock(side_effect=hget)),
+            patch(
+                "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+            ) as mock_fs,
+        ):
+            mock_fs.get_file_name_with_no_tags.return_value = (
+                "Legend_of_Zelda,_The_-_A_Link_to_the_Past"
+            )
+            result = await handler.get_rom(
+                "Legend_of_Zelda,_The_-_A_Link_to_the_Past.smc", "snes"
+            )
+
+        assert result.get("launchbox_id", None) == 5678
 
     async def test_name_search_fails_returns_fallback(self, handler: LaunchboxHandler):
         with patch(

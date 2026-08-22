@@ -12,8 +12,8 @@ Existing libraries carry no such data until it is fetched -- the columns are
 generated from the metadata blob, so they stay empty until a rescan or
 `tools/backfill_igdb_tags.py` populates the source.
 
-Revision ID: 0109_igdb_tag_columns
-Revises: 0108_rom_similarity
+Revision ID: 0110_igdb_tag_columns
+Revises: 0109_rom_similarity
 Create Date: 2026-08-08 00:00:00.000000
 
 """
@@ -24,8 +24,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0109_igdb_tag_columns"
-down_revision = "0108_rom_similarity"
+revision = "0110_igdb_tag_columns"
+down_revision = "0109_rom_similarity"
 branch_labels = None
 depends_on = None
 

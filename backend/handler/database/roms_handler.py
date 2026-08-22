@@ -44,11 +44,12 @@ from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select
 
 from config import ROMM_DB_DRIVER
+from config.config_manager import config_manager as cm
 from decorators.database import begin_session
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.redis_handler import sync_cache
 from models.assets import Save, Screenshot, State
-from models.base import compute_file_name_parts
+from models.base import PRERELEASE_FILENAME_TAGS, compute_file_name_parts
 from models.collection import Collection, CollectionRom, SmartCollection
 from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
@@ -322,6 +323,49 @@ def _create_metadata_id_case(
             ),
         ),
         else_=None,
+    )
+
+
+def _region_rank() -> ColumnElement:
+    """Rank a rom by where its region sits in the configured region priority.
+
+    Reads the generated scalar rather than the `regions` JSON so the dedup
+    window stays inside idx_roms_sibling_cover. Roms whose region is not in the
+    list rank last, so a Japan-only release still wins a group of one.
+    """
+    # Imported here because handler.filesystem and handler.metadata import each
+    # other, and reaching filesystem first from this module trips the cycle.
+    from handler.filesystem.base_handler import region_ranks_for_priority
+
+    ranks = region_ranks_for_priority(cm.get_config().SCAN_REGION_PRIORITY)
+    if not ranks:
+        return literal(0)
+
+    return case(
+        ranks,
+        value=Rom.generated_primary_region,
+        else_=max(ranks.values()) + 1,
+    )
+
+
+def _prerelease_rank() -> ColumnElement:
+    """Rank pre-release dumps after full releases within a sibling group.
+
+    Matched with a case-insensitive LIKE over the filename rather than against
+    the parsed `tags` column, which keeps whatever casing the dumper used, and
+    which the dedup window's covering index does not carry.
+    """
+    return case(
+        (
+            or_(
+                *[
+                    Rom.fs_name_no_ext.ilike(f"%({tag}%")
+                    for tag in PRERELEASE_FILENAME_TAGS
+                ]
+            ),
+            1,
+        ),
+        else_=0,
     )
 
 
@@ -1267,6 +1311,36 @@ class DBRomsHandler(DBBaseHandler):
         if updated_after:
             query = query.filter(Rom.updated_at > updated_after)
 
+        # Apply metadata and rom-level filters efficiently
+        # Moved before applying group_by_meta_id to avoid missing titles when
+        # filters don't match the primary ROM version in a group but would match a different version instead.
+        filters_to_apply = [
+            (genres, genres_logic, self._filter_by_genres),
+            (franchises, franchises_logic, self._filter_by_franchises),
+            (collections, collections_logic, self._filter_by_collections),
+            (companies, companies_logic, self._filter_by_companies),
+            (age_ratings, age_ratings_logic, self._filter_by_age_ratings),
+            (regions, regions_logic, self._filter_by_regions),
+            (languages, languages_logic, self._filter_by_languages),
+            (player_counts, player_counts_logic, self._filter_by_player_counts),
+            (
+                metadata_providers,
+                metadata_providers_logic,
+                self._filter_by_metadata_providers,
+            ),
+            (tags, tags_logic, self._filter_by_tags),
+        ]
+
+        for values, logic, filter_func in filters_to_apply:
+            if values:
+                query = filter_func(
+                    query,
+                    session=session,
+                    values=values,
+                    match_all=(logic == "all"),
+                    match_none=(logic == "none"),
+                )
+
         # BEWARE YE WHO ENTERS HERE 💀
         if group_by_meta_id:
             # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
@@ -1276,8 +1350,10 @@ class DBRomsHandler(DBBaseHandler):
                 else literal(1)
             )
 
-            # Create a subquery that identifies the primary ROM in each group
-            # Priority order: is_main_sibling (desc), then by fs_name_no_ext (asc).
+            # Create a subquery that identifies the primary ROM in each group.
+            # Priority order: is_main_sibling (desc), then a full release over
+            # a pre-release, then the configured region priority, then
+            # fs_name_no_ext (asc) as a stable tiebreak.
             # Materialize only the columns the dedup window needs (not all of
             # Rom, whose JSON metadata blobs make the derived table huge), and
             # drop the carried-over ORDER BY the window doesn't use.
@@ -1286,6 +1362,8 @@ class DBRomsHandler(DBBaseHandler):
                 .with_only_columns(  # type: ignore
                     Rom.id,
                     Rom.fs_name_no_ext,
+                    _prerelease_rank().label("prerelease_rank"),
+                    _region_rank().label("region_rank"),
                     Rom.platform_id,
                     Rom.igdb_id,
                     Rom.ss_id,
@@ -1363,6 +1441,8 @@ class DBRomsHandler(DBBaseHandler):
                         ),
                         order_by=[
                             is_main_sibling_order,
+                            base_subquery.c.prerelease_rank.asc(),
+                            base_subquery.c.region_rank.asc(),
                             base_subquery.c.fs_name_no_ext.asc(),
                         ],
                     )
@@ -1387,34 +1467,6 @@ class DBRomsHandler(DBBaseHandler):
 
         if needs_metadata_join:
             query = query.outerjoin(RomMetadata)
-
-        # Apply metadata and rom-level filters efficiently
-        filters_to_apply = [
-            (genres, genres_logic, self._filter_by_genres),
-            (franchises, franchises_logic, self._filter_by_franchises),
-            (collections, collections_logic, self._filter_by_collections),
-            (companies, companies_logic, self._filter_by_companies),
-            (age_ratings, age_ratings_logic, self._filter_by_age_ratings),
-            (regions, regions_logic, self._filter_by_regions),
-            (languages, languages_logic, self._filter_by_languages),
-            (player_counts, player_counts_logic, self._filter_by_player_counts),
-            (
-                metadata_providers,
-                metadata_providers_logic,
-                self._filter_by_metadata_providers,
-            ),
-            (tags, tags_logic, self._filter_by_tags),
-        ]
-
-        for values, logic, filter_func in filters_to_apply:
-            if values:
-                query = filter_func(
-                    query,
-                    session=session,
-                    values=values,
-                    match_all=(logic == "all"),
-                    match_none=(logic == "none"),
-                )
 
         # The RomUser table is already joined if user_id is set
         if statuses and user_id:

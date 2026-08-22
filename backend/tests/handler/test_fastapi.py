@@ -773,6 +773,47 @@ async def test_lookup_rom_sends_all_top_level_file_hashes(
 
 @patch.object(meta_hasheous_handler, "_request", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "is_enabled", return_value=True)
+async def test_lookup_rom_sends_the_largest_archive_member_hashes(
+    mock_is_enabled, mock_request
+):
+    """Hasheous indexes a multi-file archive by the ROM inside it, so the
+    archive's composite hash must not be what we ask about."""
+    mock_request.return_value = {}
+
+    files = [
+        _top_level_rom_file(
+            file_name="set.zip",
+            file_size_bytes=300,
+            crc_hash="compositecrc",
+            md5_hash="compositemd5",
+            sha1_hash="compositesha1",
+            archive_members=[
+                {
+                    "name": "readme.txt",
+                    "size": 10,
+                    "crc_hash": "readmecrc",
+                    "md5_hash": "readmemd5",
+                    "sha1_hash": "readmesha1",
+                },
+                {
+                    "name": "game.n64",
+                    "size": 2048,
+                    "crc_hash": "gamecrc",
+                    "md5_hash": "gamemd5",
+                    "sha1_hash": "gamesha1",
+                },
+            ],
+        ),
+    ]
+
+    await meta_hasheous_handler.lookup_rom("n64", files)
+
+    sent_data = mock_request.call_args.kwargs["data"]
+    assert sent_data == [{"mD5": "gamemd5", "shA1": "gamesha1", "crc": "gamecrc"}]
+
+
+@patch.object(meta_hasheous_handler, "_request", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "is_enabled", return_value=True)
 async def test_lookup_rom_maps_every_hasheous_signature_source(
     mock_is_enabled, mock_request
 ):
