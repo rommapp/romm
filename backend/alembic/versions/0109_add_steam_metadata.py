@@ -4,8 +4,8 @@ Adds ``roms.steam_id`` / ``roms.steam_metadata`` and mirrors the id into
 ``roms_facets``. That mirror is trigger-maintained, so the triggers are
 recreated over the wider column set.
 
-Revision ID: 0108_add_steam_metadata
-Revises: 0107_roms_dedup_cover_index
+Revision ID: 0109_add_steam_metadata
+Revises: 0108_roms_primary_region
 Create Date: 2026-08-19 00:00:00.000000
 
 """
@@ -18,8 +18,8 @@ from sqlalchemy.dialects import postgresql
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0108_add_steam_metadata"
-down_revision = "0107_roms_dedup_cover_index"
+revision = "0109_add_steam_metadata"
+down_revision = "0108_roms_primary_region"
 branch_labels = None
 depends_on = None
 
