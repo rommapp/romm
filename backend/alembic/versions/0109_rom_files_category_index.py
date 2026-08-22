@@ -5,8 +5,8 @@ ROM without one walks every file row that ROM owns and reads `category` off the
 clustered index for each. The `has_soundtrack` gallery filter has no index at
 all. Both are served by the composite.
 
-Revision ID: 0108_rom_files_category_index
-Revises: 0107_roms_dedup_cover_index
+Revision ID: 0109_rom_files_category_index
+Revises: 0108_roms_primary_region
 Create Date: 2026-08-22 00:00:00.000000
 
 """
@@ -14,8 +14,8 @@ Create Date: 2026-08-22 00:00:00.000000
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0108_rom_files_category_index"
-down_revision = "0107_roms_dedup_cover_index"
+revision = "0109_rom_files_category_index"
+down_revision = "0108_roms_primary_region"
 branch_labels = None
 depends_on = None
 
