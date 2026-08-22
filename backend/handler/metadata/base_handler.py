@@ -50,6 +50,26 @@ NON_WORD_SPACE_PATTERN = re.compile(r"[^\w\s]")
 MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
 
 
+def _split_dotted_name(name: str) -> str:
+    """Turn the periods of a dot-separated name into spaces.
+
+    A scene-style dump ("Final.Fantasy.VII") spells its title with periods where
+    another dump uses underscores, and ScreenScraper, HLTB and Flashpoint are
+    searched with punctuation left in, so those periods reach the provider as
+    part of the words. Names that separate words some other way are left alone,
+    keeping the periods of an initialism ("F.E.A.R."), an abbreviation
+    ("Dr. Mario") and a version ("Sonic 3.5") intact for the same providers.
+    """
+    if "." not in name or len(name.split()) != 1:
+        return name
+
+    segments = [segment for segment in name.split(".") if segment]
+    if sum(len(segment) > 1 for segment in segments) < 2:
+        return name
+
+    return " ".join(segments)
+
+
 class BaseRom(TypedDict):
     name: NotRequired[str]
     name_sort_key: NotRequired[str | None]
@@ -83,8 +103,8 @@ SENSITIVE_KEYS_REGEX = re.compile(
 def _normalize_search_term(
     name: str, remove_articles: bool = True, remove_punctuation: bool = True
 ) -> str:
-    # Lower and replace underscores with spaces
-    name = name.lower().replace("_", " ")
+    # Lower, then read both separators a dump can use as word breaks
+    name = _split_dotted_name(name.lower()).replace("_", " ")
 
     # Remove articles (combined if possible)
     if remove_articles:

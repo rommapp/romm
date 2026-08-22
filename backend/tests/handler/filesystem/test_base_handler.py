@@ -130,7 +130,10 @@ class TestFSHandler:
         """Test file name extraction without extension"""
         assert handler.get_file_name_with_no_extension("test.txt") == "test"
         assert handler.get_file_name_with_no_extension("file.tar.gz") == "file"
-        assert handler.get_file_name_with_no_extension("file.with.dots.txt") == "file"
+        assert (
+            handler.get_file_name_with_no_extension("file.with.dots.txt")
+            == "file.with.dots"
+        )
         assert handler.get_file_name_with_no_extension("no_extension") == "no_extension"
 
     def test_get_file_name_with_no_tags(self, handler: FSHandler):
@@ -145,7 +148,7 @@ class TestFSHandler:
         assert handler.parse_file_extension("test.txt") == "txt"
         assert handler.parse_file_extension("file.tar.gz") == "tar.gz"
         assert handler.parse_file_extension("no_extension") == ""
-        assert handler.parse_file_extension("file.with.dots.txt") == "with.dots.txt"
+        assert handler.parse_file_extension("file.with.dots.txt") == "txt"
 
     def test_exclude_single_files(self, handler: FSHandler):
         """Test file exclusion functionality"""

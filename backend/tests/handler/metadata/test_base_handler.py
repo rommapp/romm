@@ -47,6 +47,27 @@ class TestNormalizeSearchTerm:
         result = _normalize_search_term("Test_Game_Name")
         assert result == "test game name"
 
+    def test_dotted_name_separators(self):
+        """Periods separating words read as word breaks, like underscores."""
+        assert _normalize_search_term("Final.Fantasy.VII") == "final fantasy vii"
+        assert (
+            _normalize_search_term("Castlevania.Symphony.of.the.Night")
+            == "castlevania symphony of the night"
+        )
+        assert _normalize_search_term("Mario_Kart.8.Deluxe") == "mario kart 8 deluxe"
+        # Also for the providers searched with punctuation left in.
+        assert (
+            _normalize_search_term("Final.Fantasy.VII", remove_punctuation=False)
+            == "final fantasy vii"
+        )
+
+    def test_dotted_name_separators_leave_real_periods(self):
+        """An initialism, abbreviation or version keeps its periods."""
+        for name in ("F.E.A.R.", "S.T.A.L.K.E.R.", "Dr. Mario", "Sonic 3.5"):
+            assert _normalize_search_term(name, remove_punctuation=False) == (
+                name.lower()
+            )
+
     def test_remove_leading_articles(self):
         """Test removal of leading articles."""
         assert _normalize_search_term("The Legend of Zelda") == "legend of zelda"
