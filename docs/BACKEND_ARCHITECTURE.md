@@ -930,6 +930,51 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 | PUT    | `/{id}`        | ASSETS_WRITE | Update state  |
 | POST   | `/delete`      | ASSETS_WRITE | Bulk delete   |
 
+### 6.9b RetroArch Cloud Sync (`/api/cloud-sync`)
+
+A minimal WebDAV surface for RetroArch's Cloud Sync driver, which diffs a JSON
+manifest of `{path, hash}` entries instead of listing collections (hence no
+PROPFIND). Point RetroArch's WebDAV URL at `https://<host>/api/cloud-sync/`
+(trailing slash required), enable save/state sync only, and authenticate with a
+RomM username and password over HTTP Basic.
+
+| Method      | Path                                 | Scope        | Description                                      |
+| ----------- | ------------------------------------ | ------------ | ------------------------------------------------ |
+| OPTIONS     | `/{path}`                            | ASSETS_READ  | Advertise DAV support                            |
+| GET         | `/manifest.server`                   | ASSETS_READ  | Manifest of the caller's saves, states and blobs |
+| GET         | `/{root}/[core/]{file}`              | ASSETS_READ  | Download one save/state                          |
+| PUT         | `/{root}/[core/]{file}`              | ASSETS_WRITE | Upload one save/state                            |
+| DELETE/MOVE | `/{root}/[core/]{file}`              | ASSETS_WRITE | Delete one save/state                            |
+| GET         | `/{config,thumbnails,system}/{path}` | ASSETS_READ  | Download one opaque blob file                    |
+| PUT         | `/{config,thumbnails,system}/{path}` | ASSETS_WRITE | Upload one opaque blob file                      |
+| DELETE/MOVE | `/{config,thumbnails,system}/{path}` | ASSETS_WRITE | Delete one opaque blob file                      |
+| MKCOL       | `/{path}`                            | ASSETS_WRITE | Accepted no-op (layout is derived from the ROM)  |
+
+`{root}` is `saves` or `states`. Files are matched to a ROM by file name alone
+(`Super Mario World.srm` → the ROM whose `fs_name_no_ext` is `Super Mario
+World`), so a name shared across platforms resolves ambiguously. The optional
+`core` segment is RetroArch's own directory casing (e.g. `Snes9x`), translated
+through `cloud_sync_emulator_names.to_romm_emulator`/`to_retroarch_dir_name` to
+and from the asset's `emulator` field, which namespaces storage exactly as it
+does for uploads through `/api/saves` — storing RetroArch's raw casing instead
+would make the save invisible to RomM's own web player, which matches saves
+against the lowercase libretro core id. Cores outside the small translation
+table round-trip unchanged rather than guessing at an unverified casing.
+Slotted saves are excluded from the manifest: they are RomM's own versioned
+history and their datetime-tagged names are not loadable by any core. Unlike
+the rest of the API this router gates itself, so it can answer a 401 challenge
+rather than a 403, and it sends body-less error responses because RetroArch's
+client mishandles large ones.
+
+RetroArch's other three Cloud Sync categories (Sync Configuration/Thumbnails/
+System Files) have no ROM to attach to, so they're stored as opaque per-user
+blobs under `CLOUD_SYNC_BLOB_BASE_PATH` (`FSCloudSyncBlobHandler`) instead of
+going through the asset/ROM matching above — namespaced by user so two
+RetroArch installs syncing to the same RomM instance under different accounts
+never see each other's files. Unlike asset hashes, blob hashes are always real
+MD5s of the file on disk, computed on every manifest build (still Redis-cached
+by path+size+mtime, same as asset hashes) since these files are typically tiny.
+
 ### 6.10 Screenshots (`/api/screenshots`)
 
 | Method | Path           | Scope        | Description        |
