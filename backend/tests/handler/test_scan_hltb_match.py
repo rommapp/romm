@@ -1,8 +1,7 @@
 """How a scan picks a ROM's HowLongToBeat match.
 
 The filename lookup matches fuzzily, so re-running it on a ROM that already
-carries an ID lets a different game outscore a match the user pinned by hand
-in Edit ROM.
+carries an ID lets a different game outscore a match the user pinned by hand.
 """
 
 from types import SimpleNamespace
@@ -35,7 +34,6 @@ def lookups():
             "handler.scan_handler.meta_hltb_handler.get_rom",
             new=AsyncMock(return_value=NO_MATCH),
         ) as by_name,
-        patch("handler.metadata.meta_playmatch_handler.is_enabled", return_value=False),
     ):
         yield SimpleNamespace(by_id=by_id, by_name=by_name)
 
