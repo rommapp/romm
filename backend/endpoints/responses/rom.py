@@ -359,10 +359,18 @@ class RomSchema(BaseModel):
         return sorted(v, key=lambda x: x.sort_comparator)
 
     @classmethod
-    def populate_properties(cls, db_rom: Rom, request: Request) -> Rom:
+    def populate_properties(
+        cls, db_rom: Rom, request: Request, has_notes: bool | None = None
+    ) -> Rom:
         db_rom.rom_user = RomUserSchema.for_user(request.user.id, db_rom)  # type: ignore[assignment]
-        db_rom.has_notes = any(  # type: ignore[assignment]
-            note.is_public or note.user_id == request.user.id for note in db_rom.notes
+        # Callers that batched the flag pass it in and never load `Rom.notes`.
+        db_rom.has_notes = (  # type: ignore[assignment]
+            any(
+                note.is_public or note.user_id == request.user.id
+                for note in db_rom.notes
+            )
+            if has_notes is None
+            else has_notes
         )
         return db_rom
 
@@ -433,8 +441,9 @@ class SimpleRomSchema(RomSchema):
         files: Sequence[RomFile] | None = None,
         siblings: Sequence[tuple[Rom, bool]] | None = None,
         screenshot_path: str | None = None,
+        has_notes: bool | None = None,
     ) -> SimpleRomSchema:
-        db_rom = cls.populate_properties(db_rom, request)
+        db_rom = cls.populate_properties(db_rom, request, has_notes=has_notes)
         db_rom.screenshot_path = screenshot_path  # type: ignore[assignment]
 
         # The list endpoint passes pre-fetched `files`/`siblings` (batched via
