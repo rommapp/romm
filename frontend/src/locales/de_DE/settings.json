@@ -294,6 +294,7 @@
   "platform-mapping-deleted": "Plattform-Zuordnung gelöscht",
   "platform-mapping-updated": "Plattform-Zuordnung aktualisiert",
   "platform-metadata-matches": "{source}-Treffer: {matched} / {total}",
+  "platform-open": "{name} öffnen",
   "platform-regions-show-less": "Weniger Regionen anzeigen",
   "platform-regions-show-more": "Mehr Regionen anzeigen",
   "platform-variant": "Plattform-Variante",

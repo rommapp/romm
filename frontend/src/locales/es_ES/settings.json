@@ -294,6 +294,7 @@
   "platform-mapping-deleted": "Asignación de plataforma eliminada",
   "platform-mapping-updated": "Asignación de plataforma actualizada",
   "platform-metadata-matches": "Coincidencias en {source}: {matched} / {total}",
+  "platform-open": "Abrir {name}",
   "platform-regions-show-less": "Mostrar menos regiones",
   "platform-regions-show-more": "Mostrar más regiones",
   "platform-variant": "Variante de plataforma",

@@ -294,6 +294,7 @@
   "platform-mapping-deleted": "プラットフォームマッピングを削除しました",
   "platform-mapping-updated": "プラットフォームマッピングを更新しました",
   "platform-metadata-matches": "{source} の一致: {matched} / {total}",
+  "platform-open": "{name}を開く",
   "platform-regions-show-less": "リージョンの表示を減らす",
   "platform-regions-show-more": "リージョンをさらに表示",
   "platform-variant": "プラットフォームバリアント",

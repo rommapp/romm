@@ -294,6 +294,7 @@
   "platform-mapping-deleted": "Mapování platformy bylo odstraněno",
   "platform-mapping-updated": "Mapování platformy bylo aktualizováno",
   "platform-metadata-matches": "Shody v {source}: {matched} / {total}",
+  "platform-open": "Otevřít {name}",
   "platform-regions-show-less": "Zobrazit méně regionů",
   "platform-regions-show-more": "Zobrazit více regionů",
   "platform-variant": "Varianta platformy",
