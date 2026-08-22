@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import type { ScanStats } from "@/__generated__";
 import taskApi from "@/services/api/task";
+import storeCollections from "@/stores/collections";
 import storeScanning from "@/stores/scanning";
 import { installScanLifecycle } from "./index";
 
@@ -126,6 +127,18 @@ describe("installScanLifecycle", () => {
 
     expect(scanning.scanning).toBe(true);
     expect(scanning.scanStats.scanned_roms).toBe(12);
+  });
+
+  it("re-reads the virtual collections when the scan settles", () => {
+    const collections = storeCollections();
+    const refresh = vi
+      .spyOn(collections, "refreshVirtualCollections")
+      .mockResolvedValue([]);
+    install();
+
+    fire("scan:done", makeStats({ scanned_roms: 100 }));
+
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it("reconciles with a running scan job on install", async () => {

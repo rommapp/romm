@@ -386,6 +386,7 @@ class Rom(BaseModel):
             "tgdb_id",
             "flashpoint_id",
             "fs_name_no_ext",
+            "generated_primary_region",
             "id",
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
@@ -489,6 +490,14 @@ class Rom(BaseModel):
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+
+    # STORED generated column over regions[0], carried by idx_roms_sibling_cover
+    # so the dedup window can rank regions without reading the JSON.
+    generated_primary_region: Mapped[str | None] = mapped_column(
+        String(length=50),
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
+    )
 
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
