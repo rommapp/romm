@@ -10,7 +10,7 @@ import pytest
 from fastapi import UploadFile
 
 from config.config_manager import DEFAULT_EXCLUDED_FILES
-from handler.filesystem.base_handler import FSHandler
+from handler.filesystem.base_handler import FSHandler, region_ranks_for_priority
 from models.base import FILE_NAME_MAX_LENGTH
 
 
@@ -605,3 +605,35 @@ class TestFSHandlerInit:
         ):
             with pytest.raises(PermissionError):
                 FSHandler("/some/unwritable/path")
+
+
+class TestRegionRanksForPriority:
+    """Ranking is per configured shortcode, not per expanded region name."""
+
+    def test_two_names_sharing_a_shortcode_rank_equally(self):
+        ranks = region_ranks_for_priority(["nl", "jp"])
+
+        assert ranks["Holland"] == ranks["Netherlands"]
+        # And the next shortcode still ranks strictly below them.
+        assert ranks["Japan"] > ranks["Netherlands"]
+
+    def test_unknown_shortcode_does_not_shift_later_ranks(self):
+        # "ss" is a ScreenScraper bucket, not a region.
+        assert region_ranks_for_priority(["us", "ss", "jp"]) == {
+            "USA": 0,
+            "Japan": 1,
+        }
+
+    def test_repeated_shortcode_does_not_shift_later_ranks(self):
+        assert region_ranks_for_priority(["us", "us", "jp"]) == {
+            "USA": 0,
+            "Japan": 1,
+        }
+
+    def test_ranks_follow_the_configured_order(self):
+        ranks = region_ranks_for_priority(["jp", "us"])
+
+        assert ranks["Japan"] < ranks["USA"]
+
+    def test_empty_priority_yields_no_ranks(self):
+        assert region_ranks_for_priority([]) == {}

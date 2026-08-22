@@ -14,6 +14,18 @@ TAG_GROUP_REGEX = re.compile(r"(?:\s*(?:\([^)]*\)|\[[^]]*\]))+\s*$")
 # Matches a trailing file extension, including multi-part ones like ".tar.gz".
 EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
 
+# Filename tags that mark a dump as a pre-release rather than the shipped game.
+# Lowercase and unterminated so one prefix covers its variants: "demo" also
+# matches "(Demo Kiosk)", "proto" also matches "(Prototype)".
+PRERELEASE_FILENAME_TAGS = (
+    "demo",
+    "beta",
+    "proto",
+    "sample",
+    "kiosk",
+    "preview",
+)
+
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
