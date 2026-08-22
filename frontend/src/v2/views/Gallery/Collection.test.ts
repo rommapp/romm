@@ -1,5 +1,6 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
+import { AxiosError } from "axios";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, ref } from "vue";
@@ -351,9 +352,8 @@ describe("Collection view random rom", () => {
   });
 });
 
-// The store's lists load once per session, and a virtual collection's ROM count
-// moves with every scan and match, so a cached count disagrees with the gallery
-// below it.
+// The store's lists load once per session, so a cached ROM count disagrees
+// with the gallery below it.
 describe("Collection view freshness", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -393,7 +393,7 @@ describe("Collection view freshness", () => {
   });
 
   // What a finished scan does: the store refetches, and the open page has to
-  // follow or it drifts again until the next visit.
+  // follow it.
   it("adopts the store's copy when a refresh replaces it", async () => {
     routeState.name = "virtual-collection";
     routeState.params = { collection: "collection-zelda" };
@@ -408,8 +408,6 @@ describe("Collection view freshness", () => {
     expect(wrapper.get(".rom-count").text()).toBe("5");
   });
 
-  // Both the route guard and the route watch call the loader per navigation,
-  // and its read can outlive the route, so only the newest may write.
   it("ignores a read that lands after the route moved on", async () => {
     let settleFirst!: (value: { data: Collection }) => void;
     getCollection.mockReturnValueOnce(
@@ -435,11 +433,11 @@ describe("Collection view freshness", () => {
     expect(wrapper.get(".rom-count").text()).toBe("22");
   });
 
-  // A 404 is the server answering, unlike a failed read, so the cached copy
-  // must not keep a deleted collection on screen.
+  // A 404 answers, unlike a failed read, so the cached copy must not keep a
+  // deleted collection on screen.
   it("shows not-found when the server says the collection is gone", async () => {
     getCollection.mockRejectedValue(
-      Object.assign(new Error("HTTP 404"), { response: { status: 404 } }),
+      Object.assign(new AxiosError("HTTP 404"), { response: { status: 404 } }),
     );
 
     const wrapper = await mountView();

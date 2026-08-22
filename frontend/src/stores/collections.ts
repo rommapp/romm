@@ -1,3 +1,4 @@
+import axios from "axios";
 import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
 import type {
@@ -14,11 +15,10 @@ export type VirtualCollection = VirtualCollectionSchema;
 export type SmartCollection = SmartCollectionSchema;
 export type CollectionType = Collection | VirtualCollection | SmartCollection;
 
-/** 404 / 403 is the server saying this collection is gone or off limits, which
- * is an answer; any other failure means the read didn't happen. */
+/** A 404 or 403 answers the read (gone, or off limits); anything else means
+ * the read never happened. */
 function isGone(error: unknown): boolean {
-  const status = (error as { response?: { status?: number } })?.response
-    ?.status;
+  const status = axios.isAxiosError(error) ? error.response?.status : undefined;
   return status === 404 || status === 403;
 }
 
@@ -26,10 +26,7 @@ export default defineStore("collections", {
   state: () => ({
     allCollections: [] as Collection[],
     virtualCollections: [] as VirtualCollection[],
-    // The type `virtualCollections` was fetched for, so a refresh knows which
-    // slice it is re-reading.
     virtualCollectionType: null as string | null,
-    // A refresh asked for while a fetch was in flight, to run once it settles.
     virtualCollectionsStale: false as boolean,
     smartCollections: [] as SmartCollection[],
     favoriteCollection: undefined as Collection | undefined,
@@ -146,38 +143,36 @@ export default defineStore("collections", {
           });
       });
     },
-    /** Re-read the loaded virtual collections, whose membership (and so ROM
-     * count) is derived from ROM metadata that scans and matches rewrite.
-     * Never rejects: every caller fires it in the background. */
+    /** Re-read the loaded virtual collections, whose membership is derived
+     * from ROM metadata that scans and matches rewrite. Never rejects: every
+     * caller fires it in the background. */
     refreshVirtualCollections(): Promise<VirtualCollection[]> {
       const type = this.virtualCollectionType;
       if (type === null) return Promise.resolve([]);
-      // A response already in flight left the server before the change did, so
-      // it cannot be the re-read. Queue one behind it instead of being dropped
-      // by the in-flight guard.
+      // A response already in flight left the server before the change did,
+      // so queue the re-read behind it rather than let the guard drop it.
       if (this.fetchingVirtualCollections) {
         this.virtualCollectionsStale = true;
         return Promise.resolve([]);
       }
       return this.fetchVirtualCollections(type).catch(() => []);
     },
-    /** Re-read one collection, refreshing the cached copy on the way through.
-     * Resolves to null either way: a collection the server says is gone is
-     * dropped from the cache too, so the caller reads not-found from the cache
-     * being empty, while a failed read leaves the cached copy to fall back on. */
+    /** Re-read one collection and refresh the cached copy. A gone collection
+     * is dropped from the cache too, so callers read not-found from the cache
+     * rather than from the null. */
     async refreshCollection(id: number): Promise<Collection | null> {
       try {
         const { data } = await collectionApi.getCollection(id);
         this.updateCollection(data);
         return data;
       } catch (error) {
-        if (!isGone(error)) {
+        if (isGone(error)) {
+          this.allCollections = this.allCollections.filter((c) => c.id !== id);
+          if (this.favoriteCollection?.id === id) {
+            this.favoriteCollection = undefined;
+          }
+        } else {
           console.error(error);
-          return null;
-        }
-        this.allCollections = this.allCollections.filter((c) => c.id !== id);
-        if (this.favoriteCollection?.id === id) {
-          this.favoriteCollection = undefined;
         }
         return null;
       }
@@ -246,8 +241,8 @@ export default defineStore("collections", {
       );
       this._reorderCollections();
     },
-    // Replaces in place only: the list holds one virtual collection type, and
-    // an id carries its own type, so inserting could mix them.
+    // Replaces in place only: the list holds one virtual collection type, so
+    // inserting could mix types.
     updateVirtualCollection(collection: VirtualCollection) {
       this.virtualCollections = this.virtualCollections.map((value) =>
         value.id === collection.id ? collection : value,

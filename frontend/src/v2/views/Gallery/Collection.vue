@@ -169,11 +169,11 @@ const kindLabel = computed(() => {
 });
 
 // Leaving for anything that isn't another gallery keeps `currentCollection`
-// in place, so neither the load flow nor `onRandomGame` can tell from the id
-// alone that the user walked away.
+// in place, so the id alone can't see the user walked away.
 const alive = useIsAlive();
 
-// Only the newest `loadForRoute` may write to the page or drive the gallery.
+// Only the newest `loadForRoute` may write to the page or drive the gallery:
+// the guard and the route watch both call it, and its read outlives the route.
 let loadToken = 0;
 
 function kindFromRoute(
@@ -212,9 +212,8 @@ function findById(kind: CollectionKind, id: string): AnyCollection | undefined {
   return collectionsStore.smartCollections.find((c) => String(c.id) === id);
 }
 
-// The head band renders a ROM count, and the store's lists are loaded once per
-// session, so a cached virtual collection counts whatever it held back then
-// against a gallery that fetches live.
+// The head band renders a ROM count the store's once-per-session lists cannot
+// keep in step with the gallery below it.
 function refreshFromServer(
   kind: CollectionKind,
   id: string,
@@ -227,14 +226,12 @@ function refreshFromServer(
 async function loadForRoute(kind: CollectionKind, id: string) {
   const token = ++loadToken;
   currentKind.value = kind;
-  // The list is still loaded, unused here, for the surfaces reachable from
-  // this page that read it (the add-to-collection dialog).
+  // The list is unused here, but the surfaces reachable from this page read it
+  // (the add-to-collection dialog).
   const [fresh] = await Promise.all([
     refreshFromServer(kind, id),
     ensureLoaded(kind),
   ]);
-  // A newer load owns the page: both the route guard and the route watch call
-  // this per navigation, and the read they wait on can outlive the route.
   if (token !== loadToken || !alive.value) return;
   const collection = fresh ?? findById(kind, id);
   if (!collection) {
@@ -275,9 +272,8 @@ watch(
   },
 );
 
-// Adopt the store's copy when a refresh replaces it, so a scan or a metadata
-// write landing while this page is open corrects the head band as well as the
-// gallery below.
+// Adopt the store's copy when a refresh replaces it, so a scan landing while
+// this page is open corrects the head band too.
 watch(
   () => findById(currentKind.value, String(route.params.collection)),
   (fresh) => {

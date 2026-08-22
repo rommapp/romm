@@ -1,3 +1,4 @@
+import { AxiosError } from "axios";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeCollections, { type VirtualCollection } from "@/stores/collections";
@@ -12,7 +13,9 @@ vi.mock("@/services/api/collection", () => ({
 }));
 
 function httpError(status: number) {
-  return Object.assign(new Error(`HTTP ${status}`), { response: { status } });
+  return Object.assign(new AxiosError(`HTTP ${status}`), {
+    response: { status },
+  });
 }
 
 function virtualCollection(romCount: number): VirtualCollection {
@@ -39,9 +42,8 @@ describe("collections store virtual refresh", () => {
     getVirtualCollections.mockReset();
   });
 
-  // A scan or a metadata write landing mid-fetch used to hit the in-flight
-  // guard and be dropped, leaving the pre-change response cached for the
-  // session, which is the drift this whole change is about.
+  // A response in flight left the server before the change did, so it cannot
+  // stand in for the re-read.
   it("re-reads after a fetch that was already in flight", async () => {
     const first = deferred();
     getVirtualCollections.mockReturnValueOnce(first.promise);

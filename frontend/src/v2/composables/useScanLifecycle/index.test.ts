@@ -129,8 +129,6 @@ describe("installScanLifecycle", () => {
     expect(scanning.scanStats.scanned_roms).toBe(12);
   });
 
-  // A scan rewrites the metadata virtual collections derive from, so their
-  // counts drift like the platform ones.
   it("re-reads the virtual collections when the scan settles", () => {
     const collections = storeCollections();
     const refresh = vi

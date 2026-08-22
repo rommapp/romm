@@ -186,8 +186,7 @@ export function installScanLifecycle() {
     scanningStore.setScanStats(stats);
     scanningStore.setScanning(false);
     // Reconcile against the backend once the scan settles: pick up anything
-    // the live updates missed and correct rom_counts that drifted, virtual
-    // collections included (a scan rewrites the metadata they derive from).
+    // the live updates missed and correct rom_counts that drifted.
     void platformsStore.fetchPlatforms();
     void collectionsStore.refreshVirtualCollections();
     emitter?.emit("snackbarShow", {

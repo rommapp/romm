@@ -103,8 +103,8 @@ export function useRomSync() {
     // Read the pre-write copy before `syncCachedRom` overwrites it.
     const previous = galleryRomsStore.getRomById(rom.id);
     syncCachedRom(rom);
-    // Virtual collection membership is derived from the metadata this write
-    // rewrites, so only the server knows the ROM's new collections and counts.
+    // Only the server knows which virtual collections this write moved the ROM
+    // between.
     void collectionsStore.refreshVirtualCollections();
     if (!galleryRomsStore.onGalleryView) return;
     if (!galleryFilter.isFiltered() && !sortValueChanged(previous, rom)) return;

@@ -133,9 +133,9 @@ describe("useRomSync", () => {
     expect(getRoms).not.toHaveBeenCalled();
   });
 
-  // Collection heads and tiles read their ROM count off the store, including
-  // when the write comes from GameDetails rather than a gallery.
-  it("applyRomWrite re-reads the virtual collections off the gallery", () => {
+  // Collection heads and tiles read their count off the store, so the re-read
+  // is owed even for a write from GameDetails.
+  it("applyRomWrite re-reads the virtual collections when off the gallery", () => {
     const collections = storeCollections();
     const refresh = vi
       .spyOn(collections, "refreshVirtualCollections")
