@@ -74,7 +74,12 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.permission import PermAction, PermEntity
-from models.rom import Rom, RomUserStatus, compute_name_sort_key
+from models.rom import (
+    Rom,
+    RomUserStatus,
+    apply_file_stats,
+    compute_name_sort_key,
+)
 from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
@@ -690,7 +695,11 @@ def get_roms(
         tags_logic=tags_logic,
         group_by_meta_id=group_by_meta_id,
         updated_after=updated_after,
-        include_file_stats=True,
+        # The page's files answer all three flags without the subqueries.
+        include_file_stats=not with_files,
+        # Siblings and the notes indicator are resolved per page below.
+        include_siblings=False,
+        include_notes=False,
     )
 
     # Cache only the fully unscoped library scan; any narrowing parameter makes
@@ -822,6 +831,12 @@ def get_roms(
                 hidden_platform_ids=list(perms.hidden_platform_ids),
                 hidden_rom_ids=list(perms.hidden_rom_ids),
             )
+            rom_ids_with_notes = db_rom_handler.get_rom_ids_with_notes(
+                rom_ids, user_id=request.user.id, session=session
+            )
+            if with_files:
+                for item in items:
+                    apply_file_stats(item, files_by_rom.get(item.id, []))
 
             # Continue-playing rail
             screenshot_by_rom: dict[int, str | None] = {}
@@ -841,6 +856,7 @@ def get_roms(
                     files=files_by_rom.get(item.id, []),
                     siblings=siblings_by_rom.get(item.id, []),
                     screenshot_path=screenshot_by_rom.get(item.id),
+                    has_notes=item.id in rom_ids_with_notes,
                 )
                 for item in items
             ]
@@ -860,18 +876,23 @@ def get_roms(
         params = resolve_params()
         if with_rom_id_index:
             page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
-            if page_ids:
-                page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
-                rows_by_id = {rom.id: rom for rom in page_rows}
-                page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
-            else:
-                page_items = []
         else:
-            # Let the database serve the page from the sort index instead of
-            # walking the whole primary key to build a full id list.
-            page_items = list(
-                session.scalars(query.offset(params.offset).limit(params.limit)).all()
+            # Ordering the entity itself carries every JSON metadata blob
+            # through the sort, for a page that keeps `limit` of them.
+            page_ids = list(
+                session.scalars(
+                    query.with_only_columns(Rom.id)
+                    .offset(params.offset)
+                    .limit(params.limit)
+                ).all()
             )
+
+        if page_ids:
+            page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
+            rows_by_id = {rom.id: rom for rom in page_rows}
+            page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
+        else:
+            page_items = []
 
         return CustomLimitOffsetPage.create(
             _transform(page_items),
