@@ -25,6 +25,7 @@ from handler.metadata.launchbox_handler.types import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
+from handler.metadata.steam_handler import SteamMetadata
 from models.collection import Collection, SmartCollection
 from models.rom import Rom, RomArchiveMember, RomFile, RomFileCategory, RomUserStatus
 
@@ -88,6 +89,11 @@ RomFlashpointMetadata = TypedDict(  # type: ignore[misc]
 RomHLTBMetadata = TypedDict(  # type: ignore[misc]
     "RomHLTBMetadata",
     {k: NotRequired[v] for k, v in get_type_hints(HLTBMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomSteamMetadata = TypedDict(  # type: ignore[misc]
+    "RomSteamMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(SteamMetadata).items()},  # type: ignore[misc]
     total=False,
 )
 RomGamelistMetadata = TypedDict(  # type: ignore[misc]
@@ -272,6 +278,7 @@ class RomSchema(BaseModel):
     tgdb_id: int | None
     flashpoint_id: str | None
     hltb_id: int | None
+    steam_id: int | None
     gamelist_id: str | None
     libretro_id: str | None
 
@@ -304,6 +311,7 @@ class RomSchema(BaseModel):
     hasheous_metadata: RomHasheousMetadata | None
     flashpoint_metadata: RomFlashpointMetadata | None
     hltb_metadata: RomHLTBMetadata | None
+    steam_metadata: RomSteamMetadata | None
     gamelist_metadata: RomGamelistMetadata | None
     manual_metadata: ManualMetadata | None
 

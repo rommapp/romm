@@ -2630,6 +2630,7 @@ class DBRomsHandler(DBBaseHandler):
         tgdb_id: int | None = None,
         flashpoint_id: str | None = None,
         hltb_id: int | None = None,
+        steam_id: int | None = None,
         *,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
@@ -2652,6 +2653,7 @@ class DBRomsHandler(DBBaseHandler):
                 (tgdb_id, Rom.tgdb_id),
                 (flashpoint_id, Rom.flashpoint_id),
                 (hltb_id, Rom.hltb_id),
+                (steam_id, Rom.steam_id),
             ]
             if value is not None
         ]

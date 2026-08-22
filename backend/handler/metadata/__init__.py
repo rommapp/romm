@@ -10,6 +10,7 @@ from .playmatch_handler import PlaymatchHandler
 from .ra_handler import RAHandler
 from .sgdb_handler import SGDBBaseHandler
 from .ss_handler import SSHandler
+from .steam_handler import SteamHandler
 from .tgdb_handler import TGDBHandler
 
 meta_igdb_handler = IGDBHandler()
@@ -25,3 +26,4 @@ meta_tgdb_handler = TGDBHandler()
 meta_flashpoint_handler = FlashpointHandler()
 meta_gamelist_handler = GamelistHandler()
 meta_hltb_handler = HLTBHandler()
+meta_steam_handler = SteamHandler()

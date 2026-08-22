@@ -97,6 +97,16 @@ const catalogs = computed<Source[]>(() => {
       requiresKey: false,
       disabled: !m.FLASHPOINT_API_ENABLED,
     },
+    {
+      key: "steam",
+      name: "Steam",
+      logoPath: "/assets/scrappers/steam.svg",
+      descKey: "setup.provider-steam-desc",
+      setupKey: "setup.provider-steam-setup",
+      caveatKey: "setup.provider-steam-caveat",
+      requiresKey: false,
+      disabled: !m.STEAM_API_ENABLED,
+    },
   ];
 });
 

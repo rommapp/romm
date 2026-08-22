@@ -291,6 +291,7 @@
   "provider-mobygames-id": "MobyGames-ID",
   "provider-retroachievements-id": "RetroAchievements-ID",
   "provider-screenscraper-id": "ScreenScraper-ID",
+  "provider-steam-id": "Steam-App-ID",
   "provider-steamgriddb-id": "SteamGridDB-ID",
   "public": "Öffentlich",
   "public-notes": "Öffentliche Notizen",

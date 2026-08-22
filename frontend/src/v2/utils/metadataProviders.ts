@@ -17,6 +17,7 @@ export type ProviderIdKey =
   | "ra_id"
   | "flashpoint_id"
   | "hltb_id"
+  | "steam_id"
   | "gamelist_id"
   | "libretro_id";
 
@@ -79,6 +80,7 @@ export const METADATA_PROVIDERS: readonly MetadataProvider[] = [
     title: "HowLongToBeat match",
     logo: "hltb.png",
   },
+  { key: "steam_id", name: "Steam", title: "Steam match", logo: "steam.svg" },
   { key: "gamelist_id", name: "ES-DE", title: "ES-DE match", logo: "esde.png" },
   {
     key: "libretro_id",

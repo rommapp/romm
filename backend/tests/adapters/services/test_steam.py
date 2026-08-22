@@ -1,0 +1,106 @@
+import http
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import aiohttp
+import pytest
+from fastapi import HTTPException, status
+
+from adapters.services.steam import SteamService
+
+
+def _response(json_body: dict) -> MagicMock:
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.json = AsyncMock(return_value=json_body)
+    return response
+
+
+def _error(status_code: int) -> aiohttp.ClientResponseError:
+    return aiohttp.ClientResponseError(
+        request_info=MagicMock(), history=(), status=status_code
+    )
+
+
+@pytest.fixture(autouse=True)
+def no_pacing():
+    with (
+        patch("adapters.services.steam._rate_limiter.acquire", new_callable=AsyncMock),
+        patch("adapters.services.steam.asyncio.sleep", new_callable=AsyncMock),
+    ):
+        yield
+
+
+@pytest.fixture
+def session():
+    mock_session = AsyncMock()
+    with patch("adapters.services.steam.ctx_aiohttp_session") as mock_ctx:
+        mock_ctx.get.return_value = mock_session
+        yield mock_session
+
+
+async def test_search_apps_returns_items(session):
+    session.get.return_value = _response(
+        {"total": 1, "items": [{"type": "app", "name": "Portal", "id": 400}]}
+    )
+
+    items = await SteamService().search_apps("portal")
+
+    assert items == [{"type": "app", "name": "Portal", "id": 400}]
+    assert "storesearch" in str(session.get.await_args.args[0])
+
+
+async def test_search_apps_handles_empty_payload(session):
+    session.get.return_value = _response({})
+
+    assert await SteamService().search_apps("nothing at all") == []
+
+
+async def test_get_app_details_unwraps_envelope(session):
+    session.get.return_value = _response(
+        {"400": {"success": True, "data": {"type": "game", "name": "Portal"}}}
+    )
+
+    details = await SteamService().get_app_details(400)
+
+    assert details == {"type": "game", "name": "Portal"}
+
+
+async def test_get_app_details_returns_none_on_unsuccessful_envelope(session):
+    """Steam reports an unknown or region-locked app as success: false."""
+    session.get.return_value = _response({"400": {"success": False}})
+
+    assert await SteamService().get_app_details(400) is None
+
+
+async def test_request_retries_once_after_rate_limit(session):
+    session.get.side_effect = [
+        _error(http.HTTPStatus.TOO_MANY_REQUESTS),
+        _response({"total": 0, "items": []}),
+    ]
+
+    assert await SteamService().search_apps("portal") == []
+    assert session.get.await_count == 2
+
+
+async def test_request_gives_up_after_repeated_rate_limits(session):
+    session.get.side_effect = _error(http.HTTPStatus.TOO_MANY_REQUESTS)
+
+    assert await SteamService().search_apps("portal") == []
+    assert session.get.await_count == 3
+
+
+async def test_request_swallows_other_status_errors(session):
+    """A storefront hiccup must not abort the surrounding scan."""
+    session.get.side_effect = _error(http.HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    assert await SteamService().get_app_details(400) is None
+    assert session.get.await_count == 1
+
+
+async def test_request_raises_on_connection_error(session):
+    session.get.side_effect = aiohttp.ClientConnectionError()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await SteamService().search_apps("portal")
+
+    assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE

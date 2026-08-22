@@ -15,6 +15,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_tgdb_handler,
 )
 from handler.scan_handler import MetadataSource, ScanType
@@ -53,6 +54,7 @@ class ScanLibraryTask(PeriodicTask):
             MetadataSource.SGDB: meta_sgdb_handler.is_enabled(),
             MetadataSource.FLASHPOINT: meta_flashpoint_handler.is_enabled(),
             MetadataSource.HLTB: meta_hltb_handler.is_enabled(),
+            MetadataSource.STEAM: meta_steam_handler.is_enabled(),
             MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),
             MetadataSource.LIBRETRO: meta_libretro_handler.is_enabled(),
         }

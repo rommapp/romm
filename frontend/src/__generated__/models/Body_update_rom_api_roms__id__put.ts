@@ -17,6 +17,7 @@ export type Body_update_rom_api_roms__id__put = {
     tgdb_id?: (string | null);
     flashpoint_id?: (string | null);
     hltb_id?: (string | null);
+    steam_id?: (string | null);
     libretro_id?: (string | null);
     raw_igdb_metadata?: (string | null);
     raw_moby_metadata?: (string | null);
@@ -25,6 +26,7 @@ export type Body_update_rom_api_roms__id__put = {
     raw_hasheous_metadata?: (string | null);
     raw_flashpoint_metadata?: (string | null);
     raw_hltb_metadata?: (string | null);
+    raw_steam_metadata?: (string | null);
     raw_manual_metadata?: (string | null);
     name?: (string | null);
     name_sort_key?: (string | null);

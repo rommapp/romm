@@ -36,6 +36,7 @@ const GENERAL_PROVIDER_KEYS = new Set([
   "moby",
   "launchbox",
   "flashpoint",
+  "steam",
   "gamelist",
   "libretro",
 ]);

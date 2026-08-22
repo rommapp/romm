@@ -40,6 +40,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   sgdb: "SteamGridDB",
   flashpoint: "Flashpoint",
   hltb: "HowLongToBeat",
+  steam: "Steam",
   gamelist: "ES-DE gamelist",
   libretro: "Libretro",
   playmatch: "Playmatch",
@@ -54,6 +55,7 @@ const METADATA_SOURCES = [
   "hasheous",
   "tgdb",
   "flashpoint",
+  "steam",
   "hltb",
   "sgdb",
   "libretro",
@@ -71,6 +73,7 @@ const ARTWORK_SOURCES = [
   "hasheous",
   "tgdb",
   "flashpoint",
+  "steam",
   "hltb",
   "playmatch",
 ].map((value) => ({ value, label: PROVIDER_LABELS[value] }));

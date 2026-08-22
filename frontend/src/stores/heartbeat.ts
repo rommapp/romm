@@ -31,6 +31,7 @@ const defaultHeartbeat: Heartbeat = {
     TGDB_API_ENABLED: false,
     FLASHPOINT_API_ENABLED: false,
     HLTB_API_ENABLED: false,
+    STEAM_API_ENABLED: false,
     LIBRETRO_API_ENABLED: false,
   },
   FILESYSTEM: {
@@ -192,6 +193,14 @@ export default defineStore("heartbeat", {
           logo_path: "/assets/scrappers/hltb.png",
           disabled: !this.value.METADATA_SOURCES?.HLTB_API_ENABLED
             ? i18n.global.t("scan.api-key-missing")
+            : "",
+        },
+        {
+          name: "Steam",
+          value: "steam",
+          logo_path: "/assets/scrappers/steam.svg",
+          disabled: !this.value.METADATA_SOURCES?.STEAM_API_ENABLED
+            ? i18n.global.t("scan.disabled-by-admin")
             : "",
         },
         {
