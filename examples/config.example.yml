@@ -188,6 +188,12 @@
 #       2: # Player 3
 #       3: # Player 4
 
+# Emulator streaming: play a ROM through a real emulator running in a
+# webstation container, streamed into the browser, instead of RomM's built-in
+# web cores. `protocol: webstation` is the only supported container type; see
+# docs/STREAMING_MIGRATION.md if you are still on the per-emulator broker mods
+# (containers with a bare `platform:` key and no `protocol`), which are
+# deprecated and will stop working in a future release.
 # streaming:
 #   enabled: true
 #   containers:
@@ -209,12 +215,12 @@
 #       # "PCSX2" instead of the container's name.
 #       label: Emulation station
 #
-#       # server-to-broker URL. Optional on `protocol: webstation`, where the
-#       # broker shares the host and port above. Still required when `host` is
-#       # a reverse-proxied path (eg. /streaming), which carries no address
-#       # RomM can dial, and when `host` is https with a self-signed
-#       # certificate (as above), since the broker calls verify certificates.
-#       # In those cases point it at the plain-http address:
+#       # server-to-broker URL. Optional here, where the broker shares the
+#       # host and port above. Still required when `host` is a reverse-proxied
+#       # path (eg. /streaming), which carries no address RomM can dial, and
+#       # when `host` is https with a self-signed certificate (as above),
+#       # since the broker calls verify certificates. In those cases point it
+#       # at the plain-http address:
 #       broker_host: http://192.168.1.56:3010
 #
 #       platforms:
@@ -241,12 +247,16 @@
 #           label: Dolphin
 #           memory_card_sync: true
 #
-#     # One container per emulator still works. Here the container serves a
-#     # single platform, so its keys are that platform's settings.
-#     # - platform: ps2
-#     #   host: https://192.168.1.51:3001
-#     #   # If the emulator is on a different host, use its LAN IP. If on the
-#     #   # same Docker network, use the container name: http://pcsx2:8000
-#     #   broker_host: http://192.168.1.51:8000
-#     #   label: PCSX2
-#     #   memory_card_sync: true
+#     # A webstation container can also serve a single platform, if you'd
+#     # rather run one container per emulator than share one across all of
+#     # them. It's still one `platforms` entry, not the bare `platform:` key
+#     # the old per-emulator broker mods used.
+#     # - host: https://192.168.1.51:3001
+#     #   protocol: webstation
+#     #   subfolder: /streaming
+#     #   label: Emulation station
+#     #   platforms:
+#     #     ps2:
+#     #       emulator: pcsx2
+#     #       label: PCSX2
+#     #       memory_card_sync: true

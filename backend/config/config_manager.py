@@ -862,6 +862,22 @@ class ConfigManager:
             log.critical("Invalid config.yml: streaming.containers must be a list")
             sys.exit(3)
 
+        legacy_containers = [
+            container
+            for container in self.config.STREAMING_CONTAINERS
+            if isinstance(container, dict)
+            and str(container.get("protocol", "")).strip().lower() != "webstation"
+        ]
+        if legacy_containers:
+            log.warning(
+                "config.yml has %d streaming container(s) still using the "
+                "per-emulator broker mods (no `protocol: webstation`). That "
+                "protocol is deprecated and support for it will be removed "
+                "in a future release. See docs/STREAMING_MIGRATION.md to "
+                "move to a webstation container.",
+                len(legacy_containers),
+            )
+
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r") as config_file:
