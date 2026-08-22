@@ -624,9 +624,9 @@ class PlatformCapabilities(_SlotCapabilities):
 # Keyed by platform slug (lowercase). A platform absent here gets no save-state
 # UI until its broker's slot semantics are known.
 _PLATFORM_CAPABILITIES: dict[str, _SlotCapabilities] = {
-    # Dolphin (ngc, wii, wiiu): slots 1-7 manual, slot 8 autosave. Only the
-    # GameCube side has a memory card; Wii and Wii U saves live in NAND and
-    # round-trip through /save-file instead.
+    # Dolphin (ngc, wii): slots 1-7 manual, slot 8 autosave. Only the
+    # GameCube side has a memory card; Wii saves live in NAND and round-trip
+    # through /save-file instead.
     "ngc": {
         "max_slots": 7,
         "has_autosave": True,
@@ -634,12 +634,6 @@ _PLATFORM_CAPABILITIES: dict[str, _SlotCapabilities] = {
         "has_memory_card": True,
     },
     "wii": {
-        "max_slots": 7,
-        "has_autosave": True,
-        "autosave_slot": 8,
-        "has_memory_card": False,
-    },
-    "wiiu": {
         "max_slots": 7,
         "has_autosave": True,
         "autosave_slot": 8,
@@ -657,6 +651,69 @@ _PLATFORM_CAPABILITIES: dict[str, _SlotCapabilities] = {
     # states at all, so the launch screen reports the save instead of
     # offering slots. Saves round-trip through /save-file, not /memory-card.
     "xbox": {
+        "max_slots": 0,
+        "has_autosave": False,
+        "autosave_slot": 0,
+        "has_memory_card": False,
+    },
+    # Cemu (wiiu) has no control API and no save states at all; persistence
+    # is the game's own save data under the emulated MLC, round-tripped
+    # through /save-file.
+    "wiiu": {
+        "max_slots": 0,
+        "has_autosave": False,
+        "autosave_slot": 0,
+        "has_memory_card": False,
+    },
+    # DuckStation (psx) has no runtime control channel. SIGTERM triggers a
+    # graceful shutdown that writes one resume state, which doubles as the
+    # only save the broker can produce; the slot number is carried only for
+    # API symmetry, so it normalizes to the shared autosave slot like
+    # RetroArch below.
+    "psx": {
+        "max_slots": 0,
+        "has_autosave": True,
+        "autosave_slot": 10,
+        "has_memory_card": False,
+    },
+    # RPCS3 (ps3) follows DuckStation's model, not PCSX2's: the save-state
+    # hotkey always terminates the process once written, and loading one
+    # means booting straight into the .SAVESTAT file instead of the ROM. No
+    # live slots, one resume state.
+    "ps3": {
+        "max_slots": 0,
+        "has_autosave": True,
+        "autosave_slot": 10,
+        "has_memory_card": False,
+    },
+    # Azahar (3ds) has no control API and no save states; persistence is the
+    # game's own save data under the emulated SD card and NAND.
+    "3ds": {
+        "max_slots": 0,
+        "has_autosave": False,
+        "autosave_slot": 0,
+        "has_memory_card": False,
+    },
+    # shadPS4 (ps4) has no save states; persistence is the game's own save
+    # data under the emulated user savedata tree.
+    "ps4": {
+        "max_slots": 0,
+        "has_autosave": False,
+        "autosave_slot": 0,
+        "has_memory_card": False,
+    },
+    # Xenia (xbox360) has no save states and no external control API;
+    # persistence is the game's own save data under the emulated content
+    # tree, written through on every guest save.
+    "xbox360": {
+        "max_slots": 0,
+        "has_autosave": False,
+        "autosave_slot": 0,
+        "has_memory_card": False,
+    },
+    # Eden (switch) has no save states and no external control API;
+    # persistence is the game's own save data under the emulated NAND.
+    "switch": {
         "max_slots": 0,
         "has_autosave": False,
         "autosave_slot": 0,
@@ -2733,12 +2790,17 @@ def _memory_card_route(container: dict[str, Any]) -> str:
     """Where this container's broker serves the whole Slot-1 card.
 
     The webstation broker hosts several emulators off one container and the
-    card belongs to the emulator, not to a session, so it takes the name in the
-    query. The per-emulator brokers serve the one card they have.
+    card belongs to the emulator, not to a session, so it takes the name and
+    platform in the query: an emulator that only has a card on some of the
+    platforms it serves (Dolphin: GC, not Wii) needs the platform to tell
+    which. The per-emulator brokers serve the one card they have and ignore
+    the platform.
     """
     path = "/memory-card"
     if _is_webstation(container):
-        path = f"{path}?emulator={quote(_emulator_for_container(container), safe='')}"
+        emulator = quote(_emulator_for_container(container), safe="")
+        platform = quote(container.get("platform", ""), safe="")
+        path = f"{path}?emulator={emulator}&platform={platform}"
     return _transfer_route(container, path)
 
 

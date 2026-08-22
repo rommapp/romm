@@ -1975,11 +1975,11 @@ def test_load_state_allows_platform_autosave_slot(client, access_token):
 
 def test_load_state_rejects_slot_between_max_and_autosave(client, access_token):
     """Dolphin: slot 9 is neither a manual slot (1-7) nor the autosave (8)."""
-    rom = _rom_on("wiiu")
+    rom = _rom_on("ngc")
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         r = client.post(
-            "/api/streaming/sessions/wiiu/load-state",
+            "/api/streaming/sessions/ngc/load-state",
             json={"slot": 9},
             headers=_auth(access_token),
         )
@@ -4453,14 +4453,16 @@ def _mc_webstation_for(rom: Rom):
 
 def test_memory_card_route_names_the_emulator_on_a_webstation_container(rom: Rom):
     """One webstation container hosts several emulators, so the card it serves
-    has to be named; the per-emulator brokers serve the one card they have."""
+    has to be named; an emulator with a platform-gated card (Dolphin: GC, not
+    Wii) also needs the platform. The per-emulator brokers serve the one card
+    they have and need neither."""
     with _streaming(_mc_webstation_for(rom)):
         nested = _first_container(rom.platform_slug)
     with _streaming(_mc_container_for(rom)):
         flat = _first_container(rom.platform_slug)
     assert (
         streaming._memory_card_route(nested)
-        == "/stream/api/session/memory-card?emulator=pcsx2"
+        == f"/stream/api/session/memory-card?emulator=pcsx2&platform={rom.platform_slug}"
     )
     assert streaming._memory_card_route(flat) == "/memory-card"
 
