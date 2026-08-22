@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from typing import Any
 
 import pytest
 from fastapi import status
@@ -38,6 +39,25 @@ def _add_rom(admin_user: User, platform: Platform, name: str, fs_name: str) -> R
     return rom
 
 
+def _add_file(
+    rom: Rom,
+    file_name: str,
+    *,
+    file_path: str,
+    category: RomFileCategory = RomFileCategory.GAME,
+) -> None:
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name=file_name,
+            file_path=file_path,
+            file_size_bytes=10,
+            last_modified=LAST_MODIFIED,
+            category=category,
+        )
+    )
+
+
 @pytest.fixture
 def fileless_rom(admin_user: User, platform: Platform) -> Rom:
     """A ROM with no file rows at all, as a scan leaves one missing from disk."""
@@ -48,16 +68,7 @@ def fileless_rom(admin_user: User, platform: Platform) -> Rom:
 def flat_rom(admin_user: User, platform: Platform) -> Rom:
     """A single file sitting directly in the platform's roms directory."""
     rom = _add_rom(admin_user, platform, "flat_rom", "flat_rom.zip")
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="flat_rom.zip",
-            file_path=rom.fs_path,
-            file_size_bytes=10,
-            last_modified=LAST_MODIFIED,
-            category=RomFileCategory.GAME,
-        )
-    )
+    _add_file(rom, "flat_rom.zip", file_path=rom.fs_path)
     return rom
 
 
@@ -65,93 +76,34 @@ def flat_rom(admin_user: User, platform: Platform) -> Rom:
 def folder_rom(admin_user: User, platform: Platform) -> Rom:
     """A folder ROM with two files side by side at its top level."""
     rom = _add_rom(admin_user, platform, "folder_rom", "folder_rom")
-    file_path = f"{rom.fs_path}/folder_rom"
     for file_name in ("game.bin", "readme.txt"):
-        db_rom_handler.add_rom_file(
-            RomFile(
-                rom_id=rom.id,
-                file_name=file_name,
-                file_path=file_path,
-                file_size_bytes=10,
-                last_modified=LAST_MODIFIED,
-                category=RomFileCategory.GAME,
-            )
-        )
+        _add_file(rom, file_name, file_path=f"{rom.fs_path}/folder_rom")
     return rom
 
 
 @pytest.fixture
 def nested_rom(admin_user: User, platform: Platform) -> Rom:
     """A folder ROM whose only content file sits in a subdirectory."""
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="nested_rom",
-            slug="nested_rom_slug",
-            fs_name="nested_rom",
-            fs_name_no_tags="nested_rom",
-            fs_name_no_ext="nested_rom",
-            fs_extension="",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
-    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="disc.bin",
-            file_path=f"{platform.slug}/roms/nested_rom/data",
-            file_size_bytes=10,
-            last_modified=LAST_MODIFIED,
-            category=RomFileCategory.GAME,
-        )
-    )
+    rom = _add_rom(admin_user, platform, "nested_rom", "nested_rom")
+    _add_file(rom, "disc.bin", file_path=f"{rom.fs_path}/nested_rom/data")
     return rom
 
 
 @pytest.fixture
 def soundtrack_rom(admin_user: User, platform: Platform) -> Rom:
     """A folder ROM carrying a game file and a soundtrack track."""
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="ost_rom",
-            slug="ost_rom_slug",
-            fs_name="ost_rom",
-            fs_name_no_tags="ost_rom",
-            fs_name_no_ext="ost_rom",
-            fs_extension="",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
-    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-    file_path = f"{platform.slug}/roms/ost_rom"
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="game.bin",
-            file_path=file_path,
-            file_size_bytes=10,
-            last_modified=LAST_MODIFIED,
-            category=RomFileCategory.GAME,
-        )
-    )
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="01.mp3",
-            file_path=f"{file_path}/ost",
-            file_size_bytes=5,
-            last_modified=LAST_MODIFIED,
-            category=RomFileCategory.SOUNDTRACK,
-        )
+    rom = _add_rom(admin_user, platform, "ost_rom", "ost_rom")
+    file_path = f"{rom.fs_path}/ost_rom"
+    _add_file(rom, "game.bin", file_path=file_path)
+    _add_file(
+        rom, "01.mp3", file_path=f"{file_path}/ost", category=RomFileCategory.SOUNDTRACK
     )
     return rom
 
 
 def _fetch_one(
     client: TestClient, access_token: str, platform: Platform, *, with_files: bool
-) -> dict[str, object]:
+) -> dict[str, Any]:
     response = client.get(
         "/api/roms",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -174,10 +126,9 @@ def test_file_stats_match_between_derived_and_sql_paths(
     rom_fixture: str,
     request: pytest.FixtureRequest,
 ) -> None:
-    """`with_files=true` derives the flags in Python; `false` reads the subqueries.
+    """Pin the two implementations to each other, not to a hardcoded expectation.
 
-    Both have to answer the same for every file layout, so this pins the two
-    implementations to each other rather than to a hardcoded expectation.
+    `with_files=true` derives the flags in Python; `false` reads the subqueries.
     """
     request.getfixturevalue(rom_fixture)
 
@@ -190,7 +141,7 @@ def test_file_stats_match_between_derived_and_sql_paths(
 
 
 @pytest.fixture
-def query_counter() -> Iterator[list[str]]:
+def executed_statements() -> Iterator[list[str]]:
     statements: list[str] = []
 
     def before_execute(
@@ -215,38 +166,21 @@ def test_with_files_query_count_does_not_scale_with_file_count(
     access_token: str,
     platform: Platform,
     admin_user: User,
-    query_counter: list[str],
+    executed_statements: list[str],
 ) -> None:
-    """Track metadata is eager-loaded, so files are fetched in a fixed number
-    of queries rather than one per file."""
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="many_files_rom",
-            slug="many_files_rom_slug",
-            fs_name="many_files_rom",
-            fs_name_no_tags="many_files_rom",
-            fs_name_no_ext="many_files_rom",
-            fs_extension="",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
-    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    """Track metadata is eager-loaded, so files cost a fixed number of queries."""
+    rom = _add_rom(admin_user, platform, "many_files_rom", "many_files_rom")
     for index in range(25):
-        db_rom_handler.add_rom_file(
-            RomFile(
-                rom_id=rom.id,
-                file_name=f"{index:02d}.mp3",
-                file_path=f"{platform.slug}/roms/many_files_rom/ost",
-                file_size_bytes=5,
-                last_modified=LAST_MODIFIED,
-                category=RomFileCategory.SOUNDTRACK,
-            )
+        _add_file(
+            rom,
+            f"{index:02d}.mp3",
+            file_path=f"{rom.fs_path}/many_files_rom/ost",
+            category=RomFileCategory.SOUNDTRACK,
         )
 
-    query_counter.clear()
+    executed_statements.clear()
     item = _fetch_one(client, access_token, platform, with_files=True)
-    assert len(item["files"]) == 25  # type: ignore[arg-type]
+    assert len(item["files"]) == 25
 
-    track_meta_queries = [s for s in query_counter if "track_meta" in s]
+    track_meta_queries = [s for s in executed_statements if "track_meta" in s]
     assert len(track_meta_queries) <= 1

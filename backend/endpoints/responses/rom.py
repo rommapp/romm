@@ -363,8 +363,7 @@ class RomSchema(BaseModel):
         cls, db_rom: Rom, request: Request, has_notes: bool | None = None
     ) -> Rom:
         db_rom.rom_user = RomUserSchema.for_user(request.user.id, db_rom)  # type: ignore[assignment]
-        # `None` means read it off the relationship; callers that resolved the
-        # flag in a batched query pass it in and never load `Rom.notes`.
+        # Callers that batched the flag pass it in and never load `Rom.notes`.
         db_rom.has_notes = (  # type: ignore[assignment]
             any(
                 note.is_public or note.user_id == request.user.id

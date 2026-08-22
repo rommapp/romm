@@ -1234,8 +1234,7 @@ class DBRomsHandler(DBBaseHandler):
                     selectinload(Rom.sibling_roms).options(
                         noload(Rom.platform),
                         noload(Rom.metadatum),
-                        # Per-sibling is_main_sibling resolution needs each
-                        # sibling's RomUser (relationship is `lazy="raise"`).
+                        # is_main_sibling needs each sibling's RomUser.
                         selectinload(Rom.rom_users).options(
                             noload(RomUser.rom), noload(RomUser.user)
                         ),
