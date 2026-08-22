@@ -5,11 +5,13 @@ lightweight stand-ins rather than database rows.
 """
 
 from dataclasses import dataclass, field
+from typing import cast
 
 from handler.recommendation.diversity import (
     cap_by_series,
     series_keys,
 )
+from models.rom import Rom
 
 
 @dataclass
@@ -110,7 +112,7 @@ def test_unresolvable_items_are_dropped():
 def test_series_keys_returns_every_franchise_and_collection():
     entry = rom(1, collection="Madden NFL", franchises=["Madden", "NFL"])
 
-    assert series_keys(entry) == {"Madden", "NFL", "Madden NFL"}
+    assert series_keys(cast("Rom", entry)) == {"Madden", "NFL", "Madden NFL"}
 
 
 def test_a_series_listed_under_several_names_shares_one_allowance():

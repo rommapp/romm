@@ -1,11 +1,18 @@
 """Tests for the IGDB metadata handler."""
 
 import json
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adapters.services.igdb_types import GameType
+from adapters.services.igdb_types import (
+    AlternativeName,
+    ExpandableField,
+    Game,
+    GameLocalization,
+    GameType,
+)
 from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.igdb_handler import (
     FAMICOM_IGDB_ID,
@@ -14,6 +21,7 @@ from handler.metadata.igdb_handler import (
     SNES_IGDB_ID,
     SUPER_FAMICOM_IGDB_ID,
     IGDBHandler,
+    IGDBMetadata,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
     extract_metadata_from_igdb_rom,
@@ -29,12 +37,20 @@ def _make_game(
     name: str,
     alternative_names: list[str] | None = None,
     game_localizations: list[str] | None = None,
-) -> dict:
-    """Build a minimal IGDB Game dict for testing.
+) -> Game:
+    """Build a minimal IGDB Game for testing.
 
     ``alternative_names`` and ``game_localizations`` accept plain title strings
     and are wrapped into the ``{"name": ...}`` shape IGDB returns.
     """
+    alt_names: list[ExpandableField[AlternativeName]] = [
+        AlternativeName(id=i, name=n)
+        for i, n in enumerate(alternative_names or [], start=1)
+    ]
+    localizations: list[ExpandableField[GameLocalization]] = [
+        GameLocalization(id=i, name=n)
+        for i, n in enumerate(game_localizations or [], start=1)
+    ]
     return {
         "id": game_id,
         "name": name,
@@ -42,14 +58,11 @@ def _make_game(
         "summary": "",
         "total_rating": 0.0,
         "aggregated_rating": 0.0,
-        "first_release_date": None,
         "artworks": [],
-        "cover": None,
         "screenshots": [],
         "platforms": [{"id": GENESIS_IGDB_ID, "name": "Sega Mega Drive/Genesis"}],
-        "alternative_names": [{"name": n} for n in (alternative_names or [])],
+        "alternative_names": alt_names,
         "genres": [],
-        "franchise": None,
         "franchises": [],
         "collections": [],
         "game_modes": [],
@@ -64,7 +77,7 @@ def _make_game(
         "videos": [],
         "age_ratings": [],
         "multiplayer_modes": [],
-        "game_localizations": [{"name": n} for n in (game_localizations or [])],
+        "game_localizations": localizations,
     }
 
 
@@ -882,10 +895,10 @@ class TestSearchRomPrefixSupersetVariant:
         search_mock.assert_not_awaited()
 
 
-def _extract_metadata(**overrides) -> dict:
+def _extract_metadata(**overrides: Any) -> IGDBMetadata:
     """Run the extractor over a minimal game with the given fields overridden."""
     game = _make_game(1, "Test Game")
-    game.update(overrides)
+    game.update(cast("Game", overrides))
     return extract_metadata_from_igdb_rom(IGDBHandler(), game, GENESIS_IGDB_ID)
 
 

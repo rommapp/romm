@@ -526,16 +526,16 @@ def main() -> int:
         # rather than echoed: the point of the line is the sampling flags.
         flags: list[str] = []
         skip_next = False
-        for token in sys.argv[1:]:
+        for arg in sys.argv[1:]:
             if skip_next:
                 skip_next = False
                 continue
-            if token == "--report":
+            if arg == "--report":
                 skip_next = True
                 continue
-            if token.startswith("--report="):
+            if arg.startswith("--report="):
                 continue
-            flags.append(token)
+            flags.append(arg)
 
         write_report(
             args.report,

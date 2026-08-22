@@ -23,7 +23,7 @@ import argparse
 import asyncio
 import os
 import sys
-from typing import Any
+from typing import Any, cast
 
 # Allow running as `python3 tools/backfill_igdb_tags.py` from backend/.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -111,15 +111,17 @@ async def fetch_tags(igdb_ids: list[int]) -> dict[int, dict[str, Any]]:
             game_id = game.get("id")
             if game_id is None:
                 continue
+            # Keyed by the loop variables below, which a TypedDict cannot answer.
+            fields = cast("dict[str, Any]", game)
             values: dict[str, Any] = {
                 key: [
                     entry.get("name", "")
-                    for entry in (game.get(key) or [])
+                    for entry in (fields.get(key) or [])
                     if isinstance(entry, dict) and entry.get("name")
                 ]
                 for key in TAG_KEYS
             }
-            values.update({key: game.get(key, 0) for key in SCALAR_KEYS})
+            values.update({key: fields.get(key, 0) for key in SCALAR_KEYS})
             involved = game.get("involved_companies") or []
             for key, role in ROLE_KEYS.items():
                 values[key] = [
