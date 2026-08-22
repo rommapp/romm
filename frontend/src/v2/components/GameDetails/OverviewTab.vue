@@ -24,8 +24,10 @@ import { useI18n } from "vue-i18n";
 import type {
   IGDBRelatedGame,
   RomHLTBMetadata,
+  SimilarRomSchema,
   UserCollectionSchema,
 } from "@/__generated__";
+import { useUISettings } from "@/composables/useUISettings";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
 import CollectionTile, {
@@ -38,6 +40,7 @@ import InfoGrid from "@/v2/components/GameDetails/InfoGrid.vue";
 import PlayerCountBadge from "@/v2/components/GameDetails/PlayerCountBadge.vue";
 import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
 import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
+import SimilarGamesGrid from "@/v2/components/GameDetails/SimilarGamesGrid.vue";
 import { PROVIDERS, providerId } from "@/v2/components/GameDetails/providers";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
@@ -60,8 +63,17 @@ const props = defineProps<{
   remakes: IGDBRelatedGame[];
   remasters: IGDBRelatedGame[];
   ports: IGDBRelatedGame[];
-  similarGames: IGDBRelatedGame[];
+  similarRoms: SimilarRomSchema[];
+  webp?: boolean;
 }>();
+
+// The same preference hides the "Recommended for you" row on Home, so the
+// feature can be switched off wherever it appears rather than per surface.
+const { showRecommendations } = useUISettings();
+
+const visibleSimilarRoms = computed(() =>
+  showRecommendations.value ? props.similarRoms : [],
+);
 
 const hasAgeRatings = computed(
   () => (props.rom.metadatum?.age_ratings?.length ?? 0) > 0,
@@ -134,7 +146,7 @@ const hasRelated = computed(
       props.remakes.length +
       props.remasters.length +
       props.ports.length +
-      props.similarGames.length >
+      visibleSimilarRoms.value.length >
     0,
 );
 
@@ -323,12 +335,12 @@ const coverSource = computed(() => {
         </h4>
         <RelatedGamesGrid title="" :items="ports" />
       </div>
-      <div v-if="similarGames.length" class="overview-tab__section">
+      <div v-if="visibleSimilarRoms.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-shape-outline" size="14" />
-          {{ t("rom.related-similar-games") }}
+          {{ t("recommendations.similar-games") }}
         </h4>
-        <RelatedGamesGrid title="" :items="similarGames" />
+        <SimilarGamesGrid :items="visibleSimilarRoms" :webp="webp" />
       </div>
     </template>
 

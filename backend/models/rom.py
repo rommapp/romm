@@ -87,6 +87,7 @@ if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
     from models.collection import Collection
     from models.platform import Platform
+    from models.recommendation import RomSimilarity
     from models.user import User
 
 
@@ -285,11 +286,25 @@ class RomMetadata(BaseModel):
     franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    # `companies` split by IGDB involvement role. A developer's games really do
+    # resemble each other; a publisher spans everything it ever shipped.
+    developers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    publishers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    # IGDB-only descriptors: community tags plus the curated theme and
+    # viewpoint lists. Far more specific about how a game plays than genre.
+    keywords: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    themes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    player_perspectives: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(), default=[]
+    )
     player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")
     first_release_date: Mapped[int | None] = mapped_column(BigInteger(), default=None)
     average_rating: Mapped[float | None] = mapped_column(default=None)
+    # Votes behind `average_rating`, from IGDB. Zero where no provider
+    # reported one, which is how an unbacked perfect score is spotted.
+    rating_count: Mapped[int | None] = mapped_column(BigInteger(), default=0)
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")
 
@@ -317,8 +332,15 @@ class RomFacets(BaseModel):
     franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    developers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    publishers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    keywords: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    themes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    player_perspectives: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(), default=[]
+    )
     player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
@@ -532,6 +554,13 @@ class Rom(BaseModel):
         collection_class=set,
         lazy="raise",
         back_populates="roms",
+    )
+    similar_roms: Mapped[list[RomSimilarity]] = relationship(
+        "RomSimilarity",
+        foreign_keys="RomSimilarity.rom_id",
+        lazy="raise",
+        back_populates="rom",
+        passive_deletes=True,
     )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

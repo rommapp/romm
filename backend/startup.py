@@ -7,6 +7,7 @@ from opentelemetry import trace
 from rq.job import Job
 
 from config import (
+    ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS,
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     ENABLE_SCHEDULED_RESCAN,
     ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
@@ -32,6 +33,7 @@ from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
 from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
+from tasks.scheduled.build_recommendations import build_recommendations_task
 from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
 from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
@@ -159,6 +161,9 @@ async def main() -> None:
             log.info("Starting scheduled convert images to webp")
             convert_images_to_webp_task.init()
             _enqueue_convert_images_to_webp()
+        if ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS:
+            log.info("Starting scheduled recommendations index build")
+            build_recommendations_task.init()
         if ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC:
             log.info("Starting scheduled RetroAchievements progress sync")
             sync_retroachievements_progress_task.init()
