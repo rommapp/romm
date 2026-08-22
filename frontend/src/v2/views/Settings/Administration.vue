@@ -1,13 +1,13 @@
 <script setup lang="ts">
 // Administration — v2-native page chrome for the admin-only sections.
 // Uses the shared `RTabNav` primitive (same one Library Management
-// uses) to expose Users / Groups / Tasks as sibling tabs, keeping
-// the `?tab=` query param so deep links survive a reload.
+// uses) to expose Users / Groups / Tasks / Streaming as sibling tabs,
+// keeping the `?tab=` query param so deep links survive a reload.
 //
 // Tabs are gated by scope: `users.write` for the groups tab,
-// `tasks.run` for the Tasks tab. Users tab is always visible to anyone
-// who can reach this route (route-level guard already checks
-// `app.admin`).
+// `tasks.run` for the Tasks tab, `app.admin` for Streaming, whose every
+// endpoint is admin-only. Users tab is always visible to anyone who can
+// reach this route (route-level guard already checks `app.admin`).
 import { RTabNav, type RTabNavItem } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -18,16 +18,19 @@ import EditUserDialog from "@/v2/components/Settings/EditUserDialog.vue";
 import GroupFormDialog from "@/v2/components/Settings/GroupFormDialog.vue";
 import InviteLinkDialog from "@/v2/components/Settings/InviteLinkDialog.vue";
 import PermissionGroupsSection from "@/v2/components/Settings/PermissionGroupsSection.vue";
+import StreamingSection from "@/v2/components/Settings/StreamingSection.vue";
 import TasksSection from "@/v2/components/Settings/TasksSection.vue";
 import UsersSection from "@/v2/components/Settings/UsersSection.vue";
+import { useCan } from "@/v2/composables/useCan";
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const auth = storeAuth();
+const isAdmin = useCan("app.admin");
 
-type Tab = "users" | "groups" | "tasks";
-const validTabs: Tab[] = ["users", "groups", "tasks"];
+type Tab = "users" | "groups" | "tasks" | "streaming";
+const validTabs: Tab[] = ["users", "groups", "tasks", "streaming"];
 
 const tab = ref<Tab>(
   (validTabs as string[]).includes(route.query.tab as string)
@@ -78,8 +81,26 @@ const tabs = computed<RTabNavItem[]>(() => {
       icon: "mdi-pulse",
     });
   }
+  if (isAdmin.value) {
+    items.push({
+      id: "streaming",
+      label: t("settings.streaming"),
+      icon: "mdi-monitor-dashboard",
+    });
+  }
   return items;
 });
+
+// A tab nobody can see is not one the query param may select: the route
+// admits `users.write` as well, and Streaming would otherwise deep-link them
+// to a panel whose every request 403s.
+watch(
+  tabs,
+  (items) => {
+    if (!items.some((item) => item.id === tab.value)) tab.value = "users";
+  },
+  { immediate: true },
+);
 
 // Bridge between RTabNav's string modelValue and our Tab union.
 const tabModel = computed<string>({
@@ -97,6 +118,7 @@ const tabModel = computed<string>({
     <UsersSection v-if="tab === 'users'" />
     <PermissionGroupsSection v-else-if="tab === 'groups'" />
     <TasksSection v-else-if="tab === 'tasks'" />
+    <StreamingSection v-else-if="tab === 'streaming' && isAdmin" />
 
     <CreateUserDialog />
     <EditUserDialog />

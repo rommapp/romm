@@ -38,6 +38,7 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   emulatorjs: () => import("@/v2/views/Player/EmulatorJS.vue"),
   ruffle: () => import("@/v2/views/Player/Ruffle.vue"),
   stream: () => import("@/v2/views/Player/Stream.vue"),
+  "stream-desktop": () => import("@/v2/views/Player/Desktop.vue"),
   // Wave 6 — Library Tools (Scan / Upload) + Pair
   scan: () => import("@/v2/views/Scan.vue"),
   upload: () => import("@/v2/views/Upload.vue"),

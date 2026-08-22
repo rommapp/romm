@@ -10,5 +10,14 @@
   "now-playing": "In gioco",
   "playing-on": "Sta giocando su {device}",
   "playing-since": "Sta giocando da {time}",
-  "total-sessions": "Sessioni totali"
+  "release-failed": "Impossibile liberare la sessione",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
+  "release-session": "Libera",
+  "release-session-body": "Questo fermerà immediatamente {game} e disconnetterà {user}. I progressi non salvati andranno persi.",
+  "release-session-title": "Liberare la sessione di streaming?",
+  "session-released": "Sessione liberata",
+  "streaming-sessions": "Sessioni di streaming",
+  "total-sessions": "Sessioni totali",
+  "unknown-user": "Utente sconosciuto"
 }

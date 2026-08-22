@@ -348,3 +348,32 @@ def test_config_update_preserves_streaming_section(tmp_path):
             "label": "PCSX2",
         }
     ]
+
+
+def test_config_update_preserves_nested_container_platforms(tmp_path):
+    """A container's `platforms` map is the only nested mapping inside the
+    containers list, so it is the shape a runtime rewrite could flatten."""
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "streaming:\n"
+        "  enabled: true\n"
+        "  containers:\n"
+        "    - host: https://192.168.1.51:3001\n"
+        "      broker_host: http://192.168.1.51:8000\n"
+        "      label: WEBSTATION\n"
+        "      platforms:\n"
+        "        ps2: pcsx2\n"
+        "        ngc: dolphin\n"
+    )
+    loader = ConfigManager(str(config_file))
+    loader.add_platform_binding("gc", "ngc")
+
+    reloaded = ConfigManager(str(config_file))
+    assert reloaded.config.STREAMING_CONTAINERS == [
+        {
+            "host": "https://192.168.1.51:3001",
+            "broker_host": "http://192.168.1.51:8000",
+            "label": "WEBSTATION",
+            "platforms": {"ps2": "pcsx2", "ngc": "dolphin"},
+        }
+    ]
