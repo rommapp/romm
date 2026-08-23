@@ -1,7 +1,10 @@
 """Tests for startup-time auto-enqueue of the recompute task."""
 
 import startup
+from rq.exceptions import DuplicateJobError
 from rq.job import JOB_ID_PATTERN
+
+from tasks.registry import get_task
 
 
 def test_enqueue_recompute_skips_when_no_missing_hashes(mocker):
@@ -21,15 +24,17 @@ def test_enqueue_recompute_fires_when_missing_hashes_present(mocker):
     mocker.patch.object(
         startup.db_save_handler, "count_saves_missing_content_hash", return_value=42
     )
-    mocker.patch.object(startup.Job, "exists", return_value=False)
     enqueue = mocker.patch.object(startup.low_prio_queue, "enqueue")
 
     startup._enqueue_recompute_save_hashes_if_needed()
 
     enqueue.assert_called_once()
     args, kwargs = enqueue.call_args
-    # First positional arg is the bound task.run method
-    assert args[0].__self__ is startup.recompute_save_content_hashes_task
+    # Enqueued by name, so the payload survives the code moving underneath it
+    assert args[0] is startup.run_task_by_name
+    assert kwargs["kwargs"] == {"name": startup.RECOMPUTE_SAVE_HASHES_TASK}
+    # RQ settles the duplicate check and the enqueue in one round trip
+    assert kwargs["unique"] is True
     # Sanity-check the meta payload routes correctly in the task list UI
     assert kwargs["meta"]["task_name"] == (
         startup.recompute_save_content_hashes_task.title
@@ -50,17 +55,26 @@ def test_recompute_job_id_is_valid_rq_id():
     assert JOB_ID_PATTERN.fullmatch(startup.RECOMPUTE_SAVE_HASHES_JOB_ID)
 
 
-def test_enqueue_recompute_skips_when_already_queued(mocker):
-    """An in-flight job from a previous restart -> skip enqueue, don't double up."""
+def test_enqueue_recompute_tolerates_an_in_flight_job(mocker):
+    """An in-flight job from a previous restart -> RQ refuses, startup carries on."""
     mocker.patch.object(
         startup.db_save_handler, "count_saves_missing_content_hash", return_value=10
     )
-    mocker.patch.object(startup.Job, "exists", return_value=True)
-    enqueue = mocker.patch.object(startup.low_prio_queue, "enqueue")
+    mocker.patch.object(
+        startup.low_prio_queue, "enqueue", side_effect=DuplicateJobError("exists")
+    )
 
     startup._enqueue_recompute_save_hashes_if_needed()
 
-    enqueue.assert_not_called()
+
+def test_both_backfills_name_a_registered_task(mocker):
+    """The name in the payload is all the runner gets, so it has to resolve."""
+    assert get_task(startup.RECOMPUTE_SAVE_HASHES_TASK) is (
+        startup.recompute_save_content_hashes_task
+    )
+    assert get_task(startup.CONVERT_IMAGES_TO_WEBP_TASK) is (
+        startup.convert_images_to_webp_task
+    )
 
 
 def test_enqueue_recompute_swallows_count_error(mocker):
@@ -82,7 +96,6 @@ def test_enqueue_recompute_swallows_enqueue_error(mocker):
     mocker.patch.object(
         startup.db_save_handler, "count_saves_missing_content_hash", return_value=5
     )
-    mocker.patch.object(startup.Job, "exists", return_value=False)
     mocker.patch.object(
         startup.low_prio_queue, "enqueue", side_effect=RuntimeError("redis gone")
     )
@@ -92,14 +105,15 @@ def test_enqueue_recompute_swallows_enqueue_error(mocker):
 
 def test_enqueue_convert_webp_fires_when_not_queued(mocker):
     """No in-flight bootstrap job -> enqueue the backfill exactly once."""
-    mocker.patch.object(startup.Job, "exists", return_value=False)
     enqueue = mocker.patch.object(startup.low_prio_queue, "enqueue")
 
     startup._enqueue_convert_images_to_webp()
 
     enqueue.assert_called_once()
     args, kwargs = enqueue.call_args
-    assert args[0].__self__ is startup.convert_images_to_webp_task
+    assert args[0] is startup.run_task_by_name
+    assert kwargs["kwargs"] == {"name": startup.CONVERT_IMAGES_TO_WEBP_TASK}
+    assert kwargs["unique"] is True
     assert kwargs["meta"]["task_name"] == startup.convert_images_to_webp_task.title
     assert kwargs["meta"]["task_type"] == (
         startup.convert_images_to_webp_task.task_type.value
@@ -114,19 +128,17 @@ def test_convert_webp_job_id_is_valid_rq_id():
     assert JOB_ID_PATTERN.fullmatch(startup.CONVERT_IMAGES_TO_WEBP_JOB_ID)
 
 
-def test_enqueue_convert_webp_skips_when_already_queued(mocker):
-    """An in-flight job from a previous restart -> skip enqueue, don't double up."""
-    mocker.patch.object(startup.Job, "exists", return_value=True)
-    enqueue = mocker.patch.object(startup.low_prio_queue, "enqueue")
+def test_enqueue_convert_webp_tolerates_an_in_flight_job(mocker):
+    """An in-flight job from a previous restart -> RQ refuses, startup carries on."""
+    mocker.patch.object(
+        startup.low_prio_queue, "enqueue", side_effect=DuplicateJobError("exists")
+    )
 
     startup._enqueue_convert_images_to_webp()
-
-    enqueue.assert_not_called()
 
 
 def test_enqueue_convert_webp_swallows_enqueue_error(mocker):
     """A failed enqueue must not crash startup."""
-    mocker.patch.object(startup.Job, "exists", return_value=False)
     mocker.patch.object(
         startup.low_prio_queue, "enqueue", side_effect=RuntimeError("redis gone")
     )

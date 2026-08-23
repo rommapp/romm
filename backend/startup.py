@@ -4,7 +4,7 @@ import asyncio
 
 import sentry_sdk
 from opentelemetry import trace
-from rq.job import Job
+from rq.exceptions import DuplicateJobError
 
 from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
@@ -35,6 +35,7 @@ from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
+from tasks.tasks import run_task_by_name
 from utils import get_version
 from utils.cache import conditionally_set_cache
 from utils.context import initialize_context
@@ -43,6 +44,11 @@ tracer = trace.get_tracer(__name__)
 
 RECOMPUTE_SAVE_HASHES_JOB_ID = "recompute_save_content_hashes_bootstrap"
 CONVERT_IMAGES_TO_WEBP_JOB_ID = "convert_images_to_webp_bootstrap"
+
+# The names these backfills are registered under, which is what the payload
+# carries rather than the task itself.
+RECOMPUTE_SAVE_HASHES_TASK = "recompute_save_content_hashes"
+CONVERT_IMAGES_TO_WEBP_TASK = "convert_images_to_webp"
 
 
 def _enqueue_recompute_save_hashes_if_needed() -> None:
@@ -66,16 +72,13 @@ def _enqueue_recompute_save_hashes_if_needed() -> None:
         return
 
     try:
-        if Job.exists(RECOMPUTE_SAVE_HASHES_JOB_ID, low_prio_queue.connection):
-            log.info(
-                "recompute_save_content_hashes already queued or running from a "
-                "previous restart; skipping enqueue"
-            )
-            return
-
+        # A fixed id with unique=True settles it in one round trip, so two
+        # instances starting together cannot both get past the check.
         low_prio_queue.enqueue(
-            recompute_save_content_hashes_task.run,
+            run_task_by_name,
+            kwargs={"name": RECOMPUTE_SAVE_HASHES_TASK},
             job_id=RECOMPUTE_SAVE_HASHES_JOB_ID,
+            unique=True,
             job_timeout=TASK_TIMEOUT,
             meta={
                 "task_name": recompute_save_content_hashes_task.title,
@@ -85,6 +88,11 @@ def _enqueue_recompute_save_hashes_if_needed() -> None:
         log.info(
             f"Enqueued recompute_save_content_hashes ({missing} saves with NULL content_hash); "
             "running on low-priority worker"
+        )
+    except DuplicateJobError:
+        log.info(
+            "recompute_save_content_hashes already queued or running from a "
+            "previous restart; skipping enqueue"
         )
     except Exception:
         log.exception(
@@ -101,16 +109,11 @@ def _enqueue_convert_images_to_webp() -> None:
     enabling. Without a backfill, existing covers have no .webp sibling and
     every request 404s until the cron eventually runs."""
     try:
-        if Job.exists(CONVERT_IMAGES_TO_WEBP_JOB_ID, low_prio_queue.connection):
-            log.info(
-                "convert_images_to_webp already queued or running from a "
-                "previous restart; skipping enqueue"
-            )
-            return
-
         low_prio_queue.enqueue(
-            convert_images_to_webp_task.run,
+            run_task_by_name,
+            kwargs={"name": CONVERT_IMAGES_TO_WEBP_TASK},
             job_id=CONVERT_IMAGES_TO_WEBP_JOB_ID,
+            unique=True,
             job_timeout=TASK_TIMEOUT,
             meta={
                 "task_name": convert_images_to_webp_task.title,
@@ -118,6 +121,11 @@ def _enqueue_convert_images_to_webp() -> None:
             },
         )
         log.info("Enqueued convert_images_to_webp backfill on low-priority worker")
+    except DuplicateJobError:
+        log.info(
+            "convert_images_to_webp already queued or running from a previous "
+            "restart; skipping enqueue"
+        )
     except Exception:
         log.exception(
             "Failed to enqueue convert_images_to_webp; admins can run it manually"
