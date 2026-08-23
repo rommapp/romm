@@ -582,3 +582,39 @@ class TestIntegration:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestRunSingleTaskArgumentHandling:
+    """A request body must not be able to choose which task runs."""
+
+    @patch("endpoints.tasks.low_prio_queue.enqueue", return_value=create_mock_job())
+    @patch(
+        "endpoints.tasks.MANUAL_TASKS",
+        {
+            "allowed_task": Mock(
+                spec=Task,
+                task_type=TaskType.CLEANUP,
+                title="Allowed Task",
+                description="Allowed",
+                enabled=True,
+                manual_run=True,
+                can_run_manually=True,
+                timeout=300,
+            ),
+        },
+    )
+    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ())
+    def test_body_cannot_override_the_task_name(
+        self, mock_enqueue, client, access_token
+    ):
+        response = client.post(
+            "/api/tasks/run/allowed_task",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"name": "sync_push_pull"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert mock_enqueue.call_args.kwargs["kwargs"] == {
+            "name": "allowed_task",
+            "task_kwargs": {"name": "sync_push_pull"},
+        }

@@ -179,9 +179,21 @@ class TestRunTaskByName:
         task.run = AsyncMock(return_value=None)
         mocker.patch("tasks.registry.get_task", return_value=task)
 
-        await run_task_by_name("some_task", force=True)
+        await run_task_by_name("some_task", {"force": True})
 
         task.run.assert_awaited_once_with(force=True)
+
+    async def test_forwarded_arguments_cannot_name_another_task(self, mocker):
+        # The arguments reach the task rather than this function's own name, so a
+        # request body cannot redirect the run to a task it was not allowed.
+        task = MagicMock()
+        task.run = AsyncMock(return_value=None)
+        get_task = mocker.patch("tasks.registry.get_task", return_value=task)
+
+        await run_task_by_name("allowed_task", {"name": "hidden_task"})
+
+        get_task.assert_called_once_with("allowed_task")
+        task.run.assert_awaited_once_with(name="hidden_task")
 
     async def test_raises_for_a_name_that_is_not_registered(self, mocker):
         mocker.patch("tasks.registry.get_task", return_value=None)

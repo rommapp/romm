@@ -319,10 +319,12 @@ async def run_single_task(
         )
 
     # Enqueued by name, like the scheduled runs, so the payload carries no
-    # pickled task and the job is readable by whatever version picks it up.
+    # pickled task and the job is readable by whatever version picks it up. The
+    # caller's arguments are nested rather than spread, so a body cannot name a
+    # different task than the one this route just authorized.
     job = low_prio_queue.enqueue(
         run_task_by_name,
-        kwargs={"name": task_name, **(task_kwargs or {})},
+        kwargs={"name": task_name, "task_kwargs": task_kwargs or {}},
         job_timeout=task_instance.timeout,
         result_ttl=TASK_RESULT_TTL,
         meta={

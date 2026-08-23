@@ -11,7 +11,7 @@ from logger.logger import log
 from utils.context import ctx_httpx_client
 
 
-async def run_task_by_name(name: str, **kwargs: Any) -> Any:
+async def run_task_by_name(name: str, task_kwargs: dict[str, Any] | None = None) -> Any:
     """Run the task registered under ``name``.
 
     Every scheduled and manually triggered task is enqueued through here, so a
@@ -20,7 +20,8 @@ async def run_task_by_name(name: str, **kwargs: Any) -> Any:
 
     Args:
         name: The key the task is registered under.
-        kwargs: Forwarded to the task's ``run``.
+        task_kwargs: Forwarded to the task's ``run``, nested so that they cannot
+            collide with the name of the task to run.
 
     Returns:
         Whatever the task returns.
@@ -33,7 +34,7 @@ async def run_task_by_name(name: str, **kwargs: Any) -> Any:
     if task is None:
         raise TaskNotFoundException(name)
 
-    return await task.run(**kwargs)
+    return await task.run(**(task_kwargs or {}))
 
 
 def update_job_meta(metadata: dict[str, Any]) -> None:
