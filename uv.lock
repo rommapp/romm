@@ -11,6 +11,7 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
+rq = "2026-08-18T00:00:00Z"
 vcrpy = "2026-06-18T00:00:00Z"
 
 [[package]]
@@ -2319,7 +2320,7 @@ requires-dist = [
     { name = "python-socketio", specifier = "~=5.16" },
     { name = "pyyaml", specifier = "~=6.0" },
     { name = "redis", specifier = "~=6.2" },
-    { name = "rq", specifier = "~=2.7" },
+    { name = "rq", specifier = "~=2.11" },
     { name = "rq-scheduler", git = "https://github.com/adamantike/rq-scheduler.git?rev=feat%2Fscript-options-username-ssl" },
     { name = "sentry-sdk", specifier = "~=2.32" },
     { name = "sqlalchemy", extras = ["mariadb-connector", "mysql-connector", "postgresql-psycopg"], specifier = "~=2.0" },
@@ -2343,16 +2344,16 @@ provides-extras = ["dev", "test"]
 
 [[package]]
 name = "rq"
-version = "2.9.0"
+version = "2.11.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "croniter" },
     { name = "redis" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/15/5e/43a7a61f3ebfa79789c72bf442a47fd80bb1a743caeea47b2b833001f388/rq-2.9.0.tar.gz", hash = "sha256:db5dfc1e1fe80ef977fd557d4305107dcf99a80b33d381c9a06e8a2bb11730e5", size = 744959, upload-time = "2026-05-19T15:00:29.894Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d7/8a/7fcf759b5b685b26ef029af24575359bf8f5b5b340d92b08bb193a4163b1/rq-2.11.0.tar.gz", hash = "sha256:1ed9db6b685707a7dfd535532a408f1a8f0a5ad720a307be6b844f4142999e78", size = 759304, upload-time = "2026-08-17T02:59:19.695Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4d/a9/aa38ae2505e5dcb1e898f83a263e703b05829580f75ee86c5e480760ae1a/rq-2.9.0-py3-none-any.whl", hash = "sha256:665b9ad34e36ea15913e60d2a32e1775fef1e9aff907bcae297d6f70dccffed2", size = 120113, upload-time = "2026-05-19T15:00:27.511Z" },
+    { url = "https://files.pythonhosted.org/packages/80/1e/f85cba91fe58c63812b4acce073fc448230381c4785e03832f455305ff82/rq-2.11.0-py3-none-any.whl", hash = "sha256:2f54a31375d7c1b5a1642acef4948809ce6484775b9741fe7edd9399ec9306a9", size = 126654, upload-time = "2026-08-17T02:59:17.112Z" },
 ]
 
 [[package]]
