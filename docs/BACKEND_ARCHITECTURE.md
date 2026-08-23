@@ -299,7 +299,9 @@ backend/
 │       └── known_bios_files.json    # Verified BIOS hashes
 │
 ├── tasks/                     # Background job system
-│   ├── tasks.py               # Base Task, PeriodicTask classes
+│   ├── tasks.py               # Base Task, PeriodicTask, run_task_by_name
+│   ├── registry.py            # Name -> task catalog, the API and cron address
+│   ├── cron_config.py         # Schedule the `rq cron` process loads
 │   ├── scheduled/             # Cron-scheduled tasks
 │   │   ├── scan_library.py                    # Nightly library rescan
 │   │   ├── sync_retroachievements_progress.py # Pull RA user progress
@@ -353,13 +355,7 @@ backend/
 ```text
 1. alembic upgrade head          # Run database migrations
 2. startup.main()                # Async startup tasks
-   ├── Initialize scheduled jobs (RQ Scheduler)
-   │   ├── cleanup_netplay
-   │   ├── scan_library (if ENABLE_SCHEDULED_RESCAN)
-   │   ├── update_switch_titledb
-   │   ├── update_launchbox_metadata
-   │   ├── convert_images_to_webp
-   │   └── sync_retroachievements_progress
+   ├── Clear stale delayed scans and legacy scheduler keys
    └── Load fixture caches into Redis
        ├── mame_index.json
        ├── scummvm_index.json
@@ -1386,7 +1382,13 @@ Redis-backed for horizontal scaling across multiple server instances.
 
 ### Scheduled Tasks
 
-Configured via environment variables and managed by RQ Scheduler:
+Declared in `tasks/registry.py` and registered with RQ's cron scheduler by
+`tasks/cron_config.py`, which the `rq cron` process loads at start. A task is
+registered only when it is enabled and has a cron string, so turning one off is
+a restart rather than an unschedule. Delayed jobs, which is how the filesystem
+watcher defers a rescan, are released by the worker itself (`--with-scheduler`).
+
+Toggled via environment variables:
 
 | Task                              | Env Toggle                                         | Default Cron       | Description            |
 | --------------------------------- | -------------------------------------------------- | ------------------ | ---------------------- |

@@ -17,7 +17,6 @@ class CleanupNetplayTask(PeriodicTask):
 
     async def run(self) -> None:
         if not self.enabled:
-            self.unschedule()
             return
 
         netplay_rooms = await netplay_handler.get_all()

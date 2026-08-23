@@ -1,6 +1,7 @@
 import os
 import sys
 from enum import Enum
+from typing import Any
 
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
@@ -88,4 +89,19 @@ def get_job_status(job: Job) -> JobStatus | None:
     try:
         return job.get_status()
     except InvalidJobOperation:
+        return None
+
+
+def get_job_kwargs(job: Job) -> dict[str, Any] | None:
+    """Safely get the keyword arguments an RQ job was enqueued with.
+
+    Args:
+        job: The RQ Job object to read
+
+    Returns:
+        The keyword arguments, or None if the payload cannot be deserialized
+    """
+    try:
+        return job.kwargs
+    except DeserializationError:
         return None

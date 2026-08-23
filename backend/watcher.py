@@ -8,8 +8,6 @@ from typing import cast
 
 import sentry_sdk
 from opentelemetry import trace
-from rq import Worker
-from rq.job import Job, JobStatus
 
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
@@ -20,7 +18,10 @@ from config import (
     TASK_RESULT_TTL,
 )
 from config.config_manager import config_manager as cm
-from endpoints.sockets.scan import scan_platforms
+from endpoints.sockets.scan import (
+    get_pending_scan_jobs,
+    scan_platforms,
+)
 from handler.database import db_platform_handler
 from handler.metadata import (
     meta_csdb_handler,
@@ -40,12 +41,12 @@ from handler.metadata import (
     meta_steam_handler,
     meta_tgdb_handler,
 )
-from handler.redis_handler import get_job_func_name, low_prio_queue, redis_client
+from handler.redis_handler import get_job_kwargs, low_prio_queue
 from handler.scan_handler import MetadataSource, ScanType
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
-from tasks.tasks import TaskType, tasks_scheduler
+from tasks.tasks import TaskType
 from utils import get_version
 
 sentry_sdk.init(
@@ -72,50 +73,6 @@ VALID_EVENTS = frozenset(
 # A change is a tuple representing a file change, first element is the event type, second is the
 # path of the file or directory that changed.
 Change = tuple[EventType, str]
-
-
-def get_pending_scan_jobs() -> list[Job]:
-    """Get all pending scan jobs (scheduled, queued, or running) for scan_platforms function.
-
-    Returns:
-        list[Job]: List of pending scan jobs that are not completed or failed
-    """
-    pending_jobs = []
-
-    # Get jobs from the scheduler (delayed/scheduled jobs)
-    scheduled_jobs = tasks_scheduler.get_jobs()
-    for job in scheduled_jobs:
-        if (
-            isinstance(job, Job)
-            and get_job_func_name(job) == "endpoints.sockets.scan.scan_platforms"
-            and job.get_status()
-            in [JobStatus.SCHEDULED, JobStatus.QUEUED, JobStatus.STARTED]
-        ):
-            pending_jobs.append(job)
-
-    # Get jobs from the queue (immediate jobs)
-    queue_jobs = low_prio_queue.get_jobs()
-    for job in queue_jobs:
-        if (
-            isinstance(job, Job)
-            and get_job_func_name(job) == "endpoints.sockets.scan.scan_platforms"
-            and job.get_status() in [JobStatus.QUEUED, JobStatus.STARTED]
-        ):
-            pending_jobs.append(job)
-
-    # Get currently running jobs from workers
-    workers = Worker.all(connection=redis_client)
-    for worker in workers:
-        current_job = worker.get_current_job()
-        if (
-            current_job
-            and get_job_func_name(current_job)
-            == "endpoints.sockets.scan.scan_platforms"
-            and current_job.get_status() == JobStatus.STARTED
-        ):
-            pending_jobs.append(current_job)
-
-    return pending_jobs
 
 
 def process_changes(changes: Sequence[Change]) -> None:
@@ -202,15 +159,16 @@ def process_changes(changes: Sequence[Change]) -> None:
             log.warning("No metadata sources enabled, skipping rescan")
             return
 
-        # Get currently pending scan jobs (scheduled, queued, or running)
-        pending_jobs = get_pending_scan_jobs()
-
-        # If a full rescan is already scheduled, skip further processing
-        full_rescan_jobs = [
-            job for job in pending_jobs if job.args and job.args[0] == []
+        # The platforms each pending scan covers. A scan with no platform ids
+        # covers the whole library, which is also what a task-driven scan does.
+        pending_scopes = [
+            kwargs.get("platform_ids") or []
+            for job in get_pending_scan_jobs()
+            if (kwargs := get_job_kwargs(job)) is not None
         ]
-        if full_rescan_jobs:
-            log.info(f"Full rescan already scheduled ({len(full_rescan_jobs)} job(s))")
+
+        if any(not scope for scope in pending_scopes):
+            log.info("Full rescan already pending")
             return
 
         time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
@@ -219,16 +177,16 @@ def process_changes(changes: Sequence[Change]) -> None:
         # Any change to a platform directory should trigger a full rescan
         if changes_platform_directory:
             log.info(f"Platform directory changed, {rescan_in_msg}")
-            tasks_scheduler.enqueue_in(
+            low_prio_queue.enqueue_in(
                 time_delta,
                 scan_platforms,
                 platform_ids=[],
                 metadata_sources=metadata_sources,
                 scan_type=ScanType.UPDATE,
-                timeout=SCAN_TIMEOUT,
-                job_result_ttl=TASK_RESULT_TTL,
+                job_timeout=SCAN_TIMEOUT,
+                result_ttl=TASK_RESULT_TTL,
                 meta={
-                    "task_name": "Unidentified Scan",
+                    "task_name": "Update Scan",
                     "task_type": TaskType.SCAN,
                 },
             )
@@ -241,27 +199,19 @@ def process_changes(changes: Sequence[Change]) -> None:
             if not db_platform:
                 continue
 
-            # Skip if a scan is already scheduled for this platform
-            platform_scan_jobs = [
-                job
-                for job in pending_jobs
-                if job.args and db_platform.id in job.args[0]
-            ]
-            if platform_scan_jobs:
-                log.info(
-                    f"Scan already scheduled for {hl(fs_slug)} ({len(platform_scan_jobs)} job(s))"
-                )
+            if any(db_platform.id in scope for scope in pending_scopes):
+                log.info(f"Scan already pending for {hl(fs_slug)}")
                 continue
 
             log.info(f"Change detected in {hl(fs_slug)} folder, {rescan_in_msg}")
-            tasks_scheduler.enqueue_in(
+            low_prio_queue.enqueue_in(
                 time_delta,
                 scan_platforms,
                 platform_ids=[db_platform.id],
                 metadata_sources=metadata_sources,
                 scan_type=ScanType.QUICK,
-                timeout=SCAN_TIMEOUT,
-                job_result_ttl=TASK_RESULT_TTL,
+                job_timeout=SCAN_TIMEOUT,
+                result_ttl=TASK_RESULT_TTL,
                 meta={
                     "task_name": "Quick Scan",
                     "task_type": TaskType.SCAN,

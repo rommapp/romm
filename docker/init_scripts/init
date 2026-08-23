@@ -221,42 +221,48 @@ start_bin_valkey-server() {
 	error_log "Internal valkey did not become ready after $((max_retries * 500))ms"
 }
 
-# Commands to start RQ scheduler
-start_bin_rq_scheduler() {
-	info_log "Starting RQ scheduler"
+# The URL carries the password, so it goes through RQ_REDIS_URL rather than
+# --url, which would put it on a world-readable command line.
+build_redis_url() {
+	if [[ -n ${REDIS_PASSWORD-} ]]; then
+		echo "redis${REDIS_SSL:+s}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	elif [[ -n ${REDIS_USERNAME-} ]]; then
+		echo "redis${REDIS_SSL:+s}://${REDIS_USERNAME}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	else
+		echo "redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	fi
+}
 
-	RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
-		RQ_REDIS_PORT=${REDIS_PORT:-6379} \
-		RQ_REDIS_USERNAME=${REDIS_USERNAME:-""} \
-		RQ_REDIS_PASSWORD=${REDIS_PASSWORD:-""} \
-		RQ_REDIS_DB=${REDIS_DB:-0} \
-		RQ_REDIS_SSL=${REDIS_SSL:-0} \
-		rqscheduler \
+# Commands to start the RQ cron scheduler, which runs the periodic tasks listed
+# in the cron config. Delayed jobs are released by the worker itself.
+start_bin_rq_cron() {
+	info_log "Starting RQ cron scheduler"
+
+	local redis_url
+	redis_url="$(build_redis_url)"
+
+	PYTHONPATH="/backend:${PYTHONPATH-}" \
+		RQ_REDIS_URL="${redis_url}" \
+		rq cron \
 		--path /backend \
-		--pid /tmp/rq_scheduler.pid &
+		--logging-level "${LOGLEVEL}" \
+		tasks.cron_config &
+	echo "$!" >/tmp/rq_cron.pid
 }
 
 # Commands to start RQ worker
 start_bin_rq_worker() {
 	info_log "Starting RQ worker"
 
-	# Build Redis URL properly
 	local redis_url
-	if [[ -n ${REDIS_PASSWORD-} ]]; then
-		redis_url="redis${REDIS_SSL:+s}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-	elif [[ -n ${REDIS_USERNAME-} ]]; then
-		redis_url="redis${REDIS_SSL:+s}://${REDIS_USERNAME}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-	else
-		redis_url="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-	fi
+	redis_url="$(build_redis_url)"
 
 	# Set PYTHONPATH so RQ can find the tasks module.
-	# The connection URL goes through RQ_REDIS_URL rather than --url, so the
-	# embedded password stays out of the worker's world-readable command line.
 	# Use a worker class that drops the noisy per-sweep "cleaning registries for
 	# queue" log line. The maintenance interval keeps its default (~10 min) so
-	# orphaned STARTED jobs and stale workers are still pruned promptly, which the
-	# watcher's Worker.all() scan dedupe relies on.
+	# orphaned STARTED jobs and stale workers are still pruned promptly.
+	# --with-scheduler releases delayed jobs, which is how the watcher's rescans
+	# wait out their delay.
 	PYTHONPATH="/backend:${PYTHONPATH-}" \
 		RQ_REDIS_URL="${redis_url}" \
 		rq worker \
@@ -265,6 +271,7 @@ start_bin_rq_worker() {
 		--pid /tmp/rq_worker.pid \
 		--results-ttl "${TASK_RESULT_TTL:-86400}" \
 		--logging_level "${LOGLEVEL}" \
+		--with-scheduler \
 		high default low &
 }
 
@@ -325,7 +332,7 @@ stop_process_pid() {
 shutdown() {
 	# shutdown in reverse order
 	stop_process_pid rq_worker
-	stop_process_pid rq_scheduler
+	stop_process_pid rq_cron
 	stop_process_pid sync_watcher
 	stop_process_pid watcher
 	stop_process_pid nginx
@@ -380,8 +387,8 @@ run_startup
 while ! ((exited)); do
 	watchdog_process_pid gunicorn
 
-	# always run the scheduler
-	watchdog_process_pid rq_scheduler
+	# always run the cron scheduler
+	watchdog_process_pid rq_cron
 
 	watchdog_process_pid rq_worker
 

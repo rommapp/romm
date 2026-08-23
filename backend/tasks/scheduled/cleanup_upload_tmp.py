@@ -20,7 +20,6 @@ class CleanupUploadTmpTask(PeriodicTask):
 
     async def run(self) -> None:
         if not self.enabled:
-            self.unschedule()
             return
 
         if not ROM_UPLOAD_TMP_BASE.exists():

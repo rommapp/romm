@@ -81,44 +81,37 @@ class TestListTasks:
     @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", True)
     @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)
     @patch(
-        "endpoints.tasks.manual_tasks",
-        [
-            {
-                "name": "test_manual",
-                "type": TaskType.CLEANUP,
-                "task": Mock(
-                    spec=Task,
-                    task_type=TaskType.CLEANUP,
-                    title="Manual Task",
-                    description="Manual task",
-                    enabled=True,
-                    manual_run=True,
-                    can_run_manually=True,
-                    timeout=300,
-                    cron_string=None,
-                ),
-            }
-        ],
+        "endpoints.tasks.MANUAL_TASKS",
+        {
+            "test_manual": Mock(
+                spec=Task,
+                task_type=TaskType.CLEANUP,
+                title="Manual Task",
+                description="Manual task",
+                enabled=True,
+                manual_run=True,
+                can_run_manually=True,
+                timeout=300,
+                cron_string=None,
+            ),
+        },
     )
+    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ("test_scheduled",))
     @patch(
-        "endpoints.tasks.scheduled_tasks",
-        [
-            {
-                "name": "test_scheduled",
-                "type": TaskType.UPDATE,
-                "task": Mock(
-                    spec=Task,
-                    task_type=TaskType.UPDATE,
-                    title="Scheduled Task",
-                    description="Scheduled task",
-                    enabled=True,
-                    manual_run=False,
-                    can_run_manually=False,
-                    timeout=300,
-                    cron_string="0 0 * * *",
-                ),
-            }
-        ],
+        "endpoints.tasks.SCHEDULED_TASKS",
+        {
+            "test_scheduled": Mock(
+                spec=Task,
+                task_type=TaskType.UPDATE,
+                title="Scheduled Task",
+                description="Scheduled task",
+                enabled=True,
+                manual_run=False,
+                can_run_manually=False,
+                timeout=300,
+                cron_string="0 0 * * *",
+            ),
+        },
     )
     def test_list_tasks_success(self, client, access_token):
         """Test successful listing of all tasks"""
@@ -166,8 +159,8 @@ class TestListTasks:
 
     @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", False)
     @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 10)
-    @patch("endpoints.tasks.manual_tasks", [])
-    @patch("endpoints.tasks.scheduled_tasks", [])
+    @patch("endpoints.tasks.MANUAL_TASKS", {})
+    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ())
     def test_list_tasks_empty(self, client, access_token):
         """Test listing tasks when no tasks are available"""
         response = client.get(
@@ -229,26 +222,22 @@ class TestRunSingleTask:
 
     @patch("endpoints.tasks.low_prio_queue.enqueue", return_value=create_mock_job())
     @patch(
-        "endpoints.tasks.manual_tasks",
-        [
-            {
-                "name": "test_task",
-                "type": TaskType.CLEANUP,
-                "task": Mock(
-                    spec=Task,
-                    task_type=TaskType.CLEANUP,
-                    title="Test Task",
-                    description="Test Description",
-                    enabled=True,
-                    manual_run=True,
-                    can_run_manually=True,
-                    timeout=300,
-                    run=Mock(),
-                ),
-            }
-        ],
+        "endpoints.tasks.MANUAL_TASKS",
+        {
+            "test_task": Mock(
+                spec=Task,
+                task_type=TaskType.CLEANUP,
+                title="Test Task",
+                description="Test Description",
+                enabled=True,
+                manual_run=True,
+                can_run_manually=True,
+                timeout=300,
+                run=Mock(),
+            ),
+        },
     )
-    @patch("endpoints.tasks.scheduled_tasks", [])
+    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ())
     def test_run_single_task_success(self, mock_queue, client, access_token):
         """Test successful running of a single task"""
         response = client.post(
@@ -267,8 +256,8 @@ class TestRunSingleTask:
 
         mock_queue.assert_called_once()
 
-    @patch("endpoints.tasks.manual_tasks", [])
-    @patch("endpoints.tasks.scheduled_tasks", [])
+    @patch("endpoints.tasks.MANUAL_TASKS", {})
+    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ())
     def test_run_single_task_not_found(self, client, access_token):
         """Test running a non-existent task"""
         response = client.post(
@@ -282,26 +271,22 @@ class TestRunSingleTask:
 
     @patch("endpoints.tasks.low_prio_queue")
     @patch(
-        "endpoints.tasks.manual_tasks",
-        [
-            {
-                "name": "disabled_task",
-                "type": TaskType.CLEANUP,
-                "task": Mock(
-                    spec=Task,
-                    task_type=TaskType.CLEANUP,
-                    title="Disabled Task",
-                    description="Disabled Description",
-                    enabled=False,
-                    manual_run=True,
-                    can_run_manually=False,
-                    timeout=300,
-                    run=Mock(),
-                ),
-            }
-        ],
+        "endpoints.tasks.MANUAL_TASKS",
+        {
+            "disabled_task": Mock(
+                spec=Task,
+                task_type=TaskType.CLEANUP,
+                title="Disabled Task",
+                description="Disabled Description",
+                enabled=False,
+                manual_run=True,
+                can_run_manually=False,
+                timeout=300,
+                run=Mock(),
+            ),
+        },
     )
-    @patch("endpoints.tasks.scheduled_tasks", [])
+    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ())
     def test_run_single_task_disabled(self, mock_queue, client, access_token):
         """Test running a disabled task"""
         response = client.post(
@@ -315,26 +300,22 @@ class TestRunSingleTask:
 
     @patch("endpoints.tasks.low_prio_queue")
     @patch(
-        "endpoints.tasks.manual_tasks",
-        [
-            {
-                "name": "non_manual_task",
-                "type": TaskType.CLEANUP,
-                "task": Mock(
-                    spec=Task,
-                    task_type=TaskType.CLEANUP,
-                    title="Non-Manual Task",
-                    description="Non-Manual Description",
-                    enabled=True,
-                    manual_run=False,
-                    can_run_manually=False,
-                    timeout=300,
-                    run=Mock(),
-                ),
-            }
-        ],
+        "endpoints.tasks.MANUAL_TASKS",
+        {
+            "non_manual_task": Mock(
+                spec=Task,
+                task_type=TaskType.CLEANUP,
+                title="Non-Manual Task",
+                description="Non-Manual Description",
+                enabled=True,
+                manual_run=False,
+                can_run_manually=False,
+                timeout=300,
+                run=Mock(),
+            ),
+        },
     )
-    @patch("endpoints.tasks.scheduled_tasks", [])
+    @patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ())
     def test_run_single_task_non_manual(self, mock_queue, client, access_token):
         """Test running a task that cannot be run manually"""
         response = client.post(
@@ -528,25 +509,21 @@ class TestTaskInfoBuilding:
         }
 
         with patch(
-            "endpoints.tasks.manual_tasks",
-            [
-                {
-                    "name": "test_task",
-                    "type": TaskType.CLEANUP,
-                    "task": Mock(
-                        spec=Task,
-                        title="Test Task",
-                        description="Test Description",
-                        enabled=True,
-                        manual_run=True,
-                        can_run_manually=True,
-                        timeout=300,
-                        cron_string="0 0 * * *",
-                    ),
-                }
-            ],
+            "endpoints.tasks.MANUAL_TASKS",
+            {
+                "test_task": Mock(
+                    spec=Task,
+                    title="Test Task",
+                    description="Test Description",
+                    enabled=True,
+                    manual_run=True,
+                    can_run_manually=True,
+                    timeout=300,
+                    cron_string="0 0 * * *",
+                ),
+            },
         ):
-            with patch("endpoints.tasks.scheduled_tasks", []):
+            with patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ()):
                 response = client.get(
                     "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
                 )
@@ -574,26 +551,22 @@ class TestIntegration:
 
         # Then run a specific task (if any exist)
         with patch(
-            "endpoints.tasks.manual_tasks",
-            [
-                {
-                    "name": "workflow_task",
-                    "type": TaskType.CLEANUP,
-                    "task": Mock(
-                        spec=Task,
-                        task_type=TaskType.CLEANUP,
-                        title="Workflow Task",
-                        description="Workflow Description",
-                        enabled=True,
-                        manual_run=True,
-                        can_run_manually=True,
-                        timeout=300,
-                        run=Mock(),
-                    ),
-                }
-            ],
+            "endpoints.tasks.MANUAL_TASKS",
+            {
+                "workflow_task": Mock(
+                    spec=Task,
+                    task_type=TaskType.CLEANUP,
+                    title="Workflow Task",
+                    description="Workflow Description",
+                    enabled=True,
+                    manual_run=True,
+                    can_run_manually=True,
+                    timeout=300,
+                    run=Mock(),
+                ),
+            },
         ):
-            with patch("endpoints.tasks.scheduled_tasks", []):
+            with patch("endpoints.tasks.VISIBLE_SCHEDULED_TASKS", ()):
                 run_response = client.post(
                     "/api/tasks/run/workflow_task",
                     headers={"Authorization": f"Bearer {access_token}"},

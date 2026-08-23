@@ -8,8 +8,9 @@ from typing import Any, Final
 
 import socketio  # type: ignore
 from rq import Worker, get_current_job
-from rq.exceptions import InvalidJobOperation, NoSuchJobError
+from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
+from rq.registry import ScheduledJobRegistry
 from sqlalchemy.exc import IntegrityError
 
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
@@ -73,7 +74,7 @@ from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
-from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, tasks_scheduler, update_job_meta
+from tasks.tasks import update_job_meta
 from utils import emoji
 from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
@@ -82,8 +83,8 @@ from utils.pegasus_exporter import PegasusExporter
 
 STOP_SCAN_FLAG: Final = "scan:stop"
 
-# A delayed watcher scan this far past due was left behind by a scheduler that
-# stopped releasing them, and the change it reacted to has long since settled.
+# A delayed watcher scan this far past due was left behind by an instance that
+# was not running, and the change it reacted to has long since settled.
 STALE_SCHEDULED_SCAN_AGE: Final = timedelta(hours=1)
 
 
@@ -96,14 +97,17 @@ def _scan_platforms_func_name() -> str:
     return f"{scan_platforms.__module__}.{scan_platforms.__name__}"
 
 
-def _scan_job_func_names() -> frozenset[str]:
-    """Every job function name that ends up running a scan.
+def _is_scan_job(job: Job) -> bool:
+    """Whether this job runs a scan.
 
-    Socket and watcher scans enqueue scan_platforms itself, while the scheduled
-    rescan enqueues its own task and calls scan_platforms in process. Both have
-    to be recognised or an in-flight scan goes unseen.
+    Socket and watcher scans enqueue scan_platforms itself. Task-driven scans go
+    through the task runner, which every task shares, so they are recognised by
+    the type their job carries instead.
     """
-    return frozenset((_scan_platforms_func_name(), SCAN_LIBRARY_TASK_FUNC))
+    if get_job_func_name(job) == _scan_platforms_func_name():
+        return True
+
+    return job.meta.get("task_type") == TaskType.SCAN
 
 
 def _get_running_scan_job() -> Job | None:
@@ -112,7 +116,6 @@ def _get_running_scan_job() -> Job | None:
     A started job is no longer in the queue, so it can only be found by asking
     the workers what they are holding.
     """
-    func_names = _scan_job_func_names()
     for worker in Worker.all(connection=redis_client):
         # A worker killed mid-scan keeps pointing at its job until its own
         # registration expires, and the job can be gone by then.
@@ -121,7 +124,7 @@ def _get_running_scan_job() -> Job | None:
         except NoSuchJobError:
             continue
 
-        if job is not None and get_job_func_name(job) in func_names:
+        if job is not None and _is_scan_job(job):
             return job
 
     return None
@@ -131,15 +134,14 @@ def _get_queued_scan_jobs() -> list[Job]:
     """Scans sitting on a worker queue, waiting to be picked up.
 
     Socket scans go to the high priority queue and watcher scans to the low
-    priority one, once the scheduler releases them.
+    priority one, once their delay is up.
     """
-    func_names = _scan_job_func_names()
     jobs: dict[str, Job] = {}
 
     for job in chain(high_prio_queue.get_jobs(), low_prio_queue.get_jobs()):
         if (
             isinstance(job, Job)
-            and get_job_func_name(job) in func_names
+            and _is_scan_job(job)
             and get_job_status(job) == JobStatus.QUEUED
         ):
             jobs[job.id] = job
@@ -147,70 +149,57 @@ def _get_queued_scan_jobs() -> list[Job]:
     return list(jobs.values())
 
 
+def _scheduled_scan_registry() -> ScheduledJobRegistry:
+    """Where delayed scans wait, which is only ever the watcher's queue."""
+    return ScheduledJobRegistry(queue=low_prio_queue)
+
+
 def _get_scheduled_scan_jobs() -> list[Job]:
-    """Scans waiting out a delay in the scheduler, which only the watcher sets.
+    """Scans waiting out a delay, which only the watcher sets.
 
-    The scheduler is the only thing that releases them, so one that is down
-    leaves them there for good and they cannot stand in for a scan in flight.
+    These never stand in for a scan in flight: a worker has to be running to
+    release them, so counting them would refuse scans on an idle instance.
     """
-    # The registry also holds the standing cron entry for the scheduled rescan,
-    # which is a schedule rather than a pending scan, so only delayed
-    # scan_platforms jobs count here.
-    scan_platforms_func_name = _scan_platforms_func_name()
-    jobs: dict[str, Job] = {}
+    registry = _scheduled_scan_registry()
+    jobs = Job.fetch_many(registry.get_job_ids(), connection=redis_client)
 
-    for job in tasks_scheduler.get_jobs():
-        if (
-            isinstance(job, Job)
-            and get_job_func_name(job) == scan_platforms_func_name
-            and get_job_status(job) in (JobStatus.SCHEDULED, JobStatus.QUEUED)
-        ):
-            jobs[job.id] = job
-
-    return list(jobs.values())
+    return [job for job in jobs if job is not None and _is_scan_job(job)]
 
 
-def _cancel_scheduled_scan_job(job: Job) -> None:
-    """Drop a delayed scan from the scheduler.
+def get_pending_scan_jobs() -> list[Job]:
+    """Scans that have not started yet: queued, or waiting out a delay.
 
-    Cancelling the job on its own leaves the id in the scheduler's registry, and
-    the scheduler queues it anyway once the delay is up, which runs the scan that
-    was just stopped.
+    A scan already running is deliberately not one of these. It may have walked
+    past the folder that just changed, so a fresh scan is still warranted.
     """
-    tasks_scheduler.cancel(job)
-    try:
-        job.cancel()
-    except InvalidJobOperation:
-        # Already cancelled; the registry entry was the part that mattered.
-        pass
+    return _get_queued_scan_jobs() + _get_scheduled_scan_jobs()
 
 
 def drop_stale_scheduled_scans() -> int:
     """Drop delayed watcher scans that are long past due.
 
-    Releasing a backlog of them at once, which is what a stalled scheduler does
-    the moment it recovers, would run the same library scan over and over.
+    Releasing a backlog of them at once, which is what an instance that was down
+    for a while does on start, would run the same library scan over and over.
 
     Returns:
         int: How many scans were dropped.
     """
-    scan_platforms_func_name = _scan_platforms_func_name()
+    registry = _scheduled_scan_registry()
     cutoff = datetime.now(timezone.utc) - STALE_SCHEDULED_SCAN_AGE
     dropped = 0
 
-    for job, scheduled_at in tasks_scheduler.get_jobs(with_times=True):
-        if (
-            not isinstance(job, Job)
-            or get_job_func_name(job) != scan_platforms_func_name
-            # The scheduler records due times as naive UTC.
-            or scheduled_at is None
-            or scheduled_at.replace(tzinfo=timezone.utc) > cutoff
-        ):
+    for job in _get_scheduled_scan_jobs():
+        try:
+            scheduled_at = registry.get_scheduled_time(job)
+        except NoSuchJobError:
             continue
 
-        _cancel_scheduled_scan_job(job)
+        if scheduled_at > cutoff:
+            continue
+
+        job.cancel()
         dropped += 1
-        log.warning(f"Dropped scan scheduled for {scheduled_at} UTC, too long past due")
+        log.warning(f"Dropped scan scheduled for {scheduled_at}, too long past due")
 
     return dropped
 
@@ -1403,12 +1392,9 @@ async def stop_scan_handler(sid: str):
     # Queued scans have not started, so cancelling them is enough. They have to
     # go too: stopping only the running scan would hand the worker the next one.
     queued_jobs = _get_queued_scan_jobs()
-    for job in queued_jobs:
-        job.cancel()
-
     scheduled_jobs = _get_scheduled_scan_jobs()
-    for job in scheduled_jobs:
-        _cancel_scheduled_scan_job(job)
+    for job in queued_jobs + scheduled_jobs:
+        job.cancel()
 
     # A running scan cannot be interrupted from here, it polls the stop flag
     # between platforms and ROMs and unwinds itself.

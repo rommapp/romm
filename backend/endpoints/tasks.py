@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, TypedDict
+from typing import Any, Final
 
 from fastapi import Body, HTTPException, Request
 from rq import Worker
@@ -33,22 +33,8 @@ from handler.redis_handler import (
     low_prio_queue,
     redis_client,
 )
-from tasks.manual.cleanup_missing_firmware import cleanup_missing_firmware_task
-from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
-from tasks.manual.recompute_save_content_hashes import (
-    recompute_save_content_hashes_task,
-)
-from tasks.manual.sync_folder_scan import sync_folder_scan_task
-from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
-from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
-from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
-from tasks.scheduled.scan_library import scan_library_task
-from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
-from tasks.scheduled.update_switch_titledb import update_switch_titledb_task
-from tasks.tasks import (
-    Task,
-    TaskType,
-)
+from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS
+from tasks.tasks import Task, TaskType, run_task_by_name
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -57,91 +43,16 @@ router = APIRouter(
 )
 
 
-class ScheduledTask(TypedDict):
-    name: str
-    type: TaskType
-    task: Task
-
-
-class ManualTask(ScheduledTask):
-    pass
-
-
-scheduled_tasks: list[ScheduledTask] = [
-    ScheduledTask(
-        {
-            "name": "scan_library",
-            "type": TaskType.SCAN,
-            "task": scan_library_task,
-        }
-    ),
-    ScheduledTask(
-        {
-            "name": "update_launchbox_metadata",
-            "type": TaskType.UPDATE,
-            "task": update_launchbox_metadata_task,
-        }
-    ),
-    ScheduledTask(
-        {
-            "name": "update_switch_titledb",
-            "type": TaskType.UPDATE,
-            "task": update_switch_titledb_task,
-        }
-    ),
-    ScheduledTask(
-        {
-            "name": "convert_images_to_webp",
-            "type": TaskType.CONVERSION,
-            "task": convert_images_to_webp_task,
-        }
-    ),
-    ScheduledTask(
-        {
-            "name": "cleanup_zip_cache",
-            "type": TaskType.CLEANUP,
-            "task": cleanup_zip_cache_task,
-        }
-    ),
-    ScheduledTask(
-        {
-            "name": "cleanup_orphaned_resources",
-            "type": TaskType.CLEANUP,
-            "task": cleanup_orphaned_resources_task,
-        }
-    ),
-]
-
-manual_tasks: list[ManualTask] = [
-    ManualTask(
-        {
-            "name": "cleanup_missing_roms",
-            "type": TaskType.CLEANUP,
-            "task": cleanup_missing_roms_task,
-        }
-    ),
-    ManualTask(
-        {
-            "name": "cleanup_missing_firmware",
-            "type": TaskType.CLEANUP,
-            "task": cleanup_missing_firmware_task,
-        }
-    ),
-    ManualTask(
-        {
-            "name": "sync_folder_scan",
-            "type": TaskType.SYNC,
-            "task": sync_folder_scan_task,
-        }
-    ),
-    ManualTask(
-        {
-            "name": "recompute_save_content_hashes",
-            "type": TaskType.CLEANUP,
-            "task": recompute_save_content_hashes_task,
-        }
-    ),
-]
+# Scheduled tasks an admin can see and trigger. The rest of the catalog runs on
+# its schedule without being surfaced.
+VISIBLE_SCHEDULED_TASKS: Final = (
+    "scan_library",
+    "update_launchbox_metadata",
+    "update_switch_titledb",
+    "convert_images_to_webp",
+    "cleanup_zip_cache",
+    "cleanup_orphaned_resources",
+)
 
 
 def _build_task_info(name: str, task: Task) -> TaskInfo:
@@ -250,11 +161,11 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
         "watcher": [],
     }
 
-    for task in manual_tasks:
-        grouped_tasks["manual"].append(_build_task_info(task["name"], task["task"]))
+    for name, task in MANUAL_TASKS.items():
+        grouped_tasks["manual"].append(_build_task_info(name, task))
 
-    for task in scheduled_tasks:
-        grouped_tasks["scheduled"].append(_build_task_info(task["name"], task["task"]))
+    for name in VISIBLE_SCHEDULED_TASKS:
+        grouped_tasks["scheduled"].append(_build_task_info(name, SCHEDULED_TASKS[name]))
 
     # Add the adhoc watcher task
     grouped_tasks["watcher"].append(
@@ -388,7 +299,10 @@ async def run_single_task(
     Returns:
         TaskExecutionResponse: Task execution response with details
     """
-    all_tasks = {task["name"]: task["task"] for task in manual_tasks + scheduled_tasks}
+    all_tasks: dict[str, Task] = {
+        **MANUAL_TASKS,
+        **{name: SCHEDULED_TASKS[name] for name in VISIBLE_SCHEDULED_TASKS},
+    }
 
     if task_name not in all_tasks:
         available_tasks = list(all_tasks.keys())
@@ -404,9 +318,11 @@ async def run_single_task(
             detail=f"Task '{task_name}' cannot be run",
         )
 
+    # Enqueued by name, like the scheduled runs, so the payload carries no
+    # pickled task and the job is readable by whatever version picks it up.
     job = low_prio_queue.enqueue(
-        task_instance.run,
-        kwargs=task_kwargs or {},
+        run_task_by_name,
+        kwargs={"name": task_name, **(task_kwargs or {})},
         job_timeout=task_instance.timeout,
         result_ttl=TASK_RESULT_TTL,
         meta={

@@ -8,11 +8,6 @@ from rq.job import Job
 
 from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
-    ENABLE_SCHEDULED_RESCAN,
-    ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
-    ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
-    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
-    ENABLE_SYNC_PUSH_PULL,
     SENTRY_DSN,
     TASK_TIMEOUT,
 )
@@ -27,25 +22,19 @@ from handler.metadata.base_handler import (
     PSP_SERIAL_INDEX_KEY,
     SCUMMVM_INDEX_KEY,
 )
-from handler.redis_handler import async_cache, low_prio_queue
+from handler.redis_handler import (
+    async_cache,
+    default_queue,
+    high_prio_queue,
+    low_prio_queue,
+    redis_client,
+)
 from logger.logger import log
 from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
 from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
-from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
-from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
-from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
-from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
-from tasks.scheduled.scan_library import scan_library_task
-from tasks.scheduled.sync_retroachievements_progress import (
-    sync_retroachievements_progress_task,
-)
-from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
-from tasks.scheduled.update_switch_titledb import update_switch_titledb_task
-from tasks.sync_push_pull_task import sync_push_pull_task
-from tasks.tasks import drop_unreadable_scheduled_jobs
 from utils import get_version
 from utils.cache import conditionally_set_cache
 from utils.context import initialize_context
@@ -135,6 +124,48 @@ def _enqueue_convert_images_to_webp() -> None:
         )
 
 
+# Keys the rq-scheduler process used before scheduling moved onto RQ itself.
+# Everything it held is either obsolete or now owned by the cron config, so it
+# only has to be cleared once, and this can go a release or two from now.
+LEGACY_SCHEDULED_JOBS_KEY = "rq:scheduler:scheduled_jobs"
+LEGACY_SCHEDULER_KEYS = (
+    LEGACY_SCHEDULED_JOBS_KEY,
+    "rq:scheduler_lock",
+    "rq:scheduler",
+)
+
+
+def _drop_legacy_scheduler_state() -> None:
+    """Clear what the old scheduler left in Redis, jobs included."""
+    try:
+        legacy_job_ids = {
+            job_id.decode()
+            for job_id in redis_client.zrange(LEGACY_SCHEDULED_JOBS_KEY, 0, -1)
+        }
+        if not legacy_job_ids:
+            return
+
+        # A cron job the old scheduler had already queued lives in both places,
+        # and it still has to run, so only the orphans are deleted.
+        queued = set()
+        for queue in (high_prio_queue, default_queue, low_prio_queue):
+            queued.update(queue.get_job_ids())
+
+        orphans = legacy_job_ids - queued
+        if orphans:
+            redis_client.delete(*(f"rq:job:{job_id}" for job_id in orphans))
+
+        redis_client.delete(*LEGACY_SCHEDULER_KEYS)
+        for key in redis_client.scan_iter("rq:scheduler_instance:*"):
+            redis_client.delete(key)
+
+        log.info(
+            f"Cleared {len(legacy_job_ids)} job(s) left behind by the old scheduler"
+        )
+    except Exception:
+        log.exception("Failed to clear the old scheduler's leftovers")
+
+
 @tracer.start_as_current_span("main")
 async def main() -> None:
     """Run startup tasks."""
@@ -142,40 +173,18 @@ async def main() -> None:
     async with initialize_context():
         log.info("Running startup tasks")
 
-        # A job the scheduler cannot read crashes it on every poll, so it has
-        # to go before the scheduler picks it up again, along with the scans that
-        # piled up behind it while nothing was being released.
+        # An instance that was down for a while comes back with every rescan
+        # its watcher queued still waiting, and releasing them all would run the
+        # same library scan over and over.
         try:
-            drop_unreadable_scheduled_jobs()
             drop_stale_scheduled_scans()
         except Exception:
-            log.exception("Failed to clean up the scheduler registry")
+            log.exception("Failed to check for stale scheduled scans")
 
-        # Initialize scheduled tasks
-        cleanup_netplay_task.init()
-        cleanup_zip_cache_task.init()
-        cleanup_upload_tmp_task.init()
-        cleanup_orphaned_resources_task.init()
+        _drop_legacy_scheduler_state()
 
-        if ENABLE_SCHEDULED_RESCAN:
-            log.info("Starting scheduled rescan")
-            scan_library_task.init()
-        if ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:
-            log.info("Starting scheduled update switch titledb")
-            update_switch_titledb_task.init()
-        if ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA:
-            log.info("Starting scheduled update launchbox metadata")
-            update_launchbox_metadata_task.init()
         if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
-            log.info("Starting scheduled convert images to webp")
-            convert_images_to_webp_task.init()
             _enqueue_convert_images_to_webp()
-        if ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC:
-            log.info("Starting scheduled RetroAchievements progress sync")
-            sync_retroachievements_progress_task.init()
-        if ENABLE_SYNC_PUSH_PULL:
-            log.info("Starting scheduled push-pull sync")
-            sync_push_pull_task.init()
 
         _enqueue_recompute_save_hashes_if_needed()
 

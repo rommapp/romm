@@ -17,7 +17,6 @@ class CleanupZipCacheTask(PeriodicTask):
 
     async def run(self) -> None:
         if not self.enabled:
-            self.unschedule()
             return
 
         deleted = cleanup_stale_zips()

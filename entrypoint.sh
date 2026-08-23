@@ -47,18 +47,6 @@ else
 	uv run python main.py &
 fi
 
-echo "Starting RQ scheduler..."
-RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
-	RQ_REDIS_PORT=${REDIS_PORT:-6379} \
-	RQ_REDIS_USERNAME=${REDIS_USERNAME:-""} \
-	RQ_REDIS_PASSWORD=${REDIS_PASSWORD:-""} \
-	RQ_REDIS_DB=${REDIS_DB:-0} \
-	RQ_REDIS_SSL=${REDIS_SSL:-0} \
-	rqscheduler \
-	--path /app/backend \
-	--pid /tmp/rq_scheduler.pid &
-
-echo "Starting RQ worker..."
 # Build Redis URL properly
 if [[ -n ${REDIS_PASSWORD-} ]]; then
 	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
@@ -68,13 +56,23 @@ else
 	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
 fi
 
+echo "Starting RQ cron scheduler..."
+# The URL carries the password, so it goes through RQ_REDIS_URL rather than
+# --url, which would put it on a world-readable command line.
+PYTHONPATH="/app/backend:${PYTHONPATH-}" \
+	RQ_REDIS_URL="${REDIS_URL}" \
+	rq cron \
+	--path /app/backend \
+	--logging-level "${LOGLEVEL:-INFO}" \
+	tasks.cron_config &
+
+echo "Starting RQ worker..."
 # Set PYTHONPATH so RQ can find the tasks module.
-# The connection URL goes through RQ_REDIS_URL rather than --url, so the
-# embedded password stays out of the worker's world-readable command line.
 # Use a worker class that drops the noisy per-sweep "cleaning registries for
 # queue" log line. The maintenance interval keeps its default (~10 min) so
-# orphaned STARTED jobs and stale workers are still pruned promptly, which the
-# watcher's Worker.all() scan dedupe relies on.
+# orphaned STARTED jobs and stale workers are still pruned promptly.
+# --with-scheduler releases delayed jobs, which is how the watcher's rescans
+# wait out their delay.
 PYTHONPATH="/app/backend:${PYTHONPATH-}" \
 	RQ_REDIS_URL="${REDIS_URL}" \
 	rq worker \
@@ -82,6 +80,7 @@ PYTHONPATH="/app/backend:${PYTHONPATH-}" \
 	--worker-class handler.rq_worker.RomMWorker \
 	--pid /tmp/rq_worker.pid \
 	--logging_level "${LOGLEVEL:-INFO}" \
+	--with-scheduler \
 	high default low &
 
 echo "Starting watcher..."
