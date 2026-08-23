@@ -7,7 +7,8 @@ simply leaves it out.
 
 from rq import cron
 
-from handler.redis_handler import QueuePrio
+from endpoints.responses import TaskType
+from handler.redis_handler import SCAN_QUEUE_NAME, QueuePrio
 from logger.logger import log
 from tasks.registry import SCHEDULED_TASKS
 from tasks.tasks import run_task_by_name
@@ -16,9 +17,15 @@ for name, task in SCHEDULED_TASKS.items():
     if not task.enabled or not task.cron_string:
         continue
 
+    # The scheduled rescan belongs on the queue the scan worker consumes, so it
+    # neither holds up the other tasks nor overlaps another scan.
+    queue_name = (
+        SCAN_QUEUE_NAME if task.task_type is TaskType.SCAN else QueuePrio.LOW.value
+    )
+
     cron.register(
         run_task_by_name,
-        QueuePrio.LOW.value,
+        queue_name,
         kwargs={"name": name},
         cron=task.cron_string,
         job_timeout=task.timeout,

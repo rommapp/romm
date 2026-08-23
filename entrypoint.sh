@@ -80,15 +80,28 @@ echo "Starting RQ worker..."
 # orphaned STARTED jobs and stale workers are still pruned promptly.
 # --with-scheduler releases delayed jobs, which is how the watcher's rescans
 # wait out their delay.
-PYTHONPATH="/app/backend:${PYTHONPATH-}" \
-	RQ_REDIS_URL="${REDIS_URL}" \
-	rq worker \
-	--path /app/backend \
-	--worker-class handler.rq_worker.RomMWorker \
-	--pid /tmp/rq_worker.pid \
-	--logging_level "${LOGLEVEL:-INFO}" \
-	--with-scheduler \
-	high default low &
+start_rq_worker() {
+	local name="$1"
+	shift
+
+	PYTHONPATH="/app/backend:${PYTHONPATH-}" \
+		RQ_REDIS_URL="${REDIS_URL}" \
+		rq worker \
+		--path /app/backend \
+		--worker-class handler.rq_worker.RomMWorker \
+		--pid "/tmp/${name}.pid" \
+		--logging_level "${LOGLEVEL:-INFO}" \
+		--with-scheduler \
+		"$@" &
+}
+
+start_rq_worker rq_worker high default low
+
+# A scan runs for hours, so it gets its own worker: the queues above keep being
+# served while it runs, and one worker on one queue keeps two scans from
+# overlapping.
+echo "Starting RQ scan worker..."
+start_rq_worker rq_scan_worker scans
 
 echo "Starting watcher..."
 watchfiles \

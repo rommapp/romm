@@ -145,7 +145,7 @@ class TestProcessChanges:
 
     @pytest.fixture
     def enqueue_in(self, mocker):
-        return mocker.patch.object(watcher_module.low_prio_queue, "enqueue_in")
+        return mocker.patch.object(watcher_module.scan_queue, "enqueue_in")
 
     def rom_change(self, fs_slug: str = "gba"):
         return (EventType.ADDED, f"{LIBRARY_BASE_PATH}/roms/{fs_slug}/game.gba")

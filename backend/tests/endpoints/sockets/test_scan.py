@@ -5,7 +5,11 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 import socketio
-from rq.exceptions import InvalidJobOperation, NoSuchJobError
+from rq.exceptions import (
+    AbandonedJobError,
+    InvalidJobOperation,
+    NoSuchJobError,
+)
 from rq.job import Job, JobStatus
 
 from endpoints.sockets import scan as scan_module
@@ -703,7 +707,7 @@ class TestScanAuthorization:
         mocker.patch.object(
             scan_module, "get_authenticated_user", AsyncMock(return_value=None)
         )
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
         scan_platforms_mock = mocker.patch.object(
             scan_module, "scan_platforms", AsyncMock()
         )
@@ -1714,7 +1718,7 @@ def patch_scan_jobs(
     mocker,
     *,
     running=None,
-    high_queued=(),
+    scan_queued=(),
     low_queued=(),
     scheduled=(),
     worker_lost=False,
@@ -1730,8 +1734,9 @@ def patch_scan_jobs(
         worker.get_current_job.return_value = running
     mocker.patch.object(scan_module.Worker, "all", return_value=[worker])
     mocker.patch.object(
-        scan_module.high_prio_queue, "get_jobs", return_value=list(high_queued)
+        scan_module.scan_queue, "get_jobs", return_value=list(scan_queued)
     )
+    mocker.patch.object(scan_module.high_prio_queue, "get_jobs", return_value=[])
     mocker.patch.object(
         scan_module.low_prio_queue, "get_jobs", return_value=list(low_queued)
     )
@@ -1762,9 +1767,11 @@ class TestScanConcurrency:
         )
         mocker.patch.object(scan_module, "DEV_MODE", False)
 
-    async def test_enqueues_when_nothing_running(self, mocker, emit):
+    async def test_enqueues_on_the_scan_queue_when_nothing_running(self, mocker, emit):
+        # The scan queue has a worker of its own, so a scan cannot sit behind a
+        # cleanup, nor hold one up for hours.
         patch_scan_jobs(mocker)
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1772,7 +1779,7 @@ class TestScanConcurrency:
 
     async def test_refuses_when_a_scan_is_running(self, mocker, emit):
         patch_scan_jobs(mocker, running=make_job(SCAN_PLATFORMS_FUNC))
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1781,8 +1788,8 @@ class TestScanConcurrency:
         assert emit.await_args.args[0] == "scan:done_ko"
 
     async def test_refuses_when_a_scan_is_queued(self, mocker, emit):
-        patch_scan_jobs(mocker, high_queued=[make_job(SCAN_PLATFORMS_FUNC)])
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        patch_scan_jobs(mocker, scan_queued=[make_job(SCAN_PLATFORMS_FUNC)])
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1791,7 +1798,7 @@ class TestScanConcurrency:
     async def test_refuses_when_a_watcher_scan_is_queued(self, mocker, emit):
         # Watcher scans land in the low priority queue, not the high one.
         patch_scan_jobs(mocker, low_queued=[make_job(SCAN_PLATFORMS_FUNC)])
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1804,18 +1811,33 @@ class TestScanConcurrency:
             mocker,
             scheduled=[make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.SCHEDULED)],
         )
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
         enqueue.assert_called_once()
 
+    async def test_a_scan_left_on_an_older_queue_still_blocks(self, mocker, emit):
+        # A scan enqueued before scans had their own queue is on the high or low
+        # queue, and a worker will still run it.
+        patch_scan_jobs(mocker)
+        mocker.patch.object(
+            scan_module.high_prio_queue,
+            "get_jobs",
+            return_value=[make_job(SCAN_PLATFORMS_FUNC)],
+        )
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_not_called()
+
     async def test_a_cancelled_queued_scan_does_not_block(self, mocker, emit):
         patch_scan_jobs(
             mocker,
-            high_queued=[make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.CANCELED)],
+            scan_queued=[make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.CANCELED)],
         )
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1827,8 +1849,8 @@ class TestScanConcurrency:
         # RQ raises rather than reporting a status once the job hash expires.
         job = make_job(SCAN_PLATFORMS_FUNC)
         job.get_status.side_effect = InvalidJobOperation
-        patch_scan_jobs(mocker, high_queued=[job])
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        patch_scan_jobs(mocker, scan_queued=[job])
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1838,7 +1860,7 @@ class TestScanConcurrency:
         self, mocker, emit
     ):
         patch_scan_jobs(mocker, worker_lost=True)
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1851,7 +1873,7 @@ class TestScanConcurrency:
                 SCAN_PLATFORMS_FUNC, status=JobStatus.STARTED, task_name="Quick Scan"
             ),
         )
-        mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1866,7 +1888,7 @@ class TestScanConcurrency:
                 SCAN_PLATFORMS_FUNC, status=JobStatus.CANCELED, task_name="Quick Scan"
             ),
         )
-        mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1874,9 +1896,9 @@ class TestScanConcurrency:
 
     async def test_refusal_reports_a_queued_scan_as_queued(self, mocker, emit):
         patch_scan_jobs(
-            mocker, high_queued=[make_job(SCAN_PLATFORMS_FUNC, task_name="Full Scan")]
+            mocker, scan_queued=[make_job(SCAN_PLATFORMS_FUNC, task_name="Full Scan")]
         )
-        mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1886,7 +1908,7 @@ class TestScanConcurrency:
         # Every task runs through the same runner, so the scheduled rescan is
         # only recognisable by the type its job carries.
         patch_scan_jobs(mocker, running=make_task_job())
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -1897,11 +1919,11 @@ class TestScanConcurrency:
         patch_scan_jobs(
             mocker,
             running=make_job(CLEANUP_FUNC),
-            high_queued=[make_job(CLEANUP_FUNC)],
+            scan_queued=[make_job(CLEANUP_FUNC)],
             low_queued=[make_job(CLEANUP_FUNC)],
             scheduled=[make_job(CLEANUP_FUNC, status=JobStatus.SCHEDULED)],
         )
-        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
 
         await scan_handler("sid", {"type": "quick"})
 
@@ -2005,7 +2027,7 @@ class TestStopScan:
     async def test_cancels_queued_scans(self, mocker, emit, redis):
         queued = [make_job(SCAN_PLATFORMS_FUNC), make_job(SCAN_PLATFORMS_FUNC)]
         patch_scan_jobs(
-            mocker, running=make_job(SCAN_PLATFORMS_FUNC), high_queued=queued
+            mocker, running=make_job(SCAN_PLATFORMS_FUNC), scan_queued=queued
         )
 
         await stop_scan_handler("sid")
@@ -2031,7 +2053,7 @@ class TestStopScan:
         # Stopping a scan that has not been picked up yet must still drop it,
         # and must not leave a stop flag behind for the next scan to trip on.
         queued = [make_job(SCAN_PLATFORMS_FUNC)]
-        patch_scan_jobs(mocker, high_queued=queued)
+        patch_scan_jobs(mocker, scan_queued=queued)
 
         await stop_scan_handler("sid")
 
@@ -2084,3 +2106,37 @@ class TestDropStaleScheduledScans:
 
         assert scan_module.drop_stale_scheduled_scans() == 0
         job.cancel.assert_not_called()
+
+
+class TestReportScanFailure:
+    """A scan whose worker died cannot report itself, so RQ reports for it."""
+
+    @pytest.fixture
+    def emit(self, mocker):
+        manager = AsyncMock()
+        mocker.patch.object(scan_module, "_get_socket_manager", return_value=manager)
+        return manager.emit
+
+    def test_reports_a_scan_its_worker_abandoned(self, emit):
+        scan_module.report_scan_failure(
+            make_job(SCAN_PLATFORMS_FUNC),
+            MagicMock(),
+            AbandonedJobError,
+            AbandonedJobError(),
+            None,
+        )
+
+        emit.assert_awaited_once()
+        assert emit.await_args.args[0] == "scan:done_ko"
+
+    def test_stays_quiet_for_a_failure_the_scan_already_reported(self, emit):
+        # scan_platforms emits on its way out, so reporting here would double up.
+        scan_module.report_scan_failure(
+            make_job(SCAN_PLATFORMS_FUNC),
+            MagicMock(),
+            RuntimeError,
+            RuntimeError("boom"),
+            None,
+        )
+
+        emit.assert_not_awaited()

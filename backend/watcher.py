@@ -21,6 +21,7 @@ from config import (
 from config.config_manager import config_manager as cm
 from endpoints.sockets.scan import (
     get_pending_scan_jobs,
+    report_scan_failure,
     scan_platforms,
 )
 from handler.database import db_platform_handler
@@ -42,7 +43,7 @@ from handler.metadata import (
     meta_steam_handler,
     meta_tgdb_handler,
 )
-from handler.redis_handler import get_job_kwargs, low_prio_queue
+from handler.redis_handler import get_job_kwargs, scan_queue
 from handler.scan_handler import MetadataSource, ScanType
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
@@ -216,12 +217,13 @@ def process_changes(changes: Sequence[Change]) -> None:
         # Any change to a platform directory should trigger a full rescan
         if changes_platform_directory:
             log.info(f"Platform directory changed, {rescan_in_msg}")
-            low_prio_queue.enqueue_in(
+            scan_queue.enqueue_in(
                 time_delta,
                 scan_platforms,
                 platform_ids=[],
                 metadata_sources=metadata_sources,
                 scan_type=ScanType.UPDATE,
+                on_failure=report_scan_failure,
                 job_timeout=SCAN_TIMEOUT,
                 result_ttl=TASK_RESULT_TTL,
                 meta={
@@ -246,12 +248,13 @@ def process_changes(changes: Sequence[Change]) -> None:
                 continue
 
             log.info(f"Change detected in {hl(fs_slug)} folder, {rescan_in_msg}")
-            low_prio_queue.enqueue_in(
+            scan_queue.enqueue_in(
                 time_delta,
                 scan_platforms,
                 platform_ids=[db_platform.id],
                 metadata_sources=metadata_sources,
                 scan_type=ScanType.QUICK,
+                on_failure=report_scan_failure,
                 job_timeout=SCAN_TIMEOUT,
                 result_ttl=TASK_RESULT_TTL,
                 meta={

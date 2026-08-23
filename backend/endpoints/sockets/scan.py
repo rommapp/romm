@@ -7,8 +7,9 @@ from itertools import batched, chain
 from typing import Any, Final
 
 import socketio  # type: ignore
+from redis import Redis
 from rq import Worker, get_current_job
-from rq.exceptions import NoSuchJobError
+from rq.exceptions import AbandonedJobError, NoSuchJobError
 from rq.job import Job, JobStatus
 from rq.registry import ScheduledJobRegistry
 from sqlalchemy.exc import IntegrityError
@@ -56,6 +57,7 @@ from handler.redis_handler import (
     high_prio_queue,
     low_prio_queue,
     redis_client,
+    scan_queue,
 )
 from handler.scan_handler import (
     MetadataSource,
@@ -133,12 +135,14 @@ def _get_running_scan_job() -> Job | None:
 def _get_queued_scan_jobs() -> list[Job]:
     """Scans sitting on a worker queue, waiting to be picked up.
 
-    Socket scans go to the high priority queue and watcher scans to the low
-    priority one, once their delay is up.
+    The other queues are still read because a scan enqueued before scans had
+    their own queue is on one of them, and it will still run.
     """
     jobs: dict[str, Job] = {}
 
-    for job in chain(high_prio_queue.get_jobs(), low_prio_queue.get_jobs()):
+    for job in chain(
+        scan_queue.get_jobs(), high_prio_queue.get_jobs(), low_prio_queue.get_jobs()
+    ):
         if (
             isinstance(job, Job)
             and _is_scan_job(job)
@@ -150,8 +154,8 @@ def _get_queued_scan_jobs() -> list[Job]:
 
 
 def _scheduled_scan_registry() -> ScheduledJobRegistry:
-    """Where delayed scans wait, which is only ever the watcher's queue."""
-    return ScheduledJobRegistry(queue=low_prio_queue)
+    """Where delayed scans wait until a worker releases them."""
+    return ScheduledJobRegistry(queue=scan_queue)
 
 
 def _get_scheduled_scan_jobs() -> list[Job]:
@@ -202,6 +206,29 @@ def drop_stale_scheduled_scans() -> int:
         log.warning(f"Dropped scan scheduled for {scheduled_at}, too long past due")
 
     return dropped
+
+
+def report_scan_failure(
+    job: Job, connection: Redis, exc_type: type, exc_value: BaseException, tb: Any
+) -> None:
+    """Tell the clients a scan is over when the scan could not say so itself.
+
+    A worker killed mid-scan never reaches the handler that emits this, so the
+    clients would keep showing a scan that no longer exists. RQ runs this from
+    whichever worker reaps the job, which is why the scan queue having a worker
+    of its own matters: another one is left to notice.
+    """
+    # Every other failure is reported by the scan as it unwinds, and emitting
+    # here too would report it twice.
+    if exc_type is not AbandonedJobError:
+        return
+
+    log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} was abandoned by its worker")
+    asyncio.run(
+        _get_socket_manager().emit(
+            "scan:done_ko", "the worker running it stopped unexpectedly"
+        )
+    )
 
 
 def _scan_job_label(job: Job) -> str:
@@ -1362,8 +1389,9 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             platform_fs_slugs=platform_fs_slugs,
         )
 
-    return high_prio_queue.enqueue(
+    return scan_queue.enqueue(
         scan_platforms,
+        on_failure=report_scan_failure,
         platform_ids=platform_ids,
         metadata_sources=metadata_sources,
         scan_type=scan_type,

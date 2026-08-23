@@ -2,6 +2,8 @@ import importlib
 
 import pytest
 
+from endpoints.responses import TaskType
+from handler.redis_handler import SCAN_QUEUE_NAME, QueuePrio
 from tasks import cron_config
 from tasks.registry import SCHEDULED_TASKS
 from tasks.tasks import run_task_by_name
@@ -27,7 +29,7 @@ def _task(mocker, *, enabled=True, cron_string="0 4 * * *"):
         timeout=100,
         title="Test Task",
         description="test task",
-        task_type=mocker.MagicMock(value="cleanup"),
+        task_type=TaskType.CLEANUP,
     )
 
 
@@ -42,6 +44,18 @@ class TestCronConfig:
         assert args[0] is run_task_by_name
         assert kwargs["kwargs"] == {"name": "test_task"}
         assert kwargs["cron"] == "0 4 * * *"
+
+    def test_a_scan_is_registered_on_the_scan_queue(self, mocker, registered):
+        task = _task(mocker)
+        task.task_type = TaskType.SCAN
+        register = registered({"scan_library": task})
+
+        assert register.call_args.args[1] == SCAN_QUEUE_NAME
+
+    def test_everything_else_stays_on_the_low_queue(self, mocker, registered):
+        register = registered({"cleanup": _task(mocker)})
+
+        assert register.call_args.args[1] == QueuePrio.LOW.value
 
     def test_skips_a_disabled_task(self, mocker, registered):
         assert registered({"off": _task(mocker, enabled=False)}).call_count == 0

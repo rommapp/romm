@@ -32,6 +32,7 @@ from handler.redis_handler import (
     high_prio_queue,
     low_prio_queue,
     redis_client,
+    scan_queue,
 )
 from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS
 from tasks.tasks import Task, TaskType, run_task_by_name
@@ -42,6 +43,9 @@ router = APIRouter(
     tags=["tasks"],
 )
 
+
+# Every queue a job can be on, so the task list does not miss one.
+ALL_QUEUES: Final = (scan_queue, high_prio_queue, default_queue, low_prio_queue)
 
 # Scheduled tasks an admin can see and trigger. The rest of the catalog runs on
 # its schedule without being surfaced.
@@ -208,25 +212,12 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
             all_tasks.append(_build_task_status_response(current_job))
 
     # Get all jobs from the queues (including completed ones)
-    low_prio_jobs = low_prio_queue.get_jobs()
-    default_prio_jobs = default_queue.get_jobs()
-    high_prio_jobs = high_prio_queue.get_jobs()
+    for queue in ALL_QUEUES:
+        for job in queue.get_jobs():
+            all_tasks.append(_build_task_status_response(job))
 
-    for job in low_prio_jobs + default_prio_jobs + high_prio_jobs:
-        all_tasks.append(_build_task_status_response(job))
-
-    # Get finished jobs from all queues
-    finished_registries = [
-        FinishedJobRegistry(queue=low_prio_queue),
-        FinishedJobRegistry(queue=default_queue),
-        FinishedJobRegistry(queue=high_prio_queue),
-    ]
-
-    failed_registries = [
-        FailedJobRegistry(queue=low_prio_queue),
-        FailedJobRegistry(queue=default_queue),
-        FailedJobRegistry(queue=high_prio_queue),
-    ]
+    finished_registries = [FinishedJobRegistry(queue=queue) for queue in ALL_QUEUES]
+    failed_registries = [FailedJobRegistry(queue=queue) for queue in ALL_QUEUES]
 
     # Process finished jobs
     for registry in finished_registries:
