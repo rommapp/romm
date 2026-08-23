@@ -1,5 +1,6 @@
 """Tests for startup-time auto-enqueue of the recompute task."""
 
+import pytest
 import startup
 from rq.exceptions import DuplicateJobError
 from rq.job import JOB_ID_PATTERN
@@ -144,3 +145,38 @@ def test_enqueue_convert_webp_swallows_enqueue_error(mocker):
     )
 
     startup._enqueue_convert_images_to_webp()
+
+
+class TestDropLegacySchedulerState:
+    """The old scheduler's keys go on the first start after the migration."""
+
+    @pytest.fixture
+    def redis(self, mocker):
+        redis = mocker.patch.object(startup, "redis_client")
+        redis.scan_iter.return_value = []
+        return redis
+
+    def test_removes_the_scheduler_keys_with_no_jobs_left_behind(self, redis):
+        redis.zrange.return_value = []
+
+        startup._drop_legacy_scheduler_state()
+
+        redis.delete.assert_called_once_with(*startup.LEGACY_SCHEDULER_KEYS)
+
+    def test_deletes_orphaned_jobs_but_not_queued_ones(self, mocker, redis):
+        redis.zrange.return_value = [b"orphan", b"queued"]
+        for queue in (startup.high_prio_queue, startup.default_queue):
+            mocker.patch.object(queue, "get_job_ids", return_value=[])
+        mocker.patch.object(
+            startup.low_prio_queue, "get_job_ids", return_value=["queued"]
+        )
+
+        startup._drop_legacy_scheduler_state()
+
+        assert redis.delete.call_args_list[0].args == ("rq:job:orphan",)
+        assert redis.delete.call_args_list[-1].args == startup.LEGACY_SCHEDULER_KEYS
+
+    def test_survives_a_redis_failure(self, redis):
+        redis.zrange.side_effect = RuntimeError("redis gone")
+
+        startup._drop_legacy_scheduler_state()

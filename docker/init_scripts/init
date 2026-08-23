@@ -221,15 +221,29 @@ start_bin_valkey-server() {
 	error_log "Internal valkey did not become ready after $((max_retries * 500))ms"
 }
 
+# The app reads REDIS_SSL as a boolean, so "false" and "0" mean plaintext.
+# Testing the variable for non-emptiness would make every documented value TLS.
+redis_scheme() {
+	local ssl
+	ssl="$(printf '%s' "${REDIS_SSL-}" | tr '[:upper:]' '[:lower:]')"
+	case "${ssl}" in
+	1 | true | yes | on) echo "rediss" ;;
+	*) echo "redis" ;;
+	esac
+}
+
 # The URL carries the password, so it goes through RQ_REDIS_URL rather than
 # --url, which would put it on a world-readable command line.
 build_redis_url() {
+	local scheme
+	scheme="$(redis_scheme)"
+
 	if [[ -n ${REDIS_PASSWORD-} ]]; then
-		echo "redis${REDIS_SSL:+s}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+		echo "${scheme}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
 	elif [[ -n ${REDIS_USERNAME-} ]]; then
-		echo "redis${REDIS_SSL:+s}://${REDIS_USERNAME}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+		echo "${scheme}://${REDIS_USERNAME}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
 	else
-		echo "redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+		echo "${scheme}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
 	fi
 }
 

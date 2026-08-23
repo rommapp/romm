@@ -150,26 +150,27 @@ def _drop_legacy_scheduler_state() -> None:
             job_id.decode()
             for job_id in redis_client.zrange(LEGACY_SCHEDULED_JOBS_KEY, 0, -1)
         }
-        if not legacy_job_ids:
-            return
 
-        # A cron job the old scheduler had already queued lives in both places,
-        # and it still has to run, so only the orphans are deleted.
-        queued = set()
-        for queue in (high_prio_queue, default_queue, low_prio_queue):
-            queued.update(queue.get_job_ids())
+        if legacy_job_ids:
+            # A cron job the old scheduler had already queued lives in both
+            # places, and it still has to run, so only the orphans are deleted.
+            queued: set[str] = set()
+            for queue in (high_prio_queue, default_queue, low_prio_queue):
+                queued.update(queue.get_job_ids())
 
-        orphans = legacy_job_ids - queued
-        if orphans:
-            redis_client.delete(*(f"rq:job:{job_id}" for job_id in orphans))
+            orphans = legacy_job_ids - queued
+            if orphans:
+                redis_client.delete(*(f"rq:job:{job_id}" for job_id in orphans))
 
+            log.info(
+                f"Cleared {len(legacy_job_ids)} job(s) left behind by the old scheduler"
+            )
+
+        # The registry, the lock and the scheduler's own keys go regardless: an
+        # old scheduler that never held a job still registered itself.
         redis_client.delete(*LEGACY_SCHEDULER_KEYS)
         for key in redis_client.scan_iter("rq:scheduler_instance:*"):
             redis_client.delete(key)
-
-        log.info(
-            f"Cleared {len(legacy_job_ids)} job(s) left behind by the old scheduler"
-        )
     except Exception:
         log.exception("Failed to clear the old scheduler's leftovers")
 
