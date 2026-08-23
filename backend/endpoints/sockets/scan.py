@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from itertools import batched, chain
@@ -164,9 +165,24 @@ def _get_queued_scan_jobs() -> list[Job]:
     return list(jobs.values())
 
 
-def _scheduled_scan_registry() -> ScheduledJobRegistry:
-    """Where delayed scans wait until a worker releases them."""
-    return ScheduledJobRegistry(queue=scan_queue)
+def _scheduled_scan_registries() -> list[ScheduledJobRegistry]:
+    """Where delayed scans wait until a worker releases them.
+
+    The low priority queue is still read because a scan delayed before scans had
+    their own queue waits in its registry, and a worker will still release it.
+    """
+    return [
+        ScheduledJobRegistry(queue=scan_queue),
+        ScheduledJobRegistry(queue=low_prio_queue),
+    ]
+
+
+def _iter_scheduled_scans() -> Iterator[tuple[ScheduledJobRegistry, Job]]:
+    """Every delayed scan, with the registry that holds its due time."""
+    for registry in _scheduled_scan_registries():
+        for job in Job.fetch_many(registry.get_job_ids(), connection=redis_client):
+            if job is not None and _is_scan_job(job):
+                yield registry, job
 
 
 def _get_scheduled_scan_jobs() -> list[Job]:
@@ -175,10 +191,7 @@ def _get_scheduled_scan_jobs() -> list[Job]:
     These never stand in for a scan in flight: a worker has to be running to
     release them, so counting them would refuse scans on an idle instance.
     """
-    registry = _scheduled_scan_registry()
-    jobs = Job.fetch_many(registry.get_job_ids(), connection=redis_client)
-
-    return [job for job in jobs if job is not None and _is_scan_job(job)]
+    return list({job.id: job for _, job in _iter_scheduled_scans()}.values())
 
 
 def get_pending_scan_jobs() -> list[Job]:
@@ -199,11 +212,10 @@ def drop_stale_scheduled_scans() -> int:
     Returns:
         int: How many scans were dropped.
     """
-    registry = _scheduled_scan_registry()
     cutoff = datetime.now(timezone.utc) - STALE_SCHEDULED_SCAN_AGE
     dropped = 0
 
-    for job in _get_scheduled_scan_jobs():
+    for registry, job in _iter_scheduled_scans():
         try:
             scheduled_at = registry.get_scheduled_time(job)
         except NoSuchJobError:

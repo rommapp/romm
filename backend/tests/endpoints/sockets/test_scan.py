@@ -1752,7 +1752,9 @@ def patch_scan_jobs(
     scheduled_jobs = list(scheduled)
     registry = MagicMock()
     registry.get_job_ids.return_value = [job.id for job in scheduled_jobs]
-    mocker.patch.object(scan_module, "_scheduled_scan_registry", return_value=registry)
+    mocker.patch.object(
+        scan_module, "_scheduled_scan_registries", return_value=[registry]
+    )
     mocker.patch.object(scan_module.Job, "fetch_many", return_value=scheduled_jobs)
     return registry
 
@@ -2202,3 +2204,15 @@ class TestReportScanFailure:
         )
 
         emit.assert_not_awaited()
+
+
+class TestScheduledScanRegistries:
+    """A scan delayed before scans had their own queue is still in the old one."""
+
+    def test_reads_the_scan_queue_and_the_low_queue(self):
+        names = [registry.name for registry in scan_module._scheduled_scan_registries()]
+
+        assert names == [
+            scan_module.scan_queue.name,
+            scan_module.low_prio_queue.name,
+        ]
