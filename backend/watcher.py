@@ -3,6 +3,7 @@ import fnmatch
 import json
 import os
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import cast
 
@@ -73,6 +74,51 @@ VALID_EVENTS = frozenset(
 # A change is a tuple representing a file change, first element is the event type, second is the
 # path of the file or directory that changed.
 Change = tuple[EventType, str]
+
+
+@dataclass(frozen=True)
+class PendingScanCoverage:
+    """What the scans already in flight cover, so a rescan is not duplicated."""
+
+    full_library: int
+    platform_ids: frozenset[int]
+    platform_fs_slugs: frozenset[str]
+
+
+def get_pending_scan_coverage() -> PendingScanCoverage:
+    """Summarise what the scans waiting to run already cover.
+
+    Returns:
+        PendingScanCoverage: How many pending scans cover the whole library, and
+            the platforms and folders the rest are scoped to.
+    """
+    full_library = 0
+    platform_ids: set[int] = set()
+    platform_fs_slugs: set[str] = set()
+
+    for job in get_pending_scan_jobs():
+        kwargs = get_job_kwargs(job)
+        if kwargs is None:
+            # Nothing is known about what an unreadable scan covers, and a
+            # duplicate scan costs less than a rescan that never happens.
+            continue
+
+        # Scans are enqueued with keywords only. A task-driven scan names no
+        # scope at all, and covers everything.
+        job_platform_ids = kwargs.get("platform_ids") or []
+        job_platform_fs_slugs = kwargs.get("platform_fs_slugs") or []
+        if not (job_platform_ids or job_platform_fs_slugs or kwargs.get("roms_ids")):
+            full_library += 1
+            continue
+
+        platform_ids.update(job_platform_ids)
+        platform_fs_slugs.update(job_platform_fs_slugs)
+
+    return PendingScanCoverage(
+        full_library=full_library,
+        platform_ids=frozenset(platform_ids),
+        platform_fs_slugs=frozenset(platform_fs_slugs),
+    )
 
 
 def process_changes(changes: Sequence[Change]) -> None:
@@ -159,16 +205,9 @@ def process_changes(changes: Sequence[Change]) -> None:
             log.warning("No metadata sources enabled, skipping rescan")
             return
 
-        # The platforms each pending scan covers. A scan with no platform ids
-        # covers the whole library, which is also what a task-driven scan does.
-        pending_scopes = [
-            kwargs.get("platform_ids") or []
-            for job in get_pending_scan_jobs()
-            if (kwargs := get_job_kwargs(job)) is not None
-        ]
-
-        if any(not scope for scope in pending_scopes):
-            log.info("Full rescan already pending")
+        pending = get_pending_scan_coverage()
+        if pending.full_library:
+            log.info(f"Full rescan already pending ({pending.full_library} job(s))")
             return
 
         time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
@@ -199,7 +238,10 @@ def process_changes(changes: Sequence[Change]) -> None:
             if not db_platform:
                 continue
 
-            if any(db_platform.id in scope for scope in pending_scopes):
+            if (
+                db_platform.id in pending.platform_ids
+                or fs_slug in pending.platform_fs_slugs
+            ):
                 log.info(f"Scan already pending for {hl(fs_slug)}")
                 continue
 
