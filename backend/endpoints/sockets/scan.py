@@ -53,6 +53,7 @@ from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
 from handler.redis_handler import (
     get_job_func_name,
+    get_job_kwargs,
     get_job_status,
     high_prio_queue,
     low_prio_queue,
@@ -110,6 +111,16 @@ def _is_scan_job(job: Job) -> bool:
         return True
 
     return job.meta.get("task_type") == TaskType.SCAN
+
+
+def _is_scoped_scan_job(job: Job) -> bool:
+    """Whether this scan covers named roms rather than the library.
+
+    A scan that cannot be read is treated as a library scan: the worker will
+    fail it on the next dequeue, so it stops standing in the way by itself.
+    """
+    kwargs = get_job_kwargs(job)
+    return bool(kwargs and kwargs.get("roms_ids"))
 
 
 def _get_running_scan_job() -> Job | None:
@@ -1353,11 +1364,25 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     if await reject_unauthorized_scan(sid):
         return
 
-    # Without this, every request enqueues another full scan behind the running
-    # one, and a client that lost the progress socket has no way to tell.
-    if not DEV_MODE:
+    platform_ids = options.get("platforms", [])
+    platform_fs_slugs = options.get("platform_fs_slugs", [])
+    scan_type = ScanType[options.get("type", "quick").upper()]
+    roms_ids = options.get("roms_ids", [])
+
+    # Refusing a second library scan is the point of this: a client that lost
+    # the progress socket has no way to tell one is running, and pressing scan
+    # again would queue another pass over the whole library. A scan of named
+    # roms is not that, and refusing it loses a click the user has to remember
+    # to repeat, so it is allowed to queue instead.
+    if not DEV_MODE and not roms_ids:
         running_job = _get_running_scan_job()
-        queued_jobs = _get_queued_scan_jobs()
+        if running_job is not None and _is_scoped_scan_job(running_job):
+            running_job = None
+
+        queued_jobs = [
+            job for job in _get_queued_scan_jobs() if not _is_scoped_scan_job(job)
+        ]
+
         if running_job is not None or queued_jobs:
             message = _scan_in_flight_message(running_job, queued_jobs)
             log.info(f"{emoji.EMOJI_STOP_SIGN} {message}, ignoring request")
@@ -1370,10 +1395,6 @@ async def scan_handler(sid: str, options: dict[str, Any]):
 
     log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
-    platform_ids = options.get("platforms", [])
-    platform_fs_slugs = options.get("platform_fs_slugs", [])
-    scan_type = ScanType[options.get("type", "quick").upper()]
-    roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
     playmatch_enabled = bool(options.get("playmatch_enabled", True))
@@ -1391,6 +1412,9 @@ async def scan_handler(sid: str, options: dict[str, Any]):
 
     return scan_queue.enqueue(
         scan_platforms,
+        # A scan of named roms resolves its work from the database and is done
+        # in seconds, so it goes ahead of any library scan already waiting.
+        at_front=bool(roms_ids),
         on_failure=report_scan_failure,
         platform_ids=platform_ids,
         metadata_sources=metadata_sources,

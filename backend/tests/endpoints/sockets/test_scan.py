@@ -1701,6 +1701,7 @@ def make_job(
     job.id = f"job-{next(_job_ids)}"
     job.func_name = func_name
     job.get_status.return_value = status
+    job.kwargs = {}
     job.meta = {}
     if task_name:
         job.meta["task_name"] = task_name
@@ -1712,6 +1713,13 @@ def make_job(
 def make_task_job(**kwargs):
     """A scan that runs through the task runner, as the scheduled rescan does."""
     return make_job(TASK_RUNNER_FUNC, task_type=TaskType.SCAN, **kwargs)
+
+
+def make_scoped_job(**kwargs):
+    """A scan of named roms, which the metadata refresh dialog asks for."""
+    job = make_job(SCAN_PLATFORMS_FUNC, **kwargs)
+    job.kwargs = {"platform_ids": [1], "roms_ids": [7]}
+    return job
 
 
 def patch_scan_jobs(
@@ -1903,6 +1911,60 @@ class TestScanConcurrency:
         await scan_handler("sid", {"type": "quick"})
 
         assert emit.await_args.args[1] == "Full Scan is already queued"
+
+    async def test_a_rom_scan_is_accepted_while_a_library_scan_runs(self, mocker, emit):
+        # Refusing it would lose a click the user has to remember to repeat, and
+        # a scan of named roms is not the duplicate pass the guard is for.
+        patch_scan_jobs(mocker, running=make_job(SCAN_PLATFORMS_FUNC))
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick", "roms_ids": [7]})
+
+        enqueue.assert_called_once()
+        assert enqueue.call_args.kwargs["at_front"] is True
+
+    async def test_a_library_scan_does_not_ask_to_jump_the_queue(self, mocker, emit):
+        patch_scan_jobs(mocker)
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        assert enqueue.call_args.kwargs["at_front"] is False
+
+    async def test_a_queued_rom_scan_does_not_block_another_one(self, mocker, emit):
+        # The metadata refresh dialog fans a multi-platform selection into one
+        # request per platform, so each has to be accepted.
+        patch_scan_jobs(mocker, scan_queued=[make_scoped_job()])
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick", "roms_ids": [9]})
+
+        enqueue.assert_called_once()
+
+    async def test_a_running_rom_scan_does_not_block_a_library_scan(self, mocker, emit):
+        # It is done in seconds, so the library scan just queues behind it.
+        patch_scan_jobs(mocker, running=make_scoped_job())
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_called_once()
+
+    async def test_a_queued_rom_scan_does_not_block_a_library_scan(self, mocker, emit):
+        patch_scan_jobs(mocker, scan_queued=[make_scoped_job()])
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_called_once()
+
+    async def test_a_library_scan_still_refuses_a_second_one(self, mocker, emit):
+        patch_scan_jobs(mocker, running=make_job(SCAN_PLATFORMS_FUNC))
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_not_called()
 
     async def test_refuses_when_the_scheduled_rescan_is_running(self, mocker, emit):
         # Every task runs through the same runner, so the scheduled rescan is
