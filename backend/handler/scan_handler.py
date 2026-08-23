@@ -682,6 +682,14 @@ async def scan_rom(
                 )
             )
         ):
+            # A refresh keeps the ID already on the ROM, often a manual match,
+            # rather than trading it for a filename guess. COMPLETE rematches.
+            if rom.hltb_id and (
+                scan_type == ScanType.UPDATE
+                or (scan_type == ScanType.UNMATCHED and not rom.hltb_metadata)
+            ):
+                return await meta_hltb_handler.get_rom_by_id(rom.hltb_id)
+
             return await meta_hltb_handler.get_rom(rom_attrs["fs_name"], platform.slug)
 
         return HLTBRom(hltb_id=None)

@@ -15,8 +15,8 @@ matches get explained as "same distributor".
 scorer prefers them where present and falls back to the merged list where a
 game was matched by a provider that reports no roles.
 
-Revision ID: 0112_company_role_columns
-Revises: 0111_rating_count_column
+Revision ID: 0113_company_role_columns
+Revises: 0112_rating_count_column
 Create Date: 2026-08-08 00:00:00.000000
 
 """
@@ -27,8 +27,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0112_company_role_columns"
-down_revision = "0111_rating_count_column"
+revision = "0113_company_role_columns"
+down_revision = "0112_rating_count_column"
 branch_labels = None
 depends_on = None
 

@@ -386,7 +386,9 @@ def with_details(func):
             selectinload(Rom.screenshots).options(
                 noload(Screenshot.rom),
             ),
-            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+            selectinload(Rom.rom_users).options(
+                noload(RomUser.rom), noload(RomUser.user)
+            ),
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
             # Multi-file downloads, 3DS QR codes, and metadata matching
             selectinload(Rom.files).options(
@@ -400,7 +402,9 @@ def with_details(func):
                 # SiblingRomSchema needs each sibling's RomUser for the
                 # request user — the relationship is `lazy="raise"`, so
                 # it has to be eager-loaded here.
-                selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+                selectinload(Rom.rom_users).options(
+                    noload(RomUser.rom), noload(RomUser.user)
+                ),
                 load_only(
                     Rom.id,
                     Rom.name,
@@ -434,7 +438,9 @@ def with_simple_details(func):
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
             selectinload(Rom.platform),
-            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+            selectinload(Rom.rom_users).options(
+                noload(RomUser.rom), noload(RomUser.user)
+            ),
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
             selectinload(Rom.files).options(
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
@@ -445,7 +451,9 @@ def with_simple_details(func):
                 noload(Rom.metadatum),
                 # Per-sibling is_main_sibling resolution needs each sibling's
                 # RomUser (relationship is `lazy="raise"`).
-                selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+                selectinload(Rom.rom_users).options(
+                    noload(RomUser.rom), noload(RomUser.user)
+                ),
                 load_only(
                     Rom.id,
                     Rom.name,
@@ -563,7 +571,9 @@ class DBRomsHandler(DBBaseHandler):
             return {}
 
         files = session.scalars(
-            select(RomFile).where(RomFile.rom_id.in_(rom_ids))
+            select(RomFile)
+            .where(RomFile.rom_id.in_(rom_ids))
+            .options(selectinload(RomFile.track_meta))
         ).all()
 
         buckets: dict[int, list[RomFile]] = {rom_id: [] for rom_id in rom_ids}
@@ -610,11 +620,15 @@ class DBRomsHandler(DBBaseHandler):
             )
             .where(SiblingRom.rom_id.in_(rom_ids))
             .options(
+                # Both default to `lazy="joined"`, and `load_only` narrows
+                # columns but not relationships.
+                noload(Rom.platform),
+                noload(Rom.metadatum),
                 load_only(
                     Rom.name,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
-                )
+                ),
             )
         )
         if hidden_platform_ids:
@@ -635,6 +649,28 @@ class DBRomsHandler(DBBaseHandler):
             buckets[rom_id].append((sibling, bool(is_main)))
 
         return buckets
+
+    def get_rom_ids_with_notes(
+        self,
+        rom_ids: list[int],
+        user_id: int,
+        *,
+        session: Session,
+    ) -> set[int]:
+        """Return the subset of `rom_ids` carrying a note the caller can see."""
+        if not rom_ids:
+            return set()
+
+        return set(
+            session.scalars(
+                select(RomNote.rom_id)
+                .where(
+                    RomNote.rom_id.in_(rom_ids),
+                    or_(RomNote.is_public, RomNote.user_id == user_id),
+                )
+                .distinct()
+            ).all()
+        )
 
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
@@ -1203,6 +1239,8 @@ class DBRomsHandler(DBBaseHandler):
         include_file_stats: bool = False,
         include_files: bool = False,
         include_related: bool = True,
+        include_siblings: bool = True,
+        include_notes: bool = True,
         hidden_platform_ids: Sequence[int] | None = None,
         hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
@@ -1216,16 +1254,29 @@ class DBRomsHandler(DBBaseHandler):
                 # Ensure platform is loaded for main ROM objects
                 selectinload(Rom.platform),
                 # Display properties for the current user (last_played)
-                selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+                selectinload(Rom.rom_users).options(
+                    noload(RomUser.rom), noload(RomUser.user)
+                ),
                 # Sort table by metadata (first_release_date)
                 selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-                # Show sibling rom badges on cards
-                selectinload(Rom.sibling_roms).options(
-                    noload(Rom.platform), noload(Rom.metadatum)
-                ),
-                # Notes indicator on cards
-                selectinload(Rom.notes),
             )
+
+            # Show sibling rom badges on cards
+            if include_siblings:
+                query = query.options(
+                    selectinload(Rom.sibling_roms).options(
+                        noload(Rom.platform),
+                        noload(Rom.metadatum),
+                        # is_main_sibling needs each sibling's RomUser.
+                        selectinload(Rom.rom_users).options(
+                            noload(RomUser.rom), noload(RomUser.user)
+                        ),
+                    )
+                )
+
+            # Notes indicator on cards
+            if include_notes:
+                query = query.options(selectinload(Rom.notes))
 
         # Only load files (and the RomFile.rom backref needed by `is_top_level` /
         # `file_name_for_download`) when the caller iterates them — e.g. the
