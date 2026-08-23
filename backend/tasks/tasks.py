@@ -21,6 +21,29 @@ tasks_scheduler = Scheduler(queue=low_prio_queue, connection=low_prio_queue.conn
 SCAN_LIBRARY_TASK_FUNC: Final = "tasks.scheduled.scan_library.scan_library_task.run"
 
 
+def drop_unreadable_scheduled_jobs() -> int:
+    """Remove scheduled jobs whose payload can no longer be deserialized.
+
+    The scheduler reads a job's function name before taking it out of the
+    registry, so one unreadable job left behind by an older version crashes it
+    on every poll and nothing scheduled ever runs again.
+
+    Returns:
+        int: How many jobs were dropped.
+    """
+    dropped = 0
+
+    for job in tasks_scheduler.get_jobs():
+        if not isinstance(job, Job) or get_job_func_name(job):
+            continue
+
+        tasks_scheduler.cancel(job)
+        dropped += 1
+        log.warning(f"Dropped scheduled job {job.id}, its payload cannot be read")
+
+    return dropped
+
+
 def update_job_meta(metadata: dict[str, Any]) -> None:
     """Update the current RQ job's meta data with update stats information"""
     try:

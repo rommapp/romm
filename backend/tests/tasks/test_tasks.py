@@ -1,11 +1,18 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import httpx
 import pytest
+from rq.exceptions import DeserializationError
 from rq.job import Job
 
 from exceptions.task_exceptions import SchedulerException
-from tasks.tasks import PeriodicTask, RemoteFilePullTask, TaskType, tasks_scheduler
+from tasks.tasks import (
+    PeriodicTask,
+    RemoteFilePullTask,
+    TaskType,
+    drop_unreadable_scheduled_jobs,
+    tasks_scheduler,
+)
 
 
 class ConcretePeriodicTask(PeriodicTask):
@@ -322,3 +329,34 @@ class TestRemoteFilePullTask:
         result = await disabled_task.run(force=True)
 
         assert result == b"forced content"
+
+
+class TestDropUnreadableScheduledJobs:
+    """One unreadable job crashes the scheduler on every poll until it is gone."""
+
+    @staticmethod
+    def _job(func_name: str | None):
+        job = MagicMock(spec=Job)
+        job.id = "job-1"
+        if func_name is None:
+            type(job).func_name = PropertyMock(side_effect=DeserializationError)
+        else:
+            job.func_name = func_name
+        return job
+
+    @patch.object(tasks_scheduler, "cancel")
+    @patch.object(tasks_scheduler, "get_jobs")
+    def test_drops_a_job_whose_payload_cannot_be_read(self, get_jobs, cancel):
+        job = self._job(None)
+        get_jobs.return_value = [job]
+
+        assert drop_unreadable_scheduled_jobs() == 1
+        cancel.assert_called_once_with(job)
+
+    @patch.object(tasks_scheduler, "cancel")
+    @patch.object(tasks_scheduler, "get_jobs")
+    def test_leaves_readable_jobs_scheduled(self, get_jobs, cancel):
+        get_jobs.return_value = [self._job("test.function")]
+
+        assert drop_unreadable_scheduled_jobs() == 0
+        cancel.assert_not_called()

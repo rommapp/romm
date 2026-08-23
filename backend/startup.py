@@ -16,6 +16,7 @@ from config import (
     SENTRY_DSN,
     TASK_TIMEOUT,
 )
+from endpoints.sockets.scan import drop_stale_scheduled_scans
 from handler.database import db_save_handler
 from handler.metadata.base_handler import (
     MAME_XML_KEY,
@@ -44,6 +45,7 @@ from tasks.scheduled.sync_retroachievements_progress import (
 from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
 from tasks.scheduled.update_switch_titledb import update_switch_titledb_task
 from tasks.sync_push_pull_task import sync_push_pull_task
+from tasks.tasks import drop_unreadable_scheduled_jobs
 from utils import get_version
 from utils.cache import conditionally_set_cache
 from utils.context import initialize_context
@@ -139,6 +141,15 @@ async def main() -> None:
 
     async with initialize_context():
         log.info("Running startup tasks")
+
+        # A job the scheduler cannot read crashes it on every poll, so it has
+        # to go before the scheduler picks it up again, along with the scans that
+        # piled up behind it while nothing was being released.
+        try:
+            drop_unreadable_scheduled_jobs()
+            drop_stale_scheduled_scans()
+        except Exception:
+            log.exception("Failed to clean up the scheduler registry")
 
         # Initialize scheduled tasks
         cleanup_netplay_task.init()

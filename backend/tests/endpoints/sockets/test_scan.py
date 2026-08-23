@@ -1,9 +1,11 @@
+from datetime import datetime, timedelta, timezone
 from itertools import count
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 import socketio
+from rq.exceptions import InvalidJobOperation, NoSuchJobError
 from rq.job import Job, JobStatus
 
 from endpoints.sockets import scan as scan_module
@@ -1687,21 +1689,35 @@ CLEANUP_FUNC = "tasks.scheduled.cleanup_zip_cache.cleanup_zip_cache_task.run"
 _job_ids = count()
 
 
-def make_job(func_name: str, *, status=JobStatus.QUEUED):
+def make_job(func_name: str, *, status=JobStatus.QUEUED, task_name: str | None = None):
     """An RQ job stub that scan job discovery will accept."""
     job = MagicMock(spec=Job)
     job.id = f"job-{next(_job_ids)}"
     job.func_name = func_name
     job.get_status.return_value = status
+    job.meta = {"task_name": task_name} if task_name else {}
     return job
 
 
 def patch_scan_jobs(
-    mocker, *, running=None, high_queued=(), low_queued=(), scheduled=()
-):
-    """Point every place scan discovery looks at a fixed set of jobs."""
+    mocker,
+    *,
+    running=None,
+    high_queued=(),
+    low_queued=(),
+    scheduled=(),
+    worker_lost=False,
+) -> MagicMock:
+    """Point every place scan discovery looks at a fixed set of jobs.
+
+    Returns the patched scheduler cancel, the only thing that drops a delayed
+    scan out of the scheduler's registry.
+    """
     worker = MagicMock()
-    worker.get_current_job.return_value = running
+    if worker_lost:
+        worker.get_current_job.side_effect = NoSuchJobError
+    else:
+        worker.get_current_job.return_value = running
     mocker.patch.object(scan_module.Worker, "all", return_value=[worker])
     mocker.patch.object(
         scan_module.high_prio_queue, "get_jobs", return_value=list(high_queued)
@@ -1712,6 +1728,7 @@ def patch_scan_jobs(
     mocker.patch.object(
         scan_module.tasks_scheduler, "get_jobs", return_value=list(scheduled)
     )
+    return mocker.patch.object(scan_module.tasks_scheduler, "cancel")
 
 
 class TestScanConcurrency:
@@ -1767,8 +1784,9 @@ class TestScanConcurrency:
 
         enqueue.assert_not_called()
 
-    async def test_refuses_when_a_watcher_scan_is_scheduled(self, mocker, emit):
-        # A watcher scan waits out its delay in the scheduler before it queues.
+    async def test_a_scheduled_watcher_scan_does_not_block(self, mocker, emit):
+        # A delayed watcher scan only moves when the scheduler releases it, so
+        # a scheduler that is down would refuse manual scans for good.
         patch_scan_jobs(
             mocker,
             scheduled=[make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.SCHEDULED)],
@@ -1777,7 +1795,79 @@ class TestScanConcurrency:
 
         await scan_handler("sid", {"type": "quick"})
 
-        enqueue.assert_not_called()
+        enqueue.assert_called_once()
+
+    async def test_a_cancelled_queued_scan_does_not_block(self, mocker, emit):
+        patch_scan_jobs(
+            mocker,
+            high_queued=[make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.CANCELED)],
+        )
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_called_once()
+
+    async def test_a_queued_scan_whose_status_is_gone_does_not_block(
+        self, mocker, emit
+    ):
+        # RQ raises rather than reporting a status once the job hash expires.
+        job = make_job(SCAN_PLATFORMS_FUNC)
+        job.get_status.side_effect = InvalidJobOperation
+        patch_scan_jobs(mocker, high_queued=[job])
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_called_once()
+
+    async def test_a_worker_holding_a_job_that_is_gone_does_not_block(
+        self, mocker, emit
+    ):
+        patch_scan_jobs(mocker, worker_lost=True)
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_called_once()
+
+    async def test_refusal_names_the_scan_in_the_way(self, mocker, emit):
+        patch_scan_jobs(
+            mocker,
+            running=make_job(
+                SCAN_PLATFORMS_FUNC, status=JobStatus.STARTED, task_name="Quick Scan"
+            ),
+        )
+        mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        assert emit.await_args.args[1] == "Quick Scan is already running"
+
+    async def test_refusal_says_a_stopping_scan_is_worth_retrying(self, mocker, emit):
+        # A stopped scan holds the worker until it unwinds, which reads as a
+        # scan in progress unless the client is told to come back.
+        patch_scan_jobs(
+            mocker,
+            running=make_job(
+                SCAN_PLATFORMS_FUNC, status=JobStatus.CANCELED, task_name="Quick Scan"
+            ),
+        )
+        mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        assert "still stopping" in emit.await_args.args[1]
+
+    async def test_refusal_reports_a_queued_scan_as_queued(self, mocker, emit):
+        patch_scan_jobs(
+            mocker, high_queued=[make_job(SCAN_PLATFORMS_FUNC, task_name="Full Scan")]
+        )
+        mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        assert emit.await_args.args[1] == "Full Scan is already queued"
 
     async def test_refuses_when_the_scheduled_rescan_is_running(self, mocker, emit):
         # The scheduled rescan runs scan_platforms from inside its own task, so
@@ -1930,12 +2020,28 @@ class TestStopScan:
         # watcher's scan the moment the running one unwinds.
         low_queued = make_job(SCAN_PLATFORMS_FUNC)
         scheduled = make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.SCHEDULED)
-        patch_scan_jobs(mocker, low_queued=[low_queued], scheduled=[scheduled])
+        scheduler_cancel = patch_scan_jobs(
+            mocker, low_queued=[low_queued], scheduled=[scheduled]
+        )
 
         await stop_scan_handler("sid")
 
         low_queued.cancel.assert_called_once()
         scheduled.cancel.assert_called_once()
+        # Cancelling the job leaves its id in the scheduler, which queues it
+        # anyway once the delay is up.
+        scheduler_cancel.assert_called_once_with(scheduled)
+
+    async def test_drops_a_scheduled_scan_that_was_already_cancelled(
+        self, mocker, emit, redis
+    ):
+        scheduled = make_job(SCAN_PLATFORMS_FUNC, status=JobStatus.SCHEDULED)
+        scheduled.cancel.side_effect = InvalidJobOperation
+        scheduler_cancel = patch_scan_jobs(mocker, scheduled=[scheduled])
+
+        await stop_scan_handler("sid")
+
+        scheduler_cancel.assert_called_once_with(scheduled)
 
     async def test_cancels_queued_scans_with_none_running(self, mocker, emit, redis):
         # Stopping a scan that has not been picked up yet must still drop it,
@@ -1954,3 +2060,45 @@ class TestStopScan:
         await stop_scan_handler("sid")
 
         redis.set.assert_not_called()
+
+
+class TestDropStaleScheduledScans:
+    """A recovered scheduler must not release a backlog of delayed scans."""
+
+    @staticmethod
+    def _scheduled(func_name: str, *, hours_late: float):
+        # The scheduler records due times as naive UTC.
+        due = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
+            hours=hours_late
+        )
+        return (make_job(func_name, status=JobStatus.SCHEDULED), due)
+
+    def _patch(self, mocker, jobs):
+        mocker.patch.object(
+            scan_module.tasks_scheduler, "get_jobs", return_value=list(jobs)
+        )
+        return mocker.patch.object(scan_module.tasks_scheduler, "cancel")
+
+    def test_drops_a_scan_long_past_due(self, mocker):
+        job, due = self._scheduled(SCAN_PLATFORMS_FUNC, hours_late=2)
+        scheduler_cancel = self._patch(mocker, [(job, due)])
+
+        assert scan_module.drop_stale_scheduled_scans() == 1
+        scheduler_cancel.assert_called_once_with(job)
+
+    def test_keeps_a_scan_still_waiting_out_its_delay(self, mocker):
+        scheduler_cancel = self._patch(
+            mocker, [self._scheduled(SCAN_PLATFORMS_FUNC, hours_late=-1)]
+        )
+
+        assert scan_module.drop_stale_scheduled_scans() == 0
+        scheduler_cancel.assert_not_called()
+
+    def test_leaves_the_standing_rescan_cron_entry_alone(self, mocker):
+        # The cron entry reschedules itself, so a missed run is not a backlog.
+        scheduler_cancel = self._patch(
+            mocker, [self._scheduled(scan_module.SCAN_LIBRARY_TASK_FUNC, hours_late=2)]
+        )
+
+        assert scan_module.drop_stale_scheduled_scans() == 0
+        scheduler_cancel.assert_not_called()

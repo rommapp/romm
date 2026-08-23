@@ -278,7 +278,13 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
     # Get currently running jobs from workers
     workers = Worker.all(connection=redis_client)
     for worker in workers:
-        current_job = worker.get_current_job()
+        # A worker killed mid-job keeps pointing at it until its own
+        # registration expires, and the job can be gone by then.
+        try:
+            current_job = worker.get_current_job()
+        except NoSuchJobError:
+            continue
+
         if current_job:
             all_tasks.append(_build_task_status_response(current_job))
 

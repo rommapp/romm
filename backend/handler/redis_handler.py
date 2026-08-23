@@ -5,8 +5,8 @@ from enum import Enum
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
 from rq import Queue
-from rq.exceptions import DeserializationError
-from rq.job import Job
+from rq.exceptions import DeserializationError, InvalidJobOperation
+from rq.job import Job, JobStatus
 
 from config import IS_PYTEST_RUN, REDIS_URL
 from logger.logger import log
@@ -74,3 +74,18 @@ def get_job_func_name(job: Job, fallback: str = "") -> str:
     except DeserializationError:
         # Job data cannot be deserialized (e.g., function no longer exists)
         return fallback
+
+
+def get_job_status(job: Job) -> JobStatus | None:
+    """Safely get the status of an RQ job, which is gone once its hash expires.
+
+    Args:
+        job: The RQ Job object to get the status of
+
+    Returns:
+        The job status, or None if the job no longer has one
+    """
+    try:
+        return job.get_status()
+    except InvalidJobOperation:
+        return None
