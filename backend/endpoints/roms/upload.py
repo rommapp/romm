@@ -1,5 +1,6 @@
 import json
 import shutil
+from pathlib import Path
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -9,11 +10,17 @@ from starlette.responses import Response
 
 from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
 from decorators.auth import protected_route
+from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
-from handler.database import db_platform_handler
+from handler.auth.dependencies import assert_rom_visible
+from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.redis_handler import async_cache
+from handler.rom_conversion import promote_single_file_to_folder
+from handler.rom_files import HashPolicy, refresh_rom_files
 from logger.logger import log
+from models.rom import Rom
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -86,6 +93,124 @@ async def _cleanup_upload_state(upload_id: str) -> None:
     await async_cache.delete(_chunks_key(upload_id))
 
 
+def _sanitized_filename(filename: str) -> str:
+    try:
+        safe_filename = fs_rom_handler._sanitize_filename(filename)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid upload filename: {exc}",
+        ) from exc
+    if safe_filename != filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Upload filename must be a plain file name, not a path",
+        )
+    return safe_filename
+
+
+def _parse_upload_folder(folder: str | None) -> str:
+    """Normalize the target subfolder to a relative path made of plain names."""
+    raw = (folder or "").strip()
+    if raw.startswith("/") or "\\" in raw:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Upload folder must be a relative, forward-slashed path",
+        )
+    raw = raw.rstrip("/")
+    if not raw:
+        return ""
+    segments = raw.split("/")
+    for segment in segments:
+        try:
+            safe_segment = fs_rom_handler._sanitize_filename(segment)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid upload folder: {exc}",
+            ) from exc
+        if safe_segment != segment:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Upload folder must be a relative path inside the game folder",
+            )
+    return "/".join(segments)
+
+
+def _get_upload_rom(request: Request, rom_id: int, platform_id: int) -> Rom:
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+    assert_rom_visible(request, rom)
+    if rom.platform_id != platform_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Upload platform does not match the game's platform",
+        )
+    return rom
+
+
+def _rom_destination(rom: Rom, folder: str, filename: str) -> tuple[str, Path]:
+    """The library-relative directory and absolute file path of an upload into
+    a ROM, checked to stay inside the folder a lone file gets promoted into."""
+    root = (
+        f"{rom.fs_path}/{rom.fs_name_no_ext}"
+        if rom.has_simple_single_file
+        else rom.full_path
+    )
+    rel_dir = f"{root}/{folder}" if folder else root
+    try:
+        root_location = fs_rom_handler.validate_path(root)
+        location = fs_rom_handler.validate_path(f"{rel_dir}/{filename}")
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    if not location.is_relative_to(root_location):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Upload destination must be inside the game folder",
+        )
+    return rel_dir, location
+
+
+async def _resolve_destination(
+    request: Request, session: dict
+) -> tuple[str, Path, Rom | None]:
+    """Where a completed upload lands: the directory to create, the file path,
+    and the ROM it belongs to when it targets one."""
+    filename = session["filename"]
+    rom_id = session.get("rom_id")
+    if rom_id is None:
+        roms_path = fs_rom_handler.get_roms_fs_structure(session["platform_fs_slug"])
+        try:
+            return (
+                roms_path,
+                fs_rom_handler.validate_path(f"{roms_path}/{filename}"),
+                None,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
+
+    rom = _get_upload_rom(request, rom_id, session["platform_id"])
+    if rom.has_simple_single_file:
+        try:
+            rom = await promote_single_file_to_folder(rom)
+        except RomAlreadyExistsException as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+            ) from exc
+    rel_dir, location = _rom_destination(rom, session["folder"], filename)
+    if location.exists():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"File {filename} already exists in the game folder",
+        )
+    return rel_dir, location, rom
+
+
 @protected_route(
     router.post,
     "/start",
@@ -110,6 +235,21 @@ async def start_chunked_upload(
         int,
         Header(alias="x-upload-total-chunks", ge=1),
     ],
+    rom_id: Annotated[
+        int | None,
+        Header(
+            alias="x-upload-rom-id",
+            ge=1,
+            description="Upload into this ROM's folder instead of the platform folder.",
+        ),
+    ] = None,
+    folder: Annotated[
+        str | None,
+        Header(
+            alias="x-upload-folder",
+            description="Subfolder inside the ROM's folder, relative and forward-slashed. Empty for the root.",
+        ),
+    ] = None,
 ) -> dict:
     """Initiate a chunked ROM upload session."""
 
@@ -121,13 +261,30 @@ async def start_chunked_upload(
         )
 
     platform_fs_slug = db_platform.fs_slug
-    roms_path = fs_rom_handler.get_roms_fs_structure(platform_fs_slug)
+    safe_filename = _sanitized_filename(filename)
+    rel_folder = ""
 
-    if await fs_rom_handler.file_exists(f"{roms_path}/{filename}"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File {filename} already exists",
-        )
+    if rom_id is None:
+        roms_path = fs_rom_handler.get_roms_fs_structure(platform_fs_slug)
+        if await fs_rom_handler.file_exists(f"{roms_path}/{safe_filename}"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File {filename} already exists",
+            )
+    else:
+        rom = _get_upload_rom(request, rom_id, platform_id)
+        rel_folder = _parse_upload_folder(folder)
+        if fs_rom_handler.is_excluded_multi_part(safe_filename):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File {filename} would be ignored by the scanner",
+            )
+        _, destination = _rom_destination(rom, rel_folder, safe_filename)
+        if destination.exists():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"File {filename} already exists in the game folder",
+            )
 
     upload_id = str(uuid4())
     tmp_dir = ROM_UPLOAD_TMP_BASE / upload_id
@@ -137,10 +294,12 @@ async def start_chunked_upload(
         "upload_id": upload_id,
         "platform_id": platform_id,
         "platform_fs_slug": platform_fs_slug,
-        "filename": filename,
+        "filename": safe_filename,
         "total_chunks": total_chunks,
         "total_size": total_size,
         "user_id": request.user.id,
+        "rom_id": rom_id,
+        "folder": rel_folder,
     }
     await _save_session(upload_id, session)
 
@@ -278,20 +437,13 @@ async def complete_chunked_upload(
             detail="Upload is already being assembled or has already completed",
         )
 
-    filename = session["filename"]
-    platform_fs_slug = session["platform_fs_slug"]
-    roms_path = fs_rom_handler.get_roms_fs_structure(platform_fs_slug)
-
     try:
-        file_location = fs_rom_handler.validate_path(f"{roms_path}/{filename}")
-    except ValueError as exc:
+        target_dir, file_location, rom = await _resolve_destination(request, session)
+    except Exception:
         await _cleanup_upload_state(upload_id)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
+        raise
 
-    await fs_rom_handler.make_directory(roms_path)
+    await fs_rom_handler.make_directory(target_dir)
 
     log.info(f"Assembling {total_chunks} chunks into {file_location}")
 
@@ -338,6 +490,16 @@ async def complete_chunked_upload(
     await _cleanup_upload_state(upload_id)
 
     log.info(f"Chunked upload complete: {file_location}")
+
+    if rom is not None:
+        try:
+            await refresh_rom_files(rom, hash_policy=HashPolicy.INCREMENTAL)
+        except Exception as exc:
+            log.error(f"Error registering uploaded file for ROM {rom.id}", exc_info=exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="File uploaded but not registered yet, run a files scan",
+            ) from exc
 
     return Response(status_code=status.HTTP_201_CREATED)
 
