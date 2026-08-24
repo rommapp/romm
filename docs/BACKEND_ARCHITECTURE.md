@@ -1105,14 +1105,15 @@ The core of RomM. Orchestrates library scanning and metadata enrichment.
 
 **Scan Types:**
 
-| Type            | Behavior                         |
-| --------------- | -------------------------------- |
-| `NEW_PLATFORMS` | Detect new platform folders only |
-| `QUICK`         | Scan new/unscanned ROMs          |
-| `UPDATE`        | Rescan already-identified ROMs   |
-| `UNMATCHED`     | Rescan ROMs without metadata     |
-| `COMPLETE`      | Full rescan of everything        |
-| `HASHES`        | Recalculate all file hashes      |
+| Type            | Behavior                                                                                  |
+| --------------- | ----------------------------------------------------------------------------------------- |
+| `NEW_PLATFORMS` | Detect new platform folders only                                                          |
+| `QUICK`         | Scan new/unscanned ROMs                                                                   |
+| `FILES`         | Scan new ROMs and reconcile the files of existing ones, hashing only new or changed files |
+| `UPDATE`        | Rescan already-identified ROMs                                                            |
+| `UNMATCHED`     | Rescan ROMs without metadata                                                              |
+| `COMPLETE`      | Full rescan of everything                                                                 |
+| `HASHES`        | Recalculate all file hashes                                                               |
 
 **Scan Flow:**
 

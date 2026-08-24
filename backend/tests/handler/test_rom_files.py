@@ -1,0 +1,188 @@
+import hashlib
+import os
+from pathlib import Path
+
+import pytest
+
+from handler.database import db_rom_handler
+from handler.filesystem import fs_rom_handler
+from handler.rom_files import HashPolicy, refresh_rom_files
+from models.platform import Platform
+from models.rom import Rom, RomFile, RomFileCategory
+from models.user import User
+
+FOLDER = "Multi"
+
+
+@pytest.fixture
+def library(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    lib = tmp_path / "library"
+    lib.mkdir()
+    monkeypatch.setattr(fs_rom_handler, "base_path", lib.resolve())
+    return lib
+
+
+def _write(lib: Path, rel: str, data: bytes) -> os.stat_result:
+    path = lib / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return path.stat()
+
+
+def _folder_rom(
+    platform: Platform, admin_user: User, lib: Path, files: dict[str, bytes]
+) -> Rom:
+    """A folder ROM whose rows describe the files on disk, with stored hashes."""
+    rom = Rom(
+        platform_id=platform.id,
+        name=FOLDER,
+        slug=f"{FOLDER}_slug",
+        fs_name=FOLDER,
+        fs_name_no_tags=FOLDER,
+        fs_name_no_ext=FOLDER,
+        fs_extension="",
+        fs_path=f"{platform.fs_slug}/roms",
+        fs_size_bytes=sum(len(data) for data in files.values()),
+        crc_hash="stored-crc",
+        md5_hash="stored-md5",
+        sha1_hash="stored-sha1",
+    )
+    rom = db_rom_handler.add_rom(rom)
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    for rel, data in files.items():
+        st = _write(lib, f"{rom.fs_path}/{FOLDER}/{rel}", data)
+        db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=rom.id,
+                file_name=Path(rel).name,
+                file_path=str(Path(rom.fs_path, FOLDER, rel).parent),
+                file_size_bytes=st.st_size,
+                last_modified=st.st_mtime,
+                crc_hash="row-crc",
+                md5_hash="row-md5",
+                sha1_hash="row-sha1",
+            )
+        )
+    return db_rom_handler.get_rom(rom.id)
+
+
+def _files_by_name(rom_id: int) -> dict[str, RomFile]:
+    return {f.file_name: f for f in db_rom_handler.get_rom(rom_id).files}
+
+
+async def test_registers_new_nested_file(platform, admin_user, library):
+    rom = _folder_rom(
+        platform, admin_user, library, {"game.bin": b"game", "readme.txt": b"readme"}
+    )
+    _write(library, f"{rom.fs_path}/{FOLDER}/patches/v2/fix.ips", b"patch bytes")
+
+    result = await refresh_rom_files(rom)
+
+    assert (result.new_files, result.updated_files, result.removed_files) == (1, 0, 0)
+    assert result.top_level_changed is False
+    new = _files_by_name(rom.id)["fix.ips"]
+    assert new.category == RomFileCategory.PATCH
+    assert new.md5_hash == hashlib.md5(b"patch bytes").hexdigest()
+    after = db_rom_handler.get_rom(rom.id)
+    assert after.fs_size_bytes == len(b"game") + len(b"readme") + len(b"patch bytes")
+    assert after.md5_hash == "stored-md5"
+
+
+async def test_top_level_addition_updates_rom_hashes_and_size(
+    platform, admin_user, library
+):
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+    _write(library, f"{rom.fs_path}/{FOLDER}/extra.bin", b"extra")
+
+    result = await refresh_rom_files(rom)
+
+    assert result.top_level_changed is True
+    assert result.new_files == 1
+    expected = hashlib.md5(usedforsecurity=False)
+    for rom_file in result.files:
+        expected.update(
+            (library / rom_file.file_path / rom_file.file_name).read_bytes()
+        )
+    after = db_rom_handler.get_rom(rom.id)
+    assert after.md5_hash == expected.hexdigest()
+    assert after.fs_size_bytes == len(b"game") + len(b"extra")
+    assert (
+        _files_by_name(rom.id)["game.bin"].md5_hash == hashlib.md5(b"game").hexdigest()
+    )
+
+
+async def test_unchanged_rom_writes_nothing(platform, admin_user, library, mocker):
+    rom = _folder_rom(
+        platform, admin_user, library, {"game.bin": b"game", "hack/x.bin": b"hack"}
+    )
+    sync = mocker.spy(db_rom_handler, "sync_rom_files")
+    update = mocker.spy(db_rom_handler, "update_rom")
+
+    result = await refresh_rom_files(rom)
+
+    assert not result.changed
+    assert result.rom_updates == {}
+    sync.assert_not_called()
+    update.assert_not_called()
+
+
+async def test_removes_rows_for_vanished_files(platform, admin_user, library):
+    rom = _folder_rom(
+        platform, admin_user, library, {"game.bin": b"game", "hack/old.bin": b"old"}
+    )
+    (library / rom.fs_path / FOLDER / "hack/old.bin").unlink()
+
+    result = await refresh_rom_files(rom)
+
+    assert result.removed_files == 1
+    assert result.top_level_changed is False
+    assert set(_files_by_name(rom.id)) == {"game.bin"}
+
+
+async def test_clears_missing_flag(platform, admin_user, library):
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+    db_rom_handler.update_rom(rom.id, {"missing_from_fs": True})
+    rom = db_rom_handler.get_rom(rom.id)
+
+    result = await refresh_rom_files(rom)
+
+    assert result.rom_updates == {"missing_from_fs": False}
+    assert db_rom_handler.get_rom(rom.id).missing_from_fs is False
+
+
+async def test_empty_folder_keeps_recorded_rows(platform, admin_user, library):
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+    (library / rom.fs_path / FOLDER / "game.bin").unlink()
+
+    result = await refresh_rom_files(rom)
+
+    assert not result.changed
+    assert result.files == []
+    assert set(_files_by_name(rom.id)) == {"game.bin"}
+
+
+async def test_full_policy_rehashes_every_file_in_place(platform, admin_user, library):
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+    row_id = rom.files[0].id
+
+    result = await refresh_rom_files(rom, hash_policy=HashPolicy.FULL)
+
+    assert result.updated_files == 1
+    assert result.top_level_changed is True
+    after = db_rom_handler.get_rom(rom.id)
+    assert after.files[0].id == row_id
+    assert after.files[0].md5_hash == hashlib.md5(b"game").hexdigest()
+    assert after.md5_hash == hashlib.md5(b"game").hexdigest()
+
+
+async def test_loads_files_when_relationship_is_unloaded(platform, admin_user, library):
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+    lean = db_rom_handler.get_roms_by_fs_name(
+        platform_id=platform.id, fs_names={FOLDER}
+    )[FOLDER]
+    _write(library, f"{rom.fs_path}/{FOLDER}/cheats/codes.cht", b"cheats")
+
+    result = await refresh_rom_files(lean)
+
+    assert result.new_files == 1
+    assert _files_by_name(rom.id)["codes.cht"].category == RomFileCategory.CHEAT

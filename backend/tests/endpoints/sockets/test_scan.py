@@ -18,6 +18,7 @@ from endpoints.sockets.scan import (
     ScanStats,
     _identify_rom,
     _scan_selected_roms,
+    _should_hash_incrementally,
     _should_reparse_tags,
     reject_unauthorized_scan,
     scan_handler,
@@ -36,6 +37,7 @@ from handler.filesystem.roms_handler import (
     ParsedTags,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from handler.rom_files import HashPolicy, RomFilesRefresh
 from handler.scan_handler import MetadataSource, ScanType
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 from models.firmware import Firmware
@@ -2232,3 +2234,311 @@ class TestReportScanFailure:
         )
 
         emit.assert_called_once()
+
+
+def test_scan_stats_reports_file_counters():
+    stats = ScanStats(updated_roms=2, new_files=5)
+
+    assert stats.to_dict()["updated_roms"] == 2
+    assert stats.to_dict()["new_files"] == 5
+
+
+class TestShouldScanRomFiles:
+    def test_files_scan_covers_new_and_existing_roms(self, rom: Rom):
+        assert should_scan_rom(ScanType.FILES, None, [], []) is True
+        assert should_scan_rom(ScanType.FILES, rom, [], []) is True
+
+    def test_scoped_files_scan_respects_roms_ids(self, rom: Rom):
+        assert should_scan_rom(ScanType.FILES, None, [rom.id], []) is False
+        assert should_scan_rom(ScanType.FILES, rom, [rom.id + 99], []) is False
+        assert should_scan_rom(ScanType.FILES, rom, [rom.id], []) is True
+
+
+class TestShouldHashIncrementally:
+    def test_files_scan_is_incremental(self, rom: Rom):
+        assert _should_hash_incrementally(ScanType.FILES, rom, []) is True
+
+    def test_selected_metadata_scans_are_incremental(self, rom: Rom):
+        assert _should_hash_incrementally(ScanType.UPDATE, rom, [rom.id]) is True
+        assert _should_hash_incrementally(ScanType.UNMATCHED, rom, [rom.id]) is True
+        assert _should_hash_incrementally(ScanType.UPDATE, rom, []) is False
+        assert _should_hash_incrementally(ScanType.UPDATE, rom, [rom.id + 1]) is False
+
+    @pytest.mark.parametrize("scan_type", [ScanType.COMPLETE, ScanType.HASHES])
+    def test_full_rescans_read_every_file(self, rom: Rom, scan_type: ScanType):
+        assert _should_hash_incrementally(scan_type, rom, [rom.id]) is False
+
+
+@pytest.fixture
+def identify_harness(mocker):
+    """`_identify_rom` with every collaborator stubbed, so a scan type's
+    control flow can be asserted without a database or a filesystem."""
+    mocker.patch.object(scan_module, "redis_client", Mock(get=Mock(return_value=None)))
+
+    fs = scan_module.fs_rom_handler
+    mocker.patch.object(
+        fs,
+        "parse_tags",
+        return_value=ParsedTags(
+            version="", revision="", regions=[], languages=[], other_tags=[]
+        ),
+    )
+    mocker.patch.object(fs, "get_roms_fs_structure", return_value="test/roms")
+    mocker.patch.object(fs, "get_file_name_with_no_tags", return_value="Game")
+    get_rom_files = mocker.patch.object(
+        fs,
+        "get_rom_files",
+        AsyncMock(
+            return_value=ParsedRomFiles(
+                rom_files=[], crc_hash="", md5_hash="", sha1_hash="", ra_hash=""
+            )
+        ),
+    )
+
+    config = MagicMock()
+    config.SKIP_HASH_CALCULATION = False
+    config.SKIP_TITLE_ID_EXTRACTION = False
+    config.EMBED_SWITCH_TITLE_IDS = False
+    mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+    scan_rom = mocker.patch.object(
+        scan_module, "scan_rom", AsyncMock(return_value=MagicMock(is_identified=False))
+    )
+
+    mocker.patch.object(scan_module, "fs_resource_handler", new=AsyncMock())
+    mocker.patch.object(scan_module, "download_rom_resources", new=AsyncMock())
+    mocker.patch.object(scan_module, "SimpleRomSchema", MagicMock())
+
+    db = mocker.patch.object(scan_module, "db_rom_handler")
+    db.add_rom.return_value = MagicMock(
+        is_identified=False, id=1, url_cover="", url_manual="", url_screenshots=[]
+    )
+    db.get_matching_missing_rom.return_value = None
+    db.sync_rom_files.return_value = SyncedRomFiles(files=[], orphaned_cover_paths=[])
+
+    loaded_rom_files = mocker.patch.object(
+        scan_module, "loaded_rom_files", return_value=["stored-row"]
+    )
+    refresh = mocker.patch.object(
+        scan_module,
+        "refresh_rom_files",
+        AsyncMock(
+            return_value=RomFilesRefresh(
+                files=[],
+                new_files=2,
+                updated_files=0,
+                removed_files=1,
+                top_level_changed=False,
+                rom_updates={},
+            )
+        ),
+    )
+
+    def existing_rom() -> Rom:
+        rom = Rom(platform_id=1, fs_name="Game", fs_path="test/roms")
+        rom.id = 1
+        return rom
+
+    async def run(
+        rom: Rom | None,
+        scan_type: ScanType,
+        roms_ids: list[int],
+        socket_manager: AsyncMock | None = None,
+        scan_stats: AsyncMock | None = None,
+    ) -> None:
+        fs_rom: FSRom = {
+            "fs_name": "Game",
+            "flat": False,
+            "nested": True,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        await _identify_rom(
+            platform=platform,
+            fs_rom=fs_rom,
+            rom=rom,
+            scan_type=scan_type,
+            roms_ids=roms_ids,
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=socket_manager or AsyncMock(),
+            scan_stats=scan_stats or AsyncMock(),
+        )
+
+    return SimpleNamespace(
+        db=db,
+        scan_rom=scan_rom,
+        get_rom_files=get_rom_files,
+        loaded_rom_files=loaded_rom_files,
+        refresh=refresh,
+        existing_rom=existing_rom,
+        run=run,
+    )
+
+
+class TestIdentifyRomFiles:
+    """A files scan hands an existing rom to `refresh_rom_files` and skips the
+    metadata pipeline; a rom not yet in the database goes the regular way."""
+
+    async def test_existing_rom_only_refreshes_its_files(self, identify_harness):
+        rom = identify_harness.existing_rom()
+        socket_manager = AsyncMock()
+        scan_stats = AsyncMock()
+
+        await identify_harness.run(
+            rom,
+            ScanType.FILES,
+            [],
+            socket_manager=socket_manager,
+            scan_stats=scan_stats,
+        )
+
+        identify_harness.refresh.assert_awaited_once_with(
+            rom, hash_policy=HashPolicy.INCREMENTAL
+        )
+        identify_harness.scan_rom.assert_not_called()
+        identify_harness.db.add_rom.assert_not_called()
+        scan_stats.increment.assert_awaited_once_with(
+            socket_manager=socket_manager, scanned_roms=1, updated_roms=1, new_files=2
+        )
+        identify_harness.db.get_rom.assert_called_once_with(rom.id)
+        socket_manager.emit.assert_awaited_once()
+        assert socket_manager.emit.await_args.args[0] == "scan:scanning_rom"
+
+    async def test_unchanged_rom_emits_nothing(self, identify_harness):
+        identify_harness.refresh.return_value = RomFilesRefresh(
+            files=[],
+            new_files=0,
+            updated_files=0,
+            removed_files=0,
+            top_level_changed=False,
+            rom_updates={},
+        )
+        socket_manager = AsyncMock()
+        scan_stats = AsyncMock()
+
+        await identify_harness.run(
+            identify_harness.existing_rom(),
+            ScanType.FILES,
+            [],
+            socket_manager=socket_manager,
+            scan_stats=scan_stats,
+        )
+
+        scan_stats.increment.assert_awaited_once_with(
+            socket_manager=socket_manager, scanned_roms=1, updated_roms=0, new_files=0
+        )
+        identify_harness.db.get_rom.assert_not_called()
+        socket_manager.emit.assert_not_awaited()
+
+    async def test_new_rom_takes_the_regular_path(self, identify_harness):
+        await identify_harness.run(None, ScanType.FILES, [])
+
+        identify_harness.refresh.assert_not_called()
+        identify_harness.scan_rom.assert_awaited_once()
+        identify_harness.db.add_rom.assert_called()
+
+
+class TestIdentifyRomIncrementalHashing:
+    """Selected-rom metadata scans hand the stored rows to the file rebuild so
+    unchanged files keep their hashes; full rescans read every file."""
+
+    async def test_selected_update_scan_passes_existing_files(self, identify_harness):
+        rom = identify_harness.existing_rom()
+
+        await identify_harness.run(rom, ScanType.UPDATE, [rom.id])
+
+        identify_harness.loaded_rom_files.assert_called_once_with(rom)
+        kwargs = identify_harness.get_rom_files.await_args.kwargs
+        assert kwargs["existing_files"] == ["stored-row"]
+
+    @pytest.mark.parametrize("scan_type", [ScanType.HASHES, ScanType.COMPLETE])
+    async def test_full_rescans_rehash_everything(self, identify_harness, scan_type):
+        rom = identify_harness.existing_rom()
+
+        await identify_harness.run(rom, scan_type, [rom.id])
+
+        kwargs = identify_harness.get_rom_files.await_args.kwargs
+        assert kwargs["existing_files"] is None
+
+
+class TestIdentifyPlatformLoadsFilesForFilesScan:
+    """A files scan reconciles every existing rom's files, so their rows are
+    loaded with the batch lookup instead of one query per rom."""
+
+    @pytest.fixture
+    def patched(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        platform.missing_from_fs = False
+        db_platform = mocker.patch.object(scan_module, "db_platform_handler")
+        db_platform.get_platform_by_fs_slug.return_value = platform
+        db_platform.add_platform.return_value = platform
+
+        mocker.patch.object(
+            scan_module, "scan_platform", AsyncMock(return_value=platform)
+        )
+        mocker.patch.object(
+            scan_module.PlatformSchema,
+            "model_validate",
+            return_value=Mock(model_dump=Mock(return_value={})),
+        )
+        mocker.patch.object(
+            scan_module.fs_firmware_handler,
+            "get_firmware",
+            AsyncMock(return_value=[]),
+        )
+        fs_rom: FSRom = {
+            "fs_name": "Game",
+            "flat": False,
+            "nested": True,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        mocker.patch.object(
+            scan_module.fs_rom_handler, "get_roms", AsyncMock(return_value=[fs_rom])
+        )
+        mocker.patch.object(scan_module, "_identify_rom", AsyncMock())
+
+        rom = Rom(fs_name="Game", platform_id=platform.id)
+        rom.id = 42
+        db_rom = mocker.patch.object(scan_module, "db_rom_handler")
+        db_rom.get_roms_by_fs_name.return_value = {"Game": rom}
+        db_rom.get_missing_rom_ids.return_value = set()
+        db_rom.mark_missing_roms.return_value = []
+        db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
+        db_firmware.mark_missing_firmware.return_value = []
+        return db_rom
+
+    @pytest.mark.parametrize(
+        "scan_type,with_files", [(ScanType.FILES, True), (ScanType.QUICK, False)]
+    )
+    async def test_rows_are_loaded_only_for_files_scans(
+        self, patched, scan_type, with_files
+    ):
+        await scan_module._identify_platform(
+            platform_slug="test",
+            scan_type=scan_type,
+            fs_platforms=["test"],
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
+
+        assert patched.get_roms_by_fs_name.call_args.kwargs["with_files"] is with_files
