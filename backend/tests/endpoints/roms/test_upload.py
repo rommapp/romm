@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 from uuid import UUID
 
 import pytest
-from fastapi import status
+from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 
 from endpoints.roms import upload as upload_endpoint
@@ -551,7 +551,9 @@ def test_complete_registers_nested_file(
     new = next(f for f in after.files if f.file_name == "fix.ips")
     assert new.file_path == f"{rom.fs_path}/{ROM_FOLDER}/patches/v2"
     assert new.category == RomFileCategory.PATCH
-    assert new.md5_hash == hashlib.md5(b"patch bytes").hexdigest()
+    assert (
+        new.md5_hash == hashlib.md5(b"patch bytes", usedforsecurity=False).hexdigest()
+    )
     assert after.fs_size_bytes == len(b"game") + len(b"readme") + len(b"patch bytes")
     assert after.md5_hash == "stored-md5"
 
@@ -580,7 +582,7 @@ def test_complete_top_level_file_updates_rom_hashes(
         )
     assert after.md5_hash in {
         expected.hexdigest(),
-        hashlib.md5(b"extragame").hexdigest(),
+        hashlib.md5(b"extragame", usedforsecurity=False).hexdigest(),
     }
 
 
@@ -638,3 +640,60 @@ def test_complete_after_destination_appeared_returns_409(
     assert (
         rom_upload_fs / rom.fs_path / ROM_FOLDER / "late.bin"
     ).read_bytes() == b"raced"
+
+
+def test_start_into_single_file_rom_rejects_its_own_name(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    rom_upload_fs: Path,
+):
+    rom = _single_file_rom(platform, admin_user, rom_upload_fs)
+
+    response = _start_into_rom(
+        client, access_token, rom, filename="solo.zip", folder=None, total_size=3
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert db_rom_handler.get_rom(rom.id).fs_name == "solo.zip"
+
+
+def test_complete_collision_does_not_promote_a_single_file_rom(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    rom_upload_fs: Path,
+):
+    rom = _single_file_rom(platform, admin_user, rom_upload_fs)
+    start = _start_into_rom(
+        client, access_token, rom, filename="notes.txt", folder=None, total_size=5
+    )
+    upload_id = start.json()["upload_id"]
+    client.put(
+        f"/api/roms/upload/{upload_id}",
+        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        content=b"notes",
+    )
+    _write(rom_upload_fs, f"{rom.fs_path}/solo/notes.txt", b"raced")
+
+    response = client.post(
+        f"/api/roms/upload/{upload_id}/complete", headers=_auth_headers(access_token)
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    after = db_rom_handler.get_rom(rom.id)
+    assert after.fs_name == "solo.zip"
+    assert (rom_upload_fs / rom.fs_path / "solo.zip").read_bytes() == b"romdata"
+
+
+def test_claim_destination_refuses_an_existing_file(tmp_path: Path):
+    target = tmp_path / "game.bin"
+
+    upload_endpoint._claim_destination(target)
+    assert target.exists()
+
+    with pytest.raises(HTTPException) as excinfo:
+        upload_endpoint._claim_destination(target)
+    assert excinfo.value.status_code == status.HTTP_409_CONFLICT

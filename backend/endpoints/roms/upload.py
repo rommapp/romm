@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 from pathlib import Path
 from typing import Annotated
@@ -174,6 +175,26 @@ def _rom_destination(rom: Rom, folder: str, filename: str) -> tuple[str, Path]:
     return rel_dir, location
 
 
+def _destination_taken(rom: Rom, folder: str, filename: str, location: Path) -> bool:
+    """Whether the upload would land on a file that exists, or that will exist
+    once a lone file is promoted into its folder."""
+    if location.exists():
+        return True
+    return rom.has_simple_single_file and not folder and filename == rom.fs_name
+
+
+def _claim_destination(location: Path) -> None:
+    """Create the final path exclusively, so two completions racing for the
+    same name cannot overwrite each other's bytes."""
+    try:
+        os.close(os.open(location, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644))
+    except FileExistsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"File {location.name} already exists",
+        ) from exc
+
+
 async def _resolve_destination(
     request: Request, session: dict
 ) -> tuple[str, Path, Rom | None]:
@@ -195,6 +216,13 @@ async def _resolve_destination(
             ) from exc
 
     rom = _get_upload_rom(request, rom_id, session["platform_id"])
+    folder = session["folder"]
+    rel_dir, location = _rom_destination(rom, folder, filename)
+    if _destination_taken(rom, folder, filename, location):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"File {filename} already exists in the game folder",
+        )
     if rom.has_simple_single_file:
         try:
             rom = await promote_single_file_to_folder(rom)
@@ -202,12 +230,6 @@ async def _resolve_destination(
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT, detail=str(exc)
             ) from exc
-    rel_dir, location = _rom_destination(rom, session["folder"], filename)
-    if location.exists():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"File {filename} already exists in the game folder",
-        )
     return rel_dir, location, rom
 
 
@@ -280,7 +302,7 @@ async def start_chunked_upload(
                 detail=f"File {filename} would be ignored by the scanner",
             )
         _, destination = _rom_destination(rom, rel_folder, safe_filename)
-        if destination.exists():
+        if _destination_taken(rom, rel_folder, safe_filename, destination):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"File {filename} already exists in the game folder",
@@ -474,6 +496,7 @@ async def complete_chunked_upload(
                 ),
             )
 
+        _claim_destination(file_location)
         temp_location.replace(file_location)
     except Exception as exc:
         if temp_location.exists():
