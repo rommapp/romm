@@ -13,6 +13,7 @@ import type {
   SearchRomSchema,
   SimpleRomSchema,
   SoundtrackTrackMetaSchema,
+  UploadStartPayload,
   UserNoteSchema,
   RomFiltersDict,
 } from "@/__generated__";
@@ -52,16 +53,14 @@ async function uploadRomChunked({
   const uploadStore = storeUpload();
   const totalChunks = Math.ceil(file.size / UPLOAD_CHUNK_SIZE);
 
-  const { data: startData } = await api.post("/roms/upload/start", null, {
-    headers: {
-      "X-Upload-Platform": platformId.toString(),
-      "X-Upload-Filename": file.name,
-      "X-Upload-Total-Size": file.size.toString(),
-      "X-Upload-Total-Chunks": totalChunks.toString(),
-      ...(romId !== undefined && { "X-Upload-Rom-Id": romId.toString() }),
-      ...(folder && { "X-Upload-Folder": folder }),
-    },
-  });
+  const { data: startData } = await api.post("/roms/upload/start", {
+    platform_id: platformId,
+    filename: file.name,
+    total_size: file.size,
+    total_chunks: totalChunks,
+    ...(romId !== undefined && { rom_id: romId }),
+    ...(folder && { folder }),
+  } satisfies UploadStartPayload);
   const { upload_id } = startData;
 
   for (let i = 0; i < totalChunks; i++) {

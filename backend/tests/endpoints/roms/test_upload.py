@@ -57,17 +57,16 @@ def _start_upload(
     total_size: int = 11,
     total_chunks: int = 2,
 ):
-    response = client.post(
+    return client.post(
         "/api/roms/upload/start",
-        headers={
-            **_auth_headers(token),
-            "x-upload-platform": str(platform_id),
-            "x-upload-filename": filename,
-            "x-upload-total-size": str(total_size),
-            "x-upload-total-chunks": str(total_chunks),
+        headers=_auth_headers(token),
+        json={
+            "platform_id": platform_id,
+            "filename": filename,
+            "total_size": total_size,
+            "total_chunks": total_chunks,
         },
     )
-    return response
 
 
 def test_start_chunked_upload_success(
@@ -366,17 +365,18 @@ def _start_into_rom(
     total_size: int,
     platform_id: int | None = None,
 ):
-    headers = {
-        **_auth_headers(token),
-        "x-upload-platform": str(platform_id or rom.platform_id),
-        "x-upload-rom-id": str(rom.id),
-        "x-upload-filename": filename,
-        "x-upload-total-size": str(total_size),
-        "x-upload-total-chunks": "1",
+    payload: dict[str, int | str] = {
+        "platform_id": platform_id or rom.platform_id,
+        "rom_id": rom.id,
+        "filename": filename,
+        "total_size": total_size,
+        "total_chunks": 1,
     }
     if folder is not None:
-        headers["x-upload-folder"] = folder
-    return client.post("/api/roms/upload/start", headers=headers)
+        payload["folder"] = folder
+    return client.post(
+        "/api/roms/upload/start", headers=_auth_headers(token), json=payload
+    )
 
 
 def _upload_into_rom(
@@ -490,13 +490,13 @@ def test_start_into_unknown_rom_returns_404(
 ):
     response = client.post(
         "/api/roms/upload/start",
-        headers={
-            **_auth_headers(access_token),
-            "x-upload-platform": str(platform.id),
-            "x-upload-rom-id": "999999",
-            "x-upload-filename": "fix.ips",
-            "x-upload-total-size": "3",
-            "x-upload-total-chunks": "1",
+        headers=_auth_headers(access_token),
+        json={
+            "platform_id": platform.id,
+            "rom_id": 999999,
+            "filename": "fix.ips",
+            "total_size": 3,
+            "total_chunks": 1,
         },
     )
 

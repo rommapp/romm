@@ -24,9 +24,9 @@ function buildRom(overrides: Partial<UpdateRom> = {}): UpdateRom {
   return { id: 1, name: "Game", ...overrides } as UpdateRom;
 }
 
-function startHeaders(): Record<string, string> {
+function startBody(): Record<string, unknown> {
   const start = post.mock.calls.find(([url]) => url === "/roms/upload/start");
-  return start?.[2]?.headers ?? {};
+  return start?.[1] ?? {};
 }
 
 describe("updateRom", () => {
@@ -86,7 +86,7 @@ describe("romApi.uploadRoms", () => {
     put.mockResolvedValue({ data: { received: 1, total: 1 } });
   });
 
-  it("targets a rom folder through the start headers", async () => {
+  it("targets a rom folder through the start payload", async () => {
     const results = await romApi.uploadRoms({
       platformId: 3,
       romId: 42,
@@ -95,11 +95,13 @@ describe("romApi.uploadRoms", () => {
     });
 
     expect(results[0].status).toBe("fulfilled");
-    expect(startHeaders()).toMatchObject({
-      "X-Upload-Platform": "3",
-      "X-Upload-Filename": "fix.ips",
-      "X-Upload-Rom-Id": "42",
-      "X-Upload-Folder": "hack/v2",
+    expect(startBody()).toEqual({
+      platform_id: 3,
+      filename: "fix.ips",
+      total_size: 3,
+      total_chunks: 1,
+      rom_id: 42,
+      folder: "hack/v2",
     });
     expect(post).toHaveBeenCalledWith(
       "/roms/upload/u-1/complete",
@@ -108,15 +110,18 @@ describe("romApi.uploadRoms", () => {
     );
   });
 
-  it("leaves the rom headers out of a platform upload", async () => {
+  it("leaves the rom fields out of a platform upload", async () => {
     await romApi.uploadRoms({
       platformId: 3,
       filesToUpload: [new File(["abc"], "game.zip")],
     });
 
-    const headers = startHeaders();
-    expect(headers["X-Upload-Rom-Id"]).toBeUndefined();
-    expect(headers["X-Upload-Folder"]).toBeUndefined();
+    expect(startBody()).toEqual({
+      platform_id: 3,
+      filename: "game.zip",
+      total_size: 3,
+      total_chunks: 1,
+    });
   });
 
   it("treats an empty folder as the rom root", async () => {
@@ -127,7 +132,7 @@ describe("romApi.uploadRoms", () => {
       filesToUpload: [new File(["abc"], "readme.txt")],
     });
 
-    expect(startHeaders()["X-Upload-Rom-Id"]).toBe("42");
-    expect(startHeaders()["X-Upload-Folder"]).toBeUndefined();
+    expect(startBody()).toMatchObject({ rom_id: 42 });
+    expect(startBody()).not.toHaveProperty("folder");
   });
 });
