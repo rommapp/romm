@@ -573,8 +573,8 @@ const api = axios.create({
 
 ```text
 1. POST /roms/upload/start
-   JSON body: platform_id, filename, total_size, total_chunks,
-   optional rom_id + folder to upload into a ROM's folder
+   Headers: X-Upload-Platform, X-Upload-Filename, X-Upload-Total-Size, X-Upload-Total-Chunks
+   Optional JSON body: rom_id + folder to upload into a ROM's folder
    → Returns upload_id
 
 2. PUT /roms/upload/{upload_id}  (per 10MB chunk, raw bytes)

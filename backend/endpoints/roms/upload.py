@@ -234,16 +234,11 @@ async def _resolve_destination(
     return rel_dir, location, rom
 
 
-class UploadStartPayload(BaseModel):
-    platform_id: int = Field(ge=1)
-    filename: str = Field(min_length=1)
-    total_size: int = Field(ge=1)
-    total_chunks: int = Field(ge=1)
-    rom_id: int | None = Field(
-        default=None,
-        ge=1,
-        description="Upload into this ROM's folder instead of the platform folder.",
-    )
+class UploadTargetPayload(BaseModel):
+    """Optional body of `/start`: upload into a ROM's folder instead of the
+    platform folder."""
+
+    rom_id: int = Field(ge=1)
     folder: str = Field(
         default="",
         description="Subfolder inside the ROM's folder, relative and forward-slashed. Empty for the root.",
@@ -258,14 +253,29 @@ class UploadStartPayload(BaseModel):
 )
 async def start_chunked_upload(
     request: Request,
-    payload: UploadStartPayload,
+    platform_id: Annotated[
+        int,
+        Header(alias="x-upload-platform", ge=1),
+    ],
+    filename: Annotated[
+        str,
+        Header(alias="x-upload-filename"),
+    ],
+    total_size: Annotated[
+        int,
+        Header(alias="x-upload-total-size", ge=1),
+    ],
+    total_chunks: Annotated[
+        int,
+        Header(alias="x-upload-total-chunks", ge=1),
+    ],
+    target: UploadTargetPayload | None = None,
 ) -> dict:
     """Initiate a chunked ROM upload session."""
 
-    filename = payload.filename
-    rom_id = payload.rom_id
+    rom_id = target.rom_id if target else None
 
-    db_platform = db_platform_handler.get_platform(payload.platform_id)
+    db_platform = db_platform_handler.get_platform(platform_id)
     if not db_platform:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -284,8 +294,8 @@ async def start_chunked_upload(
                 detail=f"File {filename} already exists",
             )
     else:
-        rom = _get_upload_rom(request, rom_id, payload.platform_id)
-        rel_folder = _parse_upload_folder(payload.folder)
+        rom = _get_upload_rom(request, rom_id, platform_id)
+        rel_folder = _parse_upload_folder(target.folder if target else None)
         if fs_rom_handler.is_excluded_multi_part(safe_filename):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -304,11 +314,11 @@ async def start_chunked_upload(
 
     session = {
         "upload_id": upload_id,
-        "platform_id": payload.platform_id,
+        "platform_id": platform_id,
         "platform_fs_slug": platform_fs_slug,
         "filename": safe_filename,
-        "total_chunks": payload.total_chunks,
-        "total_size": payload.total_size,
+        "total_chunks": total_chunks,
+        "total_size": total_size,
         "user_id": request.user.id,
         "rom_id": rom_id,
         "folder": rel_folder,
@@ -317,7 +327,7 @@ async def start_chunked_upload(
 
     log.info(
         f"Started chunked upload session {upload_id} for {filename} "
-        f"({payload.total_chunks} chunks, {payload.total_size} bytes)"
+        f"({total_chunks} chunks, {total_size} bytes)"
     )
 
     return {"upload_id": upload_id}
