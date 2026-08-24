@@ -26,6 +26,7 @@ import type { Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import type { ScanType as SharedScanType } from "@/v2/types/scan";
 
 defineOptions({ inheritAttrs: false });
 
@@ -62,7 +63,7 @@ const {
 // Per-platform scan types — the full Scan-view list minus
 // `new_platforms` (a discovery scan against fs_slugs not yet in the
 // DB, which can't be scoped to a known platform).
-type ScanType = "quick" | "unmatched" | "update" | "hashes" | "complete";
+type ScanType = Exclude<SharedScanType, "new_platforms">;
 
 const scanOptions = computed<
   { title: string; subtitle: string; value: ScanType }[]
@@ -71,6 +72,11 @@ const scanOptions = computed<
     title: t("scan.quick-scan"),
     subtitle: t("scan.quick-scan-desc"),
     value: "quick",
+  },
+  {
+    title: t("scan.refresh-files"),
+    subtitle: t("scan.refresh-files-desc"),
+    value: "files",
   },
   {
     title: t("scan.unmatched-games"),

@@ -47,6 +47,7 @@ import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
+import type { ScanType } from "@/v2/types/scan";
 
 const { t } = useI18n();
 const scanningStore = storeScanning();
@@ -127,9 +128,6 @@ function onScroll(e: Event) {
   userScrolledDown = el.scrollTop > 1;
 }
 
-type ScanType =
-  "new_platforms" | "quick" | "unmatched" | "update" | "hashes" | "complete";
-
 const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
   {
     title: t("scan.new-platforms"),
@@ -140,6 +138,11 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
     title: t("scan.quick-scan"),
     subtitle: t("scan.quick-scan-desc"),
     value: "quick",
+  },
+  {
+    title: t("scan.refresh-files"),
+    subtitle: t("scan.refresh-files-desc"),
+    value: "files",
   },
   {
     title: t("scan.unmatched-games"),
@@ -191,6 +194,8 @@ const liveStats = computed(() => {
   );
   const firmwareScanned = scanStats.value.scanned_firmware ?? 0;
   const firmwareNew = scanStats.value.new_firmware ?? 0;
+  const romsUpdated = scanStats.value.updated_roms ?? 0;
+  const filesNew = scanStats.value.new_files ?? 0;
   return {
     platforms: {
       scanned: platformsScanned,
@@ -205,6 +210,7 @@ const liveStats = computed(() => {
       identified: romsIdentified,
     },
     firmware: { scanned: firmwareScanned, new: firmwareNew },
+    files: { new: filesNew, updatedRoms: romsUpdated },
   };
 });
 
@@ -705,6 +711,28 @@ function stopScan() {
                 <RIcon icon="mdi-memory" size="14" />
                 <span class="r-v2-scan-live__chip-num">
                   {{ liveStats.firmware.scanned }}
+                </span>
+              </span>
+            </template>
+          </RTooltip>
+          <RTooltip
+            v-if="liveStats.files.new > 0 || liveStats.files.updatedRoms > 0"
+            :text="
+              t('scan.files-scanned-with-details', {
+                n_new_files: liveStats.files.new,
+                n_updated_roms: liveStats.files.updatedRoms,
+              })
+            "
+            location="bottom"
+          >
+            <template #activator="{ props: tipProps }">
+              <span
+                v-bind="tipProps"
+                class="r-v2-scan-live__chip r-v2-scan-live__chip--alt"
+              >
+                <RIcon icon="mdi-file-plus-outline" size="14" />
+                <span class="r-v2-scan-live__chip-num">
+                  {{ liveStats.files.new }}
                 </span>
               </span>
             </template>
