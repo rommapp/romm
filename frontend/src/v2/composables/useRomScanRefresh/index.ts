@@ -1,4 +1,4 @@
-// useRomScanRefresh — refetch the open ROM when a scan finishes. Scan
+// useRomScanRefresh: refetch the open ROM when a scan finishes. Scan
 // events never carry file rows, so after a "Refresh files" the Files tab
 // would otherwise keep showing the listing from before the scan.
 import type { ScanStats } from "@/__generated__";

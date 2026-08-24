@@ -2,6 +2,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
+import type { RomFileSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import storeRoms from "@/stores/roms";
 import { useRomScanRefresh } from "./index";
@@ -27,6 +28,10 @@ vi.mock("@/v2/composables/useRomSync", () => ({
   useRomSync: () => ({ syncCachedRom }),
 }));
 
+function rom(overrides: Partial<DetailedRom> = {}): DetailedRom {
+  return { id: 3, files: [], ...overrides } as DetailedRom;
+}
+
 function install(getRomId: () => number | null) {
   return mount(
     defineComponent({
@@ -48,8 +53,8 @@ describe("useRomScanRefresh", () => {
 
   it("refetches the open rom when a scan finishes", async () => {
     const romsStore = storeRoms();
-    romsStore.setCurrentRom({ id: 3, files: [] } as unknown as DetailedRom);
-    const fresh = { id: 3, files: [{ id: 9 }] } as unknown as DetailedRom;
+    romsStore.setCurrentRom(rom());
+    const fresh = rom({ files: [{ id: 9 } as RomFileSchema] });
     getRom.mockResolvedValue({ data: fresh });
     install(() => 3);
 
@@ -63,13 +68,13 @@ describe("useRomScanRefresh", () => {
 
   it("drops a response for a rom the user already left", async () => {
     const romsStore = storeRoms();
-    romsStore.setCurrentRom({ id: 3 } as unknown as DetailedRom);
+    romsStore.setCurrentRom(rom());
     let resolve: (value: unknown) => void = () => {};
     getRom.mockReturnValue(new Promise((r) => (resolve = r)));
     install(() => 3);
 
     handlers.get("scan:done")?.({});
-    romsStore.setCurrentRom({ id: 4 } as unknown as DetailedRom);
+    romsStore.setCurrentRom(rom({ id: 4 }));
     resolve({ data: { id: 3 } });
     await flushPromises();
 

@@ -19,7 +19,7 @@
 // inside each row.
 //
 // Section header (per active subtab):
-//   * Upload — sends files into the active folder (or the ROM root)
+//   * Upload: sends files into the active folder (or the ROM root)
 //     through the chunked upload; the backend registers them on the
 //     ROM. From "All files", or via the folder button, a dialog asks
 //     for the destination first, including a folder that does not
@@ -926,7 +926,7 @@ async function refreshRom() {
 }
 
 /* The hidden file input sits at the template root so the visible button
-   can `.click()` it — display:none works fine since it never needs to be
+   can `.click()` it; display:none works fine since it never needs to be
    tabbable directly. */
 .r-v2-files__file-input {
   display: none;

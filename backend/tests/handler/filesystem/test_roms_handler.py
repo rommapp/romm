@@ -2595,7 +2595,9 @@ class TestIncrementalRomFiles:
         new = next(f for f in parsed.rom_files if f.file_name == "new.ips")
         assert new.file_path == f"{self.ROM_DIR}/hack/v2"
         assert new.category == RomFileCategory.HACK
-        assert new.md5_hash == hashlib.md5(b"new patch").hexdigest()
+        assert (
+            new.md5_hash == hashlib.md5(b"new patch", usedforsecurity=False).hexdigest()
+        )
         assert all(any(f is row for f in parsed.rom_files) for row in rows)
         assert parsed.top_level_changed is False
         assert parsed.md5_hash == "stored-md5"
@@ -2640,7 +2642,10 @@ class TestIncrementalRomFiles:
 
         assert parsed.top_level_changed is True
         assert {f.file_name for f in parsed.rom_files} == {"game.n64", "patched.n64"}
-        assert parsed.md5_hash == hashlib.md5(b"game bytes").hexdigest()
+        assert (
+            parsed.md5_hash
+            == hashlib.md5(b"game bytes", usedforsecurity=False).hexdigest()
+        )
 
     @pytest.mark.parametrize("column", ["file_size_bytes", "last_modified"])
     async def test_changed_file_is_rehashed(self, handler, platform, column):
@@ -2651,7 +2656,10 @@ class TestIncrementalRomFiles:
 
         hack = next(f for f in parsed.rom_files if f.file_name == "patched.n64")
         assert hack is not rows[1]
-        assert hack.md5_hash == hashlib.md5(b"hack bytes").hexdigest()
+        assert (
+            hack.md5_hash
+            == hashlib.md5(b"hack bytes", usedforsecurity=False).hexdigest()
+        )
         assert parsed.top_level_changed is False
 
     async def test_row_without_hashes_is_rehashed(self, handler, platform):
@@ -2668,7 +2676,10 @@ class TestIncrementalRomFiles:
 
         hack = next(f for f in parsed.rom_files if f.file_name == "patched.n64")
         assert hack is not rows[1]
-        assert hack.md5_hash == hashlib.md5(b"hack bytes").hexdigest()
+        assert (
+            hack.md5_hash
+            == hashlib.md5(b"hack bytes", usedforsecurity=False).hexdigest()
+        )
 
     async def test_row_without_hashes_is_reused_when_hashing_is_disabled(
         self, handler, platform, mocker
@@ -2717,7 +2728,10 @@ class TestIncrementalRomFiles:
 
         assert parsed.rom_files[0] is not row
         assert parsed.top_level_changed is True
-        assert parsed.md5_hash == hashlib.md5(b"paper mario").hexdigest()
+        assert (
+            parsed.md5_hash
+            == hashlib.md5(b"paper mario", usedforsecurity=False).hexdigest()
+        )
 
     async def test_nested_folders_map_to_categories(self, handler, platform):
         rom = self._rom(platform)

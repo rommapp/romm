@@ -60,7 +60,7 @@ function file(id: number, rel: string): RomFileSchema {
     file_size_bytes: 10,
     is_top_level: slash < 0,
     category: null,
-  } as unknown as RomFileSchema;
+  } as RomFileSchema;
 }
 
 function rom(overrides: Partial<DetailedRomSchema> = {}): DetailedRomSchema {
@@ -73,7 +73,7 @@ function rom(overrides: Partial<DetailedRomSchema> = {}): DetailedRomSchema {
     fs_size_bytes: 20,
     files: [file(1, "game.n64"), file(2, "hack/patched.n64")],
     ...overrides,
-  } as unknown as DetailedRomSchema;
+  } as DetailedRomSchema;
 }
 
 const UploadFilesDialogStub = {

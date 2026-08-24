@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// UploadFilesDialog — pick a destination inside the ROM folder and the
+// UploadFilesDialog: pick a destination inside the ROM folder and the
 // files to send there. Presentational: the Files tab performs the upload
 // and closes the dialog, so long chunked uploads keep the page usable.
 import {
