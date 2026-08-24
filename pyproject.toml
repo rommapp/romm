@@ -143,10 +143,7 @@ package = false
 exclude-newer = "7 days"
 # vcrpy >= 8.2.0 is required for aiohttp 3.14 compatibility (the removal of
 # `AsyncStreamReaderMixin`); allow it past the rolling 7-day window.
-# rq 2.11.0 carries the scheduler locking and cron job history the scheduler
-# migration builds on. The rolling window reaches it on 2026-08-24, after which
-# this entry can go.
-exclude-newer-package = { vcrpy = "2026-06-17", rq = "2026-08-17" }
+exclude-newer-package = { vcrpy = "2026-06-17" }
 
 [tool.ty.environment]
 root = ["./backend"]
