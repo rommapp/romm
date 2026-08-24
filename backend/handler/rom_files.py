@@ -56,9 +56,10 @@ async def refresh_rom_files(
         The persisted rows and what changed, so callers can report it.
     """
     existing = loaded_rom_files(rom)
+    calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
     parsed = await fs_rom_handler.get_rom_files(
         rom,
-        calculate_hashes=not cm.get_config().SKIP_HASH_CALCULATION,
+        calculate_hashes=calculate_hashes,
         existing_files=existing if hash_policy == HashPolicy.INCREMENTAL else None,
     )
     if existing and not parsed.rom_files:
@@ -94,7 +95,9 @@ async def refresh_rom_files(
     fs_size_bytes = sum(f.file_size_bytes for f in parsed.rom_files)
     if fs_size_bytes != rom.fs_size_bytes:
         rom_updates["fs_size_bytes"] = fs_size_bytes
-    if parsed.top_level_changed:
+    # With hashing disabled the listing carries no identity, so the stored
+    # hashes outlive it rather than being blanked.
+    if parsed.top_level_changed and calculate_hashes:
         for column in ROM_LEVEL_HASH_COLUMNS:
             value = getattr(parsed, column)
             if value != (getattr(rom, column) or ""):

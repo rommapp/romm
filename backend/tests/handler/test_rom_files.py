@@ -82,7 +82,9 @@ async def test_registers_new_nested_file(platform, admin_user, library):
     assert result.top_level_changed is False
     new = _files_by_name(rom.id)["fix.ips"]
     assert new.category == RomFileCategory.PATCH
-    assert new.md5_hash == hashlib.md5(b"patch bytes").hexdigest()
+    assert (
+        new.md5_hash == hashlib.md5(b"patch bytes", usedforsecurity=False).hexdigest()
+    )
     after = db_rom_handler.get_rom(rom.id)
     assert after.fs_size_bytes == len(b"game") + len(b"readme") + len(b"patch bytes")
     assert after.md5_hash == "stored-md5"
@@ -107,7 +109,8 @@ async def test_top_level_addition_updates_rom_hashes_and_size(
     assert after.md5_hash == expected.hexdigest()
     assert after.fs_size_bytes == len(b"game") + len(b"extra")
     assert (
-        _files_by_name(rom.id)["game.bin"].md5_hash == hashlib.md5(b"game").hexdigest()
+        _files_by_name(rom.id)["game.bin"].md5_hash
+        == hashlib.md5(b"game", usedforsecurity=False).hexdigest()
     )
 
 
@@ -171,8 +174,11 @@ async def test_full_policy_rehashes_every_file_in_place(platform, admin_user, li
     assert result.top_level_changed is True
     after = db_rom_handler.get_rom(rom.id)
     assert after.files[0].id == row_id
-    assert after.files[0].md5_hash == hashlib.md5(b"game").hexdigest()
-    assert after.md5_hash == hashlib.md5(b"game").hexdigest()
+    assert (
+        after.files[0].md5_hash
+        == hashlib.md5(b"game", usedforsecurity=False).hexdigest()
+    )
+    assert after.md5_hash == hashlib.md5(b"game", usedforsecurity=False).hexdigest()
 
 
 async def test_loads_files_when_relationship_is_unloaded(platform, admin_user, library):
@@ -186,3 +192,27 @@ async def test_loads_files_when_relationship_is_unloaded(platform, admin_user, l
 
     assert result.new_files == 1
     assert _files_by_name(rom.id)["codes.cht"].category == RomFileCategory.CHEAT
+
+
+async def test_disabled_hashing_keeps_stored_rom_hashes(
+    platform, admin_user, library, mocker
+):
+    from config.config_manager import config_manager as cm
+
+    config = cm.get_config()
+    mocker.patch.object(config, "SKIP_HASH_CALCULATION", True)
+    mocker.patch.object(cm, "get_config", return_value=config)
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+    _write(library, f"{rom.fs_path}/{FOLDER}/extra.bin", b"extra")
+
+    result = await refresh_rom_files(rom)
+
+    assert result.new_files == 1
+    assert result.top_level_changed is True
+    after = db_rom_handler.get_rom(rom.id)
+    assert (after.crc_hash, after.md5_hash, after.sha1_hash) == (
+        "stored-crc",
+        "stored-md5",
+        "stored-sha1",
+    )
+    assert _files_by_name(rom.id)["extra.bin"].md5_hash == ""
