@@ -472,8 +472,7 @@ async function copySelectedLink() {
 }
 
 // ---------- Delete ----------
-async function deleteSelectedFiles() {
-  const toDelete = selectedFiles.value;
+async function deleteFiles(toDelete: RomFileSchema[]) {
   if (toDelete.length === 0) return;
 
   const ok = await confirm({
@@ -512,7 +511,6 @@ async function deleteSelectedFiles() {
     );
   }
 
-  clearSelection();
   await refreshRom();
 
   // Redirect to the gallery if no files remain after deletion.
@@ -527,6 +525,17 @@ async function deleteSelectedFiles() {
       await router.push({ name: "home" });
     }
   }
+}
+
+async function deleteSelectedFiles() {
+  const toDelete = selectedFiles.value;
+  if (toDelete.length === 0) return;
+  clearSelection();
+  await deleteFiles(toDelete);
+}
+
+async function deleteFile(file: RomFileSchema) {
+  await deleteFiles([file]);
 }
 
 // ---------- Upload ----------
@@ -764,39 +773,39 @@ async function refreshRom() {
 
         <div v-if="selectedCount > 0" class="r-v2-files__toolbar-actions">
           <RBtn
-            variant="outlined"
-            prepend-icon="mdi-cloud-download-outline"
+            icon="mdi-cloud-download-outline"
+            variant="text"
             size="small"
+            :tooltip="t('rom.download-selected')"
+            :aria-label="t('rom.download-selected')"
             @click="downloadSelected"
-          >
-            {{ t("rom.download-selected") }}
-          </RBtn>
+          />
           <RBtn
-            variant="outlined"
-            prepend-icon="mdi-link-variant"
+            icon="mdi-link-variant"
+            variant="text"
             size="small"
+            :tooltip="t('rom.copy-link-action')"
+            :aria-label="t('rom.copy-link-action')"
             @click="copySelectedLink"
-          >
-            {{ t("rom.copy-link-action") }}
-          </RBtn>
+          />
           <RBtn
             v-if="canDelete"
+            icon="mdi-delete-outline"
             variant="text"
             color="danger"
-            prepend-icon="mdi-delete-outline"
             size="small"
+            :tooltip="t('common.delete')"
+            :aria-label="t('common.delete')"
             @click="deleteSelectedFiles"
-          >
-            {{ t("common.delete") }}
-          </RBtn>
+          />
           <RBtn
+            icon="mdi-close"
             variant="text"
-            prepend-icon="mdi-close"
             size="small"
+            :tooltip="t('common.clear')"
+            :aria-label="t('common.clear')"
             @click="clearSelection"
-          >
-            {{ t("common.clear") }}
-          </RBtn>
+          />
         </div>
       </div>
 
@@ -820,9 +829,11 @@ async function refreshRom() {
           :selected="isSelected(file)"
           :show-row-icon="subTab === 'all'"
           :show-category-badge="subTab === 'all'"
+          :can-delete="canDelete"
           @toggle="toggleFile(file)"
           @download="downloadFile(file)"
           @copy-link="copyFileLink(file)"
+          @delete="deleteFile(file)"
         />
       </ul>
     </div>
