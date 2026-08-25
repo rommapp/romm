@@ -11,7 +11,7 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
-vcrpy = "2026-06-18T05:00:00Z"
+vcrpy = "2026-06-18T00:00:00Z"
 
 [[package]]
 name = "aiohappyeyeballs"
