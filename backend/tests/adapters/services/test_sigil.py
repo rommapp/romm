@@ -200,3 +200,4 @@ class TestSigilService:
         assert SIGIL_PLATFORM_SLUGS[UPS.SWITCH_2] == "switch"
         assert SIGIL_PLATFORM_SLUGS[UPS.N3DS] == "3ds"
         assert SIGIL_PLATFORM_SLUGS[UPS.NGC] == "gamecube"
+        assert SIGIL_PLATFORM_SLUGS[UPS.DC] == "dreamcast"

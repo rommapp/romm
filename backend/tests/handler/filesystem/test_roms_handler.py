@@ -1662,6 +1662,39 @@ class TestSigilTitleIdExtraction:
         assert parsed.save_usage == SaveUsage.FOLDER_SPLIT
 
     @pytest.mark.asyncio
+    async def test_dreamcast_extraction_maps_file_prefix_usage(
+        self, tmp_path: Path, config: Config
+    ):
+        platform = Platform(name="Dreamcast", slug="dc", fs_slug="dc")
+        handler = self._make_handler(tmp_path)
+        rom = self._make_single_file_rom(tmp_path, platform, "Game.chd")
+
+        mock_extract = AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id="MK-51035",
+                save_id="MK-51035",
+                usage="file-prefix",
+            )
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+            with (
+                patch(self.SIGIL_PATCH_TARGET, mock_extract),
+                patch(
+                    "adapters.services.rahasher.RAHasherService.calculate_hash",
+                    new_callable=AsyncMock,
+                    return_value="",
+                ),
+            ):
+                parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].title_id == "MK-51035"
+        assert parsed.rom_files[0].save_id == "MK-51035"
+        assert parsed.save_id == "MK-51035"
+        assert parsed.save_usage == SaveUsage.FILE_PREFIX
+
+    @pytest.mark.asyncio
     async def test_non_sigil_platform_skips_extraction(
         self, tmp_path: Path, config: Config
     ):

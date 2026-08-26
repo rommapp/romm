@@ -23,6 +23,7 @@ SIGIL_PLATFORM_SLUGS: Final[dict[UPS, str]] = {
     UPS.WII: "wii",
     UPS.WIIU: "wiiu",
     UPS.NGC: "gamecube",
+    UPS.DC: "dreamcast",
 }
 
 # Errors that are expected for arbitrary library files (no title id present,
