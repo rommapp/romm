@@ -10,9 +10,19 @@ from fastapi import HTTPException, status
 from handler.metadata.hltb_handler import HLTBHandler
 from utils import get_version
 
+SEARCH_URL = "https://howlongtobeat.com/api/search/site"
+
+
+def _handler_without_session(search_url: str = SEARCH_URL) -> HLTBHandler:
+    """A handler pointed at an endpoint, before any session has been minted."""
+    handler = HLTBHandler()
+    handler.search_url = search_url
+    handler.search_init_url = f"{search_url}/init"
+    return handler
+
 
 def _handler() -> HLTBHandler:
-    handler = HLTBHandler()
+    handler = _handler_without_session()
     handler.security_token = "token-1"
     handler.hp_key = "ign_aaaa"
     handler.hp_val = "val-1"
@@ -58,7 +68,7 @@ async def test_request_renews_session_and_retries_on_403(mock_ctx_httpx_client):
     )
     mock_ctx_httpx_client.get.return_value = mock_client
 
-    result = await handler._request("https://howlongtobeat.com/api/bleed", {"a": 1})
+    result = await handler._request(handler.search_url, {"a": 1})
 
     assert result == {"data": [{"game_id": 1}]}
     assert mock_client.post.await_count == 2
@@ -82,7 +92,7 @@ async def test_request_does_not_mutate_caller_payload(mock_ctx_httpx_client):
     mock_ctx_httpx_client.get.return_value = mock_client
 
     payload = {"a": 1}
-    await handler._request("https://howlongtobeat.com/api/bleed", payload)
+    await handler._request(handler.search_url, payload)
 
     assert payload == {"a": 1}
 
@@ -106,7 +116,7 @@ async def test_request_uses_session_renewed_while_it_was_paced(
 
     acquire.side_effect = renew_while_waiting
 
-    await handler._request("https://howlongtobeat.com/api/bleed", {"a": 1})
+    await handler._request(handler.search_url, {"a": 1})
 
     kwargs = mock_client.post.await_args.kwargs
     assert kwargs["headers"]["x-auth-token"] == "token-from-peer"
@@ -127,7 +137,7 @@ async def test_request_bails_if_session_is_lost_while_it_was_paced(
 
     acquire.side_effect = lose_session_while_waiting
 
-    assert await handler._request("https://howlongtobeat.com/api/bleed", {}) == {}
+    assert await handler._request(handler.search_url, {}) == {}
     mock_client.post.assert_not_awaited()
 
 
@@ -145,7 +155,7 @@ async def test_session_renewal_is_rate_limited_too(mock_ctx_httpx_client, acquir
     )
     mock_ctx_httpx_client.get.return_value = mock_client
 
-    await handler._request("https://howlongtobeat.com/api/bleed", {})
+    await handler._request(handler.search_url, {})
 
     # Two POSTs plus the /init renewal in between, all paced.
     assert acquire.await_count == 3
@@ -180,9 +190,7 @@ async def test_debug_log_does_not_leak_session_material(mock_ctx_httpx_client):
     mock_ctx_httpx_client.get.return_value = mock_client
 
     with patch("handler.metadata.hltb_handler.log.debug") as mock_debug:
-        await handler._request(
-            "https://howlongtobeat.com/api/bleed", {"searchTerms": ["Chrono"]}
-        )
+        await handler._request(handler.search_url, {"searchTerms": ["Chrono"]})
 
     logged = repr(mock_debug.call_args.args)
     for secret in ("token-1", "ign_aaaa", "val-1"):
@@ -204,9 +212,7 @@ async def test_request_backs_off_and_retries_on_429(mock_ctx_httpx_client):
     ]
     mock_ctx_httpx_client.get.return_value = mock_client
 
-    assert await handler._request("https://howlongtobeat.com/api/bleed", {}) == {
-        "data": []
-    }
+    assert await handler._request(handler.search_url, {}) == {"data": []}
     assert mock_client.post.await_count == 2
     # A rate limit is not a session problem, so no renewal should be attempted.
     mock_client.get.assert_not_awaited()
@@ -221,7 +227,7 @@ async def test_request_gives_up_when_session_renewal_fails(mock_ctx_httpx_client
     mock_client.get.return_value = _response(json_body={})
     mock_ctx_httpx_client.get.return_value = mock_client
 
-    assert await handler._request("https://howlongtobeat.com/api/bleed", {}) == {}
+    assert await handler._request(handler.search_url, {}) == {}
     assert mock_client.post.await_count == 1
 
 
@@ -239,7 +245,7 @@ async def test_persistent_403_reports_session_cause_not_connectivity(
     mock_ctx_httpx_client.get.return_value = mock_client
 
     with pytest.raises(HTTPException) as exc_info:
-        await handler._request("https://howlongtobeat.com/api/bleed", {})
+        await handler._request(handler.search_url, {})
 
     assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
     assert "internet connection" not in exc_info.value.detail
@@ -272,7 +278,7 @@ async def test_connect_error_still_reports_connectivity(mock_ctx_httpx_client):
     mock_ctx_httpx_client.get.return_value = mock_client
 
     with pytest.raises(HTTPException) as exc_info:
-        await handler._request("https://howlongtobeat.com/api/bleed", {})
+        await handler._request(handler.search_url, {})
 
     assert "internet connection" in exc_info.value.detail
 
@@ -280,7 +286,7 @@ async def test_connect_error_still_reports_connectivity(mock_ctx_httpx_client):
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
 @patch("handler.metadata.hltb_handler.ctx_httpx_client")
 async def test_request_returns_empty_without_a_session(mock_ctx_httpx_client):
-    handler = HLTBHandler()
+    handler = _handler_without_session()
     mock_client = AsyncMock()
     mock_client.get.return_value = _response(json_body={})
     mock_ctx_httpx_client.get.return_value = mock_client
@@ -294,7 +300,7 @@ async def test_request_returns_empty_without_a_session(mock_ctx_httpx_client):
 async def test_request_mints_a_session_a_failed_startup_never_got(
     mock_ctx_httpx_client,
 ):
-    handler = HLTBHandler()
+    handler = _handler_without_session()
     mock_client = AsyncMock()
     mock_client.get.return_value = _response(
         json_body={"token": "token-late", "hpKey": "ign_late", "hpVal": "val-late"}
@@ -302,10 +308,10 @@ async def test_request_mints_a_session_a_failed_startup_never_got(
     mock_client.post.return_value = _response(json_body={"data": []})
     mock_ctx_httpx_client.get.return_value = mock_client
 
-    assert await handler._request(
-        "https://howlongtobeat.com/api/search/site", {"a": 1}
-    ) == {"data": []}
+    assert await handler._request(handler.search_url, {"a": 1}) == {"data": []}
 
+    # The mint has to address the endpoint being searched, not a stale default.
+    assert mock_client.get.await_args.args[0] == f"{handler.search_url}/init"
     kwargs = mock_client.post.await_args.kwargs
     assert kwargs["headers"]["x-auth-token"] == "token-late"
     assert kwargs["json"] == {"a": 1, "ign_late": "val-late"}
@@ -314,7 +320,7 @@ async def test_request_mints_a_session_a_failed_startup_never_got(
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
 @patch("handler.metadata.hltb_handler.ctx_httpx_client")
 async def test_concurrent_lookups_mint_one_shared_session(mock_ctx_httpx_client):
-    handler = HLTBHandler()
+    handler = _handler_without_session()
     mock_client = AsyncMock()
     mint_reached = asyncio.Event()
     mint_may_finish = asyncio.Event()
@@ -332,10 +338,7 @@ async def test_concurrent_lookups_mint_one_shared_session(mock_ctx_httpx_client)
     mock_ctx_httpx_client.get.return_value = mock_client
 
     lookups = [
-        asyncio.create_task(
-            handler._request("https://howlongtobeat.com/api/search/site", {})
-        )
-        for _ in range(5)
+        asyncio.create_task(handler._request(handler.search_url, {})) for _ in range(5)
     ]
     await mint_reached.wait()
     mint_may_finish.set()
@@ -343,6 +346,7 @@ async def test_concurrent_lookups_mint_one_shared_session(mock_ctx_httpx_client)
 
     # A scan starts many lookups at once, and HLTB must not see a mint from each.
     mock_client.get.assert_awaited_once()
+    assert mock_client.get.await_args.args[0] == f"{handler.search_url}/init"
     assert mock_client.post.await_count == 5
 
 
