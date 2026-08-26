@@ -62,7 +62,6 @@ from handler.database import (
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
-from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_hltb_handler,
@@ -80,6 +79,7 @@ from handler.rom_conversion import promote_single_file_to_folder
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
+    build_hashless_fs_rom,
     build_physical_fs_name,
     build_physical_fs_path,
     download_rom_resources,
@@ -1631,12 +1631,7 @@ async def create_physical_rom(
     request: Request,
     form_data: Annotated[PhysicalRomCreateForm, Body()],
 ) -> DetailedRomSchema:
-    """Manually add a physical game and auto-link its metadata (a single quick scan).
-
-    The game has no file on disk; it is stored as a `Rom` with `is_physical=True`
-    and a synthetic filesystem name, then matched by name against the metadata
-    providers exactly like a one-title scan.
-    """
+    """Manually add a physical game and auto-link its metadata (a single quick scan)."""
     platform = db_platform_handler.get_platform(form_data.platform_id)
     if not platform:
         raise HTTPException(
@@ -1680,36 +1675,19 @@ async def create_physical_rom(
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"A game named {match_name!r} already exists on this platform",
+            detail=f"A concurrent request already added {match_name!r} to this platform",
         ) from exc
 
     metadata_sources = form_data.metadata_sources or [s.value for s in MetadataSource]
-
-    fs_rom: FSRom = {
-        "fs_name": fs_name,
-        "flat": True,
-        "nested": False,
-        "files": [],
-        "crc_hash": "",
-        "md5_hash": "",
-        "sha1_hash": "",
-        "ra_hash": "",
-    }
 
     scanned_rom = await scan_rom(
         scan_type=ScanType.QUICK,
         platform=platform,
         rom=rom,
-        fs_rom=fs_rom,
+        fs_rom=build_hashless_fs_rom(fs_name, flat=True),
         metadata_sources=metadata_sources,
         newly_added=True,
     )
-
-    # scan_rom returns a fresh Rom; re-assert the physical identity before persisting
-    # so a matched row can never be treated as a file-less-and-missing digital rom.
-    scanned_rom.is_physical = True
-    scanned_rom.upc = form_data.upc
-    scanned_rom.fs_path = fs_path
 
     added_rom = db_rom_handler.add_rom(scanned_rom)
 
@@ -1722,10 +1700,9 @@ async def create_physical_rom(
     )
 
     db_rom_handler.invalidate_filter_values_cache()
+    refresh_affected_smart_collections([added_rom.id])
 
-    return DetailedRomSchema.from_orm_with_request(
-        db_rom_handler.get_rom(added_rom.id), request
-    )
+    return DetailedRomSchema.from_orm_with_request(added_rom, request)
 
 
 @protected_route(

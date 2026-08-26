@@ -136,10 +136,7 @@ FLASHPOINT_API_ENABLED: Final[bool] = safe_str_to_bool(
 # HOWLONGTOBEAT
 HLTB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HLTB_API_ENABLED"))
 
-# UPC LOOKUP (barcode -> title, used when adding physical games by UPC).
-# Defaults to the free UPCitemdb trial endpoint, which works without a key but
-# is heavily rate-limited. Set UPC_LOOKUP_API_KEY (and optionally a base URL) to
-# use the paid tier.
+# UPC LOOKUP (barcode -> title, used when adding physical games by UPC)
 UPC_LOOKUP_ENABLED: Final[bool] = safe_str_to_bool(
     _get_env("UPC_LOOKUP_ENABLED", "true")
 )

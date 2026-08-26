@@ -4,8 +4,8 @@
 // ZXing, and emits the decoded value. Purely presentational + camera
 // plumbing; the caller owns what to do with the code.
 //
-// Camera access needs a secure context (HTTPS or localhost). The caller
-// should only surface the trigger when `isBarcodeScanSupported()` is true.
+// Camera access needs a secure context (HTTPS or localhost); callers gate the
+// trigger on that themselves.
 import { RBtn, RDialog, RIcon } from "@v2/lib";
 import {
   BrowserMultiFormatReader,
@@ -40,15 +40,16 @@ hints.set(DecodeHintType.POSSIBLE_FORMATS, [
 
 const videoRef = ref<HTMLVideoElement | null>(null);
 const errorMsg = ref("");
-const starting = ref(false);
 
-let reader: BrowserMultiFormatReader | null = null;
 let controls: IScannerControls | null = null;
+// Bumped on every start and stop. The await below spans a permission prompt, so
+// without it a teardown mid-start would be undone by the controls landing after.
+let startToken = 0;
 
 function stopCamera() {
+  startToken += 1;
   controls?.stop();
   controls = null;
-  reader = null;
 }
 
 async function startCamera() {
@@ -58,14 +59,14 @@ async function startCamera() {
     return;
   }
 
-  starting.value = true;
+  const token = ++startToken;
   try {
     await nextTick();
     const video = videoRef.value;
     if (!video) return;
 
-    reader = new BrowserMultiFormatReader(hints);
-    controls = await reader.decodeFromConstraints(
+    const reader = new BrowserMultiFormatReader(hints);
+    const started = await reader.decodeFromConstraints(
       { video: { facingMode: "environment" } },
       video,
       (result) => {
@@ -74,6 +75,12 @@ async function startCamera() {
         if (code) onDetected(code);
       },
     );
+
+    if (token !== startToken) {
+      started.stop();
+      return;
+    }
+    controls = started;
   } catch (err) {
     const name = (err as { name?: string })?.name;
     errorMsg.value =
@@ -81,8 +88,6 @@ async function startCamera() {
         ? t("rom.barcode-scan-denied")
         : t("rom.barcode-scan-failed");
     stopCamera();
-  } finally {
-    starting.value = false;
   }
 }
 
@@ -96,12 +101,15 @@ function close() {
   emit("update:modelValue", false);
 }
 
+// `post` so the initial run lands after mount, when the callers that render
+// this lazily behind a `v-if` have already provided the video element.
 watch(
   () => props.modelValue,
   (open) => {
     if (open) startCamera();
     else stopCamera();
   },
+  { immediate: true, flush: "post" },
 );
 
 onBeforeUnmount(stopCamera);

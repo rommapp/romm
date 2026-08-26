@@ -56,6 +56,7 @@ from handler.redis_handler import (
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
+    build_hashless_fs_rom,
     download_rom_resources,
     persist_soundtrack_cover,
     scan_firmware,
@@ -675,16 +676,7 @@ async def _scan_selected_roms(
 
             await _identify_rom(
                 platform=platform,
-                fs_rom=FSRom(
-                    fs_name=rom.fs_name,
-                    flat=is_flat,
-                    nested=not is_flat,
-                    files=[],
-                    crc_hash="",
-                    md5_hash="",
-                    sha1_hash="",
-                    ra_hash="",
-                ),
+                fs_rom=build_hashless_fs_rom(rom.fs_name, flat=is_flat),
                 rom=rom,
                 scan_type=scan_type,
                 roms_ids=roms_ids,

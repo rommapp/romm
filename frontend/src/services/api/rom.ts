@@ -6,6 +6,7 @@ import type {
   BulkOperationResponse,
   DetailedRomSchema,
   ManualMetadata,
+  PhysicalRomCreateForm,
   RomUserData,
   RomUserSchema,
   RomFileUserSchema,
@@ -474,21 +475,17 @@ async function createPhysicalRom({
   platformId,
   name,
   upc,
-  metadataSources,
 }: {
   platformId: number;
   name?: string;
   upc?: string;
-  metadataSources?: string[];
 }) {
-  // POST /roms/physical — manually add a file-less physical game and
-  // auto-link its metadata (a single quick scan). Returns the created rom.
-  return api.post<DetailedRom>("/roms/physical", {
+  const payload: PhysicalRomCreateForm = {
     platform_id: platformId,
     name: name || null,
     upc: upc || null,
-    metadata_sources: metadataSources ?? null,
-  });
+  };
+  return api.post<DetailedRom>("/roms/physical", payload);
 }
 
 function triggerFileDownload(href: string) {

@@ -11,8 +11,7 @@ MOCK_IGDB_ID = 424242
 
 
 async def _fake_scan_rom(*, rom: Rom, platform: Platform, fs_rom, **kwargs) -> Rom:
-    """Return a fresh Rom (as the real scan_rom does) that drops the physical
-    fields, so the endpoint's re-assert path is exercised."""
+    """A fresh Rom carrying the columns the real scan_rom forwards, plus a match."""
     return Rom(
         id=rom.id,
         platform_id=platform.id,
@@ -20,6 +19,8 @@ async def _fake_scan_rom(*, rom: Rom, platform: Platform, fs_rom, **kwargs) -> R
         fs_path=rom.fs_path,
         fs_size_bytes=0,
         name=rom.name,
+        is_physical=rom.is_physical,
+        upc=rom.upc,
         igdb_id=MOCK_IGDB_ID,
         url_cover="",
         url_manual="",

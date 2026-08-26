@@ -17,6 +17,10 @@ _TITLE_NOISE_RE = re.compile(
 )
 
 
+# Shorter than this and the "title" is a stray code, not a name worth matching.
+_MIN_TITLE_LENGTH: Final = 2
+
+
 class UPCHandler(MetadataHandler):
     """Resolve a UPC/EAN/barcode to a product title via an external lookup service.
 
@@ -25,9 +29,7 @@ class UPCHandler(MetadataHandler):
     """
 
     def __init__(self) -> None:
-        self.base_url = UPC_LOOKUP_BASE_URL.rstrip("/")
-        self.lookup_url = f"{self.base_url}/lookup"
-        self.min_title_length: Final = 2
+        self.lookup_url = f"{UPC_LOOKUP_BASE_URL.rstrip('/')}/lookup"
 
     @classmethod
     def is_enabled(cls) -> bool:
@@ -68,7 +70,7 @@ class UPCHandler(MetadataHandler):
         items = data.get("items") or []
         for item in items:
             title = (item.get("title") or "").strip()
-            if len(title) >= self.min_title_length:
+            if len(title) >= _MIN_TITLE_LENGTH:
                 return self._clean_title(title)
 
         return None

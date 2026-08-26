@@ -125,6 +125,20 @@ def build_physical_fs_name(platform_id: int, name: str) -> str:
     return candidate
 
 
+def build_hashless_fs_rom(fs_name: str, *, flat: bool) -> FSRom:
+    """An `FSRom` for a rom with no filesystem listing to consult."""
+    return FSRom(
+        fs_name=fs_name,
+        flat=flat,
+        nested=not flat,
+        files=[],
+        crc_hash="",
+        md5_hash="",
+        sha1_hash="",
+        ra_hash="",
+    )
+
+
 def get_main_platform_igdb_id(platform: Platform):
     cnfg = cm.get_config()
 

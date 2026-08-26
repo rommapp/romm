@@ -3,27 +3,30 @@
 // disc, boxed copy) that has no file on disk. The backend stores it as a
 // file-less Rom (is_physical=true) and auto-links metadata by name/UPC in a
 // single quick scan.
-//
-// Flow:
-//   • Emitter fires `showAddPhysicalGameDialog`; a Platform payload prefills
-//     the platform field, null lets the user pick one.
-//   • The user enters a game name and/or a UPC, then submits.
-//   • POST /roms/physical matches metadata; on success the gallery refreshes
-//     if it's showing the same platform.
 import { RBtn, RDialog, RForm, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import {
+  computed,
+  defineAsyncComponent,
+  inject,
+  onBeforeUnmount,
+  ref,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
-import BarcodeScannerDialog from "@/v2/components/shared/BarcodeScannerDialog.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+
+// Pulls in ZXing (~700 KB); GlobalDialogs is mounted on every page.
+const BarcodeScannerDialog = defineAsyncComponent(
+  () => import("@/v2/components/shared/BarcodeScannerDialog.vue"),
+);
 
 // Camera scanning needs getUserMedia in a secure context (HTTPS / localhost).
 const canScanBarcode =
@@ -44,7 +47,6 @@ const galleryRoms = storeGalleryRoms();
 
 const show = ref(false);
 const submitting = ref(false);
-const formValid = ref(true);
 const platformId = ref<number | null>(null);
 const name = ref("");
 const upc = ref("");
@@ -127,7 +129,7 @@ async function submit() {
     </template>
 
     <template #content>
-      <RForm v-model="formValid" class="r-v2-apg__form" @submit="submit">
+      <RForm class="r-v2-apg__form" @submit="submit">
         <p class="r-v2-apg__desc">{{ t("rom.add-physical-game-desc") }}</p>
 
         <PlatformSelect
@@ -149,29 +151,20 @@ async function submit() {
           </template>
         </RTextField>
 
-        <div class="r-v2-apg__upc-row">
-          <RTextField
-            v-model="upc"
-            class="r-v2-apg__upc-field"
-            :placeholder="t('rom.physical-upc')"
-            prefix-label="stacked"
-            hide-details
-          >
-            <template #prefix-label>
-              {{ t("rom.physical-upc") }}
-            </template>
-          </RTextField>
-          <RBtn
-            v-if="canScanBarcode"
-            class="r-v2-apg__scan-btn"
-            variant="outlined"
-            surface
-            icon="mdi-barcode-scan"
-            :aria-label="t('rom.barcode-scan-title')"
-            :tooltip="t('rom.barcode-scan-title')"
-            @click="scannerOpen = true"
-          />
-        </div>
+        <RTextField
+          v-model="upc"
+          :placeholder="t('rom.physical-upc')"
+          prefix-label="stacked"
+          :append-inner-icon="canScanBarcode ? 'mdi-barcode-scan' : undefined"
+          :append-inner-tooltip="
+            canScanBarcode ? t('rom.barcode-scan-title') : undefined
+          "
+          @click:append-inner="scannerOpen = true"
+        >
+          <template #prefix-label>
+            {{ t("rom.physical-upc") }}
+          </template>
+        </RTextField>
       </RForm>
     </template>
 
@@ -192,7 +185,11 @@ async function submit() {
     </template>
   </RDialog>
 
-  <BarcodeScannerDialog v-model="scannerOpen" @detected="onBarcodeDetected" />
+  <BarcodeScannerDialog
+    v-if="scannerOpen"
+    v-model="scannerOpen"
+    @detected="onBarcodeDetected"
+  />
 </template>
 
 <style scoped>
@@ -206,19 +203,5 @@ async function submit() {
   margin: 0;
   color: var(--r-color-fg-muted);
   font-size: var(--r-font-size-sm);
-}
-
-.r-v2-apg__upc-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.r-v2-apg__upc-field {
-  flex: 1 1 auto;
-}
-
-.r-v2-apg__scan-btn {
-  flex: 0 0 auto;
 }
 </style>
