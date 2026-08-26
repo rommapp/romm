@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -281,10 +282,68 @@ async def test_connect_error_still_reports_connectivity(mock_ctx_httpx_client):
 async def test_request_returns_empty_without_a_session(mock_ctx_httpx_client):
     handler = HLTBHandler()
     mock_client = AsyncMock()
+    mock_client.get.return_value = _response(json_body={})
     mock_ctx_httpx_client.get.return_value = mock_client
 
-    assert await handler._request("https://howlongtobeat.com/api/bleed", {}) == {}
+    assert await handler._request("https://howlongtobeat.com/api/search/site", {}) == {}
     mock_client.post.assert_not_awaited()
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_request_mints_a_session_a_failed_startup_never_got(
+    mock_ctx_httpx_client,
+):
+    handler = HLTBHandler()
+    mock_client = AsyncMock()
+    mock_client.get.return_value = _response(
+        json_body={"token": "token-late", "hpKey": "ign_late", "hpVal": "val-late"}
+    )
+    mock_client.post.return_value = _response(json_body={"data": []})
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    assert await handler._request(
+        "https://howlongtobeat.com/api/search/site", {"a": 1}
+    ) == {"data": []}
+
+    kwargs = mock_client.post.await_args.kwargs
+    assert kwargs["headers"]["x-auth-token"] == "token-late"
+    assert kwargs["json"] == {"a": 1, "ign_late": "val-late"}
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_concurrent_lookups_mint_one_shared_session(mock_ctx_httpx_client):
+    handler = HLTBHandler()
+    mock_client = AsyncMock()
+    mint_reached = asyncio.Event()
+    mint_may_finish = asyncio.Event()
+
+    async def blocking_mint(*args, **kwargs) -> MagicMock:
+        # Hold /init open so every other lookup reaches _ensure_session meanwhile.
+        mint_reached.set()
+        await mint_may_finish.wait()
+        return _response(
+            json_body={"token": "token-1", "hpKey": "ign_aaaa", "hpVal": "val-1"}
+        )
+
+    mock_client.get.side_effect = blocking_mint
+    mock_client.post.return_value = _response(json_body={"data": []})
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    lookups = [
+        asyncio.create_task(
+            handler._request("https://howlongtobeat.com/api/search/site", {})
+        )
+        for _ in range(5)
+    ]
+    await mint_reached.wait()
+    mint_may_finish.set()
+    await asyncio.gather(*lookups)
+
+    # A scan starts many lookups at once, and HLTB must not see a mint from each.
+    mock_client.get.assert_awaited_once()
+    assert mock_client.post.await_count == 5
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)

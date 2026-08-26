@@ -293,6 +293,7 @@ class HLTBHandler(MetadataHandler):
         self.security_token: str | None = None
         self.hp_key: str | None = None
         self.hp_val: str | None = None
+        self._session_lock = asyncio.Lock()
         self.min_similarity_score: Final[float] = 0.85
 
     @classmethod
@@ -306,6 +307,13 @@ class HLTBHandler(MetadataHandler):
         # HLTB now requires a security token
         await self._fetch_security_token()
 
+        if not self._has_session():
+            log.error(
+                "Could not establish a HowLongToBeat session at %s, lookups will "
+                "retry until one succeeds",
+                self.search_init_url,
+            )
+
     def _base_headers(self) -> dict[str, str]:
         # HLTB binds a session to the user agent that requested it, so every call
         # has to send the same one.
@@ -316,6 +324,18 @@ class HLTBHandler(MetadataHandler):
 
     def _has_session(self) -> bool:
         return bool(self.security_token and self.hp_key and self.hp_val)
+
+    async def _ensure_session(self) -> bool:
+        """Mint a session if there is none, so a failed startup is not permanent."""
+        if self._has_session():
+            return True
+
+        async with self._session_lock:
+            # A peer may have minted one while we waited for the lock.
+            if not self._has_session():
+                await self._fetch_security_token()
+
+        return self._has_session()
 
     async def _fetch_search_endpoint(self) -> None:
         """Fetch the API endpoint URL from Github."""
@@ -387,7 +407,7 @@ class HLTBHandler(MetadataHandler):
         :return: A dictionary with the json result.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
-        if not self._has_session():
+        if not await self._ensure_session():
             return {}
 
         httpx_client = ctx_httpx_client.get()

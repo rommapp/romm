@@ -2,6 +2,10 @@ name: Update HowLongToBeat API URL
 
 on:
   workflow_dispatch:
+  schedule:
+    # HLTB rotates the endpoint without notice, and the fixture is served to
+    # every install from master, so check weekly rather than on someone noticing.
+    - cron: "0 6 * * 1"
 
 permissions:
   contents: write
