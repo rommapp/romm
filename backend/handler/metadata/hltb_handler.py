@@ -245,6 +245,39 @@ def extract_hltb_metadata(game: HLTBGame) -> HLTBMetadata:
 GITHUB_FILE_URL = "https://raw.githubusercontent.com/rommapp/romm/refs/heads/master/backend/handler/metadata/fixtures/hltb_api_url"
 
 
+def build_search_payload(search_term: str, platform_name: str) -> dict:
+    """Build the search request body, shared with the endpoint discovery script."""
+    return {
+        "searchType": "games",
+        "searchTerms": search_term.split(" "),
+        "searchPage": 1,
+        "size": 20,
+        "searchOptions": {
+            "games": {
+                "userId": 0,
+                "platform": platform_name,
+                "sortCategory": "popular",
+                "rangeCategory": "main",
+                "rangeTime": {"min": None, "max": None},
+                "gameplay": {
+                    "perspective": "",
+                    "flow": "",
+                    "genre": "",
+                    "difficulty": "",
+                },
+                "rangeYear": {"min": "", "max": ""},
+                "modifier": "",
+            },
+            "users": {"sortCategory": "postcount"},
+            "lists": {"sortCategory": "follows"},
+            "filter": "",
+            "sort": 0,
+            "randomizer": 0,
+        },
+        "useCache": True,
+    }
+
+
 # Raised where the page parsed but did not carry the shape we read, so a
 # rewrite upstream surfaces as itself instead of as a game with no times.
 HLTB_FORMAT_CHANGED_DETAIL: Final[str] = (
@@ -509,35 +542,7 @@ class HLTBHandler(MetadataHandler):
         platform_name = self.get_platform(platform_slug).get("name", "")
 
         try:
-            payload = {
-                "searchType": "games",
-                "searchTerms": search_term.split(" "),
-                "searchPage": 1,
-                "size": 20,
-                "searchOptions": {
-                    "games": {
-                        "userId": 0,
-                        "platform": platform_name,
-                        "sortCategory": "popular",
-                        "rangeCategory": "main",
-                        "rangeTime": {"min": None, "max": None},
-                        "gameplay": {
-                            "perspective": "",
-                            "flow": "",
-                            "genre": "",
-                            "difficulty": "",
-                        },
-                        "rangeYear": {"min": "", "max": ""},
-                        "modifier": "",
-                    },
-                    "users": {"sortCategory": "postcount"},
-                    "lists": {"sortCategory": "follows"},
-                    "filter": "",
-                    "sort": 0,
-                    "randomizer": 0,
-                },
-                "useCache": True,
-            }
+            payload = build_search_payload(search_term, platform_name)
 
             response = await self._request(self.search_url, payload)
 
