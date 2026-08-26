@@ -1,8 +1,8 @@
 """Add FOLDER_SPLIT to the saveusage enum (3DS saves nest the id across
 two directory levels).
 
-Revision ID: 0110_sigil_folder_split
-Revises: 0109_sigil_title_version
+Revision ID: 0113_sigil_folder_split
+Revises: 0112_sigil_title_version
 Create Date: 2026-07-29 00:00:00.000000
 
 """
@@ -13,8 +13,8 @@ from alembic import op
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0110_sigil_folder_split"
-down_revision = "0109_sigil_title_version"
+revision = "0113_sigil_folder_split"
+down_revision = "0112_sigil_title_version"
 branch_labels = None
 depends_on = None
 

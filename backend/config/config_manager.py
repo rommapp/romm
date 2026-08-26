@@ -47,6 +47,7 @@ DEFAULT_EXCLUDED_FILES: Final = [
     ".Trashes",
     ".stfolder",
     "@SynoResource",
+    "*:Zone.Identifier",
     "gamelist.xml",
     "metadata.pegasus.txt",
 ]

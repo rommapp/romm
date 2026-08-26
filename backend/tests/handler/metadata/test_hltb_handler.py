@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -329,3 +331,421 @@ async def test_heartbeat_sends_the_user_agent_hltb_requires(mock_ctx_httpx_clien
     headers = mock_client.get.await_args.kwargs["headers"]
     assert headers["User-Agent"] == f"RomM/{get_version()}"
     assert headers["Referer"] == "https://howlongtobeat.com"
+
+
+def _game(game_id: int, name: str, *, timed: bool = True) -> dict:
+    """A search result carrying only the fields matching depends on."""
+    time = 3600 if timed else 0
+    return {
+        "game_id": game_id,
+        "game_name": name,
+        "game_image": "",
+        "comp_main": time,
+        "comp_plus": time,
+        "comp_100": time,
+        "comp_all": time,
+        "comp_main_count": 1,
+        "comp_plus_count": 1,
+        "comp_100_count": 1,
+        "comp_all_count": 1,
+        "release_world": 2008,
+        "review_score": 70,
+        "count_review": 5,
+        "profile_popular": 3,
+        "count_comp": 4,
+    }
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_series_prefix_the_catalogue_omits_still_matches():
+    """ "007: Quantum of Solace" scores 0.838 against "Quantum of Solace",
+    under the gate, so the part after the separator has to be searched too."""
+    handler = _handler()
+    searched: list[str] = []
+
+    async def search_games(term, _platform_slug):
+        searched.append(term)
+        return [_game(7467, "Quantum of Solace")]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("007 - Quantum of Solace (USA).chd", "ps2")
+
+    assert rom["hltb_id"] == 7467
+    assert searched == ["007: quantum of solace", "quantum of solace"]
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_full_term_match_does_not_trigger_a_second_search():
+    handler = _handler()
+    searched: list[str] = []
+
+    async def search_games(term, _platform_slug):
+        searched.append(term)
+        return [_game(4806, "James Bond 007: Agent Under Fire")]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom(
+            "James Bond 007 - Agent Under Fire (USA).chd", "ps2"
+        )
+
+    assert rom["hltb_id"] == 4806
+    assert len(searched) == 1
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_term_without_a_separator_is_not_searched_twice():
+    handler = _handler()
+    searched: list[str] = []
+
+    async def search_games(term, _platform_slug):
+        searched.append(term)
+        return []
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("Nothing Like It (USA).chd", "ps2")
+
+    assert rom["hltb_id"] is None
+    assert searched == ["nothing like it"]
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_hyphen_inside_a_word_does_not_trigger_a_retry():
+    """A retry on "man 2" would invite a match on an unrelated game."""
+    handler = _handler()
+    searched: list[str] = []
+
+    async def search_games(term, _platform_slug):
+        searched.append(term)
+        return []
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("Spider-Man 2 (USA).chd", "ps2")
+
+    assert rom["hltb_id"] is None
+    assert searched == ["spider-man 2"]
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_retry_still_requires_recorded_times():
+    """A catalogue entry nobody has submitted a time for is not a match."""
+    handler = _handler()
+
+    async def search_games(_term, _platform_slug):
+        return [_game(7467, "Quantum of Solace", timed=False)]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("007 - Quantum of Solace (USA).chd", "ps2")
+
+    assert rom["hltb_id"] is None
+
+
+def _game_page(game: dict | None) -> MagicMock:
+    """A game page carrying its record in the Next.js hydration payload."""
+    games = [game] if game is not None else []
+    payload = json.dumps({"props": {"pageProps": {"game": {"data": {"game": games}}}}})
+    response = MagicMock()
+    response.status_code = 200
+    response.text = (
+        '<html><body><script id="__NEXT_DATA__" type="application/json">'
+        f"{payload}</script></body></html>"
+    )
+    return response
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_get_rom_by_id_reads_the_game_page(mock_ctx_httpx_client):
+    """The by-ID lookup the manual edit form depends on: HLTB has no API for it,
+    so the record comes off the game page."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page(_game(7169, "Pokémon Red and Blue")))
+    mock_ctx_httpx_client.get.return_value = client
+
+    rom = await handler.get_rom_by_id(7169)
+
+    assert rom["hltb_id"] == 7169
+    assert rom["name"] == "Pokémon Red and Blue"
+    assert rom["hltb_metadata"]["main_story"] == 3600
+    assert rom["hltb_metadata"]["review_score"] == 70
+
+    # The `/game?id=` form answers with a redirect the shared client won't follow.
+    assert client.get.await_args.args[0] == "https://howlongtobeat.com/game/7169"
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_get_rom_by_id_sends_the_user_agent_hltb_requires(
+    mock_ctx_httpx_client,
+):
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page(_game(7169, "Pokémon")))
+    mock_ctx_httpx_client.get.return_value = client
+
+    await handler.get_rom_by_id(7169)
+
+    assert (
+        client.get.await_args.kwargs["headers"]["User-Agent"] == f"RomM/{get_version()}"
+    )
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_get_rom_by_id_reads_the_full_release_date(mock_ctx_httpx_client):
+    """The game page dates a release in full where search returns just the year."""
+    handler = _handler()
+    game = _game(7169, "Pokémon Red and Blue") | {"release_world": "1996-02-27"}
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page(game))
+    mock_ctx_httpx_client.get.return_value = client
+
+    rom = await handler.get_rom_by_id(7169)
+
+    assert rom["hltb_metadata"]["release_year"] == 1996
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_get_rom_by_id_tolerates_a_page_without_popularity(
+    mock_ctx_httpx_client,
+):
+    """The game page omits the popularity search reports, so it must not fail."""
+    handler = _handler()
+    game = _game(7169, "Pokémon Red and Blue") | {"profile_popular": None}
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page(game))
+    mock_ctx_httpx_client.get.return_value = client
+
+    rom = await handler.get_rom_by_id(7169)
+
+    assert rom["hltb_id"] == 7169
+    assert "popularity" not in rom["hltb_metadata"]
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_unknown_id_is_not_reported_as_an_outage(mock_ctx_httpx_client):
+    """A mistyped ID is the user's, not HLTB's, so it must not 503 the edit."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_response(status.HTTP_404_NOT_FOUND))
+    mock_ctx_httpx_client.get.return_value = client
+
+    rom = await handler.get_rom_by_id(999999999)
+
+    assert rom["hltb_id"] is None
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_game_page_outage_reports_service_unavailable(mock_ctx_httpx_client):
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(
+        return_value=_response(status.HTTP_429_TOO_MANY_REQUESTS),
+    )
+    mock_ctx_httpx_client.get.return_value = client
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handler.get_rom_by_id(7169)
+
+    assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert "rate limiting" in exc_info.value.detail
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_game_page_without_a_record_yields_no_match(mock_ctx_httpx_client):
+    """An empty record list is HLTB answering honestly, not a rewrite."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page(None))
+    mock_ctx_httpx_client.get.return_value = client
+
+    rom = await handler.get_rom_by_id(7169)
+
+    assert rom["hltb_id"] is None
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_reshaped_game_page_reports_the_rewrite(mock_ctx_httpx_client):
+    """A page RomM can no longer read has to say so: reported as a game with no
+    times it is indistinguishable from the bug this lookup exists to fix."""
+    handler = _handler()
+    response = MagicMock()
+    response.status_code = 200
+    response.text = "<html><body>no hydration payload here</body></html>"
+    client = MagicMock()
+    client.get = AsyncMock(return_value=response)
+    mock_ctx_httpx_client.get.return_value = client
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handler.get_rom_by_id(7169)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+    assert "changed their game page" in exc_info.value.detail
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_renamed_game_fields_report_the_rewrite(mock_ctx_httpx_client):
+    """Defaulting every field would quietly turn a rename into an empty match."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page({"id": 7169, "name": "Pokémon"}))
+    mock_ctx_httpx_client.get.return_value = client
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handler.get_rom_by_id(7169)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", False)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_get_rom_by_id_is_skipped_when_hltb_is_disabled(mock_ctx_httpx_client):
+    rom = await _handler().get_rom_by_id(7169)
+
+    assert rom["hltb_id"] is None
+    mock_ctx_httpx_client.get.assert_not_called()
+
+
+async def test_the_live_page_shape_still_parses():
+    """Captured from howlongtobeat.com/game/7169. If HLTB reshapes the page this
+    fixture goes stale, but it keeps our own parsing honest in the meantime."""
+    fixture = Path(__file__).parent / "hltb_game_page_example.json"
+    payload = json.loads(fixture.read_text(encoding="utf-8"))
+
+    response = MagicMock()
+    response.status_code = 200
+    response.text = (
+        '<script id="__NEXT_DATA__" type="application/json">'
+        f"{json.dumps(payload)}</script>"
+    )
+    client = MagicMock()
+    client.get = AsyncMock(return_value=response)
+
+    with (
+        patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True),
+        patch("handler.metadata.hltb_handler.ctx_httpx_client") as ctx,
+    ):
+        ctx.get.return_value = client
+        rom = await _handler().get_rom_by_id(7169)
+
+    assert rom["hltb_id"] == 7169
+    assert rom["name"] == "Pokémon Red and Blue"
+    assert rom["url_cover"].endswith("7169_Pokmon_Red_and_Blue.png")
+    assert rom["hltb_metadata"] == {
+        "main_story": 92822,
+        "main_story_count": 594,
+        "main_plus_extra": 156016,
+        "main_plus_extra_count": 378,
+        "completionist": 354756,
+        "completionist_count": 202,
+        "all_styles": 139926,
+        "all_styles_count": 1174,
+        "release_year": 1996,
+        "review_score": 81,
+        "review_count": 1762,
+        "completions": 5364,
+    }
+
+
+@pytest.mark.parametrize(
+    "transport_error",
+    [
+        httpx.ConnectTimeout("timed out"),
+        httpx.PoolTimeout("pool exhausted"),
+        httpx.ReadError("reset"),
+        httpx.RemoteProtocolError("bad framing"),
+    ],
+)
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_transport_failures_report_service_unavailable(
+    mock_ctx_httpx_client, transport_error
+):
+    """A slow or unreachable HLTB must not surface as a bare 500 on the rom edit."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(side_effect=transport_error)
+    mock_ctx_httpx_client.get.return_value = client
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handler.get_rom_by_id(7169)
+
+    assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert "check your internet connection" in exc_info.value.detail
+
+
+@pytest.mark.parametrize(
+    ("label", "attributes"),
+    [
+        ("plain", 'id="__NEXT_DATA__" type="application/json"'),
+        ("csp nonce", 'id="__NEXT_DATA__" type="application/json" nonce="r4nd0m"'),
+        ("reordered", 'type="application/json" id="__NEXT_DATA__"'),
+        ("single quotes", "id='__NEXT_DATA__' type='application/json'"),
+        ("crossorigin", 'crossorigin="" id="__NEXT_DATA__" type="application/json"'),
+    ],
+)
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_hydration_tag_is_found_however_it_is_marked_up(
+    mock_ctx_httpx_client, label, attributes
+):
+    """Markup around the payload is not the contract; the id is. Reporting a
+    rewrite over an added nonce would be a false alarm."""
+    payload = json.dumps(
+        {"props": {"pageProps": {"game": {"data": {"game": [_game(7169, "Pokémon")]}}}}}
+    )
+    response = MagicMock()
+    response.status_code = 200
+    response.text = f"<script {attributes}>{payload}</script>"
+    client = MagicMock()
+    client.get = AsyncMock(return_value=response)
+    mock_ctx_httpx_client.get.return_value = client
+
+    rom = await _handler().get_rom_by_id(7169)
+
+    assert rom["hltb_id"] == 7169, label
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_a_redirect_is_followed_rather_than_read_as_a_rewrite(
+    mock_ctx_httpx_client,
+):
+    """`raise_for_status` lets a 3xx through, so an unfollowed hop would reach
+    the parser as a page with no payload and be blamed on HLTB reshaping it."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page(_game(7169, "Pokémon")))
+    mock_ctx_httpx_client.get.return_value = client
+
+    await handler.get_rom_by_id(7169)
+
+    assert client.get.await_args.kwargs["follow_redirects"] is True
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_an_unrelated_json_script_is_not_mistaken_for_the_payload(
+    mock_ctx_httpx_client,
+):
+    """The looser tag match must not start picking up other JSON blocks."""
+    handler = _handler()
+    response = MagicMock()
+    response.status_code = 200
+    response.text = (
+        '<script id="__OTHER_DATA__" type="application/json">{"game": []}</script>'
+    )
+    client = MagicMock()
+    client.get = AsyncMock(return_value=response)
+    mock_ctx_httpx_client.get.return_value = client
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handler.get_rom_by_id(7169)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY

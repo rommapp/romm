@@ -99,6 +99,7 @@ async def heartbeat() -> HeartbeatResponse:
             ),
             "IGDB_API_ENABLED": igdb_enabled,
             "SS_API_ENABLED": ss_enabled,
+            "SS_DEV_CREDENTIALS_SET": meta_ss_handler.has_dev_credentials(),
             "MOBY_API_ENABLED": moby_enabled,
             "STEAMGRIDDB_API_ENABLED": sgdb_enabled,
             "RA_API_ENABLED": ra_enabled,

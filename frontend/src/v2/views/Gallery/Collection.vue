@@ -168,6 +168,14 @@ const kindLabel = computed(() => {
   return "Collection";
 });
 
+// Leaving for anything that isn't another gallery keeps `currentCollection`
+// in place, so the id alone can't see the user walked away.
+const alive = useIsAlive();
+
+// Only the newest `loadForRoute` may write to the page or drive the gallery:
+// the guard and the route watch both call it, and its read outlives the route.
+let loadToken = 0;
+
 function kindFromRoute(
   name: string | symbol | null | undefined,
 ): CollectionKind {
@@ -204,10 +212,28 @@ function findById(kind: CollectionKind, id: string): AnyCollection | undefined {
   return collectionsStore.smartCollections.find((c) => String(c.id) === id);
 }
 
+// The head band renders a ROM count the store's once-per-session lists cannot
+// keep in step with the gallery below it.
+function refreshFromServer(
+  kind: CollectionKind,
+  id: string,
+): Promise<AnyCollection | null> {
+  if (kind === "regular") return collectionsStore.refreshCollection(Number(id));
+  if (kind === "virtual") return collectionsStore.refreshVirtualCollection(id);
+  return collectionsStore.refreshSmartCollection(Number(id));
+}
+
 async function loadForRoute(kind: CollectionKind, id: string) {
+  const token = ++loadToken;
   currentKind.value = kind;
-  await ensureLoaded(kind);
-  const collection = findById(kind, id);
+  // The list is unused here, but the surfaces reachable from this page read it
+  // (the add-to-collection dialog).
+  const [fresh] = await Promise.all([
+    refreshFromServer(kind, id),
+    ensureLoaded(kind),
+  ]);
+  if (token !== loadToken || !alive.value) return;
+  const collection = fresh ?? findById(kind, id);
   if (!collection) {
     notFound.value = true;
     currentCollection.value = null;
@@ -246,6 +272,15 @@ watch(
   },
 );
 
+// Adopt the store's copy when a refresh replaces it, so a scan landing while
+// this page is open corrects the head band too.
+watch(
+  () => findById(currentKind.value, String(route.params.collection)),
+  (fresh) => {
+    if (fresh) currentCollection.value = fresh;
+  },
+);
+
 // ── Download ───────────────────────────────────────────────────
 // Triggered from the InfoPanel's download button. Delegates to the
 // API's bulk-download endpoint, which streams a ZIP of all ROMs in the
@@ -281,10 +316,6 @@ function randomScope(): {
   if (currentKind.value === "smart") return { smartCollectionId: Number(c.id) };
   return { collectionId: Number(c.id) };
 }
-
-// Leaving for anything that isn't another gallery keeps `currentCollection`
-// in place, so the id check in `onRandomGame` can't see the user walked away.
-const alive = useIsAlive();
 
 // `/roms/random` samples the pick server-side, so one request resolves it
 // whatever the collection holds. `null` means the collection holds no roms.

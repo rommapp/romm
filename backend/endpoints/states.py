@@ -51,14 +51,7 @@ async def add_state(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
-    log.info(f"Uploading state of {rom.name}")
-
-    states_path = fs_asset_handler.build_states_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom_id,
-        emulator=emulator,
-    )
+    assert_rom_visible(request, rom)
 
     if not stateFile.filename:
         log.error("State file has no filename")
@@ -73,10 +66,6 @@ async def add_state(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid state filename: {str(exc)}",
         ) from exc
-
-    rom = db_rom_handler.get_rom(rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
 
     log.info(
         f"Uploading state {hl(sanitized_state_filename)} for {hl(str(rom.name), color=BLUE)}"

@@ -18,7 +18,12 @@ from adapters.services.screenscraper import (
     reset_scan_state,
 )
 from adapters.services.screenscraper_types import SSGame, SSGameDate
-from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
+from config import (
+    SCREENSCRAPER_DEV_ID,
+    SCREENSCRAPER_DEV_PASSWORD,
+    SCREENSCRAPER_PASSWORD,
+    SCREENSCRAPER_USER,
+)
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
@@ -729,6 +734,13 @@ class SSHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return bool(SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD)
 
+    @classmethod
+    def has_dev_credentials(cls) -> bool:
+        """Developer credentials are injected at build time, so a build made
+        outside our CI (packaged from source) has none and every request is
+        refused, whatever the user account is."""
+        return bool(SCREENSCRAPER_DEV_ID and SCREENSCRAPER_DEV_PASSWORD)
+
     async def heartbeat(self) -> bool:
         if not self.is_enabled():
             return False
@@ -940,7 +952,6 @@ class SSHandler(MetadataHandler):
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
                     url_cover=index_entry.get("iconUrl", ""),
-                    url_manual=index_entry.get("iconUrl", ""),
                     url_screenshots=index_entry.get("screenshots", None) or [],
                 )
 
@@ -956,7 +967,6 @@ class SSHandler(MetadataHandler):
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
                     url_cover=index_entry.get("iconUrl", ""),
-                    url_manual=index_entry.get("iconUrl", ""),
                     url_screenshots=index_entry.get("screenshots", None) or [],
                 )
 

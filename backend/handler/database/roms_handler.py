@@ -30,6 +30,7 @@ from sqlalchemy import (
     union,
     update,
 )
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     Query,
     QueryableAttribute,
@@ -44,11 +45,12 @@ from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select
 
 from config import ROMM_DB_DRIVER
+from config.config_manager import config_manager as cm
 from decorators.database import begin_session
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.redis_handler import sync_cache
 from models.assets import Save, Screenshot, State
-from models.base import compute_file_name_parts
+from models.base import PRERELEASE_FILENAME_TAGS, compute_file_name_parts
 from models.collection import Collection, CollectionRom, SmartCollection
 from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
@@ -58,6 +60,8 @@ from models.rom import (
     RomFacets,
     RomFile,
     RomFileCategory,
+    RomFileDocMeta,
+    RomFileUser,
     RomMetadata,
     RomNote,
     RomUser,
@@ -328,6 +332,49 @@ def _create_metadata_id_case(
     )
 
 
+def _region_rank() -> ColumnElement:
+    """Rank a rom by where its region sits in the configured region priority.
+
+    Reads the generated scalar rather than the `regions` JSON so the dedup
+    window stays inside idx_roms_sibling_cover. Roms whose region is not in the
+    list rank last, so a Japan-only release still wins a group of one.
+    """
+    # Imported here because handler.filesystem and handler.metadata import each
+    # other, and reaching filesystem first from this module trips the cycle.
+    from handler.filesystem.base_handler import region_ranks_for_priority
+
+    ranks = region_ranks_for_priority(cm.get_config().SCAN_REGION_PRIORITY)
+    if not ranks:
+        return literal(0)
+
+    return case(
+        ranks,
+        value=Rom.generated_primary_region,
+        else_=max(ranks.values()) + 1,
+    )
+
+
+def _prerelease_rank() -> ColumnElement:
+    """Rank pre-release dumps after full releases within a sibling group.
+
+    Matched with a case-insensitive LIKE over the filename rather than against
+    the parsed `tags` column, which keeps whatever casing the dumper used, and
+    which the dedup window's covering index does not carry.
+    """
+    return case(
+        (
+            or_(
+                *[
+                    Rom.fs_name_no_ext.ilike(f"%({tag}%")
+                    for tag in PRERELEASE_FILENAME_TAGS
+                ]
+            ),
+            1,
+        ),
+        else_=0,
+    )
+
+
 def with_details(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -345,12 +392,15 @@ def with_details(func):
             selectinload(Rom.screenshots).options(
                 noload(Screenshot.rom),
             ),
-            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+            selectinload(Rom.rom_users).options(
+                noload(RomUser.rom), noload(RomUser.user)
+            ),
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
             # Multi-file downloads, 3DS QR codes, and metadata matching
             selectinload(Rom.files).options(
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
                 selectinload(RomFile.track_meta),
+                selectinload(RomFile.doc_meta),
             ),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
@@ -359,7 +409,9 @@ def with_details(func):
                 # SiblingRomSchema needs each sibling's RomUser for the
                 # request user — the relationship is `lazy="raise"`, so
                 # it has to be eager-loaded here.
-                selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+                selectinload(Rom.rom_users).options(
+                    noload(RomUser.rom), noload(RomUser.user)
+                ),
                 load_only(
                     Rom.id,
                     Rom.name,
@@ -393,18 +445,23 @@ def with_simple_details(func):
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
             selectinload(Rom.platform),
-            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+            selectinload(Rom.rom_users).options(
+                noload(RomUser.rom), noload(RomUser.user)
+            ),
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
             selectinload(Rom.files).options(
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
                 selectinload(RomFile.track_meta),
+                selectinload(RomFile.doc_meta),
             ),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
                 noload(Rom.metadatum),
                 # Per-sibling is_main_sibling resolution needs each sibling's
                 # RomUser (relationship is `lazy="raise"`).
-                selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+                selectinload(Rom.rom_users).options(
+                    noload(RomUser.rom), noload(RomUser.user)
+                ),
                 load_only(
                     Rom.id,
                     Rom.name,
@@ -489,7 +546,9 @@ class DBRomsHandler(DBBaseHandler):
             return {}
 
         files = session.scalars(
-            select(RomFile).where(RomFile.rom_id.in_(rom_ids))
+            select(RomFile)
+            .where(RomFile.rom_id.in_(rom_ids))
+            .options(selectinload(RomFile.track_meta))
         ).all()
 
         buckets: dict[int, list[RomFile]] = {rom_id: [] for rom_id in rom_ids}
@@ -536,11 +595,15 @@ class DBRomsHandler(DBBaseHandler):
             )
             .where(SiblingRom.rom_id.in_(rom_ids))
             .options(
+                # Both default to `lazy="joined"`, and `load_only` narrows
+                # columns but not relationships.
+                noload(Rom.platform),
+                noload(Rom.metadatum),
                 load_only(
                     Rom.name,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
-                )
+                ),
             )
         )
         if hidden_platform_ids:
@@ -561,6 +624,28 @@ class DBRomsHandler(DBBaseHandler):
             buckets[rom_id].append((sibling, bool(is_main)))
 
         return buckets
+
+    def get_rom_ids_with_notes(
+        self,
+        rom_ids: list[int],
+        user_id: int,
+        *,
+        session: Session,
+    ) -> set[int]:
+        """Return the subset of `rom_ids` carrying a note the caller can see."""
+        if not rom_ids:
+            return set()
+
+        return set(
+            session.scalars(
+                select(RomNote.rom_id)
+                .where(
+                    RomNote.rom_id.in_(rom_ids),
+                    or_(RomNote.is_public, RomNote.user_id == user_id),
+                )
+                .distinct()
+            ).all()
+        )
 
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
@@ -1129,6 +1214,8 @@ class DBRomsHandler(DBBaseHandler):
         include_file_stats: bool = False,
         include_files: bool = False,
         include_related: bool = True,
+        include_siblings: bool = True,
+        include_notes: bool = True,
         hidden_platform_ids: Sequence[int] | None = None,
         hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
@@ -1142,16 +1229,29 @@ class DBRomsHandler(DBBaseHandler):
                 # Ensure platform is loaded for main ROM objects
                 selectinload(Rom.platform),
                 # Display properties for the current user (last_played)
-                selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+                selectinload(Rom.rom_users).options(
+                    noload(RomUser.rom), noload(RomUser.user)
+                ),
                 # Sort table by metadata (first_release_date)
                 selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-                # Show sibling rom badges on cards
-                selectinload(Rom.sibling_roms).options(
-                    noload(Rom.platform), noload(Rom.metadatum)
-                ),
-                # Notes indicator on cards
-                selectinload(Rom.notes),
             )
+
+            # Show sibling rom badges on cards
+            if include_siblings:
+                query = query.options(
+                    selectinload(Rom.sibling_roms).options(
+                        noload(Rom.platform),
+                        noload(Rom.metadatum),
+                        # is_main_sibling needs each sibling's RomUser.
+                        selectinload(Rom.rom_users).options(
+                            noload(RomUser.rom), noload(RomUser.user)
+                        ),
+                    )
+                )
+
+            # Notes indicator on cards
+            if include_notes:
+                query = query.options(selectinload(Rom.notes))
 
         # Only load files (and the RomFile.rom backref needed by `is_top_level` /
         # `file_name_for_download`) when the caller iterates them — e.g. the
@@ -1237,6 +1337,36 @@ class DBRomsHandler(DBBaseHandler):
         if updated_after:
             query = query.filter(Rom.updated_at > updated_after)
 
+        # Apply metadata and rom-level filters efficiently
+        # Moved before applying group_by_meta_id to avoid missing titles when
+        # filters don't match the primary ROM version in a group but would match a different version instead.
+        filters_to_apply = [
+            (genres, genres_logic, self._filter_by_genres),
+            (franchises, franchises_logic, self._filter_by_franchises),
+            (collections, collections_logic, self._filter_by_collections),
+            (companies, companies_logic, self._filter_by_companies),
+            (age_ratings, age_ratings_logic, self._filter_by_age_ratings),
+            (regions, regions_logic, self._filter_by_regions),
+            (languages, languages_logic, self._filter_by_languages),
+            (player_counts, player_counts_logic, self._filter_by_player_counts),
+            (
+                metadata_providers,
+                metadata_providers_logic,
+                self._filter_by_metadata_providers,
+            ),
+            (tags, tags_logic, self._filter_by_tags),
+        ]
+
+        for values, logic, filter_func in filters_to_apply:
+            if values:
+                query = filter_func(
+                    query,
+                    session=session,
+                    values=values,
+                    match_all=(logic == "all"),
+                    match_none=(logic == "none"),
+                )
+
         # BEWARE YE WHO ENTERS HERE 💀
         if group_by_meta_id:
             # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
@@ -1246,8 +1376,10 @@ class DBRomsHandler(DBBaseHandler):
                 else literal(1)
             )
 
-            # Create a subquery that identifies the primary ROM in each group
-            # Priority order: is_main_sibling (desc), then by fs_name_no_ext (asc).
+            # Create a subquery that identifies the primary ROM in each group.
+            # Priority order: is_main_sibling (desc), then a full release over
+            # a pre-release, then the configured region priority, then
+            # fs_name_no_ext (asc) as a stable tiebreak.
             # Materialize only the columns the dedup window needs (not all of
             # Rom, whose JSON metadata blobs make the derived table huge), and
             # drop the carried-over ORDER BY the window doesn't use.
@@ -1256,6 +1388,8 @@ class DBRomsHandler(DBBaseHandler):
                 .with_only_columns(  # type: ignore
                     Rom.id,
                     Rom.fs_name_no_ext,
+                    _prerelease_rank().label("prerelease_rank"),
+                    _region_rank().label("region_rank"),
                     Rom.platform_id,
                     Rom.igdb_id,
                     Rom.ss_id,
@@ -1333,6 +1467,8 @@ class DBRomsHandler(DBBaseHandler):
                         ),
                         order_by=[
                             is_main_sibling_order,
+                            base_subquery.c.prerelease_rank.asc(),
+                            base_subquery.c.region_rank.asc(),
                             base_subquery.c.fs_name_no_ext.asc(),
                         ],
                     )
@@ -1357,34 +1493,6 @@ class DBRomsHandler(DBBaseHandler):
 
         if needs_metadata_join:
             query = query.outerjoin(RomMetadata)
-
-        # Apply metadata and rom-level filters efficiently
-        filters_to_apply = [
-            (genres, genres_logic, self._filter_by_genres),
-            (franchises, franchises_logic, self._filter_by_franchises),
-            (collections, collections_logic, self._filter_by_collections),
-            (companies, companies_logic, self._filter_by_companies),
-            (age_ratings, age_ratings_logic, self._filter_by_age_ratings),
-            (regions, regions_logic, self._filter_by_regions),
-            (languages, languages_logic, self._filter_by_languages),
-            (player_counts, player_counts_logic, self._filter_by_player_counts),
-            (
-                metadata_providers,
-                metadata_providers_logic,
-                self._filter_by_metadata_providers,
-            ),
-            (tags, tags_logic, self._filter_by_tags),
-        ]
-
-        for values, logic, filter_func in filters_to_apply:
-            if values:
-                query = filter_func(
-                    query,
-                    session=session,
-                    values=values,
-                    match_all=(logic == "all"),
-                    match_none=(logic == "none"),
-                )
 
         # The RomUser table is already joined if user_id is set
         if statuses and user_id:
@@ -2123,7 +2231,7 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
-            .options(selectinload(RomFile.track_meta))
+            .options(selectinload(RomFile.track_meta), selectinload(RomFile.doc_meta))
             .filter_by(id=id)
             .limit(1)
         )
@@ -2159,7 +2267,7 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
-            .options(selectinload(RomFile.track_meta))
+            .options(selectinload(RomFile.track_meta), selectinload(RomFile.doc_meta))
             .filter_by(rom_id=rom_id, file_path=file_path, file_name=file_name)
             .limit(1)
         )
@@ -2175,7 +2283,9 @@ class DBRomsHandler(DBBaseHandler):
         return (
             session.scalars(
                 select(RomFile)
-                .options(selectinload(RomFile.track_meta))
+                .options(
+                    selectinload(RomFile.track_meta), selectinload(RomFile.doc_meta)
+                )
                 .filter_by(rom_id=rom_id, category=category)
                 .order_by(RomFile.file_name.asc())
             )
@@ -2243,6 +2353,81 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> None:
         session.execute(delete(TrackMeta).where(TrackMeta.rom_file_id == rom_file_id))
+
+    # ------------------------------------------------------- document metadata
+
+    @begin_session
+    def upsert_doc_meta(
+        self,
+        rom_file_id: int,
+        rom_id: int,
+        values: dict,
+        session: Session = None,  # type: ignore
+    ) -> RomFileDocMeta:
+        """Create or update the provenance sidecar for a document file."""
+        existing = session.get(RomFileDocMeta, rom_file_id)
+        if existing:
+            for key, val in values.items():
+                setattr(existing, key, val)
+            session.flush()
+            return existing
+
+        doc = RomFileDocMeta(rom_file_id=rom_file_id, rom_id=rom_id, **values)
+        session.add(doc)
+        session.flush()
+        return doc
+
+    # ------------------------------------------------ document reading progress
+
+    @begin_session
+    def get_rom_file_user(
+        self,
+        rom_file_id: int,
+        user_id: int,
+        session: Session = None,  # type: ignore
+    ) -> RomFileUser | None:
+        return session.scalar(
+            select(RomFileUser)
+            .filter_by(rom_file_id=rom_file_id, user_id=user_id)
+            .limit(1)
+        )
+
+    @begin_session
+    def upsert_rom_file_user(
+        self,
+        rom_file_id: int,
+        user_id: int,
+        values: dict,
+        session: Session = None,  # type: ignore
+    ) -> RomFileUser:
+        """Create or update a user's reading progress for a document file."""
+        select_state = (
+            select(RomFileUser)
+            .filter_by(rom_file_id=rom_file_id, user_id=user_id)
+            .limit(1)
+        )
+        existing = session.scalar(select_state)
+
+        if existing is None:
+            try:
+                with session.begin_nested():
+                    state = RomFileUser(
+                        rom_file_id=rom_file_id, user_id=user_id, **values
+                    )
+                    session.add(state)
+                    session.flush()
+            except IntegrityError:
+                # A concurrent save (e.g. a second tab) won the insert; update it.
+                existing = session.scalar(select_state)
+                if existing is None:
+                    raise
+            else:
+                return state
+
+        for key, val in values.items():
+            setattr(existing, key, val)
+        session.flush()
+        return existing
 
     # ----------------------------------------------------------------- music
 

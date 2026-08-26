@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import enum
 import re
+from collections.abc import Sequence
 from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
@@ -34,7 +35,7 @@ from sqlalchemy.orm import (
     relationship,
     validates,
 )
-from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.attributes import InstrumentedAttribute, set_committed_value
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import (
@@ -95,6 +96,7 @@ class RomFileCategory(enum.StrEnum):
     DLC = "dlc"
     HACK = "hack"
     MANUAL = "manual"
+    WALKTHROUGH = "walkthrough"
     PATCH = "patch"
     UPDATE = "update"
     MOD = "mod"
@@ -112,6 +114,19 @@ class SaveUsage(enum.StrEnum):
     FILE_EXACT = "file-exact"
     FILE_PREFIX = "file-prefix"
     FOLDER_SPLIT = "folder-split"
+
+
+# Document-category files (manuals, walkthroughs) share one substrate: a
+# RomFile plus an optional RomFileDocMeta sidecar for provenance.
+DOCUMENT_CATEGORIES = frozenset({RomFileCategory.MANUAL, RomFileCategory.WALKTHROUGH})
+
+
+class DocSource(enum.StrEnum):
+    """Where a document (manual/walkthrough) came from."""
+
+    UPLOAD = "upload"  # User-uploaded file
+    GAMEFAQS = "gamefaqs"  # Fetched from a GameFAQs guide URL
+    SCRAPER = "scraper"  # Downloaded by a metadata provider
 
 
 class SiblingRom(BaseModel):
@@ -147,6 +162,7 @@ class RomFile(BaseModel):
     __table_args__ = (
         Index("idx_rom_files_rom_id", "rom_id"),
         Index("idx_rom_files_title_id", "title_id"),
+        Index("idx_rom_files_rom_id_category", "rom_id", "category"),
         # Searching the gallery by a hash digest
         Index("idx_rom_files_crc_hash", "crc_hash"),
         Index("idx_rom_files_md5_hash", "md5_hash"),
@@ -183,6 +199,16 @@ class RomFile(BaseModel):
         back_populates="rom_file",
         uselist=False,
         cascade="all, delete-orphan",
+    )
+    doc_meta: Mapped[RomFileDocMeta | None] = relationship(
+        back_populates="rom_file",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    user_states: Mapped[list[RomFileUser]] = relationship(
+        back_populates="rom_file",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
 
     @cached_property
@@ -285,6 +311,73 @@ class TrackMeta(BaseModel):
     cover_path: Mapped[str | None] = mapped_column(String(length=1024), default=None)
 
     rom_file: Mapped[RomFile] = relationship(back_populates="track_meta")
+
+
+# Max length for free-text document metadata (author / title).
+DOC_META_MAX_LENGTH = 512
+
+
+class RomFileDocMeta(BaseModel):
+    """Provenance sidecar for document-category files (manuals, walkthroughs).
+
+    Only doc-category RomFiles carry a row here, so these fields don't bloat
+    every rom_files row. Format is intentionally not stored: it is derived from
+    the file extension.
+    """
+
+    __tablename__ = "rom_file_doc_meta"
+
+    __table_args__ = (Index("idx_rom_file_doc_meta_rom_id", "rom_id"),)
+
+    rom_file_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_files.id", ondelete="CASCADE"), primary_key=True
+    )
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    source: Mapped[DocSource] = mapped_column(
+        Enum(DocSource), default=DocSource.UPLOAD, nullable=False
+    )
+    source_url: Mapped[str | None] = mapped_column(Text, default=None)
+    author: Mapped[str | None] = mapped_column(
+        String(length=DOC_META_MAX_LENGTH), default=None
+    )
+    title: Mapped[str | None] = mapped_column(
+        String(length=DOC_META_MAX_LENGTH), default=None
+    )
+
+    rom_file: Mapped[RomFile] = relationship(back_populates="doc_meta")
+
+
+class RomFileUser(BaseModel):
+    """Per-user reading state for a document-category file.
+
+    Keyed on (rom_file_id, user_id) so one mechanism covers both manuals and
+    walkthroughs. `progress` is a 0.0-1.0 scroll fraction; `last_page` tracks
+    the page for paginated (PDF) documents.
+    """
+
+    __tablename__ = "rom_file_user"
+
+    __table_args__ = (
+        UniqueConstraint("rom_file_id", "user_id", name="unique_rom_file_user"),
+        Index("idx_rom_file_user", "rom_file_id", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    rom_file_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_files.id", ondelete="CASCADE")
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+
+    progress: Mapped[float] = mapped_column(Float(), default=0.0, nullable=False)
+    last_page: Mapped[int | None] = mapped_column(Integer(), default=None)
+    finished: Mapped[bool] = mapped_column(default=False, nullable=False)
+    last_read_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+
+    rom_file: Mapped[RomFile] = relationship(
+        lazy="joined", back_populates="user_states"
+    )
+    user: Mapped[User] = relationship(lazy="joined")
 
 
 class RomMetadata(BaseModel):
@@ -397,6 +490,7 @@ class Rom(BaseModel):
             "tgdb_id",
             "flashpoint_id",
             "fs_name_no_ext",
+            "generated_primary_region",
             "id",
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
@@ -501,6 +595,14 @@ class Rom(BaseModel):
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+
+    # STORED generated column over regions[0], carried by idx_roms_sibling_cover
+    # so the dedup window can rank regions without reading the JSON.
+    generated_primary_region: Mapped[str | None] = mapped_column(
+        String(length=50),
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
+    )
 
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
@@ -784,6 +886,31 @@ Rom.top_level_file_count = column_property(
     .scalar_subquery(),
     deferred=True,
 )
+
+
+def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
+    """Fill the deferred file-stat columns from an already-loaded file list.
+
+    Mirrors the subqueries above, not `RomFile.is_top_level`, which disagrees
+    on nested files.
+    """
+    set_committed_value(
+        rom, "multi_file", any(f.file_path != rom.fs_path for f in files)
+    )
+    set_committed_value(
+        rom,
+        "top_level_file_count",
+        sum(
+            1
+            for f in files
+            if f.full_path == rom.full_path or f.file_path == rom.full_path
+        ),
+    )
+    set_committed_value(
+        rom,
+        "has_soundtrack",
+        any(f.category == RomFileCategory.SOUNDTRACK for f in files),
+    )
 
 
 # Maps a metadata-source slug (matching the MetadataSource enum) to the Rom

@@ -27,6 +27,7 @@ from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
 from models.collection import Collection, SmartCollection
 from models.rom import (
+    DocSource,
     Rom,
     RomArchiveMember,
     RomFile,
@@ -180,6 +181,26 @@ class TrackMetaSchema(BaseModel):
     cover_path: str | None = None
 
 
+class DocMetaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    source: DocSource
+    source_url: str | None = None
+    author: str | None = None
+    title: str | None = None
+
+
+class RomFileUserSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    rom_file_id: int
+    user_id: int
+    progress: float
+    last_page: int | None = None
+    finished: bool = False
+    last_read_at: UTCDatetime | None = None
+
+
 class RomFileSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -204,6 +225,7 @@ class RomFileSchema(BaseModel):
     archive_members: list[RomArchiveMember] | None
     category: RomFileCategory | None
     track_meta: TrackMetaSchema | None = None
+    doc_meta: DocMetaSchema | None = None
 
     @model_validator(mode="after")
     def default_category_for_non_nested(self) -> RomFileSchema:
@@ -372,10 +394,18 @@ class RomSchema(BaseModel):
         return sorted(v, key=lambda x: x.sort_comparator)
 
     @classmethod
-    def populate_properties(cls, db_rom: Rom, request: Request) -> Rom:
+    def populate_properties(
+        cls, db_rom: Rom, request: Request, has_notes: bool | None = None
+    ) -> Rom:
         db_rom.rom_user = RomUserSchema.for_user(request.user.id, db_rom)  # type: ignore[assignment]
-        db_rom.has_notes = any(  # type: ignore[assignment]
-            note.is_public or note.user_id == request.user.id for note in db_rom.notes
+        # Callers that batched the flag pass it in and never load `Rom.notes`.
+        db_rom.has_notes = (  # type: ignore[assignment]
+            any(
+                note.is_public or note.user_id == request.user.id
+                for note in db_rom.notes
+            )
+            if has_notes is None
+            else has_notes
         )
         return db_rom
 
@@ -446,8 +476,9 @@ class SimpleRomSchema(RomSchema):
         files: Sequence[RomFile] | None = None,
         siblings: Sequence[tuple[Rom, bool]] | None = None,
         screenshot_path: str | None = None,
+        has_notes: bool | None = None,
     ) -> SimpleRomSchema:
-        db_rom = cls.populate_properties(db_rom, request)
+        db_rom = cls.populate_properties(db_rom, request, has_notes=has_notes)
         db_rom.screenshot_path = screenshot_path  # type: ignore[assignment]
 
         # The list endpoint passes pre-fetched `files`/`siblings` (batched via

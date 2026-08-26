@@ -201,7 +201,8 @@ RUN apk add --no-cache \
     nodejs \
     7zip \
     tzdata \
-    valkey
+    valkey \
+    valkey-cli
 
 # Add Python by copying it from the official Docker image. This way, we don't rely on Alpine's
 # Python version, which could not be the same as the one used in the backend build stage.

@@ -1,4 +1,5 @@
 from itertools import count
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
@@ -10,6 +11,7 @@ from endpoints.sockets.scan import (
     ScanStats,
     _identify_rom,
     _scan_selected_roms,
+    _should_reparse_tags,
     reject_unauthorized_scan,
     scan_handler,
     scan_platforms,
@@ -470,6 +472,195 @@ class TestShouldScanRom:
 
         result = should_scan_rom(scan_type, rom, roms_ids, ["igdb"])
         assert result is expected
+
+
+class TestShouldReparseTags:
+    """Which scans re-read filename tags onto a row that already exists."""
+
+    @pytest.fixture
+    def rom(self) -> Rom:
+        rom: Rom = Mock(spec=Rom)
+        rom.id = 1
+        return rom
+
+    def test_complete_rescan_reparses(self, rom: Rom):
+        assert _should_reparse_tags(ScanType.COMPLETE, rom, []) is True
+
+    @pytest.mark.parametrize(
+        "scan_type",
+        [
+            ScanType.QUICK,
+            ScanType.NEW_PLATFORMS,
+            ScanType.UPDATE,
+            ScanType.UNMATCHED,
+        ],
+    )
+    def test_other_scans_leave_tags_alone(self, scan_type, rom: Rom):
+        assert _should_reparse_tags(scan_type, rom, []) is False
+
+    def test_hashes_rescan_leaves_tags_alone(self, rom: Rom):
+        """A hashes rescan is scoped to file bytes, so it must not touch tags."""
+        assert _should_reparse_tags(ScanType.HASHES, rom, []) is False
+
+    def test_selected_roms_reparse_under_any_scan_type(self, rom: Rom):
+        assert _should_reparse_tags(ScanType.QUICK, rom, [rom.id]) is True
+        assert _should_reparse_tags(ScanType.HASHES, rom, [rom.id]) is True
+
+    def test_unselected_rom_is_left_alone(self, rom: Rom):
+        assert _should_reparse_tags(ScanType.QUICK, rom, [rom.id + 99]) is False
+
+
+class TestIdentifyRomTagReparse:
+    """A complete rescan re-reads filename tags onto an existing entry.
+
+    Tags are parsed once at insert and otherwise never revisited, so a change to
+    `parse_tags` (a new normalization rule, say) would never reach rows scanned
+    before it. A HASHES scan is used for the negative case so the flow returns
+    right after the file-rebuild step.
+    """
+
+    @pytest.fixture
+    def patched(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        fs = scan_module.fs_rom_handler
+        mocker.patch.object(
+            fs,
+            "parse_tags",
+            return_value=ParsedTags(
+                version="1.1",
+                revision="A",
+                regions=["USA"],
+                languages=["English"],
+                other_tags=["Proto"],
+            ),
+        )
+        mocker.patch.object(fs, "get_roms_fs_structure", return_value="test/roms")
+        mocker.patch.object(fs, "get_file_name_with_no_tags", return_value="Game")
+        mocker.patch.object(
+            fs,
+            "get_rom_files",
+            AsyncMock(
+                return_value=ParsedRomFiles(
+                    rom_files=[],
+                    crc_hash="crc",
+                    md5_hash="md5",
+                    sha1_hash="sha1",
+                    ra_hash="",
+                )
+            ),
+        )
+
+        config = MagicMock()
+        config.SKIP_HASH_CALCULATION = False
+        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+        scan_rom = mocker.patch.object(
+            scan_module,
+            "scan_rom",
+            AsyncMock(return_value=MagicMock(is_identified=False)),
+        )
+
+        # A COMPLETE scan runs past the point a HASHES scan returns at, into the
+        # resource downloads and the closing emit, none of which is under test.
+        resources = mocker.patch.object(
+            scan_module, "fs_resource_handler", new=AsyncMock()
+        )
+        resources.get_cover.return_value = ("cover_s.png", "cover_l.png")
+        resources.get_manual.return_value = "manual.pdf"
+        resources.get_rom_screenshots.return_value = []
+        resources.store_metadata_media.return_value = False
+        mocker.patch.object(scan_module, "SimpleRomSchema", MagicMock())
+
+        db = mocker.patch.object(scan_module, "db_rom_handler")
+        db.add_rom.return_value = MagicMock(
+            is_identified=False,
+            id=1,
+            url_cover="",
+            url_manual="",
+            url_screenshots=[],
+        )
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=[]
+        )
+        return SimpleNamespace(db=db, scan_rom=scan_rom)
+
+    def _existing_rom(self) -> Rom:
+        """A row carrying the raw values an older parser would have written."""
+        rom = Rom(
+            platform_id=1,
+            fs_name="Game (USA) (En) (Proto) (v1.1) (Rev A).zip",
+            fs_path="test/roms",
+            regions=["us"],
+            languages=["en"],
+            tags=["proto"],
+            revision="",
+            version="",
+        )
+        rom.id = 1
+        return rom
+
+    async def _run(self, rom: Rom, scan_type: ScanType, roms_ids: list[int]):
+        fs_rom: FSRom = {
+            "fs_name": "Game (USA) (En) (Proto) (v1.1) (Rev A).zip",
+            "flat": True,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+
+        await _identify_rom(
+            platform=platform,
+            fs_rom=fs_rom,
+            rom=rom,
+            scan_type=scan_type,
+            roms_ids=roms_ids,
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
+
+    async def test_complete_rescan_rewrites_stale_tags(self, patched):
+        rom = self._existing_rom()
+
+        await self._run(rom, ScanType.COMPLETE, [])
+
+        # scan_rom carries these columns forward from the rom it is handed, and
+        # merging its result is what persists them.
+        assert rom.regions == ["USA"]
+        assert rom.languages == ["English"]
+        assert rom.tags == ["Proto"]
+        assert rom.revision == "A"
+        assert rom.version == "1.1"
+
+        # The mutated instance is the one carried onward, not a copy.
+        assert patched.scan_rom.call_args.kwargs["rom"] is rom
+
+    async def test_hashes_rescan_keeps_existing_tags(self, patched):
+        rom = self._existing_rom()
+
+        await self._run(rom, ScanType.HASHES, [])
+
+        assert rom.regions == ["us"]
+        assert rom.languages == ["en"]
+        assert rom.tags == ["proto"]
+
+    async def test_selected_rom_rewrites_tags(self, patched):
+        rom = self._existing_rom()
+
+        await self._run(rom, ScanType.HASHES, [rom.id])
+
+        assert rom.regions == ["USA"]
+        assert rom.languages == ["English"]
 
 
 class TestScanAuthorization:
@@ -1184,6 +1375,182 @@ class TestIdentifyPlatformFirmwareReporting:
         payload = await self._emitted_platform_payload(AsyncMock())
 
         assert payload["new_firmware_count"] == 0
+
+
+class TestShouldHashFirmware:
+    """The firmware counterpart of `_should_get_rom_files`."""
+
+    def _stored(self, md5: str = "d41d8cd9") -> Firmware:
+        firmware = Firmware(file_name="bios.bin", platform_id=1)
+        firmware.md5_hash = md5
+        return firmware
+
+    @pytest.mark.parametrize("scan_type", [ScanType.COMPLETE, ScanType.HASHES])
+    def test_hashes_when_the_scan_asked_for_hashes(self, scan_type):
+        assert scan_module._should_hash_firmware(scan_type, self._stored()) is True
+
+    @pytest.mark.parametrize(
+        "scan_type",
+        [
+            ScanType.QUICK,
+            ScanType.NEW_PLATFORMS,
+            ScanType.UPDATE,
+            ScanType.UNMATCHED,
+        ],
+    )
+    def test_skips_a_known_entry_on_every_other_scan(self, scan_type):
+        assert scan_module._should_hash_firmware(scan_type, self._stored()) is False
+
+    def test_hashes_an_entry_missing_from_the_database(self):
+        assert scan_module._should_hash_firmware(ScanType.QUICK, None) is True
+
+    def test_hashes_an_entry_with_no_stored_hash(self):
+        assert (
+            scan_module._should_hash_firmware(ScanType.QUICK, self._stored(md5=""))
+            is True
+        )
+
+
+class TestIdentifyFirmwareRehashing:
+    """Firmware follows the same re-read rule as ROM files.
+
+    `_should_get_rom_files` only re-reads a file's bytes for a new entry or a
+    COMPLETE/HASHES scan. Firmware had no such gate, so a scan of any type
+    re-hashed every BIOS file on the platform.
+    """
+
+    @pytest.fixture
+    def patched(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+        mocker.patch.object(
+            scan_module.Firmware, "verify_file_hashes", return_value=True
+        )
+
+        patches = SimpleNamespace(
+            scan_firmware=mocker.patch.object(
+                scan_module,
+                "scan_firmware",
+                AsyncMock(return_value=Firmware(file_name="bios.bin", platform_id=1)),
+            ),
+            get_file_size=mocker.patch.object(
+                scan_module.fs_firmware_handler,
+                "get_file_size",
+                AsyncMock(return_value=1024),
+            ),
+            get_fs_structure=mocker.patch.object(
+                scan_module.fs_firmware_handler,
+                "get_firmware_fs_structure",
+                return_value="bios/test",
+            ),
+            db_firmware=mocker.patch.object(scan_module, "db_firmware_handler"),
+        )
+        patches.db_firmware.get_firmware_by_filename.return_value = self._stored()
+        return patches
+
+    def _stored(
+        self,
+        *,
+        size: int = 1024,
+        md5: str = "d41d8cd9",
+        missing=False,
+        file_path: str = "bios/test",
+    ):
+        firmware = Firmware(file_name="bios.bin", file_path=file_path, platform_id=1)
+        firmware.id = 7
+        firmware.md5_hash = md5
+        firmware.file_size_bytes = size
+        firmware.missing_from_fs = missing
+        return firmware
+
+    async def _run(self, scan_type: ScanType = ScanType.QUICK) -> int:
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        return await scan_module._identify_firmware(
+            platform=platform, fs_fw="bios.bin", scan_type=scan_type
+        )
+
+    @pytest.mark.parametrize(
+        "scan_type",
+        [
+            ScanType.QUICK,
+            ScanType.NEW_PLATFORMS,
+            ScanType.UPDATE,
+            ScanType.UNMATCHED,
+        ],
+    )
+    async def test_skips_rehashing_an_unchanged_file(self, patched, scan_type):
+        assert await self._run(scan_type) == 0
+
+        patched.scan_firmware.assert_not_called()
+        patched.db_firmware.add_firmware.assert_not_called()
+
+    @pytest.mark.parametrize("scan_type", [ScanType.COMPLETE, ScanType.HASHES])
+    async def test_rehashes_when_the_scan_asked_for_hashes(self, patched, scan_type):
+        await self._run(scan_type)
+
+        patched.scan_firmware.assert_called_once()
+
+    async def test_rehashes_when_the_file_size_changed(self, patched):
+        patched.get_file_size.return_value = 2048
+
+        await self._run()
+
+        patched.scan_firmware.assert_called_once()
+
+    async def test_rehashes_an_entry_with_no_stored_hash(self, patched):
+        patched.db_firmware.get_firmware_by_filename.return_value = self._stored(md5="")
+
+        await self._run()
+
+        patched.scan_firmware.assert_called_once()
+        # The database row already rules out a skip, so the file is never stat'd.
+        patched.get_file_size.assert_not_called()
+
+    async def test_hashes_firmware_missing_from_the_database(self, patched):
+        patched.db_firmware.get_firmware_by_filename.return_value = None
+
+        assert await self._run() == 1
+
+        patched.scan_firmware.assert_called_once()
+
+    async def test_clears_the_missing_flag_without_rehashing(self, patched):
+        patched.db_firmware.get_firmware_by_filename.return_value = self._stored(
+            missing=True
+        )
+
+        await self._run()
+
+        patched.scan_firmware.assert_not_called()
+        patched.db_firmware.update_firmware.assert_called_once_with(
+            7, {"missing_from_fs": False}
+        )
+
+    async def test_leaves_an_unchanged_row_untouched(self, patched):
+        await self._run()
+
+        patched.db_firmware.update_firmware.assert_not_called()
+
+    async def test_stats_the_file_where_it_was_enumerated(self, patched):
+        await self._run()
+
+        patched.get_file_size.assert_awaited_once_with("bios/test/bios.bin")
+
+    async def test_rebuilds_a_row_recorded_at_a_stale_path(self, patched):
+        """A library layout change leaves the recorded path pointing nowhere.
+
+        Statting it would raise FileNotFoundError out of the whole scan, so a
+        row whose path no longer matches is rehashed, which refreshes it.
+        """
+        patched.db_firmware.get_firmware_by_filename.return_value = self._stored(
+            file_path="test/bios"
+        )
+
+        await self._run()
+
+        patched.scan_firmware.assert_called_once()
+        patched.get_file_size.assert_not_called()
 
 
 class TestScanSelectedRoms:

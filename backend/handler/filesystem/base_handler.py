@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import tempfile
+from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from enum import Enum
 from io import BytesIO
@@ -89,7 +90,22 @@ REGIONS = (
 )
 
 REGIONS_BY_SHORTCODE = {region[0]: region[1] for region in REGIONS}
-REGIONS_NAME_KEYS = frozenset(region[1].lower() for region in REGIONS)
+
+# Every accepted region spelling, lowercased, mapped to its canonical name.
+_REGION_BY_ALIAS = {
+    **{name.lower(): name for _, name in REGIONS},
+    **{code.lower(): name for code, name in REGIONS},
+}
+
+
+def normalize_region(tag: str) -> str | None:
+    """Resolve a filename region tag to its canonical REGIONS name.
+
+    Case-insensitive, so "usa", "USA" and "Usa" collapse to one facet value
+    instead of three. Returns None for tags that name no known region.
+    """
+    return _REGION_BY_ALIAS.get(tag.strip().lower())
+
 
 # Maps full REGIONS names to lowercase shortcodes used by metadata providers
 REGION_NAME_TO_PROVIDER_SHORTCODE: dict[str, str] = {
@@ -135,8 +151,53 @@ def region_name_to_provider_shortcode(region_name: str | None) -> str | None:
     return _REGION_NAME_TO_PROVIDER_SHORTCODE_CI.get(region_name.lower())
 
 
+# Reverse of REGION_NAME_TO_PROVIDER_SHORTCODE. A list per code because two
+# names can claim one code ("nl" for both Holland and Netherlands), and a rom
+# tagged with either has to rank the same.
+_REGION_NAMES_BY_PROVIDER_SHORTCODE: dict[str, list[str]] = {}
+for _name, _code in REGION_NAME_TO_PROVIDER_SHORTCODE.items():
+    _REGION_NAMES_BY_PROVIDER_SHORTCODE.setdefault(_code, []).append(_name)
+
+
+def region_ranks_for_priority(shortcodes: Sequence[str]) -> dict[str, int]:
+    """Map canonical region names to their rank in a shortcode priority list.
+
+    The rank is the shortcode's position, not the name's, so two names claiming
+    one shortcode ("nl" for both Holland and Netherlands) rank equally and fall
+    through to whatever tiebreak follows.
+
+    A shortcode naming no known region (ScreenScraper's "ss", or a typo the
+    open-ended settings input allowed) contributes nothing rather than shifting
+    the ranks of everything after it. Nor does a repeated shortcode.
+    """
+    ranks: dict[str, int] = {}
+    next_rank = 0
+    for shortcode in dict.fromkeys(code.lower() for code in shortcodes):
+        names = _REGION_NAMES_BY_PROVIDER_SHORTCODE.get(shortcode)
+        if not names:
+            continue
+        for name in names:
+            ranks[name] = next_rank
+        next_rank += 1
+    return ranks
+
+
 LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}
-LANGUAGES_NAME_KEYS = frozenset(lang[1].lower() for lang in LANGUAGES)
+
+# Every accepted language spelling, lowercased, mapped to its canonical name.
+_LANGUAGE_BY_ALIAS = {
+    **{name.lower(): name for _, name in LANGUAGES},
+    **{code.lower(): name for code, name in LANGUAGES},
+}
+
+
+def normalize_language(tag: str) -> str | None:
+    """Resolve a filename language tag to its canonical LANGUAGES name.
+
+    Case-insensitive, so "english", "English" and "ENGLISH" collapse to one
+    facet value. Returns None for tags that name no known language.
+    """
+    return _LANGUAGE_BY_ALIAS.get(tag.strip().lower())
 
 
 class CoverSize(Enum):
@@ -248,7 +309,9 @@ class FSHandler:
             os.chmod(temp_path, 0o644)
             os.replace(str(temp_path), str(target_path))
 
-        except Exception:
+        # BaseException, not Exception: a cancelled scan raises CancelledError,
+        # which would otherwise skip cleanup and strand a temp file per cancel.
+        except BaseException:
             async_temp = AnyioPath(temp_path)
             if await async_temp.exists():
                 await async_temp.unlink()
@@ -414,15 +477,22 @@ class FSHandler:
                     else:
                         raise ValueError("Unsupported file type for writing")
 
+    @asynccontextmanager
     async def write_file_streamed(self, path: str, filename: str):
         """
         Write file to filesystem using a streamed approach.
+
+        The stream lands in a temporary file that is renamed over the target
+        once the caller's block completes, so a download killed mid-stream
+        leaves any existing file intact instead of truncating it in place. A
+        truncated file is the worst outcome, since it still satisfies the
+        `*_exists` checks and every later scan skips it.
 
         Args:
             path: Relative path within base directory
             filename: Name of the file to write
 
-        Returns:
+        Yields:
             File object for writing
 
         Raises:
@@ -443,8 +513,11 @@ class FSHandler:
             # Ensure target directory exists
             target_directory.mkdir(parents=True, exist_ok=True)
 
-            # Open file for writing
-            return await open_file(final_file_path, "wb")
+            # The handle closes before _atomic_write renames, so the target
+            # never receives a partially flushed file.
+            async with self._atomic_write(final_file_path) as temp_path:
+                async with await open_file(temp_path, "wb") as f:
+                    yield f
 
     async def read_file(self, file_path: str) -> bytes:
         """

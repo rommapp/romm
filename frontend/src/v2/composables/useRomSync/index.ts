@@ -14,6 +14,7 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeGalleryRoms, {
   type GalleryOrderKey,
 } from "@/v2/stores/galleryRoms";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
 
 /** The value the gallery is ordered by, per sort key. Declared as a full
  * `Record` so a new `GalleryOrderKey` fails to compile until it's handled
@@ -39,6 +40,7 @@ export function useRomSync() {
   const galleryRomsStore = storeGalleryRoms();
   const galleryFilter = storeGalleryFilter();
   const collectionsStore = storeCollections();
+  const gallerySelection = storeGallerySelection();
 
   /** Apply an already-persisted ROM to every cache that renders it; this
    * writes nothing to the server. Safe to call with a ROM none of them
@@ -55,6 +57,22 @@ export function useRomSync() {
     if (romsStore.currentRom?.id === rom.id) {
       romsStore.currentRom = { ...romsStore.currentRom, ...rom };
     }
+  }
+
+  /** Drop ROMs that have left the current view from every cache holding
+   * them: the gallery's windowed cache, the v1 store, and the selection.
+   * Missing any one of the three leaves the cards on screen.
+   *
+   * Says nothing about *why* they left. Callers that remove a ROM from a
+   * view (a bulk unfavourite, a collection removal) and callers that delete
+   * it outright both need these three, but only the latter should also
+   * prune Home's recent / continue-playing rows: a game taken out of a
+   * collection still belongs in Continue Playing. That pruning stays with
+   * the caller that means it. */
+  function removeCachedRoms(roms: SimpleRom[]) {
+    gallerySelection.removeIds(roms.map((rom) => rom.id));
+    romsStore.remove(roms);
+    galleryRomsStore.remove(roms);
   }
 
   /** Did this write move the value the gallery is currently ordered by?
@@ -85,6 +103,9 @@ export function useRomSync() {
     // Read the pre-write copy before `syncCachedRom` overwrites it.
     const previous = galleryRomsStore.getRomById(rom.id);
     syncCachedRom(rom);
+    // Only the server knows which virtual collections this write moved the ROM
+    // between.
+    void collectionsStore.refreshVirtualCollections();
     if (!galleryRomsStore.onGalleryView) return;
     if (!galleryFilter.isFiltered() && !sortValueChanged(previous, rom)) return;
     galleryRomsStore.invalidateWindows();
@@ -135,6 +156,7 @@ export function useRomSync() {
 
   return {
     syncCachedRom,
+    removeCachedRoms,
     applyRomWrite,
     refreshAfterUserStateChange,
     refreshIfOrderedBy,

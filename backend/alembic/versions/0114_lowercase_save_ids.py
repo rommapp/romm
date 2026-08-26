@@ -1,8 +1,8 @@
 """Lowercase the 3DS, Wii and Wii U save ids stored before sigil emitted them
 in the case the emulators write.
 
-Revision ID: 0111_lowercase_save_ids
-Revises: 0110_sigil_folder_split
+Revision ID: 0114_lowercase_save_ids
+Revises: 0113_sigil_folder_split
 Create Date: 2026-08-26 00:00:00.000000
 
 """
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0111_lowercase_save_ids"
-down_revision = "0110_sigil_folder_split"
+revision = "0114_lowercase_save_ids"
+down_revision = "0113_sigil_folder_split"
 branch_labels = None
 depends_on = None
 

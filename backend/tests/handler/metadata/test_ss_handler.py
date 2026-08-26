@@ -20,6 +20,7 @@ from handler.metadata import ss_handler
 from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.ss_handler import (
     PS1_SS_ID,
+    SWITCH_SS_ID,
     SSHandler,
     _get_rom_type,
     _is_daily_quota_error,
@@ -1851,3 +1852,62 @@ class TestSonySerialFilenames:
         mock_hget.assert_awaited_once_with(PS1_SERIAL_INDEX_KEY, "SCUS-94163")
         assert result.get("name") == "Gran Turismo"
         assert result["ss_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_switch_titledb_fallback_does_not_set_icon_as_manual(self):
+        """The Switch TitleDB index has no manual, so the fallback must not
+        reuse the icon URL as ``url_manual``. Doing so made RomM try to fetch
+        an icon as a game manual on every scan of such a ROM."""
+        handler = SSHandler()
+
+        with (
+            patch(
+                "handler.metadata.ss_handler.SSHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(async_cache, "exists", new_callable=AsyncMock) as mock_exists,
+            patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
+            patch.object(
+                SSHandler, "_search_rom", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            mock_exists.return_value = True
+            mock_hget.return_value = json.dumps(
+                {
+                    "name": "Switch Game",
+                    "description": "A game",
+                    "iconUrl": "https://example.net/icon.png",
+                }
+            )
+            result = await handler.get_rom(
+                MagicMock(), "70123456789012.nsp", SWITCH_SS_ID
+            )
+
+        assert result.get("name") == "Switch Game"
+        assert result.get("url_cover") == "https://example.net/icon.png"
+        assert not result.get("url_manual")
+
+
+class TestDevCredentials:
+    """Tests for ``SSHandler.has_dev_credentials``."""
+
+    @pytest.mark.parametrize(
+        ("dev_id", "dev_password", "expected"),
+        [
+            ("dev", "devpass", True),
+            (None, "devpass", False),
+            ("dev", None, False),
+            (None, None, False),
+            ("", "", False),
+        ],
+    )
+    def test_reports_whether_both_credentials_are_present(
+        self, dev_id: str | None, dev_password: str | None, expected: bool
+    ):
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_DEV_ID", dev_id),
+            patch(
+                "handler.metadata.ss_handler.SCREENSCRAPER_DEV_PASSWORD", dev_password
+            ),
+        ):
+            assert SSHandler.has_dev_credentials() is expected

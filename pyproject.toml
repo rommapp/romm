@@ -52,7 +52,7 @@ dependencies = [
   #       Related PR: https://github.com/rq/rq-scheduler/pull/325
   "rq-scheduler @ git+https://github.com/adamantike/rq-scheduler.git@feat/script-options-username-ssl",
   "sentry-sdk ~= 2.32",
-  "starlette ~= 1.0.1",
+  "starlette ~= 1.6.0",
   "streaming-form-data ~= 1.19",
   "ua-parser ~= 1.0",
   "strsimpy ~= 0.2",
@@ -146,7 +146,7 @@ package = false
 exclude-newer = "7 days"
 # vcrpy >= 8.2.0 is required for aiohttp 3.14 compatibility (the removal of
 # `AsyncStreamReaderMixin`); allow it past the rolling 7-day window.
-exclude-newer-package = { starlette = "2026-05-22", vcrpy = "2026-06-17" }
+exclude-newer-package = { vcrpy = "2026-06-17" }
 
 [tool.ty.environment]
 root = ["./backend"]
