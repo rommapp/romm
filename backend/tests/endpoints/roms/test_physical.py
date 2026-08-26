@@ -50,6 +50,7 @@ def test_create_physical_rom_by_name(
 
     body = response.json()
     assert body["is_physical"] is True
+    assert body["has_file_on_disk"] is False
     assert body["upc"] is None
     assert body["name"] == "Sonic the Hedgehog"
     assert body["fs_path"].endswith("/.physical")
@@ -60,6 +61,28 @@ def test_create_physical_rom_by_name(
     stored = db_rom_handler.get_rom(body["id"])
     assert stored is not None
     assert stored.is_physical is True
+
+
+@patch("endpoints.roms.download_rom_resources", new_callable=AsyncMock)
+@patch("endpoints.roms.scan_rom", side_effect=_fake_scan_rom)
+def test_physical_rom_content_is_not_downloadable(
+    scan_rom_mock: AsyncMock,
+    download_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+):
+    created = client.post(
+        "/api/roms/physical",
+        headers=_auth(access_token),
+        json={"platform_id": platform.id, "name": "Sonic the Hedgehog"},
+    )
+    rom_id = created.json()["id"]
+
+    response = client.get(
+        f"/api/roms/{rom_id}/content/sonic.zip", headers=_auth(access_token)
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 @patch("endpoints.roms.download_rom_resources", new_callable=AsyncMock)

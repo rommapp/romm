@@ -777,6 +777,17 @@ class Rom(BaseModel):
     def is_identified(self) -> bool:
         return not self.is_unidentified
 
+    @property
+    def has_file_on_disk(self) -> bool:
+        """Whether a readable file backs this rom.
+
+        False for two different reasons that every file-dependent surface
+        (download, playback, the ES-DE and Pegasus exporters, the device feeds)
+        needs to treat alike: a physical game never had a file, and a missing
+        one no longer does.
+        """
+        return not self.is_physical and not self.missing_from_fs
+
     def has_m3u_file(self) -> bool:
         """
         Check if the ROM has an M3U file associated with it.

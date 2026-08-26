@@ -1452,6 +1452,12 @@ async def get_rom_content(
 
     assert_rom_visible(request, rom)
 
+    if not rom.has_file_on_disk:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ROM {id} has no file to download",
+        )
+
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
     hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
 

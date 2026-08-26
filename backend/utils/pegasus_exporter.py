@@ -339,7 +339,7 @@ class PegasusExporter:
         # Game entries
         game_count = 0
         for rom in roms:
-            if not rom.missing_from_fs:
+            if rom.has_file_on_disk:
                 if game_count > 0:
                     lines.append("")
                 lines.append(self._create_game_entry(rom, request=request))
@@ -386,7 +386,7 @@ class PegasusExporter:
 
             game_count = 0
             for rom in roms:
-                if rom.missing_from_fs:
+                if not rom.has_file_on_disk:
                     continue
 
                 exported_assets: dict[str, str] = {}

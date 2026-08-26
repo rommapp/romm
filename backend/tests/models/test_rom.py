@@ -32,6 +32,17 @@ def test_physical_rom_round_trips(platform: Platform):
     assert stored.upc == "012345678905"
 
 
+def test_has_file_on_disk_covers_both_file_less_cases(rom: Rom):
+    assert rom.has_file_on_disk is True
+
+    rom.missing_from_fs = True
+    assert rom.has_file_on_disk is False
+
+    rom.missing_from_fs = False
+    rom.is_physical = True
+    assert rom.has_file_on_disk is False
+
+
 def test_rom_with_libretro_match_is_identified(rom: Rom):
     rom.libretro_id = "abc123"
 

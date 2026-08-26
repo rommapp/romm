@@ -308,7 +308,7 @@ class GamelistExporter:
 
         count = 0
         for rom in roms:
-            if not rom or rom.missing_from_fs or rom.fs_name == "gamelist.xml":
+            if not rom or not rom.has_file_on_disk or rom.fs_name == "gamelist.xml":
                 continue
 
             assets = self._collect_assets(rom)
