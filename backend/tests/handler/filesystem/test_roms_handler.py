@@ -1635,9 +1635,10 @@ class TestSigilTitleIdExtraction:
 
         mock_extract = AsyncMock(
             return_value=SigilExtractionResult(
-                title_id="0004000000033500",
-                # save_id carries the on-disk split, not the flat id.
-                save_id="00040000/00033500",
+                title_id="0004000E0011C500",
+                # save_id carries the on-disk split, not the flat id, and is
+                # lowercase because that is the case the emulator writes.
+                save_id="0004000e/0011c500",
                 usage="folder-split",
             )
         )
@@ -1654,8 +1655,10 @@ class TestSigilTitleIdExtraction:
             ):
                 parsed = await handler.get_rom_files(rom)
 
-        assert parsed.rom_files[0].save_id == "00040000/00033500"
-        assert parsed.save_id == "00040000/00033500"
+        assert parsed.rom_files[0].save_id == "0004000e/0011c500"
+        assert parsed.rom_files[0].title_id == "0004000E0011C500"
+        assert parsed.save_id == "0004000e/0011c500"
+        assert parsed.title_id == "0004000E0011C500"
         assert parsed.save_usage == SaveUsage.FOLDER_SPLIT
 
     @pytest.mark.asyncio
