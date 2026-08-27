@@ -6,18 +6,10 @@ RetroAchievements, LaunchBox, Flashpoint, gamelist and IGDB do expose) was lost
 and could not be round-tripped to external tools. See issue #3518.
 
 The handlers now also emit ``publishers`` and ``developers`` alongside the
-existing (unchanged) ``companies`` list. This migration threads the two new
-fields through the read pipeline that 0098/0100/0101/0103 built:
-
-- Two STORED generated columns on ``roms`` (``generated_publishers`` /
-  ``generated_developers``), coalescing ``$.publishers`` / ``$.developers``
-  across the same provider blobs ``generated_companies`` already reads.
-- The ``roms_metadata`` view projects them (appended, so nothing else shifts).
-- ``roms_facets`` mirrors them; its sync triggers are rebuilt to carry them.
-- ``virtual_collection_roms`` gains ``publisher`` / ``developer`` membership
-  types (backfilled once here, then kept current by the rebuilt triggers). The
-  ``virtual_collections`` view groups by ``(type, name)`` generically, so it
-  surfaces the new types with no change of its own.
+existing (unchanged) ``companies`` list. This threads the two new fields
+through the read pipeline that 0098/0100/0101/0103 built. The
+``virtual_collections`` view groups by ``(type, name)`` generically, so it
+surfaces the new membership types with no change of its own.
 
 Existing rows only carry ``companies`` until their ROMs are re-scanned: the raw
 provider blobs predate the new keys, so the generated columns read empty for
@@ -110,14 +102,10 @@ _BASE_VIEW_COLUMNS = [
     ("generated_average_rating", "average_rating"),
     ("generated_player_count", "player_count"),
 ]
-_NEW_VIEW_COLUMNS = [
-    ("generated_publishers", "publishers"),
-    ("generated_developers", "developers"),
-]
 
 
 def _roms_metadata_view_sql(pg: bool, include_new: bool) -> str:
-    columns = _BASE_VIEW_COLUMNS + (_NEW_VIEW_COLUMNS if include_new else [])
+    columns = _BASE_VIEW_COLUMNS + (_NEW_GENERATED if include_new else [])
     projections = []
     for name, alias in columns:
         # player_count is text in the view (0098 note), cast to match on PG.
@@ -190,15 +178,8 @@ _MYSQL_FACETS_TRIGGERS = {
 
 
 def _facets_columns(include_new: bool) -> list[tuple[str, str]]:
-    if not include_new:
-        return _FACETS_BASE + _FACETS_PROVIDER_IDS
-    out: list[tuple[str, str]] = []
-    for target, source in _FACETS_BASE:
-        out.append((target, source))
-        # publishers/developers slot right after companies to keep the list tidy.
-        if target == "companies":
-            out.extend(_FACETS_NEW)
-    return out + _FACETS_PROVIDER_IDS
+    new = _FACETS_NEW if include_new else []
+    return _FACETS_BASE + new + _FACETS_PROVIDER_IDS
 
 
 def _rebuild_facets_triggers(pg: bool, include_new: bool) -> None:
@@ -375,6 +356,24 @@ END $$
 # ---------------------------------------------------------------------------
 
 
+def _has_split_metadata(pg: bool) -> bool:
+    """Whether any row already carries the new keys.
+
+    Only hand-written manual metadata can before a re-scan, so these backfills
+    would otherwise be a pair of full scans over a multi-gigabyte table for
+    nothing.
+    """
+    empty = "'[]'::jsonb" if pg else "JSON_ARRAY()"
+    condition = (
+        f"generated_publishers <> {empty} OR generated_developers <> {empty}"
+        if pg
+        else "JSON_LENGTH(generated_publishers) > 0"
+        " OR JSON_LENGTH(generated_developers) > 0"
+    )
+    probe = sa.text(f"SELECT 1 FROM roms WHERE {condition} LIMIT 1")  # nosec B608
+    return op.get_bind().execute(probe).first() is not None
+
+
 def upgrade() -> None:
     pg = is_postgresql(op.get_bind())
 
@@ -383,19 +382,23 @@ def upgrade() -> None:
 
     op.add_column("roms_facets", sa.Column("publishers", CustomJSON(), nullable=True))
     op.add_column("roms_facets", sa.Column("developers", CustomJSON(), nullable=True))
-    _backfill_facets_new_columns(pg)
     _rebuild_facets_triggers(pg, include_new=True)
-
-    # Backfill only the new types so existing membership rows aren't duplicated.
-    rows = (
-        _postgres_vc_rows("r", True, _VC_NEW_TYPES)
-        if pg
-        else _mysql_vc_rows("r", True, _VC_NEW_TYPES)
-    )
-    conflict = "ON CONFLICT DO NOTHING" if pg else ""
-    insert = "INSERT INTO" if pg else "INSERT IGNORE INTO"
-    op.execute(f"{insert} {TABLE} ({_VC_COLUMNS})\n{rows}\n{conflict}")  # nosec B608
     _rebuild_vc_triggers(pg, _VC_ALL_TYPES)
+
+    if _has_split_metadata(pg):
+        _backfill_facets_new_columns(pg)
+        # Only the new types, so existing membership rows aren't duplicated.
+        rows = (
+            _postgres_vc_rows("r", True, _VC_NEW_TYPES)
+            if pg
+            else _mysql_vc_rows("r", True, _VC_NEW_TYPES)
+        )
+        conflict = "ON CONFLICT DO NOTHING" if pg else ""
+        insert = "INSERT INTO" if pg else "INSERT IGNORE INTO"
+        statement = (
+            f"{insert} {TABLE} ({_VC_COLUMNS})\n{rows}\n{conflict}"  # nosec B608
+        )
+        op.execute(statement)
 
 
 def downgrade() -> None:

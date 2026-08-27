@@ -388,6 +388,18 @@ class RomMetadata(BaseModel):
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")
 
+    @property
+    def primary_developer(self) -> str | None:
+        """Developer for exporters, falling back to the pre-split companies ordering."""
+        companies = self.companies or []
+        return next(iter(self.developers or companies[:1]), None)
+
+    @property
+    def primary_publisher(self) -> str | None:
+        """Publisher for exporters, falling back to the pre-split companies ordering."""
+        companies = self.companies or []
+        return next(iter(self.publishers or companies[1:2]), None)
+
 
 class RomFacets(BaseModel):
     """Narrow mirror of the per-ROM values that back the filter dropdowns.

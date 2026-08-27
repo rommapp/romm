@@ -232,22 +232,16 @@ def extract_metadata_from_gamelist_rom(
     )
     md5 = md5_elem.text if md5_elem is not None and md5_elem.text else None
 
+    publishers = _split_comma_separated_values(publisher)
+    developers = _split_comma_separated_values(developer)
+
     return GamelistMetadata(
         rating=rating,
         first_release_date=first_release_date,
         sort_name=sort_name,
-        companies=list(
-            dict.fromkeys(
-                pydash.compact(
-                    [
-                        *_split_comma_separated_values(developer),
-                        *_split_comma_separated_values(publisher),
-                    ]
-                )
-            )
-        ),
-        publishers=_split_comma_separated_values(publisher),
-        developers=_split_comma_separated_values(developer),
+        companies=list(dict.fromkeys([*developers, *publishers])),
+        publishers=publishers,
+        developers=developers,
         franchises=_split_comma_separated_values(family),
         genres=_split_comma_separated_values(genre),
         player_count=players,

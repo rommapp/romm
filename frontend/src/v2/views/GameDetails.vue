@@ -167,10 +167,8 @@ const lastPlayed = computed(() => {
   return new Date(ts).toLocaleString();
 });
 
-// Prefer the explicit Developers / Publishers split; the merged "Companies"
-// list is only shown as a fallback for ROMs scanned before the split was
-// populated (InfoGrid drops empty sections). "Franchises" mirrors the
-// singular→plural consistency of the surrounding rows.
+// Companies is a merged developers + publishers list, so show it only when
+// both split fields are empty (InfoGrid drops empty sections).
 const showMergedCompanies = computed(
   () => publishers.value.length === 0 && developers.value.length === 0,
 );
