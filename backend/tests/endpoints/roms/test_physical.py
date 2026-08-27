@@ -156,7 +156,7 @@ def test_create_physical_rom_unknown_platform_returns_404(
 
 @patch("endpoints.roms.download_rom_resources", new_callable=AsyncMock)
 @patch("endpoints.roms.scan_rom", side_effect=_fake_scan_rom)
-def test_create_physical_rom_name_collision_suffixes(
+def test_create_physical_rom_duplicate_name_returns_409(
     scan_rom_mock: AsyncMock,
     download_mock: AsyncMock,
     client: TestClient,
@@ -170,13 +170,11 @@ def test_create_physical_rom_name_collision_suffixes(
     )
 
     assert first.status_code == status.HTTP_200_OK
-    assert second.status_code == status.HTTP_200_OK
+    assert second.status_code == status.HTTP_409_CONFLICT
 
     first_rom = db_rom_handler.get_rom(first.json()["id"])
-    second_rom = db_rom_handler.get_rom(second.json()["id"])
-    assert first_rom is not None and second_rom is not None
-    assert first_rom.fs_name != second_rom.fs_name
-    assert second_rom.fs_name == "Sonic (2)"
+    assert first_rom is not None
+    assert first_rom.fs_name == "Sonic"
 
 
 def test_create_physical_rom_requires_write_scope(

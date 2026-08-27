@@ -1662,7 +1662,7 @@ async def create_physical_rom(
             detail="A name or a resolvable UPC is required",
         )
 
-    fs_name = build_physical_fs_name(platform.id, match_name)
+    fs_name = build_physical_fs_name(match_name)
     fs_path = build_physical_fs_path(platform)
 
     try:
@@ -1683,7 +1683,7 @@ async def create_physical_rom(
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"A concurrent request already added {match_name!r} to this platform",
+            detail=f"{match_name!r} has already been added to this platform",
         ) from exc
 
     metadata_sources = form_data.metadata_sources or [s.value for s in MetadataSource]

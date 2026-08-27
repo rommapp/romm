@@ -108,21 +108,13 @@ def build_physical_fs_path(platform: Platform) -> str:
     )
 
 
-def build_physical_fs_name(platform_id: int, name: str) -> str:
-    """Build a unique-per-platform `fs_name` for a physical game from its name.
+def build_physical_fs_name(name: str) -> str:
+    """`fs_name` for a physical game: the sanitized name, with no fake extension.
 
-    Physical games have no file, so the sanitized name is used directly (no fake
-    extension). A numeric suffix is appended on collision with an existing row.
+    The unique index on (platform_id, fs_name) rejects a second copy of the same
+    title on a platform, which is not a library a user can own anyway.
     """
-    base = sanitize_filename(name)
-    candidate = base
-    counter = 2
-    while db_rom_handler.get_roms_by_fs_name(
-        platform_id=platform_id, fs_names=[candidate]
-    ):
-        candidate = f"{base} ({counter})"
-        counter += 1
-    return candidate
+    return sanitize_filename(name)
 
 
 def build_hashless_fs_rom(fs_name: str, *, flat: bool) -> FSRom:
