@@ -15,7 +15,7 @@ from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
-from models.rom import Rom
+from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from utils.filesystem import link_or_copy_file
 
 # Map gamelist asset keys to subdirectory names inside assets/
@@ -301,14 +301,16 @@ class GamelistExporter:
         if not platform:
             raise ValueError(f"Platform with ID {platform_id} not found")
 
-        roms = db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
+        roms = db_rom_handler.get_roms_scalar(
+            platform_ids=[platform_id], **HAS_FILE_ON_DISK_FILTERS
+        )
 
         root = Element("gameList")
         media_image, media_thumbnail = get_media_options_for_export()
 
         count = 0
         for rom in roms:
-            if not rom or not rom.has_file_on_disk or rom.fs_name == "gamelist.xml":
+            if rom.fs_name == "gamelist.xml":
                 continue
 
             assets = self._collect_assets(rom)

@@ -77,6 +77,20 @@ def test_get_roms_scalar_missing_excludes_physical(platform: Platform):
     assert physical.id not in {r.id for r in missing}
 
 
+def test_get_roms_scalar_physical_filter(rom: Rom, platform: Platform):
+    physical = _add_physical_rom(platform)
+
+    only_physical = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], physical=True
+    )
+    assert {r.id for r in only_physical} == {physical.id}
+
+    no_physical = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], physical=False
+    )
+    assert {r.id for r in no_physical} == {rom.id}
+
+
 def test_roms(rom: Rom, platform: Platform):
     db_rom_handler.add_rom(
         Rom(

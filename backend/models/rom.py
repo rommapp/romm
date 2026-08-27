@@ -912,6 +912,11 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
     )
 
 
+# Query-side twin of `Rom.has_file_on_disk`, for callers that enumerate roms and
+# want the file-less ones dropped by the database rather than after loading.
+HAS_FILE_ON_DISK_FILTERS = {"physical": False, "missing": False}
+
+
 # Maps a metadata-source slug (matching the MetadataSource enum) to the Rom
 # column holding that source's match id. A populated column means the ROM
 # matched that source. Shared by the stats coverage breakdown and the gallery

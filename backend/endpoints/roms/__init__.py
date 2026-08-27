@@ -90,6 +90,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.permission import PermAction, PermEntity
 from models.rom import (
+    HAS_FILE_ON_DISK_FILTERS,
     Rom,
     RomUserStatus,
     apply_file_stats,
@@ -1056,6 +1057,7 @@ async def download_roms(
             smart_collection_id=smart_collection_id,
             hidden_platform_ids=list(perms.hidden_platform_ids),
             hidden_rom_ids=list(perms.hidden_rom_ids),
+            **HAS_FILE_ON_DISK_FILTERS,
         )
         rom_id_list = list(dict.fromkeys(rom.id for rom in rom_rows))
     elif rom_ids:

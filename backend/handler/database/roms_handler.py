@@ -1186,6 +1186,7 @@ class DBRomsHandler(DBBaseHandler):
         has_saves: bool | None = None,
         has_states: bool | None = None,
         missing: bool | None = None,
+        physical: bool | None = None,
         verified: bool | None = None,
         has_soundtrack: bool | None = None,
         group_by_meta_id: bool = False,
@@ -1326,6 +1327,9 @@ class DBRomsHandler(DBBaseHandler):
 
         if missing is not None:
             query = self._filter_by_missing_from_fs(query, value=missing)
+
+        if physical is not None:
+            query = query.filter(Rom.is_physical.is_(physical))
 
         if verified is not None:
             query = self._filter_by_verified(query, value=verified)
@@ -1614,6 +1618,7 @@ class DBRomsHandler(DBBaseHandler):
             has_states=kwargs.get("has_states", None),
             has_soundtrack=kwargs.get("has_soundtrack", None),
             missing=kwargs.get("missing", None),
+            physical=kwargs.get("physical", None),
             verified=kwargs.get("verified", None),
             genres=kwargs.get("genres", None),
             franchises=kwargs.get("franchises", None),

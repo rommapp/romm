@@ -50,7 +50,12 @@ from handler.metadata.base_handler import (
     SWITCH_TITLEDB_REGEX,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import (
+    HAS_FILE_ON_DISK_FILTERS,
+    Rom,
+    RomFile,
+    RomFileCategory,
+)
 from utils.archives import is_compressed_file
 from utils.router import APIRouter
 
@@ -93,24 +98,19 @@ def _hidden_ids(request: Request) -> tuple[list[int], list[int]]:
     return list(perms.hidden_platform_ids), list(perms.hidden_rom_ids)
 
 
-def _servable_roms(roms: Sequence[Rom]) -> list[Rom]:
-    """Every feed entry carries a download URL, so a rom with no file has none."""
-    return [rom for rom in roms if rom.has_file_on_disk]
-
-
 def _platform_roms(
     request: Request, platform_id: int, *, include_files: bool = False
-) -> list[Rom]:
-    """Roms of a platform, excluding any hidden from the caller (cascade included)."""
+) -> Sequence[Rom]:
+    """Roms of a platform a feed can serve: nothing hidden from the caller, and
+    nothing file-less (every feed entry carries a download URL)."""
     hidden_platforms, hidden_roms = _hidden_ids(request)
     if platform_id in hidden_platforms:
         return []
-    return _servable_roms(
-        db_rom_handler.get_roms_scalar(
-            platform_ids=[platform_id],
-            include_files=include_files,
-            hidden_rom_ids=hidden_roms,
-        )
+    return db_rom_handler.get_roms_scalar(
+        platform_ids=[platform_id],
+        include_files=include_files,
+        hidden_rom_ids=hidden_roms,
+        **HAS_FILE_ON_DISK_FILTERS,
     )
 
 
@@ -139,12 +139,11 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             continue
 
         category_items = []
-        roms = _servable_roms(
-            db_rom_handler.get_roms_scalar(
-                platform_ids=[p.id],
-                hidden_platform_ids=hidden_platforms,
-                hidden_rom_ids=hidden_roms,
-            )
+        roms = db_rom_handler.get_roms_scalar(
+            platform_ids=[p.id],
+            hidden_platform_ids=hidden_platforms,
+            hidden_rom_ids=hidden_roms,
+            **HAS_FILE_ON_DISK_FILTERS,
         )
         for rom in roms:
             download_url = generate_rom_download_url(request, rom)
@@ -257,13 +256,12 @@ async def tinfoil_index_feed(
         return titledb
 
     hidden_platforms, hidden_roms = _hidden_ids(request)
-    roms = _servable_roms(
-        db_rom_handler.get_roms_scalar(
-            platform_ids=[switch.id],
-            include_files=True,
-            hidden_platform_ids=hidden_platforms,
-            hidden_rom_ids=hidden_roms,
-        )
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[switch.id],
+        include_files=True,
+        hidden_platform_ids=hidden_platforms,
+        hidden_rom_ids=hidden_roms,
+        **HAS_FILE_ON_DISK_FILTERS,
     )
 
     return TinfoilFeedSchema(

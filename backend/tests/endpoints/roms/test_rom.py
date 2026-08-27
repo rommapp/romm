@@ -1,5 +1,6 @@
 import json
 from unittest.mock import AsyncMock, patch
+from urllib.parse import unquote
 
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -223,6 +224,35 @@ def test_download_roms_by_platform(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.headers["X-Archive-Files"] == "zip"
+    assert rom_file.file_name in response.text
+
+
+def test_download_roms_by_platform_skips_roms_without_a_file(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    rom_file: RomFile,
+):
+    """A physical game has no files to zip, so it must not swell the archive's
+    ROM count (and therefore its generated name)."""
+    db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="Physical Game",
+            fs_name="Physical Game",
+            fs_path=f"{platform.slug}/roms/.physical",
+            fs_size_bytes=0,
+            is_physical=True,
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/download?platform_id={platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert "1 ROMs" in unquote(response.headers["Content-Disposition"])
     assert rom_file.file_name in response.text
 
 

@@ -8,7 +8,7 @@ from handler.filesystem import fs_platform_handler, fs_resource_handler
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from utils.filesystem import link_or_copy_file
 
 # Map RomM platform slugs to canonical Pegasus (collection name, shortname) pairs.
@@ -326,7 +326,9 @@ class PegasusExporter:
         if not platform:
             raise ValueError(f"Platform with ID {platform_id} not found")
 
-        roms = db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
+        roms = db_rom_handler.get_roms_scalar(
+            platform_ids=[platform_id], **HAS_FILE_ON_DISK_FILTERS
+        )
 
         lines: list[str] = []
 
@@ -339,11 +341,10 @@ class PegasusExporter:
         # Game entries
         game_count = 0
         for rom in roms:
-            if rom.has_file_on_disk:
-                if game_count > 0:
-                    lines.append("")
-                lines.append(self._create_game_entry(rom, request=request))
-                game_count += 1
+            if game_count > 0:
+                lines.append("")
+            lines.append(self._create_game_entry(rom, request=request))
+            game_count += 1
 
         log.info(f"Exported {game_count} ROMs for platform {platform.name}")
         return "\n".join(lines) + "\n"
@@ -374,7 +375,9 @@ class PegasusExporter:
             )
             platform_dir = fs_platform_handler.base_path / platform_fs_structure
 
-            roms = db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
+            roms = db_rom_handler.get_roms_scalar(
+                platform_ids=[platform_id], **HAS_FILE_ON_DISK_FILTERS
+            )
 
             lines: list[str] = []
 
@@ -386,9 +389,6 @@ class PegasusExporter:
 
             game_count = 0
             for rom in roms:
-                if not rom.has_file_on_disk:
-                    continue
-
                 exported_assets: dict[str, str] = {}
 
                 if self.local_export:
