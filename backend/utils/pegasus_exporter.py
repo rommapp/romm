@@ -238,12 +238,13 @@ class PegasusExporter:
         if rom.name and rom.fs_name_no_tags and rom.name != rom.fs_name_no_tags:
             lines.append(f"sort-by: {rom.fs_name_no_tags}")
 
-        # Developers and publishers
-        if rom.metadatum and rom.metadatum.companies:
-            if len(rom.metadatum.companies) > 0:
-                lines.append(f"developer: {rom.metadatum.companies[0]}")
-            if len(rom.metadatum.companies) > 1:
-                lines.append(f"publisher: {rom.metadatum.companies[1]}")
+        if rom.metadatum:
+            developer = rom.metadatum.primary_developer
+            publisher = rom.metadatum.primary_publisher
+            if developer:
+                lines.append(f"developer: {developer}")
+            if publisher:
+                lines.append(f"publisher: {publisher}")
 
         # Genres
         if rom.metadatum and rom.metadatum.genres:

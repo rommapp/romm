@@ -503,6 +503,24 @@ def get_roms(
             ),
         ),
     ] = None,
+    publishers: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated publisher. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
+    ] = None,
+    developers: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated developer. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
+    ] = None,
     age_ratings: Annotated[
         list[str] | None,
         Query(
@@ -592,6 +610,18 @@ def get_roms(
         str,
         Query(
             description="Logic operator for companies filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    publishers_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for publishers filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    developers_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for developers filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     age_ratings_logic: Annotated[
@@ -698,6 +728,8 @@ def get_roms(
         franchises=franchises,
         collections=collections,
         companies=companies,
+        publishers=publishers,
+        developers=developers,
         age_ratings=age_ratings,
         statuses=statuses,
         regions=regions,
@@ -710,6 +742,8 @@ def get_roms(
         franchises_logic=franchises_logic,
         collections_logic=collections_logic,
         companies_logic=companies_logic,
+        publishers_logic=publishers_logic,
+        developers_logic=developers_logic,
         age_ratings_logic=age_ratings_logic,
         regions_logic=regions_logic,
         languages_logic=languages_logic,
@@ -751,6 +785,8 @@ def get_roms(
         or franchises
         or collections
         or companies
+        or publishers
+        or developers
         or age_ratings
         or statuses
         or regions
@@ -794,6 +830,8 @@ def get_roms(
         franchises=[],
         collections=[],
         companies=[],
+        publishers=[],
+        developers=[],
         game_modes=[],
         age_ratings=[],
         player_counts=[],

@@ -46,6 +46,8 @@ class FlashpointGame(TypedDict):
 class FlashpointMetadata(TypedDict):
     franchises: list[str]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     source: str | None
     genres: list[str]
     first_release_date: str
@@ -75,9 +77,14 @@ def extract_flashpoint_metadata(game: FlashpointGame) -> FlashpointMetadata:
         except (ValueError, TypeError):
             first_release_date = ""
 
+    publishers = pydash.compact([game["publisher"]])
+    developers = pydash.compact([game["developer"]])
+
     return FlashpointMetadata(
         franchises=pydash.compact([game["series"]]),
-        companies=pydash.uniq(pydash.compact([game["developer"], game["publisher"]])),
+        companies=pydash.uniq([*developers, *publishers]),
+        publishers=publishers,
+        developers=developers,
         source=game["source"],
         genres=game["tags"],
         first_release_date=first_release_date,

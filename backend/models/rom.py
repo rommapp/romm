@@ -378,6 +378,8 @@ class RomMetadata(BaseModel):
     franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    publishers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    developers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")
@@ -385,6 +387,18 @@ class RomMetadata(BaseModel):
     average_rating: Mapped[float | None] = mapped_column(default=None)
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")
+
+    @property
+    def primary_developer(self) -> str | None:
+        """Developer for exporters, falling back to the pre-split companies ordering."""
+        companies = self.companies or []
+        return next(iter(self.developers or companies[:1]), None)
+
+    @property
+    def primary_publisher(self) -> str | None:
+        """Publisher for exporters, falling back to the pre-split companies ordering."""
+        companies = self.companies or []
+        return next(iter(self.publishers or companies[1:2]), None)
 
 
 class RomFacets(BaseModel):
@@ -410,6 +424,8 @@ class RomFacets(BaseModel):
     franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    publishers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    developers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")

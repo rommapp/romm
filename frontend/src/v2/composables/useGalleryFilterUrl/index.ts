@@ -26,6 +26,8 @@
 //   ?franchises=…&franchisesLogic=…
 //   ?collections=…&collectionsLogic=…
 //   ?companies=…&companiesLogic=…
+//   ?publishers=…&publishersLogic=…
+//   ?developers=…&developersLogic=…
 //   ?ageRatings=…&ageRatingsLogic=…
 //   ?regions=…&regionsLogic=…
 //   ?languages=…&languagesLogic=…
@@ -116,6 +118,8 @@ export function useGalleryFilterUrl() {
     selectedFranchises,
     selectedCollections,
     selectedCompanies,
+    selectedPublishers,
+    selectedDevelopers,
     selectedAgeRatings,
     selectedRegions,
     selectedLanguages,
@@ -127,6 +131,8 @@ export function useGalleryFilterUrl() {
     franchisesLogic,
     collectionsLogic,
     companiesLogic,
+    publishersLogic,
+    developersLogic,
     ageRatingsLogic,
     regionsLogic,
     languagesLogic,
@@ -167,6 +173,10 @@ export function useGalleryFilterUrl() {
       collectionsLogic: qLogic(q.collectionsLogic),
       companies: qList(q.companies),
       companiesLogic: qLogic(q.companiesLogic),
+      publishers: qList(q.publishers),
+      publishersLogic: qLogic(q.publishersLogic),
+      developers: qList(q.developers),
+      developersLogic: qLogic(q.developersLogic),
       ageRatings: qList(q.ageRatings),
       ageRatingsLogic: qLogic(q.ageRatingsLogic),
       regions: qList(q.regions),
@@ -244,6 +254,16 @@ export function useGalleryFilterUrl() {
       filter.setSelectedFilterCompanies(url.companies);
     if (url.companiesLogic && url.companiesLogic !== companiesLogic.value)
       filter.setCompaniesLogic(url.companiesLogic);
+
+    if (!eqStrArr(url.publishers, selectedPublishers.value))
+      filter.setSelectedFilterPublishers(url.publishers);
+    if (url.publishersLogic && url.publishersLogic !== publishersLogic.value)
+      filter.setPublishersLogic(url.publishersLogic);
+
+    if (!eqStrArr(url.developers, selectedDevelopers.value))
+      filter.setSelectedFilterDevelopers(url.developers);
+    if (url.developersLogic && url.developersLogic !== developersLogic.value)
+      filter.setDevelopersLogic(url.developersLogic);
 
     if (!eqStrArr(url.ageRatings, selectedAgeRatings.value))
       filter.setSelectedFilterAgeRatings(url.ageRatings);
@@ -366,6 +386,16 @@ export function useGalleryFilterUrl() {
       "companiesLogic",
       selectedCompanies.value.length > 0 ? companiesLogic.value : null,
     );
+    setList("publishers", selectedPublishers.value);
+    setOrDelete(
+      "publishersLogic",
+      selectedPublishers.value.length > 0 ? publishersLogic.value : null,
+    );
+    setList("developers", selectedDevelopers.value);
+    setOrDelete(
+      "developersLogic",
+      selectedDevelopers.value.length > 0 ? developersLogic.value : null,
+    );
     setList("ageRatings", selectedAgeRatings.value);
     setOrDelete(
       "ageRatingsLogic",
@@ -447,6 +477,10 @@ export function useGalleryFilterUrl() {
       collectionsLogic,
       selectedCompanies,
       companiesLogic,
+      selectedPublishers,
+      publishersLogic,
+      selectedDevelopers,
+      developersLogic,
       selectedAgeRatings,
       ageRatingsLogic,
       selectedRegions,

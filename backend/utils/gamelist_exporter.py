@@ -231,12 +231,12 @@ class GamelistExporter:
         if "manual" in asset_refs:
             SubElement(game, "manual").text = asset_refs["manual"]
 
-        # Additional metadata
-        if rom.metadatum.companies and len(rom.metadatum.companies) > 0:
-            SubElement(game, "developer").text = rom.metadatum.companies[0]
-
-        if rom.metadatum.companies and len(rom.metadatum.companies) > 1:
-            SubElement(game, "publisher").text = rom.metadatum.companies[1]
+        developer = rom.metadatum.primary_developer
+        publisher = rom.metadatum.primary_publisher
+        if developer:
+            SubElement(game, "developer").text = developer
+        if publisher:
+            SubElement(game, "publisher").text = publisher
 
         if rom.metadatum.genres and len(rom.metadatum.genres) > 0:
             SubElement(game, "genre").text = rom.metadatum.genres[0]

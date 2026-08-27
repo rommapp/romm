@@ -46,6 +46,10 @@ export interface SmartFilterCriteria {
   collections_logic?: FilterLogic;
   companies?: string[];
   companies_logic?: FilterLogic;
+  publishers?: string[];
+  publishers_logic?: FilterLogic;
+  developers?: string[];
+  developers_logic?: FilterLogic;
   age_ratings?: string[];
   age_ratings_logic?: FilterLogic;
   regions?: string[];
@@ -87,6 +91,10 @@ export interface GalleryFilterSnapshot {
   collectionsLogic: FilterLogic;
   selectedCompanies: string[];
   companiesLogic: FilterLogic;
+  selectedPublishers: string[];
+  publishersLogic: FilterLogic;
+  selectedDevelopers: string[];
+  developersLogic: FilterLogic;
   selectedAgeRatings: string[];
   ageRatingsLogic: FilterLogic;
   selectedRegions: string[];
@@ -178,6 +186,14 @@ export function buildSmartFilterCriteria(
   if (snap.selectedCompanies.length > 0) {
     out.companies = snap.selectedCompanies;
     out.companies_logic = snap.companiesLogic;
+  }
+  if (snap.selectedPublishers.length > 0) {
+    out.publishers = snap.selectedPublishers;
+    out.publishers_logic = snap.publishersLogic;
+  }
+  if (snap.selectedDevelopers.length > 0) {
+    out.developers = snap.selectedDevelopers;
+    out.developers_logic = snap.developersLogic;
   }
   if (snap.selectedAgeRatings.length > 0) {
     out.age_ratings = snap.selectedAgeRatings;
@@ -420,6 +436,22 @@ const FIELDS: FieldSpec[] = [
     icon: "mdi-domain",
     labelKey: "platform.company",
     defaultLabel: "Companies",
+    kind: "list",
+  },
+  {
+    storage: "publishers",
+    logicStorage: "publishers_logic",
+    icon: "mdi-bank-outline",
+    labelKey: "platform.publisher",
+    defaultLabel: "Publishers",
+    kind: "list",
+  },
+  {
+    storage: "developers",
+    logicStorage: "developers_logic",
+    icon: "mdi-code-tags",
+    labelKey: "platform.developer",
+    defaultLabel: "Developers",
     kind: "list",
   },
   {
