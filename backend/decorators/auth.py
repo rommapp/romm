@@ -65,6 +65,9 @@ oauth.register(
     client_kwargs={
         "scope": f"openid profile email {OIDC_CLAIM_ROLES}".strip(),
         "verify": OIDC_TLS_CACERTFILE,
+        # Authlib only derives a code_verifier when code_challenge_method is set,
+        # so providers that mandate PKCE refuse the code without it.
+        "code_challenge_method": "S256",
     },
 )
 

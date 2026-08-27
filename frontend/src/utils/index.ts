@@ -132,8 +132,15 @@ export function getDownloadPath({
     fileIDs.length === 1
       ? rom.files?.find((f) => f.id === fileIDs[0])
       : undefined;
-  const contentName = selectedFile
-    ? encodeURIComponent(selectedFile.file_name)
+  const nestedFile =
+    fileIDs.length === 0 &&
+    rom.has_nested_single_file &&
+    rom.files?.length === 1
+      ? rom.files[0]
+      : undefined;
+  const contentFile = selectedFile ?? nestedFile;
+  const contentName = contentFile
+    ? encodeURIComponent(contentFile.file_name)
     : rom.fs_name;
 
   return `/api/roms/${rom.id}/content/${contentName}${

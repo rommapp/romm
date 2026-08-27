@@ -97,6 +97,7 @@ class RomFileCategory(enum.StrEnum):
     DLC = "dlc"
     HACK = "hack"
     MANUAL = "manual"
+    WALKTHROUGH = "walkthrough"
     PATCH = "patch"
     UPDATE = "update"
     MOD = "mod"
@@ -106,6 +107,19 @@ class RomFileCategory(enum.StrEnum):
     CHEAT = "cheat"
     SOUNDTRACK = "soundtrack"
     SCREENSHOT = "screenshot"
+
+
+# Document-category files (manuals, walkthroughs) share one substrate: a
+# RomFile plus an optional RomFileDocMeta sidecar for provenance.
+DOCUMENT_CATEGORIES = frozenset({RomFileCategory.MANUAL, RomFileCategory.WALKTHROUGH})
+
+
+class DocSource(enum.StrEnum):
+    """Where a document (manual/walkthrough) came from."""
+
+    UPLOAD = "upload"  # User-uploaded file
+    GAMEFAQS = "gamefaqs"  # Fetched from a GameFAQs guide URL
+    SCRAPER = "scraper"  # Downloaded by a metadata provider
 
 
 class SiblingRom(BaseModel):
@@ -173,6 +187,16 @@ class RomFile(BaseModel):
         back_populates="rom_file",
         uselist=False,
         cascade="all, delete-orphan",
+    )
+    doc_meta: Mapped[RomFileDocMeta | None] = relationship(
+        back_populates="rom_file",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    user_states: Mapped[list[RomFileUser]] = relationship(
+        back_populates="rom_file",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
 
     @cached_property
@@ -277,6 +301,73 @@ class TrackMeta(BaseModel):
     rom_file: Mapped[RomFile] = relationship(back_populates="track_meta")
 
 
+# Max length for free-text document metadata (author / title).
+DOC_META_MAX_LENGTH = 512
+
+
+class RomFileDocMeta(BaseModel):
+    """Provenance sidecar for document-category files (manuals, walkthroughs).
+
+    Only doc-category RomFiles carry a row here, so these fields don't bloat
+    every rom_files row. Format is intentionally not stored: it is derived from
+    the file extension.
+    """
+
+    __tablename__ = "rom_file_doc_meta"
+
+    __table_args__ = (Index("idx_rom_file_doc_meta_rom_id", "rom_id"),)
+
+    rom_file_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_files.id", ondelete="CASCADE"), primary_key=True
+    )
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    source: Mapped[DocSource] = mapped_column(
+        Enum(DocSource), default=DocSource.UPLOAD, nullable=False
+    )
+    source_url: Mapped[str | None] = mapped_column(Text, default=None)
+    author: Mapped[str | None] = mapped_column(
+        String(length=DOC_META_MAX_LENGTH), default=None
+    )
+    title: Mapped[str | None] = mapped_column(
+        String(length=DOC_META_MAX_LENGTH), default=None
+    )
+
+    rom_file: Mapped[RomFile] = relationship(back_populates="doc_meta")
+
+
+class RomFileUser(BaseModel):
+    """Per-user reading state for a document-category file.
+
+    Keyed on (rom_file_id, user_id) so one mechanism covers both manuals and
+    walkthroughs. `progress` is a 0.0-1.0 scroll fraction; `last_page` tracks
+    the page for paginated (PDF) documents.
+    """
+
+    __tablename__ = "rom_file_user"
+
+    __table_args__ = (
+        UniqueConstraint("rom_file_id", "user_id", name="unique_rom_file_user"),
+        Index("idx_rom_file_user", "rom_file_id", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    rom_file_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_files.id", ondelete="CASCADE")
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+
+    progress: Mapped[float] = mapped_column(Float(), default=0.0, nullable=False)
+    last_page: Mapped[int | None] = mapped_column(Integer(), default=None)
+    finished: Mapped[bool] = mapped_column(default=False, nullable=False)
+    last_read_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+
+    rom_file: Mapped[RomFile] = relationship(
+        lazy="joined", back_populates="user_states"
+    )
+    user: Mapped[User] = relationship(lazy="joined")
+
+
 class RomMetadata(BaseModel):
     __tablename__ = "roms_metadata"
 
@@ -288,10 +379,8 @@ class RomMetadata(BaseModel):
     franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
-    # `companies` split by IGDB involvement role. A developer's games really do
-    # resemble each other; a publisher spans everything it ever shipped.
-    developers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     publishers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    developers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     # IGDB-only descriptors: community tags plus the curated theme and
@@ -309,6 +398,18 @@ class RomMetadata(BaseModel):
     rating_count: Mapped[int | None] = mapped_column(BigInteger(), default=0)
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")
+
+    @property
+    def primary_developer(self) -> str | None:
+        """Developer for exporters, falling back to the pre-split companies ordering."""
+        companies = self.companies or []
+        return next(iter(self.developers or companies[:1]), None)
+
+    @property
+    def primary_publisher(self) -> str | None:
+        """Publisher for exporters, falling back to the pre-split companies ordering."""
+        companies = self.companies or []
+        return next(iter(self.publishers or companies[1:2]), None)
 
 
 class RomFacets(BaseModel):
@@ -334,8 +435,8 @@ class RomFacets(BaseModel):
     franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
-    developers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     publishers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    developers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     keywords: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
@@ -528,6 +629,11 @@ class Rom(BaseModel):
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
+    # Physical games are manually-added rows with no file on disk; they carry the
+    # same metadata as digital ROMs but must never be flagged missing or cleaned up.
+    is_physical: Mapped[bool] = mapped_column(default=False, nullable=False)
+    upc: Mapped[str | None] = mapped_column(String(length=64), default=None)
+
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
     )
@@ -710,6 +816,17 @@ class Rom(BaseModel):
     def is_identified(self) -> bool:
         return not self.is_unidentified
 
+    @property
+    def has_file_on_disk(self) -> bool:
+        """Whether a readable file backs this rom.
+
+        False for two different reasons that every file-dependent surface
+        (download, playback, the ES-DE and Pegasus exporters, the device feeds)
+        needs to treat alike: a physical game never had a file, and a missing
+        one no longer does.
+        """
+        return not self.is_physical and not self.missing_from_fs
+
     def has_m3u_file(self) -> bool:
         """
         Check if the ROM has an M3U file associated with it.
@@ -832,6 +949,11 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
         "has_soundtrack",
         any(f.category == RomFileCategory.SOUNDTRACK for f in files),
     )
+
+
+# Query-side twin of `Rom.has_file_on_disk`, for callers that enumerate roms and
+# want the file-less ones dropped by the database rather than after loading.
+HAS_FILE_ON_DISK_FILTERS = {"physical": False, "missing": False}
 
 
 # Maps a metadata-source slug (matching the MetadataSource enum) to the Rom

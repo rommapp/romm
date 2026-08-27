@@ -7,6 +7,8 @@ export type RomRAMetadata = {
     first_release_date?: (number | null);
     genres?: Array<string>;
     companies?: Array<string>;
+    publishers?: Array<string>;
+    developers?: Array<string>;
     achievements?: Array<RAGameRomAchievement>;
 };
 

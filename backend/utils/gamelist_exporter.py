@@ -15,7 +15,7 @@ from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
-from models.rom import Rom
+from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from utils.filesystem import link_or_copy_file
 
 # Map gamelist asset keys to subdirectory names inside assets/
@@ -231,12 +231,12 @@ class GamelistExporter:
         if "manual" in asset_refs:
             SubElement(game, "manual").text = asset_refs["manual"]
 
-        # Additional metadata
-        if rom.metadatum.companies and len(rom.metadatum.companies) > 0:
-            SubElement(game, "developer").text = rom.metadatum.companies[0]
-
-        if rom.metadatum.companies and len(rom.metadatum.companies) > 1:
-            SubElement(game, "publisher").text = rom.metadatum.companies[1]
+        developer = rom.metadatum.primary_developer
+        publisher = rom.metadatum.primary_publisher
+        if developer:
+            SubElement(game, "developer").text = developer
+        if publisher:
+            SubElement(game, "publisher").text = publisher
 
         if rom.metadatum.genres and len(rom.metadatum.genres) > 0:
             SubElement(game, "genre").text = rom.metadatum.genres[0]
@@ -301,14 +301,16 @@ class GamelistExporter:
         if not platform:
             raise ValueError(f"Platform with ID {platform_id} not found")
 
-        roms = db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
+        roms = db_rom_handler.get_roms_scalar(
+            platform_ids=[platform_id], **HAS_FILE_ON_DISK_FILTERS
+        )
 
         root = Element("gameList")
         media_image, media_thumbnail = get_media_options_for_export()
 
         count = 0
         for rom in roms:
-            if not rom or rom.missing_from_fs or rom.fs_name == "gamelist.xml":
+            if rom.fs_name == "gamelist.xml":
                 continue
 
             assets = self._collect_assets(rom)

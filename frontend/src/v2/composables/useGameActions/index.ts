@@ -84,12 +84,20 @@ export function useGameActions(
   // configured for the platform — the native emulator runs in a
   // separate container and RomM streams it back. Wins over in-browser
   // EJS/Ruffle when both are available.
-  const canPlayStream = computed(() =>
-    Boolean(streamingStore.containerForPlatform(getRom()?.platform_slug)),
-  );
+  const canPlayStream = computed(() => {
+    const rom = getRom();
+    return Boolean(
+      rom?.has_file_on_disk &&
+      streamingStore.containerForPlatform(rom.platform_slug),
+    );
+  });
   const canPlay = computed(
     () => canPlayStream.value || canPlayEJS.value || canPlayRuffle.value,
   );
+
+  // Download, the copied link and the QR code all resolve to the download
+  // endpoint, which has nothing to serve without a file behind the rom.
+  const canDownload = computed(() => Boolean(getRom()?.has_file_on_disk));
 
   const isFavorited = computed(() => {
     const rom = getRom();
@@ -210,7 +218,7 @@ export function useGameActions(
 
   const canShareQR = computed(() => {
     const rom = getRom();
-    return rom ? isNintendoDSRom(rom) : false;
+    return Boolean(rom && rom.has_file_on_disk && isNintendoDSRom(rom));
   });
 
   const canOpenInFlashpoint = computed(() => {
@@ -447,6 +455,7 @@ export function useGameActions(
     canManageCollections,
     canShareQR,
     canOpenInFlashpoint,
+    canDownload,
     canPlay,
     canPlayStream,
     canRemoveFromContinuePlaying,

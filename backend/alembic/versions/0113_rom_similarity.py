@@ -12,8 +12,8 @@ maintained incrementally, because the IDF weighting that makes the scores
 library-relative shifts as the library grows. Rows are bounded at roughly
 ``rom_count * MAX_NEIGHBOURS``.
 
-Revision ID: 0110_rom_similarity
-Revises: 0109_rom_files_category_index
+Revision ID: 0113_rom_similarity
+Revises: 0112_publisher_developer_split
 Create Date: 2026-08-07 00:00:00.000000
 
 """
@@ -24,8 +24,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0110_rom_similarity"
-down_revision = "0109_rom_files_category_index"
+revision = "0113_rom_similarity"
+down_revision = "0112_publisher_developer_split"
 branch_labels = None
 depends_on = None
 

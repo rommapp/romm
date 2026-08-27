@@ -4,7 +4,7 @@
 //
 // Surface area (matches v1 1:1 so URLs stay compatible):
 //   • Tri-state boolean filters: matched / favourites / duplicates /
-//     playables / missing / verified / RA. Each maps null → "all",
+//     playables / missing / physical / verified / RA. Each maps null → "all",
 //     true → positive, false → negative.
 //   • Optional platform multi-select (only on Search / Collection views
 //     where you can mix platforms).
@@ -61,6 +61,7 @@ const {
   filterDuplicates,
   filterPlayables,
   filterMissing,
+  filterPhysical,
   filterVerified,
   filterRA,
   filterSaves,
@@ -79,6 +80,12 @@ const {
   filterCompanies,
   selectedCompanies,
   companiesLogic,
+  filterPublishers,
+  selectedPublishers,
+  publishersLogic,
+  filterDevelopers,
+  selectedDevelopers,
+  developersLogic,
   filterAgeRatings,
   selectedAgeRatings,
   ageRatingsLogic,
@@ -185,6 +192,15 @@ const boolFilters: BoolFilterConfig[] = [
     yesAria: t("platform.show-missing-only"),
     noAria: t("platform.show-not-missing-only"),
     value: filterMissing,
+  },
+  {
+    label: t("platform.show-physical"),
+    icon: "mdi-cube-outline",
+    yesIcon: "mdi-cube-outline",
+    noIcon: "mdi-cube-off-outline",
+    yesAria: t("platform.show-physical-only"),
+    noAria: t("platform.show-not-physical-only"),
+    value: filterPhysical,
   },
   {
     label: t("platform.show-verified"),
@@ -310,6 +326,22 @@ const multiSections = computed<MultiConfig[]>(() => [
     selected: selectedCompanies,
     logic: companiesLogic,
     setLogic: (l) => filter.setCompaniesLogic(l),
+  },
+  {
+    label: t("platform.publisher"),
+    icon: "mdi-bank-outline",
+    items: filterPublishers,
+    selected: selectedPublishers,
+    logic: publishersLogic,
+    setLogic: (l) => filter.setPublishersLogic(l),
+  },
+  {
+    label: t("platform.developer"),
+    icon: "mdi-code-tags",
+    items: filterDevelopers,
+    selected: selectedDevelopers,
+    logic: developersLogic,
+    setLogic: (l) => filter.setDevelopersLogic(l),
   },
   {
     label: t("platform.age-rating"),

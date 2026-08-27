@@ -43,6 +43,45 @@ def test_webrcade_feed(
     assert len(body["categories"][0]["items"]) == 1
 
 
+def test_webrcade_feed_skips_roms_without_a_file(
+    client: TestClient, access_token: str, platform: Platform, rom: Rom
+):
+    platform = db_platform_handler.update_platform(
+        platform.id,
+        {"name": "Nintendo Entertainment System", "slug": UPS.NES, "fs_slug": UPS.NES},
+    )
+    db_rom_handler.update_rom(rom.id, {"platform_id": platform.id})
+    db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="Physical Game",
+            fs_name="Physical Game",
+            fs_path=f"{platform.slug}/roms/.physical",
+            fs_size_bytes=0,
+            is_physical=True,
+        )
+    )
+    db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="Gone Game",
+            fs_name="Gone Game.zip",
+            fs_path=f"{platform.slug}/roms",
+            fs_size_bytes=123,
+            missing_from_fs=True,
+        )
+    )
+
+    response = client.get(
+        "/api/feeds/webrcade",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    items = response.json()["categories"][0]["items"]
+    assert [item["title"] for item in items] == [rom.name]
+
+
 def test_tinfoil_feed(client: TestClient, platform: Platform, rom: Rom):
     platform = db_platform_handler.update_platform(
         platform.id,

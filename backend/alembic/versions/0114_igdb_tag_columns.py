@@ -12,8 +12,8 @@ Existing libraries carry no such data until it is fetched -- the columns are
 generated from the metadata blob, so they stay empty until a rescan or
 `tools/backfill_igdb_tags.py` populates the source.
 
-Revision ID: 0111_igdb_tag_columns
-Revises: 0110_rom_similarity
+Revision ID: 0114_igdb_tag_columns
+Revises: 0113_rom_similarity
 Create Date: 2026-08-08 00:00:00.000000
 
 """
@@ -24,8 +24,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0111_igdb_tag_columns"
-down_revision = "0110_rom_similarity"
+revision = "0114_igdb_tag_columns"
+down_revision = "0113_rom_similarity"
 branch_labels = None
 depends_on = None
 
@@ -39,19 +39,30 @@ _TAG_COLUMNS = [
 ]
 _SOURCES = ["manual_metadata", "igdb_metadata"]
 
+# Added by 0112. Restated so the rebuilds below keep projecting and mirroring
+# them, and kept ahead of the tag columns: the view can only be appended to.
+_ROLE_COLUMNS = [
+    ("generated_publishers", "publishers"),
+    ("generated_developers", "developers"),
+]
+
 # Every column the `roms_metadata` view projects, old and new. The view is
 # replaced wholesale, so the pre-existing projections have to be restated.
-_VIEW_COLUMNS = [
-    ("generated_genres", "genres"),
-    ("generated_franchises", "franchises"),
-    ("generated_collections", "collections"),
-    ("generated_companies", "companies"),
-    ("generated_game_modes", "game_modes"),
-    ("generated_age_ratings", "age_ratings"),
-    ("generated_first_release_date", "first_release_date"),
-    ("generated_average_rating", "average_rating"),
-    ("generated_player_count", "player_count"),
-] + _TAG_COLUMNS
+_VIEW_COLUMNS = (
+    [
+        ("generated_genres", "genres"),
+        ("generated_franchises", "franchises"),
+        ("generated_collections", "collections"),
+        ("generated_companies", "companies"),
+        ("generated_game_modes", "game_modes"),
+        ("generated_age_ratings", "age_ratings"),
+        ("generated_first_release_date", "first_release_date"),
+        ("generated_average_rating", "average_rating"),
+        ("generated_player_count", "player_count"),
+    ]
+    + _ROLE_COLUMNS
+    + _TAG_COLUMNS
+)
 
 
 def _maria_array_expr(column: str) -> str:
@@ -165,7 +176,7 @@ _MIRRORED_COLUMNS = [
     ("hltb_id", "hltb_id"),
     ("gamelist_id", "gamelist_id"),
     ("libretro_id", "libretro_id"),
-]
+] + [(facet, generated) for generated, facet in _ROLE_COLUMNS]
 
 _MYSQL_TRIGGERS = {
     "roms_facets_after_insert": "AFTER INSERT",

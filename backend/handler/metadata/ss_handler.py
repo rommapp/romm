@@ -330,6 +330,8 @@ class SSMetadata(SSMetadataMedia):
     alternative_names: list[str]
     age_ratings: list[SSAgeRating]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     franchises: list[str]
     game_modes: list[str]
     genres: list[str]
@@ -634,17 +636,17 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             if classification.get("type") and classification.get("text")
         ]
 
+    publishers = pydash.compact([game.get("editeur", {}).get("text")])
+    developers = pydash.compact([game.get("developpeur", {}).get("text")])
+
     return SSMetadata(
         {
             "ss_score": _normalize_score(game.get("note", {}).get("text", "")),
             "alternative_names": [name["text"] for name in game.get("noms", [])],
             "age_ratings": _get_age_ratings(game),
-            "companies": pydash.compact(
-                [
-                    game.get("editeur", {}).get("text"),
-                    game.get("developpeur", {}).get("text"),
-                ]
-            ),
+            "companies": [*publishers, *developers],
+            "publishers": publishers,
+            "developers": developers,
             "genres": _get_genres(game),
             "first_release_date": _get_lowest_date(game.get("dates", [])),
             "franchises": _get_franchises(game),

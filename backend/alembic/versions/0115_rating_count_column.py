@@ -12,8 +12,8 @@ mean in proportion to how little evidence backs it.
 Only IGDB reports a count, and `manual_metadata` can override it like every
 other generated facet.
 
-Revision ID: 0112_rating_count_column
-Revises: 0111_igdb_tag_columns
+Revision ID: 0115_rating_count_column
+Revises: 0114_igdb_tag_columns
 Create Date: 2026-08-08 00:00:00.000000
 
 """
@@ -23,15 +23,16 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0112_rating_count_column"
-down_revision = "0111_igdb_tag_columns"
+revision = "0115_rating_count_column"
+down_revision = "0114_igdb_tag_columns"
 branch_labels = None
 depends_on = None
 
 _COLUMN = "generated_rating_count"
 _SOURCES = ["manual_metadata", "igdb_metadata"]
 
-# Restated in full because CREATE OR REPLACE VIEW rewrites every projection.
+# Restated in full because CREATE OR REPLACE VIEW rewrites every projection,
+# in the order 0114 left them: PostgreSQL rejects one that moves a column.
 _VIEW_COLUMNS = [
     ("generated_genres", "genres"),
     ("generated_franchises", "franchises"),
@@ -39,12 +40,14 @@ _VIEW_COLUMNS = [
     ("generated_companies", "companies"),
     ("generated_game_modes", "game_modes"),
     ("generated_age_ratings", "age_ratings"),
-    ("generated_keywords", "keywords"),
-    ("generated_themes", "themes"),
-    ("generated_player_perspectives", "player_perspectives"),
     ("generated_first_release_date", "first_release_date"),
     ("generated_average_rating", "average_rating"),
     ("generated_player_count", "player_count"),
+    ("generated_publishers", "publishers"),
+    ("generated_developers", "developers"),
+    ("generated_keywords", "keywords"),
+    ("generated_themes", "themes"),
+    ("generated_player_perspectives", "player_perspectives"),
 ]
 
 

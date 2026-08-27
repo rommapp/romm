@@ -134,11 +134,8 @@ class IGDBMetadata(TypedDict):
     alternative_names: list[str]
     collections: list[str]
     companies: list[str]
-    # Split by role. A developer is a strong similarity signal (Treasure's
-    # games resemble each other); a publisher spans everything it ships, and
-    # regional distributors sit here too.
-    developers: list[str]
     publishers: list[str]
+    developers: list[str]
     game_modes: list[str]
     age_ratings: list[IGDBAgeRating]
     platforms: list[IGDBMetadataPlatform]
@@ -187,21 +184,6 @@ def _expanded_names(entries: Sequence[Any]) -> list[str]:
         for entry in entries
         if isinstance(entry, dict) and (name := entry.get("name"))
     ]
-
-
-def _companies_with_role(entries: Sequence[Any], role: str) -> list[str]:
-    """Names of the companies flagged with a given IGDB involvement role.
-
-    A company can hold more than one role on the same game, so the lists
-    overlap where a studio both made and shipped a title.
-    """
-    return pydash.uniq(
-        [
-            entry["company"]["name"]
-            for entry in entries
-            if isinstance(entry, dict) and entry.get(role) and entry.get("company")
-        ]
-    )
 
 
 def extract_metadata_from_igdb_rom(
@@ -308,8 +290,16 @@ def extract_metadata_from_igdb_rom(
             "companies": [
                 c["company"]["name"] for c in involved_companies if c.get("company")
             ],
-            "developers": _companies_with_role(involved_companies, "developer"),
-            "publishers": _companies_with_role(involved_companies, "publisher"),
+            "publishers": [
+                c["company"]["name"]
+                for c in involved_companies
+                if c.get("company") and c.get("publisher")
+            ],
+            "developers": [
+                c["company"]["name"]
+                for c in involved_companies
+                if c.get("company") and c.get("developer")
+            ],
             "platforms": [
                 IGDBMetadataPlatform(igdb_id=p["id"], name=p.get("name", ""))
                 for p in platforms
