@@ -93,6 +93,7 @@ const openHandler = () => {
       filterStates: galleryFilter.filterStates,
       filterSoundtrack: galleryFilter.filterSoundtrack,
       filterMissing: galleryFilter.filterMissing,
+      filterPhysical: galleryFilter.filterPhysical,
       filterVerified: galleryFilter.filterVerified,
       selectedPlatforms: galleryFilter.selectedPlatforms,
       selectedGenres: galleryFilter.selectedGenres,

@@ -159,6 +159,7 @@ export interface GetRomsParams {
   filterStates?: boolean | null;
   filterSoundtrack?: boolean | null;
   filterMissing?: boolean | null;
+  filterPhysical?: boolean | null;
   filterVerified?: boolean | null;
   groupByMetaId?: boolean;
   // Multi-value filters
@@ -212,6 +213,7 @@ async function getRoms({
   filterStates = null,
   filterSoundtrack = null,
   filterMissing = null,
+  filterPhysical = null,
   filterVerified = null,
   groupByMetaId = false,
   selectedGenres = null,
@@ -342,6 +344,7 @@ async function getRoms({
     ...(filterDuplicates !== null ? { duplicate: filterDuplicates } : {}),
     ...(filterPlayables !== null ? { playable: filterPlayables } : {}),
     ...(filterMissing !== null ? { missing: filterMissing } : {}),
+    ...(filterPhysical !== null ? { physical: filterPhysical } : {}),
     ...(filterRA !== null ? { has_ra: filterRA } : {}),
     ...(filterSaves !== null ? { has_saves: filterSaves } : {}),
     ...(filterStates !== null ? { has_states: filterStates } : {}),

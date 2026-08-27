@@ -207,6 +207,34 @@ def test_create_physical_rom_rolls_back_a_failed_enrichment(
     assert retry.status_code == status.HTTP_200_OK
 
 
+@patch("endpoints.roms.download_rom_resources", new_callable=AsyncMock)
+@patch("endpoints.roms.scan_rom", side_effect=_fake_scan_rom)
+def test_roms_listing_physical_filter(
+    scan_rom_mock: AsyncMock,
+    download_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    platform: Platform,
+):
+    """`?physical=` is what the v2 gallery's physical filter sends."""
+    create = client.post(
+        "/api/roms/physical",
+        headers=_auth(access_token),
+        json={"platform_id": platform.id, "name": "Sonic"},
+    )
+    physical_id = create.json()["id"]
+
+    def ids(query: str) -> set[int]:
+        resp = client.get(f"/api/roms?{query}", headers=_auth(access_token))
+        assert resp.status_code == status.HTTP_200_OK
+        return {item["id"] for item in resp.json()["items"]}
+
+    assert ids(f"platform_id={platform.id}") == {rom.id, physical_id}
+    assert ids(f"platform_id={platform.id}&physical=true") == {physical_id}
+    assert ids(f"platform_id={platform.id}&physical=false") == {rom.id}
+
+
 def test_create_physical_rom_requires_write_scope(
     client: TestClient, viewer_access_token: str, platform: Platform
 ):

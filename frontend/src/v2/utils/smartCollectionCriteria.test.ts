@@ -24,6 +24,7 @@ function emptySnapshot(): GalleryFilterSnapshot {
     filterStates: null,
     filterSoundtrack: null,
     filterMissing: null,
+    filterPhysical: null,
     filterVerified: null,
     selectedPlatforms: [],
     selectedGenres: [],

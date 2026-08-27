@@ -437,6 +437,10 @@ def get_roms(
         bool | None,
         Query(description="Whether the rom is missing from the filesystem."),
     ] = None,
+    physical: Annotated[
+        bool | None,
+        Query(description="Whether the rom is a physical copy with no file."),
+    ] = None,
     has_ra: Annotated[
         bool | None,
         Query(description="Whether the rom has RetroAchievements data."),
@@ -687,6 +691,7 @@ def get_roms(
         has_saves=has_saves,
         has_states=has_states,
         missing=missing,
+        physical=physical,
         verified=verified,
         has_soundtrack=has_soundtrack,
         genres=genres,
@@ -763,6 +768,7 @@ def get_roms(
         or has_saves is not None
         or has_states is not None
         or missing is not None
+        or physical is not None
         or verified is not None
         or has_soundtrack is not None
     )

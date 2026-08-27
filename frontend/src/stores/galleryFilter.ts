@@ -45,6 +45,7 @@ const buildDefaultFilterState = () => ({
   filterStates: null as boolean | null, // null = all, true = has states, false = no states
   filterSoundtrack: null as boolean | null, // null = all, true = has soundtrack, false = no soundtrack
   filterMissing: null as boolean | null, // null = all, true = missing, false = not missing
+  filterPhysical: null as boolean | null, // null = all, true = physical, false = has a file
   filterVerified: null as boolean | null, // null = all, true = verified, false = not verified
   selectedPlatform: null as Platform | null,
   selectedPlatforms: [] as Platform[],
@@ -425,6 +426,7 @@ export default defineStore("galleryFilter", {
         this.filterStates !== null ||
         this.filterSoundtrack !== null ||
         this.filterMissing !== null ||
+        this.filterPhysical !== null ||
         this.filterVerified !== null ||
         this.selectedPlatform ||
         this.selectedPlatforms.length > 0 ||
@@ -467,6 +469,7 @@ export default defineStore("galleryFilter", {
       this.filterStates = null;
       this.filterSoundtrack = null;
       this.filterMissing = null;
+      this.filterPhysical = null;
       this.filterVerified = null;
       // Reset logic operators to default
       this.genresLogic = "any";
