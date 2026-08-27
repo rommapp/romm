@@ -290,16 +290,22 @@ def extract_metadata_from_igdb_rom(
             "companies": [
                 c["company"]["name"] for c in involved_companies if c.get("company")
             ],
-            "publishers": [
-                c["company"]["name"]
-                for c in involved_companies
-                if c.get("company") and c.get("publisher")
-            ],
-            "developers": [
-                c["company"]["name"]
-                for c in involved_companies
-                if c.get("company") and c.get("developer")
-            ],
+            # One entry per involvement, not per company, so a studio credited
+            # twice in a role would otherwise be listed twice.
+            "publishers": pydash.uniq(
+                [
+                    c["company"]["name"]
+                    for c in involved_companies
+                    if c.get("company") and c.get("publisher")
+                ]
+            ),
+            "developers": pydash.uniq(
+                [
+                    c["company"]["name"]
+                    for c in involved_companies
+                    if c.get("company") and c.get("developer")
+                ]
+            ),
             "platforms": [
                 IGDBMetadataPlatform(igdb_id=p["id"], name=p.get("name", ""))
                 for p in platforms
