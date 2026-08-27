@@ -100,7 +100,7 @@ const audioDuration = computed(() =>
 const hasAnyHash = computed(
   () =>
     Boolean(props.file.title_id) ||
-    Boolean(props.file.title_version) ||
+    props.file.title_version != null ||
     Boolean(props.file.sha1_hash) ||
     Boolean(props.file.chd_sha1_hash) ||
     Boolean(props.file.md5_hash) ||
@@ -179,7 +179,7 @@ const hasAnyHash = computed(
           compact
         />
         <HashChip
-          v-if="file.title_version"
+          v-if="file.title_version != null"
           :label="t('rom.version')"
           :value="String(file.title_version)"
           compact
