@@ -938,7 +938,13 @@ class DBRomsHandler(DBBaseHandler):
         # The column is NOT NULL, so equality matches the same rows as the
         # `IS [NOT] FALSE` form. MariaDB only treats the equality as indexable
         # though, and this filter backs the Missing tab's whole-library scan.
-        return query.filter(Rom.missing_from_fs == (true() if value else false()))
+        if not value:
+            return query.filter(Rom.missing_from_fs == false())
+        # Physical games are never "missing"; exclude them so a stray flag can
+        # never make one eligible for the missing-roms cleanup that hard-deletes.
+        return query.filter(
+            and_(Rom.missing_from_fs == true(), Rom.is_physical.is_(False))
+        )
 
     def _filter_by_verified(self, query: Query, value: bool) -> Query:
         keys_to_check = [
@@ -1180,6 +1186,7 @@ class DBRomsHandler(DBBaseHandler):
         has_saves: bool | None = None,
         has_states: bool | None = None,
         missing: bool | None = None,
+        physical: bool | None = None,
         verified: bool | None = None,
         has_soundtrack: bool | None = None,
         group_by_meta_id: bool = False,
@@ -1320,6 +1327,9 @@ class DBRomsHandler(DBBaseHandler):
 
         if missing is not None:
             query = self._filter_by_missing_from_fs(query, value=missing)
+
+        if physical is not None:
+            query = query.filter(Rom.is_physical.is_(physical))
 
         if verified is not None:
             query = self._filter_by_verified(query, value=verified)
@@ -1608,6 +1618,7 @@ class DBRomsHandler(DBBaseHandler):
             has_states=kwargs.get("has_states", None),
             has_soundtrack=kwargs.get("has_soundtrack", None),
             missing=kwargs.get("missing", None),
+            physical=kwargs.get("physical", None),
             verified=kwargs.get("verified", None),
             genres=kwargs.get("genres", None),
             franchises=kwargs.get("franchises", None),
@@ -1975,9 +1986,13 @@ class DBRomsHandler(DBBaseHandler):
         changes, so a re-scan of an unchanged platform issues no updates.
         """
         keep_set = set(fs_roms_to_keep)
+        # Physical games have no file on disk, so they must never be flagged missing.
         rows = session.execute(
             select(Rom.id, Rom.fs_name, Rom.missing_from_fs).where(
-                Rom.platform_id == platform_id
+                and_(
+                    Rom.platform_id == platform_id,
+                    Rom.is_physical.is_(False),
+                )
             )
         ).all()
 
@@ -2004,6 +2019,7 @@ class DBRomsHandler(DBBaseHandler):
                     and_(
                         Rom.platform_id == platform_id,
                         Rom.missing_from_fs.is_(True),
+                        Rom.is_physical.is_(False),
                     )
                 )
                 .order_by(Rom.fs_name.asc())

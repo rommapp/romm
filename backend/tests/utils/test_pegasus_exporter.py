@@ -212,6 +212,31 @@ class TestExportMetadata:
         )
         assert len(parsed["games"]) == 0
 
+    def test_skips_physical_roms(self, admin_user: User):
+        platform = Platform(name="NES", slug="nes", fs_slug="nes")
+        platform = db_platform_handler.add_platform(platform)
+
+        db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="Boxed Copy",
+                slug="boxed-copy",
+                fs_name="Boxed Copy",
+                fs_name_no_tags="Boxed Copy",
+                fs_name_no_ext="Boxed Copy",
+                fs_extension="",
+                fs_path="nes/roms/.physical",
+                is_physical=True,
+            )
+        )
+
+        parsed = _parse_pegasus(
+            PegasusExporter(local_export=True).export_platform_to_pegasus(
+                platform.id, request=None
+            )
+        )
+        assert len(parsed["games"]) == 0
+
     def test_invalid_platform(self):
         with pytest.raises(ValueError, match="not found"):
             PegasusExporter(local_export=True).export_platform_to_pegasus(

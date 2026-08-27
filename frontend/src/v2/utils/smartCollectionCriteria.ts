@@ -36,6 +36,7 @@ export interface SmartFilterCriteria {
   has_states?: boolean;
   has_soundtrack?: boolean;
   missing?: boolean;
+  physical?: boolean;
   verified?: boolean;
   genres?: string[];
   genres_logic?: FilterLogic;
@@ -75,6 +76,7 @@ export interface GalleryFilterSnapshot {
   filterStates: boolean | null;
   filterSoundtrack: boolean | null;
   filterMissing: boolean | null;
+  filterPhysical: boolean | null;
   filterVerified: boolean | null;
   selectedPlatforms: Platform[];
   selectedGenres: string[];
@@ -158,6 +160,7 @@ export function buildSmartFilterCriteria(
   if (snap.filterSoundtrack !== null)
     out.has_soundtrack = snap.filterSoundtrack;
   if (snap.filterMissing !== null) out.missing = snap.filterMissing;
+  if (snap.filterPhysical !== null) out.physical = snap.filterPhysical;
   if (snap.filterVerified !== null) out.verified = snap.filterVerified;
 
   if (snap.selectedGenres.length > 0) {
@@ -367,6 +370,15 @@ const FIELDS: FieldSpec[] = [
     defaultLabel: "Missing from disk",
     negLabelKey: "platform.show-not-missing-only",
     negDefaultLabel: "Show ROMs present on disk only",
+    kind: "bool",
+  },
+  {
+    storage: "physical",
+    icon: "mdi-cube-outline",
+    labelKey: "platform.show-physical",
+    defaultLabel: "Physical game",
+    negLabelKey: "platform.show-not-physical-only",
+    negDefaultLabel: "Show ROMs with a file only",
     kind: "bool",
   },
   {

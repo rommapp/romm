@@ -505,6 +505,7 @@ class DBCollectionsHandler(DBBaseHandler):
             "has_states": criteria.get("has_states"),
             "has_soundtrack": criteria.get("has_soundtrack"),
             "missing": criteria.get("missing"),
+            "physical": criteria.get("physical"),
             "verified": criteria.get("verified"),
             "genres": as_list("genres", "selected_genre"),
             "franchises": as_list("franchises", "selected_franchise"),

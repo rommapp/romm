@@ -4,7 +4,7 @@
 //
 // Surface area (matches v1 1:1 so URLs stay compatible):
 //   • Tri-state boolean filters: matched / favourites / duplicates /
-//     playables / missing / verified / RA. Each maps null → "all",
+//     playables / missing / physical / verified / RA. Each maps null → "all",
 //     true → positive, false → negative.
 //   • Optional platform multi-select (only on Search / Collection views
 //     where you can mix platforms).
@@ -61,6 +61,7 @@ const {
   filterDuplicates,
   filterPlayables,
   filterMissing,
+  filterPhysical,
   filterVerified,
   filterRA,
   filterSaves,
@@ -185,6 +186,15 @@ const boolFilters: BoolFilterConfig[] = [
     yesAria: t("platform.show-missing-only"),
     noAria: t("platform.show-not-missing-only"),
     value: filterMissing,
+  },
+  {
+    label: t("platform.show-physical"),
+    icon: "mdi-cube-outline",
+    yesIcon: "mdi-cube-outline",
+    noIcon: "mdi-cube-off-outline",
+    yesAria: t("platform.show-physical-only"),
+    noAria: t("platform.show-not-physical-only"),
+    value: filterPhysical,
   },
   {
     label: t("platform.show-verified"),

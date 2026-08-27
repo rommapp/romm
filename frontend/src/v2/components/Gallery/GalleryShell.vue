@@ -159,6 +159,7 @@ const {
   filterDuplicates,
   filterPlayables,
   filterMissing,
+  filterPhysical,
   filterVerified,
   filterRA,
   filterSaves,
@@ -203,6 +204,7 @@ const filterActiveCount = computed(() => {
   if (filterDuplicates.value !== null) n += 1;
   if (filterPlayables.value !== null) n += 1;
   if (filterMissing.value !== null) n += 1;
+  if (filterPhysical.value !== null) n += 1;
   if (filterVerified.value !== null) n += 1;
   if (filterRA.value !== null) n += 1;
   if (filterSaves.value !== null) n += 1;
@@ -239,6 +241,7 @@ watch(
     filterDuplicates,
     filterPlayables,
     filterMissing,
+    filterPhysical,
     filterVerified,
     filterRA,
     filterSaves,

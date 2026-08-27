@@ -15,6 +15,7 @@
 //   ?filterDuplicates=true|false
 //   ?filterPlayables=true|false
 //   ?filterMissing=true|false
+//   ?filterPhysical=true|false
 //   ?filterVerified=true|false
 //   ?filterRA=true|false
 //   ?filterSaves=true|false
@@ -104,6 +105,7 @@ export function useGalleryFilterUrl() {
     filterDuplicates,
     filterPlayables,
     filterMissing,
+    filterPhysical,
     filterVerified,
     filterRA,
     filterSaves,
@@ -148,6 +150,7 @@ export function useGalleryFilterUrl() {
       filterDuplicates: qBool(q.filterDuplicates),
       filterPlayables: qBool(q.filterPlayables),
       filterMissing: qBool(q.filterMissing),
+      filterPhysical: qBool(q.filterPhysical),
       filterVerified: qBool(q.filterVerified),
       filterRA: qBool(q.filterRA),
       filterSaves: qBool(q.filterSaves),
@@ -191,6 +194,8 @@ export function useGalleryFilterUrl() {
       filterPlayables.value = url.filterPlayables;
     if (url.filterMissing !== filterMissing.value)
       filterMissing.value = url.filterMissing;
+    if (url.filterPhysical !== filterPhysical.value)
+      filterPhysical.value = url.filterPhysical;
     if (url.filterVerified !== filterVerified.value)
       filterVerified.value = url.filterVerified;
     if (url.filterRA !== filterRA.value) filterRA.value = url.filterRA;
@@ -329,6 +334,7 @@ export function useGalleryFilterUrl() {
     setBool("filterDuplicates", filterDuplicates.value);
     setBool("filterPlayables", filterPlayables.value);
     setBool("filterMissing", filterMissing.value);
+    setBool("filterPhysical", filterPhysical.value);
     setBool("filterVerified", filterVerified.value);
     setBool("filterRA", filterRA.value);
     setBool("filterSaves", filterSaves.value);
@@ -426,6 +432,7 @@ export function useGalleryFilterUrl() {
       filterDuplicates,
       filterPlayables,
       filterMissing,
+      filterPhysical,
       filterVerified,
       filterRA,
       filterSaves,

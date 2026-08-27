@@ -6,6 +6,7 @@ import type {
   BulkOperationResponse,
   DetailedRomSchema,
   ManualMetadata,
+  PhysicalRomCreateForm,
   RomUserData,
   RomUserSchema,
   RomFileUserSchema,
@@ -158,6 +159,7 @@ export interface GetRomsParams {
   filterStates?: boolean | null;
   filterSoundtrack?: boolean | null;
   filterMissing?: boolean | null;
+  filterPhysical?: boolean | null;
   filterVerified?: boolean | null;
   groupByMetaId?: boolean;
   // Multi-value filters
@@ -211,6 +213,7 @@ async function getRoms({
   filterStates = null,
   filterSoundtrack = null,
   filterMissing = null,
+  filterPhysical = null,
   filterVerified = null,
   groupByMetaId = false,
   selectedGenres = null,
@@ -341,6 +344,7 @@ async function getRoms({
     ...(filterDuplicates !== null ? { duplicate: filterDuplicates } : {}),
     ...(filterPlayables !== null ? { playable: filterPlayables } : {}),
     ...(filterMissing !== null ? { missing: filterMissing } : {}),
+    ...(filterPhysical !== null ? { physical: filterPhysical } : {}),
     ...(filterRA !== null ? { has_ra: filterRA } : {}),
     ...(filterSaves !== null ? { has_saves: filterSaves } : {}),
     ...(filterStates !== null ? { has_states: filterStates } : {}),
@@ -468,6 +472,23 @@ async function searchRom({
       search_by: searchBy,
     },
   });
+}
+
+async function createPhysicalRom({
+  platformId,
+  name,
+  upc,
+}: {
+  platformId: number;
+  name?: string;
+  upc?: string;
+}) {
+  const payload: PhysicalRomCreateForm = {
+    platform_id: platformId,
+    name: name || null,
+    upc: upc || null,
+  };
+  return api.post<DetailedRom>("/roms/physical", payload);
 }
 
 function triggerFileDownload(href: string) {
@@ -1036,6 +1057,7 @@ export default {
   downloadRom,
   bulkDownloadRoms,
   searchRom,
+  createPhysicalRom,
   updateRom,
   uploadManuals,
   removeManual,

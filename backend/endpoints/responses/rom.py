@@ -367,6 +367,9 @@ class RomSchema(BaseModel):
     created_at: UTCDatetime
     updated_at: UTCDatetime
     missing_from_fs: bool
+    is_physical: bool
+    has_file_on_disk: bool
+    upc: str | None
     has_notes: bool
 
     rom_user: RomUserSchema
