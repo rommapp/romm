@@ -13,7 +13,7 @@
   "delete-platform": "Plattform löschen",
   "delete-platform-hint": "Entfernt die Plattform und ihre ROM-Datenbankeinträge. Dateien auf dem Datenträger werden NICHT gelöscht.",
   "description": "Beschreibung",
-  "developer": "Developer",
+  "developer": "Entwickler",
   "download-platform": "Plattform herunterladen",
   "edit-platform": "Plattform bearbeiten",
   "export": "Exportieren",
