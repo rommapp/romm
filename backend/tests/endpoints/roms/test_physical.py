@@ -1,5 +1,6 @@
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
@@ -175,6 +176,35 @@ def test_create_physical_rom_duplicate_name_returns_409(
     first_rom = db_rom_handler.get_rom(first.json()["id"])
     assert first_rom is not None
     assert first_rom.fs_name == "Sonic"
+
+
+@patch("endpoints.roms.download_rom_resources", new_callable=AsyncMock)
+@patch("endpoints.roms.scan_rom", side_effect=RuntimeError("provider exploded"))
+def test_create_physical_rom_rolls_back_a_failed_enrichment(
+    scan_rom_mock: AsyncMock,
+    download_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+):
+    """A failure after the initial insert must not strand a metadata-less row,
+    which the unique index would then turn into a 409 on every retry."""
+    payload = {"platform_id": platform.id, "name": "Sonic"}
+
+    with pytest.raises(RuntimeError):
+        client.post("/api/roms/physical", headers=_auth(access_token), json=payload)
+
+    assert (
+        db_rom_handler.get_roms_by_fs_name(platform_id=platform.id, fs_names=["Sonic"])
+        == {}
+    )
+
+    # The retry is what the rollback is for.
+    with patch("endpoints.roms.scan_rom", side_effect=_fake_scan_rom):
+        retry = client.post(
+            "/api/roms/physical", headers=_auth(access_token), json=payload
+        )
+    assert retry.status_code == status.HTTP_200_OK
 
 
 def test_create_physical_rom_requires_write_scope(

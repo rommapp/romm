@@ -12,6 +12,7 @@ import pytest
 from fastapi import status
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from endpoints import roms as rom_endpoints
 from endpoints.roms import walkthrough as walkthrough_endpoints
 from handler.auth import oauth_handler
 from handler.database import db_rom_handler, db_user_handler
@@ -131,6 +132,27 @@ def test_hidden_rom_update_is_404_masked(client, editor_user, rom):
         f"/api/roms/{rom.id}", headers=_auth(editor_user), data={"name": "x"}
     )
     assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_physical_game_create_on_hidden_platform_is_404_masked(
+    client, editor_user, platform, monkeypatch
+):
+    # Editor holds library-wide roms write, so the coarse gate passes. The
+    # platform hide must mask the write before it reaches any side effect.
+    _hide(PermEntity.PLATFORMS, platform.id, editor_user.id)
+
+    def _unreachable(*args, **kwargs):
+        raise AssertionError("scanned a rom onto a hidden platform")
+
+    monkeypatch.setattr(rom_endpoints, "scan_rom", _unreachable)
+
+    resp = client.post(
+        "/api/roms/physical",
+        headers=_auth(editor_user),
+        json={"platform_id": platform.id, "name": "Sonic"},
+    )
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+    assert db_rom_handler.get_roms_scalar(platform_ids=[platform.id]) == []
 
 
 def test_hidden_rom_props_update_is_404_masked(client, viewer_user, rom):

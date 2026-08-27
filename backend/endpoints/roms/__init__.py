@@ -50,6 +50,7 @@ from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
+    assert_platform_visible,
     assert_rom_visible,
     get_permissions,
 )
@@ -1641,11 +1642,15 @@ async def create_physical_rom(
 ) -> DetailedRomSchema:
     """Manually add a physical game and auto-link its metadata (a single quick scan)."""
     platform = db_platform_handler.get_platform(form_data.platform_id)
+    not_found_detail = f"Platform with id {form_data.platform_id} not found"
     if not platform:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Platform with id {form_data.platform_id} not found",
+            status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail
         )
+
+    # A platform hidden from the caller must not accept writes; mask it as
+    # not-found so its existence stays concealed.
+    assert_platform_visible(request, platform, not_found_detail=not_found_detail)
 
     match_name = (form_data.name or "").strip()
     if not match_name and form_data.upc:
@@ -1688,24 +1693,37 @@ async def create_physical_rom(
 
     metadata_sources = form_data.metadata_sources or [s.value for s in MetadataSource]
 
-    scanned_rom = await scan_rom(
-        scan_type=ScanType.QUICK,
-        platform=platform,
-        rom=rom,
-        fs_rom=build_hashless_fs_rom(fs_name, flat=True),
-        metadata_sources=metadata_sources,
-        newly_added=True,
-    )
+    # The row above is already committed, but the caller sees one create. A
+    # failure part-way has to take it back out: the unique index would otherwise
+    # answer the retry with a 409 pointing at a metadata-less row the user never
+    # asked to keep.
+    resources_path = rom.fs_resources_path
+    try:
+        scanned_rom = await scan_rom(
+            scan_type=ScanType.QUICK,
+            platform=platform,
+            rom=rom,
+            fs_rom=build_hashless_fs_rom(fs_name, flat=True),
+            metadata_sources=metadata_sources,
+            newly_added=True,
+        )
 
-    added_rom = db_rom_handler.add_rom(scanned_rom)
+        added_rom = db_rom_handler.add_rom(scanned_rom)
 
-    await download_rom_resources(
-        added_rom=added_rom,
-        previous_url_cover=rom.url_cover,
-        previous_url_manual=rom.url_manual,
-        previous_url_screenshots=rom.url_screenshots,
-        metadata_sources=metadata_sources,
-    )
+        await download_rom_resources(
+            added_rom=added_rom,
+            previous_url_cover=rom.url_cover,
+            previous_url_manual=rom.url_manual,
+            previous_url_screenshots=rom.url_screenshots,
+            metadata_sources=metadata_sources,
+        )
+    except Exception:
+        db_rom_handler.delete_rom(rom.id)
+        try:
+            await fs_resource_handler.remove_directory(resources_path)
+        except FileNotFoundError:
+            pass
+        raise
 
     db_rom_handler.invalidate_filter_values_cache()
     refresh_affected_smart_collections([added_rom.id])
