@@ -141,8 +141,8 @@ UPC_LOOKUP_ENABLED: Final[bool] = safe_str_to_bool(
     _get_env("UPC_LOOKUP_ENABLED", "true")
 )
 UPC_LOOKUP_API_KEY: Final[str | None] = _get_env("UPC_LOOKUP_API_KEY")
-UPC_LOOKUP_BASE_URL: Final[str] = _get_env(
-    "UPC_LOOKUP_BASE_URL", "https://api.upcitemdb.com/prod/trial"
+UPC_LOOKUP_URL: Final[str] = _get_env(
+    "UPC_LOOKUP_URL", "https://api.upcitemdb.com/prod/trial/lookup"
 )
 
 # AUTH

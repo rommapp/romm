@@ -1,7 +1,7 @@
 import re
 from typing import Final
 
-from config import UPC_LOOKUP_API_KEY, UPC_LOOKUP_BASE_URL, UPC_LOOKUP_ENABLED
+from config import UPC_LOOKUP_API_KEY, UPC_LOOKUP_ENABLED, UPC_LOOKUP_URL
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_httpx_client
@@ -28,9 +28,6 @@ class UPCHandler(MetadataHandler):
     name-based scan so the existing providers do the actual game matching.
     """
 
-    def __init__(self) -> None:
-        self.lookup_url = f"{UPC_LOOKUP_BASE_URL.rstrip('/')}/lookup"
-
     @classmethod
     def is_enabled(cls) -> bool:
         return UPC_LOOKUP_ENABLED
@@ -56,7 +53,7 @@ class UPCHandler(MetadataHandler):
         httpx_client = ctx_httpx_client.get()
         try:
             response = await httpx_client.get(
-                self.lookup_url,
+                UPC_LOOKUP_URL,
                 params={"upc": upc},
                 headers=headers,
                 timeout=10,
