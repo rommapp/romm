@@ -822,6 +822,7 @@ class TestIdentifyRomReassociation:
             crc_hash="crc",
             md5_hash="md5",
             sha1_hash="sha1",
+            title_id=None,
         )
         db.update_rom.assert_called_once()
         rom_id, data = db.update_rom.call_args.args
@@ -830,6 +831,41 @@ class TestIdentifyRomReassociation:
         assert data["fs_name"] == "New Name.zip"
         # No brand-new row is inserted; add_rom only persists the scan result.
         assert db.add_rom.call_count == 1
+
+    async def test_title_id_is_offered_when_the_platform_is_not_hashed(
+        self, patched, mocker
+    ):
+        """Switch files carry no hashes, so the title id is the only identity.
+
+        Without it a renamed Switch file lands as a duplicate and strands the
+        original entry, along with its collections and notes, as missing.
+        """
+        db = patched
+        db.get_matching_missing_rom.return_value = None
+        mocker.patch.object(
+            scan_module.fs_rom_handler,
+            "get_rom_files",
+            AsyncMock(
+                return_value=ParsedRomFiles(
+                    rom_files=[],
+                    crc_hash="",
+                    md5_hash="",
+                    sha1_hash="",
+                    ra_hash="",
+                    title_id="0100ABCD12340000",
+                )
+            ),
+        )
+
+        await self._run(db)
+
+        db.get_matching_missing_rom.assert_called_once_with(
+            platform_id=1,
+            crc_hash="",
+            md5_hash="",
+            sha1_hash="",
+            title_id="0100ABCD12340000",
+        )
 
     async def test_files_are_reconciled_in_place(self, patched):
         db = patched
