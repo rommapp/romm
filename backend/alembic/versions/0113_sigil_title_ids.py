@@ -1,8 +1,8 @@
 """Add sigil-extracted title id columns: per-file title_id/save_id on
 rom_files, plus rom-level title_id/save_id/save_usage on roms.
 
-Revision ID: 0111_sigil_title_ids
-Revises: 0110_walkthrough_docs
+Revision ID: 0113_sigil_title_ids
+Revises: 0112_publisher_developer_split
 Create Date: 2026-07-23 00:00:00.000000
 
 """
@@ -14,8 +14,8 @@ from sqlalchemy.dialects.postgresql import ENUM
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0111_sigil_title_ids"
-down_revision = "0110_walkthrough_docs"
+revision = "0113_sigil_title_ids"
+down_revision = "0112_publisher_developer_split"
 branch_labels = None
 depends_on = None
 
