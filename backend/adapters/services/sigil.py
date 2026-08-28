@@ -24,6 +24,9 @@ SIGIL_PLATFORM_SLUGS: Final[dict[UPS, str]] = {
     UPS.WIIU: "wiiu",
     UPS.NGC: "gamecube",
     UPS.DC: "dreamcast",
+    UPS.PS3: "ps3",
+    UPS.XBOX: "xbox",
+    UPS.XBOX360: "xbox360",
 }
 
 # Errors that are expected for arbitrary library files (no title id present,
