@@ -322,8 +322,10 @@ const stateLayout = useLocalStorage<AssetLayout>(
   "strip",
 );
 
-// Preselect the newest state so Play resumes where the user left off;
-// clearing the preview (start fresh) is one click away.
+// Preselect the newest state once so Play resumes where the user left off.
+// A deliberate clear (deselect or the preview's clear button) sticks: the
+// list recomputes on every rom/config refresh and must not re-pick.
+const statePreselected = ref(false);
 watch(
   streamStates,
   (states) => {
@@ -331,15 +333,24 @@ watch(
     if (current && !states.some((s) => s.id === current.id)) {
       selectedState.value = null;
     }
-    if (!selectedState.value && states.length > 0) {
-      selectedState.value = states[0];
+    if (!statePreselected.value && states.length > 0) {
+      statePreselected.value = true;
+      if (!selectedState.value) selectedState.value = states[0];
     }
   },
   { immediate: true },
 );
 
+// Clicking the selected tile deselects it, which is how a fresh boot is
+// chosen when a state exists.
 function pickState(state: UserStateSchema): void {
-  selectedState.value = state;
+  statePreselected.value = true;
+  selectedState.value = selectedState.value?.id === state.id ? null : state;
+}
+
+function clearState(): void {
+  statePreselected.value = true;
+  selectedState.value = null;
 }
 
 // ── Resume tabs ─────────────────────────────────────────────────────
@@ -1322,9 +1333,7 @@ onBeforeUnmount(() => {
           variant="flat"
           color="primary"
           block
-          :prepend-icon="
-            playerState === 'loading' ? 'mdi-loading' : 'mdi-play'
-          "
+          :prepend-icon="playerState === 'loading' ? 'mdi-loading' : 'mdi-play'"
           class="r-v2-stream__play"
           :class="{ 'r-v2-stream__play--launching': playerState === 'loading' }"
           :disabled="!rom || playerState === 'loading'"
@@ -1391,7 +1400,7 @@ onBeforeUnmount(() => {
               :asset="selectedState"
               type="state"
               :show-heading="false"
-              @clear="selectedState = null"
+              @clear="clearState"
             />
             <div class="r-v2-stream__strip-label">
               <span aria-hidden="true">{{ t("play.all-states") }}</span>
@@ -1911,6 +1920,11 @@ onBeforeUnmount(() => {
   margin-top: 4px;
   font-weight: var(--r-font-weight-semibold) !important;
   letter-spacing: 0.02em;
+  white-space: normal;
+  text-wrap: balance;
+  line-height: 1.25;
+  min-height: 3.25em;
+  height: auto;
   box-shadow: 0 10px 24px
     color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
 }

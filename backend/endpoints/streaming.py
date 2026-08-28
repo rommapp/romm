@@ -769,19 +769,6 @@ _EMULATOR_CAPABILITIES: dict[str, _SlotCapabilities] = {
         "autosave_slot": 10,
         "has_memory_card": False,
     },
-    # PPSSPP has no control socket, so it works the same way: every save/load
-    # route resolves to the one slot its controls.ini hotkey always lands on
-    # (PPSSPP_STATE_SLOT, default 1). Saves live on the emulated Memory Stick
-    # and round-trip through /save-file, not /memory-card. Kept apart from
-    # ngc/wii/wiiu/ps2/xbox above (platform-keyed) because psp can also be
-    # served through RetroArch, which needs its own generic entry to win
-    # instead.
-    "ppsspp": {
-        "max_slots": 0,
-        "has_autosave": True,
-        "autosave_slot": 1,
-        "has_memory_card": False,
-    },
 }
 
 
@@ -923,6 +910,95 @@ class DesktopSessionRequest(BaseModel):
 # describes the container, not one platform it serves.
 PLATFORM_OVERRIDE_KEYS = ("emulator", "label", "memory_card_sync")
 
+# Play-button text per emulator, used when a platform block sets no `label`
+# of its own. Keyed by emulator name as the broker registers it (lowercase).
+_EMULATOR_DISPLAY_NAMES: dict[str, str] = {
+    "azahar": "Azahar",
+    "cemu": "Cemu",
+    "desktop": "Desktop",
+    "dolphin": "Dolphin",
+    "duckstation": "DuckStation",
+    "eden": "Eden",
+    "flycast": "Flycast",
+    "pcsx2": "PCSX2",
+    "ppsspp": "PPSSPP",
+    "rpcs3": "RPCS3",
+    "shadps4": "shadPS4",
+    "xemu": "xemu",
+    "xenia": "Xenia",
+}
+
+# Display name of the libretro core the broker's RetroArch launcher picks for
+# each platform (its retroarch_platforms.json). Display only: RomM never
+# selects cores. A platform missing here is labelled by its slug instead.
+_RETROARCH_CORE_NAMES: dict[str, str] = {
+    "3do": "Opera",
+    "3ds": "Azahar",
+    "amiga": "PUAE",
+    "arcade": "FinalBurn Neo",
+    "atari-st": "Hatari",
+    "atari2600": "Stella",
+    "atari5200": "a5200",
+    "atari7800": "ProSystem",
+    "c64": "VICE",
+    "colecovision": "Gearcoleco",
+    "cps1": "FinalBurn Neo",
+    "cps2": "FinalBurn Neo",
+    "cps3": "FinalBurn Neo",
+    "dc": "Flycast",
+    "dos": "DOSBox Pure",
+    "famicom": "Mesen",
+    "fds": "Mesen",
+    "gamegear": "Genesis GX",
+    "gb": "Gambatte",
+    "gba": "mGBA",
+    "gbc": "Gambatte",
+    "genesis": "Genesis GX",
+    "intellivision": "FreeIntv",
+    "jaguar": "Virtual Jaguar",
+    "lynx": "Handy",
+    "msx": "blueMSX",
+    "msx2": "blueMSX",
+    "n64": "Mupen64Plus",
+    "nds": "melonDS",
+    "neo-geo-cd": "NeoCD",
+    "neo-geo-pocket": "Beetle NGP",
+    "neo-geo-pocket-color": "Beetle NGP",
+    "neogeoaes": "FinalBurn Neo",
+    "neogeomvs": "FinalBurn Neo",
+    "nes": "Mesen",
+    "ngc": "Dolphin",
+    "odyssey-2": "O2EM",
+    "psp": "PPSSPP",
+    "psx": "SwanStation",
+    "saturn": "Yaba Sanshiro",
+    "sega32": "PicoDrive",
+    "segacd": "Genesis GX",
+    "sfam": "Snes9x",
+    "sg1000": "Genesis GX",
+    "sms": "Genesis GX",
+    "snes": "Snes9x",
+    "supergrafx": "Beetle SGX",
+    "tg16": "Beetle PCE",
+    "turbografx-cd": "Beetle PCE",
+    "vectrex": "vecx",
+    "virtualboy": "Beetle VB",
+    "wii": "Dolphin",
+    "wonderswan": "Beetle WSwan",
+    "wonderswan-color": "Beetle WSwan",
+    "zxs": "Fuse",
+}
+
+
+def _emulator_display_label(emulator: str, platform: str) -> str:
+    """Play-button text for an emulator serving a platform, e.g. "PCSX2" or
+    "RA PPSSPP". Unknown emulators fall back to their configured name."""
+    key = emulator.strip().lower()
+    if key == "retroarch":
+        core = _RETROARCH_CORE_NAMES.get(platform.lower(), platform.upper())
+        return f"RA {core}"
+    return _EMULATOR_DISPLAY_NAMES.get(key, emulator.strip())
+
 
 def _platform_row(
     base: dict[str, Any], platform: str, options: Any
@@ -963,7 +1039,16 @@ def _platform_row(
         log.warning("container platform '%s' has no emulator, skipping", platform)
         return None
 
-    return {**base, **overrides, "platform": platform, "emulator": emulator}
+    # A platform block's own `label` wins; otherwise the emulator names the
+    # button, not the container, so "Stream on PCSX2" rather than the box.
+    label = overrides.get("label") or _emulator_display_label(emulator, platform)
+    return {
+        **base,
+        **overrides,
+        "platform": platform,
+        "emulator": emulator,
+        "label": label,
+    }
 
 
 def _expand_containers(entries: Any) -> list[dict[str, Any]]:
@@ -3824,17 +3909,8 @@ async def claim_session(
             )
         except Exception:
             log.exception("save hydration failed, continuing launch")
-        # With no pick to push, the restored archive is the resume: it carries
-        # the autosave slot's state file alongside the in-game saves, so
-        # loading that slot replays where the last session left off.
-        caps = platform_capabilities(platform)
-        if (
-            not resume_after_launch
-            and archive_path is not None
-            and caps["has_autosave"]
-        ):
-            resume_slot = caps["autosave_slot"]
-            resume_pushed = True
+        # The archive restores in-game saves only. A state is loaded solely
+        # when one was picked, so a claim without state_id boots clean.
     elif memory_card is None:
         # Legacy per-file save sync (containers without memory_card_sync).
         # Best-effort: a failed hydration just means the container keeps its own.
@@ -4741,14 +4817,24 @@ async def list_joinable_sessions(
         )
         user_id = s.get("user_id")
         host = db_user_handler.get_user(user_id) if user_id is not None else None
+        rom_id = s.get("rom_id")
+        rom = db_rom_handler.get_rom(rom_id) if rom_id is not None else None
         sessions.append(
             {
                 "container": container_key,
                 "label": container.get("label"),
                 "platform": s.get("platform"),
-                "rom_id": s.get("rom_id"),
+                "rom_id": rom_id,
                 "rom_name": s.get("rom_name"),
                 "host_username": host.username if host else None,
+                "claimed_at": s.get("claimed_at"),
+                # Enough of the ROM to draw a cover tile without a second
+                # request per session.
+                "platform_id": rom.platform_id if rom else None,
+                "platform_display_name": rom.platform_display_name if rom else None,
+                "path_cover_small": rom.path_cover_small if rom else None,
+                "path_cover_large": rom.path_cover_large if rom else None,
+                "url_cover": rom.url_cover if rom else None,
             }
         )
     return JSONResponse({"sessions": sessions})

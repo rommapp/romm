@@ -53,6 +53,12 @@ describe("joinable sessions", () => {
       rom_id: romId,
       rom_name: "Game",
       host_username: "ana",
+      claimed_at: "2026-01-01T00:00:00Z",
+      platform_id: 1,
+      platform_display_name: "PlayStation 2",
+      path_cover_small: null,
+      path_cover_large: null,
+      url_cover: null,
     };
     return { data: { sessions: [session] } };
   }

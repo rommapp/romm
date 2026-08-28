@@ -210,9 +210,9 @@
 #       subfolder: /streaming
 #       # Where the container mounts your ROM library.
 #       library_path: /romm
-#       # Fallback for the text on the play button. A platform that sets its
-#       # own `label` below overrides this, which is what makes a PS2 game say
-#       # "PCSX2" instead of the container's name.
+#       # Name of the container in admin views. The play button is labelled by
+#       # the emulator serving each platform ("PCSX2", "RA PPSSPP"), unless a
+#       # platform block sets its own `label` below.
 #       label: Emulation station
 #
 #       # server-to-broker URL. Optional here, where the broker shares the
@@ -228,7 +228,7 @@
 #         wii: dolphin
 #         xbox: xemu
 #         snes: retroarch
-#         psp: ppsspp
+#         psp: retroarch
 #         # ...or a block overriding container keys for that platform alone.
 #         ps2:
 #           emulator: pcsx2

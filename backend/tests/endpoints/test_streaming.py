@@ -241,44 +241,36 @@ def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_t
     assert caps["autosave_slot"] == 10
 
 
-def test_get_config_ships_capabilities_for_a_native_ppsspp_platform(
-    client, access_token
-):
-    """PPSSPP has no control socket either, so it gets the same single-slot
-    treatment as RetroArch, but its own slot: the broker's controls.ini
-    hotkey always lands on PPSSPP_STATE_SLOT (1), not RetroArch's 10."""
-    container = {
-        "host": "http://192.168.1.10:3000",
-        "broker_host": "http://192.168.1.10:8000",
-        "platforms": {"psp": {"emulator": "ppsspp", "label": "PPSSPP"}},
-    }
-    with _streaming(container):
-        r = client.get("/api/streaming/config", headers=_auth(access_token))
-    assert r.status_code == 200
-    caps = r.json()["containers"][0]["capabilities"]
-    assert caps["has_autosave"] is True
-    assert caps["autosave_slot"] == 1
-    assert caps["max_slots"] == 0
-
-
-def test_get_config_ships_per_platform_label_overrides(client, access_token):
-    """The headline promise of a shared webstation container: a PS2 row can
-    say "PCSX2" while its siblings keep the container's fallback label."""
+def test_get_config_labels_each_platform_by_its_emulator(client, access_token):
+    """A shared webstation container names the button after the emulator that
+    serves each platform, RetroArch after its core, unless the platform block
+    sets its own label."""
     container = {
         "host": "http://box:3010",
         "protocol": "webstation",
         "label": "Emulation station",
         "platforms": {
             "wii": "dolphin",
-            "ps2": {"emulator": "pcsx2", "label": "PCSX2"},
+            "psp": "retroarch",
+            "ps2": {"emulator": "pcsx2", "label": "My PS2"},
         },
     }
     with _streaming(container):
         r = client.get("/api/streaming/config", headers=_auth(access_token))
     assert r.status_code == 200
     by_platform = {c["platform"]: c for c in r.json()["containers"]}
-    assert by_platform["wii"]["label"] == "Emulation station"
-    assert by_platform["ps2"]["label"] == "PCSX2"
+    assert by_platform["wii"]["label"] == "Dolphin"
+    assert by_platform["psp"]["label"] == "RA PPSSPP"
+    assert by_platform["ps2"]["label"] == "My PS2"
+
+
+def test_emulator_display_label_falls_back_to_the_configured_name():
+    assert streaming._emulator_display_label("retroarch", "n64") == "RA Mupen64Plus"
+    assert (
+        streaming._emulator_display_label("retroarch", "unknown-slug")
+        == "RA UNKNOWN-SLUG"
+    )
+    assert streaming._emulator_display_label("somethingnew", "psp") == "somethingnew"
 
 
 def test_a_platform_entry_wins_over_the_emulator_fallback():
@@ -3405,6 +3397,27 @@ def test_webstation_resume_state_is_pushed_after_activate(
     assert order.push.call_args[0][1] == "Game.03.p2s"
 
 
+def test_webstation_claim_without_a_state_boots_clean(client, access_token, rom: Rom):
+    """A restored archive puts in-game saves back, nothing more: no picked
+    state means no resume_slot, even though the archive carries the exit
+    state of the last session."""
+    activate = MagicMock(return_value={"url": "/room/x"})
+    with _streaming(_webstation_for(rom)):
+        with (
+            patch("endpoints.streaming._webstation_activate", activate),
+            patch(
+                "endpoints.streaming._hydrate_saves_to_webstation",
+                new=AsyncMock(return_value="/romm/saves/archive.tar"),
+            ),
+            patch("endpoints.streaming._spawn_sync_task"),
+            patch("endpoints.streaming._hydrate_states_to_broker", new=MagicMock()),
+        ):
+            r = _claim(client, access_token, rom.id)
+    assert r.status_code == 200
+    assert activate.call_args.kwargs["archive_path"] == "/romm/saves/archive.tar"
+    assert activate.call_args.kwargs["resume_slot"] is None
+
+
 def test_stopping_a_webstation_broker_reports_the_state_it_captured(rom: Rom):
     """Stopping this broker is an exit and its exit saves, so the slot has to
     come back out: the caller is the only one who can file that state."""
@@ -4812,6 +4825,23 @@ def test_joinable_lists_someone_elses_multiplayer_session(
     assert [s["rom_id"] for s in body["sessions"]] == [rom.id]
 
 
+def test_joinable_carries_the_rom_cover_and_platform(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The home page draws a tile per session straight from this listing."""
+    container = {"host": "http://192.168.1.10:3000", "platform": rom.platform_slug}
+    with _streaming(container):
+        _claim_multiplayer(client, access_token, rom.id)
+        session = _joinable(client, viewer_access_token).json()["sessions"][0]
+
+    assert session["platform_id"] == rom.platform_id
+    assert session["platform_display_name"] == rom.platform_display_name
+    assert session["path_cover_small"] == rom.path_cover_small
+    assert session["path_cover_large"] == rom.path_cover_large
+    assert session["url_cover"] == rom.url_cover
+    assert session["claimed_at"]
+
+
 def test_joinable_hides_a_solo_session(
     client, access_token, viewer_access_token, rom: Rom
 ):
@@ -5043,11 +5073,12 @@ def test_expand_platform_block_overrides_container_defaults():
     assert by_platform["ps2"]["memory_card_sync"] is True
     # A block that omits a key falls through to the container.
     assert by_platform["wii"]["emulator"] == "dolphin"
-    assert by_platform["wii"]["label"] == "Emulation station"
+    assert by_platform["wii"]["label"] == "Dolphin"
     assert by_platform["wii"]["memory_card_sync"] is False
-    # The bare string form keeps inheriting everything from the container.
+    # The bare string form inherits everything but the label, which the
+    # emulator names.
     assert by_platform["snes"]["emulator"] == "retroarch"
-    assert by_platform["snes"]["label"] == "Emulation station"
+    assert by_platform["snes"]["label"] == "RA Snes9x"
     assert by_platform["snes"]["memory_card_sync"] is False
 
 

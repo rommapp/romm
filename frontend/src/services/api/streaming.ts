@@ -130,6 +130,13 @@ export interface JoinableSession {
   rom_id: number | null;
   rom_name: string | null;
   host_username: string | null;
+  claimed_at: string | null;
+  // Cover and platform of the ROM, so a tile needs no second request.
+  platform_id: number | null;
+  platform_display_name: string | null;
+  path_cover_small: string | null;
+  path_cover_large: string | null;
+  url_cover: string | null;
 }
 
 /** Answer to POST /streaming/sessions/{platform}/join. `host` is the room URL
