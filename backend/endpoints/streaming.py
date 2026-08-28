@@ -4812,19 +4812,16 @@ async def list_joinable_sessions(
         # scan_iter yields bytes unless the client decodes responses.
         key_str = key.decode() if isinstance(key, bytes) else key
         container_key = key_str.removeprefix(_SESSION_KEY_PREFIX)
-        container = (
-            _container_for_session(grouped, container_key, s.get("platform")) or {}
-        )
         user_id = s.get("user_id")
         host = db_user_handler.get_user(user_id) if user_id is not None else None
-        rom_id = s.get("rom_id")
-        rom = db_rom_handler.get_rom(rom_id) if rom_id is not None else None
+        session_rom_id = s.get("rom_id")
+        rom = db_rom_handler.get_rom(session_rom_id) if session_rom_id is not None else None
         sessions.append(
             {
                 "container": container_key,
-                "label": container.get("label"),
+                "label": _container_label(container_key, grouped.get(container_key, [])),
                 "platform": s.get("platform"),
-                "rom_id": rom_id,
+                "rom_id": session_rom_id,
                 "rom_name": s.get("rom_name"),
                 "host_username": host.username if host else None,
                 "claimed_at": s.get("claimed_at"),

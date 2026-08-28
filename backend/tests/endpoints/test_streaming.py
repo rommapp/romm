@@ -4825,6 +4825,58 @@ def test_joinable_lists_someone_elses_multiplayer_session(
     assert [s["rom_id"] for s in body["sessions"]] == [rom.id]
 
 
+def test_joinable_lists_sessions_for_different_roms(
+    client, access_token, viewer_access_token, admin_user: User, rom: Rom
+):
+    """A second session's rom_id must not be filtered against the first's."""
+    other_platform = db_platform_handler.add_platform(
+        Platform(
+            name="other_platform",
+            slug="other_platform_slug",
+            fs_slug="other_platform_slug",
+        )
+    )
+    other_rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=other_platform.id,
+            name="other_rom",
+            slug="other_rom_slug",
+            fs_name="other_rom.zip",
+            fs_name_no_tags="other_rom",
+            fs_name_no_ext="other_rom",
+            fs_extension="zip",
+            fs_path=f"{other_platform.slug}/roms",
+        )
+    )
+    db_rom_handler.add_rom_user(rom_id=other_rom.id, user_id=admin_user.id)
+
+    container_a = {"host": "http://192.168.1.10:3000", "platform": rom.platform_slug}
+    container_b = {
+        "host": "http://192.168.1.11:3000",
+        "platform": other_platform.slug,
+    }
+    with _streaming(container_a, container_b):
+        _claim_multiplayer(client, access_token, rom.id)
+        _claim_multiplayer(client, access_token, other_rom.id)
+        body = _joinable(client, viewer_access_token).json()
+
+    assert {s["rom_id"] for s in body["sessions"]} == {rom.id, other_rom.id}
+
+
+def test_joinable_keeps_the_containers_own_label(
+    client, access_token, viewer_access_token
+):
+    """`_platform_row` computes a per-platform emulator label for /config,
+    but the listing wants the container's own configured identity, the same
+    as GET /sessions already does."""
+    rom = _rom_on("ps2")
+    with _streaming(_nested(label="My Box")):
+        _claim_multiplayer(client, access_token, rom.id)
+        body = _joinable(client, viewer_access_token).json()
+
+    assert body["sessions"][0]["label"] == "My Box"
+
+
 def test_joinable_carries_the_rom_cover_and_platform(
     client, access_token, viewer_access_token, rom: Rom
 ):
