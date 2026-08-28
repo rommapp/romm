@@ -723,6 +723,79 @@ class TestScanAuthorization:
         get_jobs.assert_not_called()
 
 
+def patch_identify_rom(
+    mocker,
+    *,
+    parsed: ParsedRomFiles,
+    roms_fs_structure: str,
+    name_with_no_tags: str,
+    platform_slug: str,
+    **config_flags: bool,
+) -> tuple[Mock, Platform]:
+    """Stub out everything `_identify_rom` reaches so only the wiring under test
+    is exercised, returning the patched db handler and the platform to scan."""
+    mocker.patch.object(scan_module, "redis_client", Mock(get=Mock(return_value=None)))
+
+    fs = scan_module.fs_rom_handler
+    mocker.patch.object(
+        fs,
+        "parse_tags",
+        return_value=ParsedTags(
+            version="", revision="", regions=[], languages=[], other_tags=[]
+        ),
+    )
+    mocker.patch.object(fs, "get_roms_fs_structure", return_value=roms_fs_structure)
+    mocker.patch.object(
+        fs, "get_file_name_with_no_tags", return_value=name_with_no_tags
+    )
+    mocker.patch.object(fs, "get_rom_files", AsyncMock(return_value=parsed))
+
+    config = MagicMock()
+    config.SKIP_HASH_CALCULATION = False
+    for flag, value in config_flags.items():
+        setattr(config, flag, value)
+    mocker.patch.object(scan_module.cm, "get_config", return_value=config)
+
+    mocker.patch.object(
+        scan_module, "scan_rom", AsyncMock(return_value=MagicMock(is_identified=False))
+    )
+
+    db = mocker.patch.object(scan_module, "db_rom_handler")
+    db.add_rom.return_value = MagicMock(is_identified=False, id=99)
+
+    platform = Platform(name=platform_slug, slug=platform_slug, fs_slug=platform_slug)
+    platform.id = 1
+    return db, platform
+
+
+async def run_identify_rom(platform: Platform, fs_rom: FSRom) -> None:
+    await _identify_rom(
+        platform=platform,
+        fs_rom=fs_rom,
+        rom=None,
+        scan_type=ScanType.HASHES,
+        roms_ids=[],
+        metadata_sources=[],
+        launchbox_remote_enabled=False,
+        playmatch_enabled=False,
+        socket_manager=AsyncMock(),
+        scan_stats=AsyncMock(),
+    )
+
+
+def make_fs_rom(fs_name: str) -> FSRom:
+    return {
+        "fs_name": fs_name,
+        "flat": True,
+        "nested": False,
+        "files": [],
+        "crc_hash": "",
+        "md5_hash": "",
+        "sha1_hash": "",
+        "ra_hash": "",
+    }
+
+
 class TestIdentifyRomReassociation:
     """`_identify_rom` reassociates a renamed/moved file with its missing entry.
 
@@ -909,82 +982,31 @@ class TestIdentifyRomTitleIdEmbedRename:
 
     @pytest.fixture
     def patched(self, mocker):
-        mocker.patch.object(
-            scan_module, "redis_client", Mock(get=Mock(return_value=None))
-        )
-
-        fs = scan_module.fs_rom_handler
-        mocker.patch.object(
-            fs,
-            "parse_tags",
-            return_value=ParsedTags(
-                version="", revision="", regions=[], languages=[], other_tags=[]
+        db, platform = patch_identify_rom(
+            mocker,
+            parsed=ParsedRomFiles(
+                rom_files=[],
+                crc_hash="crc",
+                md5_hash="md5",
+                sha1_hash="sha1",
+                ra_hash="",
+                title_id="0100ABCD12340000",
+                renamed_rom_fs_name=self.NEW_NAME,
             ),
+            roms_fs_structure="switch/roms",
+            name_with_no_tags="Game",
+            platform_slug="switch",
+            SKIP_TITLE_ID_EXTRACTION=False,
+            EMBED_SWITCH_TITLE_IDS=True,
         )
-        mocker.patch.object(fs, "get_roms_fs_structure", return_value="switch/roms")
-        mocker.patch.object(fs, "get_file_name_with_no_tags", return_value="Game")
-        mocker.patch.object(
-            fs,
-            "get_rom_files",
-            AsyncMock(
-                return_value=ParsedRomFiles(
-                    rom_files=[],
-                    crc_hash="crc",
-                    md5_hash="md5",
-                    sha1_hash="sha1",
-                    ra_hash="",
-                    title_id="0100ABCD12340000",
-                    renamed_rom_fs_name=self.NEW_NAME,
-                )
-            ),
-        )
-
-        config = MagicMock()
-        config.SKIP_HASH_CALCULATION = False
-        config.SKIP_TITLE_ID_EXTRACTION = False
-        config.EMBED_SWITCH_TITLE_IDS = True
-        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
-
-        mocker.patch.object(
-            scan_module,
-            "scan_rom",
-            AsyncMock(return_value=MagicMock(is_identified=False)),
-        )
-
-        db = mocker.patch.object(scan_module, "db_rom_handler")
-        db.add_rom.return_value = MagicMock(is_identified=False, id=99)
         db.get_matching_missing_rom.return_value = None
-        return db
-
-    def _platform(self):
-        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
-        platform.id = 1
-        return platform
+        return db, platform
 
     async def test_new_entry_carries_embedded_name(self, patched):
-        db = patched
-        fs_rom: FSRom = {
-            "fs_name": "Game.nsp",
-            "flat": True,
-            "nested": False,
-            "files": [],
-            "crc_hash": "",
-            "md5_hash": "",
-            "sha1_hash": "",
-            "ra_hash": "",
-        }
-        await _identify_rom(
-            platform=self._platform(),
-            fs_rom=fs_rom,
-            rom=None,
-            scan_type=ScanType.HASHES,
-            roms_ids=[],
-            metadata_sources=[],
-            launchbox_remote_enabled=False,
-            playmatch_enabled=False,
-            socket_manager=AsyncMock(),
-            scan_stats=AsyncMock(),
-        )
+        db, platform = patched
+        fs_rom = make_fs_rom("Game.nsp")
+
+        await run_identify_rom(platform, fs_rom)
 
         # The initial insert carries the renamed on-disk name, and the shared
         # fs_rom dict is updated so scan_rom persists the same name.
@@ -1020,21 +1042,6 @@ class TestIdentifyRomPersistsFileTitleVersion:
 
     @pytest.fixture
     def patched(self, mocker):
-        mocker.patch.object(
-            scan_module, "redis_client", Mock(get=Mock(return_value=None))
-        )
-
-        fs = scan_module.fs_rom_handler
-        mocker.patch.object(
-            fs,
-            "parse_tags",
-            return_value=ParsedTags(
-                version="", revision="", regions=[], languages=[], other_tags=[]
-            ),
-        )
-        mocker.patch.object(fs, "get_roms_fs_structure", return_value="switch/roms")
-        mocker.patch.object(fs, "get_file_name_with_no_tags", return_value="Game")
-
         update_file = RomFile(
             file_name="Game [UPD][v655360].nsp",
             file_path="switch/roms",
@@ -1043,72 +1050,34 @@ class TestIdentifyRomPersistsFileTitleVersion:
             title_id=self.UPDATE_TITLE_ID,
             title_version=self.UPDATE_TITLE_VERSION,
         )
-        mocker.patch.object(
-            fs,
-            "get_rom_files",
-            AsyncMock(
-                return_value=ParsedRomFiles(
-                    rom_files=[update_file],
-                    crc_hash="crc",
-                    md5_hash="md5",
-                    sha1_hash="sha1",
-                    ra_hash="",
-                    title_id=self.UPDATE_TITLE_ID,
-                )
+        db, platform = patch_identify_rom(
+            mocker,
+            parsed=ParsedRomFiles(
+                rom_files=[update_file],
+                crc_hash="crc",
+                md5_hash="md5",
+                sha1_hash="sha1",
+                ra_hash="",
+                title_id=self.UPDATE_TITLE_ID,
             ),
-        )
-
-        config = MagicMock()
-        config.SKIP_HASH_CALCULATION = False
-        config.SKIP_TITLE_ID_EXTRACTION = False
-        config.EMBED_SWITCH_TITLE_IDS = False
-        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
-
-        mocker.patch.object(
-            scan_module,
-            "scan_rom",
-            AsyncMock(return_value=MagicMock(is_identified=False)),
+            roms_fs_structure="switch/roms",
+            name_with_no_tags="Game",
+            platform_slug="switch",
+            SKIP_TITLE_ID_EXTRACTION=False,
+            EMBED_SWITCH_TITLE_IDS=False,
         )
         # The persist loop calls this per saved file; keep it inert.
         mocker.patch.object(scan_module, "persist_soundtrack_cover")
-
-        db = mocker.patch.object(scan_module, "db_rom_handler")
-        db.add_rom.return_value = MagicMock(is_identified=False, id=99)
         db.get_matching_missing_rom.return_value = None
         db.sync_rom_files.side_effect = lambda rom_id, files: SyncedRomFiles(
             files=list(files), orphaned_cover_paths=[]
         )
-        return db
-
-    def _platform(self):
-        platform = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
-        platform.id = 1
-        return platform
+        return db, platform
 
     async def test_rebuilt_file_keeps_title_version(self, patched):
-        db = patched
-        fs_rom: FSRom = {
-            "fs_name": "Game.nsp",
-            "flat": True,
-            "nested": False,
-            "files": [],
-            "crc_hash": "",
-            "md5_hash": "",
-            "sha1_hash": "",
-            "ra_hash": "",
-        }
-        await _identify_rom(
-            platform=self._platform(),
-            fs_rom=fs_rom,
-            rom=None,
-            scan_type=ScanType.HASHES,
-            roms_ids=[],
-            metadata_sources=[],
-            launchbox_remote_enabled=False,
-            playmatch_enabled=False,
-            socket_manager=AsyncMock(),
-            scan_stats=AsyncMock(),
-        )
+        db, platform = patched
+
+        await run_identify_rom(platform, make_fs_rom("Game.nsp"))
 
         db.sync_rom_files.assert_called_once()
         rom_id, synced_files = db.sync_rom_files.call_args.args

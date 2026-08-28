@@ -9,6 +9,7 @@ try:
     import sigil
 except ImportError:
     sigil = None  # type: ignore[assignment]
+    log.debug("sigil binding not installed, title id extraction disabled")
 
 SWITCH_SIGIL_SLUG: Final = "switch"
 
@@ -29,16 +30,19 @@ SIGIL_PLATFORM_SLUGS: Final[dict[UPS, str]] = {
     UPS.XBOX360: "xbox360",
 }
 
+# The Switch family needs prod.keys to decrypt headers, and is the only family
+# whose files may have their title id embedded in the filename.
+SWITCH_PLATFORM_SLUGS: Final = frozenset(
+    slug
+    for slug, sigil_slug in SIGIL_PLATFORM_SLUGS.items()
+    if sigil_slug == SWITCH_SIGIL_SLUG
+)
+
 # Errors that are expected for arbitrary library files (no title id present,
 # format sigil can't parse, missing decryption keys). Logged at debug level.
 ROUTINE_SIGIL_ERROR_CODES: Final = frozenset(
     {"NOT_FOUND", "UNSUPPORTED", "UNSUPPORTED_FORMAT", "NEEDS_KEY"}
 )
-
-_missing_binding_logged = False
-
-
-class SigilServiceError(Exception): ...
 
 
 @dataclass(frozen=True)
@@ -60,12 +64,7 @@ class SigilService:
         file_path: str,
         prod_keys_path: str | None = None,
     ) -> SigilExtractionResult | None:
-        global _missing_binding_logged
-
         if sigil is None:
-            if not _missing_binding_logged:
-                log.debug("sigil binding not installed, skipping title id extraction")
-                _missing_binding_logged = True
             return None
 
         sigil_slug = SIGIL_PLATFORM_SLUGS.get(platform_slug)  # type: ignore[arg-type]
@@ -80,8 +79,7 @@ class SigilService:
             result = await asyncio.to_thread(sigil.extract, file_path, **kwargs)
         except Exception as exc:
             code = getattr(exc, "code", None)
-            is_sigil_error = isinstance(exc, getattr(sigil, "SigilError", ()))
-            if is_sigil_error and code in ROUTINE_SIGIL_ERROR_CODES:
+            if code in ROUTINE_SIGIL_ERROR_CODES:
                 log.debug(f"Sigil found no title id for {file_path}: {code}")
             else:
                 log.error(f"Sigil extraction failed for {file_path}: {exc}")

@@ -13,6 +13,7 @@ from anyio import Path as AnyioPath
 
 from adapters.services.sigil import (
     SIGIL_PLATFORM_SLUGS,
+    SWITCH_PLATFORM_SLUGS,
     SigilExtractionResult,
     SigilService,
 )
@@ -181,8 +182,7 @@ class ParsedRomFiles:
     save_id: str | None = None
     save_usage: SaveUsage | None = None
     # Set when a single-file rom's file was renamed on disk to embed its title
-    # id, so the caller can reconcile Rom.fs_name. None for multi-part roms
-    # (whose folder name is unchanged) or when no rename happened.
+    # id, so the caller can reconcile Rom.fs_name.
     renamed_rom_fs_name: str | None = None
 
 
@@ -194,26 +194,19 @@ SWITCH_CONTENT_TYPE_CATEGORIES: dict[str, RomFileCategory] = {
     "addon": RomFileCategory.DLC,
 }
 
-# Platforms whose files may have their title id embedded in the filename.
-EMBED_TITLE_ID_PLATFORM_SLUGS = frozenset((UPS.SWITCH, UPS.SWITCH_2))
-
-# A 16-hex-digit title id in square brackets, e.g. [0100F4700B2E0000]. Used both
-# to detect files that already carry an embedded id (idempotency) and to
-# validate the id before embedding it.
-SWITCH_TITLE_ID_BRACKET_REGEX = re.compile(r"\[[0-9A-Fa-f]{16}\]")
-SWITCH_TITLE_ID_REGEX = re.compile(r"^[0-9A-Fa-f]{16}$")
+SWITCH_TITLE_ID_REGEX = re.compile(r"[0-9A-Fa-f]{16}")
+# An already-embedded id, e.g. [0100F4700B2E0000].
+SWITCH_TITLE_ID_BRACKET_REGEX = re.compile(rf"\[{SWITCH_TITLE_ID_REGEX.pattern}\]")
 
 
 def _embed_switch_title_id_in_name(
     abs_file_path: Path, title_id: str, title_version: int | None
 ) -> Path | None:
-    """Rename a Switch ROM file to embed its title id and version as
-    ` [TITLEID][vVERSION]` before the extension, preserving existing tags.
+    """Rename a Switch ROM file to embed ` [TITLEID][vVERSION]` before the
+    extension.
 
-    Returns the new absolute path, or None when the file was left untouched:
-    it already carries a 16-hex title-id bracket, the id is not a valid 16-hex
-    value, or the target name already exists on disk. The os.rename is the only
-    side effect.
+    Returns:
+        The new absolute path, or None when the file was left untouched.
     """
     name = abs_file_path.name
 
@@ -221,7 +214,7 @@ def _embed_switch_title_id_in_name(
         log.debug(f"{name} already has an embedded title id, skipping rename")
         return None
 
-    if not SWITCH_TITLE_ID_REGEX.match(title_id):
+    if not SWITCH_TITLE_ID_REGEX.fullmatch(title_id):
         log.debug(f"Title id {title_id!r} is not a 16-hex value, skipping rename")
         return None
 
@@ -249,17 +242,6 @@ def _parse_save_usage(usage: str) -> SaveUsage | None:
         return None
 
 
-def _is_switch_base_title_id(title_id: str) -> bool:
-    """Base-game Switch title ids have their low 12 bits cleared and an even
-    program-index nibble; update/DLC ids differ only in those positions."""
-    if len(title_id) < 4 or not title_id.endswith("000"):
-        return False
-    try:
-        return int(title_id[-4], 16) % 2 == 0
-    except ValueError:
-        return False
-
-
 def _derive_switch_base_title_id(title_id: str) -> str | None:
     """Derive the base-game title id from an update/DLC id: clear the low 12
     bits and decrement the program-index nibble when it is odd."""
@@ -276,6 +258,11 @@ def _derive_switch_base_title_id(title_id: str) -> str | None:
     return f"{title_id[:-4]}{formatted}000"
 
 
+def _is_switch_base_title_id(title_id: str) -> bool:
+    """A base-game id is its own derived base."""
+    return _derive_switch_base_title_id(title_id) == title_id
+
+
 def _rom_level_title_values(
     platform_slug: str,
     extractions: list[SigilExtractionResult],
@@ -283,7 +270,7 @@ def _rom_level_title_values(
     if not extractions:
         return None, None, None
 
-    if platform_slug in (UPS.SWITCH, UPS.SWITCH_2):
+    if platform_slug in SWITCH_PLATFORM_SLUGS:
         base = next(
             (e for e in extractions if _is_switch_base_title_id(e.title_id)), None
         )
@@ -488,47 +475,61 @@ class FSRomsHandler(FSHandler):
         # non-hashable platforms like Switch.
         sigil_platform = extract_title_ids and rom.platform_slug in SIGIL_PLATFORM_SLUGS
         sigil_extractions: list[SigilExtractionResult] = []
+        sigil_service = SigilService()
 
         # Filename embedding is Switch-only, even though sigil covers more
         # platforms; other platforms never have their files renamed.
-        embed_switch = (
-            embed_title_ids and rom.platform_slug in EMBED_TITLE_ID_PLATFORM_SLUGS
-        )
+        embed_switch = embed_title_ids and rom.platform_slug in SWITCH_PLATFORM_SLUGS
         renamed_rom_fs_name: str | None = None
 
         async def _extract_title_id(
-            rom_file: RomFile, abs_file_path: Path, is_rom_level: bool = False
-        ) -> None:
-            nonlocal renamed_rom_fs_name
-            extraction = await SigilService().extract_title_id(
+            rom_file: RomFile, abs_file_path: Path
+        ) -> str | None:
+            """Populate the file's title id fields, returning its new name if
+            embedding renamed it on disk."""
+            if not sigil_platform:
+                return None
+
+            extraction = await sigil_service.extract_title_id(
                 rom.platform_slug, str(abs_file_path), prod_keys_path
             )
             if extraction is None:
-                return
+                return None
             rom_file.title_id = extraction.title_id
             rom_file.save_id = extraction.save_id
             rom_file.title_version = extraction.version
-            # For Switch, the binary CNMT content type is authoritative over the
-            # folder-derived category. Leave the folder category when absent.
             if extraction.content_type is not None:
                 category = SWITCH_CONTENT_TYPE_CATEGORIES.get(extraction.content_type)
                 if category is not None:
                     rom_file.category = category
             sigil_extractions.append(extraction)
 
-            if embed_switch and extraction.title_id:
-                new_path = _embed_switch_title_id_in_name(
-                    abs_file_path, extraction.title_id, extraction.version
-                )
-                if new_path is not None:
-                    # The file stays in the same directory, so only file_name
-                    # changes; file_path is unaffected.
-                    rom_file.file_name = new_path.name
-                    # A single-file rom's file name IS the Rom.fs_name, so the
-                    # caller must reconcile it. Multi-part inner files don't
-                    # change the rom folder name.
-                    if is_rom_level:
-                        renamed_rom_fs_name = new_path.name
+            if not (embed_switch and extraction.title_id):
+                return None
+
+            new_path = _embed_switch_title_id_in_name(
+                abs_file_path, extraction.title_id, extraction.version
+            )
+            if new_path is None:
+                return None
+            rom_file.file_name = new_path.name
+            return new_path.name
+
+        async def _append_rom_level_file(file_hash: FileHash) -> str | None:
+            """Emit the single RomFile that stands for the whole rom, returning
+            its new name if embedding renamed it on disk."""
+            rom_file = self._build_rom_file(
+                rom=rom,
+                rom_path=Path(rel_roms_path),
+                file_name=rom.fs_name,
+                file_hash=file_hash,
+            )
+            rom_files.append(rom_file)
+            # Archives keep hashes only; sigil reads title ids from the ROM
+            # binary itself.
+            if rom_ext in ARCHIVE_READERS:
+                return None
+            return await _extract_title_id(rom_file, rom_dir)
 
         cnfg = cm.get_config()
         excluded_file_names = cnfg.EXCLUDED_MULTI_PARTS_FILES
@@ -638,8 +639,7 @@ class FSRomsHandler(FSHandler):
                 )
                 # Extract from every file (base, updates, DLC in subfolders), not
                 # just the top-level one: sigil returns None for unparseable files.
-                if sigil_platform:
-                    await _extract_title_id(rom_file, Path(f_path, file_name))
+                await _extract_title_id(rom_file, abs_file_path)
                 rom_files.append(rom_file)
         elif hashable_platform and rom_ext in ARCHIVE_READERS:
             # Multi-file archive: compute a composite hash across all
@@ -762,39 +762,23 @@ class FSRomsHandler(FSHandler):
                         f"{abs_fs_path}/{rom.fs_name}",
                     )
 
-            file_hash = _make_file_hash(
-                crc_c,
-                md5_h,
-                sha1_h,
-                chd_sha1_hash=_chd_sha1_hash(rom_dir),
+            renamed_rom_fs_name = await _append_rom_level_file(
+                _make_file_hash(
+                    crc_c,
+                    md5_h,
+                    sha1_h,
+                    chd_sha1_hash=_chd_sha1_hash(rom_dir),
+                )
             )
-            rom_file = self._build_rom_file(
-                rom=rom,
-                rom_path=Path(rel_roms_path),
-                file_name=rom.fs_name,
-                file_hash=file_hash,
-            )
-            if sigil_platform:
-                await _extract_title_id(rom_file, rom_dir, is_rom_level=True)
-            rom_files.append(rom_file)
         else:
-            file_hash = FileHash(
-                crc_hash="",
-                md5_hash="",
-                sha1_hash="",
-                chd_sha1_hash="",
+            renamed_rom_fs_name = await _append_rom_level_file(
+                FileHash(
+                    crc_hash="",
+                    md5_hash="",
+                    sha1_hash="",
+                    chd_sha1_hash="",
+                )
             )
-            rom_file = self._build_rom_file(
-                rom=rom,
-                rom_path=Path(rel_roms_path),
-                file_name=rom.fs_name,
-                file_hash=file_hash,
-            )
-            # Archives keep hashes only; sigil reads title ids from the ROM
-            # binary itself.
-            if sigil_platform and rom_ext not in ARCHIVE_READERS:
-                await _extract_title_id(rom_file, rom_dir, is_rom_level=True)
-            rom_files.append(rom_file)
 
         rom_title_id, rom_save_id, rom_save_usage = _rom_level_title_values(
             rom.platform_slug, sigil_extractions

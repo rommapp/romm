@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // MetadataTab — four sections, top to bottom:
-//   1. File info — name + size only.
+//   1. File info — name, size, and the platform-native ids when present.
 //   2. Hashes — SHA-1, MD5, CRC, RA, all mono. RTag with eyebrow label.
 //      Same order as the files list so the two tabs read alike.
 //   3. Verification — RTag per database; tone="success" for match,
@@ -33,8 +33,9 @@ const fileRows = computed<Row[]>(() => {
   return [
     { label: t("rom.filename"), value: r.fs_name },
     { label: t("common.size"), value: size },
-    { label: t("rom.title-id"), value: r.title_id ?? "—" },
-    { label: t("rom.save-id"), value: r.save_id ?? "—" },
+    // Only the sigil platforms carry these, so skip rather than dash them.
+    ...(r.title_id ? [{ label: t("rom.title-id"), value: r.title_id }] : []),
+    ...(r.save_id ? [{ label: t("rom.save-id"), value: r.save_id }] : []),
   ];
 });
 

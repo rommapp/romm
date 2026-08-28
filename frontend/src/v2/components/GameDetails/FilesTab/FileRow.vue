@@ -97,16 +97,23 @@ const audioDuration = computed(() =>
   formatDuration(props.file.track_meta?.duration_seconds),
 );
 
-const hasAnyHash = computed(
-  () =>
-    Boolean(props.file.title_id) ||
-    props.file.title_version != null ||
-    Boolean(props.file.sha1_hash) ||
-    Boolean(props.file.chd_sha1_hash) ||
-    Boolean(props.file.md5_hash) ||
-    Boolean(props.file.crc_hash) ||
-    Boolean(props.file.ra_hash),
-);
+// Title ids get the same click-to-copy treatment as the digests.
+const identifierChips = computed(() => {
+  const f = props.file;
+  const chips: { label: string; value: string | null }[] = [
+    { label: t("rom.title-id"), value: f.title_id },
+    {
+      label: t("rom.version"),
+      value: f.title_version != null ? String(f.title_version) : null,
+    },
+    { label: "SHA-1", value: f.sha1_hash },
+    { label: "CHD SHA-1", value: f.chd_sha1_hash },
+    { label: "MD5", value: f.md5_hash },
+    { label: "CRC", value: f.crc_hash },
+    { label: "RA", value: f.ra_hash },
+  ];
+  return chips.filter((chip) => Boolean(chip.value));
+});
 </script>
 
 <template>
@@ -171,47 +178,12 @@ const hasAnyHash = computed(
         </template>
       </div>
 
-      <div v-if="hasAnyHash" class="r-v2-file-row__hashes">
+      <div v-if="identifierChips.length" class="r-v2-file-row__identifiers">
         <HashChip
-          v-if="file.title_id"
-          :label="t('rom.title-id')"
-          :value="file.title_id"
-          compact
-        />
-        <HashChip
-          v-if="file.title_version != null"
-          :label="t('rom.version')"
-          :value="String(file.title_version)"
-          compact
-        />
-        <HashChip
-          v-if="file.sha1_hash"
-          label="SHA-1"
-          :value="file.sha1_hash"
-          compact
-        />
-        <HashChip
-          v-if="file.chd_sha1_hash"
-          label="CHD SHA-1"
-          :value="file.chd_sha1_hash"
-          compact
-        />
-        <HashChip
-          v-if="file.md5_hash"
-          label="MD5"
-          :value="file.md5_hash"
-          compact
-        />
-        <HashChip
-          v-if="file.crc_hash"
-          label="CRC"
-          :value="file.crc_hash"
-          compact
-        />
-        <HashChip
-          v-if="file.ra_hash"
-          label="RA"
-          :value="file.ra_hash"
+          v-for="chip in identifierChips"
+          :key="chip.label"
+          :label="chip.label"
+          :value="chip.value!"
           compact
         />
       </div>
@@ -336,7 +308,7 @@ const hasAnyHash = computed(
   opacity: 0.5;
 }
 
-.r-v2-file-row__hashes {
+.r-v2-file-row__identifiers {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;

@@ -10,6 +10,7 @@ from rq import Worker, get_current_job
 from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError
 
+from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import (
     DEV_MODE,
     LIBRARY_BASE_PATH,
@@ -44,13 +45,12 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
 )
-from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.roms_handler import FSRom, ParsedRomFiles
 from handler.metadata import (
     meta_gamelist_handler,
     meta_hltb_handler,
     meta_launchbox_handler,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.launchbox_handler.types import LAUNCHBOX_PLATFORMS_DIR
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import log_quota as log_ss_quota
@@ -381,6 +381,29 @@ def _should_hash_firmware(
     )
 
 
+def _resolve_prod_keys_path(platform: Platform) -> str | None:
+    """Locate the console's prod.keys, which sigil needs to decrypt Switch
+    XCI/NSP headers, among the platform's scanned firmware."""
+    if platform.slug not in SWITCH_PLATFORM_SLUGS:
+        return None
+
+    prod_keys = db_firmware_handler.get_firmware_by_filename(platform.id, "prod.keys")
+    return f"{LIBRARY_BASE_PATH}/{prod_keys.full_path}" if prod_keys else None
+
+
+def _apply_scanned_values(fs_rom: FSRom, parsed: ParsedRomFiles) -> None:
+    fs_rom["files"] = parsed.rom_files
+    fs_rom["crc_hash"] = parsed.crc_hash
+    fs_rom["md5_hash"] = parsed.md5_hash
+    fs_rom["sha1_hash"] = parsed.sha1_hash
+    fs_rom["ra_hash"] = parsed.ra_hash
+    fs_rom["title_id"] = parsed.title_id
+    fs_rom["save_id"] = parsed.save_id
+    fs_rom["save_usage"] = parsed.save_usage
+    if parsed.renamed_rom_fs_name:
+        fs_rom["fs_name"] = parsed.renamed_rom_fs_name
+
+
 # There's an order of operations here that is important:
 # 1. Read the list of roms from the filesystem
 # 2. Check if ROM should be scanned based on the scan type
@@ -398,6 +421,7 @@ async def _identify_rom(
     playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
+    prod_keys_path: str | None = None,
 ) -> None:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -422,19 +446,10 @@ async def _identify_rom(
         "url_screenshots": [],
     }
 
-    calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
-    extract_title_ids = not cm.get_config().SKIP_TITLE_ID_EXTRACTION
-    embed_title_ids = cm.get_config().EMBED_SWITCH_TITLE_IDS
-
-    # Switch title id extraction needs the console's prod.keys to decrypt
-    # XCI/NSP headers; resolve it from the scanned firmware when present.
-    prod_keys_path: str | None = None
-    if extract_title_ids and platform.slug in (UPS.SWITCH, UPS.SWITCH_2):
-        prod_keys = db_firmware_handler.get_firmware_by_filename(
-            platform.id, "prod.keys"
-        )
-        if prod_keys:
-            prod_keys_path = f"{LIBRARY_BASE_PATH}/{prod_keys.full_path}"
+    cnfg = cm.get_config()
+    calculate_hashes = not cnfg.SKIP_HASH_CALCULATION
+    extract_title_ids = not cnfg.SKIP_TITLE_ID_EXTRACTION
+    embed_title_ids = cnfg.EMBED_SWITCH_TITLE_IDS
 
     newly_added: bool = rom is None
     reassociated: bool = False
@@ -455,23 +470,10 @@ async def _identify_rom(
             prod_keys_path=prod_keys_path,
             embed_title_ids=embed_title_ids,
         )
-        fs_rom.update(
-            {
-                "files": parsed_rom_files.rom_files,
-                "crc_hash": parsed_rom_files.crc_hash,
-                "md5_hash": parsed_rom_files.md5_hash,
-                "sha1_hash": parsed_rom_files.sha1_hash,
-                "ra_hash": parsed_rom_files.ra_hash,
-                "title_id": parsed_rom_files.title_id,
-                "save_id": parsed_rom_files.save_id,
-                "save_usage": parsed_rom_files.save_usage,
-            }
-        )
-        # A single-file rom renamed on disk to embed its title id must carry the
-        # new name into both the new-entry insert and any hash reassociation.
+        _apply_scanned_values(fs_rom, parsed_rom_files)
+        # The new-entry insert reads its name from rom_attrs, not fs_rom.
         if parsed_rom_files.renamed_rom_fs_name:
             rom_attrs["fs_name"] = parsed_rom_files.renamed_rom_fs_name
-            fs_rom["fs_name"] = parsed_rom_files.renamed_rom_fs_name
         files_built = True
 
         missing_match = db_rom_handler.get_matching_missing_rom(
@@ -543,22 +545,9 @@ async def _identify_rom(
             prod_keys_path=prod_keys_path,
             embed_title_ids=embed_title_ids,
         )
-        fs_rom.update(
-            {
-                "files": parsed_rom_files.rom_files,
-                "crc_hash": parsed_rom_files.crc_hash,
-                "md5_hash": parsed_rom_files.md5_hash,
-                "sha1_hash": parsed_rom_files.sha1_hash,
-                "ra_hash": parsed_rom_files.ra_hash,
-                "title_id": parsed_rom_files.title_id,
-                "save_id": parsed_rom_files.save_id,
-                "save_usage": parsed_rom_files.save_usage,
-            }
-        )
-        # scan_rom persists Rom.fs_name from fs_rom["fs_name"]; keep the rom
-        # object in sync so its in-memory identity matches the renamed file.
+        _apply_scanned_values(fs_rom, parsed_rom_files)
+        # Keep the in-memory rom's identity matching the renamed file.
         if parsed_rom_files.renamed_rom_fs_name:
-            fs_rom["fs_name"] = parsed_rom_files.renamed_rom_fs_name
             rom.fs_name = parsed_rom_files.renamed_rom_fs_name
 
     # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
@@ -631,8 +620,7 @@ async def _identify_rom(
     if should_update_files:
         # Reconcile against the existing rows instead of replacing them, so file
         # ids survive a rescan and anything keyed on them (track metadata,
-        # persisted soundtrack covers) stays valid. title_id/save_id/title_version
-        # ride along via ROM_FILE_SCANNED_COLUMNS in sync_rom_files.
+        # persisted soundtrack covers) stays valid.
         synced = db_rom_handler.sync_rom_files(_added_rom.id, fs_rom["files"])
         for cover_path in synced.orphaned_cover_paths:
             remove_persisted_cover(cover_path)
@@ -699,6 +687,7 @@ async def _scan_selected_roms(
     )
 
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
+    prod_keys_path = _resolve_prod_keys_path(platform)
 
     async def scan_rom_with_semaphore(rom: Rom) -> None:
         async with scan_semaphore:
@@ -730,6 +719,7 @@ async def _scan_selected_roms(
                 playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
+                prod_keys_path=prod_keys_path,
             )
 
     results = await asyncio.gather(
@@ -859,6 +849,7 @@ async def _identify_platform(
 
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
+    prod_keys_path = _resolve_prod_keys_path(platform)
 
     async def scan_rom_with_semaphore(fs_rom: FSRom, rom: Rom | None) -> None:
         """Scan a single ROM with semaphore limiting"""
@@ -874,6 +865,7 @@ async def _identify_platform(
                 playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
+                prod_keys_path=prod_keys_path,
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
