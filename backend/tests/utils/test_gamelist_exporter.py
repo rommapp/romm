@@ -128,6 +128,31 @@ def test_export_gamelist_xml_basic(platform_with_roms):
     assert players.text == "2"
 
 
+def test_export_gamelist_prefers_explicit_publisher_developer(platform_with_roms):
+    platform, roms = platform_with_roms
+    # The companies order would map developer=Nintendo / publisher=Nintendo EAD;
+    # the explicit split fields (deliberately reversed) must take precedence.
+    db_rom_handler.update_rom(
+        roms[0].id,
+        {
+            "igdb_metadata": {
+                "companies": ["Nintendo", "Nintendo EAD"],
+                "publishers": ["Nintendo"],
+                "developers": ["Nintendo EAD"],
+            }
+        },
+    )
+
+    xml_str = GamelistExporter(local_export=True).export_platform_to_xml(
+        platform.id, request=None
+    )
+    game = fromstring(xml_str).findall("game")[0]
+    developer = game.find("developer")
+    publisher = game.find("publisher")
+    assert developer is not None and developer.text == "Nintendo EAD"
+    assert publisher is not None and publisher.text == "Nintendo"
+
+
 def test_export_gamelist_xml_rating(platform_with_roms):
     platform, _ = platform_with_roms
     exporter = GamelistExporter(local_export=True)
@@ -193,6 +218,30 @@ def test_export_gamelist_xml_skips_missing_roms(admin_user: User):
         fs_extension="nes",
         fs_path="nes/roms",
         missing_from_fs=True,
+    )
+    db_rom_handler.add_rom(rom)
+
+    exporter = GamelistExporter(local_export=True)
+    xml_str = exporter.export_platform_to_xml(platform.id, request=None)
+    root = fromstring(xml_str)
+
+    assert len(root.findall("game")) == 0
+
+
+def test_export_gamelist_xml_skips_physical_roms(admin_user: User):
+    platform = Platform(name="NES", slug="nes", fs_slug="nes")
+    platform = db_platform_handler.add_platform(platform)
+
+    rom = Rom(
+        platform_id=platform.id,
+        name="Boxed Copy",
+        slug="boxed-copy",
+        fs_name="Boxed Copy",
+        fs_name_no_tags="Boxed Copy",
+        fs_name_no_ext="Boxed Copy",
+        fs_extension="",
+        fs_path="nes/roms/.physical",
+        is_physical=True,
     )
     db_rom_handler.add_rom(rom)
 

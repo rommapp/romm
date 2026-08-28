@@ -391,6 +391,8 @@ class RomMetadata(BaseModel):
     franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    publishers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    developers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")
@@ -398,6 +400,18 @@ class RomMetadata(BaseModel):
     average_rating: Mapped[float | None] = mapped_column(default=None)
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")
+
+    @property
+    def primary_developer(self) -> str | None:
+        """Developer for exporters, falling back to the pre-split companies ordering."""
+        companies = self.companies or []
+        return next(iter(self.developers or companies[:1]), None)
+
+    @property
+    def primary_publisher(self) -> str | None:
+        """Publisher for exporters, falling back to the pre-split companies ordering."""
+        companies = self.companies or []
+        return next(iter(self.publishers or companies[1:2]), None)
 
 
 class RomFacets(BaseModel):
@@ -423,6 +437,8 @@ class RomFacets(BaseModel):
     franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    publishers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    developers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")
@@ -614,6 +630,11 @@ class Rom(BaseModel):
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
+    # Physical games are manually-added rows with no file on disk; they carry the
+    # same metadata as digital ROMs but must never be flagged missing or cleaned up.
+    is_physical: Mapped[bool] = mapped_column(default=False, nullable=False)
+    upc: Mapped[str | None] = mapped_column(String(length=64), default=None)
+
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
     )
@@ -789,6 +810,17 @@ class Rom(BaseModel):
     def is_identified(self) -> bool:
         return not self.is_unidentified
 
+    @property
+    def has_file_on_disk(self) -> bool:
+        """Whether a readable file backs this rom.
+
+        False for two different reasons that every file-dependent surface
+        (download, playback, the ES-DE and Pegasus exporters, the device feeds)
+        needs to treat alike: a physical game never had a file, and a missing
+        one no longer does.
+        """
+        return not self.is_physical and not self.missing_from_fs
+
     def has_m3u_file(self) -> bool:
         """
         Check if the ROM has an M3U file associated with it.
@@ -911,6 +943,11 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
         "has_soundtrack",
         any(f.category == RomFileCategory.SOUNDTRACK for f in files),
     )
+
+
+# Query-side twin of `Rom.has_file_on_disk`, for callers that enumerate roms and
+# want the file-less ones dropped by the database rather than after loading.
+HAS_FILE_ON_DISK_FILTERS = {"physical": False, "missing": False}
 
 
 # Maps a metadata-source slug (matching the MetadataSource enum) to the Rom

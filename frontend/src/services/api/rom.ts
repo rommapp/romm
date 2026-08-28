@@ -6,6 +6,7 @@ import type {
   BulkOperationResponse,
   DetailedRomSchema,
   ManualMetadata,
+  PhysicalRomCreateForm,
   RomUserData,
   RomUserSchema,
   RomFileUserSchema,
@@ -158,6 +159,7 @@ export interface GetRomsParams {
   filterStates?: boolean | null;
   filterSoundtrack?: boolean | null;
   filterMissing?: boolean | null;
+  filterPhysical?: boolean | null;
   filterVerified?: boolean | null;
   groupByMetaId?: boolean;
   // Multi-value filters
@@ -165,6 +167,8 @@ export interface GetRomsParams {
   selectedFranchises?: string[] | null;
   selectedCollections?: string[] | null;
   selectedCompanies?: string[] | null;
+  selectedPublishers?: string[] | null;
+  selectedDevelopers?: string[] | null;
   selectedAgeRatings?: string[] | null;
   selectedRegions?: string[] | null;
   selectedLanguages?: string[] | null;
@@ -177,6 +181,8 @@ export interface GetRomsParams {
   franchisesLogic?: string | null;
   collectionsLogic?: string | null;
   companiesLogic?: string | null;
+  publishersLogic?: string | null;
+  developersLogic?: string | null;
   ageRatingsLogic?: string | null;
   regionsLogic?: string | null;
   languagesLogic?: string | null;
@@ -211,12 +217,15 @@ async function getRoms({
   filterStates = null,
   filterSoundtrack = null,
   filterMissing = null,
+  filterPhysical = null,
   filterVerified = null,
   groupByMetaId = false,
   selectedGenres = null,
   selectedFranchises = null,
   selectedCollections = null,
   selectedCompanies = null,
+  selectedPublishers = null,
+  selectedDevelopers = null,
   selectedAgeRatings = null,
   selectedRegions = null,
   selectedLanguages = null,
@@ -229,6 +238,8 @@ async function getRoms({
   franchisesLogic = null,
   collectionsLogic = null,
   companiesLogic = null,
+  publishersLogic = null,
+  developersLogic = null,
   ageRatingsLogic = null,
   regionsLogic = null,
   languagesLogic = null,
@@ -267,6 +278,14 @@ async function getRoms({
     companies:
       selectedCompanies && selectedCompanies.length > 0
         ? selectedCompanies
+        : undefined,
+    publishers:
+      selectedPublishers && selectedPublishers.length > 0
+        ? selectedPublishers
+        : undefined,
+    developers:
+      selectedDevelopers && selectedDevelopers.length > 0
+        ? selectedDevelopers
         : undefined,
     age_ratings:
       selectedAgeRatings && selectedAgeRatings.length > 0
@@ -310,6 +329,14 @@ async function getRoms({
       selectedCompanies && selectedCompanies.length > 0
         ? companiesLogic || "any"
         : undefined,
+    publishers_logic:
+      selectedPublishers && selectedPublishers.length > 0
+        ? publishersLogic || "any"
+        : undefined,
+    developers_logic:
+      selectedDevelopers && selectedDevelopers.length > 0
+        ? developersLogic || "any"
+        : undefined,
     age_ratings_logic:
       selectedAgeRatings && selectedAgeRatings.length > 0
         ? ageRatingsLogic || "any"
@@ -341,6 +368,7 @@ async function getRoms({
     ...(filterDuplicates !== null ? { duplicate: filterDuplicates } : {}),
     ...(filterPlayables !== null ? { playable: filterPlayables } : {}),
     ...(filterMissing !== null ? { missing: filterMissing } : {}),
+    ...(filterPhysical !== null ? { physical: filterPhysical } : {}),
     ...(filterRA !== null ? { has_ra: filterRA } : {}),
     ...(filterSaves !== null ? { has_saves: filterSaves } : {}),
     ...(filterStates !== null ? { has_states: filterStates } : {}),
@@ -468,6 +496,23 @@ async function searchRom({
       search_by: searchBy,
     },
   });
+}
+
+async function createPhysicalRom({
+  platformId,
+  name,
+  upc,
+}: {
+  platformId: number;
+  name?: string;
+  upc?: string;
+}) {
+  const payload: PhysicalRomCreateForm = {
+    platform_id: platformId,
+    name: name || null,
+    upc: upc || null,
+  };
+  return api.post<DetailedRom>("/roms/physical", payload);
 }
 
 function triggerFileDownload(href: string) {
@@ -1036,6 +1081,7 @@ export default {
   downloadRom,
   bulkDownloadRoms,
   searchRom,
+  createPhysicalRom,
   updateRom,
   uploadManuals,
   removeManual,
