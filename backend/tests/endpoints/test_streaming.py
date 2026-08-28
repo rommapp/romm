@@ -3,6 +3,7 @@ import io
 import json
 import logging
 import re
+import time
 import zipfile
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -212,6 +213,15 @@ def test_get_config_ships_platform_capabilities(client, access_token):
         "supports_disc_swap": False,
         "has_manual_disc_swap": True,
     }
+
+
+def test_get_config_ships_the_launch_timeout(client, access_token):
+    """The claim blocks for as long as an extraction takes, and the client sets
+    its own request ceiling from this rather than keeping a second copy that an
+    operator raising the limit would silently invalidate."""
+    with _streaming({"platform": "ps2", "host": "http://192.168.1.10:3000"}):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert r.json()["launch_timeout"] == streaming.STREAMING_LAUNCH_TIMEOUT
 
 
 def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_token):
@@ -1793,6 +1803,109 @@ def test_reclaim_clears_termination_notice(
             headers=_auth(viewer_access_token),
         )
     assert r.json()["status"] == "active"
+
+
+# ── Launch progress ───────────────────────────────────────────────────────────
+
+
+def _unstamp_launch(container: dict) -> None:
+    """Drop the launched_at stamp, leaving the record in the state a claim
+    holds while its activate is still running."""
+    key = streaming._session_redis_key(streaming._container_key(container))
+    session = json.loads(asyncio.run(async_cache.get(key)))
+    session.pop("launched_at", None)
+    asyncio.run(async_cache.set(key, json.dumps(session)))
+
+
+def test_status_reports_the_extraction_phase_during_a_launch(client, access_token):
+    """The claim blocks through a pkg unpack, so this poll is the only thing the
+    waiting player has to look at."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_webstation()):
+        _claim_webstation_ok(client, access_token, ps2_rom.id)
+        _unstamp_launch(_first_container("ps2"))
+        with patch(
+            "endpoints.streaming._broker_request_safe",
+            return_value={"extraction_phase": "extracting_pkg"},
+        ):
+            r = client.get(
+                "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
+            )
+    assert r.status_code == 200
+    assert r.json()["extraction_phase"] == "extracting_pkg"
+
+
+def test_status_reports_no_phase_before_the_broker_starts_unpacking(
+    client, access_token
+):
+    """A launch with no extraction step, or one polled before it reaches the
+    unpack, answers with nothing rather than a stale phase."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_webstation()):
+        _claim_webstation_ok(client, access_token, ps2_rom.id)
+        _unstamp_launch(_first_container("ps2"))
+        with patch(
+            "endpoints.streaming._broker_request_safe", return_value={"active": True}
+        ):
+            r = client.get(
+                "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
+            )
+    assert r.json()["extraction_phase"] is None
+
+
+def test_status_stops_asking_the_broker_once_the_launch_returned(client, access_token):
+    """This poll runs for the life of the session, so past the launch it has to
+    stay a pure Redis read rather than a broker round trip per tick."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_webstation()):
+        _claim_webstation_ok(client, access_token, ps2_rom.id)
+        with patch("endpoints.streaming._broker_request_safe") as broker:
+            r = client.get(
+                "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
+            )
+    assert r.json() == {"status": "active", "platform": "ps2"}
+    broker.assert_not_called()
+
+
+def test_status_on_a_legacy_container_never_asks_for_a_phase(
+    client, access_token, rom: Rom
+):
+    """Only the webstation broker has an extraction step. The per-emulator mods
+    have no /status route to ask, so a claim of theirs must not reach for one."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        _unstamp_launch(_container_for(rom))
+        with patch("endpoints.streaming._broker_request_safe") as broker:
+            r = client.get(
+                f"/api/streaming/sessions/{rom.platform_slug}/status",
+                headers=_auth(access_token),
+            )
+    assert r.json() == {"status": "active", "platform": rom.platform_slug}
+    broker.assert_not_called()
+
+
+def test_a_slow_launch_keeps_its_own_claim_fresh(client, access_token):
+    """Nothing beats for the player until the stream is up, so a claim whose
+    activate outlasts the staleness window has to refresh itself. Without that
+    the next claimant reads the record as abandoned and tears the container
+    down mid-extraction."""
+    ps2_rom = _rom_on("ps2")
+
+    def slow_activate(*args, **kwargs):
+        time.sleep(0.5)
+        return {"url": "/room/x"}
+
+    with (
+        _streaming(_webstation()),
+        patch.object(streaming, "_CLAIM_REFRESH_SECONDS", 0.05),
+        patch.object(streaming, "_SESSION_STALE_SECONDS", 0.2),
+        patch("endpoints.streaming._webstation_activate", slow_activate),
+    ):
+        assert _claim(client, access_token, ps2_rom.id).status_code == 200
+        key = streaming._session_redis_key(_key_of(_first_container("ps2")))
+        session = json.loads(asyncio.run(async_cache.get(key)))
+        # Read under the shrunk window: outside it every stamp looks fresh.
+        assert streaming._session_is_stale(session) is False
 
 
 # ── Release / ownership ───────────────────────────────────────────────────────

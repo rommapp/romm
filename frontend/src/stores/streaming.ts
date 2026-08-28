@@ -36,7 +36,15 @@ const NO_CAPABILITIES = {
 // ── Store ─────────────────────────────────────────────────────────────────────
 
 export const useStreamingStore = defineStore("streaming", () => {
-  const config = ref<StreamingConfig>({ enabled: false, containers: [] });
+  // The launch timeout stands in until /config answers, and covers a backend
+  // too old to ship one. It matches that route's own default.
+  const DEFAULT_LAUNCH_TIMEOUT_SECONDS = 600;
+
+  const config = ref<StreamingConfig>({
+    enabled: false,
+    containers: [],
+    launch_timeout: DEFAULT_LAUNCH_TIMEOUT_SECONDS,
+  });
   const activeSession = ref<ActiveSession | null>(null);
   const loading = ref(false);
   // `loading` is false both before and after the fetch, so consumers that must
@@ -105,6 +113,7 @@ export const useStreamingStore = defineStore("streaming", () => {
       config.value = {
         enabled: data.enabled ?? false,
         containers: data.containers ?? [],
+        launch_timeout: data.launch_timeout ?? DEFAULT_LAUNCH_TIMEOUT_SECONDS,
       };
     } catch (err) {
       error.value = String(err);
@@ -142,6 +151,7 @@ export const useStreamingStore = defineStore("streaming", () => {
   ): Promise<ActiveSession> {
     const { data } = await streamingApi.claimSession(
       romId,
+      config.value.launch_timeout,
       stateId,
       memoryCardId,
       cardImport,

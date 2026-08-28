@@ -14,6 +14,7 @@ describe("platformCapabilities disc flags", () => {
     const store = useStreamingStore();
     store.config = {
       enabled: true,
+      launch_timeout: 600,
       containers: [
         {
           platform: "dc",

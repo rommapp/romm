@@ -26,6 +26,7 @@ from starlette.background import BackgroundTask
 from config import (
     LIBRARY_BASE_PATH,
     STREAMING_BROKER_SECRET,
+    STREAMING_LAUNCH_TIMEOUT,
     STREAMING_SAVE_TIMEOUT,
     STREAMING_STATE_HISTORY_LIMIT,
 )
@@ -358,6 +359,21 @@ async def _hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
             return
 
 
+async def _stamp_launched(session_key: str) -> None:
+    """Record that the activate returned, so the status poll stops asking the
+    broker for an extraction phase.
+
+    Best-effort: a stamp that never lands only costs a few redundant broker
+    round trips, and failing a session that is already up would be worse.
+    """
+    try:
+        await _mutate_session(
+            session_key, {"launched_at": datetime.now(timezone.utc).isoformat()}
+        )
+    except _SessionContended:
+        log.warning("could not stamp the launch on session %s", session_key)
+
+
 async def _drop_drain_marker(session_key: str, token: str) -> None:
     """Delete a drain marker, while it is still the one `token` wrote.
 
@@ -526,8 +542,18 @@ async def _session_status(platform: str, request: Request) -> dict[str, Any]:
             status_code=404,
             detail=f"No streaming container configured for platform '{platform}'",
         )
-    if await _find_session_for_user(candidates, request.user.id) is not None:
-        return {"status": "active", "platform": platform}
+    found = await _find_session_for_user(candidates, request.user.id)
+    if found is not None:
+        container, _, session = found
+        status: dict[str, Any] = {"status": "active", "platform": platform}
+        # An activate that has not returned yet leaves no launched_at behind.
+        # Gating the broker round trip on it keeps this route pure Redis for
+        # the rest of the session, which is the part that gets polled forever.
+        if session.get("launched_at") is None and _is_webstation(container):
+            status["extraction_phase"] = await asyncio.to_thread(
+                _webstation_launch_phase, container
+            )
+        return status
     # The tombstone is keyed per container, so with a pool the caller's notice
     # can sit under any of them.
     termination = None
@@ -1823,7 +1849,7 @@ def _webstation_activate(
     path = _webstation_path(container, "/activate")
     try:
         resp = _broker_request(
-            container, path, body=body, timeout=_BROKER_LAUNCH_TIMEOUT
+            container, path, body=body, timeout=STREAMING_LAUNCH_TIMEOUT
         )
     except urllib.error.HTTPError as exc:
         error_body = _broker_error_body(exc)
@@ -1850,6 +1876,27 @@ def _webstation_activate(
     resp = resp if isinstance(resp, dict) else {}
     log.info("broker activated session, %s", resp)
     return resp
+
+
+def _webstation_launch_phase(container: dict[str, Any]) -> str | None:
+    """GET /api/session/status, reduced to the extraction phase it reports.
+
+    The broker sets this while it unpacks a pkg or archive, which is the part
+    of an activate long enough that the player needs to see something. None
+    covers every other answer: no session, a launch already past extraction,
+    or a broker that did not reply.
+    """
+    body = _broker_request_safe(
+        container,
+        _webstation_path(container, "/status"),
+        "status",
+        method="GET",
+        timeout=_BROKER_ACK_TIMEOUT,
+    )
+    if not isinstance(body, dict):
+        return None
+    phase = body.get("extraction_phase")
+    return phase if isinstance(phase, str) else None
 
 
 def _webstation_join(container: dict[str, Any], user: User) -> dict[str, Any] | None:
@@ -3423,6 +3470,10 @@ async def get_config(request: Request) -> JSONResponse:
         {
             "enabled": cfg.get("enabled", False),
             "containers": list(safe_containers.values()),
+            # How long a claim is allowed to block, so the client derives its
+            # own request ceiling from this rather than keeping a copy that
+            # goes stale the moment an operator raises the limit.
+            "launch_timeout": STREAMING_LAUNCH_TIMEOUT,
         }
     )
 
@@ -3792,6 +3843,11 @@ async def claim_session(
         except Exception:
             log.exception("save hydration failed, continuing launch")
 
+    # A webstation activate blocks through pkg/archive extraction, which runs
+    # well past _SESSION_STALE_SECONDS. Nothing beats for the player until the
+    # stream is up, so without this refresh the next claimant reads the record
+    # as abandoned and tears the container down mid-extraction.
+    claim_hold = asyncio.create_task(_hold_session_claim(session_key, session))
     try:
         # Tell the broker to load the ROM, raises HTTPException on failure.
         # Wrapped in asyncio.to_thread because urllib is synchronous.
@@ -3829,8 +3885,11 @@ async def claim_session(
         if created_blank_card_id is not None:
             await _discard_blank_card(created_blank_card_id)
         raise
+    finally:
+        claim_hold.cancel()
 
     log.info("session claimed, platform=%s rom=%s", platform, rom_name)
+    await _stamp_launched(session_key)
 
     # The webstation broker's deferred load waits for its emulator to report
     # the game running, and holds off further until the state file is there, so
@@ -4631,6 +4690,7 @@ async def claim_desktop_session(
     if room_url:
         host = urljoin(host, room_url)
 
+    await _stamp_launched(session_key)
     log.info("desktop session claimed, container=%s", session_key)
     return JSONResponse(
         {

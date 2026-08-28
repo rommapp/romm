@@ -98,6 +98,7 @@ const errorType = ref<ErrorType>(null);
 const errorMessage = ref<string>("");
 const errorHint = ref<string>("");
 const occupiedBy = ref<{ rom_name: string; claimed_at: string } | null>(null);
+const launchPhase = ref<string | null>(null);
 const draining = ref(false);
 const containerHost = ref<string>("");
 const isSavingAndExiting = ref(false);
@@ -142,6 +143,27 @@ watch(sessionActive, (active) => {
   playingStore.setPlaying(active);
   if (active) startSessionPoll();
   else stopSessionPoll();
+});
+
+watch(
+  () => playerState.value === "loading",
+  (launching) => {
+    if (launching) startLaunchPoll();
+    else stopLaunchPoll();
+  },
+);
+
+// What the play button says while the claim is in flight. The phase only
+// arrives once the broker has started unpacking, so the generic line covers
+// both the wait before that and every launch with no extraction step.
+const launchStatusText = computed(() => {
+  if (launchPhase.value === "extracting_archive") {
+    return t("play.launch-extracting-archive");
+  }
+  if (launchPhase.value === "extracting_pkg") {
+    return t("play.launch-extracting-pkg");
+  }
+  return t("play.launch-starting");
 });
 
 // Rom id straight from the route param (available before `rom` resolves),
@@ -543,6 +565,39 @@ function stopSessionPoll() {
     clearInterval(sessionPollTimer);
     sessionPollTimer = null;
   }
+}
+
+// The claim request blocks until the game is up, and a webstation broker
+// unpacks pkg and archive ROMs before it can start the emulator. Minutes can
+// pass with nothing to show, so the phase comes from a second request running
+// alongside the claim.
+const LAUNCH_POLL_MS = 3_000;
+let launchPollTimer: ReturnType<typeof setInterval> | null = null;
+
+async function pollLaunchPhase(): Promise<void> {
+  if (!rom.value) return;
+  const status = await streamingStore.fetchSessionStatus(
+    rom.value.platform_slug,
+  );
+  // Only the phase is read here. The claim is not recorded until the request
+  // this runs beside has reached the backend, so an early poll reports the
+  // session as ended, and acting on that would tear down a live launch.
+  if (playerState.value !== "loading") return;
+  launchPhase.value = status?.extraction_phase ?? null;
+}
+
+function startLaunchPoll() {
+  // A joiner does not own the claim, so the status route only gives it 403s.
+  if (launchPollTimer || isJoining) return;
+  launchPollTimer = setInterval(() => void pollLaunchPhase(), LAUNCH_POLL_MS);
+}
+
+function stopLaunchPoll() {
+  if (launchPollTimer) {
+    clearInterval(launchPollTimer);
+    launchPollTimer = null;
+  }
+  launchPhase.value = null;
 }
 
 // A background tab's timers are throttled, so the poll may not have run for
@@ -1212,6 +1267,7 @@ onBeforeUnmount(() => {
   }
   stopActivityHeartbeat();
   stopSessionPoll();
+  stopLaunchPoll();
   emitActivityStop();
   // The claim, not the player state, says whether anything is still held:
   // an exit whose release failed leaves it standing, and this is its retry.
@@ -1266,16 +1322,20 @@ onBeforeUnmount(() => {
           variant="flat"
           color="primary"
           block
-          prepend-icon="mdi-play"
+          :prepend-icon="
+            playerState === 'loading' ? 'mdi-loading' : 'mdi-play'
+          "
           class="r-v2-stream__play"
-          :loading="!rom || playerState === 'loading'"
+          :class="{ 'r-v2-stream__play--launching': playerState === 'loading' }"
           :disabled="!rom || playerState === 'loading'"
           @click="onPlay()"
         >
           {{
-            errorType === "occupied"
-              ? t("play.stream-try-again")
-              : t("play.play-on", { label: emulatorLabel })
+            playerState === "loading"
+              ? launchStatusText
+              : errorType === "occupied"
+                ? t("play.stream-try-again")
+                : t("play.play-on", { label: emulatorLabel })
           }}
         </RBtn>
         <div class="r-v2-stream__hero-links">
@@ -1853,6 +1913,9 @@ onBeforeUnmount(() => {
   letter-spacing: 0.02em;
   box-shadow: 0 10px 24px
     color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
+}
+.r-v2-stream__play--launching :deep(.v-icon) {
+  animation: r-stream-spin 0.8s linear infinite;
 }
 .r-v2-stream__hero-links {
   display: flex;

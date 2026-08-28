@@ -25,6 +25,9 @@ export interface StreamingContainer {
 export interface StreamingConfig {
   enabled: boolean;
   containers: StreamingContainer[];
+  // Seconds the backend gives a claim before it gives up on the broker. The
+  // claim request's own ceiling is derived from this.
+  launch_timeout: number;
 }
 
 export interface ActiveSession {
@@ -93,6 +96,9 @@ export interface SessionStatus {
   status: "active" | "ended";
   platform: string;
   termination?: SessionTermination | null;
+  /** What the broker is unpacking, while a claim is still in flight. Absent
+   *  once the launch has returned, and on brokers with no extraction step. */
+  extraction_phase?: string | null;
 }
 
 /** Body of the 428 a claim returns when the container still holds a memory
@@ -154,20 +160,34 @@ async function fetchConfig() {
   });
 }
 
+/** Grace added to the backend's launch timeout, so a claim that runs the full
+ *  server-side budget still returns the server's own error rather than dying
+ *  on a bare client timeout first. */
+const CLAIM_TIMEOUT_GRACE_MS = 60_000;
+
+/** The claim blocks until the container has the game up, and a webstation
+ *  broker unpacks pkg and archive ROMs before it can start the emulator. That
+ *  runs far past the client default, so this one call carries its own ceiling,
+ *  built from the launch_timeout /config ships. */
 async function claimSession(
   romId: number,
+  launchTimeoutSeconds: number,
   stateId?: number,
   memoryCardId?: number,
   cardImport?: MemoryCardImport,
   multiplayer?: boolean,
 ) {
-  return api.post<ActiveSession>("/streaming/sessions", {
-    rom_id: romId,
-    ...(stateId !== undefined ? { state_id: stateId } : {}),
-    ...(memoryCardId !== undefined ? { memory_card_id: memoryCardId } : {}),
-    ...(cardImport !== undefined ? { card_import: cardImport } : {}),
-    ...(multiplayer !== undefined ? { multiplayer } : {}),
-  });
+  return api.post<ActiveSession>(
+    "/streaming/sessions",
+    {
+      rom_id: romId,
+      ...(stateId !== undefined ? { state_id: stateId } : {}),
+      ...(memoryCardId !== undefined ? { memory_card_id: memoryCardId } : {}),
+      ...(cardImport !== undefined ? { card_import: cardImport } : {}),
+      ...(multiplayer !== undefined ? { multiplayer } : {}),
+    },
+    { timeout: launchTimeoutSeconds * 1_000 + CLAIM_TIMEOUT_GRACE_MS },
+  );
 }
 
 async function releaseSession(
