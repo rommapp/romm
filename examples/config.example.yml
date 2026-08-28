@@ -189,29 +189,66 @@
 #       3: # Player 4
 
 # Emulator streaming: play a ROM through a real emulator running in a
-# webstation container, streamed into the browser, instead of RomM's built-in
-# web cores. `protocol: webstation` is the only supported container type; see
+# webstation container (https://github.com/romm-streaming/romm-broker),
+# streamed into the browser instead of RomM's built-in web cores.
+# `protocol: webstation` is the only supported container type; see
 # docs/STREAMING_MIGRATION.md if you are still on the per-emulator broker mods
 # (containers with a bare `platform:` key and no `protocol`), which are
 # deprecated and will stop working in a future release.
+#
+# Every platform the broker can serve is listed under `platforms` below.
+# Uncomment the section, then delete or comment out the platforms you don't
+# have ROMs for. Platform keys are RomM platform slugs (the same names as your
+# library folders, after any `system.platforms` binding above).
+#
+# A platform is served by one emulator. Where the broker offers more than one,
+# the alternative is shown commented out on the line below; swap them by
+# moving the `#`. Emulator names, and what each one can do:
+#
+#   Standalone (one platform family each):
+#     pcsx2        PlayStation 2      save states, memory card, manual disc swap
+#     duckstation  PlayStation        resume state on exit only
+#     dolphin      GameCube, Wii      save states, GameCube memory card
+#     ppsspp       PSP                save states
+#     flycast      Dreamcast          resume state on exit only
+#     cemu         Wii U              no states, game saves only
+#     azahar       3DS                no states, game saves only
+#     eden         Switch             no states, game saves only
+#     rpcs3        PlayStation 3      resume state on exit only
+#     shadps4      PlayStation 4      no states, game saves only
+#     xemu         Xbox               no states, game saves only
+#     xenia        Xbox 360           no states, game saves only
+#   General purpose:
+#     retroarch    a libretro core picked per platform (see each platform's
+#                  comment). One shared save/resume slot, live disc swap on
+#                  dc, saturn, segacd, turbografx-cd and dos playlists.
+#
+# Many RetroArch cores need a BIOS in the container before they boot; see
+# https://romm-streaming.github.io/romm-broker/docs/emulators/retroarch-cores
+#
 # streaming:
 #   enabled: true
 #   containers:
 #     # One container serving many platforms. Every key on the container is the
 #     # default for every platform it serves; a platform block overrides it.
 #     # A platform block may only override emulator, label, and memory_card_sync.
-#     - # Browser-facing Selkies web UI, MUST be served over https
+#     - protocol: webstation
+#       # Browser-facing Selkies web UI, MUST be served over https
 #       # (use a reverse proxy or the built in self signed cert for linuxserver)
-#       # can also be a FQDN eg. https://your.example.com
+#       # can also be a FQDN eg. https://your.example.com, or a same-origin
+#       # path eg. /streaming when the container is proxied under RomM's host.
 #       host: https://192.168.1.56:3010
-#       protocol: webstation
 #       # URL prefix the broker is served under, matching the container's
 #       # SUBFOLDER setting.
 #       subfolder: /streaming
 #       # Where the container mounts your ROM library.
 #       library_path: /romm
+#       # Shared secret matching the container's BROKER_SECRET. Can also be
+#       # given to RomM as the STREAMING_BROKER_SECRET environment variable,
+#       # which wins over this key for every container.
+#       broker_secret: change-me
 #       # Name of the container in admin views. The play button is labelled by
-#       # the emulator serving each platform ("PCSX2", "RA PPSSPP"), unless a
+#       # the emulator serving each platform ("PCSX2", "RA Snes9x"), unless a
 #       # platform block sets its own `label` below.
 #       label: Emulation station
 #
@@ -225,27 +262,120 @@
 #
 #       platforms:
 #         # A platform is either the emulator that serves it...
-#         wii: dolphin
-#         xbox: xemu
-#         snes: retroarch
-#         psp: retroarch
+#         #   snes: retroarch
 #         # ...or a block overriding container keys for that platform alone.
+#         #   ps2:
+#         #     emulator: pcsx2
+#         #     label: PCSX2
+#         #     memory_card_sync: true
+#
+#         # ---- Sony ----
+#         # DuckStation has no mid-session states, only a resume state on exit.
+#         # The SwanStation core needs a PS1 BIOS (eg. scph5501.bin).
+#         psx: duckstation
+#         # psx: retroarch          # SwanStation core
 #         ps2:
 #           emulator: pcsx2
-#           label: PCSX2
 #           # Opt in to whole memory-card sync: the user's entire PS2 memory
 #           # card is hydrated onto the container at claim and evacuated back
 #           # on exit, instead of syncing individual in-game save files.
-#           # Requires a broker that serves the /memory-card endpoint.
-#           #
 #           # Only ps2 and ngc have a memory card. On any other platform the
-#           # flag is ignored with a warning, because whole-card sync replaces
-#           # the per-file save sync that wii and xbox actually need.
+#           # flag is ignored with a warning.
 #           memory_card_sync: true
+#         # Both PSP options have save states. The RetroArch core needs no
+#         # BIOS and shares RetroArch's hotkeys with every other core.
+#         psp: retroarch          # PPSSPP core
+#         # psp: ppsspp           # standalone PPSSPP
+#         ps3: rpcs3              # PKG, extracted folder or disc image
+#         ps4: shadps4
+#
+#         # ---- Nintendo ----
+#         nes: retroarch          # Mesen
+#         famicom: retroarch      # Mesen
+#         fds: retroarch          # Mesen, needs disksys.rom
+#         snes: retroarch         # Snes9x
+#         sfam: retroarch         # Snes9x
+#         n64: retroarch          # Mupen64Plus-Next
+#         gb: retroarch           # Gambatte
+#         gbc: retroarch          # Gambatte
+#         gba: retroarch          # mGBA, gba_bios.bin optional
+#         virtualboy: retroarch   # Beetle VB
+#         nds: retroarch          # melonDS, real firmware optional
+#         # Standalone Dolphin has slot save states and a GameCube memory
+#         # card; the RetroArch core has the shared single slot.
 #         ngc:
 #           emulator: dolphin
-#           label: Dolphin
 #           memory_card_sync: true
+#         # ngc: retroarch        # Dolphin core
+#         wii: dolphin
+#         # wii: retroarch        # Dolphin core
+#         # 3DS: the RetroArch core is the better option, standalone Azahar
+#         # has no control interface so exit is a plain kill.
+#         3ds: retroarch          # Azahar core
+#         # 3ds: azahar           # standalone Azahar
+#         wiiu: cemu
+#         switch: eden
+#
+#         # ---- Microsoft ----
+#         xbox: xemu
+#         xbox360: xenia          # XISO, .xex, extracted dump or XBLA folder
+#
+#         # ---- Sega ----
+#         genesis: retroarch      # Genesis Plus GX
+#         sms: retroarch          # Genesis Plus GX
+#         gamegear: retroarch     # Genesis Plus GX
+#         sg1000: retroarch       # Genesis Plus GX
+#         segacd: retroarch       # Genesis Plus GX, needs region CD BIOS
+#         sega32: retroarch       # PicoDrive
+#         saturn: retroarch       # Yaba Sanshiro, needs Saturn BIOS
+#         # Dreamcast needs dc_boot.bin and dc_flash.bin either way. The
+#         # RetroArch core adds live disc swap; standalone Flycast only
+#         # writes a resume state on exit.
+#         dc: retroarch           # Flycast core
+#         # dc: flycast           # standalone Flycast
+#
+#         # ---- NEC ----
+#         tg16: retroarch         # Beetle PCE
+#         supergrafx: retroarch   # Beetle SuperGrafx
+#         turbografx-cd: retroarch # Beetle PCE, needs System Card (syscard3.pce)
+#
+#         # ---- SNK and arcade ----
+#         # FinalBurn Neo needs MAME-compatible non-merged romsets; Neo Geo
+#         # additionally needs neogeo.zip.
+#         arcade: retroarch       # FinalBurn Neo
+#         cps1: retroarch         # FinalBurn Neo
+#         cps2: retroarch         # FinalBurn Neo
+#         cps3: retroarch         # FinalBurn Neo
+#         neogeoaes: retroarch    # FinalBurn Neo
+#         neogeomvs: retroarch    # FinalBurn Neo
+#         neo-geo-cd: retroarch   # NeoCD, needs Neo Geo CD BIOS
+#         neo-geo-pocket: retroarch       # Beetle NGP
+#         neo-geo-pocket-color: retroarch # Beetle NGP
+#
+#         # ---- Atari ----
+#         atari2600: retroarch    # Stella
+#         atari5200: retroarch    # a5200, needs 5200.rom
+#         atari7800: retroarch    # ProSystem
+#         lynx: retroarch         # Handy
+#         jaguar: retroarch       # Virtual Jaguar, no save states
+#         atari-st: retroarch     # Hatari, needs TOS ROM
+#
+#         # ---- Other consoles and handhelds ----
+#         wonderswan: retroarch        # Beetle WonderSwan
+#         wonderswan-color: retroarch  # Beetle WonderSwan
+#         3do: retroarch          # Opera, needs boot ROM (eg. panafz10.bin)
+#         colecovision: retroarch # Gearcoleco, needs coleco.rom
+#         intellivision: retroarch # FreeIntv, needs exec.bin and grom.bin
+#         vectrex: retroarch      # vecx
+#         odyssey-2: retroarch    # O2EM, needs o2rom.bin
+#
+#         # ---- Home computers ----
+#         dos: retroarch          # DOSBox Pure
+#         amiga: retroarch        # PUAE, needs Kickstart ROM
+#         c64: retroarch          # VICE x64
+#         msx: retroarch          # blueMSX, needs machine ROMs
+#         msx2: retroarch         # blueMSX, needs machine ROMs
+#         zxs: retroarch          # Fuse
 #
 #     # A webstation container can also serve a single platform, if you'd
 #     # rather run one container per emulator than share one across all of
@@ -254,9 +384,9 @@
 #     # - host: https://192.168.1.51:3001
 #     #   protocol: webstation
 #     #   subfolder: /streaming
+#     #   broker_secret: change-me
 #     #   label: Emulation station
 #     #   platforms:
 #     #     ps2:
 #     #       emulator: pcsx2
-#     #       label: PCSX2
 #     #       memory_card_sync: true
