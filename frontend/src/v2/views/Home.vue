@@ -61,8 +61,10 @@ const fetchingRecent = ref(false);
 const fetchingContinue = ref(false);
 
 // Multiplayer sessions other users are hosting right now. Nothing pushes a
-// session start, so the list is polled while the page is open; the store's
-// freshness window bounds the cost. Hidden entirely when empty.
+// session start, so the list is polled while the page is open. Only the
+// leading fetch forces past the store's freshness window; later ticks defer
+// to it so a fetch another surface already made in that window is reused
+// instead of duplicated. Hidden entirely when empty.
 const streamingStore = useStreamingStore();
 const { joinableSessions, isEnabled: streamingEnabled } =
   storeToRefs(streamingStore);
@@ -72,9 +74,9 @@ const liveSessions = computed(() =>
 const LIVE_SESSIONS_POLL_MS = 30_000;
 let liveSessionsTimer: ReturnType<typeof setInterval> | null = null;
 
-function refreshLiveSessions(): void {
+function refreshLiveSessions(force = false): void {
   if (!streamingEnabled.value) return;
-  void streamingStore.fetchJoinableSessions(true);
+  void streamingStore.fetchJoinableSessions(force);
 }
 
 watch(
@@ -83,8 +85,11 @@ watch(
     if (liveSessionsTimer) clearInterval(liveSessionsTimer);
     liveSessionsTimer = null;
     if (!enabled) return;
-    refreshLiveSessions();
-    liveSessionsTimer = setInterval(refreshLiveSessions, LIVE_SESSIONS_POLL_MS);
+    refreshLiveSessions(true);
+    liveSessionsTimer = setInterval(
+      () => refreshLiveSessions(),
+      LIVE_SESSIONS_POLL_MS,
+    );
   },
   { immediate: true },
 );

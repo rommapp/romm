@@ -28,6 +28,7 @@ import { useCan } from "@/v2/composables/useCan";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useClipboard } from "@/v2/composables/useClipboard";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useJoinStreamConfirm } from "@/v2/composables/useJoinStreamConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
@@ -330,21 +331,15 @@ export function useGameActions(
   // opens normally, so the join intent has to reach it in the URL. Confirming
   // first is what stands in for the start page, which a joiner never sees:
   // they land in someone else's running game with no settings of their own.
+  const { joinStream: confirmAndJoinStream } = useJoinStreamConfirm();
   async function joinStream() {
     const rom = getRom();
     if (!rom || !canJoinStream.value) return;
-    const host = joinHostLabel.value;
-    const ok = await confirm({
-      title: host
-        ? t("rom.confirm-join-title-of", { user: host })
-        : t("rom.confirm-join-title"),
-      body: t("rom.confirm-join-body", {
-        name: rom.name ?? rom.fs_name_no_ext ?? "",
-      }),
-      confirmText: t("rom.join-session"),
+    await confirmAndJoinStream({
+      romId: rom.id,
+      romName: rom.name ?? rom.fs_name_no_ext ?? "",
+      hostUsername: joinHostLabel.value || null,
     });
-    if (!ok) return;
-    void router.push(`/rom/${rom.id}/stream?join=1`);
   }
 
   const platformPath = computed(() => {

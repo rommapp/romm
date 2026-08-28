@@ -265,7 +265,9 @@ def test_get_config_labels_each_platform_by_its_emulator(client, access_token):
 
 
 def test_emulator_display_label_falls_back_to_the_configured_name():
-    assert streaming._emulator_display_label("retroarch", "n64") == "RA Mupen64Plus"
+    assert (
+        streaming._emulator_display_label("retroarch", "n64") == "RA Mupen64Plus-Next"
+    )
     assert (
         streaming._emulator_display_label("retroarch", "unknown-slug")
         == "RA UNKNOWN-SLUG"

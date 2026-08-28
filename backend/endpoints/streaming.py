@@ -949,17 +949,17 @@ _RETROARCH_CORE_NAMES: dict[str, str] = {
     "dos": "DOSBox Pure",
     "famicom": "Mesen",
     "fds": "Mesen",
-    "gamegear": "Genesis GX",
+    "gamegear": "Genesis Plus GX",
     "gb": "Gambatte",
     "gba": "mGBA",
     "gbc": "Gambatte",
-    "genesis": "Genesis GX",
+    "genesis": "Genesis Plus GX",
     "intellivision": "FreeIntv",
     "jaguar": "Virtual Jaguar",
     "lynx": "Handy",
     "msx": "blueMSX",
     "msx2": "blueMSX",
-    "n64": "Mupen64Plus",
+    "n64": "Mupen64Plus-Next",
     "nds": "melonDS",
     "neo-geo-cd": "NeoCD",
     "neo-geo-pocket": "Beetle NGP",
@@ -973,19 +973,19 @@ _RETROARCH_CORE_NAMES: dict[str, str] = {
     "psx": "SwanStation",
     "saturn": "Yaba Sanshiro",
     "sega32": "PicoDrive",
-    "segacd": "Genesis GX",
+    "segacd": "Genesis Plus GX",
     "sfam": "Snes9x",
-    "sg1000": "Genesis GX",
-    "sms": "Genesis GX",
+    "sg1000": "Genesis Plus GX",
+    "sms": "Genesis Plus GX",
     "snes": "Snes9x",
-    "supergrafx": "Beetle SGX",
+    "supergrafx": "Beetle SuperGrafx",
     "tg16": "Beetle PCE",
     "turbografx-cd": "Beetle PCE",
     "vectrex": "vecx",
     "virtualboy": "Beetle VB",
     "wii": "Dolphin",
-    "wonderswan": "Beetle WSwan",
-    "wonderswan-color": "Beetle WSwan",
+    "wonderswan": "Beetle WonderSwan",
+    "wonderswan-color": "Beetle WonderSwan",
     "zxs": "Fuse",
 }
 
@@ -3909,8 +3909,6 @@ async def claim_session(
             )
         except Exception:
             log.exception("save hydration failed, continuing launch")
-        # The archive restores in-game saves only. A state is loaded solely
-        # when one was picked, so a claim without state_id boots clean.
     elif memory_card is None:
         # Legacy per-file save sync (containers without memory_card_sync).
         # Best-effort: a failed hydration just means the container keeps its own.
@@ -4815,11 +4813,17 @@ async def list_joinable_sessions(
         user_id = s.get("user_id")
         host = db_user_handler.get_user(user_id) if user_id is not None else None
         session_rom_id = s.get("rom_id")
-        rom = db_rom_handler.get_rom(session_rom_id) if session_rom_id is not None else None
+        rom = (
+            db_rom_handler.get_rom(session_rom_id)
+            if session_rom_id is not None
+            else None
+        )
         sessions.append(
             {
                 "container": container_key,
-                "label": _container_label(container_key, grouped.get(container_key, [])),
+                "label": _container_label(
+                    container_key, grouped.get(container_key, [])
+                ),
                 "platform": s.get("platform"),
                 "rom_id": session_rom_id,
                 "rom_name": s.get("rom_name"),

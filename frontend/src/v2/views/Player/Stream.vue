@@ -344,12 +344,10 @@ watch(
 // Clicking the selected tile deselects it, which is how a fresh boot is
 // chosen when a state exists.
 function pickState(state: UserStateSchema): void {
-  statePreselected.value = true;
   selectedState.value = selectedState.value?.id === state.id ? null : state;
 }
 
 function clearState(): void {
-  statePreselected.value = true;
   selectedState.value = null;
 }
 

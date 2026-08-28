@@ -5,11 +5,10 @@
 import { RChip, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 import type { JoinableSession } from "@/stores/streaming";
 import GameCover from "@/v2/components/shared/GameCover.vue";
-import { useConfirm } from "@/v2/composables/useConfirm";
 import type { CoverArtRom } from "@/v2/composables/useCoverArt";
+import { useJoinStreamConfirm } from "@/v2/composables/useJoinStreamConfirm";
 
 interface Props {
   session: JoinableSession;
@@ -21,8 +20,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const { t } = useI18n();
-const router = useRouter();
-const confirm = useConfirm();
+const { joinStream } = useJoinStreamConfirm();
 
 const title = computed(() => props.session.rom_name ?? "");
 
@@ -44,19 +42,22 @@ const hostLabel = computed(() =>
     : t("home.live-session-host-unknown"),
 );
 
+// Mirrors hostLabel's fallback, so an unknown host reads the same way here
+// as it does in the visible meta line, not as "Join 's session".
+const joinAriaLabel = computed(() =>
+  props.session.host_username
+    ? t("rom.join-session-of", { user: props.session.host_username })
+    : t("rom.join-session"),
+);
+
 async function join(): Promise<void> {
   const romId = props.session.rom_id;
   if (romId == null) return;
-  const host = props.session.host_username;
-  const ok = await confirm({
-    title: host
-      ? t("rom.confirm-join-title-of", { user: host })
-      : t("rom.confirm-join-title"),
-    body: t("rom.confirm-join-body", { name: title.value }),
-    confirmText: t("rom.join-session"),
+  await joinStream({
+    romId,
+    romName: title.value,
+    hostUsername: props.session.host_username,
   });
-  if (!ok) return;
-  void router.push(`/rom/${romId}/stream?join=1`);
 }
 </script>
 
@@ -65,9 +66,7 @@ async function join(): Promise<void> {
     type="button"
     class="r-live-card"
     :data-focus-key="`live-session-${session.container}`"
-    :aria-label="
-      t('rom.join-session-of', { user: session.host_username ?? '' })
-    "
+    :aria-label="joinAriaLabel"
     @click="join"
   >
     <div class="r-live-card__cover">
