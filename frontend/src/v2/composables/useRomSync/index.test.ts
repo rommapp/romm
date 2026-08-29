@@ -133,6 +133,20 @@ describe("useRomSync", () => {
     expect(getRoms).not.toHaveBeenCalled();
   });
 
+  // Collection heads and tiles read their count off the store, so the re-read
+  // is owed even for a write from GameDetails.
+  it("applyRomWrite re-reads the virtual collections when off the gallery", () => {
+    const collections = storeCollections();
+    const refresh = vi
+      .spyOn(collections, "refreshVirtualCollections")
+      .mockResolvedValue([]);
+
+    useRomSync().applyRomWrite(makeRom({ igdb_id: 1234 }));
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(getRoms).not.toHaveBeenCalled();
+  });
+
   it("refreshAfterUserStateChange refetches the Favourites collection", () => {
     const gallery = seedGallery(makeRom());
     const collections = storeCollections();

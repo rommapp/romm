@@ -12,6 +12,7 @@ from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 from utils import uploads
+from utils.validation import MAX_ROM_IDS_PER_QUERY
 
 
 def _auth(token: str) -> dict[str, str]:
@@ -315,3 +316,89 @@ def test_kiosk_mode_anonymous_visitor_cannot_upload_state(client, rom: Rom):
         )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestRomIdsScope:
+    def test_scopes_results_to_listed_roms(
+        self, client, access_token: str, rom: Rom, state: State, second_state: State
+    ):
+        response = client.get(
+            f"/api/states?rom_ids={rom.id}", headers=_auth(access_token)
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()] == [state.id]
+
+    def test_accepts_repeated_ids(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        second_rom: Rom,
+        state: State,
+        second_state: State,
+    ):
+        response = client.get(
+            f"/api/states?rom_ids={rom.id}&rom_ids={second_rom.id}",
+            headers=_auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert {item["id"] for item in response.json()} == {state.id, second_state.id}
+
+    def test_tolerates_duplicates(
+        self, client, access_token: str, rom: Rom, state: State
+    ):
+        response = client.get(
+            f"/api/states?rom_ids={rom.id}&rom_ids={rom.id}",
+            headers=_auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()] == [state.id]
+
+    def test_omitted_returns_all_states(
+        self, client, access_token: str, state: State, second_state: State
+    ):
+        response = client.get("/api/states", headers=_auth(access_token))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert {item["id"] for item in response.json()} == {state.id, second_state.id}
+
+    def test_narrows_to_the_intersection_with_rom_id(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        second_rom: Rom,
+        state: State,
+        second_state: State,
+    ):
+        response = client.get(
+            f"/api/states?rom_id={rom.id}&rom_ids={second_rom.id}",
+            headers=_auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == []
+
+    def test_rejects_non_integer_ids(self, client, access_token: str):
+        response = client.get(
+            "/api/states?rom_ids=1&rom_ids=abc", headers=_auth(access_token)
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    def test_rejects_non_positive_ids(self, client, access_token: str):
+        response = client.get(
+            "/api/states?rom_ids=1&rom_ids=0", headers=_auth(access_token)
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    def test_rejects_scope_over_the_limit(self, client, access_token: str):
+        rom_ids = "&".join(f"rom_ids={i}" for i in range(1, MAX_ROM_IDS_PER_QUERY + 2))
+
+        response = client.get(f"/api/states?{rom_ids}", headers=_auth(access_token))
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT

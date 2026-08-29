@@ -1886,3 +1886,28 @@ class TestSonySerialFilenames:
         assert result.get("name") == "Switch Game"
         assert result.get("url_cover") == "https://example.net/icon.png"
         assert not result.get("url_manual")
+
+
+class TestDevCredentials:
+    """Tests for ``SSHandler.has_dev_credentials``."""
+
+    @pytest.mark.parametrize(
+        ("dev_id", "dev_password", "expected"),
+        [
+            ("dev", "devpass", True),
+            (None, "devpass", False),
+            ("dev", None, False),
+            (None, None, False),
+            ("", "", False),
+        ],
+    )
+    def test_reports_whether_both_credentials_are_present(
+        self, dev_id: str | None, dev_password: str | None, expected: bool
+    ):
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_DEV_ID", dev_id),
+            patch(
+                "handler.metadata.ss_handler.SCREENSCRAPER_DEV_PASSWORD", dev_password
+            ),
+        ):
+            assert SSHandler.has_dev_credentials() is expected

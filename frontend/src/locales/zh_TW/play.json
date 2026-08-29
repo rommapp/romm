@@ -1,4 +1,5 @@
 {
+  "all-discs": "所有光碟",
   "all-saves": "所有存檔",
   "all-states": "所有即時存檔",
   "back-to-gallery": "返回遊戲庫",
@@ -13,6 +14,8 @@
   "deselect-save": "取消選擇存檔",
   "deselect-state": "取消選擇即時存檔",
   "full-screen": "全螢幕",
+  "jsdos-browser-save-warning": "js-dos 存檔僅保存在此瀏覽器中，不會與 RomM 同步。",
+  "jsdos-quit-without-saving": "不儲存最近的進度並退出嗎？",
   "no-save-selected": "未選擇存檔",
   "no-saves-available": "無可用存檔",
   "no-screenshot-available": "沒有可用的截圖",

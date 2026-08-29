@@ -565,13 +565,7 @@ class TestIdentifyRomTagReparse:
 
         # A COMPLETE scan runs past the point a HASHES scan returns at, into the
         # resource downloads and the closing emit, none of which is under test.
-        resources = mocker.patch.object(
-            scan_module, "fs_resource_handler", new=AsyncMock()
-        )
-        resources.get_cover.return_value = ("cover_s.png", "cover_l.png")
-        resources.get_manual.return_value = "manual.pdf"
-        resources.get_rom_screenshots.return_value = []
-        resources.store_metadata_media.return_value = False
+        mocker.patch.object(scan_module, "download_rom_resources", new=AsyncMock())
         mocker.patch.object(scan_module, "SimpleRomSchema", MagicMock())
 
         db = mocker.patch.object(scan_module, "db_rom_handler")

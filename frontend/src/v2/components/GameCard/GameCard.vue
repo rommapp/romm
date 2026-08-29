@@ -522,7 +522,12 @@ function onStaticKeydown(e: KeyboardEvent) {
           </div>
 
           <div class="r-gc__overlay-bottom">
-            <GameActionBtn :rom="rom" action="download" size="small" />
+            <GameActionBtn
+              v-if="actions?.canDownload.value"
+              :rom="rom"
+              action="download"
+              size="small"
+            />
             <GameActionBtn :rom="rom" action="collection" size="small" />
             <GameActionBtn :rom="rom" action="favorite" size="small" />
             <GameActionBtn :rom="rom" action="more" size="small" />

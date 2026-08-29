@@ -10,6 +10,7 @@ class MetadataSourcesDict(TypedDict):
     ANY_SOURCE_ENABLED: bool
     IGDB_API_ENABLED: bool
     SS_API_ENABLED: bool
+    SS_DEV_CREDENTIALS_SET: bool
     MOBY_API_ENABLED: bool
     STEAMGRIDDB_API_ENABLED: bool
     RA_API_ENABLED: bool
@@ -29,6 +30,7 @@ class FilesystemDict(TypedDict):
 class EmulationDict(TypedDict):
     DISABLE_EMULATOR_JS: bool
     DISABLE_RUFFLE_RS: bool
+    DISABLE_JSDOS: bool
 
 
 class FrontendDict(TypedDict):

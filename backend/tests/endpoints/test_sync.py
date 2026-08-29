@@ -18,6 +18,7 @@ from models.assets import Save
 from models.device import Device, SyncMode
 from models.rom import Rom
 from models.user import User
+from utils.validation import MAX_ROM_IDS_PER_QUERY
 
 
 class TestSyncNegotiate:
@@ -139,6 +140,156 @@ class TestSyncNegotiate:
         data = response.json()
         assert "session_id" in data
         assert data["session_id"] > 0
+
+
+class TestNegotiateRomIdsScope:
+    """`rom_ids` scopes negotiation to the ROMs installed on the device."""
+
+    def test_scope_omits_downloads_for_uninstalled_roms(
+        self,
+        client,
+        access_token: str,
+        admin_user: User,
+        rom: Rom,
+        save: Save,
+        second_save: Save,
+    ):
+        device = db_device_handler.add_device(
+            Device(id="neg-scope-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={"device_id": device.id, "saves": [], "rom_ids": [rom.id]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        save_ids = [op["save_id"] for op in response.json()["operations"]]
+        assert save.id in save_ids
+        assert second_save.id not in save_ids
+
+    def test_without_scope_all_saves_are_offered(
+        self,
+        client,
+        access_token: str,
+        admin_user: User,
+        save: Save,
+        second_save: Save,
+    ):
+        device = db_device_handler.add_device(
+            Device(id="neg-noscope-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={"device_id": device.id, "saves": []},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        save_ids = [op["save_id"] for op in response.json()["operations"]]
+        assert {save.id, second_save.id} <= set(save_ids)
+
+    def test_client_save_outside_scope_is_still_paired(
+        self, client, access_token: str, admin_user: User, rom: Rom, save: Save
+    ):
+        """A ROM missing from `rom_ids` but present in `saves` must not be
+        misread as an upload just because the scope omitted it."""
+        device = db_device_handler.add_device(
+            Device(id="neg-scope-pair-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={
+                "device_id": device.id,
+                "rom_ids": [rom.id + 10_000],
+                "saves": [
+                    {
+                        "rom_id": rom.id,
+                        "file_name": save.file_name,
+                        "slot": save.slot,
+                        "updated_at": "2026-01-10T00:00:00Z",
+                        "file_size_bytes": 1024,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total_upload"] == 0
+        assert [op["save_id"] for op in data["operations"]] == [save.id]
+
+    def test_empty_scope_offers_no_downloads(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(id="neg-empty-scope-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={"device_id": device.id, "saves": [], "rom_ids": []},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["operations"] == []
+
+    def test_scope_does_not_delete_saves_outside_it(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        """The scope is read-only: an omitted ROM keeps its saves."""
+        device = db_device_handler.add_device(
+            Device(
+                id="neg-scope-readonly-dev", user_id=admin_user.id, sync_enabled=True
+            )
+        )
+
+        client.post(
+            "/api/sync/negotiate",
+            json={"device_id": device.id, "saves": [], "rom_ids": []},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert db_save_handler.get_save(user_id=admin_user.id, id=save.id) is not None
+
+    def test_rejects_non_positive_ids(
+        self, client, access_token: str, admin_user: User
+    ):
+        device = db_device_handler.add_device(
+            Device(id="neg-badid-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={"device_id": device.id, "saves": [], "rom_ids": [0]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    def test_rejects_scope_over_the_limit(
+        self, client, access_token: str, admin_user: User
+    ):
+        device = db_device_handler.add_device(
+            Device(id="neg-toomany-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={
+                "device_id": device.id,
+                "saves": [],
+                "rom_ids": list(range(1, MAX_ROM_IDS_PER_QUERY + 2)),
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 class TestSyncSessions:

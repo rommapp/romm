@@ -357,11 +357,14 @@ export default defineStore("v2GalleryRoms", {
         filterStates: galleryFilter.filterStates,
         filterSoundtrack: galleryFilter.filterSoundtrack,
         filterMissing: galleryFilter.filterMissing,
+        filterPhysical: galleryFilter.filterPhysical,
         filterVerified: galleryFilter.filterVerified,
         selectedGenres: galleryFilter.selectedGenres,
         selectedFranchises: galleryFilter.selectedFranchises,
         selectedCollections: galleryFilter.selectedCollections,
         selectedCompanies: galleryFilter.selectedCompanies,
+        selectedPublishers: galleryFilter.selectedPublishers,
+        selectedDevelopers: galleryFilter.selectedDevelopers,
         selectedAgeRatings: galleryFilter.selectedAgeRatings,
         selectedRegions: galleryFilter.selectedRegions,
         selectedLanguages: galleryFilter.selectedLanguages,
@@ -373,6 +376,8 @@ export default defineStore("v2GalleryRoms", {
         franchisesLogic: galleryFilter.franchisesLogic,
         collectionsLogic: galleryFilter.collectionsLogic,
         companiesLogic: galleryFilter.companiesLogic,
+        publishersLogic: galleryFilter.publishersLogic,
+        developersLogic: galleryFilter.developersLogic,
         ageRatingsLogic: galleryFilter.ageRatingsLogic,
         regionsLogic: galleryFilter.regionsLogic,
         languagesLogic: galleryFilter.languagesLogic,
@@ -417,6 +422,8 @@ export default defineStore("v2GalleryRoms", {
         galleryFilter.setFilterGenres(data.filter_values.genres);
         galleryFilter.setFilterFranchises(data.filter_values.franchises);
         galleryFilter.setFilterCompanies(data.filter_values.companies);
+        galleryFilter.setFilterPublishers(data.filter_values.publishers);
+        galleryFilter.setFilterDevelopers(data.filter_values.developers);
         galleryFilter.setFilterAgeRatings(data.filter_values.age_ratings);
         galleryFilter.setFilterRegions(data.filter_values.regions);
         galleryFilter.setFilterLanguages(data.filter_values.languages);

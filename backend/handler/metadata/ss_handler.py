@@ -18,7 +18,12 @@ from adapters.services.screenscraper import (
     reset_scan_state,
 )
 from adapters.services.screenscraper_types import SSGame, SSGameDate
-from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
+from config import (
+    SCREENSCRAPER_DEV_ID,
+    SCREENSCRAPER_DEV_PASSWORD,
+    SCREENSCRAPER_PASSWORD,
+    SCREENSCRAPER_USER,
+)
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
@@ -325,6 +330,8 @@ class SSMetadata(SSMetadataMedia):
     alternative_names: list[str]
     age_ratings: list[SSAgeRating]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     franchises: list[str]
     game_modes: list[str]
     genres: list[str]
@@ -629,17 +636,17 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             if classification.get("type") and classification.get("text")
         ]
 
+    publishers = pydash.compact([game.get("editeur", {}).get("text")])
+    developers = pydash.compact([game.get("developpeur", {}).get("text")])
+
     return SSMetadata(
         {
             "ss_score": _normalize_score(game.get("note", {}).get("text", "")),
             "alternative_names": [name["text"] for name in game.get("noms", [])],
             "age_ratings": _get_age_ratings(game),
-            "companies": pydash.compact(
-                [
-                    game.get("editeur", {}).get("text"),
-                    game.get("developpeur", {}).get("text"),
-                ]
-            ),
+            "companies": [*publishers, *developers],
+            "publishers": publishers,
+            "developers": developers,
             "genres": _get_genres(game),
             "first_release_date": _get_lowest_date(game.get("dates", [])),
             "franchises": _get_franchises(game),
@@ -728,6 +735,13 @@ class SSHandler(MetadataHandler):
     @classmethod
     def is_enabled(cls) -> bool:
         return bool(SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD)
+
+    @classmethod
+    def has_dev_credentials(cls) -> bool:
+        """Developer credentials are injected at build time, so a build made
+        outside our CI (packaged from source) has none and every request is
+        refused, whatever the user account is."""
+        return bool(SCREENSCRAPER_DEV_ID and SCREENSCRAPER_DEV_PASSWORD)
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():

@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 
 from sqlalchemy import and_, delete, desc, or_, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
@@ -46,15 +46,16 @@ class DBStatesHandler(DBBaseHandler):
     def get_states(
         self,
         user_id: int,
-        rom_id: int | None = None,
+        rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
         only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[State]:
         query = select(State).filter_by(user_id=user_id)
 
-        if rom_id:
-            query = query.filter_by(rom_id=rom_id)
+        # An empty collection is an explicit empty scope, not an absent filter.
+        if rom_ids is not None:
+            query = query.filter(State.rom_id.in_(rom_ids))
 
         if platform_id:
             query = query.join(Rom, State.rom_id == Rom.id).filter(

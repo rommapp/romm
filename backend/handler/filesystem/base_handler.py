@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import tempfile
+from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from enum import Enum
 from io import BytesIO
@@ -148,6 +149,37 @@ def region_name_to_provider_shortcode(region_name: str | None) -> str | None:
     if not region_name:
         return None
     return _REGION_NAME_TO_PROVIDER_SHORTCODE_CI.get(region_name.lower())
+
+
+# Reverse of REGION_NAME_TO_PROVIDER_SHORTCODE. A list per code because two
+# names can claim one code ("nl" for both Holland and Netherlands), and a rom
+# tagged with either has to rank the same.
+_REGION_NAMES_BY_PROVIDER_SHORTCODE: dict[str, list[str]] = {}
+for _name, _code in REGION_NAME_TO_PROVIDER_SHORTCODE.items():
+    _REGION_NAMES_BY_PROVIDER_SHORTCODE.setdefault(_code, []).append(_name)
+
+
+def region_ranks_for_priority(shortcodes: Sequence[str]) -> dict[str, int]:
+    """Map canonical region names to their rank in a shortcode priority list.
+
+    The rank is the shortcode's position, not the name's, so two names claiming
+    one shortcode ("nl" for both Holland and Netherlands) rank equally and fall
+    through to whatever tiebreak follows.
+
+    A shortcode naming no known region (ScreenScraper's "ss", or a typo the
+    open-ended settings input allowed) contributes nothing rather than shifting
+    the ranks of everything after it. Nor does a repeated shortcode.
+    """
+    ranks: dict[str, int] = {}
+    next_rank = 0
+    for shortcode in dict.fromkeys(code.lower() for code in shortcodes):
+        names = _REGION_NAMES_BY_PROVIDER_SHORTCODE.get(shortcode)
+        if not names:
+            continue
+        for name in names:
+            ranks[name] = next_rank
+        next_rank += 1
+    return ranks
 
 
 LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}

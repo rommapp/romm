@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from typing import Literal
 
 from sqlalchemy import and_, asc, delete, desc, func, or_, select, update
@@ -84,7 +84,7 @@ class DBSavesHandler(DBBaseHandler):
     def get_saves(
         self,
         user_id: int,
-        rom_id: int | None = None,
+        rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
         slot: str | None = None,
         slot_not_null: bool = False,
@@ -95,8 +95,9 @@ class DBSavesHandler(DBBaseHandler):
     ) -> Sequence[Save]:
         query = select(Save).filter_by(user_id=user_id)
 
-        if rom_id:
-            query = query.filter_by(rom_id=rom_id)
+        # An empty collection is an explicit empty scope, not an absent filter.
+        if rom_ids is not None:
+            query = query.filter(Save.rom_id.in_(rom_ids))
 
         if platform_id:
             query = query.join(Rom, Save.rom_id == Rom.id).filter(

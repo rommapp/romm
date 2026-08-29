@@ -1,3 +1,6 @@
+import asyncio
+import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -6,10 +9,21 @@ from fastapi import HTTPException, status
 
 from handler.metadata.hltb_handler import HLTBHandler
 from utils import get_version
+from utils.hltb_search import HLTB_BASE_URL, SESSION_MINT_SUFFIX
+
+SEARCH_URL = f"{HLTB_BASE_URL}/api/search/site"
+
+
+def _handler_without_session() -> HLTBHandler:
+    """A handler pointed at an endpoint, before any session has been minted."""
+    handler = HLTBHandler()
+    handler.search_url = SEARCH_URL
+    handler.search_init_url = f"{SEARCH_URL}{SESSION_MINT_SUFFIX}"
+    return handler
 
 
 def _handler() -> HLTBHandler:
-    handler = HLTBHandler()
+    handler = _handler_without_session()
     handler.security_token = "token-1"
     handler.hp_key = "ign_aaaa"
     handler.hp_val = "val-1"
@@ -55,7 +69,7 @@ async def test_request_renews_session_and_retries_on_403(mock_ctx_httpx_client):
     )
     mock_ctx_httpx_client.get.return_value = mock_client
 
-    result = await handler._request("https://howlongtobeat.com/api/bleed", {"a": 1})
+    result = await handler._request(handler.search_url, {"a": 1})
 
     assert result == {"data": [{"game_id": 1}]}
     assert mock_client.post.await_count == 2
@@ -79,7 +93,7 @@ async def test_request_does_not_mutate_caller_payload(mock_ctx_httpx_client):
     mock_ctx_httpx_client.get.return_value = mock_client
 
     payload = {"a": 1}
-    await handler._request("https://howlongtobeat.com/api/bleed", payload)
+    await handler._request(handler.search_url, payload)
 
     assert payload == {"a": 1}
 
@@ -103,7 +117,7 @@ async def test_request_uses_session_renewed_while_it_was_paced(
 
     acquire.side_effect = renew_while_waiting
 
-    await handler._request("https://howlongtobeat.com/api/bleed", {"a": 1})
+    await handler._request(handler.search_url, {"a": 1})
 
     kwargs = mock_client.post.await_args.kwargs
     assert kwargs["headers"]["x-auth-token"] == "token-from-peer"
@@ -124,7 +138,7 @@ async def test_request_bails_if_session_is_lost_while_it_was_paced(
 
     acquire.side_effect = lose_session_while_waiting
 
-    assert await handler._request("https://howlongtobeat.com/api/bleed", {}) == {}
+    assert await handler._request(handler.search_url, {}) == {}
     mock_client.post.assert_not_awaited()
 
 
@@ -142,7 +156,7 @@ async def test_session_renewal_is_rate_limited_too(mock_ctx_httpx_client, acquir
     )
     mock_ctx_httpx_client.get.return_value = mock_client
 
-    await handler._request("https://howlongtobeat.com/api/bleed", {})
+    await handler._request(handler.search_url, {})
 
     # Two POSTs plus the /init renewal in between, all paced.
     assert acquire.await_count == 3
@@ -177,9 +191,7 @@ async def test_debug_log_does_not_leak_session_material(mock_ctx_httpx_client):
     mock_ctx_httpx_client.get.return_value = mock_client
 
     with patch("handler.metadata.hltb_handler.log.debug") as mock_debug:
-        await handler._request(
-            "https://howlongtobeat.com/api/bleed", {"searchTerms": ["Chrono"]}
-        )
+        await handler._request(handler.search_url, {"searchTerms": ["Chrono"]})
 
     logged = repr(mock_debug.call_args.args)
     for secret in ("token-1", "ign_aaaa", "val-1"):
@@ -201,9 +213,7 @@ async def test_request_backs_off_and_retries_on_429(mock_ctx_httpx_client):
     ]
     mock_ctx_httpx_client.get.return_value = mock_client
 
-    assert await handler._request("https://howlongtobeat.com/api/bleed", {}) == {
-        "data": []
-    }
+    assert await handler._request(handler.search_url, {}) == {"data": []}
     assert mock_client.post.await_count == 2
     # A rate limit is not a session problem, so no renewal should be attempted.
     mock_client.get.assert_not_awaited()
@@ -218,7 +228,7 @@ async def test_request_gives_up_when_session_renewal_fails(mock_ctx_httpx_client
     mock_client.get.return_value = _response(json_body={})
     mock_ctx_httpx_client.get.return_value = mock_client
 
-    assert await handler._request("https://howlongtobeat.com/api/bleed", {}) == {}
+    assert await handler._request(handler.search_url, {}) == {}
     assert mock_client.post.await_count == 1
 
 
@@ -236,7 +246,7 @@ async def test_persistent_403_reports_session_cause_not_connectivity(
     mock_ctx_httpx_client.get.return_value = mock_client
 
     with pytest.raises(HTTPException) as exc_info:
-        await handler._request("https://howlongtobeat.com/api/bleed", {})
+        await handler._request(handler.search_url, {})
 
     assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
     assert "internet connection" not in exc_info.value.detail
@@ -269,7 +279,7 @@ async def test_connect_error_still_reports_connectivity(mock_ctx_httpx_client):
     mock_ctx_httpx_client.get.return_value = mock_client
 
     with pytest.raises(HTTPException) as exc_info:
-        await handler._request("https://howlongtobeat.com/api/bleed", {})
+        await handler._request(handler.search_url, {})
 
     assert "internet connection" in exc_info.value.detail
 
@@ -277,12 +287,83 @@ async def test_connect_error_still_reports_connectivity(mock_ctx_httpx_client):
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
 @patch("handler.metadata.hltb_handler.ctx_httpx_client")
 async def test_request_returns_empty_without_a_session(mock_ctx_httpx_client):
-    handler = HLTBHandler()
+    handler = _handler_without_session()
     mock_client = AsyncMock()
+    mock_client.get.return_value = _response(json_body={})
     mock_ctx_httpx_client.get.return_value = mock_client
 
-    assert await handler._request("https://howlongtobeat.com/api/bleed", {}) == {}
+    assert await handler._request(handler.search_url, {}) == {}
     mock_client.post.assert_not_awaited()
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_request_mints_a_session_a_failed_startup_never_got(
+    mock_ctx_httpx_client,
+):
+    handler = _handler_without_session()
+    mock_client = AsyncMock()
+    mock_client.get.return_value = _response(
+        json_body={"token": "token-late", "hpKey": "ign_late", "hpVal": "val-late"}
+    )
+    mock_client.post.return_value = _response(json_body={"data": []})
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    assert await handler._request(handler.search_url, {"a": 1}) == {"data": []}
+
+    # The mint has to address the endpoint being searched, not a stale default.
+    assert mock_client.get.await_args.args[0] == handler.search_init_url
+    kwargs = mock_client.post.await_args.kwargs
+    assert kwargs["headers"]["x-auth-token"] == "token-late"
+    assert kwargs["json"] == {"a": 1, "ign_late": "val-late"}
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_a_failed_mint_is_not_retried_by_every_lookup(mock_ctx_httpx_client):
+    handler = _handler_without_session()
+    mock_client = AsyncMock()
+    mock_client.get.return_value = _response(json_body={})
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    for _ in range(5):
+        assert await handler._request(handler.search_url, {}) == {}
+
+    # HLTB being down must not cost every ROM in a scan its own round trip.
+    mock_client.get.assert_awaited_once()
+    mock_client.post.assert_not_awaited()
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_concurrent_lookups_mint_one_shared_session(mock_ctx_httpx_client):
+    handler = _handler_without_session()
+    mock_client = AsyncMock()
+    mint_reached = asyncio.Event()
+    mint_may_finish = asyncio.Event()
+
+    async def blocking_mint(*args, **kwargs) -> MagicMock:
+        # Hold /init open so every other lookup reaches _ensure_session meanwhile.
+        mint_reached.set()
+        await mint_may_finish.wait()
+        return _response(
+            json_body={"token": "token-1", "hpKey": "ign_aaaa", "hpVal": "val-1"}
+        )
+
+    mock_client.get.side_effect = blocking_mint
+    mock_client.post.return_value = _response(json_body={"data": []})
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    lookups = [
+        asyncio.create_task(handler._request(handler.search_url, {})) for _ in range(5)
+    ]
+    await mint_reached.wait()
+    mint_may_finish.set()
+    await asyncio.gather(*lookups)
+
+    # A scan starts many lookups at once, and HLTB must not see a mint from each.
+    mock_client.get.assert_awaited_once()
+    assert mock_client.post.await_count == 5
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
@@ -435,3 +516,315 @@ async def test_retry_still_requires_recorded_times():
         rom = await handler.get_rom("007 - Quantum of Solace (USA).chd", "ps2")
 
     assert rom["hltb_id"] is None
+
+
+def _game_page(game: dict | None) -> MagicMock:
+    """A game page carrying its record in the Next.js hydration payload."""
+    games = [game] if game is not None else []
+    payload = json.dumps({"props": {"pageProps": {"game": {"data": {"game": games}}}}})
+    response = MagicMock()
+    response.status_code = 200
+    response.text = (
+        '<html><body><script id="__NEXT_DATA__" type="application/json">'
+        f"{payload}</script></body></html>"
+    )
+    return response
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_get_rom_by_id_reads_the_game_page(mock_ctx_httpx_client):
+    """The by-ID lookup the manual edit form depends on: HLTB has no API for it,
+    so the record comes off the game page."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page(_game(7169, "Pokémon Red and Blue")))
+    mock_ctx_httpx_client.get.return_value = client
+
+    rom = await handler.get_rom_by_id(7169)
+
+    assert rom["hltb_id"] == 7169
+    assert rom["name"] == "Pokémon Red and Blue"
+    assert rom["hltb_metadata"]["main_story"] == 3600
+    assert rom["hltb_metadata"]["review_score"] == 70
+
+    # The `/game?id=` form answers with a redirect the shared client won't follow.
+    assert client.get.await_args.args[0] == "https://howlongtobeat.com/game/7169"
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_get_rom_by_id_sends_the_user_agent_hltb_requires(
+    mock_ctx_httpx_client,
+):
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page(_game(7169, "Pokémon")))
+    mock_ctx_httpx_client.get.return_value = client
+
+    await handler.get_rom_by_id(7169)
+
+    assert (
+        client.get.await_args.kwargs["headers"]["User-Agent"] == f"RomM/{get_version()}"
+    )
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_get_rom_by_id_reads_the_full_release_date(mock_ctx_httpx_client):
+    """The game page dates a release in full where search returns just the year."""
+    handler = _handler()
+    game = _game(7169, "Pokémon Red and Blue") | {"release_world": "1996-02-27"}
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page(game))
+    mock_ctx_httpx_client.get.return_value = client
+
+    rom = await handler.get_rom_by_id(7169)
+
+    assert rom["hltb_metadata"]["release_year"] == 1996
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_get_rom_by_id_tolerates_a_page_without_popularity(
+    mock_ctx_httpx_client,
+):
+    """The game page omits the popularity search reports, so it must not fail."""
+    handler = _handler()
+    game = _game(7169, "Pokémon Red and Blue") | {"profile_popular": None}
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page(game))
+    mock_ctx_httpx_client.get.return_value = client
+
+    rom = await handler.get_rom_by_id(7169)
+
+    assert rom["hltb_id"] == 7169
+    assert "popularity" not in rom["hltb_metadata"]
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_unknown_id_is_not_reported_as_an_outage(mock_ctx_httpx_client):
+    """A mistyped ID is the user's, not HLTB's, so it must not 503 the edit."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_response(status.HTTP_404_NOT_FOUND))
+    mock_ctx_httpx_client.get.return_value = client
+
+    rom = await handler.get_rom_by_id(999999999)
+
+    assert rom["hltb_id"] is None
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_game_page_outage_reports_service_unavailable(mock_ctx_httpx_client):
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(
+        return_value=_response(status.HTTP_429_TOO_MANY_REQUESTS),
+    )
+    mock_ctx_httpx_client.get.return_value = client
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handler.get_rom_by_id(7169)
+
+    assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert "rate limiting" in exc_info.value.detail
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_game_page_without_a_record_yields_no_match(mock_ctx_httpx_client):
+    """An empty record list is HLTB answering honestly, not a rewrite."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page(None))
+    mock_ctx_httpx_client.get.return_value = client
+
+    rom = await handler.get_rom_by_id(7169)
+
+    assert rom["hltb_id"] is None
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_reshaped_game_page_reports_the_rewrite(mock_ctx_httpx_client):
+    """A page RomM can no longer read has to say so: reported as a game with no
+    times it is indistinguishable from the bug this lookup exists to fix."""
+    handler = _handler()
+    response = MagicMock()
+    response.status_code = 200
+    response.text = "<html><body>no hydration payload here</body></html>"
+    client = MagicMock()
+    client.get = AsyncMock(return_value=response)
+    mock_ctx_httpx_client.get.return_value = client
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handler.get_rom_by_id(7169)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+    assert "changed their game page" in exc_info.value.detail
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_renamed_game_fields_report_the_rewrite(mock_ctx_httpx_client):
+    """Defaulting every field would quietly turn a rename into an empty match."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page({"id": 7169, "name": "Pokémon"}))
+    mock_ctx_httpx_client.get.return_value = client
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handler.get_rom_by_id(7169)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", False)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_get_rom_by_id_is_skipped_when_hltb_is_disabled(mock_ctx_httpx_client):
+    rom = await _handler().get_rom_by_id(7169)
+
+    assert rom["hltb_id"] is None
+    mock_ctx_httpx_client.get.assert_not_called()
+
+
+async def test_the_live_page_shape_still_parses():
+    """Captured from howlongtobeat.com/game/7169. If HLTB reshapes the page this
+    fixture goes stale, but it keeps our own parsing honest in the meantime."""
+    fixture = Path(__file__).parent / "hltb_game_page_example.json"
+    payload = json.loads(fixture.read_text(encoding="utf-8"))
+
+    response = MagicMock()
+    response.status_code = 200
+    response.text = (
+        '<script id="__NEXT_DATA__" type="application/json">'
+        f"{json.dumps(payload)}</script>"
+    )
+    client = MagicMock()
+    client.get = AsyncMock(return_value=response)
+
+    with (
+        patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True),
+        patch("handler.metadata.hltb_handler.ctx_httpx_client") as ctx,
+    ):
+        ctx.get.return_value = client
+        rom = await _handler().get_rom_by_id(7169)
+
+    assert rom["hltb_id"] == 7169
+    assert rom["name"] == "Pokémon Red and Blue"
+    assert rom["url_cover"].endswith("7169_Pokmon_Red_and_Blue.png")
+    assert rom["hltb_metadata"] == {
+        "main_story": 92822,
+        "main_story_count": 594,
+        "main_plus_extra": 156016,
+        "main_plus_extra_count": 378,
+        "completionist": 354756,
+        "completionist_count": 202,
+        "all_styles": 139926,
+        "all_styles_count": 1174,
+        "release_year": 1996,
+        "review_score": 81,
+        "review_count": 1762,
+        "completions": 5364,
+    }
+
+
+@pytest.mark.parametrize(
+    "transport_error",
+    [
+        httpx.ConnectTimeout("timed out"),
+        httpx.PoolTimeout("pool exhausted"),
+        httpx.ReadError("reset"),
+        httpx.RemoteProtocolError("bad framing"),
+    ],
+)
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_transport_failures_report_service_unavailable(
+    mock_ctx_httpx_client, transport_error
+):
+    """A slow or unreachable HLTB must not surface as a bare 500 on the rom edit."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(side_effect=transport_error)
+    mock_ctx_httpx_client.get.return_value = client
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handler.get_rom_by_id(7169)
+
+    assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert "check your internet connection" in exc_info.value.detail
+
+
+@pytest.mark.parametrize(
+    ("label", "attributes"),
+    [
+        ("plain", 'id="__NEXT_DATA__" type="application/json"'),
+        ("csp nonce", 'id="__NEXT_DATA__" type="application/json" nonce="r4nd0m"'),
+        ("reordered", 'type="application/json" id="__NEXT_DATA__"'),
+        ("single quotes", "id='__NEXT_DATA__' type='application/json'"),
+        ("crossorigin", 'crossorigin="" id="__NEXT_DATA__" type="application/json"'),
+    ],
+)
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_hydration_tag_is_found_however_it_is_marked_up(
+    mock_ctx_httpx_client, label, attributes
+):
+    """Markup around the payload is not the contract; the id is. Reporting a
+    rewrite over an added nonce would be a false alarm."""
+    payload = json.dumps(
+        {"props": {"pageProps": {"game": {"data": {"game": [_game(7169, "Pokémon")]}}}}}
+    )
+    response = MagicMock()
+    response.status_code = 200
+    response.text = f"<script {attributes}>{payload}</script>"
+    client = MagicMock()
+    client.get = AsyncMock(return_value=response)
+    mock_ctx_httpx_client.get.return_value = client
+
+    rom = await _handler().get_rom_by_id(7169)
+
+    assert rom["hltb_id"] == 7169, label
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_a_redirect_is_followed_rather_than_read_as_a_rewrite(
+    mock_ctx_httpx_client,
+):
+    """`raise_for_status` lets a 3xx through, so an unfollowed hop would reach
+    the parser as a page with no payload and be blamed on HLTB reshaping it."""
+    handler = _handler()
+    client = MagicMock()
+    client.get = AsyncMock(return_value=_game_page(_game(7169, "Pokémon")))
+    mock_ctx_httpx_client.get.return_value = client
+
+    await handler.get_rom_by_id(7169)
+
+    assert client.get.await_args.kwargs["follow_redirects"] is True
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_an_unrelated_json_script_is_not_mistaken_for_the_payload(
+    mock_ctx_httpx_client,
+):
+    """The looser tag match must not start picking up other JSON blocks."""
+    handler = _handler()
+    response = MagicMock()
+    response.status_code = 200
+    response.text = (
+        '<script id="__OTHER_DATA__" type="application/json">{"game": []}</script>'
+    )
+    client = MagicMock()
+    client.get = AsyncMock(return_value=response)
+    mock_ctx_httpx_client.get.return_value = client
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handler.get_rom_by_id(7169)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY

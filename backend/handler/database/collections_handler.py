@@ -480,9 +480,12 @@ class DBCollectionsHandler(DBBaseHandler):
         """
         criteria = smart_collection.filter_criteria
 
-        # Early versions stored single values under `selected_*` keys.
-        def as_list(new_key: str, old_key: str) -> list[str] | None:
-            value = criteria.get(new_key) or criteria.get(old_key)
+        # Early versions stored single values under `selected_*` keys, for the
+        # filters that already existed then.
+        def as_list(new_key: str, old_key: str | None = None) -> list[str] | None:
+            value = criteria.get(new_key) or (
+                criteria.get(old_key) if old_key else None
+            )
             if not value:
                 return None
             return value if isinstance(value, list) else [value]
@@ -505,11 +508,14 @@ class DBCollectionsHandler(DBBaseHandler):
             "has_states": criteria.get("has_states"),
             "has_soundtrack": criteria.get("has_soundtrack"),
             "missing": criteria.get("missing"),
+            "physical": criteria.get("physical"),
             "verified": criteria.get("verified"),
             "genres": as_list("genres", "selected_genre"),
             "franchises": as_list("franchises", "selected_franchise"),
             "collections": as_list("collections", "selected_collection"),
             "companies": as_list("companies", "selected_company"),
+            "publishers": as_list("publishers"),
+            "developers": as_list("developers"),
             "age_ratings": as_list("age_ratings", "selected_age_rating"),
             "regions": as_list("regions", "selected_region"),
             "languages": as_list("languages", "selected_language"),
@@ -521,6 +527,8 @@ class DBCollectionsHandler(DBBaseHandler):
             "franchises_logic": criteria.get("franchises_logic", "any"),
             "collections_logic": criteria.get("collections_logic", "any"),
             "companies_logic": criteria.get("companies_logic", "any"),
+            "publishers_logic": criteria.get("publishers_logic", "any"),
+            "developers_logic": criteria.get("developers_logic", "any"),
             "age_ratings_logic": criteria.get("age_ratings_logic", "any"),
             "regions_logic": criteria.get("regions_logic", "any"),
             "languages_logic": criteria.get("languages_logic", "any"),
