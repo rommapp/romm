@@ -32,11 +32,7 @@ from models.device import SyncMode
 from models.sync_session import SyncSessionStatus
 from utils.datetime import to_utc
 from utils.router import APIRouter
-from utils.validation import (
-    MAX_ROM_IDS_PER_QUERY,
-    ValidationError,
-    normalize_rom_id_scope,
-)
+from utils.validation import MAX_ROM_IDS_PER_QUERY, RomIdScope
 
 router = APIRouter(
     prefix="/sync",
@@ -84,7 +80,7 @@ class SyncNegotiatePayload(BaseModel):
     saves: list[ClientSaveState] = Field(
         description="Current save state on the client."
     )
-    rom_ids: list[int] | None = Field(
+    rom_ids: RomIdScope = Field(
         default=None,
         description=(
             "IDs of the ROMs installed on the device. When provided, downloads "
@@ -153,17 +149,6 @@ def negotiate_sync(
             ),
         )
 
-    try:
-        rom_ids = (
-            normalize_rom_id_scope(payload.rom_ids)
-            if payload.rom_ids is not None
-            else None
-        )
-    except ValidationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message
-        ) from exc
-
     device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
     if not device:
         raise HTTPException(
@@ -194,7 +179,9 @@ def negotiate_sync(
     # Widen an explicit ROM scope with the ROMs the client sent saves for, so a
     # client save is never misread as an upload just because its ROM was omitted.
     rom_id_scope = (
-        rom_ids + [s.rom_id for s in payload.saves] if rom_ids is not None else None
+        payload.rom_ids + [s.rom_id for s in payload.saves]
+        if payload.rom_ids is not None
+        else None
     )
 
     # Pair on (rom_id, slot), keeping the newest row per slot: slot uploads are datetime-tagged (spec) so tagged filenames never equal the client's untagged name, and a slot accrues many rows over time. Null-slot rows stay archival-only.

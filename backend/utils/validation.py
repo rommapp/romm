@@ -1,6 +1,7 @@
 import re
-from collections.abc import Iterable
-from typing import Final
+from typing import Annotated, Final
+
+from pydantic import AfterValidator, Field
 
 from logger.logger import log
 from models.user import TEXT_FIELD_LENGTH
@@ -24,6 +25,19 @@ EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 MAX_ROM_IDS_PER_QUERY: Final = 500
 
 
+def _dedupe_rom_ids(rom_ids: list[int] | None) -> list[int] | None:
+    return None if rom_ids is None else list(dict.fromkeys(rom_ids))
+
+
+# Shared by every route that scopes a query to a set of ROMs, so the cap and
+# the per-ID rule are declared once and both routes reject a bad scope alike.
+RomIdScope = Annotated[
+    list[Annotated[int, Field(gt=0)]] | None,
+    Field(max_length=MAX_ROM_IDS_PER_QUERY),
+    AfterValidator(_dedupe_rom_ids),
+]
+
+
 def parse_comma_separated_ids(value: str, field_name: str = "ID") -> list[int]:
     """Parse a comma-separated list of integer IDs from a query parameter.
 
@@ -37,26 +51,6 @@ def parse_comma_separated_ids(value: str, field_name: str = "ID") -> list[int]:
             f"Invalid {field_name} format. Must be comma-separated integers.",
             field_name,
         ) from exc
-
-
-def normalize_rom_id_scope(rom_ids: Iterable[int]) -> list[int]:
-    """Deduplicate a `rom_ids` request scope, preserving order.
-
-    Raises:
-        ValidationError: If an ID is not positive, or the scope is over the cap.
-    """
-    unique = list(dict.fromkeys(rom_ids))
-
-    if any(rom_id <= 0 for rom_id in unique):
-        raise ValidationError("ROM IDs must be positive integers", "rom_ids")
-
-    if len(unique) > MAX_ROM_IDS_PER_QUERY:
-        raise ValidationError(
-            f"Too many ROM IDs: at most {MAX_ROM_IDS_PER_QUERY} per request",
-            "rom_ids",
-        )
-
-    return unique
 
 
 def validate_ascii_only(value: str, field_name: str = "field") -> None:

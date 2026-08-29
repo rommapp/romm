@@ -35,12 +35,7 @@ from utils.datetime import to_utc
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size
-from utils.validation import (
-    MAX_ROM_IDS_PER_QUERY,
-    ValidationError,
-    normalize_rom_id_scope,
-    parse_comma_separated_ids,
-)
+from utils.validation import RomIdScope
 
 
 def _build_save_schema(
@@ -403,30 +398,17 @@ async def add_save(
     return _build_save_schema(db_save, _syncs_for_save(db_save.id, device), device)
 
 
-def _parse_rom_ids(rom_ids: str | None) -> list[int] | None:
-    if rom_ids is None:
-        return None
-
-    try:
-        return normalize_rom_id_scope(parse_comma_separated_ids(rom_ids, "ROM ID"))
-    except ValidationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message
-        ) from exc
-
-
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_saves(
     request: Request,
     rom_id: int | None = None,
     rom_ids: Annotated[
-        str | None,
+        RomIdScope,
         Query(
             description=(
-                "Comma-separated list of ROM IDs to scope the results to, for "
-                "clients syncing a known set of ROMs. At most "
-                f"{MAX_ROM_IDS_PER_QUERY} IDs per request; an empty value "
-                "returns no saves. Combined with `rom_id` when both are given."
+                "ROM IDs to scope the results to, for clients syncing a known "
+                "set of ROMs. Multiple values are allowed by repeating the "
+                "parameter. Combined with `rom_id` when both are given."
             ),
         ),
     ] = None,
@@ -442,7 +424,7 @@ def get_saves(
     saves = db_save_handler.get_saves(
         user_id=request.user.id,
         rom_id=rom_id,
-        rom_ids=_parse_rom_ids(rom_ids),
+        rom_ids=rom_ids,
         platform_id=platform_id,
         slot=slot,
     )

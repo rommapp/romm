@@ -270,8 +270,7 @@ class TestNegotiateRomIdsScope:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "positive" in response.json()["detail"]
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_rejects_scope_over_the_limit(
         self, client, access_token: str, admin_user: User
@@ -290,8 +289,7 @@ class TestNegotiateRomIdsScope:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert str(MAX_ROM_IDS_PER_QUERY) in response.json()["detail"]
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 class TestSyncSessions:

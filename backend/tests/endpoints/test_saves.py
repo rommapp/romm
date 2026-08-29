@@ -1457,7 +1457,7 @@ class TestRomIdsScope:
         assert response.status_code == status.HTTP_200_OK
         assert [item["id"] for item in response.json()] == [save.id]
 
-    def test_accepts_multiple_ids(
+    def test_accepts_repeated_ids(
         self,
         client,
         access_token: str,
@@ -1467,32 +1467,23 @@ class TestRomIdsScope:
         second_save: Save,
     ):
         response = client.get(
-            f"/api/saves?rom_ids={rom.id},{second_rom.id}",
+            f"/api/saves?rom_ids={rom.id}&rom_ids={second_rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
         assert response.status_code == status.HTTP_200_OK
         assert {item["id"] for item in response.json()} == {save.id, second_save.id}
 
-    def test_tolerates_whitespace_and_duplicates(
+    def test_tolerates_duplicates(
         self, client, access_token: str, rom: Rom, save: Save
     ):
         response = client.get(
-            f"/api/saves?rom_ids= {rom.id} , {rom.id} ",
+            f"/api/saves?rom_ids={rom.id}&rom_ids={rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
         assert response.status_code == status.HTTP_200_OK
         assert [item["id"] for item in response.json()] == [save.id]
-
-    def test_empty_value_returns_no_saves(self, client, access_token: str, save: Save):
-        response = client.get(
-            "/api/saves?rom_ids=",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json() == []
 
     def test_omitted_returns_all_saves(
         self, client, access_token: str, save: Save, second_save: Save
@@ -1518,32 +1509,29 @@ class TestRomIdsScope:
 
     def test_rejects_non_integer_ids(self, client, access_token: str):
         response = client.get(
-            "/api/saves?rom_ids=1,abc",
+            "/api/saves?rom_ids=1&rom_ids=abc",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "comma-separated integers" in response.json()["detail"]
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_rejects_non_positive_ids(self, client, access_token: str):
         response = client.get(
-            "/api/saves?rom_ids=1,0",
+            "/api/saves?rom_ids=1&rom_ids=0",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "positive" in response.json()["detail"]
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_rejects_scope_over_the_limit(self, client, access_token: str):
-        rom_ids = ",".join(str(i) for i in range(1, MAX_ROM_IDS_PER_QUERY + 2))
+        rom_ids = "&".join(f"rom_ids={i}" for i in range(1, MAX_ROM_IDS_PER_QUERY + 2))
 
         response = client.get(
-            f"/api/saves?rom_ids={rom_ids}",
+            f"/api/saves?{rom_ids}",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert str(MAX_ROM_IDS_PER_QUERY) in response.json()["detail"]
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 class TestDatetimeTagging:

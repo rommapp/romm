@@ -5,18 +5,11 @@ This module tests the platform filtering fixes for DBSavesHandler to ensure
 it properly filters by platform_id through the Rom relationship.
 """
 
-import pytest
-
 from handler.database import db_save_handler
 from models.assets import Save
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
-from utils.validation import (
-    MAX_ROM_IDS_PER_QUERY,
-    ValidationError,
-    normalize_rom_id_scope,
-)
 
 
 class TestDBSavesHandlerPlatformFiltering:
@@ -950,24 +943,3 @@ class TestGetSavesRomIdsScope:
         )
 
         assert [s.id for s in saves] == [save.id]
-
-
-class TestNormalizeRomIdScope:
-    def test_deduplicates_preserving_order(self):
-        assert normalize_rom_id_scope([3, 1, 3, 2, 1]) == [3, 1, 2]
-
-    def test_rejects_non_positive_ids(self):
-        with pytest.raises(ValidationError, match="positive"):
-            normalize_rom_id_scope([1, 0])
-
-        with pytest.raises(ValidationError, match="positive"):
-            normalize_rom_id_scope([-1])
-
-    def test_accepts_scope_at_the_limit(self):
-        rom_ids = list(range(1, MAX_ROM_IDS_PER_QUERY + 1))
-
-        assert normalize_rom_id_scope(rom_ids) == rom_ids
-
-    def test_rejects_scope_over_the_limit(self):
-        with pytest.raises(ValidationError, match="Too many ROM IDs"):
-            normalize_rom_id_scope(range(1, MAX_ROM_IDS_PER_QUERY + 2))
