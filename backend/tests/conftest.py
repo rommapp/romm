@@ -144,6 +144,26 @@ def rom(admin_user: User, platform: Platform):
 
 
 @pytest.fixture
+def second_rom(admin_user: User, platform: Platform):
+    """A second ROM on the same platform, for tests that scope by ROM."""
+    rom = Rom(
+        platform_id=platform.id,
+        name="test_rom_2",
+        slug="test_rom_slug_2",
+        fs_name="test_rom_2.zip",
+        fs_name_no_tags="test_rom_2",
+        fs_name_no_ext="test_rom_2",
+        fs_extension="zip",
+        fs_path=f"{platform.slug}/roms",
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+
+    return rom
+
+
+@pytest.fixture
 def rom_file(rom: Rom):
     """A single content file attached to the `rom` fixture."""
     rom_file = RomFile(
@@ -204,6 +224,24 @@ def save(rom: Rom, platform: Platform, admin_user: User):
         file_name="test_save.sav",
         file_name_no_tags="test_save",
         file_name_no_ext="test_save",
+        file_extension="sav",
+        emulator="test_emulator",
+        slot="autosave",
+        file_path=f"{platform.slug}/saves/test_emulator",
+        file_size_bytes=1.0,
+    )
+    return db_save_handler.add_save(save)
+
+
+@pytest.fixture
+def second_save(second_rom: Rom, platform: Platform, admin_user: User):
+    """Slot-bound save on `second_rom`, to check ROM-scoped queries exclude it."""
+    save = Save(
+        rom_id=second_rom.id,
+        user_id=admin_user.id,
+        file_name="test_save_2.sav",
+        file_name_no_tags="test_save_2",
+        file_name_no_ext="test_save_2",
         file_extension="sav",
         emulator="test_emulator",
         slot="autosave",

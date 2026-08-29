@@ -901,3 +901,45 @@ class TestDBSavesHandlerGetLatestSavesForRoms:
         )
 
         assert latest == {}
+
+
+class TestGetSavesRomIdsScope:
+    """Test suite for the `rom_ids` scope on DBSavesHandler.get_saves."""
+
+    def test_scopes_to_listed_roms(
+        self, admin_user: User, rom: Rom, save: Save, second_save: Save
+    ):
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+
+        assert [s.id for s in saves] == [save.id]
+
+    def test_scopes_to_multiple_roms(
+        self,
+        admin_user: User,
+        rom: Rom,
+        second_rom: Rom,
+        save: Save,
+        second_save: Save,
+    ):
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id, second_rom.id]
+        )
+
+        assert {s.id for s in saves} == {save.id, second_save.id}
+
+    def test_empty_scope_returns_nothing(self, admin_user: User, save: Save):
+        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[]) == []
+
+    def test_omitted_scope_returns_everything(self, admin_user: User, save: Save):
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=None)
+
+        assert save.id in [s.id for s in saves]
+
+    def test_combines_with_slot_filter(
+        self, admin_user: User, rom: Rom, save: Save, archival_save: Save
+    ):
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], slot_not_null=True
+        )
+
+        assert [s.id for s in saves] == [save.id]
