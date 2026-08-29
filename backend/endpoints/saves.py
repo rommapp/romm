@@ -35,7 +35,7 @@ from utils.datetime import to_utc
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size
-from utils.validation import RomIdScope
+from utils.validation import RomIdScope, narrow_rom_id_scope
 
 
 def _build_save_schema(
@@ -219,7 +219,7 @@ async def add_save(
     if device and slot and not overwrite:
         slot_saves = db_save_handler.get_saves(
             user_id=request.user.id,
-            rom_id=rom.id,
+            rom_ids=[rom.id],
             slot=slot,
             order_by="updated_at",
         )
@@ -306,7 +306,7 @@ async def add_save(
             still_referenced = any(
                 other.id != db_save.id and other.full_path == stale_full_path
                 for other in db_save_handler.get_saves(
-                    user_id=request.user.id, rom_id=rom.id
+                    user_id=request.user.id, rom_ids=[rom.id]
                 )
             )
             if not still_referenced:
@@ -334,7 +334,7 @@ async def add_save(
     if slot and autocleanup:
         slot_saves = db_save_handler.get_saves(
             user_id=request.user.id,
-            rom_id=rom.id,
+            rom_ids=[rom.id],
             slot=slot,
             order_by="updated_at",
         )
@@ -423,8 +423,7 @@ def get_saves(
 
     saves = db_save_handler.get_saves(
         user_id=request.user.id,
-        rom_id=rom_id,
-        rom_ids=rom_ids,
+        rom_ids=narrow_rom_id_scope(rom_id, rom_ids),
         platform_id=platform_id,
         slot=slot,
     )

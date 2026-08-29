@@ -30,12 +30,27 @@ def _dedupe_rom_ids(rom_ids: list[int] | None) -> list[int] | None:
 
 
 # Shared by every route that scopes a query to a set of ROMs, so the cap and
-# the per-ID rule are declared once and both routes reject a bad scope alike.
+# the per-ID rule are declared once and every route rejects a bad scope alike.
 RomIdScope = Annotated[
     list[Annotated[int, Field(gt=0)]] | None,
     Field(max_length=MAX_ROM_IDS_PER_QUERY),
     AfterValidator(_dedupe_rom_ids),
 ]
+
+
+def narrow_rom_id_scope(
+    rom_id: int | None, rom_ids: list[int] | None
+) -> list[int] | None:
+    """Fold a route's single-ROM `rom_id` filter into its `rom_ids` scope.
+
+    Both filters apply together, so the result is their intersection. `None`
+    means no ROM scope at all, while an empty list is an explicit empty one.
+    """
+    if rom_id is None:
+        return rom_ids
+    if rom_ids is None:
+        return [rom_id]
+    return [rom_id] if rom_id in rom_ids else []
 
 
 def parse_comma_separated_ids(value: str, field_name: str = "ID") -> list[int]:

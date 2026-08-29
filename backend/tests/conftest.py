@@ -289,6 +289,23 @@ def state(rom: Rom, platform: Platform, admin_user: User):
 
 
 @pytest.fixture
+def second_state(second_rom: Rom, platform: Platform, admin_user: User):
+    """State on `second_rom`, to check ROM-scoped queries exclude it."""
+    state = State(
+        rom_id=second_rom.id,
+        user_id=admin_user.id,
+        file_name="test_state_2.state",
+        file_name_no_tags="test_state_2",
+        file_name_no_ext="test_state_2",
+        file_extension="state",
+        emulator="test_emulator",
+        file_path=f"{platform.slug}/states/test_emulator",
+        file_size_bytes=2.0,
+    )
+    return db_state_handler.add_state(state)
+
+
+@pytest.fixture
 def screenshot(rom: Rom, platform: Platform, admin_user: User):
     screenshot = Screenshot(
         rom_id=rom.id,

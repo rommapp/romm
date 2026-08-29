@@ -1507,6 +1507,23 @@ class TestRomIdsScope:
         assert response.status_code == status.HTTP_200_OK
         assert [item["id"] for item in response.json()] == [save.id]
 
+    def test_narrows_to_the_intersection_with_rom_id(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        second_rom: Rom,
+        save: Save,
+        second_save: Save,
+    ):
+        response = client.get(
+            f"/api/saves?rom_id={rom.id}&rom_ids={second_rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == []
+
     def test_rejects_non_integer_ids(self, client, access_token: str):
         response = client.get(
             "/api/saves?rom_ids=1&rom_ids=abc",
@@ -1719,7 +1736,7 @@ class TestAutocleanup:
         from handler.database import db_save_handler
 
         initial_saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_id=rom.id, slot="autosave"
+            user_id=admin_user.id, rom_ids=[rom.id], slot="autosave"
         )
         assert len(initial_saves) == 15
 
@@ -1800,7 +1817,7 @@ class TestAutocleanup:
 
         assert response.status_code == status.HTTP_200_OK
         remaining = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_id=rom.id, slot="autosave"
+            user_id=admin_user.id, rom_ids=[rom.id], slot="autosave"
         )
         assert len(remaining) == 1
 
