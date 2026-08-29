@@ -178,11 +178,12 @@ def test_update_platform_description_requires_write_scope(client, platform):
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-def test_firmware_count_excludes_missing_firmware(
+def test_firmware_count_matches_the_rows_it_ships(
     client, access_token, platform, firmware, missing_firmware
 ):
-    """A platform whose only BIOS file was deleted from disk shouldn't still
-    advertise it (issue #4075)."""
+    """`firmware_count` means the same as `rom_count`: every row, missing
+    ones included. Deciding what counts as usable BIOS is the caller's job,
+    and the rows ship alongside the count so it can."""
     response = client.get(
         f"/api/platforms/{platform.id}",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -190,7 +191,6 @@ def test_firmware_count_excludes_missing_firmware(
     assert response.status_code == status.HTTP_200_OK
 
     body = response.json()
-    assert body["firmware_count"] == 1
-    # The rows themselves still ship so the Firmware tab can strike them
-    # through and offer a cleanup.
+    assert body["firmware_count"] == 2
     assert len(body["firmware"]) == 2
+    assert sum(1 for f in body["firmware"] if f["missing_from_fs"]) == 1
