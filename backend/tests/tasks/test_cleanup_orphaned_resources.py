@@ -19,34 +19,49 @@ class TestCleanupOrphanedResourcesTask:
             == "tasks.scheduled.cleanup_orphaned_resources.cleanup_orphaned_resources_task.run"
         )
 
-    def test_stays_manually_runnable(self, task):
-        # The run-task endpoint rejects a task unless both flags are set, so
-        # these must hold regardless of whether the cron schedule is on.
-        assert task.enabled is True
+    def test_disabled_by_default(self, task):
+        # The run-task endpoint rejects a task unless both flags are set, so a
+        # disabled schedule also means no manual runs.
+        assert task.enabled is False
         assert task.manual_run is True
+        assert task.can_run_manually is False
 
-    def test_no_cron_string_by_default(self, task):
-        assert task.cron_string is None
-
-    def test_cron_string_set_when_schedule_enabled(self):
+    def test_enabled_follows_config_flag(self):
         with patch.object(mod, "ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES", True):
-            with patch.object(
-                mod, "SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON", "0 5 * * *"
-            ):
-                assert CleanupOrphanedResourcesTask().cron_string == "0 5 * * *"
+            task = CleanupOrphanedResourcesTask()
+            assert task.enabled is True
+            assert task.can_run_manually is True
+
+    def test_cron_string_uses_configured_schedule(self, task):
+        assert task.cron_string == mod.SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON
+
+    def test_cron_string_follows_config_override(self):
+        with patch.object(
+            mod, "SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON", "30 2 * * *"
+        ):
+            assert CleanupOrphanedResourcesTask().cron_string == "30 2 * * *"
 
     def test_init_unschedules_when_no_cron(self, task):
+        task.cron_string = None
+
         with patch.object(task, "unschedule") as mock_unschedule:
             assert task.init() is None
             mock_unschedule.assert_called_once()
 
-    def test_init_schedules_when_cron_set(self, task):
+    def test_init_schedules_when_enabled(self, task):
+        task.enabled = True
         task.cron_string = "0 5 * * *"
 
         with patch.object(task, "_get_existing_job", return_value=None):
             with patch.object(task, "schedule") as mock_schedule:
                 task.init()
                 mock_schedule.assert_called_once()
+
+    def test_init_does_not_schedule_when_disabled(self, task):
+        with patch.object(task, "_get_existing_job", return_value=None):
+            with patch.object(task, "schedule") as mock_schedule:
+                assert task.init() is None
+                mock_schedule.assert_not_called()
 
 
 class TestCleanupOrphanedResourcesRun:

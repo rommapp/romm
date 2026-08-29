@@ -1,5 +1,6 @@
 import json
 from unittest.mock import AsyncMock, patch
+from urllib.parse import unquote
 
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -10,6 +11,7 @@ from handler.database.base_handler import sync_session
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
+from handler.metadata.hltb_handler import HLTBHandler, HLTBRom
 from handler.metadata.igdb_handler import IGDBHandler, IGDBRom
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.types import LaunchboxRom
@@ -225,6 +227,35 @@ def test_download_roms_by_platform(
     assert rom_file.file_name in response.text
 
 
+def test_download_roms_by_platform_skips_roms_without_a_file(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    rom_file: RomFile,
+):
+    """A physical game has no files to zip, so it must not swell the archive's
+    ROM count (and therefore its generated name)."""
+    db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="Physical Game",
+            fs_name="Physical Game",
+            fs_path=f"{platform.slug}/roms/.physical",
+            fs_size_bytes=0,
+            is_physical=True,
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/download?platform_id={platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert "1 ROMs" in unquote(response.headers["Content-Disposition"])
+    assert rom_file.file_name in response.text
+
+
 def test_download_roms_by_collection(
     client: TestClient,
     access_token: str,
@@ -311,6 +342,63 @@ def test_get_roms_without_rom_id_index(
     items = body["items"]
     assert len(items) == 1
     assert items[0]["id"] == rom.id
+
+
+def test_get_roms_without_total(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+):
+    params = {
+        "platform_id": platform.id,
+        "limit": 15,
+        "with_rom_id_index": False,
+    }
+
+    with patch.object(
+        db_rom_handler, "get_rom_count", wraps=db_rom_handler.get_rom_count
+    ) as get_rom_count:
+        response = client.get(
+            "/api/roms",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={**params, "with_total": False},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        # The point of the opt-out: no second scan of the filtered set.
+        get_rom_count.assert_not_called()
+
+        body = response.json()
+        assert body["total"] is None
+
+        items = body["items"]
+        assert len(items) == 1
+        assert items[0]["id"] == rom.id
+
+        # Control: the count still runs for callers that ask for it.
+        response = client.get(
+            "/api/roms",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params=params,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total"] == 1
+        get_rom_count.assert_called_once()
+
+
+def test_get_roms_keeps_total_from_the_rom_id_index(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+):
+    # The index already carries the count, so opting out of the separate
+    # count query costs the caller nothing there.
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "with_total": False},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["total"] == 1
+    assert body["rom_id_index"] == [rom.id]
 
 
 def test_get_roms_filter_by_metadata_providers(
@@ -431,7 +519,7 @@ def test_get_all_roms_with_files(
 
 def test_get_rom_content_requires_auth(client: TestClient, rom: Rom, rom_file):
     response = client.get(f"/api/roms/{rom.id}/content/test_rom.zip")
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 def test_get_rom_content_single_file(
@@ -640,6 +728,40 @@ def test_update_rom_adds_region_tag_on_rename(
     assert body["regions"] == ["Europe"]
 
 
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_refreshes_smart_collection_membership(
+    rename_fs_rom_mock: AsyncMock,
+    get_rom_by_id_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom: Rom,
+):
+    # An edit changes what the saved filters match, so the cached counts have
+    # to follow it rather than wait for the next scan.
+    smart_collection = db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="European games",
+            description="",
+            user_id=admin_user.id,
+            filter_criteria={"regions": ["Europe"]},
+        )
+    )
+    db_collection_handler.refresh_smart_collection(smart_collection.id)
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"fs_name": "test_rom (Europe).zip"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+    assert refreshed is not None
+    assert refreshed.rom_ids == [rom.id]
+
+
 # Minimal valid PNG (1x1 transparent pixel)
 _PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n"
@@ -698,6 +820,28 @@ def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
 
     body = response.json()
     assert body["successful_items"] == 1
+
+
+def test_delete_roms_reports_results_when_the_refresh_fails(
+    client: TestClient, access_token: str, rom: Rom, mocker
+):
+    # The deletes are already committed by this point, so a failure updating
+    # cached smart collection membership must not cost the caller its report.
+    mocker.patch.object(
+        db_collection_handler,
+        "refresh_smart_collections_for_roms",
+        side_effect=RuntimeError("refresh exploded"),
+    )
+
+    response = client.post(
+        "/api/roms/delete",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [rom.id], "delete_from_fs": []},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["successful_items"] == 1
+    assert db_rom_handler.get_rom(rom.id) is None
 
 
 def test_delete_roms_reports_failed_ids(
@@ -1293,8 +1437,19 @@ class TestUpdateMetadataIDs:
         body = response.json()
         assert body["hasheous_id"] == MOCK_HASHEOUS_ID
 
-    def test_update_rom_hltb_id(self, client: TestClient, access_token: str, rom: Rom):
-        """Test updating HowLongToBeat ID."""
+    @patch.object(
+        HLTBHandler,
+        "get_rom_by_id",
+        return_value=HLTBRom(hltb_id=MOCK_HLTB_ID, hltb_metadata={"main_story": 92822}),
+    )
+    def test_update_rom_hltb_id(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A hand-entered HowLongToBeat ID has to pull its times down with it."""
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
@@ -1304,6 +1459,28 @@ class TestUpdateMetadataIDs:
 
         body = response.json()
         assert body["hltb_id"] == MOCK_HLTB_ID
+        assert body["hltb_metadata"]["main_story"] == 92822
+        assert get_rom_by_id_mock.called
+
+    @patch.object(HLTBHandler, "get_rom_by_id", return_value=HLTBRom(hltb_id=None))
+    def test_update_rom_hltb_id_persists_when_handler_disabled(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Test that HLTB ID persists when handler is disabled or game not found."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"hltb_id": str(MOCK_HLTB_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["hltb_id"] == MOCK_HLTB_ID
+        assert get_rom_by_id_mock.called
 
 
 class TestUpdateRawMetadata:
@@ -1504,8 +1681,12 @@ class TestUpdateRawMetadata:
         assert body["flashpoint_metadata"]["companies"] == ["Nintendo"]
         assert body["flashpoint_metadata"]["source"] == "Flashpoint"
 
+    @patch.object(
+        HLTBHandler, "get_rom_by_id", return_value=HLTBRom(hltb_id=MOCK_HLTB_ID)
+    )
     def test_update_raw_hltb_metadata(
         self,
+        get_rom_by_id_mock: AsyncMock,
         client: TestClient,
         access_token: str,
         rom: Rom,

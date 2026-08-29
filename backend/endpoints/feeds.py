@@ -1,6 +1,7 @@
 import csv
 import io
 import re
+from collections import Counter
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated
@@ -49,7 +50,12 @@ from handler.metadata.base_handler import (
     SWITCH_TITLEDB_REGEX,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import (
+    HAS_FILE_ON_DISK_FILTERS,
+    Rom,
+    RomFile,
+    RomFileCategory,
+)
 from utils.archives import is_compressed_file
 from utils.router import APIRouter
 
@@ -92,8 +98,11 @@ def _hidden_ids(request: Request) -> tuple[list[int], list[int]]:
     return list(perms.hidden_platform_ids), list(perms.hidden_rom_ids)
 
 
-def _platform_roms(request: Request, platform_id: int, *, include_files: bool = False):
-    """Roms of a platform, excluding any hidden from the caller (cascade included)."""
+def _platform_roms(
+    request: Request, platform_id: int, *, include_files: bool = False
+) -> Sequence[Rom]:
+    """Roms of a platform a feed can serve: nothing hidden from the caller, and
+    nothing file-less (every feed entry carries a download URL)."""
     hidden_platforms, hidden_roms = _hidden_ids(request)
     if platform_id in hidden_platforms:
         return []
@@ -101,6 +110,7 @@ def _platform_roms(request: Request, platform_id: int, *, include_files: bool = 
         platform_ids=[platform_id],
         include_files=include_files,
         hidden_rom_ids=hidden_roms,
+        **HAS_FILE_ON_DISK_FILTERS,
     )
 
 
@@ -133,6 +143,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             platform_ids=[p.id],
             hidden_platform_ids=hidden_platforms,
             hidden_rom_ids=hidden_roms,
+            **HAS_FILE_ON_DISK_FILTERS,
         )
         for rom in roms:
             download_url = generate_rom_download_url(request, rom)
@@ -250,6 +261,7 @@ async def tinfoil_index_feed(
         include_files=True,
         hidden_platform_ids=hidden_platforms,
         hidden_rom_ids=hidden_roms,
+        **HAS_FILE_ON_DISK_FILTERS,
     )
 
     return TinfoilFeedSchema(
@@ -582,14 +594,40 @@ FPKGI_CATEGORY_LABELS: dict[RomFileCategory, str] = {
 FPKGI_TITLE_ID_REGEX = re.compile(r"(?:CUSA|PPSA)\d{5}", re.IGNORECASE)
 
 
-def fpkgi_item_name(rom: Rom, file: RomFile, *, is_single_file: bool) -> str:
-    """Name shown in FPKGi, disambiguated when a rom holds several packages."""
-    rom_name = rom.name or rom.fs_name
-    if is_single_file:
-        return rom_name
-
+def fpkgi_name_candidates(rom_name: str, file: RomFile) -> list[str]:
+    """Names for a package, from the most readable to the most specific."""
     label = FPKGI_CATEGORY_LABELS.get(file.category) if file.category else None
-    return f"{rom_name} - {label or file.file_name_no_ext}"
+    stem = file.file_name_no_ext
+
+    candidates = []
+    if label:
+        candidates.append(f"{rom_name} - {label}")
+    candidates.append(f"{rom_name} - {stem}")
+    if label:
+        candidates.append(f"{rom_name} - {label} - {stem}")
+    # Last resort: two categories can hold packages with the same file name
+    candidates.append(f"{rom_name} - {stem} ({file.id})")
+    return candidates
+
+
+def fpkgi_item_names(rom: Rom, files: list[RomFile]) -> dict[int, str]:
+    """Name shown in FPKGi per package, keyed by rom file id.
+
+    FPKGi downloads to `[<title_id>] <name>.pkg`, and packages of a rom share a
+    title id, so two of them sharing a name overwrite each other on the console.
+    Each package therefore takes the first of its candidate names that no other
+    package in the rom lays claim to.
+    """
+    rom_name = rom.name or rom.fs_name
+    if len(files) == 1:
+        return {files[0].id: rom_name}
+
+    candidates = {f.id: fpkgi_name_candidates(rom_name, f) for f in files}
+    claimed = Counter(name for names in candidates.values() for name in names)
+    return {
+        file_id: next(name for name in names if claimed[name] == 1)
+        for file_id, names in candidates.items()
+    }
 
 
 def fpkgi_title_id(rom: Rom, files: list[RomFile]) -> str:
@@ -656,6 +694,9 @@ def fpkgi_feed(
             if f.file_extension.lower() == "pkg" and not f.missing_from_fs
         ]
         title_id = fpkgi_title_id(rom, pkg_files)
+        # Named over every package of the rom, not just the filtered ones, so a
+        # name means the same thing whichever CONTENT_URLS slot serves it
+        item_names = fpkgi_item_names(rom, pkg_files)
         cover_url = (
             str(URLPath(rom.path_cover_large).make_absolute_url(request.base_url))
             if rom.path_cover_large
@@ -670,7 +711,7 @@ def fpkgi_feed(
 
             download_url = generate_romfile_download_url(request, file)
             response_data[download_url] = FPKGiFeedItemSchema(
-                name=fpkgi_item_name(rom, file, is_single_file=len(pkg_files) == 1),
+                name=item_names[file.id],
                 size=file.file_size_bytes,
                 title_id=title_id,
                 region=rom.regions[0] if rom.regions else None,

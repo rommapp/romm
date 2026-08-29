@@ -125,6 +125,12 @@ const franchises = computed(
   () => currentRom.value?.metadatum?.franchises ?? [],
 );
 const companies = computed(() => currentRom.value?.metadatum?.companies ?? []);
+const publishers = computed(
+  () => currentRom.value?.metadatum?.publishers ?? [],
+);
+const developers = computed(
+  () => currentRom.value?.metadatum?.developers ?? [],
+);
 const collections = computed(
   () => currentRom.value?.metadatum?.collections ?? [],
 );
@@ -161,16 +167,34 @@ const lastPlayed = computed(() => {
   return new Date(ts).toLocaleString();
 });
 
-// "Companies" (not "Developer") — the API field is a merged list of
-// developers + publishers + other company roles produced by the backend
-// (see flashpoint/gamelist/launchbox handlers); calling it Developer
-// would be a lie. "Franchises" mirrors the singular→plural consistency
-// of the surrounding rows.
+// Companies is a merged developers + publishers list, so show it only when
+// both split fields are empty (InfoGrid drops empty sections).
+const showMergedCompanies = computed(
+  () => publishers.value.length === 0 && developers.value.length === 0,
+);
 const overviewSections = computed<InfoGridSection[]>(() => [
-  { label: t("rom.genres"), items: genres.value },
-  { label: t("rom.companies"), items: companies.value },
-  { label: t("rom.franchises"), items: franchises.value },
-  { label: t("rom.collections"), items: collections.value },
+  { label: t("rom.genres"), items: genres.value, filter: "genres" },
+  {
+    label: t("rom.developers"),
+    items: developers.value,
+    filter: "developers",
+  },
+  {
+    label: t("rom.publishers"),
+    items: publishers.value,
+    filter: "publishers",
+  },
+  {
+    label: t("rom.companies"),
+    items: showMergedCompanies.value ? companies.value : [],
+    filter: "companies",
+  },
+  { label: t("rom.franchises"), items: franchises.value, filter: "franchises" },
+  {
+    label: t("rom.collections"),
+    items: collections.value,
+    filter: "collections",
+  },
 ]);
 
 const playerCount = computed<string | null>(() => {
@@ -216,6 +240,7 @@ const expansions = computed<IGDBRelatedGame[]>(
   () => igdb.value?.expansions ?? [],
 );
 const dlcs = computed<IGDBRelatedGame[]>(() => igdb.value?.dlcs ?? []);
+const ports = computed<IGDBRelatedGame[]>(() => igdb.value?.ports ?? []);
 
 const savesCount = computed(() => currentRom.value?.user_saves?.length ?? 0);
 const statesCount = computed(() => currentRom.value?.user_states?.length ?? 0);
@@ -281,6 +306,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :dlcs="dlcs"
             :remakes="remakes"
             :remasters="remasters"
+            :ports="ports"
             :similar-games="similarGames"
           />
           <FilesTab v-if="tab === 'files'" :rom="currentRom" />

@@ -12,11 +12,41 @@ function makeRom(overrides: Partial<SimpleRom>): SimpleRom {
 }
 
 describe("getDownloadPath", () => {
-  it("uses fs_name when no file is selected", () => {
-    const rom = makeRom({ id: 14, fs_name: "Maniac Mansion (1989).adf" });
+  it("uses fs_name for a flat single-file rom", () => {
+    const rom = makeRom({
+      id: 14,
+      fs_name: "Maniac Mansion (1989).adf",
+      has_nested_single_file: false,
+      files: [
+        { id: 19, file_name: "Maniac Mansion (1989).adf" },
+      ] as SimpleRom["files"],
+    });
     expect(getDownloadPath({ rom })).toBe(
       "/api/roms/14/content/Maniac Mansion (1989).adf",
     );
+  });
+
+  it("uses the file name for a nested single-file rom", () => {
+    const rom = makeRom({
+      id: 21,
+      fs_name: "Art Of Fighting",
+      has_nested_single_file: true,
+      files: [{ id: 26, file_name: "aof.zip" }] as SimpleRom["files"],
+    });
+    expect(getDownloadPath({ rom })).toBe("/api/roms/21/content/aof.zip");
+  });
+
+  it("uses fs_name for an unselected multi-file rom", () => {
+    const rom = makeRom({
+      id: 24,
+      fs_name: "B.A.T.",
+      has_nested_single_file: false,
+      files: [
+        { id: 29, file_name: "B.A.T. Disk1.adf" },
+        { id: 30, file_name: "B.A.T. Disk2.adf" },
+      ] as SimpleRom["files"],
+    });
+    expect(getDownloadPath({ rom })).toBe("/api/roms/24/content/B.A.T.");
   });
 
   it("uses the selected file name (with extension) for a single file", () => {

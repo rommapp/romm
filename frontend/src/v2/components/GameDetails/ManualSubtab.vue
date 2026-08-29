@@ -18,6 +18,7 @@ import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const PdfViewer = defineAsyncComponent(
@@ -25,6 +26,9 @@ const PdfViewer = defineAsyncComponent(
 );
 const MarkdownViewer = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/MarkdownViewer.vue"),
+);
+const TextViewer = defineAsyncComponent(
+  () => import("@/v2/components/GameDetails/TextViewer.vue"),
 );
 
 function errorMessage(err: unknown): string {
@@ -41,6 +45,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
+const { syncCachedRom } = useRomSync();
 const { t } = useI18n();
 
 // Every manual endpoint (upload / redownload / delete) gates on the ROM write
@@ -53,11 +58,16 @@ type ManualEntry = {
   label: string;
   url: string;
   isPrimary: boolean;
-  // Manuals can be PDF or Markdown; the viewer is picked by extension.
-  kind: "pdf" | "md";
+  // Manuals can be PDF, Markdown, or plain text; the viewer is picked by
+  // extension.
+  kind: "pdf" | "md" | "text";
 };
 
-const isMarkdown = (name: string) => /\.md$/i.test(name);
+const kindFor = (name: string): ManualEntry["kind"] => {
+  if (/\.md$/i.test(name)) return "md";
+  if (/\.(txt|html?|htm)$/i.test(name)) return "text";
+  return "pdf";
+};
 
 const manualEntries = computed<ManualEntry[]>(() => {
   const entries: ManualEntry[] = [];
@@ -68,7 +78,7 @@ const manualEntries = computed<ManualEntry[]>(() => {
       label: t("rom.scraped-manual"),
       url: `${FRONTEND_RESOURCES_PATH}/${props.rom.path_manual}?v=${cacheBust}`,
       isPrimary: true,
-      kind: isMarkdown(props.rom.path_manual) ? "md" : "pdf",
+      kind: kindFor(props.rom.path_manual),
     });
   }
   for (const file of props.rom.files ?? []) {
@@ -80,7 +90,7 @@ const manualEntries = computed<ManualEntry[]>(() => {
           file.file_name,
         )}?v=${cacheBust}`,
         isPrimary: false,
-        kind: isMarkdown(file.file_name) ? "md" : "pdf",
+        kind: kindFor(file.file_name),
       });
     }
   }
@@ -141,7 +151,7 @@ async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: props.rom.id });
     romsStore.currentRom = data;
-    romsStore.update(data);
+    syncCachedRom(data);
   } catch (error) {
     console.error(error);
   }
@@ -217,7 +227,7 @@ function requestDeleteManual() {
       :hint="t('common.dropzone-hint')"
       :active-title="t('common.dropzone-drag-over')"
       :input-label="t('rom.upload-manual')"
-      accept="application/pdf,.md"
+      accept="application/pdf,.md,.txt"
       multiple
       @files="handleManualFiles"
     >
@@ -242,7 +252,7 @@ function requestDeleteManual() {
       class="r-v2-manual__fill"
       :release-label="t('common.dropzone-drag-over')"
       :input-label="t('rom.upload-manual')"
-      accept="application/pdf,.md"
+      accept="application/pdf,.md,.txt"
       multiple
       @files="handleManualFiles"
     >
@@ -256,6 +266,13 @@ function requestDeleteManual() {
           :redownloading="redownloadingManual"
           @delete="requestDeleteManual"
           @redownload="redownloadManual"
+        />
+        <TextViewer
+          v-else-if="selectedManual.kind === 'text'"
+          :key="`${selectedManual.id}-${rom.updated_at}-txt`"
+          :url="selectedManual.url"
+          deletable
+          @delete="requestDeleteManual"
         />
         <PdfViewer
           v-else
@@ -321,6 +338,16 @@ function requestDeleteManual() {
   min-height: 30rem;
   display: flex;
   flex-direction: column;
+}
+
+/* On mobile the details view scrolls as one document (GameDetails unwinds its
+   fixed-height chain), so no ancestor hands the viewer a height to fill. Pin
+   it to a slice of the viewport instead. */
+html[data-bp~="sm-and-down"] .r-v2-manual__fill {
+  flex: none;
+  height: 70vh;
+  height: 70dvh;
+  min-height: 20rem;
 }
 
 /* Viewer — fills the available panel height so the inner PDF / Markdown uses

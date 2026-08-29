@@ -139,7 +139,7 @@ def test_update_scan_settings_payload_shape(client, access_token: str):
 
 def test_update_scan_settings_requires_auth(client):
     response = client.put("/api/config/scan", json=_scan_payload())
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 def test_update_scan_settings_rejects_unknown_source(client, access_token: str):

@@ -17,6 +17,6 @@
   "widget-library-stats": "庫統計",
   "widget-random-pick": "隨機推薦",
   "widget-random-pick-empty": "尚未載入遊戲",
-  "widget-random-pick-open": "開啟",
+  "widget-random-pick-error": "無法抽取遊戲",
   "widget-random-pick-reroll": "重新抽取"
 }

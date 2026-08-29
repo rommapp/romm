@@ -17,6 +17,6 @@
   "widget-library-stats": "라이브러리 통계",
   "widget-random-pick": "랜덤 선택",
   "widget-random-pick-empty": "아직 불러온 게임이 없습니다",
-  "widget-random-pick-open": "열기",
+  "widget-random-pick-error": "게임을 뽑지 못했습니다",
   "widget-random-pick-reroll": "다시 뽑기"
 }

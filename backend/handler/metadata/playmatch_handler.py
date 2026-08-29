@@ -1,5 +1,6 @@
 import asyncio
 import json
+from collections.abc import Iterable
 from enum import Enum
 from typing import Final, NotRequired, TypedDict
 
@@ -62,6 +63,21 @@ PLAYMATCH_LOOKUP_ROM_ATTRS: frozenset[str] = frozenset(
 PLAYMATCH_SUPPORTED_SOURCES: frozenset[str] = frozenset(
     {"igdb", "moby", "ss", "launchbox", "sgdb"}
 )
+
+
+def _select_lookup_file(files: Iterable[RomFile]) -> RomFile | None:
+    """The single file a ROM is identified by: the biggest top-level one, which
+    is how Hasheous and ScreenScraper choose theirs.
+
+    Equally sized files break the tie on path, so a two-disc set resolves to
+    disc 1. The scanner walks the filesystem unsorted, so without that two
+    machines scanning the same library ask about different files.
+    """
+    return min(
+        (file for file in files if file.file_size_bytes > 0 and file.is_top_level),
+        key=lambda file: (-file.file_size_bytes, file.full_path),
+        default=None,
+    )
 
 
 class GameMatchType(str, Enum):
@@ -221,22 +237,21 @@ class PlaymatchHandler(MetadataHandler):
         if not self.is_enabled():
             return fallback_rom
 
-        first_file = next(
-            (file for file in files if file.file_size_bytes > 0),
-            None,
-        )
-        if first_file is None:
+        match_file = _select_lookup_file(files)
+        if match_file is None:
             return fallback_rom
+
+        hashes = match_file.lookup_hashes
 
         try:
             response = await self._request(
                 self.identify_url,
                 {
-                    "fileName": first_file.file_name,
-                    "fileSize": first_file.file_size_bytes,
-                    "md5": first_file.md5_hash,
-                    "sha1": first_file.sha1_hash,
-                    "crc": first_file.crc_hash,
+                    "fileName": match_file.file_name,
+                    "fileSize": match_file.file_size_bytes,
+                    "md5": hashes.md5,
+                    "sha1": hashes.sha1,
+                    "crc": hashes.crc,
                 },
             )
         except Exception as exc:
@@ -302,27 +317,21 @@ class PlaymatchHandler(MetadataHandler):
             if not mappings:
                 return
 
-            first_file = next(
-                (f for f in rom.files if f.file_size_bytes > 0),
-                None,
-            )
-            if first_file is not None:
-                md5 = first_file.md5_hash
-                sha1 = first_file.sha1_hash
-                file_name = first_file.file_name
-                file_size: int | None = first_file.file_size_bytes
-            else:
-                md5 = rom.md5_hash
-                sha1 = rom.sha1_hash
-                file_name = rom.fs_name
-                file_size = rom.fs_size_bytes or None
+            # A suggestion writes a hash-to-game mapping into a public index.
+            # With no file to take one from, the ROM-level hash is a composite
+            # spanning every file or archive member, so there is nothing here
+            # worth contributing.
+            match_file = _select_lookup_file(rom.files)
+            if match_file is None:
+                return
 
+            hashes = match_file.lookup_hashes
             payload = {
-                "md5": md5,
-                "sha1": sha1,
+                "md5": hashes.md5,
+                "sha1": hashes.sha1,
                 "sha256": None,
-                "fileName": file_name,
-                "fileSize": file_size,
+                "fileName": match_file.file_name,
+                "fileSize": match_file.file_size_bytes,
                 "mappings": mappings,
             }
 

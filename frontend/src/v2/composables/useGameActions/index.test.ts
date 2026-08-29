@@ -73,6 +73,14 @@ vi.mock("@/v2/composables/useClipboard", () => ({
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirmFn,
 }));
+vi.mock("@/v2/composables/useRomSync", () => ({
+  useRomSync: () => ({
+    syncCachedRom: vi.fn(),
+    applyRomWrite: vi.fn(),
+    refreshAfterUserStateChange: vi.fn(),
+    refreshIfOrderedBy: vi.fn(),
+  }),
+}));
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({ success: vi.fn(), error: vi.fn() }),
 }));
@@ -88,6 +96,7 @@ function makeRom(status: SimpleRom["rom_user"]["status"] = null): SimpleRom {
     name: "Chrono Trigger",
     fs_name_no_ext: "Chrono Trigger",
     platform_slug: "snes",
+    has_file_on_disk: true,
     rom_user: { status },
   } as unknown as SimpleRom;
 }
@@ -177,6 +186,15 @@ describe("useGameActions.play — launch confirmation", () => {
     expect(push).toHaveBeenCalledWith("/rom/1/ruffle");
     expect(locationAssign).not.toHaveBeenCalled();
   });
+
+  it("offers neither streaming nor download without a file behind the rom", () => {
+    streamContainer.value = {};
+    const fileless = { ...makeRom(), has_file_on_disk: false } as SimpleRom;
+    const actions = useGameActions(() => fileless);
+
+    expect(actions.canPlayStream.value).toBe(false);
+    expect(actions.canDownload.value).toBe(false);
+  });
 });
 
 describe("useGameActions — write/destructive gates", () => {
@@ -214,7 +232,7 @@ describe("useGameActions — write/destructive gates", () => {
   });
 
   // A bare DELETE grant projects to no scope, so `POST /roms/delete` (which
-  // gates on ROMS_WRITE) would 403 and the interceptor would log the user out.
+  // gates on ROMS_WRITE) would 403, so the menu must not offer it.
   it("hides delete when the delete grant is held without the write grant", () => {
     grantedActions.value = new Set<ActionKey>(["rom.view", "rom.delete"]);
     const actions = useGameActions(() => makeRom());

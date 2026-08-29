@@ -43,6 +43,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
+import CardFlags from "@/v2/components/GameCard/CardFlags.vue";
 import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
 import CoverArtPip from "@/v2/components/shared/CoverArtPip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
@@ -505,6 +506,10 @@ function onStaticKeydown(e: KeyboardEvent) {
 
         <SiblingBadge :rom="rom" />
 
+        <!-- Region / language flags — bottom-left, gated by the
+             showRegions / showLanguages UI settings. -->
+        <CardFlags :rom="rom" />
+
         <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
         <div class="r-gc__overlay">
           <div class="r-gc__overlay-center">
@@ -517,7 +522,12 @@ function onStaticKeydown(e: KeyboardEvent) {
           </div>
 
           <div class="r-gc__overlay-bottom">
-            <GameActionBtn :rom="rom" action="download" size="small" />
+            <GameActionBtn
+              v-if="actions?.canDownload.value"
+              :rom="rom"
+              action="download"
+              size="small"
+            />
             <GameActionBtn :rom="rom" action="collection" size="small" />
             <GameActionBtn :rom="rom" action="favorite" size="small" />
             <GameActionBtn :rom="rom" action="more" size="small" />
@@ -571,9 +581,14 @@ function onStaticKeydown(e: KeyboardEvent) {
   display: flex;
   flex-direction: column;
 }
-/* Width follows the cover (overrides GameCover's base `width: 100%`). */
+/* Width follows the cover (overrides GameCover's base `width: 100%`).
+   Multiplied out instead of leaning on GameCover's `aspect-ratio`: a
+   width derived from the aspect-ratio alone is circular inside a
+   shrink-to-fit ancestor (the match-dialog cell), and WebKit collapses
+   that to a few pixels. `--r-cover-ratio` is set inline on this element
+   with the cover's measured ratio, so it wins over the card-level one. */
 .r-gc:not(.r-gc--hero) .r-gc__art {
-  width: auto;
+  width: calc(var(--r-card-art-h) * var(--r-cover-ratio, 0.6667));
 }
 /* Label fills the cover's width and ellipsises, without widening the card. */
 .r-gc:not(.r-gc--hero) .r-gc__label {
@@ -783,6 +798,15 @@ html[data-input="mouse"] .r-gc:hover :deep(.cover-art-pip),
 html[data-input="touch"] .r-gc:hover :deep(.cover-art-pip),
 .r-gc:focus-visible :deep(.cover-art-pip),
 .r-gc--focused :deep(.cover-art-pip) {
+  opacity: 0;
+}
+
+/* Region / language flags fade out under the hover overlay so they never
+   collide with the bottom action row (same treatment as the cover PIP). */
+html[data-input="mouse"] .r-gc:hover :deep(.card-flags),
+html[data-input="touch"] .r-gc:hover :deep(.card-flags),
+.r-gc:focus-visible :deep(.card-flags),
+.r-gc--focused :deep(.card-flags) {
   opacity: 0;
 }
 html[data-input="mouse"] .r-gc:hover .r-gc__badge,

@@ -17,6 +17,6 @@
   "widget-library-stats": "Statistici bibliotecă",
   "widget-random-pick": "Alegere aleatorie",
   "widget-random-pick-empty": "Niciun joc încărcat încă",
-  "widget-random-pick-open": "Deschide",
+  "widget-random-pick-error": "Nu s-a putut alege un joc",
   "widget-random-pick-reroll": "Reîncearcă"
 }

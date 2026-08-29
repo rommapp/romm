@@ -16,7 +16,7 @@ def _auth(token: str) -> dict[str, str]:
 
 def test_get_logs_requires_auth(client):
     response = client.get("/api/logs")
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 def test_get_logs_forbidden_without_logs_read(client, viewer_access_token):

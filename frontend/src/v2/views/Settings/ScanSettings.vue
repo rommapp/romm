@@ -5,14 +5,7 @@
 //
 // Provider / region / language identifiers are proper nouns or codes, so
 // they stay as data constants; only descriptive prose goes through i18n.
-import {
-  RAlert,
-  RComboboxField,
-  RIcon,
-  RSelect,
-  RBtn,
-  RSpinner,
-} from "@v2/lib";
+import { RAlert, RIcon, RSelect, RBtn, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -82,7 +75,7 @@ const ARTWORK_SOURCES = [
   "playmatch",
 ].map((value) => ({ value, label: PROVIDER_LABELS[value] }));
 
-// Common provider region / language codes, offered as autocomplete
+// Common provider region / language codes, offered as one-click
 // suggestions. Users may still type any provider-defined code.
 const REGION_SUGGESTIONS = [
   "us",
@@ -107,7 +100,7 @@ const REGION_SUGGESTIONS = [
   "se",
   "no",
   "fi",
-];
+].map((value) => ({ value, label: value }));
 const LANGUAGE_SUGGESTIONS = [
   "en",
   "fr",
@@ -127,7 +120,7 @@ const LANGUAGE_SUGGESTIONS = [
   "fi",
   "ar",
   "el",
-];
+].map((value) => ({ value, label: value }));
 
 const MEDIA_TYPES: MetadataMediaType[] = [
   "box2d",
@@ -456,18 +449,16 @@ onBeforeUnmount(() =>
       :title="t('settings.scan-region-priority')"
       icon="mdi-earth"
     >
-      <div class="r-v2-scan-settings__field">
-        <p class="r-v2-scan-settings__desc">
-          {{ t("settings.scan-region-priority-desc") }}
-        </p>
-        <RComboboxField
-          v-model="form.region"
-          :items="REGION_SUGGESTIONS"
-          :placeholder="t('settings.scan-region-placeholder')"
-          :disabled="!canEdit"
-          hide-details
-        />
-      </div>
+      <p class="r-v2-scan-settings__desc">
+        {{ t("settings.scan-region-priority-desc") }}
+      </p>
+      <ScanPriorityList
+        v-model="form.region"
+        :sources="REGION_SUGGESTIONS"
+        :input-placeholder="t('settings.scan-region-placeholder')"
+        allow-custom
+        :disabled="!canEdit"
+      />
     </SettingsSection>
 
     <!-- Language priority -->
@@ -475,18 +466,16 @@ onBeforeUnmount(() =>
       :title="t('settings.scan-language-priority')"
       icon="mdi-translate"
     >
-      <div class="r-v2-scan-settings__field">
-        <p class="r-v2-scan-settings__desc">
-          {{ t("settings.scan-language-priority-desc") }}
-        </p>
-        <RComboboxField
-          v-model="form.language"
-          :items="LANGUAGE_SUGGESTIONS"
-          :placeholder="t('settings.scan-language-placeholder')"
-          :disabled="!canEdit"
-          hide-details
-        />
-      </div>
+      <p class="r-v2-scan-settings__desc">
+        {{ t("settings.scan-language-priority-desc") }}
+      </p>
+      <ScanPriorityList
+        v-model="form.language"
+        :sources="LANGUAGE_SUGGESTIONS"
+        :input-placeholder="t('settings.scan-language-placeholder')"
+        allow-custom
+        :disabled="!canEdit"
+      />
     </SettingsSection>
 
     <!-- Media types -->

@@ -64,6 +64,7 @@ import {
   type DiscSelection,
 } from "@/v2/utils/playerDisc";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
+import { rememberCore, resolveRememberedCore } from "./coreStorage";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
 // bundle doesn't pull in the EJS shims until we actually mount the player.
@@ -276,6 +277,9 @@ async function onPlay() {
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = installIOSFullscreenShim();
 
+  if (rom.value) {
+    rememberCore(rom.value.id, rom.value.platform_slug, selectedCore.value);
+  }
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullscreenOnPlay.value;
   fullScreen.value = fullscreenOnPlay.value;
@@ -442,16 +446,11 @@ onMounted(async () => {
   }
   selectedDisc.value = disc;
 
-  // Prefer the core saved for this game, then the platform default, validating
-  // each candidate so a stale entry falls through instead of masking the next
-  const gameCore = localStorage.getItem(`player:${rom.value.id}:core`);
-  const platformCore = localStorage.getItem(
-    `player:${rom.value.platform_slug}:core`,
+  selectedCore.value = resolveRememberedCore(
+    rom.value.id,
+    rom.value.platform_slug,
+    supportedCores.value,
   );
-  selectedCore.value =
-    [gameCore, platformCore].find(
-      (core): core is string => !!core && supportedCores.value.includes(core),
-    ) ?? supportedCores.value[0];
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
   const storedBiosID = localStorage.getItem(

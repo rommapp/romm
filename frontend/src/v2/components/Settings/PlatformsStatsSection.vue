@@ -3,7 +3,9 @@
 // `Settings/ServerStats/PlatformsStats.vue`. Per-platform breakdown
 // rows: icon · name + meta (games count, metadata coverage chips,
 // region chips with expand/collapse) · size + percentage of total ·
-// progress bar that doubles as the row divider.
+// progress bar that doubles as the row divider. Each row navigates to
+// its platform gallery, with the same icon morph the Platforms index
+// rows use.
 //
 // Toolbar mirrors GalleryToolbar's pattern: inline-prefix search on
 // the left, icon-only segmented sort on the right. No card chrome —
@@ -20,11 +22,16 @@ import type { SliderBtnGroupItem } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes, regionToEmoji } from "@/utils";
+import {
+  pendingMorphName,
+  useViewTransition,
+} from "@/v2/composables/useViewTransition";
 
 defineOptions({ inheritAttrs: false });
 
@@ -36,6 +43,8 @@ interface Props {
 const props = defineProps<Props>();
 
 const { t } = useI18n();
+const router = useRouter();
+const { morphTransition } = useViewTransition();
 const platformsStore = storePlatforms();
 // Only platforms that contain games should be displayed
 const { filledPlatforms } = storeToRefs(platformsStore);
@@ -149,6 +158,38 @@ function coveragePercent(matched: number, total: number): string {
   if (!total) return "0";
   return ((matched / total) * 100).toFixed(0);
 }
+
+function morphName(platformId: number): string {
+  return `platform-icon-${platformId}`;
+}
+
+// Paints the morph tag when the user comes back from a platform, so the
+// gallery's icon lands on this row's icon.
+function morphStyle(platformId: number) {
+  return pendingMorphName.value === morphName(platformId)
+    ? { viewTransitionName: morphName(platformId) }
+    : undefined;
+}
+
+function onRowClick(e: MouseEvent, platformId: number): void {
+  // Modifier / non-primary clicks fall through to the anchor's native
+  // navigation so "open in new tab" keeps working.
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+    return;
+  }
+  e.preventDefault();
+  const navigate = async () => {
+    await router.push(`/platform/${platformId}`);
+  };
+  const icon = (e.currentTarget as HTMLElement).querySelector<HTMLElement>(
+    ".r-v2-plat-stats__icon",
+  );
+  if (!icon) {
+    void navigate();
+    return;
+  }
+  morphTransition({ el: icon, name: morphName(platformId) }, navigate);
+}
 </script>
 
 <template>
@@ -179,10 +220,15 @@ function coveragePercent(matched: number, total: number): string {
     </div>
 
     <div class="r-v2-plat-stats">
-      <div
+      <a
         v-for="platform in sortedPlatforms"
         :key="platform.id"
         class="r-v2-plat-stats__row"
+        :href="`/platform/${platform.id}`"
+        :aria-label="
+          t('settings.platform-open', { name: platform.display_name })
+        "
+        @click="onRowClick($event, platform.id)"
       >
         <RPlatformIcon
           :slug="platform.slug"
@@ -190,6 +236,7 @@ function coveragePercent(matched: number, total: number): string {
           :fs-slug="platform.fs_slug"
           :size="32"
           class="r-v2-plat-stats__icon"
+          :style="morphStyle(platform.id)"
         />
         <div class="r-v2-plat-stats__info">
           <div class="r-v2-plat-stats__name">
@@ -198,20 +245,26 @@ function coveragePercent(matched: number, total: number): string {
           <div class="r-v2-plat-stats__meta">
             <span class="r-v2-plat-stats__count">
               {{
-                t("settings.platform-count-games", {
-                  count: platform.rom_count,
+                t("settings.platform-count-games", platform.rom_count, {
+                  named: { count: platform.rom_count },
                 })
               }}
             </span>
             <template
               v-if="orderedCoverageByPlatform[String(platform.id)]?.length > 0"
             >
-              <span class="r-v2-plat-stats__sep">·</span>
+              <span class="r-v2-plat-stats__sep" aria-hidden="true" />
               <span
                 v-for="item in orderedCoverageByPlatform[String(platform.id)]"
                 :key="item.source"
                 class="r-v2-plat-stats__coverage"
-                :title="`${sourceInfo[item.source]?.name ?? item.source}: ${item.matched} / ${platform.rom_count}`"
+                :title="
+                  t('settings.platform-metadata-matches', {
+                    source: sourceInfo[item.source]?.name ?? item.source,
+                    matched: item.matched,
+                    total: platform.rom_count,
+                  })
+                "
               >
                 <img
                   v-if="sourceInfo[item.source]?.logo_path"
@@ -223,7 +276,7 @@ function coveragePercent(matched: number, total: number): string {
               </span>
             </template>
             <template v-if="getVisibleRegions(platform.id).length > 0">
-              <span class="r-v2-plat-stats__sep">·</span>
+              <span class="r-v2-plat-stats__sep" aria-hidden="true" />
               <span
                 v-for="r in getVisibleRegions(platform.id)"
                 :key="r.region"
@@ -239,11 +292,22 @@ function coveragePercent(matched: number, total: number): string {
                 "
                 type="button"
                 class="r-v2-plat-stats__more"
-                @click="toggleRegions(platform.id)"
+                :title="
+                  expandedRegions.has(platform.id)
+                    ? t('settings.platform-regions-show-less')
+                    : t('settings.platform-regions-show-more')
+                "
+                :aria-label="
+                  expandedRegions.has(platform.id)
+                    ? t('settings.platform-regions-show-less')
+                    : t('settings.platform-regions-show-more')
+                "
+                :aria-expanded="expandedRegions.has(platform.id)"
+                @click.stop.prevent="toggleRegions(platform.id)"
               >
                 {{
                   expandedRegions.has(platform.id)
-                    ? "-"
+                    ? "−"
                     : "+" + getHiddenRegionCount(platform.id)
                 }}
               </button>
@@ -265,7 +329,7 @@ function coveragePercent(matched: number, total: number): string {
           color="primary"
           class="r-v2-plat-stats__bar"
         />
-      </div>
+      </a>
       <div v-if="sortedPlatforms.length === 0" class="r-v2-plat-stats__empty">
         <RIcon icon="mdi-folder-question" size="22" />
         <span>{{
@@ -308,16 +372,29 @@ function coveragePercent(matched: number, total: number): string {
   flex-direction: column;
 }
 
+/* Symmetric vertical padding keeps the 14px rhythm between rows while
+   giving the hover/focus band even weight above and below the content. */
 .r-v2-plat-stats__row {
   display: grid;
   grid-template-columns: auto 1fr auto;
   column-gap: 14px;
   row-gap: 12px;
   align-items: center;
-  padding-top: 14px;
+  padding: 7px var(--r-space-2);
+  margin: 0 calc(-1 * var(--r-space-2));
+  border-radius: var(--r-radius-sm);
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-v2-plat-stats__row:first-child {
-  padding-top: 0;
+.r-v2-plat-stats__row:hover {
+  background: var(--r-color-bg-elevated);
+}
+.r-v2-plat-stats__row:focus-visible {
+  outline: none;
+  background: var(--r-color-bg-elevated);
+  box-shadow: inset 0 0 0 2px var(--r-color-brand-primary);
 }
 
 .r-v2-plat-stats__icon {
@@ -345,8 +422,15 @@ function coveragePercent(matched: number, total: number): string {
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg-secondary);
 }
+/* Drawn as a shape rather than a middot glyph: at 12px the character was
+   too thin to read as a group separator between the count, coverage and
+   region clusters. */
 .r-v2-plat-stats__sep {
-  color: var(--r-color-fg-faint);
+  flex-shrink: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--r-color-fg-muted);
 }
 
 .r-v2-plat-stats__coverage,
@@ -370,15 +454,25 @@ function coveragePercent(matched: number, total: number): string {
   object-fit: cover;
 }
 
+/* Outlined so it reads as a control rather than stray punctuation, and
+   sized to sit flush with the region chips it toggles. */
 .r-v2-plat-stats__more {
-  border: none;
-  background: transparent;
-  color: var(--r-color-fg-faint);
-  font-size: 11px;
-  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
   padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
+  color: var(--r-color-fg-secondary);
+  font-size: 11px;
+  font-weight: var(--r-font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
 }
 .r-v2-plat-stats__more:hover {
+  background: var(--r-color-surface-hover);
   color: var(--r-color-fg);
 }
 
@@ -394,7 +488,7 @@ function coveragePercent(matched: number, total: number): string {
 }
 .r-v2-plat-stats__size-pct {
   font-size: 11px;
-  color: var(--r-color-fg-faint);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-plat-stats__bar {

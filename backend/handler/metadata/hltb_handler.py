@@ -1,22 +1,49 @@
+import asyncio
 import json
 import re
 import time
 from typing import Final, NotRequired, TypedDict
 
 import httpx
+import pydash
 from fastapi import HTTPException, status
 
 from config import HLTB_API_ENABLED
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
-from utils import get_version
-from utils.context import create_httpx_client, ctx_httpx_client
+from utils.context import ctx_httpx_client
+from utils.hltb_search import (
+    HLTB_BASE_URL,
+    HLTB_SESSION_HEADERS,
+    SESSION_MINT_SUFFIX,
+    HLTBSession,
+    base_headers,
+    build_search_payload,
+    parse_session,
+    search_body,
+    search_headers,
+)
+from utils.rate_limiter import RateLimiter
 
 from .base_handler import BaseRom, MetadataHandler
 
 # Regex to detect HLTB ID tags in filenames like (hltb-12345)
 HLTB_TAG_REGEX = re.compile(r"\(hltb-(\d+)\)", re.IGNORECASE)
 DASH_COLON_REGEX = re.compile(r"\s?-\s")
+# The game page ships its record as JSON in the Next.js hydration payload. The
+# id alone identifies the tag, so attribute order and extras a CSP would add
+# (nonce, crossorigin) do not read as a rewritten page.
+NEXT_DATA_REGEX = re.compile(
+    r"""<script[^>]*\bid=["']__NEXT_DATA__["'][^>]*>(.*?)</script>""", re.DOTALL
+)
+
+# HLTB publishes no rate limit, so stay well clear of being throttled.
+HLTB_MAX_REQUESTS_PER_SECOND: Final[float] = 3
+# One attempt, plus one for a renewed session and one for a rate-limit backoff.
+HLTB_MAX_REQUEST_ATTEMPTS: Final[int] = 3
+HLTB_RATE_LIMIT_BACKOFF_SECONDS: Final[float] = 2
+HLTB_SESSION_RETRY_SECONDS: Final[float] = 60
+_rate_limiter = RateLimiter(HLTB_MAX_REQUESTS_PER_SECOND)
 
 
 class HLTBPlatform(TypedDict):
@@ -116,6 +143,60 @@ class HLTBRom(BaseRom):
     hltb_metadata: NotRequired[HLTBMetadata]
 
 
+def _release_year(value: object) -> int:
+    """Normalize a release date: search returns a year, the game page an ISO date."""
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        year, _, _ = value.partition("-")
+        if year.isdigit():
+            return int(year)
+    return 0
+
+
+def build_hltb_game(game_data: dict) -> HLTBGame:
+    """Build an HLTBGame, defaulting the fields a given HLTB payload omits."""
+    return HLTBGame(
+        game_id=game_data.get("game_id", 0),
+        game_name=game_data.get("game_name", ""),
+        game_name_date=game_data.get("game_name_date", 0),
+        game_alias=game_data.get("game_alias", ""),
+        game_type=game_data.get("game_type", ""),
+        game_image=game_data.get("game_image", ""),
+        comp_lvl_combine=game_data.get("comp_lvl_combine", 0),
+        comp_lvl_sp=game_data.get("comp_lvl_sp", 0),
+        comp_lvl_co=game_data.get("comp_lvl_co", 0),
+        comp_lvl_mp=game_data.get("comp_lvl_mp", 0),
+        comp_main=game_data.get("comp_main", 0),
+        comp_plus=game_data.get("comp_plus", 0),
+        comp_100=game_data.get("comp_100", 0),
+        comp_all=game_data.get("comp_all", 0),
+        comp_main_count=game_data.get("comp_main_count", 0),
+        comp_plus_count=game_data.get("comp_plus_count", 0),
+        comp_100_count=game_data.get("comp_100_count", 0),
+        comp_all_count=game_data.get("comp_all_count", 0),
+        invested_co=game_data.get("invested_co", 0),
+        invested_mp=game_data.get("invested_mp", 0),
+        invested_co_count=game_data.get("invested_co_count", 0),
+        invested_mp_count=game_data.get("invested_mp_count", 0),
+        count_comp=game_data.get("count_comp", 0),
+        count_speedrun=game_data.get("count_speedrun", 0),
+        count_backlog=game_data.get("count_backlog", 0),
+        count_review=game_data.get("count_review", 0),
+        review_score=game_data.get("review_score", 0),
+        count_playing=game_data.get("count_playing", 0),
+        count_retired=game_data.get("count_retired", 0),
+        profile_platform=game_data.get("profile_platform", ""),
+        profile_popular=game_data.get("profile_popular", 0) or 0,
+        release_world=_release_year(game_data.get("release_world")),
+    )
+
+
+def build_cover_url(game: HLTBGame) -> str:
+    image = game.get("game_image")
+    return f"https://howlongtobeat.com/games/{image}" if image else ""
+
+
 def extract_hltb_metadata(game: HLTBGame) -> HLTBMetadata:
     """Extract metadata from HLTB game data."""
     metadata = HLTBMetadata()
@@ -169,70 +250,136 @@ def extract_hltb_metadata(game: HLTBGame) -> HLTBMetadata:
 GITHUB_FILE_URL = "https://raw.githubusercontent.com/rommapp/romm/refs/heads/master/backend/handler/metadata/fixtures/hltb_api_url"
 
 
+# Raised where the page parsed but did not carry the shape we read, so a
+# rewrite upstream surfaces as itself instead of as a game with no times.
+HLTB_FORMAT_CHANGED_DETAIL: Final[str] = (
+    "HowLongToBeat changed their game page, RomM could not read the game data"
+)
+
+
+def _format_changed(reason: str) -> HTTPException:
+    log.error("HowLongToBeat game page could not be read: %s", reason)
+    return HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=HLTB_FORMAT_CHANGED_DETAIL,
+    )
+
+
+def _unavailable_detail(status_code: int) -> str:
+    """Describe why HLTB is unusable, so the cause isn't misreported as a network fault."""
+    if status_code == status.HTTP_403_FORBIDDEN:
+        return (
+            "HowLongToBeat rejected the session, it may have expired or this "
+            "server's public IP address may have changed"
+        )
+    if status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+        return "HowLongToBeat is rate limiting requests, try again later"
+    if status_code == status.HTTP_404_NOT_FOUND:
+        return (
+            "HowLongToBeat search endpoint not found, it has likely rotated and "
+            "RomM could not fetch the current one"
+        )
+    return f"HowLongToBeat API returned HTTP {status_code}"
+
+
 class HLTBHandler(MetadataHandler):
     """
     Handler for HowLongToBeat, a service that provides game completion times.
     """
 
     def __init__(self) -> None:
-        self.base_url = "https://howlongtobeat.com"
-        self.user_endpoint = f"{self.base_url}/api/user"
-        self.stats_endpoint = f"{self.base_url}/api/stats/games?platform=1&year=2000"
-        self.search_url = f"{self.base_url}/api/find"
-        self.search_init_url = f"{self.search_url}/init"
-        self.security_token = None
-        self.hp_key = None
-        self.hp_val = None
-        self.min_similarity_score: Final = 0.85
+        self.base_url: str = HLTB_BASE_URL
+        self.user_endpoint: str = f"{self.base_url}/api/user"
+        self.stats_endpoint: str = (
+            f"{self.base_url}/api/stats/games?platform=1&year=2000"
+        )
+        self.search_url: str = f"{self.base_url}/api/find"
+        self.search_init_url: str = f"{self.search_url}{SESSION_MINT_SUFFIX}"
+        self.security_token: str | None = None
+        self.hp_key: str | None = None
+        self.hp_val: str | None = None
+        self._session_lock = asyncio.Lock()
+        self._session_retry_after: float = 0
+        self.min_similarity_score: Final[float] = 0.85
 
     @classmethod
     def is_enabled(cls) -> bool:
         return HLTB_API_ENABLED
 
-    def initialize(self) -> None:
+    async def initialize(self) -> None:
         # HLTB rotates their search endpoint regularly
-        self._fetch_search_endpoint()
+        await self._fetch_search_endpoint()
 
         # HLTB now requires a security token
-        self._fetch_security_token()
+        await self._fetch_security_token()
 
-    def _fetch_search_endpoint(self):
+    def _base_headers(self) -> dict[str, str]:
+        return base_headers(self.base_url)
+
+    def _has_session(self) -> bool:
+        return bool(self.security_token and self.hp_key and self.hp_val)
+
+    async def _ensure_session(self) -> bool:
+        """Mint a session if there is none, so a failed startup is not permanent."""
+        if self._has_session():
+            return True
+
+        async with self._session_lock:
+            # A peer may have minted one while we waited for the lock.
+            if self._has_session():
+                return True
+
+            # A mint that just failed means HLTB is down or blocking this host,
+            # so every ROM left in a scan must not pay for its own round trip.
+            now = time.monotonic()
+            if now < self._session_retry_after:
+                return False
+            self._session_retry_after = now + HLTB_SESSION_RETRY_SECONDS
+
+            await self._fetch_security_token()
+
+        return self._has_session()
+
+    async def _fetch_search_endpoint(self) -> None:
         """Fetch the API endpoint URL from Github."""
         if not HLTB_API_ENABLED:
             return
 
+        httpx_client = ctx_httpx_client.get()
+
         try:
-            with create_httpx_client() as client:
-                response = client.get(GITHUB_FILE_URL, timeout=10)
-                response.raise_for_status()
-                self.search_url = response.text.strip()
-                self.search_init_url = f"{self.search_url}/init"
+            response = await httpx_client.get(GITHUB_FILE_URL, timeout=10)
+            response.raise_for_status()
+            self.search_url = response.text.strip()
+            self.search_init_url = f"{self.search_url}{SESSION_MINT_SUFFIX}"
         except Exception as e:
             log.warning("Unexpected error fetching HLTB endpoint from GitHub: %s", e)
 
-    def _fetch_security_token(self):
+    async def _fetch_security_token(self) -> None:
         if not HLTB_API_ENABLED:
             return
 
-        headers = {
-            "Referer": "https://howlongtobeat.com",
-            "User-Agent": f"RomM/{get_version()}",
-        }
+        httpx_client = ctx_httpx_client.get()
         params = {"t": int(time.time())}
 
+        # /init is HLTB traffic too, and a wave of concurrent renewals would
+        # otherwise burst past the cap the search requests respect.
+        await _rate_limiter.acquire()
+
         try:
-            with create_httpx_client() as client:
-                response = client.get(
-                    self.search_init_url,
-                    params=params,
-                    headers=headers,
-                    timeout=10,
-                )
-                response.raise_for_status()
-                data = response.json()
-                self.security_token = data.get("token", None)
-                self.hp_key = data.get("hpKey", None)
-                self.hp_val = data.get("hpVal", None)
+            response = await httpx_client.get(
+                self.search_init_url,
+                params=params,
+                headers=self._base_headers(),
+                timeout=10,
+            )
+            response.raise_for_status()
+            session = parse_session(response.json())
+            self.security_token, self.hp_key, self.hp_val = session or (
+                None,
+                None,
+                None,
+            )
         except Exception as e:
             log.warning("Unexpected error fetching HLTB security token: %s", e)
 
@@ -242,7 +389,9 @@ class HLTBHandler(MetadataHandler):
 
         httpx_client = ctx_httpx_client.get()
         try:
-            response = await httpx_client.get(self.stats_endpoint)
+            response = await httpx_client.get(
+                self.stats_endpoint, headers=self._base_headers()
+            )
             response.raise_for_status()
         except Exception as e:
             log.error("Error checking HLTB API: %s", e)
@@ -254,53 +403,97 @@ class HLTBHandler(MetadataHandler):
         """
         Sends a POST request to HowLongToBeat API.
 
+        HLTB sessions are short-lived and pinned to the requesting IP address and
+        user agent, so a rejected session is renewed and the call retried rather
+        than failing every remaining lookup in a scan.
+
         :param url: The API endpoint URL.
         :param payload: A dictionary containing the request payload.
         :return: A dictionary with the json result.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
-        if not self.security_token or not self.hp_key or not self.hp_val:
+        if not await self._ensure_session():
             return {}
 
         httpx_client = ctx_httpx_client.get()
 
-        headers = {
-            "Content-Type": "application/json",
-            "Referer": "https://howlongtobeat.com",
-            "User-Agent": f"RomM/{get_version()}",
-            "x-auth-token": self.security_token,
-            "x-hp-key": self.hp_key,
-            "x-hp-val": self.hp_val,
-        }
+        for attempt in range(HLTB_MAX_REQUEST_ATTEMPTS):
+            await _rate_limiter.acquire()
 
-        # Some HLTB endpoints require the key:val in the payload
-        payload[self.hp_key] = self.hp_val
+            # Read the session only after waiting, never before: this handler is a
+            # shared singleton, so a peer may have renewed (or lost) the session
+            # while we were paced.
+            if not self._has_session():
+                return {}
 
-        log.debug(
-            "HowLongToBeat API request: URL=%s, Headers=%s, Payload=%s, Timeout=%s",
-            url,
-            headers,
-            payload,
-            60,
-        )
-
-        try:
-            res = await httpx_client.post(
-                url, json=payload, headers=headers, timeout=60
+            session = HLTBSession(
+                self.security_token or "", self.hp_key or "", self.hp_val or ""
             )
-            res.raise_for_status()
-            return res.json()
-        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
-            log.warning(
-                "Connection error: can't connect to HowLongToBeat API", exc_info=True
+            headers = search_headers(self.base_url, session)
+            body = search_body(payload, session)
+
+            log.debug(
+                "HowLongToBeat API request: URL=%s, Headers=%s, Payload=%s, Timeout=%s",
+                url,
+                {
+                    key: "[redacted]" if key in HLTB_SESSION_HEADERS else value
+                    for key, value in headers.items()
+                },
+                {key: value for key, value in body.items() if key != session.hp_key},
+                60,
             )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to HowLongToBeat API, check your internet connection",
-            ) from exc
-        except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from HowLongToBeat API: %s", exc)
-            return {}
+
+            try:
+                res = await httpx_client.post(
+                    url, json=body, headers=headers, timeout=60
+                )
+                res.raise_for_status()
+                return res.json()
+            except httpx.HTTPStatusError as exc:
+                status_code = exc.response.status_code
+                is_last_attempt = attempt == HLTB_MAX_REQUEST_ATTEMPTS - 1
+
+                if status_code == status.HTTP_403_FORBIDDEN and not is_last_attempt:
+                    log.warning("HowLongToBeat rejected the session, renewing it")
+                    await self._fetch_security_token()
+                    if not self._has_session():
+                        return {}
+                    continue
+
+                if (
+                    status_code == status.HTTP_429_TOO_MANY_REQUESTS
+                    and not is_last_attempt
+                ):
+                    log.warning(
+                        "HowLongToBeat rate limit hit, retrying after %ss",
+                        HLTB_RATE_LIMIT_BACKOFF_SECONDS,
+                    )
+                    await asyncio.sleep(HLTB_RATE_LIMIT_BACKOFF_SECONDS)
+                    continue
+
+                log.warning(
+                    "HowLongToBeat API returned HTTP %s", status_code, exc_info=True
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=_unavailable_detail(status_code),
+                ) from exc
+            except (httpx.ConnectError, httpx.ReadTimeout) as exc:
+                log.warning(
+                    "Connection error: can't connect to HowLongToBeat API",
+                    exc_info=True,
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Can't connect to HowLongToBeat API, check your internet connection",
+                ) from exc
+            except json.JSONDecodeError as exc:
+                log.error(
+                    "Error decoding JSON response from HowLongToBeat API: %s", exc
+                )
+                return {}
+
+        return {}
 
     async def search_games(
         self, search_term: str, platform_slug: str
@@ -315,35 +508,7 @@ class HLTBHandler(MetadataHandler):
         platform_name = self.get_platform(platform_slug).get("name", "")
 
         try:
-            payload = {
-                "searchType": "games",
-                "searchTerms": search_term.split(" "),
-                "searchPage": 1,
-                "size": 20,
-                "searchOptions": {
-                    "games": {
-                        "userId": 0,
-                        "platform": platform_name,
-                        "sortCategory": "popular",
-                        "rangeCategory": "main",
-                        "rangeTime": {"min": None, "max": None},
-                        "gameplay": {
-                            "perspective": "",
-                            "flow": "",
-                            "genre": "",
-                            "difficulty": "",
-                        },
-                        "rangeYear": {"min": "", "max": ""},
-                        "modifier": "",
-                    },
-                    "users": {"sortCategory": "postcount"},
-                    "lists": {"sortCategory": "follows"},
-                    "filter": "",
-                    "sort": 0,
-                    "randomizer": 0,
-                },
-                "useCache": True,
-            }
+            payload = build_search_payload(search_term, platform_name)
 
             response = await self._request(self.search_url, payload)
 
@@ -357,42 +522,7 @@ class HLTBHandler(MetadataHandler):
             games = []
             for game_data in games_data:
                 if isinstance(game_data, dict) and "game_id" in game_data:
-                    # Create HLTBGame with all required fields, using defaults for missing ones
-                    hltb_game = HLTBGame(
-                        game_id=game_data.get("game_id", 0),
-                        game_name=game_data.get("game_name", ""),
-                        game_name_date=game_data.get("game_name_date", 0),
-                        game_alias=game_data.get("game_alias", ""),
-                        game_type=game_data.get("game_type", ""),
-                        game_image=game_data.get("game_image", ""),
-                        comp_lvl_combine=game_data.get("comp_lvl_combine", 0),
-                        comp_lvl_sp=game_data.get("comp_lvl_sp", 0),
-                        comp_lvl_co=game_data.get("comp_lvl_co", 0),
-                        comp_lvl_mp=game_data.get("comp_lvl_mp", 0),
-                        comp_main=game_data.get("comp_main", 0),
-                        comp_plus=game_data.get("comp_plus", 0),
-                        comp_100=game_data.get("comp_100", 0),
-                        comp_all=game_data.get("comp_all", 0),
-                        comp_main_count=game_data.get("comp_main_count", 0),
-                        comp_plus_count=game_data.get("comp_plus_count", 0),
-                        comp_100_count=game_data.get("comp_100_count", 0),
-                        comp_all_count=game_data.get("comp_all_count", 0),
-                        invested_co=game_data.get("invested_co", 0),
-                        invested_mp=game_data.get("invested_mp", 0),
-                        invested_co_count=game_data.get("invested_co_count", 0),
-                        invested_mp_count=game_data.get("invested_mp_count", 0),
-                        count_comp=game_data.get("count_comp", 0),
-                        count_speedrun=game_data.get("count_speedrun", 0),
-                        count_backlog=game_data.get("count_backlog", 0),
-                        count_review=game_data.get("count_review", 0),
-                        review_score=game_data.get("review_score", 0),
-                        count_playing=game_data.get("count_playing", 0),
-                        count_retired=game_data.get("count_retired", 0),
-                        profile_platform=game_data.get("profile_platform", ""),
-                        profile_popular=game_data.get("profile_popular", 0),
-                        release_world=game_data.get("release_world", 0),
-                    )
-                    games.append(hltb_game)
+                    games.append(build_hltb_game(game_data))
             return games
 
         except Exception as exc:
@@ -429,6 +559,36 @@ class HLTBHandler(MetadataHandler):
         search_term = re.sub(DASH_COLON_REGEX, ": ", search_term)
         search_term = self.normalize_search_term(search_term, remove_punctuation=False)
 
+        return await self._search_and_match(search_term, platform_slug)
+
+    async def _search_and_match(self, search_term: str, platform_slug: str) -> HLTBRom:
+        """Search HowLongToBeat for one normalized term and score the results.
+
+        A series prefix the term carries and the catalogue does not sinks the
+        similarity score ("007: Quantum of Solace" scores 0.838 against
+        "Quantum of Solace", under the gate), and a long enough term returns no
+        results at all, so the part after the last separator is tried as well.
+        """
+        rom = await self._search_and_score(search_term, platform_slug)
+        if rom["hltb_id"]:
+            return rom
+
+        # `get_rom` has already rewritten " - " as ": ", so a series separator is
+        # a colon by this point and any hyphen still present is inside a word.
+        # Splitting on those as well would retry "spider-man 2" as "man 2" and
+        # invite a match on an unrelated game.
+        head, _, tail = search_term.rpartition(":")
+        tail = tail.strip()
+        if head and tail:
+            return await self._search_and_score(
+                tail, platform_slug, split_game_name=True
+            )
+
+        return rom
+
+    async def _search_and_score(
+        self, search_term: str, platform_slug: str, split_game_name: bool = False
+    ) -> HLTBRom:
         # Search for games
         games = await self.search_games(search_term, platform_slug)
 
@@ -442,6 +602,7 @@ class HLTBHandler(MetadataHandler):
             search_term,
             game_names,
             min_similarity_score=self.min_similarity_score,
+            split_game_name=split_game_name,
         )
 
         if best_match:
@@ -464,17 +625,10 @@ class HLTBHandler(MetadataHandler):
                     f"Found HowLongToBeat match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
                 )
 
-                # Build cover URL if image is available
-                cover_url = ""
-                if best_game.get("game_image"):
-                    cover_url = (
-                        f"https://howlongtobeat.com/games/{best_game['game_image']}"
-                    )
-
                 return HLTBRom(
                     hltb_id=best_game["game_id"],
                     name=best_game["game_name"],
-                    url_cover=cover_url,
+                    url_cover=build_cover_url(best_game),
                     hltb_metadata=extract_hltb_metadata(best_game),
                 )
 
@@ -499,21 +653,109 @@ class HLTBHandler(MetadataHandler):
 
         roms = []
         for game in games:
-            # Build cover URL if image is available
-            cover_url = ""
-            if game.get("game_image"):
-                cover_url = f"https://howlongtobeat.com/games/{game['game_image']}"
-
             roms.append(
                 HLTBRom(
                     hltb_id=game["game_id"],
                     name=game["game_name"],
-                    url_cover=cover_url,
+                    url_cover=build_cover_url(game),
                     hltb_metadata=extract_hltb_metadata(game),
                 )
             )
 
         return roms
+
+    async def get_rom_by_id(self, hltb_id: int) -> HLTBRom:
+        """
+        Get ROM information from HowLongToBeat by its game ID.
+
+        HLTB's API only exposes search, so the record is read from the hydration
+        payload the game page already ships to the browser.
+
+        :param hltb_id: The HowLongToBeat game ID.
+        :return: A HLTBRom object.
+        """
+        if not self.is_enabled():
+            return HLTBRom(hltb_id=None)
+
+        game_data = await self._fetch_game_page(hltb_id)
+        if not game_data:
+            return HLTBRom(hltb_id=None)
+
+        game = build_hltb_game(game_data)
+
+        return HLTBRom(
+            hltb_id=game["game_id"],
+            name=game["game_name"],
+            url_cover=build_cover_url(game),
+            hltb_metadata=extract_hltb_metadata(game),
+        )
+
+    async def _fetch_game_page(self, hltb_id: int) -> dict:
+        """Fetch and parse a game page's hydration payload."""
+        httpx_client = ctx_httpx_client.get()
+
+        # The page is HLTB traffic like any other, so it respects the same cap.
+        await _rate_limiter.acquire()
+
+        try:
+            # The canonical path, which answers directly today. Redirects are
+            # followed anyway because a 3xx does not raise, so a hop HLTB added
+            # later would otherwise read as a page we can no longer parse. The
+            # client validates every hop against SSRF, redirects included.
+            res = await httpx_client.get(
+                f"{self.base_url}/game/{hltb_id}",
+                headers=self._base_headers(),
+                follow_redirects=True,
+                timeout=60,
+            )
+            res.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            status_code = exc.response.status_code
+            if status_code == status.HTTP_404_NOT_FOUND:
+                log.debug("HowLongToBeat has no game with ID %s", hltb_id)
+                return {}
+
+            log.warning(
+                "HowLongToBeat game page returned HTTP %s", status_code, exc_info=True
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=_unavailable_detail(status_code),
+            ) from exc
+        # Broader than the search path's catch: a connect timeout is the likely
+        # failure here, and it would otherwise escape update_rom as a bare 500.
+        except httpx.RequestError as exc:
+            log.warning(
+                "Connection error: can't connect to HowLongToBeat", exc_info=True
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Can't connect to HowLongToBeat API, check your internet connection",
+            ) from exc
+
+        match = NEXT_DATA_REGEX.search(res.text)
+        if not match:
+            raise _format_changed("the page carried no hydration payload")
+
+        try:
+            payload = json.loads(match.group(1))
+        except json.JSONDecodeError as exc:
+            raise _format_changed(f"the hydration payload is not JSON: {exc}") from exc
+
+        games = pydash.get(payload, "props.pageProps.game.data.game")
+        if not isinstance(games, list):
+            raise _format_changed("the hydration payload holds no game records")
+
+        # An empty list is HLTB answering honestly, not a rewrite: the ID is gone.
+        if not games:
+            log.debug("HowLongToBeat has no record for game ID %s", hltb_id)
+            return {}
+
+        game_data = games[0]
+        if not isinstance(game_data, dict) or "game_id" not in game_data:
+            raise _format_changed("the game record is not in the expected shape")
+
+        return game_data
 
     async def price_check(
         self, hltb_id: int, steam_id: int = 0, itch_id: int = 0

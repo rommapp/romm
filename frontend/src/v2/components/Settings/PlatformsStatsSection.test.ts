@@ -1,21 +1,32 @@
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createI18n } from "vue-i18n";
+import enSettings from "@/locales/en_US/settings.json";
 import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
 import PlatformsStatsSection from "./PlatformsStatsSection.vue";
-
-// vue-i18n's `t` is stubbed to echo the key so the component mounts without
-// the full i18n plugin.
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
 
 // The heartbeat store pulls in config + i18n; stub it down to the single
 // method this component calls.
 vi.mock("@/stores/heartbeat", () => ({
   default: () => ({ getMetadataOptionsByPriority: () => [] }),
 }));
+
+const push = vi.fn();
+vi.mock("vue-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue-router")>()),
+  useRouter: () => ({ push }),
+}));
+
+// Real messages rather than a key-echoing stub, so plural selection is
+// exercised the way it renders in the app.
+const i18n = createI18n({
+  legacy: false,
+  locale: "en_US",
+  fallbackLocale: "en_US",
+  messages: { en_US: { settings: enSettings } },
+});
 
 function platform(overrides: Partial<Platform> = {}): Platform {
   return {
@@ -42,11 +53,15 @@ function platform(overrides: Partial<Platform> = {}): Platform {
   } as Platform;
 }
 
-function mountSection(platforms: Platform[]) {
+function mountSection(
+  platforms: Platform[],
+  regionBreakdown: Record<string, { region: string; count: number }[]> = {},
+) {
   storePlatforms().set(platforms);
   return mount(PlatformsStatsSection, {
-    props: { totalFilesize: 0, metadataCoverage: {}, regionBreakdown: {} },
+    props: { totalFilesize: 0, metadataCoverage: {}, regionBreakdown },
     global: {
+      plugins: [i18n],
       stubs: {
         RIcon: true,
         RPlatformIcon: true,
@@ -62,6 +77,10 @@ type Section = ReturnType<typeof mountSection>;
 
 function renderedNames(wrapper: Section): string[] {
   return wrapper.findAll(".r-v2-plat-stats__name").map((n) => n.text());
+}
+
+function renderedCounts(wrapper: Section): string[] {
+  return wrapper.findAll(".r-v2-plat-stats__count").map((n) => n.text());
 }
 
 function rowCount(wrapper: Section): number {
@@ -146,6 +165,50 @@ function duplicateSlugLibrary(): Platform[] {
 describe("PlatformsStatsSection", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    push.mockClear();
+  });
+
+  it("links each row to its platform gallery", async () => {
+    const wrapper = mountSection(duplicateSlugLibrary());
+
+    const rows = wrapper.findAll(".r-v2-plat-stats__row");
+    expect(rows.map((r) => r.attributes("href"))).toEqual([
+      "/platform/1",
+      "/platform/2",
+      "/platform/3",
+      "/platform/4",
+      "/platform/5",
+      "/platform/6",
+    ]);
+    expect(rows[0].attributes("aria-label")).toBe("Open Atari 2600");
+
+    await rows[3].trigger("click", { button: 0 });
+    expect(push).toHaveBeenCalledWith("/platform/4");
+  });
+
+  // The regions toggle sits inside the row anchor, so its click must not
+  // bubble into a navigation.
+  it("expands regions without navigating to the platform", async () => {
+    const regions = [
+      { region: "us", count: 5 },
+      { region: "eu", count: 4 },
+      { region: "jp", count: 3 },
+      { region: "au", count: 2 },
+      { region: "br", count: 1 },
+      { region: "ca", count: 1 },
+    ];
+    const wrapper = mountSection([platform({ id: 7, rom_count: 16 })], {
+      "7": regions,
+    });
+
+    expect(wrapper.findAll(".r-v2-plat-stats__region")).toHaveLength(5);
+
+    await wrapper.find(".r-v2-plat-stats__more").trigger("click");
+
+    expect(wrapper.findAll(".r-v2-plat-stats__region")).toHaveLength(
+      regions.length,
+    );
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("renders one row per platform on initial load", () => {
@@ -159,6 +222,15 @@ describe("PlatformsStatsSection", () => {
       "Sega Genesis (Unofficial)",
       "Xbox",
     ]);
+  });
+
+  it("uses the singular game label for a platform holding exactly one", () => {
+    const wrapper = mountSection([
+      platform({ id: 1, display_name: "Atari 2600", rom_count: 1 }),
+      platform({ id: 2, display_name: "Xbox", rom_count: 6 }),
+    ]);
+
+    expect(renderedCounts(wrapper)).toEqual(["1 game", "6 games"]);
   });
 
   it("lists only platforms that contain games, hiding empty leftovers", () => {

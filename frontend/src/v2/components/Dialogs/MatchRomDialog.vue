@@ -31,6 +31,7 @@ import type {
   MatchVariant,
 } from "@/v2/components/MatchRom/types";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
@@ -71,6 +72,7 @@ const matchedRoms = ref<SearchRom[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const heartbeat = storeHeartbeat();
+const { applyRomWrite } = useRomSync();
 
 // Active body variant — the toolbar selector toggles between the
 // gallery-style grid and the master/detail list, mirroring the
@@ -257,7 +259,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
     snackbar.success(t("rom.rom-updated-successfully"), {
       icon: "mdi-check-bold",
     });
-    romsStore.update(data as SimpleRom);
+    applyRomWrite(data as SimpleRom);
     if (route.name === "rom") romsStore.currentRom = data;
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };
@@ -290,7 +292,14 @@ function closeDialog() {
     @close="closeDialog"
   >
     <template #header>
-      <span>{{ t("rom.match-rom") }}</span>
+      <div class="r-v2-match__header">
+        <span>{{ t("rom.match-rom") }}</span>
+        <!-- The file name is the ground truth for a mismatched game, so it
+             stays visible while the dialog covers the gallery card. -->
+        <span v-if="rom" class="r-v2-match__header-file" :title="rom.fs_name">
+          {{ rom.fs_name }}
+        </span>
+      </div>
     </template>
 
     <template #toolbar>
@@ -415,6 +424,25 @@ function closeDialog() {
 </template>
 
 <style scoped>
+/* Header — dialog title plus the ROM's file name, which truncates to a
+   single line and keeps the full name in the hover title. */
+.r-v2-match__header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.r-v2-match__header-file {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--r-font-size-sm);
+  font-weight: var(--r-font-weight-regular);
+  color: var(--r-color-fg-muted);
+}
+
 /* Saving-overlay anchor — has to pass the dialog body's column layout
    through (`flex: 1`, `min-height: 0`, `display: flex; flex-direction:
    column`) so the variant inside still sees the same shape it would

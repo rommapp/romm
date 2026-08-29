@@ -105,3 +105,32 @@ export function providerId(
   if (v === null || v === undefined || v === "" || v === 0) return null;
   return v as string | number;
 }
+
+// Providers grade on their own scales, so bring each to 0-100 here.
+const RATING_SCORES: Partial<
+  Record<Provider["key"], (rom: DetailedRom) => number>
+> = {
+  igdb_id: (rom) => parseFloat(rom.igdb_metadata?.total_rating ?? ""),
+  ss_id: (rom) => parseFloat(rom.ss_metadata?.ss_score ?? "") * 10,
+  moby_id: (rom) => parseFloat(rom.moby_metadata?.moby_score ?? "") * 10,
+  launchbox_id: (rom) =>
+    (rom.launchbox_metadata?.community_rating ?? Number.NaN) * 20,
+  hltb_id: (rom) => rom.hltb_metadata?.review_score ?? Number.NaN,
+};
+
+/**
+ * Formats a provider's score for a ROM as a percentage, or null when the
+ * provider carries no rating. Scores below 10 keep a decimal to stay
+ * meaningful; `maximumFractionDigits` never pads a trailing zero.
+ */
+export function providerRating(
+  rom: DetailedRom,
+  provider: Provider,
+): string | null {
+  const score = RATING_SCORES[provider.key]?.(rom) ?? Number.NaN;
+  if (!Number.isFinite(score)) return null;
+  return (score / 100).toLocaleString("en-US", {
+    style: "percent",
+    maximumFractionDigits: score >= 10 ? 0 : 1,
+  });
+}

@@ -111,7 +111,7 @@
   "search": "Buscar",
   "select": "Selecionar",
   "select-platform": "Selecione uma plataforma",
-  "server-offline-retrying": "Server connection lost · retrying…",
+  "server-offline-retrying": "Conexão com o servidor perdida · tentando novamente…",
   "server-reconnected": "Reconnected to the server",
   "server-stats": "Estatísticas do servidor",
   "settings": "Configurações",

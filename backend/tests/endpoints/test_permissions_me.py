@@ -21,7 +21,7 @@ def _actions(payload):
 
 
 def test_requires_auth(client):
-    assert client.get("/api/permissions/me").status_code == 403
+    assert client.get("/api/permissions/me").status_code == 401
 
 
 def test_admin_is_admin_and_all_actions(client, access_token):

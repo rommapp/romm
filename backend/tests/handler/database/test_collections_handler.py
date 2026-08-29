@@ -1,6 +1,6 @@
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.collections_handler import MAX_VIRTUAL_COLLECTION_COVERS
-from models.collection import SmartCollection
+from models.collection import Collection, SmartCollection
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -138,10 +138,73 @@ def test_filter_roms_by_virtual_collection(platform: Platform, admin_user: User)
     assert {rom.id for rom in roms} == {rom.id for rom in in_collection}
 
 
-def test_get_smart_collection_roms_normalizes_legacy_selected_status_lists(
-    admin_user: User, mocker
+def test_filter_roms_by_collection(platform: Platform, admin_user: User):
+    in_collection = [_add_rom(platform, index, {}) for index in range(3)]
+    outside = _add_rom(platform, 99, {})
+
+    collection = db_collection_handler.add_collection(
+        Collection(name="Shelf", description="", user_id=admin_user.id)
+    )
+    db_collection_handler.add_roms_to_collection(
+        collection.id, [rom.id for rom in in_collection]
+    )
+
+    roms = db_rom_handler.get_roms_scalar(collection_id=collection.id)
+
+    assert {rom.id for rom in roms} == {rom.id for rom in in_collection}
+    assert outside.id not in {rom.id for rom in roms}
+
+
+def test_filter_roms_by_unknown_collection_returns_nothing(
+    platform: Platform, admin_user: User
 ):
-    get_roms_scalar = mocker.patch("handler.database.db_rom_handler.get_roms_scalar")
+    # A stale bookmark must not fall through to the whole library.
+    _add_rom(platform, 0, {})
+
+    roms = db_rom_handler.get_roms_scalar(collection_id=123456)
+
+    assert list(roms) == []
+
+
+def test_filter_roms_by_favorite_follows_the_users_own_collection(
+    platform: Platform, admin_user: User, editor_user: User
+):
+    admin_pick = _add_rom(platform, 0, {})
+    editor_pick = _add_rom(platform, 1, {})
+
+    for user, rom in ((admin_user, admin_pick), (editor_user, editor_pick)):
+        favorites = db_collection_handler.add_collection(
+            Collection(
+                name=f"Favorites {user.id}",
+                description="",
+                user_id=user.id,
+                is_favorite=True,
+            )
+        )
+        db_collection_handler.add_roms_to_collection(favorites.id, [rom.id])
+
+    admin_roms = db_rom_handler.get_roms_scalar(favorite=True, user_id=admin_user.id)
+    editor_roms = db_rom_handler.get_roms_scalar(favorite=True, user_id=editor_user.id)
+
+    assert {rom.id for rom in admin_roms} == {admin_pick.id}
+    assert {rom.id for rom in editor_roms} == {editor_pick.id}
+
+
+def test_filter_roms_by_non_favorite_without_a_collection(
+    platform: Platform, admin_user: User
+):
+    roms = [_add_rom(platform, index, {}) for index in range(2)]
+
+    not_favorites = db_rom_handler.get_roms_scalar(
+        favorite=False, user_id=admin_user.id
+    )
+
+    assert {rom.id for rom in not_favorites} == {rom.id for rom in roms}
+
+
+def test_get_smart_collection_criteria_normalizes_legacy_selected_status_lists(
+    admin_user: User,
+):
     smart_collection = SmartCollection(
         name="Finished games",
         description="",
@@ -149,18 +212,26 @@ def test_get_smart_collection_roms_normalizes_legacy_selected_status_lists(
         filter_criteria={"selected_status": ["finished", "completed_100"]},
     )
 
-    db_collection_handler.get_smart_collection_roms(
-        smart_collection, user_id=admin_user.id
+    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
+
+    assert criteria["statuses"] == ["finished", "completed_100"]
+
+
+def test_get_smart_collection_criteria_wraps_legacy_scalar_values(admin_user: User):
+    smart_collection = SmartCollection(
+        name="Legacy shooter",
+        description="",
+        user_id=admin_user.id,
+        filter_criteria={"selected_genre": "Shooter", "platform_id": 7},
     )
 
-    assert get_roms_scalar.call_args.kwargs["statuses"] == [
-        "finished",
-        "completed_100",
-    ]
+    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
+
+    assert criteria["genres"] == ["Shooter"]
+    assert criteria["platform_ids"] == [7]
 
 
-def test_get_smart_collection_roms_passes_metadata_providers(admin_user: User, mocker):
-    get_roms_scalar = mocker.patch("handler.database.db_rom_handler.get_roms_scalar")
+def test_get_smart_collection_criteria_passes_metadata_providers(admin_user: User):
     smart_collection = SmartCollection(
         name="IGDB and Moby matches",
         description="",
@@ -171,18 +242,15 @@ def test_get_smart_collection_roms_passes_metadata_providers(admin_user: User, m
         },
     )
 
-    db_collection_handler.get_smart_collection_roms(
-        smart_collection, user_id=admin_user.id
-    )
+    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
 
-    assert get_roms_scalar.call_args.kwargs["metadata_providers"] == ["igdb", "moby"]
-    assert get_roms_scalar.call_args.kwargs["metadata_providers_logic"] == "all"
+    assert criteria["metadata_providers"] == ["igdb", "moby"]
+    assert criteria["metadata_providers_logic"] == "all"
 
 
-def test_get_smart_collection_roms_passes_asset_and_soundtrack_filters(
-    admin_user: User, mocker
+def test_get_smart_collection_criteria_passes_asset_and_soundtrack_filters(
+    admin_user: User,
 ):
-    get_roms_scalar = mocker.patch("handler.database.db_rom_handler.get_roms_scalar")
     smart_collection = SmartCollection(
         name="Games with saves and music",
         description="",
@@ -194,19 +262,16 @@ def test_get_smart_collection_roms_passes_asset_and_soundtrack_filters(
         },
     )
 
-    db_collection_handler.get_smart_collection_roms(
-        smart_collection, user_id=admin_user.id
-    )
+    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
 
-    assert get_roms_scalar.call_args.kwargs["has_saves"] is True
-    assert get_roms_scalar.call_args.kwargs["has_states"] is True
-    assert get_roms_scalar.call_args.kwargs["has_soundtrack"] is True
+    assert criteria["has_saves"] is True
+    assert criteria["has_states"] is True
+    assert criteria["has_soundtrack"] is True
 
 
-def test_get_smart_collection_roms_passes_negative_boolean_filters(
-    admin_user: User, mocker
+def test_get_smart_collection_criteria_passes_negative_boolean_filters(
+    admin_user: User,
 ):
-    get_roms_scalar = mocker.patch("handler.database.db_rom_handler.get_roms_scalar")
     smart_collection = SmartCollection(
         name="Unmatched games",
         description="",
@@ -214,15 +279,12 @@ def test_get_smart_collection_roms_passes_negative_boolean_filters(
         filter_criteria={"matched": False},
     )
 
-    db_collection_handler.get_smart_collection_roms(
-        smart_collection, user_id=admin_user.id
-    )
+    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
 
-    assert get_roms_scalar.call_args.kwargs["matched"] is False
+    assert criteria["matched"] is False
 
 
-def test_get_smart_collection_roms_passes_player_counts(admin_user: User, mocker):
-    get_roms_scalar = mocker.patch("handler.database.db_rom_handler.get_roms_scalar")
+def test_get_smart_collection_criteria_passes_player_counts(admin_user: User):
     smart_collection = SmartCollection(
         name="Multiplayer games",
         description="",
@@ -233,16 +295,13 @@ def test_get_smart_collection_roms_passes_player_counts(admin_user: User, mocker
         },
     )
 
-    db_collection_handler.get_smart_collection_roms(
-        smart_collection, user_id=admin_user.id
-    )
+    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
 
-    assert get_roms_scalar.call_args.kwargs["player_counts"] == ["2", "4"]
-    assert get_roms_scalar.call_args.kwargs["player_counts_logic"] == "any"
+    assert criteria["player_counts"] == ["2", "4"]
+    assert criteria["player_counts_logic"] == "any"
 
 
-def test_get_smart_collection_roms_passes_tags(admin_user: User, mocker):
-    get_roms_scalar = mocker.patch("handler.database.db_rom_handler.get_roms_scalar")
+def test_get_smart_collection_criteria_passes_tags(admin_user: User):
     smart_collection = SmartCollection(
         name="Prototypes and betas",
         description="",
@@ -253,9 +312,25 @@ def test_get_smart_collection_roms_passes_tags(admin_user: User, mocker):
         },
     )
 
-    db_collection_handler.get_smart_collection_roms(
-        smart_collection, user_id=admin_user.id
+    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
+
+    assert criteria["tags"] == ["Proto", "Beta"]
+    assert criteria["tags_logic"] == "any"
+
+
+def test_get_smart_collection_criteria_drops_nested_smart_collection_id(
+    admin_user: User,
+):
+    # The v2 dialog stores the route it was created from, so a smart collection
+    # built while viewing another one carries its id. Membership never nests.
+    smart_collection = SmartCollection(
+        name="Nested",
+        description="",
+        user_id=admin_user.id,
+        filter_criteria={"smart_collection_id": 42, "matched": True},
     )
 
-    assert get_roms_scalar.call_args.kwargs["tags"] == ["Proto", "Beta"]
-    assert get_roms_scalar.call_args.kwargs["tags_logic"] == "any"
+    criteria = db_collection_handler.get_smart_collection_criteria(smart_collection)
+
+    assert "smart_collection_id" not in criteria
+    assert criteria["matched"] is True

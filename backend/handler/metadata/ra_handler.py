@@ -53,6 +53,8 @@ class RAMetadata(TypedDict):
     first_release_date: int | None
     genres: list[str]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     achievements: list[RAGameRomAchievement]
 
 
@@ -97,12 +99,15 @@ def extract_metadata_from_rom_details(
         except (AttributeError, ValueError, IndexError):
             return None
 
+    publishers = pydash.compact([rom_details.get("Publisher", None)])
+    developers = pydash.compact([rom_details.get("Developer", None)])
+
     return RAMetadata(
         first_release_date=parse_release_timestamp(),
         genres=pydash.compact([rom_details.get("Genre", None)]),
-        companies=pydash.compact(
-            [rom_details.get("Publisher", None), rom_details.get("Developer", None)]
-        ),
+        companies=[*publishers, *developers],
+        publishers=publishers,
+        developers=developers,
         achievements=[
             RAGameRomAchievement(
                 ra_id=achievement.get("ID", None),
@@ -430,6 +435,8 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
     UPS.FAMICOM: {"id": 7, "name": "Family Computer"},
     UPS.FDS: {"id": 81, "name": "Famicom Disk System"},
     UPS.NEO_GEO_CD: {"id": 56, "name": "Neo Geo CD"},
+    UPS.NEOGEOAES: {"id": 27, "name": "Neo Geo AES"},
+    UPS.NEOGEOMVS: {"id": 27, "name": "Neo Geo MVS"},
     UPS.NEO_GEO_POCKET: {"id": 14, "name": "Neo Geo Pocket"},
     UPS.NEO_GEO_POCKET_COLOR: {
         "id": 14,

@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
@@ -8,7 +9,7 @@ from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.database import db_collection_handler, db_rom_handler
 from handler.filesystem.resources_handler import FSResourcesHandler
-from models.collection import Collection
+from models.collection import Collection, SmartCollection
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -651,3 +652,156 @@ class TestArtworkUpload:
         assert store_artwork_mock.called
         _, _, file_ext = store_artwork_mock.call_args.args
         assert file_ext == "png"
+
+
+class TestSmartCollectionEndpoints:
+    """Smart collections cache their membership on the row, so the create and
+    update endpoints have to recompute it (the gallery no longer does)."""
+
+    def test_create_populates_membership_from_criteria(
+        self, client, access_token: str, rom: Rom, second_rom: Rom
+    ):
+        response = client.post(
+            "/api/collections/smart",
+            data={
+                "name": "Everything on the test platform",
+                "description": "",
+                "filter_criteria": json.dumps({"platform_ids": [rom.platform_id]}),
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["rom_count"] == 2
+        assert set(body["rom_ids"]) == {rom.id, second_rom.id}
+
+    def test_update_recomputes_membership(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Nothing yet",
+                description="",
+                user_id=admin_user.id,
+                filter_criteria={"platform_ids": [rom.platform_id + 999]},
+            )
+        )
+
+        response = client.put(
+            f"/api/collections/smart/{smart_collection.id}",
+            data={"filter_criteria": json.dumps({"platform_ids": [rom.platform_id]})},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["rom_ids"] == [rom.id]
+
+    def test_reading_a_smart_collection_does_not_touch_it(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        # Writing membership back while serving a page bumps `updated_at`, which
+        # is the `?ts=` cover cache-buster, so every visit re-downloaded
+        # thumbnails and every `updated_after` sync client saw a change.
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="All roms",
+                description="",
+                user_id=admin_user.id,
+                filter_criteria={"platform_ids": [rom.platform_id]},
+            )
+        )
+        db_collection_handler.refresh_smart_collection(smart_collection.id)
+        before = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert before is not None
+
+        response = client.get(
+            "/api/roms",
+            params={"smart_collection_id": smart_collection.id},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()["items"]] == [rom.id]
+
+        after = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert after is not None
+        assert after.updated_at == before.updated_at
+        assert list(after.rom_ids) == list(before.rom_ids)
+        assert after.path_covers_small == before.path_covers_small
+
+    def test_adding_a_rom_to_a_collection_refreshes_scoped_membership(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        shelf = db_collection_handler.add_collection(
+            Collection(name="Shelf", description="", user_id=admin_user.id)
+        )
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="On the shelf",
+                description="",
+                user_id=admin_user.id,
+                filter_criteria={"collection_id": shelf.id},
+            )
+        )
+        db_collection_handler.refresh_smart_collection(smart_collection.id)
+
+        response = client.post(
+            f"/api/collections/{shelf.id}/roms",
+            json={"rom_ids": [rom.id]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert refreshed is not None
+        assert refreshed.rom_ids == [rom.id]
+
+    def test_setting_a_rom_status_refreshes_membership(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Finished games",
+                description="",
+                user_id=admin_user.id,
+                filter_criteria={"statuses": ["finished"]},
+            )
+        )
+        db_collection_handler.refresh_smart_collection(smart_collection.id)
+
+        response = client.put(
+            f"/api/roms/{rom.id}/props",
+            json={"status": "finished"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert refreshed is not None
+        assert refreshed.rom_ids == [rom.id]
+
+    @pytest.mark.parametrize("field", ("now_playing", "backlogged", "hidden"))
+    def test_setting_a_rom_flag_refreshes_membership(
+        self, client, access_token: str, admin_user: User, rom: Rom, field: str
+    ):
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name=f"Flagged {field}",
+                description="",
+                user_id=admin_user.id,
+                filter_criteria={"statuses": [field]},
+            )
+        )
+        db_collection_handler.refresh_smart_collection(smart_collection.id)
+
+        response = client.put(
+            f"/api/roms/{rom.id}/props",
+            json={field: True},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert refreshed is not None
+        assert refreshed.rom_ids == [rom.id]

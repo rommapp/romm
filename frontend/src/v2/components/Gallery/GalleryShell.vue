@@ -99,6 +99,8 @@ interface Props {
   hasHeader: boolean;
   /** Toolbar's search-input placeholder. */
   searchPlaceholder: string;
+  /** Focus the toolbar's search field on mount. */
+  autofocusSearch?: boolean;
   /** Empty-state message shown when the gallery resolves with zero items. */
   emptyMessage: string;
   /** "Not found" mode — replaces all body items with a single empty row. */
@@ -121,6 +123,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  autofocusSearch: false,
   notFound: false,
   notFoundMessage: undefined,
   showPlatformBadge: true,
@@ -156,6 +159,7 @@ const {
   filterDuplicates,
   filterPlayables,
   filterMissing,
+  filterPhysical,
   filterVerified,
   filterRA,
   filterSaves,
@@ -166,6 +170,8 @@ const {
   selectedFranchises,
   selectedCollections,
   selectedCompanies,
+  selectedPublishers,
+  selectedDevelopers,
   selectedAgeRatings,
   selectedRegions,
   selectedLanguages,
@@ -177,6 +183,8 @@ const {
   franchisesLogic,
   collectionsLogic,
   companiesLogic,
+  publishersLogic,
+  developersLogic,
   ageRatingsLogic,
   regionsLogic,
   languagesLogic,
@@ -200,6 +208,7 @@ const filterActiveCount = computed(() => {
   if (filterDuplicates.value !== null) n += 1;
   if (filterPlayables.value !== null) n += 1;
   if (filterMissing.value !== null) n += 1;
+  if (filterPhysical.value !== null) n += 1;
   if (filterVerified.value !== null) n += 1;
   if (filterRA.value !== null) n += 1;
   if (filterSaves.value !== null) n += 1;
@@ -211,6 +220,8 @@ const filterActiveCount = computed(() => {
     selectedFranchises,
     selectedCollections,
     selectedCompanies,
+    selectedPublishers,
+    selectedDevelopers,
     selectedAgeRatings,
     selectedRegions,
     selectedLanguages,
@@ -236,6 +247,7 @@ watch(
     filterDuplicates,
     filterPlayables,
     filterMissing,
+    filterPhysical,
     filterVerified,
     filterRA,
     filterSaves,
@@ -246,6 +258,8 @@ watch(
     selectedFranchises,
     selectedCollections,
     selectedCompanies,
+    selectedPublishers,
+    selectedDevelopers,
     selectedAgeRatings,
     selectedRegions,
     selectedLanguages,
@@ -257,6 +271,8 @@ watch(
     franchisesLogic,
     collectionsLogic,
     companiesLogic,
+    publishersLogic,
+    developersLogic,
     ageRatingsLogic,
     regionsLogic,
     languagesLogic,
@@ -302,6 +318,9 @@ const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
 
 // Fallback cover ratio (boxart style) — the per-card `--r-cover-ratio` seed
 // before GameCover measures the real image, plus the bootstrap skeletons.
+// The flow-packer takes it too (`fallbackRatio`): a card with no artwork
+// paints its placeholder at this ratio and never reports a measured one, so
+// packing it as box art would under-reserve its width and overflow the row.
 const { boxartStyle } = useUISettings();
 const coverAspectRatio = computed(() =>
   coverRatio(
@@ -378,6 +397,7 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     gap: CARD_GAP_PX,
     ratioAt,
     ratioVersion,
+    fallbackRatio: coverAspectRatio,
   });
 
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
@@ -919,6 +939,7 @@ defineExpose({
             show-search
             :search="searchInput"
             :search-placeholder="searchPlaceholder"
+            :autofocus-search="autofocusSearch"
             show-filter
             :filter-active-count="filterActiveCount"
             @update:group-by="groupBy = $event"

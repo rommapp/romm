@@ -6,8 +6,10 @@ import type {
   BulkOperationResponse,
   DetailedRomSchema,
   ManualMetadata,
+  PhysicalRomCreateForm,
   RomUserData,
   RomUserSchema,
+  RomFileUserSchema,
   SearchRomSchema,
   SimpleRomSchema,
   SoundtrackTrackMetaSchema,
@@ -157,6 +159,7 @@ export interface GetRomsParams {
   filterStates?: boolean | null;
   filterSoundtrack?: boolean | null;
   filterMissing?: boolean | null;
+  filterPhysical?: boolean | null;
   filterVerified?: boolean | null;
   groupByMetaId?: boolean;
   // Multi-value filters
@@ -164,6 +167,8 @@ export interface GetRomsParams {
   selectedFranchises?: string[] | null;
   selectedCollections?: string[] | null;
   selectedCompanies?: string[] | null;
+  selectedPublishers?: string[] | null;
+  selectedDevelopers?: string[] | null;
   selectedAgeRatings?: string[] | null;
   selectedRegions?: string[] | null;
   selectedLanguages?: string[] | null;
@@ -176,6 +181,8 @@ export interface GetRomsParams {
   franchisesLogic?: string | null;
   collectionsLogic?: string | null;
   companiesLogic?: string | null;
+  publishersLogic?: string | null;
+  developersLogic?: string | null;
   ageRatingsLogic?: string | null;
   regionsLogic?: string | null;
   languagesLogic?: string | null;
@@ -183,10 +190,10 @@ export interface GetRomsParams {
   playerCountsLogic?: string | null;
   metadataProvidersLogic?: string | null;
   tagsLogic?: string | null;
-  // Skip the char index / filter-value / id-index aggregations server-side
   withCharIndex?: boolean;
   withFilterValues?: boolean;
   withRomIdIndex?: boolean;
+  withTotal?: boolean;
   // Cancel an in-flight request
   signal?: AbortSignal;
 }
@@ -210,12 +217,15 @@ async function getRoms({
   filterStates = null,
   filterSoundtrack = null,
   filterMissing = null,
+  filterPhysical = null,
   filterVerified = null,
   groupByMetaId = false,
   selectedGenres = null,
   selectedFranchises = null,
   selectedCollections = null,
   selectedCompanies = null,
+  selectedPublishers = null,
+  selectedDevelopers = null,
   selectedAgeRatings = null,
   selectedRegions = null,
   selectedLanguages = null,
@@ -228,6 +238,8 @@ async function getRoms({
   franchisesLogic = null,
   collectionsLogic = null,
   companiesLogic = null,
+  publishersLogic = null,
+  developersLogic = null,
   ageRatingsLogic = null,
   regionsLogic = null,
   languagesLogic = null,
@@ -238,6 +250,7 @@ async function getRoms({
   withCharIndex = undefined,
   withFilterValues = undefined,
   withRomIdIndex = undefined,
+  withTotal = undefined,
   signal = undefined,
 }: GetRomsParams) {
   const params = {
@@ -265,6 +278,14 @@ async function getRoms({
     companies:
       selectedCompanies && selectedCompanies.length > 0
         ? selectedCompanies
+        : undefined,
+    publishers:
+      selectedPublishers && selectedPublishers.length > 0
+        ? selectedPublishers
+        : undefined,
+    developers:
+      selectedDevelopers && selectedDevelopers.length > 0
+        ? selectedDevelopers
         : undefined,
     age_ratings:
       selectedAgeRatings && selectedAgeRatings.length > 0
@@ -308,6 +329,14 @@ async function getRoms({
       selectedCompanies && selectedCompanies.length > 0
         ? companiesLogic || "any"
         : undefined,
+    publishers_logic:
+      selectedPublishers && selectedPublishers.length > 0
+        ? publishersLogic || "any"
+        : undefined,
+    developers_logic:
+      selectedDevelopers && selectedDevelopers.length > 0
+        ? developersLogic || "any"
+        : undefined,
     age_ratings_logic:
       selectedAgeRatings && selectedAgeRatings.length > 0
         ? ageRatingsLogic || "any"
@@ -339,6 +368,7 @@ async function getRoms({
     ...(filterDuplicates !== null ? { duplicate: filterDuplicates } : {}),
     ...(filterPlayables !== null ? { playable: filterPlayables } : {}),
     ...(filterMissing !== null ? { missing: filterMissing } : {}),
+    ...(filterPhysical !== null ? { physical: filterPhysical } : {}),
     ...(filterRA !== null ? { has_ra: filterRA } : {}),
     ...(filterSaves !== null ? { has_saves: filterSaves } : {}),
     ...(filterStates !== null ? { has_states: filterStates } : {}),
@@ -351,6 +381,7 @@ async function getRoms({
     ...(withRomIdIndex !== undefined
       ? { with_rom_id_index: withRomIdIndex }
       : {}),
+    ...(withTotal !== undefined ? { with_total: withTotal } : {}),
   };
 
   return api.get<GetRomsResponse>(`/roms`, {
@@ -371,6 +402,7 @@ async function getRecentRoms() {
       with_char_index: false,
       with_filter_values: false,
       with_rom_id_index: false,
+      with_total: false,
     },
   });
 }
@@ -384,6 +416,7 @@ async function getRecentPlayedRoms() {
       with_char_index: false,
       with_filter_values: false,
       with_rom_id_index: false,
+      with_total: false,
       last_played: true,
     },
   });
@@ -411,6 +444,28 @@ async function getRomSimple({
   // for the v2 gallery card's per-card fetch path. Detail-level data is
   // pulled on demand (game details page, quick-note dialog open).
   return api.get<SimpleRom>(`/roms/${romId}/simple`, { signal });
+}
+
+async function getRandomRom({
+  platformIds = null,
+  collectionId = null,
+  virtualCollectionId = null,
+  smartCollectionId = null,
+}: {
+  platformIds?: number[] | null;
+  collectionId?: number | null;
+  virtualCollectionId?: string | null;
+  smartCollectionId?: number | null;
+} = {}) {
+  return api.get<SimpleRom | null>("/roms/random", {
+    params: {
+      platform_ids:
+        platformIds && platformIds.length > 0 ? platformIds : undefined,
+      collection_id: collectionId,
+      virtual_collection_id: virtualCollectionId,
+      smart_collection_id: smartCollectionId,
+    },
+  });
 }
 
 async function getRomByMetadataProvider({
@@ -441,6 +496,23 @@ async function searchRom({
       search_by: searchBy,
     },
   });
+}
+
+async function createPhysicalRom({
+  platformId,
+  name,
+  upc,
+}: {
+  platformId: number;
+  name?: string;
+  upc?: string;
+}) {
+  const payload: PhysicalRomCreateForm = {
+    platform_id: platformId,
+    name: name || null,
+    upc: upc || null,
+  };
+  return api.post<DetailedRom>("/roms/physical", payload);
 }
 
 function triggerFileDownload(href: string) {
@@ -810,6 +882,88 @@ async function deleteRomFile({
   return api.delete(`/roms/${romId}/files/${fileId}`);
 }
 
+async function uploadWalkthroughFiles({
+  romId,
+  filesToUpload,
+}: {
+  romId: number;
+  filesToUpload: File[];
+}) {
+  const uploadStore = storeUpload();
+
+  const promises = filesToUpload.map((file) => {
+    const formData = new FormData();
+    formData.append(file.name, file);
+
+    uploadStore.start(file.name);
+    return new Promise((resolve, reject) => {
+      api
+        .post(`/roms/${romId}/walkthroughs/files`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            "X-Upload-Filename": file.name,
+          },
+          params: {},
+          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            uploadStore.update(file.name, progressEvent);
+          },
+        })
+        .then(resolve)
+        .catch((error) => {
+          uploadStore.fail(file.name, error.response?.data?.detail);
+          reject(error);
+        });
+    });
+  });
+
+  return Promise.allSettled(promises);
+}
+
+async function deleteWalkthroughFile({
+  romId,
+  fileId,
+}: {
+  romId: number;
+  fileId: number;
+}) {
+  return api.delete(`/roms/${romId}/walkthroughs/files/${fileId}`);
+}
+
+async function addGamefaqsWalkthrough({
+  romId,
+  url,
+}: {
+  romId: number;
+  url: string;
+}) {
+  return api.post(`/roms/${romId}/walkthroughs/gamefaqs`, { url });
+}
+
+async function getFileProgress({
+  romId,
+  fileId,
+}: {
+  romId: number;
+  fileId: number;
+}) {
+  return api.get<RomFileUserSchema>(`/roms/${romId}/files/${fileId}/progress`);
+}
+
+async function updateFileProgress({
+  romId,
+  fileId,
+  data,
+}: {
+  romId: number;
+  fileId: number;
+  data: { progress?: number; last_page?: number | null; finished?: boolean };
+}) {
+  return api.put<RomFileUserSchema>(
+    `/roms/${romId}/files/${fileId}/progress`,
+    data,
+  );
+}
+
 async function updateUserRomProps({
   romId,
   data,
@@ -922,10 +1076,12 @@ export default {
   getRecentPlayedRoms,
   getRom,
   getRomSimple,
+  getRandomRom,
   getRomByMetadataProvider,
   downloadRom,
   bulkDownloadRoms,
   searchRom,
+  createPhysicalRom,
   updateRom,
   uploadManuals,
   removeManual,
@@ -933,6 +1089,11 @@ export default {
   uploadManualFiles,
   deleteManualFile,
   deleteRomFile,
+  uploadWalkthroughFiles,
+  deleteWalkthroughFile,
+  addGamefaqsWalkthrough,
+  getFileProgress,
+  updateFileProgress,
   uploadSoundtracks,
   removeSoundtrack,
   getSoundtrackMetadata,
