@@ -590,6 +590,7 @@ export type UpdateRom = SimpleRom & {
     hasheous_metadata?: string;
     flashpoint_metadata?: string;
     hltb_metadata?: string;
+    steam_metadata?: string;
   };
 };
 
@@ -620,6 +621,7 @@ async function updateRom({
     ["hasheous_id", toFormIdValue(rom.hasheous_id)],
     ["tgdb_id", toFormIdValue(rom.tgdb_id)],
     ["hltb_id", toFormIdValue(rom.hltb_id)],
+    ["steam_id", toFormIdValue(rom.steam_id)],
     ["libretro_id", toFormIdValue(rom.libretro_id)],
   ];
 
@@ -653,6 +655,9 @@ async function updateRom({
   }
   if (rom.raw_metadata?.hltb_metadata) {
     fields.push(["raw_hltb_metadata", rom.raw_metadata.hltb_metadata]);
+  }
+  if (rom.raw_metadata?.steam_metadata) {
+    fields.push(["raw_steam_metadata", rom.raw_metadata.steam_metadata]);
   }
 
   // Don't set url_cover on manual artwork upload
