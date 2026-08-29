@@ -13,7 +13,15 @@
 // The running state mounts the v1 <Player> component (600 lines of EJS
 // wiring — not worth rewriting). The v1 SelectSaveDialog / SelectStateDialog
 // + CacheDialog are mounted in GlobalDialogs so the emitter bridge works.
-import { RBtn, RCard, RIcon, RSelect, RSliderBtnGroup, RSwitch } from "@v2/lib";
+import {
+  RBtn,
+  RCard,
+  RIcon,
+  RSelect,
+  RSliderBtnGroup,
+  RSpinner,
+  RSwitch,
+} from "@v2/lib";
 import { useEventListener, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -28,30 +36,27 @@ import {
   watch,
 } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute, useRouter } from "vue-router";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import { ROUTES } from "@/plugins/router";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
-import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
-import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
-import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
+import { usePlayerHero } from "@/v2/composables/usePlayerHero";
+import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
-import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import {
   resolveBezelHost,
   resolveBezelUrl,
@@ -75,8 +80,6 @@ const Player = defineAsyncComponent(
 );
 
 const { t } = useI18n();
-const route = useRoute();
-const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const playingStore = storePlaying();
@@ -99,33 +102,10 @@ const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const selectedSave = ref<SaveSchema | null>(null);
 
-// Rom id straight from the route param (available before `rom` resolves),
-// so the hero cover paints its `view-transition-name` immediately and the
-// shared-element morph from the gallery / details cover pairs on entry.
-const morphRomId = computed(() => {
-  const r = route.params.rom;
-  return typeof r === "string" ? r : null;
-});
-
-// Seed synchronously so the hero cover is already in the DOM when the view
-// transition captures this view — the morph from the details / gallery cover
-// then pairs on entry. `onMounted` refetches the full payload.
-//   * From GameDetails: `currentRom` is the full DetailedRom → seed `rom`.
-//   * Direct gallery→play: only a SimpleRom exists (the gallery card) → seed a
-//     cover-only `heroSeed` so the cover still paints its morph tag. `rom`
-//     stays null (its DetailedRom-only fields are read guarded) until mount.
-const seededRom = storeRoms().currentRom;
-if (seededRom && String(seededRom.id) === morphRomId.value) {
-  rom.value = seededRom;
-}
-const heroSeed = ref<SimpleRom | null>(null);
-if (!rom.value && morphRomId.value != null) {
-  heroSeed.value = storeGalleryRoms().getRomById(Number(morphRomId.value));
-}
-// What the hero cover / title / glow read: the full rom once loaded, else the
-// lightweight seed during the morph-in window.
-const heroRom = computed<DetailedRom | SimpleRom | null>(
-  () => rom.value ?? heroSeed.value,
+const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
+const { backToRom, backToPlatform } = usePlayerNav(
+  romId,
+  () => heroRom.value?.platform_id,
 );
 const isSavesTabSelected = ref(true);
 const selectedState = ref<StateSchema | null>(null);
@@ -207,8 +187,6 @@ const discItems = computed<{ title: string; value: DiscSelection }[]>(() => [
   })),
 ]);
 
-const setBgArt = useBackgroundArt();
-
 // The hero cover is the shared GameCover (same component as gallery +
 // details). We keep a lightweight `useCoverArt` here only to know whether
 // the active style is alt-art, so the purple glow can be dropped for a
@@ -233,7 +211,7 @@ const bezelUrl = computed(() =>
 // the route param so it binds before `rom` resolves; stored as the compact "0"
 // hidden / "1" shown marker (anything else fails safe to shown), and defaults
 // are not written so merely opening a game leaves storage untouched.
-const showBezel = useLocalStorage(`player:${morphRomId.value}:bezel`, true, {
+const showBezel = useLocalStorage(`player:${romId}:bezel`, true, {
   writeDefaults: false,
   serializer: {
     read: resolveStoredBezelVisible,
@@ -248,22 +226,6 @@ const bezelHost = ref<HTMLElement | null>(null);
 useEventListener(document, "fullscreenchange", () => {
   bezelHost.value = resolveBezelHost(document.fullscreenElement);
 });
-
-// Background art keeps the plain 2D cover — a blurred disc / cartridge
-// reads poorly as a full-bleed backdrop.
-const bgCoverUrl = computed(() => {
-  const r = rom.value;
-  if (!r) return null;
-  return r.path_cover_large ?? r.path_cover_small ?? r.url_cover ?? null;
-});
-
-watch(
-  bgCoverUrl,
-  (url) => {
-    if (url) setBgArt(url);
-  },
-  { immediate: true },
-);
 
 async function onPlay() {
   // Launch flourish on the visible cover (disc drop+spin / cartridge
@@ -357,7 +319,7 @@ watch(selectedCore, (newSelectedCore) => {
 
 onMounted(async () => {
   const romResponse = await romApi.getRom({
-    romId: parseInt(route.params.rom as string),
+    romId,
   });
   rom.value = romResponse.data;
 
@@ -489,31 +451,6 @@ function openCacheDialog() {
   emitter?.emit("openEmulatorJSCacheDialog", null);
 }
 
-function backToRom() {
-  router.push({ name: ROUTES.ROM, params: { rom: rom.value?.id } });
-}
-function backToPlatform() {
-  router.push({
-    name: ROUTES.PLATFORM,
-    params: { platform: rom.value?.platform_id },
-  });
-}
-
-const title = computed(
-  () => heroRom.value?.name || heroRom.value?.fs_name_no_ext || "",
-);
-
-usePageTitle(() =>
-  title.value ? t("play.page-title", { name: title.value }) : null,
-);
-
-const platformLabel = computed(
-  () =>
-    heroRom.value?.platform_custom_name ||
-    heroRom.value?.platform_display_name ||
-    "",
-);
-
 type AssetTab = "save" | "state";
 const activeAssetTab = computed<AssetTab>(() =>
   isSavesTabSelected.value ? "save" : "state",
@@ -566,7 +503,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
 </script>
 
 <template>
-  <section v-if="rom || heroSeed" class="r-v2-ejs">
+  <section v-if="heroRom" class="r-v2-ejs">
     <!-- Pre-game configuration -->
     <div v-if="!gameRunning" class="r-v2-ejs__config">
       <!-- Hero: cover + title + Play CTA -->
@@ -581,7 +518,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
             :rom="heroRom"
             :title="title"
             :identified="heroRom?.is_identified ?? true"
-            :morph-id="morphRomId"
+            :morph-id="romId"
             style-context="player"
             morph-static
             hover-motion
@@ -778,7 +715,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   </section>
 
   <section v-else class="r-v2-ejs__loading">
-    <div class="r-v2-ejs__spinner" :aria-label="t('common.loading')" />
+    <RSpinner :size="40" :aria-label="t('common.loading')" />
   </section>
 </template>
 
@@ -1003,19 +940,6 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   min-height: calc(100vh - var(--r-nav-h));
   display: grid;
   place-items: center;
-}
-.r-v2-ejs__spinner {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2px solid var(--r-color-surface-hover);
-  border-top-color: var(--r-color-brand-primary);
-  animation: r-ejs-spin 0.8s linear infinite;
-}
-@keyframes r-ejs-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* ── Responsive ──────────────────────────────────────────── */
