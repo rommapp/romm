@@ -37,9 +37,8 @@ class DBFirmwareHandler(DBBaseHandler):
         hidden_platform_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[Firmware]:
-        # `Firmware.platform` is `lazy="joined"`, which drags in Platform's
-        # rom_count / fs_size_bytes aggregate subqueries over `roms`. No
-        # caller here reads the relationship, so keep it out of the query.
+        # `Firmware.platform` is lazy="joined", which drags in Platform's
+        # rom_count and fs_size_bytes subqueries. No caller here reads it.
         query = (
             select(Firmware)
             .options(noload(Firmware.platform))

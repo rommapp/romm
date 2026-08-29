@@ -1,8 +1,5 @@
-// Choosing which firmware (BIOS) the EmulatorJS player boots with.
-//
-// A platform whose only BIOS is gone boots with none rather than with a file
-// the server can't serve. The caller already fetches with `missing: false`;
-// re-filtering keeps that rule true for any other caller.
+// Which firmware (BIOS) the EmulatorJS player boots with. Missing entries are
+// never selectable, so a platform whose only BIOS is gone boots with none.
 
 // Only these fields are read, so both `FirmwareSchema` and lighter shapes fit.
 interface FirmwareLike {
@@ -19,9 +16,8 @@ export function resolveInitialFirmware<T extends FirmwareLike>({
   options: readonly T[];
   // The user's last pick for this platform, from localStorage.
   storedBiosId: string | null;
-  // `bios_file` from the selected core's EJS config. Typed as the config's
-  // own `string | boolean` since most EJS settings are toggles; only a
-  // string names a file.
+  // `bios_file` from the core's EJS config, typed `string | boolean` because
+  // most EJS settings are toggles; only a string names a file.
   configBiosFile: string | boolean | undefined;
 }): T | null {
   const usable = options.filter((f) => !f.missing_from_fs);

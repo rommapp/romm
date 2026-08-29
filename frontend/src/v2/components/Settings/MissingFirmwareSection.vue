@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// Firmware sets are small (dozens per library, not tens of thousands), so the
-// whole missing set is fetched once and the platform filter narrows it in
-// memory rather than refetching.
+// Firmware sets are small (dozens, not tens of thousands), so fetch the whole
+// missing set once and narrow it in memory rather than refetching.
 import { RBtn, REmptyState, RIcon, RMenu, RMenuItem, RTag } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
@@ -32,9 +31,8 @@ const loading = ref(true);
 const cleaningUp = ref(false);
 const selectedPlatformIds = ref<number[]>([]);
 
-// Only platforms that actually have something to clean up: the rest would
-// filter the list down to nothing.
-const platformItems = computed<Platform[]>(() => {
+// Offering an unaffected platform would filter the list down to nothing.
+const affectedPlatforms = computed<Platform[]>(() => {
   const affected = new Set(missingFirmware.value.map((f) => f.platform_id));
   return allPlatforms.value
     .filter((p) => affected.has(p.id))
@@ -42,7 +40,7 @@ const platformItems = computed<Platform[]>(() => {
 });
 
 const platformById = computed(
-  () => new Map(platformItems.value.map((p) => [p.id, p])),
+  () => new Map(affectedPlatforms.value.map((p) => [p.id, p])),
 );
 
 const rows = computed(() => {
@@ -121,7 +119,7 @@ onMounted(() => {
     <div class="r-v2-missing-fw__toolbar">
       <PlatformSelect
         v-model="selectedPlatformIds"
-        :items="platformItems"
+        :items="affectedPlatforms"
         multiple
         closable-chips
         clearable

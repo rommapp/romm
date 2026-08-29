@@ -1,6 +1,5 @@
-// `POST /tasks/run/{name}` returns as soon as the job is enqueued, so a caller
-// that wants to show the job's effect has to wait for the worker. There is no
-// socket event for task completion, so poll the job's own status.
+// `POST /tasks/run/{name}` returns once the job is enqueued, and no socket
+// event reports completion, so poll the job's own status.
 import axios from "axios";
 import { onScopeDispose } from "vue";
 import type { JobStatus } from "@/__generated__";
@@ -34,10 +33,8 @@ export interface UseTaskCompletion {
 
 export function useTaskCompletion(): UseTaskCompletion {
   let timer: ReturnType<typeof setTimeout> | null = null;
-  // The live wait's resolver, which doubles as its identity: a poll still in
-  // flight compares against it to know whether it was superseded. Cancelling
-  // clears the pending timer, so it has to settle the outstanding promise
-  // itself or the caller waits on it forever.
+  // The live wait's resolver, doubling as its identity so an in-flight poll
+  // knows it was superseded. Cancelling must settle it or the caller hangs.
   let settle: ((observed: boolean) => void) | null = null;
 
   function cancel() {
@@ -70,10 +67,8 @@ export function useTaskCompletion(): UseTaskCompletion {
           if (TERMINAL_STATUSES.includes(data.status)) return finish(true);
         } catch (err) {
           if (settle !== resolve) return;
-          // A job past its result TTL 404s, which means it ran and is gone.
-          // Anything else (a timeout, a 5xx) says nothing about the job, so
-          // keep polling rather than refreshing over a cleanup still in
-          // progress. The deadline below still bounds the wait.
+          // A job past its result TTL 404s, so it ran and is gone. Anything
+          // else says nothing about it, so keep polling until the deadline.
           if (axios.isAxiosError(err) && err.response?.status === 404) {
             return finish(true);
           }
