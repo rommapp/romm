@@ -125,7 +125,10 @@ describe("isJsDosEmulationSupported", () => {
 
   it("respects the DISABLE_JSDOS admin toggle", () => {
     expect(
-      isJsDosEmulationSupported("win3x", makeHeartbeat({ DISABLE_JSDOS: true })),
+      isJsDosEmulationSupported(
+        "win3x",
+        makeHeartbeat({ DISABLE_JSDOS: true }),
+      ),
     ).toBe(false);
   });
 
