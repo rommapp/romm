@@ -14,6 +14,8 @@
   "deselect-save": "Kaydın seçimini kaldır",
   "deselect-state": "Durum kaydının seçimini kaldır",
   "full-screen": "Tam ekran",
+  "jsdos-browser-save-warning": "js-dos kayıtları yalnızca bu tarayıcıda saklanır ve RomM ile eşitlenmez.",
+  "jsdos-quit-without-saving": "Son ilerlemeyi kaydetmeden çıkılsın mı?",
   "no-save-selected": "Kayıt seçilmedi",
   "no-saves-available": "Mevcut kayıt yok",
   "no-screenshot-available": "Ekran görüntüsü yok",

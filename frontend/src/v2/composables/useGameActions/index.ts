@@ -77,7 +77,12 @@ export function useGameActions(
   // delete that 403s.
   const canDelete = computed(() => hasDeleteGrant.value && canEdit.value);
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
-  const { canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
+  const {
+    canPlay: canPlayLocal,
+    canPlayEJS,
+    canPlayJsDos,
+    canPlayRuffle,
+  } = useCanPlay(getRom);
   const streamingStore = useStreamingStore();
 
   // Streaming is the preferred way to play where a container is
@@ -91,9 +96,7 @@ export function useGameActions(
       streamingStore.containerForPlatform(rom.platform_slug),
     );
   });
-  const canPlay = computed(
-    () => canPlayStream.value || canPlayEJS.value || canPlayRuffle.value,
-  );
+  const canPlay = computed(() => canPlayStream.value || canPlayLocal.value);
 
   // Download, the copied link and the QR code all resolve to the download
   // endpoint, which has nothing to serve without a file behind the rom.
@@ -256,11 +259,16 @@ export function useGameActions(
       if (!ok) return;
     }
 
-    // EmulatorJS cores can require SharedArrayBuffer. Nginx only attaches the
+    // EmulatorJS and js-dos need SharedArrayBuffer. Nginx only attaches the
     // necessary COOP/COEP headers to the player document, so an SPA navigation
     // cannot enable cross-origin isolation. Load the document directly instead.
-    if (!canPlayStream.value && canPlayEJS.value) {
-      window.location.assign(`/rom/${rom.id}/ejs`);
+    const isolated = canPlayJsDos.value
+      ? "jsdos"
+      : canPlayEJS.value
+        ? "ejs"
+        : null;
+    if (!canPlayStream.value && isolated) {
+      window.location.assign(`/rom/${rom.id}/${isolated}`);
       return;
     }
 

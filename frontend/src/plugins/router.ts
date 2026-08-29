@@ -33,6 +33,7 @@ export const ROUTES = {
   SMART_COLLECTION: "smart-collection",
   ROM: "rom",
   EMULATORJS: "emulatorjs",
+  JSDOS: "jsdos",
   RUFFLE: "ruffle",
   STREAM: "stream",
   SCAN: "scan",
@@ -251,6 +252,14 @@ const routes = [
         components: {
           default: () => import("@/views/Player/EmulatorJS/Base.vue"),
           v2: v2For(ROUTES.EMULATORJS),
+        },
+      },
+      {
+        path: "rom/:rom/jsdos",
+        name: ROUTES.JSDOS,
+        components: {
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.JSDOS),
         },
       },
       {

@@ -17,6 +17,7 @@ const locationAssign = vi.fn();
 const confirmFn = vi.fn();
 const confirmProtectedLaunch = { value: true };
 const canPlayEJS = { value: true };
+const canPlayJsDos = { value: false };
 const canPlayRuffle = { value: false };
 const streamContainer = { value: null as object | null };
 let originalLocation: Location;
@@ -65,7 +66,7 @@ vi.mock("@/v2/composables/useCan", () => ({
   }),
 }));
 vi.mock("@/v2/composables/useCanPlay", () => ({
-  useCanPlay: () => ({ canPlayEJS, canPlayRuffle }),
+  useCanPlay: () => ({ canPlayEJS, canPlayJsDos, canPlayRuffle }),
 }));
 vi.mock("@/v2/composables/useClipboard", () => ({
   useClipboard: () => ({ copy: vi.fn() }),
@@ -122,6 +123,7 @@ beforeEach(() => {
   confirmFn.mockClear();
   confirmProtectedLaunch.value = true;
   canPlayEJS.value = true;
+  canPlayJsDos.value = false;
   canPlayRuffle.value = false;
   streamContainer.value = null;
   grantedActions.value = null;
@@ -185,6 +187,16 @@ describe("useGameActions.play — launch confirmation", () => {
 
     expect(push).toHaveBeenCalledWith("/rom/1/ruffle");
     expect(locationAssign).not.toHaveBeenCalled();
+  });
+
+  it("full-loads js-dos ahead of EmulatorJS for its platforms", async () => {
+    canPlayJsDos.value = true;
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play();
+
+    expect(locationAssign).toHaveBeenCalledWith("/rom/1/jsdos");
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("offers neither streaming nor download without a file behind the rom", () => {
