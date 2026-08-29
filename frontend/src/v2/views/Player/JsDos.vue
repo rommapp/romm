@@ -27,11 +27,9 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { isJsResource, loadScript } from "./scriptLoader";
 
-// The full image serves the runtime same-origin. Slim images and the dev
-// server ship no local copy, so fall back to jsDelivr: it serves the same
-// pinned dist with `cross-origin-resource-policy: cross-origin`, which the
-// player's COEP requires. Keep the version in step with docker/Dockerfile.
 const JSDOS_LOCAL_BASE = "/assets/jsdos";
+// Fallback for slim images and the dev server, which ship no local copy. Pinned
+// to the image's JSDOS_VERSION; jsDelivr sends the CORP the player's COEP needs.
 const JSDOS_CDN_BASE = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
 
 // Where the runtime actually came from, so the emulator payloads follow it.

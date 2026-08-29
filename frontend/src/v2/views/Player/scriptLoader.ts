@@ -1,6 +1,5 @@
-// Shared runtime injection for the player views. EmulatorJS and js-dos both
-// ship their runtime as a local asset in the full image and fall back to a CDN
-// in slim images and under the dev server, which serve no local copy.
+// Shared runtime injection for the player views. EmulatorJS and js-dos serve
+// their runtime locally in the full image and fall back to a CDN without it.
 
 /** Inject a <script> and resolve once it has executed. */
 export function loadScript(src: string): Promise<void> {
@@ -17,9 +16,8 @@ export function loadScript(src: string): Promise<void> {
 /**
  * Check that a URL really serves JavaScript.
  *
- * The Vite dev server (and many SPA hosts) answer a missing asset with 200 plus
- * index.html. A <script> tag happily "loads" that, so onerror never fires and a
- * plain fallback never runs; only the parser complains, much later.
+ * The Vite dev server and many SPA hosts answer a missing asset with 200 plus
+ * index.html, which a <script> tag loads without ever firing onerror.
  *
  * @param url The script URL to pre-flight.
  * @returns True when the body is JavaScript, false otherwise.

@@ -148,8 +148,7 @@ describe("isJsDosEmulationSupported", () => {
 });
 
 describe("isJsDosBundle", () => {
-  const withExt = (fs_extension: string) =>
-    makeRom({ fs_extension } as Partial<SimpleRom>);
+  const withExt = (fs_extension: string) => makeRom({ fs_extension });
 
   it("accepts a .jsdos bundle regardless of case", () => {
     expect(isJsDosBundle(withExt("jsdos"))).toBe(true);
