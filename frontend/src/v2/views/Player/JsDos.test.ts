@@ -187,7 +187,7 @@ async function mountPlayer(handle: JsDosProps): Promise<VueWrapper> {
   );
   const wrapper = mountView();
   await flushPromises();
-  await wrapper.get(".r-v2-jsdos__play").trigger("click");
+  await wrapper.get(".r-v2-player__play").trigger("click");
   await nextTick();
   return wrapper;
 }
@@ -242,7 +242,7 @@ describe("JsDos player exit", () => {
     const wrapper = mountView();
     await flushPromises();
 
-    await wrapper.get(".r-v2-jsdos__play").trigger("click");
+    await wrapper.get(".r-v2-player__play").trigger("click");
 
     expect(mocks.snackbarError).toHaveBeenCalledWith(
       "play.stream-error-generic",
@@ -276,7 +276,7 @@ describe("JsDos player exit", () => {
     const handle = makeHandle();
     const wrapper = await mountPlayer(handle);
 
-    await wrapper.get(".r-v2-jsdos__quit").trigger("click");
+    await wrapper.get(".r-v2-player__quit").trigger("click");
     await flushPromises();
 
     expect(handle.save).toHaveBeenCalledOnce();
@@ -292,7 +292,7 @@ describe("JsDos player exit", () => {
     const handle = makeHandle(false);
     const wrapper = await mountPlayer(handle);
 
-    await wrapper.get(".r-v2-jsdos__quit").trigger("click");
+    await wrapper.get(".r-v2-player__quit").trigger("click");
     await flushPromises();
 
     expect(mocks.snackbarError).toHaveBeenCalledWith(
@@ -303,7 +303,7 @@ describe("JsDos player exit", () => {
     expect(mocks.flushPlaySession).not.toHaveBeenCalled();
     expect(mocks.setPlaying).not.toHaveBeenCalledWith(false);
     expect(
-      wrapper.get(".r-v2-jsdos__quit").attributes("disabled"),
+      wrapper.get(".r-v2-player__quit").attributes("disabled"),
     ).toBeUndefined();
     wrapper.unmount();
   });
@@ -313,7 +313,7 @@ describe("JsDos player exit", () => {
     const handle = makeHandle(false);
     const wrapper = await mountPlayer(handle);
 
-    await wrapper.get(".r-v2-jsdos__quit").trigger("click");
+    await wrapper.get(".r-v2-player__quit").trigger("click");
     await flushPromises();
 
     expect(handle.stop).toHaveBeenCalledOnce();
@@ -328,7 +328,7 @@ describe("JsDos player exit", () => {
     handle.save.mockRejectedValue(new Error("save failed"));
     const wrapper = await mountPlayer(handle);
 
-    await wrapper.get(".r-v2-jsdos__quit").trigger("click");
+    await wrapper.get(".r-v2-player__quit").trigger("click");
     await flushPromises();
 
     expect(mocks.snackbarError).toHaveBeenCalledWith(
@@ -349,8 +349,8 @@ describe("JsDos player exit", () => {
     );
     const wrapper = await mountPlayer(handle);
 
-    await wrapper.get(".r-v2-jsdos__quit").trigger("click");
-    await wrapper.get(".r-v2-jsdos__quit").trigger("click");
+    await wrapper.get(".r-v2-player__quit").trigger("click");
+    await wrapper.get(".r-v2-player__quit").trigger("click");
     expect(handle.save).toHaveBeenCalledOnce();
 
     finishSave?.(true);
@@ -369,7 +369,7 @@ describe("JsDos player exit", () => {
     );
     const wrapper = await mountPlayer(handle);
 
-    await wrapper.get(".r-v2-jsdos__quit").trigger("click");
+    await wrapper.get(".r-v2-player__quit").trigger("click");
     expect(mocks.routeLeaveGuard?.({ fullPath: "/platform/2" })).toBe(false);
     expect(handle.save).toHaveBeenCalledOnce();
 
