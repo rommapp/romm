@@ -1,7 +1,9 @@
 from unittest.mock import MagicMock
 
+import pytest
+
+from utils.hltb_search import HLTB_BASE_URL
 from utils.update_hltb_api_url import (
-    BASE_URL,
     BUILD_MANIFEST_REGEX,
     VALIDATION_SEARCH_TERM,
     candidate_search_routes,
@@ -42,7 +44,6 @@ def test_build_manifest_is_located_by_its_hashed_build_id():
 
 
 def test_turbopack_chunks_are_not_mistaken_for_the_manifest():
-    # The chunk names that replaced the old _app bundle must not match.
     html = '<script src="/_next/static/chunks/turbopack-3c7ykt0_ogp3s.js"></script>'
 
     assert BUILD_MANIFEST_REGEX.search(html) is None
@@ -69,39 +70,43 @@ GAME = {"game_id": 6909, "game_name": "Paper Mario"}
 def test_a_route_serving_real_games_is_accepted():
     client = _client(SESSION, {"data": [GAME]})
 
-    assert serves_game_search(client, BASE_URL, f"{BASE_URL}/api/search/site") is True
+    assert (
+        serves_game_search(client, HLTB_BASE_URL, f"{HLTB_BASE_URL}/api/search/site")
+        is True
+    )
 
 
-def test_a_route_that_mints_but_does_not_search_is_rejected():
-    # The gap the /init-only check left open: session-backed, but not search.
-    client = _client(SESSION, {"ok": True})
+# A session-backed route is not enough: it has to answer the search itself.
+@pytest.mark.parametrize(
+    "search_body",
+    [
+        pytest.param({"ok": True}, id="not-a-search-response"),
+        pytest.param({"data": [{"userId": 1, "name": "someone"}]}, id="not-games"),
+        pytest.param({"data": []}, id="no-results"),
+    ],
+)
+def test_a_route_that_mints_but_does_not_serve_games_is_rejected(search_body: dict):
+    client = _client(SESSION, search_body)
 
-    assert serves_game_search(client, BASE_URL, f"{BASE_URL}/api/other") is False
-
-
-def test_a_route_returning_non_game_results_is_rejected():
-    client = _client(SESSION, {"data": [{"userId": 1, "name": "someone"}]})
-
-    assert serves_game_search(client, BASE_URL, f"{BASE_URL}/api/other") is False
-
-
-def test_a_route_returning_no_results_is_rejected():
-    client = _client(SESSION, {"data": []})
-
-    assert serves_game_search(client, BASE_URL, f"{BASE_URL}/api/other") is False
+    assert (
+        serves_game_search(client, HLTB_BASE_URL, f"{HLTB_BASE_URL}/api/other") is False
+    )
 
 
 def test_an_incomplete_session_is_rejected_before_searching():
     client = _client({"token": "t"}, {"data": [GAME]})
 
-    assert serves_game_search(client, BASE_URL, f"{BASE_URL}/api/search/site") is False
+    assert (
+        serves_game_search(client, HLTB_BASE_URL, f"{HLTB_BASE_URL}/api/search/site")
+        is False
+    )
     client.post.assert_not_called()
 
 
 def test_the_search_carries_the_session_and_honeypot_key():
     client = _client(SESSION, {"data": [GAME]})
 
-    serves_game_search(client, BASE_URL, f"{BASE_URL}/api/search/site")
+    serves_game_search(client, HLTB_BASE_URL, f"{HLTB_BASE_URL}/api/search/site")
 
     kwargs = client.post.call_args.kwargs
     assert kwargs["headers"]["x-auth-token"] == "t"

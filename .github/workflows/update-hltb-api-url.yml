@@ -30,12 +30,10 @@ jobs:
           uv sync
 
       - name: Run HLTB API URL discovery script
-        # The script imports the backend config, which refuses to load without
-        # these; discovery itself authenticates nothing.
+        # Only satisfies the backend config import; discovery authenticates nothing.
         env:
           # trunk-ignore(checkov/CKV_SECRET_6): placeholder, not a credential
           ROMM_AUTH_SECRET_KEY: unused-by-endpoint-discovery
-          ROMM_BASE_PATH: ${{ runner.temp }}/romm
         run: |
           cd backend
           uv run python -m utils.update_hltb_api_url

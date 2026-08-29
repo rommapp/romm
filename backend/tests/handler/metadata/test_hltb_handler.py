@@ -9,15 +9,16 @@ from fastapi import HTTPException, status
 
 from handler.metadata.hltb_handler import HLTBHandler
 from utils import get_version
+from utils.hltb_search import HLTB_BASE_URL, SESSION_MINT_SUFFIX
 
-SEARCH_URL = "https://howlongtobeat.com/api/search/site"
+SEARCH_URL = f"{HLTB_BASE_URL}/api/search/site"
 
 
-def _handler_without_session(search_url: str = SEARCH_URL) -> HLTBHandler:
+def _handler_without_session() -> HLTBHandler:
     """A handler pointed at an endpoint, before any session has been minted."""
     handler = HLTBHandler()
-    handler.search_url = search_url
-    handler.search_init_url = f"{search_url}/init"
+    handler.search_url = SEARCH_URL
+    handler.search_init_url = f"{SEARCH_URL}{SESSION_MINT_SUFFIX}"
     return handler
 
 
@@ -291,7 +292,7 @@ async def test_request_returns_empty_without_a_session(mock_ctx_httpx_client):
     mock_client.get.return_value = _response(json_body={})
     mock_ctx_httpx_client.get.return_value = mock_client
 
-    assert await handler._request("https://howlongtobeat.com/api/search/site", {}) == {}
+    assert await handler._request(handler.search_url, {}) == {}
     mock_client.post.assert_not_awaited()
 
 
@@ -311,10 +312,26 @@ async def test_request_mints_a_session_a_failed_startup_never_got(
     assert await handler._request(handler.search_url, {"a": 1}) == {"data": []}
 
     # The mint has to address the endpoint being searched, not a stale default.
-    assert mock_client.get.await_args.args[0] == f"{handler.search_url}/init"
+    assert mock_client.get.await_args.args[0] == handler.search_init_url
     kwargs = mock_client.post.await_args.kwargs
     assert kwargs["headers"]["x-auth-token"] == "token-late"
     assert kwargs["json"] == {"a": 1, "ign_late": "val-late"}
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_a_failed_mint_is_not_retried_by_every_lookup(mock_ctx_httpx_client):
+    handler = _handler_without_session()
+    mock_client = AsyncMock()
+    mock_client.get.return_value = _response(json_body={})
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    for _ in range(5):
+        assert await handler._request(handler.search_url, {}) == {}
+
+    # HLTB being down must not cost every ROM in a scan its own round trip.
+    mock_client.get.assert_awaited_once()
+    mock_client.post.assert_not_awaited()
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
@@ -346,7 +363,6 @@ async def test_concurrent_lookups_mint_one_shared_session(mock_ctx_httpx_client)
 
     # A scan starts many lookups at once, and HLTB must not see a mint from each.
     mock_client.get.assert_awaited_once()
-    assert mock_client.get.await_args.args[0] == f"{handler.search_url}/init"
     assert mock_client.post.await_count == 5
 
 

@@ -10,42 +10,34 @@ from pathlib import Path
 
 import httpx
 
-from handler.metadata.hltb_handler import build_search_payload
-from utils import get_version
 from utils.context import create_httpx_client
-
-BASE_URL = "https://howlongtobeat.com"
+from utils.hltb_search import (
+    HLTB_BASE_URL,
+    SESSION_MINT_SUFFIX,
+    HLTBSession,
+    base_headers,
+    build_search_payload,
+    parse_session,
+    search_body,
+    search_headers,
+)
 
 # Next.js lists every route it serves as a plain literal in _buildManifest.js, so
-# discovery does not depend on how the app bundle happens to be built or minified.
+# discovery does not depend on how the app bundle is built or minified.
 BUILD_MANIFEST_REGEX = re.compile(
     r'src=["\'](?P<path>[^"\']*/_next/static/[^"\']+/_buildManifest\.js)["\']'
 )
 API_ROUTE_REGEX = re.compile(r'["\'](?P<route>/api/[^"\']*)["\']')
 
-# HLTBHandler mints its session at f"{search_url}/init", so the search endpoint is
-# the route the manifest pairs with an /init sibling.
-SESSION_MINT_SUFFIX = "/init"
-SESSION_FIELDS = ("token", "hpKey", "hpVal")
-
 # A term with many well known hits, so an empty result means the route, not the term.
 VALIDATION_SEARCH_TERM = "mario"
 
 
-def _absolute_url(base_url: str, path: str) -> str:
-    if path.startswith("http"):
-        return path
-    return f"{base_url.rstrip('/')}/{path.lstrip('/')}"
-
-
-def _base_headers(base_url: str) -> dict[str, str]:
-    return {"Referer": base_url, "User-Agent": f"RomM/{get_version()}"}
-
-
 def fetch_build_manifest(client: httpx.Client, base_url: str) -> str | None:
     """Fetch the Next.js build manifest linked from the homepage."""
-    homepage_url = f"{base_url.rstrip('/')}/"
-    response = client.get(homepage_url, headers=_base_headers(base_url), timeout=15)
+    headers = base_headers(base_url)
+    homepage_url = f"{base_url}/"
+    response = client.get(homepage_url, headers=headers, timeout=15)
     response.raise_for_status()
     print(f"Fetched homepage: {homepage_url}")
 
@@ -54,10 +46,10 @@ def fetch_build_manifest(client: httpx.Client, base_url: str) -> str | None:
         print("Could not locate the Next.js build manifest.", file=sys.stderr)
         return None
 
-    manifest_url = _absolute_url(base_url, match.group("path"))
+    manifest_url = str(httpx.URL(homepage_url).join(match.group("path")))
     print(f"Located build manifest: {manifest_url}")
 
-    response = client.get(manifest_url, headers=_base_headers(base_url), timeout=15)
+    response = client.get(manifest_url, headers=headers, timeout=15)
     response.raise_for_status()
     print(f"Downloaded build manifest (size: {len(response.text)} chars)")
 
@@ -66,86 +58,78 @@ def fetch_build_manifest(client: httpx.Client, base_url: str) -> str | None:
 
 def candidate_search_routes(manifest: str) -> list[str]:
     """List the API routes that ship a session mint, most search-like first."""
-    routes = set(API_ROUTE_REGEX.findall(manifest))
+    routes = list(dict.fromkeys(API_ROUTE_REGEX.findall(manifest)))
+
+    # serves_game_search() is the real oracle, so this only narrows and orders.
     candidates = [
         route for route in routes if f"{route}{SESSION_MINT_SUFFIX}" in routes
     ]
-
-    # Only an ordering hint, since every candidate is confirmed against the live API.
-    return sorted(candidates, key=lambda route: ("search" not in route, route))
+    return sorted(candidates, key=lambda route: "search" not in route)
 
 
 def _mint_session(
     client: httpx.Client, base_url: str, search_url: str
-) -> dict[str, str] | None:
+) -> HLTBSession | None:
     """Mint a session at the candidate's /init, or None if it does not issue one."""
     response = client.get(
         f"{search_url}{SESSION_MINT_SUFFIX}",
         params={"t": int(time.time())},
-        headers=_base_headers(base_url),
+        headers=base_headers(base_url),
         timeout=15,
     )
     response.raise_for_status()
-    session = response.json()
 
-    if missing := [field for field in SESSION_FIELDS if not session.get(field)]:
-        print(f"Rejected {search_url}: session is missing {', '.join(missing)}")
-        return None
-
-    return session
+    return parse_session(response.json())
 
 
-def serves_game_search(client: httpx.Client, base_url: str, search_url: str) -> bool:
-    """Check the candidate answers the search HLTBHandler sends, not just /init.
-
-    Minting a session only proves the route is session-backed, so a future
-    session-minting route could otherwise be published as the search endpoint.
-    """
+def _rejection_reason(
+    client: httpx.Client, base_url: str, search_url: str
+) -> str | None:
     try:
         session = _mint_session(client, base_url, search_url)
         if not session:
-            return False
+            return "/init issued no session"
 
-        token, hp_key, hp_val = (session[field] for field in SESSION_FIELDS)
         payload = build_search_payload(VALIDATION_SEARCH_TERM, "")
         response = client.post(
             search_url,
-            json={**payload, hp_key: hp_val},
-            headers={
-                "Content-Type": "application/json",
-                **_base_headers(base_url),
-                "x-auth-token": token,
-                "x-hp-key": hp_key,
-                "x-hp-val": hp_val,
-            },
+            json=search_body(payload, session),
+            headers=search_headers(base_url, session),
             timeout=30,
         )
         response.raise_for_status()
         results = response.json().get("data")
     except (httpx.RequestError, httpx.HTTPStatusError, ValueError) as e:
-        print(f"Rejected {search_url}: {e}")
-        return False
+        return str(e)
 
     # The same shape search_games() reads, so a wrong route cannot pass by
     # returning some other 200.
     if not isinstance(results, list) or not results:
-        print(f"Rejected {search_url}: search returned no results")
-        return False
+        return "search returned no results"
 
     if not all(
         isinstance(game, dict) and "game_id" in game and "game_name" in game
         for game in results
     ):
-        print(f"Rejected {search_url}: results are not HLTB games")
+        return "results are not HLTB games"
+
+    return None
+
+
+def serves_game_search(client: httpx.Client, base_url: str, search_url: str) -> bool:
+    """Check the candidate answers the search HLTBHandler sends, not just /init."""
+    reason = _rejection_reason(client, base_url, search_url)
+    if reason:
+        print(f"Rejected {search_url}: {reason}")
         return False
 
-    names = ", ".join(str(game["game_name"]) for game in results[:3])
-    print(f"Confirmed {search_url} serves game search ({len(results)} hits: {names})")
+    print(f"Confirmed {search_url} serves game search")
     return True
 
 
-def discover_hltb_endpoint(base_url: str = BASE_URL) -> str | None:
+def discover_hltb_endpoint(base_url: str = HLTB_BASE_URL) -> str | None:
     """Discover the current HLTB search endpoint from the site's route table."""
+    base_url = base_url.rstrip("/")
     try:
         with create_httpx_client() as client:
             manifest = fetch_build_manifest(client, base_url)
@@ -159,7 +143,7 @@ def discover_hltb_endpoint(base_url: str = BASE_URL) -> str | None:
             print(f"Candidate search routes: {', '.join(candidates)}")
 
             for route in candidates:
-                search_url = f"{base_url.rstrip('/')}{route}"
+                search_url = f"{base_url}{route}"
                 if serves_game_search(client, base_url, search_url):
                     print(f"Resolved HLTB search endpoint: {search_url}")
                     return search_url
