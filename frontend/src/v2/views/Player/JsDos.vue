@@ -129,7 +129,9 @@ async function onPlay() {
     pathPrefix: `${jsDosAssetBase}/emulators/`,
     autoStart: true,
     autoSave: true,
-    fullScreen: fullscreenOnPlay.value,
+    // js-dos calls exitFullscreen() unguarded when this is false, which
+    // rejects if the document was never fullscreen. Only ever opt in.
+    ...(fullscreenOnPlay.value ? { fullScreen: true } : {}),
     fsChanges: {
       local: true,
       // js-dos defaults to the bundle URL, which would share saves between
