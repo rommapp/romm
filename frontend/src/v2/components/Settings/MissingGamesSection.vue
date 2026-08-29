@@ -245,14 +245,9 @@ async function cleanupAll() {
   if (!ok) return;
   cleaningUp.value = true;
   try {
-    // The task API takes a single `platform_id`. With multi-select on,
-    // we forward the id only when exactly one platform is picked; for
-    // 0 or >1 platforms we run the unscoped cleanup so the result
-    // matches what the table is currently showing.
-    const body =
-      selectedPlatforms.value.length === 1
-        ? { platform_id: selectedPlatforms.value[0].id }
-        : {};
+    const body = selectedPlatforms.value.length
+      ? { platform_ids: selectedPlatforms.value.map((p) => p.id) }
+      : {};
     const { data } = await taskApi.runTask("cleanup_missing_roms", body);
     snackbar.success(t("settings.cleanup-queued"));
     if (await awaitTask(data.task_id)) {

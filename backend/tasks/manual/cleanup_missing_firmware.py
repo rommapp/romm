@@ -10,7 +10,7 @@ from utils.context import initialize_context
 class CleanupMissingFirmwareStats:
     """Statistics for missing firmware cleanup operations."""
 
-    platform_id: int | None = None
+    platform_ids: list[int] | None = None
     firmware_found: int = 0
     firmware_deleted: int = 0
     errors: int = 0
@@ -24,7 +24,7 @@ class CleanupMissingFirmwareStats:
 
     def to_dict(self) -> dict:
         return {
-            "platform_id": self.platform_id,
+            "platform_ids": self.platform_ids,
             "firmware_found": self.firmware_found,
             "firmware_deleted": self.firmware_deleted,
             "errors": self.errors,
@@ -43,20 +43,24 @@ class CleanupMissingFirmwareTask(Task):
         )
 
     @initialize_context()
-    async def run(self, platform_id: int | None = None) -> dict:
+    async def run(self, platform_ids: list[int] | None = None) -> dict:
         """Clean up firmware that is flagged as missing from the filesystem."""
         log.info(f"Starting {self.title} task...")
 
-        stats = CleanupMissingFirmwareStats(platform_id=platform_id)
+        stats = CleanupMissingFirmwareStats(platform_ids=platform_ids)
 
         missing_firmware = db_firmware_handler.list_firmware(
-            platform_id=platform_id, missing=True
+            platform_ids=platform_ids, missing=True
         )
 
         stats.update(firmware_found=len(missing_firmware))
         log.info(
             f"Found {len(missing_firmware)} missing firmware file(s) to clean up"
-            + (f" for platform ID {platform_id}" if platform_id else "")
+            + (
+                f" for platform ID(s) {', '.join(map(str, platform_ids))}"
+                if platform_ids
+                else ""
+            )
         )
 
         # The row is stale because the file is already gone, so there is

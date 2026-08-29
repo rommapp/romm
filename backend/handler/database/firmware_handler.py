@@ -31,7 +31,7 @@ class DBFirmwareHandler(DBBaseHandler):
     def list_firmware(
         self,
         *,
-        platform_id: int | None = None,
+        platform_ids: Sequence[int] | None = None,
         missing: bool | None = None,
         only_fields: Sequence[QueryableAttribute] | None = None,
         hidden_platform_ids: Sequence[int] | None = None,
@@ -46,8 +46,8 @@ class DBFirmwareHandler(DBBaseHandler):
             .order_by(Firmware.file_name.asc())
         )
 
-        if platform_id:
-            query = query.filter_by(platform_id=platform_id)
+        if platform_ids:
+            query = query.filter(Firmware.platform_id.in_(platform_ids))
 
         if missing is not None:
             query = query.filter(Firmware.missing_from_fs == missing)

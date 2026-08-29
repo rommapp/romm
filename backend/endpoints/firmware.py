@@ -115,7 +115,9 @@ async def add_firmware(
         "uploaded": len(files),
         "firmware": [
             FirmwareSchema.model_validate(f)
-            for f in db_firmware_handler.list_firmware(platform_id=platform_id)
+            for f in db_firmware_handler.list_firmware(
+                platform_ids=[platform_id] if platform_id else None
+            )
         ],
     }
 
@@ -141,7 +143,7 @@ def get_platform_firmware(
     return [
         FirmwareSchema.model_validate(f)
         for f in db_firmware_handler.list_firmware(
-            platform_id=platform_id,
+            platform_ids=[platform_id] if platform_id else None,
             missing=missing,
             hidden_platform_ids=perms.hidden_platform_ids,
         )

@@ -80,7 +80,9 @@ async function selectPlatforms(
   wrapper: ReturnType<typeof mountSection>,
   ids: number[],
 ) {
-  wrapper.findComponent({ name: "RSelect" }).vm.$emit("update:modelValue", ids);
+  wrapper
+    .findComponent({ name: "PlatformSelect" })
+    .vm.$emit("update:modelValue", ids);
   await flushPromises();
 }
 
@@ -153,14 +155,28 @@ describe("MissingFirmwareSection", () => {
     await flushPromises();
 
     expect(runTask).toHaveBeenCalledWith("cleanup_missing_firmware", {
-      platform_id: PS1.id,
+      platform_ids: [PS1.id],
     });
   });
 
-  it("runs the unscoped cleanup when the filter isn't a single platform", async () => {
+  // The confirm dialog names every selected platform, so the cleanup has to
+  // delete exactly those rather than falling back to the whole library.
+  it("scopes the cleanup task to every selected platform", async () => {
     const wrapper = mountSection();
     await flushPromises();
     await selectPlatforms(wrapper, [PS1.id, SATURN.id]);
+
+    wrapper.findComponent({ name: "RMenuItem" }).vm.$emit("click");
+    await flushPromises();
+
+    expect(runTask).toHaveBeenCalledWith("cleanup_missing_firmware", {
+      platform_ids: [PS1.id, SATURN.id],
+    });
+  });
+
+  it("runs the unscoped cleanup when no platform is selected", async () => {
+    const wrapper = mountSection();
+    await flushPromises();
 
     wrapper.findComponent({ name: "RMenuItem" }).vm.$emit("click");
     await flushPromises();

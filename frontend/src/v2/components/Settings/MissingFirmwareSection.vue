@@ -98,13 +98,9 @@ async function cleanupAll() {
   if (!ok) return;
   cleaningUp.value = true;
   try {
-    // The task API takes a single `platform_id`; forward it only when the
-    // filter resolves to exactly one platform, so the cleanup matches what
-    // the list is showing.
-    const body =
-      selectedPlatformIds.value.length === 1
-        ? { platform_id: selectedPlatformIds.value[0] }
-        : {};
+    const body = selectedPlatformIds.value.length
+      ? { platform_ids: selectedPlatformIds.value }
+      : {};
     const { data } = await taskApi.runTask("cleanup_missing_firmware", body);
     snackbar.success(t("settings.cleanup-firmware-queued"));
     if (await awaitTask(data.task_id)) await fetchMissingFirmware();
