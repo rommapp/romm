@@ -13,7 +13,15 @@
 // The running state mounts the v1 <Player> component (600 lines of EJS
 // wiring — not worth rewriting). The v1 SelectSaveDialog / SelectStateDialog
 // + CacheDialog are mounted in GlobalDialogs so the emitter bridge works.
-import { RBtn, RCard, RIcon, RSelect, RSliderBtnGroup, RSwitch } from "@v2/lib";
+import {
+  RBtn,
+  RCard,
+  RIcon,
+  RSelect,
+  RSliderBtnGroup,
+  RSpinner,
+  RSwitch,
+} from "@v2/lib";
 import { useEventListener, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -28,9 +36,7 @@ import {
   watch,
 } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import { ROUTES } from "@/plugins/router";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
@@ -49,6 +55,7 @@ import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
+import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import {
   resolveBezelHost,
@@ -73,7 +80,6 @@ const Player = defineAsyncComponent(
 );
 
 const { t } = useI18n();
-const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const playingStore = storePlaying();
@@ -96,7 +102,11 @@ const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const selectedSave = ref<SaveSchema | null>(null);
 
-const { romId, heroSeed, heroRom, title, platformLabel } = usePlayerHero(rom);
+const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
+const { backToRom, backToPlatform } = usePlayerNav(
+  romId,
+  () => heroRom.value?.platform_id,
+);
 const isSavesTabSelected = ref(true);
 const selectedState = ref<StateSchema | null>(null);
 const selectedDisc = ref<DiscSelection>(null);
@@ -441,16 +451,6 @@ function openCacheDialog() {
   emitter?.emit("openEmulatorJSCacheDialog", null);
 }
 
-function backToRom() {
-  router.push({ name: ROUTES.ROM, params: { rom: rom.value?.id } });
-}
-function backToPlatform() {
-  router.push({
-    name: ROUTES.PLATFORM,
-    params: { platform: rom.value?.platform_id },
-  });
-}
-
 type AssetTab = "save" | "state";
 const activeAssetTab = computed<AssetTab>(() =>
   isSavesTabSelected.value ? "save" : "state",
@@ -503,7 +503,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
 </script>
 
 <template>
-  <section v-if="rom || heroSeed" class="r-v2-ejs">
+  <section v-if="heroRom" class="r-v2-ejs">
     <!-- Pre-game configuration -->
     <div v-if="!gameRunning" class="r-v2-ejs__config">
       <!-- Hero: cover + title + Play CTA -->
@@ -715,7 +715,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   </section>
 
   <section v-else class="r-v2-ejs__loading">
-    <div class="r-v2-ejs__spinner" :aria-label="t('common.loading')" />
+    <RSpinner :size="40" :aria-label="t('common.loading')" />
   </section>
 </template>
 
@@ -940,19 +940,6 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   min-height: calc(100vh - var(--r-nav-h));
   display: grid;
   place-items: center;
-}
-.r-v2-ejs__spinner {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2px solid var(--r-color-surface-hover);
-  border-top-color: var(--r-color-brand-primary);
-  animation: r-ejs-spin 0.8s linear infinite;
-}
-@keyframes r-ejs-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* ── Responsive ──────────────────────────────────────────── */

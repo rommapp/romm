@@ -3,28 +3,21 @@
 // settings card, play and back buttons, and the full-bleed running stage. A
 // player supplies only the controls above the Play button and whatever it
 // mounts as a stage, through the `settings` and `stage` slots.
-//
-// EmulatorJS deliberately does not use this: its hero lives inside a card with
-// an alt-art glow and it lays out three panels on its own breakpoints. It takes
-// `usePlayerHero` instead.
 import { RBtn, RCard, RSpinner } from "@v2/lib";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
-import { ROUTES } from "@/plugins/router";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import GameCover from "@/v2/components/shared/GameCover.vue";
+import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 
 interface Props {
   /** Full rom once loaded, else the cover-only seed during the morph-in. */
   heroRom: DetailedRom | SimpleRom | null;
   title: string;
   platformLabel: string;
-  /** Route rom id, bound before `heroRom` resolves so the morph tag paints. */
+  /** Route rom id, so the morph tag matches even while the hero is a seed. */
   romId: number;
-  /** The full payload has landed, so the game can actually boot. */
   ready: boolean;
   running: boolean;
-  /** Keeps the quit button busy while an exit is still saving. */
   quitting?: boolean;
 }
 
@@ -36,17 +29,10 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const router = useRouter();
-
-function backToRom() {
-  router.push({ name: ROUTES.ROM, params: { rom: props.romId } });
-}
-
-function backToPlatform() {
-  const platformId = props.heroRom?.platform_id;
-  if (platformId == null) return;
-  router.push({ name: ROUTES.PLATFORM, params: { platform: platformId } });
-}
+const { backToRom, backToPlatform } = usePlayerNav(
+  props.romId,
+  () => props.heroRom?.platform_id,
+);
 </script>
 
 <template>
@@ -110,7 +96,9 @@ function backToPlatform() {
         </div>
       </RCard>
 
-      <slot name="brand" />
+      <div v-if="$slots.brand" class="r-v2-player__brand">
+        <slot name="brand" />
+      </div>
     </div>
 
     <div v-else class="r-v2-player__stage-wrap">
@@ -196,6 +184,11 @@ function backToPlatform() {
 
 .r-v2-player__play {
   margin-top: 8px;
+}
+
+.r-v2-player__brand {
+  grid-column: 1 / -1;
+  margin-top: 12px;
 }
 
 .r-v2-player__stage-wrap {

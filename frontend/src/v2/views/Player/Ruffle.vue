@@ -4,7 +4,7 @@
 // `src/views/Player/RuffleRS/Base.vue` so playback stays identical; only the
 // chrome is v2. No shared state with EJS — Flash has its own config.
 import { RIcon, RSwitch } from "@v2/lib";
-import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import storePlaying from "@/stores/playing";
@@ -25,7 +25,7 @@ const { fullscreenOnPlay } = useFullscreenPref();
 const playingStore = storePlaying();
 const playSession = usePlaySession();
 
-const rom = ref<DetailedRom | null>(null);
+const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
 const backgroundColor = ref<string>(DEFAULT_BACKGROUND_COLOR);
 
@@ -219,12 +219,10 @@ onBeforeUnmount(() => {
 }
 
 .r-v2-ruffle__brand {
-  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 12px;
   font-size: var(--r-font-size-xs);
   color: var(--r-color-fg-faint);
   font-style: italic;
