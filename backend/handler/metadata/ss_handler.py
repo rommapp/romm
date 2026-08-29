@@ -9,6 +9,7 @@ from fastapi import HTTPException, status
 from unidecode import unidecode as uc
 
 from adapters.services.screenscraper import (
+    ScreenScraperCredentialsError,
     ScreenScraperRateLimitError,
     ScreenScraperService,
     get_account_limits,
@@ -17,7 +18,12 @@ from adapters.services.screenscraper import (
     reset_scan_state,
 )
 from adapters.services.screenscraper_types import SSGame, SSGameDate
-from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
+from config import (
+    SCREENSCRAPER_DEV_ID,
+    SCREENSCRAPER_DEV_PASSWORD,
+    SCREENSCRAPER_PASSWORD,
+    SCREENSCRAPER_USER,
+)
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
@@ -250,6 +256,17 @@ def _is_daily_quota_error(exc: HTTPException) -> bool:
     )
 
 
+def _is_provider_exhausted(exc: HTTPException) -> bool:
+    """True for the errors that take ScreenScraper out for the rest of the scan.
+
+    Both an exhausted daily quota and a refused credential set trip a breaker in
+    the service, so the remaining ROMs short-circuit. The scan carries on with
+    the other providers rather than failing over a provider that has already said
+    everything it is going to say.
+    """
+    return _is_daily_quota_error(exc) or isinstance(exc, ScreenScraperCredentialsError)
+
+
 def _is_notgame(game: SSGame) -> bool:
     if game.get("notgame") == "true":
         return True
@@ -292,6 +309,7 @@ class SSMetadataMedia(TypedDict):
 
     # Resources stored in filesystem
     bezel_path: str | None
+    box2d_path: str | None
     box2d_back_path: str | None
     box2d_side_path: str | None
     box3d_path: str | None
@@ -312,6 +330,8 @@ class SSMetadata(SSMetadataMedia):
     alternative_names: list[str]
     age_ratings: list[SSAgeRating]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     franchises: list[str]
     game_modes: list[str]
     genres: list[str]
@@ -354,6 +374,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         video_url=None,
         video_normalized_url=None,
         bezel_path=None,
+        box2d_path=None,
         box2d_back_path=None,
         box2d_side_path=None,
         box3d_path=None,
@@ -393,6 +414,12 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 ss_media["box2d_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
                 )
+                # Stored locally as well as feeding url_cover, so the box front
+                # stays reachable when another provider wins the cover.
+                if MetadataMediaType.BOX2D in preferred_media_types:
+                    ss_media["box2d_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX2D)}/box2d.png"
+                    )
             elif media.get("type") == "fanart" and not ss_media["fanart_url"]:
                 ss_media["fanart_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
@@ -609,17 +636,17 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             if classification.get("type") and classification.get("text")
         ]
 
+    publishers = pydash.compact([game.get("editeur", {}).get("text")])
+    developers = pydash.compact([game.get("developpeur", {}).get("text")])
+
     return SSMetadata(
         {
             "ss_score": _normalize_score(game.get("note", {}).get("text", "")),
             "alternative_names": [name["text"] for name in game.get("noms", [])],
             "age_ratings": _get_age_ratings(game),
-            "companies": pydash.compact(
-                [
-                    game.get("editeur", {}).get("text"),
-                    game.get("developpeur", {}).get("text"),
-                ]
-            ),
+            "companies": [*publishers, *developers],
+            "publishers": publishers,
+            "developers": developers,
             "genres": _get_genres(game),
             "first_release_date": _get_lowest_date(game.get("dates", [])),
             "franchises": _get_franchises(game),
@@ -708,6 +735,13 @@ class SSHandler(MetadataHandler):
     @classmethod
     def is_enabled(cls) -> bool:
         return bool(SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD)
+
+    @classmethod
+    def has_dev_credentials(cls) -> bool:
+        """Developer credentials are injected at build time, so a build made
+        outside our CI (packaged from source) has none and every request is
+        refused, whatever the user account is."""
+        return bool(SCREENSCRAPER_DEV_ID and SCREENSCRAPER_DEV_PASSWORD)
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():
@@ -842,9 +876,9 @@ class SSHandler(MetadataHandler):
                 rom_type=_get_rom_type(first_file),
             )
         except HTTPException as exc:
-            # Daily quota exhausted: skip ScreenScraper for this ROM so the scan
-            # falls back to the other providers.
-            if not _is_daily_quota_error(exc):
+            # Quota exhausted or credentials refused: skip ScreenScraper for this
+            # ROM so the scan falls back to the other providers.
+            if not _is_provider_exhausted(exc):
                 raise
             return SSRom(ss_id=None), False
         if not res:
@@ -920,7 +954,6 @@ class SSHandler(MetadataHandler):
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
                     url_cover=index_entry.get("iconUrl", ""),
-                    url_manual=index_entry.get("iconUrl", ""),
                     url_screenshots=index_entry.get("screenshots", None) or [],
                 )
 
@@ -936,7 +969,6 @@ class SSHandler(MetadataHandler):
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
                     url_cover=index_entry.get("iconUrl", ""),
-                    url_manual=index_entry.get("iconUrl", ""),
                     url_screenshots=index_entry.get("screenshots", None) or [],
                 )
 
@@ -968,8 +1000,9 @@ class SSHandler(MetadataHandler):
                     terms[-1], platform_ss_id, split_game_name=True
                 )
         except HTTPException as exc:
-            # Daily quota exhausted: fall back to the name-only match (if any).
-            if not _is_daily_quota_error(exc):
+            # Quota exhausted or credentials refused: fall back to the name-only
+            # match (if any).
+            if not _is_provider_exhausted(exc):
                 raise
             return fallback_rom
 
@@ -985,8 +1018,9 @@ class SSHandler(MetadataHandler):
         try:
             res = await self.ss_service.get_game_info(game_id=ss_id)
         except HTTPException as exc:
-            # Daily quota exhausted: return an empty match rather than failing.
-            if not _is_daily_quota_error(exc):
+            # Quota exhausted or credentials refused: return an empty match rather
+            # than failing.
+            if not _is_provider_exhausted(exc):
                 raise
             return SSRom(ss_id=None)
         if not res:

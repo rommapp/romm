@@ -23,6 +23,7 @@
   "name-placeholder": "Název kolekce",
   "no-collections-search": "Žádné kolekce neodpovídají „{query}“.",
   "no-collections-yet": "Zatím žádné kolekce.",
+  "no-collections-yet-detail": "Zatím nemáte žádné kolekce. Přidejte hru mezi oblíbené nebo vytvořte kolekci z lišty akcí libovolného ROM.",
   "no-collections-yet-hint": "Zatím žádné kolekce. Vytvořte jednu výše.",
   "not-found": "Kolekce nebyla nalezena.",
   "owner": "Vlastník",

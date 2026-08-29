@@ -35,6 +35,7 @@ import { installGalleryProvenance } from "@/v2/composables/useGalleryProvenance"
 import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { installOverlayRouteDismiss } from "@/v2/composables/useOverlayRouteDismiss";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
@@ -119,11 +120,15 @@ const router = useRouter();
 
 let removeBackMorph: (() => void) | null = null;
 let removeGalleryProvenance: (() => void) | null = null;
+let removeOverlayRouteDismiss: (() => void) | null = null;
 
 onMounted(() => {
   installInputModality();
   installGamepad();
   installGlobalHotkeys();
+  // Dialogs and drawers are mounted above the router view, so nothing else
+  // dismisses them when the route changes under them (browser back included).
+  removeOverlayRouteDismiss = installOverlayRouteDismiss(router);
   // Mirror morph: GameDetails cover → destination card on back/navbar/popstate.
   // Forward direction is handled at the source side in GameCard.
   removeBackMorph = installBackMorph(router);
@@ -167,6 +172,8 @@ onBeforeUnmount(() => {
   removeBackMorph = null;
   removeGalleryProvenance?.();
   removeGalleryProvenance = null;
+  removeOverlayRouteDismiss?.();
+  removeOverlayRouteDismiss = null;
   if (bgTimer !== null) {
     clearTimeout(bgTimer);
     bgTimer = null;

@@ -3,9 +3,9 @@
 // it on the Home dashboard. Body: cover + name + platform + release
 // year / region, the whole thing a link to the rom. Reroll lives in
 // the card's top-right action slot and reshuffles in place without
-// navigating. Two API calls per pick: one to learn the library total,
-// one to fetch the selected offset; same approach the v1 RandomBtn
-// uses. The pick is intentionally not cached so each mount re-shuffles.
+// navigating. One request per pick: `/roms/random` samples the pick
+// server-side, so it costs the same on any library size. The pick is
+// intentionally not cached so each mount re-shuffles.
 import { RBtn, RChip } from "@v2/lib";
 import { computed, nextTick, onMounted, ref } from "vue";
 import type { ComponentPublicInstance } from "vue";
@@ -34,16 +34,6 @@ const DICE_FACES = [
   "mdi-dice-5-outline",
   "mdi-dice-6-outline",
 ];
-
-// A pick needs a single row, so it opts out of the char index, filter
-// values and rom id index the endpoint returns by default: each of them
-// spans the whole library and dwarfs the row itself.
-const PICK_QUERY = {
-  limit: 1,
-  withCharIndex: false,
-  withFilterValues: false,
-  withRomIdIndex: false,
-} as const;
 
 const pick = ref<SimpleRom | null>(null);
 const loading = ref(false);
@@ -77,21 +67,6 @@ function rollDiceFace() {
   diceFace.value = others[Math.floor(Math.random() * others.length)];
 }
 
-// One attempt at a pick. `null` means the library holds no roms;
-// `undefined` means the offset came back empty, which the backend's
-// cached id index makes possible when it drifts from the database
-// between the two calls (a scan, a deletion).
-async function pickOnce(): Promise<SimpleRom | null | undefined> {
-  const { data: head } = await romApi.getRoms({ ...PICK_QUERY, offset: 0 });
-  if (!head.total) return null;
-
-  const { data: result } = await romApi.getRoms({
-    ...PICK_QUERY,
-    offset: Math.floor(Math.random() * head.total),
-  });
-  return result.items.at(0);
-}
-
 async function reroll({ notify }: { notify: boolean }) {
   if (loading.value) return;
   rollDiceFace();
@@ -99,11 +74,9 @@ async function reroll({ notify }: { notify: boolean }) {
   const hadFocus = document.activeElement === rerollEl();
   loading.value = true;
   try {
-    let rom = await pickOnce();
-    // Drift is worth one retry, since the second attempt re-reads the total.
-    if (rom === undefined) rom = await pickOnce();
-    if (rom === undefined) throw new Error("random pick came back empty");
-    pick.value = rom;
+    // `null` means the library holds no roms.
+    const { data } = await romApi.getRandomRom();
+    pick.value = data;
     failed.value = false;
   } catch {
     // Keep the previous pick: a failed request says nothing about whether

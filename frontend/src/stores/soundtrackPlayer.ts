@@ -3,6 +3,8 @@ import { throttle } from "lodash";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import type { TrackMetaSchema } from "@/__generated__";
+import type { DetailedRom } from "@/stores/roms";
+import { FRONTEND_RESOURCES_PATH, isCDBasedSystem } from "@/utils";
 
 const volumeStorage = useLocalStorage<number>("soundtrack.volume", 1);
 const mutedStorage = useLocalStorage<boolean>("soundtrack.muted", false);
@@ -25,7 +27,55 @@ export type PlayerMeta = {
   duration?: number;
   coverUrl?: string;
   folderCoverUrl?: string;
+  gameArtworkUrl?: string;
 };
+
+export type SoundtrackArtworkRom = Pick<
+  DetailedRom,
+  | "ss_metadata"
+  | "launchbox_metadata"
+  | "platform_slug"
+  | "path_cover_large"
+  | "path_cover_small"
+  | "url_cover"
+>;
+
+// LaunchBox image type depicting the physical disc.
+const LAUNCHBOX_DISC_TYPE = "disc";
+
+// LaunchBox media can be a `launchbox-file://` URI pointing at the server's
+// local LaunchBox folder, which the browser cannot load.
+function isBrowserLoadable(url: string): boolean {
+  return /^https?:\/\//i.test(url) || url.startsWith("/");
+}
+
+function launchboxDiscArtwork(rom: SoundtrackArtworkRom): string | undefined {
+  return rom.launchbox_metadata?.images?.find(
+    (image) =>
+      (image.type ?? "").trim().toLowerCase() === LAUNCHBOX_DISC_TYPE &&
+      isBrowserLoadable(image.url),
+  )?.url;
+}
+
+export function resolveSoundtrackGameArtwork(
+  rom: SoundtrackArtworkRom,
+): string | undefined {
+  // A disc scan reads as album art, so it outranks the logo on CD systems.
+  if (isCDBasedSystem(rom.platform_slug)) {
+    const physicalPath = rom.ss_metadata?.physical_path;
+    if (physicalPath) return `${FRONTEND_RESOURCES_PATH}/${physicalPath}`;
+
+    const discUrl = launchboxDiscArtwork(rom);
+    if (discUrl) return discUrl;
+  }
+
+  const logoPath = rom.ss_metadata?.logo_path;
+  if (logoPath) return `${FRONTEND_RESOURCES_PATH}/${logoPath}`;
+
+  return (
+    rom.path_cover_large ?? rom.path_cover_small ?? rom.url_cover ?? undefined
+  );
+}
 
 const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   const track = ref<PlayerTrack | null>(null);

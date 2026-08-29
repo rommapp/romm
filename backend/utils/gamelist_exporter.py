@@ -15,7 +15,7 @@ from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
-from models.rom import Rom
+from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from utils.filesystem import link_or_copy_file
 
 # Map gamelist asset keys to subdirectory names inside assets/
@@ -26,7 +26,7 @@ ASSET_DIRS: dict[str, str] = {
     "fanart": "fanart",
     "marquee": "marquees",
     "miximage": "miximages",
-    "miximage_v2": "miximages",
+    "miximage_v2": "miximages_v2",
     "physical": "physical",
     "screenshot": "screenshots",
     "title_screen": "titlescreens",
@@ -90,7 +90,10 @@ class GamelistExporter:
             "fanart": [ss.get("fanart_path", ""), gl.get("fanart_path", "")],
             "marquee": [ss.get("logo_path", ""), gl.get("marquee_path", "")],
             "miximage": [ss.get("miximage_path", ""), gl.get("miximage_path", "")],
-            "miximage_v2": [ss.get("miximage_v2_path", "")],
+            "miximage_v2": [
+                ss.get("miximage_v2_path", ""),
+                gl.get("miximage_v2_path", ""),
+            ],
             "physical": [ss.get("physical_path", ""), gl.get("physical_path", "")],
             "title_screen": [
                 ss.get("title_screen_path", ""),
@@ -155,9 +158,16 @@ class GamelistExporter:
     def _copy_asset(self, source: Path, dest: Path) -> bool:
         """Place ``source`` at ``dest`` via hardlink (same filesystem) or copy
         (otherwise). Returns True on success."""
-        dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
             return True
+
+        # Metadata scanned before unfetched media paths were cleared can still
+        # point at files that were never downloaded.
+        if not source.is_file():
+            log.debug(f"Skipping asset {source}: source file is missing")
+            return False
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
 
         try:
             link_or_copy_file(source, dest)
@@ -221,12 +231,12 @@ class GamelistExporter:
         if "manual" in asset_refs:
             SubElement(game, "manual").text = asset_refs["manual"]
 
-        # Additional metadata
-        if rom.metadatum.companies and len(rom.metadatum.companies) > 0:
-            SubElement(game, "developer").text = rom.metadatum.companies[0]
-
-        if rom.metadatum.companies and len(rom.metadatum.companies) > 1:
-            SubElement(game, "publisher").text = rom.metadatum.companies[1]
+        developer = rom.metadatum.primary_developer
+        publisher = rom.metadatum.primary_publisher
+        if developer:
+            SubElement(game, "developer").text = developer
+        if publisher:
+            SubElement(game, "publisher").text = publisher
 
         if rom.metadatum.genres and len(rom.metadatum.genres) > 0:
             SubElement(game, "genre").text = rom.metadatum.genres[0]
@@ -264,7 +274,7 @@ class GamelistExporter:
             "fanart": "fanart",
             "marquee": "marquee",
             "miximage": "miximage",
-            "miximage_v2": "miximage",
+            "miximage_v2": "miximage_v2",
             "physical": "physicalmedia",
             "title_screen": "title_screen",
             "bezel": "bezel",
@@ -291,14 +301,16 @@ class GamelistExporter:
         if not platform:
             raise ValueError(f"Platform with ID {platform_id} not found")
 
-        roms = db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
+        roms = db_rom_handler.get_roms_scalar(
+            platform_ids=[platform_id], **HAS_FILE_ON_DISK_FILTERS
+        )
 
         root = Element("gameList")
         media_image, media_thumbnail = get_media_options_for_export()
 
         count = 0
         for rom in roms:
-            if not rom or rom.missing_from_fs or rom.fs_name == "gamelist.xml":
+            if rom.fs_name == "gamelist.xml":
                 continue
 
             assets = self._collect_assets(rom)

@@ -61,29 +61,45 @@ const fetchingContinue = ref(false);
 const gridRoot = ref<HTMLElement | null>(null);
 useGridNav(gridRoot);
 
-onMounted(() => {
+// Flips once every initial request has settled. Until then the store
+// `fetching*` flags are still false and the stores are still empty, so
+// `isEmpty` reads true for a library that simply hasn't loaded yet.
+const initialLoadDone = ref(false);
+
+onMounted(async () => {
+  const initialLoads: Promise<unknown>[] = [];
+
   if (platformsStore.allPlatforms.length === 0) {
-    platformsStore.fetchPlatforms();
+    initialLoads.push(platformsStore.fetchPlatforms());
   }
   if (collectionsStore.allCollections.length === 0) {
-    collectionsStore.fetchCollections();
+    initialLoads.push(collectionsStore.fetchCollections());
   }
   if (showSmartCollections.value && smartCollections.value.length === 0) {
-    collectionsStore.fetchSmartCollections();
+    initialLoads.push(collectionsStore.fetchSmartCollections());
   }
   if (showVirtualCollections.value && virtualCollections.value.length === 0) {
-    collectionsStore.fetchVirtualCollections(virtualCollectionType.value);
+    initialLoads.push(
+      collectionsStore.fetchVirtualCollections(virtualCollectionType.value),
+    );
   }
   if (recentRoms.value.length === 0) {
     fetchingRecent.value = true;
-    romsStore.fetchRecentRoms().finally(() => (fetchingRecent.value = false));
+    initialLoads.push(
+      romsStore.fetchRecentRoms().finally(() => (fetchingRecent.value = false)),
+    );
   }
   if (continuePlayingRoms.value.length === 0) {
     fetchingContinue.value = true;
-    romsStore
-      .fetchContinuePlayingRoms()
-      .finally(() => (fetchingContinue.value = false));
+    initialLoads.push(
+      romsStore
+        .fetchContinuePlayingRoms()
+        .finally(() => (fetchingContinue.value = false)),
+    );
   }
+
+  await Promise.allSettled(initialLoads);
+  initialLoadDone.value = true;
 });
 
 // True when nothing has been added yet AND we're no longer fetching —
@@ -104,6 +120,10 @@ const isEmpty = computed(
     (!showSmartCollections.value || smartCollections.value.length === 0) &&
     (!showVirtualCollections.value || virtualCollections.value.length === 0),
 );
+
+// Gate on the load having actually happened: `isEmpty` alone is true
+// during setup, before any request has been made.
+const showEmptyState = computed(() => initialLoadDone.value && isEmpty.value);
 
 // Filesystem snapshot for the empty state — shows the user what RomM
 // can already see on disk so the "run a scan" CTA isn't a leap of
@@ -137,13 +157,9 @@ async function loadLibraryInfo() {
   }
 }
 
-watch(
-  isEmpty,
-  (empty) => {
-    if (empty) void loadLibraryInfo();
-  },
-  { immediate: true },
-);
+watch(showEmptyState, (empty) => {
+  if (empty) void loadLibraryInfo();
+});
 
 // Favorite ROMs — derived from the Favorites collection's rom_ids.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- false positive: used in <template>; @typescript-eslint+projectService doesn't see Vue templates
@@ -175,7 +191,7 @@ function collectionCovers(c: {
     <!-- Empty library state — shown when nothing has been ingested
          yet. Hides every section underneath so the user lands on a
          decision (upload vs scan), not on a row of skeletons. -->
-    <section v-if="isEmpty" class="r-v2-home-empty">
+    <section v-if="showEmptyState" class="r-v2-home-empty">
       <div class="r-v2-home-empty__hero">
         <RIcon
           icon="mdi-controller-classic-outline"

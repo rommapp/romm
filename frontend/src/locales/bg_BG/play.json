@@ -1,4 +1,5 @@
 {
+  "all-discs": "Всички дискове",
   "all-saves": "Всички записи",
   "all-states": "Всички бързи записи",
   "back-to-gallery": "Към галерията",
@@ -13,6 +14,8 @@
   "deselect-save": "Отмени избрания запис",
   "deselect-state": "Отмени избрания бърз запис",
   "full-screen": "Цял екран",
+  "jsdos-browser-save-warning": "Запазените данни на js-dos се съхраняват само в този браузър и не се синхронизират с RomM.",
+  "jsdos-quit-without-saving": "Изход без запазване на скорошния напредък?",
   "no-save-selected": "Няма избран запис",
   "no-saves-available": "Няма налични записи",
   "no-screenshot-available": "Няма налична екранна снимка",

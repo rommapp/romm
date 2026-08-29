@@ -36,6 +36,7 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   rom: () => import("@/v2/views/GameDetails.vue"),
   // Wave 5 — Players
   emulatorjs: () => import("@/v2/views/Player/EmulatorJS.vue"),
+  jsdos: () => import("@/v2/views/Player/JsDos.vue"),
   ruffle: () => import("@/v2/views/Player/Ruffle.vue"),
   stream: () => import("@/v2/views/Player/Stream.vue"),
   // Wave 6 — Library Tools (Scan / Upload) + Pair

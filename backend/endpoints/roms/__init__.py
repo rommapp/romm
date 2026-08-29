@@ -50,30 +50,53 @@ from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
+    assert_platform_visible,
     assert_rom_visible,
     get_permissions,
 )
-from handler.database import db_collection_handler, db_rom_handler, db_save_handler
+from handler.database import (
+    db_collection_handler,
+    db_platform_handler,
+    db_rom_handler,
+    db_save_handler,
+)
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
 from handler.metadata import (
     meta_flashpoint_handler,
+    meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
     meta_playmatch_handler,
     meta_ra_handler,
     meta_ss_handler,
+    meta_upc_handler,
 )
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from handler.rom_conversion import promote_single_file_to_folder
+from handler.scan_handler import (
+    MetadataSource,
+    ScanType,
+    build_hashless_fs_rom,
+    build_physical_fs_name,
+    build_physical_fs_path,
+    download_rom_resources,
+    scan_rom,
+)
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.permission import PermAction, PermEntity
-from models.rom import Rom, RomUserStatus, compute_name_sort_key
+from models.rom import (
+    HAS_FILE_ON_DISK_FILTERS,
+    Rom,
+    RomUserStatus,
+    apply_file_stats,
+    compute_name_sort_key,
+)
 from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
@@ -86,6 +109,7 @@ from utils.validation import ValidationError
 from utils.zip_cache import (
     BULK_CACHE_MAX_ROMS,
     ZipFileEntry,
+    ensure_zipfile_writable,
     get_bulk_namespace,
     get_cache_key,
     get_cached_zip,
@@ -99,6 +123,7 @@ from .patch import router as patch_router
 from .screenshot import router as screenshot_router
 from .soundtrack import router as soundtrack_router
 from .upload import router as upload_router
+from .walkthrough import router as walkthrough_router
 
 router = APIRouter(
     prefix="/roms",
@@ -107,6 +132,7 @@ router = APIRouter(
 router.include_router(upload_router)
 router.include_router(files_router)
 router.include_router(manual_router)
+router.include_router(walkthrough_router)
 router.include_router(soundtrack_router)
 router.include_router(screenshot_router)
 router.include_router(notes_router)
@@ -412,6 +438,10 @@ def get_roms(
         bool | None,
         Query(description="Whether the rom is missing from the filesystem."),
     ] = None,
+    physical: Annotated[
+        bool | None,
+        Query(description="Whether the rom is a physical copy with no file."),
+    ] = None,
     has_ra: Annotated[
         bool | None,
         Query(description="Whether the rom has RetroAchievements data."),
@@ -470,6 +500,24 @@ def get_roms(
         Query(
             description=(
                 "Associated company. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
+    ] = None,
+    publishers: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated publisher. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
+    ] = None,
+    developers: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated developer. Multiple values are allowed by repeating"
                 " the parameter, and results that match any of the values will be returned."
             ),
         ),
@@ -563,6 +611,18 @@ def get_roms(
         str,
         Query(
             description="Logic operator for companies filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    publishers_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for publishers filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    developers_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for developers filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     age_ratings_logic: Annotated[
@@ -662,12 +722,15 @@ def get_roms(
         has_saves=has_saves,
         has_states=has_states,
         missing=missing,
+        physical=physical,
         verified=verified,
         has_soundtrack=has_soundtrack,
         genres=genres,
         franchises=franchises,
         collections=collections,
         companies=companies,
+        publishers=publishers,
+        developers=developers,
         age_ratings=age_ratings,
         statuses=statuses,
         regions=regions,
@@ -680,6 +743,8 @@ def get_roms(
         franchises_logic=franchises_logic,
         collections_logic=collections_logic,
         companies_logic=companies_logic,
+        publishers_logic=publishers_logic,
+        developers_logic=developers_logic,
         age_ratings_logic=age_ratings_logic,
         regions_logic=regions_logic,
         languages_logic=languages_logic,
@@ -689,7 +754,11 @@ def get_roms(
         tags_logic=tags_logic,
         group_by_meta_id=group_by_meta_id,
         updated_after=updated_after,
-        include_file_stats=True,
+        # The page's files answer all three flags without the subqueries.
+        include_file_stats=not with_files,
+        # Siblings and the notes indicator are resolved per page below.
+        include_siblings=False,
+        include_notes=False,
     )
 
     # Cache only the fully unscoped library scan; any narrowing parameter makes
@@ -717,6 +786,8 @@ def get_roms(
         or franchises
         or collections
         or companies
+        or publishers
+        or developers
         or age_ratings
         or statuses
         or regions
@@ -734,6 +805,7 @@ def get_roms(
         or has_saves is not None
         or has_states is not None
         or missing is not None
+        or physical is not None
         or verified is not None
         or has_soundtrack is not None
     )
@@ -759,6 +831,8 @@ def get_roms(
         franchises=[],
         collections=[],
         companies=[],
+        publishers=[],
+        developers=[],
         game_modes=[],
         age_ratings=[],
         player_counts=[],
@@ -821,6 +895,12 @@ def get_roms(
                 hidden_platform_ids=list(perms.hidden_platform_ids),
                 hidden_rom_ids=list(perms.hidden_rom_ids),
             )
+            rom_ids_with_notes = db_rom_handler.get_rom_ids_with_notes(
+                rom_ids, user_id=request.user.id, session=session
+            )
+            if with_files:
+                for item in items:
+                    apply_file_stats(item, files_by_rom.get(item.id, []))
 
             # Continue-playing rail
             screenshot_by_rom: dict[int, str | None] = {}
@@ -840,6 +920,7 @@ def get_roms(
                     files=files_by_rom.get(item.id, []),
                     siblings=siblings_by_rom.get(item.id, []),
                     screenshot_path=screenshot_by_rom.get(item.id),
+                    has_notes=item.id in rom_ids_with_notes,
                 )
                 for item in items
             ]
@@ -859,18 +940,23 @@ def get_roms(
         params = resolve_params()
         if with_rom_id_index:
             page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
-            if page_ids:
-                page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
-                rows_by_id = {rom.id: rom for rom in page_rows}
-                page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
-            else:
-                page_items = []
         else:
-            # Let the database serve the page from the sort index instead of
-            # walking the whole primary key to build a full id list.
-            page_items = list(
-                session.scalars(query.offset(params.offset).limit(params.limit)).all()
+            # Ordering the entity itself carries every JSON metadata blob
+            # through the sort, for a page that keeps `limit` of them.
+            page_ids = list(
+                session.scalars(
+                    query.with_only_columns(Rom.id)
+                    .offset(params.offset)
+                    .limit(params.limit)
+                ).all()
             )
+
+        if page_ids:
+            page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
+            rows_by_id = {rom.id: rom for rom in page_rows}
+            page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
+        else:
+            page_items = []
 
         return CustomLimitOffsetPage.create(
             _transform(page_items),
@@ -896,6 +982,69 @@ def get_rom_identifiers(
     )
 
     return [r.id for r in db_roms]
+
+
+@protected_route(router.get, "/random", [Scope.ROMS_READ])
+def get_random_rom(
+    request: Request,
+    platform_ids: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "Platform internal ids. Multiple values are allowed by repeating the"
+                " parameter, and the pick will match any of the values."
+            ),
+        ),
+    ] = None,
+    collection_id: Annotated[
+        int | None,
+        Query(description="Collection internal id.", ge=1),
+    ] = None,
+    virtual_collection_id: Annotated[
+        str | None,
+        Query(description="Virtual collection internal id."),
+    ] = None,
+    smart_collection_id: Annotated[
+        int | None,
+        Query(description="Smart collection internal id.", ge=1),
+    ] = None,
+) -> SimpleRomSchema | None:
+    """Retrieve one rom picked at random, or null when the scope holds none.
+
+    Sampled on the primary key instead of paged to, so the pick doesn't get
+    slower as the library grows.
+    """
+    perms = get_permissions(request)
+
+    base_query, _ = db_rom_handler.get_roms_query(user_id=request.user.id)
+    query = db_rom_handler.filter_roms(
+        query=base_query,
+        user_id=request.user.id,
+        hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
+        hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
+        platform_ids=platform_ids,
+        collection_id=collection_id,
+        virtual_collection_id=virtual_collection_id,
+        smart_collection_id=smart_collection_id,
+        include_related=False,
+    )
+
+    rom_id = db_rom_handler.get_random_rom_id(query=query)
+    if rom_id is None:
+        return None
+
+    rom = db_rom_handler.get_rom_simple(rom_id)
+    if not rom:
+        return None
+
+    # The fetch is by raw id, so it re-checks the row it actually loaded rather
+    # than trusting the filter that chose the id: a rom that moved to a hidden
+    # platform in between was picked under its old one. Reads no database, and
+    # null keeps a hidden rom indistinguishable from an empty scope.
+    if not perms.can_see_rom(rom.id, rom.platform_id):
+        return None
+
+    return SimpleRomSchema.from_orm_with_request(rom, request)
 
 
 @protected_route(
@@ -954,6 +1103,7 @@ async def download_roms(
             smart_collection_id=smart_collection_id,
             hidden_platform_ids=list(perms.hidden_platform_ids),
             hidden_rom_ids=list(perms.hidden_rom_ids),
+            **HAS_FILE_ON_DISK_FILTERS,
         )
         rom_id_list = list(dict.fromkeys(rom.id for rom in rom_rows))
     elif rom_ids:
@@ -1350,6 +1500,12 @@ async def get_rom_content(
 
     assert_rom_visible(request, rom)
 
+    if not rom.has_file_on_disk:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ROM {id} has no file to download",
+        )
+
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
     hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
 
@@ -1399,6 +1555,7 @@ async def get_rom_content(
             zip_buffer = BytesIO()
             now = datetime.now()
 
+            ensure_zipfile_writable()
             with ZipFile(zip_buffer, "w") as zip_file:
                 # Add content files
                 for file in files:
@@ -1503,6 +1660,121 @@ async def get_rom_content(
         content_lines=content_lines,
         filename=f"{quote(file_name)}.zip",
     )
+
+
+class PhysicalRomCreateForm(BaseModel):
+    platform_id: int = Field(..., ge=1, description="Platform the game belongs to.")
+    name: str | None = Field(
+        default=None, description="Game name to match metadata against."
+    )
+    upc: str | None = Field(
+        default=None, description="UPC/EAN/barcode of the physical copy."
+    )
+    metadata_sources: list[str] | None = Field(
+        default=None,
+        description="Metadata providers to match against; defaults to all enabled.",
+    )
+
+
+@protected_route(
+    router.post,
+    "/physical",
+    [Scope.ROMS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def create_physical_rom(
+    request: Request,
+    form_data: Annotated[PhysicalRomCreateForm, Body()],
+) -> DetailedRomSchema:
+    """Manually add a physical game and auto-link its metadata (a single quick scan)."""
+    platform = db_platform_handler.get_platform(form_data.platform_id)
+    not_found_detail = f"Platform with id {form_data.platform_id} not found"
+    if not platform:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail
+        )
+
+    # A platform hidden from the caller must not accept writes; mask it as
+    # not-found so its existence stays concealed.
+    assert_platform_visible(request, platform, not_found_detail=not_found_detail)
+
+    match_name = (form_data.name or "").strip()
+    if not match_name and form_data.upc:
+        match_name = (await meta_upc_handler.resolve_upc_to_title(form_data.upc)) or ""
+        if not match_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Could not resolve the provided UPC to a game title",
+            )
+
+    if not match_name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="A name or a resolvable UPC is required",
+        )
+
+    fs_name = build_physical_fs_name(match_name)
+    fs_path = build_physical_fs_path(platform)
+
+    try:
+        rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                fs_name=fs_name,
+                fs_path=fs_path,
+                fs_size_bytes=0,
+                name=match_name,
+                is_physical=True,
+                upc=form_data.upc,
+                url_cover="",
+                url_manual="",
+                url_screenshots=[],
+            )
+        )
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{match_name!r} has already been added to this platform",
+        ) from exc
+
+    metadata_sources = form_data.metadata_sources or [s.value for s in MetadataSource]
+
+    # The row above is already committed, but the caller sees one create. A
+    # failure part-way has to take it back out: the unique index would otherwise
+    # answer the retry with a 409 pointing at a metadata-less row the user never
+    # asked to keep.
+    resources_path = rom.fs_resources_path
+    try:
+        scanned_rom = await scan_rom(
+            scan_type=ScanType.QUICK,
+            platform=platform,
+            rom=rom,
+            fs_rom=build_hashless_fs_rom(fs_name, flat=True),
+            metadata_sources=metadata_sources,
+            newly_added=True,
+        )
+
+        added_rom = db_rom_handler.add_rom(scanned_rom)
+
+        await download_rom_resources(
+            added_rom=added_rom,
+            previous_url_cover=rom.url_cover,
+            previous_url_manual=rom.url_manual,
+            previous_url_screenshots=rom.url_screenshots,
+            metadata_sources=metadata_sources,
+        )
+    except Exception:
+        db_rom_handler.delete_rom(rom.id)
+        try:
+            await fs_resource_handler.remove_directory(resources_path)
+        except FileNotFoundError:
+            pass
+        raise
+
+    db_rom_handler.invalidate_filter_values_cache()
+    refresh_affected_smart_collections([added_rom.id])
+
+    return DetailedRomSchema.from_orm_with_request(added_rom, request)
 
 
 @protected_route(
@@ -1727,6 +1999,13 @@ async def update_rom(
     elif rom.igdb_id and not cleaned_data["igdb_id"]:
         cleaned_data.update({"igdb_id": None, "igdb_metadata": {}})
 
+    if cleaned_data["hltb_id"] and int(cleaned_data["hltb_id"]) != rom.hltb_id:
+        hltb_rom = await meta_hltb_handler.get_rom_by_id(int(cleaned_data["hltb_id"]))
+        if hltb_rom.get("hltb_id"):
+            cleaned_data.update(hltb_rom)
+    elif rom.hltb_id and not cleaned_data["hltb_id"]:
+        cleaned_data.update({"hltb_id": None, "hltb_metadata": {}})
+
     url_screenshots = cleaned_data.get("url_screenshots", [])
     screenshots_changed = pydash.xor(url_screenshots, rom.url_screenshots or [])
     if url_screenshots:
@@ -1869,17 +2148,11 @@ async def update_rom(
                     media_type,
                 )
 
-            media_path = cleaned_data.get("ss_metadata", {}).get(
-                f"{media_type.value}_path"
+        ss_metadata = cleaned_data.get("ss_metadata")
+        if ss_metadata:
+            await fs_resource_handler.store_metadata_media(
+                ss_metadata, preferred_media_types, add_ss_auth_to_url
             )
-            media_url = cleaned_data.get("ss_metadata", {}).get(
-                f"{media_type.value}_url"
-            )
-            if media_path and media_url:
-                await fs_resource_handler.store_media_file(
-                    add_ss_auth_to_url(media_url),
-                    media_path,
-                )
 
     # Handle local media files from LaunchBox when the ID has changed
     if (
@@ -1899,17 +2172,11 @@ async def update_rom(
                     media_type,
                 )
 
-            media_path = cleaned_data.get("launchbox_metadata", {}).get(
-                f"{media_type.value}_path"
+        launchbox_metadata = cleaned_data.get("launchbox_metadata")
+        if launchbox_metadata:
+            await fs_resource_handler.store_metadata_media(
+                launchbox_metadata, preferred_media_types
             )
-            media_url = cleaned_data.get("launchbox_metadata", {}).get(
-                f"{media_type.value}_url"
-            )
-            if media_path and media_url:
-                await fs_resource_handler.store_media_file(
-                    media_url,
-                    media_path,
-                )
 
     log.debug(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"

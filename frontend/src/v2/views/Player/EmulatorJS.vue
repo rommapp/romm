@@ -57,9 +57,17 @@ import {
   resolveBezelUrl,
   resolveStoredBezelVisible,
 } from "@/v2/utils/playerBezel";
-import { resolveStoredDisc } from "@/v2/utils/playerDisc";
+import {
+  ALL_DISCS,
+  bootDiscId,
+  rememberDisc,
+  resolveRememberedDisc,
+  type DiscSelection,
+} from "@/v2/utils/playerDisc";
 import { resolveInitialFirmware } from "@/v2/utils/playerFirmware";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
+import { rememberCore, resolveRememberedCore } from "./coreStorage";
+import { isJsResource, loadScript } from "./scriptLoader";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
 // bundle doesn't pull in the EJS shims until we actually mount the player.
@@ -122,7 +130,7 @@ const heroRom = computed<DetailedRom | SimpleRom | null>(
 );
 const isSavesTabSelected = ref(true);
 const selectedState = ref<StateSchema | null>(null);
-const selectedDisc = ref<number | null>(null);
+const selectedDisc = ref<DiscSelection>(null);
 const selectedCore = ref<string | null>(null);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
@@ -191,6 +199,14 @@ const compatibleStates = computed(
       (s) => !s.emulator || s.emulator === selectedCore.value,
     ) ?? [],
 );
+
+const discItems = computed<{ title: string; value: DiscSelection }[]>(() => [
+  { title: t("play.all-discs"), value: ALL_DISCS },
+  ...(rom.value?.files ?? []).map((f) => ({
+    title: f.file_name,
+    value: f.id,
+  })),
+]);
 
 const setBgArt = useBackgroundArt();
 
@@ -262,6 +278,10 @@ async function onPlay() {
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = installIOSFullscreenShim();
 
+  if (rom.value) {
+    rememberCore(rom.value.id, rom.value.platform_slug, selectedCore.value);
+    rememberDisc(rom.value.id, selectedDisc.value);
+  }
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullscreenOnPlay.value;
   fullScreen.value = fullscreenOnPlay.value;
@@ -271,38 +291,6 @@ async function onPlay() {
   const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
   const LOCAL_PATH = "/assets/emulatorjs/data";
   const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
-
-  function loadScript(src: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = src;
-      s.async = true;
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error("Failed loading " + src));
-      document.body.appendChild(s);
-    });
-  }
-
-  // The Vite dev server (and many SPA hosts) returns 200 + index.html
-  // when a static asset is missing. A <script> tag happily "loads" that
-  // — onload fires, the promise resolves — and only later the parser
-  // throws `Unexpected token '<'` as an uncaught error, so our CDN
-  // fallback never runs. Pre-flight the URL to make sure the body is
-  // actually JS before injecting the script tag.
-  async function isJsResource(url: string): Promise<boolean> {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) return false;
-      const ct = res.headers.get("content-type") ?? "";
-      if (/javascript|ecmascript/i.test(ct)) return true;
-      if (/text\/html/i.test(ct)) return false;
-      // Content-Type may be absent (older servers); sniff the body.
-      const text = await res.clone().text();
-      return !text.trimStart().startsWith("<");
-    } catch {
-      return false;
-    }
-  }
 
   async function attemptLoad(path: string) {
     const loaderUrl = `${path}/loader.js`;
@@ -421,25 +409,13 @@ onMounted(async () => {
   }
   isSavesTabSelected.value = !hasCompatibleState;
 
-  // Validate the saved disc against the rom's current files: a rescan can
-  // leave a stale id behind that would 404 the download (issue #3938).
-  const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
-  const { discId, stale } = resolveStoredDisc(storedDisc, rom.value.files);
-  if (stale) {
-    localStorage.removeItem(`player:${rom.value.id}:disc`);
-  }
-  selectedDisc.value = discId;
+  selectedDisc.value = resolveRememberedDisc(rom.value.id, rom.value.files);
 
-  // Prefer the core saved for this game, then the platform default, validating
-  // each candidate so a stale entry falls through instead of masking the next
-  const gameCore = localStorage.getItem(`player:${rom.value.id}:core`);
-  const platformCore = localStorage.getItem(
-    `player:${rom.value.platform_slug}:core`,
+  selectedCore.value = resolveRememberedCore(
+    rom.value.id,
+    rom.value.platform_slug,
+    supportedCores.value,
   );
-  selectedCore.value =
-    [gameCore, platformCore].find(
-      (core): core is string => !!core && supportedCores.value.includes(core),
-    ) ?? supportedCores.value[0];
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
   const storedBiosID = localStorage.getItem(
@@ -709,15 +685,9 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
             variant="outlined"
             density="comfortable"
             prepend-inner-icon="mdi-disc"
-            clearable
             hide-details
             :label="t('rom.file')"
-            :items="
-              (rom?.files ?? []).map((f) => ({
-                title: f.file_name,
-                value: f.id,
-              }))
-            "
+            :items="discItems"
           />
           <RSelect
             v-if="supportedCores.length > 1"
@@ -783,7 +753,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
         :save="selectedSave"
         :bios="selectedFirmware"
         :core="selectedCore"
-        :disc="selectedDisc"
+        :disc="bootDiscId(selectedDisc)"
       />
       <!-- Bezel overlay drawn around the game canvas. Purely decorative and
            click-through, so pointer events reach the emulator underneath. In
