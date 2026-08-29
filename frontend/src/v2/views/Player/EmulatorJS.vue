@@ -69,6 +69,7 @@ import {
   resolveRememberedDisc,
   type DiscSelection,
 } from "@/v2/utils/playerDisc";
+import { resolveInitialFirmware } from "@/v2/utils/playerFirmware";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
 import { isJsResource, loadScript } from "./scriptLoader";
@@ -323,8 +324,10 @@ onMounted(async () => {
   });
   rom.value = romResponse.data;
 
+  // Firmware whose file is gone can't be served, so it isn't a BIOS choice.
   const firmwareResponse = await firmwareApi.getFirmware({
     platformId: romResponse.data.platform_id,
+    missing: false,
   });
   firmwareOptions.value = firmwareResponse.data;
 
@@ -381,19 +384,11 @@ onMounted(async () => {
     `player:${rom.value.platform_slug}:bios_id`,
   );
 
-  const biosFromStorage = storedBiosID
-    ? firmwareOptions.value.find((f) => f.id === parseInt(storedBiosID))
-    : undefined;
-  const biosFromConfig = coreOptions["bios_file"]
-    ? firmwareOptions.value.find(
-        (f) => f.file_name === coreOptions["bios_file"],
-      )
-    : undefined;
-  const biosFromSingleOption =
-    firmwareOptions.value.length === 1 ? firmwareOptions.value[0] : undefined;
-
-  selectedFirmware.value =
-    biosFromStorage ?? biosFromConfig ?? biosFromSingleOption ?? null;
+  selectedFirmware.value = resolveInitialFirmware({
+    options: firmwareOptions.value,
+    storedBiosId: storedBiosID,
+    configBiosFile: coreOptions["bios_file"],
+  });
 
   // Autofocus the Play CTA so gamepad/keyboard users land on the
   // primary action without an extra Tab. Mouse / touch keep the

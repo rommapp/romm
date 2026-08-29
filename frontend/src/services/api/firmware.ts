@@ -9,12 +9,15 @@ export const firmwareApi = api;
 
 async function getFirmware({
   platformId = null,
+  missing = null,
 }: {
   platformId?: number | null;
+  missing?: boolean | null;
 }) {
   return firmwareApi.get<FirmwareSchema[]>(`/firmware`, {
     params: {
       platform_id: platformId,
+      missing,
     },
   });
 }
