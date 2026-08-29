@@ -20,8 +20,8 @@ share a path and neither clears `url_manual`, so nothing distinguishes them and
 any guess would be wrong for half the rows. Manuals stay pinned by the scan, and
 uploads made from here on are marked as they happen.
 
-Revision ID: 0108_roms_locked_fields
-Revises: 0107_roms_dedup_cover_index
+Revision ID: 0113_roms_locked_fields
+Revises: 0112_publisher_developer_split
 Create Date: 2026-08-08 00:00:00.000000
 
 """
@@ -32,8 +32,8 @@ from alembic import op
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0108_roms_locked_fields"
-down_revision = "0107_roms_dedup_cover_index"
+revision = "0113_roms_locked_fields"
+down_revision = "0112_publisher_developer_split"
 branch_labels = None
 depends_on = None
 
