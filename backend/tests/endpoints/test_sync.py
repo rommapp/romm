@@ -5,23 +5,20 @@ from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from unittest import mock
 
-import pytest
 from fastapi import status
 
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
     db_play_session_handler,
-    db_rom_handler,
     db_save_handler,
     db_sync_session_handler,
 )
-from handler.database.saves_handler import MAX_ROM_IDS_PER_QUERY
 from models.assets import Save
 from models.device import Device, SyncMode
-from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+from utils.validation import MAX_ROM_IDS_PER_QUERY
 
 
 class TestSyncNegotiate:
@@ -148,38 +145,6 @@ class TestSyncNegotiate:
 class TestNegotiateRomIdsScope:
     """`rom_ids` scopes negotiation to the ROMs installed on the device."""
 
-    @pytest.fixture
-    def uninstalled_rom_save(self, admin_user: User, platform: Platform) -> Save:
-        """A server save for a ROM the device does not have installed."""
-        rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="uninstalled_rom",
-                slug="uninstalled_rom_slug",
-                fs_name="uninstalled_rom.zip",
-                fs_name_no_tags="uninstalled_rom",
-                fs_name_no_ext="uninstalled_rom",
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-            )
-        )
-        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-
-        return db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="uninstalled.sav",
-                file_name_no_tags="uninstalled",
-                file_name_no_ext="uninstalled",
-                file_extension="sav",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=f"{platform.slug}/saves/test_emulator",
-                file_size_bytes=100,
-            )
-        )
-
     def test_scope_omits_downloads_for_uninstalled_roms(
         self,
         client,
@@ -187,7 +152,7 @@ class TestNegotiateRomIdsScope:
         admin_user: User,
         rom: Rom,
         save: Save,
-        uninstalled_rom_save: Save,
+        second_save: Save,
     ):
         device = db_device_handler.add_device(
             Device(id="neg-scope-dev", user_id=admin_user.id, sync_enabled=True)
@@ -202,7 +167,7 @@ class TestNegotiateRomIdsScope:
         assert response.status_code == status.HTTP_200_OK
         save_ids = [op["save_id"] for op in response.json()["operations"]]
         assert save.id in save_ids
-        assert uninstalled_rom_save.id not in save_ids
+        assert second_save.id not in save_ids
 
     def test_without_scope_all_saves_are_offered(
         self,
@@ -210,7 +175,7 @@ class TestNegotiateRomIdsScope:
         access_token: str,
         admin_user: User,
         save: Save,
-        uninstalled_rom_save: Save,
+        second_save: Save,
     ):
         device = db_device_handler.add_device(
             Device(id="neg-noscope-dev", user_id=admin_user.id, sync_enabled=True)
@@ -224,7 +189,7 @@ class TestNegotiateRomIdsScope:
 
         assert response.status_code == status.HTTP_200_OK
         save_ids = [op["save_id"] for op in response.json()["operations"]]
-        assert {save.id, uninstalled_rom_save.id} <= set(save_ids)
+        assert {save.id, second_save.id} <= set(save_ids)
 
     def test_client_save_outside_scope_is_still_paired(
         self, client, access_token: str, admin_user: User, rom: Rom, save: Save
@@ -305,7 +270,8 @@ class TestNegotiateRomIdsScope:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "positive" in response.json()["detail"]
 
     def test_rejects_scope_over_the_limit(
         self, client, access_token: str, admin_user: User
@@ -324,7 +290,8 @@ class TestNegotiateRomIdsScope:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert str(MAX_ROM_IDS_PER_QUERY) in response.json()["detail"]
 
 
 class TestSyncSessions:

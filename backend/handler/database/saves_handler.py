@@ -1,5 +1,5 @@
-from collections.abc import Collection, Iterable, Sequence
-from typing import Final, Literal
+from collections.abc import Collection, Sequence
+from typing import Literal
 
 from sqlalchemy import and_, asc, delete, desc, func, or_, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
@@ -9,36 +9,6 @@ from models.assets import Save
 from models.rom import Rom
 
 from .base_handler import DBBaseHandler
-
-# Upper bound on the `rom_ids` scope accepted by save queries, to keep the IN
-# clause within driver parameter limits. Documented so sync clients can batch.
-MAX_ROM_IDS_PER_QUERY: Final = 500
-
-
-def normalize_rom_id_scope(rom_ids: Iterable[int]) -> list[int]:
-    """Validate and deduplicate a `rom_ids` query scope, preserving order.
-
-    Args:
-        rom_ids: ROM IDs the caller wants to scope a save query to.
-
-    Returns:
-        The deduplicated IDs.
-
-    Raises:
-        ValueError: If any ID is not positive, or the scope exceeds
-            `MAX_ROM_IDS_PER_QUERY`.
-    """
-    unique = list(dict.fromkeys(rom_ids))
-
-    if any(rom_id <= 0 for rom_id in unique):
-        raise ValueError("ROM IDs must be positive integers")
-
-    if len(unique) > MAX_ROM_IDS_PER_QUERY:
-        raise ValueError(
-            f"Too many ROM IDs: at most {MAX_ROM_IDS_PER_QUERY} per request"
-        )
-
-    return unique
 
 
 class DBSavesHandler(DBBaseHandler):

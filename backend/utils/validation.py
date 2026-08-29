@@ -1,4 +1,6 @@
 import re
+from collections.abc import Iterable
+from typing import Final
 
 from logger.logger import log
 from models.user import TEXT_FIELD_LENGTH
@@ -16,6 +18,45 @@ class ValidationError(Exception):
 # Pre-compiled regex patterns for better performance
 USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+# Upper bound on a `rom_ids` request scope, so one request maps to a bounded
+# query and response. Documented so clients can batch a large library.
+MAX_ROM_IDS_PER_QUERY: Final = 500
+
+
+def parse_comma_separated_ids(value: str, field_name: str = "ID") -> list[int]:
+    """Parse a comma-separated list of integer IDs from a query parameter.
+
+    Raises:
+        ValidationError: If any entry is not an integer.
+    """
+    try:
+        return [int(part) for part in value.split(",") if part.strip()]
+    except ValueError as exc:
+        raise ValidationError(
+            f"Invalid {field_name} format. Must be comma-separated integers.",
+            field_name,
+        ) from exc
+
+
+def normalize_rom_id_scope(rom_ids: Iterable[int]) -> list[int]:
+    """Deduplicate a `rom_ids` request scope, preserving order.
+
+    Raises:
+        ValidationError: If an ID is not positive, or the scope is over the cap.
+    """
+    unique = list(dict.fromkeys(rom_ids))
+
+    if any(rom_id <= 0 for rom_id in unique):
+        raise ValidationError("ROM IDs must be positive integers", "rom_ids")
+
+    if len(unique) > MAX_ROM_IDS_PER_QUERY:
+        raise ValidationError(
+            f"Too many ROM IDs: at most {MAX_ROM_IDS_PER_QUERY} per request",
+            "rom_ids",
+        )
+
+    return unique
 
 
 def validate_ascii_only(value: str, field_name: str = "field") -> None:

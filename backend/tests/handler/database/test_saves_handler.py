@@ -7,15 +7,16 @@ it properly filters by platform_id through the Rom relationship.
 
 import pytest
 
-from handler.database import db_rom_handler, db_save_handler
-from handler.database.saves_handler import (
-    MAX_ROM_IDS_PER_QUERY,
-    normalize_rom_id_scope,
-)
+from handler.database import db_save_handler
 from models.assets import Save
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+from utils.validation import (
+    MAX_ROM_IDS_PER_QUERY,
+    ValidationError,
+    normalize_rom_id_scope,
+)
 
 
 class TestDBSavesHandlerPlatformFiltering:
@@ -912,60 +913,26 @@ class TestDBSavesHandlerGetLatestSavesForRoms:
 class TestGetSavesRomIdsScope:
     """Test suite for the `rom_ids` scope on DBSavesHandler.get_saves."""
 
-    def _add_save(self, user_id: int, rom: Rom, file_name: str) -> Save:
-        return db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=user_id,
-                file_name=file_name,
-                file_name_no_tags=file_name.removesuffix(".sav"),
-                file_name_no_ext=file_name.removesuffix(".sav"),
-                file_extension="sav",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=f"{rom.platform_slug}/saves/test_emulator",
-                file_size_bytes=100,
-            )
-        )
-
-    def _add_rom(self, admin_user: User, platform: Platform, slug: str) -> Rom:
-        rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name=slug,
-                slug=slug,
-                fs_name=f"{slug}.zip",
-                fs_name_no_tags=slug,
-                fs_name_no_ext=slug,
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-            )
-        )
-        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-        return rom
-
     def test_scopes_to_listed_roms(
-        self, admin_user: User, platform: Platform, rom: Rom, save: Save
+        self, admin_user: User, rom: Rom, save: Save, second_save: Save
     ):
-        other_rom = self._add_rom(admin_user, platform, "other_rom")
-        other_save = self._add_save(admin_user.id, other_rom, "other.sav")
-
         saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
 
         assert [s.id for s in saves] == [save.id]
-        assert other_save.id not in [s.id for s in saves]
 
     def test_scopes_to_multiple_roms(
-        self, admin_user: User, platform: Platform, rom: Rom, save: Save
+        self,
+        admin_user: User,
+        rom: Rom,
+        second_rom: Rom,
+        save: Save,
+        second_save: Save,
     ):
-        other_rom = self._add_rom(admin_user, platform, "other_rom")
-        other_save = self._add_save(admin_user.id, other_rom, "other.sav")
-
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id, other_rom.id]
+            user_id=admin_user.id, rom_ids=[rom.id, second_rom.id]
         )
 
-        assert {s.id for s in saves} == {save.id, other_save.id}
+        assert {s.id for s in saves} == {save.id, second_save.id}
 
     def test_empty_scope_returns_nothing(self, admin_user: User, save: Save):
         assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[]) == []
@@ -990,10 +957,10 @@ class TestNormalizeRomIdScope:
         assert normalize_rom_id_scope([3, 1, 3, 2, 1]) == [3, 1, 2]
 
     def test_rejects_non_positive_ids(self):
-        with pytest.raises(ValueError, match="positive"):
+        with pytest.raises(ValidationError, match="positive"):
             normalize_rom_id_scope([1, 0])
 
-        with pytest.raises(ValueError, match="positive"):
+        with pytest.raises(ValidationError, match="positive"):
             normalize_rom_id_scope([-1])
 
     def test_accepts_scope_at_the_limit(self):
@@ -1002,5 +969,5 @@ class TestNormalizeRomIdScope:
         assert normalize_rom_id_scope(rom_ids) == rom_ids
 
     def test_rejects_scope_over_the_limit(self):
-        with pytest.raises(ValueError, match="Too many ROM IDs"):
+        with pytest.raises(ValidationError, match="Too many ROM IDs"):
             normalize_rom_id_scope(range(1, MAX_ROM_IDS_PER_QUERY + 2))

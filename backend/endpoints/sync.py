@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import HTTPException, Request, status
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 
 from config import TASK_TIMEOUT
 from decorators.auth import protected_route
@@ -23,10 +23,6 @@ from handler.database import (
     db_save_handler,
     db_sync_session_handler,
 )
-from handler.database.saves_handler import (
-    MAX_ROM_IDS_PER_QUERY,
-    normalize_rom_id_scope,
-)
 from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import high_prio_queue
 from handler.sync.comparison import compare_save_state
@@ -36,6 +32,11 @@ from models.device import SyncMode
 from models.sync_session import SyncSessionStatus
 from utils.datetime import to_utc
 from utils.router import APIRouter
+from utils.validation import (
+    MAX_ROM_IDS_PER_QUERY,
+    ValidationError,
+    normalize_rom_id_scope,
+)
 
 router = APIRouter(
     prefix="/sync",
@@ -93,11 +94,6 @@ class SyncNegotiatePayload(BaseModel):
             f"saves. At most {MAX_ROM_IDS_PER_QUERY} IDs per request."
         ),
     )
-
-    @field_validator("rom_ids")
-    @classmethod
-    def validate_rom_ids(cls, rom_ids: list[int] | None) -> list[int] | None:
-        return None if rom_ids is None else normalize_rom_id_scope(rom_ids)
 
 
 class SyncPlaySessionEntry(BaseModel):
@@ -157,6 +153,17 @@ def negotiate_sync(
             ),
         )
 
+    try:
+        rom_ids = (
+            normalize_rom_id_scope(payload.rom_ids)
+            if payload.rom_ids is not None
+            else None
+        )
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message
+        ) from exc
+
     device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
     if not device:
         raise HTTPException(
@@ -186,11 +193,9 @@ def negotiate_sync(
 
     # Widen an explicit ROM scope with the ROMs the client sent saves for, so a
     # client save is never misread as an upload just because its ROM was omitted.
-    rom_id_scope: list[int] | None = None
-    if payload.rom_ids is not None:
-        rom_id_scope = list(
-            dict.fromkeys(payload.rom_ids + [s.rom_id for s in payload.saves])
-        )
+    rom_id_scope = (
+        rom_ids + [s.rom_id for s in payload.saves] if rom_ids is not None else None
+    )
 
     # Pair on (rom_id, slot), keeping the newest row per slot: slot uploads are datetime-tagged (spec) so tagged filenames never equal the client's untagged name, and a slot accrues many rows over time. Null-slot rows stay archival-only.
     server_saves = db_save_handler.get_saves(
@@ -203,10 +208,10 @@ def negotiate_sync(
         if current is None or to_utc(save.updated_at) > to_utc(current.updated_at):
             server_save_map[key] = save
 
-    # Get all sync records for this device
-    all_save_ids = [s.id for s in server_saves]
+    # Only the newest row per slot is ever looked up, so superseded rows stay out.
+    current_save_ids = [s.id for s in server_save_map.values()]
     device_syncs = db_device_save_sync_handler.get_syncs_for_device_and_saves(
-        device_id=device.id, save_ids=all_save_ids
+        device_id=device.id, save_ids=current_save_ids
     )
     sync_by_save_id = {s.save_id: s for s in device_syncs}
 

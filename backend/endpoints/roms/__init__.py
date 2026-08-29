@@ -105,7 +105,7 @@ from utils.m3u import generate_m3u_content
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
 from utils.screenshots import continue_playing_screenshot
-from utils.validation import ValidationError
+from utils.validation import ValidationError, parse_comma_separated_ids
 from utils.zip_cache import (
     BULK_CACHE_MAX_ROMS,
     ZipFileEntry,
@@ -1107,13 +1107,11 @@ async def download_roms(
         )
         rom_id_list = list(dict.fromkeys(rom.id for rom in rom_rows))
     elif rom_ids:
-        # Parse comma-separated string into list of integers
         try:
-            rom_id_list = [int(id.strip()) for id in rom_ids.split(",") if id.strip()]
-        except ValueError as e:
+            rom_id_list = parse_comma_separated_ids(rom_ids, "ROM ID")
+        except ValidationError as e:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid ROM ID format. Must be comma-separated integers.",
+                status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
             ) from e
     else:
         raise HTTPException(

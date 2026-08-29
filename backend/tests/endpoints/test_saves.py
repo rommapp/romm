@@ -11,11 +11,9 @@ from handler.auth.constants import Scope
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
-    db_rom_handler,
     db_save_handler,
 )
 from handler.database.base_handler import sync_session
-from handler.database.saves_handler import MAX_ROM_IDS_PER_QUERY
 from models.assets import Save
 from models.device import Device
 from models.permission import HiddenEntity, PermEntity
@@ -23,6 +21,7 @@ from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 from utils import uploads
+from utils.validation import MAX_ROM_IDS_PER_QUERY
 
 
 def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
@@ -1447,46 +1446,8 @@ class TestSlotFiltering:
 
 
 class TestRomIdsScope:
-    @pytest.fixture
-    def second_rom_save(self, admin_user: User, platform: Platform) -> tuple[Rom, Save]:
-        """A save on a ROM other than the `rom` fixture's."""
-        rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="second_rom",
-                slug="second_rom_slug",
-                fs_name="second_rom.zip",
-                fs_name_no_tags="second_rom",
-                fs_name_no_ext="second_rom",
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-            )
-        )
-        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-
-        save = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="second.sav",
-                file_name_no_tags="second",
-                file_name_no_ext="second",
-                file_extension="sav",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=f"{platform.slug}/saves/test_emulator",
-                file_size_bytes=100,
-            )
-        )
-        return rom, save
-
     def test_scopes_results_to_listed_roms(
-        self,
-        client,
-        access_token: str,
-        rom: Rom,
-        save: Save,
-        second_rom_save: tuple[Rom, Save],
+        self, client, access_token: str, rom: Rom, save: Save, second_save: Save
     ):
         response = client.get(
             f"/api/saves?rom_ids={rom.id}",
@@ -1501,11 +1462,10 @@ class TestRomIdsScope:
         client,
         access_token: str,
         rom: Rom,
+        second_rom: Rom,
         save: Save,
-        second_rom_save: tuple[Rom, Save],
+        second_save: Save,
     ):
-        second_rom, second_save = second_rom_save
-
         response = client.get(
             f"/api/saves?rom_ids={rom.id},{second_rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
@@ -1535,11 +1495,7 @@ class TestRomIdsScope:
         assert response.json() == []
 
     def test_omitted_returns_all_saves(
-        self,
-        client,
-        access_token: str,
-        save: Save,
-        second_rom_save: tuple[Rom, Save],
+        self, client, access_token: str, save: Save, second_save: Save
     ):
         response = client.get(
             "/api/saves",
@@ -1547,10 +1503,7 @@ class TestRomIdsScope:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert {item["id"] for item in response.json()} == {
-            save.id,
-            second_rom_save[1].id,
-        }
+        assert {item["id"] for item in response.json()} == {save.id, second_save.id}
 
     def test_combines_with_slot_filter(
         self, client, access_token: str, rom: Rom, save: Save, archival_save: Save

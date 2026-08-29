@@ -23,10 +23,6 @@ from handler.database import (
     db_screenshot_handler,
     db_sync_session_handler,
 )
-from handler.database.saves_handler import (
-    MAX_ROM_IDS_PER_QUERY,
-    normalize_rom_id_scope,
-)
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save, scan_screenshot
 from logger.formatter import BLUE
@@ -39,6 +35,12 @@ from utils.datetime import to_utc
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size
+from utils.validation import (
+    MAX_ROM_IDS_PER_QUERY,
+    ValidationError,
+    normalize_rom_id_scope,
+    parse_comma_separated_ids,
+)
 
 
 def _build_save_schema(
@@ -401,22 +403,15 @@ async def add_save(
     return _build_save_schema(db_save, _syncs_for_save(db_save.id, device), device)
 
 
-def _parse_rom_ids(rom_ids: str) -> list[int]:
-    try:
-        parsed = [
-            int(part) for part in (raw.strip() for raw in rom_ids.split(",")) if part
-        ]
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid ROM ID format. Must be comma-separated integers.",
-        ) from exc
+def _parse_rom_ids(rom_ids: str | None) -> list[int] | None:
+    if rom_ids is None:
+        return None
 
     try:
-        return normalize_rom_id_scope(parsed)
-    except ValueError as exc:
+        return normalize_rom_id_scope(parse_comma_separated_ids(rom_ids, "ROM ID"))
+    except ValidationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message
         ) from exc
 
 
@@ -447,7 +442,7 @@ def get_saves(
     saves = db_save_handler.get_saves(
         user_id=request.user.id,
         rom_id=rom_id,
-        rom_ids=_parse_rom_ids(rom_ids) if rom_ids is not None else None,
+        rom_ids=_parse_rom_ids(rom_ids),
         platform_id=platform_id,
         slot=slot,
     )
