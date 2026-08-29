@@ -1122,21 +1122,17 @@ async def scan_rom(
             {
                 "name": existing_name or matched_name or fs_name_no_tags or None,
                 "summary": rom.summary or rom_attrs.get("summary") or None,
-                # A locked cover was supplied by hand and stays put. Anything
-                # else came from a provider, and the freshly resolved url
-                # replaces it so a changed source or source priority reaches the
-                # download step.
+                # Provider artwork yields to the freshly resolved url, so a
+                # changed source or priority reaches the download step. Only a
+                # locked slot stays put. Manuals are pinned regardless: rows
+                # predating the lock carry none, so an absent one is not yet
+                # evidence that a manual was scraped.
                 "url_cover": (
                     ""
                     if rom.is_field_locked("url_cover")
                     else rom_attrs.get("url_cover") or None
                 ),
-                # A manual keeps its stored url because an uploaded manual and a
-                # scraped one share a path and neither clears the url, so there
-                # is nothing here to tell them apart.
                 "url_manual": rom.url_manual or rom_attrs.get("url_manual") or None,
-                # Screenshots have no upload path, so every stored url came from
-                # a provider and the freshly resolved set wins.
                 "url_screenshots": rom_attrs.get("url_screenshots") or [],
             }
         )
@@ -1223,14 +1219,9 @@ async def scan_rom(
 
         # Apply SGDB's cover only when it outranks every other source that
         # already produced one under the cover priority, and never over a
-        # manually uploaded cover preserved by the UNMATCHED/UPDATE block above.
+        # locked cover.
         sgdb_cover = sgdb_hander_rom.get("url_cover")
-        manual_cover_preserved = (
-            not newly_added
-            and scan_type in (ScanType.UNMATCHED, ScanType.UPDATE)
-            and rom.path_cover_s
-        )
-        if sgdb_cover and not manual_cover_preserved:
+        if sgdb_cover and not rom.is_field_locked("url_cover"):
             cover_sources = [
                 name
                 for name, fields in metadata_handlers.items()

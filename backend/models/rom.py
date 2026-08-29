@@ -595,7 +595,7 @@ class Rom(BaseModel):
     locked_fields: Mapped[list[str] | None] = mapped_column(
         CustomJSON(),
         default=[],
-        doc="Fields a user supplied by hand, which scans must not overwrite",
+        doc="Slots a user owns, whose stored file a scan must leave alone",
     )
 
     revision: Mapped[str | None] = mapped_column(String(length=100))
@@ -790,7 +790,7 @@ class Rom(BaseModel):
 
     def locked_fields_without(self, field: str) -> list[str]:
         """This rom's locks minus ``field``, for handing to an update."""
-        return [f for f in (self.locked_fields or []) if f != field]
+        return sorted({*(self.locked_fields or [])} - {field})
 
     @property
     def is_unidentified(self) -> bool:

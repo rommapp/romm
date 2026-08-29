@@ -2059,15 +2059,12 @@ async def update_rom(
             }
         )
 
-    # The cover and manual blocks below both take and release locks, so they
-    # share one running set that is written back once. Deriving each change from
-    # rom.locked_fields instead would let the later block discard the earlier
-    # block's change, since both would start from the same pre-update state.
+    # Cover and manual both take and release locks, so they accumulate into one
+    # running set rather than each deriving from the same pre-update state.
     locked_fields = set(rom.locked_fields or [])
 
     if remove_cover:
         cleaned_data.update(await fs_resource_handler.remove_cover(rom))
-        # Dropping the hand-supplied cover hands the slot back to the providers.
         cleaned_data.update({"url_cover": ""})
         locked_fields.discard("url_cover")
     else:
@@ -2106,10 +2103,8 @@ async def update_rom(
                         "path_cover_l": path_cover_l,
                     }
                 )
-                # Naming a different source url is a handover back to the
-                # providers. Testing that it changed, not merely that one was
-                # sent, matters because the client posts the stored url on every
-                # save, so a plain save must not release the lock.
+                # The client posts the stored url on every save, so only a url
+                # that actually changed counts as a handover back to providers.
                 if url_cover and url_cover != rom.url_cover:
                     locked_fields.discard("url_cover")
             except ValidationError as e:
@@ -2131,9 +2126,7 @@ async def update_rom(
                 "path_manual": path_manual,
             }
         )
-        # Same handover as the cover. An upload leaves url_manual untouched, so
-        # unlike the cover this url is often already set on a locked manual,
-        # which is exactly why only an actual change may release it.
+        # Same handover rule as the cover.
         if url_manual and url_manual != rom.url_manual:
             locked_fields.discard("url_manual")
     except ValidationError as e:

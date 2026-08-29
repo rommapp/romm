@@ -528,6 +528,15 @@ def _scraped_cover_rom(platform: Platform, **overrides) -> Rom:
     return db_rom_handler.add_rom(Rom(**attrs))
 
 
+NEW_COVER_URL = "https://ss.fr/media?media=box-2D&id=new"
+
+
+def _ss_returns_new_cover(mock_ss_get_by_id: AsyncMock) -> None:
+    mock_ss_get_by_id.return_value = SSRom(
+        ss_id=321, name="Game", url_cover=NEW_COVER_URL
+    )
+
+
 async def _update_scan(platform: Platform, rom: Rom) -> Rom:
     async with initialize_context():
         return await scan_rom(
@@ -548,18 +557,14 @@ async def test_update_scan_replaces_scraped_cover_url(
     """A cover that carries a source url came from a provider, so an UPDATE scan
     hands the freshly resolved url downstream. Pinning it to the stored value is
     what kept a changed source priority from ever reaching the download step."""
-    mock_ss_get_by_id.return_value = SSRom(
-        ss_id=321,
-        name="Game",
-        url_cover="https://ss.fr/media?media=box-2D&id=new",
-    )
+    _ss_returns_new_cover(mock_ss_get_by_id)
 
     platform = _ss_quota_platform()
     rom = _scraped_cover_rom(platform)
 
     result = await _update_scan(platform, rom)
 
-    assert result.url_cover == "https://ss.fr/media?media=box-2D&id=new"
+    assert result.url_cover == NEW_COVER_URL
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
@@ -569,11 +574,7 @@ async def test_update_scan_keeps_uploaded_cover(
 ):
     """Uploading artwork locks the cover, so the provider url must not be adopted
     over it."""
-    mock_ss_get_by_id.return_value = SSRom(
-        ss_id=321,
-        name="Game",
-        url_cover="https://ss.fr/media?media=box-2D&id=new",
-    )
+    _ss_returns_new_cover(mock_ss_get_by_id)
 
     platform = _ss_quota_platform()
     rom = _scraped_cover_rom(platform, url_cover="", locked_fields=["url_cover"])
@@ -592,11 +593,7 @@ async def test_update_scan_keeps_locked_cover_with_no_stored_path(
     """The lock has to outlive path_cover_s. That column tracks the filesystem and
     a scan clears it whenever the file is unreadable, so inferring the lock from it
     meant one scan against unavailable storage handed the cover to the provider."""
-    mock_ss_get_by_id.return_value = SSRom(
-        ss_id=321,
-        name="Game",
-        url_cover="https://ss.fr/media?media=box-2D&id=new",
-    )
+    _ss_returns_new_cover(mock_ss_get_by_id)
 
     platform = _ss_quota_platform()
     rom = _scraped_cover_rom(

@@ -120,8 +120,8 @@ async def add_rom_manuals(
             detail="There was an error uploading the manual",
         ) from exc
 
-    # An uploaded manual and a scraped one share this path and neither clears
-    # url_manual, so the lock is the only thing that will tell them apart.
+    # An uploaded manual and a scraped one share this path, so only the lock
+    # tells them apart.
     db_rom_handler.update_rom(
         id,
         {
@@ -387,16 +387,15 @@ async def delete_rom_manuals(
             detail="No manual found for this ROM",
         )
 
+    cleared = {
+        "path_manual": "",
+        "url_manual": "",
+        "locked_fields": rom.locked_fields_without("url_manual"),
+    }
+
     try:
         await fs_resource_handler.remove_manual(rom)
-        db_rom_handler.update_rom(
-            id,
-            {
-                "path_manual": "",
-                "url_manual": "",
-                "locked_fields": rom.locked_fields_without("url_manual"),
-            },
-        )
+        db_rom_handler.update_rom(id, cleared)
 
         log.info(
             f"Deleted manual for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
@@ -406,14 +405,7 @@ async def delete_rom_manuals(
             f"Manual file not found for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
         )
         # Still update the database even if file doesn't exist
-        db_rom_handler.update_rom(
-            id,
-            {
-                "path_manual": "",
-                "url_manual": "",
-                "locked_fields": rom.locked_fields_without("url_manual"),
-            },
-        )
+        db_rom_handler.update_rom(id, cleared)
     except Exception as exc:
         log.error(
             f"Error deleting manual for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]",

@@ -406,6 +406,7 @@ class TestFSResourcesHandler:
             directory = tmp_path / f"{rom.fs_resources_path}/screenshots"
             directory.mkdir(parents=True, exist_ok=True)
             (directory / f"{idx}.jpg").write_bytes(b"jpeg")
+            return True
 
         with patch.object(
             handler, "_store_screenshot", side_effect=store
@@ -651,6 +652,86 @@ class TestFSResourcesHandler:
         assert isinstance(ra_badges, str)
         assert "retroachievements" in ra_base
         assert "badges" in ra_badges
+
+    @pytest.mark.asyncio
+    async def test_failed_screenshot_is_not_recorded(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        # Recording a path for a screenshot that never landed points the
+        # database at a missing file, and the gallery at a broken image.
+        handler.base_path = tmp_path
+
+        async def store_only_the_first(_rom, _url, idx):
+            if idx != 0:
+                return False
+            path = tmp_path / "roms/1/1/screenshots"
+            path.mkdir(parents=True, exist_ok=True)
+            (path / "0.jpg").write_bytes(b"jpeg")
+            return True
+
+        with patch.object(
+            handler, "_store_screenshot", side_effect=store_only_the_first
+        ):
+            paths = await handler.get_rom_screenshots(
+                rom=rom,
+                overwrite=True,
+                url_screenshots=["http://x/a.jpg", "http://x/b.jpg"],
+            )
+
+        assert paths == ["roms/1/1/screenshots/0.jpg"]
+
+    @pytest.mark.asyncio
+    async def test_only_the_missing_screenshot_is_fetched(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        # The url set is unchanged after a partial failure, so the gap is only
+        # visible on disk. Refetching the whole set instead would re-download
+        # every screenshot on every scan whenever one url is permanently dead.
+        handler.base_path = tmp_path
+        rom.path_screenshots = ["roms/1/1/screenshots/0.jpg"]
+        screenshots = tmp_path / "roms/1/1/screenshots"
+        screenshots.mkdir(parents=True)
+        (screenshots / "0.jpg").write_bytes(b"jpeg")
+
+        attempted: list[int] = []
+
+        async def record(_rom, _url, idx):
+            attempted.append(idx)
+            (screenshots / f"{idx}.jpg").write_bytes(b"jpeg")
+            return True
+
+        with patch.object(handler, "_store_screenshot", side_effect=record):
+            paths = await handler.get_rom_screenshots(
+                rom=rom,
+                overwrite=False,
+                url_screenshots=["http://x/a.jpg", "http://x/b.jpg"],
+            )
+
+        assert attempted == [1]
+        assert paths == [
+            "roms/1/1/screenshots/0.jpg",
+            "roms/1/1/screenshots/1.jpg",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_cover_with_no_source_url_is_rederived_from_disk(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        # Second half of what keeps a locked cover alive through an unmatch,
+        # which clears the stored paths but never deletes the files.
+        handler.base_path = tmp_path
+        cover = tmp_path / "roms/1/1/cover"
+        cover.mkdir(parents=True)
+        (cover / "big.png").write_bytes(b"uploaded")
+        (cover / "small.png").write_bytes(b"uploaded")
+
+        path_s, path_l = await handler.get_cover(
+            entity=rom, overwrite=False, url_cover=""
+        )
+
+        assert path_s == "roms/1/1/cover/small.png"
+        assert path_l == "roms/1/1/cover/big.png"
+        assert (cover / "big.png").read_bytes() == b"uploaded"
 
 
 class TestChromaKeyDetection:
@@ -1141,80 +1222,6 @@ class TestDiskFullHandling:
                 raise asyncio.CancelledError()
 
         assert list(cover_dir.iterdir()) == []
-
-    @pytest.mark.asyncio
-    async def test_failed_screenshot_is_not_recorded(
-        self, handler: FSResourcesHandler, rom: Rom, tmp_path
-    ):
-        # Recording a path for a screenshot that never landed points the
-        # database at a missing file, and the gallery at a broken image.
-        handler.base_path = tmp_path
-
-        async def store_only_the_first(_rom, _url, idx):
-            if idx != 0:
-                return None
-            path = tmp_path / "roms/1/1/screenshots"
-            path.mkdir(parents=True, exist_ok=True)
-            (path / "0.jpg").write_bytes(b"jpeg")
-
-        handler._store_screenshot = store_only_the_first  # type: ignore[method-assign]
-
-        paths = await handler.get_rom_screenshots(
-            rom=rom,
-            overwrite=True,
-            url_screenshots=["http://x/a.jpg", "http://x/b.jpg"],
-        )
-
-        assert paths == ["roms/1/1/screenshots/0.jpg"]
-
-    @pytest.mark.asyncio
-    async def test_short_screenshot_set_is_retried(
-        self, handler: FSResourcesHandler, rom: Rom, tmp_path
-    ):
-        # The url set is unchanged after a partial failure, so without this the
-        # missing screenshot would never be fetched again.
-        handler.base_path = tmp_path
-        rom.path_screenshots = ["roms/1/1/screenshots/0.jpg"]
-        screenshots = tmp_path / "roms/1/1/screenshots"
-        screenshots.mkdir(parents=True)
-        (screenshots / "0.jpg").write_bytes(b"jpeg")
-
-        attempted: list[int] = []
-
-        async def record(_rom, _url, idx):
-            attempted.append(idx)
-
-        handler._store_screenshot = record  # type: ignore[method-assign]
-
-        await handler.get_rom_screenshots(
-            rom=rom,
-            overwrite=False,
-            url_screenshots=["http://x/a.jpg", "http://x/b.jpg"],
-        )
-
-        assert attempted == [0, 1]
-
-    @pytest.mark.asyncio
-    async def test_cover_with_no_source_url_is_rederived_from_disk(
-        self, handler: FSResourcesHandler, rom: Rom, tmp_path
-    ):
-        # Second half of what keeps a locked cover alive through an unmatch,
-        # which clears the stored paths but never deletes the files. A lock is
-        # not visible here: it resolves to an empty url upstream, and
-        # test_update_scan_keeps_uploaded_cover covers that half.
-        handler.base_path = tmp_path
-        cover = tmp_path / "roms/1/1/cover"
-        cover.mkdir(parents=True)
-        (cover / "big.png").write_bytes(b"uploaded")
-        (cover / "small.png").write_bytes(b"uploaded")
-
-        path_s, path_l = await handler.get_cover(
-            entity=rom, overwrite=False, url_cover=""
-        )
-
-        assert path_s == "roms/1/1/cover/small.png"
-        assert path_l == "roms/1/1/cover/big.png"
-        assert (cover / "big.png").read_bytes() == b"uploaded"
 
     @pytest.mark.asyncio
     async def test_interrupted_download_leaves_no_temp_file(

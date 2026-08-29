@@ -57,8 +57,6 @@ def upgrade() -> None:
     roms = _roms_table()
     connection = op.get_bind()
 
-    connection.execute(roms.update().values(locked_fields=[]))
-
     # A stored cover path with an empty url is the pre-migration marker for an
     # upload. Values go through the JSON type rather than a literal so each
     # dialect serialises its own way.
