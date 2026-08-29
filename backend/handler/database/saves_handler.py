@@ -1,5 +1,5 @@
-from collections.abc import Sequence
-from typing import Literal
+from collections.abc import Collection, Iterable, Sequence
+from typing import Final, Literal
 
 from sqlalchemy import and_, asc, delete, desc, func, or_, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
@@ -9,6 +9,36 @@ from models.assets import Save
 from models.rom import Rom
 
 from .base_handler import DBBaseHandler
+
+# Upper bound on the `rom_ids` scope accepted by save queries, to keep the IN
+# clause within driver parameter limits. Documented so sync clients can batch.
+MAX_ROM_IDS_PER_QUERY: Final = 500
+
+
+def normalize_rom_id_scope(rom_ids: Iterable[int]) -> list[int]:
+    """Validate and deduplicate a `rom_ids` query scope, preserving order.
+
+    Args:
+        rom_ids: ROM IDs the caller wants to scope a save query to.
+
+    Returns:
+        The deduplicated IDs.
+
+    Raises:
+        ValueError: If any ID is not positive, or the scope exceeds
+            `MAX_ROM_IDS_PER_QUERY`.
+    """
+    unique = list(dict.fromkeys(rom_ids))
+
+    if any(rom_id <= 0 for rom_id in unique):
+        raise ValueError("ROM IDs must be positive integers")
+
+    if len(unique) > MAX_ROM_IDS_PER_QUERY:
+        raise ValueError(
+            f"Too many ROM IDs: at most {MAX_ROM_IDS_PER_QUERY} per request"
+        )
+
+    return unique
 
 
 class DBSavesHandler(DBBaseHandler):
@@ -85,6 +115,7 @@ class DBSavesHandler(DBBaseHandler):
         self,
         user_id: int,
         rom_id: int | None = None,
+        rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
         slot: str | None = None,
         slot_not_null: bool = False,
@@ -97,6 +128,10 @@ class DBSavesHandler(DBBaseHandler):
 
         if rom_id:
             query = query.filter_by(rom_id=rom_id)
+
+        # An empty collection is an explicit empty scope, not an absent filter.
+        if rom_ids is not None:
+            query = query.filter(Save.rom_id.in_(rom_ids))
 
         if platform_id:
             query = query.join(Rom, Save.rom_id == Rom.id).filter(

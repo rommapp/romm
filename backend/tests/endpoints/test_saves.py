@@ -11,9 +11,11 @@ from handler.auth.constants import Scope
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
+    db_rom_handler,
     db_save_handler,
 )
 from handler.database.base_handler import sync_session
+from handler.database.saves_handler import MAX_ROM_IDS_PER_QUERY
 from models.assets import Save
 from models.device import Device
 from models.permission import HiddenEntity, PermEntity
@@ -1442,6 +1444,153 @@ class TestSlotFiltering:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert len(data) == 0
+
+
+class TestRomIdsScope:
+    @pytest.fixture
+    def second_rom_save(self, admin_user: User, platform: Platform) -> tuple[Rom, Save]:
+        """A save on a ROM other than the `rom` fixture's."""
+        rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="second_rom",
+                slug="second_rom_slug",
+                fs_name="second_rom.zip",
+                fs_name_no_tags="second_rom",
+                fs_name_no_ext="second_rom",
+                fs_extension="zip",
+                fs_path=f"{platform.slug}/roms",
+            )
+        )
+        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+
+        save = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="second.sav",
+                file_name_no_tags="second",
+                file_name_no_ext="second",
+                file_extension="sav",
+                emulator="test_emulator",
+                slot="autosave",
+                file_path=f"{platform.slug}/saves/test_emulator",
+                file_size_bytes=100,
+            )
+        )
+        return rom, save
+
+    def test_scopes_results_to_listed_roms(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        save: Save,
+        second_rom_save: tuple[Rom, Save],
+    ):
+        response = client.get(
+            f"/api/saves?rom_ids={rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()] == [save.id]
+
+    def test_accepts_multiple_ids(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        save: Save,
+        second_rom_save: tuple[Rom, Save],
+    ):
+        second_rom, second_save = second_rom_save
+
+        response = client.get(
+            f"/api/saves?rom_ids={rom.id},{second_rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert {item["id"] for item in response.json()} == {save.id, second_save.id}
+
+    def test_tolerates_whitespace_and_duplicates(
+        self, client, access_token: str, rom: Rom, save: Save
+    ):
+        response = client.get(
+            f"/api/saves?rom_ids= {rom.id} , {rom.id} ",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()] == [save.id]
+
+    def test_empty_value_returns_no_saves(self, client, access_token: str, save: Save):
+        response = client.get(
+            "/api/saves?rom_ids=",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == []
+
+    def test_omitted_returns_all_saves(
+        self,
+        client,
+        access_token: str,
+        save: Save,
+        second_rom_save: tuple[Rom, Save],
+    ):
+        response = client.get(
+            "/api/saves",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert {item["id"] for item in response.json()} == {
+            save.id,
+            second_rom_save[1].id,
+        }
+
+    def test_combines_with_slot_filter(
+        self, client, access_token: str, rom: Rom, save: Save, archival_save: Save
+    ):
+        response = client.get(
+            f"/api/saves?rom_ids={rom.id}&slot=autosave",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()] == [save.id]
+
+    def test_rejects_non_integer_ids(self, client, access_token: str):
+        response = client.get(
+            "/api/saves?rom_ids=1,abc",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "comma-separated integers" in response.json()["detail"]
+
+    def test_rejects_non_positive_ids(self, client, access_token: str):
+        response = client.get(
+            "/api/saves?rom_ids=1,0",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "positive" in response.json()["detail"]
+
+    def test_rejects_scope_over_the_limit(self, client, access_token: str):
+        rom_ids = ",".join(str(i) for i in range(1, MAX_ROM_IDS_PER_QUERY + 2))
+
+        response = client.get(
+            f"/api/saves?rom_ids={rom_ids}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert str(MAX_ROM_IDS_PER_QUERY) in response.json()["detail"]
 
 
 class TestDatetimeTagging:

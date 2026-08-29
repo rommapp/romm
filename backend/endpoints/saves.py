@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import Body, File, HTTPException, Request, UploadFile, status
+from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from config import MAX_AUTOCLEANUP_LIMIT
@@ -22,6 +22,10 @@ from handler.database import (
     db_save_handler,
     db_screenshot_handler,
     db_sync_session_handler,
+)
+from handler.database.saves_handler import (
+    MAX_ROM_IDS_PER_QUERY,
+    normalize_rom_id_scope,
 )
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save, scan_screenshot
@@ -397,10 +401,40 @@ async def add_save(
     return _build_save_schema(db_save, _syncs_for_save(db_save.id, device), device)
 
 
+def _parse_rom_ids(rom_ids: str) -> list[int]:
+    try:
+        parsed = [
+            int(part) for part in (raw.strip() for raw in rom_ids.split(",")) if part
+        ]
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid ROM ID format. Must be comma-separated integers.",
+        ) from exc
+
+    try:
+        return normalize_rom_id_scope(parsed)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+
+
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_saves(
     request: Request,
     rom_id: int | None = None,
+    rom_ids: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Comma-separated list of ROM IDs to scope the results to, for "
+                "clients syncing a known set of ROMs. At most "
+                f"{MAX_ROM_IDS_PER_QUERY} IDs per request; an empty value "
+                "returns no saves. Combined with `rom_id` when both are given."
+            ),
+        ),
+    ] = None,
     platform_id: int | None = None,
     device_id: str | None = None,
     slot: str | None = None,
@@ -411,7 +445,11 @@ def get_saves(
     )
 
     saves = db_save_handler.get_saves(
-        user_id=request.user.id, rom_id=rom_id, platform_id=platform_id, slot=slot
+        user_id=request.user.id,
+        rom_id=rom_id,
+        rom_ids=_parse_rom_ids(rom_ids) if rom_ids is not None else None,
+        platform_id=platform_id,
+        slot=slot,
     )
 
     if not device:

@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import HTTPException, Request, status
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from config import TASK_TIMEOUT
 from decorators.auth import protected_route
@@ -22,6 +22,10 @@ from handler.database import (
     db_device_save_sync_handler,
     db_save_handler,
     db_sync_session_handler,
+)
+from handler.database.saves_handler import (
+    MAX_ROM_IDS_PER_QUERY,
+    normalize_rom_id_scope,
 )
 from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import high_prio_queue
@@ -79,6 +83,21 @@ class SyncNegotiatePayload(BaseModel):
     saves: list[ClientSaveState] = Field(
         description="Current save state on the client."
     )
+    rom_ids: list[int] | None = Field(
+        default=None,
+        description=(
+            "IDs of the ROMs installed on the device. When provided, downloads "
+            "are offered only for these ROMs (plus any ROM the client sent a "
+            "save for) instead of the user's whole save library. This is a "
+            "read-only scope: omitting a ROM never deletes or unlinks its "
+            f"saves. At most {MAX_ROM_IDS_PER_QUERY} IDs per request."
+        ),
+    )
+
+    @field_validator("rom_ids")
+    @classmethod
+    def validate_rom_ids(cls, rom_ids: list[int] | None) -> list[int] | None:
+        return None if rom_ids is None else normalize_rom_id_scope(rom_ids)
 
 
 class SyncPlaySessionEntry(BaseModel):
@@ -112,6 +131,11 @@ def negotiate_sync(
 
     The client sends its current save state, and the server returns a list of
     operations (upload, download, conflict, no_op) to bring both sides in sync.
+
+    A client that only holds part of the library can send `rom_ids` to scope the
+    negotiation to the ROMs installed on the device, which keeps the response
+    from listing downloads for ROMs it cannot play. The scope is read-only: a
+    ROM left out is simply outside this negotiation, never a deletion signal.
 
     Saves are paired on (rom_id, slot). Clients that want a save to stay in sync
     should send a stable, non-null slot name (e.g. "autosave"). Null-slot saves
@@ -160,9 +184,17 @@ def negotiate_sync(
 
     operations: list[SyncOperationSchema] = []
 
+    # Widen an explicit ROM scope with the ROMs the client sent saves for, so a
+    # client save is never misread as an upload just because its ROM was omitted.
+    rom_id_scope: list[int] | None = None
+    if payload.rom_ids is not None:
+        rom_id_scope = list(
+            dict.fromkeys(payload.rom_ids + [s.rom_id for s in payload.saves])
+        )
+
     # Pair on (rom_id, slot), keeping the newest row per slot: slot uploads are datetime-tagged (spec) so tagged filenames never equal the client's untagged name, and a slot accrues many rows over time. Null-slot rows stay archival-only.
     server_saves = db_save_handler.get_saves(
-        user_id=request.user.id, slot_not_null=True
+        user_id=request.user.id, slot_not_null=True, rom_ids=rom_id_scope
     )
     server_save_map: dict[tuple[int, str | None], Save] = {}
     for save in server_saves:
