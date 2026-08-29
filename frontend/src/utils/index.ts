@@ -616,6 +616,17 @@ const gl =
   canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
 
 /**
+ * Resolve a platform slug through the configured version remap.
+ *
+ * @param platformSlug The platform slug.
+ * @param config Optional configuration object.
+ * @returns The remapped slug, or the original when no remap applies.
+ */
+export function resolvePlatformSlug(platformSlug: string, config?: Config) {
+  return config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+}
+
+/**
  * Check if EJS emulation is supported for a given platform.
  *
  * @param platformSlug The platform slug.
@@ -630,7 +641,7 @@ export function isEJSEmulationSupported(
 ) {
   if (heartbeat.EMULATION.DISABLE_EMULATOR_JS) return false;
 
-  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  const slug = resolvePlatformSlug(platformSlug, config);
   return (
     getSupportedEJSCores(slug, config?.EJS_NETPLAY_ENABLED).length > 0 &&
     gl instanceof WebGLRenderingContext
@@ -687,7 +698,7 @@ export function isRuffleEmulationSupported(
 ) {
   if (heartbeat.EMULATION.DISABLE_RUFFLE_RS) return false;
 
-  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  const slug = resolvePlatformSlug(platformSlug, config);
   return ["flash", "browser"].includes(slug.toLowerCase());
 }
 
@@ -706,7 +717,7 @@ export function isJsDosEmulationSupported(
 ) {
   if (heartbeat.EMULATION.DISABLE_JSDOS) return false;
 
-  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  const slug = resolvePlatformSlug(platformSlug, config);
   return ["win3x", "win9x"].includes(slug.toLowerCase());
 }
 

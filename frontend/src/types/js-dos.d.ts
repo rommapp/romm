@@ -9,14 +9,10 @@ export interface JsDosOptions {
   fsChanges: {
     local: boolean;
     urlToKey?: (url: string) => Promise<string>;
-    pull?: (key: string) => Promise<Uint8Array | null>;
-    push?: (key: string, data: Uint8Array) => Promise<void>;
-    delete?: (key: string) => Promise<void>;
   };
 }
 
 export interface JsDosProps {
-  getLocalChanges(key: string): Promise<Uint8Array | null>;
   setNoCloud(noCloud: boolean): void;
   save(): Promise<boolean>;
   stop(): Promise<void>;

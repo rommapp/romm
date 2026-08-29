@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => ({
   routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
   setPlaying: vi.fn(),
   snackbarError: vi.fn(),
-  userId: 7 as number,
+  userId: 7,
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -165,9 +165,8 @@ async function mountPlayer(handle: JsDosProps): Promise<VueWrapper> {
   return wrapper;
 }
 
-function makeHandle(saveResult: boolean) {
+function makeHandle(saveResult = true) {
   return {
-    getLocalChanges: vi.fn().mockResolvedValue(null),
     save: vi.fn().mockResolvedValue(saveResult),
     setNoCloud: vi.fn(),
     stop: vi.fn(() => new Promise<void>(() => undefined)),
@@ -210,7 +209,7 @@ describe("JsDos player exit", () => {
   });
 
   it("hard-navigates after saving without awaiting stop", async () => {
-    const handle = makeHandle(true);
+    const handle = makeHandle();
     const wrapper = await mountPlayer(handle);
 
     await wrapper.get(".r-v2-jsdos__quit").trigger("click");
@@ -261,7 +260,7 @@ describe("JsDos player exit", () => {
   });
 
   it("keeps the player open when the final save fails", async () => {
-    const handle = makeHandle(true);
+    const handle = makeHandle();
     handle.save.mockRejectedValue(new Error("save failed"));
     const wrapper = await mountPlayer(handle);
 
@@ -278,7 +277,7 @@ describe("JsDos player exit", () => {
 
   it("ignores a second quit while the final save is pending", async () => {
     let finishSave: ((saved: boolean) => void) | undefined;
-    const handle = makeHandle(true);
+    const handle = makeHandle();
     handle.save.mockReturnValue(
       new Promise<boolean>((resolve) => {
         finishSave = resolve;
@@ -298,7 +297,7 @@ describe("JsDos player exit", () => {
 
   it("ignores route departure while another final save is pending", async () => {
     let finishSave: ((saved: boolean) => void) | undefined;
-    const handle = makeHandle(true);
+    const handle = makeHandle();
     handle.save.mockReturnValue(
       new Promise<boolean>((resolve) => {
         finishSave = resolve;
@@ -318,7 +317,7 @@ describe("JsDos player exit", () => {
   });
 
   it("converts route departure into a saved hard navigation", async () => {
-    const handle = makeHandle(true);
+    const handle = makeHandle();
     const wrapper = await mountPlayer(handle);
 
     expect(mocks.routeLeaveGuard?.({ fullPath: "/platform/2" })).toBe(false);
@@ -330,7 +329,7 @@ describe("JsDos player exit", () => {
   });
 
   it("only performs best-effort stop during unmount", async () => {
-    const handle = makeHandle(true);
+    const handle = makeHandle();
     const wrapper = await mountPlayer(handle);
 
     wrapper.unmount();
@@ -341,7 +340,7 @@ describe("JsDos player exit", () => {
   });
 
   it("warns before reloading while the game is running", async () => {
-    const handle = makeHandle(true);
+    const handle = makeHandle();
     const wrapper = await mountPlayer(handle);
     const event = new Event("beforeunload", {
       cancelable: true,
@@ -354,7 +353,7 @@ describe("JsDos player exit", () => {
   });
 
   it("uses a stable browser-local save key scoped to the RomM user", async () => {
-    const firstHandle = makeHandle(true);
+    const firstHandle = makeHandle();
     const firstWrapper = await mountPlayer(firstHandle);
     const firstOptions = vi.mocked(window.Dos!).mock.calls[0]![1];
     const firstKey = await firstOptions.fsChanges?.urlToKey?.(
@@ -363,7 +362,7 @@ describe("JsDos player exit", () => {
     firstWrapper.unmount();
 
     mocks.userId = 8;
-    const secondHandle = makeHandle(true);
+    const secondHandle = makeHandle();
     const secondWrapper = await mountPlayer(secondHandle);
     const secondOptions = vi.mocked(window.Dos!).mock.calls[0]![1];
     const secondKey = await secondOptions.fsChanges?.urlToKey?.(
@@ -372,7 +371,6 @@ describe("JsDos player exit", () => {
 
     expect(firstKey).toBe("romm-user-7-rom-1.changes");
     expect(secondKey).toBe("romm-user-8-rom-1.changes");
-    expect(firstKey).not.toBe(secondKey);
     secondWrapper.unmount();
   });
 });

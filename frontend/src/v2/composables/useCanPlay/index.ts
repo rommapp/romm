@@ -1,6 +1,5 @@
-// useCanPlay — reactive "is this ROM playable in-browser?" check, shared
-// by every surface that renders the Play action (GameCard overlay,
-// GameActions ribbon, GameActionsList more-menu). v1 had the same gate
+// useCanPlay — reactive "can this ROM be played in the browser?" check.
+// v1 duplicated this logic across GameCard, GameDetails and the play menu
 // inside PlayBtn.vue; v2 lifts it to a composable so the card overlay
 // and the menu item agree with the details-header CTA.
 //
@@ -30,35 +29,16 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
   const configStore = storeConfig();
   const { value: heartbeat } = storeToRefs(heartbeatStore);
 
-  const canPlayEJS = computed(() => {
-    const rom = getRom();
-    if (!rom?.has_file_on_disk) return false;
-    return isEJSEmulationSupported(
-      rom.platform_slug,
-      heartbeat.value,
-      configStore.config,
-    );
-  });
+  const supportedBy = (check: typeof isEJSEmulationSupported) =>
+    computed(() => {
+      const rom = getRom();
+      if (!rom?.has_file_on_disk) return false;
+      return check(rom.platform_slug, heartbeat.value, configStore.config);
+    });
 
-  const canPlayRuffle = computed(() => {
-    const rom = getRom();
-    if (!rom?.has_file_on_disk) return false;
-    return isRuffleEmulationSupported(
-      rom.platform_slug,
-      heartbeat.value,
-      configStore.config,
-    );
-  });
-
-  const canPlayJsDos = computed(() => {
-    const rom = getRom();
-    if (!rom?.has_file_on_disk) return false;
-    return isJsDosEmulationSupported(
-      rom.platform_slug,
-      heartbeat.value,
-      configStore.config,
-    );
-  });
+  const canPlayEJS = supportedBy(isEJSEmulationSupported);
+  const canPlayJsDos = supportedBy(isJsDosEmulationSupported);
+  const canPlayRuffle = supportedBy(isRuffleEmulationSupported);
 
   const canPlay = computed(
     () => canPlayEJS.value || canPlayJsDos.value || canPlayRuffle.value,

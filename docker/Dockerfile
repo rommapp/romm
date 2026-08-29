@@ -104,7 +104,7 @@ RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://git
     make HAVE_CHD=1 -f ./Makefile.RAHasher
 
 
-# FETCH EMULATORJS AND RUFFLE
+# FETCH EMULATORJS, RUFFLE AND JS-DOS
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
 
 RUN apk add --no-cache \

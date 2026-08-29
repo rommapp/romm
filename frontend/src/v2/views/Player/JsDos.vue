@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { RBtn, RCard, RSpinner, RSwitch } from "@v2/lib";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -32,37 +39,30 @@ const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 
-const rom = ref<DetailedRom | null>(null);
+const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
 const quitting = ref(false);
 const stage = ref<HTMLDivElement | null>(null);
 
 let dos: JsDosProps | null = null;
 
-// Seed the cover before the full ROM request resolves for the view transition.
-const morphRomId = computed(() => {
-  const r = route.params.rom;
-  return typeof r === "string" ? r : null;
-});
+const romId = Number(route.params.rom);
 
+// Seed the cover before the full ROM request resolves so the view transition
+// has an element to morph onto.
 const seededRom = storeRoms().currentRom;
-if (seededRom && String(seededRom.id) === morphRomId.value) {
+if (seededRom?.id === romId) {
   rom.value = seededRom;
 }
-const heroSeed = ref<SimpleRom | null>(null);
-if (!rom.value && morphRomId.value != null) {
-  heroSeed.value = storeGalleryRoms().getRomById(Number(morphRomId.value));
+const heroSeed = shallowRef<SimpleRom | null>(null);
+if (!rom.value) {
+  heroSeed.value = storeGalleryRoms().getRomById(romId);
 }
 const heroRom = computed<DetailedRom | SimpleRom | null>(
   () => rom.value ?? heroSeed.value,
 );
 
 const setBgArt = useBackgroundArt();
-const bgCoverUrl = computed(() => {
-  const r = rom.value;
-  if (!r) return null;
-  return r.path_cover_large ?? r.path_cover_small ?? r.url_cover ?? null;
-});
 
 const title = computed(
   () => heroRom.value?.name || heroRom.value?.fs_name_no_ext || "",
@@ -146,45 +146,48 @@ function stopDos() {
   });
 }
 
+async function saveQuietly(handle: JsDosProps) {
+  try {
+    return await handle.save();
+  } catch (error) {
+    console.error("[js-dos] Final save failed", error);
+    return false;
+  }
+}
+
+function teardown() {
+  playSession.flush();
+  playingStore.setPlaying(false);
+  stopDos();
+}
+
 async function leavePlayer(destination: string) {
   if (quitting.value) return;
   quitting.value = true;
 
   const handle = dos;
-  if (handle) {
-    let saved = false;
-    try {
-      saved = await handle.save();
-    } catch (error) {
-      console.error("[js-dos] Final save failed", error);
-    }
-    if (!saved) {
-      snackbar.error(t("play.stream-save-unconfirmed"));
-      const discard = await confirm({
-        title: t("play.jsdos-quit-without-saving"),
-        confirmText: t("common.discard"),
-        cancelText: t("common.cancel"),
-        tone: "danger",
-      });
-      if (!discard) {
-        quitting.value = false;
-        return;
-      }
+  if (handle && !(await saveQuietly(handle))) {
+    snackbar.error(t("play.stream-save-unconfirmed"));
+    const discard = await confirm({
+      title: t("play.jsdos-quit-without-saving"),
+      confirmText: t("common.discard"),
+      cancelText: t("common.cancel"),
+      tone: "danger",
+    });
+    if (!discard) {
+      quitting.value = false;
+      return;
     }
   }
 
-  playSession.flush();
-  playingStore.setPlaying(false);
-  stopDos();
+  teardown();
   window.location.replace(destination);
 }
 
 function onlyQuit() {
-  const romId = rom.value?.id ?? route.params.rom;
   void leavePlayer(`/rom/${romId}`);
 }
 function backToRom() {
-  const romId = heroRom.value?.id ?? route.params.rom;
   router.push({ name: ROUTES.ROM, params: { rom: romId } });
 }
 function backToPlatform() {
@@ -205,18 +208,16 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
 onMounted(async () => {
   window.addEventListener("beforeunload", onBeforeUnload);
 
-  const romResponse = await romApi.getRom({
-    romId: parseInt(route.params.rom as string),
-  });
+  // The runtime reads nothing from the ROM payload, so let both loads overlap
+  // instead of holding the 300 KB bundle behind the API roundtrip.
+  void loadRuntime().catch((e) => console.error(e));
+
+  const romResponse = await romApi.getRom({ romId });
   rom.value = romResponse.data;
 
-  if (bgCoverUrl.value) setBgArt(bgCoverUrl.value);
-
-  try {
-    await loadRuntime();
-  } catch (e) {
-    console.error(e);
-  }
+  const { path_cover_large, path_cover_small, url_cover } = romResponse.data;
+  const cover = path_cover_large ?? path_cover_small ?? url_cover;
+  if (cover) setBgArt(cover);
 });
 
 onBeforeRouteLeave((to) => {
@@ -226,9 +227,7 @@ onBeforeRouteLeave((to) => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("beforeunload", onBeforeUnload);
-  playSession.flush();
-  playingStore.setPlaying(false);
-  stopDos();
+  teardown();
 });
 </script>
 
@@ -241,7 +240,7 @@ onBeforeUnmount(() => {
           :rom="heroRom"
           :title="title"
           :identified="heroRom?.is_identified ?? true"
-          :morph-id="morphRomId"
+          :morph-id="romId"
           style-context="player"
           morph-static
           hover-motion
