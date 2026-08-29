@@ -7,10 +7,9 @@
 // as a generic "Network Error" (issue #3938). Validate the saved id against the
 // rom's current files before using it, and report when it must be forgotten.
 //
-// A multi-file rom can also be booted whole (issue #3985): asking the download
-// endpoint for no file in particular returns every file zipped together with a
-// generated .m3u playlist, which EmulatorJS boots with its in-game disc
-// switcher. That choice is stored as `ALL_DISCS`.
+// Asking the download endpoint for no file in particular instead returns every
+// file zipped with a generated .m3u, which EmulatorJS boots with its in-game
+// disc switcher (issue #3985). That choice is stored as `ALL_DISCS`.
 export const ALL_DISCS = "all";
 
 // A file id to boot on its own, ALL_DISCS to boot every file together, or null
@@ -48,11 +47,8 @@ export function resolveStoredDisc(
   return { disc: defaultDisc(files), stale: storedDiscId !== null };
 }
 
-// Sets that ship their own .m3u are curated multi-disc releases, so boot them
-// whole and let the user swap discs from the emulator menu. Every other set
-// keeps booting a single file: pulling the whole set can mean hundreds of extra
-// MB over the wire, and EmulatorJS only prefers the playlist over a bare .chd /
-// .iso for cue-based sets anyway.
+// A set shipping its own .m3u is a curated multi-disc release, so boot it whole;
+// anything else boots one file to avoid pulling hundreds of unused MB.
 export function defaultDisc(files: readonly DiscFile[]): DiscSelection {
   if (files.length > 1 && files.some(isM3uFile)) return ALL_DISCS;
   return files[0]?.id ?? null;
@@ -61,6 +57,31 @@ export function defaultDisc(files: readonly DiscFile[]): DiscSelection {
 // The file id to download, or null to download the rom whole.
 export function bootDiscId(disc: DiscSelection): number | null {
   return typeof disc === "number" ? disc : null;
+}
+
+const discKey = (romId: number) => `player:${romId}:disc`;
+
+/**
+ * The remembered disc if it still matches the rom's files, else the default.
+ *
+ * A stale entry is dropped instead of being left to 404 the download.
+ */
+export function resolveRememberedDisc(
+  romId: number,
+  files: readonly DiscFile[],
+): DiscSelection {
+  const { disc, stale } = resolveStoredDisc(
+    localStorage.getItem(discKey(romId)),
+    files,
+  );
+  if (stale) localStorage.removeItem(discKey(romId));
+  return disc;
+}
+
+/** Remember `disc` for the game, or forget it when there is nothing to boot. */
+export function rememberDisc(romId: number, disc: DiscSelection): void {
+  if (disc === null) localStorage.removeItem(discKey(romId));
+  else localStorage.setItem(discKey(romId), disc.toString());
 }
 
 function isM3uFile(file: DiscFile): boolean {

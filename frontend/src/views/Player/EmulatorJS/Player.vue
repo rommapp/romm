@@ -24,7 +24,6 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
 } from "@/utils";
-import { ALL_DISCS } from "@/v2/utils/playerDisc";
 import {
   saveSave,
   saveState,
@@ -217,13 +216,11 @@ onMounted(() => {
     localStorage.removeItem(`player:${romRef.value.platform_slug}:core`);
   }
 
-  // No disc on a multi-file rom means every file boots together (zip + m3u),
-  // which is a choice worth remembering rather than an absent one.
-  const discPreference =
-    props.disc?.toString() ??
-    (romRef.value.files.length > 1 ? ALL_DISCS : null);
-  if (discPreference) {
-    localStorage.setItem(`player:${romRef.value.id}:disc`, discPreference);
+  if (props.disc) {
+    localStorage.setItem(
+      `player:${romRef.value.id}:disc`,
+      props.disc.toString(),
+    );
   } else {
     localStorage.removeItem(`player:${romRef.value.id}:disc`);
   }

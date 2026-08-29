@@ -60,7 +60,8 @@ import {
 import {
   ALL_DISCS,
   bootDiscId,
-  resolveStoredDisc,
+  rememberDisc,
+  resolveRememberedDisc,
   type DiscSelection,
 } from "@/v2/utils/playerDisc";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
@@ -197,8 +198,6 @@ const compatibleStates = computed(
     ) ?? [],
 );
 
-// Booting every file at once hands EmulatorJS the whole set plus an .m3u
-// playlist, which unlocks its in-game disc switcher for multi-disc games.
 const discItems = computed<{ title: string; value: DiscSelection }[]>(() => [
   { title: t("play.all-discs"), value: ALL_DISCS },
   ...(rom.value?.files ?? []).map((f) => ({
@@ -437,14 +436,7 @@ onMounted(async () => {
   }
   isSavesTabSelected.value = !hasCompatibleState;
 
-  // Validate the saved disc against the rom's current files: a rescan can
-  // leave a stale id behind that would 404 the download (issue #3938).
-  const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
-  const { disc, stale } = resolveStoredDisc(storedDisc, rom.value.files);
-  if (stale) {
-    localStorage.removeItem(`player:${rom.value.id}:disc`);
-  }
-  selectedDisc.value = disc;
+  selectedDisc.value = resolveRememberedDisc(rom.value.id, rom.value.files);
 
   selectedCore.value = resolveRememberedCore(
     rom.value.id,
@@ -496,6 +488,16 @@ watch(gameRunning, (running, prev) => {
     nextTick(focusPlayButton);
   }
 });
+
+// Persisted once the game boots, after the v1 <Player> child has mounted: it
+// clears this same key whenever it is handed the null of a whole-set boot.
+watch(
+  gameRunning,
+  (running) => {
+    if (running && rom.value) rememberDisc(rom.value.id, selectedDisc.value);
+  },
+  { flush: "post" },
+);
 
 // Y toggles the saves/states tab — view-local binding wired through
 // the `gamepad:buttondown` window event dispatched by useGamepad.

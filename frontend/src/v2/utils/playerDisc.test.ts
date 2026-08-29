@@ -1,19 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   ALL_DISCS,
   bootDiscId,
   defaultDisc,
+  rememberDisc,
+  resolveRememberedDisc,
   resolveStoredDisc,
 } from "./playerDisc";
 
 // Only `id` and `file_name` are read off each file; minimal stubs stand in for
-// RomFileSchema. Ids default to a `.chd` name, which is not a playlist.
+// RomFileSchema.
 const files = (...ids: number[]) =>
   ids.map((id) => ({ id, file_name: `Game (Disc ${id}).chd` }));
-const withM3u = (...ids: number[]) => [
-  ...files(...ids),
-  { id: 99, file_name: "Game.m3u" },
-];
 
 describe("resolveStoredDisc", () => {
   it("keeps a stored id that still belongs to the rom", () => {
@@ -76,7 +74,9 @@ describe("resolveStoredDisc", () => {
 
 describe("defaultDisc", () => {
   it("boots every file together when the set ships its own playlist", () => {
-    expect(defaultDisc(withM3u(1, 2))).toBe(ALL_DISCS);
+    expect(
+      defaultDisc([...files(1, 2), { id: 99, file_name: "Game.m3u" }]),
+    ).toBe(ALL_DISCS);
   });
 
   it("matches the playlist extension case-insensitively", () => {
@@ -109,5 +109,37 @@ describe("bootDiscId", () => {
   it("downloads the rom whole for all-discs and for no selection", () => {
     expect(bootDiscId(ALL_DISCS)).toBeNull();
     expect(bootDiscId(null)).toBeNull();
+  });
+});
+
+describe("rememberDisc / resolveRememberedDisc", () => {
+  const ROM_ID = 42;
+  beforeEach(() => localStorage.clear());
+
+  it("round-trips a whole-set boot", () => {
+    rememberDisc(ROM_ID, ALL_DISCS);
+    expect(resolveRememberedDisc(ROM_ID, files(1, 2))).toBe(ALL_DISCS);
+  });
+
+  it("round-trips a single disc", () => {
+    rememberDisc(ROM_ID, 2);
+    expect(resolveRememberedDisc(ROM_ID, files(1, 2))).toBe(2);
+  });
+
+  it("forgets the choice when there is nothing to boot", () => {
+    rememberDisc(ROM_ID, 2);
+    rememberDisc(ROM_ID, null);
+    expect(resolveRememberedDisc(ROM_ID, files(5, 6))).toBe(5);
+  });
+
+  it("drops a stale entry rather than leaving it to 404 the download", () => {
+    rememberDisc(ROM_ID, 2);
+    expect(resolveRememberedDisc(ROM_ID, files(10, 11))).toBe(10);
+    expect(localStorage.getItem(`player:${ROM_ID}:disc`)).toBeNull();
+  });
+
+  it("keeps each game's choice separate", () => {
+    rememberDisc(ROM_ID, 2);
+    expect(resolveRememberedDisc(99, files(1, 2))).toBe(1);
   });
 });
