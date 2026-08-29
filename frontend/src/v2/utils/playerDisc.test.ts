@@ -135,7 +135,25 @@ describe("rememberDisc / resolveRememberedDisc", () => {
   it("drops a stale entry rather than leaving it to 404 the download", () => {
     rememberDisc(ROM_ID, 2);
     expect(resolveRememberedDisc(ROM_ID, files(10, 11))).toBe(10);
-    expect(localStorage.getItem(`player:${ROM_ID}:disc`)).toBeNull();
+    expect(localStorage.getItem(`player:${ROM_ID}:disc-selection`)).toBeNull();
+  });
+
+  it("survives the v1 player clearing its own key on a whole-set boot", () => {
+    rememberDisc(ROM_ID, ALL_DISCS);
+    // What v1's <Player> does on mount when handed a null disc.
+    localStorage.removeItem(`player:${ROM_ID}:disc`);
+    expect(resolveRememberedDisc(ROM_ID, files(1, 2))).toBe(ALL_DISCS);
+  });
+
+  it("seeds from a disc the user last picked in the v1 player", () => {
+    localStorage.setItem(`player:${ROM_ID}:disc`, "2");
+    expect(resolveRememberedDisc(ROM_ID, files(1, 2))).toBe(2);
+  });
+
+  it("prefers its own choice over a stale v1 one", () => {
+    localStorage.setItem(`player:${ROM_ID}:disc`, "2");
+    rememberDisc(ROM_ID, ALL_DISCS);
+    expect(resolveRememberedDisc(ROM_ID, files(1, 2))).toBe(ALL_DISCS);
   });
 
   it("keeps each game's choice separate", () => {

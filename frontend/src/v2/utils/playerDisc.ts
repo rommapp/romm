@@ -59,7 +59,11 @@ export function bootDiscId(disc: DiscSelection): number | null {
   return typeof disc === "number" ? disc : null;
 }
 
-const discKey = (romId: number) => `player:${romId}:disc`;
+// v1's <Player> owns `player:<romId>:disc` and clears it whenever it is handed
+// the null of a whole-set boot, so v2 keeps its own key and reads v1's only as
+// a seed for users who have not chosen a disc in v2 yet.
+const discKey = (romId: number) => `player:${romId}:disc-selection`;
+const v1DiscKey = (romId: number) => `player:${romId}:disc`;
 
 /**
  * The remembered disc if it still matches the rom's files, else the default.
@@ -71,7 +75,8 @@ export function resolveRememberedDisc(
   files: readonly DiscFile[],
 ): DiscSelection {
   const { disc, stale } = resolveStoredDisc(
-    localStorage.getItem(discKey(romId)),
+    localStorage.getItem(discKey(romId)) ??
+      localStorage.getItem(v1DiscKey(romId)),
     files,
   );
   if (stale) localStorage.removeItem(discKey(romId));

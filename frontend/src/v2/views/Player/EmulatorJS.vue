@@ -278,6 +278,7 @@ async function onPlay() {
 
   if (rom.value) {
     rememberCore(rom.value.id, rom.value.platform_slug, selectedCore.value);
+    rememberDisc(rom.value.id, selectedDisc.value);
   }
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullscreenOnPlay.value;
@@ -488,16 +489,6 @@ watch(gameRunning, (running, prev) => {
     nextTick(focusPlayButton);
   }
 });
-
-// Persisted once the game boots, after the v1 <Player> child has mounted: it
-// clears this same key whenever it is handed the null of a whole-set boot.
-watch(
-  gameRunning,
-  (running) => {
-    if (running && rom.value) rememberDisc(rom.value.id, selectedDisc.value);
-  },
-  { flush: "post" },
-);
 
 // Y toggles the saves/states tab — view-local binding wired through
 // the `gamepad:buttondown` window event dispatched by useGamepad.
