@@ -31,9 +31,9 @@ jobs:
 
       - name: Run HLTB API URL discovery script
         # The script imports the backend config, which refuses to load without
-        # these. Nothing here authenticates anything, the values only satisfy
-        # that import so discovery can run.
+        # these; discovery itself authenticates nothing.
         env:
+          # trunk-ignore(checkov/CKV_SECRET_6): placeholder, not a credential
           ROMM_AUTH_SECRET_KEY: unused-by-endpoint-discovery
           ROMM_BASE_PATH: ${{ runner.temp }}/romm
         run: |
