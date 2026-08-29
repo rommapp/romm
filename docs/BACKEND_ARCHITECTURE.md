@@ -1389,6 +1389,10 @@ registered only when it is enabled and has a cron string, so turning one off is
 a restart rather than an unschedule. Delayed jobs, which is how the filesystem
 watcher defers a rescan, are released by the worker itself (`--with-scheduler`).
 
+Everything is registered on `low_prio_queue`. A scan is registered as a dispatch
+job that enqueues the real scan onto `scan_queue`, because cron can attach no
+failure callback and a scan needs one to report a worker that died mid-scan.
+
 Toggled via environment variables:
 
 | Task                              | Env Toggle                                         | Default Cron       | Description            |

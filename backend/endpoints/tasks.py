@@ -35,7 +35,7 @@ from handler.redis_handler import (
     scan_queue,
 )
 from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS
-from tasks.tasks import Task, TaskType, run_task_by_name
+from tasks.tasks import SCAN_DISPATCH_META_KEY, Task, TaskType, run_task_by_name
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -69,6 +69,18 @@ def _build_task_info(name: str, task: Task) -> TaskInfo:
         enabled=task.enabled,
         manual_run=task.can_run_manually,
         cron_string=task.cron_string or "",
+    )
+
+
+def _is_spent_scan_dispatch(job: Job) -> bool:
+    """Whether a job is a scan dispatch that has already handed off.
+
+    It carries the scan's own name, so listing it too would show one scheduled
+    scan as two runs. A failed dispatch stays, because then no scan ran at all.
+    """
+    return (
+        bool(job.get_meta().get(SCAN_DISPATCH_META_KEY))
+        and job.get_status() is not JobStatus.FAILED
     )
 
 
@@ -208,12 +220,14 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
         except NoSuchJobError:
             continue
 
-        if current_job:
+        if current_job and not _is_spent_scan_dispatch(current_job):
             all_tasks.append(_build_task_status_response(current_job))
 
     # Get all jobs from the queues (including completed ones)
     for queue in ALL_QUEUES:
         for job in queue.get_jobs():
+            if _is_spent_scan_dispatch(job):
+                continue
             all_tasks.append(_build_task_status_response(job))
 
     finished_registries = [FinishedJobRegistry(queue=queue) for queue in ALL_QUEUES]
@@ -227,11 +241,9 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
             except NoSuchJobError:
                 registry.remove(job_id)
                 continue
-            all_tasks.append(
-                _build_task_status_response(
-                    job,
-                )
-            )
+            if _is_spent_scan_dispatch(job):
+                continue
+            all_tasks.append(_build_task_status_response(job))
 
     # Process failed jobs
     for registry in failed_registries:

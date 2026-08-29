@@ -5,10 +5,14 @@ from typing import Any
 import httpx
 from rq import get_current_job
 
-from config import TASK_TIMEOUT
+from config import TASK_RESULT_TTL, TASK_TIMEOUT
 from exceptions.task_exceptions import TaskNotFoundException
 from logger.logger import log
 from utils.context import ctx_httpx_client
+
+# Marks the cron job that only enqueues a scan, so the task history can tell it
+# apart from the scan it creates.
+SCAN_DISPATCH_META_KEY = "scan_dispatch"
 
 
 async def run_task_by_name(name: str, task_kwargs: dict[str, Any] | None = None) -> Any:
@@ -35,6 +39,42 @@ async def run_task_by_name(name: str, task_kwargs: dict[str, Any] | None = None)
         raise TaskNotFoundException(name)
 
     return await task.run(**(task_kwargs or {}))
+
+
+def enqueue_scheduled_scan(name: str) -> str:
+    """Put a scheduled scan on the scan queue with the abandoned-job callback.
+
+    Cron can attach no `on_failure`, so a scan it enqueues itself is the one
+    scan whose worker can die without anything telling the clients.
+
+    Args:
+        name: The key the scan task is registered under.
+
+    Returns:
+        The id of the enqueued scan job.
+    """
+    # Imported here for the same reason as in run_task_by_name: the registry
+    # imports every task module, and the scan module imports this one.
+    from endpoints.sockets.scan import report_scan_failure
+    from handler.redis_handler import scan_queue
+    from tasks.registry import get_task
+
+    task = get_task(name)
+    if task is None:
+        raise TaskNotFoundException(name)
+
+    job = scan_queue.enqueue(
+        run_task_by_name,
+        kwargs={"name": name},
+        on_failure=report_scan_failure,
+        job_timeout=task.timeout,
+        result_ttl=TASK_RESULT_TTL,
+        meta={
+            "task_name": task.title,
+            "task_type": task.task_type.value,
+        },
+    )
+    return job.id
 
 
 def update_job_meta(metadata: dict[str, Any]) -> None:

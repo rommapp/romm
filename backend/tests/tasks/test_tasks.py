@@ -3,8 +3,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+from config import TASK_RESULT_TTL
 from exceptions.task_exceptions import TaskNotFoundException
-from tasks.tasks import PeriodicTask, RemoteFilePullTask, TaskType, run_task_by_name
+from tasks.tasks import (
+    PeriodicTask,
+    RemoteFilePullTask,
+    TaskType,
+    enqueue_scheduled_scan,
+    run_task_by_name,
+)
 
 
 class ConcretePeriodicTask(PeriodicTask):
@@ -200,3 +207,58 @@ class TestRunTaskByName:
 
         with pytest.raises(TaskNotFoundException, match="some_task"):
             await run_task_by_name("some_task")
+
+
+class TestEnqueueScheduledScan:
+    """Cron cannot attach a failure callback, so a dispatch job does it."""
+
+    @pytest.fixture
+    def scan_queue(self, mocker):
+        queue = mocker.patch("handler.redis_handler.scan_queue")
+        queue.enqueue.return_value = MagicMock(id="job-1")
+        return queue
+
+    @pytest.fixture
+    def task(self, mocker):
+        task = MagicMock(title="Scan Library", task_type=TaskType.SCAN, timeout=14400)
+        mocker.patch("tasks.registry.get_task", return_value=task)
+        return task
+
+    def test_enqueues_the_scan_with_the_abandoned_job_callback(
+        self, scan_queue, task
+    ) -> None:
+        from endpoints.sockets.scan import report_scan_failure
+
+        assert enqueue_scheduled_scan("scan_library") == "job-1"
+
+        kwargs = scan_queue.enqueue.call_args.kwargs
+        assert scan_queue.enqueue.call_args.args[0] is run_task_by_name
+        assert kwargs["kwargs"] == {"name": "scan_library"}
+        assert kwargs["on_failure"] is report_scan_failure
+
+    def test_the_scan_carries_its_own_timeout_and_result_ttl(
+        self, scan_queue, task
+    ) -> None:
+        # The dispatch runs on the ordinary task timeout; the scan timeout
+        # belongs to the scan the dispatch creates.
+        enqueue_scheduled_scan("scan_library")
+
+        kwargs = scan_queue.enqueue.call_args.kwargs
+        assert kwargs["job_timeout"] == task.timeout
+        assert kwargs["result_ttl"] == TASK_RESULT_TTL
+
+    def test_the_scan_is_labelled_for_the_task_history(self, scan_queue, task) -> None:
+        enqueue_scheduled_scan("scan_library")
+
+        assert scan_queue.enqueue.call_args.kwargs["meta"] == {
+            "task_name": "Scan Library",
+            "task_type": TaskType.SCAN.value,
+        }
+
+    def test_raises_for_a_name_that_is_not_registered(self, mocker, scan_queue) -> None:
+        mocker.patch("tasks.registry.get_task", return_value=None)
+
+        with pytest.raises(TaskNotFoundException, match="nope"):
+            enqueue_scheduled_scan("nope")
+
+        scan_queue.enqueue.assert_not_called()

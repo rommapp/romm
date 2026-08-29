@@ -1,10 +1,12 @@
+from contextlib import contextmanager
 from unittest.mock import Mock, patch
 
 import pytest
 from fastapi import status
 from rq.exceptions import NoSuchJobError
+from rq.job import JobStatus
 
-from tasks.tasks import Task, TaskType
+from tasks.tasks import SCAN_DISPATCH_META_KEY, Task, TaskType
 
 
 @pytest.fixture
@@ -73,6 +75,40 @@ def create_mock_job(job_id="1", status="queued"):
     mock_job.enqueued_at = mock_enqueued_at
 
     return mock_job
+
+
+def _scan_dispatch_job(job_status):
+    """The cron job that only enqueues a scheduled scan."""
+    job = create_mock_job(job_id="dispatch", status=job_status)
+    job.started_at = None
+    job.ended_at = None
+    job.get_meta.return_value = {
+        "task_name": "Scan Library",
+        "task_type": TaskType.SCAN.value,
+        SCAN_DISPATCH_META_KEY: True,
+    }
+    return job
+
+
+@contextmanager
+def _registries(*, finished, failed):
+    """Serve these jobs from the two registries, with every queue empty."""
+    by_id = {job.id: job for job in (*finished, *failed)}
+    queue = Mock()
+    queue.get_jobs.return_value = []
+
+    def registry(jobs):
+        mock = Mock()
+        mock.get_job_ids.return_value = [job.id for job in jobs]
+        return mock
+
+    with (
+        patch("endpoints.tasks.ALL_QUEUES", new=(queue,)),
+        patch("endpoints.tasks.Job.fetch", side_effect=lambda id, **_: by_id[id]),
+        patch("endpoints.tasks.FinishedJobRegistry", return_value=registry(finished)),
+        patch("endpoints.tasks.FailedJobRegistry", return_value=registry(failed)),
+    ):
+        yield
 
 
 class TestListTasks:
@@ -378,6 +414,39 @@ class TestGetTasksStatus:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == []
+
+    @patch("endpoints.tasks.Worker.all", return_value=[])
+    def test_a_spent_scan_dispatch_is_left_out(
+        self, mock_worker_all, client, access_token
+    ):
+        # The dispatch carries the scan's own name, so listing it next to the
+        # scan it enqueued would show one scheduled scan as two runs.
+        dispatch = _scan_dispatch_job(JobStatus.FINISHED)
+
+        with _registries(finished=[dispatch], failed=[]):
+            response = client.get(
+                "/api/tasks/status",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == []
+
+    @patch("endpoints.tasks.Worker.all", return_value=[])
+    def test_a_failed_scan_dispatch_is_reported(
+        self, mock_worker_all, client, access_token
+    ):
+        # A dispatch that failed means no scan ran at all, so it has to be seen.
+        dispatch = _scan_dispatch_job(JobStatus.FAILED)
+
+        with _registries(finished=[], failed=[dispatch]):
+            response = client.get(
+                "/api/tasks/status",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [task["task_id"] for task in response.json()] == ["dispatch"]
 
 
 class TestGetTaskById:
