@@ -5,8 +5,10 @@
 // and the menu item agree with the details-header CTA.
 //
 // "Playable" means EJS, js-dos, or Ruffle can run the platform on this
-// server (admin toggles + platform support + WebGL availability). The
-// individual flags are exposed so the play action can pick the right route.
+// server (admin toggles + platform support + WebGL availability), and
+// there is a file to boot: a physical game or one missing from the
+// filesystem has nothing to hand the emulator. The individual flags are
+// exposed so the play action can pick the right route.
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
 import storeConfig from "@/stores/config";
@@ -30,7 +32,7 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
 
   const canPlayEJS = computed(() => {
     const rom = getRom();
-    if (!rom) return false;
+    if (!rom?.has_file_on_disk) return false;
     return isEJSEmulationSupported(
       rom.platform_slug,
       heartbeat.value,
@@ -40,7 +42,7 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
 
   const canPlayRuffle = computed(() => {
     const rom = getRom();
-    if (!rom) return false;
+    if (!rom?.has_file_on_disk) return false;
     return isRuffleEmulationSupported(
       rom.platform_slug,
       heartbeat.value,
@@ -50,7 +52,7 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
 
   const canPlayJsDos = computed(() => {
     const rom = getRom();
-    if (!rom) return false;
+    if (!rom?.has_file_on_disk) return false;
     return isJsDosEmulationSupported(
       rom.platform_slug,
       heartbeat.value,

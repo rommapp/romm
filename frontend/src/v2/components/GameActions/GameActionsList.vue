@@ -50,11 +50,13 @@ function run(fn: () => void | Promise<void>) {
     @click="run(actions.play)"
   />
   <RMenuItem
+    v-if="actions.canDownload.value"
     :label="t('rom.download')"
     icon="mdi-download-outline"
     @click="run(actions.download)"
   />
   <RMenuItem
+    v-if="actions.canDownload.value"
     :label="t('rom.copy-link')"
     icon="mdi-share-variant-outline"
     @click="run(actions.copyDownloadLink)"

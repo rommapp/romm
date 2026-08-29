@@ -1,5 +1,9 @@
 """Property-based tests for the LaunchBox metadata parsing helpers."""
 
+import os
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 
 from hypothesis import assume, given
@@ -13,6 +17,22 @@ from handler.metadata.launchbox_handler.utils import (
 )
 
 LB_INVALID_CHARS = set("\\/|<>\"?*:'")
+
+
+@contextmanager
+def local_timezone(name: str) -> Iterator[None]:
+    """Pin the process timezone that a naive datetime.timestamp() reads."""
+    previous = os.environ.get("TZ")
+    os.environ["TZ"] = name
+    time.tzset()
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = previous
+        time.tzset()
 
 
 class TestParseList:
@@ -51,15 +71,30 @@ class TestParseReleaseDate:
         result = parse_release_date(value)
         assert result is None or isinstance(result, int)
 
+    # datetime.isoformat() omits fold, so both occurrences of an ambiguous
+    # local time reach the parser as the same string. Only the first occurrence
+    # is a satisfiable expectation, which is also what fromisoformat returns.
     @given(
         st.datetimes(
             min_value=datetime(1971, 1, 1),
             max_value=datetime(2100, 1, 1),
-        )
+        ).map(lambda dt: dt.replace(fold=0))
     )
     def test_valid_iso_dates_parse_to_timestamp(self, dt):
         result = parse_release_date(dt.isoformat())
         assert result == int(dt.timestamp())
+
+    def test_ambiguous_local_time_uses_first_occurrence(self):
+        # No local time is ambiguous under the UTC that CI runs in, so the
+        # timezone has to be pinned to one that observes DST.
+        with local_timezone("America/New_York"):
+            first = datetime(1981, 10, 25, 1, 0)
+            second = first.replace(fold=1)
+            # Fails loudly if the zone above ever stops being ambiguous here,
+            # rather than leaving the assertions below trivially true.
+            assert int(second.timestamp()) - int(first.timestamp()) == 3600
+            assert first.isoformat() == second.isoformat()
+            assert parse_release_date(second.isoformat()) == int(first.timestamp())
 
     @given(st.dates(min_value=datetime(1971, 1, 1).date()))
     def test_date_only_format_parses(self, d):

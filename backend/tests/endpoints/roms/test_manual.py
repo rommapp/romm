@@ -119,8 +119,10 @@ def test_upload_manual_to_resources_rejects_unsupported_extension(
 ):
     response = client.post(
         f"/api/roms/{rom.id}/manuals",
-        headers={**_auth(access_token), "x-upload-filename": "manual.txt"},
-        files={"manual.txt": ("manual.txt", b"not allowed", "text/plain")},
+        headers={**_auth(access_token), "x-upload-filename": "manual.exe"},
+        files={
+            "manual.exe": ("manual.exe", b"not allowed", "application/octet-stream")
+        },
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -220,8 +222,8 @@ def test_upload_manual_to_folder_rejects_non_pdf(
 ):
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/manuals/files",
-        headers={**_auth(access_token), "x-upload-filename": "manual.txt"},
-        files={"manual.txt": ("manual.txt", b"not a pdf", "text/plain")},
+        headers={**_auth(access_token), "x-upload-filename": "manual.exe"},
+        files={"manual.exe": ("manual.exe", b"not a pdf", "application/octet-stream")},
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST

@@ -75,3 +75,13 @@ export function closeTopEscapable(): void {
   if (!top || top.persistent) return;
   top.close();
 }
+
+/** Close every open overlay, innermost first. Used on route changes (see
+ *  `useOverlayRouteDismiss`), where `persistent` does not apply: it
+ *  guards against dismissing a surface by accident, but the page that
+ *  surface belonged to is already gone. Iterates over a snapshot since
+ *  each `close()` removes its own entry (asynchronously, via the owner's
+ *  `modelValue` watcher). */
+export function closeAllEscapables(): void {
+  for (const entry of [...stack].reverse()) entry.close();
+}

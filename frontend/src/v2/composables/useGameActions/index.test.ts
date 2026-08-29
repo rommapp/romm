@@ -97,6 +97,7 @@ function makeRom(status: SimpleRom["rom_user"]["status"] = null): SimpleRom {
     name: "Chrono Trigger",
     fs_name_no_ext: "Chrono Trigger",
     platform_slug: "snes",
+    has_file_on_disk: true,
     rom_user: { status },
   } as unknown as SimpleRom;
 }
@@ -196,6 +197,15 @@ describe("useGameActions.play — launch confirmation", () => {
 
     expect(locationAssign).toHaveBeenCalledWith("/rom/1/jsdos");
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it("offers neither streaming nor download without a file behind the rom", () => {
+    streamContainer.value = {};
+    const fileless = { ...makeRom(), has_file_on_disk: false } as SimpleRom;
+    const actions = useGameActions(() => fileless);
+
+    expect(actions.canPlayStream.value).toBe(false);
+    expect(actions.canDownload.value).toBe(false);
   });
 });
 

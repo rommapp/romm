@@ -53,6 +53,7 @@ const supportedPatchExtensions = [
   ".bdf",
   ".pmsr",
   ".vcdiff",
+  ".xdelta",
 ];
 
 function getExt(name: string) {

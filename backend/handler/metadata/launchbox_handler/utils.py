@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
@@ -39,6 +40,39 @@ def deinvert_article(term: str) -> str | None:
 
     subtitle = match.group("subtitle") or ""
     return f"{match.group('article')} {match.group('title')}{subtitle}"
+
+
+def fold_title(title: str) -> str:
+    """Reduce a title to letters and digits for punctuation-blind comparison.
+
+    Dump titles and ROM filenames disagree on punctuation constantly: LaunchBox
+    writes a colon a filename has no room for ("Burnout: Revenge"), keeps
+    diacritics a dump filename drops ("Astérix"), and uses characters a
+    filesystem forbids ("AC/DC"). Folding both sides to `burnoutrevenge` /
+    `asterix` / `acdc` makes those the same key.
+
+    Spaces go too, so "Area-51" and "Area 51" agree. Returns "" for a title
+    with nothing left to compare, which callers must treat as no key.
+
+    Letters of every script survive. Keeping only ASCII would reduce a title
+    written in one to whatever digits it carries, collapsing "三國立志傳2" and
+    "忍者村大战2" onto the same key.
+
+    A mark only goes when it sits on a Latin letter, where it is an accent the
+    two sides may disagree about ("Astérix" against "Asterix"). Elsewhere it
+    spells the word: Devanagari and Thai build syllables from marks, so dropping
+    them would reduce "हिन्दी" to "हनद" and collide titles that differ.
+    """
+    kept: list[str] = []
+    for char in unicodedata.normalize("NFKD", title.casefold()):
+        if unicodedata.category(char).startswith("M"):
+            if kept and "a" <= kept[-1] <= "z":
+                continue
+            kept.append(char)
+        elif char.isalnum():
+            kept.append(char)
+
+    return "".join(kept)
 
 
 def file_name_forms(file_name: str) -> list[str]:

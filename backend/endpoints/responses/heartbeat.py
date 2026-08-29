@@ -10,6 +10,7 @@ class MetadataSourcesDict(TypedDict):
     ANY_SOURCE_ENABLED: bool
     IGDB_API_ENABLED: bool
     SS_API_ENABLED: bool
+    SS_DEV_CREDENTIALS_SET: bool
     MOBY_API_ENABLED: bool
     STEAMGRIDDB_API_ENABLED: bool
     RA_API_ENABLED: bool

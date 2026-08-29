@@ -15,6 +15,7 @@ from decorators.auth import protected_route
 from endpoints.responses.config import ConfigResponse
 from exceptions.config_exceptions import ConfigNotWritableException
 from handler.auth.constants import Scope
+from handler.database import db_rom_handler
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -253,6 +254,10 @@ async def delete_exclusion(
 async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -> None:
     """Replace the scan.* section of the configuration"""
 
+    region_priority_changed = (
+        cm.get_config().SCAN_REGION_PRIORITY != payload.region_priority
+    )
+
     try:
         cm.update_scan_settings(
             metadata_priority=payload.metadata_priority,
@@ -275,3 +280,8 @@ async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+
+    # Region priority picks the primary rom of each sibling group, so every
+    # cached gallery sidecar is stale the moment the order changes.
+    if region_priority_changed:
+        db_rom_handler.invalidate_filter_values_cache()

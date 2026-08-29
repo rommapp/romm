@@ -11,6 +11,7 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
@@ -151,7 +152,7 @@ class TestUpdateLaunchboxMetadataTask:
 
         # Check hset call details
         hset_calls = mock_pipe.hset.call_args_list
-        assert len(hset_calls) == 12
+        assert len(hset_calls) == 14
 
         platform_calls = [
             call for call in hset_calls if call[0][0] == LAUNCHBOX_PLATFORMS_KEY
@@ -174,11 +175,18 @@ class TestUpdateLaunchboxMetadataTask:
         metadata_image_calls = [
             call for call in hset_calls if call[0][0] == LAUNCHBOX_METADATA_IMAGE_KEY
         ]
+        metadata_folded_calls = [
+            call
+            for call in hset_calls
+            if call[0][0] == LAUNCHBOX_METADATA_FOLDED_NAME_KEY
+        ]
 
         assert len(metadata_id_calls) == 2
         assert len(metadata_name_calls) == 2
         assert len(metadata_alt_calls) == 1
         assert len(metadata_image_calls) == 1
+        # Every named game is indexed under its folded title too.
+        assert len(metadata_folded_calls) == len(metadata_name_calls)
 
         mame_calls = [call for call in hset_calls if call[0][0] == LAUNCHBOX_MAME_KEY]
         assert len(mame_calls) == 2
@@ -324,7 +332,7 @@ class TestUpdateLaunchboxMetadataTaskIntegration:
 
         # Check hset call details
         hset_calls = mock_pipe.hset.call_args_list
-        assert len(hset_calls) == 12
+        assert len(hset_calls) == 14
 
         # Verify that all expected Redis keys were used
         redis_keys_used = [call[0][0] for call in hset_calls]
@@ -333,6 +341,7 @@ class TestUpdateLaunchboxMetadataTaskIntegration:
             LAUNCHBOX_PLATFORMS_KEY,
             LAUNCHBOX_METADATA_DATABASE_ID_KEY,
             LAUNCHBOX_METADATA_NAME_KEY,
+            LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
             LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
             LAUNCHBOX_METADATA_IMAGE_KEY,
             LAUNCHBOX_MAME_KEY,

@@ -17,10 +17,12 @@ type Flags = {
   canRefresh: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  canDownload: boolean;
 };
 
 const flags: Flags = {
   canPlay: true,
+  canDownload: true,
   canShareQR: false,
   canOpenInFlashpoint: false,
   canManageCollections: true,
@@ -104,6 +106,13 @@ describe("GameActionsList — permission gating", () => {
     // Read-only users keep the actions they can actually perform.
     expect(shown).toContain("rom.download");
     expect(shown).toContain("rom.add-to-favorites");
+  });
+
+  it("drops the download actions when no file backs the rom", () => {
+    const wrapper = mountList({ canDownload: false });
+    const shown = labels(wrapper);
+    expect(shown).not.toContain("rom.download");
+    expect(shown).not.toContain("rom.copy-link");
   });
 
   it("keeps the metadata divider when only some metadata actions are held", () => {

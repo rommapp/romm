@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -35,6 +37,58 @@ def test_platforms():
     db_platform_handler.mark_missing_platforms([])
     platforms = db_platform_handler.get_platforms()
     assert len(platforms) == 1
+
+
+def _add_physical_rom(platform: Platform, name: str = "Physical Game") -> Rom:
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=name,
+            fs_name=name,
+            fs_path=f"{platform.slug}/roms/.physical",
+            fs_size_bytes=0,
+            is_physical=True,
+        )
+    )
+
+
+def test_mark_missing_roms_skips_physical(rom: Rom, platform: Platform):
+    physical = _add_physical_rom(platform)
+
+    # An empty keep-list would normally flag every rom on the platform as missing.
+    still_missing = db_rom_handler.mark_missing_roms(platform.id, [])
+
+    missing_ids = {r.id for r in still_missing}
+    assert rom.id in missing_ids
+    assert physical.id not in missing_ids
+
+    refreshed = db_rom_handler.get_rom(physical.id)
+    assert refreshed is not None
+    assert refreshed.missing_from_fs is False
+
+
+def test_get_roms_scalar_missing_excludes_physical(platform: Platform):
+    physical = _add_physical_rom(platform)
+    # Even if a physical rom is erroneously flagged, it must not be returned as
+    # missing (the cleanup task hard-deletes whatever this query returns).
+    db_rom_handler.update_rom(physical.id, {"missing_from_fs": True})
+
+    missing = db_rom_handler.get_roms_scalar(platform_ids=[platform.id], missing=True)
+    assert physical.id not in {r.id for r in missing}
+
+
+def test_get_roms_scalar_physical_filter(rom: Rom, platform: Platform):
+    physical = _add_physical_rom(platform)
+
+    only_physical = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], physical=True
+    )
+    assert {r.id for r in only_physical} == {physical.id}
+
+    no_physical = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], physical=False
+    )
+    assert {r.id for r in no_physical} == {rom.id}
 
 
 def test_roms(rom: Rom, platform: Platform):
@@ -385,6 +439,159 @@ def test_group_by_meta_id_with_empty_fs_name_no_tags(platform: Platform):
     )
     # All 3 ROMs should be shown, not collapsed into 1
     assert len(roms) == len(rom_names)
+
+
+def test_group_by_meta_id_prefers_full_release_over_prerelease(platform: Platform):
+    """A pre-release must not represent its group just by sorting first.
+
+    "(Demo)" sorts ahead of "(USA)", so the filename tiebreaker alone hands the
+    gallery entry to the demo.
+    """
+    for tag in ["(Demo)", "(USA)"]:
+        name = f"Sonic {tag}"
+        db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                igdb_id=1234,
+                name=name,
+                slug=f"sonic-{tag.strip('()').lower()}",
+                fs_name=f"{name}.zip",
+                fs_name_no_tags="Sonic",
+                fs_name_no_ext=name,
+                fs_extension="zip",
+                fs_path=f"{platform.slug}/roms",
+            )
+        )
+
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id],
+        order_by="name",
+        order_dir="asc",
+        group_by_meta_id=True,
+    )
+
+    assert [r.fs_name_no_ext for r in roms] == ["Sonic (USA)"]
+
+
+def _add_sibling(platform: Platform, tag: str, igdb_id: int, regions: list[str]):
+    name = f"Sonic {tag}"
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            igdb_id=igdb_id,
+            name=name,
+            slug=f"sonic-{tag.strip('()').lower()}",
+            fs_name=f"{name}.zip",
+            fs_name_no_tags="Sonic",
+            fs_name_no_ext=name,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+            regions=regions,
+        )
+    )
+
+
+def _grouped_names(platform: Platform) -> list[str]:
+    return [
+        rom.fs_name_no_ext
+        for rom in db_rom_handler.get_roms_scalar(
+            platform_ids=[platform.id],
+            order_by="name",
+            order_dir="asc",
+            group_by_meta_id=True,
+        )
+    ]
+
+
+def test_primary_region_mirrors_the_first_parsed_region(platform: Platform):
+    """The generated column tracks regions[0] without the scan writing it."""
+    rom = _add_sibling(platform, "(USA, Europe)", 4321, ["USA", "Europe"])
+
+    assert db_rom_handler.get_rom(rom.id).generated_primary_region == "USA"
+
+
+def test_primary_region_is_null_without_region_tags(platform: Platform):
+    rom = _add_sibling(platform, "(Unknown)", 4322, [])
+
+    assert db_rom_handler.get_rom(rom.id).generated_primary_region is None
+
+
+def test_group_by_meta_id_prefers_the_higher_priority_region(platform: Platform):
+    """The default priority puts USA ahead of Japan.
+
+    "(Japan)" sorts before "(USA)", so the filename tiebreaker alone hands the
+    gallery entry to the Japanese release.
+    """
+    _add_sibling(platform, "(Japan)", 2345, ["Japan"])
+    _add_sibling(platform, "(USA)", 2345, ["USA"])
+
+    assert _grouped_names(platform) == ["Sonic (USA)"]
+
+
+def test_group_by_meta_id_keeps_an_unprioritized_region_group(platform: Platform):
+    """A region absent from the priority list still represents a group of one."""
+    _add_sibling(platform, "(Korea)", 3456, ["Korea"])
+
+    assert _grouped_names(platform) == ["Sonic (Korea)"]
+
+
+def test_group_by_meta_id_ranks_region_below_release_status(platform: Platform):
+    """A demo of the preferred region loses to a full release of any region.
+
+    A pre-release is not a substitute for the game, so release status outranks
+    region rather than the other way round.
+    """
+    _add_sibling(platform, "(USA) (Demo)", 4567, ["USA"])
+    _add_sibling(platform, "(Japan)", 4567, ["Japan"])
+
+    assert _grouped_names(platform) == ["Sonic (Japan)"]
+
+
+def test_group_by_meta_id_ties_names_sharing_a_region_shortcode(
+    platform: Platform,
+):
+    """Holland and Netherlands both configure as "nl", so neither outranks the
+    other and the filename tiebreak decides.
+
+    The filenames deliberately sort opposite to the order the reverse shortcode
+    map emits those two names in, so ranking them separately picks the Holland
+    rom and ranking them equally picks the alphabetically first one.
+    """
+    _add_sibling(platform, "(NL-a)", 5678, ["Netherlands"])
+    _add_sibling(platform, "(NL-b)", 5678, ["Holland"])
+
+    with patch(
+        "handler.database.roms_handler.cm.get_config",
+        return_value=SimpleNamespace(SCAN_REGION_PRIORITY=["nl"]),
+    ):
+        assert _grouped_names(platform) == ["Sonic (NL-a)"]
+
+
+def test_group_by_meta_id_keeps_a_prerelease_only_group(platform: Platform):
+    """A game that exists only as a pre-release still gets a gallery entry."""
+    name = "Unreleased Game (Proto)"
+    db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            igdb_id=5678,
+            name=name,
+            slug="unreleased-game-proto",
+            fs_name=f"{name}.zip",
+            fs_name_no_tags="Unreleased Game",
+            fs_name_no_ext=name,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
+
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id],
+        order_by="name",
+        order_dir="asc",
+        group_by_meta_id=True,
+    )
+
+    assert [r.fs_name_no_ext for r in roms] == [name]
 
 
 def test_natural_sort_order(platform: Platform):

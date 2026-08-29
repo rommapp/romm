@@ -1,6 +1,7 @@
 import { createApp } from "vue";
 import App from "@/RomM.vue";
 import "@/console/index.css";
+import { localesReady } from "@/locales";
 import { registerPlugins } from "@/plugins";
 import router from "@/plugins/router";
 import storeAuth from "@/stores/auth";
@@ -61,7 +62,10 @@ async function initializeApp() {
   // Registrar vuetify + pinia + i18n + emitter
   registerPlugins(app);
 
-  await initializeData();
+  // Locale messages gate the router alongside the initial data: the guard
+  // resolves the route title as soon as the router is installed, and with
+  // messages still in flight it would set the raw key as the tab title.
+  await Promise.all([initializeData(), localesReady]);
 
   // Route-level lazy imports fail outside vite's preload helper, so stale
   // chunks during navigation surface here instead of as vite:preloadError.
