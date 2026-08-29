@@ -3,24 +3,26 @@ from typing import Final, NotRequired, TypedDict
 
 import httpx
 import pydash
+
 from config import RAWG_API_KEY
 from logger.logger import log
 from utils.context import ctx_httpx_client
+from utils.rate_limiter import RateLimiter
 
 from .base_handler import BaseRom, MetadataHandler
 from .base_handler import UniversalPlatformSlug as UPS
 
-# Filename tag like (rawg-12345), matching the convention the other handlers
-# use so an operator can pin a match by hand.
 RAWG_TAG_REGEX = re.compile(r"\(rawg-(\d+)\)", re.IGNORECASE)
 
 RAWG_API_URL: Final = "https://api.rawg.io/api"
+RAWG_MAX_REQUESTS_PER_SECOND: Final[float] = 4
+
+_rate_limiter = RateLimiter(RAWG_MAX_REQUESTS_PER_SECOND)
 
 
 class RAWGPlatform(TypedDict):
     slug: str
     rawg_slug: str | None
-    name: NotRequired[str]
 
 
 class RAWGMetadata(TypedDict):
@@ -41,25 +43,21 @@ def extract_metadata_from_rawg_rom(rom: dict) -> RAWGMetadata:
     return RAWGMetadata(
         {
             "rawg_score": str(rom.get("rating", "")),
-            "genres": [g["name"] for g in rom.get("genres", []) if g.get("name")],
-            "esrb_rating": pydash.get(rom, "esrb_rating.name", "") or "",
+            "genres": [g["name"] for g in rom.get("genres") or [] if g.get("name")],
+            "esrb_rating": pydash.get(rom, "esrb_rating.name") or "",
             "developers": [
-                d["name"] for d in rom.get("developers", []) or [] if d.get("name")
+                d["name"] for d in rom.get("developers") or [] if d.get("name")
             ],
             "publishers": [
-                p["name"] for p in rom.get("publishers", []) or [] if p.get("name")
+                p["name"] for p in rom.get("publishers") or [] if p.get("name")
             ],
             "first_release_date": rom.get("released_timestamp"),
         }
     )
 
 
-# RomM's universal slug -> RAWG's platform slug.
-#
-# Only mapped where RAWG actually has the platform. RAWG is a modern and PC
-# focused database, so a good deal of the retro catalogue is simply absent --
-# mapping those to a near neighbour would return confidently wrong matches,
-# which is worse than returning nothing.
+# Deliberately partial: an unmapped platform yields no match rather than a
+# confidently wrong one from a near neighbour.
 SLUG_TO_RAWG_SLUG: dict[UPS, str] = {
     UPS._3DO: "3do",
     UPS.AMIGA: "commodore-amiga",
@@ -109,15 +107,7 @@ SLUG_TO_RAWG_SLUG: dict[UPS, str] = {
 
 
 class RAWGHandler(MetadataHandler):
-    """
-    Handler for RAWG.io, a large general-purpose video game database.
-
-    RAWG is strongest on modern and PC titles and thinner on the retro
-    catalogue than IGDB, MobyGames or ScreenScraper, so it is offered as an
-    additional source rather than a replacement for any of them. Its free tier
-    is generous, which makes it a reasonable first source for anybody who has
-    not obtained keys elsewhere.
-    """
+    """Handler for RAWG.io, a game database strongest on modern and PC titles."""
 
     def __init__(self) -> None:
         self.search_endpoint = f"{RAWG_API_URL}/games"
@@ -148,10 +138,11 @@ class RAWGHandler(MetadataHandler):
     async def _request(self, url: str, params: dict) -> dict:
         httpx_client = ctx_httpx_client.get()
         try:
+            await _rate_limiter.acquire()
             res = await httpx_client.get(
                 url,
                 params={**params, "key": RAWG_API_KEY},
-                timeout=120,
+                timeout=60,
             )
             res.raise_for_status()
             return res.json()
@@ -159,9 +150,8 @@ class RAWGHandler(MetadataHandler):
             log.critical("Connection error: can't connect to RAWG", exc_info=True)
             raise exc
         except httpx.HTTPStatusError as err:
-            # RAWG answers 401 for a bad key and 404 for an unknown id. Neither
-            # is a reason to fail a whole scan -- an empty result lets the next
-            # handler in the chain try.
+            # RAWG answers 401 for a bad key and 404 for an unknown id, neither
+            # of which should fail the whole scan.
             if err.response.status_code == 401:
                 log.error("RAWG rejected the API key")
             return {}
@@ -169,12 +159,28 @@ class RAWGHandler(MetadataHandler):
             log.debug("Request to RAWG timed out")
             return {}
 
-    def get_platform(self, slug: str) -> RAWGPlatform:
-        platform = SLUG_TO_RAWG_SLUG.get(slug.lower(), None)  # type: ignore[arg-type]
-        if not platform:
-            return RAWGPlatform(rawg_slug=None, slug=slug)
+    def _build_rom(self, game: dict, rawg_id: int) -> RAWGRom:
+        return RAWGRom(
+            rawg_id=rawg_id,
+            name=game["name"],
+            summary=game.get("description_raw") or "",
+            url_cover=self.normalize_cover_url(game.get("background_image") or ""),
+            url_screenshots=[
+                self.normalize_cover_url(shot["image"])
+                for shot in game.get("short_screenshots") or []
+                if shot.get("image")
+            ],
+            rawg_metadata=extract_metadata_from_rawg_rom(game),
+        )
 
-        return RAWGPlatform(rawg_slug=platform, slug=slug)
+    def get_platform(self, slug: str) -> RAWGPlatform:
+        universal_slug = slug.lower()
+        rawg_slug = (
+            SLUG_TO_RAWG_SLUG[UPS(universal_slug)]
+            if universal_slug in SLUG_TO_RAWG_SLUG
+            else None
+        )
+        return RAWGPlatform(slug=slug, rawg_slug=rawg_slug)
 
     async def get_rom(self, fs_name: str, platform_rawg_slug: str) -> RAWGRom:
         fallback_rom = RAWGRom(rawg_id=None)
@@ -182,8 +188,6 @@ class RAWGHandler(MetadataHandler):
         if not self.is_enabled():
             return fallback_rom
 
-        # A pinned id in the filename is an explicit instruction and beats any
-        # amount of searching.
         rawg_id = self.extract_rawg_id_from_filename(fs_name)
         if rawg_id:
             return await self.get_rom_by_id(rawg_id)
@@ -203,14 +207,13 @@ class RAWGHandler(MetadataHandler):
                 "page_size": 10,
             },
         )
-        results = res.get("results", []) or []
-        if not results:
+        games = [game for game in res.get("results") or [] if game.get("name")]
+        if not games:
             return fallback_rom
 
-        games_by_name = {game["name"]: game for game in results if game.get("name")}
         best_match, best_score = self.find_best_match(
             search_term,
-            list(games_by_name.keys()),
+            [game["name"] for game in games],
             self.min_similarity_score,
         )
         if not best_match:
@@ -220,7 +223,8 @@ class RAWGHandler(MetadataHandler):
             f"Found RAWG match for '{search_term}' -> '{best_match}' "
             f"(score: {best_score:.3f})"
         )
-        return await self.get_rom_by_id(games_by_name[best_match]["id"])
+        match = next(game for game in games if game["name"] == best_match)
+        return await self.get_rom_by_id(match["id"])
 
     async def get_rom_by_id(self, rawg_id: int) -> RAWGRom:
         if not self.is_enabled():
@@ -230,27 +234,12 @@ class RAWGHandler(MetadataHandler):
         if not res or not res.get("name"):
             return RAWGRom(rawg_id=None)
 
-        return RAWGRom(
-            rawg_id=rawg_id,
-            name=res["name"],
-            summary=res.get("description_raw", "") or "",
-            url_cover=self.normalize_cover_url(res.get("background_image", "") or ""),
-            url_screenshots=[
-                self.normalize_cover_url(shot["image"])
-                for shot in (res.get("short_screenshots") or [])
-                if shot.get("image")
-            ],
-            rawg_metadata=extract_metadata_from_rawg_rom(res),
-        )
+        return self._build_rom(res, rawg_id)
 
     async def get_matched_roms_by_name(
         self, search_term: str, platform_rawg_slug: str | None
     ) -> list[RAWGRom]:
-        """Candidates for a manual match, unfiltered by similarity.
-
-        The operator is choosing, so a low-scoring result is theirs to reject
-        rather than something to hide from them.
-        """
+        """Candidates for a manual match, unfiltered by similarity score."""
         if not self.is_enabled():
             return []
 
@@ -260,20 +249,7 @@ class RAWGHandler(MetadataHandler):
 
         res = await self._request(self.search_endpoint, params)
         return [
-            RAWGRom(
-                rawg_id=game["id"],
-                name=game["name"],
-                summary="",
-                url_cover=self.normalize_cover_url(
-                    game.get("background_image", "") or ""
-                ),
-                url_screenshots=[
-                    self.normalize_cover_url(shot["image"])
-                    for shot in (game.get("short_screenshots") or [])
-                    if shot.get("image")
-                ],
-                rawg_metadata=extract_metadata_from_rawg_rom(game),
-            )
-            for game in (res.get("results") or [])
+            self._build_rom(game, game["id"])
+            for game in res.get("results") or []
             if game.get("id") and game.get("name")
         ]

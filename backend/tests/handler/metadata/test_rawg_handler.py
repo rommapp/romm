@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.rawg_handler import (
     SLUG_TO_RAWG_SLUG,
@@ -10,7 +11,7 @@ from handler.metadata.rawg_handler import (
 
 
 @pytest.fixture
-def rawg_handler():
+def rawg_handler() -> RAWGHandler:
     return RAWGHandler()
 
 
@@ -32,32 +33,27 @@ async def test_get_rom_returns_a_fallback_when_disabled(rawg_handler):
 
 @pytest.mark.asyncio
 async def test_get_rom_returns_a_fallback_without_a_platform(rawg_handler):
-    """An unmapped platform must not become an unfiltered search across every
-    platform RAWG knows -- that returns a confident match for the wrong
-    system."""
+    """An unmapped platform must not widen into a search across every platform."""
     with patch("handler.metadata.rawg_handler.RAWG_API_KEY", "some-key"):
         rom = await rawg_handler.get_rom("Chrono Trigger (USA).sfc", "")
 
     assert rom["rawg_id"] is None
 
 
-def test_get_platform_maps_known_slugs(rawg_handler):
-    assert rawg_handler.get_platform("snes")["rawg_slug"] == "snes"
-    assert rawg_handler.get_platform("psx")["rawg_slug"] == "playstation1"
-    assert rawg_handler.get_platform("genesis")["rawg_slug"] == "genesis"
+@pytest.mark.parametrize(
+    ("slug", "expected"),
+    [("snes", "snes"), ("psx", "playstation1"), ("SNES", "snes")],
+)
+def test_get_platform_maps_known_slugs(rawg_handler, slug: str, expected: str):
+    assert rawg_handler.get_platform(slug)["rawg_slug"] == expected
 
 
 def test_get_platform_returns_none_for_an_unmapped_slug(rawg_handler):
-    """RAWG is thin on retro, so plenty of RomM platforms have no counterpart.
-    Returning None keeps the handler out of the way instead of guessing."""
+    """RAWG is thin on retro, so returning None beats guessing a near neighbour."""
     platform = rawg_handler.get_platform("neo-geo-pocket-color")
 
     assert platform["rawg_slug"] is None
     assert platform["slug"] == "neo-geo-pocket-color"
-
-
-def test_get_platform_is_case_insensitive(rawg_handler):
-    assert rawg_handler.get_platform("SNES")["rawg_slug"] == "snes"
 
 
 def test_every_mapped_platform_is_a_real_universal_slug():
@@ -66,15 +62,22 @@ def test_every_mapped_platform_is_a_real_universal_slug():
         assert isinstance(slug, UPS)
 
 
-def test_extract_rawg_id_from_filename(rawg_handler):
-    assert rawg_handler.extract_rawg_id_from_filename("Game (rawg-12345).sfc") == 12345
-    assert rawg_handler.extract_rawg_id_from_filename("Game (RAWG-99).sfc") == 99
-    assert rawg_handler.extract_rawg_id_from_filename("Game (USA).sfc") is None
+@pytest.mark.parametrize(
+    ("fs_name", "expected"),
+    [
+        ("Game (rawg-12345).sfc", 12345),
+        ("Game (RAWG-99).sfc", 99),
+        ("Game (USA).sfc", None),
+    ],
+)
+def test_extract_rawg_id_from_filename(
+    rawg_handler, fs_name: str, expected: int | None
+):
+    assert rawg_handler.extract_rawg_id_from_filename(fs_name) == expected
 
 
 def test_extract_metadata_handles_a_sparse_response():
-    """RAWG omits fields freely -- `esrb_rating` is null for most retro
-    titles, and `developers` is absent from search results entirely."""
+    """RAWG omits fields freely: `esrb_rating` is null for most retro titles."""
     metadata = extract_metadata_from_rawg_rom(
         {"rating": 4.5, "genres": [{"name": "RPG"}], "esrb_rating": None}
     )
