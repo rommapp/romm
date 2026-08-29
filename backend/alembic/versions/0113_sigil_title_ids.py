@@ -40,46 +40,40 @@ def upgrade() -> None:
     connection = op.get_bind()
     save_usage_enum = _save_usage_enum(connection)
 
-    op.add_column(
-        "rom_files",
-        sa.Column("title_id", sa.String(length=100), nullable=True),
-        if_not_exists=True,
-    )
-    op.add_column(
-        "rom_files",
-        sa.Column("save_id", sa.String(length=100), nullable=True),
-        if_not_exists=True,
-    )
-    # BigInteger: Switch title versions are u32 and can exceed signed int32.
-    op.add_column(
-        "rom_files",
-        sa.Column("title_version", sa.BigInteger(), nullable=True),
-        if_not_exists=True,
-    )
-    op.add_column(
-        "roms",
-        sa.Column("title_id", sa.String(length=100), nullable=True),
-        if_not_exists=True,
-    )
-    op.add_column(
-        "roms",
-        sa.Column("save_id", sa.String(length=100), nullable=True),
-        if_not_exists=True,
-    )
-    op.add_column(
-        "roms",
-        sa.Column("save_usage", save_usage_enum, nullable=True),
-        if_not_exists=True,
-    )
-
     with op.batch_alter_table("rom_files", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column("title_id", sa.String(length=100), nullable=True),
+            if_not_exists=True,
+        )
+        batch_op.add_column(
+            sa.Column("save_id", sa.String(length=100), nullable=True),
+            if_not_exists=True,
+        )
+        # BigInteger: Switch title versions are u32 and can exceed signed int32.
+        batch_op.add_column(
+            sa.Column("title_version", sa.BigInteger(), nullable=True),
+            if_not_exists=True,
+        )
         batch_op.create_index(
             "idx_rom_files_title_id",
             ["title_id"],
             unique=False,
             if_not_exists=True,
         )
+
     with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column("title_id", sa.String(length=100), nullable=True),
+            if_not_exists=True,
+        )
+        batch_op.add_column(
+            sa.Column("save_id", sa.String(length=100), nullable=True),
+            if_not_exists=True,
+        )
+        batch_op.add_column(
+            sa.Column("save_usage", save_usage_enum, nullable=True),
+            if_not_exists=True,
+        )
         batch_op.create_index(
             "idx_roms_title_id",
             ["title_id"],
@@ -91,15 +85,15 @@ def upgrade() -> None:
 def downgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.drop_index("idx_roms_title_id", if_exists=True)
+        batch_op.drop_column("save_usage", if_exists=True)
+        batch_op.drop_column("save_id", if_exists=True)
+        batch_op.drop_column("title_id", if_exists=True)
+
     with op.batch_alter_table("rom_files", schema=None) as batch_op:
         batch_op.drop_index("idx_rom_files_title_id", if_exists=True)
-
-    op.drop_column("roms", "save_usage", if_exists=True)
-    op.drop_column("roms", "save_id", if_exists=True)
-    op.drop_column("roms", "title_id", if_exists=True)
-    op.drop_column("rom_files", "title_version", if_exists=True)
-    op.drop_column("rom_files", "save_id", if_exists=True)
-    op.drop_column("rom_files", "title_id", if_exists=True)
+        batch_op.drop_column("title_version", if_exists=True)
+        batch_op.drop_column("save_id", if_exists=True)
+        batch_op.drop_column("title_id", if_exists=True)
 
     connection = op.get_bind()
     if is_postgresql(connection):
