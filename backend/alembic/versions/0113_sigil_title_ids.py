@@ -1,4 +1,4 @@
-"""Add sigil-extracted title id columns: per-file title_id/save_id on
+"""Add sigil-extracted title id columns: title_id/save_id/title_version on
 rom_files, plus rom-level title_id/save_id/save_usage on roms.
 
 Revision ID: 0113_sigil_title_ids
@@ -19,7 +19,13 @@ down_revision = "0112_publisher_developer_split"
 branch_labels = None
 depends_on = None
 
-SAVE_USAGE_VALUES = ("FOLDER_EXACT", "FOLDER_PREFIX", "FILE_EXACT", "FILE_PREFIX")
+SAVE_USAGE_VALUES = (
+    "FOLDER_EXACT",
+    "FOLDER_PREFIX",
+    "FILE_EXACT",
+    "FILE_PREFIX",
+    "FOLDER_SPLIT",
+)
 
 
 def _save_usage_enum(connection) -> sa.Enum:
@@ -42,6 +48,12 @@ def upgrade() -> None:
     op.add_column(
         "rom_files",
         sa.Column("save_id", sa.String(length=100), nullable=True),
+        if_not_exists=True,
+    )
+    # BigInteger: Switch title versions are u32 and can exceed signed int32.
+    op.add_column(
+        "rom_files",
+        sa.Column("title_version", sa.BigInteger(), nullable=True),
         if_not_exists=True,
     )
     op.add_column(
@@ -85,6 +97,7 @@ def downgrade() -> None:
     op.drop_column("roms", "save_usage", if_exists=True)
     op.drop_column("roms", "save_id", if_exists=True)
     op.drop_column("roms", "title_id", if_exists=True)
+    op.drop_column("rom_files", "title_version", if_exists=True)
     op.drop_column("rom_files", "save_id", if_exists=True)
     op.drop_column("rom_files", "title_id", if_exists=True)
 
