@@ -1,18 +1,6 @@
-// useTaskCompletion — wait for a queued RQ job to finish before reacting to it.
-//
-// `POST /tasks/run/{name}` returns as soon as the job is enqueued, so anything
-// that wants to show the job's effect has to wait for the worker. Guessing at
-// a fixed delay loses the race whenever the worker is busy or the job is slow,
-// which leaves the caller showing stale data behind a success toast. Polling
-// the job's own status instead means the wait is as long as the job actually
-// takes. There is no socket event for task completion, and `TasksSection`
-// already polls task status, so this follows the same mechanism scoped to one
-// job.
-//
-// Usage:
-//   const { awaitTask } = useTaskCompletion();
-//   const { data } = await taskApi.runTask("cleanup_missing_roms", body);
-//   if (await awaitTask(data.task_id)) await refresh();
+// `POST /tasks/run/{name}` returns as soon as the job is enqueued, so a caller
+// that wants to show the job's effect has to wait for the worker. There is no
+// socket event for task completion, so poll the job's own status.
 import axios from "axios";
 import { onScopeDispose } from "vue";
 import type { JobStatus } from "@/__generated__";
@@ -42,20 +30,17 @@ export interface UseTaskCompletion {
    * refresh still happens on a best-effort basis.
    */
   awaitTask: (taskId: string) => Promise<boolean>;
-  /** Abandons an in-flight wait. Called automatically on scope dispose. */
-  cancel: () => void;
 }
 
 export function useTaskCompletion(): UseTaskCompletion {
   let timer: ReturnType<typeof setTimeout> | null = null;
-  // Bumped on cancel so a poll already in flight knows it was superseded.
-  let generation = 0;
-  // Cancelling clears the pending timer, so it has to settle the outstanding
-  // promise itself or the caller waits on it forever.
+  // The live wait's resolver, which doubles as its identity: a poll still in
+  // flight compares against it to know whether it was superseded. Cancelling
+  // clears the pending timer, so it has to settle the outstanding promise
+  // itself or the caller waits on it forever.
   let settle: ((observed: boolean) => void) | null = null;
 
   function cancel() {
-    generation += 1;
     if (timer) clearTimeout(timer);
     timer = null;
     settle?.(false);
@@ -64,7 +49,6 @@ export function useTaskCompletion(): UseTaskCompletion {
 
   function awaitTask(taskId: string): Promise<boolean> {
     cancel();
-    const mine = generation;
     const deadline = Date.now() + POLL_TIMEOUT_MS;
     let delay = FIRST_POLL_DELAY_MS;
 
@@ -72,20 +56,20 @@ export function useTaskCompletion(): UseTaskCompletion {
       settle = resolve;
 
       const finish = (observed: boolean) => {
-        if (mine !== generation) return;
+        if (settle !== resolve) return;
         settle = null;
         resolve(observed);
       };
 
       const poll = async () => {
-        if (mine !== generation) return;
+        if (settle !== resolve) return;
 
         try {
           const { data } = await taskApi.getTaskById(taskId);
-          if (mine !== generation) return;
+          if (settle !== resolve) return;
           if (TERMINAL_STATUSES.includes(data.status)) return finish(true);
         } catch (err) {
-          if (mine !== generation) return;
+          if (settle !== resolve) return;
           // A job past its result TTL 404s, which means it ran and is gone.
           // Anything else (a timeout, a 5xx) says nothing about the job, so
           // keep polling rather than refreshing over a cleanup still in
@@ -107,5 +91,5 @@ export function useTaskCompletion(): UseTaskCompletion {
 
   onScopeDispose(cancel);
 
-  return { awaitTask, cancel };
+  return { awaitTask };
 }

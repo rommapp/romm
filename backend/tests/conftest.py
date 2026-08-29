@@ -127,33 +127,43 @@ def platform():
     return db_platform_handler.add_platform(platform)
 
 
-def _build_firmware(platform: Platform, file_name: str, missing: bool) -> Firmware:
-    return Firmware(
-        platform_id=platform.id,
-        file_name=file_name,
-        file_path=f"{platform.fs_slug}/bios",
-        file_size_bytes=1024,
-        crc_hash="crc",
-        md5_hash="md5",
-        sha1_hash="sha1",
-        missing_from_fs=missing,
-    )
+@pytest.fixture
+def other_platform():
+    platform = Platform(name="other", slug="other_slug", fs_slug="other_slug")
+    return db_platform_handler.add_platform(platform)
 
 
 @pytest.fixture
-def firmware(platform: Platform):
+def add_firmware():
+    """Factory for firmware rows, defaulting to a file still on disk."""
+
+    def _add(platform: Platform, file_name: str, missing: bool = False) -> Firmware:
+        return db_firmware_handler.add_firmware(
+            Firmware(
+                platform_id=platform.id,
+                file_name=file_name,
+                file_path=f"{platform.fs_slug}/bios",
+                file_size_bytes=1024,
+                crc_hash="crc",
+                md5_hash="md5",
+                sha1_hash="sha1",
+                missing_from_fs=missing,
+            )
+        )
+
+    return _add
+
+
+@pytest.fixture
+def firmware(platform: Platform, add_firmware):
     """Firmware whose file is still on disk."""
-    return db_firmware_handler.add_firmware(
-        _build_firmware(platform, "present.bin", missing=False)
-    )
+    return add_firmware(platform, "present.bin")
 
 
 @pytest.fixture
-def missing_firmware(platform: Platform):
+def missing_firmware(platform: Platform, add_firmware):
     """Firmware flagged by a scan as gone from the filesystem."""
-    return db_firmware_handler.add_firmware(
-        _build_firmware(platform, "gone.bin", missing=True)
-    )
+    return add_firmware(platform, "gone.bin", missing=True)
 
 
 @pytest.fixture

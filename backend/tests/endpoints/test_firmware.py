@@ -1,10 +1,4 @@
-"""Tests for `GET /api/firmware`.
-
-Issue #4075: the endpoint returned every row with no way to select on
-`missing_from_fs`, so the player's BIOS list offered (and auto-selected)
-firmware whose file was gone, and nothing could list missing firmware
-library-wide.
-"""
+"""Tests for `GET /api/firmware`."""
 
 from fastapi import status
 

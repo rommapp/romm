@@ -1,41 +1,12 @@
-"""Tests for CleanupMissingFirmwareTask.
-
-The ROM side has had a bulk cleanup for missing rows since forever; firmware
-flagged by `mark_missing_firmware` had no counterpart, so stale BIOS entries
-could only be removed one platform tab at a time (issue #4075).
-"""
+"""Tests for CleanupMissingFirmwareTask."""
 
 import pytest
 
-from handler.database import db_firmware_handler, db_platform_handler
-from models.firmware import Firmware
-from models.platform import Platform
+from handler.database import db_firmware_handler
 from tasks.manual.cleanup_missing_firmware import (
     CleanupMissingFirmwareTask,
     cleanup_missing_firmware_task,
 )
-
-
-def _add(platform: Platform, file_name: str, missing: bool) -> Firmware:
-    return db_firmware_handler.add_firmware(
-        Firmware(
-            platform_id=platform.id,
-            file_name=file_name,
-            file_path=f"{platform.fs_slug}/bios",
-            file_size_bytes=1,
-            crc_hash="crc",
-            md5_hash="md5",
-            sha1_hash="sha1",
-            missing_from_fs=missing,
-        )
-    )
-
-
-@pytest.fixture
-def other_platform() -> Platform:
-    return db_platform_handler.add_platform(
-        Platform(name="other", slug="other_slug", fs_slug="other_slug")
-    )
 
 
 class TestCleanupMissingFirmwareTask:
@@ -52,9 +23,9 @@ class TestCleanupMissingFirmwareTask:
         assert task.can_run_manually is True
         assert task.cron_string is None
 
-    async def test_deletes_only_missing_firmware(self, task, platform):
-        present = _add(platform, "present.bin", missing=False)
-        gone = _add(platform, "gone.bin", missing=True)
+    async def test_deletes_only_missing_firmware(self, task, platform, add_firmware):
+        present = add_firmware(platform, "present.bin")
+        gone = add_firmware(platform, "gone.bin", missing=True)
 
         stats = await task.run()
 
@@ -64,9 +35,11 @@ class TestCleanupMissingFirmwareTask:
         assert db_firmware_handler.get_firmware(gone.id) is None
         assert db_firmware_handler.get_firmware(present.id) is not None
 
-    async def test_scopes_to_a_single_platform(self, task, platform, other_platform):
-        mine = _add(platform, "gone.bin", missing=True)
-        theirs = _add(other_platform, "other-gone.bin", missing=True)
+    async def test_scopes_to_a_single_platform(
+        self, task, platform, other_platform, add_firmware
+    ):
+        mine = add_firmware(platform, "gone.bin", missing=True)
+        theirs = add_firmware(other_platform, "other-gone.bin", missing=True)
 
         stats = await task.run(platform_id=platform.id)
 
@@ -75,9 +48,9 @@ class TestCleanupMissingFirmwareTask:
         assert db_firmware_handler.get_firmware(mine.id) is None
         assert db_firmware_handler.get_firmware(theirs.id) is not None
 
-    async def test_counts_delete_failures(self, task, platform, mocker):
-        _add(platform, "gone-a.bin", missing=True)
-        _add(platform, "gone-b.bin", missing=True)
+    async def test_counts_delete_failures(self, task, platform, mocker, add_firmware):
+        add_firmware(platform, "gone-a.bin", missing=True)
+        add_firmware(platform, "gone-b.bin", missing=True)
         mocker.patch(
             "tasks.manual.cleanup_missing_firmware.db_firmware_handler.delete_firmware",
             side_effect=RuntimeError("boom"),
@@ -89,8 +62,8 @@ class TestCleanupMissingFirmwareTask:
         assert stats["firmware_deleted"] == 0
         assert stats["errors"] == 2
 
-    async def test_no_missing_firmware_is_a_no_op(self, task, platform):
-        _add(platform, "present.bin", missing=False)
+    async def test_no_missing_firmware_is_a_no_op(self, task, platform, add_firmware):
+        add_firmware(platform, "present.bin")
 
         stats = await task.run()
 

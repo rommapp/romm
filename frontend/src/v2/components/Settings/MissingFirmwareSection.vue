@@ -1,41 +1,21 @@
 <script setup lang="ts">
-// MissingFirmwareSection — Settings tab listing every firmware (BIOS) file
-// flagged as gone from disk, across the whole library, with a bulk cleanup.
-// Before this, a stale entry could only be found by opening each platform's
-// Firmware tab one at a time (issue #4075).
-//
-// Structured after MissingGamesSection: a platform multi-select on the left,
-// a count chip plus a kebab holding cleanup-all on the right, and a bordered
-// list below. It differs in how it loads: firmware sets are small (dozens per
-// library, not tens of thousands), so the whole missing set is fetched once
-// and the platform filter narrows it in memory rather than refetching.
-import {
-  RBtn,
-  REmptyState,
-  RIcon,
-  RMenu,
-  RMenuItem,
-  RSelect,
-  RTag,
-} from "@v2/lib";
+// Firmware sets are small (dozens per library, not tens of thousands), so the
+// whole missing set is fetched once and the platform filter narrows it in
+// memory rather than refetching.
+import { RBtn, REmptyState, RIcon, RMenu, RMenuItem, RTag } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { FirmwareSchema } from "@/__generated__";
 import firmwareApi from "@/services/api/firmware";
 import taskApi from "@/services/api/task";
-import storePlatforms from "@/stores/platforms";
+import storePlatforms, { type Platform } from "@/stores/platforms";
 import { formatBytes } from "@/utils";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
+import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
-
-interface PlatformItem {
-  id: number;
-  slug: string;
-  name: string;
-}
 
 defineOptions({ inheritAttrs: false });
 
@@ -51,16 +31,14 @@ const missingFirmware = ref<FirmwareSchema[]>([]);
 const loading = ref(true);
 const cleaningUp = ref(false);
 const selectedPlatformIds = ref<number[]>([]);
-const platformSearch = ref("");
 
 // Only platforms that actually have something to clean up: the rest would
 // filter the list down to nothing.
-const platformItems = computed<PlatformItem[]>(() => {
+const platformItems = computed<Platform[]>(() => {
   const affected = new Set(missingFirmware.value.map((f) => f.platform_id));
   return allPlatforms.value
     .filter((p) => affected.has(p.id))
-    .map((p) => ({ id: p.id, slug: p.slug, name: p.display_name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.display_name.localeCompare(b.display_name));
 });
 
 const platformById = computed(
@@ -81,7 +59,7 @@ const showEmpty = computed(() => !loading.value && rows.value.length === 0);
 
 const selectedPlatformsLabel = computed(() =>
   selectedPlatformIds.value
-    .map((id) => platformById.value.get(id)?.name)
+    .map((id) => platformById.value.get(id)?.display_name)
     .filter(Boolean)
     .join(", "),
 );
@@ -129,8 +107,6 @@ async function cleanupAll() {
         : {};
     const { data } = await taskApi.runTask("cleanup_missing_firmware", body);
     snackbar.success(t("settings.cleanup-firmware-queued"));
-    // The run endpoint returns once the job is queued, so wait for the worker
-    // to finish before showing what's left.
     if (await awaitTask(data.task_id)) await fetchMissingFirmware();
   } catch (err) {
     snackbar.error(t("settings.couldnt-queue-cleanup", { error: String(err) }));
@@ -147,18 +123,13 @@ onMounted(() => {
 <template>
   <div class="r-v2-missing-fw">
     <div class="r-v2-missing-fw__toolbar">
-      <RSelect
+      <PlatformSelect
         v-model="selectedPlatformIds"
-        v-model:search="platformSearch"
         :items="platformItems"
-        item-title="name"
-        item-value="id"
-        prefix-label="inline"
         multiple
-        chips
         closable-chips
         clearable
-        searchable
+        prefix-label="inline"
         :search-placeholder="t('common.search')"
         :placeholder="t('common.all')"
         hide-details
@@ -168,29 +139,7 @@ onMounted(() => {
           <RIcon icon="mdi-controller" size="14" />
           {{ t("common.platform") }}
         </template>
-        <template #selection="{ item }">
-          <span class="r-v2-missing-fw__platform-chip">
-            <CachedPlatformIcon
-              :slug="(item.raw as PlatformItem).slug"
-              :name="(item.raw as PlatformItem).name"
-              :size="14"
-            />
-            <span>{{ (item.raw as PlatformItem).name }}</span>
-          </span>
-        </template>
-        <template #item="{ props: itemProps, item }">
-          <li v-bind="itemProps">
-            <CachedPlatformIcon
-              :slug="(item.raw as PlatformItem).slug"
-              :name="(item.raw as PlatformItem).name"
-              :size="20"
-            />
-            <span class="r-select__item-title">
-              {{ (item.raw as PlatformItem).name }}
-            </span>
-          </li>
-        </template>
-      </RSelect>
+      </PlatformSelect>
       <div class="r-v2-missing-fw__actions">
         <RTag
           v-if="!loading"
@@ -252,10 +201,10 @@ onMounted(() => {
           <span v-if="platform" class="r-v2-missing-fw__row-platform">
             <CachedPlatformIcon
               :slug="platform.slug"
-              :name="platform.name"
+              :name="platform.display_name"
               :size="16"
             />
-            {{ platform.name }}
+            {{ platform.display_name }}
           </span>
           <span class="r-v2-missing-fw__row-size">
             {{ formatBytes(firmware.file_size_bytes) }}
@@ -283,12 +232,6 @@ onMounted(() => {
   flex: 1;
   min-width: 0;
   max-width: 480px;
-}
-
-.r-v2-missing-fw__platform-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .r-v2-missing-fw__actions {

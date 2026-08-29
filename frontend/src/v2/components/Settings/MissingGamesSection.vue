@@ -255,8 +255,6 @@ async function cleanupAll() {
         : {};
     const { data } = await taskApi.runTask("cleanup_missing_roms", body);
     snackbar.success(t("settings.cleanup-queued"));
-    // The run endpoint returns once the job is queued, so wait for the worker
-    // to finish before reloading the table.
     if (await awaitTask(data.task_id)) {
       galleryRoms.invalidateWindows();
       await galleryRoms.fetchInitialMetadata(NO_SIDECARS);

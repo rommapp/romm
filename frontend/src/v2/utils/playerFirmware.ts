@@ -1,11 +1,8 @@
 // Choosing which firmware (BIOS) the EmulatorJS player boots with.
 //
-// A scan flags firmware whose file vanished with `missing_from_fs`, but the
-// player used to offer every entry for the platform, and auto-selected the sole
-// entry when there was only one. A stale sole entry then made the game fail to
-// load with nothing pointing at the BIOS (issue #4075). Missing entries are
-// never selectable here, so a platform whose only BIOS is gone boots with none
-// rather than with a file the server can't serve.
+// A platform whose only BIOS is gone boots with none rather than with a file
+// the server can't serve. The caller already fetches with `missing: false`;
+// re-filtering keeps that rule true for any other caller.
 
 // Only these fields are read, so both `FirmwareSchema` and lighter shapes fit.
 interface FirmwareLike {

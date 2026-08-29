@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from sqlalchemy import and_, delete, select, update
-from sqlalchemy.orm import QueryableAttribute, Session, load_only
+from sqlalchemy.orm import QueryableAttribute, Session, load_only, noload
 
 from decorators.database import begin_session
 from models.firmware import Firmware
@@ -37,7 +37,14 @@ class DBFirmwareHandler(DBBaseHandler):
         hidden_platform_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[Firmware]:
-        query = select(Firmware).order_by(Firmware.file_name.asc())
+        # `Firmware.platform` is `lazy="joined"`, which drags in Platform's
+        # rom_count / fs_size_bytes aggregate subqueries over `roms`. No
+        # caller here reads the relationship, so keep it out of the query.
+        query = (
+            select(Firmware)
+            .options(noload(Firmware.platform))
+            .order_by(Firmware.file_name.asc())
+        )
 
         if platform_id:
             query = query.filter_by(platform_id=platform_id)
