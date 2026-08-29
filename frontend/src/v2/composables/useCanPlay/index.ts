@@ -6,8 +6,9 @@
 // "Playable" means EJS, js-dos, or Ruffle can run the platform on this
 // server (admin toggles + platform support + WebGL availability), and
 // there is a file to boot: a physical game or one missing from the
-// filesystem has nothing to hand the emulator. The individual flags are
-// exposed so the play action can pick the right route.
+// filesystem has nothing to hand the emulator. js-dos additionally needs
+// the file to be one of its own bundles. The individual flags are exposed
+// so the play action can pick the right route.
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
 import storeConfig from "@/stores/config";
@@ -15,6 +16,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import {
   isEJSEmulationSupported,
+  isJsDosBundle,
   isJsDosEmulationSupported,
   isRuffleEmulationSupported,
 } from "@/utils";
@@ -37,8 +39,14 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
     });
 
   const canPlayEJS = supportedBy(isEJSEmulationSupported);
-  const canPlayJsDos = supportedBy(isJsDosEmulationSupported);
   const canPlayRuffle = supportedBy(isRuffleEmulationSupported);
+
+  // js-dos boots only its own `.jsdos` bundle, so the platform alone would
+  // offer Play on files the player panics on.
+  const onJsDosPlatform = supportedBy(isJsDosEmulationSupported);
+  const canPlayJsDos = computed(
+    () => onJsDosPlatform.value && isJsDosBundle(getRom()),
+  );
 
   const canPlay = computed(
     () => canPlayEJS.value || canPlayJsDos.value || canPlayRuffle.value,

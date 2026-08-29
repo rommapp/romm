@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
-import { getDownloadPath, isJsDosEmulationSupported } from "./index";
+import {
+  getDownloadPath,
+  isJsDosBundle,
+  isJsDosEmulationSupported,
+} from "./index";
 
 function makeRom(overrides: Partial<SimpleRom>): SimpleRom {
   return {
@@ -140,5 +144,27 @@ describe("isJsDosEmulationSupported", () => {
         makeConfig({ dos: "win3x" }),
       ),
     ).toBe(true);
+  });
+});
+
+describe("isJsDosBundle", () => {
+  const withExt = (fs_extension: string) =>
+    makeRom({ fs_extension } as Partial<SimpleRom>);
+
+  it("accepts a .jsdos bundle regardless of case", () => {
+    expect(isJsDosBundle(withExt("jsdos"))).toBe(true);
+    expect(isJsDosBundle(withExt("JSDOS"))).toBe(true);
+  });
+
+  // js-dos panics with "Broken bundle" on anything that is not its own format.
+  it("rejects plain archives, bare executables and folders", () => {
+    expect(isJsDosBundle(withExt("zip"))).toBe(false);
+    expect(isJsDosBundle(withExt("exe"))).toBe(false);
+    expect(isJsDosBundle(withExt(""))).toBe(false);
+  });
+
+  it("rejects a missing rom", () => {
+    expect(isJsDosBundle(null)).toBe(false);
+    expect(isJsDosBundle(undefined)).toBe(false);
   });
 });

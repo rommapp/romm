@@ -702,6 +702,9 @@ export function isRuffleEmulationSupported(
   return ["flash", "browser"].includes(slug.toLowerCase());
 }
 
+/** File extension of a js-dos bundle. */
+export const JSDOS_BUNDLE_EXTENSION = "jsdos";
+
 /**
  * Check if js-dos emulation is supported for a given platform.
  *
@@ -719,6 +722,21 @@ export function isJsDosEmulationSupported(
 
   const slug = resolvePlatformSlug(platformSlug, config);
   return ["win3x", "win9x"].includes(slug.toLowerCase());
+}
+
+/**
+ * Check if a ROM file is a js-dos bundle.
+ *
+ * js-dos boots only its own bundle format: an archive carrying
+ * `.jsdos/dosbox.conf`. Handed a bare game folder or a plain archive it panics
+ * with "Broken bundle", so the play routes gate on the extension rather than
+ * offering a player that cannot start.
+ *
+ * @param rom The ROM to check.
+ * @returns True if the file is a js-dos bundle, false otherwise.
+ */
+export function isJsDosBundle(rom: SimpleRom | null | undefined) {
+  return rom?.fs_extension.toLowerCase() === JSDOS_BUNDLE_EXTENSION;
 }
 
 export type PlayingStatus =

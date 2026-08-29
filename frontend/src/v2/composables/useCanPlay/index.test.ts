@@ -9,6 +9,9 @@ const support = vi.hoisted(() => ({
   ejs: vi.fn(() => false),
   jsDos: vi.fn(() => false),
   ruffle: vi.fn(() => false),
+  // js-dos also demands its own bundle format; on by default so the engine
+  // stubs stay the only variable.
+  jsDosBundle: vi.fn(() => true),
 }));
 
 const heartbeat = ref({});
@@ -22,6 +25,7 @@ vi.mock("@/utils", () => ({
   isEJSEmulationSupported: support.ejs,
   isJsDosEmulationSupported: support.jsDos,
   isRuffleEmulationSupported: support.ruffle,
+  isJsDosBundle: support.jsDosBundle,
 }));
 
 function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
@@ -38,9 +42,11 @@ beforeEach(() => {
   support.ejs.mockReturnValue(false);
   support.jsDos.mockReturnValue(false);
   support.ruffle.mockReturnValue(false);
+  support.jsDosBundle.mockReturnValue(true);
   support.ejs.mockClear();
   support.jsDos.mockClear();
   support.ruffle.mockClear();
+  support.jsDosBundle.mockClear();
 });
 
 describe("useCanPlay", () => {
@@ -83,6 +89,17 @@ describe("useCanPlay", () => {
     expect(canPlayEJS.value).toBe(false);
     expect(canPlayJsDos.value).toBe(false);
     expect(canPlayRuffle.value).toBe(false);
+  });
+
+  // A bare game folder or plain archive makes js-dos panic with
+  // "Broken bundle", so offering Play would hand the user a dead player.
+  it("refuses js-dos for a rom that is not a bundle", () => {
+    support.jsDos.mockReturnValue(true);
+    support.jsDosBundle.mockReturnValue(false);
+    const { canPlay, canPlayJsDos } = useCanPlay(() => makeRom());
+
+    expect(canPlayJsDos.value).toBe(false);
+    expect(canPlay.value).toBe(false);
   });
 
   it("stays unplayable when no engine supports the platform", () => {
