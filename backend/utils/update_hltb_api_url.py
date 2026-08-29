@@ -22,8 +22,7 @@ from utils.hltb_search import (
     search_headers,
 )
 
-# Next.js lists every route it serves as a plain literal in _buildManifest.js, so
-# discovery does not depend on how the app bundle is built or minified.
+# Next.js lists every route it serves as a plain literal in _buildManifest.js.
 BUILD_MANIFEST_REGEX = re.compile(
     r'src=["\'](?P<path>[^"\']*/_next/static/[^"\']+/_buildManifest\.js)["\']'
 )
@@ -102,8 +101,7 @@ def _rejection_reason(
     except (httpx.RequestError, httpx.HTTPStatusError, ValueError) as e:
         return str(e)
 
-    # The same shape search_games() reads, so a wrong route cannot pass by
-    # returning some other 200.
+    # The same shape search_games() reads.
     if not isinstance(results, list) or not results:
         return "search returned no results"
 

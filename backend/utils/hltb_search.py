@@ -1,5 +1,5 @@
 """The HowLongToBeat search wire contract, shared by the handler and the endpoint
-discovery script so the script validates a route against what the handler sends."""
+discovery script."""
 
 from typing import Final, NamedTuple
 

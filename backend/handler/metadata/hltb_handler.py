@@ -42,7 +42,6 @@ HLTB_MAX_REQUESTS_PER_SECOND: Final[float] = 3
 # One attempt, plus one for a renewed session and one for a rate-limit backoff.
 HLTB_MAX_REQUEST_ATTEMPTS: Final[int] = 3
 HLTB_RATE_LIMIT_BACKOFF_SECONDS: Final[float] = 2
-# How long a failed session mint is left alone before another lookup retries it.
 HLTB_SESSION_RETRY_SECONDS: Final[float] = 60
 _rate_limiter = RateLimiter(HLTB_MAX_REQUESTS_PER_SECOND)
 
@@ -330,8 +329,8 @@ class HLTBHandler(MetadataHandler):
             if self._has_session():
                 return True
 
-            # A mint that just failed means HLTB is down or blocking this host, so
-            # every remaining ROM in a scan should not pay for its own round trip.
+            # A mint that just failed means HLTB is down or blocking this host,
+            # so every ROM left in a scan must not pay for its own round trip.
             now = time.monotonic()
             if now < self._session_retry_after:
                 return False
