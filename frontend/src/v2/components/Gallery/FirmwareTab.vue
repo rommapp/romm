@@ -32,6 +32,7 @@ import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes } from "@/utils";
 import DeleteFirmwareDialog from "@/v2/components/Gallery/DeleteFirmwareDialog.vue";
+import HashChip from "@/v2/components/shared/HashChip.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -385,15 +386,24 @@ async function performDelete(
               <RChip size="x-small" variant="translucent">
                 {{ formatBytes(f.file_size_bytes) }}
               </RChip>
-              <RChip
-                size="x-small"
-                variant="translucent"
-                color="info"
-                class="r-v2-fw__row-hash"
-                :title="`MD5: ${f.md5_hash}`"
-              >
-                {{ f.md5_hash }}
-              </RChip>
+              <HashChip
+                v-if="f.sha1_hash"
+                label="SHA-1"
+                :value="f.sha1_hash"
+                compact
+              />
+              <HashChip
+                v-if="f.md5_hash"
+                label="MD5"
+                :value="f.md5_hash"
+                compact
+              />
+              <HashChip
+                v-if="f.crc_hash"
+                label="CRC"
+                :value="f.crc_hash"
+                compact
+              />
               <RChip
                 v-if="f.is_verified"
                 size="x-small"
@@ -615,14 +625,6 @@ async function performDelete(
   flex-wrap: wrap;
   gap: 4px;
 }
-.r-v2-fw__row-hash {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--r-font-family-mono, monospace);
-}
-
 .r-v2-fw__row-actions {
   display: inline-flex;
   align-items: center;

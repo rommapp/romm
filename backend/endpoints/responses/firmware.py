@@ -9,6 +9,7 @@ class FirmwareSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    platform_id: int
 
     file_name: str
     file_name_no_tags: str

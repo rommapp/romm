@@ -67,6 +67,10 @@ const CATEGORY_META = computed<
     label: t("rom.manual"),
     icon: "mdi-book-open-page-variant-outline",
   },
+  walkthrough: {
+    label: t("rom.walkthrough"),
+    icon: "mdi-map-legend",
+  },
   soundtrack: {
     label: t("rom.soundtrack"),
     icon: "mdi-music-note-outline",

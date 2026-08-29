@@ -1,4 +1,5 @@
 {
+  "all-discs": "Todos los discos",
   "all-saves": "Todas las partidas",
   "all-states": "Todos los estados",
   "back-to-gallery": "Volver a galería",
@@ -13,6 +14,8 @@
   "deselect-save": "Deseleccionar guardado",
   "deselect-state": "Deseleccionar estado",
   "full-screen": "Pantalla completa",
+  "jsdos-browser-save-warning": "Las partidas de js-dos se almacenan solo en este navegador y no se sincronizan con RomM.",
+  "jsdos-quit-without-saving": "¿Salir sin guardar el progreso reciente?",
   "no-save-selected": "Ningún guardado seleccionado",
   "no-saves-available": "No hay guardados disponibles",
   "no-screenshot-available": "Captura no disponible",

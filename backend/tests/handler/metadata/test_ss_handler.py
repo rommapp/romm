@@ -9,8 +9,10 @@ import pytest
 from fastapi import HTTPException, status
 
 from adapters.services.screenscraper import (
+    ScreenScraperCredentialsError,
     ScreenScraperRateLimitError,
     SSAccountLimits,
+    SSCredentialSet,
 )
 from adapters.services.screenscraper_types import SSGame
 from config.config_manager import Config, MetadataMediaType
@@ -18,6 +20,7 @@ from handler.metadata import ss_handler
 from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.ss_handler import (
     PS1_SS_ID,
+    SWITCH_SS_ID,
     SSHandler,
     _get_rom_type,
     _is_daily_quota_error,
@@ -350,6 +353,44 @@ class TestExtractMediaFromSsGame:
                 ]
             },
         )
+
+    def test_box2d_path_set_when_in_config(self):
+        """When 'box2d' is in SCAN_MEDIA the box front is persisted locally, so it
+        stays reachable when another provider wins the cover."""
+        config = _make_config(scan_media=["box2d"])
+        rom = self._make_rom()
+        game = self._make_game_with_box_faces()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["box2d_url"] is not None
+        assert "box-2D" in result["box2d_url"]
+        assert result["box2d_path"] == "roms/1/100/box2d/box2d.png"
+
+    def test_box2d_path_not_set_when_absent_from_config(self):
+        """Without 'box2d' in SCAN_MEDIA the front URL is kept but not stored."""
+        config = _make_config(scan_media=["box2d_back"])
+        rom = self._make_rom()
+        game = self._make_game_with_box_faces()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["box2d_url"] is not None
+        assert result["box2d_path"] is None
 
     def test_box2d_side_path_set_when_in_config(self):
         """When 'box2d_side' is in SCAN_MEDIA the spine is persisted locally."""
@@ -1195,6 +1236,44 @@ class TestLookupRom:
         assert captured.get("rom_name") == "Mario.zip"
 
     @pytest.mark.asyncio
+    async def test_multi_file_archive_keeps_sending_the_composite_hashes(self):
+        """Unlike Hasheous and Playmatch, ScreenScraper stays on the archive's
+        own digests: jeuInfos falls back to romnom, so an arcade set still
+        resolves by name, and moving to the member hash would shift match
+        results across every library."""
+        handler = SSHandler()
+        mock_file = self._make_mock_file()
+        mock_file.file_name = "Mario.zip"
+        mock_file.archive_members = [
+            {
+                "name": "mario.bin",
+                "size": 1024,
+                "crc_hash": "membercrc",
+                "md5_hash": "membermd5",
+                "sha1_hash": "membersha1",
+            },
+            {
+                "name": "mario.cue",
+                "size": 64,
+                "crc_hash": "cuecrc",
+                "md5_hash": "cuemd5",
+                "sha1_hash": "cuesha1",
+            },
+        ]
+        captured = {}
+
+        async def capture(**kwargs):
+            captured.update(kwargs)
+            return None
+
+        with patch.object(handler.ss_service, "get_game_info", side_effect=capture):
+            await handler.lookup_rom(MagicMock(platform_slug="psx"), 57, [mock_file])
+
+        assert captured.get("md5") == "abc123"
+        assert captured.get("sha1") == "def456"
+        assert captured.get("crc") == "12345678"
+
+    @pytest.mark.asyncio
     async def test_romnom_uses_archive_filename_when_no_archive_members(self):
         handler = SSHandler()
         mock_file = self._make_mock_file()
@@ -1345,6 +1424,81 @@ class TestScreenScraperQuotaFallback:
         ):
             result = await handler.get_rom(rom, "Sonic.bin", platform_ss_id=3)
         mock_search.assert_awaited()
+        assert result["ss_id"] is None
+
+
+class TestScreenScraperCredentialFallback:
+    """Rejected credentials are a configuration problem, not a scan failure: the
+    service reports them once and the scan carries on with the other providers."""
+
+    def _make_file(self) -> MagicMock:
+        mock_file = MagicMock()
+        mock_file.file_size_bytes = 131072
+        mock_file.is_top_level = True
+        mock_file.file_extension = "md"
+        mock_file.md5_hash = "abc123"
+        mock_file.sha1_hash = "def456"
+        mock_file.crc_hash = "78901234"
+        mock_file.file_name = "Sonic (USA).md"
+        mock_file.archive_members = None
+        return mock_file
+
+    @pytest.mark.asyncio
+    async def test_lookup_rom_returns_empty_on_rejected_credentials(self):
+        handler = SSHandler()
+        rom = MagicMock(
+            platform_slug="genesis", platform_id=1, id=1, fs_name="Sonic (USA).md"
+        )
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(
+                handler.ss_service,
+                "get_game_info",
+                AsyncMock(
+                    side_effect=ScreenScraperCredentialsError(SSCredentialSet.USER)
+                ),
+            ),
+        ):
+            result, _ = await handler.lookup_rom(rom, 1, [self._make_file()])
+
+        assert result["ss_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_rom_returns_empty_on_rejected_credentials(self):
+        handler = SSHandler()
+        rom = MagicMock(platform_slug="genesis", platform_id=1, id=1, regions=[])
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(
+                handler.ss_service,
+                "search_games",
+                AsyncMock(
+                    side_effect=ScreenScraperCredentialsError(SSCredentialSet.USER)
+                ),
+            ),
+        ):
+            result = await handler.get_rom(rom, "Sonic.bin", platform_ss_id=3)
+
+        assert result["ss_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_rom_by_id_returns_empty_on_rejected_credentials(self):
+        handler = SSHandler()
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(
+                handler.ss_service,
+                "get_game_info",
+                AsyncMock(
+                    side_effect=ScreenScraperCredentialsError(SSCredentialSet.USER)
+                ),
+            ),
+        ):
+            result = await handler.get_rom_by_id(MagicMock(), 1234)
+
         assert result["ss_id"] is None
 
 
@@ -1698,3 +1852,62 @@ class TestSonySerialFilenames:
         mock_hget.assert_awaited_once_with(PS1_SERIAL_INDEX_KEY, "SCUS-94163")
         assert result.get("name") == "Gran Turismo"
         assert result["ss_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_switch_titledb_fallback_does_not_set_icon_as_manual(self):
+        """The Switch TitleDB index has no manual, so the fallback must not
+        reuse the icon URL as ``url_manual``. Doing so made RomM try to fetch
+        an icon as a game manual on every scan of such a ROM."""
+        handler = SSHandler()
+
+        with (
+            patch(
+                "handler.metadata.ss_handler.SSHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(async_cache, "exists", new_callable=AsyncMock) as mock_exists,
+            patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
+            patch.object(
+                SSHandler, "_search_rom", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            mock_exists.return_value = True
+            mock_hget.return_value = json.dumps(
+                {
+                    "name": "Switch Game",
+                    "description": "A game",
+                    "iconUrl": "https://example.net/icon.png",
+                }
+            )
+            result = await handler.get_rom(
+                MagicMock(), "70123456789012.nsp", SWITCH_SS_ID
+            )
+
+        assert result.get("name") == "Switch Game"
+        assert result.get("url_cover") == "https://example.net/icon.png"
+        assert not result.get("url_manual")
+
+
+class TestDevCredentials:
+    """Tests for ``SSHandler.has_dev_credentials``."""
+
+    @pytest.mark.parametrize(
+        ("dev_id", "dev_password", "expected"),
+        [
+            ("dev", "devpass", True),
+            (None, "devpass", False),
+            ("dev", None, False),
+            (None, None, False),
+            ("", "", False),
+        ],
+    )
+    def test_reports_whether_both_credentials_are_present(
+        self, dev_id: str | None, dev_password: str | None, expected: bool
+    ):
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_DEV_ID", dev_id),
+            patch(
+                "handler.metadata.ss_handler.SCREENSCRAPER_DEV_PASSWORD", dev_password
+            ),
+        ):
+            assert SSHandler.has_dev_credentials() is expected

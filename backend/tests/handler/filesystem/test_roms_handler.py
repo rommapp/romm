@@ -282,6 +282,68 @@ class TestFSRomsHandler:
         # A value that is not a shortcode is kept verbatim.
         assert "PAL" in handler.parse_tags("Game [Reg-PAL].rom").regions
 
+        # A space after the separator isn't part of the value.
+        assert handler.parse_tags("Game [Reg- PAL].rom").regions == ["PAL"]
+        assert handler.parse_tags("Game [Reg- U].rom").regions == ["USA"]
+        assert handler.parse_tags("Game [Reg-  PAL ].rom").regions == ["PAL"]
+
+        # A prefix with no value behind it is not a region.
+        for fs_name in ("Game [Reg-].rom", "Game [Reg- ].rom"):
+            parsed = handler.parse_tags(fs_name)
+            assert parsed.regions == []
+            assert parsed.other_tags == ["Reg-"]
+
+    def test_parse_tags_region_casing_is_normalized(self, handler: FSRomsHandler):
+        """Region names collapse to one canonical spelling regardless of casing."""
+        for fs_name in ("Game (USA).rom", "Game (usa).rom", "Game (Usa).rom"):
+            assert handler.parse_tags(fs_name).regions == ["USA"]
+
+        assert handler.parse_tags("Game (europe).rom").regions == ["Europe"]
+        assert handler.parse_tags("Game (hong kong).rom").regions == ["Hong Kong"]
+        assert handler.parse_tags("Game (u).rom").regions == ["USA"]
+
+        # An unknown tag is still just a tag.
+        parsed = handler.parse_tags("Game (Nonsense).rom")
+        assert parsed.regions == []
+        assert "Nonsense" in parsed.other_tags
+
+    def test_parse_tags_region_codes_do_not_shadow_languages(
+        self, handler: FSRomsHandler
+    ):
+        """Nl/No are languages; NL/NO are regions. Case decides."""
+        assert handler.parse_tags("Game (Nl).rom").languages == ["Dutch"]
+        assert handler.parse_tags("Game (No).rom").languages == ["Norwegian"]
+        assert handler.parse_tags("Game (NL).rom").regions == ["Netherlands"]
+        assert handler.parse_tags("Game (NO).rom").regions == ["Norway"]
+
+        # Lowercased, the region wins; neither table can claim both.
+        assert handler.parse_tags("Game (nl).rom").regions == ["Netherlands"]
+        assert handler.parse_tags("Game (no).rom").regions == ["Norway"]
+
+    def test_parse_tags_language_casing_is_normalized(self, handler: FSRomsHandler):
+        """Language names collapse to one canonical spelling regardless of casing."""
+        for fs_name in (
+            "Game (English).rom",
+            "Game (english).rom",
+            "Game (ENGLISH).rom",
+        ):
+            assert handler.parse_tags(fs_name).languages == ["English"]
+
+        assert handler.parse_tags("Game (japanese).rom").languages == ["Japanese"]
+        assert handler.parse_tags("Game (no language).rom").languages == ["No Language"]
+
+    def test_parse_tags_language_codes_are_case_insensitive(
+        self, handler: FSRomsHandler
+    ):
+        """A differently-cased language shortcode still resolves."""
+        assert handler.parse_tags("Game (en).rom").languages == ["English"]
+        assert handler.parse_tags("Game (EN).rom").languages == ["English"]
+        assert handler.parse_tags("Game (de).rom").languages == ["German"]
+        assert handler.parse_tags("Game [ja,FR].rom").languages == [
+            "Japanese",
+            "French",
+        ]
+
     def test_exclude_multi_roms_filters_excluded(self, handler: FSRomsHandler, config):
         """Test exclude_multi_roms filters out excluded multi-file ROMs"""
         roms = ["Game1", "excluded_multi", "Game2", "Game3"]
@@ -914,6 +976,55 @@ class TestFSRomsHandler:
         # Header SHA1 stored separately in chd_sha1_hash
         assert parsed_rom_files.rom_files[0].chd_sha1_hash == internal_sha1
 
+    @pytest.mark.asyncio
+    async def test_get_rom_files_folder_extracts_chd_hash_per_file(
+        self, tmp_path: Path
+    ):
+        """Every CHD in a folder-based ROM keeps its own header SHA1."""
+        disc_platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
+        roms_path = tmp_path / disc_platform.fs_slug / "roms"
+        game_dir = roms_path / "Final Fantasy VII"
+        game_dir.mkdir(parents=True)
+
+        sha1_by_disc = {
+            "Final Fantasy VII (Disc 1).chd": "0123456789abcdef0123456789abcdef01234567",
+            "Final Fantasy VII (Disc 2).chd": "89abcdef0123456789abcdef0123456789abcdef",
+        }
+        for file_name, internal_sha1 in sha1_by_disc.items():
+            header = bytearray(124)
+            header[0:8] = b"MComprHD"
+            header[12:16] = int(5).to_bytes(4, "big")
+            header[84:104] = bytes.fromhex(internal_sha1)
+            (game_dir / file_name).write_bytes(header + file_name.encode())
+
+        (game_dir / "Final Fantasy VII.m3u").write_text("\n".join(sha1_by_disc) + "\n")
+
+        test_handler = FSRomsHandler()
+        test_handler.base_path = tmp_path
+
+        rom = Rom(
+            id=1,
+            fs_name="Final Fantasy VII",
+            fs_extension="",
+            fs_path=str(roms_path.relative_to(tmp_path)),
+            platform=disc_platform,
+        )
+
+        with patch(
+            "adapters.services.rahasher.RAHasherService.calculate_hash",
+            return_value="",
+        ):
+            parsed_rom_files = await test_handler.get_rom_files(rom)
+
+        chd_hash_by_file = {
+            rom_file.file_name: rom_file.chd_sha1_hash
+            for rom_file in parsed_rom_files.rom_files
+        }
+        assert chd_hash_by_file == {
+            **sha1_by_disc,
+            "Final Fantasy VII.m3u": "",
+        }
+
     @staticmethod
     def _setup_archive_rom(
         tmp_path: Path, platform: Platform, fs_name: str, fs_extension: str, data: bytes
@@ -1069,9 +1180,8 @@ class TestFSRomsHandler:
 
         parsed = await test_handler.get_rom_files(rom)
 
-        # On a malformed zip, the reader yields nothing and the fallback path
-        # hashes the archive file itself; read_zip_file's BadZipFile guard
-        # routes that to raw-byte hashing.
+        # On a malformed zip, the reader raises ArchiveReadError and the
+        # fallback path hashes the archive file itself.
         assert parsed.md5_hash == hashlib.md5(junk, usedforsecurity=False).hexdigest()
         assert parsed.sha1_hash == hashlib.sha1(junk, usedforsecurity=False).hexdigest()
         assert len(parsed.rom_files) == 1

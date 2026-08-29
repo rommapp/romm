@@ -166,14 +166,23 @@ class CSRFMiddleware:
             decoded_doc_cookie = self.serializer.loads(document_cookie)
             decoded_header_cookie = self.serializer.loads(header_cookie)
 
-            # Verify that the tokens match, the user IDs match
-            # and the user_id matches the authenticated user
+            # The cookie and the submitted header must always agree, that is
+            # the double-submit check itself, and it holds regardless of who
+            # the caller is.
+            if not secrets.compare_digest(
+                decoded_doc_cookie["token"], decoded_header_cookie["token"]
+            ):
+                return False
+            if decoded_doc_cookie["user_id"] != decoded_header_cookie["user_id"]:
+                return False
+
+            # Bind the token to the caller only when there *is* one.
+            # An anonymous request holding a token from a dead session would otherwise be rejected.
+            if user_id is None:
+                return True
+
             return (
-                secrets.compare_digest(
-                    decoded_doc_cookie["token"], decoded_header_cookie["token"]
-                )
-                and decoded_doc_cookie["user_id"] == decoded_header_cookie["user_id"]
-                and decoded_doc_cookie["user_id"] == user_id
+                decoded_doc_cookie["user_id"] == user_id
                 and decoded_header_cookie["user_id"] == user_id
             )
         except (TypeError, BadSignature):

@@ -12,6 +12,7 @@ from .rawg_handler import RAWGHandler
 from .sgdb_handler import SGDBBaseHandler
 from .ss_handler import SSHandler
 from .tgdb_handler import TGDBHandler
+from .upc_handler import UPCHandler
 
 meta_igdb_handler = IGDBHandler()
 meta_moby_handler = MobyGamesHandler()
@@ -26,4 +27,5 @@ meta_tgdb_handler = TGDBHandler()
 meta_flashpoint_handler = FlashpointHandler()
 meta_gamelist_handler = GamelistHandler()
 meta_hltb_handler = HLTBHandler()
+meta_upc_handler = UPCHandler()
 meta_rawg_handler = RAWGHandler()

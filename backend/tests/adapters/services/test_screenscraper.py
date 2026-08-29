@@ -15,8 +15,10 @@ from adapters.services.screenscraper import (
     SS_DEFAULT_MEDIA_TIMEOUT,
     SS_MAX_MEDIA_TIMEOUT,
     SS_UNPACED_REQUESTS_PER_SECOND,
+    ScreenScraperCredentialsError,
     ScreenScraperRateLimitError,
     ScreenScraperService,
+    SSCredentialSet,
     _loads_lenient,
     auth_middleware,
     get_account_limits,
@@ -35,6 +37,13 @@ INVALID_SYSTEM_ID = 999999
 
 # Fast enough that the module's pacing never adds real sleeps to a test.
 UNTHROTTLED_RATE = 10_000
+
+# What ScreenScraper answers a rejected credential set with, verbatim. The
+# account endpoint blames the account whichever set is at fault; only a
+# scraping endpoint names the developer credentials.
+SS_LOGIN_ERROR_BODY = "Erreur de login : Vérifier les identifiants utilisateurs !"
+SS_DEV_ERROR_BODY = "Erreur de login : Vérifier vos identifiants développeur !"
+ACCOUNT_URL = "https://api.screenscraper.fr/api2/ssuserInfos.php"
 
 
 def _rendered(mock_call) -> str:
@@ -278,8 +287,8 @@ class TestScreenScraperServiceUnit:
             with pytest.raises(HTTPException) as exc_info:
                 await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
 
-        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-        assert "Invalid ScreenScraper credentials" in exc_info.value.detail
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+        assert "RomM developer credentials" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_request_connection_error(self, service):
@@ -1217,9 +1226,253 @@ class TestScreenScraperServiceEdgeCases:
             with pytest.raises(HTTPException) as exc_info:
                 await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
 
-        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-        assert "Invalid ScreenScraper credentials" in exc_info.value.detail
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+        assert "RomM developer credentials" in exc_info.value.detail
         assert mock_session.get.call_count == 2
+
+
+class TestCredentialErrors:
+    """ScreenScraper refuses a bad credential set with HTTP 403. RomM has to say
+    which set, rather than the bare "403, message='Forbidden'" that sends users
+    looking at their quota.
+
+    Only the account endpoint checks the account password, so a refusal from a
+    scraping endpoint is always about RomM's own credentials, whatever the body
+    happens to say."""
+
+    @pytest.fixture
+    def service(self):
+        return ScreenScraperService()
+
+    def _forbidden_response(self, body: str = SS_LOGIN_ERROR_BODY) -> MagicMock:
+        """A response whose body carries the login error, as a 403 does."""
+        response = MagicMock()
+        response.text = AsyncMock(return_value=body)
+        response.json = AsyncMock(return_value={})
+        response.raise_for_status.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=http.HTTPStatus.FORBIDDEN,
+            message="Forbidden",
+        )
+        return response
+
+    def _session(self, *responses) -> tuple[AsyncMock, MagicMock]:
+        session = AsyncMock()
+        if len(responses) == 1:
+            session.get.return_value = responses[0]
+        else:
+            session.get.side_effect = list(responses)
+
+        context = MagicMock()
+        context.get.return_value = session
+        return session, context
+
+    @pytest.mark.asyncio
+    async def test_the_account_endpoint_reports_the_account_sign_in(self, service):
+        _, context = self._session(self._forbidden_response())
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            with pytest.raises(ScreenScraperCredentialsError) as exc_info:
+                await service._request(ACCOUNT_URL)
+
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+        assert exc_info.value.credential_set is SSCredentialSet.USER
+        assert "SCREENSCRAPER_USER" in exc_info.value.detail
+        assert "SCREENSCRAPER_PASSWORD" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_a_scraping_endpoint_reports_romms_own_credentials(self, service):
+        _, context = self._session(self._forbidden_response(SS_DEV_ERROR_BODY))
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            with pytest.raises(ScreenScraperCredentialsError) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert exc_info.value.credential_set is SSCredentialSet.DEVELOPER
+        assert "RomM developer credentials" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_the_developer_credentials_are_never_named(self, service):
+        """Their values are only semi-protected, so nothing sends an end user
+        looking for them."""
+        _, context = self._session(self._forbidden_response(SS_DEV_ERROR_BODY))
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            with pytest.raises(ScreenScraperCredentialsError) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert "SCREENSCRAPER_DEV_ID" not in exc_info.value.detail
+        assert "SCREENSCRAPER_DEV_PASSWORD" not in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_a_scraping_refusal_is_not_blamed_on_the_account(self, service):
+        """ScreenScraper says "utilisateurs" from endpoints that never check the
+        account password, so the endpoint settles it rather than the wording."""
+        _, context = self._session(self._forbidden_response())
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            with pytest.raises(ScreenScraperCredentialsError) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert exc_info.value.credential_set is SSCredentialSet.DEVELOPER
+
+    @pytest.mark.asyncio
+    async def test_the_body_is_read_before_the_status_is_raised(self, service):
+        """The regression: the login-error check sat after raise_for_status(), so
+        it could never match the 403 it was written for."""
+        response = self._forbidden_response()
+        _, context = self._session(response)
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            with pytest.raises(ScreenScraperCredentialsError) as exc_info:
+                await service._request(ACCOUNT_URL)
+
+        response.text.assert_awaited()
+        # ScreenScraper's own wording, carried through under RomM's summary.
+        assert "identifiants utilisateurs" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_credentials_are_masked_in_the_reported_message(self, service):
+        """The message reaches the caller, and the credentials ride in the query
+        string ScreenScraper is free to quote back."""
+        _, context = self._session(
+            self._forbidden_response(
+                "Erreur de login : ssid=user1&sspassword=hunter2&devpassword=s3cret"
+            )
+        )
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            with pytest.raises(ScreenScraperCredentialsError) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert "hunter2" not in exc_info.value.detail
+        assert "s3cret" not in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_forbidden_without_a_body_still_names_a_set(self, service):
+        _, context = self._session(self._forbidden_response(""))
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            with pytest.raises(ScreenScraperCredentialsError) as exc_info:
+                await service._request(ACCOUNT_URL)
+
+        assert "SCREENSCRAPER_USER" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_rejected_credentials_are_not_retried(self, service):
+        """Nothing about a wrong password clears on a second attempt."""
+        session, context = self._session(self._forbidden_response())
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            with pytest.raises(ScreenScraperCredentialsError):
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert session.get.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_forbidden_on_the_retry_attempt_is_reported(self, service):
+        session, context = self._session(
+            aiohttp.ServerTimeoutError("Timeout"), self._forbidden_response()
+        )
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            with pytest.raises(ScreenScraperCredentialsError):
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert session.get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_later_requests_short_circuit(self, service):
+        """Every remaining ROM would be refused the same way, so stop asking."""
+        session, context = self._session(self._forbidden_response())
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            with pytest.raises(ScreenScraperCredentialsError):
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+            with pytest.raises(ScreenScraperCredentialsError):
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert session.get.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_the_failure_is_logged_once(self, service, monkeypatch):
+        mock_log = MagicMock()
+        monkeypatch.setattr(ss_module, "log", mock_log)
+        _, context = self._session(self._forbidden_response())
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            for _ in range(2):
+                with pytest.raises(ScreenScraperCredentialsError):
+                    await service._request(
+                        "https://api.screenscraper.fr/api2/jeuInfos.php"
+                    )
+
+        assert mock_log.error.call_count == 1
+        assert "RomM developer credentials" in _rendered(mock_log.error.call_args)
+
+    @pytest.mark.asyncio
+    async def test_a_new_scan_asks_again(self, service):
+        """Credentials are read at startup, so a restart is what clears this."""
+        _, context = self._session(self._forbidden_response())
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            with pytest.raises(ScreenScraperCredentialsError):
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        reset_scan_state()
+
+        ok_response = MagicMock()
+        ok_response.text = AsyncMock(return_value="{}")
+        ok_response.json = AsyncMock(return_value={"response": {}})
+        ok_response.raise_for_status.return_value = None
+        session, context = self._session(ok_response)
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            assert await service._request(
+                "https://api.screenscraper.fr/api2/jeuInfos.php"
+            ) == {"response": {}}
+
+        session.get.assert_called_once()
+
+
+class TestApiClosedForAccount:
+    """ScreenScraper's error table gives HTTP 401 two halves: the description is
+    "API fermé pour les non membres ou les membres inactifs" and the cause is
+    "Le Serveur est saturé (utilisation CPU>60%)". Reporting either one alone
+    sends the reader looking in the wrong place."""
+
+    @pytest.fixture
+    def service(self):
+        return ScreenScraperService()
+
+    def _unauthorized_session(self) -> MagicMock:
+        session = AsyncMock()
+        session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=http.HTTPStatus.UNAUTHORIZED,
+        )
+        context = MagicMock()
+        context.get.return_value = session
+        return context
+
+    @pytest.mark.asyncio
+    async def test_unauthorized_describes_a_closed_account(self, service, monkeypatch):
+        mock_log = MagicMock()
+        monkeypatch.setattr(ss_module, "log", mock_log)
+
+        with patch(
+            "adapters.services.screenscraper.ctx_aiohttp_session",
+            self._unauthorized_session(),
+        ):
+            assert (
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+                == {}
+            )
+
+        messages = [_rendered(call).lower() for call in mock_log.warning.call_args_list]
+        assert any("inactive" in message and "cpu" in message for message in messages)
 
 
 class TestLoadsLenient:
@@ -1471,6 +1724,88 @@ class TestPrimingAccountLimits:
             assert await prime_account_limits() is None
 
         assert mock_log.warning.called
+
+    @pytest.mark.asyncio
+    async def test_priming_warns_when_the_lookup_answers_nothing(self, monkeypatch):
+        """The errors that are swallowed into an empty response left the scan with
+        no limits and no warning: complete silence."""
+        mock_log = MagicMock()
+        monkeypatch.setattr(ss_module, "log", mock_log)
+
+        session = AsyncMock()
+        session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=http.HTTPStatus.BAD_REQUEST,
+        )
+        context = MagicMock()
+        context.get.return_value = session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            assert await prime_account_limits() is None
+
+        assert mock_log.warning.called
+
+    @pytest.mark.asyncio
+    async def test_priming_reports_rejected_credentials(self, monkeypatch):
+        mock_log = MagicMock()
+        monkeypatch.setattr(ss_module, "log", mock_log)
+
+        response = MagicMock()
+        response.text = AsyncMock(return_value=SS_LOGIN_ERROR_BODY)
+        response.json = AsyncMock(return_value={})
+        response.raise_for_status.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=http.HTTPStatus.FORBIDDEN,
+        )
+        session = AsyncMock()
+        session.get.return_value = response
+        context = MagicMock()
+        context.get.return_value = session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            assert await prime_account_limits() is None
+
+        # The full explanation is the error the service already logged; the
+        # warning only has to say why no quota readout follows.
+        assert "SCREENSCRAPER_USER" in _rendered(mock_log.error.call_args)
+        messages = [_rendered(call) for call in mock_log.warning.call_args_list]
+        assert any("credentials" in message for message in messages)
+
+    @pytest.mark.asyncio
+    async def test_priming_never_takes_the_provider_out(self):
+        """ScreenScraper refuses a developer id it accepted a minute earlier while
+        the scraping endpoints keep answering, so a scan whose scraping still works
+        must not lose it to the account check."""
+        response = MagicMock()
+        response.text = AsyncMock(return_value=SS_LOGIN_ERROR_BODY)
+        response.json = AsyncMock(return_value={})
+        response.raise_for_status.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=http.HTTPStatus.FORBIDDEN,
+        )
+        session = AsyncMock()
+        session.get.return_value = response
+        context = MagicMock()
+        context.get.return_value = session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            await prime_account_limits()
+
+            assert ss_module._state.credentials_rejected is None
+
+            # The next request is made rather than short-circuited, and it is the
+            # one that arms the breaker.
+            session.get.reset_mock()
+            with pytest.raises(ScreenScraperCredentialsError):
+                await ScreenScraperService()._request(
+                    "https://api.screenscraper.fr/api2/jeuInfos.php"
+                )
+
+        session.get.assert_called_once()
+        assert ss_module._state.credentials_rejected is SSCredentialSet.DEVELOPER
 
 
 class TestQuotaWarnings:

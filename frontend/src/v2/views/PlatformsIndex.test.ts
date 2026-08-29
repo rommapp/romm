@@ -12,8 +12,9 @@ vi.mock("vue-i18n", () => ({
 
 // Plain object rather than a reactive route: every test sets the query
 // before mounting, which is when the view reads it.
-const { routeState } = vi.hoisted(() => ({
+const { routeState, searchState } = vi.hoisted(() => ({
   routeState: { query: {} as Record<string, string> },
+  searchState: { term: "" },
 }));
 
 vi.mock("vue-router", async (importOriginal) => ({
@@ -103,14 +104,19 @@ vi.mock("@/v2/composables/usePlatformPlayable", () => ({
 }));
 
 vi.mock("@/v2/composables/useTileSearchUrl", () => ({
-  useTileSearchUrl: () => ref(""),
+  useTileSearchUrl: () => ref(searchState.term),
 }));
 
 vi.mock("@/v2/composables/useWrapGridNav", () => ({
   useWrapGridNav: vi.fn(),
 }));
 
-function platform(id: number, displayName: string, romCount: number): Platform {
+function platform(
+  id: number,
+  displayName: string,
+  romCount: number,
+  overrides: Partial<Platform> = {},
+): Platform {
   return {
     id,
     display_name: displayName,
@@ -118,6 +124,7 @@ function platform(id: number, displayName: string, romCount: number): Platform {
     slug: displayName.toLowerCase().replaceAll(" ", "-"),
     fs_slug: displayName.toLowerCase().replaceAll(" ", "-"),
     rom_count: romCount,
+    ...overrides,
   } as Platform;
 }
 
@@ -125,6 +132,7 @@ describe("PlatformsIndex", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     routeState.query = {};
+    searchState.term = "";
   });
 
   it("hides empty platforms by default", () => {
@@ -157,5 +165,134 @@ describe("PlatformsIndex", () => {
     const wrapper = mount(PlatformsIndex);
 
     expect(wrapper.text()).toContain("platform.no-platforms-with-games");
+  });
+
+  describe("search", () => {
+    function seed() {
+      storePlatforms().set([
+        platform(1, "PlayStation", 30, {
+          slug: "ps",
+          fs_slug: "psx",
+          category: "console",
+          family_name: "PlayStation",
+        }),
+        platform(2, "Nintendo 64", 12, {
+          slug: "n64",
+          fs_slug: "nintendo-64",
+          category: "console",
+          family_name: "Nintendo",
+        }),
+        platform(3, "Game Boy Advance", 5, {
+          slug: "gba",
+          fs_slug: "gba-roms",
+          category: "portable_console",
+          family_name: "Nintendo",
+        }),
+      ]);
+    }
+
+    it("matches on the display name", () => {
+      seed();
+      searchState.term = "advance";
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("Game Boy Advance 5");
+      expect(wrapper.text()).not.toContain("PlayStation 30");
+      expect(wrapper.text()).not.toContain("Nintendo 64 12");
+    });
+
+    it("matches on the slug", () => {
+      seed();
+      searchState.term = "n64";
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("Nintendo 64 12");
+      expect(wrapper.text()).not.toContain("PlayStation 30");
+      expect(wrapper.text()).not.toContain("Game Boy Advance 5");
+    });
+
+    it("matches on the folder name", () => {
+      seed();
+      searchState.term = "psx";
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("PlayStation 30");
+      expect(wrapper.text()).not.toContain("Nintendo 64 12");
+      expect(wrapper.text()).not.toContain("Game Boy Advance 5");
+    });
+
+    it("matches on the raw category", () => {
+      seed();
+      searchState.term = "portable_console";
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("Game Boy Advance 5");
+      expect(wrapper.text()).not.toContain("PlayStation 30");
+      expect(wrapper.text()).not.toContain("Nintendo 64 12");
+    });
+
+    // The category the user reads is the prettified label, so typing what
+    // the list column and the group heading show has to match too.
+    it("matches on the prettified category label", () => {
+      seed();
+      searchState.term = "portable console";
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("Game Boy Advance 5");
+      expect(wrapper.text()).not.toContain("PlayStation 30");
+      expect(wrapper.text()).not.toContain("Nintendo 64 12");
+    });
+
+    it("matches on the family name", () => {
+      seed();
+      searchState.term = "nintendo";
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("Game Boy Advance 5");
+      expect(wrapper.text()).toContain("Nintendo 64 12");
+      expect(wrapper.text()).not.toContain("PlayStation 30");
+    });
+
+    it("ignores case and surrounding whitespace", () => {
+      seed();
+      searchState.term = "  PSX  ";
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("PlayStation 30");
+      expect(wrapper.text()).not.toContain("Nintendo 64 12");
+    });
+
+    it("reports no results when nothing matches any field", () => {
+      seed();
+      searchState.term = "sega";
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("platform.no-platforms-search");
+      expect(wrapper.text()).not.toContain("PlayStation 30");
+    });
+
+    it("tolerates platforms with no category or family", () => {
+      storePlatforms().set([
+        platform(1, "Arcade", 7, {
+          slug: "arcade",
+          fs_slug: "arcade",
+          category: null,
+          family_name: null,
+        }),
+      ]);
+      searchState.term = "arcade";
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("Arcade 7");
+    });
   });
 });

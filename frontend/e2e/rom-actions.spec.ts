@@ -35,7 +35,7 @@ test.describe("ROM more-actions menu (read-only user)", () => {
     // The actions they CAN perform are still there -- otherwise this spec would
     // also pass against a menu that failed to render at all.
     expect(labels).toContain("Download");
-    expect(labels).toContain("Add to favourites");
+    expect(labels).toContain("Add to favorites");
   });
 
   test("has no trailing separator", async ({ page }) => {

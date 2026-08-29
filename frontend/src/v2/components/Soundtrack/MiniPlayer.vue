@@ -63,6 +63,7 @@ const coverUrl = computed(
   () =>
     meta.value.coverUrl ??
     meta.value.folderCoverUrl ??
+    meta.value.gameArtworkUrl ??
     "/assets/default/album_cover.jpg",
 );
 
@@ -196,12 +197,13 @@ function openRom() {
     >
       <!-- Top row: cover + meta + close/open-rom -->
       <div class="r-v2-mp__top">
-        <div
-          class="r-v2-mp__disc"
-          :class="{ 'r-v2-mp__disc--spinning': isPlaying }"
-          aria-hidden="true"
-        >
-          <img :src="coverUrl" class="r-v2-mp__disc-img" alt="" />
+        <div class="r-v2-mp__disc" aria-hidden="true">
+          <div
+            class="r-v2-mp__disc-rotor"
+            :class="{ 'r-v2-mp__disc-rotor--spinning': isPlaying }"
+          >
+            <img :src="coverUrl" class="r-v2-mp__disc-img" alt="" />
+          </div>
           <div v-if="isBuffering" class="r-v2-mp__disc-buffering">
             <RSpinner :size="20" :width="2" color="white" />
           </div>
@@ -347,15 +349,24 @@ html[data-bp~="sm-and-down"] .r-v2-mp {
   flex-shrink: 0;
   box-shadow: 0 0 0 2px color-mix(in srgb, black 50%, transparent);
 }
-.r-v2-mp__disc-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.r-v2-mp__disc-rotor {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+  transform-box: border-box;
   animation: r-v2-mp-spin 12s linear infinite;
   animation-play-state: paused;
 }
-.r-v2-mp__disc--spinning .r-v2-mp__disc-img {
+.r-v2-mp__disc-rotor--spinning {
   animation-play-state: running;
+}
+
+.r-v2-mp__disc-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 /* Static vinyl-record spindle — gives the rotation a fixed visual
    reference so the spin reads as motion rather than a flat circle. */
@@ -390,7 +401,7 @@ html[data-bp~="sm-and-down"] .r-v2-mp {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .r-v2-mp__disc-img {
+  .r-v2-mp__disc-rotor {
     animation: none;
   }
 }

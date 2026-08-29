@@ -183,6 +183,19 @@ class TestListTasks:
         assert data["watcher"][0]["enabled"] is False
         assert "10 minute delay" in data["watcher"][0]["description"]
 
+    def test_missing_firmware_cleanup_is_registered(self, client, access_token):
+        """Unpatched registry: the Missing tab runs this task by name, so a
+        missing registration is a 404 at the point of use (issue #4075)."""
+        response = client.get(
+            "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        manual = {t["name"]: t for t in response.json()["manual"]}
+        assert "cleanup_missing_firmware" in manual
+        assert manual["cleanup_missing_firmware"]["manual_run"] is True
+        assert manual["cleanup_missing_firmware"]["type"] == TaskType.CLEANUP.value
+
     def test_list_tasks_unauthorized(self, client):
         """Test that unauthorized requests are rejected"""
         response = client.get("/api/tasks")

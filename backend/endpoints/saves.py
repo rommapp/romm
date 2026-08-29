@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import Body, File, HTTPException, Request, UploadFile, status
+from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from config import MAX_AUTOCLEANUP_LIMIT
@@ -35,6 +35,7 @@ from utils.datetime import to_utc
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size
+from utils.validation import RomIdScope
 
 
 def _build_save_schema(
@@ -401,6 +402,16 @@ async def add_save(
 def get_saves(
     request: Request,
     rom_id: int | None = None,
+    rom_ids: Annotated[
+        RomIdScope,
+        Query(
+            description=(
+                "ROM IDs to scope the results to, for clients syncing a known "
+                "set of ROMs. Multiple values are allowed by repeating the "
+                "parameter. Combined with `rom_id` when both are given."
+            ),
+        ),
+    ] = None,
     platform_id: int | None = None,
     device_id: str | None = None,
     slot: str | None = None,
@@ -411,7 +422,11 @@ def get_saves(
     )
 
     saves = db_save_handler.get_saves(
-        user_id=request.user.id, rom_id=rom_id, platform_id=platform_id, slot=slot
+        user_id=request.user.id,
+        rom_id=rom_id,
+        rom_ids=rom_ids,
+        platform_id=platform_id,
+        slot=slot,
     )
 
     if not device:

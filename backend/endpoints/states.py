@@ -51,14 +51,7 @@ async def add_state(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
-    log.info(f"Uploading state of {rom.name}")
-
-    states_path = fs_asset_handler.build_states_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom_id,
-        emulator=emulator,
-    )
+    assert_rom_visible(request, rom)
 
     if not stateFile.filename:
         log.error("State file has no filename")
@@ -73,10 +66,6 @@ async def add_state(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid state filename: {str(exc)}",
         ) from exc
-
-    rom = db_rom_handler.get_rom(rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
 
     log.info(
         f"Uploading state {hl(sanitized_state_filename)} for {hl(str(rom.name), color=BLUE)}"
@@ -105,9 +94,23 @@ async def add_state(
         user_id=request.user.id, rom_id=rom.id, file_name=sanitized_state_filename
     )
     if db_state:
+        # The new bytes land under the requested emulator's folder, so the row
+        # follows them and the file at the old location is left orphaned.
+        stale_full_path = db_state.full_path
         db_state = db_state_handler.update_state(
-            db_state.id, {"file_size_bytes": scanned_state.file_size_bytes}
+            db_state.id,
+            {
+                "file_size_bytes": scanned_state.file_size_bytes,
+                "file_path": scanned_state.file_path,
+                "emulator": emulator,
+            },
         )
+
+        if stale_full_path != db_state.full_path:
+            try:
+                await fs_asset_handler.remove_file(stale_full_path)
+            except FileNotFoundError:
+                pass
     else:
         scanned_state.rom_id = rom.id
         scanned_state.user_id = request.user.id

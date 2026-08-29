@@ -1,3 +1,4 @@
+import axios from "axios";
 import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
 import type {
@@ -14,10 +15,19 @@ export type VirtualCollection = VirtualCollectionSchema;
 export type SmartCollection = SmartCollectionSchema;
 export type CollectionType = Collection | VirtualCollection | SmartCollection;
 
+/** A 404 or 403 answers the read (gone, or off limits); anything else means
+ * the read never happened. */
+function isGone(error: unknown): boolean {
+  const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+  return status === 404 || status === 403;
+}
+
 export default defineStore("collections", {
   state: () => ({
     allCollections: [] as Collection[],
     virtualCollections: [] as VirtualCollection[],
+    virtualCollectionType: null as string | null,
+    virtualCollectionsStale: false as boolean,
     smartCollections: [] as SmartCollection[],
     favoriteCollection: undefined as Collection | undefined,
     filterText: "" as string,
@@ -111,6 +121,7 @@ export default defineStore("collections", {
     fetchVirtualCollections(type: string): Promise<VirtualCollection[]> {
       if (this.fetchingVirtualCollections) return Promise.resolve([]);
       this.fetchingVirtualCollections = true;
+      this.virtualCollectionType = type;
 
       return new Promise((resolve, reject) => {
         collectionApi
@@ -125,8 +136,80 @@ export default defineStore("collections", {
           })
           .finally(() => {
             this.fetchingVirtualCollections = false;
+            if (this.virtualCollectionsStale) {
+              this.virtualCollectionsStale = false;
+              void this.refreshVirtualCollections();
+            }
           });
       });
+    },
+    /** Re-read the loaded virtual collections, whose membership is derived
+     * from ROM metadata that scans and matches rewrite. Never rejects: every
+     * caller fires it in the background. */
+    refreshVirtualCollections(): Promise<VirtualCollection[]> {
+      const type = this.virtualCollectionType;
+      if (type === null) return Promise.resolve([]);
+      // A response already in flight left the server before the change did,
+      // so queue the re-read behind it rather than let the guard drop it.
+      if (this.fetchingVirtualCollections) {
+        this.virtualCollectionsStale = true;
+        return Promise.resolve([]);
+      }
+      return this.fetchVirtualCollections(type).catch(() => []);
+    },
+    /** Re-read one collection and refresh the cached copy. A gone collection
+     * is dropped from the cache too, so callers read not-found from the cache
+     * rather than from the null. */
+    async refreshCollection(id: number): Promise<Collection | null> {
+      try {
+        const { data } = await collectionApi.getCollection(id);
+        this.updateCollection(data);
+        return data;
+      } catch (error) {
+        if (isGone(error)) {
+          this.allCollections = this.allCollections.filter((c) => c.id !== id);
+          if (this.favoriteCollection?.id === id) {
+            this.favoriteCollection = undefined;
+          }
+        } else {
+          console.error(error);
+        }
+        return null;
+      }
+    },
+    async refreshVirtualCollection(
+      id: string,
+    ): Promise<VirtualCollection | null> {
+      try {
+        const { data } = await collectionApi.getVirtualCollection(id);
+        this.updateVirtualCollection(data);
+        return data;
+      } catch (error) {
+        if (isGone(error)) {
+          this.virtualCollections = this.virtualCollections.filter(
+            (c) => c.id !== id,
+          );
+        } else {
+          console.error(error);
+        }
+        return null;
+      }
+    },
+    async refreshSmartCollection(id: number): Promise<SmartCollection | null> {
+      try {
+        const { data } = await collectionApi.getSmartCollection(id);
+        this.updateSmartCollection(data);
+        return data;
+      } catch (error) {
+        if (isGone(error)) {
+          this.smartCollections = this.smartCollections.filter(
+            (c) => c.id !== id,
+          );
+        } else {
+          console.error(error);
+        }
+        return null;
+      }
     },
     setFavoriteCollection(favoriteCollection: Collection | undefined) {
       this.favoriteCollection = favoriteCollection;
@@ -157,6 +240,13 @@ export default defineStore("collections", {
         value.id === collection.id ? collection : value,
       );
       this._reorderCollections();
+    },
+    // Replaces in place only: the list holds one virtual collection type, so
+    // inserting could mix types.
+    updateVirtualCollection(collection: VirtualCollection) {
+      this.virtualCollections = this.virtualCollections.map((value) =>
+        value.id === collection.id ? collection : value,
+      );
     },
     updateSmartCollection(collection: SmartCollection) {
       this.smartCollections = this.smartCollections.map((value) =>
@@ -211,6 +301,8 @@ export default defineStore("collections", {
     reset() {
       this.allCollections = [];
       this.virtualCollections = [];
+      this.virtualCollectionType = null;
+      this.virtualCollectionsStale = false;
       this.smartCollections = [];
       this.favoriteCollection = undefined;
       this.filterText = "";

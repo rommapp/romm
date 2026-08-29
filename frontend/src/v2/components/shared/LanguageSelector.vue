@@ -21,7 +21,9 @@ interface Props {
 }
 withDefaults(defineProps<Props>(), { prefixLabel: false });
 
-const { t, locale } = useI18n();
+// Global scope is explicit because this write switches the whole app:
+// an <i18n> block in this SFC would otherwise flip it to component-local.
+const { t, locale } = useI18n({ useScope: "global" });
 const languageStore = storeLanguage();
 const { languages, selectedLanguage } = storeToRefs(languageStore);
 const { locale: localeStorage } = useUISettings();

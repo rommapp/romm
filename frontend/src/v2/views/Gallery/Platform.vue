@@ -17,14 +17,16 @@
 // Action ribbon (Upload / Scan) lives inside the head component;
 // Edit (custom_name) and Delete moved inline into the Settings tab.
 import { RDivider, type RTabNavItem } from "@v2/lib";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, inject, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import FirmwareTab from "@/v2/components/Gallery/FirmwareTab.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
@@ -33,6 +35,7 @@ import ScanPlatformDialog from "@/v2/components/Gallery/ScanPlatformDialog.vue";
 import SettingsTab from "@/v2/components/Gallery/SettingsTab.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -44,6 +47,7 @@ const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
+const emitter = inject<Emitter<Events>>("emitter");
 const { currentPlatform, total } = storeToRefs(galleryRoms);
 
 const notFound = ref(false);
@@ -102,6 +106,7 @@ const headLabels = computed(() => ({
   scan: t("platform.scan-platform"),
   random: t("platform.random-rom"),
   download: t("platform.download-platform"),
+  addPhysical: t("rom.add-physical-game"),
 }));
 
 function onTabChange(next: string) {
@@ -134,10 +139,12 @@ const platformStats = computed<StatRow[]>(() => {
     },
     { label: t("platform.on-disk"), value: formatBytes(p.fs_size_bytes ?? 0) },
   ];
-  if (p.firmware_count) {
+  // Firmware whose file is gone can't be booted, so it isn't worth a stat.
+  const usableFirmware = (p.firmware ?? []).filter((f) => !f.missing_from_fs);
+  if (usableFirmware.length) {
     rows.push({
       label: t("common.firmware"),
-      value: String(p.firmware_count),
+      value: String(usableFirmware.length),
     });
   }
   return rows;
@@ -325,39 +332,38 @@ function onScan() {
   scanOpen.value = true;
 }
 
+function onAddPhysical() {
+  if (!currentPlatform.value) return;
+  emitter?.emit("showAddPhysicalGameDialog", currentPlatform.value);
+}
+
+// Leaving for anything that isn't another gallery keeps the store's platform
+// in place, so the id check in `onRandomGame` can't see the user walked away.
+const alive = useIsAlive();
+
 // Random ROM — pick one game from this platform and jump to its
-// details. Mirrors the Home RandomPickWidget approach: a cheap
-// count-only fetch gives the `total`, then a single-item fetch at a
-// random offset resolves the ROM. Scoped to the current platform via
-// `platformIds`.
+// details. Mirrors the Home RandomPickWidget: `/roms/random` samples the
+// pick server-side, so one request resolves it whatever the platform
+// holds. `null` means the platform holds no roms.
 async function onRandomGame() {
   const p = currentPlatform.value;
   if (!p || randomLoading.value) return;
   randomLoading.value = true;
+  const scopeId = p.id;
+  // The pick belongs to the platform that was on screen when the button was
+  // clicked; following it after the user moved on would drop them into a
+  // game from a gallery they already left.
+  const stale = () => !alive.value || currentPlatform.value?.id !== scopeId;
   try {
-    const { data: head } = await romApi.getRoms({
-      platformIds: [p.id],
-      limit: 1,
-      offset: 0,
-    });
-    if (!head.total) {
+    const { data } = await romApi.getRandomRom({ platformIds: [scopeId] });
+    if (stale()) return;
+    if (!data) {
       snackbar.info(t("platform.random-rom-empty"));
       return;
     }
-    const randomOffset = Math.floor(Math.random() * head.total);
-    const { data } = await romApi.getRoms({
-      platformIds: [p.id],
-      limit: 1,
-      offset: randomOffset,
-    });
-    const pick = data.items[0];
-    if (!pick) {
-      snackbar.info(t("platform.random-rom-empty"));
-      return;
-    }
-    router.push({ name: ROUTES.ROM, params: { rom: pick.id } });
+    router.push({ name: ROUTES.ROM, params: { rom: data.id } });
   } catch {
-    snackbar.error(t("platform.random-rom-error"));
+    if (!stale()) snackbar.error(t("platform.random-rom-error"));
   } finally {
     randomLoading.value = false;
   }
@@ -446,6 +452,7 @@ async function onDelete() {
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
+        @add-physical="onAddPhysical"
         @random="onRandomGame"
         @download="onDownload"
       />
@@ -475,6 +482,7 @@ async function onDelete() {
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
+        @add-physical="onAddPhysical"
         @random="onRandomGame"
         @download="onDownload"
       />

@@ -1,6 +1,5 @@
 import re
 from typing import Final, NotRequired, TypedDict
-from urllib.parse import quote
 
 import pydash
 from unidecode import unidecode as uc
@@ -110,7 +109,8 @@ class MobyGamesHandler(MetadataHandler):
 
         roms = await self.moby_service.list_games(
             platform_ids=[platform_moby_id],
-            title=quote(uc(search_term), safe="/ "),
+            # Pass the raw term to prevent double-encoding
+            title=uc(search_term),
         )
         if not roms:
             return None
@@ -299,7 +299,7 @@ class MobyGamesHandler(MetadataHandler):
 
         matched_roms = await self.moby_service.list_games(
             platform_ids=[platform_moby_id],
-            title=quote(uc(search_term), safe="/ "),
+            title=uc(search_term),
         )
 
         return [
