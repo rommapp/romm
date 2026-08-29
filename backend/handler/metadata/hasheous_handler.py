@@ -4,9 +4,10 @@ from typing import Any, NotRequired, TypedDict
 
 import httpx
 import pydash
+import yarl
 from fastapi import HTTPException, status
 
-from config import DEV_MODE, HASHEOUS_API_ENABLED
+from config import DEV_MODE, HASHEOUS_API_ENABLED, HASHEOUS_API_URL
 from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
@@ -127,11 +128,9 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
 
 class HasheousHandler(MetadataHandler):
     def __init__(self) -> None:
-        self.BASE_URL = (
-            "https://beta.hasheous.org/api/v1"
-            if DEV_MODE
-            else "https://hasheous.org/api/v1"
-        )
+        self.BASE_URL = HASHEOUS_API_URL
+        # Cover art is linked relative to the site root, not the API path.
+        self.BASE_ORIGIN = str(yarl.URL(self.BASE_URL).origin())
         self.healthcheck_endpoint = f"{self.BASE_URL}/HealthCheck"
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
@@ -345,7 +344,7 @@ class HasheousHandler(MetadataHandler):
         url_cover = ""
         for attr in attributes:
             if attr["attributeName"] == "Logo":
-                url_cover = f"https://hasheous.org{attr['link']}"
+                url_cover = f"{self.BASE_ORIGIN}{attr['link']}"
                 break
 
         return (

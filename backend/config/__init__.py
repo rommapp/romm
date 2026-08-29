@@ -124,6 +124,11 @@ PLAYMATCH_API_URL: Final[str] = _get_env(
 
 # HASHEOUS
 HASHEOUS_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HASHEOUS_API_ENABLED"))
+# Base URL of the Hasheous API, overridable to point at a self-hosted instance.
+HASHEOUS_API_URL: Final[str] = _get_env(
+    "HASHEOUS_API_URL",
+    "https://beta.hasheous.org/api/v1" if DEV_MODE else "https://hasheous.org/api/v1",
+).rstrip("/")
 
 # THEGAMESDB
 TGDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("TGDB_API_ENABLED"))
