@@ -67,12 +67,14 @@ useGridNav(rootEl, {
     />
     <div v-if="actions.canPlay.value" class="game-actions__break" />
     <GameActionBtn
+      v-if="actions.canDownload.value"
       :rom="rom"
       action="download"
       :size="btnSize"
       variant="surface"
     />
     <GameActionBtn
+      v-if="actions.canDownload.value"
       :rom="rom"
       action="copy-link"
       :size="btnSize"

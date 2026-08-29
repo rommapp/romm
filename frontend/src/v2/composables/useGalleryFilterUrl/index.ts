@@ -15,6 +15,7 @@
 //   ?filterDuplicates=true|false
 //   ?filterPlayables=true|false
 //   ?filterMissing=true|false
+//   ?filterPhysical=true|false
 //   ?filterVerified=true|false
 //   ?filterRA=true|false
 //   ?filterSaves=true|false
@@ -25,6 +26,8 @@
 //   ?franchises=…&franchisesLogic=…
 //   ?collections=…&collectionsLogic=…
 //   ?companies=…&companiesLogic=…
+//   ?publishers=…&publishersLogic=…
+//   ?developers=…&developersLogic=…
 //   ?ageRatings=…&ageRatingsLogic=…
 //   ?regions=…&regionsLogic=…
 //   ?languages=…&languagesLogic=…
@@ -104,6 +107,7 @@ export function useGalleryFilterUrl() {
     filterDuplicates,
     filterPlayables,
     filterMissing,
+    filterPhysical,
     filterVerified,
     filterRA,
     filterSaves,
@@ -114,6 +118,8 @@ export function useGalleryFilterUrl() {
     selectedFranchises,
     selectedCollections,
     selectedCompanies,
+    selectedPublishers,
+    selectedDevelopers,
     selectedAgeRatings,
     selectedRegions,
     selectedLanguages,
@@ -125,6 +131,8 @@ export function useGalleryFilterUrl() {
     franchisesLogic,
     collectionsLogic,
     companiesLogic,
+    publishersLogic,
+    developersLogic,
     ageRatingsLogic,
     regionsLogic,
     languagesLogic,
@@ -148,6 +156,7 @@ export function useGalleryFilterUrl() {
       filterDuplicates: qBool(q.filterDuplicates),
       filterPlayables: qBool(q.filterPlayables),
       filterMissing: qBool(q.filterMissing),
+      filterPhysical: qBool(q.filterPhysical),
       filterVerified: qBool(q.filterVerified),
       filterRA: qBool(q.filterRA),
       filterSaves: qBool(q.filterSaves),
@@ -164,6 +173,10 @@ export function useGalleryFilterUrl() {
       collectionsLogic: qLogic(q.collectionsLogic),
       companies: qList(q.companies),
       companiesLogic: qLogic(q.companiesLogic),
+      publishers: qList(q.publishers),
+      publishersLogic: qLogic(q.publishersLogic),
+      developers: qList(q.developers),
+      developersLogic: qLogic(q.developersLogic),
       ageRatings: qList(q.ageRatings),
       ageRatingsLogic: qLogic(q.ageRatingsLogic),
       regions: qList(q.regions),
@@ -191,6 +204,8 @@ export function useGalleryFilterUrl() {
       filterPlayables.value = url.filterPlayables;
     if (url.filterMissing !== filterMissing.value)
       filterMissing.value = url.filterMissing;
+    if (url.filterPhysical !== filterPhysical.value)
+      filterPhysical.value = url.filterPhysical;
     if (url.filterVerified !== filterVerified.value)
       filterVerified.value = url.filterVerified;
     if (url.filterRA !== filterRA.value) filterRA.value = url.filterRA;
@@ -239,6 +254,16 @@ export function useGalleryFilterUrl() {
       filter.setSelectedFilterCompanies(url.companies);
     if (url.companiesLogic && url.companiesLogic !== companiesLogic.value)
       filter.setCompaniesLogic(url.companiesLogic);
+
+    if (!eqStrArr(url.publishers, selectedPublishers.value))
+      filter.setSelectedFilterPublishers(url.publishers);
+    if (url.publishersLogic && url.publishersLogic !== publishersLogic.value)
+      filter.setPublishersLogic(url.publishersLogic);
+
+    if (!eqStrArr(url.developers, selectedDevelopers.value))
+      filter.setSelectedFilterDevelopers(url.developers);
+    if (url.developersLogic && url.developersLogic !== developersLogic.value)
+      filter.setDevelopersLogic(url.developersLogic);
 
     if (!eqStrArr(url.ageRatings, selectedAgeRatings.value))
       filter.setSelectedFilterAgeRatings(url.ageRatings);
@@ -329,6 +354,7 @@ export function useGalleryFilterUrl() {
     setBool("filterDuplicates", filterDuplicates.value);
     setBool("filterPlayables", filterPlayables.value);
     setBool("filterMissing", filterMissing.value);
+    setBool("filterPhysical", filterPhysical.value);
     setBool("filterVerified", filterVerified.value);
     setBool("filterRA", filterRA.value);
     setBool("filterSaves", filterSaves.value);
@@ -359,6 +385,16 @@ export function useGalleryFilterUrl() {
     setOrDelete(
       "companiesLogic",
       selectedCompanies.value.length > 0 ? companiesLogic.value : null,
+    );
+    setList("publishers", selectedPublishers.value);
+    setOrDelete(
+      "publishersLogic",
+      selectedPublishers.value.length > 0 ? publishersLogic.value : null,
+    );
+    setList("developers", selectedDevelopers.value);
+    setOrDelete(
+      "developersLogic",
+      selectedDevelopers.value.length > 0 ? developersLogic.value : null,
     );
     setList("ageRatings", selectedAgeRatings.value);
     setOrDelete(
@@ -426,6 +462,7 @@ export function useGalleryFilterUrl() {
       filterDuplicates,
       filterPlayables,
       filterMissing,
+      filterPhysical,
       filterVerified,
       filterRA,
       filterSaves,
@@ -440,6 +477,10 @@ export function useGalleryFilterUrl() {
       collectionsLogic,
       selectedCompanies,
       companiesLogic,
+      selectedPublishers,
+      publishersLogic,
+      selectedDevelopers,
+      developersLogic,
       selectedAgeRatings,
       ageRatingsLogic,
       selectedRegions,

@@ -1,4 +1,5 @@
 {
+  "all-discs": "Összes lemez",
   "all-saves": "Összes mentés",
   "all-states": "Összes állás",
   "back-to-gallery": "Vissza a galériába",
@@ -13,6 +14,8 @@
   "deselect-save": "Mentés kiválasztásának törlése",
   "deselect-state": "Állás kiválasztásának törlése",
   "full-screen": "Teljes képernyő",
+  "jsdos-browser-save-warning": "A js-dos mentések csak ebben a böngészőben tárolódnak, és nem szinkronizálódnak a RomM-mal.",
+  "jsdos-quit-without-saving": "Kilépés a legutóbbi előrehaladás mentése nélkül?",
   "no-save-selected": "Nincs kiválasztott mentés",
   "no-saves-available": "Nincs elérhető mentés",
   "no-screenshot-available": "Nincs elérhető képernyőkép",

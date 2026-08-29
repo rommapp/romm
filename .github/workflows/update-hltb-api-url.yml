@@ -2,6 +2,10 @@ name: Update HowLongToBeat API URL
 
 on:
   workflow_dispatch:
+  schedule:
+    # HLTB rotates the endpoint without notice, and the fixture is served to
+    # every install from master, so check weekly rather than on someone noticing.
+    - cron: "0 6 * * 1"
 
 permissions:
   contents: write
@@ -26,6 +30,10 @@ jobs:
           uv sync
 
       - name: Run HLTB API URL discovery script
+        # Only satisfies the backend config import; discovery authenticates nothing.
+        env:
+          # trunk-ignore(checkov/CKV_SECRET_6): placeholder, not a credential
+          ROMM_AUTH_SECRET_KEY: unused-by-endpoint-discovery
         run: |
           cd backend
           uv run python -m utils.update_hltb_api_url

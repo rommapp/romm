@@ -17,14 +17,16 @@
 // Action ribbon (Upload / Scan) lives inside the head component;
 // Edit (custom_name) and Delete moved inline into the Settings tab.
 import { RDivider, type RTabNavItem } from "@v2/lib";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, inject, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import FirmwareTab from "@/v2/components/Gallery/FirmwareTab.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
@@ -45,6 +47,7 @@ const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
+const emitter = inject<Emitter<Events>>("emitter");
 const { currentPlatform, total } = storeToRefs(galleryRoms);
 
 const notFound = ref(false);
@@ -103,6 +106,7 @@ const headLabels = computed(() => ({
   scan: t("platform.scan-platform"),
   random: t("platform.random-rom"),
   download: t("platform.download-platform"),
+  addPhysical: t("rom.add-physical-game"),
 }));
 
 function onTabChange(next: string) {
@@ -135,10 +139,12 @@ const platformStats = computed<StatRow[]>(() => {
     },
     { label: t("platform.on-disk"), value: formatBytes(p.fs_size_bytes ?? 0) },
   ];
-  if (p.firmware_count) {
+  // Firmware whose file is gone can't be booted, so it isn't worth a stat.
+  const usableFirmware = (p.firmware ?? []).filter((f) => !f.missing_from_fs);
+  if (usableFirmware.length) {
     rows.push({
       label: t("common.firmware"),
-      value: String(p.firmware_count),
+      value: String(usableFirmware.length),
     });
   }
   return rows;
@@ -326,6 +332,11 @@ function onScan() {
   scanOpen.value = true;
 }
 
+function onAddPhysical() {
+  if (!currentPlatform.value) return;
+  emitter?.emit("showAddPhysicalGameDialog", currentPlatform.value);
+}
+
 // Leaving for anything that isn't another gallery keeps the store's platform
 // in place, so the id check in `onRandomGame` can't see the user walked away.
 const alive = useIsAlive();
@@ -441,6 +452,7 @@ async function onDelete() {
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
+        @add-physical="onAddPhysical"
         @random="onRandomGame"
         @download="onDownload"
       />
@@ -470,6 +482,7 @@ async function onDelete() {
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
+        @add-physical="onAddPhysical"
         @random="onRandomGame"
         @download="onDownload"
       />

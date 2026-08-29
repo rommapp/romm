@@ -1606,6 +1606,7 @@ Falls back to `FakeRedis` in test mode.
 | `STEAM_API_ENABLED`      | `false` | Steam storefront         |
 | `DISABLE_EMULATOR_JS`    | `false` | Hide EmulatorJS player   |
 | `DISABLE_RUFFLE_RS`      | `false` | Hide Ruffle Flash player |
+| `DISABLE_JSDOS`          | `false` | Hide js-dos player       |
 
 #### Task Scheduling
 

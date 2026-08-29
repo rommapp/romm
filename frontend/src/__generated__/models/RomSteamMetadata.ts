@@ -8,9 +8,9 @@ export type RomSteamMetadata = {
     first_release_date?: number;
     genres?: Array<string>;
     companies?: Array<string>;
-    game_modes?: Array<string>;
-    developers?: Array<string>;
     publishers?: Array<string>;
+    developers?: Array<string>;
+    game_modes?: Array<string>;
     platforms?: SteamPlatforms;
     controller_support?: string;
     metacritic_url?: string;

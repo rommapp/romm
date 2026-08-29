@@ -47,10 +47,10 @@ class SteamMetadata(TypedDict):
     first_release_date: NotRequired[int]
     genres: NotRequired[list[str]]
     companies: NotRequired[list[str]]
+    publishers: NotRequired[list[str]]
+    developers: NotRequired[list[str]]
     game_modes: NotRequired[list[str]]
     # Steam-specific extras.
-    developers: NotRequired[list[str]]
-    publishers: NotRequired[list[str]]
     platforms: NotRequired[SteamPlatforms]
     controller_support: NotRequired[str]
     metacritic_url: NotRequired[str]

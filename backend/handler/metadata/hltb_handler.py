@@ -11,8 +11,18 @@ from fastapi import HTTPException, status
 from config import HLTB_API_ENABLED
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
-from utils import get_version
 from utils.context import ctx_httpx_client
+from utils.hltb_search import (
+    HLTB_BASE_URL,
+    HLTB_SESSION_HEADERS,
+    SESSION_MINT_SUFFIX,
+    HLTBSession,
+    base_headers,
+    build_search_payload,
+    parse_session,
+    search_body,
+    search_headers,
+)
 from utils.rate_limiter import RateLimiter
 
 from .base_handler import BaseRom, MetadataHandler
@@ -32,13 +42,8 @@ HLTB_MAX_REQUESTS_PER_SECOND: Final[float] = 3
 # One attempt, plus one for a renewed session and one for a rate-limit backoff.
 HLTB_MAX_REQUEST_ATTEMPTS: Final[int] = 3
 HLTB_RATE_LIMIT_BACKOFF_SECONDS: Final[float] = 2
+HLTB_SESSION_RETRY_SECONDS: Final[float] = 60
 _rate_limiter = RateLimiter(HLTB_MAX_REQUESTS_PER_SECOND)
-
-# The session token decodes to "<issued-at>::<public IP>|<user agent>|<key>|<hmac>",
-# so logging it would put the host's public IP in any shared log or support bundle.
-HLTB_SESSION_HEADERS: Final[frozenset[str]] = frozenset(
-    {"x-auth-token", "x-hp-key", "x-hp-val"}
-)
 
 
 class HLTBPlatform(TypedDict):
@@ -283,16 +288,18 @@ class HLTBHandler(MetadataHandler):
     """
 
     def __init__(self) -> None:
-        self.base_url: str = "https://howlongtobeat.com"
+        self.base_url: str = HLTB_BASE_URL
         self.user_endpoint: str = f"{self.base_url}/api/user"
         self.stats_endpoint: str = (
             f"{self.base_url}/api/stats/games?platform=1&year=2000"
         )
         self.search_url: str = f"{self.base_url}/api/find"
-        self.search_init_url: str = f"{self.search_url}/init"
+        self.search_init_url: str = f"{self.search_url}{SESSION_MINT_SUFFIX}"
         self.security_token: str | None = None
         self.hp_key: str | None = None
         self.hp_val: str | None = None
+        self._session_lock = asyncio.Lock()
+        self._session_retry_after: float = 0
         self.min_similarity_score: Final[float] = 0.85
 
     @classmethod
@@ -307,15 +314,31 @@ class HLTBHandler(MetadataHandler):
         await self._fetch_security_token()
 
     def _base_headers(self) -> dict[str, str]:
-        # HLTB binds a session to the user agent that requested it, so every call
-        # has to send the same one.
-        return {
-            "Referer": self.base_url,
-            "User-Agent": f"RomM/{get_version()}",
-        }
+        return base_headers(self.base_url)
 
     def _has_session(self) -> bool:
         return bool(self.security_token and self.hp_key and self.hp_val)
+
+    async def _ensure_session(self) -> bool:
+        """Mint a session if there is none, so a failed startup is not permanent."""
+        if self._has_session():
+            return True
+
+        async with self._session_lock:
+            # A peer may have minted one while we waited for the lock.
+            if self._has_session():
+                return True
+
+            # A mint that just failed means HLTB is down or blocking this host,
+            # so every ROM left in a scan must not pay for its own round trip.
+            now = time.monotonic()
+            if now < self._session_retry_after:
+                return False
+            self._session_retry_after = now + HLTB_SESSION_RETRY_SECONDS
+
+            await self._fetch_security_token()
+
+        return self._has_session()
 
     async def _fetch_search_endpoint(self) -> None:
         """Fetch the API endpoint URL from Github."""
@@ -328,7 +351,7 @@ class HLTBHandler(MetadataHandler):
             response = await httpx_client.get(GITHUB_FILE_URL, timeout=10)
             response.raise_for_status()
             self.search_url = response.text.strip()
-            self.search_init_url = f"{self.search_url}/init"
+            self.search_init_url = f"{self.search_url}{SESSION_MINT_SUFFIX}"
         except Exception as e:
             log.warning("Unexpected error fetching HLTB endpoint from GitHub: %s", e)
 
@@ -351,10 +374,12 @@ class HLTBHandler(MetadataHandler):
                 timeout=10,
             )
             response.raise_for_status()
-            data = response.json()
-            self.security_token = data.get("token", None)
-            self.hp_key = data.get("hpKey", None)
-            self.hp_val = data.get("hpVal", None)
+            session = parse_session(response.json())
+            self.security_token, self.hp_key, self.hp_val = session or (
+                None,
+                None,
+                None,
+            )
         except Exception as e:
             log.warning("Unexpected error fetching HLTB security token: %s", e)
 
@@ -387,7 +412,7 @@ class HLTBHandler(MetadataHandler):
         :return: A dictionary with the json result.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
-        if not self._has_session():
+        if not await self._ensure_session():
             return {}
 
         httpx_client = ctx_httpx_client.get()
@@ -401,17 +426,11 @@ class HLTBHandler(MetadataHandler):
             if not self._has_session():
                 return {}
 
-            headers = {
-                "Content-Type": "application/json",
-                **self._base_headers(),
-                "x-auth-token": self.security_token or "",
-                "x-hp-key": self.hp_key or "",
-                "x-hp-val": self.hp_val or "",
-            }
-
-            # Some HLTB endpoints require the key:val in the payload. The key rotates
-            # with the session, so copy the payload instead of accumulating stale keys.
-            body = {**payload, self.hp_key or "": self.hp_val}
+            session = HLTBSession(
+                self.security_token or "", self.hp_key or "", self.hp_val or ""
+            )
+            headers = search_headers(self.base_url, session)
+            body = search_body(payload, session)
 
             log.debug(
                 "HowLongToBeat API request: URL=%s, Headers=%s, Payload=%s, Timeout=%s",
@@ -420,7 +439,7 @@ class HLTBHandler(MetadataHandler):
                     key: "[redacted]" if key in HLTB_SESSION_HEADERS else value
                     for key, value in headers.items()
                 },
-                {key: value for key, value in body.items() if key != self.hp_key},
+                {key: value for key, value in body.items() if key != session.hp_key},
                 60,
             )
 
@@ -489,35 +508,7 @@ class HLTBHandler(MetadataHandler):
         platform_name = self.get_platform(platform_slug).get("name", "")
 
         try:
-            payload = {
-                "searchType": "games",
-                "searchTerms": search_term.split(" "),
-                "searchPage": 1,
-                "size": 20,
-                "searchOptions": {
-                    "games": {
-                        "userId": 0,
-                        "platform": platform_name,
-                        "sortCategory": "popular",
-                        "rangeCategory": "main",
-                        "rangeTime": {"min": None, "max": None},
-                        "gameplay": {
-                            "perspective": "",
-                            "flow": "",
-                            "genre": "",
-                            "difficulty": "",
-                        },
-                        "rangeYear": {"min": "", "max": ""},
-                        "modifier": "",
-                    },
-                    "users": {"sortCategory": "postcount"},
-                    "lists": {"sortCategory": "follows"},
-                    "filter": "",
-                    "sort": 0,
-                    "randomizer": 0,
-                },
-                "useCache": True,
-            }
+            payload = build_search_payload(search_term, platform_name)
 
             response = await self._request(self.search_url, payload)
 

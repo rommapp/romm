@@ -1,4 +1,5 @@
 {
+  "all-discs": "All discs",
   "all-saves": "All saves",
   "all-states": "All states",
   "back-to-gallery": "Back to gallery",
@@ -13,6 +14,8 @@
   "deselect-save": "Deselect save",
   "deselect-state": "Deselect state",
   "full-screen": "Full screen",
+  "jsdos-browser-save-warning": "js-dos saves are stored only in this browser and are not synced with RomM.",
+  "jsdos-quit-without-saving": "Quit without saving recent progress?",
   "no-save-selected": "No save selected",
   "no-saves-available": "No saves available",
   "no-screenshot-available": "No screenshot available",
