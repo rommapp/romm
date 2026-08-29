@@ -45,7 +45,11 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
 )
-from handler.filesystem.roms_handler import FSRom, ParsedRomFiles
+from handler.filesystem.roms_handler import (
+    FSRom,
+    ParsedRomFiles,
+    ScannedFSRomValues,
+)
 from handler.metadata import (
     meta_gamelist_handler,
     meta_hltb_handler,
@@ -392,16 +396,19 @@ def _resolve_prod_keys_path(platform: Platform) -> str | None:
 
 
 def _apply_scanned_values(fs_rom: FSRom, parsed: ParsedRomFiles) -> None:
-    fs_rom["files"] = parsed.rom_files
-    fs_rom["crc_hash"] = parsed.crc_hash
-    fs_rom["md5_hash"] = parsed.md5_hash
-    fs_rom["sha1_hash"] = parsed.sha1_hash
-    fs_rom["ra_hash"] = parsed.ra_hash
-    fs_rom["title_id"] = parsed.title_id
-    fs_rom["save_id"] = parsed.save_id
-    fs_rom["save_usage"] = parsed.save_usage
+    values = ScannedFSRomValues(
+        files=parsed.rom_files,
+        crc_hash=parsed.crc_hash,
+        md5_hash=parsed.md5_hash,
+        sha1_hash=parsed.sha1_hash,
+        ra_hash=parsed.ra_hash,
+        title_id=parsed.title_id,
+        save_id=parsed.save_id,
+        save_usage=parsed.save_usage,
+    )
     if parsed.renamed_rom_fs_name:
-        fs_rom["fs_name"] = parsed.renamed_rom_fs_name
+        values["fs_name"] = parsed.renamed_rom_fs_name
+    fs_rom.update(values)
 
 
 # There's an order of operations here that is important:

@@ -108,6 +108,20 @@ class FSRom(TypedDict):
     save_usage: NotRequired[SaveUsage | None]
 
 
+class ScannedFSRomValues(TypedDict, total=False):
+    """The subset of `FSRom` a file rebuild produces, for `FSRom.update`."""
+
+    fs_name: str
+    files: list[RomFile]
+    crc_hash: str
+    md5_hash: str
+    sha1_hash: str
+    ra_hash: str
+    title_id: str | None
+    save_id: str | None
+    save_usage: SaveUsage | None
+
+
 class FileHash(TypedDict):
     crc_hash: str
     md5_hash: str
