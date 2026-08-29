@@ -84,7 +84,6 @@ class DBSavesHandler(DBBaseHandler):
     def get_saves(
         self,
         user_id: int,
-        rom_id: int | None = None,
         rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
         slot: str | None = None,
@@ -95,9 +94,6 @@ class DBSavesHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> Sequence[Save]:
         query = select(Save).filter_by(user_id=user_id)
-
-        if rom_id:
-            query = query.filter_by(rom_id=rom_id)
 
         # An empty collection is an explicit empty scope, not an absent filter.
         if rom_ids is not None:
