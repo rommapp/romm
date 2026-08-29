@@ -121,6 +121,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
   Object.defineProperty(window, "location", {
     configurable: true,
@@ -128,8 +129,34 @@ afterAll(() => {
   });
 });
 
+function stubRuntimeProbe(contentType: string, ok = true) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok,
+      headers: { get: () => contentType },
+      clone: () => ({ text: async () => "" }),
+    }),
+  );
+}
+
+function injectedUrls(): string[] {
+  return [document.head.appendChild, document.body.appendChild].flatMap((spy) =>
+    vi
+      .mocked(spy)
+      .mock.calls.map(
+        ([node]) =>
+          (node as Element).getAttribute?.("src") ??
+          (node as Element).getAttribute?.("href") ??
+          "",
+      )
+      .filter(Boolean),
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  stubRuntimeProbe("text/javascript");
   mocks.galleryRom = null;
   mocks.routeLeaveGuard = null;
   mocks.userId = 7;
@@ -172,6 +199,43 @@ function makeHandle(saveResult = true) {
     stop: vi.fn(() => new Promise<void>(() => undefined)),
   };
 }
+
+describe("JsDos runtime loading", () => {
+  const CDN = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
+
+  it("serves the runtime from the local assets when they are present", async () => {
+    mountView();
+    await flushPromises();
+
+    expect(injectedUrls()).toEqual(
+      expect.arrayContaining([
+        "/assets/jsdos/js-dos.css",
+        "/assets/jsdos/js-dos.js",
+      ]),
+    );
+  });
+
+  // Slim images and the Vite dev server ship no local copy, and both answer a
+  // missing asset with 200 + index.html rather than a 404.
+  it("falls back to the pinned CDN when the local path serves index.html", async () => {
+    stubRuntimeProbe("text/html");
+    mountView();
+    await flushPromises();
+
+    expect(injectedUrls()).toEqual(
+      expect.arrayContaining([`${CDN}/js-dos.css`, `${CDN}/js-dos.js`]),
+    );
+  });
+
+  it("points the emulator payloads at whichever base served the runtime", async () => {
+    stubRuntimeProbe("text/html");
+    const wrapper = await mountPlayer(makeHandle());
+
+    const options = vi.mocked(window.Dos!).mock.calls[0]![1];
+    expect(options.pathPrefix).toBe(`${CDN}/emulators/`);
+    wrapper.unmount();
+  });
+});
 
 describe("JsDos player exit", () => {
   it("reports when the runtime has not loaded", async () => {

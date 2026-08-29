@@ -25,9 +25,17 @@ import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import { isJsResource, loadScript } from "./scriptLoader";
 
-// Cross-origin isolation requires same-origin runtime assets.
-const JSDOS_ASSET_BASE = "/assets/jsdos";
+// The full image serves the runtime same-origin. Slim images and the dev
+// server ship no local copy, so fall back to jsDelivr: it serves the same
+// pinned dist with `cross-origin-resource-policy: cross-origin`, which the
+// player's COEP requires. Keep the version in step with docker/Dockerfile.
+const JSDOS_LOCAL_BASE = "/assets/jsdos";
+const JSDOS_CDN_BASE = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
+
+// Where the runtime actually came from, so the emulator payloads follow it.
+let jsDosAssetBase = JSDOS_LOCAL_BASE;
 
 const { t } = useI18n();
 const route = useRoute();
@@ -79,19 +87,17 @@ const platformLabel = computed(
     "",
 );
 
-function loadRuntime(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const css = document.createElement("link");
-    css.rel = "stylesheet";
-    css.href = `${JSDOS_ASSET_BASE}/js-dos.css`;
-    document.head.appendChild(css);
+async function loadRuntime() {
+  jsDosAssetBase = (await isJsResource(`${JSDOS_LOCAL_BASE}/js-dos.js`))
+    ? JSDOS_LOCAL_BASE
+    : JSDOS_CDN_BASE;
 
-    const script = document.createElement("script");
-    script.src = `${JSDOS_ASSET_BASE}/js-dos.js`;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("js-dos runtime failed to load"));
-    document.body.appendChild(script);
-  });
+  const css = document.createElement("link");
+  css.rel = "stylesheet";
+  css.href = `${jsDosAssetBase}/js-dos.css`;
+  document.head.appendChild(css);
+
+  await loadScript(`${jsDosAssetBase}/js-dos.js`);
 }
 
 async function onPlay() {
@@ -120,7 +126,7 @@ async function onPlay() {
     url: getDownloadPath({ rom: currentRom }),
     backend: "dosboxX",
     backendLocked: true,
-    pathPrefix: `${JSDOS_ASSET_BASE}/emulators/`,
+    pathPrefix: `${jsDosAssetBase}/emulators/`,
     autoStart: true,
     autoSave: true,
     fullScreen: fullscreenOnPlay.value,

@@ -66,6 +66,7 @@ import {
 } from "@/v2/utils/playerDisc";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
+import { isJsResource, loadScript } from "./scriptLoader";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
 // bundle doesn't pull in the EJS shims until we actually mount the player.
@@ -289,38 +290,6 @@ async function onPlay() {
   const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
   const LOCAL_PATH = "/assets/emulatorjs/data";
   const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
-
-  function loadScript(src: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = src;
-      s.async = true;
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error("Failed loading " + src));
-      document.body.appendChild(s);
-    });
-  }
-
-  // The Vite dev server (and many SPA hosts) returns 200 + index.html
-  // when a static asset is missing. A <script> tag happily "loads" that
-  // — onload fires, the promise resolves — and only later the parser
-  // throws `Unexpected token '<'` as an uncaught error, so our CDN
-  // fallback never runs. Pre-flight the URL to make sure the body is
-  // actually JS before injecting the script tag.
-  async function isJsResource(url: string): Promise<boolean> {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) return false;
-      const ct = res.headers.get("content-type") ?? "";
-      if (/javascript|ecmascript/i.test(ct)) return true;
-      if (/text\/html/i.test(ct)) return false;
-      // Content-Type may be absent (older servers); sniff the body.
-      const text = await res.clone().text();
-      return !text.trimStart().startsWith("<");
-    } catch {
-      return false;
-    }
-  }
 
   async function attemptLoad(path: string) {
     const loaderUrl = `${path}/loader.js`;
