@@ -132,10 +132,14 @@ RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION
 ARG JSDOS_VERSION=8.4.1
 ARG JSDOS_SHA256=26118692bbb180aec78ec1697eb1ea6b28ff410101870cfa3e68309914c7eaa6
 
+# The bundled index.html is a js-dos demo page that would be served unauthenticated;
+# source maps, Emscripten symbol files and type declarations are unused at runtime.
 RUN wget "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" -O jsdos.zip && \
     echo "${JSDOS_SHA256}  jsdos.zip" | sha256sum -c - && \
     unzip -o jsdos.zip -d /jsdos && \
-    rm -f jsdos.zip
+    rm -f jsdos.zip && \
+    rm -rf /jsdos/dist/index.html /jsdos/dist/emulators/types && \
+    find /jsdos/dist \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
