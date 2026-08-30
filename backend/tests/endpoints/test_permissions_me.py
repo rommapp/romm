@@ -13,6 +13,7 @@ VIEWER_ACTIONS = {
     "collection.create",
     "collection.edit",
     "collection.delete",
+    "playlist.edit",
 }
 
 

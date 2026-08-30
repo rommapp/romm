@@ -16,7 +16,6 @@
 // into a specific list works and stale state doesn't leak when the
 // user navigates to a sibling tab.
 import { RBtn, RDropzone, RIcon } from "@v2/lib";
-import axios from "axios";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -38,6 +37,7 @@ import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { errorMessage } from "@/v2/utils/errorMessage";
 
 // Slot payload from AssetList/AssetStrip is the full save|state union; these
 // narrow it back to the concrete schema the section's handlers expect.
@@ -140,15 +140,6 @@ const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
 const { syncCachedRom } = useRomSync();
-
-function errorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const detail = err.response?.data?.detail;
-    if (typeof detail === "string" && detail) return detail;
-    return err.message;
-  }
-  return err instanceof Error ? err.message : String(err);
-}
 
 async function refreshRom() {
   try {

@@ -8,7 +8,6 @@
 // tab's content height) so the viewer keeps its internal scroll and switching
 // subtabs never forces an outer scrollbar.
 import { RBtn, RDropzone, REmptyState, RSelect } from "@v2/lib";
-import axios from "axios";
 import type { Emitter } from "mitt";
 import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -20,6 +19,7 @@ import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { errorMessage } from "@/v2/utils/errorMessage";
 
 const PdfViewer = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/PdfViewer.vue"),
@@ -30,15 +30,6 @@ const MarkdownViewer = defineAsyncComponent(
 const TextViewer = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/TextViewer.vue"),
 );
-
-function errorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const detail = err.response?.data?.detail;
-    if (typeof detail === "string" && detail) return detail;
-    return err.message;
-  }
-  return err instanceof Error ? err.message : String(err);
-}
 
 const props = defineProps<{ rom: DetailedRom }>();
 const emitter = inject<Emitter<Events>>("emitter");
