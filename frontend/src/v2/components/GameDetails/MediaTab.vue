@@ -21,13 +21,15 @@ import storeRoms, { type DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSoundtrack } from "@/v2/composables/useRomSoundtrack";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useSoundtrackActions } from "@/v2/composables/useSoundtrackActions";
 
 const ManualSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ManualSubtab.vue"),
 );
 const SoundtrackPanel = defineAsyncComponent(
-  () => import("@/v2/components/GameDetails/SoundtrackPanel.vue"),
+  () => import("@/v2/components/Soundtrack/Panel.vue"),
 );
 const ScreenshotsSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ScreenshotsSubtab.vue"),
@@ -48,6 +50,12 @@ function errorMessage(err: unknown): string {
 const props = defineProps<{ rom: DetailedRom }>();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
+const soundtrackActions = useSoundtrackActions();
+const {
+  tracks: soundtrackTracks,
+  loading: soundtrackLoading,
+  fallbackArtUrl: soundtrackArtUrl,
+} = useRomSoundtrack(() => props.rom);
 const romsStore = storeRoms();
 const uploadStore = storeUpload();
 const { t } = useI18n();
@@ -201,30 +209,11 @@ async function handleSoundtrackFiles(files: File[]) {
 }
 
 async function deleteSoundtrack(fileId: number) {
-  // Mirrors the saves/states pattern in SaveDataTab — every destructive
-  // per-row action confirms before hitting the API.
   const track = (props.rom.files ?? []).find((f) => f.id === fileId);
-  const name = track?.file_name ?? "";
-  const ok = await confirm({
-    title: t("rom.delete-track-title"),
-    body: name
-      ? t("rom.delete-track-body-named", { name })
-      : t("rom.delete-track-body"),
-    confirmText: t("rom.soundtrack-delete-track"),
-    tone: "danger",
-  });
-  if (!ok) return;
-  try {
-    await romApi.removeSoundtrack({ romId: props.rom.id, fileId });
+  if (
+    await soundtrackActions.deleteTrack(props.rom.id, fileId, track?.file_name)
+  ) {
     await refreshRom();
-    snackbar.success(t("rom.soundtrack-removed"), { icon: "mdi-check-bold" });
-  } catch (error: unknown) {
-    snackbar.error(
-      t("rom.soundtrack-remove-failed", { error: errorMessage(error) }),
-      {
-        icon: "mdi-close-circle",
-      },
-    );
   }
 }
 </script>
@@ -316,8 +305,12 @@ async function deleteSoundtrack(fileId: number) {
           @files="handleSoundtrackFiles"
         >
           <SoundtrackPanel
-            :rom="rom"
+            :tracks="soundtrackTracks"
+            :playlist-key="rom.id"
+            :loading="soundtrackLoading"
+            :fallback-art-url="soundtrackArtUrl"
             :deletable="canEdit"
+            uploadable
             class="r-v2-media__soundtrack"
             @upload-tracks="soundtrackDz?.open()"
             @delete-track="deleteSoundtrack"

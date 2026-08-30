@@ -76,6 +76,50 @@ class FacetValueSchema(BaseModel):
     count: int
 
 
+class MusicStatsSchema(BaseModel):
+    """Library-wide soundtrack totals."""
+
+    total_tracks: int
+    total_duration_seconds: float
+
+
+class MusicPlatformFacetSchema(BaseModel):
+    """A platform that has soundtrack tracks, plus how many it has."""
+
+    id: int
+    slug: str
+    name: str
+    count: int
+
+    @classmethod
+    def from_row(cls, row: Any) -> MusicPlatformFacetSchema:
+        return cls(id=row.id, slug=row.slug, name=row.name, count=row.count)
+
+
+class MusicGameFacetSchema(BaseModel):
+    """A game that has soundtrack tracks -- one entry of the album list."""
+
+    rom_id: int
+    name: str
+    platform_id: int
+    platform_slug: str
+    platform_name: str
+    cover_url: str | None = None
+    count: int
+
+    @classmethod
+    def from_row(cls, row: Any) -> MusicGameFacetSchema:
+        return cls(
+            rom_id=row.rom_id,
+            name=row.name,
+            platform_id=row.platform_id,
+            platform_slug=row.platform_slug,
+            platform_name=row.platform_name,
+            cover_url=MusicTrackSchema.cover_url_for(None, row.path_cover_l),
+            count=row.count,
+        )
+
+
 class MusicPlaylistSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
