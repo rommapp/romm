@@ -14,7 +14,10 @@ import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useJukeboxUrlState } from "@/v2/composables/useJukeboxUrlState";
 import { useSoundtrackActions } from "@/v2/composables/useSoundtrackActions";
-import type { JukeboxPlayerMode } from "@/v2/utils/jukebox";
+import {
+  JUKEBOX_MODE_LABEL_KEYS,
+  type JukeboxPlayerMode,
+} from "@/v2/utils/jukebox";
 import BrowseMode, { type BrowseEntry } from "./BrowseMode.vue";
 import HomeMode from "./HomeMode.vue";
 import SessionMode from "./SessionMode.vue";
@@ -125,6 +128,13 @@ const BROWSE_MODES: Record<string, BrowseConfig> = {
 
 const browse = computed(() => BROWSE_MODES[mode.value] ?? null);
 
+// The header names the open subgroup; the back arrow beside it leads home.
+const headerTitle = computed(() =>
+  mode.value === "home"
+    ? t("common.jukebox")
+    : t(JUKEBOX_MODE_LABEL_KEYS[mode.value]),
+);
+
 const SESSION_MODES = ["play-all", "station", "favorite", "recent"] as const;
 type SessionMode = (typeof SESSION_MODES)[number];
 
@@ -154,19 +164,19 @@ async function deleteSoundtrack(fileId: number, romId: number) {
 <template>
   <section class="jukebox">
     <div class="jukebox__header">
-      <PageHeader :title="t('common.jukebox')">
+      <PageHeader :title="headerTitle">
+        <template v-if="mode !== 'home'" #prepend>
+          <RBtn
+            icon="mdi-arrow-left"
+            variant="text"
+            :tooltip="t('common.back')"
+            :aria-label="t('common.back')"
+            @click="openHome"
+          />
+        </template>
         <template #count>
           <RChip size="x-small" color="primary">{{ t("common.beta") }}</RChip>
         </template>
-        <RBtn
-          v-if="mode !== 'home'"
-          class="jukebox__back"
-          icon="mdi-arrow-left"
-          variant="text"
-          :tooltip="t('common.back')"
-          :aria-label="t('common.back')"
-          @click="openHome"
-        />
       </PageHeader>
       <RDivider />
     </div>
@@ -211,10 +221,6 @@ async function deleteSoundtrack(fileId: number, romId: number) {
 .jukebox__header {
   grid-column: 1 / -1;
   padding: 24px var(--r-row-pad) 0;
-}
-
-.jukebox__back {
-  margin-left: auto;
 }
 
 html[data-bp~="sm-and-down"] .jukebox {

@@ -16,6 +16,20 @@ export const JUKEBOX_MODES = [
 export type JukeboxPlayerMode = (typeof JUKEBOX_MODES)[number];
 export type JukeboxMode = JukeboxPlayerMode | "home";
 
+/** Locale key for each mode's display name, shared by the launch tiles and
+ *  the page header so a subgroup is called the same thing everywhere. */
+export const JUKEBOX_MODE_LABEL_KEYS: Record<JukeboxPlayerMode, string> = {
+  station: "common.free-radio",
+  decade: "common.decade-mix",
+  recent: "common.recently-added-soundtracks",
+  favorite: "common.favorite-soundtracks",
+  "play-all": "common.play-all",
+  album: "common.music-by-album",
+  platform: "common.soundtracks-by-platform",
+  artist: "common.music-by-artist",
+  genre: "common.soundtracks-by-genre",
+};
+
 const MODES = new Set<string>(JUKEBOX_MODES);
 
 /** `home` is the fallback: it is the mode with no path segment. */

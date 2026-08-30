@@ -10,7 +10,10 @@ import musicApi from "@/services/api/music";
 import CardRow from "@/v2/components/shared/CardRow.vue";
 import Tile from "@/v2/components/shared/Tile.vue";
 import { FREE_RADIO_DURATION_SECONDS } from "@/v2/utils/freeRadio";
-import type { JukeboxPlayerMode } from "@/v2/utils/jukebox";
+import {
+  JUKEBOX_MODE_LABEL_KEYS,
+  type JukeboxPlayerMode,
+} from "@/v2/utils/jukebox";
 
 const emit = defineEmits<{ (e: "open", mode: JukeboxPlayerMode): void }>();
 
@@ -110,14 +113,14 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
         mode: "station",
         tone: "--r-color-romm-red",
         icon: "mdi-radio-tower",
-        label: t("common.free-radio"),
+        label: t(JUKEBOX_MODE_LABEL_KEYS.station),
         count: minutes(radioDuration.value),
       },
       {
         mode: "decade",
         tone: "--r-color-romm-blue",
         icon: "mdi-calendar-range",
-        label: t("common.decade-mix"),
+        label: t(JUKEBOX_MODE_LABEL_KEYS.decade),
         count: t("common.decades-n", totals.value.decades, {
           named: { n: totals.value.decades },
         }),
@@ -126,14 +129,14 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
         mode: "recent",
         tone: "--r-color-romm-green",
         icon: "mdi-clock-outline",
-        label: t("common.recently-added-soundtracks"),
+        label: t(JUKEBOX_MODE_LABEL_KEYS.recent),
         count: tracksCount(Math.min(totals.value.tracks, RECENTLY_ADDED_LIMIT)),
       },
       {
         mode: "favorite",
         tone: "--r-color-fav",
         icon: "mdi-heart",
-        label: t("common.favorite-soundtracks"),
+        label: t(JUKEBOX_MODE_LABEL_KEYS.favorite),
         count: tracksCount(totals.value.favorites),
       },
     ],
@@ -145,14 +148,14 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
         mode: "play-all",
         tone: "--r-color-brand-primary",
         icon: "mdi-playlist-music",
-        label: t("common.play-all"),
+        label: t(JUKEBOX_MODE_LABEL_KEYS["play-all"]),
         count: tracksCount(totals.value.tracks),
       },
       {
         mode: "album",
         tone: "--r-color-brand-accent",
         icon: "mdi-album",
-        label: t("common.music-by-album"),
+        label: t(JUKEBOX_MODE_LABEL_KEYS.album),
         count: t("common.albums-n", totals.value.games, {
           named: { n: totals.value.games },
         }),
@@ -161,7 +164,7 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
         mode: "platform",
         tone: "--r-color-brand-secondary",
         icon: "mdi-controller",
-        label: t("common.soundtracks-by-platform"),
+        label: t(JUKEBOX_MODE_LABEL_KEYS.platform),
         count: t("common.platforms-n", totals.value.platforms, {
           named: { n: totals.value.platforms },
         }),
@@ -170,7 +173,7 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
         mode: "artist",
         tone: "--r-color-romm-gold",
         icon: "mdi-account-music",
-        label: t("common.music-by-artist"),
+        label: t(JUKEBOX_MODE_LABEL_KEYS.artist),
         count: t("common.artists-n", totals.value.artists, {
           named: { n: totals.value.artists },
         }),
@@ -179,7 +182,7 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
         mode: "genre",
         tone: "--r-color-info",
         icon: "mdi-shape",
-        label: t("common.soundtracks-by-genre"),
+        label: t(JUKEBOX_MODE_LABEL_KEYS.genre),
         count: t("common.genres-n", totals.value.genres, {
           named: { n: totals.value.genres },
         }),
