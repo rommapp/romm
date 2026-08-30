@@ -15,6 +15,7 @@ import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
+import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { colorCanvas } from "@/v2/tokens";
 
 const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
@@ -28,6 +29,8 @@ const playSession = usePlaySession();
 const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
 const backgroundColor = ref<string>(DEFAULT_BACKGROUND_COLOR);
+
+useUnloadGuard(gameRunning);
 
 declare global {
   interface Window {

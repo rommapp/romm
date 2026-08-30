@@ -56,6 +56,7 @@ import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
+import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import {
   resolveBezelHost,
@@ -116,6 +117,8 @@ const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const removeIOSFullscreenShim = ref<(() => void) | null>(null);
+
+useUnloadGuard(gameRunning);
 
 // ── Live activity ("now playing") ──────────────────────────────────
 const ACTIVITY_HEARTBEAT_MS = 30_000;
