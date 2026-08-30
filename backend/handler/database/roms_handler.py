@@ -2384,7 +2384,10 @@ class DBRomsHandler(DBBaseHandler):
                 ),
             )
         base = base.where(*where)
-        total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+        # Count over a single-column projection: the full select carries a JSON
+        # genres blob that would otherwise be materialized just to be counted.
+        count_subquery = base.with_only_columns(TrackMeta.rom_file_id).subquery()
+        total = session.scalar(select(func.count()).select_from(count_subquery)) or 0
         order_map = {
             "title": TrackMeta.title,
             "artist": TrackMeta.artist,

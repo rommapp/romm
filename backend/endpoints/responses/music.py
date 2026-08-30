@@ -65,11 +65,7 @@ class MusicTrackSchema(BaseModel):
             platform_name=row.platform_name,
             stream_url=f"/api/roms/{row.rom_file_id}/files/content/{quote(row.file_name)}",
             cover_url=cls.cover_url_for(row.cover_path, row.path_cover_l),
-            game_cover_url=(
-                f"{FRONTEND_RESOURCES_PATH}/{row.path_cover_l}"
-                if row.path_cover_l
-                else None
-            ),
+            game_cover_url=cls.cover_url_for(None, row.path_cover_l),
         )
 
 

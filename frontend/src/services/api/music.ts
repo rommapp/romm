@@ -5,55 +5,52 @@ import type {
 } from "@/__generated__";
 import api from "@/services/api";
 
+export const ALL_TRACKS_PAGE_SIZE = 1_000;
+
 export interface MusicTrackFilters {
   search?: string;
   limit?: number;
   offset?: number;
   romId?: number;
-  orderBy?:
-    | "title"
-    | "artist"
-    | "album"
-    | "duration"
-    | "year"
-    | "platform"
-    | "added";
-  orderDir?: "asc" | "desc";
 }
 
 async function getTracks(filters: MusicTrackFilters = {}) {
   return api.get<MusicPage_MusicTrackSchema_>("/music/tracks", {
     params: {
       search: filters.search || undefined,
-      limit: filters.limit ?? 10_000,
+      limit: filters.limit ?? ALL_TRACKS_PAGE_SIZE,
       offset: filters.offset ?? 0,
       rom_id: filters.romId,
-      order_by: filters.orderBy ?? "title",
-      order_dir: filters.orderDir ?? "asc",
     },
   });
 }
 
-const ALL_TRACKS_PAGE_SIZE = 1_000;
-
 async function getAllTracks(
   filters: Omit<MusicTrackFilters, "limit" | "offset"> = {},
 ): Promise<MusicTrackSchema[]> {
-  const tracks: MusicTrackSchema[] = [];
-  let total = Number.POSITIVE_INFINITY;
+  const { data: first } = await getTracks({
+    ...filters,
+    limit: ALL_TRACKS_PAGE_SIZE,
+    offset: 0,
+  });
+  if (first.items.length === 0) return [];
 
-  while (tracks.length < total) {
-    const { data } = await getTracks({
-      ...filters,
-      limit: ALL_TRACKS_PAGE_SIZE,
-      offset: tracks.length,
-    });
-    tracks.push(...data.items);
-    total = data.total;
-    if (data.items.length === 0) break;
+  // The first page reports the total, so the rest are independent.
+  const offsets: number[] = [];
+  for (
+    let offset = ALL_TRACKS_PAGE_SIZE;
+    offset < first.total;
+    offset += ALL_TRACKS_PAGE_SIZE
+  ) {
+    offsets.push(offset);
   }
+  const rest = await Promise.all(
+    offsets.map((offset) =>
+      getTracks({ ...filters, limit: ALL_TRACKS_PAGE_SIZE, offset }),
+    ),
+  );
 
-  return tracks;
+  return [...first.items, ...rest.flatMap(({ data }) => data.items)];
 }
 
 async function addFavorites(payload: MusicTrackIdsPayload) {

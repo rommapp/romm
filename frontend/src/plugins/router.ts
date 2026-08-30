@@ -192,6 +192,7 @@ const routes = [
         name: ROUTES.MUSIC,
         meta: { title: i18n.global.t("common.jukebox") },
         components: {
+          // v1 has no equivalent; redirect to home
           default: () => import("@/views/Home.vue"),
           v2: v2For(ROUTES.MUSIC),
         },

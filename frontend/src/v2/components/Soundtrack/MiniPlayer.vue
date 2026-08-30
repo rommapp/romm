@@ -18,9 +18,11 @@ import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/router";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import type { Events } from "@/types/emitter";
 import VolumeControl from "@/v2/components/Soundtrack/VolumeControl.vue";
+import { isJukeboxPlayerMode } from "@/v2/utils/jukebox";
 
 defineOptions({ inheritAttrs: false });
 
@@ -49,24 +51,9 @@ const audioEl = ref<HTMLAudioElement | null>(null);
 // current state. Same idiom as v1's mini player.
 let loadToken = 0;
 
-const JUKEBOX_PLAYER_MODES = new Set([
-  "album",
-  "artist",
-  "decade",
-  "favorite",
-  "genre",
-  "platform",
-  "recent",
-  "play-all",
-  "station",
-]);
-
 const onFullSoundtrackPlayer = computed(() => {
-  const jukeboxMode = route.query.mode;
   const onJukeboxPlayer =
-    route.name === "music" &&
-    typeof jukeboxMode === "string" &&
-    JUKEBOX_PLAYER_MODES.has(jukeboxMode);
+    route.name === ROUTES.MUSIC && isJukeboxPlayerMode(route.query.mode);
   const onGameSoundtrack =
     route.name === "rom" &&
     route.query.tab === "media" &&

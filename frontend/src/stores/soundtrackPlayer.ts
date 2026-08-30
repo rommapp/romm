@@ -4,7 +4,7 @@ import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import type { TrackMetaSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
-import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import { FRONTEND_RESOURCES_PATH, shuffled } from "@/utils";
 
 const volumeStorage = useLocalStorage<number>("soundtrack.volume", 1);
 const mutedStorage = useLocalStorage<boolean>("soundtrack.muted", false);
@@ -42,10 +42,7 @@ export function resolveSoundtrackGameArtwork(
   if (logoPath) return `${FRONTEND_RESOURCES_PATH}/${logoPath}`;
 
   return (
-    rom.path_cover_large ??
-    rom.path_cover_small ??
-    rom.url_cover ??
-    undefined
+    rom.path_cover_large ?? rom.path_cover_small ?? rom.url_cover ?? undefined
   );
 }
 
@@ -118,15 +115,6 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     isBuffering.value = false;
   }
 
-  function shuffledTracks(tracks: PlayerTrack[]): PlayerTrack[] {
-    const result = [...tracks];
-    for (let index = result.length - 1; index > 0; index -= 1) {
-      const target = Math.floor(Math.random() * (index + 1));
-      [result[index], result[target]] = [result[target], result[index]];
-    }
-    return result;
-  }
-
   function loadPlaylist(
     tracks: PlayerTrack[],
     metas: Record<number, PlayerMeta>,
@@ -152,7 +140,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
       playlist.value =
         restored.length > 0
           ? [...restored, ...tracksByKey.values()]
-          : shuffledTracks([...tracksByKey.values()]);
+          : shuffled([...tracksByKey.values()]);
       return;
     }
 
@@ -182,8 +170,10 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
         item.fileId !== current.fileId ||
         item.romId !== current.romId,
     );
-    const shuffled = shuffledTracks(remaining);
-    playlist.value = current ? [current, ...shuffled] : shuffled;
+    const shuffledRemaining = shuffled(remaining);
+    playlist.value = current
+      ? [current, ...shuffledRemaining]
+      : shuffledRemaining;
     isShuffled.value = true;
   }
 

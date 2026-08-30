@@ -25,23 +25,17 @@ import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { errorMessage } from "@/v2/utils/errorMessage";
 import {
   buildFreeRadioSession,
   trackDurationSeconds,
 } from "@/v2/utils/freeRadio";
+import {
+  type JukeboxMode,
+  type JukeboxPlayerMode,
+  modeFromQuery,
+} from "@/v2/utils/jukebox";
 import { patchQuery } from "@/v2/utils/routeQuery";
-
-type JukeboxMode =
-  | "home"
-  | "album"
-  | "artist"
-  | "decade"
-  | "favorite"
-  | "genre"
-  | "platform"
-  | "recent"
-  | "play-all"
-  | "station";
 
 interface DecadeGroup {
   startYear: number;
@@ -62,41 +56,15 @@ interface Album {
   trackCount: number;
 }
 
-function errorMessage(error: unknown): string {
-  if (axios.isAxiosError(error)) {
-    const detail = error.response?.data?.detail;
-    if (typeof detail === "string" && detail) return detail;
-    return error.message;
-  }
-  return error instanceof Error ? error.message : String(error);
-}
-
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const confirm = useConfirm();
 const snackbar = useSnackbar();
 const canEdit = useCan("rom.edit");
-function modeFromQuery(value: unknown): JukeboxMode {
-  if (
-    value === "album" ||
-    value === "artist" ||
-    value === "decade" ||
-    value === "favorite" ||
-    value === "genre" ||
-    value === "platform" ||
-    value === "recent" ||
-    value === "play-all" ||
-    value === "station"
-  ) {
-    return value;
-  }
-  return "home";
-}
-
 const mode = ref<JukeboxMode>(modeFromQuery(route.query.mode));
 
-function openMode(value: Exclude<JukeboxMode, "home">) {
+function openMode(value: JukeboxPlayerMode) {
   if (value === "station") generateFreeRadio();
   mode.value = value;
 }
@@ -124,12 +92,24 @@ const loadingAlbums = ref(true);
 const loadingRom = ref(false);
 const albumsFailed = ref(false);
 const romFailed = ref(false);
-const search = ref(typeof route.query.search === "string" ? route.query.search : "");
+const search = ref(
+  typeof route.query.search === "string" ? route.query.search : "",
+);
 
 let albumFetchToken = 0;
 let romFetchToken = 0;
 let romAbort: AbortController | null = null;
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+function pushGrouped<K>(
+  grouped: Map<K, MusicTrackSchema[]>,
+  key: K,
+  track: MusicTrackSchema,
+) {
+  const existing = grouped.get(key);
+  if (existing) existing.push(track);
+  else grouped.set(key, [track]);
+}
 
 const albums = computed<Album[]>(() => {
   const grouped = new Map<number, Album>();
@@ -158,7 +138,7 @@ const decades = computed<DecadeGroup[]>(() => {
   for (const track of allTracks.value) {
     if (!track.year) continue;
     const startYear = Math.floor(track.year / 10) * 10;
-    grouped.set(startYear, [...(grouped.get(startYear) ?? []), track]);
+    pushGrouped(grouped, startYear, track);
   }
   return [...grouped.entries()]
     .map(([startYear, decadeTracks]) => ({
@@ -179,7 +159,7 @@ const genres = computed(() => {
     for (const genre of track.game_genres ?? []) {
       const name = genre.trim();
       if (!name) continue;
-      grouped.set(name, [...(grouped.get(name) ?? []), track]);
+      pushGrouped(grouped, name, track);
     }
   }
   return [...grouped.entries()]
@@ -211,9 +191,11 @@ const platforms = computed(() => {
 });
 
 const recentlyAddedTracks = computed(() =>
-  [...allTracks.value]
-    .sort((a, b) => Date.parse(b.added_at) - Date.parse(a.added_at))
-    .slice(0, 25),
+  allTracks.value
+    .map((track) => ({ track, addedAt: Date.parse(track.added_at) }))
+    .sort((a, b) => b.addedAt - a.addedAt)
+    .slice(0, 25)
+    .map((entry) => entry.track),
 );
 
 const selectedGenreTracks = computed(
@@ -253,7 +235,7 @@ const artists = computed<ArtistGroup[]>(() => {
   for (const track of allTracks.value) {
     const name = track.artist?.trim();
     if (!name) continue;
-    grouped.set(name, [...(grouped.get(name) ?? []), track]);
+    pushGrouped(grouped, name, track);
   }
   return [...grouped.entries()]
     .map(([name, artistTracks]) => ({ name, tracks: artistTracks }))
@@ -280,6 +262,21 @@ function selectArtist(artist: ArtistGroup) {
   patchQuery(router, { artist: artist.name });
 }
 
+// The four "one big list" modes; `sessionTracks` is the single source for
+// both the emptiness check and the panel's input.
+const SESSION_MODES = ["play-all", "station", "favorite", "recent"] as const;
+
+const isSessionMode = computed(() =>
+  (SESSION_MODES as readonly string[]).includes(mode.value),
+);
+
+const sessionTracks = computed<MusicTrackSchema[]>(() => {
+  if (mode.value === "station") return freeRadioTracks.value;
+  if (mode.value === "favorite") return favoriteTracks.value;
+  if (mode.value === "recent") return recentlyAddedTracks.value;
+  return allTracks.value;
+});
+
 const freeRadioDuration = computed(() =>
   trackDurationSeconds(freeRadioTracks.value),
 );
@@ -287,6 +284,94 @@ const freeRadioDuration = computed(() =>
 function generateFreeRadio() {
   freeRadioTracks.value = buildFreeRadioSession(allTracks.value);
 }
+
+interface LaunchTile {
+  mode: JukeboxPlayerMode;
+  icon: string;
+  label: string;
+  count: string;
+}
+
+function tracksCount(n: number): string {
+  return t("rom.tracks-n", n, { named: { n } });
+}
+
+const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
+  {
+    title: t("common.playlists"),
+    tiles: [
+      {
+        mode: "station",
+        icon: "mdi-radio-tower",
+        label: t("common.free-radio"),
+        count: formatRadioDuration(freeRadioDuration.value),
+      },
+      {
+        mode: "decade",
+        icon: "mdi-calendar-range",
+        label: t("common.decade-mix"),
+        count: t("common.decades-n", decades.value.length, {
+          named: { n: decades.value.length },
+        }),
+      },
+      {
+        mode: "recent",
+        icon: "mdi-clock-outline",
+        label: t("common.recently-added-soundtracks"),
+        count: tracksCount(recentlyAddedTracks.value.length),
+      },
+      {
+        mode: "favorite",
+        icon: "mdi-heart",
+        label: t("common.favorite-soundtracks"),
+        count: tracksCount(favoriteTracks.value.length),
+      },
+    ],
+  },
+  {
+    title: t("common.library"),
+    tiles: [
+      {
+        mode: "play-all",
+        icon: "mdi-playlist-music",
+        label: t("common.play-all"),
+        count: tracksCount(allTracks.value.length),
+      },
+      {
+        mode: "album",
+        icon: "mdi-album",
+        label: t("common.music-by-album"),
+        count: t("common.albums-n", albums.value.length, {
+          named: { n: albums.value.length },
+        }),
+      },
+      {
+        mode: "platform",
+        icon: "mdi-controller",
+        label: t("common.soundtracks-by-platform"),
+        count: t("common.platforms-n", platforms.value.length, {
+          named: { n: platforms.value.length },
+        }),
+      },
+      {
+        mode: "artist",
+        icon: "mdi-account-music",
+        label: t("common.music-by-artist"),
+        count: t("common.artists-n", artists.value.length, {
+          named: { n: artists.value.length },
+        }),
+      },
+      {
+        mode: "genre",
+        icon: "mdi-shape",
+        label: t("common.soundtracks-by-genre"),
+        count: t("common.genres-n", genres.value.length, {
+          named: { n: genres.value.length },
+        }),
+      },
+    ],
+  },
+]);
 
 function formatRadioDuration(seconds: number): string {
   return t("common.minutes-n", { n: Math.ceil(seconds / 60) });
@@ -322,25 +407,21 @@ function selectAlbum(album: Album) {
 }
 
 function updateTrackFavorite(fileId: number, isFavorite: boolean) {
-  const update = (track: MusicTrackSchema) =>
-    track.rom_file_id === fileId
-      ? { ...track, is_favorite: isFavorite }
-      : track;
-  allTracks.value = allTracks.value.map(update);
-  tracks.value = tracks.value.map(update);
-  freeRadioTracks.value = freeRadioTracks.value.map(update);
+  // Mutate in place: replacing the arrays would invalidate every grouping
+  // computed (albums, artists, genres, decades, platforms) for one flag.
+  for (const list of [allTracks, tracks, freeRadioTracks]) {
+    const hit = list.value.find((track) => track.rom_file_id === fileId);
+    if (hit) hit.is_favorite = isFavorite;
+  }
 }
 
-async function deleteSoundtrack(fileId: number, sourceRomId?: number) {
+async function deleteSoundtrack(fileId: number, romId: number) {
   const catalogTrack = allTracks.value.find(
     (item) => item.rom_file_id === fileId,
   );
   const romTrack = (selectedRom.value?.files ?? []).find(
     (file) => file.id === fileId,
   );
-  const romId = sourceRomId ?? selectedRom.value?.id ?? catalogTrack?.rom_id;
-  if (romId == null) return;
-
   const name = romTrack?.file_name ?? catalogTrack?.title ?? "";
   const ok = await confirm({
     title: t("rom.delete-track-title"),
@@ -410,7 +491,8 @@ async function fetchAllTracks() {
       "";
     const requestedPlatform = Number(route.query.platform);
     selectedPlatformId.value =
-      platforms.value.find((platform) => platform.id === requestedPlatform)?.id ??
+      platforms.value.find((platform) => platform.id === requestedPlatform)
+        ?.id ??
       platforms.value[0]?.id ??
       0;
   } catch {
@@ -451,7 +533,10 @@ async function fetchAlbums() {
 watch(mode, (value) => {
   patchQuery(router, {
     mode: value === "home" ? undefined : value,
-    game: value === "album" ? route.query.game : undefined,
+    game:
+      value === "album" && typeof route.query.game === "string"
+        ? route.query.game
+        : undefined,
     artist: value === "artist" ? selectedArtist.value || undefined : undefined,
     decade:
       value === "decade" && selectedDecade.value
@@ -515,9 +600,11 @@ watch(
 );
 
 watch(search, (value) => {
-  patchQuery(router, { search: value.trim() || undefined, game: undefined });
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(fetchAlbums, 250);
+  searchTimer = setTimeout(() => {
+    patchQuery(router, { search: value.trim() || undefined, game: undefined });
+    void fetchAlbums();
+  }, 250);
 });
 
 watch(
@@ -566,161 +653,25 @@ onBeforeUnmount(() => {
     </div>
 
     <main v-if="mode === 'home'" class="jukebox__home">
-      <CardRow :title="t('common.playlists')" gap="16px">
+      <CardRow
+        v-for="row in launchRows"
+        :key="row.title"
+        :title="row.title"
+        gap="16px"
+      >
         <RBtn
+          v-for="tile in row.tiles"
+          :key="tile.mode"
           class="jukebox__launch"
           variant="plain"
-          @click="openMode('station')"
+          @click="openMode(tile.mode)"
         >
           <span class="jukebox__launch-icon">
-            <RIcon icon="mdi-radio-tower" size="52" />
+            <RIcon :icon="tile.icon" size="52" />
           </span>
-          <strong>{{ t("common.free-radio") }}</strong>
-          <span class="jukebox__launch-count">
-            {{ formatRadioDuration(freeRadioDuration) }}
-          </span>
+          <strong>{{ tile.label }}</strong>
+          <span class="jukebox__launch-count">{{ tile.count }}</span>
         </RBtn>
-        <RBtn
-          class="jukebox__launch"
-          variant="plain"
-          @click="openMode('decade')"
-        >
-          <span class="jukebox__launch-icon">
-            <RIcon icon="mdi-calendar-range" size="52" />
-          </span>
-          <strong>{{ t("common.decade-mix") }}</strong>
-          <span class="jukebox__launch-count">
-            {{
-              t("common.decades-n", decades.length, {
-                named: { n: decades.length },
-              })
-            }}
-          </span>
-        </RBtn>
-        <RBtn
-          class="jukebox__launch"
-          variant="plain"
-          @click="openMode('recent')"
-        >
-          <span class="jukebox__launch-icon">
-            <RIcon icon="mdi-clock-outline" size="52" />
-          </span>
-          <strong>{{ t("common.recently-added-soundtracks") }}</strong>
-          <span class="jukebox__launch-count">
-            {{
-              t("rom.tracks-n", recentlyAddedTracks.length, {
-                named: { n: recentlyAddedTracks.length },
-              })
-            }}
-          </span>
-        </RBtn>
-        <RBtn
-          class="jukebox__launch"
-          variant="plain"
-          @click="openMode('favorite')"
-        >
-          <span class="jukebox__launch-icon">
-            <RIcon icon="mdi-heart" size="52" />
-          </span>
-          <strong>{{ t("common.favorite-soundtracks") }}</strong>
-          <span class="jukebox__launch-count">
-            {{
-              t("rom.tracks-n", favoriteTracks.length, {
-                named: { n: favoriteTracks.length },
-              })
-            }}
-          </span>
-        </RBtn>
-      </CardRow>
-      <CardRow :title="t('common.library')" gap="16px">
-        <RBtn
-          class="jukebox__launch"
-          variant="plain"
-          @click="openMode('play-all')"
-        >
-          <span class="jukebox__launch-icon">
-            <RIcon icon="mdi-playlist-music" size="52" />
-          </span>
-          <strong>{{ t("common.play-all") }}</strong>
-          <span class="jukebox__launch-count">
-            {{
-              t("rom.tracks-n", allTracks.length, {
-                named: { n: allTracks.length },
-              })
-            }}
-          </span>
-        </RBtn>
-        <RBtn
-          class="jukebox__launch"
-          variant="plain"
-          @click="openMode('album')"
-        >
-          <span class="jukebox__launch-icon">
-            <RIcon icon="mdi-album" size="52" />
-          </span>
-          <strong>{{ t("common.music-by-album") }}</strong>
-          <span class="jukebox__launch-count">
-            {{
-              t("common.albums-n", albums.length, {
-                named: { n: albums.length },
-              })
-            }}
-          </span>
-        </RBtn>
-        <RBtn
-          class="jukebox__launch"
-          variant="plain"
-          @click="openMode('platform')"
-        >
-          <span class="jukebox__launch-icon">
-            <RIcon icon="mdi-controller" size="52" />
-          </span>
-          <strong>{{ t("common.soundtracks-by-platform") }}</strong>
-          <span class="jukebox__launch-count">
-            {{
-              t("common.platforms-n", platforms.length, {
-                named: { n: platforms.length },
-              })
-            }}
-          </span>
-        </RBtn>
-        <RBtn
-          class="jukebox__launch"
-          variant="plain"
-          @click="openMode('artist')"
-        >
-          <span class="jukebox__launch-icon">
-            <RIcon icon="mdi-account-music" size="52" />
-          </span>
-          <strong>{{ t("common.music-by-artist") }}</strong>
-          <span class="jukebox__launch-count">
-            {{
-              t("common.artists-n", artists.length, {
-                named: { n: artists.length },
-              })
-            }}
-          </span>
-        </RBtn>
-
-        <RBtn
-          class="jukebox__launch"
-          variant="plain"
-          @click="openMode('genre')"
-        >
-          <span class="jukebox__launch-icon">
-            <RIcon icon="mdi-shape" size="52" />
-          </span>
-          <strong>{{ t("common.soundtracks-by-genre") }}</strong>
-          <span class="jukebox__launch-count">
-            {{
-              t("common.genres-n", genres.length, {
-                named: { n: genres.length },
-              })
-            }}
-          </span>
-        </RBtn>
-
-
       </CardRow>
     </main>
     <aside v-if="mode === 'album'" class="jukebox__sidebar">
@@ -737,12 +688,7 @@ onBeforeUnmount(() => {
 
       <div class="jukebox__albums r-v2-scroll-hidden">
         <template v-if="loadingAlbums">
-          <RSkeletonBlock
-            v-for="n in 7"
-            :key="n"
-            height="72px"
-            rounded="md"
-          />
+          <RSkeletonBlock v-for="n in 7" :key="n" height="72px" rounded="md" />
         </template>
         <EmptyState
           v-else-if="albumsFailed"
@@ -804,7 +750,9 @@ onBeforeUnmount(() => {
               </div>
             </template>
             <template #append>
-              <span class="jukebox__track-count">{{ genre.tracks.length }}</span>
+              <span class="jukebox__track-count">{{
+                genre.tracks.length
+              }}</span>
             </template>
           </RListItem>
         </RList>
@@ -854,7 +802,9 @@ onBeforeUnmount(() => {
               </div>
             </template>
             <template #append>
-              <span class="jukebox__track-count">{{ platform.tracks.length }}</span>
+              <span class="jukebox__track-count">{{
+                platform.tracks.length
+              }}</span>
             </template>
           </RListItem>
         </RList>
@@ -900,7 +850,9 @@ onBeforeUnmount(() => {
               </div>
             </template>
             <template #append>
-              <span class="jukebox__track-count">{{ decade.tracks.length }}</span>
+              <span class="jukebox__track-count">{{
+                decade.tracks.length
+              }}</span>
             </template>
           </RListItem>
         </RList>
@@ -958,7 +910,9 @@ onBeforeUnmount(() => {
               </div>
             </template>
             <template #append>
-              <span class="jukebox__track-count">{{ artist.tracks.length }}</span>
+              <span class="jukebox__track-count">{{
+                artist.tracks.length
+              }}</span>
             </template>
           </RListItem>
         </RList>
@@ -1014,24 +968,12 @@ onBeforeUnmount(() => {
         :message="t('common.no-results')"
       />
     </main>
-    <template
-      v-if="
-        mode === 'play-all' ||
-        mode === 'station' ||
-        mode === 'favorite' ||
-        mode === 'recent'
-      "
-    >
+    <template v-if="isSessionMode">
       <div v-if="loadingAllTracks" class="jukebox__play-all-loading">
         <RSkeletonBlock height="140px" rounded="md" />
       </div>
       <EmptyState
-        v-else-if="
-          (mode === 'favorite' && favoriteTracks.length === 0) ||
-          (mode === 'recent' && recentlyAddedTracks.length === 0) ||
-          (mode === 'station' && freeRadioTracks.length === 0) ||
-          (mode === 'play-all' && allTracks.length === 0)
-        "
+        v-else-if="!sessionTracks.length"
         class="jukebox__play-all"
         variant="boxed"
         icon="mdi-playlist-music"
@@ -1040,15 +982,7 @@ onBeforeUnmount(() => {
       <SoundtrackPanel
         v-else
         :key="mode"
-        :music-tracks="
-          mode === 'station'
-            ? freeRadioTracks
-            : mode === 'favorite'
-              ? favoriteTracks
-              : mode === 'recent'
-                ? recentlyAddedTracks
-                : allTracks
-        "
+        :music-tracks="sessionTracks"
         :deletable="canEdit"
         class="jukebox__play-all"
         @delete-track="deleteSoundtrack"

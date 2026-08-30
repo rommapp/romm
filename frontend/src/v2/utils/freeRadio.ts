@@ -1,15 +1,7 @@
 import type { MusicTrackSchema } from "@/__generated__";
+import { shuffled } from "@/utils";
 
 export const FREE_RADIO_DURATION_SECONDS = 60 * 60;
-
-function shuffled<T>(items: T[], random: () => number): T[] {
-  const result = [...items];
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const target = Math.floor(random() * (index + 1));
-    [result[index], result[target]] = [result[target], result[index]];
-  }
-  return result;
-}
 
 export function buildFreeRadioSession(
   tracks: MusicTrackSchema[],
@@ -39,11 +31,8 @@ export function buildFreeRadioSession(
     }
   }
 
-  const totalDuration = balancedOrder.reduce(
-    (total, track) => total + (track.duration_seconds ?? 0),
-    0,
-  );
-  if (totalDuration <= FREE_RADIO_DURATION_SECONDS) return balancedOrder;
+  if (trackDurationSeconds(balancedOrder) <= FREE_RADIO_DURATION_SECONDS)
+    return balancedOrder;
 
   const session: MusicTrackSchema[] = [];
   let sessionDuration = 0;

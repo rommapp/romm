@@ -128,7 +128,9 @@ const tracks = computed<PanelTrack[]>(() => {
       url: track.stream_url,
       coverUrl: track.cover_url || undefined,
       gameArtworkUrl: track.game_cover_url || undefined,
-      context: [track.game_name, track.platform_name].filter(Boolean).join(" · "),
+      context: [track.game_name, track.platform_name]
+        .filter(Boolean)
+        .join(" · "),
       isFavorite: Boolean(track.is_favorite),
     }));
   }
@@ -136,7 +138,8 @@ const tracks = computed<PanelTrack[]>(() => {
   return (props.rom?.files ?? [])
     .filter(
       (file) =>
-        file.category === "soundtrack" && AUDIO_EXTS.has(getExt(file.file_name)),
+        file.category === "soundtrack" &&
+        AUDIO_EXTS.has(getExt(file.file_name)),
     )
     .slice()
     .sort((a, b) => a.file_name.localeCompare(b.file_name))
@@ -160,15 +163,12 @@ function isTrackFavorite(track: PanelTrack): boolean {
 async function toggleFavorite(track: PanelTrack) {
   if (updatingFavorites.value.has(track.id)) return;
   const nextFavorite = !isTrackFavorite(track);
-  updatingFavorites.value = new Set(updatingFavorites.value).add(track.id);
+  updatingFavorites.value.add(track.id);
   try {
     const payload = { rom_file_ids: [track.id] };
     if (nextFavorite) await musicApi.addFavorites(payload);
     else await musicApi.removeFavorites(payload);
-    favoriteOverrides.value = new Map(favoriteOverrides.value).set(
-      track.id,
-      nextFavorite,
-    );
+    favoriteOverrides.value.set(track.id, nextFavorite);
     emit("favorite-track", track.id, nextFavorite);
     snackbar.success(
       t(
@@ -183,9 +183,7 @@ async function toggleFavorite(track: PanelTrack) {
       icon: "mdi-alert-circle-outline",
     });
   } finally {
-    const pending = new Set(updatingFavorites.value);
-    pending.delete(track.id);
-    updatingFavorites.value = pending;
+    updatingFavorites.value.delete(track.id);
   }
 }
 
@@ -242,28 +240,36 @@ function toPlayerMeta(
   };
 }
 
+function buildPlayerPayload(): {
+  playerTracks: PlayerTrack[];
+  metas: Record<number, PlayerMeta>;
+} {
+  const playerTracks: PlayerTrack[] = [];
+  const metas: Record<number, PlayerMeta> = {};
+  for (const t of tracks.value) {
+    playerTracks.push({
+      romId: t.romId,
+      fileId: t.id,
+      fileName: t.fileName,
+      url: t.url,
+    });
+    metas[t.id] = toPlayerMeta(tracksMeta.value.get(t.id), t);
+  }
+  return { playerTracks, metas };
+}
+
 function syncOrStartPlaylist() {
-  const selectedTrackIsAvailable =
-    tracks.value.some(
-      (track) =>
-        track.id === activeStoreTrack.value?.fileId &&
-        track.romId === activeStoreTrack.value?.romId,
-    );
+  const selectedTrackIsAvailable = tracks.value.some(
+    (track) =>
+      track.id === activeStoreTrack.value?.fileId &&
+      track.romId === activeStoreTrack.value?.romId,
+  );
   if (!selectedTrackIsAvailable) {
     const firstTrack = tracks.value[0];
     if (firstTrack) selectTrack(firstTrack.id);
     return;
   }
-  const playerTracks: PlayerTrack[] = tracks.value.map((t) => ({
-    romId: t.romId,
-    fileId: t.id,
-    fileName: t.fileName,
-    url: t.url,
-  }));
-  const metas: Record<number, PlayerMeta> = {};
-  for (const t of tracks.value) {
-    metas[t.id] = toPlayerMeta(tracksMeta.value.get(t.id), t);
-  }
+  const { playerTracks, metas } = buildPlayerPayload();
   player.loadPlaylist(playerTracks, metas, props.rom?.id, true);
   if (shouldStartShuffled) {
     if (!isShuffled.value) player.toggleShuffle();
@@ -284,25 +290,24 @@ async function loadAllMetadata() {
   metaAbort = new AbortController();
   isLoadingMeta.value = true;
   try {
-    const { data } = await romApi.getSoundtrackMetadata({
-      romId: props.rom.id,
-      signal: metaAbort.signal,
-    });
+    // Independent requests: favorite state never gates playback, so the two
+    // fly together and a failed catalog fetch leaves the metadata intact.
+    const [meta, catalog] = await Promise.all([
+      romApi.getSoundtrackMetadata({
+        romId: props.rom.id,
+        signal: metaAbort.signal,
+      }),
+      musicApi.getAllTracks({ romId: props.rom.id }).catch(() => null),
+    ]);
     const next = new Map<number, TrackMetaSchema>();
-    for (const row of data as SoundtrackTrackMetaSchema[]) {
+    for (const row of meta.data as SoundtrackTrackMetaSchema[]) {
       if (row.track_meta) next.set(row.file_id, row.track_meta);
     }
     tracksMeta.value = next;
-    try {
-      const { data: catalog } = await musicApi.getTracks({ romId: props.rom.id });
+    if (catalog) {
       favoriteOverrides.value = new Map(
-        catalog.items.map((track) => [
-          track.rom_file_id,
-          Boolean(track.is_favorite),
-        ]),
+        catalog.map((track) => [track.rom_file_id, Boolean(track.is_favorite)]),
       );
-    } catch {
-      // Metadata playback remains available if favorite state cannot load.
     }
     syncOrStartPlaylist();
   } catch (err: unknown) {
@@ -387,19 +392,27 @@ function trackTitleFor(fileId: number, fallback: string): string {
   );
 }
 
-function trackSubtitleFor(fileId: number): string {
-  const m = tracksMeta.value.get(fileId);
-  const parts: string[] = [];
-  if (m?.artist) parts.push(m.artist);
-  if (m?.album) parts.push(m.album);
-  const context = tracks.value.find((track) => track.id === fileId)?.context;
-  if (context) parts.push(context);
-  return parts.join(" · ");
-}
-
 function trackDurationFor(fileId: number): number | undefined {
   return tracksMeta.value.get(fileId)?.duration_seconds ?? undefined;
 }
+
+// Rendered once per list change rather than per row per frame: the template
+// re-renders on every `currentTime` tick, and the list can hold the whole
+// library in the Jukebox's play-all mode.
+const rows = computed(() =>
+  displayedTracks.value.map((track) => {
+    const meta = tracksMeta.value.get(track.id);
+    const subtitle = [meta?.artist, meta?.album, track.context]
+      .filter(Boolean)
+      .join(" · ");
+    return {
+      track,
+      title: trackTitleFor(track.id, track.fileName),
+      subtitle,
+      duration: trackDurationFor(track.id),
+    };
+  }),
+);
 
 // Chips shown in the now-playing header.
 type ChipItem = { icon: string; label: string; color?: string };
@@ -446,16 +459,7 @@ function selectTrack(fileId: number) {
   const target = tracks.value.find((t) => t.id === fileId);
   if (!target) return;
 
-  const playerTracks: PlayerTrack[] = tracks.value.map((t) => ({
-    romId: t.romId,
-    fileId: t.id,
-    fileName: t.fileName,
-    url: t.url,
-  }));
-  const metas: Record<number, PlayerMeta> = {};
-  for (const t of tracks.value) {
-    metas[t.id] = toPlayerMeta(tracksMeta.value.get(t.id), t);
-  }
+  const { playerTracks, metas } = buildPlayerPayload();
   const wasShuffled = isShuffled.value;
   player.loadPlaylist(playerTracks, metas, props.rom?.id, wasShuffled);
   const entry = playerTracks.find((p) => p.fileId === fileId)!;
@@ -640,53 +644,47 @@ function seekValueText(v: number): string {
     <!-- Track list -->
     <ul class="r-v2-stp__list">
       <li
-        v-for="(track, trackIdx) in displayedTracks"
-        :key="track.id"
-        :data-track-id="track.id"
+        v-for="(row, trackIdx) in rows"
+        :key="row.track.id"
+        :data-track-id="row.track.id"
         class="r-v2-stp__row r-v2-asset-fade"
         :class="{
-          'r-v2-stp__row--active': activeTrackId === track.id,
+          'r-v2-stp__row--active': activeTrackId === row.track.id,
           'r-v2-stp__row--playing':
-            activeTrackId === track.id && isPlaying && !isBuffering,
-          'r-v2-stp__row--buffering': activeTrackId === track.id && isBuffering,
+            activeTrackId === row.track.id && isPlaying && !isBuffering,
+          'r-v2-stp__row--buffering':
+            activeTrackId === row.track.id && isBuffering,
         }"
         :style="{ '--asset-fade-i': trackIdx }"
       >
         <button
           type="button"
           class="r-v2-stp__row-btn"
-          :aria-label="
-            t('rom.play-track', {
-              title: trackTitleFor(track.id, track.fileName),
-            })
-          "
-          @click="selectTrack(track.id)"
+          :aria-label="t('rom.play-track', { title: row.title })"
+          @click="selectTrack(row.track.id)"
         >
           <!-- No per-track thumb: playback state is conveyed entirely
                by the row's border + a subtle pulsing glow when the
                track is actually playing (vs. just selected/paused). -->
           <div class="r-v2-stp__row-meta">
             <div class="r-v2-stp__row-title">
-              {{ trackTitleFor(track.id, track.fileName) }}
+              {{ row.title }}
             </div>
-            <div
-              v-if="trackSubtitleFor(track.id)"
-              class="r-v2-stp__row-subtitle"
-            >
-              {{ trackSubtitleFor(track.id) }}
+            <div v-if="row.subtitle" class="r-v2-stp__row-subtitle">
+              {{ row.subtitle }}
             </div>
           </div>
         </button>
 
         <div class="r-v2-stp__row-right">
-          <span
-            v-if="trackDurationFor(track.id)"
-            class="r-v2-stp__row-duration"
-          >
-            {{ fmt(trackDurationFor(track.id)) }}
+          <span v-if="row.duration" class="r-v2-stp__row-duration">
+            {{ fmt(row.duration) }}
           </span>
-          <span v-if="track.fileSizeBytes != null" class="r-v2-stp__row-size">
-            {{ formatBytes(track.fileSizeBytes) }}
+          <span
+            v-if="row.track.fileSizeBytes != null"
+            class="r-v2-stp__row-size"
+          >
+            {{ formatBytes(row.track.fileSizeBytes) }}
           </span>
           <RMenu location="bottom end" :offset="6" width="200px">
             <template #activator="{ props: activatorProps }">
@@ -702,33 +700,35 @@ function seekValueText(v: number): string {
             <RMenuItem
               icon="mdi-play"
               :label="t('rom.play')"
-              @click="selectTrack(track.id)"
+              @click="selectTrack(row.track.id)"
             />
             <RDivider />
             <RMenuItem
               v-if="canEditPlaylists"
-              :icon="isTrackFavorite(track) ? 'mdi-heart' : 'mdi-heart-outline'"
+              :icon="
+                isTrackFavorite(row.track) ? 'mdi-heart' : 'mdi-heart-outline'
+              "
               :label="
                 t(
-                  isTrackFavorite(track)
+                  isTrackFavorite(row.track)
                     ? 'rom.remove-from-favorites'
                     : 'rom.add-to-favorites',
                 )
               "
-              :disabled="updatingFavorites.has(track.id)"
-              @click="toggleFavorite(track)"
+              :disabled="updatingFavorites.has(row.track.id)"
+              @click="toggleFavorite(row.track)"
             />
             <RMenuItem
               icon="mdi-download-outline"
               :label="t('common.download')"
-              @click="downloadTrack(track)"
+              @click="downloadTrack(row.track)"
             />
             <RMenuItem
               v-if="deletable"
               icon="mdi-delete-outline"
               :label="t('common.delete')"
               variant="danger"
-              @click="onDelete(track)"
+              @click="onDelete(row.track)"
             />
           </RMenu>
         </div>
