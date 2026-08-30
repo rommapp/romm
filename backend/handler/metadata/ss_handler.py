@@ -1156,6 +1156,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.MSX2: {"id": 116, "name": "MSX2"},
     UPS.MSX_TURBO: {"id": 118, "name": "MSX Turbo R"},
     UPS.MAC: {"id": 146, "name": "Mac OS"},
+    UPS.MEGA_DUCK_SLASH_COUGAR_BOY: {"id": 90, "name": "Mega Duck"},
     UPS.NGAGE: {"id": 30, "name": "N-Gage"},
     UPS.NES: {"id": 3, "name": "NES"},
     UPS.FAMICOM: {"id": 3, "name": "Famicom"},
