@@ -1450,9 +1450,7 @@ class TestSigilTitleIdExtraction:
         mock_extract = AsyncMock(return_value=extraction)
 
         with patch(SIGIL_PATCH_TARGET, mock_extract):
-            parsed = await handler.get_rom_files(
-                rom, prod_keys_path="/bios/switch/prod.keys"
-            )
+            parsed = await handler.get_rom_files(rom)
 
         assert len(parsed.rom_files) == 1
         assert parsed.rom_files[0].title_id == "0100ABCD12340000"
@@ -1463,7 +1461,6 @@ class TestSigilTitleIdExtraction:
         mock_extract.assert_awaited_once_with(
             "switch",
             str(tmp_path / "switch/roms/Game.nsp"),
-            "/bios/switch/prod.keys",
         )
 
     @pytest.mark.asyncio
@@ -1484,7 +1481,7 @@ class TestSigilTitleIdExtraction:
         )
 
         async def fake_extract(
-            platform_slug: str, file_path: str, prod_keys_path: str | None = None
+            platform_slug: str, file_path: str
         ) -> SigilExtractionResult:
             if "update" in file_path:
                 return SigilExtractionResult(
@@ -2029,7 +2026,7 @@ class TestSwitchTitleIdEmbedding:
         )
 
         async def fake_extract(
-            platform_slug: str, file_path: str, prod_keys_path: str | None = None
+            platform_slug: str, file_path: str
         ) -> SigilExtractionResult:
             if "update" in file_path:
                 return SigilExtractionResult(

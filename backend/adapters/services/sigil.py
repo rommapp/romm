@@ -62,7 +62,6 @@ class SigilService:
         self,
         platform_slug: UPS | str,
         file_path: str,
-        prod_keys_path: str | None = None,
     ) -> SigilExtractionResult | None:
         if sigil is None:
             return None
@@ -72,8 +71,6 @@ class SigilService:
             return None
 
         kwargs: dict[str, Any] = {"platform": sigil_slug, "filename_fallback": False}
-        if sigil_slug == SWITCH_SIGIL_SLUG:
-            kwargs["prod_keys_path"] = prod_keys_path
 
         try:
             result = await asyncio.to_thread(sigil.extract, file_path, **kwargs)

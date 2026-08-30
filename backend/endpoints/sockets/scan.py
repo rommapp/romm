@@ -10,10 +10,8 @@ from rq import Worker, get_current_job
 from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError
 
-from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import (
     DEV_MODE,
-    LIBRARY_BASE_PATH,
     REDIS_URL,
     SCAN_TIMEOUT,
     SCAN_WORKERS,
@@ -385,16 +383,6 @@ def _should_hash_firmware(
     )
 
 
-def _resolve_prod_keys_path(platform: Platform) -> str | None:
-    """Locate the console's prod.keys, which sigil needs to decrypt Switch
-    XCI/NSP headers, among the platform's scanned firmware."""
-    if platform.slug not in SWITCH_PLATFORM_SLUGS:
-        return None
-
-    prod_keys = db_firmware_handler.get_firmware_by_filename(platform.id, "prod.keys")
-    return f"{LIBRARY_BASE_PATH}/{prod_keys.full_path}" if prod_keys else None
-
-
 def _apply_scanned_values(fs_rom: FSRom, parsed: ParsedRomFiles) -> None:
     values = ScannedFSRomValues(
         files=parsed.rom_files,
@@ -428,7 +416,6 @@ async def _identify_rom(
     playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
-    prod_keys_path: str | None = None,
 ) -> None:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -474,7 +461,6 @@ async def _identify_rom(
             ),
             calculate_hashes=calculate_hashes,
             extract_title_ids=extract_title_ids,
-            prod_keys_path=prod_keys_path,
             embed_title_ids=embed_title_ids,
         )
         _apply_scanned_values(fs_rom, parsed_rom_files)
@@ -549,7 +535,6 @@ async def _identify_rom(
             rom,
             calculate_hashes=calculate_hashes,
             extract_title_ids=extract_title_ids,
-            prod_keys_path=prod_keys_path,
             embed_title_ids=embed_title_ids,
         )
         _apply_scanned_values(fs_rom, parsed_rom_files)
@@ -694,7 +679,6 @@ async def _scan_selected_roms(
     )
 
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
-    prod_keys_path = _resolve_prod_keys_path(platform)
 
     async def scan_rom_with_semaphore(rom: Rom) -> None:
         async with scan_semaphore:
@@ -726,7 +710,6 @@ async def _scan_selected_roms(
                 playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
-                prod_keys_path=prod_keys_path,
             )
 
     results = await asyncio.gather(
@@ -856,7 +839,6 @@ async def _identify_platform(
 
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
-    prod_keys_path = _resolve_prod_keys_path(platform)
 
     async def scan_rom_with_semaphore(fs_rom: FSRom, rom: Rom | None) -> None:
         """Scan a single ROM with semaphore limiting"""
@@ -872,7 +854,6 @@ async def _identify_platform(
                 playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
-                prod_keys_path=prod_keys_path,
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):

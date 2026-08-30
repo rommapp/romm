@@ -162,37 +162,23 @@ class TestSigilService:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("platform_slug", [UPS.SWITCH, UPS.SWITCH_2])
-    async def test_prod_keys_passed_for_switch_platforms(
+    async def test_no_decryption_keys_are_passed(
         self, service: SigilService, monkeypatch, platform_slug: UPS
     ):
+        """RomM never handles a user's console keys.
+
+        Encrypted retail Switch dumps therefore yield nothing, which is the
+        intended trade: decrypted dumps still resolve, and the keys stay off
+        the server entirely.
+        """
         extract = Mock(return_value=make_result())
         monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
 
-        await service.extract_title_id(
-            platform_slug, "/roms/switch/game.xci", "/bios/switch/prod.keys"
-        )
+        await service.extract_title_id(platform_slug, "/roms/switch/game.xci")
 
         extract.assert_called_once_with(
             "/roms/switch/game.xci",
             platform="switch",
-            filename_fallback=False,
-            prod_keys_path="/bios/switch/prod.keys",
-        )
-
-    @pytest.mark.asyncio
-    async def test_prod_keys_not_passed_for_non_switch_platforms(
-        self, service: SigilService, monkeypatch
-    ):
-        extract = Mock(return_value=make_result(usage="file-exact"))
-        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
-
-        await service.extract_title_id(
-            UPS.PSP, "/roms/psp/game.iso", "/bios/switch/prod.keys"
-        )
-
-        extract.assert_called_once_with(
-            "/roms/psp/game.iso",
-            platform="psp",
             filename_fallback=False,
         )
 

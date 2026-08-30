@@ -468,7 +468,6 @@ class FSRomsHandler(FSHandler):
         rom: Rom,
         calculate_hashes: bool = True,
         extract_title_ids: bool = True,
-        prod_keys_path: str | None = None,
         embed_title_ids: bool = False,
     ) -> ParsedRomFiles:
         from adapters.services.rahasher import RAHasherService
@@ -505,7 +504,7 @@ class FSRomsHandler(FSHandler):
                 return None
 
             extraction = await sigil_service.extract_title_id(
-                rom.platform_slug, str(abs_file_path), prod_keys_path
+                rom.platform_slug, str(abs_file_path)
             )
             if extraction is None:
                 return None
