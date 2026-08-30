@@ -165,12 +165,7 @@ class TestSigilService:
     async def test_no_decryption_keys_are_passed(
         self, service: SigilService, monkeypatch, platform_slug: UPS
     ):
-        """RomM never handles a user's console keys.
-
-        Encrypted retail Switch dumps therefore yield nothing, which is the
-        intended trade: decrypted dumps still resolve, and the keys stay off
-        the server entirely.
-        """
+        """RomM never handles a user's console keys, so no key path is passed."""
         extract = Mock(return_value=make_result())
         monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
 

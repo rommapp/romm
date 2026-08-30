@@ -148,6 +148,7 @@ export type { RomFlashpointMetadata } from './models/RomFlashpointMetadata';
 export type { RomGamelistMetadata } from './models/RomGamelistMetadata';
 export type { RomHasheousMetadata } from './models/RomHasheousMetadata';
 export type { RomHLTBMetadata } from './models/RomHLTBMetadata';
+export type { RomIdentityData } from './models/RomIdentityData';
 export type { RomIGDBMetadata } from './models/RomIGDBMetadata';
 export type { RomLaunchboxMetadata } from './models/RomLaunchboxMetadata';
 export type { RomMetadataSchema } from './models/RomMetadataSchema';

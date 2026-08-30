@@ -1512,8 +1512,6 @@ class TestSigilTitleIdExtraction:
 
         by_name = {rf.file_name: rf for rf in parsed.rom_files}
 
-        # The binary content type categorizes each file; the ids themselves are
-        # kept only at the rom level.
         assert by_name["Zelda [base].nsp"].category == RomFileCategory.GAME
         assert by_name["Zelda [update].nsp"].category == RomFileCategory.UPDATE
         assert by_name["Zelda [dlc].nsp"].category == RomFileCategory.DLC
@@ -1665,8 +1663,7 @@ class TestSigilTitleIdExtraction:
         mock_extract = AsyncMock(
             return_value=SigilExtractionResult(
                 title_id="0004000E0011C500",
-                # The target carries the on-disk split, not the flat id, and is
-                # lowercase because that is the case the emulator writes.
+                # The split path in the emulator's case, not the flat id.
                 save_target="0004000e/0011c500",
                 usage="folder-split",
             )

@@ -201,7 +201,6 @@ class ParsedRomFiles:
     renamed_rom_fs_name: str | None = None
 
 
-
 def _embed_switch_title_id_in_name(
     abs_file_path: Path, title_id: str, title_version: int | None
 ) -> Path | None:
@@ -462,8 +461,7 @@ class FSRomsHandler(FSHandler):
         sigil_extractions: list[SigilExtractionResult] = []
         sigil_service = SigilService()
 
-        # Filename embedding is Switch-only, even though sigil covers more
-        # platforms; other platforms never have their files renamed.
+        # Embedding is Switch-only even though sigil covers more platforms.
         embed_switch = embed_title_ids and rom.platform_slug in SWITCH_PLATFORM_SLUGS
         renamed_rom_fs_name: str | None = None
 

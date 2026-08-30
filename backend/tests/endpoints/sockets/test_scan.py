@@ -1016,15 +1016,8 @@ class TestIdentifyRomTitleIdEmbedRename:
 
 
 class TestIdentifyRomPersistsFileCategory:
-    """`_identify_rom` must feed each file's category into `sync_rom_files`.
-
-    A Switch update file is categorized from its binary content type during the
-    scan. The reconciliation in `_identify_rom` hands `fs_rom["files"]` to
-    `sync_rom_files`, which copies `ROM_FILE_SCANNED_COLUMNS` onto each row; if
-    the scanned file loses its category before that call, the update silently
-    persists as a plain game. A HASHES scan reaches the file-sync step and
-    returns right after it.
-    """
+    """A file losing its category before `sync_rom_files` persists an update as
+    a plain game."""
 
     UPDATE_TITLE_ID = "0100F4700B2E0800"
 

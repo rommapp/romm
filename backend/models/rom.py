@@ -51,6 +51,8 @@ from utils.database import CustomJSON
 NAME_SORT_KEY_MAX_LENGTH = 500
 # Max length for free-text audio tag columns (title/artist/album).
 AUDIO_TAG_MAX_LENGTH = 512
+# Max length for the binary identity columns (title id and save target).
+TITLE_ID_MAX_LENGTH = 100
 # Articles ignored when sorting or bucketing a title, across the languages
 # No-Intro and LaunchBox name games in. Both patterns built from this are
 # anchored on the right, so "la" preceding "las" costs nothing.
@@ -620,11 +622,11 @@ class Rom(BaseModel):
     sha1_hash: Mapped[str | None] = mapped_column(String(length=100))
     ra_hash: Mapped[str | None] = mapped_column(String(length=100))
     title_id: Mapped[str | None] = mapped_column(
-        String(length=100),
+        String(length=TITLE_ID_MAX_LENGTH),
         doc="Platform-native identity read from the ROM binary, normalized (0100ABCD12340000, SLUS-20152)",
     )
     save_target: Mapped[str | None] = mapped_column(
-        String(length=100),
+        String(length=TITLE_ID_MAX_LENGTH),
         doc="On-disk name an emulator gives this game's saves; a file stem, a folder, or a nested path",
     )
     save_target_layout: Mapped[SaveTargetLayout | None] = mapped_column(
