@@ -1,8 +1,5 @@
 <script setup lang="ts">
 // Jukebox landing screen: two rows of launch tiles.
-//
-// Counts come from each facet's `total` (one cheap request per tile) rather
-// than from grouping a downloaded catalog client-side.
 import { RIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -12,6 +9,7 @@ import Tile from "@/v2/components/shared/Tile.vue";
 import { FREE_RADIO_DURATION_SECONDS } from "@/v2/utils/freeRadio";
 import {
   JUKEBOX_MODE_LABEL_KEYS,
+  RECENTLY_ADDED_LIMIT,
   type JukeboxPlayerMode,
 } from "@/v2/utils/jukebox";
 
@@ -29,8 +27,6 @@ const totals = ref({
   platforms: 0,
   decades: 0,
 });
-
-const RECENTLY_ADDED_LIMIT = 25;
 
 async function facetTotal(
   load: (f: { limit: number }) => Promise<{ data: { total: number } }>,

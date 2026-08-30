@@ -1,8 +1,5 @@
-// Incremental loading for a track list.
-//
-// A browse selection or the play-all queue can run to six figures, so the
-// list fetches one page, renders it, and asks for the next only when the
-// viewer (or playback) approaches the end of what is loaded.
+// Incremental loading for a track list: fetch one page, ask for the next
+// only when the viewer (or playback) nears the end of what is loaded.
 import { computed, ref, shallowRef } from "vue";
 import type { MusicTrackSchema } from "@/__generated__";
 

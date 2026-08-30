@@ -1,8 +1,5 @@
-// Confirm + delete + notify for one soundtrack track.
-//
-// Both hosts of the soundtrack panel (the game's media tab and the jukebox)
-// offer the same row action, so the confirmation copy and the friction level
-// live here rather than being kept in step by hand across two files.
+// Confirm + delete + notify for one soundtrack track, shared by both hosts
+// of the soundtrack panel (the game's media tab and the jukebox).
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import { useConfirm } from "@/v2/composables/useConfirm";

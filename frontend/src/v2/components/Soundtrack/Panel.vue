@@ -1,20 +1,7 @@
 <script setup lang="ts">
-// Soundtrack Panel: v2 embedded soundtrack player.
-//
-// Consumes the shared `useSoundtrackPlayer` store (the actual HTMLAudioElement
-// lives inside MiniPlayer, which stays mounted app-wide). Clicking a track
-// here fills the store playlist and calls `player.play(...)`; the mini-player
-// hides automatically whenever this panel is hosted by a full soundtrack
-// surface, so only one "now playing" surface is ever on screen.
-//
-// Two layouts share one DOM:
-//   * stacked (default): compact header + controls strip + list, used by
-//     GameDetails' media tab and any narrow host.
-//   * wide (`wide` prop, container >= 860px): a now-playing rail on the
-//     left (art, vinyl, transport) with the queue filling the right side.
-//
-// Input is always a normalized `PanelTrack[]`; the two sources (a ROM's own
-// files, the music catalog) do their mapping in `utils/soundtrackTracks`.
+// Soundtrack Panel: renders the shared `useSoundtrackPlayer` queue. The
+// HTMLAudioElement lives in MiniPlayer, which hides while this panel is on
+// screen so only one "now playing" surface exists at a time.
 import {
   RBtn,
   RChip,
@@ -43,10 +30,8 @@ import TrackRow from "./TrackRow.vue";
 // Row height must match `.r-v2-stp__row` in TrackRow's stylesheet.
 const ROW_HEIGHT = 52;
 
-// Volume / mute widget: v2 native (RMenu + RSlider + RBtn). The
-// shared `useSoundtrackPlayer` store owns the volume / muted state so
-// the same widget can sit in the mini-player too without needing a
-// local model.
+// The shared store owns volume / muted state so the same widget can sit in
+// the mini-player too.
 const VolumeControl = defineAsyncComponent(
   () => import("@/v2/components/Soundtrack/VolumeControl.vue"),
 );
@@ -317,9 +302,8 @@ async function onToggleFavorite(track: PanelTrack) {
   );
 }
 
-// Mirror the saves/states pattern: synthesize an anchor click against
-// the file content endpoint so the browser routes the download with
-// the original filename instead of opening it in a new tab.
+// An anchor click routes the download with the original filename instead
+// of opening the file in a new tab.
 function downloadTrack(track: PanelTrack) {
   const a = document.createElement("a");
   a.href = track.url;

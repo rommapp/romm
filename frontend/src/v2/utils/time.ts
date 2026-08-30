@@ -1,6 +1,3 @@
-// Track-position formatting shared by every soundtrack surface (panel,
-// track rows, mini player).
-//
 // Not Intl.DurationFormat: its digital style always pads minutes to two
 // digits ("02:37"), and player timestamps read as "2:37".
 

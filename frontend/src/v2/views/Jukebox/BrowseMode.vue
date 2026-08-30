@@ -1,8 +1,6 @@
 <script setup lang="ts">
-// Artist / game-genre / platform / decade / album all have this exact shape,
-// so they share one component and differ only by the facet they load and the
-// filter they hand to the track query. Adding a browse dimension is a new
-// entry in `BROWSE_MODES`, not another copy of this markup.
+// One facet-driven browse screen: artist / genre / platform / decade / album
+// differ only by the facet they load and the filter they hand the track query.
 import {
   RIcon,
   RList,

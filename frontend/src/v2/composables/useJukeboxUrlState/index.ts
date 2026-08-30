@@ -1,13 +1,6 @@
-// Two-way binding between the jukebox's browse state and the URL.
-//
-// The mode is a path segment (`/music/:mode?`) written with `router.push`,
-// so every subgroup is its own history entry and browser back/forward walks
-// between them. The selection inside a mode (picked artist, album, ...) is
-// bookmarkable session state (constitution §VI.D) and lives in the query
-// string, written with `router.replace` so refining a pick does not spam
-// the history. Every query param goes through the same `queryRef` helper
-// rather than a hand-written ref + watcher pair per param, which is what
-// let `artist` silently miss its URL->ref direction before.
+// Two-way binding between the jukebox's browse state and the URL: the mode
+// is a path segment written with `push` (every subgroup is a history entry);
+// the selection inside a mode is query state written with `replace`.
 import { computed, ref, watch, type Ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";

@@ -1,8 +1,4 @@
-// Loads one ROM's soundtrack into the panel's normalized track shape.
-//
-// The panel used to do this itself, which is what forced it to accept either a
-// `rom` or a `musicTracks` prop. Keeping the fetch here lets the panel take a
-// single `tracks` input and lets any host reuse the same loading path.
+// Loads one ROM's soundtrack files into the panel's normalized track shape.
 import axios from "axios";
 import { computed, ref, toValue, watch, type MaybeRefOrGetter } from "vue";
 import type {

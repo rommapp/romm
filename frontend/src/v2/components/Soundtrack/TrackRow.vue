@@ -1,13 +1,6 @@
 <script setup lang="ts">
-// One row of the soundtrack track list.
-//
-// Split out of Panel so the list can be virtualised: only visible rows mount,
-// which keeps the per-row RMenu (and its document-level listener) proportional
-// to the viewport rather than to the size of the library.
-//
-// The leading cell is the row's state at a glance: queue position by default,
-// a play / pause glyph under the pointer, animated bars while the track
-// plays, and a spinner while it buffers.
+// One row of the (virtualised) track list: only visible rows mount, keeping
+// the per-row RMenu count proportional to the viewport, not the library.
 import { RBtn, RDivider, RIcon, RMenu, RMenuItem, RSpinner } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";

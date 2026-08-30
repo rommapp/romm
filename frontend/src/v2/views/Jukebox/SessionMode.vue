@@ -1,9 +1,6 @@
 <script setup lang="ts">
 // The "one big queue" jukebox screens: play-all, free radio, favorites and
-// recently added. They differ only in which query fills the queue.
-//
-// Nothing here downloads a library: the list pages in as the viewer scrolls
-// or as playback approaches the end of what is loaded.
+// recently added differ only in which query fills the queue.
 import { computed, watch } from "vue";
 import musicApi from "@/services/api/music";
 import useMusicFavorites from "@/stores/musicFavorites";
@@ -13,10 +10,11 @@ import {
   type TrackPageFetcher,
 } from "@/v2/composables/useTrackPager";
 import { buildFreeRadioSession } from "@/v2/utils/freeRadio";
-import type { JukeboxPlayerMode } from "@/v2/utils/jukebox";
+import {
+  RECENTLY_ADDED_LIMIT,
+  type JukeboxPlayerMode,
+} from "@/v2/utils/jukebox";
 import { panelTracksFromCatalog } from "@/v2/utils/soundtrackTracks";
-
-const RECENTLY_ADDED_LIMIT = 25;
 
 // Enough to fill the hour-long station even when tracks are short and many
 // lack the duration metadata the session builder needs.

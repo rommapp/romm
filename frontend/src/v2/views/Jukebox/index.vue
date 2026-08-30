@@ -1,11 +1,6 @@
 <script setup lang="ts">
-// Jukebox: browse and play the library's soundtracks.
-//
-// This is a shell: it owns the mode/URL state and the page chrome, and hands
-// the actual screen to one of three components. Every browse dimension is an
-// entry in `BROWSE_MODES` rather than its own block of markup, and each mode
-// asks the server for exactly the tracks it needs instead of downloading the
-// catalog and re-grouping it here.
+// Jukebox shell: owns the mode/URL state and the page chrome, and hands the
+// screen to one of the three mode components.
 import { RBtn, RChip, RDivider } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";

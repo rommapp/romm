@@ -1,6 +1,5 @@
-// The Jukebox's browse modes, shared so that surfaces which react to them
-// (the mini player, which hides while a full player is on screen) can't
-// drift from the view that defines them.
+// The Jukebox's browse modes, shared with the surfaces that react to them
+// (the mini player hides while a full player is on screen).
 export const JUKEBOX_MODES = [
   "album",
   "artist",
@@ -15,6 +14,9 @@ export const JUKEBOX_MODES = [
 
 export type JukeboxPlayerMode = (typeof JUKEBOX_MODES)[number];
 export type JukeboxMode = JukeboxPlayerMode | "home";
+
+/** Size of the fixed "recently added" queue. */
+export const RECENTLY_ADDED_LIMIT = 25;
 
 /** Locale key for each mode's display name, shared by the launch tiles and
  *  the page header so a subgroup is called the same thing everywhere. */

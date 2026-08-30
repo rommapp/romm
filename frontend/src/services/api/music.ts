@@ -59,11 +59,8 @@ async function getFavorites(filters: MusicTrackFilters = {}) {
   });
 }
 
-/** Pages a filtered track list to completion.
- *
- *  Only for lists that are small by construction — one game's soundtrack.
- *  Browse selections and the play-all queue page in on demand instead; see
- *  `useTrackPager`. */
+/** Pages a small-by-construction list (one game's soundtrack) to completion;
+ *  anything unbounded pages on demand through `useTrackPager` instead. */
 async function getAllTracks(
   filters: Omit<MusicTrackFilters, "limit" | "offset"> = {},
 ): Promise<MusicTrackSchema[]> {
@@ -140,11 +137,7 @@ async function getGames(filters: FacetFilters = {}) {
   });
 }
 
-/** A bounded, spread-out sample of the catalog.
- *
- *  The free-radio station only needs enough material to fill an hour, so it
- *  pulls a few pages from random offsets instead of downloading a library that
- *  can run to six figures. */
+/** A bounded sample of the catalog, pulled from random offsets. */
 async function getSampleTracks(
   maxTracks: number,
   filters: Omit<MusicTrackFilters, "limit" | "offset"> = {},

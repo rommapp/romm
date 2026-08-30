@@ -1,9 +1,5 @@
-// The one track shape the soundtrack player renders.
-//
-// Both sources normalize into this before reaching the panel: a ROM's own
-// soundtrack files (GameDetails) and the music catalog (Jukebox). Keeping the
-// mapping here means the panel has a single input type instead of a prop
-// union that every new host would widen again.
+// The one track shape the soundtrack player renders; both sources (a ROM's
+// own files, the music catalog) normalize into it here.
 import type { MusicTrackSchema, TrackMetaSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";

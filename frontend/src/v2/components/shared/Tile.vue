@@ -1,11 +1,6 @@
 <script setup lang="ts">
-// Tile — the square card used for the Home dashboard's platform row, the
+// Tile — the square card used by the Home dashboard's platform row, the
 // /platforms grid, and the Jukebox's launch tiles.
-//
-// Shared composite: it owns the tile chrome (elevated surface, modality-gated
-// hover, the focus-visible brand glow, the icon's hover lift) so those rules
-// live in one place instead of being re-derived per feature. Callers supply
-// the icon, label and count through slots and pick a density.
 import { computed } from "vue";
 import type { RouteLocationRaw } from "vue-router";
 
