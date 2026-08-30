@@ -31,6 +31,7 @@ from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, SaveTargetLayout, TrackMeta
+from utils import switch
 from utils.archives import (
     ArchiveReadError,
     detect_mime_type,
@@ -200,18 +201,6 @@ class ParsedRomFiles:
     renamed_rom_fs_name: str | None = None
 
 
-# Maps sigil's Switch CNMT content type to the RomFile category. Authoritative
-# over folder-derived categories when the binary parse succeeds.
-SWITCH_CONTENT_TYPE_CATEGORIES: dict[str, RomFileCategory] = {
-    "application": RomFileCategory.GAME,
-    "patch": RomFileCategory.UPDATE,
-    "addon": RomFileCategory.DLC,
-}
-
-SWITCH_TITLE_ID_REGEX = re.compile(r"[0-9A-Fa-f]{16}")
-# An already-embedded id, e.g. [0100F4700B2E0000].
-SWITCH_TITLE_ID_BRACKET_REGEX = re.compile(rf"\[{SWITCH_TITLE_ID_REGEX.pattern}\]")
-
 
 def _embed_switch_title_id_in_name(
     abs_file_path: Path, title_id: str, title_version: int | None
@@ -224,11 +213,11 @@ def _embed_switch_title_id_in_name(
     """
     name = abs_file_path.name
 
-    if SWITCH_TITLE_ID_BRACKET_REGEX.search(name):
+    if switch.TITLE_ID_BRACKET_REGEX.search(name):
         log.debug(f"{name} already has an embedded title id, skipping rename")
         return None
 
-    if not SWITCH_TITLE_ID_REGEX.fullmatch(title_id):
+    if not switch.TITLE_ID_REGEX.fullmatch(title_id):
         log.debug(f"Title id {title_id!r} is not a 16-hex value, skipping rename")
         return None
 
@@ -256,27 +245,6 @@ def _parse_save_target_layout(usage: str) -> SaveTargetLayout | None:
         return None
 
 
-def _derive_switch_base_title_id(title_id: str) -> str | None:
-    """Derive the base-game title id from an update/DLC id: clear the low 12
-    bits and decrement the program-index nibble when it is odd."""
-    if len(title_id) < 4:
-        return None
-    nibble_char = title_id[-4]
-    try:
-        nibble = int(nibble_char, 16)
-    except ValueError:
-        return None
-    if nibble % 2 == 1:
-        nibble -= 1
-    formatted = format(nibble, "x" if nibble_char.islower() else "X")
-    return f"{title_id[:-4]}{formatted}000"
-
-
-def _is_switch_base_title_id(title_id: str) -> bool:
-    """A base-game id is its own derived base."""
-    return _derive_switch_base_title_id(title_id) == title_id
-
-
 def _rom_level_title_values(
     platform_slug: str,
     extractions: list[SigilExtractionResult],
@@ -286,7 +254,7 @@ def _rom_level_title_values(
 
     if platform_slug in SWITCH_PLATFORM_SLUGS:
         base = next(
-            (e for e in extractions if _is_switch_base_title_id(e.title_id)), None
+            (e for e in extractions if switch.is_base_title_id(e.title_id)), None
         )
         if base is not None:
             return (
@@ -295,7 +263,7 @@ def _rom_level_title_values(
                 _parse_save_target_layout(base.usage),
             )
 
-        derived = _derive_switch_base_title_id(extractions[0].title_id)
+        derived = switch.derive_base_title_id(extractions[0].title_id)
         if derived is None:
             return None, None, None
         # Switch saves are keyed by the base title id itself.
@@ -515,7 +483,7 @@ class FSRomsHandler(FSHandler):
             # For Switch, the binary CNMT content type is authoritative over the
             # folder-derived category. Leave the folder category when absent.
             if extraction.content_type is not None:
-                category = SWITCH_CONTENT_TYPE_CATEGORIES.get(extraction.content_type)
+                category = switch.CONTENT_TYPE_CATEGORIES.get(extraction.content_type)
                 if category is not None:
                     rom_file.category = category
             sigil_extractions.append(extraction)
