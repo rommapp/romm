@@ -45,6 +45,19 @@ def test_get_filesystem_platforms(client, access_token, platform):
     assert segacd["rom_count"] == 0
 
 
+def test_supported_platforms_include_doom(client, access_token):
+    # Doom boots in EmulatorJS, so its folder has to be bindable in the picker,
+    # which is built from UniversalPlatformSlug rather than from the core map.
+    response = client.get(
+        "/api/platforms/supported",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    slugs = {p["slug"] for p in response.json()}
+    assert "doom" in slugs
+
+
 def test_update_platform_custom_name(client, access_token, platform):
     # The body is an embedded key, not a bare scalar; sending {"custom_name": ...}
     # must be accepted (regression against the single-body-param 422).

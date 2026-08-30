@@ -835,6 +835,14 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "ra_id": 40,
         "tgdb_id": None,
     },
+    UPS.DOOM: {
+        "id": 645195,
+        "igdb_id": None,
+        "igdb_slug": "",
+        "name": "PrBoom",
+        "ra_id": None,
+        "tgdb_id": None,
+    },
     UPS.DOS: {
         "id": 233075,
         "igdb_id": 13,

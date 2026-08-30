@@ -1116,6 +1116,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.CPS3: {"id": CPS3_SS_ID, "name": "Capcom Play System 3"},
     UPS.CPET: {"id": 240, "name": "PET"},
     UPS.CREATIVISION: {"id": 241, "name": "CreatiVision"},
+    UPS.DOOM: {"id": 290, "name": "Doom"},
     UPS.DOS: {"id": 135, "name": "PC Dos"},
     UPS.DRAGON_32_SLASH_64: {"id": 91, "name": "Dragon 32/64"},
     UPS.DC: {"id": 23, "name": "Dreamcast"},
