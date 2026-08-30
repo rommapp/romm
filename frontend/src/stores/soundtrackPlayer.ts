@@ -168,9 +168,12 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
         tracksByKey.delete(item.romId + ":" + item.fileId);
         return [next];
       });
+      // Tracks not in the previous order (a freshly paged-in window) join
+      // shuffled too, or playback would turn sequential once the already
+      // loaded portion of the queue runs out.
       playlist.value =
         restored.length > 0
-          ? [...restored, ...tracksByKey.values()]
+          ? [...restored, ...shuffled([...tracksByKey.values()])]
           : shuffled([...tracksByKey.values()]);
       return;
     }
