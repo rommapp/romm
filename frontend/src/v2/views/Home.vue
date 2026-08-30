@@ -9,7 +9,7 @@
 // dispatched by `useGamepad` have somewhere to go.
 import { RChip, RDivider, RIcon, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
 import { ROUTES } from "@/plugins/router";
@@ -17,8 +17,10 @@ import setupApi, { type SetupLibraryInfo } from "@/services/api/setup";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import { useStreamingStore } from "@/stores/streaming";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
+import LiveSessionCard from "@/v2/components/Home/LiveSessionCard.vue";
 import WidgetBar from "@/v2/components/Home/Widgets/WidgetBar.vue";
 import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
 import CardRow from "@/v2/components/shared/CardRow.vue";
@@ -57,6 +59,45 @@ const {
 
 const fetchingRecent = ref(false);
 const fetchingContinue = ref(false);
+
+// Multiplayer sessions other users are hosting right now. Nothing pushes a
+// session start, so the list is polled while the page is open. Only the
+// leading fetch forces past the store's freshness window; later ticks defer
+// to it so a fetch another surface already made in that window is reused
+// instead of duplicated. Hidden entirely when empty.
+const streamingStore = useStreamingStore();
+const { joinableSessions, isEnabled: streamingEnabled } =
+  storeToRefs(streamingStore);
+const liveSessions = computed(() =>
+  joinableSessions.value.filter((s) => s.rom_id != null),
+);
+const LIVE_SESSIONS_POLL_MS = 30_000;
+let liveSessionsTimer: ReturnType<typeof setInterval> | null = null;
+
+function refreshLiveSessions(force = false): void {
+  if (!streamingEnabled.value) return;
+  void streamingStore.fetchJoinableSessions(force);
+}
+
+watch(
+  streamingEnabled,
+  (enabled) => {
+    if (liveSessionsTimer) clearInterval(liveSessionsTimer);
+    liveSessionsTimer = null;
+    if (!enabled) return;
+    refreshLiveSessions(true);
+    liveSessionsTimer = setInterval(
+      () => refreshLiveSessions(),
+      LIVE_SESSIONS_POLL_MS,
+    );
+  },
+  { immediate: true },
+);
+
+onUnmounted(() => {
+  if (liveSessionsTimer) clearInterval(liveSessionsTimer);
+  liveSessionsTimer = null;
+});
 
 const gridRoot = ref<HTMLElement | null>(null);
 useGridNav(gridRoot);
@@ -285,6 +326,25 @@ function collectionCovers(c: {
            Hidden when the master toggle is off; the bar itself also
            drops out when every individual widget is disabled. -->
       <WidgetBar v-if="showHomeWidgets" />
+
+      <!-- Live now: multiplayer streams open to a second player -->
+      <CardRow
+        v-if="liveSessions.length"
+        :title="t('home.live-sessions')"
+        :count="liveSessions.length"
+      >
+        <template #icon>
+          <RIcon icon="mdi-access-point" size="20" />
+        </template>
+        <LiveSessionCard
+          v-for="(session, i) in liveSessions"
+          :key="`live-${session.container}`"
+          class="r-v2-card-fade"
+          :style="{ '--card-fade-i': i }"
+          :session="session"
+          :webp="supportsWebp"
+        />
+      </CardRow>
 
       <!-- Continue playing -->
       <CardRow
