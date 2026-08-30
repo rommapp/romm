@@ -175,7 +175,6 @@ function onDelete(fileId: number, romId: number) {
 
   <main class="jukebox__main">
     <SoundtrackPanel
-      v-if="panelTracks.length || pager.loading.value"
       :key="selected"
       :tracks="panelTracks"
       :loading="pager.loading.value"
@@ -183,16 +182,11 @@ function onDelete(fileId: number, romId: number) {
       :total-tracks="pager.total.value"
       :start-shuffled="startShuffled"
       :deletable="deletable"
+      :empty-icon="icon"
       wide
       class="jukebox__player"
       @reached="pager.loadMoreIfNear"
       @delete-track="onDelete"
-    />
-    <EmptyState
-      v-else
-      variant="boxed"
-      :icon="icon"
-      :message="t('common.no-results')"
     />
   </main>
 </template>

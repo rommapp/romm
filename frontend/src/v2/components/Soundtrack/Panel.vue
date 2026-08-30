@@ -33,6 +33,7 @@ import useSoundtrackPlayer, {
   type PlayerMeta,
   type PlayerTrack,
 } from "@/stores/soundtrackPlayer";
+import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import type { PanelTrack } from "@/v2/utils/soundtrackTracks";
@@ -65,6 +66,8 @@ const props = defineProps<{
   deletable?: boolean;
   /** Opt into the now-playing-rail layout when the container is wide enough. */
   wide?: boolean;
+  /** Icon for the empty-queue state (defaults to a generic playlist glyph). */
+  emptyIcon?: string;
 }>();
 const emit = defineEmits<{
   (e: "delete-track", fileId: number, romId: number): void;
@@ -545,6 +548,15 @@ function seekValueText(v: number): string {
             />
           </template>
         </RVirtualScroller>
+        <!-- Empty queue keeps the player chrome on screen; only the list
+             area says there is nothing to play. -->
+        <div v-else class="r-v2-stp__queue-empty">
+          <EmptyState
+            variant="boxed"
+            :icon="emptyIcon ?? 'mdi-playlist-music'"
+            :message="t('common.no-results')"
+          />
+        </div>
       </section>
     </div>
   </div>
@@ -858,6 +870,18 @@ function seekValueText(v: number): string {
   gap: var(--r-space-2);
   color: var(--r-color-fg-muted);
   font-size: var(--r-font-size-xs);
+}
+
+.r-v2-stp__queue-empty {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+}
+
+.r-v2-stp__queue-empty > * {
+  min-width: min(320px, 100%);
 }
 
 .r-v2-stp__queue-skeleton {

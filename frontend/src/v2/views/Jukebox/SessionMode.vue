@@ -5,11 +5,9 @@
 // Nothing here downloads a library: the list pages in as the viewer scrolls
 // or as playback approaches the end of what is loaded.
 import { computed, watch } from "vue";
-import { useI18n } from "vue-i18n";
 import musicApi from "@/services/api/music";
 import useMusicFavorites from "@/stores/musicFavorites";
 import SoundtrackPanel from "@/v2/components/Soundtrack/Panel.vue";
-import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import {
   useTrackPager,
   type TrackPageFetcher,
@@ -36,7 +34,6 @@ const emit = defineEmits<{
   (e: "delete-track", fileId: number, romId: number): void;
 }>();
 
-const { t } = useI18n();
 const favorites = useMusicFavorites();
 
 const pager = useTrackPager((items) => favorites.merge(items));
@@ -94,15 +91,7 @@ const panelTracks = computed(() => panelTracksFromCatalog(pager.tracks.value));
 </script>
 
 <template>
-  <EmptyState
-    v-if="!pager.loading.value && !panelTracks.length"
-    class="jukebox__session"
-    variant="boxed"
-    icon="mdi-playlist-music"
-    :message="t('common.no-results')"
-  />
   <SoundtrackPanel
-    v-else
     :key="mode"
     :tracks="panelTracks"
     :loading="pager.loading.value"
