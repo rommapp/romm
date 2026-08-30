@@ -15,12 +15,20 @@ const support = vi.hoisted(() => ({
 }));
 
 const heartbeat = ref({});
+// The streaming route is a store lookup rather than an engine check: a
+// container configured for the platform makes the rom streamable.
+const streamContainer = ref<object | null>(null);
 
 vi.mock("pinia", () => ({
   storeToRefs: () => ({ value: heartbeat }),
 }));
 vi.mock("@/stores/config", () => ({ default: () => ({ config: {} }) }));
 vi.mock("@/stores/heartbeat", () => ({ default: () => ({}) }));
+vi.mock("@/stores/streaming", () => ({
+  useStreamingStore: () => ({
+    containerForPlatform: () => streamContainer.value,
+  }),
+}));
 vi.mock("@/utils", () => ({
   isEJSEmulationSupported: support.ejs,
   isJsDosEmulationSupported: support.jsDos,
@@ -47,6 +55,7 @@ beforeEach(() => {
   support.jsDos.mockClear();
   support.ruffle.mockClear();
   support.jsDosBundle.mockClear();
+  streamContainer.value = null;
 });
 
 describe("useCanPlay", () => {
@@ -81,14 +90,37 @@ describe("useCanPlay", () => {
     support.ejs.mockReturnValue(true);
     support.jsDos.mockReturnValue(true);
     support.ruffle.mockReturnValue(true);
-    const { canPlay, canPlayEJS, canPlayJsDos, canPlayRuffle } = useCanPlay(
-      () => null,
-    );
+    streamContainer.value = {};
+    const { canPlay, canPlayEJS, canPlayJsDos, canPlayRuffle, canPlayStream } =
+      useCanPlay(() => null);
 
     expect(canPlay.value).toBe(false);
     expect(canPlayEJS.value).toBe(false);
     expect(canPlayJsDos.value).toBe(false);
     expect(canPlayRuffle.value).toBe(false);
+    expect(canPlayStream.value).toBe(false);
+  });
+
+  // Streaming runs the platform's real emulator in a container, so it makes a
+  // rom playable on its own even where no in-browser engine can touch it.
+  it("reports streaming support on its own flag", () => {
+    streamContainer.value = {};
+    const { canPlay, canPlayStream } = useCanPlay(() => makeRom());
+
+    expect(canPlayStream.value).toBe(true);
+    expect(canPlay.value).toBe(true);
+  });
+
+  // The broker is handed the ROM file, so streaming needs one just as the
+  // in-browser engines do.
+  it("refuses streaming for a rom with no file on disk", () => {
+    streamContainer.value = {};
+    const { canPlay, canPlayStream } = useCanPlay(() =>
+      makeRom({ has_file_on_disk: false }),
+    );
+
+    expect(canPlayStream.value).toBe(false);
+    expect(canPlay.value).toBe(false);
   });
 
   // A bare game folder or plain archive makes js-dos panic with

@@ -8,17 +8,16 @@
 // and list modes lands on the same destination animation.
 import { RPlatformIcon } from "@v2/lib";
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
-import {
-  playableTooltip,
-  usePlatformPlayable,
-} from "@/v2/composables/usePlatformPlayable";
+import { usePlatformPlayable } from "@/v2/composables/usePlatformPlayable";
 import {
   pendingMorphName,
   useViewTransition,
 } from "@/v2/composables/useViewTransition";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
+import PlayModeBadge from "./PlayModeBadge.vue";
 import {
   platformGenerationLabel,
   prettifyPlatformCategory,
@@ -48,6 +47,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const router = useRouter();
+const { t } = useI18n();
 const iconEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
 
@@ -70,8 +70,10 @@ const generationLabel = computed(() =>
     : null,
 );
 
-const { playable, emulator } = usePlatformPlayable(() => props.slug);
-const playableLabel = computed(() => playableTooltip(emulator.value));
+const { emulator, mode, streamLabel } = usePlatformPlayable(() => props.slug);
+// PlayModeBadge covers every mode where the platform is playable; this
+// label only ever renders in the v-else "not playable" branch below.
+const playableLabel = computed(() => t("platform.playable-none"));
 
 function onRowClick(e: MouseEvent) {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
@@ -123,11 +125,21 @@ function onRowClick(e: MouseEvent) {
     <div
       class="plat-list-row__cell plat-list-row__cell--meta plat-list-row__cell--center"
     >
-      <span
+      <PlayModeBadge
+        v-if="mode"
         class="plat-list-row__playable"
-        :class="{ 'plat-list-row__playable--off': !playable }"
+        :mode="mode"
+        :emulator="emulator"
+        :stream-label="streamLabel"
+        :size="18"
+      />
+      <span
+        v-else
+        class="plat-list-row__playable plat-list-row__playable--off"
+        role="img"
+        :aria-label="playableLabel"
       >
-        <RIcon :icon="playable ? 'mdi-play-circle' : 'mdi-cancel'" size="18" />
+        <RIcon icon="mdi-cancel" size="18" />
         <RTooltip activator="parent" :text="playableLabel" location="top" />
       </span>
     </div>
@@ -222,7 +234,6 @@ function onRowClick(e: MouseEvent) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--r-color-success);
 }
 
 .plat-list-row__playable--off {

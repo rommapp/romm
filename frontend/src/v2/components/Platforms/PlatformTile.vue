@@ -6,16 +6,12 @@ import { RPlatformIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import Tile from "@/v2/components/shared/Tile.vue";
-import {
-  playableTooltip,
-  usePlatformPlayable,
-} from "@/v2/composables/usePlatformPlayable";
+import { usePlatformPlayable } from "@/v2/composables/usePlatformPlayable";
 import {
   pendingMorphName,
   useViewTransition,
 } from "@/v2/composables/useViewTransition";
-import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
-import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
+import PlayModeBadge from "./PlayModeBadge.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -73,8 +69,7 @@ const morphStyle = computed(() =>
     : undefined,
 );
 
-const { playable, emulator } = usePlatformPlayable(() => props.slug);
-const playableLabel = computed(() => playableTooltip(emulator.value));
+const { emulator, mode, streamLabel } = usePlatformPlayable(() => props.slug);
 </script>
 
 <template>
@@ -96,11 +91,14 @@ const playableLabel = computed(() => playableTooltip(emulator.value));
         />
       </div>
     </template>
-    <template v-if="playable" #badge>
-      <span class="plat-tile__playable">
-        <RIcon icon="mdi-play-circle" size="16" />
-        <RTooltip activator="parent" :text="playableLabel" location="top" />
-      </span>
+    <template v-if="mode" #badge>
+      <PlayModeBadge
+        class="plat-tile__playable"
+        :mode="mode"
+        :emulator="emulator"
+        :stream-label="streamLabel"
+        :size="16"
+      />
     </template>
     {{ displayName }}
     <template v-if="romCount != null" #count>
@@ -121,9 +119,5 @@ const playableLabel = computed(() => playableTooltip(emulator.value));
   position: absolute;
   right: 8px;
   top: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--r-color-success);
 }
 </style>
