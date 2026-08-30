@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 
@@ -346,5 +347,87 @@ def test_config_update_preserves_streaming_section(tmp_path):
             "host": "https://192.168.1.51:3001",
             "broker_host": "http://192.168.1.51:8000",
             "label": "PCSX2",
+        }
+    ]
+
+
+def test_legacy_streaming_container_logs_deprecation_warning(caplog, tmp_path):
+    """A container without `protocol: webstation` is the deprecated
+    per-emulator broker shape and must warn, not fail, so it keeps working
+    for one more release while pointing operators at the migration guide."""
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "streaming:\n"
+        "  enabled: true\n"
+        "  containers:\n"
+        "    - platform: ps2\n"
+        "      host: https://192.168.1.51:3001\n"
+        "      broker_host: http://192.168.1.51:8000\n"
+        "      label: PCSX2\n"
+    )
+    # The "romm" logger has propagate=False, so caplog's handler must be
+    # added directly to it rather than relying on root-logger propagation.
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger="romm"):
+            loader = ConfigManager(str(config_file))
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+
+    assert loader.config.STREAMING_CONTAINERS
+    assert "deprecated" in caplog.text
+    assert "STREAMING_MIGRATION" in caplog.text
+
+
+def test_webstation_streaming_container_does_not_warn(caplog, tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "streaming:\n"
+        "  enabled: true\n"
+        "  containers:\n"
+        "    - host: https://192.168.1.56:3010\n"
+        "      protocol: webstation\n"
+        "      subfolder: /streaming\n"
+        "      label: Emulation station\n"
+        "      platforms:\n"
+        "        ps2: pcsx2\n"
+    )
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger="romm"):
+            ConfigManager(str(config_file))
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+
+    assert "deprecated" not in caplog.text
+
+
+def test_config_update_preserves_nested_container_platforms(tmp_path):
+    """A container's `platforms` map is the only nested mapping inside the
+    containers list, so it is the shape a runtime rewrite could flatten."""
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "streaming:\n"
+        "  enabled: true\n"
+        "  containers:\n"
+        "    - host: https://192.168.1.51:3001\n"
+        "      broker_host: http://192.168.1.51:8000\n"
+        "      label: WEBSTATION\n"
+        "      platforms:\n"
+        "        ps2: pcsx2\n"
+        "        ngc: dolphin\n"
+    )
+    loader = ConfigManager(str(config_file))
+    loader.add_platform_binding("gc", "ngc")
+
+    reloaded = ConfigManager(str(config_file))
+    assert reloaded.config.STREAMING_CONTAINERS == [
+        {
+            "host": "https://192.168.1.51:3001",
+            "broker_host": "http://192.168.1.51:8000",
+            "label": "WEBSTATION",
+            "platforms": {"ps2": "pcsx2", "ngc": "dolphin"},
         }
     ]

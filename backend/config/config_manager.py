@@ -163,11 +163,39 @@ class NetplayICEServer(TypedDict):
     credential: NotRequired[str]
 
 
+class StreamingPlatformOverride(TypedDict):
+    # Names the state and card namespace, so it has no container-level default.
+    emulator: str
+    # Anything set here wins over the same key on the container.
+    label: NotRequired[str]
+    memory_card_sync: NotRequired[bool]
+
+
 class StreamingContainer(TypedDict):
-    platform: str
+    # A container declares either one platform (the per-emulator mods) or a
+    # `platforms` map (one webstation serving many). Exactly one of the two.
+    platform: NotRequired[str]
+    # Platform slug to the emulator that serves it, or to a block of options
+    # overriding container keys for that platform, replacing platform +
+    # emulator on a container that hosts more than one.
+    platforms: NotRequired[dict[str, str | StreamingPlatformOverride]]
     host: str
-    broker_host: str
+    # Optional under `protocol: webstation`, which derives the broker host from
+    # `host` and `subfolder` when it is omitted.
+    broker_host: NotRequired[str]
     label: str
+    library_path: NotRequired[str]
+    # Namespace for stored states/cards; defaults to label (or platform)
+    # lowercased when omitted.
+    emulator: NotRequired[str]
+    # Opt in to whole memory-card sync (broker /memory-card). When true, the
+    # legacy per-file /save-file in-game-save path is skipped for this container.
+    memory_card_sync: NotRequired[bool]
+    # Broker dialect. Omitted (or "broker") is the per-emulator mod contract;
+    # "webstation" is the LSIO webstation container's activate/exit contract.
+    protocol: NotRequired[str]
+    # URL prefix the webstation broker is served under, matching its SUBFOLDER.
+    subfolder: NotRequired[str]
 
 
 class Config:
@@ -834,6 +862,22 @@ class ConfigManager:
         if not isinstance(self.config.STREAMING_CONTAINERS, list):
             log.critical("Invalid config.yml: streaming.containers must be a list")
             sys.exit(3)
+
+        legacy_containers = [
+            container
+            for container in self.config.STREAMING_CONTAINERS
+            if isinstance(container, dict)
+            and str(container.get("protocol", "")).strip().lower() != "webstation"
+        ]
+        if legacy_containers:
+            log.warning(
+                "config.yml has %d streaming container(s) still using the "
+                "per-emulator broker mods (no `protocol: webstation`). That "
+                "protocol is deprecated and support for it will be removed "
+                "in a future release. See docs/STREAMING_MIGRATION.md to "
+                "move to a webstation container.",
+                len(legacy_containers),
+            )
 
     def get_config(self) -> Config:
         try:
