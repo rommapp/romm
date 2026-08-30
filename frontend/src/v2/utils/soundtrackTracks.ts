@@ -98,12 +98,14 @@ export function panelTracksFromCatalog(
       romId: track.rom_id,
       fileName: track.title || track.game_name || String(track.rom_file_id),
       title,
-      // The game name is context only when it differs from the track title;
-      // untagged rips often carry the same string for both.
+      // The game name is context only when it says something new: untagged
+      // rips often reuse it as the title, and tagged ones as the album.
       subtitle: joinParts([
         track.artist,
         track.album,
-        track.game_name === title ? null : track.game_name,
+        track.game_name === title || track.game_name === track.album
+          ? null
+          : track.game_name,
         track.platform_name,
       ]),
       url: track.stream_url,

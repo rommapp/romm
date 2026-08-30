@@ -310,9 +310,7 @@ async function deleteSoundtrack(fileId: number) {
             :loading="soundtrackLoading"
             :fallback-art-url="soundtrackArtUrl"
             :deletable="canEdit"
-            uploadable
             class="r-v2-media__soundtrack"
-            @upload-tracks="soundtrackDz?.open()"
             @delete-track="deleteSoundtrack"
           />
         </RDropzone>

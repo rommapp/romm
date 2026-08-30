@@ -40,41 +40,45 @@ async function facetTotal(
   }
 }
 
-async function loadTotals() {
-  const [stats, favorites, games, artists, genres, platforms, years] =
-    await Promise.all([
-      musicApi.getStats().catch(() => null),
-      facetTotal(musicApi.getFavorites),
-      facetTotal(musicApi.getGames),
-      facetTotal(musicApi.getArtists),
-      facetTotal(musicApi.getGameGenres),
-      facetTotal(musicApi.getPlatforms),
-      musicApi
-        .getYears({ limit: 500 })
-        .then(({ data }) => data.items)
-        .catch(() => []),
-    ]);
+// Each tile fills in as its own query lands: some facets take seconds on a
+// large catalog and no tile should wait on the slowest one.
+function loadTotals() {
+  void musicApi
+    .getStats()
+    .then(({ data }) => {
+      totals.value.tracks = data.total_tracks;
+      totals.value.duration = data.total_duration_seconds;
+    })
+    .catch(() => {});
 
-  const decades = new Set(
-    years
-      .map((year) => Number(year.value))
-      .filter((year) => Number.isFinite(year) && year > 0)
-      .map((year) => Math.floor(year / 10) * 10),
-  );
+  const facets = [
+    ["favorites", musicApi.getFavorites],
+    ["games", musicApi.getGames],
+    ["artists", musicApi.getArtists],
+    ["genres", musicApi.getGameGenres],
+    ["platforms", musicApi.getPlatforms],
+  ] as const;
+  for (const [key, load] of facets) {
+    void facetTotal(load).then((total) => {
+      totals.value[key] = total;
+    });
+  }
 
-  totals.value = {
-    tracks: stats?.data.total_tracks ?? 0,
-    duration: stats?.data.total_duration_seconds ?? 0,
-    favorites,
-    games,
-    artists,
-    genres,
-    platforms,
-    decades: decades.size,
-  };
+  void musicApi
+    .getYears({ limit: 500 })
+    .then(({ data }) => {
+      const decades = new Set(
+        data.items
+          .map((year) => Number(year.value))
+          .filter((year) => Number.isFinite(year) && year > 0)
+          .map((year) => Math.floor(year / 10) * 10),
+      );
+      totals.value.decades = decades.size;
+    })
+    .catch(() => {});
 }
 
-void loadTotals();
+loadTotals();
 
 // The station plays at most an hour, so a small library caps at its own length.
 const radioDuration = computed(() =>
@@ -94,6 +98,8 @@ interface LaunchTile {
   icon: string;
   label: string;
   count: string;
+  /** Token name for the tile's icon medallion tint. */
+  tone: string;
 }
 
 const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
@@ -102,12 +108,14 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
     tiles: [
       {
         mode: "station",
+        tone: "--r-color-romm-red",
         icon: "mdi-radio-tower",
         label: t("common.free-radio"),
         count: minutes(radioDuration.value),
       },
       {
         mode: "decade",
+        tone: "--r-color-romm-blue",
         icon: "mdi-calendar-range",
         label: t("common.decade-mix"),
         count: t("common.decades-n", totals.value.decades, {
@@ -116,12 +124,14 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
       },
       {
         mode: "recent",
+        tone: "--r-color-romm-green",
         icon: "mdi-clock-outline",
         label: t("common.recently-added-soundtracks"),
         count: tracksCount(Math.min(totals.value.tracks, RECENTLY_ADDED_LIMIT)),
       },
       {
         mode: "favorite",
+        tone: "--r-color-fav",
         icon: "mdi-heart",
         label: t("common.favorite-soundtracks"),
         count: tracksCount(totals.value.favorites),
@@ -133,12 +143,14 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
     tiles: [
       {
         mode: "play-all",
+        tone: "--r-color-brand-primary",
         icon: "mdi-playlist-music",
         label: t("common.play-all"),
         count: tracksCount(totals.value.tracks),
       },
       {
         mode: "album",
+        tone: "--r-color-brand-accent",
         icon: "mdi-album",
         label: t("common.music-by-album"),
         count: t("common.albums-n", totals.value.games, {
@@ -147,6 +159,7 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
       },
       {
         mode: "platform",
+        tone: "--r-color-brand-secondary",
         icon: "mdi-controller",
         label: t("common.soundtracks-by-platform"),
         count: t("common.platforms-n", totals.value.platforms, {
@@ -155,6 +168,7 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
       },
       {
         mode: "artist",
+        tone: "--r-color-romm-gold",
         icon: "mdi-account-music",
         label: t("common.music-by-artist"),
         count: t("common.artists-n", totals.value.artists, {
@@ -163,6 +177,7 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
       },
       {
         mode: "genre",
+        tone: "--r-color-info",
         icon: "mdi-shape",
         label: t("common.soundtracks-by-genre"),
         count: t("common.genres-n", totals.value.genres, {
@@ -189,7 +204,12 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
         @click="emit('open', tile.mode)"
       >
         <template #icon>
-          <RIcon :icon="tile.icon" size="52" />
+          <span
+            class="jukebox__tile-glyph"
+            :style="{ '--jukebox-tile-tone': `var(${tile.tone})` }"
+          >
+            <RIcon :icon="tile.icon" size="30" />
+          </span>
         </template>
         {{ tile.label }}
         <template #count>{{ tile.count }}</template>
@@ -206,6 +226,20 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
   overflow-y: auto;
   scrollbar-gutter: stable;
   padding: var(--r-space-5) 0 60px;
+}
+
+/* Toned medallion behind each launch icon so the landing reads like a
+   set of playlist covers rather than a grid of identical gray tiles. */
+.jukebox__tile-glyph {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-radius-md);
+  color: var(--jukebox-tile-tone);
+  background: color-mix(in srgb, var(--jukebox-tile-tone) 14%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--jukebox-tile-tone) 25%, transparent);
 }
 
 html[data-bp~="xs"] .jukebox__home {

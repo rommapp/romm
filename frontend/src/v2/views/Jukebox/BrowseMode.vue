@@ -183,6 +183,7 @@ function onDelete(fileId: number, romId: number) {
       :total-tracks="pager.total.value"
       :start-shuffled="startShuffled"
       :deletable="deletable"
+      wide
       class="jukebox__player"
       @reached="pager.loadMoreIfNear"
       @delete-track="onDelete"
@@ -251,22 +252,6 @@ function onDelete(fileId: number, romId: number) {
   height: 100%;
 }
 
-.jukebox__player-loading {
-  height: 100%;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--r-space-5);
-  padding: var(--r-space-5);
-}
-
-.jukebox__player-loading-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--r-space-3);
-  padding-top: var(--r-space-4);
-}
-
 html[data-bp~="xs"] .jukebox__sidebar-head {
   display: none;
 }
@@ -288,9 +273,5 @@ html[data-bp~="xs"] .jukebox__entries :deep(.r-list-item__append) {
 html[data-bp~="xs"] .jukebox__player :deep(.r-v2-stp__row-duration),
 html[data-bp~="xs"] .jukebox__player :deep(.r-v2-stp__row-size) {
   display: none;
-}
-
-html[data-bp~="xs"] .jukebox__player-loading {
-  flex-direction: column;
 }
 </style>

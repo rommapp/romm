@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Jukebox — browse and play the library's soundtracks.
+// Jukebox: browse and play the library's soundtracks.
 //
 // This is a shell: it owns the mode/URL state and the page chrome, and hands
 // the actual screen to one of three components. Every browse dimension is an

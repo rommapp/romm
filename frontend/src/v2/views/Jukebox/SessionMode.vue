@@ -4,7 +4,6 @@
 //
 // Nothing here downloads a library: the list pages in as the viewer scrolls
 // or as playback approaches the end of what is loaded.
-import { RSkeletonBlock } from "@v2/lib";
 import { computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import musicApi from "@/services/api/music";
@@ -95,11 +94,8 @@ const panelTracks = computed(() => panelTracksFromCatalog(pager.tracks.value));
 </script>
 
 <template>
-  <div v-if="pager.loading.value" class="jukebox__session-loading">
-    <RSkeletonBlock height="140px" rounded="md" />
-  </div>
   <EmptyState
-    v-else-if="!panelTracks.length"
+    v-if="!pager.loading.value && !panelTracks.length"
     class="jukebox__session"
     variant="boxed"
     icon="mdi-playlist-music"
@@ -109,10 +105,12 @@ const panelTracks = computed(() => panelTracksFromCatalog(pager.tracks.value));
     v-else
     :key="mode"
     :tracks="panelTracks"
+    :loading="pager.loading.value"
     :loading-more="pager.loadingMore.value"
     :total-tracks="pager.total.value"
     :start-shuffled="mode === 'station'"
     :deletable="deletable"
+    wide
     class="jukebox__session"
     @reached="pager.loadMoreIfNear"
     @delete-track="(fileId, romId) => emit('delete-track', fileId, romId)"
@@ -124,10 +122,5 @@ const panelTracks = computed(() => panelTracksFromCatalog(pager.tracks.value));
   grid-column: 1 / -1;
   min-width: 0;
   min-height: 0;
-}
-
-.jukebox__session-loading {
-  grid-column: 1 / -1;
-  padding: var(--r-space-5);
 }
 </style>
