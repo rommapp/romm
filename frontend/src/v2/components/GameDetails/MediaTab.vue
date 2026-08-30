@@ -21,11 +21,15 @@ import storeUpload from "@/stores/upload";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSoundtrack } from "@/v2/composables/useRomSoundtrack";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSoundtrackActions } from "@/v2/composables/useSoundtrackActions";
 
 const ManualSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ManualSubtab.vue"),
+);
+const WalkthroughSubtab = defineAsyncComponent(
+  () => import("@/v2/components/GameDetails/WalkthroughSubtab.vue"),
 );
 const SoundtrackPanel = defineAsyncComponent(
   () => import("@/v2/components/Soundtrack/Panel.vue"),
@@ -47,6 +51,7 @@ const {
   fallbackArtUrl: soundtrackArtUrl,
 } = useRomSoundtrack(() => props.rom);
 const romsStore = storeRoms();
+const { syncCachedRom } = useRomSync();
 const uploadStore = storeUpload();
 const { t } = useI18n();
 
@@ -59,6 +64,7 @@ const canEdit = useCan("rom.edit");
 // player is visible here and hide itself to avoid duplication.
 const validSubtabs = [
   "manual",
+  "walkthrough",
   "screenshots",
   "artwork",
   "soundtrack",
@@ -131,6 +137,11 @@ const subtabDefs = computed<SubtabDef[]>(() => [
     icon: "mdi-book-open-page-variant-outline",
   },
   {
+    id: "walkthrough",
+    label: t("rom.walkthrough"),
+    icon: "mdi-map-legend",
+  },
+  {
     id: "screenshots",
     label: t("rom.screenshots"),
     icon: "mdi-image-multiple-outline",
@@ -157,7 +168,7 @@ async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: props.rom.id });
     romsStore.currentRom = data;
-    romsStore.update(data);
+    syncCachedRom(data);
   } catch (error) {
     console.error(error);
   }
@@ -250,6 +261,12 @@ async function deleteSoundtrack(fileId: number) {
            entry selector; scrolls independently). -->
       <section v-show="subTab === 'manual'" class="r-v2-media__panel">
         <ManualSubtab :rom="rom" />
+      </section>
+
+      <!-- Walkthrough subtab: uploaded or GameFAQs-fetched documents, with
+           per-user reading progress. -->
+      <section v-show="subTab === 'walkthrough'" class="r-v2-media__panel">
+        <WalkthroughSubtab :rom="rom" />
       </section>
 
       <!-- Screenshots subtab — its own component (ROM / Mine / Community

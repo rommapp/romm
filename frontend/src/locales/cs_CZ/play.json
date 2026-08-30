@@ -1,4 +1,5 @@
 {
+  "all-discs": "Všechny disky",
   "all-saves": "Všechny uložené pozice",
   "all-states": "Všechny stavy",
   "back-to-gallery": "Zpět do galerie",
@@ -13,6 +14,8 @@
   "deselect-save": "Zrušit výběr uložené pozice",
   "deselect-state": "Zrušit výběr stavu",
   "full-screen": "Celá obrazovka",
+  "jsdos-browser-save-warning": "Pozice js-dos se ukládají pouze v tomto prohlížeči a nesynchronizují se s RomM.",
+  "jsdos-quit-without-saving": "Ukončit bez uložení posledního postupu?",
   "no-save-selected": "Není vybrána žádná uložená pozice",
   "no-saves-available": "Nejsou k dispozici žádné uložené pozice",
   "no-screenshot-available": "Žádný screenshot není k dispozici",

@@ -1,4 +1,5 @@
 {
+  "all-discs": "所有光盘",
   "all-saves": "所有存档",
   "all-states": "所有状态",
   "back-to-gallery": "返回游戏库",
@@ -13,6 +14,8 @@
   "deselect-save": "取消选择存档",
   "deselect-state": "取消选择状态",
   "full-screen": "全屏",
+  "jsdos-browser-save-warning": "js-dos 存档仅保存在此浏览器中，不会与 RomM 同步。",
+  "jsdos-quit-without-saving": "不保存最近的进度并退出吗？",
   "no-save-selected": "未选择存档",
   "no-saves-available": "无可用存档",
   "no-screenshot-available": "无可用截图",

@@ -35,6 +35,7 @@ import storeRoms from "@/stores/roms";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
@@ -138,12 +139,13 @@ const uploadingStates = ref(false);
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
+const { syncCachedRom } = useRomSync();
 
 async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: props.rom.id });
     romsStore.currentRom = data;
-    romsStore.update(data);
+    syncCachedRom(data);
   } catch (error) {
     console.error(error);
   }

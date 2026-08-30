@@ -13,6 +13,12 @@ vi.mock("@/stores/heartbeat", () => ({
   default: () => ({ getMetadataOptionsByPriority: () => [] }),
 }));
 
+const push = vi.fn();
+vi.mock("vue-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue-router")>()),
+  useRouter: () => ({ push }),
+}));
+
 // Real messages rather than a key-echoing stub, so plural selection is
 // exercised the way it renders in the app.
 const i18n = createI18n({
@@ -47,10 +53,13 @@ function platform(overrides: Partial<Platform> = {}): Platform {
   } as Platform;
 }
 
-function mountSection(platforms: Platform[]) {
+function mountSection(
+  platforms: Platform[],
+  regionBreakdown: Record<string, { region: string; count: number }[]> = {},
+) {
   storePlatforms().set(platforms);
   return mount(PlatformsStatsSection, {
-    props: { totalFilesize: 0, metadataCoverage: {}, regionBreakdown: {} },
+    props: { totalFilesize: 0, metadataCoverage: {}, regionBreakdown },
     global: {
       plugins: [i18n],
       stubs: {
@@ -156,6 +165,50 @@ function duplicateSlugLibrary(): Platform[] {
 describe("PlatformsStatsSection", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    push.mockClear();
+  });
+
+  it("links each row to its platform gallery", async () => {
+    const wrapper = mountSection(duplicateSlugLibrary());
+
+    const rows = wrapper.findAll(".r-v2-plat-stats__row");
+    expect(rows.map((r) => r.attributes("href"))).toEqual([
+      "/platform/1",
+      "/platform/2",
+      "/platform/3",
+      "/platform/4",
+      "/platform/5",
+      "/platform/6",
+    ]);
+    expect(rows[0].attributes("aria-label")).toBe("Open Atari 2600");
+
+    await rows[3].trigger("click", { button: 0 });
+    expect(push).toHaveBeenCalledWith("/platform/4");
+  });
+
+  // The regions toggle sits inside the row anchor, so its click must not
+  // bubble into a navigation.
+  it("expands regions without navigating to the platform", async () => {
+    const regions = [
+      { region: "us", count: 5 },
+      { region: "eu", count: 4 },
+      { region: "jp", count: 3 },
+      { region: "au", count: 2 },
+      { region: "br", count: 1 },
+      { region: "ca", count: 1 },
+    ];
+    const wrapper = mountSection([platform({ id: 7, rom_count: 16 })], {
+      "7": regions,
+    });
+
+    expect(wrapper.findAll(".r-v2-plat-stats__region")).toHaveLength(5);
+
+    await wrapper.find(".r-v2-plat-stats__more").trigger("click");
+
+    expect(wrapper.findAll(".r-v2-plat-stats__region")).toHaveLength(
+      regions.length,
+    );
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("renders one row per platform on initial load", () => {

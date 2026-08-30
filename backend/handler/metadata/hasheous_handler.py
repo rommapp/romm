@@ -58,6 +58,18 @@ class HasheousRom(BaseRom):
 ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {UPS.DC: ["bin", "chd", "cue"]}
 
 
+def _involved_company_names(rom: dict[str, Any], role: str) -> list[str]:
+    """Company names for an IGDB involvement role.
+
+    The proxy keys its expanded lists by id, so involvements arrive as a dict
+    rather than the list IGDB itself returns.
+    """
+    involved = pydash.values(rom.get("involved_companies", {}))
+    return pydash.compact(
+        pydash.map_([c for c in involved if c.get(role)], "company.name")
+    )
+
+
 def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
     return IGDBMetadata(
         {
@@ -88,6 +100,8 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
             "companies": pydash.compact(
                 pydash.map_(rom.get("involved_companies", {}), "company.name")
             ),
+            "publishers": _involved_company_names(rom, "publisher"),
+            "developers": _involved_company_names(rom, "developer"),
             "platforms": [
                 IGDBMetadataPlatform(igdb_id=p.get("id", ""), name=p.get("name", ""))
                 for p in pydash.map_(rom.get("platforms", {}))
@@ -270,17 +284,12 @@ class HasheousHandler(MetadataHandler):
         # against any of them.
         data: list[dict] = []
         for file in filtered_files:
-            file_hashes: dict[str, str | None]
-            if file.chd_sha1_hash:
-                # CHD files are indexed by disc-data SHA1 only
-                # Raw file MD5/CRC are hashes of the container and won't match
-                file_hashes = {"shA1": file.chd_sha1_hash}
-            else:
-                file_hashes = {
-                    "mD5": file.md5_hash,
-                    "shA1": file.sha1_hash,
-                    "crc": file.crc_hash,
-                }
+            hashes = file.lookup_hashes
+            file_hashes: dict[str, str | None] = {
+                "mD5": hashes.md5,
+                "shA1": hashes.sha1,
+                "crc": hashes.crc,
+            }
 
             # Drop empty hashes and skip files that have none.
             file_hashes = {key: value for key, value in file_hashes.items() if value}
@@ -848,6 +857,14 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "igdb_slug": "fairchild-channel-f",
         "name": "Fairchild Channel F",
         "ra_id": 57,
+        "tgdb_id": None,
+    },
+    UPS.FAMICOM: {
+        "id": 68,
+        "igdb_id": 18,
+        "igdb_slug": "nes",
+        "name": "Nintendo Entertainment System",
+        "ra_id": 7,
         "tgdb_id": None,
     },
     UPS.FDS: {

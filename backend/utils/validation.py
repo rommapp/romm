@@ -1,4 +1,7 @@
 import re
+from typing import Annotated, Final
+
+from pydantic import AfterValidator, Field
 
 from logger.logger import log
 from models.user import TEXT_FIELD_LENGTH
@@ -16,6 +19,53 @@ class ValidationError(Exception):
 # Pre-compiled regex patterns for better performance
 USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+# Upper bound on a `rom_ids` request scope, so one request maps to a bounded
+# query and response. Documented so clients can batch a large library.
+MAX_ROM_IDS_PER_QUERY: Final = 500
+
+
+def _dedupe_rom_ids(rom_ids: list[int] | None) -> list[int] | None:
+    return None if rom_ids is None else list(dict.fromkeys(rom_ids))
+
+
+# Shared by every route that scopes a query to a set of ROMs, so the cap and
+# the per-ID rule are declared once and every route rejects a bad scope alike.
+RomIdScope = Annotated[
+    list[Annotated[int, Field(gt=0)]] | None,
+    Field(max_length=MAX_ROM_IDS_PER_QUERY),
+    AfterValidator(_dedupe_rom_ids),
+]
+
+
+def narrow_rom_id_scope(
+    rom_id: int | None, rom_ids: list[int] | None
+) -> list[int] | None:
+    """Fold a route's single-ROM `rom_id` filter into its `rom_ids` scope.
+
+    Both filters apply together, so the result is their intersection. `None`
+    means no ROM scope at all, while an empty list is an explicit empty one.
+    """
+    if rom_id is None:
+        return rom_ids
+    if rom_ids is None:
+        return [rom_id]
+    return [rom_id] if rom_id in rom_ids else []
+
+
+def parse_comma_separated_ids(value: str, field_name: str = "ID") -> list[int]:
+    """Parse a comma-separated list of integer IDs from a query parameter.
+
+    Raises:
+        ValidationError: If any entry is not an integer.
+    """
+    try:
+        return [int(part) for part in value.split(",") if part.strip()]
+    except ValueError as exc:
+        raise ValidationError(
+            f"Invalid {field_name} format. Must be comma-separated integers.",
+            field_name,
+        ) from exc
 
 
 def validate_ascii_only(value: str, field_name: str = "field") -> None:

@@ -69,6 +69,61 @@ def _make_rom(platform: Platform, fs_name: str) -> Rom:
     )
 
 
+class TestAddRomMergesScannedTags:
+    """`add_rom` merges the partially-populated Rom that `scan_rom` returns.
+
+    A rescan re-reads the filename tags onto the existing row and relies on this
+    merge to persist them, so the tag columns have to survive the round trip
+    while columns the scan never names keep their stored values.
+    """
+
+    def _scanned(self, rom: Rom) -> Rom:
+        """The subset of columns `scan_rom` rebuilds for an existing entry."""
+        return Rom(
+            id=rom.id,
+            platform_id=rom.platform_id,
+            fs_name=rom.fs_name,
+            fs_path=rom.fs_path,
+            regions=["USA"],
+            revision="A",
+            version="1.1",
+            languages=["English"],
+            tags=["Proto"],
+        )
+
+    def test_tag_columns_are_persisted(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "regions": ["us"],
+                "languages": ["en"],
+                "tags": ["proto"],
+                "revision": "",
+                "version": "",
+            },
+        )
+
+        db_rom_handler.add_rom(self._scanned(rom))
+
+        stored = db_rom_handler.get_rom(rom.id)
+        assert stored is not None
+        assert stored.regions == ["USA"]
+        assert stored.languages == ["English"]
+        assert stored.tags == ["Proto"]
+        assert stored.revision == "A"
+        assert stored.version == "1.1"
+
+    def test_columns_the_scan_omits_are_left_alone(self, rom: Rom):
+        db_rom_handler.update_rom(rom.id, {"summary": "kept", "slug": "kept-slug"})
+
+        db_rom_handler.add_rom(self._scanned(rom))
+
+        stored = db_rom_handler.get_rom(rom.id)
+        assert stored is not None
+        assert stored.summary == "kept"
+        assert stored.slug == "kept-slug"
+
+
 class TestUniquePlatformFsName:
     """A platform folder can't hold two entries with the same name, so the DB
     rejects a second ROM with the same (platform_id, fs_name). This is what

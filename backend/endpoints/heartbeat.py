@@ -5,6 +5,7 @@ from fastapi import HTTPException, Request, status
 
 from config import (
     DISABLE_EMULATOR_JS,
+    DISABLE_JSDOS,
     DISABLE_LOGS_VIEWER,
     DISABLE_RUFFLE_RS,
     DISABLE_SETUP_WIZARD,
@@ -99,6 +100,7 @@ async def heartbeat() -> HeartbeatResponse:
             ),
             "IGDB_API_ENABLED": igdb_enabled,
             "SS_API_ENABLED": ss_enabled,
+            "SS_DEV_CREDENTIALS_SET": meta_ss_handler.has_dev_credentials(),
             "MOBY_API_ENABLED": moby_enabled,
             "STEAMGRIDDB_API_ENABLED": sgdb_enabled,
             "RA_API_ENABLED": ra_enabled,
@@ -116,6 +118,7 @@ async def heartbeat() -> HeartbeatResponse:
         "EMULATION": {
             "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS,
             "DISABLE_RUFFLE_RS": DISABLE_RUFFLE_RS,
+            "DISABLE_JSDOS": DISABLE_JSDOS,
         },
         "FRONTEND": {
             "DISABLE_USERPASS_LOGIN": DISABLE_USERPASS_LOGIN,

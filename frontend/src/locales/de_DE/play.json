@@ -1,4 +1,5 @@
 {
+  "all-discs": "Alle Discs",
   "all-saves": "Alle Spielstände",
   "all-states": "Alle Zustände",
   "back-to-gallery": "Zurück zur Plattformübersicht",
@@ -13,6 +14,8 @@
   "deselect-save": "Speicherstand abwählen",
   "deselect-state": "Speicherstand abwählen",
   "full-screen": "Vollbild",
+  "jsdos-browser-save-warning": "js-dos-Spielstände werden nur in diesem Browser gespeichert und nicht mit RomM synchronisiert.",
+  "jsdos-quit-without-saving": "Beenden, ohne den letzten Fortschritt zu speichern?",
   "no-save-selected": "Kein Speicherstand ausgewählt",
   "no-saves-available": "Keine Speicherstände verfügbar",
   "no-screenshot-available": "Kein Screenshot verfügbar",

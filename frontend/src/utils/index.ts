@@ -132,8 +132,15 @@ export function getDownloadPath({
     fileIDs.length === 1
       ? rom.files?.find((f) => f.id === fileIDs[0])
       : undefined;
-  const contentName = selectedFile
-    ? encodeURIComponent(selectedFile.file_name)
+  const nestedFile =
+    fileIDs.length === 0 &&
+    rom.has_nested_single_file &&
+    rom.files?.length === 1
+      ? rom.files[0]
+      : undefined;
+  const contentFile = selectedFile ?? nestedFile;
+  const contentName = contentFile
+    ? encodeURIComponent(contentFile.file_name)
     : rom.fs_name;
 
   return `/api/roms/${rom.id}/content/${contentName}${
@@ -213,10 +220,10 @@ export function formatRelativeDate(date: string | Date) {
  */
 export function regionToEmoji(region: string) {
   switch (region.toLowerCase()) {
-    case "as":
+    case "a":
     case "australia":
       return "🇦🇺";
-    case "a":
+    case "as":
     case "asia":
       return "🌏";
     case "b":
@@ -609,6 +616,17 @@ const gl =
   canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
 
 /**
+ * Resolve a platform slug through the configured version remap.
+ *
+ * @param platformSlug The platform slug.
+ * @param config Optional configuration object.
+ * @returns The remapped slug, or the original when no remap applies.
+ */
+export function resolvePlatformSlug(platformSlug: string, config?: Config) {
+  return config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+}
+
+/**
  * Check if EJS emulation is supported for a given platform.
  *
  * @param platformSlug The platform slug.
@@ -623,7 +641,7 @@ export function isEJSEmulationSupported(
 ) {
   if (heartbeat.EMULATION.DISABLE_EMULATOR_JS) return false;
 
-  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  const slug = resolvePlatformSlug(platformSlug, config);
   return (
     getSupportedEJSCores(slug, config?.EJS_NETPLAY_ENABLED).length > 0 &&
     gl instanceof WebGLRenderingContext
@@ -680,8 +698,40 @@ export function isRuffleEmulationSupported(
 ) {
   if (heartbeat.EMULATION.DISABLE_RUFFLE_RS) return false;
 
-  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  const slug = resolvePlatformSlug(platformSlug, config);
   return ["flash", "browser"].includes(slug.toLowerCase());
+}
+
+/**
+ * Check if js-dos emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
+ * @returns True if supported, false otherwise.
+ */
+export function isJsDosEmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+  config?: Config,
+) {
+  if (heartbeat.EMULATION.DISABLE_JSDOS) return false;
+
+  const slug = resolvePlatformSlug(platformSlug, config);
+  return ["win3x", "win9x"].includes(slug.toLowerCase());
+}
+
+/**
+ * Check if a ROM file is a js-dos bundle.
+ *
+ * js-dos panics on anything that is not an archive carrying
+ * `.jsdos/dosbox.conf`.
+ *
+ * @param rom The ROM to check.
+ * @returns True if the file is a js-dos bundle, false otherwise.
+ */
+export function isJsDosBundle(rom: SimpleRom | null | undefined) {
+  return rom?.fs_extension.toLowerCase() === "jsdos";
 }
 
 export type PlayingStatus =

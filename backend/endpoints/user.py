@@ -179,7 +179,7 @@ def create_invite_link(
     token = auth_handler.generate_invite_link_token(
         request.user, role=role, expiration=expiration
     )
-    return InviteLinkSchema.model_validate({"token": token})
+    return InviteLinkSchema.from_token(token)
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)

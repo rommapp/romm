@@ -9,10 +9,11 @@ from .types import (
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+    LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
 )
-from .utils import deinvert_article, file_name_forms
+from .utils import deinvert_article, file_name_forms, fold_title
 
 
 class RemoteSource:
@@ -88,6 +89,20 @@ class RemoteSource:
             entry = json.loads(metadata_database_index_entry)
             if entry.get("Platform") == platform_name:
                 return entry
+
+        # Last resort: compare titles with punctuation, accents and spacing
+        # removed. A dump filename can only differ from the title it was cut
+        # from by characters `fold_title` drops, so this is checked after every
+        # exact form has missed.
+        for candidate in candidates:
+            folded = fold_title(candidate)
+            if not folded:
+                continue
+            folded_index_entry = await async_cache.hget(
+                LAUNCHBOX_METADATA_FOLDED_NAME_KEY, f"{folded}:{platform_name}"
+            )
+            if folded_index_entry:
+                return json.loads(folded_index_entry)
 
         return None
 

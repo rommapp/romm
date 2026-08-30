@@ -12,6 +12,7 @@ from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 from utils import uploads
+from utils.validation import MAX_ROM_IDS_PER_QUERY
 
 
 def _auth(token: str) -> dict[str, str]:
@@ -155,6 +156,54 @@ def test_add_state_rejects_oversized_uploads(
     assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
 
 
+@mock.patch("endpoints.states.fs_asset_handler.write_file", new_callable=mock.AsyncMock)
+@mock.patch("endpoints.states.scan_state", new_callable=mock.AsyncMock)
+def test_hidden_rom_masks_state_upload(
+    _mock_scan,
+    mock_write,
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    rom: Rom,
+):
+    # Uploading onto a ROM hidden from the caller is 404-masked the same way
+    # downloading from one is, and nothing reaches disk.
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+
+    response = client.post(
+        f"/api/states?rom_id={rom.id}",
+        files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
+        headers=_auth(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    mock_write.assert_not_awaited()
+
+
+@mock.patch("endpoints.states.fs_asset_handler.write_file", new_callable=mock.AsyncMock)
+@mock.patch("endpoints.states.scan_state", new_callable=mock.AsyncMock)
+def test_hidden_platform_masks_state_upload(
+    _mock_scan,
+    mock_write,
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    rom: Rom,
+    platform: Platform,
+):
+    # Hiding the parent platform cascades to uploads against its ROMs.
+    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+
+    response = client.post(
+        f"/api/states?rom_id={rom.id}",
+        files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
+        headers=_auth(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    mock_write.assert_not_awaited()
+
+
 @mock.patch(
     "endpoints.states.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
 )
@@ -267,3 +316,89 @@ def test_kiosk_mode_anonymous_visitor_cannot_upload_state(client, rom: Rom):
         )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestRomIdsScope:
+    def test_scopes_results_to_listed_roms(
+        self, client, access_token: str, rom: Rom, state: State, second_state: State
+    ):
+        response = client.get(
+            f"/api/states?rom_ids={rom.id}", headers=_auth(access_token)
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()] == [state.id]
+
+    def test_accepts_repeated_ids(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        second_rom: Rom,
+        state: State,
+        second_state: State,
+    ):
+        response = client.get(
+            f"/api/states?rom_ids={rom.id}&rom_ids={second_rom.id}",
+            headers=_auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert {item["id"] for item in response.json()} == {state.id, second_state.id}
+
+    def test_tolerates_duplicates(
+        self, client, access_token: str, rom: Rom, state: State
+    ):
+        response = client.get(
+            f"/api/states?rom_ids={rom.id}&rom_ids={rom.id}",
+            headers=_auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()] == [state.id]
+
+    def test_omitted_returns_all_states(
+        self, client, access_token: str, state: State, second_state: State
+    ):
+        response = client.get("/api/states", headers=_auth(access_token))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert {item["id"] for item in response.json()} == {state.id, second_state.id}
+
+    def test_narrows_to_the_intersection_with_rom_id(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        second_rom: Rom,
+        state: State,
+        second_state: State,
+    ):
+        response = client.get(
+            f"/api/states?rom_id={rom.id}&rom_ids={second_rom.id}",
+            headers=_auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == []
+
+    def test_rejects_non_integer_ids(self, client, access_token: str):
+        response = client.get(
+            "/api/states?rom_ids=1&rom_ids=abc", headers=_auth(access_token)
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    def test_rejects_non_positive_ids(self, client, access_token: str):
+        response = client.get(
+            "/api/states?rom_ids=1&rom_ids=0", headers=_auth(access_token)
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    def test_rejects_scope_over_the_limit(self, client, access_token: str):
+        rom_ids = "&".join(f"rom_ids={i}" for i in range(1, MAX_ROM_IDS_PER_QUERY + 2))
+
+        response = client.get(f"/api/states?{rom_ids}", headers=_auth(access_token))
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT

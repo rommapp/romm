@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from itertools import batched, chain
 from typing import Any, Final
 
-import pydash
 import socketio  # type: ignore
 from rq import Worker, get_current_job
 from rq.job import Job, JobStatus
@@ -39,10 +38,13 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.metadata import meta_gamelist_handler, meta_hltb_handler
-from handler.metadata.ss_handler import add_ss_auth_to_url
+from handler.metadata import (
+    meta_gamelist_handler,
+    meta_hltb_handler,
+    meta_launchbox_handler,
+)
+from handler.metadata.launchbox_handler.types import LAUNCHBOX_PLATFORMS_DIR
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
-from handler.metadata.ss_handler import get_preferred_media_types
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
 from handler.redis_handler import (
@@ -54,6 +56,8 @@ from handler.redis_handler import (
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
+    build_hashless_fs_rom,
+    download_rom_resources,
     persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
@@ -197,12 +201,33 @@ def _get_socket_manager() -> socketio.AsyncRedisManager:
 async def _identify_firmware(
     platform: Platform,
     fs_fw: str,
+    scan_type: ScanType,
 ) -> int:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return 0
 
     firmware = db_firmware_handler.get_firmware_by_filename(platform.id, fs_fw)
+
+    # The row is consulted before the filesystem, so an entry that could never
+    # be skipped costs no stat.
+    if firmware and not _should_hash_firmware(scan_type, firmware):
+        # The file is stat'd where it was just enumerated, never at the path the
+        # row recorded. A row whose path predates a change in the library layout
+        # is rebuilt below instead, which is what refreshes it.
+        firmware_path = fs_firmware_handler.get_firmware_fs_structure(platform.fs_slug)
+        if firmware.file_path == firmware_path:
+            file_size = await fs_firmware_handler.get_file_size(
+                f"{firmware_path}/{fs_fw}"
+            )
+            if file_size == firmware.file_size_bytes:
+                # Only written when it actually flips, keeping `updated_at`
+                # usable as an incremental signal.
+                if firmware.missing_from_fs:
+                    db_firmware_handler.update_firmware(
+                        firmware.id, {"missing_from_fs": False}
+                    )
+                return 0
 
     scanned_firmware = await scan_firmware(
         platform=platform,
@@ -300,6 +325,51 @@ def _should_get_rom_files(
         or (scan_type == ScanType.COMPLETE)
         or (scan_type == ScanType.HASHES)
         or (rom and rom.id in roms_ids)
+    )
+
+
+def _should_reparse_tags(
+    scan_type: ScanType,
+    rom: Rom,
+    roms_ids: list[int],
+) -> bool:
+    """Decide if filename tags should be re-read onto an existing rom
+
+    A rom parses its tags when it is first inserted and again when the edit
+    endpoint renames it, but never in between, so a change to `parse_tags` only
+    reaches rows that were scanned after it. A complete rescan or an explicit
+    per-rom selection re-reads them; a hashes rescan does not, since it is
+    scoped to re-reading file bytes.
+
+    Args:
+        scan_type (ScanType): Type of scan to be performed.
+        rom (Rom): The rom whose tags may be re-read.
+        roms_ids (list[int]): List of selected roms to be scanned.
+    """
+
+    return bool(scan_type == ScanType.COMPLETE or (rom and rom.id in roms_ids))
+
+
+def _should_hash_firmware(
+    scan_type: ScanType,
+    firmware: Firmware | None,
+) -> bool:
+    """Decide if a firmware file's hashes should be recalculated or not
+
+    The firmware counterpart of `_should_get_rom_files`: bytes are only re-read
+    for a new entry or a scan that asked for hashes. An entry with no stored
+    hash is treated as new.
+
+    Args:
+        scan_type (ScanType): Type of scan to be performed.
+        firmware (Firmware | None): The firmware entry already in the database.
+    """
+
+    return bool(
+        firmware is None
+        or not firmware.md5_hash
+        or (scan_type == ScanType.COMPLETE)
+        or (scan_type == ScanType.HASHES)
     )
 
 
@@ -410,6 +480,17 @@ async def _identify_rom(
                 )
                 return
 
+    # Re-read the filename tags onto an existing entry. Written onto the instance
+    # rather than through update_rom because scan_rom carries these columns
+    # forward from the rom it is handed, and merging its result is what persists
+    # them.
+    if not newly_added and _should_reparse_tags(scan_type, rom, roms_ids):
+        rom.regions = parsed_tags.regions
+        rom.languages = parsed_tags.languages
+        rom.tags = parsed_tags.other_tags
+        rom.revision = parsed_tags.revision
+        rom.version = parsed_tags.version
+
     # Build rom files object before scanning. A reassociated ROM always rebuilds
     # its files so the stale paths from the old filename are replaced.
     should_update_files = reassociated or _should_get_rom_files(
@@ -517,84 +598,13 @@ async def _identify_rom(
     if scan_type == ScanType.HASHES:
         return
 
-    path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-        entity=_added_rom,
-        overwrite=_added_rom.url_cover != rom.url_cover,
-        url_cover=add_ss_auth_to_url(_added_rom.url_cover),
+    await download_rom_resources(
+        added_rom=_added_rom,
+        previous_url_cover=rom.url_cover,
+        previous_url_manual=rom.url_manual,
+        previous_url_screenshots=rom.url_screenshots,
+        metadata_sources=metadata_sources,
     )
-
-    path_manual = await fs_resource_handler.get_manual(
-        rom=_added_rom,
-        overwrite=_added_rom.url_manual != rom.url_manual,
-        url_manual=add_ss_auth_to_url(_added_rom.url_manual),
-    )
-
-    screenshots_changed = pydash.xor(
-        _added_rom.url_screenshots or [], rom.url_screenshots or []
-    )
-    url_screenshots = _added_rom.url_screenshots or []
-    path_screenshots = await fs_resource_handler.get_rom_screenshots(
-        rom=_added_rom,
-        overwrite=bool(screenshots_changed),
-        url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
-    )
-
-    _added_rom.path_cover_s = path_cover_s
-    _added_rom.path_cover_l = path_cover_l
-    _added_rom.path_screenshots = path_screenshots
-    _added_rom.path_manual = path_manual
-
-    # Update the scanned rom with the cover and screenshots paths and update database
-    db_rom_handler.update_rom(
-        _added_rom.id,
-        {
-            "path_cover_s": path_cover_s,
-            "path_cover_l": path_cover_l,
-            "path_screenshots": path_screenshots,
-            "path_manual": path_manual,
-        },
-    )
-
-    # Handle special media files from Screenscraper, ES-DE gamelist.xml and
-    # LaunchBox. Media that didn't land on disk has its recorded path cleared, so
-    # write those dicts back when that happens.
-    preferred_media_types = get_preferred_media_types()
-    media_updates: dict[str, Any] = {}
-
-    if _added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
-        if await fs_resource_handler.store_metadata_media(
-            _added_rom.ss_metadata, preferred_media_types, add_ss_auth_to_url
-        ):
-            media_updates["ss_metadata"] = _added_rom.ss_metadata
-
-    if _added_rom.gamelist_metadata and MetadataSource.GAMELIST in metadata_sources:
-        if await fs_resource_handler.store_metadata_media(
-            _added_rom.gamelist_metadata, preferred_media_types
-        ):
-            media_updates["gamelist_metadata"] = _added_rom.gamelist_metadata
-
-    if _added_rom.launchbox_metadata and MetadataSource.LAUNCHBOX in metadata_sources:
-        if await fs_resource_handler.store_metadata_media(
-            _added_rom.launchbox_metadata, preferred_media_types
-        ):
-            media_updates["launchbox_metadata"] = _added_rom.launchbox_metadata
-
-    if media_updates:
-        db_rom_handler.update_rom(_added_rom.id, media_updates)
-
-    # Store normal and locked badges
-    if _added_rom.ra_metadata and MetadataSource.RA in metadata_sources:
-        for ach in _added_rom.ra_metadata.get("achievements", []):
-            badge_url_lock = ach.get("badge_url_lock", None)
-            badge_path_lock = ach.get("badge_path_lock", None)
-            if badge_url_lock and badge_path_lock:
-                await fs_resource_handler.store_ra_badge(
-                    badge_url_lock, badge_path_lock
-                )
-            badge_url = ach.get("badge_url", None)
-            badge_path = ach.get("badge_path", None)
-            if badge_url and badge_path:
-                await fs_resource_handler.store_ra_badge(badge_url, badge_path)
 
     await socket_manager.emit(
         "scan:scanning_rom",
@@ -609,6 +619,91 @@ async def _identify_rom(
             }
         ),
     )
+
+
+async def _scan_selected_roms(
+    platform: Platform,
+    roms: list[Rom],
+    scan_type: ScanType,
+    roms_ids: list[int],
+    metadata_sources: list[str],
+    launchbox_remote_enabled: bool,
+    playmatch_enabled: bool,
+    socket_manager: socketio.AsyncRedisManager,
+    scan_stats: ScanStats,
+) -> ScanStats:
+    """Scan a hand-picked set of ROMs without touching the rest of their platform.
+
+    The work is resolved from the database rather than the filesystem, so none of
+    the platform-wide reconciliation `_identify_platform` does (directory
+    listings, the firmware pass, the missing-file sync, a skip-and-mark-present
+    pass over every other entry) applies here.
+    """
+    if redis_client.get(STOP_SCAN_FLAG):
+        raise ScanStoppedException()
+
+    # Gamelist matches are served from a per-platform cache, so it has to be
+    # warm before any of these ROMs is scanned.
+    if MetadataSource.GAMELIST in metadata_sources:
+        await meta_gamelist_handler.populate_cache(platform)
+
+    await scan_stats.increment(
+        socket_manager=socket_manager,
+        scanned_platforms=1,
+        identified_platforms=1 if platform.is_identified else 0,
+    )
+
+    scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
+
+    async def scan_rom_with_semaphore(rom: Rom) -> None:
+        async with scan_semaphore:
+            # A library scan learns this from splitting the platform folder into
+            # files and directories; with no listing to consult, ask the path.
+            is_flat = await fs_rom_handler.file_exists(rom.full_path)
+            if not is_flat and not await fs_rom_handler.directory_exists(rom.full_path):
+                # A library scan never reaches an entry whose file is gone, since
+                # it walks the filesystem. Reaching one here must not resurrect
+                # it: scanning marks a ROM present unconditionally.
+                log.warning(
+                    f"{hl(rom.fs_name)} is {hl('missing', color=LIGHTYELLOW)} from the "
+                    "filesystem, skipping"
+                )
+                db_rom_handler.update_rom(rom.id, {"missing_from_fs": True})
+                await scan_stats.increment(
+                    socket_manager=socket_manager, scanned_roms=1
+                )
+                return
+
+            await _identify_rom(
+                platform=platform,
+                fs_rom=build_hashless_fs_rom(rom.fs_name, flat=is_flat),
+                rom=rom,
+                scan_type=scan_type,
+                roms_ids=roms_ids,
+                metadata_sources=metadata_sources,
+                launchbox_remote_enabled=launchbox_remote_enabled,
+                playmatch_enabled=playmatch_enabled,
+                socket_manager=socket_manager,
+                scan_stats=scan_stats,
+            )
+
+    results = await asyncio.gather(
+        *[scan_rom_with_semaphore(rom) for rom in roms], return_exceptions=True
+    )
+    for result, rom in zip(results, roms, strict=False):
+        if isinstance(result, Exception):
+            log.error(f"Error scanning ROM {rom.fs_name}: {result}")
+
+    # `_identify_rom` returns rather than raises when the flag is set, so a scan
+    # stopped mid-gather would otherwise fall through to the post-scan work and
+    # report itself done, leaving the flag set behind it.
+    if redis_client.get(STOP_SCAN_FLAG):
+        raise ScanStoppedException()
+
+    if MetadataSource.SS in metadata_sources:
+        log_ss_quota()
+
+    return scan_stats
 
 
 async def _identify_platform(
@@ -665,6 +760,7 @@ async def _identify_platform(
         new_firmware += await _identify_firmware(
             platform=platform,
             fs_fw=fs_fw,
+            scan_type=scan_type,
         )
 
     # `new_firmware_count` is scoped to this scan: the client reports what the
@@ -867,18 +963,27 @@ async def scan_platforms(
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
 
+    # A ROM-id-scoped scan resolves its work from the database, so it neither
+    # needs nor can afford the filesystem walk a library scan starts with.
+    scoped_roms_by_platform: dict[int, list[Rom]] = {}
+    if roms_ids:
+        for rom in db_rom_handler.get_roms_by_ids(roms_ids):
+            scoped_roms_by_platform.setdefault(rom.platform_id, []).append(rom)
+
     # ScreenScraper's scan state is process-global, so a scan that never touches
     # it must leave it alone: under DEV_MODE scans run in-process and can
     # overlap, and resetting would drop the other scan's limits and skips.
     if MetadataSource.SS in metadata_sources:
         await begin_ss_scan()
 
-    try:
-        fs_platforms: list[str] = await fs_platform_handler.get_platforms()
-    except FolderStructureNotMatchException as e:
-        log.error(e)
-        await socket_manager.emit("scan:done_ko", e.message)
-        return scan_stats
+    fs_platforms: list[str] = []
+    if not roms_ids:
+        try:
+            fs_platforms = await fs_platform_handler.get_platforms()
+        except FolderStructureNotMatchException as e:
+            log.error(e)
+            await socket_manager.emit("scan:done_ko", e.message)
+            return scan_stats
 
     # Clear the gamelist cache to ensure we're using fresh gamelist.xml data
     meta_gamelist_handler.clear_cache()
@@ -887,46 +992,97 @@ async def scan_platforms(
     if MetadataSource.HLTB in metadata_sources:
         await meta_hltb_handler.initialize()
 
+    # A local install is read on every lookup; the per-scan switch only decides
+    # whether the cloud store is consulted as well. Both can be empty, and a
+    # lookup against an absent source is silent, so what LaunchBox can actually
+    # read is recorded here rather than left to be inferred from a platform's
+    # worth of empty results.
+    if MetadataSource.LAUNCHBOX in metadata_sources:
+        local_available = meta_launchbox_handler.is_local_enabled()
+        store_available = launchbox_remote_enabled and (
+            await meta_launchbox_handler.is_remote_store_populated()
+        )
+        readable = [
+            name
+            for name, present in (
+                (f"a {hl('local')} install", local_available),
+                (f"the {hl('cloud')} store", store_available),
+            )
+            if present
+        ]
+        if readable:
+            log.info(f"LaunchBox is reading {' and '.join(readable)}")
+        elif launchbox_remote_enabled:
+            log.warning(
+                f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} LaunchBox has nothing "
+                f"to read: no install at {hl(str(LAUNCHBOX_PLATFORMS_DIR))} and the "
+                "cloud store is empty. Run the LaunchBox metadata update task."
+            )
+        else:
+            log.warning(
+                f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} LaunchBox is set to "
+                f"local only and no install was found at "
+                f"{hl(str(LAUNCHBOX_PLATFORMS_DIR))}, so it will match nothing. "
+                "Switch it to cloud, or mount an install there."
+            )
+
     # Resolve the platforms that will actually be scanned. When no platform ids
     # are provided, every filesystem platform is scanned.
     db_platforms = db_platform_handler.get_platforms()
     db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
+    db_platforms_by_id = {p.id: p for p in db_platforms}
 
-    # Selected platforms arrive as database ids and/or filesystem slugs.
-    selected_slugs = [p.fs_slug for p in db_platforms if p.id in platform_ids]
-    for fs_slug in platform_fs_slugs:
-        if fs_slug in selected_slugs:
-            continue
-        if fs_slug in db_platforms_by_slug or fs_slug in fs_platforms:
-            selected_slugs.append(fs_slug)
+    if roms_ids:
+        # A rom whose platform row is gone can't be scanned, so drop it here
+        # rather than count it toward a total the scan will never reach.
+        scoped_roms_by_platform = {
+            platform_id: scoped_roms
+            for platform_id, scoped_roms in scoped_roms_by_platform.items()
+            if platform_id in db_platforms_by_id
+        }
+        platform_list = sorted(
+            db_platforms_by_id[platform_id].fs_slug
+            for platform_id in scoped_roms_by_platform
+        )
+        total_platforms = len(scoped_roms_by_platform)
+        total_roms = sum(len(roms) for roms in scoped_roms_by_platform.values())
+    else:
+        # Selected platforms arrive as database ids and/or filesystem slugs.
+        selected_slugs = [p.fs_slug for p in db_platforms if p.id in platform_ids]
+        for fs_slug in platform_fs_slugs:
+            if fs_slug in selected_slugs:
+                continue
+            if fs_slug in db_platforms_by_slug or fs_slug in fs_platforms:
+                selected_slugs.append(fs_slug)
 
-    has_selection = bool(platform_ids or platform_fs_slugs)
-    platform_list = sorted(selected_slugs if has_selection else fs_platforms)
+        has_selection = bool(platform_ids or platform_fs_slugs)
+        platform_list = sorted(selected_slugs if has_selection else fs_platforms)
 
-    # A "new platforms" scan skips platforms that already exist in the database,
-    # so they must be excluded from the totals to keep the tracker accurate. This
-    # mirrors the existence check done per-platform in _identify_platform, reusing
-    # the platforms already fetched above instead of querying again per platform.
-    platforms_to_scan = platform_list
-    if scan_type == ScanType.NEW_PLATFORMS:
-        platforms_to_scan = [
-            platform_slug
-            for platform_slug in platform_list
-            if db_platforms_by_slug.get(platform_slug) is None
-        ]
+        # A "new platforms" scan skips platforms that already exist in the database,
+        # so they must be excluded from the totals to keep the tracker accurate. This
+        # mirrors the existence check done per-platform in _identify_platform, reusing
+        # the platforms already fetched above instead of querying again per platform.
+        platforms_to_scan = platform_list
+        if scan_type == ScanType.NEW_PLATFORMS:
+            platforms_to_scan = [
+                platform_slug
+                for platform_slug in platform_list
+                if db_platforms_by_slug.get(platform_slug) is None
+            ]
 
-    total_roms = 0
-    for platform_slug in platforms_to_scan:
-        try:
-            total_roms += await fs_rom_handler.count_roms(
-                Platform(fs_slug=platform_slug)
-            )
-        except RomsNotFoundException as e:
-            log.error(e)
+        total_platforms = len(platforms_to_scan)
+        total_roms = 0
+        for platform_slug in platforms_to_scan:
+            try:
+                total_roms += await fs_rom_handler.count_roms(
+                    Platform(fs_slug=platform_slug)
+                )
+            except RomsNotFoundException as e:
+                log.error(e)
 
     await scan_stats.update(
         socket_manager=socket_manager,
-        total_platforms=len(platforms_to_scan),
+        total_platforms=total_platforms,
         total_roms=total_roms,
     )
 
@@ -936,34 +1092,50 @@ async def scan_platforms(
         redis_client.delete(STOP_SCAN_FLAG)
 
     try:
-        if len(platform_list) == 0:
-            log.warning(
-                f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No platforms found, verify that the folder structure is right and the volume is mounted correctly."
-                f"{FOLDER_STRUCT_MSG}"
-            )
+        if roms_ids:
+            log.info(f"Scanning {hl(str(total_roms))} selected roms")
+
+            for platform_id, scoped_roms in scoped_roms_by_platform.items():
+                scan_stats = await _scan_selected_roms(
+                    platform=db_platforms_by_id[platform_id],
+                    roms=scoped_roms,
+                    scan_type=scan_type,
+                    roms_ids=roms_ids,
+                    metadata_sources=metadata_sources,
+                    launchbox_remote_enabled=launchbox_remote_enabled,
+                    playmatch_enabled=playmatch_enabled,
+                    socket_manager=socket_manager,
+                    scan_stats=scan_stats,
+                )
         else:
-            log.info(
-                f"Found {hl(str(len(platform_list)))} platforms in the file system"
-            )
+            if len(platform_list) == 0:
+                log.warning(
+                    f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No platforms found, verify that the folder structure is right and the volume is mounted correctly."
+                    f"{FOLDER_STRUCT_MSG}"
+                )
+            else:
+                log.info(
+                    f"Found {hl(str(len(platform_list)))} platforms in the file system"
+                )
 
-        for platform_slug in platform_list:
-            scan_stats = await _identify_platform(
-                platform_slug=platform_slug,
-                scan_type=scan_type,
-                fs_platforms=fs_platforms,
-                roms_ids=roms_ids,
-                metadata_sources=metadata_sources,
-                launchbox_remote_enabled=launchbox_remote_enabled,
-                playmatch_enabled=playmatch_enabled,
-                socket_manager=socket_manager,
-                scan_stats=scan_stats,
-            )
+            for platform_slug in platform_list:
+                scan_stats = await _identify_platform(
+                    platform_slug=platform_slug,
+                    scan_type=scan_type,
+                    fs_platforms=fs_platforms,
+                    roms_ids=roms_ids,
+                    metadata_sources=metadata_sources,
+                    launchbox_remote_enabled=launchbox_remote_enabled,
+                    playmatch_enabled=playmatch_enabled,
+                    socket_manager=socket_manager,
+                    scan_stats=scan_stats,
+                )
 
-        missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
-        if len(missed_platforms) > 0:
-            log.warning(f"{hl('Missing')} platforms from filesystem:")
-            for p in missed_platforms:
-                log.warning(f" - {p.slug} ({p.fs_slug})")
+            missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
+            if len(missed_platforms) > 0:
+                log.warning(f"{hl('Missing')} platforms from filesystem:")
+                for p in missed_platforms:
+                    log.warning(f" - {p.slug} ({p.fs_slug})")
 
         if MetadataSource.SS in metadata_sources:
             log_ss_scan_summary()
@@ -974,10 +1146,14 @@ async def scan_platforms(
         db_rom_handler.invalidate_filter_values_cache()
 
         # Smart collection membership is derived from the library, and is no
-        # longer recomputed while serving a gallery page. The scan itself is
-        # done, so a failure here must not report it as one.
+        # longer recomputed while serving a gallery page. A scan scoped to a
+        # handful of ROMs only has to recount the collections those ROMs touch.
+        # The scan itself is done, so a failure here must not report it as one.
         try:
-            db_collection_handler.refresh_smart_collections()
+            if roms_ids:
+                db_collection_handler.refresh_smart_collections_for_roms(roms_ids)
+            else:
+                db_collection_handler.refresh_smart_collections()
         except Exception as e:
             log.error(f"Couldn't refresh smart collections after the scan: {e}")
 

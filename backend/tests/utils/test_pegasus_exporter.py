@@ -159,6 +159,45 @@ class TestExportMetadata:
         assert "x-romm-id" in game
         assert "sort-by" not in game
 
+    def test_prefers_explicit_publisher_developer(self, admin_user: User):
+        platform = Platform(name="NES", slug="nes", fs_slug="nes")
+        platform = db_platform_handler.add_platform(platform)
+
+        rom = Rom(
+            platform_id=platform.id,
+            name="Test Game",
+            slug="test-game",
+            fs_name="test.nes",
+            fs_name_no_tags="test",
+            fs_name_no_ext="test",
+            fs_extension="nes",
+            fs_path="nes/roms",
+        )
+        rom = db_rom_handler.add_rom(rom)
+        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+
+        # companies order would give developer=Atari / publisher=Artech; the
+        # explicit split fields (reversed here) must take precedence.
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "igdb_metadata": {
+                    "companies": ["Atari", "Artech Studios"],
+                    "publishers": ["Atari"],
+                    "developers": ["Artech Studios"],
+                }
+            },
+        )
+
+        parsed = _parse_pegasus(
+            PegasusExporter(local_export=True).export_platform_to_pegasus(
+                platform.id, request=None
+            )
+        )
+        game = parsed["games"][0]
+        assert game["developer"] == "Artech Studios"
+        assert game["publisher"] == "Atari"
+
     def test_minimal_rom(self, admin_user: User):
         platform = Platform(name="Game Boy", slug="gb", fs_slug="gb")
         platform = db_platform_handler.add_platform(platform)
@@ -202,6 +241,31 @@ class TestExportMetadata:
                 fs_extension="nes",
                 fs_path="nes/roms",
                 missing_from_fs=True,
+            )
+        )
+
+        parsed = _parse_pegasus(
+            PegasusExporter(local_export=True).export_platform_to_pegasus(
+                platform.id, request=None
+            )
+        )
+        assert len(parsed["games"]) == 0
+
+    def test_skips_physical_roms(self, admin_user: User):
+        platform = Platform(name="NES", slug="nes", fs_slug="nes")
+        platform = db_platform_handler.add_platform(platform)
+
+        db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="Boxed Copy",
+                slug="boxed-copy",
+                fs_name="Boxed Copy",
+                fs_name_no_tags="Boxed Copy",
+                fs_name_no_ext="Boxed Copy",
+                fs_extension="",
+                fs_path="nes/roms/.physical",
+                is_physical=True,
             )
         )
 
@@ -364,18 +428,25 @@ class TestCollectAssets:
         assets = PegasusExporter(local_export=True)._collect_assets(rom)
         assert assets[expected_pegasus_key] == f
 
-    def test_gamelist_metadata(self, tmp_path, monkeypatch):
+    @pytest.mark.parametrize(
+        "gl_key, gl_value, expected_pegasus_key",
+        [
+            ("marquee_path", "roms/1/1/marquee/m.png", "marquee"),
+            ("box2d_back_path", "roms/1/1/box2d_back/b.png", "box_back"),
+            ("fanart_path", "roms/1/1/fanart/f.jpg", "background"),
+        ],
+    )
+    def test_gamelist_metadata(
+        self, tmp_path, monkeypatch, gl_key, gl_value, expected_pegasus_key
+    ):
         monkeypatch.setattr(fs_resource_handler, "base_path", tmp_path)
-        f = tmp_path / "roms/1/1/marquee/m.png"
+        f = tmp_path / gl_value
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_bytes(b"x")
 
-        rom = _mock_rom(
-            ss_metadata=None,
-            gamelist_metadata={"marquee_path": "roms/1/1/marquee/m.png"},
-        )
+        rom = _mock_rom(ss_metadata=None, gamelist_metadata={gl_key: gl_value})
         assets = PegasusExporter(local_export=True)._collect_assets(rom)
-        assert assets["marquee"] == f
+        assert assets[expected_pegasus_key] == f
 
 
 class TestCopyAndEntry:
@@ -399,6 +470,7 @@ class TestCopyAndEntry:
     def test_game_entry_with_assets(self):
         metadatum = MagicMock()
         metadatum.companies = metadatum.genres = metadatum.player_count = None
+        metadatum.publishers = metadatum.developers = None
         metadatum.first_release_date = metadatum.average_rating = None
 
         rom = _mock_rom(

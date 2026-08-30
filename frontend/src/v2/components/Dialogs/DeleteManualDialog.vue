@@ -9,6 +9,7 @@ import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
@@ -18,6 +19,7 @@ const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const romsStore = storeRoms();
+const { syncCachedRom } = useRomSync();
 
 const show = ref(false);
 const rom = ref<DetailedRom | null>(null);
@@ -39,7 +41,7 @@ async function refreshRom() {
   try {
     const { data } = await romApi.getRom({ romId: rom.value.id });
     romsStore.currentRom = data;
-    romsStore.update(data);
+    syncCachedRom(data);
   } catch (error) {
     console.error(error);
   }
