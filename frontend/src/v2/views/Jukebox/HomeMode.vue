@@ -101,8 +101,6 @@ interface LaunchTile {
   icon: string;
   label: string;
   count: string;
-  /** Token name for the tile's icon medallion tint. */
-  tone: string;
 }
 
 const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
@@ -111,14 +109,12 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
     tiles: [
       {
         mode: "station",
-        tone: "--r-color-romm-red",
         icon: "mdi-radio-tower",
         label: t(JUKEBOX_MODE_LABEL_KEYS.station),
         count: minutes(radioDuration.value),
       },
       {
         mode: "decade",
-        tone: "--r-color-romm-blue",
         icon: "mdi-calendar-range",
         label: t(JUKEBOX_MODE_LABEL_KEYS.decade),
         count: t("common.decades-n", totals.value.decades, {
@@ -127,14 +123,12 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
       },
       {
         mode: "recent",
-        tone: "--r-color-romm-green",
         icon: "mdi-clock-outline",
         label: t(JUKEBOX_MODE_LABEL_KEYS.recent),
         count: tracksCount(Math.min(totals.value.tracks, RECENTLY_ADDED_LIMIT)),
       },
       {
         mode: "favorite",
-        tone: "--r-color-fav",
         icon: "mdi-heart",
         label: t(JUKEBOX_MODE_LABEL_KEYS.favorite),
         count: tracksCount(totals.value.favorites),
@@ -146,14 +140,12 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
     tiles: [
       {
         mode: "play-all",
-        tone: "--r-color-brand-primary",
         icon: "mdi-playlist-music",
         label: t(JUKEBOX_MODE_LABEL_KEYS["play-all"]),
         count: tracksCount(totals.value.tracks),
       },
       {
         mode: "album",
-        tone: "--r-color-brand-accent",
         icon: "mdi-album",
         label: t(JUKEBOX_MODE_LABEL_KEYS.album),
         count: t("common.albums-n", totals.value.games, {
@@ -162,7 +154,6 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
       },
       {
         mode: "platform",
-        tone: "--r-color-brand-secondary",
         icon: "mdi-controller",
         label: t(JUKEBOX_MODE_LABEL_KEYS.platform),
         count: t("common.platforms-n", totals.value.platforms, {
@@ -171,7 +162,6 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
       },
       {
         mode: "artist",
-        tone: "--r-color-romm-gold",
         icon: "mdi-account-music",
         label: t(JUKEBOX_MODE_LABEL_KEYS.artist),
         count: t("common.artists-n", totals.value.artists, {
@@ -180,7 +170,6 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
       },
       {
         mode: "genre",
-        tone: "--r-color-info",
         icon: "mdi-shape",
         label: t(JUKEBOX_MODE_LABEL_KEYS.genre),
         count: t("common.genres-n", totals.value.genres, {
@@ -207,10 +196,7 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
         @click="emit('open', tile.mode)"
       >
         <template #icon>
-          <span
-            class="jukebox__tile-glyph"
-            :style="{ '--jukebox-tile-tone': `var(${tile.tone})` }"
-          >
+          <span class="jukebox__tile-glyph">
             <RIcon :icon="tile.icon" size="30" />
           </span>
         </template>
@@ -231,18 +217,16 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
   padding: var(--r-space-5) 0 60px;
 }
 
-/* Toned medallion behind each launch icon so the landing reads like a
-   set of playlist covers rather than a grid of identical gray tiles. */
+/* Neutral medallion behind each launch icon. */
 .jukebox__tile-glyph {
   width: 100%;
   height: 100%;
   display: grid;
   place-items: center;
   border-radius: var(--r-radius-md);
-  color: var(--jukebox-tile-tone);
-  background: color-mix(in srgb, var(--jukebox-tile-tone) 14%, transparent);
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--jukebox-tile-tone) 25%, transparent);
+  color: var(--r-color-fg-heading);
+  background: var(--r-color-surface);
+  box-shadow: inset 0 0 0 1px var(--r-color-border);
 }
 
 html[data-bp~="xs"] .jukebox__home {
