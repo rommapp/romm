@@ -50,6 +50,8 @@ const props = defineProps<{
   loading?: boolean;
   /** True while the next page is in flight, for the list's footer spinner. */
   loadingMore?: boolean;
+  /** Size of the whole queue when `tracks` is only the loaded window. */
+  totalTracks?: number;
   startShuffled?: boolean;
   /** Cover shown when the active track has no art of its own. */
   fallbackArtUrl?: string;
@@ -222,6 +224,12 @@ const totalDurationSeconds = computed(() =>
   ),
 );
 
+const trackCount = computed(() => props.totalTracks ?? tracks.value.length);
+
+// Only the loaded window has durations, so the running time is withheld until
+// the whole queue is in rather than reported as a total it is not.
+const isFullyLoaded = computed(() => trackCount.value === tracks.value.length);
+
 // Reloading the queue whenever the input list changes keeps "next" pointing at
 // what the panel is showing, without the host having to drive the store.
 watch(
@@ -347,9 +355,7 @@ function seekValueText(v: number): string {
             {{ isPlaying ? t("rom.now-playing") : t("rom.paused") }}
           </span>
           <span v-else>
-            {{
-              t("rom.tracks-n", tracks.length, { named: { n: tracks.length } })
-            }}
+            {{ t("rom.tracks-n", trackCount, { named: { n: trackCount } }) }}
           </span>
         </div>
         <h3 class="r-v2-stp__now-title">
@@ -483,13 +489,19 @@ function seekValueText(v: number): string {
 
     <!-- Footer -->
     <footer class="r-v2-stp__footer">
-      <span v-if="totalDurationSeconds > 0" class="r-v2-stp__footer-total">
+      <span
+        v-if="isFullyLoaded && totalDurationSeconds > 0"
+        class="r-v2-stp__footer-total"
+      >
         {{
           t("rom.tracks-summary", {
-            count: tracks.length,
+            count: trackCount,
             duration: fmt(totalDurationSeconds),
           })
         }}
+      </span>
+      <span v-else-if="trackCount > 0" class="r-v2-stp__footer-total">
+        {{ t("rom.tracks-n", trackCount, { named: { n: trackCount } }) }}
       </span>
       <span v-if="loadingMore" class="r-v2-stp__footer-more">
         <RSpinner :size="12" :width="2" />

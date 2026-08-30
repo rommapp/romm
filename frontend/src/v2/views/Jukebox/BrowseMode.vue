@@ -180,6 +180,7 @@ function onDelete(fileId: number, romId: number) {
       :tracks="panelTracks"
       :loading="pager.loading.value"
       :loading-more="pager.loadingMore.value"
+      :total-tracks="pager.total.value"
       :start-shuffled="startShuffled"
       :deletable="deletable"
       class="jukebox__player"

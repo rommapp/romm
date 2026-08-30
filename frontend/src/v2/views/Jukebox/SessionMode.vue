@@ -110,6 +110,7 @@ const panelTracks = computed(() => panelTracksFromCatalog(pager.tracks.value));
     :key="mode"
     :tracks="panelTracks"
     :loading-more="pager.loadingMore.value"
+    :total-tracks="pager.total.value"
     :start-shuffled="mode === 'station'"
     :deletable="deletable"
     class="jukebox__session"
