@@ -512,6 +512,159 @@ async def test_scan_rom_unmatched_no_match_uses_parsed_name(
     assert result.name == "Snow Brothers"
 
 
+def _scraped_cover_rom(platform: Platform, **overrides) -> Rom:
+    attrs: dict = {
+        "platform_id": platform.id,
+        "fs_name": "game.sfc",
+        "fs_path": "snes",
+        "tags": [],
+        "ss_id": 321,
+        "name": "Game",
+        "url_cover": "https://ss.fr/media?media=box-2D&id=old",
+        "path_cover_s": "roms/1/1/cover/small.png",
+        "path_cover_l": "roms/1/1/cover/big.png",
+    }
+    attrs.update(overrides)
+    return db_rom_handler.add_rom(Rom(**attrs))
+
+
+NEW_COVER_URL = "https://ss.fr/media?media=box-2D&id=new"
+
+
+def _ss_returns_new_cover(mock_ss_get_by_id: AsyncMock) -> None:
+    mock_ss_get_by_id.return_value = SSRom(
+        ss_id=321, name="Game", url_cover=NEW_COVER_URL
+    )
+
+
+async def _update_scan(platform: Platform, rom: Rom) -> Rom:
+    async with initialize_context():
+        return await scan_rom(
+            platform=platform,
+            scan_type=ScanType.UPDATE,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("game.sfc"),
+            metadata_sources=[MetadataSource.SS],
+            newly_added=False,
+        )
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom_by_id", new_callable=AsyncMock)
+async def test_update_scan_replaces_scraped_cover_url(
+    mock_ss_get_by_id, mock_playmatch_enabled
+):
+    """A cover that carries a source url came from a provider, so an UPDATE scan
+    hands the freshly resolved url downstream. Pinning it to the stored value is
+    what kept a changed source priority from ever reaching the download step."""
+    _ss_returns_new_cover(mock_ss_get_by_id)
+
+    platform = _ss_quota_platform()
+    rom = _scraped_cover_rom(platform)
+
+    result = await _update_scan(platform, rom)
+
+    assert result.url_cover == NEW_COVER_URL
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom_by_id", new_callable=AsyncMock)
+async def test_update_scan_keeps_uploaded_cover(
+    mock_ss_get_by_id, mock_playmatch_enabled
+):
+    """Uploading artwork locks the cover, so the provider url must not be adopted
+    over it."""
+    _ss_returns_new_cover(mock_ss_get_by_id)
+
+    platform = _ss_quota_platform()
+    rom = _scraped_cover_rom(platform, url_cover="", locked_fields=["url_cover"])
+
+    result = await _update_scan(platform, rom)
+
+    assert result.url_cover == ""
+    assert result.locked_fields == ["url_cover"]
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom_by_id", new_callable=AsyncMock)
+async def test_update_scan_keeps_locked_cover_with_no_stored_path(
+    mock_ss_get_by_id, mock_playmatch_enabled
+):
+    """The lock has to outlive path_cover_s. That column tracks the filesystem and
+    a scan clears it whenever the file is unreadable, so inferring the lock from it
+    meant one scan against unavailable storage handed the cover to the provider."""
+    _ss_returns_new_cover(mock_ss_get_by_id)
+
+    platform = _ss_quota_platform()
+    rom = _scraped_cover_rom(
+        platform,
+        url_cover="",
+        path_cover_s="",
+        path_cover_l="",
+        locked_fields=["url_cover"],
+    )
+
+    result = await _update_scan(platform, rom)
+
+    assert result.url_cover == ""
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom_by_id", new_callable=AsyncMock)
+async def test_update_scan_replaces_screenshot_urls(
+    mock_ss_get_by_id, mock_playmatch_enabled
+):
+    """Screenshots have no upload path, so a stored set is always provider-written
+    and the fresh set wins."""
+    mock_ss_get_by_id.return_value = SSRom(
+        ss_id=321,
+        name="Game",
+        url_screenshots=["https://ss.fr/ss?id=new"],
+    )
+
+    platform = _ss_quota_platform()
+    rom = _scraped_cover_rom(
+        platform,
+        url_screenshots=["https://ss.fr/ss?id=old"],
+        path_screenshots=["roms/1/1/screenshots/0.png"],
+    )
+
+    result = await _update_scan(platform, rom)
+
+    assert result.url_screenshots == ["https://ss.fr/ss?id=new"]
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom_by_id", new_callable=AsyncMock)
+async def test_update_scan_keeps_name_summary_and_manual(
+    mock_ss_get_by_id, mock_playmatch_enabled
+):
+    """Text fields and manuals stay pinned. Neither can yet tell a hand-edited
+    value from a provider-written one, so freeing the artwork urls must not free
+    these too."""
+    mock_ss_get_by_id.return_value = SSRom(
+        ss_id=321,
+        name="Provider Name",
+        summary="Provider summary",
+        url_manual="https://ss.fr/manual?id=new",
+    )
+
+    platform = _ss_quota_platform()
+    rom = _scraped_cover_rom(
+        platform,
+        name="My Title",
+        summary="My summary",
+        url_manual="https://ss.fr/manual?id=old",
+        path_manual="roms/1/1/manual/1.pdf",
+    )
+
+    result = await _update_scan(platform, rom)
+
+    assert result.name == "My Title"
+    assert result.summary == "My summary"
+    assert result.url_manual == "https://ss.fr/manual?id=old"
+
+
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
 @patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)

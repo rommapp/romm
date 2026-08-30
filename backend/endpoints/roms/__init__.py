@@ -2059,9 +2059,14 @@ async def update_rom(
             }
         )
 
+    # Cover and manual both take and release locks, so they accumulate into one
+    # running set rather than each deriving from the same pre-update state.
+    locked_fields = set(rom.locked_fields or [])
+
     if remove_cover:
         cleaned_data.update(await fs_resource_handler.remove_cover(rom))
         cleaned_data.update({"url_cover": ""})
+        locked_fields.discard("url_cover")
     else:
         if artwork is not None and artwork.filename is not None:
             file_ext = validate_image_upload(artwork, label="Artwork")
@@ -2071,6 +2076,8 @@ async def update_rom(
                 path_cover_s,
             ) = await fs_resource_handler.store_artwork(rom, artwork_content, file_ext)
 
+            # Supplying a file is the explicit act that locks the cover; the
+            # lock outlives the file, so losing it to a scan can't unlock it.
             cleaned_data.update(
                 {
                     "url_cover": "",
@@ -2078,6 +2085,7 @@ async def update_rom(
                     "path_cover_l": path_cover_l,
                 }
             )
+            locked_fields.add("url_cover")
         else:
             url_cover = (
                 form_data.url_cover if "url_cover" in provided_fields else rom.url_cover
@@ -2095,6 +2103,10 @@ async def update_rom(
                         "path_cover_l": path_cover_l,
                     }
                 )
+                # The client posts the stored url on every save, so only a url
+                # that actually changed counts as a handover back to providers.
+                if url_cover and url_cover != rom.url_cover:
+                    locked_fields.discard("url_cover")
             except ValidationError as e:
                 log.error(f"Invalid cover URL in update_rom: {str(e)}")
                 raise HTTPException(status_code=400, detail=str(e)) from e
@@ -2114,9 +2126,14 @@ async def update_rom(
                 "path_manual": path_manual,
             }
         )
+        # Same handover rule as the cover.
+        if url_manual and url_manual != rom.url_manual:
+            locked_fields.discard("url_manual")
     except ValidationError as e:
         log.error(f"Invalid manual URL in update_rom: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+    cleaned_data["locked_fields"] = sorted(locked_fields)
 
     # Handle RetroAchievements badges when the ID has changed
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:

@@ -487,6 +487,7 @@ async def scan_rom(
                 "path_cover_l": rom.path_cover_l,
                 "path_screenshots": rom.path_screenshots,
                 "path_manual": rom.path_manual,
+                "locked_fields": rom.locked_fields,
                 "igdb_id": rom.igdb_id,
                 "moby_id": rom.moby_id,
                 "ss_id": rom.ss_id,
@@ -1049,7 +1050,8 @@ async def scan_rom(
                 if fields["metadata_field"]:
                     rom_attrs[fields["metadata_field"]] = {}
 
-        # Reset artwork fields so stale values are cleared when no source supplies them
+        # Reset artwork fields so stale values are cleared when no source supplies
+        # them. The locks go too, since a complete rescan deletes the files.
         rom_attrs.update(
             {
                 "url_cover": "",
@@ -1059,6 +1061,7 @@ async def scan_rom(
                 "path_cover_l": "",
                 "path_screenshots": [],
                 "path_manual": "",
+                "locked_fields": [],
             }
         )
 
@@ -1117,16 +1120,15 @@ async def scan_rom(
             {
                 "name": existing_name or matched_name or fs_name_no_tags or None,
                 "summary": rom.summary or rom_attrs.get("summary") or None,
-                # Don't overwrite existing manually uploaded cover image
+                # Only a locked slot resists the freshly resolved url. Manuals
+                # are pinned regardless: rows predating the lock carry none.
                 "url_cover": (
-                    rom.url_cover
-                    if rom.path_cover_s
+                    ""
+                    if rom.is_field_locked("url_cover")
                     else rom_attrs.get("url_cover") or None
                 ),
                 "url_manual": rom.url_manual or rom_attrs.get("url_manual") or None,
-                "url_screenshots": rom.url_screenshots
-                or rom_attrs.get("url_screenshots")
-                or [],
+                "url_screenshots": rom_attrs.get("url_screenshots") or [],
             }
         )
 
@@ -1212,14 +1214,9 @@ async def scan_rom(
 
         # Apply SGDB's cover only when it outranks every other source that
         # already produced one under the cover priority, and never over a
-        # manually uploaded cover preserved by the UNMATCHED/UPDATE block above.
+        # locked cover.
         sgdb_cover = sgdb_hander_rom.get("url_cover")
-        manual_cover_preserved = (
-            not newly_added
-            and scan_type in (ScanType.UNMATCHED, ScanType.UPDATE)
-            and rom.path_cover_s
-        )
-        if sgdb_cover and not manual_cover_preserved:
+        if sgdb_cover and not rom.is_field_locked("url_cover"):
             cover_sources = [
                 name
                 for name, fields in metadata_handlers.items()
