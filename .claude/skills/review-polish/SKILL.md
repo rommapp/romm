@@ -1,15 +1,21 @@
 ---
 name: review-polish
-description: The self-review pass that catches what a RomM maintainer would otherwise rewrite by hand after approving a PR. Covers comment and docstring discipline (the single most-corrected thing in this repo), duplicated constants/types/getters, imprecise names, and loose typing in tests. Use after the code works and before requesting review, and whenever writing a comment, docstring, or a second copy of a value. Complements `pre-pr-verification`, which runs the checks; this one shapes the code the checks can't see.
+description: The before-review and before-handoff pass for RomM, covering both stacks. First shapes the code the checks can't see — comment and docstring discipline (the single most-corrected thing in this repo), duplicated constants/types/getters, imprecise names, loose typing in tests. Then runs the verification gate that keeps CI green — frontend (typecheck/lint/test/build/i18n/tokens), backend (pytest/alembic/trunk), the OpenAPI regen step, and (for UI) manual browser/theme/input/Storybook checks. Use after the code works, right before committing, opening a PR, or telling the user a change is done.
 ---
 
-# RomM: Review Polish
+# RomM: Review Polish & Verification
 
-Derived from the corrections a maintainer actually pushed on top of 37 approved
-contributor PRs. Every rule below is something that got hand-fixed after review,
-so applying it up front saves a round trip.
+Two passes, in order, once the change works:
 
-Run this pass when the change works and the tests pass, before asking for review.
+1. **Polish (A–F):** shape the code the checks can't see. Derived from the
+   corrections a maintainer actually pushed on top of 37 approved contributor
+   PRs — every rule below is something that got hand-fixed after review, so
+   applying it up front saves a round trip.
+2. **Verify (G):** run the checks that match what you touched, mirroring the CI
+   gates so review isn't the first place a failure shows up. Polish comes
+   first, since it renames things, extracts helpers, and edits tests; `trunk
+fmt && trunk check` comes last of all, so nothing lands unformatted. If
+   polish changed behaviour rather than only shape, re-run the tests too.
 
 ---
 
@@ -154,6 +160,73 @@ See `frontend-v2-patterns` for the full set. The three that get fixed in review:
 
 ---
 
+## G. Verification before handoff
+
+Run the checks that match what you touched. **Static checks don't prove a
+feature works** — when UI changed, also test it in the browser. **Never
+`--no-verify`.**
+
+**Commit whatever `trunk fmt` rewrites.** A "run fmt" commit landing on top of a
+PR is the single most common post-review fix in this repo. The recurring hits:
+import order (Vitest before Vue, component before its sibling module), Prettier
+joining a wrapped call or swapping quotes in a template string, ESLint's Vue
+rules on test mocks (`vue/one-component-per-file`, array-shorthand `props`), and
+mypy wanting explicit annotations on `__init__` attributes
+(`self.search_url: str = ...`, `Final[float]`).
+
+### Frontend (`frontend/`)
+
+Run from `frontend/`:
+
+1. `npm run typecheck` — zero errors (`vue-tsc --noEmit`).
+2. `npm run lint` _(if present)_ / ESLint clean. Trunk also runs ESLint + Prettier in CI.
+3. `npm run test` — zero failures (Vitest + happy-dom; runs unit tests **and** every `/lib` story's `play()` via `composeStories`).
+4. `npm run build` — zero failures (CI sanity check).
+
+**If you touched the backend API:** start the backend, run `npm run generate`, then re-`typecheck`.
+
+**If you touched tokens** (`src/v2/tokens/index.ts`): `npm run build:tokens` (also auto-runs on `predev`/`prebuild`) and confirm `tokens.css` regenerated.
+
+**If you touched locales** (`src/locales/**`): `python3 frontend/src/locales/check_i18n_locales.py` must pass with zero missing/extra keys. See the `frontend-i18n` skill.
+
+#### UI manual pass (when changes are visible) — v2
+
+With `uiVersion = "v2"`:
+
+- **Golden path + edge cases:** empty, error, loading, no-permission, extreme data; plus nearby regressions.
+- **Both themes:** `v2-dark` and `v2-light`.
+- **All four input modalities:** mouse, touch, keyboard, gamepad — focus ring only on `key`/`pad`.
+- **Responsive sweep:** 320px → 4K across the `useBreakpoint` tiers; overlays full-bleed on `xs`.
+- **Accessibility:** contrast, keyboard reachability with no traps, aria-labels on icon-only controls.
+- **Performance:** lists/grids of 1000+ items stay smooth; every `v-for` has a stable `:key`.
+
+#### Storybook (for `/lib`)
+
+- New primitive → mandatory story with controls + at least one variant per theme; interactive ones get a `play()`.
+- Modified primitive → existing story still renders and interactions still pass.
+- Don't duplicate coverage between Vitest (pure logic) and Storybook `play()` (components).
+
+### Backend (`backend/`)
+
+Run from `backend/`:
+
+1. `uv run pytest [path/file]` — zero failures (run the affected subset, or all with `-vv`).
+2. `trunk fmt && trunk check` — ruff/black/isort/mypy/bandit clean (CI enforces Trunk).
+3. **If you added a migration:** `uv run alembic upgrade head` then `uv run alembic downgrade -1` to prove both directions; it must work on MariaDB **and** PostgreSQL (CI runs both).
+4. **If a response schema or route signature changed:** regenerate frontend types (`npm run generate`) and typecheck the frontend.
+
+### CI gates this mirrors
+
+`typecheck.yml` (vue-tsc + lockfile lint), `frontend.yml` (vitest + build), `i18n.yml` (locale check), `pytest.yml` (pytest on MariaDB + PostgreSQL), `migrations.yml` (alembic on both DBs), `trunk-check.yml` (Trunk across the repo). Green locally → green in CI.
+
+### Don't
+
+- Open a PR without manually testing the UI when UI was touched.
+- `--no-verify` on commits.
+- Leave a locale key English-only, a token un-generated, or a migration one-directional.
+
+---
+
 ## Checklist
 
 - [ ] No comment or docstring over two lines of prose; no change history, no
@@ -164,4 +237,8 @@ See `frontend-v2-patterns` for the full set. The three that get fixed in review:
 - [ ] Names say what the code touches
 - [ ] Tests typecheck strictly and exercise the production path
 - [ ] Reactive values snapshotted before `await`; watches on narrow sources
-- [ ] `trunk fmt && trunk check` clean (see `pre-pr-verification`)
+- [ ] Stack checks in G green for everything touched (typecheck/test/build,
+      pytest, migrations both directions, OpenAPI regen)
+- [ ] UI changes tested in the browser: both themes, all four input modalities,
+      responsive sweep
+- [ ] `trunk fmt && trunk check` clean, with whatever fmt rewrote committed

@@ -57,4 +57,4 @@ When a dialog opens, push a scope; when it closes, pop. This stops Escape from c
 - **Label→icon collapse** (the AppNav precedent) is the canonical way to compress chrome; the four primary destinations relocate to `BottomNav` on `sm-and-down`.
 - **Grids** size via `useResponsiveColumns` (ResizeObserver), never a fixed column count.
 
-Verification adds a breakpoint sweep — see `pre-pr-verification`.
+Verification adds a breakpoint sweep — see `review-polish`.
