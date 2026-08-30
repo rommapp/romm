@@ -53,7 +53,7 @@ let loadToken = 0;
 
 const onFullSoundtrackPlayer = computed(() => {
   const onJukeboxPlayer =
-    route.name === ROUTES.MUSIC && isJukeboxPlayerMode(route.query.mode);
+    route.name === ROUTES.MUSIC && isJukeboxPlayerMode(route.params.mode);
   const onGameSoundtrack =
     route.name === "rom" &&
     route.query.tab === "media" &&

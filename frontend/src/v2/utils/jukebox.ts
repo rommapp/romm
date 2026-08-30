@@ -18,8 +18,8 @@ export type JukeboxMode = JukeboxPlayerMode | "home";
 
 const MODES = new Set<string>(JUKEBOX_MODES);
 
-/** `home` is the fallback: it is the mode with no `?mode=` param. */
-export function modeFromQuery(value: unknown): JukeboxMode {
+/** `home` is the fallback: it is the mode with no path segment. */
+export function parseJukeboxMode(value: unknown): JukeboxMode {
   return typeof value === "string" && MODES.has(value)
     ? (value as JukeboxPlayerMode)
     : "home";

@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { isJukeboxPlayerMode, JUKEBOX_MODES, modeFromQuery } from "./jukebox";
+import {
+  isJukeboxPlayerMode,
+  JUKEBOX_MODES,
+  parseJukeboxMode,
+} from "./jukebox";
 
-describe("modeFromQuery", () => {
+describe("parseJukeboxMode", () => {
   it("accepts every published mode", () => {
     for (const mode of JUKEBOX_MODES) {
-      expect(modeFromQuery(mode)).toBe(mode);
+      expect(parseJukeboxMode(mode)).toBe(mode);
     }
   });
 
   it("falls back to home for anything else", () => {
     for (const value of [undefined, null, "", "nope", 3, ["album"]]) {
-      expect(modeFromQuery(value)).toBe("home");
+      expect(parseJukeboxMode(value)).toBe("home");
     }
   });
 });

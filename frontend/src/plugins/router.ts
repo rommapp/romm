@@ -188,7 +188,9 @@ const routes = [
         },
       },
       {
-        path: "music",
+        // The browse mode is a path segment so every jukebox subgroup is
+        // its own history entry and browser back/forward walks between them.
+        path: "music/:mode?",
         name: ROUTES.MUSIC,
         meta: { title: i18n.global.t("common.jukebox") },
         components: {
