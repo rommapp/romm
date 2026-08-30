@@ -58,8 +58,7 @@ def upgrade() -> None:
     connection = op.get_bind()
 
     # A stored cover path with an empty url is the pre-migration marker for an
-    # upload. Values go through the JSON type rather than a literal so each
-    # dialect serialises its own way.
+    # upload.
     connection.execute(
         roms.update()
         .where(

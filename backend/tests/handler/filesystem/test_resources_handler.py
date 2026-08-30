@@ -685,8 +685,7 @@ class TestFSResourcesHandler:
         self, handler: FSResourcesHandler, rom: Rom, tmp_path
     ):
         # The url set is unchanged after a partial failure, so the gap is only
-        # visible on disk. Refetching the whole set instead would re-download
-        # every screenshot on every scan whenever one url is permanently dead.
+        # visible on disk.
         handler.base_path = tmp_path
         rom.path_screenshots = ["roms/1/1/screenshots/0.jpg"]
         screenshots = tmp_path / "roms/1/1/screenshots"

@@ -509,9 +509,8 @@ class FSResourcesHandler(FSHandler):
         if not url_screenshots:
             return rom.path_screenshots or []
 
-        # Go by what is on disk rather than what was recorded: an unchanged url
-        # set still has to replace whatever an earlier run failed to write, and
-        # a path is only worth recording once its file is really there.
+        # Go by what is on disk, not what was recorded: an unchanged url set
+        # still has to replace whatever an earlier run failed to write.
         stored = set() if overwrite else self._stored_screenshot_indexes(rom)
 
         path_screenshots: list[str] = []

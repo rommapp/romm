@@ -822,9 +822,7 @@ def test_update_rom_artwork_locks_the_cover(
     access_token: str,
     rom: Rom,
 ):
-    # Supplying a file is the explicit act that locks the cover. Scans read this
-    # rather than inferring it from path_cover_s, which they themselves clear
-    # whenever the file is unreadable.
+    # Supplying a file is the explicit act that locks the cover.
     response = client.put(
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -871,9 +869,8 @@ def test_saving_without_changing_urls_keeps_locks(
     access_token: str,
     rom: Rom,
 ):
-    # The client posts the stored urls on every save, so releasing a lock
-    # whenever a url is present would unlock hand-supplied artwork the first
-    # time anything else on the rom is edited.
+    # The client posts the stored urls on every save, so a url merely being
+    # present must not release the lock.
     db_rom_handler.update_rom(
         rom.id,
         {
@@ -915,9 +912,8 @@ def test_naming_new_source_urls_releases_both_locks(
     access_token: str,
     rom: Rom,
 ):
-    # Choosing a provider's artwork is a handover. Both fields release in one
-    # request, which is why the locks are accumulated rather than each derived
-    # from the pre-update row.
+    # Choosing a provider's artwork is a handover, and both slots release in
+    # the one request.
     db_rom_handler.update_rom(
         rom.id,
         {

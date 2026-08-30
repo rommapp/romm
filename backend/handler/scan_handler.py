@@ -1050,10 +1050,8 @@ async def scan_rom(
                 if fields["metadata_field"]:
                     rom_attrs[fields["metadata_field"]] = {}
 
-        # Reset artwork fields so stale values are cleared when no source supplies them.
-        # The locks go with them: a complete rescan deletes the resource files, so
-        # keeping one would leave a cover locked to a file that no longer exists and
-        # block any replacement from being fetched.
+        # Reset artwork fields so stale values are cleared when no source supplies
+        # them. The locks go too, since a complete rescan deletes the files.
         rom_attrs.update(
             {
                 "url_cover": "",
@@ -1122,11 +1120,8 @@ async def scan_rom(
             {
                 "name": existing_name or matched_name or fs_name_no_tags or None,
                 "summary": rom.summary or rom_attrs.get("summary") or None,
-                # Provider artwork yields to the freshly resolved url, so a
-                # changed source or priority reaches the download step. Only a
-                # locked slot stays put. Manuals are pinned regardless: rows
-                # predating the lock carry none, so an absent one is not yet
-                # evidence that a manual was scraped.
+                # Only a locked slot resists the freshly resolved url. Manuals
+                # are pinned regardless: rows predating the lock carry none.
                 "url_cover": (
                     ""
                     if rom.is_field_locked("url_cover")
