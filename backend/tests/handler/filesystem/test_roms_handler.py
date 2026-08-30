@@ -22,7 +22,7 @@ from handler.filesystem.roms_handler import (
     _embed_switch_title_id_in_name,
 )
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory, SaveUsage
+from models.rom import Rom, RomFile, RomFileCategory, SaveTargetLayout
 from utils.archives import extract_chd_hash
 
 
@@ -1444,7 +1444,7 @@ class TestSigilTitleIdExtraction:
 
         extraction = SigilExtractionResult(
             title_id="0100ABCD12340000",
-            save_id="0100ABCD12340000",
+            save_target="0100ABCD12340000",
             usage="folder-exact",
         )
         mock_extract = AsyncMock(return_value=extraction)
@@ -1453,11 +1453,9 @@ class TestSigilTitleIdExtraction:
             parsed = await handler.get_rom_files(rom)
 
         assert len(parsed.rom_files) == 1
-        assert parsed.rom_files[0].title_id == "0100ABCD12340000"
-        assert parsed.rom_files[0].save_id == "0100ABCD12340000"
         assert parsed.title_id == "0100ABCD12340000"
-        assert parsed.save_id == "0100ABCD12340000"
-        assert parsed.save_usage == SaveUsage.FOLDER_EXACT
+        assert parsed.save_target == "0100ABCD12340000"
+        assert parsed.save_target_layout == SaveTargetLayout.FOLDER_EXACT
         mock_extract.assert_awaited_once_with(
             "switch",
             str(tmp_path / "switch/roms/Game.nsp"),
@@ -1486,7 +1484,7 @@ class TestSigilTitleIdExtraction:
             if "update" in file_path:
                 return SigilExtractionResult(
                     title_id="0100ABCD12340800",
-                    save_id="0100ABCD12340800",
+                    save_target="0100ABCD12340800",
                     usage="folder-exact",
                     content_type="patch",
                     version=196608,
@@ -1494,14 +1492,14 @@ class TestSigilTitleIdExtraction:
             if "dlc" in file_path:
                 return SigilExtractionResult(
                     title_id="0100ABCD12341001",
-                    save_id="0100ABCD12341001",
+                    save_target="0100ABCD12341001",
                     usage="folder-exact",
                     content_type="addon",
                     version=0,
                 )
             return SigilExtractionResult(
                 title_id="0100ABCD12340000",
-                save_id="0100ABCD12340000",
+                save_target="0100ABCD12340000",
                 usage="folder-exact",
                 content_type="application",
                 version=0,
@@ -1514,28 +1512,19 @@ class TestSigilTitleIdExtraction:
 
         by_name = {rf.file_name: rf for rf in parsed.rom_files}
 
-        base = by_name["Zelda [base].nsp"]
-        assert base.title_id == "0100ABCD12340000"
-        assert base.title_version == 0
-        assert base.category == RomFileCategory.GAME
-
-        update = by_name["Zelda [update].nsp"]
-        assert update.title_id == "0100ABCD12340800"
-        assert update.title_version == 196608
-        assert update.category == RomFileCategory.UPDATE
-
-        dlc = by_name["Zelda [dlc].nsp"]
-        assert dlc.title_id == "0100ABCD12341001"
-        assert dlc.title_version == 0
-        assert dlc.category == RomFileCategory.DLC
+        # The binary content type categorizes each file; the ids themselves are
+        # kept only at the rom level.
+        assert by_name["Zelda [base].nsp"].category == RomFileCategory.GAME
+        assert by_name["Zelda [update].nsp"].category == RomFileCategory.UPDATE
+        assert by_name["Zelda [dlc].nsp"].category == RomFileCategory.DLC
 
         # All three files, including the nested update/DLC, are extracted.
         assert mock_extract.await_count == 3
 
         # The base game is still selected for the rom-level values.
         assert parsed.title_id == "0100ABCD12340000"
-        assert parsed.save_id == "0100ABCD12340000"
-        assert parsed.save_usage == SaveUsage.FOLDER_EXACT
+        assert parsed.save_target == "0100ABCD12340000"
+        assert parsed.save_target_layout == SaveTargetLayout.FOLDER_EXACT
 
     @pytest.mark.asyncio
     async def test_content_type_overrides_folder_category(
@@ -1550,7 +1539,7 @@ class TestSigilTitleIdExtraction:
         mock_extract = AsyncMock(
             return_value=SigilExtractionResult(
                 title_id="0100ABCD12340000",
-                save_id="0100ABCD12340000",
+                save_target="0100ABCD12340000",
                 usage="folder-exact",
                 content_type="application",
                 version=0,
@@ -1576,7 +1565,7 @@ class TestSigilTitleIdExtraction:
         mock_extract = AsyncMock(
             return_value=SigilExtractionResult(
                 title_id="0100ABCD12341001",
-                save_id="0100ABCD12341001",
+                save_target="0100ABCD12341001",
                 usage="folder-exact",
                 content_type=None,
                 version=None,
@@ -1586,10 +1575,8 @@ class TestSigilTitleIdExtraction:
         with patch(SIGIL_PATCH_TARGET, mock_extract):
             parsed = await handler.get_rom_files(rom)
 
-        rom_file = parsed.rom_files[0]
-        # Folder-derived category survives, and title_version stays None.
-        assert rom_file.category == RomFileCategory.DLC
-        assert rom_file.title_version is None
+        # The folder-derived category survives when the binary offers none.
+        assert parsed.rom_files[0].category == RomFileCategory.DLC
 
     @pytest.mark.asyncio
     async def test_switch_base_derivation_from_update_only_folder(
@@ -1602,7 +1589,7 @@ class TestSigilTitleIdExtraction:
         mock_extract = AsyncMock(
             return_value=SigilExtractionResult(
                 title_id="0100ABCD12340800",
-                save_id="0100ABCD12340800",
+                save_target="0100ABCD12340800",
                 usage="folder-exact",
             )
         )
@@ -1610,10 +1597,9 @@ class TestSigilTitleIdExtraction:
         with patch(SIGIL_PATCH_TARGET, mock_extract):
             parsed = await handler.get_rom_files(rom)
 
-        assert parsed.rom_files[0].title_id == "0100ABCD12340800"
         assert parsed.title_id == "0100ABCD12340000"
-        assert parsed.save_id == "0100ABCD12340000"
-        assert parsed.save_usage == SaveUsage.FOLDER_EXACT
+        assert parsed.save_target == "0100ABCD12340000"
+        assert parsed.save_target_layout == SaveTargetLayout.FOLDER_EXACT
 
     @pytest.mark.asyncio
     async def test_switch_base_derivation_from_dlc_odd_nibble(
@@ -1626,7 +1612,7 @@ class TestSigilTitleIdExtraction:
         mock_extract = AsyncMock(
             return_value=SigilExtractionResult(
                 title_id="0100ABCD12351064",
-                save_id="0100ABCD12351064",
+                save_target="0100ABCD12351064",
                 usage="folder-exact",
             )
         )
@@ -1635,8 +1621,8 @@ class TestSigilTitleIdExtraction:
             parsed = await handler.get_rom_files(rom)
 
         assert parsed.title_id == "0100ABCD12350000"
-        assert parsed.save_id == "0100ABCD12350000"
-        assert parsed.save_usage == SaveUsage.FOLDER_EXACT
+        assert parsed.save_target == "0100ABCD12350000"
+        assert parsed.save_target_layout == SaveTargetLayout.FOLDER_EXACT
 
     @pytest.mark.asyncio
     async def test_non_switch_platform_uses_first_extraction(
@@ -1649,7 +1635,7 @@ class TestSigilTitleIdExtraction:
         mock_extract = AsyncMock(
             return_value=SigilExtractionResult(
                 title_id="ULUS-10041",
-                save_id="ULUS10041",
+                save_target="ULUS10041",
                 usage="folder-prefix",
             )
         )
@@ -1664,11 +1650,9 @@ class TestSigilTitleIdExtraction:
         ):
             parsed = await handler.get_rom_files(rom)
 
-        assert parsed.rom_files[0].title_id == "ULUS-10041"
-        assert parsed.rom_files[0].save_id == "ULUS10041"
         assert parsed.title_id == "ULUS-10041"
-        assert parsed.save_id == "ULUS10041"
-        assert parsed.save_usage == SaveUsage.FOLDER_PREFIX
+        assert parsed.save_target == "ULUS10041"
+        assert parsed.save_target_layout == SaveTargetLayout.FOLDER_PREFIX
 
     @pytest.mark.asyncio
     async def test_3ds_extraction_maps_folder_split_usage(
@@ -1681,9 +1665,9 @@ class TestSigilTitleIdExtraction:
         mock_extract = AsyncMock(
             return_value=SigilExtractionResult(
                 title_id="0004000E0011C500",
-                # save_id carries the on-disk split, not the flat id, and is
+                # The target carries the on-disk split, not the flat id, and is
                 # lowercase because that is the case the emulator writes.
-                save_id="0004000e/0011c500",
+                save_target="0004000e/0011c500",
                 usage="folder-split",
             )
         )
@@ -1698,11 +1682,9 @@ class TestSigilTitleIdExtraction:
         ):
             parsed = await handler.get_rom_files(rom)
 
-        assert parsed.rom_files[0].save_id == "0004000e/0011c500"
-        assert parsed.rom_files[0].title_id == "0004000E0011C500"
-        assert parsed.save_id == "0004000e/0011c500"
+        assert parsed.save_target == "0004000e/0011c500"
         assert parsed.title_id == "0004000E0011C500"
-        assert parsed.save_usage == SaveUsage.FOLDER_SPLIT
+        assert parsed.save_target_layout == SaveTargetLayout.FOLDER_SPLIT
 
     @pytest.mark.asyncio
     async def test_dreamcast_extraction_maps_file_prefix_usage(
@@ -1715,7 +1697,7 @@ class TestSigilTitleIdExtraction:
         mock_extract = AsyncMock(
             return_value=SigilExtractionResult(
                 title_id="MK-51035",
-                save_id="MK-51035",
+                save_target="MK-51035",
                 usage="file-prefix",
             )
         )
@@ -1730,10 +1712,8 @@ class TestSigilTitleIdExtraction:
         ):
             parsed = await handler.get_rom_files(rom)
 
-        assert parsed.rom_files[0].title_id == "MK-51035"
-        assert parsed.rom_files[0].save_id == "MK-51035"
-        assert parsed.save_id == "MK-51035"
-        assert parsed.save_usage == SaveUsage.FILE_PREFIX
+        assert parsed.save_target == "MK-51035"
+        assert parsed.save_target_layout == SaveTargetLayout.FILE_PREFIX
 
     @pytest.mark.asyncio
     async def test_non_sigil_platform_skips_extraction(
@@ -1749,9 +1729,8 @@ class TestSigilTitleIdExtraction:
             parsed = await handler.get_rom_files(rom, calculate_hashes=False)
 
         mock_extract.assert_not_awaited()
-        assert parsed.rom_files[0].title_id is None
         assert parsed.title_id is None
-        assert parsed.save_usage is None
+        assert parsed.save_target_layout is None
 
     @pytest.mark.asyncio
     async def test_extraction_disabled_skips_extraction(
@@ -1806,7 +1785,6 @@ class TestSigilTitleIdExtraction:
             parsed = await handler.get_rom_files(rom)
 
         mock_extract.assert_not_awaited()
-        assert parsed.rom_files[0].title_id is None
         assert parsed.title_id is None
 
     @pytest.mark.asyncio
@@ -1896,7 +1874,7 @@ class TestSwitchTitleIdEmbedding:
 
         extraction = SigilExtractionResult(
             title_id="0100ABCD12340000",
-            save_id="0100ABCD12340000",
+            save_target="0100ABCD12340000",
             usage="folder-exact",
         )
 
@@ -1917,7 +1895,7 @@ class TestSwitchTitleIdEmbedding:
 
         extraction = SigilExtractionResult(
             title_id="0100F4700B2E0000",
-            save_id="0100F4700B2E0000",
+            save_target="0100F4700B2E0000",
             usage="folder-exact",
             version=0,
         )
@@ -1943,7 +1921,7 @@ class TestSwitchTitleIdEmbedding:
 
         extraction = SigilExtractionResult(
             title_id="0100ABCD12340000",
-            save_id="0100ABCD12340000",
+            save_target="0100ABCD12340000",
             usage="folder-exact",
         )
 
@@ -1964,7 +1942,7 @@ class TestSwitchTitleIdEmbedding:
 
         extraction = SigilExtractionResult(
             title_id="0100ABCD12340000",
-            save_id="0100ABCD12340000",
+            save_target="0100ABCD12340000",
             usage="folder-exact",
         )
 
@@ -1987,7 +1965,7 @@ class TestSwitchTitleIdEmbedding:
 
         extraction = SigilExtractionResult(
             title_id="0100ABCD12340000",
-            save_id="0100ABCD12340000",
+            save_target="0100ABCD12340000",
             usage="folder-exact",
         )
 
@@ -2031,7 +2009,7 @@ class TestSwitchTitleIdEmbedding:
             if "update" in file_path:
                 return SigilExtractionResult(
                     title_id="0100ABCD12340800",
-                    save_id="0100ABCD12340800",
+                    save_target="0100ABCD12340800",
                     usage="folder-exact",
                     content_type="patch",
                     version=196608,
@@ -2039,14 +2017,14 @@ class TestSwitchTitleIdEmbedding:
             if "dlc" in file_path:
                 return SigilExtractionResult(
                     title_id="0100ABCD12341001",
-                    save_id="0100ABCD12341001",
+                    save_target="0100ABCD12341001",
                     usage="folder-exact",
                     content_type="addon",
                     version=0,
                 )
             return SigilExtractionResult(
                 title_id="0100ABCD12340000",
-                save_id="0100ABCD12340000",
+                save_target="0100ABCD12340000",
                 usage="folder-exact",
                 content_type="application",
                 version=0,

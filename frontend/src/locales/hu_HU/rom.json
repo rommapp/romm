@@ -346,7 +346,7 @@
   "rom-updated-successfully": "A ROM frissítése sikeresen megtörtént!",
   "save-data": "Mentések",
   "save-deleted": "Mentés törölve.",
-  "save-id": "Mentés ID",
+  "save-target": "Save File/Folder Target",
   "saves-empty": "Még nincsenek mentések",
   "saves-empty-hint": "A ROM-hoz feltöltött mentések itt jelennek meg.",
   "saves-section-community": "Community",

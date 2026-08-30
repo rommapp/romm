@@ -346,7 +346,7 @@
   "rom-updated-successfully": "ROM actualizada correctamente",
   "save-data": "Datos guardados",
   "save-deleted": "Partida eliminada",
-  "save-id": "ID de guardado",
+  "save-target": "Save File/Folder Target",
   "saves-empty": "Aún no hay partidas",
   "saves-empty-hint": "Sube una partida para empezar.",
   "saves-section-community": "Comunidad",

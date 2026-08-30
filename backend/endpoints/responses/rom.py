@@ -33,7 +33,7 @@ from models.rom import (
     RomFile,
     RomFileCategory,
     RomUserStatus,
-    SaveUsage,
+    SaveTargetLayout,
 )
 
 from .base import BaseModel, UTCDatetime
@@ -221,9 +221,6 @@ class RomFileSchema(BaseModel):
     sha1_hash: str | None
     ra_hash: str | None
     chd_sha1_hash: str | None
-    title_id: str | None
-    save_id: str | None
-    title_version: int | None
     archive_members: list[RomArchiveMember] | None
     category: RomFileCategory | None
     track_meta: TrackMetaSchema | None = None
@@ -376,8 +373,8 @@ class RomSchema(BaseModel):
     sha1_hash: str | None
     ra_hash: str | None
     title_id: str | None
-    save_id: str | None
-    save_usage: SaveUsage | None
+    save_target: str | None
+    save_target_layout: SaveTargetLayout | None
 
     has_simple_single_file: bool
     has_nested_single_file: bool

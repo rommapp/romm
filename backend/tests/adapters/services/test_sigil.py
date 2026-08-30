@@ -86,7 +86,7 @@ class TestSigilService:
 
         assert result == SigilExtractionResult(
             title_id="0100ABCD12340000",
-            save_id="0100ABCD12340000",
+            save_target="0100ABCD12340000",
             usage="folder-exact",
         )
 

@@ -346,7 +346,7 @@
   "rom-updated-successfully": "ROM úspěšně aktualizována!",
   "save-data": "Uložená data",
   "save-deleted": "Uložená pozice smazána.",
-  "save-id": "ID uložení",
+  "save-target": "Save File/Folder Target",
   "saves-empty": "Zatím žádné uložené pozice",
   "saves-empty-hint": "Uložené pozice nahrané pro tuto ROM se objeví zde.",
   "saves-section-community": "Community",

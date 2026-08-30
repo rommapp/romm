@@ -346,7 +346,7 @@
   "rom-updated-successfully": "ROM erfolgreich aktualisiert!",
   "save-data": "Speicherdaten",
   "save-deleted": "Spielstand gelöscht.",
-  "save-id": "Speicher-ID",
+  "save-target": "Save File/Folder Target",
   "saves-empty": "Noch keine Spielstände",
   "saves-empty-hint": "Für diese ROM hochgeladene Spielstände erscheinen hier.",
   "saves-section-community": "Community",

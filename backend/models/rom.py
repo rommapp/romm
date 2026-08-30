@@ -108,7 +108,7 @@ class RomFileCategory(enum.StrEnum):
     SCREENSHOT = "screenshot"
 
 
-class SaveUsage(enum.StrEnum):
+class SaveTargetLayout(enum.StrEnum):
     FOLDER_EXACT = "folder-exact"
     FOLDER_PREFIX = "folder-prefix"
     FILE_EXACT = "file-exact"
@@ -161,7 +161,6 @@ class RomFile(BaseModel):
 
     __table_args__ = (
         Index("idx_rom_files_rom_id", "rom_id"),
-        Index("idx_rom_files_title_id", "title_id"),
         Index("idx_rom_files_rom_id_category", "rom_id", "category"),
         # Searching the gallery by a hash digest
         Index("idx_rom_files_crc_hash", "crc_hash"),
@@ -182,10 +181,6 @@ class RomFile(BaseModel):
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
     ra_hash: Mapped[str | None] = mapped_column(String(100))
     chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
-    title_id: Mapped[str | None] = mapped_column(String(100))
-    save_id: Mapped[str | None] = mapped_column(String(100))
-    # BigInteger: Switch title versions are u32 and can exceed signed int32.
-    title_version: Mapped[int | None] = mapped_column(BigInteger, default=None)
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
     )
@@ -624,9 +619,19 @@ class Rom(BaseModel):
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
     sha1_hash: Mapped[str | None] = mapped_column(String(length=100))
     ra_hash: Mapped[str | None] = mapped_column(String(length=100))
-    title_id: Mapped[str | None] = mapped_column(String(length=100))
-    save_id: Mapped[str | None] = mapped_column(String(length=100))
-    save_usage: Mapped[SaveUsage | None] = mapped_column(Enum(SaveUsage), default=None)
+    title_id: Mapped[str | None] = mapped_column(
+        String(length=100),
+        doc="Platform-native identity read from the ROM binary, normalized (0100ABCD12340000, SLUS-20152)",
+    )
+    save_target: Mapped[str | None] = mapped_column(
+        String(length=100),
+        doc="On-disk name an emulator gives this game's saves; a file stem, a folder, or a nested path",
+    )
+    save_target_layout: Mapped[SaveTargetLayout | None] = mapped_column(
+        Enum(SaveTargetLayout),
+        default=None,
+        doc="How to apply save_target: one folder, a folder prefix, a file prefix, or a nested path",
+    )
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 

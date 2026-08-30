@@ -97,15 +97,9 @@ const audioDuration = computed(() =>
   formatDuration(props.file.track_meta?.duration_seconds),
 );
 
-// Title ids get the same click-to-copy treatment as the digests.
 const identifierChips = computed(() => {
   const f = props.file;
   const chips: { label: string; value: string | null }[] = [
-    { label: t("rom.title-id"), value: f.title_id },
-    {
-      label: t("rom.version"),
-      value: f.title_version != null ? String(f.title_version) : null,
-    },
     { label: "SHA-1", value: f.sha1_hash },
     { label: "CHD SHA-1", value: f.chd_sha1_hash },
     { label: "MD5", value: f.md5_hash },

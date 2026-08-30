@@ -346,7 +346,7 @@
   "rom-updated-successfully": "ROM mise à jour avec succès !",
   "save-data": "Sauvegardes",
   "save-deleted": "Sauvegarde supprimée.",
-  "save-id": "ID de sauvegarde",
+  "save-target": "Save File/Folder Target",
   "saves-empty": "Aucune sauvegarde pour le moment",
   "saves-empty-hint": "Les sauvegardes téléversées pour cette ROM apparaîtront ici.",
   "saves-section-community": "Community",

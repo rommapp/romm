@@ -346,7 +346,7 @@
   "rom-updated-successfully": "ROM успешно обновлён!",
   "save-data": "Сохранения",
   "save-deleted": "Сохранение удалено.",
-  "save-id": "ID сохранения",
+  "save-target": "Save File/Folder Target",
   "saves-empty": "Сохранений пока нет",
   "saves-empty-hint": "Сохранения, загруженные для этого ROM, появятся здесь.",
   "saves-section-community": "Community",

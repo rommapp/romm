@@ -346,7 +346,7 @@
   "rom-updated-successfully": "ROM이 성공적으로 업데이트되었습니다!",
   "save-data": "저장 데이터",
   "save-deleted": "세이브가 삭제되었습니다.",
-  "save-id": "저장 ID",
+  "save-target": "Save File/Folder Target",
   "saves-empty": "아직 세이브가 없습니다",
   "saves-empty-hint": "이 ROM에 대해 업로드된 세이브가 여기에 표시됩니다.",
   "saves-section-community": "Community",

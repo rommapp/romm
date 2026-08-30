@@ -346,7 +346,7 @@
   "rom-updated-successfully": "ROMを正常に更新しました！",
   "save-data": "セーブデータ",
   "save-deleted": "セーブを削除しました。",
-  "save-id": "セーブID",
+  "save-target": "Save File/Folder Target",
   "saves-empty": "セーブはまだありません",
   "saves-empty-hint": "このROMにアップロードされたセーブはここに表示されます。",
   "saves-section-community": "Community",

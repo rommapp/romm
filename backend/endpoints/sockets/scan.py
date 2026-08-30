@@ -391,8 +391,8 @@ def _apply_scanned_values(fs_rom: FSRom, parsed: ParsedRomFiles) -> None:
         sha1_hash=parsed.sha1_hash,
         ra_hash=parsed.ra_hash,
         title_id=parsed.title_id,
-        save_id=parsed.save_id,
-        save_usage=parsed.save_usage,
+        save_target=parsed.save_target,
+        save_target_layout=parsed.save_target_layout,
     )
     if parsed.renamed_rom_fs_name:
         values["fs_name"] = parsed.renamed_rom_fs_name

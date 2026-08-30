@@ -28,7 +28,7 @@ from handler.scan_handler import (
     scan_rom,
 )
 from models.platform import Platform
-from models.rom import Rom, RomFile, SaveUsage
+from models.rom import Rom, RomFile, SaveTargetLayout
 from utils.context import initialize_context
 
 
@@ -229,8 +229,6 @@ async def test_scan_rom_folds_extracted_title_id_values(mock_playmatch_enabled):
                         file_path="switch/roms",
                         file_size_bytes=1024,
                         last_modified=1620000000,
-                        title_id="0100ABCD12340000",
-                        save_id="0100ABCD12340000",
                     )
                 ],
                 "crc_hash": "",
@@ -238,16 +236,16 @@ async def test_scan_rom_folds_extracted_title_id_values(mock_playmatch_enabled):
                 "sha1_hash": "",
                 "ra_hash": "",
                 "title_id": "0100ABCD12340000",
-                "save_id": "0100ABCD12340000",
-                "save_usage": SaveUsage.FOLDER_EXACT,
+                "save_target": "0100ABCD12340000",
+                "save_target_layout": SaveTargetLayout.FOLDER_EXACT,
             },
             metadata_sources=[],
             newly_added=False,
         )
 
     assert result.title_id == "0100ABCD12340000"
-    assert result.save_id == "0100ABCD12340000"
-    assert result.save_usage == SaveUsage.FOLDER_EXACT
+    assert result.save_target == "0100ABCD12340000"
+    assert result.save_target_layout == SaveTargetLayout.FOLDER_EXACT
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
@@ -266,8 +264,8 @@ async def test_scan_rom_preserves_title_id_when_extraction_yields_nothing(
         fs_size_bytes=1024,
         tags=[],
         title_id="0100ABCD12340000",
-        save_id="0100ABCD12340000",
-        save_usage=SaveUsage.FOLDER_EXACT,
+        save_target="0100ABCD12340000",
+        save_target_layout=SaveTargetLayout.FOLDER_EXACT,
     )
     rom = db_rom_handler.add_rom(rom)
 
@@ -294,16 +292,16 @@ async def test_scan_rom_preserves_title_id_when_extraction_yields_nothing(
                 "sha1_hash": "",
                 "ra_hash": "",
                 "title_id": None,
-                "save_id": None,
-                "save_usage": None,
+                "save_target": None,
+                "save_target_layout": None,
             },
             metadata_sources=[],
             newly_added=False,
         )
 
     assert result.title_id == "0100ABCD12340000"
-    assert result.save_id == "0100ABCD12340000"
-    assert result.save_usage == SaveUsage.FOLDER_EXACT
+    assert result.save_target == "0100ABCD12340000"
+    assert result.save_target_layout == SaveTargetLayout.FOLDER_EXACT
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)

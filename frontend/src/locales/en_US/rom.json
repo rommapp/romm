@@ -346,7 +346,7 @@
   "rom-updated-successfully": "Rom updated successfully!",
   "save-data": "Save data",
   "save-deleted": "Save deleted.",
-  "save-id": "Save ID",
+  "save-target": "Save File/Folder Target",
   "saves-empty": "No saves yet",
   "saves-empty-hint": "Saves uploaded for this ROM will appear here.",
   "saves-section-community": "Community",

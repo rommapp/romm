@@ -346,7 +346,7 @@
   "rom-updated-successfully": "ROM 更新成功！",
   "save-data": "存档数据",
   "save-deleted": "存档已删除。",
-  "save-id": "存档ID",
+  "save-target": "Save File/Folder Target",
   "saves-empty": "暂无存档",
   "saves-empty-hint": "此 ROM 上传的存档将显示在此处。",
   "saves-section-community": "Community",

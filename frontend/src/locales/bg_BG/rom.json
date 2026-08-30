@@ -346,7 +346,7 @@
   "rom-updated-successfully": "ROM-ът е обновен успешно!",
   "save-data": "Данни от записи",
   "save-deleted": "Записът е изтрит.",
-  "save-id": "ID на записа",
+  "save-target": "Save File/Folder Target",
   "saves-empty": "Все още няма записи",
   "saves-empty-hint": "Записите, качени за този ROM, ще се появят тук.",
   "saves-section-community": "Community",

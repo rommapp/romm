@@ -30,7 +30,7 @@ from exceptions.fs_exceptions import (
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory, SaveUsage, TrackMeta
+from models.rom import Rom, RomFile, RomFileCategory, SaveTargetLayout, TrackMeta
 from utils.archives import (
     ArchiveReadError,
     detect_mime_type,
@@ -104,8 +104,8 @@ class FSRom(TypedDict):
     sha1_hash: str
     ra_hash: str
     title_id: NotRequired[str | None]
-    save_id: NotRequired[str | None]
-    save_usage: NotRequired[SaveUsage | None]
+    save_target: NotRequired[str | None]
+    save_target_layout: NotRequired[SaveTargetLayout | None]
 
 
 class ScannedFSRomValues(TypedDict, total=False):
@@ -118,8 +118,8 @@ class ScannedFSRomValues(TypedDict, total=False):
     sha1_hash: str
     ra_hash: str
     title_id: str | None
-    save_id: str | None
-    save_usage: SaveUsage | None
+    save_target: str | None
+    save_target_layout: SaveTargetLayout | None
 
 
 class FileHash(TypedDict):
@@ -193,8 +193,8 @@ class ParsedRomFiles:
     sha1_hash: str
     ra_hash: str
     title_id: str | None = None
-    save_id: str | None = None
-    save_usage: SaveUsage | None = None
+    save_target: str | None = None
+    save_target_layout: SaveTargetLayout | None = None
     # Set when a single-file rom's file was renamed on disk to embed its title
     # id, so the caller can reconcile Rom.fs_name.
     renamed_rom_fs_name: str | None = None
@@ -249,9 +249,9 @@ def _embed_switch_title_id_in_name(
     return new_path
 
 
-def _parse_save_usage(usage: str) -> SaveUsage | None:
+def _parse_save_target_layout(usage: str) -> SaveTargetLayout | None:
     try:
-        return SaveUsage(usage)
+        return SaveTargetLayout(usage)
     except ValueError:
         return None
 
@@ -280,7 +280,7 @@ def _is_switch_base_title_id(title_id: str) -> bool:
 def _rom_level_title_values(
     platform_slug: str,
     extractions: list[SigilExtractionResult],
-) -> tuple[str | None, str | None, SaveUsage | None]:
+) -> tuple[str | None, str | None, SaveTargetLayout | None]:
     if not extractions:
         return None, None, None
 
@@ -289,16 +289,20 @@ def _rom_level_title_values(
             (e for e in extractions if _is_switch_base_title_id(e.title_id)), None
         )
         if base is not None:
-            return base.title_id, base.save_id, _parse_save_usage(base.usage)
+            return (
+                base.title_id,
+                base.save_target,
+                _parse_save_target_layout(base.usage),
+            )
 
         derived = _derive_switch_base_title_id(extractions[0].title_id)
         if derived is None:
             return None, None, None
         # Switch saves are keyed by the base title id itself.
-        return derived, derived, SaveUsage.FOLDER_EXACT
+        return derived, derived, SaveTargetLayout.FOLDER_EXACT
 
     first = extractions[0]
-    return first.title_id, first.save_id, _parse_save_usage(first.usage)
+    return first.title_id, first.save_target, _parse_save_target_layout(first.usage)
 
 
 class FSRomsHandler(FSHandler):
@@ -508,9 +512,8 @@ class FSRomsHandler(FSHandler):
             )
             if extraction is None:
                 return None
-            rom_file.title_id = extraction.title_id
-            rom_file.save_id = extraction.save_id
-            rom_file.title_version = extraction.version
+            # For Switch, the binary CNMT content type is authoritative over the
+            # folder-derived category. Leave the folder category when absent.
             if extraction.content_type is not None:
                 category = SWITCH_CONTENT_TYPE_CATEGORIES.get(extraction.content_type)
                 if category is not None:
@@ -793,7 +796,7 @@ class FSRomsHandler(FSHandler):
                 )
             )
 
-        rom_title_id, rom_save_id, rom_save_usage = _rom_level_title_values(
+        rom_title_id, rom_save_target, rom_save_target_layout = _rom_level_title_values(
             rom.platform_slug, sigil_extractions
         )
 
@@ -812,8 +815,8 @@ class FSRomsHandler(FSHandler):
             ),
             ra_hash=rom_ra_h,
             title_id=rom_title_id,
-            save_id=rom_save_id,
-            save_usage=rom_save_usage,
+            save_target=rom_save_target,
+            save_target_layout=rom_save_target_layout,
             renamed_rom_fs_name=renamed_rom_fs_name,
         )
 

@@ -346,7 +346,7 @@
   "rom-updated-successfully": "ROM başarıyla güncellendi!",
   "save-data": "Kayıt verisi",
   "save-deleted": "Kayıt silindi.",
-  "save-id": "Kayıt ID",
+  "save-target": "Save File/Folder Target",
   "saves-empty": "Henüz kayıt yok",
   "saves-empty-hint": "Bu ROM için yüklenen kayıtlar burada görünecek.",
   "saves-section-community": "Topluluk",

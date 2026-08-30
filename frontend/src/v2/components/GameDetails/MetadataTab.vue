@@ -35,7 +35,9 @@ const fileRows = computed<Row[]>(() => {
     { label: t("common.size"), value: size },
     // Only the sigil platforms carry these, so skip rather than dash them.
     ...(r.title_id ? [{ label: t("rom.title-id"), value: r.title_id }] : []),
-    ...(r.save_id ? [{ label: t("rom.save-id"), value: r.save_id }] : []),
+    ...(r.save_target
+      ? [{ label: t("rom.save-target"), value: r.save_target }]
+      : []),
   ];
 });
 

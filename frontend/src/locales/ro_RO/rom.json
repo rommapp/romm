@@ -346,7 +346,7 @@
   "rom-updated-successfully": "ROM actualizat cu succes!",
   "save-data": "Date salvate",
   "save-deleted": "Salvare ștearsă.",
-  "save-id": "ID salvare",
+  "save-target": "Save File/Folder Target",
   "saves-empty": "Nicio salvare încă",
   "saves-empty-hint": "Salvările încărcate pentru acest ROM vor apărea aici.",
   "saves-section-community": "Community",

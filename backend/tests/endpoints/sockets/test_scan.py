@@ -21,7 +21,7 @@ from endpoints.sockets.scan import (
 from exceptions.fs_exceptions import FolderStructureNotMatchException
 from exceptions.socket_exceptions import ScanStoppedException
 from handler.auth.constants import Scope
-from handler.database.roms_handler import ROM_FILE_SCANNED_COLUMNS, SyncedRomFiles
+from handler.database.roms_handler import SyncedRomFiles
 from handler.filesystem.roms_handler import (
     FSRom,
     FSRomsHandler,
@@ -1015,30 +1015,18 @@ class TestIdentifyRomTitleIdEmbedRename:
         assert fs_rom["fs_name"] == self.NEW_NAME
 
 
-def test_scanned_columns_include_sigil_fields():
-    """title_id/save_id/title_version must ride along on `sync_rom_files`.
+class TestIdentifyRomPersistsFileCategory:
+    """`_identify_rom` must feed each file's category into `sync_rom_files`.
 
-    These columns are persisted only if listed in `ROM_FILE_SCANNED_COLUMNS`.
-    Dropping them silently nulls every extracted id/version on a rescan, which
-    already bit us once for `title_version`.
-    """
-    for column in ("title_id", "save_id", "title_version"):
-        assert column in ROM_FILE_SCANNED_COLUMNS
-
-
-class TestIdentifyRomPersistsFileTitleVersion:
-    """`_identify_rom` must feed per-file `title_version` into `sync_rom_files`.
-
-    A Switch update file carries a `title_version` extracted during scan. The
-    reconciliation in `_identify_rom` hands `fs_rom["files"]` to
+    A Switch update file is categorized from its binary content type during the
+    scan. The reconciliation in `_identify_rom` hands `fs_rom["files"]` to
     `sync_rom_files`, which copies `ROM_FILE_SCANNED_COLUMNS` onto each row; if
-    the scanned file loses `title_version` before that call, the version is
-    silently dropped to NULL on persist. A HASHES scan reaches the file-sync
-    step and returns right after it.
+    the scanned file loses its category before that call, the update silently
+    persists as a plain game. A HASHES scan reaches the file-sync step and
+    returns right after it.
     """
 
     UPDATE_TITLE_ID = "0100F4700B2E0800"
-    UPDATE_TITLE_VERSION = 655360
 
     @pytest.fixture
     def patched(self, mocker):
@@ -1047,8 +1035,6 @@ class TestIdentifyRomPersistsFileTitleVersion:
             file_path="switch/roms",
             file_size_bytes=1024,
             category=RomFileCategory.UPDATE,
-            title_id=self.UPDATE_TITLE_ID,
-            title_version=self.UPDATE_TITLE_VERSION,
         )
         db, platform = patch_identify_rom(
             mocker,
@@ -1074,7 +1060,7 @@ class TestIdentifyRomPersistsFileTitleVersion:
         )
         return db, platform
 
-    async def test_rebuilt_file_keeps_title_version(self, patched):
+    async def test_rebuilt_file_keeps_category(self, patched):
         db, platform = patched
 
         await run_identify_rom(platform, make_fs_rom("Game.nsp"))
@@ -1085,8 +1071,7 @@ class TestIdentifyRomPersistsFileTitleVersion:
         assert len(synced_files) == 1
         persisted = synced_files[0]
         assert isinstance(persisted, RomFile)
-        assert persisted.title_id == self.UPDATE_TITLE_ID
-        assert persisted.title_version == self.UPDATE_TITLE_VERSION
+        assert persisted.category == RomFileCategory.UPDATE
 
 
 class TestIdentifyPlatformMarksMissingBeforeScan:

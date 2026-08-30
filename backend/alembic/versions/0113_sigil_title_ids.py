@@ -1,5 +1,5 @@
-"""Add sigil-extracted title id columns: title_id/save_id/title_version on
-rom_files, plus rom-level title_id/save_id/save_usage on roms.
+"""Add the binary identity columns on roms: title_id, save_target and
+save_target_layout.
 
 Revision ID: 0113_sigil_title_ids
 Revises: 0112_publisher_developer_split
@@ -19,7 +19,7 @@ down_revision = "0112_publisher_developer_split"
 branch_labels = None
 depends_on = None
 
-SAVE_USAGE_VALUES = (
+SAVE_TARGET_LAYOUT_VALUES = (
     "FOLDER_EXACT",
     "FOLDER_PREFIX",
     "FILE_EXACT",
@@ -28,38 +28,19 @@ SAVE_USAGE_VALUES = (
 )
 
 
-def _save_usage_enum(connection) -> sa.Enum:
+def _save_target_layout_enum(connection) -> sa.Enum:
     if is_postgresql(connection):
-        enum = ENUM(*SAVE_USAGE_VALUES, name="saveusage", create_type=False)
+        enum = ENUM(
+            *SAVE_TARGET_LAYOUT_VALUES, name="savetargetlayout", create_type=False
+        )
         enum.create(connection, checkfirst=True)
         return enum
-    return sa.Enum(*SAVE_USAGE_VALUES, name="saveusage")
+    return sa.Enum(*SAVE_TARGET_LAYOUT_VALUES, name="savetargetlayout")
 
 
 def upgrade() -> None:
     connection = op.get_bind()
-    save_usage_enum = _save_usage_enum(connection)
-
-    with op.batch_alter_table("rom_files", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column("title_id", sa.String(length=100), nullable=True),
-            if_not_exists=True,
-        )
-        batch_op.add_column(
-            sa.Column("save_id", sa.String(length=100), nullable=True),
-            if_not_exists=True,
-        )
-        # BigInteger: Switch title versions are u32 and can exceed signed int32.
-        batch_op.add_column(
-            sa.Column("title_version", sa.BigInteger(), nullable=True),
-            if_not_exists=True,
-        )
-        batch_op.create_index(
-            "idx_rom_files_title_id",
-            ["title_id"],
-            unique=False,
-            if_not_exists=True,
-        )
+    save_target_layout_enum = _save_target_layout_enum(connection)
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(
@@ -67,11 +48,11 @@ def upgrade() -> None:
             if_not_exists=True,
         )
         batch_op.add_column(
-            sa.Column("save_id", sa.String(length=100), nullable=True),
+            sa.Column("save_target", sa.String(length=100), nullable=True),
             if_not_exists=True,
         )
         batch_op.add_column(
-            sa.Column("save_usage", save_usage_enum, nullable=True),
+            sa.Column("save_target_layout", save_target_layout_enum, nullable=True),
             if_not_exists=True,
         )
         batch_op.create_index(
@@ -85,16 +66,10 @@ def upgrade() -> None:
 def downgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.drop_index("idx_roms_title_id", if_exists=True)
-        batch_op.drop_column("save_usage", if_exists=True)
-        batch_op.drop_column("save_id", if_exists=True)
-        batch_op.drop_column("title_id", if_exists=True)
-
-    with op.batch_alter_table("rom_files", schema=None) as batch_op:
-        batch_op.drop_index("idx_rom_files_title_id", if_exists=True)
-        batch_op.drop_column("title_version", if_exists=True)
-        batch_op.drop_column("save_id", if_exists=True)
+        batch_op.drop_column("save_target_layout", if_exists=True)
+        batch_op.drop_column("save_target", if_exists=True)
         batch_op.drop_column("title_id", if_exists=True)
 
     connection = op.get_bind()
     if is_postgresql(connection):
-        ENUM(name="saveusage").drop(connection, checkfirst=True)
+        ENUM(name="savetargetlayout").drop(connection, checkfirst=True)

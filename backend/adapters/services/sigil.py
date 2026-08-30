@@ -48,7 +48,7 @@ ROUTINE_SIGIL_ERROR_CODES: Final = frozenset(
 @dataclass(frozen=True)
 class SigilExtractionResult:
     title_id: str
-    save_id: str
+    save_target: str
     usage: str
     content_type: str | None = None
     version: int | None = None
@@ -89,7 +89,8 @@ class SigilService:
 
         return SigilExtractionResult(
             title_id=result.title_id,
-            save_id=result.save_id,
+            # sigil calls this save_id; RomM's name for it is save_target.
+            save_target=result.save_id,
             usage=result.usage,
             content_type=content_type,
             # Version 0 is a valid base-game version, so keep the int as-is;
