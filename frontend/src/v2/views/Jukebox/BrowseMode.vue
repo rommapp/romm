@@ -94,9 +94,16 @@ watch(search, (term) => {
 });
 
 watch(
-  () => props.selected,
-  (key) => void loadTracks(key),
+  [() => props.selected, () => props.refreshToken],
+  ([key]) => void loadTracks(key),
   { immediate: true },
+);
+
+// A delete also changes the sidebar's counts, and may empty the picked
+// entry entirely (loadEntries then falls back to the first one).
+watch(
+  () => props.refreshToken,
+  () => void loadEntries(search.value.trim()),
 );
 
 void loadEntries("");
