@@ -59,17 +59,15 @@ async function getFavorites(filters: MusicTrackFilters = {}) {
   });
 }
 
-type TrackPageFetcher = (
-  filters: MusicTrackFilters,
-) => Promise<{ data: MusicPage_MusicTrackSchema_ }>;
-
-/** Pages a filtered track list to completion. Used where a full playlist is
- *  the point (a mode's queue), never to build facets. */
-async function getAllPages(
-  fetcher: TrackPageFetcher,
+/** Pages a filtered track list to completion.
+ *
+ *  Only for lists that are small by construction — one game's soundtrack.
+ *  Browse selections and the play-all queue page in on demand instead; see
+ *  `useTrackPager`. */
+async function getAllTracks(
   filters: Omit<MusicTrackFilters, "limit" | "offset"> = {},
 ): Promise<MusicTrackSchema[]> {
-  const { data: first } = await fetcher({
+  const { data: first } = await getTracks({
     ...filters,
     limit: ALL_TRACKS_PAGE_SIZE,
     offset: 0,
@@ -87,23 +85,11 @@ async function getAllPages(
   }
   const rest = await Promise.all(
     offsets.map((offset) =>
-      fetcher({ ...filters, limit: ALL_TRACKS_PAGE_SIZE, offset }),
+      getTracks({ ...filters, limit: ALL_TRACKS_PAGE_SIZE, offset }),
     ),
   );
 
   return [...first.items, ...rest.flatMap(({ data }) => data.items)];
-}
-
-async function getAllTracks(
-  filters: Omit<MusicTrackFilters, "limit" | "offset"> = {},
-): Promise<MusicTrackSchema[]> {
-  return getAllPages(getTracks, filters);
-}
-
-async function getAllFavorites(
-  filters: Omit<MusicTrackFilters, "limit" | "offset"> = {},
-): Promise<MusicTrackSchema[]> {
-  return getAllPages(getFavorites, filters);
 }
 
 export interface FacetFilters {
@@ -208,7 +194,6 @@ export default {
   getAllTracks,
   getSampleTracks,
   getFavorites,
-  getAllFavorites,
   getArtists,
   getGameGenres,
   getYears,

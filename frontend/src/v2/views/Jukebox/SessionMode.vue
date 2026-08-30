@@ -1,14 +1,20 @@
 <script setup lang="ts">
 // The "one big queue" jukebox screens: play-all, free radio, favorites and
 // recently added. They differ only in which query fills the queue.
+//
+// Nothing here downloads a library: the list pages in as the viewer scrolls
+// or as playback approaches the end of what is loaded.
 import { RSkeletonBlock } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import { computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import type { MusicTrackSchema } from "@/__generated__";
 import musicApi from "@/services/api/music";
 import useMusicFavorites from "@/stores/musicFavorites";
 import SoundtrackPanel from "@/v2/components/Soundtrack/Panel.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
+import {
+  useTrackPager,
+  type TrackPageFetcher,
+} from "@/v2/composables/useTrackPager";
 import { buildFreeRadioSession } from "@/v2/utils/freeRadio";
 import type { JukeboxPlayerMode } from "@/v2/utils/jukebox";
 import { panelTracksFromCatalog } from "@/v2/utils/soundtrackTracks";
@@ -34,56 +40,62 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const favorites = useMusicFavorites();
 
-const tracks = ref<MusicTrackSchema[]>([]);
-const loading = ref(true);
-let token = 0;
+const pager = useTrackPager((items) => favorites.merge(items));
 
-async function fetchForMode(
-  mode: typeof props.mode,
-): Promise<MusicTrackSchema[]> {
-  if (mode === "favorite") return musicApi.getAllFavorites();
+/** A page of a filtered track query. */
+function pagedFetcher(
+  load: typeof musicApi.getTracks,
+  filters: Parameters<typeof musicApi.getTracks>[0] = {},
+): TrackPageFetcher {
+  return async (offset, limit) => {
+    const { data } = await load({ ...filters, offset, limit });
+    return { items: data.items, total: data.total };
+  };
+}
+
+/** The station and "recently added" are fixed-size sets, so they resolve to a
+ *  single page rather than a window onto a larger query. */
+function fixedFetcher(load: () => Promise<{ items: unknown[] }>) {
+  return (async (offset) => {
+    if (offset > 0) return { items: [], total: 0 };
+    const { items } = await load();
+    return { items, total: items.length };
+  }) as TrackPageFetcher;
+}
+
+function fetcherFor(mode: typeof props.mode): TrackPageFetcher {
+  if (mode === "favorite") return pagedFetcher(musicApi.getFavorites);
   if (mode === "recent") {
-    const { data } = await musicApi.getTracks({
-      orderBy: "added",
-      orderDir: "desc",
-      limit: RECENTLY_ADDED_LIMIT,
+    return fixedFetcher(async () => {
+      const { data } = await musicApi.getTracks({
+        orderBy: "added",
+        orderDir: "desc",
+        limit: RECENTLY_ADDED_LIMIT,
+      });
+      return { items: data.items };
     });
-    return data.items;
   }
   if (mode === "station") {
-    return buildFreeRadioSession(
-      await musicApi.getSampleTracks(STATION_SAMPLE_SIZE),
-    );
+    return fixedFetcher(async () => ({
+      items: buildFreeRadioSession(
+        await musicApi.getSampleTracks(STATION_SAMPLE_SIZE),
+      ),
+    }));
   }
-  return musicApi.getAllTracks();
+  return pagedFetcher(musicApi.getTracks);
 }
 
-async function load(mode: typeof props.mode) {
-  const current = ++token;
-  loading.value = true;
-  try {
-    const next = await fetchForMode(mode);
-    if (current !== token) return;
-    tracks.value = next;
-    favorites.merge(next);
-  } catch {
-    if (current === token) tracks.value = [];
-  } finally {
-    if (current === token) loading.value = false;
-  }
-}
-
-watch(() => props.mode, load, { immediate: true });
 watch(
-  () => props.refreshToken,
-  () => void load(props.mode),
+  [() => props.mode, () => props.refreshToken],
+  () => void pager.reset(fetcherFor(props.mode)),
+  { immediate: true },
 );
 
-const panelTracks = computed(() => panelTracksFromCatalog(tracks.value));
+const panelTracks = computed(() => panelTracksFromCatalog(pager.tracks.value));
 </script>
 
 <template>
-  <div v-if="loading" class="jukebox__session-loading">
+  <div v-if="pager.loading.value" class="jukebox__session-loading">
     <RSkeletonBlock height="140px" rounded="md" />
   </div>
   <EmptyState
@@ -97,9 +109,11 @@ const panelTracks = computed(() => panelTracksFromCatalog(tracks.value));
     v-else
     :key="mode"
     :tracks="panelTracks"
+    :loading-more="pager.loadingMore.value"
     :start-shuffled="mode === 'station'"
     :deletable="deletable"
     class="jukebox__session"
+    @reached="pager.loadMoreIfNear"
     @delete-track="(fileId, romId) => emit('delete-track', fileId, romId)"
   />
 </template>

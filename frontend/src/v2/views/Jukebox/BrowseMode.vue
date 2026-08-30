@@ -15,11 +15,11 @@ import {
 } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import type { MusicTrackSchema } from "@/__generated__";
 import musicApi, { type MusicTrackFilters } from "@/services/api/music";
 import useMusicFavorites from "@/stores/musicFavorites";
 import SoundtrackPanel from "@/v2/components/Soundtrack/Panel.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
+import { useTrackPager } from "@/v2/composables/useTrackPager";
 import { panelTracksFromCatalog } from "@/v2/utils/soundtrackTracks";
 
 export interface BrowseEntry {
@@ -58,11 +58,9 @@ const loadingEntries = ref(true);
 const entriesFailed = ref(false);
 const search = ref("");
 
-const tracks = ref<MusicTrackSchema[]>([]);
-const loadingTracks = ref(false);
+const pager = useTrackPager((items) => favorites.merge(items));
 
 let entriesToken = 0;
-let tracksToken = 0;
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 async function loadEntries(term: string) {
@@ -83,23 +81,13 @@ async function loadEntries(term: string) {
   }
 }
 
-async function loadTracks(key: string) {
-  const token = ++tracksToken;
-  if (!key) {
-    tracks.value = [];
-    return;
-  }
-  loadingTracks.value = true;
-  try {
-    const next = await musicApi.getAllTracks(props.filterFor(key));
-    if (token !== tracksToken) return;
-    tracks.value = next;
-    favorites.merge(next);
-  } catch {
-    if (token === tracksToken) tracks.value = [];
-  } finally {
-    if (token === tracksToken) loadingTracks.value = false;
-  }
+function loadTracks(key: string) {
+  if (!key) return pager.reset(null);
+  const filters = props.filterFor(key);
+  return pager.reset(async (offset, limit) => {
+    const { data } = await musicApi.getTracks({ ...filters, offset, limit });
+    return { items: data.items, total: data.total };
+  });
 }
 
 watch(search, (term) => {
@@ -115,7 +103,7 @@ watch(
 
 void loadEntries("");
 
-const panelTracks = computed(() => panelTracksFromCatalog(tracks.value));
+const panelTracks = computed(() => panelTracksFromCatalog(pager.tracks.value));
 
 function onDelete(fileId: number, romId: number) {
   emit("delete-track", fileId, romId);
@@ -187,13 +175,15 @@ function onDelete(fileId: number, romId: number) {
 
   <main class="jukebox__main">
     <SoundtrackPanel
-      v-if="panelTracks.length || loadingTracks"
+      v-if="panelTracks.length || pager.loading.value"
       :key="selected"
       :tracks="panelTracks"
-      :loading="loadingTracks"
+      :loading="pager.loading.value"
+      :loading-more="pager.loadingMore.value"
       :start-shuffled="startShuffled"
       :deletable="deletable"
       class="jukebox__player"
+      @reached="pager.loadMoreIfNear"
       @delete-track="onDelete"
     />
     <EmptyState

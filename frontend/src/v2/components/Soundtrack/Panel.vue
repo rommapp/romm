@@ -48,6 +48,8 @@ const props = defineProps<{
   /** Identifies the queue so the store can tell one playlist from another. */
   playlistKey?: number | null;
   loading?: boolean;
+  /** True while the next page is in flight, for the list's footer spinner. */
+  loadingMore?: boolean;
   startShuffled?: boolean;
   /** Cover shown when the active track has no art of its own. */
   fallbackArtUrl?: string;
@@ -58,6 +60,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "upload-tracks"): void;
   (e: "delete-track", fileId: number, romId: number): void;
+  /** The furthest track index the viewer or playback has reached, so the
+   *  host can page in more before the list or the queue runs out. */
+  (e: "reached", index: number): void;
 }>();
 
 const { t } = useI18n();
@@ -160,6 +165,16 @@ const activeArtUrl = computed(
 );
 
 const activeTitle = computed(() => activeTrack.value?.title ?? "");
+
+function onViewportRange(range: { first: number; last: number }) {
+  emit("reached", range.last);
+}
+
+watch(activeTrackId, (fileId) => {
+  if (fileId == null) return;
+  const index = displayedTracks.value.findIndex((track) => track.id === fileId);
+  if (index >= 0) emit("reached", index);
+});
 
 const panelRoot = ref<HTMLElement | null>(null);
 watch(activeTrackId, async (fileId, previousFileId) => {
@@ -444,6 +459,7 @@ function seekValueText(v: number): string {
       :items="displayedTracks"
       :get-item-height="() => ROW_HEIGHT"
       :get-item-key="(item: unknown) => (item as PanelTrack).id"
+      @update:viewport-range="onViewportRange"
     >
       <template #default="{ item }">
         <TrackRow
@@ -474,6 +490,10 @@ function seekValueText(v: number): string {
             duration: fmt(totalDurationSeconds),
           })
         }}
+      </span>
+      <span v-if="loadingMore" class="r-v2-stp__footer-more">
+        <RSpinner :size="12" :width="2" />
+        {{ t("common.loading") }}
       </span>
     </footer>
   </div>
@@ -747,6 +767,13 @@ html[data-bp~="xs"] .r-v2-stp__timeline {
    drops smoothly instead of stepping. */
 
 /* Footer */
+.r-v2-stp__footer-more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r-space-2);
+  color: var(--r-color-fg-muted);
+}
+
 .r-v2-stp__footer {
   display: flex;
   align-items: center;
