@@ -12,7 +12,6 @@
 //
 // The soundtrack player is reused from v1 for now.
 import { RBtn, RDropzone, REmptyState, RIcon } from "@v2/lib";
-import axios from "axios";
 import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
@@ -37,15 +36,6 @@ const ScreenshotsSubtab = defineAsyncComponent(
 const ArtworkSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ArtworkSubtab.vue"),
 );
-
-function errorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const detail = err.response?.data?.detail;
-    if (typeof detail === "string" && detail) return detail;
-    return err.message;
-  }
-  return err instanceof Error ? err.message : String(err);
-}
 
 const props = defineProps<{ rom: DetailedRom }>();
 const snackbar = useSnackbar();

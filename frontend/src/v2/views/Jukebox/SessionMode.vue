@@ -18,8 +18,9 @@ import { panelTracksFromCatalog } from "@/v2/utils/soundtrackTracks";
 
 const RECENTLY_ADDED_LIMIT = 25;
 
-// Comfortably more than an hour of music, without paging a whole library.
-const STATION_SAMPLE_SIZE = 1_000;
+// Enough to fill the hour-long station even when tracks are short and many
+// lack the duration metadata the session builder needs.
+const STATION_SAMPLE_SIZE = 200;
 
 const props = defineProps<{
   mode: Extract<

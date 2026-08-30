@@ -13,8 +13,6 @@ VIEWER_ACTIONS = {
     "collection.create",
     "collection.edit",
     "collection.delete",
-    # Viewers have owned-playlist write (LEGACY_VIEWER_GRANTS), which covers
-    # favoriting soundtrack tracks.
     "playlist.edit",
 }
 

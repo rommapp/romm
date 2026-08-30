@@ -2,12 +2,6 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import musicApi from "@/services/api/music";
 
-// One source of truth for "is this track a favorite".
-//
-// Favorites show up on several surfaces at once (the game's soundtrack tab,
-// every jukebox mode, the favorites playlist itself). Before this store each
-// surface kept its own copy and the writer had to fan changes out by hand,
-// so a toggle in one place left the others stale.
 const useMusicFavorites = defineStore("musicFavorites", () => {
   const favoriteIds = ref<Set<number>>(new Set());
   const pendingIds = ref<Set<number>>(new Set());

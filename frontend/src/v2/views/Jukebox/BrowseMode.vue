@@ -1,6 +1,4 @@
 <script setup lang="ts">
-// One "pick something on the left, play it on the right" jukebox screen.
-//
 // Artist / game-genre / platform / decade / album all have this exact shape,
 // so they share one component and differ only by the facet they load and the
 // filter they hand to the track query. Adding a browse dimension is a new

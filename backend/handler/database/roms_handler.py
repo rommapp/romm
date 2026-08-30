@@ -2290,8 +2290,6 @@ class DBRomsHandler(DBBaseHandler):
         if platform_ids:
             clauses.append(Rom.platform_id.in_(platform_ids))
         if game_genre and exclude_field != "game_genre":
-            # RomMetadata.genres is a JSON array; reuse the dialect-aware
-            # containment helper the ROM filters already go through.
             clauses.append(
                 json_array_contains_value(
                     RomMetadata.genres, game_genre, session=session

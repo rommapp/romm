@@ -22,12 +22,7 @@ export function useJukeboxUrlState() {
   const route = useRoute();
   const router = useRouter();
 
-  // Old links carried the mode as `?mode=`; honor them on entry (the
-  // redirect below rewrites the URL to the subpath form).
-  const entryMode = parseJukeboxMode(route.params.mode);
-  const mode = ref<JukeboxMode>(
-    entryMode === "home" ? parseJukeboxMode(route.query.mode) : entryMode,
-  );
+  const mode = ref<JukeboxMode>(parseJukeboxMode(route.params.mode));
 
   /** A ref mirrored into `?key=`; writes are merged by `patchQuery`. */
   function queryRef(key: string): Ref<string> {
@@ -84,14 +79,6 @@ export function useJukeboxUrlState() {
     if (parseJukeboxMode(route.params.mode) === value) return;
     void router.push(locationFor(value));
   });
-
-  // Rewrite legacy `?mode=` links to the subpath form.
-  if (
-    parseJukeboxMode(route.query.mode) !== "home" &&
-    parseJukeboxMode(route.params.mode) === "home"
-  ) {
-    void router.replace(locationFor(mode.value));
-  }
 
   const selectedPlatformId = computed(() => Number(platform.value) || 0);
   const selectedDecade = computed(() => Number(decade.value) || 0);

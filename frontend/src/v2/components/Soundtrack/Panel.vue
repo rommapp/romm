@@ -37,6 +37,7 @@ import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import type { PanelTrack } from "@/v2/utils/soundtrackTracks";
+import { formatTrackTime } from "@/v2/utils/time";
 import TrackRow from "./TrackRow.vue";
 
 // Row height must match `.r-v2-stp__row` in TrackRow's stylesheet.
@@ -242,7 +243,7 @@ const queueSummary = computed(() => {
   if (isFullyLoaded.value && totalDurationSeconds.value > 0)
     return t("rom.tracks-summary", {
       count: trackCount.value.toLocaleString(),
-      duration: fmt(totalDurationSeconds.value),
+      duration: formatTrackTime(totalDurationSeconds.value),
     });
   return t("rom.tracks-n", trackCount.value, {
     named: { n: trackCount.value.toLocaleString() },
@@ -328,19 +329,10 @@ function downloadTrack(track: PanelTrack) {
   a.remove();
 }
 
-function fmt(s: number | undefined | null) {
-  if (s == null || !Number.isFinite(s) || s < 0) return "0:00";
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60)
-    .toString()
-    .padStart(2, "0");
-  return `${m}:${sec}`;
-}
-
 function seekValueText(v: number): string {
   return t("rom.seek-progress", {
-    current: fmt(v),
-    duration: fmt(duration.value),
+    current: formatTrackTime(v),
+    duration: formatTrackTime(duration.value),
   });
 }
 </script>
@@ -484,7 +476,9 @@ function seekValueText(v: number): string {
             <VolumeControl size="small" />
           </div>
           <div class="r-v2-stp__timeline">
-            <span class="r-v2-stp__time">{{ fmt(currentTime) }}</span>
+            <span class="r-v2-stp__time">{{
+              formatTrackTime(currentTime)
+            }}</span>
             <RSlider
               :model-value="currentTime"
               :max="duration || 0"
@@ -497,7 +491,7 @@ function seekValueText(v: number): string {
               @update:model-value="(v: number) => player.seek(v)"
             />
             <span class="r-v2-stp__time r-v2-stp__time--right">
-              {{ fmt(duration) }}
+              {{ formatTrackTime(duration) }}
             </span>
           </div>
         </div>

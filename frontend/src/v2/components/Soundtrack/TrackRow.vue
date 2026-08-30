@@ -14,6 +14,7 @@ import { useI18n } from "vue-i18n";
 import useMusicFavorites from "@/stores/musicFavorites";
 import { formatBytes } from "@/utils";
 import type { PanelTrack } from "@/v2/utils/soundtrackTracks";
+import { formatTrackTime } from "@/v2/utils/time";
 
 const props = defineProps<{
   track: PanelTrack;
@@ -37,15 +38,6 @@ const favorites = useMusicFavorites();
 
 const isFavorite = computed(() => favorites.isFavorite(props.track.id));
 const isPending = computed(() => favorites.isPending(props.track.id));
-
-function fmt(s: number | undefined | null) {
-  if (s == null || !Number.isFinite(s) || s < 0) return "0:00";
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60)
-    .toString()
-    .padStart(2, "0");
-  return `${m}:${sec}`;
-}
 </script>
 
 <template>
@@ -85,7 +77,7 @@ function fmt(s: number | undefined | null) {
 
     <div class="r-v2-stp__row-right">
       <span v-if="track.durationSeconds" class="r-v2-stp__row-duration">
-        {{ fmt(track.durationSeconds) }}
+        {{ formatTrackTime(track.durationSeconds) }}
       </span>
       <span v-if="track.fileSizeBytes != null" class="r-v2-stp__row-size">
         {{ formatBytes(track.fileSizeBytes) }}

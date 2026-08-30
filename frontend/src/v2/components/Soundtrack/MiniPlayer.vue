@@ -23,6 +23,7 @@ import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import type { Events } from "@/types/emitter";
 import VolumeControl from "@/v2/components/Soundtrack/VolumeControl.vue";
 import { isJukeboxPlayerMode } from "@/v2/utils/jukebox";
+import { formatTrackTime } from "@/v2/utils/time";
 
 defineOptions({ inheritAttrs: false });
 
@@ -146,19 +147,10 @@ function onError() {
   });
 }
 
-function fmt(s: number) {
-  if (!Number.isFinite(s) || s < 0) return "0:00";
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60)
-    .toString()
-    .padStart(2, "0");
-  return `${m}:${sec}`;
-}
-
 function seekValueText(v: number): string {
   return t("rom.seek-progress", {
-    current: fmt(v),
-    duration: fmt(duration.value),
+    current: formatTrackTime(v),
+    duration: formatTrackTime(duration.value),
   });
 }
 
@@ -292,7 +284,7 @@ function openRom() {
 
       <!-- Seek row -->
       <div class="r-v2-mp__seek">
-        <span class="r-v2-mp__time">{{ fmt(currentTime) }}</span>
+        <span class="r-v2-mp__time">{{ formatTrackTime(currentTime) }}</span>
         <RSlider
           :model-value="currentTime"
           :max="duration || 0"
@@ -304,7 +296,7 @@ function openRom() {
           @update:model-value="(v: number) => store.seek(v)"
         />
         <span class="r-v2-mp__time r-v2-mp__time--right">
-          {{ fmt(duration) }}
+          {{ formatTrackTime(duration) }}
         </span>
       </div>
     </div>
