@@ -128,6 +128,15 @@ class State(RomAsset):
     # `is_public` mirrors Screenshot/RomNote — lets other users browse and
     # download a user's public states (community). Defaults false (private).
     is_public: Mapped[bool] = mapped_column(default=False)
+    # The disc mounted when this state was captured, so a resume can put the
+    # same one back. SET NULL rather than CASCADE: losing the file row must
+    # not take the player's save with it.
+    disc_file_id: Mapped[int | None] = mapped_column(
+        ForeignKey("rom_files.id", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
+        index=True,
+    )
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="states")
     user: Mapped[User] = relationship(lazy="joined", back_populates="states")

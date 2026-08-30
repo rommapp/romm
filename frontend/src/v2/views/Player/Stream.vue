@@ -357,11 +357,11 @@ async function handleSaveAndExit(): Promise<void> {
   isSavingAndExiting.value = true;
   let saved = false;
   try {
-    saved = await streamingStore.saveAndExit(
+    ({ saved } = await streamingStore.saveAndExit(
       rom.value.platform_slug,
       capabilities.value.autosaveSlot,
       true,
-    );
+    ));
   } finally {
     isSavingAndExiting.value = false;
     playerState.value = "exited";

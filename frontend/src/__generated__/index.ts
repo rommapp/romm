@@ -40,8 +40,9 @@ export type { Body_update_screenshot_api_screenshots__id__put } from './models/B
 export type { Body_update_smart_collection_api_collections_smart__id__put } from './models/Body_update_smart_collection_api_collections_smart__id__put';
 export type { Body_update_state_api_states__id__put } from './models/Body_update_state_api_states__id__put';
 export type { Body_update_state_visibility_api_states__id__visibility_put } from './models/Body_update_state_visibility_api_states__id__visibility_put';
+export type { Body_upload_memory_card_version_api_memory_cards__id__versions_post } from './models/Body_upload_memory_card_version_api_memory_cards__id__versions_post';
 export type { BulkOperationResponse } from './models/BulkOperationResponse';
-export type { ClaimSessionRequest } from './models/ClaimSessionRequest';
+export type { ClaimStreamingSessionRequest } from './models/ClaimStreamingSessionRequest';
 export type { CleanupTaskMeta } from './models/CleanupTaskMeta';
 export type { CleanupTaskStatusResponse } from './models/CleanupTaskStatusResponse';
 export type { ClientSaveState } from './models/ClientSaveState';
@@ -58,6 +59,7 @@ export type { ConversionStats } from './models/ConversionStats';
 export type { ConversionTaskMeta } from './models/ConversionTaskMeta';
 export type { ConversionTaskStatusResponse } from './models/ConversionTaskStatusResponse';
 export type { CustomLimitOffsetPage_SimpleRomSchema_ } from './models/CustomLimitOffsetPage_SimpleRomSchema_';
+export type { DesktopStreamingSessionRequest } from './models/DesktopStreamingSessionRequest';
 export type { DetailedRomSchema } from './models/DetailedRomSchema';
 export type { DeviceAuthApprovePayload } from './models/DeviceAuthApprovePayload';
 export type { DeviceAuthApproveResponse } from './models/DeviceAuthApproveResponse';
@@ -189,6 +191,7 @@ export type { SoundtrackTrackMetaSchema } from './models/SoundtrackTrackMetaSche
 export type { SSAgeRating } from './models/SSAgeRating';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
+export type { SwapDiscRequest } from './models/SwapDiscRequest';
 export type { SyncCompletePayload } from './models/SyncCompletePayload';
 export type { SyncCompleteResponse } from './models/SyncCompleteResponse';
 export type { SyncMode } from './models/SyncMode';

@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type ClaimSessionRequest = {
-    rom_id: number;
+export type SwapDiscRequest = {
+    file_id: number;
 };
 
