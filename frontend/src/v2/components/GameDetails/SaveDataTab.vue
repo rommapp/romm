@@ -519,7 +519,7 @@ async function toggleStateVisibility(state: StateSchema) {
               :assets="myStates"
               type="state"
               :selectable="false"
-              wrap
+              layout="flow"
             >
               <template #actions="{ asset }">
                 <RBtn
@@ -579,7 +579,7 @@ async function toggleStateVisibility(state: StateSchema) {
             :assets="communityStates"
             type="state"
             :selectable="false"
-            wrap
+            layout="flow"
             show-owner
           >
             <template #actions="{ asset }">

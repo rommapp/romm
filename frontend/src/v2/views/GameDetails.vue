@@ -14,6 +14,7 @@ import type { IGDBRelatedGame } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
+import { useStreamingStore } from "@/stores/streaming";
 import { toBrowserLocale } from "@/utils";
 import AchievementsTab from "@/v2/components/GameDetails/AchievementsTab.vue";
 import CoverColumn from "@/v2/components/GameDetails/CoverColumn.vue";
@@ -36,6 +37,7 @@ const route = useRoute();
 const router = useRouter();
 const romsStore = storeRoms();
 const authStore = storeAuth();
+const streamingStore = useStreamingStore();
 const { currentRom } = storeToRefs(romsStore);
 const { toWebp } = useWebpSupport();
 const { locale, t } = useI18n();
@@ -157,6 +159,19 @@ watch(
   resolvedCover,
   (url) => {
     if (url) setBgArt(url);
+  },
+  { immediate: true },
+);
+
+// Fills the store the Join action reads from. Done here rather than in the
+// action composable because that one is instantiated per button; navigating
+// between ROMs reuses this component, so it re-runs on the id. Forced, since
+// this is the page a user acts on: a session that ended in the meantime must
+// not still be offered.
+watch(
+  () => currentRom.value?.id ?? null,
+  (romId) => {
+    if (romId != null) void streamingStore.fetchJoinableSessions(true);
   },
   { immediate: true },
 );
