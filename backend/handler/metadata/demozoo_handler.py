@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping, Sequence
 from typing import Any, Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
 
@@ -143,13 +144,15 @@ def _append_unique(bucket: list[str], value: str | None) -> None:
         bucket.append(text)
 
 
-def format_credit_line(credits: list[dict[str, str]], *, limit: int = 8) -> str:
+def format_credit_line(
+    credits: Sequence[Mapping[str, object]], *, limit: int = 8
+) -> str:
     """'Graphics: Marvel, Pixel · Music: Purple Motion' — cap names."""
     by_role: dict[str, list[str]] = {}
     order: list[str] = []
     for row in credits:
-        name = (row.get("name") or "").strip()
-        role = (row.get("role") or "Credits").strip() or "Credits"
+        name = str(row.get("name") or "").strip()
+        role = str(row.get("role") or "Credits").strip() or "Credits"
         if not name:
             continue
         if role not in by_role:
@@ -429,9 +432,9 @@ def production_to_rom(data: dict[str, Any]) -> DemozooRom:
     for shot in data.get("screenshots") or []:
         if not isinstance(shot, dict):
             continue
-        url = http_url(shot.get("standard_url") or shot.get("original_url"))
-        if url:
-            screenshots.append(url)
+        shot_url = http_url(shot.get("standard_url") or shot.get("original_url"))
+        if shot_url:
+            screenshots.append(shot_url)
 
     for link in data.get("download_links") or []:
         if not isinstance(link, dict):

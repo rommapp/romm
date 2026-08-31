@@ -123,7 +123,7 @@ async def test_get_rom_exact_title_302_fetches_by_id():
         ) as req,
     ):
         result = await handler.get_rom("Gomikun Densetsu.zip", "nes")
-    assert "id=106640" in req.await_args.args[0]
+    assert "id=106640" in req.await_args_list[0].args[0]
     assert result["pouet_id"] == 106640
     assert result["name"] == "Gomikun Densetsu"
 
@@ -140,6 +140,6 @@ async def test_get_rom_uses_filename_tag():
     ):
         result = await handler.get_rom("State of the Art (pouet-99).lha", "amiga")
     req.assert_awaited_once()
-    assert "id=99" in req.await_args.args[0]
+    assert "id=99" in req.await_args_list[0].args[0]
     assert result["pouet_id"] == 99
     assert result["name"] == "State of the Art"

@@ -265,13 +265,14 @@ def test_splice_csdb_url_appends_once():
 
 
 @pytest.mark.asyncio
-async def test_get_rom_without_tag_does_not_hit_api():
+async def test_get_rom_disabled_does_not_hit_api():
+    """The source ships off, so a disabled handler must stay off the network."""
     handler = DemozooHandler()
     with (
-        patch.object(DemozooHandler, "is_enabled", return_value=True),
+        patch.object(DemozooHandler, "is_enabled", return_value=False),
         patch.object(DemozooHandler, "_request", new_callable=AsyncMock) as req,
     ):
-        result = await handler.get_rom("Second Reality.zip", "dos")
+        result = await handler.get_rom("Second Reality (demozoo-108).zip", "dos")
     req.assert_not_called()
     assert result["demozoo_id"] is None
 
@@ -313,7 +314,7 @@ async def test_get_rom_uses_filename_tag():
     ):
         result = await handler.get_rom("Second Reality (demozoo-108).zip", "dos")
     req.assert_awaited_once()
-    assert "productions/108/" in req.await_args.args[0]
+    assert "productions/108/" in req.await_args_list[0].args[0]
     assert result["demozoo_id"] == 108
     assert result["name"] == "Second Reality"
 
