@@ -32,6 +32,7 @@ DEMOZOO_API_ROOT: Final[str] = "https://demozoo.org/api/v1"
 DEMOZOO_PROD_PAGE: Final[str] = "https://demozoo.org/productions/{id}/"
 POUET_PROD_PAGE: Final[str] = "https://www.pouet.net/prod.php?which={id}"
 YOUTUBE_WATCH: Final[str] = "https://www.youtube.com/watch?v={id}"
+YOUTUBE_ID_RE = re.compile(r"[A-Za-z0-9_-]{11}")
 # Overview notes stay one clause; Demozoo editorial text is rare and long.
 _NOTES_MAX_LEN: Final[int] = 80
 # Demozoo asks for a polite UA; stay well under burst.
@@ -119,7 +120,7 @@ def _youtube_id_from_url(url: str) -> str | None:
 
 
 def _looks_like_youtube_id(value: str) -> bool:
-    return bool(value) and len(value) == 11 and all(ch.isalnum() or ch in "-_" for ch in value)
+    return bool(YOUTUBE_ID_RE.fullmatch(value))
 
 
 def _pouet_id_from_url(url: str) -> int | None:
@@ -152,9 +153,7 @@ def _append_unique(bucket: list[str], value: str | None) -> None:
         bucket.append(text)
 
 
-def format_credit_line(
-    credits: list[dict[str, str]], *, limit: int = 8
-) -> str:
+def format_credit_line(credits: list[dict[str, str]], *, limit: int = 8) -> str:
     """'Graphics: Marvel, Pixel · Music: Purple Motion' — cap names."""
     by_role: dict[str, list[str]] = {}
     order: list[str] = []
@@ -323,7 +322,9 @@ def splice_pouet_vote(
         if not (part.startswith("#") and part[1:].isdigit())
         and not part.startswith("CdC ")
     ]
-    idx = next((i for i, part in enumerate(parts) if part.startswith("http")), len(parts))
+    idx = next(
+        (i for i, part in enumerate(parts) if part.startswith("http")), len(parts)
+    )
     parts.insert(idx, token)
     return " · ".join(parts)
 
@@ -342,11 +343,11 @@ def _unix_date(value: str | None) -> int | None:
 
 def production_to_rom(data: dict[str, Any]) -> DemozooRom:
     platforms = [
-        p.get("name") or ""
-        for p in data.get("platforms") or []
-        if isinstance(p, dict)
+        p.get("name") or "" for p in data.get("platforms") or [] if isinstance(p, dict)
     ]
-    types = [t.get("name") or "" for t in data.get("types") or [] if isinstance(t, dict)]
+    types = [
+        t.get("name") or "" for t in data.get("types") or [] if isinstance(t, dict)
+    ]
     groups: list[str] = []
     authors: list[str] = []
     for nick in data.get("author_nicks") or []:
@@ -452,7 +453,9 @@ def production_to_rom(data: dict[str, Any]) -> DemozooRom:
     release = data.get("release_date")
     year = (release or "")[:4]
     who = ", ".join(groups or authors)
-    demozoo_url = data.get("demozoo_url") or DEMOZOO_PROD_PAGE.format(id=demozoo_id)
+    demozoo_url = http_url(
+        str(data.get("demozoo_url") or "")
+    ) or DEMOZOO_PROD_PAGE.format(id=demozoo_id)
     pouet_url = POUET_PROD_PAGE.format(id=pouet_id) if pouet_id else None
     csdb_url = f"https://csdb.dk/release/?id={csdb_id}" if csdb_id else None
     clean_types = [t for t in types if t]
@@ -537,7 +540,9 @@ class DemozooHandler(MetadataHandler):
         if not self.is_enabled():
             return False
         try:
-            data = await self._request(f"{DEMOZOO_API_ROOT}/productions/?title=Second%20Reality")
+            data = await self._request(
+                f"{DEMOZOO_API_ROOT}/productions/?title=Second%20Reality"
+            )
         except Exception as exc:
             log.error("Error checking Demozoo API: %s", exc)
             return False
@@ -547,7 +552,9 @@ class DemozooHandler(MetadataHandler):
         if not self.is_enabled() or not demozoo_id:
             return DemozooRom(demozoo_id=None)
         try:
-            data = await self._request(f"{DEMOZOO_API_ROOT}/productions/{int(demozoo_id)}/")
+            data = await self._request(
+                f"{DEMOZOO_API_ROOT}/productions/{int(demozoo_id)}/"
+            )
         except HTTPException:
             return DemozooRom(demozoo_id=None)
         if not data.get("id"):
@@ -571,11 +578,15 @@ class DemozooHandler(MetadataHandler):
         params: dict[str, str] = {"title": title}
         if platform_id is not None:
             params["platform"] = str(platform_id)
-        data = await self._request(f"{DEMOZOO_API_ROOT}/productions/?{urlencode(params)}")
+        data = await self._request(
+            f"{DEMOZOO_API_ROOT}/productions/?{urlencode(params)}"
+        )
         results = data.get("results") if isinstance(data, dict) else None
         if not isinstance(results, list):
             return []
-        return [row for row in results[:limit] if isinstance(row, dict) and row.get("id")]
+        return [
+            row for row in results[:limit] if isinstance(row, dict) and row.get("id")
+        ]
 
     async def get_rom(self, fs_name: str, platform_slug: str) -> DemozooRom:
         """Tag first (Phase 0); otherwise title search + rank (Phase 1)."""
@@ -597,9 +608,7 @@ class DemozooHandler(MetadataHandler):
             return DemozooRom(demozoo_id=None)
 
         platform = self.get_platform(platform_slug)
-        hits = await self.search_productions(
-            search_term, platform.get("demozoo_id")
-        )
+        hits = await self.search_productions(search_term, platform.get("demozoo_id"))
         if not hits:
             log.debug("Could not find '%s' on Demozoo", search_term)
             return DemozooRom(demozoo_id=None)

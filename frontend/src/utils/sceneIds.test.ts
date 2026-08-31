@@ -9,9 +9,9 @@ describe("parseSceneId", () => {
   });
 
   it("parses Demozoo production URLs", () => {
-    expect(parseSceneId("https://demozoo.org/productions/108/", "demozoo")).toBe(
-      108,
-    );
+    expect(
+      parseSceneId("https://demozoo.org/productions/108/", "demozoo"),
+    ).toBe(108);
     expect(
       parseSceneId("https://www.demozoo.org/productions/108", "demozoo"),
     ).toBe(108);

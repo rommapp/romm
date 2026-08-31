@@ -1,13 +1,16 @@
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
 from handler.metadata.csdb_handler import (
+    _MAX_XML_BYTES,
     CsdbHandler,
     csdb_id_from_url,
     extract_csdb_id_from_filename,
     production_from_xml,
 )
+from utils.context import ctx_httpx_client
 
 WORKING_STONE_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <CSDbData><Release>
@@ -75,9 +78,7 @@ async def test_get_rom_uses_filename_tag():
     handler = CsdbHandler()
     with (
         patch.object(CsdbHandler, "is_enabled", return_value=True),
-        patch.object(
-            handler, "get_rom_by_id", new_callable=AsyncMock
-        ) as mock_by_id,
+        patch.object(handler, "get_rom_by_id", new_callable=AsyncMock) as mock_by_id,
     ):
         mock_by_id.return_value = production_from_xml(WORKING_STONE_XML)
         result = await handler.get_rom("Working Stone +2P (csdb-75330).zip", "c64")
@@ -90,10 +91,41 @@ async def test_get_rom_no_tag_does_not_search():
     handler = CsdbHandler()
     with (
         patch.object(CsdbHandler, "is_enabled", return_value=True),
-        patch.object(
-            handler, "get_rom_by_id", new_callable=AsyncMock
-        ) as mock_by_id,
+        patch.object(handler, "get_rom_by_id", new_callable=AsyncMock) as mock_by_id,
     ):
         result = await handler.get_rom("Working Stone +2P (demozoo-396051).zip", "c64")
     mock_by_id.assert_not_called()
     assert result["csdb_id"] is None
+
+
+def test_production_from_xml_rejects_entity_declarations():
+    """defusedxml refuses entities with a ValueError, not a ParseError."""
+    xxe = """<?xml version="1.0"?>
+<!DOCTYPE CSDbData [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+<CSDbData><Release><ID>1</ID><Name>&xxe;</Name></Release></CSDbData>
+"""
+    assert production_from_xml(xxe)["csdb_id"] is None
+
+
+def test_production_from_xml_rejects_malformed_xml():
+    assert production_from_xml("<CSDbData><Release>")["csdb_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_request_streams_and_caps_oversized_body():
+    """The size limit has to bound the read, not just the parse."""
+
+    async def respond(request: httpx.Request) -> httpx.Response:
+        if "big" in str(request.url):
+            return httpx.Response(200, content=b"A" * (_MAX_XML_BYTES + 5000))
+        return httpx.Response(200, content=WORKING_STONE_XML.encode())
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    token = ctx_httpx_client.set(client)
+    try:
+        handler = CsdbHandler()
+        assert "75330" in await handler._request("https://csdb.dk/webservice/?id=1")
+        assert await handler._request("https://csdb.dk/webservice/?big=1") == ""
+    finally:
+        ctx_httpx_client.reset(token)
+        await client.aclose()

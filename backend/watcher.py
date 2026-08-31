@@ -23,6 +23,7 @@ from config.config_manager import config_manager as cm
 from endpoints.sockets.scan import scan_platforms
 from handler.database import db_platform_handler
 from handler.metadata import (
+    meta_csdb_handler,
     meta_demozoo_handler,
     meta_flashpoint_handler,
     meta_hasheous_handler,
@@ -32,7 +33,6 @@ from handler.metadata import (
     meta_libretro_handler,
     meta_moby_handler,
     meta_playmatch_handler,
-    meta_csdb_handler,
     meta_pouet_handler,
     meta_ra_handler,
     meta_sgdb_handler,

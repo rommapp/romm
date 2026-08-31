@@ -192,10 +192,7 @@ def production_to_rom(prod: dict[str, Any]) -> PouetRom:
             party_lines.append(line)
         if len(party_lines) >= 3:
             break
-    if (
-        not party_lines
-        and (prod.get("party_compo_name") or prod.get("party_place"))
-    ):
+    if not party_lines and (prod.get("party_compo_name") or prod.get("party_place")):
         line = party
         if prod.get("party_year") and party and str(prod["party_year"]) not in party:
             line = f"{party} {prod['party_year']}"
@@ -206,7 +203,9 @@ def production_to_rom(prod: dict[str, Any]) -> PouetRom:
                 else str(prod["party_compo_name"])
             )
         if prod.get("party_place"):
-            line = f"{line} #{prod['party_place']}" if line else f"#{prod['party_place']}"
+            line = (
+                f"{line} #{prod['party_place']}" if line else f"#{prod['party_place']}"
+            )
         if line:
             party_lines.append(line)
 

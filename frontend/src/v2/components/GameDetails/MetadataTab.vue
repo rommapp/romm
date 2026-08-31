@@ -74,8 +74,7 @@ function urlsFrom(meta: Record<string, unknown> | null | undefined): string[] {
   const raw = meta?.download_urls;
   if (!Array.isArray(raw)) return [];
   return raw.filter(
-    (u): u is string =>
-      typeof u === "string" && /^https?:\/\//i.test(u),
+    (u): u is string => typeof u === "string" && /^https?:\/\//i.test(u),
   );
 }
 

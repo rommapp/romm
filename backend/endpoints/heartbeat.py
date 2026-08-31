@@ -33,6 +33,7 @@ from handler.database import db_stats_handler, db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.filesystem.base_handler import LibraryStructure
 from handler.metadata import (
+    meta_csdb_handler,
     meta_demozoo_handler,
     meta_flashpoint_handler,
     meta_gamelist_handler,
@@ -43,7 +44,6 @@ from handler.metadata import (
     meta_libretro_handler,
     meta_moby_handler,
     meta_playmatch_handler,
-    meta_csdb_handler,
     meta_pouet_handler,
     meta_ra_handler,
     meta_sgdb_handler,

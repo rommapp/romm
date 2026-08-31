@@ -136,7 +136,11 @@ def scene_id_or_none(value: Any, kind: str) -> int | None:
         return None
     text = str(value).strip()
     if text.isdigit():
-        return int(text)
+        # isdigit() also accepts superscripts and other digits int() rejects.
+        try:
+            return int(text)
+        except ValueError:
+            return None
     if kind == "demozoo":
         from handler.metadata.demozoo_handler import demozoo_id_from_url
 
@@ -1882,7 +1886,9 @@ async def update_rom(
         cleaned_data.update({"demozoo_id": None, "demozoo_metadata": {}})
 
     if cleaned_data["pouet_id"] and int(cleaned_data["pouet_id"]) != rom.pouet_id:
-        pouet_rom = await meta_pouet_handler.get_rom_by_id(int(cleaned_data["pouet_id"]))
+        pouet_rom = await meta_pouet_handler.get_rom_by_id(
+            int(cleaned_data["pouet_id"])
+        )
         if pouet_rom.get("pouet_id"):
             cleaned_data.update(pouet_rom)
     elif rom.pouet_id and not cleaned_data["pouet_id"]:

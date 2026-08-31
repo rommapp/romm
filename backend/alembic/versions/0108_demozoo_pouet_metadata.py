@@ -136,7 +136,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    previous = [pair for pair in _FULL_MIRRORED_COLUMNS if pair[0] not in {"demozoo_id", "pouet_id"}]
+    previous = [
+        pair
+        for pair in _FULL_MIRRORED_COLUMNS
+        if pair[0] not in {"demozoo_id", "pouet_id"}
+    ]
     _recreate_triggers(previous)
     for name, _ in _NEW_ROMS_COLUMNS:
         op.drop_column("roms_facets", name)

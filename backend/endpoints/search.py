@@ -128,7 +128,9 @@ async def search_rom(
             moby_matched_roms = [moby_rom] if moby_rom else []
             ss_matched_roms = [ss_rom] if ss_rom else []
             launchbox_matched_roms = [lb_rom] if lb_rom else []
-            demozoo_matched_roms = [dz_rom] if dz_rom and dz_rom.get("demozoo_id") else []
+            demozoo_matched_roms = (
+                [dz_rom] if dz_rom and dz_rom.get("demozoo_id") else []
+            )
     elif search_by.lower() == "name":
         (
             igdb_matched_roms,

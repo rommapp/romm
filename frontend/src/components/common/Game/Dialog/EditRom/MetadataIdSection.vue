@@ -174,7 +174,8 @@ const parseSceneIdValue = (
             label="CSDb ID"
             variant="outlined"
             @update:model-value="
-              (value) => updateField('csdb_id', parseSceneIdValue(value, 'csdb'))
+              (value) =>
+                updateField('csdb_id', parseSceneIdValue(value, 'csdb'))
             "
           />
         </v-col>

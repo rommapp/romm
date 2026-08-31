@@ -53,7 +53,10 @@ def test_production_to_rom_maps_title_and_youtube():
             ],
             "screenshots": [{"standard_url": "https://media.demozoo.org/s.png"}],
             "download_links": [
-                {"link_class": "SceneOrgFile", "url": "https://files.scene.org/view/foo.zip"},
+                {
+                    "link_class": "SceneOrgFile",
+                    "url": "https://files.scene.org/view/foo.zip",
+                },
             ],
             "external_links": [
                 {
@@ -313,3 +316,47 @@ async def test_get_rom_uses_filename_tag():
     assert "productions/108/" in req.await_args.args[0]
     assert result["demozoo_id"] == 108
     assert result["name"] == "Second Reality"
+
+
+def test_production_to_rom_rejects_non_http_demozoo_url():
+    """A hostile record must not put a javascript: URL where an href could go."""
+    rom = production_to_rom(
+        {
+            "id": 108,
+            "title": "Second Reality",
+            "demozoo_url": "javascript:alert(1)",
+        }
+    )
+    assert (
+        rom["demozoo_metadata"]["demozoo_url"] == "https://demozoo.org/productions/108/"
+    )
+
+
+def test_production_to_rom_keeps_valid_demozoo_url():
+    rom = production_to_rom(
+        {
+            "id": 108,
+            "title": "Second Reality",
+            "demozoo_url": "https://demozoo.org/productions/108/",
+        }
+    )
+    assert (
+        rom["demozoo_metadata"]["demozoo_url"] == "https://demozoo.org/productions/108/"
+    )
+
+
+def test_youtube_id_must_be_ascii():
+    """isalnum() accepts non-ASCII digits; a video id is ASCII only."""
+    rom = production_to_rom(
+        {
+            "id": 108,
+            "title": "Second Reality",
+            "external_links": [
+                {
+                    "link_class": "YoutubeVideo",
+                    "url": "https://www.youtube.com/watch?v=ugPZnsRH٣k٣",
+                },
+            ],
+        }
+    )
+    assert rom["demozoo_metadata"]["youtube_video_id"] is None

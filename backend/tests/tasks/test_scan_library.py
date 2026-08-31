@@ -2,16 +2,16 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from handler.metadata.csdb_handler import CsdbHandler
+from handler.metadata.demozoo_handler import DemozooHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler
 from handler.metadata.hasheous_handler import HasheousHandler
-from handler.metadata.demozoo_handler import DemozooHandler
 from handler.metadata.hltb_handler import HLTBHandler
 from handler.metadata.igdb_handler import IGDBHandler
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.libretro_handler import LibretroHandler
 from handler.metadata.moby_handler import MobyGamesHandler
 from handler.metadata.playmatch_handler import PlaymatchHandler
-from handler.metadata.csdb_handler import CsdbHandler
 from handler.metadata.pouet_handler import PouetHandler
 from handler.metadata.ra_handler import RAHandler
 from handler.metadata.sgdb_handler import SGDBBaseHandler

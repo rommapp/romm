@@ -17,8 +17,8 @@ from handler.metadata import (
     meta_ss_handler,
 )
 from handler.metadata.demozoo_handler import DemozooRom
-from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.hasheous_handler import HasheousMetadata, HasheousRom
+from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.ra_handler import RAGameRom
 from handler.metadata.ss_handler import (
     SSRom,

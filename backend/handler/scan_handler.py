@@ -12,6 +12,7 @@ from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
+    meta_csdb_handler,
     meta_demozoo_handler,
     meta_flashpoint_handler,
     meta_gamelist_handler,
@@ -22,22 +23,22 @@ from handler.metadata import (
     meta_libretro_handler,
     meta_moby_handler,
     meta_playmatch_handler,
-    meta_csdb_handler,
     meta_pouet_handler,
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
     meta_tgdb_handler,
 )
-from handler.metadata.flashpoint_handler import FLASHPOINT_PLATFORM_LIST, FlashpointRom
-from handler.metadata.gamelist_handler import GamelistRom
-from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST, HasheousRom
+from handler.metadata.csdb_handler import CsdbRom
 from handler.metadata.demozoo_handler import (
     DemozooRom,
     _append_unique,
     splice_csdb_url,
     splice_pouet_vote,
 )
+from handler.metadata.flashpoint_handler import FLASHPOINT_PLATFORM_LIST, FlashpointRom
+from handler.metadata.gamelist_handler import GamelistRom
+from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST, HasheousRom
 from handler.metadata.hltb_handler import HLTB_PLATFORM_LIST, HLTBRom
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST, IGDBRom
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
@@ -49,7 +50,6 @@ from handler.metadata.playmatch_handler import (
     PLAYMATCH_SUPPORTED_SOURCES,
     PlaymatchRomMatch,
 )
-from handler.metadata.csdb_handler import CsdbRom
 from handler.metadata.pouet_handler import PouetRom
 from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAGameRom
 from handler.metadata.sgdb_handler import SGDBRom

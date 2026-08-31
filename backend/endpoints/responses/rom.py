@@ -16,15 +16,15 @@ from endpoints.responses.assets import (
     UserScreenshotSchema,
     UserStateSchema,
 )
+from handler.metadata.csdb_handler import CsdbMetadata
+from handler.metadata.demozoo_handler import DemozooMetadata
 from handler.metadata.flashpoint_handler import FlashpointMetadata
 from handler.metadata.gamelist_handler import GamelistMetadata
 from handler.metadata.hasheous_handler import HasheousMetadata
-from handler.metadata.demozoo_handler import DemozooMetadata
 from handler.metadata.hltb_handler import HLTBMetadata
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.launchbox_handler.types import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
-from handler.metadata.csdb_handler import CsdbMetadata
 from handler.metadata.pouet_handler import PouetMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata

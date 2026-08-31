@@ -12,9 +12,8 @@ import re
 from typing import Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlparse
 
-from defusedxml import ElementTree as ET
-
 import httpx
+from defusedxml import ElementTree as ET
 from fastapi import HTTPException, status
 
 from config import CSDB_API_ENABLED
@@ -29,7 +28,7 @@ from .demozoo_handler import build_scene_summary, http_url
 CSDB_TAG_REGEX = re.compile(r"\(csdb-(\d+)\)", re.IGNORECASE)
 CSDB_WEBSERVICE: Final[str] = "https://csdb.dk/webservice/"
 CSDB_RELEASE_PAGE: Final[str] = "https://csdb.dk/release/?id={id}"
-_MAX_XML_CHARS: Final[int] = 1_000_000
+_MAX_XML_BYTES: Final[int] = 1_000_000
 _rate_limiter = RateLimiter(1.5)
 
 
@@ -101,7 +100,8 @@ def _year_unix(year: str) -> int | None:
 def production_from_xml(xml: str) -> CsdbRom:
     try:
         root = ET.fromstring(xml)
-    except ET.ParseError:
+    except (ET.ParseError, ValueError):
+        # defusedxml raises ValueError subclasses when it refuses entities.
         return CsdbRom(csdb_id=None)
     release = root.find("Release")
     if release is None:
@@ -177,28 +177,29 @@ class CsdbHandler(MetadataHandler):
             "User-Agent": f"RomM/{get_version()} (+https://github.com/rommapp/romm/issues/1796)",
             "Accept": "application/xml, text/xml, */*",
         }
+        # Streamed so an oversized body is abandoned mid-flight, not buffered whole.
         try:
-            res = await httpx_client.get(url, headers=headers, timeout=25)
-            res.raise_for_status()
+            async with httpx_client.stream(
+                "GET", url, headers=headers, timeout=25
+            ) as res:
+                res.raise_for_status()
+                chunks: list[bytes] = []
+                size = 0
+                async for chunk in res.aiter_bytes():
+                    size += len(chunk)
+                    if size > _MAX_XML_BYTES:
+                        log.warning("CSDb response exceeds %s bytes", _MAX_XML_BYTES)
+                        return ""
+                    chunks.append(chunk)
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
-            log.warning("Can't connect to CSDb webservice", extra={"exception": str(exc)})
+            log.warning(
+                "Can't connect to CSDb webservice", extra={"exception": str(exc)}
+            )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to CSDb, check your internet connection",
             ) from exc
-        content_length = res.headers.get("content-length")
-        if (
-            content_length
-            and content_length.isdigit()
-            and int(content_length) > _MAX_XML_CHARS
-        ):
-            log.warning("CSDb response too large (%s bytes)", content_length)
-            return ""
-        text = res.text
-        if len(text) > _MAX_XML_CHARS:
-            log.warning("CSDb response too large (%s chars)", len(text))
-            return ""
-        return text
+        return b"".join(chunks).decode("utf-8", errors="replace")
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():

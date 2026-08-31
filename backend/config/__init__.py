@@ -136,17 +136,11 @@ FLASHPOINT_API_ENABLED: Final[bool] = safe_str_to_bool(
 # HOWLONGTOBEAT
 HLTB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HLTB_API_ENABLED"))
 
-# DEMOZOO / POUËT (public JSON, no API key; Phase 0 is tag/ID only)
-DEMOZOO_API_ENABLED: Final[bool] = safe_str_to_bool(
-    _get_env("DEMOZOO_API_ENABLED", "true")
-)
-POUET_API_ENABLED: Final[bool] = safe_str_to_bool(
-    _get_env("POUET_API_ENABLED", "true")
-)
-# CSDb XML webservice — C64 stills; ID only, no search
-CSDB_API_ENABLED: Final[bool] = safe_str_to_bool(
-    _get_env("CSDB_API_ENABLED", "true")
-)
+# DEMOZOO / POUET (public JSON, no API key; Phase 0 is tag/ID only)
+DEMOZOO_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("DEMOZOO_API_ENABLED"))
+POUET_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("POUET_API_ENABLED"))
+# CSDb XML webservice, C64 stills; ID only, no search
+CSDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("CSDB_API_ENABLED"))
 
 # AUTH
 ROMM_AUTH_SECRET_KEY: Final[str] = _get_env("ROMM_AUTH_SECRET_KEY", "")

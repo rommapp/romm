@@ -19,9 +19,9 @@ def test_extract_pouet_id_from_filename():
 
 
 def test_pouet_id_from_location():
-    assert pouet_id_from_location(
-        "https://www.pouet.net/prod.php?which=106640"
-    ) == 106640
+    assert (
+        pouet_id_from_location("https://www.pouet.net/prod.php?which=106640") == 106640
+    )
     assert pouet_id_from_location("/prod.php?which=1221") == 1221
     assert pouet_id_from_location("https://www.pouet.net/search.php?what=x") is None
 
@@ -93,7 +93,10 @@ async def test_get_rom_without_tag_tries_exact_title():
     with (
         patch.object(PouetHandler, "is_enabled", return_value=True),
         patch.object(
-            PouetHandler, "resolve_exact_title", new_callable=AsyncMock, return_value=None
+            PouetHandler,
+            "resolve_exact_title",
+            new_callable=AsyncMock,
+            return_value=None,
         ) as search,
         patch.object(PouetHandler, "_request", new_callable=AsyncMock) as req,
     ):
