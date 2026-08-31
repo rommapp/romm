@@ -33,6 +33,7 @@ from config import (
 )
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
+from handler.activity_handler import activity_handler
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible, get_permissions
 from handler.database import (
@@ -3271,6 +3272,75 @@ async def _wipe_session_card(container: dict[str, Any]) -> None:
 # was released almost immediately) and not recorded as playtime.
 _MIN_PLAY_SESSION_MS = 5_000
 
+# A streaming session is a play session like any other, so it goes on the
+# activity board next to the devices. The container key stands in for a device
+# id: a user holds at most one session per container, which is what
+# clear_active needs to find the entry again.
+_STREAMING_DEVICE_TYPE = "streaming"
+
+
+async def _publish_session_activity(session_key: str, session: dict[str, Any]) -> None:
+    """Put a live streaming session on the activity board.
+
+    Best-effort: the board is a view, never a reason to fail a launch.
+    """
+    user_id = session.get("user_id")
+    rom_id = session.get("rom_id")
+    if not isinstance(user_id, int) or not isinstance(rom_id, int):
+        return
+    try:
+        entry = await activity_handler.build_entry(
+            user_id=user_id,
+            device_id=session_key,
+            rom_id=rom_id,
+            preserve_started_at=True,
+            device_type=_STREAMING_DEVICE_TYPE,
+        )
+        if entry is not None:
+            await activity_handler.publish_active(entry)
+    except Exception:
+        log.exception("failed to publish streaming session activity")
+
+
+async def _refresh_session_activity(session_key: str, session: dict[str, Any]) -> None:
+    """Keep the activity entry alive on the player's heartbeat.
+
+    Re-stores what is already there instead of rebuilding it: nothing on the
+    entry changes for the length of a session, and a beat every 30s per session
+    would otherwise cost two queries and a broadcast each time. An entry that
+    has gone (expired while the backend was down) is rebuilt.
+    """
+    user_id = session.get("user_id")
+    if not isinstance(user_id, int):
+        return
+    try:
+        existing = await activity_handler.get_active(user_id, session_key)
+    except Exception:
+        log.exception("failed to read streaming session activity")
+        return
+    if existing is None:
+        await _publish_session_activity(session_key, session)
+        return
+    try:
+        await activity_handler.set_active(existing)
+    except Exception:
+        log.exception("failed to refresh streaming session activity")
+
+
+async def _clear_session_activity(session_key: str, session: dict[str, Any]) -> None:
+    """Take a finished streaming session off the activity board.
+
+    Every teardown path calls this: the board is socket-driven, so an entry left
+    behind sits on an open board until its TTL runs out.
+    """
+    user_id = session.get("user_id")
+    if not isinstance(user_id, int):
+        return
+    try:
+        await activity_handler.publish_clear(user_id, session_key)
+    except Exception:
+        log.exception("failed to clear streaming session activity")
+
 
 async def _record_play_session(session: dict[str, Any]) -> None:
     """Record a finished streaming session as RomM playtime.
@@ -3362,6 +3432,7 @@ async def _teardown_abandoned_session(
         if safe_to_wipe:
             await _wipe_session_card(container)
         await _record_play_session(session)
+        await _clear_session_activity(session_key, session)
         # That tab may still be showing the stream, so leave the same note an
         # admin force-release does rather than letting the picture simply stop.
         await _record_termination(
@@ -3992,6 +4063,7 @@ async def claim_session(
 
     log.info("session claimed, platform=%s rom=%s", platform, rom_name)
     await _stamp_launched(session_key)
+    await _publish_session_activity(session_key, session)
 
     # The webstation broker's deferred load waits for its emulator to report
     # the game running, and holds off further until the state file is there, so
@@ -4098,6 +4170,7 @@ async def save_and_exit_session(
         await _wipe_session_card(container)
 
     await _record_play_session(session)
+    await _clear_session_activity(session_key, session)
 
     # Sync the exit save to the library. With wait=false the broker save may
     # still be running; the pull blocks on the broker until it finishes.
@@ -4221,6 +4294,7 @@ async def heartbeat_session(request: Request, platform: str) -> JSONResponse:
         return JSONResponse({"status": "active", "platform": platform})
     if refreshed is None:
         return JSONResponse(await _session_status(platform, request))
+    await _refresh_session_activity(session_key, refreshed)
     return JSONResponse({"status": "active", "platform": platform})
 
 
@@ -4602,6 +4676,7 @@ async def _teardown_released_session(
             )
 
         await _record_play_session(session)
+        await _clear_session_activity(session_key, session)
 
         rom_id = session.get("rom_id")
         # Awaited, not spawned: the broker holds the exited session's state only
@@ -4956,6 +5031,7 @@ async def force_release_all(
                         await _wipe_session_card(container)
                     # Credit playtime to the session's owner, not the admin.
                     await _record_play_session(session)
+                    await _clear_session_activity(container_key, session)
 
                     rom_id = session.get("rom_id")
                     user_id = session.get("user_id")

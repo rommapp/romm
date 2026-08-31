@@ -18,6 +18,7 @@ from main import app
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import streaming
 from endpoints.streaming import platform_capabilities
+from handler.activity_handler import activity_handler
 from handler.auth import oauth_handler
 from handler.database import (
     db_container_adoption_handler,
@@ -4735,6 +4736,63 @@ def test_record_play_session_ignores_malformed_session(admin_user: User, rom: Ro
         )
     )
     assert db_play_session_handler.get_total_play_time(admin_user.id, rom.id) == 0
+
+
+# ── Activity board ────────────────────────────────────────────────────────────
+
+
+def _activity_entry(container: dict, user: User):
+    return asyncio.run(
+        activity_handler.get_active(user.id, streaming._container_key(container))
+    )
+
+
+def test_a_claimed_session_shows_on_the_activity_board(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """A streaming session is a play session like any other, so it joins the
+    devices on /activity rather than being visible only to admins."""
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+
+    entry = _activity_entry(container, admin_user)
+    assert entry is not None
+    assert entry["rom_id"] == rom.id
+    assert entry["device_id"] == streaming._container_key(container)
+    assert entry["device_type"] == "streaming"
+
+
+def test_releasing_a_session_takes_it_off_the_activity_board(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """The board is socket-driven, so an entry left behind sits on an open
+    board until its TTL runs out."""
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        with patch("endpoints.streaming._stop_broker", return_value=None):
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    assert _activity_entry(container, admin_user) is None
+
+
+def test_a_broken_activity_board_does_not_fail_the_launch(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """The board is a view of the session, never a reason to refuse one."""
+    container = _container_for(rom)
+    with _streaming(container):
+        with patch.object(
+            activity_handler, "publish_active", side_effect=RuntimeError("redis gone")
+        ):
+            r = _claim_ok(client, access_token, rom.id)
+    assert r.status_code == 200
+    assert _session_raw(container) is not None
+    assert _activity_entry(container, admin_user) is None
 
 
 def test_summarize_memory_card_reports_files_and_game_codes():

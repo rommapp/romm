@@ -1,18 +1,13 @@
-from datetime import datetime, timezone
-
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from decorators.auth import protected_route
-from endpoints.responses.activity import ActivityClearSchema, ActivityEntrySchema
+from endpoints.responses.activity import ActivityEntrySchema
 from handler.activity_handler import ActivityEntry, activity_handler
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
-from handler.database import db_device_handler, db_rom_handler, db_save_handler
-from handler.socket_handler import socket_handler
-from logger.logger import log
+from handler.database import db_device_handler, db_rom_handler
 from utils.router import APIRouter
-from utils.screenshots import continue_playing_screenshot
 
 router = APIRouter(
     prefix="/activity",
@@ -81,47 +76,23 @@ async def device_heartbeat(
             detail=f"Device {payload.device_id} not found for this user",
         )
 
-    # Preserve the started_at from the existing entry if we are refreshing.
-    existing = await activity_handler.get_active(request.user.id, device.id)
-    started_at = (
-        existing["started_at"] if existing else datetime.now(timezone.utc).isoformat()
-    )
-
-    latest_save = db_save_handler.get_latest_saves_for_roms(
-        user_id=request.user.id, rom_ids=[rom.id]
-    ).get(rom.id)
-    screenshot_path = continue_playing_screenshot(rom, latest_save) or ""
-
-    platform = rom.platform
-    entry = ActivityEntry(
+    entry = await activity_handler.build_entry(
         user_id=request.user.id,
-        username=request.user.username,
-        avatar_path=request.user.avatar_path or "",
-        rom_id=rom.id,
-        rom_name=rom.name or rom.fs_name,
-        rom_cover_path=rom.path_cover_s or "",
-        screenshot_path=screenshot_path,
-        platform_slug=platform.slug if platform else "",
-        platform_name=(platform.custom_name or platform.name) if platform else "",
         device_id=device.id,
+        rom_id=rom.id,
+        preserve_started_at=True,
         device_type=device.client or "unknown",
-        started_at=started_at,
     )
+    if entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ROM {payload.rom_id} not found",
+        )
 
-    await activity_handler.set_active(entry)
+    await activity_handler.publish_active(entry)
 
     # Update the device last_seen as a side-effect (mirrors play session ingest).
     db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
-
-    # Broadcast to all connected sockets. The REST app shares this process with
-    # the Socket.IO server, so emit through the already-initialised, Redis-backed
-    # server (it fans out across workers) rather than opening a manager per call.
-    try:
-        await socket_handler.socket_server.emit("activity:update", dict(entry))
-    except Exception as e:  # noqa: BLE001
-        log.warning(
-            f"Failed to broadcast activity:update for user {request.user.id}: {e}"
-        )
 
     return ActivityEntrySchema(**entry)
 
@@ -134,21 +105,5 @@ async def device_heartbeat(
 )
 async def clear_device_activity(request: Request, device_id: str) -> None:
     """Immediately clear an active session for a device (e.g. on graceful exit)."""
-    rom_id = await activity_handler.clear_active(request.user.id, device_id)
-    if rom_id is None:
-        return None
-
-    try:
-        await socket_handler.socket_server.emit(
-            "activity:clear",
-            ActivityClearSchema(
-                user_id=request.user.id,
-                device_id=device_id,
-                rom_id=rom_id,
-            ).model_dump(),
-        )
-    except Exception as e:  # noqa: BLE001
-        log.warning(
-            f"Failed to broadcast activity:clear for user {request.user.id}: {e}"
-        )
+    await activity_handler.publish_clear(request.user.id, device_id)
     return None
