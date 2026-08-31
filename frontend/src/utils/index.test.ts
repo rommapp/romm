@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
+import type { Config } from "@/stores/config";
+import type { Heartbeat } from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
-import { getDownloadPath } from "./index";
+import {
+  getDownloadPath,
+  isJsDosBundle,
+  isJsDosEmulationSupported,
+} from "./index";
 
 function makeRom(overrides: Partial<SimpleRom>): SimpleRom {
   return {
@@ -85,5 +91,79 @@ describe("getDownloadPath", () => {
     expect(getDownloadPath({ rom, fileIDs: [999] })).toBe(
       "/api/roms/24/content/B.A.T.?file_ids=999",
     );
+  });
+});
+
+function makeHeartbeat(
+  emulation: Partial<Heartbeat["EMULATION"]> = {},
+): Heartbeat {
+  return {
+    EMULATION: {
+      DISABLE_EMULATOR_JS: false,
+      DISABLE_RUFFLE_RS: false,
+      DISABLE_JSDOS: false,
+      ...emulation,
+    },
+  } as Heartbeat;
+}
+
+function makeConfig(versions: Record<string, string> = {}): Config {
+  return { PLATFORMS_VERSIONS: versions } as Config;
+}
+
+describe("isJsDosEmulationSupported", () => {
+  it("supports win3x and win9x", () => {
+    expect(isJsDosEmulationSupported("win3x", makeHeartbeat())).toBe(true);
+    expect(isJsDosEmulationSupported("win9x", makeHeartbeat())).toBe(true);
+  });
+
+  it("is case-insensitive on the slug", () => {
+    expect(isJsDosEmulationSupported("WIN3X", makeHeartbeat())).toBe(true);
+  });
+
+  it("does not claim dos or other platforms", () => {
+    expect(isJsDosEmulationSupported("dos", makeHeartbeat())).toBe(false);
+    expect(isJsDosEmulationSupported("flash", makeHeartbeat())).toBe(false);
+    expect(isJsDosEmulationSupported("snes", makeHeartbeat())).toBe(false);
+  });
+
+  it("respects the DISABLE_JSDOS admin toggle", () => {
+    expect(
+      isJsDosEmulationSupported(
+        "win3x",
+        makeHeartbeat({ DISABLE_JSDOS: true }),
+      ),
+    ).toBe(false);
+  });
+
+  it("honours a PLATFORMS_VERSIONS remap onto win3x", () => {
+    expect(
+      isJsDosEmulationSupported(
+        "dos",
+        makeHeartbeat(),
+        makeConfig({ dos: "win3x" }),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("isJsDosBundle", () => {
+  const withExt = (fs_extension: string) => makeRom({ fs_extension });
+
+  it("accepts a .jsdos bundle regardless of case", () => {
+    expect(isJsDosBundle(withExt("jsdos"))).toBe(true);
+    expect(isJsDosBundle(withExt("JSDOS"))).toBe(true);
+  });
+
+  // js-dos panics with "Broken bundle" on anything that is not its own format.
+  it("rejects plain archives, bare executables and folders", () => {
+    expect(isJsDosBundle(withExt("zip"))).toBe(false);
+    expect(isJsDosBundle(withExt("exe"))).toBe(false);
+    expect(isJsDosBundle(withExt(""))).toBe(false);
+  });
+
+  it("rejects a missing rom", () => {
+    expect(isJsDosBundle(null)).toBe(false);
+    expect(isJsDosBundle(undefined)).toBe(false);
   });
 });

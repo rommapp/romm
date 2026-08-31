@@ -426,6 +426,7 @@ class UniversalPlatformSlug(enum.StrEnum):
     DIGIBLAST = "digiblast"
     DOJA = "doja"
     DONNER30 = "donner30"
+    DOOM = "doom"
     DOS = "dos"
     DRAGON_32_SLASH_64 = "dragon-32-slash-64"
     DVD_PLAYER = "dvd-player"

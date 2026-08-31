@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import Body, File, HTTPException, Request, UploadFile, status
+from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from decorators.auth import protected_route
@@ -21,6 +21,7 @@ from models.assets import State
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size
+from utils.validation import RomIdScope, narrow_rom_id_scope
 
 router = APIRouter(
     prefix="/states",
@@ -180,10 +181,25 @@ async def add_state(
 
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_states(
-    request: Request, rom_id: int | None = None, platform_id: int | None = None
+    request: Request,
+    rom_id: int | None = None,
+    rom_ids: Annotated[
+        RomIdScope,
+        Query(
+            description=(
+                "ROM IDs to scope the results to, for clients syncing a known "
+                "set of ROMs. Multiple values are allowed by repeating the "
+                "parameter. Combined with `rom_id` when both are given."
+            ),
+        ),
+    ] = None,
+    platform_id: int | None = None,
 ) -> list[StateSchema]:
+    """Retrieve states for the current user."""
     states = db_state_handler.get_states(
-        user_id=request.user.id, rom_id=rom_id, platform_id=platform_id
+        user_id=request.user.id,
+        rom_ids=narrow_rom_id_scope(rom_id, rom_ids),
+        platform_id=platform_id,
     )
 
     return [StateSchema.model_validate(state) for state in states]

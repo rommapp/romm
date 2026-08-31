@@ -18,9 +18,12 @@ import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/router";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import type { Events } from "@/types/emitter";
 import VolumeControl from "@/v2/components/Soundtrack/VolumeControl.vue";
+import { isJukeboxPlayerMode } from "@/v2/utils/jukebox";
+import { formatTrackTime } from "@/v2/utils/time";
 
 defineOptions({ inheritAttrs: false });
 
@@ -38,6 +41,7 @@ const {
   duration,
   hasPrevious,
   hasNext,
+  isShuffled,
 } = storeToRefs(store);
 
 const audioEl = ref<HTMLAudioElement | null>(null);
@@ -48,15 +52,18 @@ const audioEl = ref<HTMLAudioElement | null>(null);
 // current state. Same idiom as v1's mini player.
 let loadToken = 0;
 
-const onSoundtrackSubtab = computed(
-  () =>
+const onFullSoundtrackPlayer = computed(() => {
+  const onJukeboxPlayer =
+    route.name === ROUTES.MUSIC && isJukeboxPlayerMode(route.params.mode);
+  const onGameSoundtrack =
     route.name === "rom" &&
     route.query.tab === "media" &&
-    route.query.subtab === "soundtrack",
-);
+    route.query.subtab === "soundtrack";
+  return onJukeboxPlayer || onGameSoundtrack;
+});
 
 const showMiniPlayer = computed(
-  () => track.value !== null && !onSoundtrackSubtab.value,
+  () => track.value !== null && !onFullSoundtrackPlayer.value,
 );
 
 const coverUrl = computed(
@@ -140,19 +147,10 @@ function onError() {
   });
 }
 
-function fmt(s: number) {
-  if (!Number.isFinite(s) || s < 0) return "0:00";
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60)
-    .toString()
-    .padStart(2, "0");
-  return `${m}:${sec}`;
-}
-
 function seekValueText(v: number): string {
   return t("rom.seek-progress", {
-    current: fmt(v),
-    duration: fmt(duration.value),
+    current: formatTrackTime(v),
+    duration: formatTrackTime(duration.value),
   });
 }
 
@@ -272,11 +270,21 @@ function openRom() {
         />
         <span class="r-v2-mp__transport-spacer" />
         <VolumeControl size="small" />
+        <RBtn
+          icon="mdi-shuffle"
+          :variant="isShuffled ? 'translucent' : 'text'"
+          size="small"
+          :color="isShuffled ? 'primary' : undefined"
+          :aria-pressed="isShuffled"
+          :tooltip="t('common.shuffle')"
+          :aria-label="t('common.shuffle')"
+          @click="store.toggleShuffle()"
+        />
       </div>
 
       <!-- Seek row -->
       <div class="r-v2-mp__seek">
-        <span class="r-v2-mp__time">{{ fmt(currentTime) }}</span>
+        <span class="r-v2-mp__time">{{ formatTrackTime(currentTime) }}</span>
         <RSlider
           :model-value="currentTime"
           :max="duration || 0"
@@ -288,7 +296,7 @@ function openRom() {
           @update:model-value="(v: number) => store.seek(v)"
         />
         <span class="r-v2-mp__time r-v2-mp__time--right">
-          {{ fmt(duration) }}
+          {{ formatTrackTime(duration) }}
         </span>
       </div>
     </div>

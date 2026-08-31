@@ -12,7 +12,7 @@ from utils.context import initialize_context
 class CleanupMissingRomsStats:
     """Statistics for missing ROMs cleanup operations."""
 
-    platform_id: int | None = None
+    platform_ids: list[int] | None = None
     roms_found: int = 0
     roms_deleted: int = 0
     errors: int = 0
@@ -26,7 +26,7 @@ class CleanupMissingRomsStats:
 
     def to_dict(self) -> dict:
         return {
-            "platform_id": self.platform_id,
+            "platform_ids": self.platform_ids,
             "roms_found": self.roms_found,
             "roms_deleted": self.roms_deleted,
             "errors": self.errors,
@@ -45,22 +45,26 @@ class CleanupMissingRomsTask(Task):
         )
 
     @initialize_context()
-    async def run(self, platform_id: int | None = None) -> dict:
+    async def run(self, platform_ids: list[int] | None = None) -> dict:
         """Clean up ROMs that are flagged as missing from the filesystem."""
         log.info(f"Starting {self.title} task...")
 
-        stats = CleanupMissingRomsStats(platform_id=platform_id)
+        stats = CleanupMissingRomsStats(platform_ids=platform_ids)
 
         filter_kwargs: dict[str, Any] = {"missing": True}
-        if platform_id is not None:
-            filter_kwargs["platform_ids"] = [platform_id]
+        if platform_ids:
+            filter_kwargs["platform_ids"] = platform_ids
 
         missing_roms = db_rom_handler.get_roms_scalar(**filter_kwargs)
 
         stats.update(roms_found=len(missing_roms))
         log.info(
             f"Found {len(missing_roms)} missing ROM(s) to clean up"
-            + (f" for platform ID {platform_id}" if platform_id else "")
+            + (
+                f" for platform ID(s) {', '.join(map(str, platform_ids))}"
+                if platform_ids
+                else ""
+            )
         )
 
         for rom in missing_roms:

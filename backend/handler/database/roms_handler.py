@@ -3,8 +3,10 @@ import hashlib
 import json
 import re
 import secrets
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from datetime import datetime
+from types import SimpleNamespace
 from typing import Any, NamedTuple
 
 from redis.exceptions import WatchError
@@ -98,6 +100,7 @@ EJS_SUPPORTED_PLATFORMS = [
     UPS.COLECOVISION,
     UPS.JAGUAR,
     UPS.LYNX,
+    UPS.DOOM,
     UPS.DOS,
     UPS.NEO_GEO_POCKET,
     UPS.NEO_GEO_POCKET_COLOR,
@@ -2500,12 +2503,16 @@ class DBRomsHandler(DBBaseHandler):
         artist: str | None = None,
         album: str | None = None,
         genre: str | None = None,
+        game_genre: str | None = None,
         platform_ids: Sequence[int] | None = None,
         rom_id: int | None = None,
         year: int | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
         min_duration: float | None = None,
         max_duration: float | None = None,
         exclude_field: str | None = None,
+        session: Session | None = None,
     ) -> list[Any]:
         clauses: list[Any] = []
         if hidden_platform_ids:
@@ -2531,8 +2538,20 @@ class DBRomsHandler(DBBaseHandler):
             clauses.append(func.lower(TrackMeta.genre) == genre.lower())
         if platform_ids:
             clauses.append(Rom.platform_id.in_(platform_ids))
+        if game_genre and exclude_field != "game_genre":
+            clauses.append(
+                json_array_contains_value(
+                    RomMetadata.genres, game_genre, session=session
+                )
+                if session is not None
+                else false()
+            )
         if year is not None and exclude_field != "year":
             clauses.append(TrackMeta.year == year)
+        if min_year is not None and exclude_field != "year":
+            clauses.append(TrackMeta.year >= min_year)
+        if max_year is not None and exclude_field != "year":
+            clauses.append(TrackMeta.year <= max_year)
         if min_duration is not None:
             clauses.append(TrackMeta.duration_seconds >= min_duration)
         if max_duration is not None:
@@ -2549,9 +2568,12 @@ class DBRomsHandler(DBBaseHandler):
         artist: str | None = None,
         album: str | None = None,
         genre: str | None = None,
+        game_genre: str | None = None,
         platform_ids: Sequence[int] | None = None,
         rom_id: int | None = None,
         year: int | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
         min_duration: float | None = None,
         max_duration: float | None = None,
         order_by: str = "title",
@@ -2572,11 +2594,15 @@ class DBRomsHandler(DBBaseHandler):
             artist=artist,
             album=album,
             genre=genre,
+            game_genre=game_genre,
             platform_ids=platform_ids,
             rom_id=rom_id,
             year=year,
+            min_year=min_year,
+            max_year=max_year,
             min_duration=min_duration,
             max_duration=max_duration,
+            session=session,
         )
         is_favorite_col = (
             MusicFavoriteTrack.user_id.is_not(None)
@@ -2601,6 +2627,8 @@ class DBRomsHandler(DBBaseHandler):
                 is_favorite_col.label("is_favorite"),
                 Rom.name.label("game_name"),
                 Rom.path_cover_l.label("path_cover_l"),
+                RomMetadata.genres.label("game_genres"),
+                RomFile.created_at.label("added_at"),
                 Platform.id.label("platform_id"),
                 Platform.slug.label("platform_slug"),
                 Platform.name.label("platform_name"),
@@ -2608,6 +2636,7 @@ class DBRomsHandler(DBBaseHandler):
             .select_from(TrackMeta)
             .join(RomFile, TrackMeta.rom_file_id == RomFile.id)
             .join(Rom, TrackMeta.rom_id == Rom.id)
+            .outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
             .join(Platform, Rom.platform_id == Platform.id)
         )
         if is_favorite_user_id is not None:
@@ -2629,7 +2658,10 @@ class DBRomsHandler(DBBaseHandler):
                 ),
             )
         base = base.where(*where)
-        total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+        # Count over a single-column projection: the full select carries a JSON
+        # genres blob that would otherwise be materialized just to be counted.
+        count_subquery = base.with_only_columns(TrackMeta.rom_file_id).subquery()
+        total = session.scalar(select(func.count()).select_from(count_subquery)) or 0
         order_map = {
             "title": TrackMeta.title,
             "artist": TrackMeta.artist,
@@ -2717,6 +2749,271 @@ class DBRomsHandler(DBBaseHandler):
             primary = count_col.asc() if order_dir == "asc" else count_col.desc()
         rows = session.execute(
             base.order_by(primary, col.asc()).limit(limit).offset(offset)
+        ).all()
+        return rows, total
+
+    def _music_facet_joins(self, statement: Select) -> Select:
+        return (
+            statement.select_from(TrackMeta)
+            .join(RomFile, TrackMeta.rom_file_id == RomFile.id)
+            .join(Rom, TrackMeta.rom_id == Rom.id)
+            .outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
+            .join(Platform, Rom.platform_id == Platform.id)
+        )
+
+    @begin_session
+    def get_music_stats(
+        self,
+        *,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
+        session: Session = None,  # type: ignore
+    ) -> tuple[int, float]:
+        """Total track count and total duration, for the jukebox home cards.
+
+        A count and a SUM beat shipping the catalog to the client just to
+        derive two numbers from it.
+        """
+        where = self._music_where(
+            hidden_platform_ids=hidden_platform_ids,
+            hidden_rom_ids=hidden_rom_ids,
+            session=session,
+        )
+        row = session.execute(
+            self._music_facet_joins(
+                select(
+                    func.count().label("count"),
+                    func.coalesce(func.sum(TrackMeta.duration_seconds), 0.0).label(
+                        "duration"
+                    ),
+                )
+            ).where(*where)
+        ).one()
+        return int(row.count or 0), float(row.duration or 0.0)
+
+    @begin_session
+    def get_music_game_genre_facet(
+        self,
+        *,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
+        search: str | None = None,
+        artist: str | None = None,
+        album: str | None = None,
+        genre: str | None = None,
+        platform_ids: Sequence[int] | None = None,
+        year: int | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
+        min_duration: float | None = None,
+        max_duration: float | None = None,
+        order_by: str = "count",
+        order_dir: str = "desc",
+        limit: int = 50,
+        offset: int = 0,
+        session: Session = None,  # type: ignore
+    ) -> tuple[Sequence[Any], int]:
+        """Distinct *game* genres over the tracked roms, with track counts.
+
+        `RomMetadata.genres` is a JSON array, so it can't be grouped in SQL the
+        way the scalar tag facets are. Counting per rom first keeps the rows
+        proportional to games rather than tracks, then the arrays are folded in
+        Python -- the same shape `_collect_filter_values` uses for ROM filters.
+        """
+        where = self._music_where(
+            hidden_platform_ids=hidden_platform_ids,
+            hidden_rom_ids=hidden_rom_ids,
+            artist=artist,
+            album=album,
+            genre=genre,
+            platform_ids=platform_ids,
+            year=year,
+            min_year=min_year,
+            max_year=max_year,
+            min_duration=min_duration,
+            max_duration=max_duration,
+            session=session,
+        )
+        per_rom = self._music_facet_joins(
+            select(Rom.id.label("rom_id"), func.count().label("count"))
+        ).where(*where)
+        counts_by_rom = {
+            row.rom_id: row.count
+            for row in session.execute(per_rom.group_by(Rom.id)).all()
+        }
+        if not counts_by_rom:
+            return [], 0
+
+        totals: Counter[str] = Counter()
+        genre_rows = session.execute(
+            select(RomMetadata.rom_id, RomMetadata.genres).where(
+                RomMetadata.rom_id.in_(counts_by_rom.keys())
+            )
+        ).all()
+        needle = search.lower() if search else None
+        for rom_id, genres in genre_rows:
+            for value in genres or []:
+                name = (value or "").strip()
+                if not name:
+                    continue
+                if needle and needle not in name.lower():
+                    continue
+                totals[name] += counts_by_rom[rom_id]
+
+        items = list(totals.items())
+        if order_by == "value":
+            items.sort(key=lambda kv: kv[0].lower(), reverse=order_dir == "desc")
+        else:
+            items.sort(key=lambda kv: (-kv[1], kv[0].lower()))
+            if order_dir == "asc":
+                items.reverse()
+        rows = [
+            SimpleNamespace(value=name, count=count)
+            for name, count in items[offset : offset + limit]
+        ]
+        return rows, len(items)
+
+    @begin_session
+    def get_music_platform_facet(
+        self,
+        *,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
+        search: str | None = None,
+        artist: str | None = None,
+        album: str | None = None,
+        genre: str | None = None,
+        game_genre: str | None = None,
+        year: int | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
+        min_duration: float | None = None,
+        max_duration: float | None = None,
+        order_by: str = "value",
+        order_dir: str = "asc",
+        limit: int = 50,
+        offset: int = 0,
+        session: Session = None,  # type: ignore
+    ) -> tuple[Sequence[Any], int]:
+        """Platforms that have soundtrack tracks, with per-platform counts."""
+        where = self._music_where(
+            hidden_platform_ids=hidden_platform_ids,
+            hidden_rom_ids=hidden_rom_ids,
+            artist=artist,
+            album=album,
+            genre=genre,
+            game_genre=game_genre,
+            year=year,
+            min_year=min_year,
+            max_year=max_year,
+            min_duration=min_duration,
+            max_duration=max_duration,
+            session=session,
+        )
+        if search:
+            where.append(
+                func.lower(Platform.name).like(
+                    f"%{escape_like(search.lower())}%", escape=LIKE_ESCAPE_CHAR
+                )
+            )
+        count_col = func.count().label("count")
+        base = self._music_facet_joins(
+            select(
+                Platform.id.label("id"),
+                Platform.slug.label("slug"),
+                Platform.name.label("name"),
+                count_col,
+            )
+        ).where(*where)
+        base = base.group_by(Platform.id, Platform.slug, Platform.name)
+        total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+        if order_by == "count":
+            primary = count_col.asc() if order_dir == "asc" else count_col.desc()
+        else:
+            primary = (
+                Platform.name.desc() if order_dir == "desc" else Platform.name.asc()
+            )
+        rows = session.execute(
+            base.order_by(primary, Platform.name.asc()).limit(limit).offset(offset)
+        ).all()
+        return rows, total
+
+    @begin_session
+    def get_music_game_facet(
+        self,
+        *,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
+        search: str | None = None,
+        artist: str | None = None,
+        album: str | None = None,
+        genre: str | None = None,
+        game_genre: str | None = None,
+        platform_ids: Sequence[int] | None = None,
+        year: int | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
+        min_duration: float | None = None,
+        max_duration: float | None = None,
+        order_by: str = "value",
+        order_dir: str = "asc",
+        limit: int = 50,
+        offset: int = 0,
+        session: Session = None,  # type: ignore
+    ) -> tuple[Sequence[Any], int]:
+        """Games that have soundtrack tracks -- the jukebox's album list."""
+        where = self._music_where(
+            hidden_platform_ids=hidden_platform_ids,
+            hidden_rom_ids=hidden_rom_ids,
+            artist=artist,
+            album=album,
+            genre=genre,
+            game_genre=game_genre,
+            platform_ids=platform_ids,
+            year=year,
+            min_year=min_year,
+            max_year=max_year,
+            min_duration=min_duration,
+            max_duration=max_duration,
+            session=session,
+        )
+        if search:
+            like = f"%{escape_like(search.lower())}%"
+            where.append(
+                or_(
+                    func.lower(Rom.name).like(like, escape=LIKE_ESCAPE_CHAR),
+                    func.lower(TrackMeta.title).like(like, escape=LIKE_ESCAPE_CHAR),
+                    func.lower(TrackMeta.artist).like(like, escape=LIKE_ESCAPE_CHAR),
+                    func.lower(TrackMeta.album).like(like, escape=LIKE_ESCAPE_CHAR),
+                )
+            )
+        count_col = func.count().label("count")
+        base = self._music_facet_joins(
+            select(
+                Rom.id.label("rom_id"),
+                Rom.name.label("name"),
+                Rom.path_cover_l.label("path_cover_l"),
+                Platform.id.label("platform_id"),
+                Platform.slug.label("platform_slug"),
+                Platform.name.label("platform_name"),
+                count_col,
+            )
+        ).where(*where)
+        base = base.group_by(
+            Rom.id,
+            Rom.name,
+            Rom.path_cover_l,
+            Platform.id,
+            Platform.slug,
+            Platform.name,
+        )
+        total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+        if order_by == "count":
+            primary = count_col.asc() if order_dir == "asc" else count_col.desc()
+        else:
+            primary = Rom.name.desc() if order_dir == "desc" else Rom.name.asc()
+        rows = session.execute(
+            base.order_by(primary, Rom.name.asc()).limit(limit).offset(offset)
         ).all()
         return rows, total
 

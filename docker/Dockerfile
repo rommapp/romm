@@ -131,7 +131,7 @@ RUN git clone --recurse-submodules https://github.com/rommforge/argosy-sigil.git
     cp ./sigil/*.py ./sigil/_sigil.*.so /sigil-pkg/
 
 
-# FETCH EMULATORJS AND RUFFLE
+# FETCH EMULATORJS, RUFFLE AND JS-DOS
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
 
 RUN apk add --no-cache \
@@ -155,6 +155,18 @@ RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION
     echo "${RUFFLE_SHA256}  ${RUFFLE_FILE}" | sha256sum -c - && \
     unzip -o "${RUFFLE_FILE}" -d /ruffle && \
     rm -f "${RUFFLE_FILE}"
+
+ARG JSDOS_VERSION=8.4.1
+ARG JSDOS_SHA256=26118692bbb180aec78ec1697eb1ea6b28ff410101870cfa3e68309914c7eaa6
+
+# The bundled index.html is a js-dos demo page that would be served unauthenticated;
+# source maps, Emscripten symbol files and type declarations are unused at runtime.
+RUN wget "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" -O jsdos.zip && \
+    echo "${JSDOS_SHA256}  jsdos.zip" | sha256sum -c - && \
+    unzip -o jsdos.zip -d /jsdos && \
+    rm -f jsdos.zip && \
+    rm -rf /jsdos/dist/index.html /jsdos/dist/emulators/types && \
+    find /jsdos/dist \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
@@ -287,6 +299,7 @@ FROM slim-image AS full-image
 ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
+COPY --from=emulator-stage /jsdos/dist ${WEBSERVER_FOLDER}/assets/jsdos
 
 
 FROM slim-image AS dev-slim

@@ -73,8 +73,9 @@ const romId = computed(() => Number(route.params.rom));
 // transition captures this view and the morph pairs on entry. From
 // GameDetails the full DetailedRom is in `currentRom`; on a direct
 // gallery→play only a SimpleRom exists, so seed a cover-only `heroSeed`
-// (`rom` stays null until `onMounted` refetches). See EmulatorJS / Ruffle
-// for the same pattern.
+// (`rom` stays null until `onMounted` refetches). `usePlayerHero` does this
+// for the other players; Stream keeps its own copy because its label comes
+// from the streaming container and it clears the background art while playing.
 if (romsStore.currentRom && romsStore.currentRom.id === romId.value) {
   rom.value = romsStore.currentRom;
 }

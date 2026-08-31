@@ -84,7 +84,7 @@ def get_cached_zip(namespace: str, cache_key: str) -> Path | None:
     return path if path.exists() else None
 
 
-def _ensure_zipfile_writable() -> None:
+def ensure_zipfile_writable() -> None:
     """Restore ``zipfile._get_compressor`` to a writable signature.
 
     ``zipfile_inflate64`` (imported in ``handler/filesystem/roms_handler.py``
@@ -135,7 +135,7 @@ def build_cached_zip(
     fd, tmp_path = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
     try:
         os.close(fd)
-        _ensure_zipfile_writable()
+        ensure_zipfile_writable()
         with zipfile.ZipFile(tmp_path, "w") as zf:
             for entry in entries:
                 src = Path(LIBRARY_BASE_PATH) / entry.full_path

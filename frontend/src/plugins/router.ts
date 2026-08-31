@@ -27,12 +27,14 @@ export const ROUTES = {
   MAIN: "main",
   HOME: "home",
   SEARCH: "search",
+  MUSIC: "music",
   PLATFORM: "platform",
   COLLECTION: "collection",
   VIRTUAL_COLLECTION: "virtual-collection",
   SMART_COLLECTION: "smart-collection",
   ROM: "rom",
   EMULATORJS: "emulatorjs",
+  JSDOS: "jsdos",
   RUFFLE: "ruffle",
   STREAM: "stream",
   SCAN: "scan",
@@ -186,6 +188,16 @@ const routes = [
         },
       },
       {
+        path: "music/:mode?",
+        name: ROUTES.MUSIC,
+        meta: { title: "common.jukebox" },
+        components: {
+          // v1 has no equivalent; redirect to home
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.MUSIC),
+        },
+      },
+      {
         path: "platform/:platform",
         name: ROUTES.PLATFORM,
         components: {
@@ -251,6 +263,14 @@ const routes = [
         components: {
           default: () => import("@/views/Player/EmulatorJS/Base.vue"),
           v2: v2For(ROUTES.EMULATORJS),
+        },
+      },
+      {
+        path: "rom/:rom/jsdos",
+        name: ROUTES.JSDOS,
+        components: {
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.JSDOS),
         },
       },
       {

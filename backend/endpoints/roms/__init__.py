@@ -110,10 +110,11 @@ from utils.m3u import generate_m3u_content
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
 from utils.screenshots import continue_playing_screenshot
-from utils.validation import ValidationError
+from utils.validation import ValidationError, parse_comma_separated_ids
 from utils.zip_cache import (
     BULK_CACHE_MAX_ROMS,
     ZipFileEntry,
+    ensure_zipfile_writable,
     get_bulk_namespace,
     get_cache_key,
     get_cached_zip,
@@ -1111,13 +1112,11 @@ async def download_roms(
         )
         rom_id_list = list(dict.fromkeys(rom.id for rom in rom_rows))
     elif rom_ids:
-        # Parse comma-separated string into list of integers
         try:
-            rom_id_list = [int(id.strip()) for id in rom_ids.split(",") if id.strip()]
-        except ValueError as e:
+            rom_id_list = parse_comma_separated_ids(rom_ids, "ROM ID")
+        except ValidationError as e:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid ROM ID format. Must be comma-separated integers.",
+                status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
             ) from e
     else:
         raise HTTPException(
@@ -1559,6 +1558,7 @@ async def get_rom_content(
             zip_buffer = BytesIO()
             now = datetime.now()
 
+            ensure_zipfile_writable()
             with ZipFile(zip_buffer, "w") as zip_file:
                 # Add content files
                 for file in files:
@@ -2064,9 +2064,14 @@ async def update_rom(
             }
         )
 
+    # Cover and manual both take and release locks, so they accumulate into one
+    # running set rather than each deriving from the same pre-update state.
+    locked_fields = set(rom.locked_fields or [])
+
     if remove_cover:
         cleaned_data.update(await fs_resource_handler.remove_cover(rom))
         cleaned_data.update({"url_cover": ""})
+        locked_fields.discard("url_cover")
     else:
         if artwork is not None and artwork.filename is not None:
             file_ext = validate_image_upload(artwork, label="Artwork")
@@ -2076,6 +2081,8 @@ async def update_rom(
                 path_cover_s,
             ) = await fs_resource_handler.store_artwork(rom, artwork_content, file_ext)
 
+            # Supplying a file is the explicit act that locks the cover; the
+            # lock outlives the file, so losing it to a scan can't unlock it.
             cleaned_data.update(
                 {
                     "url_cover": "",
@@ -2083,6 +2090,7 @@ async def update_rom(
                     "path_cover_l": path_cover_l,
                 }
             )
+            locked_fields.add("url_cover")
         else:
             url_cover = (
                 form_data.url_cover if "url_cover" in provided_fields else rom.url_cover
@@ -2100,6 +2108,10 @@ async def update_rom(
                         "path_cover_l": path_cover_l,
                     }
                 )
+                # The client posts the stored url on every save, so only a url
+                # that actually changed counts as a handover back to providers.
+                if url_cover and url_cover != rom.url_cover:
+                    locked_fields.discard("url_cover")
             except ValidationError as e:
                 log.error(f"Invalid cover URL in update_rom: {str(e)}")
                 raise HTTPException(status_code=400, detail=str(e)) from e
@@ -2119,9 +2131,14 @@ async def update_rom(
                 "path_manual": path_manual,
             }
         )
+        # Same handover rule as the cover.
+        if url_manual and url_manual != rom.url_manual:
+            locked_fields.discard("url_manual")
     except ValidationError as e:
         log.error(f"Invalid manual URL in update_rom: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+    cleaned_data["locked_fields"] = sorted(locked_fields)
 
     # Handle RetroAchievements badges when the ID has changed
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:

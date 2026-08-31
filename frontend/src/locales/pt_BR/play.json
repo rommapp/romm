@@ -1,4 +1,5 @@
 {
+  "all-discs": "Todos os discos",
   "all-saves": "Todos os saves",
   "all-states": "Todos os states",
   "back-to-gallery": "Voltar à galeria",
@@ -13,6 +14,8 @@
   "deselect-save": "Desmarcar save",
   "deselect-state": "Desmarcar estado",
   "full-screen": "Tela cheia",
+  "jsdos-browser-save-warning": "Os saves do js-dos são armazenados apenas neste navegador e não são sincronizados com o RomM.",
+  "jsdos-quit-without-saving": "Sair sem salvar o progresso recente?",
   "no-save-selected": "Nenhum save selecionado",
   "no-saves-available": "Nenhum save disponível",
   "no-screenshot-available": "Nenhuma captura de tela disponível",
