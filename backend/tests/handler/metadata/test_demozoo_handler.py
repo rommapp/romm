@@ -318,27 +318,14 @@ async def test_get_rom_uses_filename_tag():
     assert result["name"] == "Second Reality"
 
 
-def test_production_to_rom_rejects_non_http_demozoo_url():
+@pytest.mark.parametrize(
+    "raw_url",
+    ["javascript:alert(1)", "https://demozoo.org/productions/108/", 108, None],
+)
+def test_production_to_rom_only_keeps_an_http_demozoo_url(raw_url):
     """A hostile record must not put a javascript: URL where an href could go."""
     rom = production_to_rom(
-        {
-            "id": 108,
-            "title": "Second Reality",
-            "demozoo_url": "javascript:alert(1)",
-        }
-    )
-    assert (
-        rom["demozoo_metadata"]["demozoo_url"] == "https://demozoo.org/productions/108/"
-    )
-
-
-def test_production_to_rom_keeps_valid_demozoo_url():
-    rom = production_to_rom(
-        {
-            "id": 108,
-            "title": "Second Reality",
-            "demozoo_url": "https://demozoo.org/productions/108/",
-        }
+        {"id": 108, "title": "Second Reality", "demozoo_url": raw_url}
     )
     assert (
         rom["demozoo_metadata"]["demozoo_url"] == "https://demozoo.org/productions/108/"

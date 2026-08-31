@@ -1,10 +1,11 @@
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
 
+from handler.metadata import csdb_handler
 from handler.metadata.csdb_handler import (
-    _MAX_XML_BYTES,
     CsdbHandler,
     csdb_id_from_url,
     extract_csdb_id_from_filename,
@@ -53,6 +54,7 @@ def test_production_from_xml_cover():
 def test_production_from_xml_empty():
     assert production_from_xml("<CSDbData/>")["csdb_id"] is None
     assert production_from_xml("not xml")["csdb_id"] is None
+    assert production_from_xml("<CSDbData><Release>")["csdb_id"] is None
 
 
 def test_production_from_xml_rejects_non_http_screenshot():
@@ -107,17 +109,22 @@ def test_production_from_xml_rejects_entity_declarations():
     assert production_from_xml(xxe)["csdb_id"] is None
 
 
-def test_production_from_xml_rejects_malformed_xml():
-    assert production_from_xml("<CSDbData><Release>")["csdb_id"] is None
-
-
 @pytest.mark.asyncio
-async def test_request_streams_and_caps_oversized_body():
-    """The size limit has to bound the read, not just the parse."""
+async def test_request_abandons_an_oversized_body_mid_stream(monkeypatch):
+    """The limit bounds the read: the body is dropped before it is all pulled."""
+    monkeypatch.setattr(csdb_handler, "_MAX_XML_BYTES", 1024)
+    monkeypatch.setattr(csdb_handler._rate_limiter, "acquire", AsyncMock())
+    sent = 0
+
+    async def endless() -> AsyncIterator[bytes]:
+        nonlocal sent
+        while True:
+            sent += 1
+            yield b"A" * 512
 
     async def respond(request: httpx.Request) -> httpx.Response:
         if "big" in str(request.url):
-            return httpx.Response(200, content=b"A" * (_MAX_XML_BYTES + 5000))
+            return httpx.Response(200, content=endless())
         return httpx.Response(200, content=WORKING_STONE_XML.encode())
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
@@ -129,3 +136,5 @@ async def test_request_streams_and_caps_oversized_body():
     finally:
         ctx_httpx_client.reset(token)
         await client.aclose()
+
+    assert sent == 3, f"stream should stop just past the cap, pulled {sent} chunks"

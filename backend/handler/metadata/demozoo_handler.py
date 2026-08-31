@@ -136,9 +136,9 @@ def _pouet_id_from_url(url: str) -> int | None:
     return int(digits) if digits else None
 
 
-def http_url(value: str | None) -> str | None:
+def http_url(value: Any) -> str | None:
     """Keep http(s) links only. Metadata tab renders these as hrefs."""
-    text = (value or "").strip()
+    text = str(value or "").strip()
     if not text:
         return None
     parsed = urlparse(text)
@@ -453,9 +453,9 @@ def production_to_rom(data: dict[str, Any]) -> DemozooRom:
     release = data.get("release_date")
     year = (release or "")[:4]
     who = ", ".join(groups or authors)
-    demozoo_url = http_url(
-        str(data.get("demozoo_url") or "")
-    ) or DEMOZOO_PROD_PAGE.format(id=demozoo_id)
+    demozoo_url = http_url(data.get("demozoo_url")) or DEMOZOO_PROD_PAGE.format(
+        id=demozoo_id
+    )
     pouet_url = POUET_PROD_PAGE.format(id=pouet_id) if pouet_id else None
     csdb_url = f"https://csdb.dk/release/?id={csdb_id}" if csdb_id else None
     clean_types = [t for t in types if t]

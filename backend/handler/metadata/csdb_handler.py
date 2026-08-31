@@ -177,20 +177,18 @@ class CsdbHandler(MetadataHandler):
             "User-Agent": f"RomM/{get_version()} (+https://github.com/rommapp/romm/issues/1796)",
             "Accept": "application/xml, text/xml, */*",
         }
-        # Streamed so an oversized body is abandoned mid-flight, not buffered whole.
+        # Streamed so an oversized body is dropped without reading it all.
+        body = bytearray()
         try:
             async with httpx_client.stream(
                 "GET", url, headers=headers, timeout=25
             ) as res:
                 res.raise_for_status()
-                chunks: list[bytes] = []
-                size = 0
                 async for chunk in res.aiter_bytes():
-                    size += len(chunk)
-                    if size > _MAX_XML_BYTES:
+                    body += chunk
+                    if len(body) > _MAX_XML_BYTES:
                         log.warning("CSDb response exceeds %s bytes", _MAX_XML_BYTES)
                         return ""
-                    chunks.append(chunk)
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
             log.warning(
                 "Can't connect to CSDb webservice", extra={"exception": str(exc)}
@@ -199,7 +197,7 @@ class CsdbHandler(MetadataHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to CSDb, check your internet connection",
             ) from exc
-        return b"".join(chunks).decode("utf-8", errors="replace")
+        return body.decode("utf-8", errors="replace")
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():
