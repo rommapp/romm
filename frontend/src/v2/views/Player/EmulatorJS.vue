@@ -45,7 +45,7 @@ import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getSupportedEJSCores } from "@/utils";
+import { areThreadsRequiredForEJSCore, getSupportedEJSCores } from "@/utils";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
@@ -56,6 +56,7 @@ import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import {
   resolveBezelHost,
@@ -81,6 +82,7 @@ const Player = defineAsyncComponent(
 );
 
 const { t } = useI18n();
+const snackbar = useSnackbar();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const playingStore = storePlaying();
@@ -229,6 +231,23 @@ useEventListener(document, "fullscreenchange", () => {
 });
 
 async function onPlay() {
+  // Threaded cores (dosbox_pure, ppsspp, azahar, scummvm) need
+  // SharedArrayBuffer, which browsers only expose on a secure context
+  // (HTTPS, or localhost) -- regardless of what headers the server sends.
+  // Left unchecked, EmulatorJS's own loader still attempts to boot and
+  // fails deep inside its own code with a generic on-canvas
+  // "Error for site owner / Check console" that gives the player no
+  // actionable information. Catch it here instead, before ever loading
+  // the emulator, with a message that says what's actually wrong.
+  if (
+    selectedCore.value &&
+    areThreadsRequiredForEJSCore(selectedCore.value) &&
+    typeof window.SharedArrayBuffer !== "function"
+  ) {
+    snackbar.error(t("play.https-required"));
+    return;
+  }
+
   // Launch flourish on the visible cover (disc drop+spin / cartridge
   // slot-in) before booting, so the insert is seen. Returns 0 for non-
   // physical styles / reduced motion → no delay.
