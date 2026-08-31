@@ -17,6 +17,7 @@ from decorators.auth import protected_route
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
+from handler.filesystem.base_handler import LANGUAGES
 from handler.redis_handler import async_cache
 from models.user import Role
 from utils.router import APIRouter
@@ -353,7 +354,40 @@ def _broker_request_safe(
         return None
 
 
-def _call_broker(container: dict[str, Any], rom_path: str, rom_name: str) -> None:
+# ISO-639-1 codes for the languages RomM recognizes. rom.languages stores names
+# ("French") from filename parsing and shortcodes ("fr") from metadata
+# providers; ui_settings.locale stores locale codes ("fr_FR"). Every broker
+# receives the same reduced ISO-639-1 code and maps it to its own dialect.
+_LANGUAGE_NAME_TO_ISO = {
+    name.lower(): code.lower()
+    for code, name in LANGUAGES
+    if code.lower() != "nolang"
+}
+_ISO_CODES = set(_LANGUAGE_NAME_TO_ISO.values())
+
+
+def _language_code(value: Any) -> str | None:
+    """Reduce a RomM language value to an ISO-639-1 code, or None.
+
+    Unknown values are omitted so a broker falls back to its own default
+    instead of failing the launch.
+    """
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower().replace("-", "_")
+    base = normalized.split("_")[0]
+    return _LANGUAGE_NAME_TO_ISO.get(normalized) or (
+        base if base in _ISO_CODES else None
+    )
+
+
+def _call_broker(
+    container: dict[str, Any],
+    rom_path: str,
+    rom_name: str,
+    language: str | None = None,
+    gui_language: str | None = None,
+) -> None:
     """
     POST to the broker's /launch endpoint to tell the emulator container to
     load a ROM.
@@ -361,11 +395,16 @@ def _call_broker(container: dict[str, Any], rom_path: str, rom_name: str) -> Non
     Raises HTTPException if the broker is unreachable or returns an error.
     """
     url = _broker_url(container, "/launch")
+    body = {"rom_path": rom_path, "rom_name": rom_name}
+    if language:
+        body["language"] = language
+    if gui_language:
+        body["gui_language"] = gui_language
     try:
         body = _broker_request(
             container,
             "/launch",
-            body={"rom_path": rom_path, "rom_name": rom_name},
+            body=body,
             timeout=10,
         )
         log.info("broker launched ROM, %s", body)
@@ -537,6 +576,17 @@ async def claim_session(
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
     rom_name = rom.name or rom.fs_name_no_ext
 
+    # The game language comes from the ROM's metadata; the interface locale from
+    # the user's own UI settings. Both are optional, and when no game metadata
+    # exists the broker falls back to the interface locale for the game language.
+    language = None
+    for candidate in rom.languages or []:
+        language = _language_code(candidate)
+        if language:
+            break
+    ui_settings = request.user.ui_settings or {}
+    gui_language = _language_code(ui_settings.get("locale"))
+
     session_key = _container_key(container)
     now = datetime.now(timezone.utc).isoformat()
     session = {
@@ -569,7 +619,9 @@ async def claim_session(
     try:
         # Tell the broker to load the ROM, raises HTTPException on failure.
         # Wrapped in asyncio.to_thread because urllib is synchronous.
-        await asyncio.to_thread(_call_broker, container, rom_path, rom_name)
+        await asyncio.to_thread(
+            _call_broker, container, rom_path, rom_name, language, gui_language
+        )
     except Exception:
         # Launch failed, free the claim so the container isn't wedged.
         await async_cache.delete(_session_redis_key(session_key))

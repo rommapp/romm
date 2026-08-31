@@ -11,7 +11,7 @@ from main import app
 
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_platform_handler, db_rom_handler, db_user_handler
 from handler.database.base_handler import sync_session
 from handler.redis_handler import async_cache
 from models.permission import HiddenEntity, PermEntity
@@ -183,8 +183,44 @@ def test_claim_derives_rom_path_server_side(client, access_token, rom: Rom):
             r = _claim(client, access_token, rom.id)
     assert r.status_code == 200
     assert r.json()["rom_name"] == rom.name
-    _, rom_path, _ = call_broker.call_args[0]
+    _, rom_path, _, _, _ = call_broker.call_args[0]
     assert rom_path == f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+
+
+def test_claim_forwards_language_and_gui_language(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """The broker gets the game language from rom.languages and the interface
+    locale from the user's ui_settings, mapped to ISO-639-1 codes."""
+    db_rom_handler.update_rom(rom.id, {"languages": ["French"]})
+    db_user_handler.update_user(admin_user.id, {"ui_settings": {"locale": "fr_FR"}})
+    with _streaming(_container_for(rom)):
+        with patch("endpoints.streaming._call_broker") as call_broker:
+            r = _claim(client, access_token, rom.id)
+    assert r.status_code == 200
+    _, _, _, language, gui_language = call_broker.call_args[0]
+    assert language == "fr"
+    assert gui_language == "fr"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("French", "fr"),
+        ("FR", "fr"),
+        ("fr_FR", "fr"),
+        ("pt_BR", "pt"),
+        ("No Language", None),
+        ("xx", None),
+        (None, None),
+        (123, None),
+    ],
+)
+def test_language_code(value, expected):
+    """RomM language names, shortcodes and locales all reduce to one ISO code."""
+    from endpoints.streaming import _language_code
+
+    assert _language_code(value) == expected
 
 
 def test_claim_unknown_rom_returns_404(client, access_token):
