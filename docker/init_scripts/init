@@ -300,6 +300,7 @@ watchdog_process_pid() {
 		# Check if the pid we last wrote to our state file is actually active
 		PID=$(cat "/tmp/${PROCESS}.pid") || true
 		if [[ ! -d "/proc/${PID}" ]]; then
+			warn_log "${PROCESS} exited unexpectedly, restarting it"
 			start_bin_"${PROCESS}"
 		fi
 	else

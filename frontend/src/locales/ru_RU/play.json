@@ -1,4 +1,5 @@
 {
+  "all-discs": "Все диски",
   "all-saves": "Все сохранения",
   "all-states": "Все состояния",
   "back-to-gallery": "Вернуться в галерею",
@@ -13,6 +14,8 @@
   "deselect-save": "Снять выбор сохранения",
   "deselect-state": "Снять выбор состояния",
   "full-screen": "Полный экран",
+  "jsdos-browser-save-warning": "Сохранения js-dos хранятся только в этом браузере и не синхронизируются с RomM.",
+  "jsdos-quit-without-saving": "Выйти, не сохраняя недавний прогресс?",
   "no-save-selected": "Сохранение не выбрано",
   "no-saves-available": "Нет доступных сохранений",
   "no-screenshot-available": "Скриншот недоступен",

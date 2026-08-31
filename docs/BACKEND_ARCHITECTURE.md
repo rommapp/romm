@@ -1601,6 +1601,7 @@ Falls back to `FakeRedis` in test mode.
 | `HLTB_API_ENABLED`       | `false` | HowLongToBeat            |
 | `DISABLE_EMULATOR_JS`    | `false` | Hide EmulatorJS player   |
 | `DISABLE_RUFFLE_RS`      | `false` | Hide Ruffle Flash player |
+| `DISABLE_JSDOS`          | `false` | Hide js-dos player       |
 
 #### Task Scheduling
 

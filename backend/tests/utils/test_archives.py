@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from utils import archives
-from utils.zip_cache import _ensure_zipfile_writable
+from utils.zip_cache import ensure_zipfile_writable
 
 
 def _fake_7z_listing(names: list[str]) -> str:
@@ -489,7 +489,7 @@ class TestZipAndTarReadFailures:
     def _write_zip(self, path: Path, members: dict[str, bytes]) -> None:
         # Importing `archives` patches zipfile for Enhanced Deflate, which
         # leaves the writer unusable until this is called.
-        _ensure_zipfile_writable()
+        ensure_zipfile_writable()
         with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as z:
             for name, data in members.items():
                 z.writestr(name, data)

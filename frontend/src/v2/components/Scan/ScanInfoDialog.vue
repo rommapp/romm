@@ -13,6 +13,11 @@
 import { RAvatar, RDialog, RIcon, RTabNav } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import {
+  groupProviders,
+  SETUP_GROUP_LABELS,
+  type MetadataProviderKey,
+} from "@/v2/utils/metadataProviderGroups";
 
 defineProps<{
   modelValue: boolean;
@@ -95,7 +100,7 @@ const scanTypes = computed<ScanTypeRow[]>(() => [
 ]);
 
 interface ProviderRow {
-  id: string;
+  key: MetadataProviderKey;
   name: string;
   /** Logo path under /assets/scrappers/. Matches the same scheme the
    *  heartbeat store uses so consumers and reference share assets. */
@@ -113,29 +118,24 @@ const LOGO_BASE = "/assets/scrappers";
 
 // Static reference set — every text string lives under the wizard's
 // `setup.*` locale namespace so the Setup Wizard's Step 3 and this
-// dialog never drift. Split into three groups, also mirroring the
-// wizard:
-//   * generalProviders   — full-record catalogs (IGDB, MobyGames, …)
-//   * specificProviders  — single-dimension sources (achievements,
-//                          cover art, completion times)
-//   * proxies            — community hash matchers
-const generalProviders: ProviderRow[] = [
+// dialog never drift.
+const providers: ProviderRow[] = [
   {
-    id: "igdb",
+    key: "igdb",
     name: "IGDB",
     logo: `${LOGO_BASE}/igdb.png`,
     descKey: "setup.provider-igdb-desc",
     setupKey: "setup.provider-igdb-setup",
   },
   {
-    id: "ss",
+    key: "ss",
     name: "ScreenScraper",
     logo: `${LOGO_BASE}/ss.png`,
     descKey: "setup.provider-ss-desc",
     setupKey: "setup.provider-ss-setup",
   },
   {
-    id: "moby",
+    key: "moby",
     name: "MobyGames",
     logo: `${LOGO_BASE}/moby.png`,
     descKey: "setup.provider-moby-desc",
@@ -143,7 +143,7 @@ const generalProviders: ProviderRow[] = [
     caveatKey: "setup.provider-moby-caveat",
   },
   {
-    id: "launchbox",
+    key: "launchbox",
     name: "LaunchBox",
     logo: `${LOGO_BASE}/launchbox.png`,
     descKey: "setup.provider-launchbox-desc",
@@ -151,33 +151,38 @@ const generalProviders: ProviderRow[] = [
     caveatKey: "setup.provider-launchbox-caveat",
   },
   {
-    id: "flashpoint",
+    key: "flashpoint",
     name: "Flashpoint",
     logo: `${LOGO_BASE}/flashpoint.png`,
     descKey: "setup.provider-flashpoint-desc",
     setupKey: "setup.provider-flashpoint-setup",
   },
   {
-    id: "demozoo",
+    key: "demozoo",
     name: "Demozoo",
-    logo: `${LOGO_BASE}/demozoo.png?v=2`,
+    logo: `${LOGO_BASE}/demozoo.png`,
     descKey: "setup.provider-demozoo-desc",
     setupKey: "setup.provider-demozoo-setup",
     caveatKey: "setup.provider-demozoo-caveat",
   },
   {
-    id: "pouet",
+    key: "pouet",
     name: "Pouët",
-    logo: `${LOGO_BASE}/pouet.png?v=2`,
+    logo: `${LOGO_BASE}/pouet.png`,
     descKey: "setup.provider-pouet-desc",
     setupKey: "setup.provider-pouet-setup",
     caveatKey: "setup.provider-pouet-caveat",
   },
-];
-
-const specificProviders: ProviderRow[] = [
   {
-    id: "ra",
+    key: "csdb",
+    name: "CSDb",
+    logo: `${LOGO_BASE}/csdb.png`,
+    descKey: "setup.provider-csdb-desc",
+    setupKey: "setup.provider-csdb-setup",
+    caveatKey: "setup.provider-csdb-caveat",
+  },
+  {
+    key: "ra",
     name: "RetroAchievements",
     logo: `${LOGO_BASE}/ra.png`,
     descKey: "setup.provider-ra-desc",
@@ -185,7 +190,7 @@ const specificProviders: ProviderRow[] = [
     caveatKey: "setup.provider-ra-caveat",
   },
   {
-    id: "sgdb",
+    key: "sgdb",
     name: "SteamGridDB",
     logo: `${LOGO_BASE}/sgdb.png`,
     descKey: "setup.provider-sgdb-desc",
@@ -193,18 +198,15 @@ const specificProviders: ProviderRow[] = [
     caveatKey: "setup.provider-sgdb-caveat",
   },
   {
-    id: "hltb",
+    key: "hltb",
     name: "How Long To Beat",
     logo: `${LOGO_BASE}/hltb.png`,
     descKey: "setup.provider-hltb-desc",
     setupKey: "setup.provider-hltb-setup",
     caveatKey: "setup.provider-hltb-caveat",
   },
-];
-
-const proxies: ProviderRow[] = [
   {
-    id: "hasheous",
+    key: "hasheous",
     name: "Hasheous",
     logo: `${LOGO_BASE}/hasheous.png`,
     descKey: "setup.proxy-hasheous-desc",
@@ -212,7 +214,7 @@ const proxies: ProviderRow[] = [
     caveatKey: "setup.proxy-hasheous-caveat",
   },
   {
-    id: "playmatch",
+    key: "playmatch",
     name: "PlayMatch",
     logo: `${LOGO_BASE}/playmatch.png`,
     descKey: "setup.proxy-playmatch-desc",
@@ -220,6 +222,8 @@ const proxies: ProviderRow[] = [
     caveatKey: "setup.proxy-playmatch-caveat",
   },
 ];
+
+const providerGroups = groupProviders(providers, SETUP_GROUP_LABELS);
 
 // Split a multi-line description on double-newline so each paragraph
 // renders in its own `<p>`. Single newlines stay inline.
@@ -274,103 +278,26 @@ function paragraphs(text: string): string[] {
       </div>
 
       <div v-else class="r-v2-scan-info__list">
-        <!-- General providers — full-record catalogs. Section labels
-             and per-provider strings come from the same `setup.*`
-             locale keys the Setup Wizard's Step 3 uses, so the two
-             views stay in sync. -->
-        <section class="r-v2-scan-info__section">
+        <!-- Section labels and per-provider strings come from the same
+             `setup.*` locale keys the Setup Wizard's Step 3 uses, so the
+             two views stay in sync. -->
+        <section
+          v-for="group in providerGroups"
+          :key="group.group"
+          class="r-v2-scan-info__section"
+          :data-group="group.group"
+        >
           <header class="r-v2-scan-info__section-head">
-            <span>{{ t("setup.metadata-catalogs") }}</span>
+            <span>{{ t(group.titleKey) }}</span>
             <p class="r-v2-scan-info__section-hint">
-              {{ t("setup.metadata-catalogs-hint") }}
+              {{ t(group.hintKey) }}
             </p>
           </header>
           <article
-            v-for="p in generalProviders"
-            :key="p.id"
+            v-for="p in group.providers"
+            :key="p.key"
             class="r-v2-scan-info__row r-v2-scan-info__row--provider"
-          >
-            <div class="r-v2-scan-info__row-head">
-              <RAvatar
-                :image="p.logo"
-                size="28"
-                rounded="sm"
-                class="r-v2-scan-info__logo"
-              />
-              <h4 class="r-v2-scan-info__row-name">{{ p.name }}</h4>
-            </div>
-            <div class="r-v2-scan-info__row-desc">
-              <p class="r-v2-scan-info__para">{{ t(p.descKey) }}</p>
-              <div class="r-v2-scan-info__meta">
-                <span class="r-v2-scan-info__pill">
-                  <RIcon icon="mdi-cog-outline" size="11" />
-                  {{ t(p.setupKey) }}
-                </span>
-                <span
-                  v-if="p.caveatKey"
-                  class="r-v2-scan-info__pill r-v2-scan-info__pill--warn"
-                >
-                  <RIcon icon="mdi-alert-circle-outline" size="11" />
-                  {{ t(p.caveatKey) }}
-                </span>
-              </div>
-            </div>
-          </article>
-        </section>
-
-        <!-- Specific providers — single-dimension sources. -->
-        <section class="r-v2-scan-info__section">
-          <header class="r-v2-scan-info__section-head">
-            <span>{{ t("setup.metadata-specialised") }}</span>
-            <p class="r-v2-scan-info__section-hint">
-              {{ t("setup.metadata-specialised-hint") }}
-            </p>
-          </header>
-          <article
-            v-for="p in specificProviders"
-            :key="p.id"
-            class="r-v2-scan-info__row r-v2-scan-info__row--provider"
-          >
-            <div class="r-v2-scan-info__row-head">
-              <RAvatar
-                :image="p.logo"
-                size="28"
-                rounded="sm"
-                class="r-v2-scan-info__logo"
-              />
-              <h4 class="r-v2-scan-info__row-name">{{ p.name }}</h4>
-            </div>
-            <div class="r-v2-scan-info__row-desc">
-              <p class="r-v2-scan-info__para">{{ t(p.descKey) }}</p>
-              <div class="r-v2-scan-info__meta">
-                <span class="r-v2-scan-info__pill">
-                  <RIcon icon="mdi-cog-outline" size="11" />
-                  {{ t(p.setupKey) }}
-                </span>
-                <span
-                  v-if="p.caveatKey"
-                  class="r-v2-scan-info__pill r-v2-scan-info__pill--warn"
-                >
-                  <RIcon icon="mdi-alert-circle-outline" size="11" />
-                  {{ t(p.caveatKey) }}
-                </span>
-              </div>
-            </div>
-          </article>
-        </section>
-
-        <!-- Proxies — community hash matchers. -->
-        <section class="r-v2-scan-info__section">
-          <header class="r-v2-scan-info__section-head">
-            <span>{{ t("setup.metadata-proxies") }}</span>
-            <p class="r-v2-scan-info__section-hint">
-              {{ t("setup.metadata-proxies-hint") }}
-            </p>
-          </header>
-          <article
-            v-for="p in proxies"
-            :key="p.id"
-            class="r-v2-scan-info__row r-v2-scan-info__row--provider"
+            :data-provider="p.key"
           >
             <div class="r-v2-scan-info__row-head">
               <RAvatar

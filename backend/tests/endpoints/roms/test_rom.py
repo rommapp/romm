@@ -1,5 +1,6 @@
 import json
 from unittest.mock import AsyncMock, patch
+from urllib.parse import unquote
 
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -10,6 +11,7 @@ from handler.database.base_handler import sync_session
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
+from handler.metadata.hltb_handler import HLTBHandler, HLTBRom
 from handler.metadata.igdb_handler import IGDBHandler, IGDBRom
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.types import LaunchboxRom
@@ -222,6 +224,35 @@ def test_download_roms_by_platform(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.headers["X-Archive-Files"] == "zip"
+    assert rom_file.file_name in response.text
+
+
+def test_download_roms_by_platform_skips_roms_without_a_file(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    rom_file: RomFile,
+):
+    """A physical game has no files to zip, so it must not swell the archive's
+    ROM count (and therefore its generated name)."""
+    db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="Physical Game",
+            fs_name="Physical Game",
+            fs_path=f"{platform.slug}/roms/.physical",
+            fs_size_bytes=0,
+            is_physical=True,
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/download?platform_id={platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert "1 ROMs" in unquote(response.headers["Content-Disposition"])
     assert rom_file.file_name in response.text
 
 
@@ -777,6 +808,132 @@ def test_update_rom_artwork_uses_detected_extension(
     assert store_artwork_mock.called
     _, _, file_ext = store_artwork_mock.call_args.args
     assert file_ext == "png"
+
+
+@patch.object(
+    FSResourcesHandler,
+    "store_artwork",
+    new_callable=AsyncMock,
+    return_value=("path/to/big.png", "path/to/small.png"),
+)
+def test_update_rom_artwork_locks_the_cover(
+    store_artwork_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    # Supplying a file is the explicit act that locks the cover.
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        files={"artwork": ("cover.png", _PNG_BYTES, "image/png")},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    assert db_rom_handler.get_rom(rom.id).locked_fields == ["url_cover"]
+
+
+@patch.object(
+    FSResourcesHandler,
+    "remove_cover",
+    new_callable=AsyncMock,
+    return_value={"path_cover_s": "", "path_cover_l": ""},
+)
+def test_remove_cover_releases_the_lock(
+    remove_cover_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    # Dropping the hand-supplied cover hands the slot back to the providers.
+    db_rom_handler.update_rom(rom.id, {"locked_fields": ["url_cover"]})
+
+    response = client.put(
+        f"/api/roms/{rom.id}?remove_cover=true",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    assert db_rom_handler.get_rom(rom.id).locked_fields == []
+
+
+@patch.object(
+    FSResourcesHandler,
+    "get_cover",
+    new_callable=AsyncMock,
+    return_value=("path/to/small.png", "path/to/big.png"),
+)
+def test_saving_without_changing_urls_keeps_locks(
+    get_cover_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    # The client posts the stored urls on every save, so a url merely being
+    # present must not release the lock.
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "url_cover": "",
+            "url_manual": "https://ss.fr/manual?id=1",
+            "locked_fields": ["url_cover", "url_manual"],
+        },
+    )
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"url_cover": "", "url_manual": "https://ss.fr/manual?id=1"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    assert db_rom_handler.get_rom(rom.id).locked_fields == [
+        "url_cover",
+        "url_manual",
+    ]
+
+
+@patch.object(
+    FSResourcesHandler,
+    "get_manual",
+    new_callable=AsyncMock,
+    return_value="path/to/manual.pdf",
+)
+@patch.object(
+    FSResourcesHandler,
+    "get_cover",
+    new_callable=AsyncMock,
+    return_value=("path/to/small.png", "path/to/big.png"),
+)
+def test_naming_new_source_urls_releases_both_locks(
+    get_cover_mock: AsyncMock,
+    get_manual_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    # Choosing a provider's artwork is a handover, and both slots release in
+    # the one request.
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "url_cover": "",
+            "url_manual": "https://ss.fr/manual?id=1",
+            "locked_fields": ["url_cover", "url_manual"],
+        },
+    )
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={
+            "url_cover": "https://ss.fr/cover?id=2",
+            "url_manual": "https://ss.fr/manual?id=2",
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    assert db_rom_handler.get_rom(rom.id).locked_fields == []
 
 
 def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
@@ -1406,8 +1563,19 @@ class TestUpdateMetadataIDs:
         body = response.json()
         assert body["hasheous_id"] == MOCK_HASHEOUS_ID
 
-    def test_update_rom_hltb_id(self, client: TestClient, access_token: str, rom: Rom):
-        """Test updating HowLongToBeat ID."""
+    @patch.object(
+        HLTBHandler,
+        "get_rom_by_id",
+        return_value=HLTBRom(hltb_id=MOCK_HLTB_ID, hltb_metadata={"main_story": 92822}),
+    )
+    def test_update_rom_hltb_id(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A hand-entered HowLongToBeat ID has to pull its times down with it."""
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
@@ -1417,6 +1585,28 @@ class TestUpdateMetadataIDs:
 
         body = response.json()
         assert body["hltb_id"] == MOCK_HLTB_ID
+        assert body["hltb_metadata"]["main_story"] == 92822
+        assert get_rom_by_id_mock.called
+
+    @patch.object(HLTBHandler, "get_rom_by_id", return_value=HLTBRom(hltb_id=None))
+    def test_update_rom_hltb_id_persists_when_handler_disabled(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Test that HLTB ID persists when handler is disabled or game not found."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"hltb_id": str(MOCK_HLTB_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["hltb_id"] == MOCK_HLTB_ID
+        assert get_rom_by_id_mock.called
 
 
 class TestUpdateRawMetadata:
@@ -1617,8 +1807,12 @@ class TestUpdateRawMetadata:
         assert body["flashpoint_metadata"]["companies"] == ["Nintendo"]
         assert body["flashpoint_metadata"]["source"] == "Flashpoint"
 
+    @patch.object(
+        HLTBHandler, "get_rom_by_id", return_value=HLTBRom(hltb_id=MOCK_HLTB_ID)
+    )
     def test_update_raw_hltb_metadata(
         self,
+        get_rom_by_id_mock: AsyncMock,
         client: TestClient,
         access_token: str,
         rom: Rom,

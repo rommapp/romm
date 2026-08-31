@@ -42,6 +42,8 @@ SENTINEL_FILTER_VALUES: dict[str, Any] = {
     "franchises": [],
     "collections": [],
     "companies": [],
+    "publishers": [],
+    "developers": [],
     "game_modes": [],
     "age_ratings": [],
     "player_counts": [],

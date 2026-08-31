@@ -13,7 +13,6 @@
 // Both uploadable sections use RDropzone (CTA when empty, overlay over the
 // grid when filled).
 import { RBtn, RDropzone } from "@v2/lib";
-import axios from "axios";
 import { storeToRefs } from "pinia";
 import { computed, defineAsyncComponent, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -27,6 +26,7 @@ import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { errorMessage } from "@/v2/utils/errorMessage";
 
 const ScreenshotsTab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ScreenshotsTab.vue"),
@@ -43,15 +43,6 @@ const IMAGE_EXTENSIONS = new Set([
   "bmp",
   "avif",
 ]);
-
-function errorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const detail = err.response?.data?.detail;
-    if (typeof detail === "string" && detail) return detail;
-    return err.message;
-  }
-  return err instanceof Error ? err.message : String(err);
-}
 
 const props = defineProps<{ rom: DetailedRom }>();
 

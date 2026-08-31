@@ -1,4 +1,5 @@
 {
+  "all-discs": "すべてのディスク",
   "all-saves": "すべてのセーブ",
   "all-states": "すべてのステートセーブ",
   "back-to-gallery": "ギャラリーへ戻る",
@@ -13,6 +14,8 @@
   "deselect-save": "セーブデータを解除",
   "deselect-state": "ステートを解除",
   "full-screen": "全画面",
+  "jsdos-browser-save-warning": "js-dos のセーブデータはこのブラウザーにのみ保存され、RomM とは同期されません。",
+  "jsdos-quit-without-saving": "最近の進行状況を保存せずに終了しますか？",
   "no-save-selected": "セーブデータが選択されていません",
   "no-saves-available": "利用可能なセーブデータがありません",
   "no-screenshot-available": "スクリーンショットはありません",

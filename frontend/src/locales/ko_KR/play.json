@@ -1,4 +1,5 @@
 {
+  "all-discs": "모든 디스크",
   "all-saves": "모든 세이브",
   "all-states": "모든 상태",
   "back-to-gallery": "갤러리로 가기",
@@ -13,6 +14,8 @@
   "deselect-save": "세이브 선택 해제",
   "deselect-state": "상태 선택 해제",
   "full-screen": "전체 화면",
+  "jsdos-browser-save-warning": "js-dos 저장 데이터는 이 브라우저에만 저장되며 RomM과 동기화되지 않습니다.",
+  "jsdos-quit-without-saving": "최근 진행 상황을 저장하지 않고 종료하시겠습니까?",
   "no-save-selected": "선택된 세이브 없음",
   "no-saves-available": "사용 가능한 세이브 없음",
   "no-screenshot-available": "사용 가능한 스크린샷이 없습니다",

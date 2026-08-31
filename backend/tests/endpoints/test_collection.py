@@ -7,10 +7,9 @@ from fastapi import status
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
-from handler.database import db_collection_handler, db_rom_handler
+from handler.database import db_collection_handler
 from handler.filesystem.resources_handler import FSResourcesHandler
 from models.collection import Collection, SmartCollection
-from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 
@@ -52,21 +51,6 @@ def favorite_collection(admin_user: User) -> Collection:
             user_id=admin_user.id,
         )
     )
-
-
-@pytest.fixture
-def second_rom(admin_user: User, platform: Platform) -> Rom:
-    rom = Rom(
-        platform_id=platform.id,
-        name="test_rom_2",
-        slug="test_rom_slug_2",
-        fs_name="test_rom_2.zip",
-        fs_name_no_tags="test_rom_2",
-        fs_name_no_ext="test_rom_2",
-        fs_extension="zip",
-        fs_path=f"{platform.slug}/roms",
-    )
-    return db_rom_handler.add_rom(rom)
 
 
 @pytest.fixture

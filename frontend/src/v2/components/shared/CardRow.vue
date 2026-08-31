@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// CardRow — horizontal-scrolling section used on the Home dashboard to
-// group "Continue playing / Recently added / Favorites / Platforms /
-// Collections". Feature composite; Home is the only caller today.
+// CardRow — horizontal-scrolling section grouping a row of cards under a
+// heading. Shared composite: the Home dashboard groups "Continue playing /
+// Recently added / Favorites / Platforms / Collections" with it, and the
+// Jukebox groups its launch tiles.
 //
 // Renders: header (icon + title + count), the default slot as a
 // horizontal track, and gradient left/right arrow buttons that appear

@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from itertools import batched, chain
 from typing import Any, Final
 
-import pydash
 import socketio  # type: ignore
 from rq import Worker, get_current_job
 from rq.job import Job, JobStatus
@@ -39,10 +38,13 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.metadata import meta_gamelist_handler, meta_hltb_handler
-from handler.metadata.ss_handler import add_ss_auth_to_url
+from handler.metadata import (
+    meta_gamelist_handler,
+    meta_hltb_handler,
+    meta_launchbox_handler,
+)
+from handler.metadata.launchbox_handler.types import LAUNCHBOX_PLATFORMS_DIR
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
-from handler.metadata.ss_handler import get_preferred_media_types
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
 from handler.redis_handler import (
@@ -54,6 +56,8 @@ from handler.redis_handler import (
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
+    build_hashless_fs_rom,
+    download_rom_resources,
     persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
@@ -324,6 +328,28 @@ def _should_get_rom_files(
     )
 
 
+def _should_reparse_tags(
+    scan_type: ScanType,
+    rom: Rom,
+    roms_ids: list[int],
+) -> bool:
+    """Decide if filename tags should be re-read onto an existing rom
+
+    A rom parses its tags when it is first inserted and again when the edit
+    endpoint renames it, but never in between, so a change to `parse_tags` only
+    reaches rows that were scanned after it. A complete rescan or an explicit
+    per-rom selection re-reads them; a hashes rescan does not, since it is
+    scoped to re-reading file bytes.
+
+    Args:
+        scan_type (ScanType): Type of scan to be performed.
+        rom (Rom): The rom whose tags may be re-read.
+        roms_ids (list[int]): List of selected roms to be scanned.
+    """
+
+    return bool(scan_type == ScanType.COMPLETE or (rom and rom.id in roms_ids))
+
+
 def _should_hash_firmware(
     scan_type: ScanType,
     firmware: Firmware | None,
@@ -454,6 +480,17 @@ async def _identify_rom(
                 )
                 return
 
+    # Re-read the filename tags onto an existing entry. Written onto the instance
+    # rather than through update_rom because scan_rom carries these columns
+    # forward from the rom it is handed, and merging its result is what persists
+    # them.
+    if not newly_added and _should_reparse_tags(scan_type, rom, roms_ids):
+        rom.regions = parsed_tags.regions
+        rom.languages = parsed_tags.languages
+        rom.tags = parsed_tags.other_tags
+        rom.revision = parsed_tags.revision
+        rom.version = parsed_tags.version
+
     # Build rom files object before scanning. A reassociated ROM always rebuilds
     # its files so the stale paths from the old filename are replaced.
     should_update_files = reassociated or _should_get_rom_files(
@@ -561,84 +598,13 @@ async def _identify_rom(
     if scan_type == ScanType.HASHES:
         return
 
-    path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-        entity=_added_rom,
-        overwrite=_added_rom.url_cover != rom.url_cover,
-        url_cover=add_ss_auth_to_url(_added_rom.url_cover),
+    await download_rom_resources(
+        added_rom=_added_rom,
+        previous_url_cover=rom.url_cover,
+        previous_url_manual=rom.url_manual,
+        previous_url_screenshots=rom.url_screenshots,
+        metadata_sources=metadata_sources,
     )
-
-    path_manual = await fs_resource_handler.get_manual(
-        rom=_added_rom,
-        overwrite=_added_rom.url_manual != rom.url_manual,
-        url_manual=add_ss_auth_to_url(_added_rom.url_manual),
-    )
-
-    screenshots_changed = pydash.xor(
-        _added_rom.url_screenshots or [], rom.url_screenshots or []
-    )
-    url_screenshots = _added_rom.url_screenshots or []
-    path_screenshots = await fs_resource_handler.get_rom_screenshots(
-        rom=_added_rom,
-        overwrite=bool(screenshots_changed),
-        url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
-    )
-
-    _added_rom.path_cover_s = path_cover_s
-    _added_rom.path_cover_l = path_cover_l
-    _added_rom.path_screenshots = path_screenshots
-    _added_rom.path_manual = path_manual
-
-    # Update the scanned rom with the cover and screenshots paths and update database
-    db_rom_handler.update_rom(
-        _added_rom.id,
-        {
-            "path_cover_s": path_cover_s,
-            "path_cover_l": path_cover_l,
-            "path_screenshots": path_screenshots,
-            "path_manual": path_manual,
-        },
-    )
-
-    # Handle special media files from Screenscraper, ES-DE gamelist.xml and
-    # LaunchBox. Media that didn't land on disk has its recorded path cleared, so
-    # write those dicts back when that happens.
-    preferred_media_types = get_preferred_media_types()
-    media_updates: dict[str, Any] = {}
-
-    if _added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
-        if await fs_resource_handler.store_metadata_media(
-            _added_rom.ss_metadata, preferred_media_types, add_ss_auth_to_url
-        ):
-            media_updates["ss_metadata"] = _added_rom.ss_metadata
-
-    if _added_rom.gamelist_metadata and MetadataSource.GAMELIST in metadata_sources:
-        if await fs_resource_handler.store_metadata_media(
-            _added_rom.gamelist_metadata, preferred_media_types
-        ):
-            media_updates["gamelist_metadata"] = _added_rom.gamelist_metadata
-
-    if _added_rom.launchbox_metadata and MetadataSource.LAUNCHBOX in metadata_sources:
-        if await fs_resource_handler.store_metadata_media(
-            _added_rom.launchbox_metadata, preferred_media_types
-        ):
-            media_updates["launchbox_metadata"] = _added_rom.launchbox_metadata
-
-    if media_updates:
-        db_rom_handler.update_rom(_added_rom.id, media_updates)
-
-    # Store normal and locked badges
-    if _added_rom.ra_metadata and MetadataSource.RA in metadata_sources:
-        for ach in _added_rom.ra_metadata.get("achievements", []):
-            badge_url_lock = ach.get("badge_url_lock", None)
-            badge_path_lock = ach.get("badge_path_lock", None)
-            if badge_url_lock and badge_path_lock:
-                await fs_resource_handler.store_ra_badge(
-                    badge_url_lock, badge_path_lock
-                )
-            badge_url = ach.get("badge_url", None)
-            badge_path = ach.get("badge_path", None)
-            if badge_url and badge_path:
-                await fs_resource_handler.store_ra_badge(badge_url, badge_path)
 
     await socket_manager.emit(
         "scan:scanning_rom",
@@ -710,16 +676,7 @@ async def _scan_selected_roms(
 
             await _identify_rom(
                 platform=platform,
-                fs_rom=FSRom(
-                    fs_name=rom.fs_name,
-                    flat=is_flat,
-                    nested=not is_flat,
-                    files=[],
-                    crc_hash="",
-                    md5_hash="",
-                    sha1_hash="",
-                    ra_hash="",
-                ),
+                fs_rom=build_hashless_fs_rom(rom.fs_name, flat=is_flat),
                 rom=rom,
                 scan_type=scan_type,
                 roms_ids=roms_ids,
@@ -1034,6 +991,40 @@ async def scan_platforms(
     # Initialize HLTB handler (fetches current search endpoint and security token)
     if MetadataSource.HLTB in metadata_sources:
         await meta_hltb_handler.initialize()
+
+    # A local install is read on every lookup; the per-scan switch only decides
+    # whether the cloud store is consulted as well. Both can be empty, and a
+    # lookup against an absent source is silent, so what LaunchBox can actually
+    # read is recorded here rather than left to be inferred from a platform's
+    # worth of empty results.
+    if MetadataSource.LAUNCHBOX in metadata_sources:
+        local_available = meta_launchbox_handler.is_local_enabled()
+        store_available = launchbox_remote_enabled and (
+            await meta_launchbox_handler.is_remote_store_populated()
+        )
+        readable = [
+            name
+            for name, present in (
+                (f"a {hl('local')} install", local_available),
+                (f"the {hl('cloud')} store", store_available),
+            )
+            if present
+        ]
+        if readable:
+            log.info(f"LaunchBox is reading {' and '.join(readable)}")
+        elif launchbox_remote_enabled:
+            log.warning(
+                f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} LaunchBox has nothing "
+                f"to read: no install at {hl(str(LAUNCHBOX_PLATFORMS_DIR))} and the "
+                "cloud store is empty. Run the LaunchBox metadata update task."
+            )
+        else:
+            log.warning(
+                f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} LaunchBox is set to "
+                f"local only and no install was found at "
+                f"{hl(str(LAUNCHBOX_PLATFORMS_DIR))}, so it will match nothing. "
+                "Switch it to cloud, or mount an install there."
+            )
 
     # Resolve the platforms that will actually be scanned. When no platform ids
     # are provided, every filesystem platform is scanned.

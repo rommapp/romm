@@ -1,8 +1,8 @@
-"""Add Demozoo / Pouët match ids and metadata (romm#1796 Phase 0)
+"""Add CSDb match id and metadata
 
-Revision ID: 0108_demozoo_pouet_metadata
-Revises: 0107_roms_dedup_cover_index
-Create Date: 2026-08-16 00:00:00.000000
+Revision ID: 0115_csdb_metadata
+Revises: 0114_demozoo_pouet_metadata
+Create Date: 2026-08-17 00:00:00.000000
 
 """
 
@@ -13,15 +13,13 @@ from sqlalchemy.dialects import postgresql
 
 from utils.database import is_postgresql
 
-# revision identifiers, used by Alembic.
-revision = "0108_demozoo_pouet_metadata"
-down_revision = "0107_roms_dedup_cover_index"
+revision = "0115_csdb_metadata"
+down_revision = "0114_demozoo_pouet_metadata"
 branch_labels = None
 depends_on = None
 
 _NEW_ROMS_COLUMNS: list[tuple[str, sa.types.TypeEngine]] = [
-    ("demozoo_id", sa.Integer()),
-    ("pouet_id", sa.Integer()),
+    ("csdb_id", sa.Integer()),
 ]
 
 _JSON = sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql")
@@ -38,6 +36,8 @@ _BASE_MIRRORED_COLUMNS = [
     ("regions", "regions"),
     ("languages", "languages"),
     ("tags", "tags"),
+    ("publishers", "generated_publishers"),
+    ("developers", "generated_developers"),
 ]
 _PROVIDER_COLUMNS: list[tuple[str, sa.types.TypeEngine]] = [
     ("igdb_id", sa.Integer()),
@@ -49,10 +49,11 @@ _PROVIDER_COLUMNS: list[tuple[str, sa.types.TypeEngine]] = [
     ("tgdb_id", sa.Integer()),
     ("flashpoint_id", sa.String(length=100)),
     ("hltb_id", sa.Integer()),
-    ("gamelist_id", sa.String(length=100)),
-    ("libretro_id", sa.String(length=64)),
     ("demozoo_id", sa.Integer()),
     ("pouet_id", sa.Integer()),
+    ("csdb_id", sa.Integer()),
+    ("gamelist_id", sa.String(length=100)),
+    ("libretro_id", sa.String(length=64)),
 ]
 _PROVIDER_MIRRORED_COLUMNS = [(name, name) for name, _ in _PROVIDER_COLUMNS]
 _FULL_MIRRORED_COLUMNS = _BASE_MIRRORED_COLUMNS + _PROVIDER_MIRRORED_COLUMNS
@@ -108,46 +109,30 @@ def _recreate_triggers(mirrored_columns: list[tuple[str, str]]) -> None:
 
 def upgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        for name, column_type in _NEW_ROMS_COLUMNS:
-            batch_op.add_column(
-                sa.Column(name, column_type, nullable=True), if_not_exists=True
-            )
         batch_op.add_column(
-            sa.Column("demozoo_metadata", _JSON, nullable=True), if_not_exists=True
+            sa.Column("csdb_id", sa.Integer(), nullable=True), if_not_exists=True
         )
         batch_op.add_column(
-            sa.Column("pouet_metadata", _JSON, nullable=True), if_not_exists=True
+            sa.Column("csdb_metadata", _JSON, nullable=True), if_not_exists=True
         )
         batch_op.create_index(
-            "idx_roms_demozoo_id", ["demozoo_id"], unique=False, if_not_exists=True
-        )
-        batch_op.create_index(
-            "idx_roms_pouet_id", ["pouet_id"], unique=False, if_not_exists=True
+            "idx_roms_csdb_id", ["csdb_id"], unique=False, if_not_exists=True
         )
 
     existing = {
         col["name"] for col in inspect(op.get_bind()).get_columns("roms_facets")
     }
-    for name, column_type in _NEW_ROMS_COLUMNS:
-        if name not in existing:
-            op.add_column("roms_facets", sa.Column(name, column_type, nullable=True))
+    if "csdb_id" not in existing:
+        op.add_column("roms_facets", sa.Column("csdb_id", sa.Integer(), nullable=True))
 
     _recreate_triggers(_FULL_MIRRORED_COLUMNS)
 
 
 def downgrade() -> None:
-    previous = [
-        pair
-        for pair in _FULL_MIRRORED_COLUMNS
-        if pair[0] not in {"demozoo_id", "pouet_id"}
-    ]
+    previous = [pair for pair in _FULL_MIRRORED_COLUMNS if pair[0] != "csdb_id"]
     _recreate_triggers(previous)
-    for name, _ in _NEW_ROMS_COLUMNS:
-        op.drop_column("roms_facets", name)
+    op.drop_column("roms_facets", "csdb_id")
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_index("idx_roms_pouet_id", if_exists=True)
-        batch_op.drop_index("idx_roms_demozoo_id", if_exists=True)
-        batch_op.drop_column("pouet_metadata", if_exists=True)
-        batch_op.drop_column("demozoo_metadata", if_exists=True)
-        batch_op.drop_column("pouet_id", if_exists=True)
-        batch_op.drop_column("demozoo_id", if_exists=True)
+        batch_op.drop_index("idx_roms_csdb_id", if_exists=True)
+        batch_op.drop_column("csdb_metadata", if_exists=True)
+        batch_op.drop_column("csdb_id", if_exists=True)

@@ -142,6 +142,15 @@ POUET_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("POUET_API_ENABLED"))
 # CSDb XML webservice, C64 stills; ID only, no search
 CSDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("CSDB_API_ENABLED"))
 
+# UPC LOOKUP (barcode -> title, used when adding physical games by UPC)
+UPC_LOOKUP_ENABLED: Final[bool] = safe_str_to_bool(
+    _get_env("UPC_LOOKUP_ENABLED", "true")
+)
+UPC_LOOKUP_API_KEY: Final[str | None] = _get_env("UPC_LOOKUP_API_KEY")
+UPC_LOOKUP_URL: Final[str] = _get_env(
+    "UPC_LOOKUP_URL", "https://api.upcitemdb.com/prod/trial/lookup"
+)
+
 # AUTH
 ROMM_AUTH_SECRET_KEY: Final[str] = _get_env("ROMM_AUTH_SECRET_KEY", "")
 if not ROMM_AUTH_SECRET_KEY:
@@ -289,6 +298,7 @@ SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
 # EMULATION
 DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_JS"))
 DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))
+DISABLE_JSDOS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_JSDOS"))
 
 # FRONTEND
 KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))

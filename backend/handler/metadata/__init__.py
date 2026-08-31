@@ -14,6 +14,7 @@ from .ra_handler import RAHandler
 from .sgdb_handler import SGDBBaseHandler
 from .ss_handler import SSHandler
 from .tgdb_handler import TGDBHandler
+from .upc_handler import UPCHandler
 
 meta_igdb_handler = IGDBHandler()
 meta_moby_handler = MobyGamesHandler()
@@ -31,3 +32,4 @@ meta_hltb_handler = HLTBHandler()
 meta_demozoo_handler = DemozooHandler()
 meta_pouet_handler = PouetHandler()
 meta_csdb_handler = CsdbHandler()
+meta_upc_handler = UPCHandler()

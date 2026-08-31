@@ -77,19 +77,30 @@ export function useGameActions(
   // delete that 403s.
   const canDelete = computed(() => hasDeleteGrant.value && canEdit.value);
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
-  const { canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
+  const {
+    canPlay: canPlayLocal,
+    canPlayEJS,
+    canPlayJsDos,
+    canPlayRuffle,
+  } = useCanPlay(getRom);
   const streamingStore = useStreamingStore();
 
   // Streaming is the preferred way to play where a container is
   // configured for the platform — the native emulator runs in a
   // separate container and RomM streams it back. Wins over in-browser
   // EJS/Ruffle when both are available.
-  const canPlayStream = computed(() =>
-    Boolean(streamingStore.containerForPlatform(getRom()?.platform_slug)),
-  );
-  const canPlay = computed(
-    () => canPlayStream.value || canPlayEJS.value || canPlayRuffle.value,
-  );
+  const canPlayStream = computed(() => {
+    const rom = getRom();
+    return Boolean(
+      rom?.has_file_on_disk &&
+      streamingStore.containerForPlatform(rom.platform_slug),
+    );
+  });
+  const canPlay = computed(() => canPlayStream.value || canPlayLocal.value);
+
+  // Download, the copied link and the QR code all resolve to the download
+  // endpoint, which has nothing to serve without a file behind the rom.
+  const canDownload = computed(() => Boolean(getRom()?.has_file_on_disk));
 
   const isFavorited = computed(() => {
     const rom = getRom();
@@ -210,7 +221,7 @@ export function useGameActions(
 
   const canShareQR = computed(() => {
     const rom = getRom();
-    return rom ? isNintendoDSRom(rom) : false;
+    return Boolean(rom && rom.has_file_on_disk && isNintendoDSRom(rom));
   });
 
   const canOpenInFlashpoint = computed(() => {
@@ -248,11 +259,16 @@ export function useGameActions(
       if (!ok) return;
     }
 
-    // EmulatorJS cores can require SharedArrayBuffer. Nginx only attaches the
+    // EmulatorJS and js-dos need SharedArrayBuffer. Nginx only attaches the
     // necessary COOP/COEP headers to the player document, so an SPA navigation
     // cannot enable cross-origin isolation. Load the document directly instead.
-    if (!canPlayStream.value && canPlayEJS.value) {
-      window.location.assign(`/rom/${rom.id}/ejs`);
+    const isolated = canPlayJsDos.value
+      ? "jsdos"
+      : canPlayEJS.value
+        ? "ejs"
+        : null;
+    if (!canPlayStream.value && isolated) {
+      window.location.assign(`/rom/${rom.id}/${isolated}`);
       return;
     }
 
@@ -447,6 +463,7 @@ export function useGameActions(
     canManageCollections,
     canShareQR,
     canOpenInFlashpoint,
+    canDownload,
     canPlay,
     canPlayStream,
     canRemoveFromContinuePlaying,

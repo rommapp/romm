@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ManualMetadata } from './ManualMetadata';
+import type { RomCsdbMetadata } from './RomCsdbMetadata';
+import type { RomDemozooMetadata } from './RomDemozooMetadata';
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomFlashpointMetadata } from './RomFlashpointMetadata';
 import type { RomGamelistMetadata } from './RomGamelistMetadata';
@@ -12,6 +14,7 @@ import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
 import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
+import type { RomPouetMetadata } from './RomPouetMetadata';
 import type { RomRAMetadata } from './RomRAMetadata';
 import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
@@ -58,9 +61,9 @@ export type SimpleRomSchema = {
     hasheous_metadata: (RomHasheousMetadata | null);
     flashpoint_metadata: (RomFlashpointMetadata | null);
     hltb_metadata: (RomHLTBMetadata | null);
-    demozoo_metadata: (Record<string, unknown> | null);
-    pouet_metadata: (Record<string, unknown> | null);
-    csdb_metadata: (Record<string, unknown> | null);
+    demozoo_metadata: (RomDemozooMetadata | null);
+    pouet_metadata: (RomPouetMetadata | null);
+    csdb_metadata: (RomCsdbMetadata | null);
     gamelist_metadata: (RomGamelistMetadata | null);
     manual_metadata: (ManualMetadata | null);
     path_cover_small: (string | null);
@@ -89,6 +92,9 @@ export type SimpleRomSchema = {
     created_at: string;
     updated_at: string;
     missing_from_fs: boolean;
+    is_physical: boolean;
+    has_file_on_disk: boolean;
+    upc: (string | null);
     has_notes: boolean;
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;

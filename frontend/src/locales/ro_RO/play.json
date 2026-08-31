@@ -1,4 +1,5 @@
 {
+  "all-discs": "Toate discurile",
   "all-saves": "Toate salvările",
   "all-states": "Toate stările",
   "back-to-gallery": "Înapoi la galerie",
@@ -13,6 +14,8 @@
   "deselect-save": "Deselectează salvare",
   "deselect-state": "Deselectează stare",
   "full-screen": "Ecran complet",
+  "jsdos-browser-save-warning": "Salvările js-dos sunt stocate numai în acest browser și nu sunt sincronizate cu RomM.",
+  "jsdos-quit-without-saving": "Ieși fără a salva progresul recent?",
   "no-save-selected": "Nicio salvare selectată",
   "no-saves-available": "Nicio salvare disponibilă",
   "no-screenshot-available": "Nicio captură disponibilă",
