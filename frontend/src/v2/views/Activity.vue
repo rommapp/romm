@@ -88,6 +88,57 @@ const activities = computed(() =>
   ),
 );
 
+// Matches the backend's device_type for streaming presence entries
+// (endpoints/streaming.py `_STREAMING_DEVICE_TYPE`).
+const STREAMING_DEVICE_TYPE = "streaming";
+
+interface MergedActivity {
+  entry: ActivityEntry;
+  streaming: AdminStreamingSession | null;
+}
+
+// A streaming session's player shell also emits its own generic "web"
+// presence heartbeat alongside the backend's synthesized "streaming" entry,
+// so the same session would otherwise show as two cards. Drop the duplicate
+// and attach the matching Redis session (container === device_id) to the
+// streaming entry so its card can carry the core and a release control.
+const mergedActivities = computed<MergedActivity[]>(() => {
+  const streamingByContainer = new Map(
+    streamingSessions.value.map((s) => [s.container, s] as const),
+  );
+  const streamingUserRoms = new Set(
+    activities.value
+      .filter((e) => e.device_type === STREAMING_DEVICE_TYPE)
+      .map((e) => `${e.user_id}:${e.rom_id}`),
+  );
+  return activities.value
+    .filter(
+      (entry) =>
+        entry.device_type === STREAMING_DEVICE_TYPE ||
+        !streamingUserRoms.has(`${entry.user_id}:${entry.rom_id}`),
+    )
+    .map((entry) => ({
+      entry,
+      streaming:
+        entry.device_type === STREAMING_DEVICE_TYPE
+          ? (streamingByContainer.get(entry.device_id) ?? null)
+          : null,
+    }));
+});
+
+// Streaming sessions with no presence entry at all (desktop sessions, which
+// run no ROM and so never publish one, or a timing race right after claim).
+const orphanStreamingSessions = computed(() => {
+  const matchedContainers = new Set(
+    activities.value
+      .filter((e) => e.device_type === STREAMING_DEVICE_TYPE)
+      .map((e) => e.device_id),
+  );
+  return streamingSessions.value.filter(
+    (s) => !matchedContainers.has(s.container),
+  );
+});
+
 const loading = computed(() => !initialized.value);
 
 function romRoute(entry: ActivityEntry) {
@@ -208,14 +259,16 @@ function elapsedLabel(startedAt: string): string {
     <div class="r-v2-activity__head">
       <div
         class="r-v2-activity__total"
-        :class="{ 'r-v2-activity__total--live': activities.length > 0 }"
+        :class="{ 'r-v2-activity__total--live': mergedActivities.length > 0 }"
       >
         <RIcon
           icon="mdi-access-point"
           size="16"
           class="r-v2-activity__total-icon"
         />
-        <span class="r-v2-activity__total-count">{{ activities.length }}</span>
+        <span class="r-v2-activity__total-count">{{
+          mergedActivities.length
+        }}</span>
         <RTooltip activator="parent" :text="t('activity.total-sessions')" />
       </div>
     </div>
@@ -231,7 +284,7 @@ function elapsedLabel(startedAt: string): string {
     </div>
 
     <EmptyState
-      v-else-if="activities.length === 0"
+      v-else-if="mergedActivities.length === 0"
       variant="boxed"
       icon="mdi-access-point-off"
       :message="t('activity.no-activity')"
@@ -239,7 +292,7 @@ function elapsedLabel(startedAt: string): string {
 
     <div v-else ref="gridRoot" class="r-v2-activity__grid">
       <ActivityCard
-        v-for="(entry, i) in activities"
+        v-for="({ entry, streaming }, i) in mergedActivities"
         :key="`${entry.user_id}-${entry.device_id}`"
         class="r-v2-card-fade"
         :style="{ '--card-fade-i': i }"
@@ -252,14 +305,19 @@ function elapsedLabel(startedAt: string): string {
         :avatar-src="avatarSrc(entry)"
         :elapsed-label="elapsedLabel(entry.started_at)"
         :device-type="entry.device_type"
+        :emulator-label="streaming?.label ?? null"
+        :can-release="isAdmin && !!streaming?.platform"
+        :releasing="!!streaming && releasingContainer === streaming.container"
+        @release="streaming && promptRelease(streaming)"
       />
     </div>
 
-    <!-- Admin-only: emulator streaming sessions held in Redis. Unlike the
-         presence cards above, these persist after the player closes their
-         tab, which is exactly when an admin needs to free the container. -->
+    <!-- Admin-only: streaming sessions with no matching presence entry, e.g.
+         a container's desktop session (runs no ROM, so never publishes one).
+         These persist after the player closes their tab, which is exactly
+         when an admin needs to free the container. -->
     <section
-      v-if="isAdmin && streamingSessions.length > 0"
+      v-if="isAdmin && orphanStreamingSessions.length > 0"
       class="r-v2-activity__streaming"
     >
       <h2 class="r-v2-activity__streaming-title">
@@ -267,7 +325,7 @@ function elapsedLabel(startedAt: string): string {
       </h2>
       <ul class="r-v2-activity__streaming-list">
         <li
-          v-for="session in streamingSessions"
+          v-for="session in orphanStreamingSessions"
           :key="session.container"
           class="r-v2-activity__session"
         >
