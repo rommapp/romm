@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.rom_conversion import promote_single_file_to_folder
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
@@ -341,3 +343,44 @@ def test_screenshot_upload_auto_converts_single_file_rom(
     after = db_rom_handler.get_rom(rom.id)
     assert after.fs_name == "test_rom"
     assert any(f.category == RomFileCategory.SCREENSHOT for f in after.files)
+
+
+async def test_second_upload_racing_a_promotion_keeps_the_rom_in_its_folder(
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    rom = _single_file_rom(
+        platform,
+        admin_user,
+        real_library,
+        fs_name="sf2ce.zip",
+        fs_name_no_ext="sf2ce",
+        fs_extension="zip",
+    )
+    second = db_rom_handler.get_rom(rom.id)
+
+    # Holding both at the mkdir puts them past the collision check together.
+    make_directory = fs_rom_handler.make_directory
+    barrier = asyncio.Barrier(2)
+
+    async def gated_make_directory(path: str) -> None:
+        try:
+            await asyncio.wait_for(barrier.wait(), 0.5)
+        except (TimeoutError, asyncio.BrokenBarrierError):
+            pass
+        await make_directory(path)
+
+    monkeypatch.setattr(fs_rom_handler, "make_directory", gated_make_directory)
+
+    await asyncio.gather(
+        promote_single_file_to_folder(rom),
+        promote_single_file_to_folder(second),
+        return_exceptions=True,
+    )
+
+    inside = real_library / f"{platform.slug}/roms/sf2ce/sf2ce.zip"
+    beside = real_library / f"{platform.slug}/roms/sf2ce.zip"
+    assert inside.exists(), "the loser dragged the ROM back out of its folder"
+    assert not beside.exists()

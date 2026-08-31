@@ -1,3 +1,6 @@
+import asyncio
+from collections import defaultdict
+
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
@@ -8,12 +11,20 @@ from models.rom import Rom
 
 _STAGE_PREFIX = ".romm_tmp_"
 
+# Uploading several files fires a request per file, each promoting the same ROM.
+_promotion_locks: defaultdict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
+
 
 async def promote_single_file_to_folder(rom: Rom) -> Rom:
     """Promote a simple single-file ROM to a folder ROM in place, keeping rom.id
     and every relation. Idempotent; raises RomAlreadyExistsException on a
     folder-name collision.
     """
+    async with _promotion_locks[rom.id]:
+        return await _promote(db_rom_handler.get_rom(rom.id) or rom)
+
+
+async def _promote(rom: Rom) -> Rom:
     if not rom.has_simple_single_file:
         return rom
 
