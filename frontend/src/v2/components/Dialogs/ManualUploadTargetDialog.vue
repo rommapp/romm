@@ -1,9 +1,7 @@
 <script setup lang="ts">
 // ManualUploadTargetDialog — asks the user whether an uploaded manual
 // should live in the shared resources directory (sticks to the ROM in the
-// database) or the ROM's folder on disk (visible to external tools). If
-// the ROM is a simple single-file ROM we skip the dialog and default to
-// resources, same as v1.
+// database) or the ROM's folder on disk (visible to external tools).
 import { RBtn, RDialog, RIcon } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
@@ -29,11 +27,18 @@ const rom = ref<DetailedRom | null>(null);
 const files = ref<File[]>([]);
 const uploading = ref(false);
 
+// Asking only pays off when the destination is genuinely open. A single-file
+// ROM has no folder to put a manual in, and a ROM already holding folder
+// manuals has answered the question once already.
 const handleShow = (payload: Events["showManualUploadTargetDialog"]) => {
   rom.value = payload.rom;
   files.value = payload.files;
   if (payload.rom.has_simple_single_file) {
     void chooseTarget("resources");
+    return;
+  }
+  if (payload.rom.files?.some((file) => file.category === "manual")) {
+    void chooseTarget("folder");
     return;
   }
   show.value = true;
