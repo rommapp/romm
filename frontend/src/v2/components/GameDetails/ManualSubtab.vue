@@ -133,9 +133,7 @@ async function refreshRom() {
   }
 }
 
-// The target dialog picks the destination, and takes a single-file ROM straight
-// to resources without asking, so nothing here can convert one.
-async function handleManualFiles(files: File[]) {
+function handleManualFiles(files: File[]) {
   if (files.length === 0) return;
   emitter?.emit("showManualUploadTargetDialog", { rom: props.rom, files });
 }
