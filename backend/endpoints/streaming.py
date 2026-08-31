@@ -135,6 +135,9 @@ _PLATFORM_CAPABILITIES: dict[str, PlatformCapabilities] = {
     # PCSX2 (ps2) and xemu (xbox): slots 1-9 manual, slot 10 autosave.
     "ps2": {"max_slots": 9, "has_autosave": True, "autosave_slot": 10},
     "xbox": {"max_slots": 9, "has_autosave": True, "autosave_slot": 10},
+    # ScummVM: slots 1-9 manual. Its autosave sits in slot 0, which the GUI
+    # marks write protected, so the broker never targets it.
+    "scummvm": {"max_slots": 9, "has_autosave": False, "autosave_slot": 0},
 }
 
 _NO_CAPABILITIES: PlatformCapabilities = {

@@ -160,6 +160,19 @@ def test_get_config_ships_platform_capabilities(client, access_token):
     }
 
 
+def test_get_config_ships_scummvm_capabilities(client, access_token):
+    """ScummVM is the first platform exposed without a loadable autosave."""
+    container = {"platform": "scummvm", "host": "http://192.168.1.10:3000"}
+    with _streaming(container):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert r.status_code == 200
+    assert r.json()["containers"][0]["capabilities"] == {
+        "max_slots": 9,
+        "has_autosave": False,
+        "autosave_slot": 0,
+    }
+
+
 # ── Claiming ──────────────────────────────────────────────────────────────────
 
 
