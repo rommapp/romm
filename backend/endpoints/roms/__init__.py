@@ -102,7 +102,6 @@ from models.rom import (
 )
 from utils import switch
 from utils.background_tasks import fire_and_forget
-
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
