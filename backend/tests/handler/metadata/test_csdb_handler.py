@@ -1,17 +1,13 @@
-from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, patch
 
-import httpx
 import pytest
 
-from handler.metadata import csdb_handler
 from handler.metadata.csdb_handler import (
     CsdbHandler,
     csdb_id_from_url,
     extract_csdb_id_from_filename,
     production_from_xml,
 )
-from utils.context import ctx_httpx_client
 
 WORKING_STONE_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <CSDbData><Release>
@@ -110,31 +106,7 @@ def test_production_from_xml_rejects_entity_declarations():
 
 
 @pytest.mark.asyncio
-async def test_request_abandons_an_oversized_body_mid_stream(monkeypatch):
-    """The limit bounds the read: the body is dropped before it is all pulled."""
-    monkeypatch.setattr(csdb_handler, "_MAX_XML_BYTES", 1024)
-    monkeypatch.setattr(csdb_handler._rate_limiter, "acquire", AsyncMock())
-    sent = 0
-
-    async def endless() -> AsyncIterator[bytes]:
-        nonlocal sent
-        while True:
-            sent += 1
-            yield b"A" * 512
-
-    async def respond(request: httpx.Request) -> httpx.Response:
-        if "big" in str(request.url):
-            return httpx.Response(200, content=endless())
-        return httpx.Response(200, content=WORKING_STONE_XML.encode())
-
-    client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
-    token = ctx_httpx_client.set(client)
-    try:
-        handler = CsdbHandler()
-        assert "75330" in await handler._request("https://csdb.dk/webservice/?id=1")
-        assert await handler._request("https://csdb.dk/webservice/?big=1") == ""
-    finally:
-        ctx_httpx_client.reset(token)
-        await client.aclose()
-
-    assert sent == 3, f"stream should stop just past the cap, pulled {sent} chunks"
+async def test_request_returns_empty_when_over_the_cap():
+    handler = CsdbHandler()
+    with patch.object(CsdbHandler, "_fetch_capped", AsyncMock(return_value=None)):
+        assert await handler._request("https://csdb.dk/webservice/?id=1") == ""

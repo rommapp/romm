@@ -16,11 +16,16 @@ from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
 )
+from utils.context import ctx_httpx_client
 
 jarowinkler = JaroWinkler()
 
 
 METADATA_FIXTURES_DIR: Final = Path(__file__).parent / "fixtures"
+
+# Providers are third parties; a response is read only this far before it is dropped.
+MAX_RESPONSE_BYTES: Final[int] = 1_000_000
+REQUEST_TIMEOUT: Final[int] = 25
 
 # These are loaded in cache in update_switch_titledb_task
 SWITCH_TITLEDB_REGEX: Final = re.compile(r"(70[0-9]{12})")
@@ -138,6 +143,25 @@ class MetadataHandler(abc.ABC):
     @abc.abstractmethod
     def is_enabled(cls) -> bool:
         """Return whether this metadata handler is enabled."""
+
+    async def _fetch_capped(
+        self, url: str, *, headers: Mapping[str, str]
+    ) -> bytes | None:
+        """Stream a body, returning None rather than reading past the cap."""
+        httpx_client = ctx_httpx_client.get()
+        body = bytearray()
+        async with httpx_client.stream(
+            "GET", url, headers=dict(headers), timeout=REQUEST_TIMEOUT
+        ) as res:
+            res.raise_for_status()
+            async for chunk in res.aiter_bytes():
+                body += chunk
+                if len(body) > MAX_RESPONSE_BYTES:
+                    log.warning(
+                        "Response from %s exceeds %s bytes", url, MAX_RESPONSE_BYTES
+                    )
+                    return None
+        return bytes(body)
 
     def normalize_cover_url(self, url: str) -> str:
         return url if not url else f"https:{url.replace('https:', '')}"

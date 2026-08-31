@@ -7,6 +7,7 @@ Never parse ``prod.php`` HTML (ambiguous titles stay unmatched).
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -312,21 +313,22 @@ class PouetHandler(MetadataHandler):
 
     async def _request(self, url: str) -> dict:
         await _rate_limiter.acquire()
-        httpx_client = ctx_httpx_client.get()
         headers = {
             "User-Agent": f"RomM/{get_version()} (+https://github.com/rommapp/romm/issues/1796)",
             "Accept": "application/json",
         }
         try:
-            res = await httpx_client.get(url, headers=headers, timeout=25)
-            res.raise_for_status()
-            data = res.json()
+            body = await self._fetch_capped(url, headers=headers)
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
             log.warning("Can't connect to Pouët API", extra={"exception": str(exc)})
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to Pouët API, check your internet connection",
             ) from exc
+        if body is None:
+            return {}
+        try:
+            data = json.loads(body)
         except ValueError as exc:
             log.error("Error decoding JSON from Pouët: %s", exc)
             return {}
@@ -369,16 +371,18 @@ class PouetHandler(MetadataHandler):
             "User-Agent": f"RomM/{get_version()} (+https://github.com/rommapp/romm/issues/1796)",
             "Accept": "text/html,application/xhtml+xml",
         }
+        # Streamed and never read: an ambiguous title answers 200 with HTML we
+        # have no use for, and only the redirect header carries the id.
         try:
-            res = await httpx_client.get(
-                url, headers=headers, timeout=25, follow_redirects=False
-            )
+            async with httpx_client.stream(
+                "GET", url, headers=headers, timeout=25, follow_redirects=False
+            ) as res:
+                if res.status_code not in {301, 302, 303, 307, 308}:
+                    return None
+                return pouet_id_from_location(res.headers.get("location") or "")
         except (httpx.ConnectError, httpx.ReadTimeout) as exc:
             log.warning("Pouët title search failed: %s", exc)
             return None
-        if res.status_code not in {301, 302, 303, 307, 308}:
-            return None
-        return pouet_id_from_location(res.headers.get("location") or "")
 
     async def get_rom(self, fs_name: str, platform_slug: str) -> PouetRom:
         """Tag first; otherwise unique-title 302. No HTML list parse."""

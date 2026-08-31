@@ -19,7 +19,6 @@ from fastapi import HTTPException, status
 from config import CSDB_API_ENABLED
 from logger.logger import log
 from utils import get_version
-from utils.context import ctx_httpx_client
 from utils.rate_limiter import RateLimiter
 
 from .base_handler import BaseRom, MetadataHandler
@@ -28,7 +27,6 @@ from .demozoo_handler import build_scene_summary, http_url
 CSDB_TAG_REGEX = re.compile(r"\(csdb-(\d+)\)", re.IGNORECASE)
 CSDB_WEBSERVICE: Final[str] = "https://csdb.dk/webservice/"
 CSDB_RELEASE_PAGE: Final[str] = "https://csdb.dk/release/?id={id}"
-_MAX_XML_BYTES: Final[int] = 1_000_000
 _rate_limiter = RateLimiter(1.5)
 
 
@@ -172,23 +170,12 @@ class CsdbHandler(MetadataHandler):
 
     async def _request(self, url: str) -> str:
         await _rate_limiter.acquire()
-        httpx_client = ctx_httpx_client.get()
         headers = {
             "User-Agent": f"RomM/{get_version()} (+https://github.com/rommapp/romm/issues/1796)",
             "Accept": "application/xml, text/xml, */*",
         }
-        # Streamed so an oversized body is dropped without reading it all.
-        body = bytearray()
         try:
-            async with httpx_client.stream(
-                "GET", url, headers=headers, timeout=25
-            ) as res:
-                res.raise_for_status()
-                async for chunk in res.aiter_bytes():
-                    body += chunk
-                    if len(body) > _MAX_XML_BYTES:
-                        log.warning("CSDb response exceeds %s bytes", _MAX_XML_BYTES)
-                        return ""
+            body = await self._fetch_capped(url, headers=headers)
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
             log.warning(
                 "Can't connect to CSDb webservice", extra={"exception": str(exc)}
@@ -197,6 +184,8 @@ class CsdbHandler(MetadataHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to CSDb, check your internet connection",
             ) from exc
+        if body is None:
+            return ""
         return body.decode("utf-8", errors="replace")
 
     async def heartbeat(self) -> bool:

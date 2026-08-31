@@ -347,3 +347,10 @@ def test_youtube_id_must_be_ascii():
         }
     )
     assert rom["demozoo_metadata"]["youtube_video_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_request_returns_empty_when_over_the_cap():
+    handler = DemozooHandler()
+    with patch.object(DemozooHandler, "_fetch_capped", AsyncMock(return_value=None)):
+        assert await handler._request("https://demozoo.org/api/v1/x") == {}

@@ -8,6 +8,7 @@ Public JSON API, no key.
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -17,8 +18,7 @@ from fastapi import HTTPException, status
 
 from config import DEMOZOO_API_ENABLED
 from logger.logger import log
-from utils import get_version
-from utils.context import ctx_httpx_client
+from utils import get_version, valid_youtube_id
 from utils.rate_limiter import RateLimiter
 
 from .base_handler import BaseRom, MetadataHandler
@@ -32,7 +32,6 @@ DEMOZOO_API_ROOT: Final[str] = "https://demozoo.org/api/v1"
 DEMOZOO_PROD_PAGE: Final[str] = "https://demozoo.org/productions/{id}/"
 POUET_PROD_PAGE: Final[str] = "https://www.pouet.net/prod.php?which={id}"
 YOUTUBE_WATCH: Final[str] = "https://www.youtube.com/watch?v={id}"
-YOUTUBE_ID_RE = re.compile(r"[A-Za-z0-9_-]{11}")
 # Overview notes stay one clause; Demozoo editorial text is rare and long.
 _NOTES_MAX_LEN: Final[int] = 80
 # Demozoo asks for a polite UA; stay well under burst.
@@ -97,8 +96,7 @@ def _youtube_id_from_url(url: str) -> str | None:
     parsed = urlparse(url.strip())
     host = parsed.netloc.lower().removeprefix("www.")
     if host in {"youtu.be", "m.youtu.be"}:
-        vid = parsed.path.lstrip("/").split("/", 1)[0]
-        return vid if _looks_like_youtube_id(vid) else None
+        return valid_youtube_id(parsed.path.lstrip("/").split("/", 1)[0])
     if host not in {
         "youtube.com",
         "m.youtube.com",
@@ -107,20 +105,12 @@ def _youtube_id_from_url(url: str) -> str | None:
     }:
         return None
     qs = parse_qs(parsed.query)
-    if qs.get("v") and _looks_like_youtube_id(qs["v"][0]):
-        return qs["v"][0]
+    if qs.get("v"):
+        return valid_youtube_id(qs["v"][0])
     parts = [p for p in parsed.path.split("/") if p]
-    if (
-        len(parts) >= 2
-        and parts[0] in {"embed", "shorts", "v", "live", "e"}
-        and _looks_like_youtube_id(parts[1])
-    ):
-        return parts[1]
+    if len(parts) >= 2 and parts[0] in {"embed", "shorts", "v", "live", "e"}:
+        return valid_youtube_id(parts[1])
     return None
-
-
-def _looks_like_youtube_id(value: str) -> bool:
-    return bool(YOUTUBE_ID_RE.fullmatch(value))
 
 
 def _pouet_id_from_url(url: str) -> int | None:
@@ -516,21 +506,22 @@ class DemozooHandler(MetadataHandler):
 
     async def _request(self, url: str) -> dict:
         await _rate_limiter.acquire()
-        httpx_client = ctx_httpx_client.get()
         headers = {
             "User-Agent": f"RomM/{get_version()} (+https://github.com/rommapp/romm/issues/1796)",
             "Accept": "application/json",
         }
         try:
-            res = await httpx_client.get(url, headers=headers, timeout=25)
-            res.raise_for_status()
-            data = res.json()
+            body = await self._fetch_capped(url, headers=headers)
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
             log.warning("Can't connect to Demozoo API", extra={"exception": str(exc)})
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to Demozoo API, check your internet connection",
             ) from exc
+        if body is None:
+            return {}
+        try:
+            data = json.loads(body)
         except ValueError as exc:
             log.error("Error decoding JSON from Demozoo: %s", exc)
             return {}

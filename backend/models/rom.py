@@ -44,6 +44,7 @@ from models.base import (
     BaseModel,
     compute_file_name_parts,
 )
+from utils import valid_youtube_id
 from utils.database import CustomJSON
 
 # Max length of the precomputed natural-sort key column.
@@ -701,29 +702,17 @@ class Rom(BaseModel):
     # Metadata fields
     @property
     def youtube_video_id(self) -> str | None:
-        igdb_video_id = (
-            self.igdb_metadata.get("youtube_video_id", None)
-            if self.igdb_metadata
-            else None
-        )
-        lb_video_id = (
-            self.launchbox_metadata.get("youtube_video_id", None)
-            if self.launchbox_metadata
-            else None
-        )
-
-        dz_video_id = (
-            self.demozoo_metadata.get("youtube_video_id", None)
-            if self.demozoo_metadata
-            else None
-        )
-        pq_video_id = (
-            self.pouet_metadata.get("youtube_video_id", None)
-            if self.pouet_metadata
-            else None
-        )
-
-        return igdb_video_id or lb_video_id or dz_video_id or pq_video_id
+        """The blobs are client-writable, so validate on read, not on scan."""
+        for blob in (
+            self.igdb_metadata,
+            self.launchbox_metadata,
+            self.demozoo_metadata,
+            self.pouet_metadata,
+        ):
+            video_id = valid_youtube_id(blob.get("youtube_video_id")) if blob else None
+            if video_id:
+                return video_id
+        return None
 
     @property
     def alternative_names(self) -> list[str]:
