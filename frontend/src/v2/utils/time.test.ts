@@ -38,7 +38,7 @@ describe("formatReleaseDate", () => {
   });
 
   it("returns null for missing or unusable values", () => {
-    for (const value of [undefined, null, 0, "", "not-a-date"]) {
+    for (const value of [undefined, null, 0, "0", "", "not-a-date"]) {
       expect(formatReleaseDate(value, "en-US")).toBeNull();
     }
   });
@@ -50,7 +50,7 @@ describe("releaseYear", () => {
   });
 
   it("returns null for missing or unusable values", () => {
-    for (const value of [undefined, null, 0, "nope"]) {
+    for (const value of [undefined, null, 0, "0", "nope"]) {
       expect(releaseYear(value)).toBeNull();
     }
   });

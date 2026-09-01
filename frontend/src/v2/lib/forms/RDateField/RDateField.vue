@@ -57,7 +57,8 @@ interface Props {
   /** Disable opening the picker. RTextField also accepts `disabled` —
    *  we forward it to the field so it gets the muted look too. */
   disabled?: boolean;
-  /** Override the display format. Defaults to `dateStyle: medium`. */
+  /** Override the display format. Defaults to `dateStyle: medium`. The
+   *  timezone is fixed to UTC and can't be overridden here. */
   displayFormat?: Intl.DateTimeFormatOptions;
   /** Render an inline X next to the calendar icon when a date is set.
    *  Mirrors RTextField's clearable affordance so the two primitives
@@ -102,9 +103,11 @@ const maxDate = computed(() => toDate(props.max));
 // = navigator default, same call shape Intl prefers for "user locale".
 const displayValue = computed(() => {
   if (!selectedDate.value) return "";
+  // timeZone last: the value is a UTC calendar date, so a caller-supplied
+  // zone would only desync the label from the grid.
   return new Intl.DateTimeFormat(undefined, {
-    timeZone: "UTC",
     ...props.displayFormat,
+    timeZone: "UTC",
   }).format(selectedDate.value);
 });
 

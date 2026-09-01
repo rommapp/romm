@@ -46,6 +46,16 @@ describe("RDateField", () => {
     expect(wrapper.get("input").element.value).toBe("Mar 15, 2024");
   });
 
+  it("does not let displayFormat move the label off UTC", () => {
+    const wrapper = mount(RDateField, {
+      props: {
+        modelValue: Date.UTC(2024, 2, 15),
+        displayFormat: { dateStyle: "medium", timeZone: "America/New_York" },
+      },
+    });
+    expect(wrapper.get("input").element.value).toBe("Mar 15, 2024");
+  });
+
   it("opens on the month of the selected value", async () => {
     await openPicker();
     expect(document.querySelector(".r-date-cal__title")?.textContent).toContain(
