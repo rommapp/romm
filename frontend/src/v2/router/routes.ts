@@ -29,6 +29,7 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   // Wave 3 — Gallery
   platform: () => import("@/v2/views/Gallery/Platform.vue"),
   search: () => import("@/v2/views/Gallery/Search.vue"),
+  music: () => import("@/v2/views/Jukebox/index.vue"),
   collection: () => import("@/v2/views/Gallery/Collection.vue"),
   "virtual-collection": () => import("@/v2/views/Gallery/Collection.vue"),
   "smart-collection": () => import("@/v2/views/Gallery/Collection.vue"),

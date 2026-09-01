@@ -938,3 +938,17 @@ export const ARCADE_SYSTEMS = new Set(["arcade", "neogeoaes", "neogeomvs"]);
 export function isArcadeSystem(platformSlug: string): boolean {
   return ARCADE_SYSTEMS.has(platformSlug.toLowerCase());
 }
+
+/** Fisher-Yates shuffle returning a new array. `random` is injectable so
+ *  callers can make shuffled output deterministic under test. */
+export function shuffled<T>(
+  items: T[],
+  random: () => number = Math.random,
+): T[] {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(random() * (index + 1));
+    [result[index], result[target]] = [result[target], result[index]];
+  }
+  return result;
+}

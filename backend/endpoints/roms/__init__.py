@@ -64,16 +64,20 @@ from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
 from handler.metadata import (
+    meta_csdb_handler,
+    meta_demozoo_handler,
     meta_flashpoint_handler,
     meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
     meta_playmatch_handler,
+    meta_pouet_handler,
     meta_ra_handler,
     meta_ss_handler,
     meta_steam_handler,
     meta_upc_handler,
+    scene_id_or_none,
 )
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
@@ -203,6 +207,9 @@ class RomUpdateForm(BaseModel):
     tgdb_id: str | None = Field(default=None, description="TheGamesDB game ID.")
     flashpoint_id: str | None = Field(default=None, description="Flashpoint game ID.")
     hltb_id: str | None = Field(default=None, description="HowLongToBeat game ID.")
+    demozoo_id: str | None = Field(default=None, description="Demozoo production ID.")
+    pouet_id: str | None = Field(default=None, description="Pouët production ID.")
+    csdb_id: str | None = Field(default=None, description="CSDb release ID.")
     steam_id: str | None = Field(default=None, description="Steam app ID.")
     libretro_id: str | None = Field(default=None, description="Libretro thumbnail ID.")
     raw_igdb_metadata: str | None = Field(
@@ -225,6 +232,15 @@ class RomUpdateForm(BaseModel):
     )
     raw_hltb_metadata: str | None = Field(
         default=None, description="Raw HowLongToBeat metadata as JSON string."
+    )
+    raw_demozoo_metadata: str | None = Field(
+        default=None, description="Raw Demozoo metadata as JSON string."
+    )
+    raw_pouet_metadata: str | None = Field(
+        default=None, description="Raw Pouët metadata as JSON string."
+    )
+    raw_csdb_metadata: str | None = Field(
+        default=None, description="Raw CSDb metadata as JSON string."
     )
     raw_steam_metadata: str | None = Field(
         default=None, description="Raw Steam metadata as JSON string."
@@ -283,6 +299,9 @@ async def parse_rom_update_form(
     tgdb_id: str | None = Form(default=None),
     flashpoint_id: str | None = Form(default=None),
     hltb_id: str | None = Form(default=None),
+    demozoo_id: str | None = Form(default=None),
+    pouet_id: str | None = Form(default=None),
+    csdb_id: str | None = Form(default=None),
     steam_id: str | None = Form(default=None),
     libretro_id: str | None = Form(default=None),
     raw_igdb_metadata: str | None = Form(default=None),
@@ -292,6 +311,9 @@ async def parse_rom_update_form(
     raw_hasheous_metadata: str | None = Form(default=None),
     raw_flashpoint_metadata: str | None = Form(default=None),
     raw_hltb_metadata: str | None = Form(default=None),
+    raw_demozoo_metadata: str | None = Form(default=None),
+    raw_pouet_metadata: str | None = Form(default=None),
+    raw_csdb_metadata: str | None = Form(default=None),
     raw_steam_metadata: str | None = Form(default=None),
     raw_manual_metadata: str | None = Form(default=None),
     name: str | None = Form(default=None),
@@ -314,6 +336,9 @@ async def parse_rom_update_form(
         "tgdb_id": tgdb_id,
         "flashpoint_id": flashpoint_id,
         "hltb_id": hltb_id,
+        "demozoo_id": demozoo_id,
+        "pouet_id": pouet_id,
+        "csdb_id": csdb_id,
         "steam_id": steam_id,
         "libretro_id": libretro_id,
         "raw_igdb_metadata": raw_igdb_metadata,
@@ -323,6 +348,9 @@ async def parse_rom_update_form(
         "raw_hasheous_metadata": raw_hasheous_metadata,
         "raw_flashpoint_metadata": raw_flashpoint_metadata,
         "raw_hltb_metadata": raw_hltb_metadata,
+        "raw_demozoo_metadata": raw_demozoo_metadata,
+        "raw_pouet_metadata": raw_pouet_metadata,
+        "raw_csdb_metadata": raw_csdb_metadata,
         "raw_steam_metadata": raw_steam_metadata,
         "raw_manual_metadata": raw_manual_metadata,
         "name": name,
@@ -581,8 +609,8 @@ def get_roms(
         Query(
             description=(
                 "Matched metadata provider (igdb, moby, ss, ra, launchbox, hasheous,"
-                " flashpoint, hltb, steam, gamelist, libretro). Multiple values are"
-                " allowed by"
+                " flashpoint, hltb, demozoo, pouet, csdb, steam, gamelist,"
+                " libretro). Multiple values are allowed by"
                 " repeating the parameter, and results that match any of the values"
                 " will be returned."
             ),
@@ -1835,6 +1863,9 @@ async def update_rom(
                 "tgdb_id": None,
                 "flashpoint_id": None,
                 "hltb_id": None,
+                "demozoo_id": None,
+                "pouet_id": None,
+                "csdb_id": None,
                 "steam_id": None,
                 "libretro_id": None,
                 "name": rom.fs_name,
@@ -1855,6 +1886,9 @@ async def update_rom(
                 "hasheous_metadata": {},
                 "flashpoint_metadata": {},
                 "hltb_metadata": {},
+                "demozoo_metadata": {},
+                "pouet_metadata": {},
+                "csdb_metadata": {},
                 "steam_metadata": {},
                 "revision": "",
                 "gamelist_metadata": {},
@@ -1921,6 +1955,21 @@ async def update_rom(
             if "hltb_id" in provided_fields
             else rom.hltb_id
         ),
+        "demozoo_id": (
+            scene_id_or_none(form_data.demozoo_id, "demozoo")
+            if "demozoo_id" in provided_fields
+            else rom.demozoo_id
+        ),
+        "pouet_id": (
+            scene_id_or_none(form_data.pouet_id, "pouet")
+            if "pouet_id" in provided_fields
+            else rom.pouet_id
+        ),
+        "csdb_id": (
+            scene_id_or_none(form_data.csdb_id, "csdb")
+            if "csdb_id" in provided_fields
+            else rom.csdb_id
+        ),
         "steam_id": (
             safe_int_or_none(form_data.steam_id)
             if "steam_id" in provided_fields
@@ -1941,6 +1990,9 @@ async def update_rom(
     raw_hasheous_metadata = parse_raw_metadata(form_data, "raw_hasheous_metadata")
     raw_flashpoint_metadata = parse_raw_metadata(form_data, "raw_flashpoint_metadata")
     raw_hltb_metadata = parse_raw_metadata(form_data, "raw_hltb_metadata")
+    raw_demozoo_metadata = parse_raw_metadata(form_data, "raw_demozoo_metadata")
+    raw_pouet_metadata = parse_raw_metadata(form_data, "raw_pouet_metadata")
+    raw_csdb_metadata = parse_raw_metadata(form_data, "raw_csdb_metadata")
     raw_steam_metadata = parse_raw_metadata(form_data, "raw_steam_metadata")
     raw_manual_metadata = parse_raw_metadata(form_data, "raw_manual_metadata")
     if cleaned_data["igdb_id"] and raw_igdb_metadata is not None:
@@ -1957,6 +2009,12 @@ async def update_rom(
         cleaned_data["flashpoint_metadata"] = raw_flashpoint_metadata
     if cleaned_data["hltb_id"] and raw_hltb_metadata is not None:
         cleaned_data["hltb_metadata"] = raw_hltb_metadata
+    if cleaned_data["demozoo_id"] and raw_demozoo_metadata is not None:
+        cleaned_data["demozoo_metadata"] = raw_demozoo_metadata
+    if cleaned_data["pouet_id"] and raw_pouet_metadata is not None:
+        cleaned_data["pouet_metadata"] = raw_pouet_metadata
+    if cleaned_data["csdb_id"] and raw_csdb_metadata is not None:
+        cleaned_data["csdb_metadata"] = raw_csdb_metadata
     if cleaned_data["steam_id"] and raw_steam_metadata is not None:
         cleaned_data["steam_metadata"] = raw_steam_metadata
     if raw_manual_metadata is not None:
@@ -2031,6 +2089,31 @@ async def update_rom(
     elif rom.igdb_id and not cleaned_data["igdb_id"]:
         cleaned_data.update({"igdb_id": None, "igdb_metadata": {}})
 
+    if cleaned_data["demozoo_id"] and int(cleaned_data["demozoo_id"]) != rom.demozoo_id:
+        demozoo_rom = await meta_demozoo_handler.get_rom_by_id(
+            int(cleaned_data["demozoo_id"])
+        )
+        if demozoo_rom.get("demozoo_id"):
+            cleaned_data.update(demozoo_rom)
+    elif rom.demozoo_id and not cleaned_data["demozoo_id"]:
+        cleaned_data.update({"demozoo_id": None, "demozoo_metadata": {}})
+
+    if cleaned_data["pouet_id"] and int(cleaned_data["pouet_id"]) != rom.pouet_id:
+        pouet_rom = await meta_pouet_handler.get_rom_by_id(
+            int(cleaned_data["pouet_id"])
+        )
+        if pouet_rom.get("pouet_id"):
+            cleaned_data.update(pouet_rom)
+    elif rom.pouet_id and not cleaned_data["pouet_id"]:
+        cleaned_data.update({"pouet_id": None, "pouet_metadata": {}})
+
+    if cleaned_data["csdb_id"] and int(cleaned_data["csdb_id"]) != rom.csdb_id:
+        csdb_rom = await meta_csdb_handler.get_rom_by_id(int(cleaned_data["csdb_id"]))
+        if csdb_rom.get("csdb_id"):
+            cleaned_data.update(csdb_rom)
+    elif rom.csdb_id and not cleaned_data["csdb_id"]:
+        cleaned_data.update({"csdb_id": None, "csdb_metadata": {}})
+
     if cleaned_data["hltb_id"] and int(cleaned_data["hltb_id"]) != rom.hltb_id:
         hltb_rom = await meta_hltb_handler.get_rom_by_id(int(cleaned_data["hltb_id"]))
         if hltb_rom.get("hltb_id"):
@@ -2093,9 +2176,14 @@ async def update_rom(
             }
         )
 
+    # Cover and manual both take and release locks, so they accumulate into one
+    # running set rather than each deriving from the same pre-update state.
+    locked_fields = set(rom.locked_fields or [])
+
     if remove_cover:
         cleaned_data.update(await fs_resource_handler.remove_cover(rom))
         cleaned_data.update({"url_cover": ""})
+        locked_fields.discard("url_cover")
     else:
         if artwork is not None and artwork.filename is not None:
             file_ext = validate_image_upload(artwork, label="Artwork")
@@ -2105,6 +2193,8 @@ async def update_rom(
                 path_cover_s,
             ) = await fs_resource_handler.store_artwork(rom, artwork_content, file_ext)
 
+            # Supplying a file is the explicit act that locks the cover; the
+            # lock outlives the file, so losing it to a scan can't unlock it.
             cleaned_data.update(
                 {
                     "url_cover": "",
@@ -2112,6 +2202,7 @@ async def update_rom(
                     "path_cover_l": path_cover_l,
                 }
             )
+            locked_fields.add("url_cover")
         else:
             url_cover = (
                 form_data.url_cover if "url_cover" in provided_fields else rom.url_cover
@@ -2129,6 +2220,10 @@ async def update_rom(
                         "path_cover_l": path_cover_l,
                     }
                 )
+                # The client posts the stored url on every save, so only a url
+                # that actually changed counts as a handover back to providers.
+                if url_cover and url_cover != rom.url_cover:
+                    locked_fields.discard("url_cover")
             except ValidationError as e:
                 log.error(f"Invalid cover URL in update_rom: {str(e)}")
                 raise HTTPException(status_code=400, detail=str(e)) from e
@@ -2148,9 +2243,14 @@ async def update_rom(
                 "path_manual": path_manual,
             }
         )
+        # Same handover rule as the cover.
+        if url_manual and url_manual != rom.url_manual:
+            locked_fields.discard("url_manual")
     except ValidationError as e:
         log.error(f"Invalid manual URL in update_rom: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+    cleaned_data["locked_fields"] = sorted(locked_fields)
 
     # Handle RetroAchievements badges when the ID has changed
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:

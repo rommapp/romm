@@ -4,8 +4,8 @@ Adds ``roms.steam_id`` / ``roms.steam_metadata`` and mirrors the id into
 ``roms_facets``. That mirror is trigger-maintained, so the triggers are
 recreated over the wider column set.
 
-Revision ID: 0113_add_steam_metadata
-Revises: 0112_publisher_developer_split
+Revision ID: 0115_add_steam_metadata
+Revises: 0114_demozoo_pouet_csdb_metadata
 Create Date: 2026-08-19 00:00:00.000000
 
 """
@@ -18,14 +18,14 @@ from sqlalchemy.dialects import postgresql
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0113_add_steam_metadata"
-down_revision = "0112_publisher_developer_split"
+revision = "0115_add_steam_metadata"
+down_revision = "0114_demozoo_pouet_csdb_metadata"
 branch_labels = None
 depends_on = None
 
 
 # (roms_facets column, roms source column) pairs the triggers keep in sync.
-# Must match migration 0112's final list, which this revision appends to.
+# Must match migration 0114's final list, which this revision appends to.
 _MIRRORED_COLUMNS_BEFORE = [
     ("platform_id", "platform_id"),
     ("genres", "generated_genres"),
@@ -49,6 +49,9 @@ _MIRRORED_COLUMNS_BEFORE = [
     ("tgdb_id", "tgdb_id"),
     ("flashpoint_id", "flashpoint_id"),
     ("hltb_id", "hltb_id"),
+    ("demozoo_id", "demozoo_id"),
+    ("pouet_id", "pouet_id"),
+    ("csdb_id", "csdb_id"),
     ("gamelist_id", "gamelist_id"),
     ("libretro_id", "libretro_id"),
 ]

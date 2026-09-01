@@ -407,12 +407,14 @@ class FSResourcesHandler(FSHandler):
         )
 
     # Screenshots
-    async def _store_screenshot(self, rom: Rom, url_screenhot: str, idx: int):
+    async def _store_screenshot(self, rom: Rom, url_screenhot: str, idx: int) -> bool:
         """Store roms resources in filesystem
 
         Args:
             rom: Rom object
             url_screenhot: URL to get the screenshot
+        Returns
+            True if the screenshot landed on disk else False
         """
         screenshot_path = f"{rom.fs_resources_path}/screenshots"
         await self.make_directory(screenshot_path)
@@ -423,14 +425,15 @@ class FSResourcesHandler(FSHandler):
                 resolved = _resolve_local_file_uri(url_screenhot)
                 if resolved is None or not await AnyioPath(resolved).exists():
                     log.warning(f"Screenshot file not found: {url_screenhot}")
-                    return None
+                    return False
                 await self.copy_file(
                     resolved, f"{screenshot_path}/{idx}.jpg", allow_link=True
                 )
+                return True
             except Exception as exc:
                 log.error(f"Unable to copy screenshot file {url_screenhot}: {str(exc)}")
                 await self._discard_partial_file(f"{screenshot_path}/{idx}.jpg")
-                return None
+                return False
         else:
             # Handle HTTP URLs
             httpx_client = ctx_httpx_client.get()
@@ -443,7 +446,7 @@ class FSResourcesHandler(FSHandler):
                 ):
                     if response.status_code == status.HTTP_200_OK:
                         if not _check_content_type(response, ("image/",), "screenshot"):
-                            return None
+                            return False
 
                         # Check if content is gzipped from response headers
                         is_gzipped = (
@@ -466,25 +469,21 @@ class FSResourcesHandler(FSHandler):
                                 # Content is not gzipped, stream directly
                                 async for chunk in response.aiter_raw():
                                     await f.write(chunk)
+
+                        return True
             except httpx.TransportError as exc:
                 log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
-                return None
+                return False
             except OSError as exc:
                 log.error(f"Unable to write screenshot for {url_screenhot}: {str(exc)}")
-                return None
+                return False
 
-    def screenshots_exist(self, rom: Rom) -> bool:
-        """Check if rom screenshots exist in filesystem
-
-        Args:
-            rom: Rom object
-        Returns
-            True if screenshots exists in filesystem else False
-        """
-        full_path = self.validate_path(f"{rom.fs_resources_path}/screenshots")
-        for _ in full_path.glob("*.jpg"):
-            return True
         return False
+
+    def _stored_screenshot_indexes(self, rom: Rom) -> set[str]:
+        """Screenshot indexes this rom already has on disk."""
+        full_path = self.validate_path(f"{rom.fs_resources_path}/screenshots")
+        return {path.stem for path in full_path.glob("*.jpg")}
 
     def _get_screenshot_path(self, rom: Rom, idx: str):
         """Returns rom cover filesystem path adapted to frontend folder structure
@@ -507,15 +506,19 @@ class FSResourcesHandler(FSHandler):
         Returns
             List of paths to screenshots
         """
-        # Return existing screenshots if no URLs provided
-        # Or if not overwriting and screenshots already exist
-        if not url_screenshots or (not overwrite and self.screenshots_exist(rom)):
+        if not url_screenshots:
             return rom.path_screenshots or []
 
-        # Download and store new screenshots
+        # Go by what is on disk, not what was recorded: an unchanged url set
+        # still has to replace whatever an earlier run failed to write.
+        stored = set() if overwrite else self._stored_screenshot_indexes(rom)
+
         path_screenshots: list[str] = []
         for idx, url_screenshot in enumerate(url_screenshots):
-            await self._store_screenshot(rom, url_screenshot, idx)
+            if str(idx) not in stored and not await self._store_screenshot(
+                rom, url_screenshot, idx
+            ):
+                continue
             path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
 
         return path_screenshots

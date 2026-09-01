@@ -27,6 +27,7 @@ export const ROUTES = {
   MAIN: "main",
   HOME: "home",
   SEARCH: "search",
+  MUSIC: "music",
   PLATFORM: "platform",
   COLLECTION: "collection",
   VIRTUAL_COLLECTION: "virtual-collection",
@@ -184,6 +185,16 @@ const routes = [
         components: {
           default: () => import("@/views/Gallery/Search.vue"),
           v2: v2For(ROUTES.SEARCH),
+        },
+      },
+      {
+        path: "music/:mode?",
+        name: ROUTES.MUSIC,
+        meta: { title: "common.jukebox" },
+        components: {
+          // v1 has no equivalent; redirect to home
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.MUSIC),
         },
       },
       {

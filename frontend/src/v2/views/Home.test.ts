@@ -36,7 +36,7 @@ vi.mock("@/v2/components/GameCard", () => ({
   GameCardSkeleton: defineComponent({ template: "<div />" }),
 }));
 
-vi.mock("@/v2/components/Home/CardRow.vue", () => ({
+vi.mock("@/v2/components/shared/CardRow.vue", () => ({
   default: defineComponent({ template: "<section><slot /></section>" }),
 }));
 

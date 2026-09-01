@@ -69,6 +69,28 @@ const verifications = computed<Verification[]>(() =>
     match: matchesDatabase(props.rom, db.keys),
   })),
 );
+
+function urlsFrom(meta: Record<string, unknown> | null | undefined): string[] {
+  const raw = meta?.download_urls;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (u): u is string => typeof u === "string" && /^https?:\/\//i.test(u),
+  );
+}
+
+const downloadUrls = computed(() => {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const url of [
+    ...urlsFrom(props.rom.demozoo_metadata),
+    ...urlsFrom(props.rom.pouet_metadata),
+  ]) {
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+  }
+  return out;
+});
 </script>
 
 <template>
@@ -116,6 +138,15 @@ const verifications = computed<Verification[]>(() =>
         {{ t("rom.metadata-sources-label") }}
       </h3>
       <ProviderGrid :rom="rom" />
+    </section>
+
+    <section v-if="downloadUrls.length" class="metadata-tab__section">
+      <h3 class="metadata-tab__heading">{{ t("rom.download") }}</h3>
+      <ul class="metadata-tab__downloads">
+        <li v-for="url in downloadUrls" :key="url">
+          <a :href="url" target="_blank" rel="noopener noreferrer">{{ url }}</a>
+        </li>
+      </ul>
     </section>
   </div>
 </template>
@@ -171,5 +202,22 @@ const verifications = computed<Verification[]>(() =>
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.metadata-tab__downloads {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.metadata-tab__downloads a {
+  color: var(--r-color-fg-secondary);
+  font-size: 13px;
+  word-break: break-all;
+}
+.metadata-tab__downloads a:hover {
+  color: var(--r-color-fg);
 }
 </style>

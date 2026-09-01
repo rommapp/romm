@@ -7,14 +7,18 @@ from adapters.services.screenscraper import ScreenScraperRateLimitError
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
+    meta_demozoo_handler,
     meta_hasheous_handler,
+    meta_igdb_handler,
     meta_moby_handler,
     meta_playmatch_handler,
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
 )
+from handler.metadata.demozoo_handler import DemozooRom
 from handler.metadata.hasheous_handler import HasheousMetadata, HasheousRom
+from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.ra_handler import RAGameRom
 from handler.metadata.ss_handler import (
     SSRom,
@@ -510,6 +514,159 @@ async def test_scan_rom_unmatched_no_match_uses_parsed_name(
     assert result.hasheous_id is None
     # The raw filename placeholder must be replaced by the parsed name.
     assert result.name == "Snow Brothers"
+
+
+def _scraped_cover_rom(platform: Platform, **overrides) -> Rom:
+    attrs: dict = {
+        "platform_id": platform.id,
+        "fs_name": "game.sfc",
+        "fs_path": "snes",
+        "tags": [],
+        "ss_id": 321,
+        "name": "Game",
+        "url_cover": "https://ss.fr/media?media=box-2D&id=old",
+        "path_cover_s": "roms/1/1/cover/small.png",
+        "path_cover_l": "roms/1/1/cover/big.png",
+    }
+    attrs.update(overrides)
+    return db_rom_handler.add_rom(Rom(**attrs))
+
+
+NEW_COVER_URL = "https://ss.fr/media?media=box-2D&id=new"
+
+
+def _ss_returns_new_cover(mock_ss_get_by_id: AsyncMock) -> None:
+    mock_ss_get_by_id.return_value = SSRom(
+        ss_id=321, name="Game", url_cover=NEW_COVER_URL
+    )
+
+
+async def _update_scan(platform: Platform, rom: Rom) -> Rom:
+    async with initialize_context():
+        return await scan_rom(
+            platform=platform,
+            scan_type=ScanType.UPDATE,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("game.sfc"),
+            metadata_sources=[MetadataSource.SS],
+            newly_added=False,
+        )
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom_by_id", new_callable=AsyncMock)
+async def test_update_scan_replaces_scraped_cover_url(
+    mock_ss_get_by_id, mock_playmatch_enabled
+):
+    """A cover that carries a source url came from a provider, so an UPDATE scan
+    hands the freshly resolved url downstream. Pinning it to the stored value is
+    what kept a changed source priority from ever reaching the download step."""
+    _ss_returns_new_cover(mock_ss_get_by_id)
+
+    platform = _ss_quota_platform()
+    rom = _scraped_cover_rom(platform)
+
+    result = await _update_scan(platform, rom)
+
+    assert result.url_cover == NEW_COVER_URL
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom_by_id", new_callable=AsyncMock)
+async def test_update_scan_keeps_uploaded_cover(
+    mock_ss_get_by_id, mock_playmatch_enabled
+):
+    """Uploading artwork locks the cover, so the provider url must not be adopted
+    over it."""
+    _ss_returns_new_cover(mock_ss_get_by_id)
+
+    platform = _ss_quota_platform()
+    rom = _scraped_cover_rom(platform, url_cover="", locked_fields=["url_cover"])
+
+    result = await _update_scan(platform, rom)
+
+    assert result.url_cover == ""
+    assert result.locked_fields == ["url_cover"]
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom_by_id", new_callable=AsyncMock)
+async def test_update_scan_keeps_locked_cover_with_no_stored_path(
+    mock_ss_get_by_id, mock_playmatch_enabled
+):
+    """The lock has to outlive path_cover_s. That column tracks the filesystem and
+    a scan clears it whenever the file is unreadable, so inferring the lock from it
+    meant one scan against unavailable storage handed the cover to the provider."""
+    _ss_returns_new_cover(mock_ss_get_by_id)
+
+    platform = _ss_quota_platform()
+    rom = _scraped_cover_rom(
+        platform,
+        url_cover="",
+        path_cover_s="",
+        path_cover_l="",
+        locked_fields=["url_cover"],
+    )
+
+    result = await _update_scan(platform, rom)
+
+    assert result.url_cover == ""
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom_by_id", new_callable=AsyncMock)
+async def test_update_scan_replaces_screenshot_urls(
+    mock_ss_get_by_id, mock_playmatch_enabled
+):
+    """Screenshots have no upload path, so a stored set is always provider-written
+    and the fresh set wins."""
+    mock_ss_get_by_id.return_value = SSRom(
+        ss_id=321,
+        name="Game",
+        url_screenshots=["https://ss.fr/ss?id=new"],
+    )
+
+    platform = _ss_quota_platform()
+    rom = _scraped_cover_rom(
+        platform,
+        url_screenshots=["https://ss.fr/ss?id=old"],
+        path_screenshots=["roms/1/1/screenshots/0.png"],
+    )
+
+    result = await _update_scan(platform, rom)
+
+    assert result.url_screenshots == ["https://ss.fr/ss?id=new"]
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom_by_id", new_callable=AsyncMock)
+async def test_update_scan_keeps_name_summary_and_manual(
+    mock_ss_get_by_id, mock_playmatch_enabled
+):
+    """Text fields and manuals stay pinned. Neither can yet tell a hand-edited
+    value from a provider-written one, so freeing the artwork urls must not free
+    these too."""
+    mock_ss_get_by_id.return_value = SSRom(
+        ss_id=321,
+        name="Provider Name",
+        summary="Provider summary",
+        url_manual="https://ss.fr/manual?id=new",
+    )
+
+    platform = _ss_quota_platform()
+    rom = _scraped_cover_rom(
+        platform,
+        name="My Title",
+        summary="My summary",
+        url_manual="https://ss.fr/manual?id=old",
+        path_manual="roms/1/1/manual/1.pdf",
+    )
+
+    result = await _update_scan(platform, rom)
+
+    assert result.name == "My Title"
+    assert result.summary == "My summary"
+    assert result.url_manual == "https://ss.fr/manual?id=old"
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
@@ -1061,3 +1218,114 @@ async def test_scan_rom_ss_rate_limit_skips_the_rom_without_further_lookups(
     assert get_rate_limited_rom_names() == ["game.sfc"]
 
     reset_rate_limited_roms()
+
+
+def _amiga_platform() -> Platform:
+    return db_platform_handler.add_platform(
+        Platform(
+            id=1,
+            slug="amiga",
+            fs_slug="amiga",
+            name="Commodore Amiga",
+            igdb_id=16,
+        )
+    )
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_sgdb_handler, "get_details_by_names", new_callable=AsyncMock)
+@patch.object(meta_igdb_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_demozoo_handler, "get_rom", new_callable=AsyncMock)
+async def test_scan_rom_scene_match_ignores_similar_game_cover(
+    mock_demozoo_get_rom, mock_igdb_get_rom, mock_sgdb_names, mock_playmatch_enabled
+):
+    """A Demozoo hit must not pick up IGDB/SGDB art for a similarly named game."""
+    mock_demozoo_get_rom.return_value = DemozooRom(
+        demozoo_id=2,
+        name="State of the Art",
+        summary="Demo by Spaceballs (1992)",
+        url_cover="https://demozoo.org/media/sota.png",
+        url_screenshots=["https://demozoo.org/media/sota.png"],
+    )
+    mock_igdb_get_rom.return_value = IGDBRom(
+        igdb_id=99901,
+        name="State of the Art",
+        summary="A skateboarding game",
+        url_cover="https://images.igdb.com/skate.jpg",
+    )
+    mock_sgdb_names.return_value = {
+        "sgdb_id": 42,
+        "url_cover": "https://cdn.steamgriddb.com/skate.png",
+    }
+
+    platform = _amiga_platform()
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            fs_name="State of the Art (demozoo-2).adf",
+            fs_path="amiga",
+            tags=[],
+        )
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("State of the Art (demozoo-2).adf"),
+            metadata_sources=[
+                MetadataSource.DEMOZOO,
+                MetadataSource.IGDB,
+                MetadataSource.SGDB,
+            ],
+            newly_added=True,
+        )
+
+    assert result.demozoo_id == 2
+    assert result.name == "State of the Art"
+    assert result.summary == "Demo by Spaceballs (1992)"
+    assert result.url_cover == "https://demozoo.org/media/sota.png"
+    assert result.igdb_id is None
+    assert result.sgdb_id is None
+    mock_sgdb_names.assert_not_awaited()
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_igdb_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_demozoo_handler, "get_rom", new_callable=AsyncMock)
+async def test_scan_rom_games_still_use_fuzzy_catalog_covers(
+    mock_demozoo_get_rom, mock_igdb_get_rom, mock_playmatch_enabled
+):
+    """Retail games with no scene id keep IGDB-style similar-title covers."""
+    mock_demozoo_get_rom.return_value = DemozooRom(demozoo_id=None)
+    mock_igdb_get_rom.return_value = IGDBRom(
+        igdb_id=3340,
+        name="Paper Mario",
+        url_cover="https://images.igdb.com/paper-mario.jpg",
+    )
+
+    platform = _amiga_platform()
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            fs_name="Paper Mario (USA).z64",
+            fs_path="amiga",
+            tags=[],
+        )
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("Paper Mario (USA).z64"),
+            metadata_sources=[MetadataSource.DEMOZOO, MetadataSource.IGDB],
+            newly_added=True,
+        )
+
+    assert result.demozoo_id is None
+    assert result.igdb_id == 3340
+    assert result.name == "Paper Mario"
+    assert result.url_cover == "https://images.igdb.com/paper-mario.jpg"

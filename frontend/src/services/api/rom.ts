@@ -621,6 +621,9 @@ async function updateRom({
     ["hasheous_id", toFormIdValue(rom.hasheous_id)],
     ["tgdb_id", toFormIdValue(rom.tgdb_id)],
     ["hltb_id", toFormIdValue(rom.hltb_id)],
+    ["demozoo_id", toFormIdValue(rom.demozoo_id)],
+    ["pouet_id", toFormIdValue(rom.pouet_id)],
+    ["csdb_id", toFormIdValue(rom.csdb_id)],
     ["steam_id", toFormIdValue(rom.steam_id)],
     ["libretro_id", toFormIdValue(rom.libretro_id)],
   ];
