@@ -101,3 +101,14 @@ def test_scene_lock_is_a_no_op_for_regular_games():
 def test_pouet_only_still_locks():
     available = [MetadataSource.IGDB, MetadataSource.POUET]
     assert scene_apply_sources(available) == [MetadataSource.POUET]
+
+
+def test_persisted_scene_lock_survives_an_empty_scene_lookup():
+    """An unreachable provider must not hand a known production to the catalogs."""
+    available = [MetadataSource.IGDB, MetadataSource.MOBY]
+    assert scene_apply_sources(available, scene_locked=True) == []
+
+
+def test_scene_lock_keeps_this_scans_match():
+    available = [MetadataSource.IGDB, MetadataSource.DEMOZOO]
+    assert scene_apply_sources(available, scene_locked=True) == [MetadataSource.DEMOZOO]

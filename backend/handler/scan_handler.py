@@ -124,13 +124,20 @@ SCENE_METADATA_SOURCES = frozenset(
 
 def scene_apply_sources(
     available_sources: list[MetadataSource],
+    *,
+    scene_locked: bool = False,
 ) -> list[MetadataSource]:
     """Sources allowed to write identity and artwork for this ROM.
 
     Scene-matched ROMs stay on Demozoo/Pouët/CSDb. Everything else is unchanged.
+    A ROM already carrying a scene id stays locked even when this scan's scene
+    lookup came back empty, so an unreachable provider can't hand a known
+    production back to the catalogs.
     """
     scene = [source for source in available_sources if source in SCENE_METADATA_SOURCES]
-    return scene or list(available_sources)
+    if scene:
+        return scene
+    return [] if scene_locked else list(available_sources)
 
 
 # Sentinel folder for manually-added physical games; it never exists on disk.
@@ -1250,11 +1257,19 @@ async def scan_rom(
         for name, fields in metadata_handlers.items()
         if fields["handler"].get(fields["id_field"])
     ]
-    apply_sources = scene_apply_sources(available_sources)
-    scene_locked = any(source in SCENE_METADATA_SOURCES for source in available_sources)
+    # A persisted id locks the ROM too, so an unreachable provider can't hand an
+    # identified production back to the catalogs. Deselecting the source on a
+    # complete rescan clears the id above, which is the way out.
+    scene_locked = any(
+        source in SCENE_METADATA_SOURCES for source in available_sources
+    ) or any(
+        rom_attrs.get(metadata_handlers[source]["id_field"])
+        for source in SCENE_METADATA_SOURCES
+    )
+    apply_sources = scene_apply_sources(available_sources, scene_locked=scene_locked)
     if scene_locked:
         log.info(
-            f"{hl(rom_attrs['fs_name'])} matched Demozoo/Pouët/CSDb — "
+            f"{hl(rom_attrs['fs_name'])} is a Demozoo/Pouët/CSDb production, "
             "using scene artwork and title, not similar game catalogs",
             extra=LOGGER_MODULE_NAME,
         )
