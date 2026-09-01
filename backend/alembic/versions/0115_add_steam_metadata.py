@@ -1,8 +1,4 @@
-"""Add Steam metadata fields
-
-Adds ``roms.steam_id`` / ``roms.steam_metadata`` and mirrors the id into
-``roms_facets``. That mirror is trigger-maintained, so the triggers are
-recreated over the wider column set.
+"""Add Steam match id and metadata
 
 Revision ID: 0115_add_steam_metadata
 Revises: 0114_demozoo_pouet_csdb_metadata

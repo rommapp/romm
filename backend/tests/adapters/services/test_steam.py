@@ -108,7 +108,9 @@ async def test_get_app_details_passes_filters(session):
 
     await SteamService().get_app_details(220, filters="basic")
 
-    assert "filters=basic" in str(session.get.await_args.args[0])
+    await_args = session.get.await_args
+    assert await_args is not None
+    assert "filters=basic" in str(await_args.args[0])
 
 
 async def test_library_capsule_url_when_the_cdn_serves_one(session):

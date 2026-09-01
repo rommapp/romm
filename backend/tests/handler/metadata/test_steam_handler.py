@@ -211,7 +211,9 @@ async def test_heartbeat_reports_reachability():
     handler, service = _handler(details=CYBERPUNK)
     assert await handler.heartbeat() is True
     # Reachability only, so don't pull the whole store page.
-    assert service.get_app_details.await_args.kwargs["filters"] == "basic"
+    await_args = service.get_app_details.await_args
+    assert await_args is not None
+    assert await_args.kwargs["filters"] == "basic"
 
     assert await _handler(details=None)[0].heartbeat() is False
 
