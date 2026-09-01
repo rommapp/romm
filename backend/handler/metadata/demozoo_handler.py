@@ -19,7 +19,7 @@ from fastapi import HTTPException, status
 
 from config import DEMOZOO_API_ENABLED
 from logger.logger import log
-from utils import get_version, valid_youtube_id
+from utils import get_version, int_or_none, valid_youtube_id
 from utils.rate_limiter import RateLimiter
 
 from .base_handler import BaseRom, MetadataHandler
@@ -76,7 +76,7 @@ def extract_demozoo_id_from_filename(fs_name: str) -> int | None:
     """Extract Demozoo ID from a filename tag like ``(demozoo-108)``."""
     match = DEMOZOO_TAG_REGEX.search(fs_name)
     if match:
-        return int(match.group(1))
+        return int_or_none(match.group(1))
     return None
 
 
@@ -86,9 +86,9 @@ def demozoo_id_from_url(value: str) -> int | None:
     if not text:
         return None
     if text.isdigit():
-        return int(text)
+        return int_or_none(text)
     match = DEMOZOO_PROD_ID_RE.search(text)
-    return int(match.group(1)) if match else None
+    return int_or_none(match.group(1)) if match else None
 
 
 def _youtube_id_from_url(url: str) -> str | None:
@@ -124,7 +124,7 @@ def _pouet_id_from_url(url: str) -> int | None:
             digits += ch
         else:
             break
-    return int(digits) if digits else None
+    return int_or_none(digits) if digits else None
 
 
 def http_url(value: Any) -> str | None:

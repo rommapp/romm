@@ -1,5 +1,7 @@
 from typing import Any, Callable, Final
 
+from utils import int_or_none
+
 from .csdb_handler import CsdbHandler, csdb_id_from_url
 from .demozoo_handler import DemozooHandler, demozoo_id_from_url
 from .flashpoint_handler import FlashpointHandler
@@ -53,9 +55,6 @@ def scene_id_or_none(value: Any, kind: str) -> int | None:
     text = str(value).strip()
     if text.isdigit():
         # isdigit() also accepts superscripts and other digits int() rejects.
-        try:
-            return int(text)
-        except ValueError:
-            return None
+        return int_or_none(text)
     parser = _SCENE_ID_PARSERS.get(kind)
     return parser(text) if parser else None

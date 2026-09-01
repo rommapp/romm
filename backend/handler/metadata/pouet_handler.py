@@ -17,7 +17,7 @@ from fastapi import HTTPException, status
 
 from config import POUET_API_ENABLED
 from logger.logger import log
-from utils import get_version
+from utils import get_version, int_or_none
 from utils.context import ctx_httpx_client
 from utils.rate_limiter import RateLimiter
 
@@ -73,7 +73,7 @@ def extract_pouet_id_from_filename(fs_name: str) -> int | None:
     """Extract Pouët ID from a filename tag like ``(pouet-99)``."""
     match = POUET_TAG_REGEX.search(fs_name)
     if match:
-        return int(match.group(1))
+        return int_or_none(match.group(1))
     return None
 
 
@@ -83,24 +83,17 @@ def pouet_id_from_location(location: str) -> int | None:
         return None
     match = POUET_WHICH_RE.search(location)
     if match:
-        return int(match.group(1))
+        return int_or_none(match.group(1))
     query = parse_qs(urlparse(location).query)
     which = query.get("which") or query.get("WHICH")
     if which and which[0].isdigit():
-        return int(which[0])
+        return int_or_none(which[0])
     return None
 
 
 def _float_or_none(value: Any) -> float | None:
     try:
         return float(value) if value is not None and value != "" else None
-    except (TypeError, ValueError):
-        return None
-
-
-def _int_or_none(value: Any) -> int | None:
-    try:
-        return int(value) if value is not None and value != "" else None
     except (TypeError, ValueError):
         return None
 
@@ -219,7 +212,7 @@ def production_to_rom(prod: dict[str, Any]) -> PouetRom:
     demozoo_id = None
     raw_dz = prod.get("demozoo")
     if raw_dz not in (None, "", "0", 0):
-        demozoo_id = _int_or_none(raw_dz)
+        demozoo_id = int_or_none(raw_dz)
 
     screenshots: list[str] = []
     shot = http_url(str(prod.get("screenshot") or ""))
@@ -246,18 +239,18 @@ def production_to_rom(prod: dict[str, Any]) -> PouetRom:
     if youtube_id is None:
         youtube_id = _youtube_id_from_url(str(prod.get("download") or ""))
 
-    csdb = _int_or_none(prod.get("csdb"))
+    csdb = int_or_none(prod.get("csdb"))
     if csdb:
         _append_unique(download_urls, f"https://csdb.dk/release/?id={csdb}")
-    zxdemo = _int_or_none(prod.get("zxdemo"))
+    zxdemo = int_or_none(prod.get("zxdemo"))
     if zxdemo:
         _append_unique(download_urls, f"https://zxdemo.org/prod.php?id={zxdemo}")
 
     year = str(prod.get("releaseDate") or "")[:4]
     who = ", ".join(groups)
     vote_avg = _float_or_none(prod.get("voteavg"))
-    pouet_rank = _int_or_none(prod.get("rank"))
-    pouet_cdc = _int_or_none(prod.get("cdc"))
+    pouet_rank = int_or_none(prod.get("rank"))
+    pouet_cdc = int_or_none(prod.get("cdc"))
     pouet_url = POUET_PROD_PAGE.format(id=pouet_id)
     demozoo_url = DEMOZOO_PROD_PAGE.format(id=demozoo_id) if demozoo_id else None
 

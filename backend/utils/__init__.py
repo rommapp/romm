@@ -25,6 +25,16 @@ def is_valid_uuid(uuid_str: str) -> bool:
         return False
 
 
+def int_or_none(value: Any) -> int | None:
+    """An int, or None when it is not one (``int()`` raises past 4300 digits)."""
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def valid_youtube_id(value: Any) -> str | None:
     """A video id, or None when it is not one."""
     text = str(value or "")

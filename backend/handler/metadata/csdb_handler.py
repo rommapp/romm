@@ -18,7 +18,7 @@ from fastapi import HTTPException, status
 
 from config import CSDB_API_ENABLED
 from logger.logger import log
-from utils import get_version
+from utils import get_version, int_or_none
 from utils.rate_limiter import RateLimiter
 
 from .base_handler import BaseRom, MetadataHandler
@@ -55,7 +55,7 @@ class CsdbRom(BaseRom):
 def extract_csdb_id_from_filename(fs_name: str) -> int | None:
     match = CSDB_TAG_REGEX.search(fs_name)
     if match:
-        return int(match.group(1))
+        return int_or_none(match.group(1))
     return None
 
 
@@ -70,10 +70,10 @@ def csdb_id_from_url(url: str) -> int | None:
     query = parse_qs(parsed.query)
     raw = (query.get("id") or [""])[0]
     if raw.isdigit():
-        return int(raw)
+        return int_or_none(raw)
     parts = [p for p in parsed.path.split("/") if p]
     if len(parts) >= 2 and parts[0] == "release" and parts[1].isdigit():
-        return int(parts[1])
+        return int_or_none(parts[1])
     return None
 
 
