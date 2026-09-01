@@ -26,6 +26,12 @@ STEAM_MAX_REQUEST_ATTEMPTS: Final[int] = 3
 STEAM_RATE_LIMIT_BACKOFF_SECONDS: Final[float] = 5
 _rate_limiter = RateLimiter(STEAM_MAX_REQUESTS_PER_SECOND)
 
+# Undocumented convention, so a miss falls back to the landscape header.
+STEAM_LIBRARY_CAPSULE_URL = (
+    "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/"
+    "{app_id}/library_600x900.jpg"
+)
+
 
 class SteamService:
     """Service to interact with the Steam storefront API.
@@ -113,17 +119,41 @@ class SteamService:
         *,
         country: str = "us",
         language: str = "en",
+        filters: str | None = None,
     ) -> SteamAppDetails | None:
         """Fetch the store page payload for a single app.
 
         Returns None when Steam has no such app, or it is locked for `country`.
+        `filters` trims the response to those sections, so a caller that passes
+        it gets a partial payload.
         """
-        url = self.url.joinpath("appdetails").with_query(
-            appids=str(app_id), cc=country, l=language
-        )
+        query = {"appids": str(app_id), "cc": country, "l": language}
+        if filters:
+            query["filters"] = filters
+        url = self.url.joinpath("appdetails").with_query(query)
         response = await self._request(str(url))
         envelope = cast(SteamAppDetailsEnvelope | None, response.get(str(app_id)))
         if not envelope or not envelope.get("success"):
             return None
 
         return envelope.get("data")
+
+    async def get_library_capsule_url(self, app_id: int) -> str | None:
+        """The portrait capsule URL when the CDN serves one, else None.
+
+        The capsule is on the CDN, so probing it costs no storefront budget.
+        """
+        capsule_url = STEAM_LIBRARY_CAPSULE_URL.format(app_id=app_id)
+        aiohttp_session = ctx_aiohttp_session.get()
+
+        try:
+            res = await aiohttp_session.head(
+                capsule_url,
+                headers={"user-agent": f"RomM/{get_version()}"},
+                timeout=ClientTimeout(total=15),
+            )
+        except (aiohttp.ClientError, TimeoutError) as exc:
+            log.debug("Could not probe Steam capsule for %s: %s", app_id, exc)
+            return None
+
+        return capsule_url if res.status == 200 else None

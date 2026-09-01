@@ -2,16 +2,11 @@ import re
 from datetime import datetime, timezone
 from typing import Final, NotRequired, TypedDict
 
-import aiohttp
-from aiohttp.client import ClientTimeout
-
 from adapters.services.steam import SteamService
 from adapters.services.steam_types import SteamAppDetails, SteamPlatforms
 from config import STEAM_API_ENABLED
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
-from utils import get_version
-from utils.context import ctx_aiohttp_session
 
 from .base_handler import BaseRom, MetadataHandler
 
@@ -22,12 +17,6 @@ STEAM_PLATFORMS: Final[frozenset[UPS]] = frozenset({UPS.WIN, UPS.LINUX, UPS.MAC}
 
 # Regex to detect Steam app ID tags in filenames like (steam-12345)
 STEAM_TAG_REGEX = re.compile(r"\(steam-(\d+)\)", re.IGNORECASE)
-
-# Undocumented convention, so a miss falls back to the landscape header.
-STEAM_LIBRARY_CAPSULE_URL = (
-    "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/"
-    "{app_id}/library_600x900.jpg"
-)
 
 # Steam category IDs mapped onto the game-mode vocabulary the other providers use.
 STEAM_CATEGORY_GAME_MODES: Final[dict[int, str]] = {
@@ -171,7 +160,9 @@ class SteamHandler(MetadataHandler):
             return False
 
         try:
-            details = await self.steam_service.get_app_details(STEAM_HEARTBEAT_APP_ID)
+            details = await self.steam_service.get_app_details(
+                STEAM_HEARTBEAT_APP_ID, filters="basic"
+            )
         except Exception as exc:
             log.error("Error checking Steam API: %s", exc)
             return False
@@ -278,22 +269,6 @@ class SteamHandler(MetadataHandler):
         return rom
 
     async def _resolve_cover_url(self, app_id: int, details: SteamAppDetails) -> str:
-        """Prefer the portrait capsule, falling back to the landscape header.
-
-        The capsule is on the CDN, so probing it costs no storefront budget.
-        """
-        capsule_url = STEAM_LIBRARY_CAPSULE_URL.format(app_id=app_id)
-
-        try:
-            aiohttp_session = ctx_aiohttp_session.get()
-            res = await aiohttp_session.head(
-                capsule_url,
-                headers={"user-agent": f"RomM/{get_version()}"},
-                timeout=ClientTimeout(total=15),
-            )
-            if res.status == 200:
-                return capsule_url
-        except (aiohttp.ClientError, TimeoutError) as exc:
-            log.debug("Could not probe Steam capsule for %s: %s", app_id, exc)
-
-        return details.get("header_image", "")
+        """Prefer the portrait capsule, falling back to the landscape header."""
+        capsule_url = await self.steam_service.get_library_capsule_url(app_id)
+        return capsule_url or details.get("header_image", "")

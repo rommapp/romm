@@ -45,18 +45,18 @@ def _handler(search_result=None, details=None) -> tuple[SteamHandler, MagicMock]
     service = MagicMock()
     service.search_apps = AsyncMock(return_value=search_result or [])
     service.get_app_details = AsyncMock(return_value=details)
+    service.get_library_capsule_url = AsyncMock(
+        return_value="https://cdn.example/library_600x900.jpg"
+    )
     handler.steam_service = service
     return handler, service
 
 
 @pytest.fixture(autouse=True)
-def capsule_probe():
-    """Pretend the portrait capsule exists unless a test says otherwise."""
-    with patch.object(
-        SteamHandler, "_resolve_cover_url", new_callable=AsyncMock
-    ) as mock_cover:
-        mock_cover.return_value = "https://cdn.example/library_600x900.jpg"
-        yield mock_cover
+def steam_enabled():
+    """Enabled is the default; the disabled-path tests override it."""
+    with patch("handler.metadata.steam_handler.STEAM_API_ENABLED", True):
+        yield
 
 
 @pytest.mark.parametrize(
@@ -115,7 +115,6 @@ async def test_get_rom_returns_empty_when_disabled():
     service.search_apps.assert_not_awaited()
 
 
-@patch("handler.metadata.steam_handler.STEAM_API_ENABLED", True)
 async def test_get_rom_skips_non_pc_platforms():
     """A retro platform can have no Steam counterpart, so spend no requests."""
     handler, service = _handler()
@@ -126,7 +125,6 @@ async def test_get_rom_skips_non_pc_platforms():
     service.get_app_details.assert_not_awaited()
 
 
-@patch("handler.metadata.steam_handler.STEAM_API_ENABLED", True)
 async def test_get_rom_matches_by_name():
     handler, service = _handler(
         search_result=[
@@ -146,7 +144,6 @@ async def test_get_rom_matches_by_name():
     service.get_app_details.assert_awaited_once_with(1091500)
 
 
-@patch("handler.metadata.steam_handler.STEAM_API_ENABLED", True)
 async def test_get_rom_ignores_non_app_search_hits():
     """Soundtracks and DLC share the search index with games."""
     handler, service = _handler(
@@ -161,7 +158,6 @@ async def test_get_rom_ignores_non_app_search_hits():
     service.get_app_details.assert_not_awaited()
 
 
-@patch("handler.metadata.steam_handler.STEAM_API_ENABLED", True)
 async def test_get_rom_rejects_apps_that_are_not_games():
     """The search hit's coarse type does not distinguish a demo or a video."""
     handler, service = _handler(
@@ -174,7 +170,6 @@ async def test_get_rom_rejects_apps_that_are_not_games():
     assert rom == {"steam_id": None}
 
 
-@patch("handler.metadata.steam_handler.STEAM_API_ENABLED", True)
 async def test_get_rom_rejects_weak_name_matches():
     handler, service = _handler(
         search_result=[{"type": "app", "name": "Totally Unrelated Game", "id": 42}]
@@ -186,7 +181,6 @@ async def test_get_rom_rejects_weak_name_matches():
     service.get_app_details.assert_not_awaited()
 
 
-@patch("handler.metadata.steam_handler.STEAM_API_ENABLED", True)
 async def test_get_rom_honours_filename_tag():
     """A pinned id skips search entirely, which is the point of the tag."""
     handler, service = _handler(details=CYBERPUNK)
@@ -198,16 +192,27 @@ async def test_get_rom_honours_filename_tag():
     service.get_app_details.assert_awaited_once_with(1091500)
 
 
-@patch("handler.metadata.steam_handler.STEAM_API_ENABLED", True)
 async def test_get_rom_by_id_missing_app():
     handler, service = _handler(details=None)
 
     assert await handler.get_rom_by_id(999999999) == {"steam_id": None}
 
 
-@patch("handler.metadata.steam_handler.STEAM_API_ENABLED", True)
+async def test_cover_falls_back_to_the_header_image():
+    handler, service = _handler(details=CYBERPUNK)
+    service.get_library_capsule_url = AsyncMock(return_value=None)
+
+    rom = await handler.get_rom_by_id(1091500)
+
+    assert rom["url_cover"] == "https://cdn.example/header.jpg"
+
+
 async def test_heartbeat_reports_reachability():
-    assert await _handler(details=CYBERPUNK)[0].heartbeat() is True
+    handler, service = _handler(details=CYBERPUNK)
+    assert await handler.heartbeat() is True
+    # Reachability only, so don't pull the whole store page.
+    assert service.get_app_details.await_args.kwargs["filters"] == "basic"
+
     assert await _handler(details=None)[0].heartbeat() is False
 
 

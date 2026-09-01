@@ -5,7 +5,7 @@ import aiohttp
 import pytest
 from fastapi import HTTPException, status
 
-from adapters.services.steam import SteamService
+from adapters.services.steam import STEAM_LIBRARY_CAPSULE_URL, SteamService
 
 
 def _response(json_body: dict) -> MagicMock:
@@ -101,3 +101,32 @@ async def test_request_raises_on_connection_error(session):
         await SteamService().search_apps("portal")
 
     assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+async def test_get_app_details_passes_filters(session):
+    session.get.return_value = _response({"220": {"success": True, "data": {}}})
+
+    await SteamService().get_app_details(220, filters="basic")
+
+    assert "filters=basic" in str(session.get.await_args.args[0])
+
+
+async def test_library_capsule_url_when_the_cdn_serves_one(session):
+    session.head.return_value = MagicMock(status=http.HTTPStatus.OK)
+
+    url = await SteamService().get_library_capsule_url(400)
+
+    assert url == STEAM_LIBRARY_CAPSULE_URL.format(app_id=400)
+
+
+async def test_library_capsule_url_is_none_when_missing(session):
+    session.head.return_value = MagicMock(status=http.HTTPStatus.NOT_FOUND)
+
+    assert await SteamService().get_library_capsule_url(400) is None
+
+
+async def test_library_capsule_url_is_none_when_the_probe_fails(session):
+    """A CDN hiccup must fall through to the caller's header-image fallback."""
+    session.head.side_effect = aiohttp.ClientConnectionError()
+
+    assert await SteamService().get_library_capsule_url(400) is None
