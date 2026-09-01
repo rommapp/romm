@@ -6,6 +6,7 @@
 // orchestrator — data + tab state live here, every visual piece is a
 // sub-component under components/GameDetails/.
 import { RTabNav, type RTabNavItem } from "@v2/lib";
+import { formatReleaseDate } from "@v2/utils/time";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -107,18 +108,12 @@ const platformLabel = computed(() => {
   return r.platform_custom_name || r.platform_display_name;
 });
 
-const releaseDate = computed(() => {
-  const ts = currentRom.value?.metadatum?.first_release_date;
-  if (!ts) return null;
-  return new Date(Number(ts)).toLocaleDateString(
+const releaseDate = computed(() =>
+  formatReleaseDate(
+    currentRom.value?.metadatum?.first_release_date,
     toBrowserLocale(locale.value),
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    },
-  );
-});
+  ),
+);
 
 const genres = computed(() => currentRom.value?.metadatum?.genres ?? []);
 const franchises = computed(
