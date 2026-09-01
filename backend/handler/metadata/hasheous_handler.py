@@ -130,7 +130,14 @@ class HasheousHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = HASHEOUS_API_URL
         # Cover art is linked relative to the site root, not the API path.
-        self.BASE_ORIGIN = str(yarl.URL(self.BASE_URL).origin())
+        try:
+            self.BASE_ORIGIN = str(yarl.URL(self.BASE_URL).origin())
+        except ValueError:
+            log.warning(
+                "Invalid HASHEOUS_API_URL %r, cover art URLs may be wrong",
+                self.BASE_URL,
+            )
+            self.BASE_ORIGIN = ""
         self.healthcheck_endpoint = f"{self.BASE_URL}/HealthCheck"
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
