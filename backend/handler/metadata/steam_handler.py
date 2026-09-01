@@ -18,6 +18,8 @@ from .base_handler import BaseRom, MetadataHandler
 # Half-Life 2: never region locked, so a fetch failing means Steam is down.
 STEAM_HEARTBEAT_APP_ID: Final[int] = 220
 
+STEAM_PLATFORMS: Final[frozenset[UPS]] = frozenset({UPS.WIN, UPS.LINUX, UPS.MAC})
+
 # Regex to detect Steam app ID tags in filenames like (steam-12345)
 STEAM_TAG_REGEX = re.compile(r"\(steam-(\d+)\)", re.IGNORECASE)
 
@@ -295,6 +297,3 @@ class SteamHandler(MetadataHandler):
             log.debug("Could not probe Steam capsule for %s: %s", app_id, exc)
 
         return details.get("header_image", "")
-
-
-STEAM_PLATFORMS: Final[frozenset[UPS]] = frozenset({UPS.WIN, UPS.LINUX, UPS.MAC})

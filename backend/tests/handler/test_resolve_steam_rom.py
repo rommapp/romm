@@ -1,8 +1,4 @@
-"""How a scan picks a ROM's Steam match.
-
-The storefront search accepts any app above the similarity floor, so a rescan
-that re-searched would quietly retag a game the user had already pinned.
-"""
+"""How a scan picks a ROM's Steam match."""
 
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch

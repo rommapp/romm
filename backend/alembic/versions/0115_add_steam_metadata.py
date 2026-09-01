@@ -109,20 +109,6 @@ def _recreate_triggers(mirrored_columns: list[tuple[str, str]]) -> None:
             op.execute(f"CREATE TRIGGER {name} {timing} ON roms\nFOR EACH ROW\n{body}")
 
 
-def _backfill_sql() -> str:
-    if is_postgresql(op.get_bind()):
-        # Postgres forbids qualifying the SET target with the table alias.
-        return (
-            "UPDATE roms_facets AS f SET steam_id = r.steam_id "  # nosec B608
-            "FROM roms AS r WHERE f.rom_id = r.id"
-        )
-    # MySQL/MariaDB needs the target qualified; both tables share the name.
-    return (
-        "UPDATE roms_facets AS f "  # nosec B608
-        "JOIN roms AS r ON f.rom_id = r.id SET f.steam_id = r.steam_id"
-    )
-
-
 def upgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(
@@ -150,7 +136,6 @@ def upgrade() -> None:
     if "steam_id" not in existing:
         op.add_column("roms_facets", sa.Column("steam_id", sa.Integer(), nullable=True))
 
-    op.execute(_backfill_sql())
     _recreate_triggers(_MIRRORED_COLUMNS_AFTER)
 
 

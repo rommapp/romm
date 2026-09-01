@@ -22,11 +22,8 @@ def _error(status_code: int) -> aiohttp.ClientResponseError:
 
 
 @pytest.fixture(autouse=True)
-def no_pacing():
-    with (
-        patch("adapters.services.steam._rate_limiter.acquire", new_callable=AsyncMock),
-        patch("adapters.services.steam.asyncio.sleep", new_callable=AsyncMock),
-    ):
+def no_backoff_sleep():
+    with patch("adapters.services.steam.asyncio.sleep", new_callable=AsyncMock):
         yield
 
 
