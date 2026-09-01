@@ -16,6 +16,9 @@ export type MetadataSourcesDict = {
     TGDB_API_ENABLED: boolean;
     FLASHPOINT_API_ENABLED: boolean;
     HLTB_API_ENABLED: boolean;
+    DEMOZOO_API_ENABLED: boolean;
+    POUET_API_ENABLED: boolean;
+    CSDB_API_ENABLED: boolean;
     LIBRETRO_API_ENABLED: boolean;
 };
 

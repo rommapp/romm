@@ -18,6 +18,8 @@ from handler.filesystem import (
 )
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
+    meta_csdb_handler,
+    meta_demozoo_handler,
     meta_flashpoint_handler,
     meta_gamelist_handler,
     meta_hasheous_handler,
@@ -27,10 +29,18 @@ from handler.metadata import (
     meta_libretro_handler,
     meta_moby_handler,
     meta_playmatch_handler,
+    meta_pouet_handler,
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
     meta_tgdb_handler,
+)
+from handler.metadata.csdb_handler import CsdbRom
+from handler.metadata.demozoo_handler import (
+    DemozooRom,
+    _append_unique,
+    splice_csdb_url,
+    splice_pouet_vote,
 )
 from handler.metadata.flashpoint_handler import FLASHPOINT_PLATFORM_LIST, FlashpointRom
 from handler.metadata.gamelist_handler import GamelistRom
@@ -46,6 +56,7 @@ from handler.metadata.playmatch_handler import (
     PLAYMATCH_SUPPORTED_SOURCES,
     PlaymatchRomMatch,
 )
+from handler.metadata.pouet_handler import PouetRom
 from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAGameRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import (
@@ -92,9 +103,41 @@ class MetadataSource(enum.StrEnum):
     SGDB = "sgdb"  # SteamGridDB
     FLASHPOINT = "flashpoint"  # Flashpoint Project
     HLTB = "hltb"  # HowLongToBeat
+    DEMOZOO = "demozoo"  # Demozoo
+    POUET = "pouet"  # Pouët
+    CSDB = "csdb"  # CSDb (C64)
     GAMELIST = "gamelist"  # ES-DE gamelist.xml
     LIBRETRO = "libretro"  # Libretro thumbnails
     PLAYMATCH = "playmatch"  # Playmatch
+
+
+# Demozoo / Pouët identify a production, not a retail game. Game catalogs
+# (IGDB, Moby, ScreenScraper, SteamGridDB, …) still run and will happily
+# attach a similarly titled box — "Desert Dream" → Desert Fox, "State of
+# the Art" → a skate game. Once a scene ID exists, only Demozoo / Pouët /
+# CSDb may set name, summary, or artwork. Regular games never have those
+# IDs, so they keep the usual fuzzy cover matching.
+SCENE_METADATA_SOURCES = frozenset(
+    {MetadataSource.DEMOZOO, MetadataSource.POUET, MetadataSource.CSDB}
+)
+
+
+def scene_apply_sources(
+    available_sources: list[MetadataSource],
+    *,
+    scene_locked: bool = False,
+) -> list[MetadataSource]:
+    """Sources allowed to write identity and artwork for this ROM.
+
+    Scene-matched ROMs stay on Demozoo/Pouët/CSDb. Everything else is unchanged.
+    A ROM already carrying a scene id stays locked even when this scan's scene
+    lookup came back empty, so an unreachable provider can't hand a known
+    production back to the catalogs.
+    """
+    scene = [source for source in available_sources if source in SCENE_METADATA_SOURCES]
+    if scene:
+        return scene
+    return [] if scene_locked else list(available_sources)
 
 
 # Sentinel folder for manually-added physical games; it never exists on disk.
@@ -499,6 +542,9 @@ async def scan_rom(
                 "gamelist_id": rom.gamelist_id,
                 "flashpoint_id": rom.flashpoint_id,
                 "hltb_id": rom.hltb_id,
+                "demozoo_id": rom.demozoo_id,
+                "pouet_id": rom.pouet_id,
+                "csdb_id": rom.csdb_id,
                 "libretro_id": rom.libretro_id,
                 "igdb_metadata": rom.igdb_metadata,
                 "moby_metadata": rom.moby_metadata,
@@ -509,6 +555,9 @@ async def scan_rom(
                 "gamelist_metadata": rom.gamelist_metadata,
                 "flashpoint_metadata": rom.flashpoint_metadata,
                 "hltb_metadata": rom.hltb_metadata,
+                "demozoo_metadata": rom.demozoo_metadata,
+                "pouet_metadata": rom.pouet_metadata,
+                "csdb_metadata": rom.csdb_metadata,
             }
         )
 
@@ -740,6 +789,51 @@ async def scan_rom(
 
         return HLTBRom(hltb_id=None)
 
+    async def fetch_demozoo_rom() -> DemozooRom:
+        if MetadataSource.DEMOZOO in metadata_sources and (
+            newly_added
+            or scan_type == ScanType.COMPLETE
+            or (scan_type == ScanType.UPDATE and rom.demozoo_id)
+            or (
+                scan_type == ScanType.UNMATCHED
+                and (not rom.demozoo_id or not rom.demozoo_metadata)
+            )
+        ):
+            return await meta_demozoo_handler.get_rom(
+                rom_attrs["fs_name"], platform.slug
+            )
+        return DemozooRom(demozoo_id=None)
+
+    async def fetch_pouet_rom() -> PouetRom:
+        if MetadataSource.POUET in metadata_sources and (
+            newly_added
+            or scan_type == ScanType.COMPLETE
+            or (scan_type == ScanType.UPDATE and rom.pouet_id)
+            or (
+                scan_type == ScanType.UNMATCHED
+                and (not rom.pouet_id or not rom.pouet_metadata)
+            )
+        ):
+            if rom.pouet_id:
+                return await meta_pouet_handler.get_rom_by_id(int(rom.pouet_id))
+            return await meta_pouet_handler.get_rom(rom_attrs["fs_name"], platform.slug)
+        return PouetRom(pouet_id=None)
+
+    async def fetch_csdb_rom() -> CsdbRom:
+        if MetadataSource.CSDB in metadata_sources and (
+            newly_added
+            or scan_type == ScanType.COMPLETE
+            or (scan_type == ScanType.UPDATE and rom.csdb_id)
+            or (
+                scan_type == ScanType.UNMATCHED
+                and (not rom.csdb_id or not rom.csdb_metadata)
+            )
+        ):
+            if rom.csdb_id:
+                return await meta_csdb_handler.get_rom_by_id(int(rom.csdb_id))
+            return await meta_csdb_handler.get_rom(rom_attrs["fs_name"], platform.slug)
+        return CsdbRom(csdb_id=None)
+
     async def fetch_moby_rom(playmatch_rom: PlaymatchRomMatch) -> MobyGamesRom:
         if (
             MetadataSource.MOBY in metadata_sources
@@ -944,6 +1038,9 @@ async def scan_rom(
         ),
         (fetch_flashpoint_rom(), FlashpointRom(flashpoint_id=None)),
         (fetch_hltb_rom(), HLTBRom(hltb_id=None)),
+        (fetch_demozoo_rom(), DemozooRom(demozoo_id=None)),
+        (fetch_pouet_rom(), PouetRom(pouet_id=None)),
+        (fetch_csdb_rom(), CsdbRom(csdb_id=None)),
         (fetch_gamelist_rom(), GamelistRom(gamelist_id=None)),
         (fetch_libretro_rom(), LibretroRom(libretro_id=None)),
     )
@@ -974,9 +1071,83 @@ async def scan_rom(
         hasheous_handler_rom,
         flashpoint_handler_rom,
         hltb_handler_rom,
+        demozoo_handler_rom,
+        pouet_handler_rom,
+        csdb_handler_rom,
         gamelist_handler_rom,
         libretro_handler_rom,
     ) = resolved
+
+    # Filename is usually only (demozoo-N). Demozoo's Pouët link is the
+    # ID we would have used if the tag had been (pouet-N).
+    if MetadataSource.POUET in metadata_sources and not pouet_handler_rom.get(
+        "pouet_id"
+    ):
+        linked = (demozoo_handler_rom.get("demozoo_metadata") or {}).get("pouet_id")
+        if linked:
+            try:
+                followed = await meta_pouet_handler.get_rom_by_id(int(linked))
+            except Exception as exc:
+                log.error(
+                    f"Error following Demozoo Pouët id {hl(str(linked))}: {exc}",
+                    extra=LOGGER_MODULE_NAME,
+                )
+            else:
+                if followed.get("pouet_id"):
+                    pouet_handler_rom = followed
+
+    if MetadataSource.CSDB in metadata_sources and not csdb_handler_rom.get("csdb_id"):
+        linked_csdb = (demozoo_handler_rom.get("demozoo_metadata") or {}).get("csdb_id")
+        if linked_csdb:
+            try:
+                followed_csdb = await meta_csdb_handler.get_rom_by_id(int(linked_csdb))
+            except Exception as exc:
+                log.error(
+                    f"Error following Demozoo CSDb id {hl(str(linked_csdb))}: {exc}",
+                    extra=LOGGER_MODULE_NAME,
+                )
+            else:
+                if followed_csdb.get("csdb_id"):
+                    csdb_handler_rom = followed_csdb
+
+    # Pouët is later in metadata priority, so its short summary would
+    # replace Demozoo's party / credits / YouTube. Keep the richer line
+    # and splice in Pouët score / rank / extra links.
+    if demozoo_handler_rom.get("demozoo_id") and pouet_handler_rom.get("pouet_id"):
+        dz_meta = demozoo_handler_rom.get("demozoo_metadata") or {}
+        pq_meta = pouet_handler_rom.get("pouet_metadata") or {}
+        merged = splice_pouet_vote(
+            str(demozoo_handler_rom.get("summary") or ""),
+            pq_meta.get("vote_avg"),
+            pq_meta.get("pouet_rank"),
+            pq_meta.get("pouet_cdc"),
+        )
+        if merged:
+            demozoo_handler_rom["summary"] = merged
+            pouet_handler_rom["summary"] = merged
+        urls: list[str] = []
+        for url in (dz_meta.get("download_urls") or []) + (
+            pq_meta.get("download_urls") or []
+        ):
+            _append_unique(urls, url)
+        if urls:
+            dz_meta["download_urls"] = urls
+            pq_meta["download_urls"] = urls
+        if not dz_meta.get("youtube_video_id") and pq_meta.get("youtube_video_id"):
+            dz_meta["youtube_video_id"] = pq_meta["youtube_video_id"]
+        demozoo_handler_rom["demozoo_metadata"] = dz_meta
+        pouet_handler_rom["pouet_metadata"] = pq_meta
+
+    # Same idea: Demozoo's Overview is richer; just add the CSDb page.
+    csdb_url = (csdb_handler_rom.get("csdb_metadata") or {}).get("csdb_url") or (
+        (demozoo_handler_rom.get("demozoo_metadata") or {}).get("csdb_url")
+    )
+    if csdb_url:
+        for blob in (demozoo_handler_rom, pouet_handler_rom, csdb_handler_rom):
+            if blob.get("summary") or blob.get("csdb_id") or blob.get("demozoo_id"):
+                merged_csdb = splice_csdb_url(str(blob.get("summary") or ""), csdb_url)
+                if merged_csdb:
+                    blob["summary"] = merged_csdb
 
     metadata_handlers: dict[MetadataSource, dict] = {
         MetadataSource.IGDB: {
@@ -1018,6 +1189,21 @@ async def scan_rom(
             "handler": hltb_handler_rom,
             "id_field": "hltb_id",
             "metadata_field": "hltb_metadata",
+        },
+        MetadataSource.DEMOZOO: {
+            "handler": demozoo_handler_rom,
+            "id_field": "demozoo_id",
+            "metadata_field": "demozoo_metadata",
+        },
+        MetadataSource.POUET: {
+            "handler": pouet_handler_rom,
+            "id_field": "pouet_id",
+            "metadata_field": "pouet_metadata",
+        },
+        MetadataSource.CSDB: {
+            "handler": csdb_handler_rom,
+            "id_field": "csdb_id",
+            "metadata_field": "csdb_metadata",
         },
         MetadataSource.GAMELIST: {
             "handler": gamelist_handler_rom,
@@ -1071,11 +1257,25 @@ async def scan_rom(
         for name, fields in metadata_handlers.items()
         if fields["handler"].get(fields["id_field"])
     ]
+    # A persisted id locks the ROM too, so an unreachable provider can't hand an
+    # identified production back to the catalogs. Deselecting the source on a
+    # complete rescan clears the id above, which is the way out.
+    scene_locked = any(
+        source in SCENE_METADATA_SOURCES for source in available_sources
+    ) or any(
+        rom_attrs.get(metadata_handlers[source]["id_field"])
+        for source in SCENE_METADATA_SOURCES
+    )
+    apply_sources = scene_apply_sources(available_sources, scene_locked=scene_locked)
+    if scene_locked:
+        log.info(
+            f"{hl(rom_attrs['fs_name'])} is a Demozoo/Pouët/CSDb production, "
+            "using scene artwork and title, not similar game catalogs",
+            extra=LOGGER_MODULE_NAME,
+        )
 
     # Apply metadata priority order
-    priority_ordered = get_priority_ordered_metadata_sources(
-        available_sources, "metadata"
-    )
+    priority_ordered = get_priority_ordered_metadata_sources(apply_sources, "metadata")
     # Reverse priority order to apply highest priority last
     for source_name in reversed(priority_ordered):
         handler_data = metadata_handlers[source_name]["handler"]
@@ -1088,7 +1288,7 @@ async def scan_rom(
     # own override on top of the shared artwork priority.
     for field in ["url_cover", "url_screenshots", "url_manual"]:
         priority_ordered_artwork = get_priority_ordered_metadata_sources(
-            available_sources, field
+            apply_sources, field
         )
         # Reverse priority order to apply highest priority last
         for source_name in reversed(priority_ordered_artwork):
@@ -1164,6 +1364,9 @@ async def scan_rom(
         and not rom_attrs.get("hasheous_id")
         and not rom_attrs.get("flashpoint_id")
         and not rom_attrs.get("hltb_id")
+        and not rom_attrs.get("demozoo_id")
+        and not rom_attrs.get("pouet_id")
+        and not rom_attrs.get("csdb_id")
         and not rom_attrs.get("gamelist_id")
     ):
         log.warning(
@@ -1174,6 +1377,11 @@ async def scan_rom(
 
     async def fetch_sgdb_details(playmatch_rom: PlaymatchRomMatch) -> SGDBRom:
         """Fetch SteamGridDB details for the ROM."""
+        # SGDB searches by title (and by IGDB's similar-name match). That is
+        # the same collision we just locked out for scene productions.
+        if scene_locked:
+            return SGDBRom(sgdb_id=None)
+
         if MetadataSource.SGDB in metadata_sources and (
             newly_added
             or scan_type == ScanType.COMPLETE

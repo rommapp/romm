@@ -34,6 +34,8 @@ from handler.database import db_stats_handler, db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.filesystem.base_handler import LibraryStructure
 from handler.metadata import (
+    meta_csdb_handler,
+    meta_demozoo_handler,
     meta_flashpoint_handler,
     meta_gamelist_handler,
     meta_hasheous_handler,
@@ -43,6 +45,7 @@ from handler.metadata import (
     meta_libretro_handler,
     meta_moby_handler,
     meta_playmatch_handler,
+    meta_pouet_handler,
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
@@ -76,6 +79,9 @@ async def heartbeat() -> HeartbeatResponse:
     hasheous_enabled = meta_hasheous_handler.is_enabled()
     playmatch_enabled = meta_playmatch_handler.is_enabled()
     hltb_enabled = meta_hltb_handler.is_enabled()
+    demozoo_enabled = meta_demozoo_handler.is_enabled()
+    pouet_enabled = meta_pouet_handler.is_enabled()
+    csdb_enabled = meta_csdb_handler.is_enabled()
     tgdb_enabled = meta_tgdb_handler.is_enabled()
     libretro_enabled = meta_libretro_handler.is_enabled()
 
@@ -96,6 +102,9 @@ async def heartbeat() -> HeartbeatResponse:
                 or tgdb_enabled
                 or flashpoint_enabled
                 or hltb_enabled
+                or demozoo_enabled
+                or pouet_enabled
+                or csdb_enabled
                 or libretro_enabled
             ),
             "IGDB_API_ENABLED": igdb_enabled,
@@ -110,6 +119,9 @@ async def heartbeat() -> HeartbeatResponse:
             "TGDB_API_ENABLED": tgdb_enabled,
             "FLASHPOINT_API_ENABLED": flashpoint_enabled,
             "HLTB_API_ENABLED": hltb_enabled,
+            "DEMOZOO_API_ENABLED": demozoo_enabled,
+            "POUET_API_ENABLED": pouet_enabled,
+            "CSDB_API_ENABLED": csdb_enabled,
             "LIBRETRO_API_ENABLED": libretro_enabled,
         },
         "FILESYSTEM": {
@@ -175,6 +187,12 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_flashpoint_handler.heartbeat()
         case MetadataSource.HLTB:
             return await meta_hltb_handler.heartbeat()
+        case MetadataSource.DEMOZOO:
+            return await meta_demozoo_handler.heartbeat()
+        case MetadataSource.POUET:
+            return await meta_pouet_handler.heartbeat()
+        case MetadataSource.CSDB:
+            return await meta_csdb_handler.heartbeat()
         case MetadataSource.GAMELIST:
             return await meta_gamelist_handler.heartbeat()
         case MetadataSource.LIBRETRO:

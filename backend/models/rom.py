@@ -45,6 +45,7 @@ from models.base import (
     BaseModel,
     compute_file_name_parts,
 )
+from utils import valid_youtube_id
 from utils.database import CustomJSON
 
 # Max length of the precomputed natural-sort key column.
@@ -444,6 +445,9 @@ class RomFacets(BaseModel):
     tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     flashpoint_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    demozoo_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    pouet_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    csdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
@@ -470,6 +474,9 @@ class Rom(BaseModel):
     tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     flashpoint_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    demozoo_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    pouet_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    csdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
@@ -510,6 +517,9 @@ class Rom(BaseModel):
         Index("idx_roms_tgdb_id", "tgdb_id"),
         Index("idx_roms_flashpoint_id", "flashpoint_id"),
         Index("idx_roms_hltb_id", "hltb_id"),
+        Index("idx_roms_demozoo_id", "demozoo_id"),
+        Index("idx_roms_pouet_id", "pouet_id"),
+        Index("idx_roms_csdb_id", "csdb_id"),
         Index("idx_roms_gamelist_id", "gamelist_id"),
         Index("idx_roms_libretro_id", "libretro_id"),
         # Searching the gallery by a hash digest
@@ -554,6 +564,15 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     hltb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    demozoo_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    pouet_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    csdb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
     gamelist_metadata: Mapped[dict[str, Any] | None] = mapped_column(
@@ -803,6 +822,9 @@ class Rom(BaseModel):
             and not self.hasheous_id
             and not self.flashpoint_id
             and not self.hltb_id
+            and not self.demozoo_id
+            and not self.pouet_id
+            and not self.csdb_id
             and not self.gamelist_id
             and not self.libretro_id
         )
@@ -832,18 +854,17 @@ class Rom(BaseModel):
     # Metadata fields
     @property
     def youtube_video_id(self) -> str | None:
-        igdb_video_id = (
-            self.igdb_metadata.get("youtube_video_id", None)
-            if self.igdb_metadata
-            else None
-        )
-        lb_video_id = (
-            self.launchbox_metadata.get("youtube_video_id", None)
-            if self.launchbox_metadata
-            else None
-        )
-
-        return igdb_video_id or lb_video_id
+        """The blobs are client-writable, so validate on read, not on scan."""
+        for blob in (
+            self.igdb_metadata,
+            self.launchbox_metadata,
+            self.demozoo_metadata,
+            self.pouet_metadata,
+        ):
+            video_id = valid_youtube_id(blob.get("youtube_video_id")) if blob else None
+            if video_id:
+                return video_id
+        return None
 
     @property
     def alternative_names(self) -> list[str]:
@@ -966,6 +987,9 @@ METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute] = {
     "tgdb": Rom.tgdb_id,
     "flashpoint": Rom.flashpoint_id,
     "hltb": Rom.hltb_id,
+    "demozoo": Rom.demozoo_id,
+    "pouet": Rom.pouet_id,
+    "csdb": Rom.csdb_id,
     "gamelist": Rom.gamelist_id,
     "libretro": Rom.libretro_id,
 }
@@ -982,6 +1006,9 @@ METADATA_SOURCE_FACET_COLUMNS: dict[str, InstrumentedAttribute] = {
     "tgdb": RomFacets.tgdb_id,
     "flashpoint": RomFacets.flashpoint_id,
     "hltb": RomFacets.hltb_id,
+    "demozoo": RomFacets.demozoo_id,
+    "pouet": RomFacets.pouet_id,
+    "csdb": RomFacets.csdb_id,
     "gamelist": RomFacets.gamelist_id,
     "libretro": RomFacets.libretro_id,
 }

@@ -23,6 +23,8 @@ from config.config_manager import config_manager as cm
 from endpoints.sockets.scan import scan_platforms
 from handler.database import db_platform_handler
 from handler.metadata import (
+    meta_csdb_handler,
+    meta_demozoo_handler,
     meta_flashpoint_handler,
     meta_hasheous_handler,
     meta_hltb_handler,
@@ -31,6 +33,7 @@ from handler.metadata import (
     meta_libretro_handler,
     meta_moby_handler,
     meta_playmatch_handler,
+    meta_pouet_handler,
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
@@ -186,6 +189,9 @@ def process_changes(changes: Sequence[Change]) -> None:
             MetadataSource.SGDB: meta_sgdb_handler.is_enabled(),
             MetadataSource.FLASHPOINT: meta_flashpoint_handler.is_enabled(),
             MetadataSource.HLTB: meta_hltb_handler.is_enabled(),
+            MetadataSource.DEMOZOO: meta_demozoo_handler.is_enabled(),
+            MetadataSource.POUET: meta_pouet_handler.is_enabled(),
+            MetadataSource.CSDB: meta_csdb_handler.is_enabled(),
             MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),
             MetadataSource.LIBRETRO: meta_libretro_handler.is_enabled(),
         }

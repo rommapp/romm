@@ -136,6 +136,12 @@ FLASHPOINT_API_ENABLED: Final[bool] = safe_str_to_bool(
 # HOWLONGTOBEAT
 HLTB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HLTB_API_ENABLED"))
 
+# DEMOZOO / POUET (public JSON, no API key)
+DEMOZOO_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("DEMOZOO_API_ENABLED"))
+POUET_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("POUET_API_ENABLED"))
+# CSDb XML webservice, C64 stills
+CSDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("CSDB_API_ENABLED"))
+
 # UPC LOOKUP (barcode -> title, used when adding physical games by UPC)
 UPC_LOOKUP_ENABLED: Final[bool] = safe_str_to_bool(
     _get_env("UPC_LOOKUP_ENABLED", "true")
