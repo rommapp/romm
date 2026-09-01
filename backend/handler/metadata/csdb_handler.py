@@ -171,7 +171,7 @@ class CsdbHandler(MetadataHandler):
     async def _request(self, url: str) -> str:
         await _rate_limiter.acquire()
         headers = {
-            "User-Agent": f"RomM/{get_version()} (+https://github.com/rommapp/romm/issues/1796)",
+            "User-Agent": f"RomM/{get_version()}",
             "Accept": "application/xml, text/xml, */*",
         }
         try:

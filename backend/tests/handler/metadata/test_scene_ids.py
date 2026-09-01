@@ -1,8 +1,8 @@
-"""Edit ROM accepts a bare scene id or a pasted production URL."""
+"""scene_id_or_none accepts a bare scene id or a pasted production URL."""
 
 import pytest
 
-from endpoints.roms import scene_id_or_none
+from handler.metadata import scene_id_or_none
 
 KINDS = ["demozoo", "pouet", "csdb"]
 

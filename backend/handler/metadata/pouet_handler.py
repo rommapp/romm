@@ -1,7 +1,7 @@
-"""Pouët metadata — Phase 0–2 of rommapp/romm#1796.
+"""Pouët metadata for demoscene productions.
 
-Phase 0: fetch by production ID (filename tag ``(pouet-N)`` or Edit-ROM paste).
-Phase 2: unique-title 302 from ``search.php?type=prod`` (Location ``which=N``).
+Match by production id (filename tag ``(pouet-N)`` or Edit-ROM paste), or by the
+unique-title 302 from ``search.php?type=prod`` (Location ``which=N``).
 Never parse ``prod.php`` HTML (ambiguous titles stay unmatched).
 """
 
@@ -314,7 +314,7 @@ class PouetHandler(MetadataHandler):
     async def _request(self, url: str) -> dict:
         await _rate_limiter.acquire()
         headers = {
-            "User-Agent": f"RomM/{get_version()} (+https://github.com/rommapp/romm/issues/1796)",
+            "User-Agent": f"RomM/{get_version()}",
             "Accept": "application/json",
         }
         try:
@@ -368,7 +368,7 @@ class PouetHandler(MetadataHandler):
         httpx_client = ctx_httpx_client.get()
         url = f"{POUET_SEARCH_URL}?{urlencode({'what': query, 'type': 'prod'})}"
         headers = {
-            "User-Agent": f"RomM/{get_version()} (+https://github.com/rommapp/romm/issues/1796)",
+            "User-Agent": f"RomM/{get_version()}",
             "Accept": "text/html,application/xhtml+xml",
         }
         # Streamed and never read: an ambiguous title answers 200 with HTML we

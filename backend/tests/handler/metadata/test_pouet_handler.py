@@ -1,4 +1,4 @@
-"""Tests for Pouët Phase 0 handler (filename tags + fetch by ID)."""
+"""Tests for the Pouët handler (filename tags + fetch by ID)."""
 
 from unittest.mock import AsyncMock, patch
 

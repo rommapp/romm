@@ -76,6 +76,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_ss_handler,
     meta_upc_handler,
+    scene_id_or_none,
 )
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
@@ -151,35 +152,6 @@ def safe_int_or_none(value: Any) -> int | None:
         return None
 
     return safe_int(value)
-
-
-def scene_id_or_none(value: Any, kind: str) -> int | None:
-    """Accept a bare id or a Demozoo / Pouët / CSDb production URL.
-
-    ``safe_int`` would turn a pasted URL into 0. Empty / unparseable → None.
-    """
-    if value is None or value == "":
-        return None
-    text = str(value).strip()
-    if text.isdigit():
-        # isdigit() also accepts superscripts and other digits int() rejects.
-        try:
-            return int(text)
-        except ValueError:
-            return None
-    if kind == "demozoo":
-        from handler.metadata.demozoo_handler import demozoo_id_from_url
-
-        return demozoo_id_from_url(text)
-    if kind == "pouet":
-        from handler.metadata.pouet_handler import pouet_id_from_location
-
-        return pouet_id_from_location(text)
-    if kind == "csdb":
-        from handler.metadata.csdb_handler import csdb_id_from_url
-
-        return csdb_id_from_url(text)
-    return None
 
 
 def refresh_affected_smart_collections(

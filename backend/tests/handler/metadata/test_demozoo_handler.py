@@ -1,4 +1,4 @@
-"""Tests for Demozoo Phase 0 handler (filename tags + fetch by ID)."""
+"""Tests for the Demozoo handler (filename tags + fetch by ID)."""
 
 from unittest.mock import AsyncMock, patch
 

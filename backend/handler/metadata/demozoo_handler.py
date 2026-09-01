@@ -1,7 +1,7 @@
-"""Demozoo metadata — Phase 0–1 of rommapp/romm#1796.
+"""Demozoo metadata for demoscene productions.
 
-Phase 0: fetch by production ID (filename tag ``(demozoo-N)`` or Edit-ROM id / URL).
-Phase 1: title search via ``?title=`` (never ``?search=``) + Jaro–Winkler rank.
+Match by production id (filename tag ``(demozoo-N)`` or Edit-ROM id / URL), or by
+title search via ``?title=`` (never ``?search=``) ranked with Jaro-Winkler.
 
 Public JSON API, no key.
 """
@@ -510,7 +510,7 @@ class DemozooHandler(MetadataHandler):
     async def _request(self, url: str) -> dict:
         await _rate_limiter.acquire()
         headers = {
-            "User-Agent": f"RomM/{get_version()} (+https://github.com/rommapp/romm/issues/1796)",
+            "User-Agent": f"RomM/{get_version()}",
             "Accept": "application/json",
         }
         try:
@@ -583,7 +583,7 @@ class DemozooHandler(MetadataHandler):
         ]
 
     async def get_rom(self, fs_name: str, platform_slug: str) -> DemozooRom:
-        """Tag first (Phase 0); otherwise title search + rank (Phase 1)."""
+        """Filename tag first; otherwise title search and rank."""
         from handler.filesystem import fs_rom_handler
 
         if not self.is_enabled():

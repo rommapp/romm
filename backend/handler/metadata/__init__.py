@@ -1,5 +1,7 @@
-from .csdb_handler import CsdbHandler
-from .demozoo_handler import DemozooHandler
+from typing import Any, Callable, Final
+
+from .csdb_handler import CsdbHandler, csdb_id_from_url
+from .demozoo_handler import DemozooHandler, demozoo_id_from_url
 from .flashpoint_handler import FlashpointHandler
 from .gamelist_handler import GamelistHandler
 from .hasheous_handler import HasheousHandler
@@ -9,7 +11,7 @@ from .launchbox_handler import LaunchboxHandler
 from .libretro_handler import LibretroHandler
 from .moby_handler import MobyGamesHandler
 from .playmatch_handler import PlaymatchHandler
-from .pouet_handler import PouetHandler
+from .pouet_handler import PouetHandler, pouet_id_from_location
 from .ra_handler import RAHandler
 from .sgdb_handler import SGDBBaseHandler
 from .ss_handler import SSHandler
@@ -33,3 +35,27 @@ meta_demozoo_handler = DemozooHandler()
 meta_pouet_handler = PouetHandler()
 meta_csdb_handler = CsdbHandler()
 meta_upc_handler = UPCHandler()
+
+_SCENE_ID_PARSERS: Final[dict[str, Callable[[str], int | None]]] = {
+    "demozoo": demozoo_id_from_url,
+    "pouet": pouet_id_from_location,
+    "csdb": csdb_id_from_url,
+}
+
+
+def scene_id_or_none(value: Any, kind: str) -> int | None:
+    """Accept a bare id or a Demozoo / Pouët / CSDb production URL.
+
+    ``safe_int`` would turn a pasted URL into 0. Empty / unparseable → None.
+    """
+    if value is None or value == "":
+        return None
+    text = str(value).strip()
+    if text.isdigit():
+        # isdigit() also accepts superscripts and other digits int() rejects.
+        try:
+            return int(text)
+        except ValueError:
+            return None
+    parser = _SCENE_ID_PARSERS.get(kind)
+    return parser(text) if parser else None
