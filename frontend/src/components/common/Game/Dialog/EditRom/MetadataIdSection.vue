@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { UpdateRom } from "@/services/api/rom";
-import { parseSceneId, type SceneIdKind } from "@/utils/sceneIds";
 
 const props = defineProps<{ rom: UpdateRom }>();
 
@@ -14,14 +13,8 @@ const updateField = (field: keyof UpdateRom, value: string | number | null) => {
 
 const parseIdValue = (value: string): number | null => {
   if (!value || value.trim() === "") return null;
-  const n = parseInt(value, 10);
-  return Number.isNaN(n) ? null : n;
+  return parseInt(value);
 };
-
-const parseSceneIdValue = (
-  value: string | null,
-  kind: SceneIdKind,
-): number | null => parseSceneId(value, kind);
 </script>
 
 <template>
@@ -137,45 +130,6 @@ const parseSceneIdValue = (
             variant="outlined"
             @update:model-value="
               (value) => updateField('hltb_id', parseIdValue(value))
-            "
-          />
-        </v-col>
-        <v-col cols="12" md="6" xl="4" class="pa-2">
-          <v-text-field
-            hide-details
-            clearable
-            :model-value="rom.demozoo_id?.toString() || null"
-            label="Demozoo ID"
-            variant="outlined"
-            @update:model-value="
-              (value) =>
-                updateField('demozoo_id', parseSceneIdValue(value, 'demozoo'))
-            "
-          />
-        </v-col>
-        <v-col cols="12" md="6" xl="4" class="pa-2">
-          <v-text-field
-            hide-details
-            clearable
-            :model-value="rom.pouet_id?.toString() || null"
-            label="Pouët ID"
-            variant="outlined"
-            @update:model-value="
-              (value) =>
-                updateField('pouet_id', parseSceneIdValue(value, 'pouet'))
-            "
-          />
-        </v-col>
-        <v-col cols="12" md="6" xl="4" class="pa-2">
-          <v-text-field
-            hide-details
-            clearable
-            :model-value="rom.csdb_id?.toString() || null"
-            label="CSDb ID"
-            variant="outlined"
-            @update:model-value="
-              (value) =>
-                updateField('csdb_id', parseSceneIdValue(value, 'csdb'))
             "
           />
         </v-col>
