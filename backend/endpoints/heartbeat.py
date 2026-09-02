@@ -1,4 +1,5 @@
 import os
+from typing import Final
 
 from anyio import Path as AnyioPath
 from fastapi import HTTPException, Request, status
@@ -55,7 +56,15 @@ from handler.scan_handler import MetadataSource
 from logger.logger import log
 from utils import get_version
 from utils.platforms import get_supported_platforms
+from utils.rate_limit import enforce_rate_limit, get_client_ip
 from utils.router import APIRouter
+
+# The metadata heartbeat is unauthenticated and probes a third-party API through
+# that provider's process-global outbound limiter, so an unthrottled caller could
+# queue up enough probes to starve scans and burn the API quota. The cap is per
+# source, and generous enough for the settings page to probe every source per visit.
+METADATA_HEARTBEAT_RATE_LIMIT: Final[int] = 20
+METADATA_HEARTBEAT_RATE_LIMIT_WINDOW_SECONDS: Final[int] = 60
 
 router = APIRouter(
     tags=["system"],
@@ -157,12 +166,20 @@ async def heartbeat() -> HeartbeatResponse:
 
 
 @router.get("/heartbeat/metadata/{source}")
-async def metadata_heartbeat(source: str) -> bool:
+async def metadata_heartbeat(request: Request, source: str) -> bool:
     """Endpoint to return the heartbeat of the metadata sources"""
     try:
         metadata_source = MetadataSource(source)
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid metadata source") from e
+
+    # Keyed on the parsed source, so arbitrary path values can't grow the keyspace.
+    enforce_rate_limit(
+        f"metadata-heartbeat-rate:{get_client_ip(request)}:{metadata_source.value}",
+        max_requests=METADATA_HEARTBEAT_RATE_LIMIT,
+        window_seconds=METADATA_HEARTBEAT_RATE_LIMIT_WINDOW_SECONDS,
+        detail="Too many metadata heartbeat requests. Try again later.",
+    )
 
     match metadata_source:
         case MetadataSource.IGDB:

@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import status
 
+from endpoints.heartbeat import METADATA_HEARTBEAT_RATE_LIMIT
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from utils import get_version
@@ -84,6 +85,26 @@ def test_heartbeat_metadata(client):
 def test_heartbeat_metadata_unknown_source(client):
     response = client.get("/api/heartbeat/metadata/unknown")
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_heartbeat_metadata_rate_limit(client):
+    for _ in range(METADATA_HEARTBEAT_RATE_LIMIT):
+        response = client.get("/api/heartbeat/metadata/launchbox")
+        assert response.status_code == status.HTTP_200_OK
+
+    response = client.get("/api/heartbeat/metadata/launchbox")
+    assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
+    # The window is per source, so another source is untouched by the flood.
+    response = client.get("/api/heartbeat/metadata/gamelist")
+    assert response.status_code == status.HTTP_200_OK
+
+
+def test_heartbeat_metadata_unknown_source_is_not_rate_limited(client):
+    """An unparseable source never reaches a provider, so it must not create a key."""
+    for _ in range(METADATA_HEARTBEAT_RATE_LIMIT + 1):
+        response = client.get("/api/heartbeat/metadata/unknown")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_get_setup_library_info_structure_a_detected(client, access_token):
