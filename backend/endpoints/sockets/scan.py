@@ -76,6 +76,7 @@ from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
+from utils.switch import SWITCH_PLATFORM_SLUGS
 
 STOP_SCAN_FLAG: Final = "scan:stop"
 
@@ -328,6 +329,26 @@ def _should_get_rom_files(
     )
 
 
+def _should_extract_title_ids(scan_type: ScanType, rom: Rom) -> bool:
+    """Decide if a rescan should re-read title ids out of a rom's binaries.
+
+    Extraction is a native parse of every ROM file, so it is not repeated for a
+    rom that already carries an id. A complete rescan refreshes it regardless,
+    and the Switch family always re-reads because the same parse is what
+    settles its per-file categories.
+
+    Args:
+        scan_type (ScanType): Type of scan to be performed.
+        rom (Rom): The existing rom being rescanned.
+    """
+
+    return bool(
+        scan_type == ScanType.COMPLETE
+        or not rom.title_id
+        or rom.platform_slug in SWITCH_PLATFORM_SLUGS
+    )
+
+
 def _should_reparse_tags(
     scan_type: ScanType,
     rom: Rom,
@@ -547,7 +568,8 @@ async def _identify_rom(
             rom,
             fs_rom,
             calculate_hashes=calculate_hashes,
-            extract_title_ids=extract_title_ids,
+            extract_title_ids=extract_title_ids
+            and _should_extract_title_ids(scan_type, rom),
             embed_title_ids=embed_title_ids,
         )
         # Keep the in-memory rom's name matching the renamed file.

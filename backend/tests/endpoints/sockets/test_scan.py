@@ -1,5 +1,6 @@
 from itertools import count
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
@@ -11,6 +12,7 @@ from endpoints.sockets.scan import (
     ScanStats,
     _identify_rom,
     _scan_selected_roms,
+    _should_extract_title_ids,
     _should_reparse_tags,
     reject_unauthorized_scan,
     scan_handler,
@@ -508,6 +510,40 @@ class TestShouldReparseTags:
 
     def test_unselected_rom_is_left_alone(self, rom: Rom):
         assert _should_reparse_tags(ScanType.QUICK, rom, [rom.id + 99]) is False
+
+
+class TestShouldExtractTitleIds:
+    """Which rescans pay for another native parse of a rom's binaries."""
+
+    @staticmethod
+    def _rom(platform_slug: str, title_id: str | None) -> Rom:
+        # Built untyped and cast, since `platform_slug` is a read-only property.
+        rom = Mock(spec=Rom)
+        rom.title_id = title_id
+        rom.platform_slug = platform_slug
+        return cast(Rom, rom)
+
+    def test_a_stored_id_is_not_re_read(self):
+        rom = self._rom("psp", "ULUS-10041")
+
+        assert _should_extract_title_ids(ScanType.QUICK, rom) is False
+        assert _should_extract_title_ids(ScanType.HASHES, rom) is False
+
+    def test_a_rom_without_an_id_is_read(self):
+        assert _should_extract_title_ids(ScanType.QUICK, self._rom("psp", None)) is True
+
+    def test_a_complete_rescan_always_re_reads(self):
+        rom = self._rom("psp", "ULUS-10041")
+
+        assert _should_extract_title_ids(ScanType.COMPLETE, rom) is True
+
+    @pytest.mark.parametrize("platform_slug", ["switch", "switch-2"])
+    def test_switch_always_re_reads(self, platform_slug: str):
+        """The same parse settles the per-file categories, which a rebuild would
+        otherwise take from the folder names instead."""
+        rom = self._rom(platform_slug, "0100ABCD12340000")
+
+        assert _should_extract_title_ids(ScanType.QUICK, rom) is True
 
 
 class TestIdentifyRomTagReparse:
