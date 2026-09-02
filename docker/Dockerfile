@@ -116,9 +116,10 @@ RUN apk add --no-cache \
     make \
     musl-dev
 
+# Keep this pin in sync with the dev image's SIGIL_VERSION in ../Dockerfile.
 ARG SIGIL_VERSION=9665f03c04d0f547ed38dd5e5e31916c1da5f2e9
 
-RUN git clone --recurse-submodules https://github.com/rommforge/argosy-sigil.git && \
+RUN git clone --filter=blob:none https://github.com/rommforge/argosy-sigil.git && \
     cd ./argosy-sigil && \
     git checkout "${SIGIL_VERSION}" && \
     git submodule update --init --recursive && \

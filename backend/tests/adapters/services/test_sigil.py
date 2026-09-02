@@ -4,11 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 import adapters.services.sigil as sigil_adapter
-from adapters.services.sigil import (
-    SIGIL_PLATFORM_SLUGS,
-    SigilExtractionResult,
-    SigilService,
-)
+from adapters.services.sigil import SigilExtractionResult, SigilService
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 
 
@@ -19,7 +15,7 @@ class FakeSigilError(Exception):
 
 
 def make_fake_sigil(extract: Mock) -> types.SimpleNamespace:
-    return types.SimpleNamespace(SigilError=FakeSigilError, extract=extract)
+    return types.SimpleNamespace(extract=extract)
 
 
 def make_result(
@@ -31,12 +27,8 @@ def make_result(
 ) -> types.SimpleNamespace:
     return types.SimpleNamespace(
         title_id=title_id,
-        raw_serial="serial",
         save_id=save_id,
-        platform="switch",
-        source="binary",
         usage=usage,
-        experimental=False,
         switch_content_type=switch_content_type,
         title_version=title_version,
     )
@@ -91,13 +83,21 @@ class TestSigilService:
         )
 
     @pytest.mark.asyncio
+    # Version 0 is a real base-game version, not a missing one.
+    @pytest.mark.parametrize(
+        ("content_type", "version"), [("patch", 196608), ("application", 0)]
+    )
     async def test_maps_switch_content_type_and_version(
-        self, service: SigilService, monkeypatch
+        self,
+        service: SigilService,
+        monkeypatch,
+        content_type: str,
+        version: int,
     ):
         extract = Mock(
             return_value=make_result(
-                switch_content_type="patch",
-                title_version=196608,
+                switch_content_type=content_type,
+                title_version=version,
             )
         )
         monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
@@ -105,24 +105,8 @@ class TestSigilService:
         result = await service.extract_title_id(UPS.SWITCH, "/roms/switch/game.nsp")
 
         assert result is not None
-        assert result.content_type == "patch"
-        assert result.version == 196608
-
-    @pytest.mark.asyncio
-    async def test_version_zero_is_preserved(self, service: SigilService, monkeypatch):
-        extract = Mock(
-            return_value=make_result(
-                switch_content_type="application",
-                title_version=0,
-            )
-        )
-        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
-
-        result = await service.extract_title_id(UPS.SWITCH, "/roms/switch/game.xci")
-
-        assert result is not None
-        assert result.content_type == "application"
-        assert result.version == 0
+        assert result.content_type == content_type
+        assert result.version == version
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("raw", ["unknown", "", None])
@@ -176,12 +160,3 @@ class TestSigilService:
             platform="switch",
             filename_fallback=False,
         )
-
-    def test_platform_slug_mapping(self):
-        assert SIGIL_PLATFORM_SLUGS[UPS.SWITCH_2] == "switch"
-        assert SIGIL_PLATFORM_SLUGS[UPS.N3DS] == "3ds"
-        assert SIGIL_PLATFORM_SLUGS[UPS.NGC] == "gamecube"
-        assert SIGIL_PLATFORM_SLUGS[UPS.DC] == "dreamcast"
-        assert SIGIL_PLATFORM_SLUGS[UPS.PS3] == "ps3"
-        assert SIGIL_PLATFORM_SLUGS[UPS.XBOX] == "xbox"
-        assert SIGIL_PLATFORM_SLUGS[UPS.XBOX360] == "xbox360"

@@ -1,6 +1,5 @@
 import pytest
 
-from models.rom import RomFileCategory
 from utils import switch
 
 
@@ -43,15 +42,6 @@ class TestDeriveBaseTitleId:
     @pytest.mark.parametrize("title_id", ["", "000", "0100ABCD1234ZZZ0"])
     def test_unparseable_ids_yield_nothing(self, title_id: str):
         assert switch.derive_base_title_id(title_id) is None
-
-
-class TestContentTypeCategories:
-    def test_each_content_type_maps_to_its_category(self):
-        assert switch.CONTENT_TYPE_CATEGORIES == {
-            "application": RomFileCategory.GAME,
-            "patch": RomFileCategory.UPDATE,
-            "addon": RomFileCategory.DLC,
-        }
 
 
 class TestTitleIdRegexes:

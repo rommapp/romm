@@ -97,16 +97,15 @@ const audioDuration = computed(() =>
   formatDuration(props.file.track_meta?.duration_seconds),
 );
 
-const identifierChips = computed(() => {
+const hashChips = computed(() => {
   const f = props.file;
-  const chips: { label: string; value: string | null }[] = [
+  return [
     { label: "SHA-1", value: f.sha1_hash },
     { label: "CHD SHA-1", value: f.chd_sha1_hash },
     { label: "MD5", value: f.md5_hash },
     { label: "CRC", value: f.crc_hash },
     { label: "RA", value: f.ra_hash },
-  ];
-  return chips.filter((chip) => Boolean(chip.value));
+  ].flatMap((chip) => (chip.value ? [{ ...chip, value: chip.value }] : []));
 });
 </script>
 
@@ -172,12 +171,12 @@ const identifierChips = computed(() => {
         </template>
       </div>
 
-      <div v-if="identifierChips.length" class="r-v2-file-row__identifiers">
+      <div v-if="hashChips.length" class="r-v2-file-row__hashes">
         <HashChip
-          v-for="chip in identifierChips"
+          v-for="chip in hashChips"
           :key="chip.label"
           :label="chip.label"
-          :value="chip.value!"
+          :value="chip.value"
           compact
         />
       </div>
@@ -302,7 +301,7 @@ const identifierChips = computed(() => {
   opacity: 0.5;
 }
 
-.r-v2-file-row__identifiers {
+.r-v2-file-row__hashes {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;

@@ -10,13 +10,7 @@ from rq import Worker, get_current_job
 from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError
 
-from config import (
-    DEV_MODE,
-    REDIS_URL,
-    SCAN_TIMEOUT,
-    SCAN_WORKERS,
-    TASK_RESULT_TTL,
-)
+from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from endpoints.responses import TaskType
@@ -43,11 +37,7 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
 )
-from handler.filesystem.roms_handler import (
-    FSRom,
-    ParsedRomFiles,
-    ScannedFSRomValues,
-)
+from handler.filesystem.roms_handler import FSRom, ParsedRomFiles
 from handler.metadata import (
     meta_gamelist_handler,
     meta_hltb_handler,
@@ -384,19 +374,20 @@ def _should_hash_firmware(
 
 
 def _apply_scanned_values(fs_rom: FSRom, parsed: ParsedRomFiles) -> None:
-    values = ScannedFSRomValues(
-        files=parsed.rom_files,
-        crc_hash=parsed.crc_hash,
-        md5_hash=parsed.md5_hash,
-        sha1_hash=parsed.sha1_hash,
-        ra_hash=parsed.ra_hash,
-        title_id=parsed.title_id,
-        save_target=parsed.save_target,
-        save_target_layout=parsed.save_target_layout,
+    fs_rom.update(
+        {
+            "files": parsed.rom_files,
+            "crc_hash": parsed.crc_hash,
+            "md5_hash": parsed.md5_hash,
+            "sha1_hash": parsed.sha1_hash,
+            "ra_hash": parsed.ra_hash,
+            "title_id": parsed.title_id,
+            "save_target": parsed.save_target,
+            "save_target_layout": parsed.save_target_layout,
+        }
     )
     if parsed.renamed_rom_fs_name:
-        values["fs_name"] = parsed.renamed_rom_fs_name
-    fs_rom.update(values)
+        fs_rom["fs_name"] = parsed.renamed_rom_fs_name
 
 
 # There's an order of operations here that is important:

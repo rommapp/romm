@@ -1,6 +1,6 @@
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Final
+from typing import Final
 
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
@@ -11,15 +11,17 @@ except ImportError:
     sigil = None  # type: ignore[assignment]
     log.debug("sigil binding not installed, title id extraction disabled")
 
-SWITCH_SIGIL_SLUG: Final = "switch"
+# The Switch family needs prod.keys to decrypt headers, and is the only family
+# whose files may have their title id embedded in the filename.
+SWITCH_PLATFORM_SLUGS: Final = frozenset({UPS.SWITCH, UPS.SWITCH_2})
 
-SIGIL_PLATFORM_SLUGS: Final[dict[UPS, str]] = {
+SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
     UPS.PSP: "psp",
     UPS.PSX: "psx",
     UPS.PS2: "ps2",
     UPS.PSVITA: "psvita",
-    UPS.SWITCH: SWITCH_SIGIL_SLUG,
-    UPS.SWITCH_2: SWITCH_SIGIL_SLUG,
+    UPS.SWITCH: "switch",
+    UPS.SWITCH_2: "switch",
     UPS.N3DS: "3ds",
     UPS.WII: "wii",
     UPS.WIIU: "wiiu",
@@ -29,14 +31,6 @@ SIGIL_PLATFORM_SLUGS: Final[dict[UPS, str]] = {
     UPS.XBOX: "xbox",
     UPS.XBOX360: "xbox360",
 }
-
-# The Switch family needs prod.keys to decrypt headers, and is the only family
-# whose files may have their title id embedded in the filename.
-SWITCH_PLATFORM_SLUGS: Final = frozenset(
-    slug
-    for slug, sigil_slug in SIGIL_PLATFORM_SLUGS.items()
-    if sigil_slug == SWITCH_SIGIL_SLUG
-)
 
 # Errors that are expected for arbitrary library files (no title id present,
 # format sigil can't parse, missing decryption keys). Logged at debug level.
@@ -60,20 +54,20 @@ class SigilService:
 
     async def extract_title_id(
         self,
-        platform_slug: UPS | str,
+        platform_slug: str,
         file_path: str,
     ) -> SigilExtractionResult | None:
         if sigil is None:
             return None
 
-        sigil_slug = SIGIL_PLATFORM_SLUGS.get(platform_slug)  # type: ignore[arg-type]
+        sigil_slug = SIGIL_PLATFORM_SLUGS.get(platform_slug)
         if sigil_slug is None:
             return None
 
-        kwargs: dict[str, Any] = {"platform": sigil_slug, "filename_fallback": False}
-
         try:
-            result = await asyncio.to_thread(sigil.extract, file_path, **kwargs)
+            result = await asyncio.to_thread(
+                sigil.extract, file_path, platform=sigil_slug, filename_fallback=False
+            )
         except Exception as exc:
             code = getattr(exc, "code", None)
             if code in ROUTINE_SIGIL_ERROR_CODES:

@@ -730,7 +730,7 @@ def patch_identify_rom(
     roms_fs_structure: str,
     name_with_no_tags: str,
     platform_slug: str,
-    **config_flags: bool,
+    embed_switch_title_ids: bool = False,
 ) -> tuple[Mock, Platform]:
     """Stub out everything `_identify_rom` reaches so only the wiring under test
     is exercised, returning the patched db handler and the platform to scan."""
@@ -752,8 +752,8 @@ def patch_identify_rom(
 
     config = MagicMock()
     config.SKIP_HASH_CALCULATION = False
-    for flag, value in config_flags.items():
-        setattr(config, flag, value)
+    config.SKIP_TITLE_ID_EXTRACTION = False
+    config.EMBED_SWITCH_TITLE_IDS = embed_switch_title_ids
     mocker.patch.object(scan_module.cm, "get_config", return_value=config)
 
     mocker.patch.object(
@@ -805,84 +805,30 @@ class TestIdentifyRomReassociation:
 
     @pytest.fixture
     def patched(self, mocker):
-        mocker.patch.object(
-            scan_module, "redis_client", Mock(get=Mock(return_value=None))
-        )
-
-        fs = scan_module.fs_rom_handler
-        mocker.patch.object(
-            fs,
-            "parse_tags",
-            return_value=ParsedTags(
-                version="", revision="", regions=[], languages=[], other_tags=[]
+        return patch_identify_rom(
+            mocker,
+            parsed=ParsedRomFiles(
+                rom_files=[],
+                crc_hash="crc",
+                md5_hash="md5",
+                sha1_hash="sha1",
+                ra_hash="",
             ),
-        )
-        mocker.patch.object(fs, "get_roms_fs_structure", return_value="test/roms")
-        mocker.patch.object(fs, "get_file_name_with_no_tags", return_value="New Name")
-        mocker.patch.object(
-            fs,
-            "get_rom_files",
-            AsyncMock(
-                return_value=ParsedRomFiles(
-                    rom_files=[],
-                    crc_hash="crc",
-                    md5_hash="md5",
-                    sha1_hash="sha1",
-                    ra_hash="",
-                )
-            ),
+            roms_fs_structure="test/roms",
+            name_with_no_tags="New Name",
+            platform_slug="test",
         )
 
-        config = MagicMock()
-        config.SKIP_HASH_CALCULATION = False
-        mocker.patch.object(scan_module.cm, "get_config", return_value=config)
-
-        mocker.patch.object(
-            scan_module,
-            "scan_rom",
-            AsyncMock(return_value=MagicMock(is_identified=False)),
-        )
-
-        db = mocker.patch.object(scan_module, "db_rom_handler")
-        db.add_rom.return_value = MagicMock(is_identified=False, id=99)
-        return db
-
-    def _platform(self):
-        platform = Platform(name="Test", slug="test", fs_slug="test")
-        platform.id = 1
-        return platform
-
-    async def _run(self, db):
-        fs_rom: FSRom = {
-            "fs_name": "New Name.zip",
-            "flat": True,
-            "nested": False,
-            "files": [],
-            "crc_hash": "",
-            "md5_hash": "",
-            "sha1_hash": "",
-            "ra_hash": "",
-        }
-        await _identify_rom(
-            platform=self._platform(),
-            fs_rom=fs_rom,
-            rom=None,
-            scan_type=ScanType.HASHES,
-            roms_ids=[],
-            metadata_sources=[],
-            launchbox_remote_enabled=False,
-            playmatch_enabled=False,
-            socket_manager=AsyncMock(),
-            scan_stats=AsyncMock(),
-        )
+    async def _run(self, platform: Platform) -> None:
+        await run_identify_rom(platform, make_fs_rom("New Name.zip"))
 
     async def test_reassociates_with_missing_entry(self, patched):
-        db = patched
+        db, platform = patched
         missing = MagicMock(id=42, name="Old Game", fs_name="old.zip")
         db.get_matching_missing_rom.return_value = missing
         db.update_rom.return_value = missing
 
-        await self._run(db)
+        await self._run(platform)
 
         db.get_matching_missing_rom.assert_called_once_with(
             platform_id=1,
@@ -907,7 +853,7 @@ class TestIdentifyRomReassociation:
         Without it a renamed Switch file lands as a duplicate and strands the
         original entry, along with its collections and notes, as missing.
         """
-        db = patched
+        db, platform = patched
         db.get_matching_missing_rom.return_value = None
         mocker.patch.object(
             scan_module.fs_rom_handler,
@@ -924,7 +870,7 @@ class TestIdentifyRomReassociation:
             ),
         )
 
-        await self._run(db)
+        await self._run(platform)
 
         db.get_matching_missing_rom.assert_called_once_with(
             platform_id=1,
@@ -935,34 +881,34 @@ class TestIdentifyRomReassociation:
         )
 
     async def test_files_are_reconciled_in_place(self, patched):
-        db = patched
+        db, platform = patched
         db.get_matching_missing_rom.return_value = None
         db.sync_rom_files.return_value = SyncedRomFiles(
             files=[], orphaned_cover_paths=[]
         )
 
-        await self._run(db)
+        await self._run(platform)
 
         # Rows are reconciled against the scan, so file ids survive the rescan.
         db.sync_rom_files.assert_called_once_with(99, [])
 
     async def test_orphaned_soundtrack_covers_are_unlinked(self, patched, mocker):
-        db = patched
+        db, platform = patched
         db.get_matching_missing_rom.return_value = None
         db.sync_rom_files.return_value = SyncedRomFiles(
             files=[], orphaned_cover_paths=["covers/track01.png"]
         )
         remove = mocker.patch.object(scan_module, "remove_persisted_cover")
 
-        await self._run(db)
+        await self._run(platform)
 
         remove.assert_called_once_with("covers/track01.png")
 
     async def test_creates_new_entry_when_no_match(self, patched):
-        db = patched
+        db, platform = patched
         db.get_matching_missing_rom.return_value = None
 
-        await self._run(db)
+        await self._run(platform)
 
         db.get_matching_missing_rom.assert_called_once()
         # No reassociation update happens on the create path.
@@ -996,8 +942,7 @@ class TestIdentifyRomTitleIdEmbedRename:
             roms_fs_structure="switch/roms",
             name_with_no_tags="Game",
             platform_slug="switch",
-            SKIP_TITLE_ID_EXTRACTION=False,
-            EMBED_SWITCH_TITLE_IDS=True,
+            embed_switch_title_ids=True,
         )
         db.get_matching_missing_rom.return_value = None
         return db, platform
@@ -1042,8 +987,6 @@ class TestIdentifyRomPersistsFileCategory:
             roms_fs_structure="switch/roms",
             name_with_no_tags="Game",
             platform_slug="switch",
-            SKIP_TITLE_ID_EXTRACTION=False,
-            EMBED_SWITCH_TITLE_IDS=False,
         )
         # The persist loop calls this per saved file; keep it inert.
         mocker.patch.object(scan_module, "persist_soundtrack_cover")

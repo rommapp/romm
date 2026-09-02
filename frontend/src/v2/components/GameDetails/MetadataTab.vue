@@ -30,15 +30,16 @@ type Row = { label: string; value: string };
 const fileRows = computed<Row[]>(() => {
   const r = props.rom;
   const size = r.fs_size_bytes != null ? formatBytes(r.fs_size_bytes) : "—";
-  return [
+  const rows: Row[] = [
     { label: t("rom.filename"), value: r.fs_name },
     { label: t("common.size"), value: size },
-    // Only the sigil platforms carry these, so skip rather than dash them.
-    ...(r.title_id ? [{ label: t("rom.title-id"), value: r.title_id }] : []),
-    ...(r.save_target
-      ? [{ label: t("rom.save-target"), value: r.save_target }]
-      : []),
   ];
+  // Present only for platforms with a readable binary id, so skip rather
+  // than dash them.
+  if (r.title_id) rows.push({ label: t("rom.title-id"), value: r.title_id });
+  if (r.save_target)
+    rows.push({ label: t("rom.save-target"), value: r.save_target });
+  return rows;
 });
 
 // Hash rows accept `value: string | null` because HashChip's click-to-

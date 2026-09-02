@@ -80,21 +80,25 @@ ENV PATH="/app/.venv/bin:${PATH}"
 
 # Build and install sigil (optional, for title ID extraction)
 # Placed after `uv sync` because the extension is compiled with the venv's
-# Python so the ABI matches.
+# Python so the ABI matches. Keep the pin in sync with docker/Dockerfile.
 ARG SIGIL_VERSION=9665f03c04d0f547ed38dd5e5e31916c1da5f2e9
-RUN git clone --recurse-submodules https://github.com/rommforge/argosy-sigil.git /tmp/argosy-sigil
-WORKDIR /tmp/argosy-sigil
-RUN git checkout "${SIGIL_VERSION}" \
+ARG PYTHON_VERSION=3.13
+# One layer so the clone and the cmake tree never reach the image, which rules
+# out WORKDIR between the steps.
+# trunk-ignore(hadolint/DL3003)
+RUN git clone --filter=blob:none https://github.com/rommforge/argosy-sigil.git /tmp/argosy-sigil \
+    && cd /tmp/argosy-sigil \
+    && git checkout "${SIGIL_VERSION}" \
     && git submodule update --init --recursive \
     && cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF \
-    && cmake --build ./build-python --target sigil
-WORKDIR /tmp/argosy-sigil/bindings/python
-RUN uv pip install --python /app/.venv/bin/python cffi setuptools \
+    && cmake --build ./build-python --target sigil \
+    && uv pip install --python /app/.venv/bin/python cffi setuptools \
+    && cd ./bindings/python \
     && /app/.venv/bin/python build_sigil.py \
-    && mkdir -p /app/.venv/lib/python3.13/site-packages/sigil \
-    && cp ./sigil/*.py ./sigil/_sigil.*.so /app/.venv/lib/python3.13/site-packages/sigil/
+    && mkdir -p "/app/.venv/lib/python${PYTHON_VERSION}/site-packages/sigil" \
+    && cp ./sigil/*.py ./sigil/_sigil.*.so "/app/.venv/lib/python${PYTHON_VERSION}/site-packages/sigil/" \
+    && rm -rf /tmp/argosy-sigil
 WORKDIR /app
-RUN rm -rf /tmp/argosy-sigil
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
