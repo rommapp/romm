@@ -76,6 +76,10 @@
 #   roms_folder: 'roms'
 #   # Skip file hash calculations on low power devices (eg. Raspberry PI)
 #   skip_hash_calculation: false
+#   # Skip reading platform-native title IDs out of ROM binaries during scans
+#   skip_title_id_extraction: false
+#   # Rename Switch ROMs to embed ` [TITLEID][vVERSION]` in their filename
+#   embed_switch_title_ids: false
 
 # scan:
 #   # Metadata priority during scans

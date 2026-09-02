@@ -20,6 +20,7 @@ import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomSteamMetadata } from './RomSteamMetadata';
 import type { RomUserSchema } from './RomUserSchema';
 import type { SaveSchema } from './SaveSchema';
+import type { SaveTargetLayout } from './SaveTargetLayout';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 import type { SiblingRomSchema } from './SiblingRomSchema';
 import type { StateSchema } from './StateSchema';
@@ -96,6 +97,9 @@ export type DetailedRomSchema = {
     md5_hash: (string | null);
     sha1_hash: (string | null);
     ra_hash: (string | null);
+    title_id: (string | null);
+    save_target: (string | null);
+    save_target_layout: (SaveTargetLayout | null);
     has_simple_single_file: boolean;
     has_nested_single_file: boolean;
     has_multiple_files: boolean;

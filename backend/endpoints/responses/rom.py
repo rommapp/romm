@@ -37,6 +37,7 @@ from models.rom import (
     RomFile,
     RomFileCategory,
     RomUserStatus,
+    SaveTargetLayout,
 )
 
 from .base import BaseModel, UTCDatetime
@@ -403,6 +404,9 @@ class RomSchema(BaseModel):
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
+    title_id: str | None
+    save_target: str | None
+    save_target_layout: SaveTargetLayout | None
 
     has_simple_single_file: bool
     has_nested_single_file: bool

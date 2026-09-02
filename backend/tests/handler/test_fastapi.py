@@ -32,7 +32,7 @@ from handler.scan_handler import (
     scan_rom,
 )
 from models.platform import Platform
-from models.rom import Rom, RomFile
+from models.rom import Rom, RomFile, SaveTargetLayout
 from utils.context import initialize_context
 
 
@@ -199,6 +199,74 @@ async def test_scan_rom_complete_clears_unselected_metadata(
     assert result.ra_metadata == {}
     # Hasheous is still selected and should remain populated.
     assert result.hasheous_id == 999
+
+
+@pytest.mark.parametrize(
+    ("stored_title_id", "extracted_title_id"),
+    [
+        # A first extraction lands on a rom that has no identity yet.
+        (None, "0100ABCD12340000"),
+        # A hash-only or extraction-disabled rescan must not wipe what is there.
+        ("0100ABCD12340000", None),
+    ],
+)
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+async def test_scan_rom_folds_extracted_title_id_values(
+    mock_playmatch_enabled,
+    stored_title_id: str | None,
+    extracted_title_id: str | None,
+):
+    platform = Platform(id=1, slug="switch", fs_slug="switch", name="Nintendo Switch")
+    platform = db_platform_handler.add_platform(platform)
+
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Game.nsp",
+        fs_path="switch/roms",
+        name="Game",
+        fs_size_bytes=1024,
+        tags=[],
+        title_id=stored_title_id,
+        save_target=stored_title_id,
+        save_target_layout=(SaveTargetLayout.FOLDER_EXACT if stored_title_id else None),
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Game.nsp",
+                "flat": True,
+                "nested": False,
+                "files": [
+                    RomFile(
+                        rom=rom,
+                        file_name="Game.nsp",
+                        file_path="switch/roms",
+                        file_size_bytes=1024,
+                        last_modified=1620000000,
+                    )
+                ],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+                "title_id": extracted_title_id,
+                "save_target": extracted_title_id,
+                "save_target_layout": (
+                    SaveTargetLayout.FOLDER_EXACT if extracted_title_id else None
+                ),
+            },
+            metadata_sources=[],
+            newly_added=False,
+        )
+
+    assert result.title_id == "0100ABCD12340000"
+    assert result.save_target == "0100ABCD12340000"
+    assert result.save_target_layout == SaveTargetLayout.FOLDER_EXACT
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
