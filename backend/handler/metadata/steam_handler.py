@@ -213,7 +213,11 @@ class SteamHandler(MetadataHandler):
         apps = await self.steam_service.search_apps(search_term)
 
         # The storefront returns DLC, soundtracks and tools alongside games.
-        candidates = [app for app in apps if app.get("type") == "app" and app.get("id")]
+        candidates = [
+            app
+            for app in apps
+            if app.get("type") == "app" and app.get("id") and app.get("name")
+        ]
         if not candidates:
             log.debug("Could not find '%s' on Steam", search_term)
             return SteamRom(steam_id=None)

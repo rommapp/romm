@@ -69,7 +69,9 @@ class SteamService:
                 # A throttled storefront answers 200 with a bare `null`, and the
                 # callers only ever read mappings.
                 return payload if isinstance(payload, dict) else {}
-            except aiohttp.ServerTimeoutError:
+            # A `total` timeout surfaces as a bare asyncio.TimeoutError, not as
+            # aiohttp's ServerTimeoutError, so catch the base class.
+            except TimeoutError:
                 log.debug("Request to URL=%s timed out. Retrying...", url)
                 continue
             except aiohttp.ClientConnectionError as exc:
@@ -152,6 +154,9 @@ class SteamService:
                 capsule_url,
                 headers={"user-agent": f"RomM/{get_version()}"},
                 timeout=ClientTimeout(total=15),
+                # aiohttp defaults HEAD to not following redirects, and the CDN
+                # can answer the capsule path with one.
+                allow_redirects=True,
             )
         except (aiohttp.ClientError, TimeoutError) as exc:
             log.debug("Could not probe Steam capsule for %s: %s", app_id, exc)
