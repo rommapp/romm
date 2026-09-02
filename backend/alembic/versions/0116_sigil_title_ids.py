@@ -1,8 +1,8 @@
 """Add the binary identity columns on roms: title_id, save_target and
 save_target_layout.
 
-Revision ID: 0114_sigil_title_ids
-Revises: 0113_roms_locked_fields
+Revision ID: 0116_sigil_title_ids
+Revises: 0115_add_steam_metadata
 Create Date: 2026-07-23 00:00:00.000000
 
 """
@@ -14,8 +14,8 @@ from sqlalchemy.dialects.postgresql import ENUM
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0114_sigil_title_ids"
-down_revision = "0113_roms_locked_fields"
+revision = "0116_sigil_title_ids"
+down_revision = "0115_add_steam_metadata"
 branch_labels = None
 depends_on = None
 
