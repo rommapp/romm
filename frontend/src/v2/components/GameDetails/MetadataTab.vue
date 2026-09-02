@@ -34,8 +34,6 @@ const fileRows = computed<Row[]>(() => {
     { label: t("rom.filename"), value: r.fs_name },
     { label: t("common.size"), value: size },
   ];
-  // Present only for platforms with a readable binary id, so skip rather
-  // than dash them.
   if (r.title_id) rows.push({ label: t("rom.title-id"), value: r.title_id });
   if (r.save_target)
     rows.push({ label: t("rom.save-target"), value: r.save_target });

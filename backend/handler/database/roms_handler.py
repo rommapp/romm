@@ -3267,16 +3267,9 @@ class DBRomsHandler(DBBaseHandler):
         Used during scanning to reassociate a renamed or moved file with its
         existing entry (preserving collections, notes, and assets) instead of
         creating a duplicate. All three hashes must match; any missing hash
-        falls through to the binary title id, which is what non-hashable
-        platforms like Switch carry instead. With neither, a new entry is
-        created.
+        falls through to the binary title id, which non-hashable platforms
+        like Switch carry instead.
 
-        Args:
-            platform_id: Platform whose missing entries are searched.
-            crc_hash: CRC hash of the scanned file, if hashed.
-            md5_hash: MD5 hash of the scanned file, if hashed.
-            sha1_hash: SHA1 hash of the scanned file, if hashed.
-            title_id: Binary title id of the scanned file, if extracted.
         Returns:
             The single matching ROM, or None when there is no unambiguous one.
         """

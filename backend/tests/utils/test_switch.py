@@ -46,11 +46,14 @@ class TestDeriveBaseTitleId:
 
 class TestTitleIdRegexes:
     def test_a_bare_id_matches_the_plain_regex(self):
-        assert switch.TITLE_ID_REGEX.match("0100ABCD12340000")
+        assert switch.TITLE_ID_REGEX.fullmatch("0100ABCD12340000")
 
-    @pytest.mark.parametrize("value", ["0100ABCD1234000", "[0100ABCD12340000]", "xyz"])
+    @pytest.mark.parametrize(
+        "value",
+        ["0100ABCD1234000", "0100ABCD123400001", "[0100ABCD12340000]", "xyz"],
+    )
     def test_anything_else_does_not(self, value: str):
-        assert not switch.TITLE_ID_REGEX.match(value)
+        assert not switch.TITLE_ID_REGEX.fullmatch(value)
 
     def test_an_embedded_id_is_found_anywhere_in_a_name(self):
         assert switch.TITLE_ID_BRACKET_REGEX.search("Game [0100ABCD12340000][v0].nsp")

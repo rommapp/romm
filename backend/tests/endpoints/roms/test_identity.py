@@ -2,19 +2,13 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from handler.database import db_rom_handler
+from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
 from models.rom import Rom, SaveTargetLayout
 
 
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 @pytest.fixture
 def switch_platform() -> Platform:
-    from handler.database import db_platform_handler
-
     return db_platform_handler.add_platform(
         Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
     )
@@ -42,7 +36,7 @@ def test_stores_the_identity_a_client_extracted(
 ):
     response = client.put(
         f"/api/roms/{switch_rom.id}/identity",
-        headers=_auth(access_token),
+        headers={"Authorization": f"Bearer {access_token}"},
         json={
             "title_id": "0100ABCD12340000",
             "save_target": "0100ABCD12340000",
@@ -67,7 +61,7 @@ def test_a_switch_update_or_dlc_id_resolves_to_its_base(
     """Reassociation matches on this id, so an update id here strands the entry."""
     response = client.put(
         f"/api/roms/{switch_rom.id}/identity",
-        headers=_auth(access_token),
+        headers={"Authorization": f"Bearer {access_token}"},
         json={"title_id": submitted},
     )
     assert response.status_code == status.HTTP_200_OK
@@ -82,7 +76,7 @@ def test_a_non_switch_serial_is_stored_verbatim(
 ):
     response = client.put(
         f"/api/roms/{rom.id}/identity",
-        headers=_auth(access_token),
+        headers={"Authorization": f"Bearer {access_token}"},
         json={"title_id": "SLUS-20152", "save_target": "BASLUS-20152"},
     )
     assert response.status_code == status.HTTP_200_OK
@@ -103,7 +97,7 @@ def test_omitted_fields_are_left_alone(
 
     response = client.put(
         f"/api/roms/{switch_rom.id}/identity",
-        headers=_auth(access_token),
+        headers={"Authorization": f"Bearer {access_token}"},
         json={"save_target_layout": "folder-exact"},
     )
     assert response.status_code == status.HTTP_200_OK
@@ -117,7 +111,7 @@ def test_omitted_fields_are_left_alone(
 def test_an_unknown_rom_is_not_found(client: TestClient, access_token: str):
     response = client.put(
         "/api/roms/99999/identity",
-        headers=_auth(access_token),
+        headers={"Authorization": f"Bearer {access_token}"},
         json={"title_id": "0100ABCD12340000"},
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND

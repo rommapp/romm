@@ -431,8 +431,8 @@ class FSRomsHandler(FSHandler):
         async def _extract_title_id(rom_file: RomFile) -> str | None:
             """Populate the file's title id fields, returning its new name if
             embedding renamed it on disk."""
-            # Only Switch reads a per-file content type, so elsewhere every
-            # extraction past the first is parsed and then discarded.
+            # Only Switch needs a per-file content type; one extraction is
+            # enough elsewhere.
             if not sigil_platform or (sigil_extractions and not is_switch):
                 return None
 
@@ -442,8 +442,6 @@ class FSRomsHandler(FSHandler):
             )
             if extraction is None:
                 return None
-            # For Switch, the binary CNMT content type is authoritative over the
-            # folder-derived category. Leave the folder category when absent.
             if extraction.content_type is not None:
                 category = switch.CONTENT_TYPE_CATEGORIES.get(extraction.content_type)
                 if category is not None:
@@ -915,9 +913,7 @@ class FSRomsHandler(FSHandler):
         )
 
         try:
-            await self.rename_fs_rom(
-                name, new_name, str(rel_file_path.parent.as_posix())
-            )
+            await self.rename_fs_rom(name, new_name, rel_file_path.parent.as_posix())
         except RomAlreadyExistsException:
             log.warning(
                 f"Cannot embed title id: target {new_name} already exists, skipping rename"

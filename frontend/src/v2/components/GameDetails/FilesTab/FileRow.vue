@@ -97,16 +97,14 @@ const audioDuration = computed(() =>
   formatDuration(props.file.track_meta?.duration_seconds),
 );
 
-const hashChips = computed(() => {
-  const f = props.file;
-  return [
-    { label: "SHA-1", value: f.sha1_hash },
-    { label: "CHD SHA-1", value: f.chd_sha1_hash },
-    { label: "MD5", value: f.md5_hash },
-    { label: "CRC", value: f.crc_hash },
-    { label: "RA", value: f.ra_hash },
-  ].flatMap((chip) => (chip.value ? [{ ...chip, value: chip.value }] : []));
-});
+const hasAnyHash = computed(
+  () =>
+    Boolean(props.file.sha1_hash) ||
+    Boolean(props.file.chd_sha1_hash) ||
+    Boolean(props.file.md5_hash) ||
+    Boolean(props.file.crc_hash) ||
+    Boolean(props.file.ra_hash),
+);
 </script>
 
 <template>
@@ -171,12 +169,35 @@ const hashChips = computed(() => {
         </template>
       </div>
 
-      <div v-if="hashChips.length" class="r-v2-file-row__hashes">
+      <div v-if="hasAnyHash" class="r-v2-file-row__hashes">
         <HashChip
-          v-for="chip in hashChips"
-          :key="chip.label"
-          :label="chip.label"
-          :value="chip.value"
+          v-if="file.sha1_hash"
+          label="SHA-1"
+          :value="file.sha1_hash"
+          compact
+        />
+        <HashChip
+          v-if="file.chd_sha1_hash"
+          label="CHD SHA-1"
+          :value="file.chd_sha1_hash"
+          compact
+        />
+        <HashChip
+          v-if="file.md5_hash"
+          label="MD5"
+          :value="file.md5_hash"
+          compact
+        />
+        <HashChip
+          v-if="file.crc_hash"
+          label="CRC"
+          :value="file.crc_hash"
+          compact
+        />
+        <HashChip
+          v-if="file.ra_hash"
+          label="RA"
+          :value="file.ra_hash"
           compact
         />
       </div>

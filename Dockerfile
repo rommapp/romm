@@ -83,8 +83,7 @@ ENV PATH="/app/.venv/bin:${PATH}"
 # Python so the ABI matches. Keep the pin in sync with docker/Dockerfile.
 ARG SIGIL_VERSION=9665f03c04d0f547ed38dd5e5e31916c1da5f2e9
 ARG PYTHON_VERSION=3.13
-# One layer so the clone and the cmake tree never reach the image, which rules
-# out WORKDIR between the steps.
+# One layer, so the clone and the cmake tree never reach the image.
 # trunk-ignore(hadolint/DL3003)
 RUN git clone --filter=blob:none https://github.com/rommforge/argosy-sigil.git /tmp/argosy-sigil \
     && cd /tmp/argosy-sigil \
