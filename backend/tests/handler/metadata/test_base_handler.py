@@ -303,8 +303,22 @@ class TestMetadataHandlerMethods:
             assert result == ("original", None)
 
     @pytest.mark.asyncio
-    async def test_switch_productid_format_found(self, handler: MetadataHandler):
-        """Test Switch Product ID format when found."""
+    @pytest.mark.parametrize(
+        "product_id",
+        [
+            # A base game is looked up as-is.
+            "0100ABCD12340000",
+            # An update carries bitmask 0x800.
+            "0100ABCD12340800",
+            # DLC carries an addon index in the low 12 bits.
+            "0100ABCD12341001",
+        ],
+    )
+    async def test_switch_productid_format_found(
+        self, handler: MetadataHandler, product_id: str
+    ):
+        """Only the base application has a titledb entry, so updates and DLC
+        are resolved to it before the lookup."""
         with patch.object(
             async_cache, "exists", new_callable=AsyncMock
         ) as mock_exists, patch.object(
@@ -313,14 +327,13 @@ class TestMetadataHandlerMethods:
             mock_exists.return_value = True
             mock_hget.return_value = json.dumps({"name": "Product Game"})
 
-            match = re.match(SWITCH_PRODUCT_ID_REGEX, "0100ABC123456789")
+            match = re.match(SWITCH_PRODUCT_ID_REGEX, product_id)
             assert match is not None
             result = await handler._switch_productid_format(match, "original")
 
-            # Check that bitmask 0x800 was cleared (ABC -> AB0)
             mock_hget.assert_called_once_with(
                 "romm:switch_product_id",  # SWITCH_PRODUCT_ID_KEY
-                "0100ABC123456089",
+                "0100ABCD12340000",
             )
             assert result[0] == "Product Game"
 

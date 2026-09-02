@@ -276,12 +276,12 @@ class MetadataHandler(abc.ABC):
     async def _switch_productid_format(
         self, match: re.Match[str], search_term: str
     ) -> tuple[str, dict | None]:
-        product_id = match.group(1)
+        # Imported here because utils.switch imports this module for the slugs.
+        from utils.switch import derive_base_title_id
 
-        # Game updates have the same product ID as the main application, except with bitmask 0x800 set
-        product_id = list(product_id)
-        product_id[-3] = "0"
-        product_id = "".join(product_id)
+        # Updates and DLC share the base application's product ID, off by the
+        # low 12 bits, and only the base has a titledb entry.
+        product_id = derive_base_title_id(match.group(1)) or match.group(1)
 
         if not (await async_cache.exists(SWITCH_PRODUCT_ID_KEY)):
             log.error("Could not find the Switch productID index file in cache")
