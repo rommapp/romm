@@ -37,6 +37,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_tgdb_handler,
 )
 from handler.redis_handler import get_job_func_name, low_prio_queue, redis_client
@@ -192,6 +193,7 @@ def process_changes(changes: Sequence[Change]) -> None:
             MetadataSource.DEMOZOO: meta_demozoo_handler.is_enabled(),
             MetadataSource.POUET: meta_pouet_handler.is_enabled(),
             MetadataSource.CSDB: meta_csdb_handler.is_enabled(),
+            MetadataSource.STEAM: meta_steam_handler.is_enabled(),
             MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),
             MetadataSource.LIBRETRO: meta_libretro_handler.is_enabled(),
         }

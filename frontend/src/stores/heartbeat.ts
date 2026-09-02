@@ -34,6 +34,7 @@ const defaultHeartbeat: Heartbeat = {
     DEMOZOO_API_ENABLED: false,
     POUET_API_ENABLED: false,
     CSDB_API_ENABLED: false,
+    STEAM_API_ENABLED: false,
     LIBRETRO_API_ENABLED: false,
   },
   FILESYSTEM: {
@@ -219,6 +220,14 @@ export default defineStore("heartbeat", {
           value: "csdb",
           logo_path: "/assets/scrappers/csdb.png",
           disabled: !this.value.METADATA_SOURCES?.CSDB_API_ENABLED
+            ? i18n.global.t("scan.disabled-by-admin")
+            : "",
+        },
+        {
+          name: "Steam",
+          value: "steam",
+          logo_path: "/assets/scrappers/steam.png",
+          disabled: !this.value.METADATA_SOURCES?.STEAM_API_ENABLED
             ? i18n.global.t("scan.disabled-by-admin")
             : "",
         },

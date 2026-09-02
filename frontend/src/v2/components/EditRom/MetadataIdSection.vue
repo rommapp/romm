@@ -74,6 +74,7 @@ const FIELDS = computed<IdField[]>(() => [
   { key: "demozoo_id", label: t("rom.provider-demozoo-id"), type: "number" },
   { key: "pouet_id", label: t("rom.provider-pouet-id"), type: "number" },
   { key: "csdb_id", label: t("rom.provider-csdb-id"), type: "number" },
+  { key: "steam_id", label: t("rom.provider-steam-id"), type: "number" },
 ]);
 
 function modelFor(field: IdField): string {

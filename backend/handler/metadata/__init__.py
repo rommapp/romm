@@ -17,6 +17,7 @@ from .pouet_handler import PouetHandler, pouet_id_from_location
 from .ra_handler import RAHandler
 from .sgdb_handler import SGDBBaseHandler
 from .ss_handler import SSHandler
+from .steam_handler import SteamHandler
 from .tgdb_handler import TGDBHandler
 from .upc_handler import UPCHandler
 
@@ -36,6 +37,7 @@ meta_hltb_handler = HLTBHandler()
 meta_demozoo_handler = DemozooHandler()
 meta_pouet_handler = PouetHandler()
 meta_csdb_handler = CsdbHandler()
+meta_steam_handler = SteamHandler()
 meta_upc_handler = UPCHandler()
 
 _SCENE_ID_PARSERS: Final[dict[str, Callable[[str], int | None]]] = {

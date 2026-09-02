@@ -590,6 +590,7 @@ export type UpdateRom = SimpleRom & {
     hasheous_metadata?: string;
     flashpoint_metadata?: string;
     hltb_metadata?: string;
+    steam_metadata?: string;
   };
 };
 
@@ -623,6 +624,7 @@ async function updateRom({
     ["demozoo_id", toFormIdValue(rom.demozoo_id)],
     ["pouet_id", toFormIdValue(rom.pouet_id)],
     ["csdb_id", toFormIdValue(rom.csdb_id)],
+    ["steam_id", toFormIdValue(rom.steam_id)],
     ["libretro_id", toFormIdValue(rom.libretro_id)],
   ];
 
@@ -630,32 +632,10 @@ async function updateRom({
     fields.push(["raw_manual_metadata", JSON.stringify(rom.manual_metadata)]);
   }
 
-  if (rom.raw_metadata?.igdb_metadata) {
-    fields.push(["raw_igdb_metadata", rom.raw_metadata.igdb_metadata]);
-  }
-  if (rom.raw_metadata?.moby_metadata) {
-    fields.push(["raw_moby_metadata", rom.raw_metadata.moby_metadata]);
-  }
-  if (rom.raw_metadata?.ss_metadata) {
-    fields.push(["raw_ss_metadata", rom.raw_metadata.ss_metadata]);
-  }
-  if (rom.raw_metadata?.launchbox_metadata) {
-    fields.push([
-      "raw_launchbox_metadata",
-      rom.raw_metadata.launchbox_metadata,
-    ]);
-  }
-  if (rom.raw_metadata?.hasheous_metadata) {
-    fields.push(["raw_hasheous_metadata", rom.raw_metadata.hasheous_metadata]);
-  }
-  if (rom.raw_metadata?.flashpoint_metadata) {
-    fields.push([
-      "raw_flashpoint_metadata",
-      rom.raw_metadata.flashpoint_metadata,
-    ]);
-  }
-  if (rom.raw_metadata?.hltb_metadata) {
-    fields.push(["raw_hltb_metadata", rom.raw_metadata.hltb_metadata]);
+  for (const [provider, raw] of Object.entries(rom.raw_metadata ?? {})) {
+    if (raw) {
+      fields.push([`raw_${provider}` as keyof UpdateRomInput, raw]);
+    }
   }
 
   // Don't set url_cover on manual artwork upload

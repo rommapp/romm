@@ -3176,6 +3176,7 @@ class DBRomsHandler(DBBaseHandler):
         demozoo_id: int | None = None,
         pouet_id: int | None = None,
         csdb_id: int | None = None,
+        steam_id: int | None = None,
         *,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
@@ -3201,6 +3202,7 @@ class DBRomsHandler(DBBaseHandler):
                 (demozoo_id, Rom.demozoo_id),
                 (pouet_id, Rom.pouet_id),
                 (csdb_id, Rom.csdb_id),
+                (steam_id, Rom.steam_id),
             ]
             if value is not None
         ]

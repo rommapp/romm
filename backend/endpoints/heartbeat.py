@@ -49,6 +49,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_tgdb_handler,
 )
 from handler.scan_handler import MetadataSource
@@ -82,6 +83,7 @@ async def heartbeat() -> HeartbeatResponse:
     demozoo_enabled = meta_demozoo_handler.is_enabled()
     pouet_enabled = meta_pouet_handler.is_enabled()
     csdb_enabled = meta_csdb_handler.is_enabled()
+    steam_enabled = meta_steam_handler.is_enabled()
     tgdb_enabled = meta_tgdb_handler.is_enabled()
     libretro_enabled = meta_libretro_handler.is_enabled()
 
@@ -105,6 +107,7 @@ async def heartbeat() -> HeartbeatResponse:
                 or demozoo_enabled
                 or pouet_enabled
                 or csdb_enabled
+                or steam_enabled
                 or libretro_enabled
             ),
             "IGDB_API_ENABLED": igdb_enabled,
@@ -122,6 +125,7 @@ async def heartbeat() -> HeartbeatResponse:
             "DEMOZOO_API_ENABLED": demozoo_enabled,
             "POUET_API_ENABLED": pouet_enabled,
             "CSDB_API_ENABLED": csdb_enabled,
+            "STEAM_API_ENABLED": steam_enabled,
             "LIBRETRO_API_ENABLED": libretro_enabled,
         },
         "FILESYSTEM": {
@@ -193,6 +197,8 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_pouet_handler.heartbeat()
         case MetadataSource.CSDB:
             return await meta_csdb_handler.heartbeat()
+        case MetadataSource.STEAM:
+            return await meta_steam_handler.heartbeat()
         case MetadataSource.GAMELIST:
             return await meta_gamelist_handler.heartbeat()
         case MetadataSource.LIBRETRO:

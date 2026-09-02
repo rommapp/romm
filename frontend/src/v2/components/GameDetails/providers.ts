@@ -111,6 +111,13 @@ export const PROVIDERS: Provider[] = [
     logo: "/assets/scrappers/csdb.png",
     url: (id) => `https://csdb.dk/release/?id=${id}`,
   },
+  {
+    key: "steam_id",
+    name: "Steam",
+    color: "var(--r-color-provider-steam)",
+    logo: "/assets/scrappers/steam.png",
+    url: (id) => `https://store.steampowered.com/app/${id}`,
+  },
 ];
 
 /**
@@ -137,6 +144,8 @@ const RATING_SCORES: Partial<
   launchbox_id: (rom) =>
     (rom.launchbox_metadata?.community_rating ?? Number.NaN) * 20,
   hltb_id: (rom) => rom.hltb_metadata?.review_score ?? Number.NaN,
+  // Steam carries the Metacritic score, already on a 0-100 scale.
+  steam_id: (rom) => parseFloat(rom.steam_metadata?.total_rating ?? ""),
 };
 
 /**
