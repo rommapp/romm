@@ -1,5 +1,6 @@
 import os
 import stat
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -467,6 +468,32 @@ class TestCachedZipReadability:
         assert result is not None
         mode = stat.S_IMODE(result.stat().st_mode)
         assert mode & CACHE_FILE_MODE == CACHE_FILE_MODE
+
+    def test_failed_chmod_closes_descriptor_and_removes_temp(self, library, mocker):
+        opened: list[int] = []
+        original_mkstemp = tempfile.mkstemp
+
+        def recording_mkstemp(*args, **kwargs):
+            fd, path = original_mkstemp(*args, **kwargs)
+            opened.append(fd)
+            return fd, path
+
+        mocker.patch("utils.zip_cache.tempfile.mkstemp", recording_mkstemp)
+        mocker.patch("utils.zip_cache.os.fchmod", side_effect=PermissionError)
+
+        with pytest.raises(PermissionError):
+            build_cached_zip(
+                namespace="42",
+                entries=[ZipFileEntry("a.bin", "roms/a.bin", 4, 1000.0)],
+                m3u_content=None,
+                m3u_filename=None,
+                cache_key="key",
+            )
+
+        assert len(opened) == 1
+        with pytest.raises(OSError):
+            os.fstat(opened[0])
+        assert list((library.parent / "cache").glob("**/*.tmp")) == []
 
     def test_concurrent_builds_share_one_write(self, library, mocker):
         original_write = ZipFile.write

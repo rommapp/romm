@@ -185,8 +185,10 @@ def _write_cached_zip(
 ) -> Path:
     fd, tmp_path = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
     try:
-        os.fchmod(fd, CACHE_FILE_MODE)
-        os.close(fd)
+        try:
+            os.fchmod(fd, CACHE_FILE_MODE)
+        finally:
+            os.close(fd)
         ensure_zipfile_writable()
         with zipfile.ZipFile(tmp_path, "w") as zf:
             for entry in entries:
