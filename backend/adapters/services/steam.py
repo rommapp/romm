@@ -65,7 +65,10 @@ class SteamService:
                     timeout=ClientTimeout(total=request_timeout),
                 )
                 res.raise_for_status()
-                return await res.json()
+                payload = await res.json()
+                # A throttled storefront answers 200 with a bare `null`, and the
+                # callers only ever read mappings.
+                return payload if isinstance(payload, dict) else {}
             except aiohttp.ServerTimeoutError:
                 log.debug("Request to URL=%s timed out. Retrying...", url)
                 continue

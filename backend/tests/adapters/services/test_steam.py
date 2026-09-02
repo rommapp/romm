@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from adapters.services.steam import STEAM_LIBRARY_CAPSULE_URL, SteamService
 
 
-def _response(json_body: dict) -> MagicMock:
+def _response(json_body: object) -> MagicMock:
     response = MagicMock()
     response.raise_for_status = MagicMock()
     response.json = AsyncMock(return_value=json_body)
@@ -92,6 +92,14 @@ async def test_request_swallows_other_status_errors(session):
 
     assert await SteamService().get_app_details(400) is None
     assert session.get.await_count == 1
+
+
+async def test_request_degrades_when_the_body_is_not_a_mapping(session):
+    """A throttled storefront answers 200 with a bare `null`."""
+    session.get.return_value = _response(None)
+
+    assert await SteamService().get_app_details(400) is None
+    assert await SteamService().search_apps("portal") == []
 
 
 async def test_request_raises_on_connection_error(session):

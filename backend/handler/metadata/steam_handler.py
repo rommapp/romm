@@ -32,8 +32,8 @@ STEAM_CATEGORY_GAME_MODES: Final[dict[int, str]] = {
 
 
 class SteamMetadata(TypedDict):
-    # Shared keys keep the other providers' names and shapes, so the facet
-    # columns can read Steam without reshaping stored rows.
+    # Shared keys keep the other providers' names and shapes, so the UI reads
+    # Steam through the same components.
     total_rating: NotRequired[str]
     first_release_date: NotRequired[int]
     genres: NotRequired[list[str]]
