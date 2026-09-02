@@ -108,7 +108,7 @@ const sources = computed<Source[]>(() => [
     name: "Steam",
     subtitle: t("settings.metadata-subtitle-pc"),
     key: "steam",
-    logo: "/assets/scrappers/steam.svg",
+    logo: "/assets/scrappers/steam.png",
     website: "https://store.steampowered.com",
     docsUrl: "https://store.steampowered.com",
     requiresKey: false,

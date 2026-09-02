@@ -176,7 +176,7 @@ const PROVIDERS: readonly ProviderConfig[] = [
     idField: "steam_id",
     metadataField: "steam_metadata",
     label: "Steam",
-    iconSrc: "/assets/scrappers/steam.svg",
+    iconSrc: "/assets/scrappers/steam.png",
   },
 ];
 

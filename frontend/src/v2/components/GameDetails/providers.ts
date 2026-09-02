@@ -115,7 +115,7 @@ export const PROVIDERS: Provider[] = [
     key: "steam_id",
     name: "Steam",
     color: "var(--r-color-provider-steam)",
-    logo: "/assets/scrappers/steam.svg",
+    logo: "/assets/scrappers/steam.png",
     url: (id) => `https://store.steampowered.com/app/${id}`,
   },
 ];

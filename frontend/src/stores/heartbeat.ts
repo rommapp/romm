@@ -226,7 +226,7 @@ export default defineStore("heartbeat", {
         {
           name: "Steam",
           value: "steam",
-          logo_path: "/assets/scrappers/steam.svg",
+          logo_path: "/assets/scrappers/steam.png",
           disabled: !this.value.METADATA_SOURCES?.STEAM_API_ENABLED
             ? i18n.global.t("scan.disabled-by-admin")
             : "",
