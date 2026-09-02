@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import contextlib
 import dataclasses
+import fcntl
 import functools
 import hashlib
 import os
+import stat
 import tempfile
 import time
 import zipfile
+from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -26,6 +30,7 @@ DEFAULT_TTL_HOURS = 48
 LARGE_ZIP_TTL_HOURS = 12
 BULK_CACHE_MAX_ROMS = 100
 BULK_NAMESPACE_PREFIX = "bulk"
+CACHE_FILE_MODE = 0o644
 
 
 @dataclasses.dataclass(frozen=True)
@@ -79,9 +84,40 @@ def _cache_file(namespace: str, cache_key: str) -> Path:
 
 
 def get_cached_zip(namespace: str, cache_key: str) -> Path | None:
-    """Return the cached ZIP path if it exists on disk, else None."""
+    """Return the cached ZIP path if it exists on disk, else None.
+
+    Nginx serves the cached archive as its own (unprivileged) user, so a hit
+    also repairs the file mode when an earlier build left it owner-only.
+    """
     path = _cache_file(namespace, cache_key)
-    return path if path.exists() else None
+    if not path.exists():
+        return None
+    _ensure_world_readable(path)
+    return path
+
+
+def _ensure_world_readable(path: Path) -> None:
+    try:
+        mode = stat.S_IMODE(path.stat().st_mode)
+        if mode & CACHE_FILE_MODE != CACHE_FILE_MODE:
+            path.chmod(mode | CACHE_FILE_MODE)
+    except OSError as e:
+        log.warning(f"Cached ZIP {hl(path.name)} may be unreadable by nginx: {e}")
+
+
+@contextlib.contextmanager
+def _namespace_build_lock(namespace_dir: Path) -> Generator[None]:
+    """Serialize builds within a namespace across threads and worker processes.
+
+    The lock lives on the namespace directory itself, so there is no lock file
+    to create, clean up, or race on.
+    """
+    fd = os.open(namespace_dir, os.O_RDONLY)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
 
 
 def ensure_zipfile_writable() -> None:
@@ -124,16 +160,32 @@ def build_cached_zip(
     """Build a ZIP_STORED archive on disk and return its path.
 
     Writes to a temp file in the same directory, then atomically renames to
-    the final path to prevent serving partial files.
+    the final path to prevent serving partial files. Concurrent requests for
+    the same namespace wait on one build instead of each copying the game.
     """
     target = _cache_file(namespace, cache_key)
     if target.exists():
+        _ensure_world_readable(target)
         return target
 
     target.parent.mkdir(parents=True, exist_ok=True)
 
+    with _namespace_build_lock(target.parent):
+        if target.exists():
+            _ensure_world_readable(target)
+            return target
+        return _write_cached_zip(target, entries, m3u_content, m3u_filename)
+
+
+def _write_cached_zip(
+    target: Path,
+    entries: list[ZipFileEntry],
+    m3u_content: bytes | None,
+    m3u_filename: str | None,
+) -> Path:
     fd, tmp_path = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
     try:
+        os.fchmod(fd, CACHE_FILE_MODE)
         os.close(fd)
         ensure_zipfile_writable()
         with zipfile.ZipFile(tmp_path, "w") as zf:
@@ -150,7 +202,7 @@ def build_cached_zip(
             os.unlink(tmp_path)
         raise
 
-    log.info(f"Built cached ZIP in {hl(namespace)}: {hl(target.name)}")
+    log.info(f"Built cached ZIP in {hl(target.parent.name)}: {hl(target.name)}")
     return target
 
 
