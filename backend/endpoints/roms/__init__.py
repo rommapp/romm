@@ -2609,11 +2609,12 @@ async def update_rom_identity(
             if key in cleaned_data
         }
 
-    db_rom_handler.update_rom(id, cleaned_data)
+    updated_row = db_rom_handler.update_rom(id, cleaned_data)
 
-    # The update returns a bare row; the schema reads relationships off it.
-    updated_rom = db_rom_handler.get_rom(id)
-    if not updated_rom:
-        raise RomNotFoundInDatabaseException(id)
+    # The rom fetched above is already loaded with the relationships the schema
+    # reads, so the new values are copied onto it rather than loading it again.
+    for key, value in cleaned_data.items():
+        setattr(rom, key, value)
+    rom.updated_at = updated_row.updated_at
 
-    return DetailedRomSchema.from_orm_with_request(updated_rom, request)
+    return DetailedRomSchema.from_orm_with_request(rom, request)
