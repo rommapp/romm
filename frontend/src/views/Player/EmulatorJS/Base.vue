@@ -17,7 +17,7 @@ import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { areThreadsRequiredForEJSCore, getSupportedEJSCores } from "@/utils";
+import { getSupportedEJSCores } from "@/utils";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 import { installIOSFullscreenShim } from "./utils";
@@ -60,27 +60,6 @@ const compatibleStates = computed(
 );
 
 async function onPlay() {
-  // Threaded cores (dosbox_pure, ppsspp, azahar, scummvm) need
-  // SharedArrayBuffer, which browsers only expose on a secure context
-  // (HTTPS, or localhost) -- regardless of what headers the server sends.
-  // Left unchecked, EmulatorJS's own loader still attempts to boot and
-  // fails deep inside its own code with a generic on-canvas
-  // "Error for site owner / Check console" that gives the player no
-  // actionable information. Catch it here instead, before ever loading
-  // the emulator, with a message that says what's actually wrong.
-  if (
-    selectedCore.value &&
-    areThreadsRequiredForEJSCore(selectedCore.value) &&
-    typeof window.SharedArrayBuffer !== "function"
-  ) {
-    emitter?.emit("snackbarShow", {
-      msg: "Must be run over HTTPS. Contact the site owner.",
-      icon: "mdi-lock-alert",
-      color: "red",
-    });
-    return;
-  }
-
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = installIOSFullscreenShim();
 
